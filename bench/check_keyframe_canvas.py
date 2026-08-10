@@ -101,8 +101,8 @@ print("\n--- 5. the trained aspect range is enforced, as the reference does ---"
 # start raising, the guard is too tight and will reject ordinary work; if the
 # out-of-range ones stop raising, the guard is gone.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from keyframe_canvas import (MAX_ASPECT_RATIO, MIN_ASPECT_RATIO,  # noqa: E402
-                             MiniMaxH3KeyframeCanvas)
+from h3_rules import MAX_ASPECT_RATIO, MIN_ASPECT_RATIO  # noqa: E402
+from keyframe_canvas import MiniMaxH3KeyframeCanvas  # noqa: E402
 
 ASPECT_CASES = [
     ((1024, 1024), True), ((2560, 1080), True),     # 1.0, 2.37 -- ordinary
@@ -130,6 +130,47 @@ try:
 except RuntimeError as exc:
     check("fit_to_canvas warns rather than refusing an out-of-range aspect",
           False, str(exc))
+
+print("\n--- 6. the duration window is enforced, checked AFTER the grid snap ---")
+from h3_rules import (duration_in_range, duration_of,  # noqa: E402
+                      max_legal_length, min_legal_length, snap_length)
+
+# The order is the whole point. 346 passes any check written against the
+# request and then rounds to 362 = 15.083s, which is over the ceiling -- the
+# reference names this exact case in a comment. A check that snapped after
+# validating would pass every one of these and still render an illegal clip.
+LENGTH_CASES = [
+    (124, True), (260, True), (328, True), (345, True),   # inside
+    (346, False),                                          # snaps to 362
+    (362, False), (400, False),                            # over
+    (20, False), (100, False),                             # under 5s
+]
+for n, want_ok in LENGTH_CASES:
+    img = torch.rand(1, 768, 1024, 3)
+    try:
+        MiniMaxH3KeyframeCanvas.execute(img, mode="fit_to_canvas",
+                                        width=1024, height=768, length=n)
+        raised = False
+    except RuntimeError:
+        raised = True
+    check(f"length {n} -> {snap_length(n)} ({duration_of(snap_length(n)):.3f}s): "
+          f"{'accepted' if want_ok else 'refused'}", raised != want_ok)
+
+check(f"largest legal count is {max_legal_length()}",
+      max_legal_length() == 345 and duration_in_range(345)
+      and not duration_in_range(snap_length(346)),
+      f"345 in range, 346 snaps to {snap_length(346)} which is not")
+check(f"smallest legal count is {min_legal_length()}",
+      min_legal_length() == 124, "matches the node default and the trained floor")
+
+# length=0 opts out entirely; the node must not invent a constraint.
+try:
+    out = MiniMaxH3KeyframeCanvas.execute(torch.rand(1, 768, 1024, 3),
+                                          mode="fit_to_canvas",
+                                          width=1024, height=768, length=0)
+    check("length 0 skips the check and passes through", out[5] == 0)
+except RuntimeError as exc:
+    check("length 0 skips the check and passes through", False, str(exc))
 
 print()
 if failures:

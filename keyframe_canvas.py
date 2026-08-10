@@ -31,16 +31,20 @@ from comfy_extras.nodes_minimax_h3 import adapt_canvas, _resize
 
 logger = logging.getLogger(__name__)
 
-# The aspect range the released checkpoint was trained over. The reference
-# takes these as parameters of `resolve_canvas_size` and *raises* outside them
-# (diffusers modular_pipelines/minimax_h3/modular_pipeline.py:32-33, 76-80);
-# ComfyUI's `adapt_canvas` has no equivalent and will happily resolve a canvas
-# for any ratio. Since this node's whole purpose is restoring the reference's
-# canvas behaviour, inheriting that gap would leave exactly the silently-wrong
-# outcome it exists to prevent -- a render outside the trained range, with
-# nothing said.
-MIN_ASPECT_RATIO = 1 / 4
-MAX_ASPECT_RATIO = 4
+# The reference's input rules, shared with anything else that needs them so
+# the constants cannot drift. See h3_rules.py for what each one is and where
+# in the reference it comes from.
+try:
+    from .h3_rules import (aspect_in_range, describe_aspect_range,
+                           describe_length, duration_in_range,
+                           max_legal_length, min_legal_length, snap_length)
+except ImportError:
+    # ComfyUI loads this as a package; the bench scripts import it as a
+    # top-level module with the repo root on sys.path. Both are legitimate
+    # and the relative form only works for the first.
+    from h3_rules import (aspect_in_range, describe_aspect_range,  # type: ignore[no-redef]
+                          describe_length, duration_in_range,
+                          max_legal_length, min_legal_length, snap_length)
 
 
 class MiniMaxH3KeyframeCanvas(io.ComfyNode):
@@ -72,6 +76,17 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
                 io.Int.Input("height", default=768, min=32, max=16384, step=32,
                              tooltip="Used by fit_to_canvas; ignored by match_keyframe."),
                 io.Image.Input("last_frame", optional=True),
+                io.Int.Input("length", default=0, min=0, max=3600, optional=True,
+                             tooltip=(
+                                 "Frame count to check and snap, passed straight "
+                                 "through to MiniMax H3 Image to Video. 0 skips "
+                                 "it. The reference snaps to the video VAE's "
+                                 "17n+5 grid and then requires 5-15 seconds at "
+                                 "24fps -- in that order, so 346 passes a naive "
+                                 "check and then rounds to 362 (15.083s), which "
+                                 "is over. ComfyUI's node accepts up to 3600 "
+                                 "with no ceiling. Largest legal count is 345."
+                             )),
             ],
             outputs=[
                 io.Int.Output(display_name="width"),
@@ -79,12 +94,19 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
                 io.Image.Output(display_name="first_frame"),
                 io.Image.Output(display_name="last_frame"),
                 io.Float.Output(display_name="attn_cost_vs_1to1"),
+                # Appended, NOT inserted next to width/height where it belongs
+                # semantically. Output slots are positional in every saved
+                # graph: putting `length` third would shift first_frame,
+                # last_frame and attn_cost down one, and every existing
+                # workflow wiring them would silently connect to the wrong
+                # slot. Same reasoning as the node_id rule in CLAUDE.md.
+                io.Int.Output(display_name="length"),
             ],
         )
 
     @classmethod
     def execute(cls, first_frame, mode="fit_to_canvas", width=1344, height=768,
-                last_frame=None) -> io.NodeOutput:
+                last_frame=None, length=0) -> io.NodeOutput:
         if first_frame.shape[0] > 1:
             # the H3 node takes [:1] silently; say so rather than let a batch
             # look like it was used
@@ -102,12 +124,11 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
             # chosen it and nobody would otherwise be told. Raising is the
             # whole point: `adapt_canvas` would return a perfectly plausible
             # canvas and the render would just be bad.
-            ratio = src_w / src_h
-            if not MIN_ASPECT_RATIO <= ratio <= MAX_ASPECT_RATIO:
+            if not aspect_in_range(src_w, src_h):
                 raise RuntimeError(
-                    f"MiniMax H3 was trained on aspect ratios from 1:"
-                    f"{1 / MIN_ASPECT_RATIO:g} to {MAX_ASPECT_RATIO:g}:1; this "
-                    f"keyframe is {src_w}x{src_h} ({ratio:.3g}). Crop it, or "
+                    f"MiniMax H3 was trained on aspect ratios from "
+                    f"{describe_aspect_range()}; this keyframe is "
+                    f"{src_w}x{src_h} ({src_w / src_h:.3g}). Crop it, or "
                     f"switch to fit_to_canvas to choose the geometry yourself."
                 )
             width, height = adapt_canvas(src_w, src_h)
@@ -138,13 +159,12 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
             # somebody deliberately entered would be this node overruling them,
             # which is the opposite of the mode. They still get told, because
             # the failure is a quality one and would otherwise be invisible.
-            ratio = width / height
-            if not MIN_ASPECT_RATIO <= ratio <= MAX_ASPECT_RATIO:
+            if not aspect_in_range(width, height):
                 logger.warning(
-                    "[h3] canvas %dx%d is aspect %.3g, outside the 1:%g to %g:1 "
-                    "range MiniMax H3 was trained on. It will render; expect "
-                    "the output to degrade rather than fail.",
-                    width, height, ratio, 1 / MIN_ASPECT_RATIO, MAX_ASPECT_RATIO,
+                    "[h3] canvas %dx%d is aspect %.3g, outside the %s range "
+                    "MiniMax H3 was trained on. It will render; expect the "
+                    "output to degrade rather than fail.",
+                    width, height, width / height, describe_aspect_range(),
                 )
             # The user owns the geometry, so the anchor is cover-cropped rather
             # than stretched. NOTE: this is a deliberate divergence -- the
@@ -165,10 +185,28 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
         cheapest = (768 // 32) ** 2
         attn_cost = round((tokens / cheapest) ** 2, 3)
 
+        # Length is checked in the reference's order: snap to the VAE grid
+        # first, then hold the duration ceiling against the RESULT. Checking
+        # the request instead passes 346 and then renders 362.
+        if length:
+            snapped = snap_length(length)
+            if not duration_in_range(length):
+                raise RuntimeError(
+                    f"MiniMax H3 generates 5 to 15 seconds at 24fps; "
+                    f"{describe_length(length)} is outside that. Legal counts "
+                    f"run {min_legal_length()} to {max_legal_length()} on the "
+                    f"video VAE's 17n+5 grid."
+                    + (f" Note {length} snaps up to {snapped} before the "
+                       f"ceiling applies." if snapped != length else "")
+                )
+            if snapped != length:
+                logger.info("[h3] length %s", describe_length(length))
+            length = snapped
+
         logger.info(
             "[h3] H3 canvas %dx%d (%s) from a %dx%d keyframe: "
             "aspect %.4f -> %.4f, attention ~%.2fx a 768x768 canvas",
             width, height, mode, src_w, src_h,
             src_w / src_h, width / height, attn_cost,
         )
-        return io.NodeOutput(width, height, first_out, last_out, attn_cost)
+        return io.NodeOutput(width, height, first_out, last_out, attn_cost, length)
