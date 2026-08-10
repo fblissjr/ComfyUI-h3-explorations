@@ -50,19 +50,25 @@ MODELS = dict(
     # pixel difference is the decoder:
     #
     #   decode      12.8s -> 9.9s median (1.29x) at 124f, 1344x768
-    #   stills      PSNR 40.3 / 41.8 dB, mean|d| 1.3-1.7 of 255
-    #   control     different seed, same fp16 VAE: 13.8 dB. That is what the
-    #               metric reads when the content actually differs, and it is
-    #               26 dB away -- without it the 40 dB number means nothing.
-    #   temporal    the axis this note called out. Per-frame error is a flat
-    #               offset, not a pulse: std/mean 0.063. Frame-to-frame motion
-    #               energy int8/fp16 = 0.998, i.e. int8 is fractionally
-    #               *smoother*, where flicker would read as > 1.
+    #   quality     PSNR 53.3 dB, mean|d| 0.23/255, p99 2/255, max 20/255,
+    #               and 79.6% of pixels bit-identical. Lossless PNG straight
+    #               off VAEDecode, same latent through both VAE files.
+    #   temporal    per-frame error is a flat offset rather than a pulse, and
+    #               frame-to-frame motion energy int8/fp16 = 0.998 -- int8 is
+    #               fractionally *smoother*, where flicker would read above 1.
     #
-    # Two limits worth keeping: measured at 124 frames, not the 250+ this
-    # config is usually run at, and both arms were compared after mp4 encode,
-    # so a little of that 1.3-1.7 is codec rather than decoder. Both make the
-    # quality figure a floor, not a ceiling.
+    # **The first quality pass here was wrong and is worth keeping as a
+    # warning.** It compared the two arms after mp4 encode and reported
+    # ~40 dB / 1.3-1.7 of 255 as agreement. An h264 round trip on IDENTICAL
+    # pixels measures 1.63/255 at 41.1 dB, so that number was the codec's
+    # noise floor and not the decoder at all. The tell was visible and
+    # missed: three different comparisons all returned 1.64, which is what
+    # happens when the thing being varied is smaller than the instrument's
+    # resolution. Redone without a codec in the loop, the real decoder
+    # difference is 53.3 dB -- roughly 7x below what the video encode adds
+    # anyway, so shipping int8 changes the output less than saving it does.
+    #
+    # Still measured at 124 frames rather than the 250+ this config runs.
     video_vae="minimax_h3_video_vae_int8_convrot.safetensors",
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
 )
