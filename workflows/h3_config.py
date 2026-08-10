@@ -130,10 +130,43 @@ SAMPLING = dict(sampler="res_multistep", scheduler="simple", steps=16, denoise=1
 #                     utilisation where every other arm hits 99%.
 #   int8_qk/pv on     Worth 1.16x on top of plain sparsity at 362 frames.
 #
-# Head chunking (KJNodes' MiniMax H3 Low VRAM Attention) is deliberately not
-# in this chain: it costs ~4x the attention launches to buy headroom that
-# converts to at most the ~2.6% above. Revisit only if a head_chunks 1-vs-4
-# A/B says the launches are free.
+# Head chunking is deliberately not in this chain, and as of 2026-08-10 that
+# is measured rather than inferred. The 1-vs-4 A/B this note used to ask for
+# has been run -- 260 frames, 1344x768, 16 steps, 2 runs per arm, paired
+# seeds, peak VRAM polled from /system_stats through each render:
+#
+#   arm                sampler   peak VRAM   vs base   sampler
+#   head1/ffn1          395.6s   16702 MiB        +0    1.000x
+#   head4/ffn1          396.5s   13475 MiB     -3227    0.998x
+#   head1/ffn2          397.1s   17376 MiB      +674    0.996x
+#   head4/ffn2          398.2s   18607 MiB     +1904    0.994x
+#
+# The launches are not free, and the headroom does not convert. Head chunking
+# frees 3227 MiB -- three times the ~1070 MiB previously estimated -- and
+# costs 0.2%. Both halves of the question are answered separately, which is
+# why peak VRAM is measured alongside time: a single column cannot tell "freed
+# nothing" from "freed something that did not convert", and those call for
+# opposite next steps. Take head chunking only to fit a render that otherwise
+# will not fit.
+#
+# Two cautions on reading the table.
+#
+# The timing gaps are all under 1%, but the ordering reproduced exactly in
+# both runs -- more chunking is monotonically slower, which is what launch
+# overhead should look like. Trust the ordering, not the magnitudes.
+#
+# The VRAM needs a noise floor. Baseline peaked at 17094 and 16310 across its
+# two runs, a 784 MiB spread, while every chunked arm was stable to within
+# 6 MiB. So head4's -3227 is solid; ffn2's +674 is INSIDE that spread and is
+# not evidence of anything; head4/ffn2's +1904 is outside it. That last one is
+# the surprise -- the two knobs are antagonistic, not additive, and adding FFN
+# chunking on top of head chunking costs ~5 GB relative to head chunking
+# alone. No mechanism established. Probably allocator or fragmentation
+# behaviour under dynamic VRAM loading, but that is a guess and n=2.
+#
+# FFN chunking (MiniMaxChunkFeedForward) is likewise not here: at this length
+# the attention peak sets the ceiling, so chunking the FFN moves something
+# that is not the maximum. It remains a short-clip feature.
 #
 # **The sigma window stays .2-.9, and widening it is closed.** `.1-.95` is
 # tempting -- 687.4 s against 768.2 at 20 steps, ~10%, and it passed every

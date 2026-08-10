@@ -8,6 +8,21 @@ artifact.
 
 ### Added
 
+- `MiniMaxH3ReferenceFit` node and `bench/check_reference_fit.py`. ComfyUI
+  sizes reference images with `min(1.0, 2048/min(w,h))` where the reference
+  pipeline has no clamp, so it never upscales: a 512x512 reference reaches the
+  DiT with 1024 latent rows instead of 16384. The node does the resize itself,
+  making the stock node's own resize a bit-identical no-op, and reports
+  `latent_rows` because those rows are attended at every sampling step.
+- `h3_rules.py`: the reference's input limits in one place -- trained aspect
+  range, the 5-15s duration window checked *after* the frame-count snap, and
+  the 17n+5 grid -- each citing where in `coderef/diffusers` it comes from.
+- `head_chunks` on `MiniMaxH3SageAttention`, plus honouring the
+  `minimax_head_chunks` key KJNodes publishes. Off by default; it exists so
+  the head-chunk A/B could be run through our node at all.
+- `bench/bench_e2e_h3.py` gained a canvas axis (`--canvases`, with `cheap`
+  expanding to every ratio below the 16:9 default), a VRAM-knob axis
+  (`--vram-arms`), and a sampled peak-VRAM column.
 - `bench/check_solattn_correctness.py` and `bench/_sol_attn_reference.py`:
   the first independent correctness check the Sol-Attn Triton kernels have
   had. The reference is kijai/comfy-kitchen's pure-PyTorch eager
@@ -53,6 +68,19 @@ artifact.
 
 ### Changed
 
+- `LONG_LENGTH` 362 -> 345. 362 frames is 15.083s against the reference's 15s
+  ceiling, which it checks *after* the 17n+5 snap; 345 (14.375s) is the
+  largest legal count. Breaks comparability with every recorded 362-frame
+  measurement, and `h3_config.py` says which ones. `build_api` now refuses an
+  illegal length or aspect rather than emitting the graph -- a comment did not
+  stop 362 shipping for a week, since it is on the grid, inside ComfyUI's own
+  3600 limit, and renders fine.
+- `h3_config.py` records the head-chunk A/B it had been asking for since
+  August. Head chunking frees 3227 MiB (three times the earlier estimate) and
+  costs 0.2%; head and FFN chunking together use 1904 MiB *more* than baseline,
+  so the two are antagonistic rather than additive. Noise floor stated: the
+  baseline's own run-to-run VRAM spread is 784 MiB, which puts the FFN arm's
+  +674 inside it and not evidence of anything.
 - Workflows decode through `minimax_h3_video_vae_int8_convrot` instead of
   the fp16 VAE. Decode 12.8s -> 9.9s (1.29x) at 124 frames, 1344x768, and
   2300 MiB less resident. Quality measured on paired arms sharing a seed, so
