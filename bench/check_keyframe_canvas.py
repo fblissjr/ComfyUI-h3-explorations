@@ -91,6 +91,46 @@ for w, h in SOURCES:
     check(f"{w}x{h}: last-frame path is identity", torch.equal(last, fitted),
           f"max|delta|={(last - fitted).abs().max():.3e}")
 
+print("\n--- 5. the trained aspect range is enforced, as the reference does ---")
+# diffusers' resolve_canvas_size raises outside 1:4..4:1 (modular_pipeline.py:
+# 32-33, 76-80); ComfyUI's adapt_canvas has no such check and resolves a
+# plausible canvas for any ratio. This node closes that gap in match_keyframe,
+# where the aspect comes from the image and nobody has chosen it.
+#
+# The pairs below straddle the boundary on purpose. If the in-range cases ever
+# start raising, the guard is too tight and will reject ordinary work; if the
+# out-of-range ones stop raising, the guard is gone.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from keyframe_canvas import (MAX_ASPECT_RATIO, MIN_ASPECT_RATIO,  # noqa: E402
+                             MiniMaxH3KeyframeCanvas)
+
+ASPECT_CASES = [
+    ((1024, 1024), True), ((2560, 1080), True),     # 1.0, 2.37 -- ordinary
+    ((1600, 400), True), ((400, 1600), True),       # exactly 4.0 and 0.25
+    ((1640, 400), False), ((400, 1640), False),     # 4.1 and 0.244 -- outside
+    ((3000, 500), False),                           # 6.0 -- clearly outside
+]
+for (w, h), want_ok in ASPECT_CASES:
+    img = torch.rand(1, h, w, 3)
+    try:
+        MiniMaxH3KeyframeCanvas.execute(img, mode="match_keyframe")
+        raised = False
+    except RuntimeError:
+        raised = True
+    check(f"{w}x{h} (aspect {w/h:.3g}): "
+          f"{'accepted' if want_ok else 'refused'}",
+          raised != want_ok,
+          f"in range [{MIN_ASPECT_RATIO:g}, {MAX_ASPECT_RATIO:g}]")
+
+# fit_to_canvas must NOT raise: there the user typed the geometry and owns it.
+try:
+    MiniMaxH3KeyframeCanvas.execute(torch.rand(1, 500, 3000, 3),
+                                    mode="fit_to_canvas", width=3008, height=512)
+    check("fit_to_canvas warns rather than refusing an out-of-range aspect", True)
+except RuntimeError as exc:
+    check("fit_to_canvas warns rather than refusing an out-of-range aspect",
+          False, str(exc))
+
 print()
 if failures:
     print(f"{len(failures)} FAILED:")

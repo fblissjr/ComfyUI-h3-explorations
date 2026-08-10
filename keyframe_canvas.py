@@ -31,6 +31,17 @@ from comfy_extras.nodes_minimax_h3 import adapt_canvas, _resize
 
 logger = logging.getLogger(__name__)
 
+# The aspect range the released checkpoint was trained over. The reference
+# takes these as parameters of `resolve_canvas_size` and *raises* outside them
+# (diffusers modular_pipelines/minimax_h3/modular_pipeline.py:32-33, 76-80);
+# ComfyUI's `adapt_canvas` has no equivalent and will happily resolve a canvas
+# for any ratio. Since this node's whole purpose is restoring the reference's
+# canvas behaviour, inheriting that gap would leave exactly the silently-wrong
+# outcome it exists to prevent -- a render outside the trained range, with
+# nothing said.
+MIN_ASPECT_RATIO = 1 / 4
+MAX_ASPECT_RATIO = 4
+
 
 class MiniMaxH3KeyframeCanvas(io.ComfyNode):
     @classmethod
@@ -85,6 +96,20 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
         src_h, src_w = int(first_frame.shape[1]), int(first_frame.shape[2])
 
         if mode == "match_keyframe":
+            # The reference refuses here rather than resolving a canvas the
+            # checkpoint was never trained on, and in this mode the aspect
+            # comes from the image rather than from the user -- so nobody has
+            # chosen it and nobody would otherwise be told. Raising is the
+            # whole point: `adapt_canvas` would return a perfectly plausible
+            # canvas and the render would just be bad.
+            ratio = src_w / src_h
+            if not MIN_ASPECT_RATIO <= ratio <= MAX_ASPECT_RATIO:
+                raise RuntimeError(
+                    f"MiniMax H3 was trained on aspect ratios from 1:"
+                    f"{1 / MIN_ASPECT_RATIO:g} to {MAX_ASPECT_RATIO:g}:1; this "
+                    f"keyframe is {src_w}x{src_h} ({ratio:.3g}). Crop it, or "
+                    f"switch to fit_to_canvas to choose the geometry yourself."
+                )
             width, height = adapt_canvas(src_w, src_h)
             # Aspect now matches by construction, so "disabled" is a uniform
             # scale, not a stretch. Mirrors the reference's anchor path.
@@ -108,6 +133,19 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
                     width, height, snapped_w, snapped_h,
                 )
             width, height = snapped_w, snapped_h
+            # Warn rather than raise: in this mode the user typed the geometry,
+            # and this node's contract here is "you own it". Refusing a size
+            # somebody deliberately entered would be this node overruling them,
+            # which is the opposite of the mode. They still get told, because
+            # the failure is a quality one and would otherwise be invisible.
+            ratio = width / height
+            if not MIN_ASPECT_RATIO <= ratio <= MAX_ASPECT_RATIO:
+                logger.warning(
+                    "[h3] canvas %dx%d is aspect %.3g, outside the 1:%g to %g:1 "
+                    "range MiniMax H3 was trained on. It will render; expect "
+                    "the output to degrade rather than fail.",
+                    width, height, ratio, 1 / MIN_ASPECT_RATIO, MAX_ASPECT_RATIO,
+                )
             # The user owns the geometry, so the anchor is cover-cropped rather
             # than stretched. NOTE: this is a deliberate divergence -- the
             # reference stretches the anchor even when width/height are given,
