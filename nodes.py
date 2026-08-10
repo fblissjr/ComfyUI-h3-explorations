@@ -62,6 +62,21 @@ class MiniMaxH3SageAttention(io.ComfyNode):
                         "no consuming entry point for that kernel."
                     ),
                 ),
+                io.Boolean.Input(
+                    "patch_token_refiner", default=False, optional=True,
+                    tooltip=(
+                        "Also patch the 2 text token-refiner blocks. They run "
+                        "over the text span only (~2k tokens vs ~40k for the "
+                        "DiT blocks), so this is worth well under 1% of "
+                        "attention time. Off by default."
+                    ),
+                ),
+                # APPENDED, not inserted after `mode` where it reads better.
+                # Widget values map positionally in every saved graph, so a
+                # new widget ahead of `patch_token_refiner` would land an old
+                # graph's boolean on this INT: ["auto", False] would silently
+                # become head_chunks=False. Same rule as the output slots on
+                # MiniMaxH3KeyframeCanvas.
                 io.Int.Input(
                     "head_chunks", default=1, min=1, max=56, optional=True,
                     tooltip=(
@@ -74,15 +89,6 @@ class MiniMaxH3SageAttention(io.ComfyNode):
                         "a render that otherwise will not fit, not for speed. "
                         "Left at 1, a head-chunk count published by KJNodes' "
                         "MiniMax H3 Low VRAM Attention is used instead."
-                    ),
-                ),
-                io.Boolean.Input(
-                    "patch_token_refiner", default=False, optional=True,
-                    tooltip=(
-                        "Also patch the 2 text token-refiner blocks. They run "
-                        "over the text span only (~2k tokens vs ~40k for the "
-                        "DiT blocks), so this is worth well under 1% of "
-                        "attention time. Off by default."
                     ),
                 ),
             ],

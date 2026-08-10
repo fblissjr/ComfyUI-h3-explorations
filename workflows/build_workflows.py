@@ -619,8 +619,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     if sage:
         sage_node = g.add("MiniMaxH3SageAttention", (-880, 0), size=(360, 110),
                           widgets=[SAGE_NODE["mode"],
-                                   SAGE_NODE["head_chunks"],
-                                   SAGE_NODE["patch_token_refiner"]],
+                                   SAGE_NODE["patch_token_refiner"],
+                                   SAGE_NODE["head_chunks"]],
                           inputs=[_in("model", "MODEL")],
                           outputs=[_out("MODEL", "MODEL")])
         g.link(model_src, 0, sage_node, "model", "MODEL")

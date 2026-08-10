@@ -221,7 +221,7 @@ SOL_BASELINE_124F = dict(
 # converts to wall-clock at the ~2.6% ceiling measured above, so it is for
 # fitting a render that otherwise will not fit. Keep the key ordered as the
 # node declares its inputs: the UI graph maps widget values positionally.
-SAGE_NODE = dict(mode="auto", head_chunks=1, patch_token_refiner=False)
+SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 
 # Node order is not cosmetic. Sol-Attn composes with the attention patches
 # it finds, so it must come after ours; reversed, it overwrites the patch
