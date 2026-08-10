@@ -209,8 +209,8 @@
       },
       "widgets_values": [
         "auto",
-        1,
-        false
+        false,
+        1
       ]
     },
     {

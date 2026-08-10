@@ -165,8 +165,8 @@
         0
       ],
       "mode": "auto",
-      "head_chunks": 1,
-      "patch_token_refiner": false
+      "patch_token_refiner": false,
+      "head_chunks": 1
     }
   },
   "21": {
