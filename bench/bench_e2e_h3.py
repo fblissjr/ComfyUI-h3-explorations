@@ -387,6 +387,46 @@ ARMS = {
 }
 
 
+# Every ratio cheaper than the 16:9/7:4 default, which sits at 1.00x
+# attention and otherwise dominates a sweep. Portrait and landscape of a
+# ratio cost the same -- packed rows are (h//32)*(w//32), symmetric -- so
+# only one orientation of each is here, plus 3:4 because portrait framing is
+# a different question from portrait cost.
+CHEAP_CANVASES = ("3:2", "4:3", "3:4", "1:1")
+
+
+def parse_canvas(spec):
+    """'4:3' or '1024x768' -> (width, height), always a legal H3 canvas.
+
+    Ratios go through ComfyUI's own `adapt_canvas`, so they land on the 768
+    short edge, the 768*1344 area cap and the round-to-32 the model requires
+    rather than on whatever the arithmetic produces. Explicit sizes are
+    passed through and validated, because the point of naming one is to
+    measure that exact canvas.
+    """
+    from comfy_extras.nodes_minimax_h3 import adapt_canvas
+
+    spec = spec.strip()
+    if "x" in spec:
+        w, h = (int(v) for v in spec.lower().split("x", 1))
+        if w % 32 or h % 32:
+            raise SystemExit(f"canvas {spec}: both axes must be multiples of 32")
+        return w, h
+    if ":" not in spec:
+        raise SystemExit(f"canvas {spec!r}: expected 'W:H' or 'WxH'")
+    aw, ah = (float(v) for v in spec.split(":", 1))
+    if not 0.25 <= aw / ah <= 4:
+        # The range the checkpoint was trained over; the reference refuses
+        # outside it, so benching there would measure nothing anyone should run.
+        raise SystemExit(f"canvas {spec}: aspect {aw / ah:.3g} is outside "
+                         f"MiniMax H3's trained 1:4..4:1 range")
+    return adapt_canvas(aw, ah)
+
+
+def canvas_tag(w, h):
+    return f"{w}x{h}"
+
+
 def http_post(url, obj, timeout=60):
     req = urllib.request.Request(
         url, data=json.dumps(obj).encode(), headers={"Content-Type": "application/json"})
@@ -496,6 +536,15 @@ def main():
     ap.add_argument("--arms", default="off,sage",
                     help="comma-separated arms, first is the baseline. "
                          "Known: off, sage, sol, sage+sol, sage+sol+morton")
+    ap.add_argument("--canvases", default="",
+                    help="comma-separated canvases, crossed with --arms. Either "
+                         "a ratio ('1:1', '4:3', '3:4', '3:2') resolved through "
+                         "ComfyUI's adapt_canvas so it is always a legal H3 "
+                         "canvas, or an explicit '1024x768'. 'cheap' expands to "
+                         f"{','.join(CHEAP_CANVASES)} -- every ratio below the "
+                         "16:9 default, which at 1.00x attention otherwise "
+                         "dominates a sweep's runtime. Empty uses "
+                         "--width/--height.")
     ap.add_argument("--vram-arms", default="",
                     help="comma-separated 'headN/ffnM' VRAM-knob settings, "
                          "crossed with --arms. e.g. "
@@ -567,22 +616,36 @@ def main():
     vram_arms = [s.strip() for s in args.vram_arms.split(",") if s.strip()] or [""]
     knobs = [(s, *parse_vram_arm(s)) for s in vram_arms]
 
+    # The canvas is the biggest lever of the lot -- attention is O(S^2) and
+    # 1:1 is 0.33x the default's -- so it is an axis, not a global setting.
+    if args.canvases.strip():
+        specs = [s.strip() for s in args.canvases.split(",") if s.strip()]
+        expanded = []
+        for s in specs:
+            expanded.extend(CHEAP_CANVASES if s == "cheap" else [s])
+        canvases = [parse_canvas(s) for s in expanded]
+    else:
+        canvases = [(cfg["width"], cfg["height"])]
+
     combos = []
-    for v in vaes:
-        for spec, head, ffn in knobs:
-            for arm in arms:
-                label = arm
-                if len(vaes) > 1:
-                    label += f"@{vae_tag(v)}"
-                if len(knobs) > 1:
-                    label += f" {spec}"
-                combos.append((label, arm, v, head, ffn))
+    for cw, ch in canvases:
+        for v in vaes:
+            for spec, head, ffn in knobs:
+                for arm in arms:
+                    label = arm
+                    if len(canvases) > 1:
+                        label += f" {canvas_tag(cw, ch)}"
+                    if len(vaes) > 1:
+                        label += f"@{vae_tag(v)}"
+                    if len(knobs) > 1:
+                        label += f" {spec}"
+                    combos.append((label, arm, v, head, ffn, cw, ch))
     labels = [c[0] for c in combos]
 
     def graph_for(combo, seed):
-        _label, arm, vae, head, ffn = combo
+        _label, arm, vae, head, ffn, cw, ch = combo
         use_sage, sol = resolve_arm(arm)
-        return build_prompt(dict(cfg, video_vae=vae),
+        return build_prompt(dict(cfg, video_vae=vae, width=cw, height=ch),
                             sage=use_sage, seed=seed, sol=sol,
                             head_chunks=head, ffn_chunks=ffn)
 
@@ -638,18 +701,42 @@ def main():
     base = labels[0]
     b_s, b_t = med(sampler[base]), med(results[base])
     b_d = med(decode[base]) if decode[base] else None
-    b_v = med(vram[base]) if vram[base] else None
+    # Ratios are within-canvas. Comparing a 1:1 arm against a 16:9 baseline
+    # would show a ~3x "speedup" that is entirely the canvas and says nothing
+    # about the arm -- the exact confound a canvas axis invites.
+    base_of = {}
+    for label, _arm, _v, _h, _f, cw, ch in combos:
+        base_of.setdefault((cw, ch), label)
+    canvas_of = {c[0]: (c[5], c[6]) for c in combos}
+    multi_canvas = len({(c[5], c[6]) for c in combos}) > 1
+
+    ref_tokens = max((cw // 32) * (ch // 32) for _l, _a, _v, _h, _f, cw, ch in combos)
     print(f"{'arm':{width}s} {'sampler':>11s} {'decode':>11s} {'peak VRAM':>13s} "
-          f"{'vs ' + base:>11s} {'sampler vs base':>17s}")
+          f"{'vs base':>11s} {'sampler vs base':>17s}"
+          + (f" {'attn O(S^2)':>12s}" if multi_canvas else ""))
     for label in labels:
+        cw, ch = canvas_of[label]
+        my_base = base_of[(cw, ch)]
+        r_s = med(sampler[my_base])
+        r_v = med(vram[my_base]) if vram[my_base] else None
         s = med(sampler[label])
         d = med(decode[label]) if decode[label] else None
         pk = med(vram[label]) if vram[label] else None
         d_col = f"{d:10.1f}s" if d is not None else f"{'n/a':>11s}"
         v_col = f"{pk:9.0f} MiB" if pk else f"{'n/a':>13s}"
-        v_dif = (f"{pk - b_v:+10.0f} " if (pk and b_v) else f"{'n/a':>11s}")
-        print(f"{label:{width}s} {s:10.1f}s {d_col} {v_col} {v_dif} "
-              f"{b_s/s:16.3f}x")
+        v_dif = (f"{pk - r_v:+10.0f} " if (pk and r_v) else f"{'n/a':>11s}")
+        line = (f"{label:{width}s} {s:10.1f}s {d_col} {v_col} {v_dif} "
+                f"{r_s/s:16.3f}x")
+        if multi_canvas:
+            # What O(S^2) predicts for this canvas. A measured spread that
+            # tracks this column is the canvas; one that does not is the
+            # part of the step attention never reached.
+            line += f" {(((cw // 32) * (ch // 32)) / ref_tokens) ** 2:11.3f}x"
+        print(line)
+    if multi_canvas:
+        print("\n  Ratios are within-canvas -- each canvas is compared to its own "
+              "first arm.\n  'attn O(S^2)' is the predicted attention cost "
+              "relative to the largest canvas here.")
     # The two links in the hypothesis, kept apart on purpose: a knob can free
     # memory and still return nothing, and reading one number cannot tell that
     # apart from a knob that never freed anything.
