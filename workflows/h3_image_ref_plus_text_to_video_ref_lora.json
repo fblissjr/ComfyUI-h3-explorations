@@ -209,6 +209,7 @@
       },
       "widgets_values": [
         "auto",
+        1,
         false
       ]
     },

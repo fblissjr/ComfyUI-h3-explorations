@@ -201,6 +201,7 @@
         0
       ],
       "mode": "auto",
+      "head_chunks": 1,
       "patch_token_refiner": false
     }
   },

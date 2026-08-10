@@ -223,7 +223,7 @@ def pick_prompt(cfg):
     return PROMPT_LONG if seconds >= 12.0 else PROMPT
 
 
-def build_prompt(cfg, *, sage, seed, sol=None):
+def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
     """API-format graph.
 
     `sage` inserts our node between UNETLoader and the two MODEL consumers.
@@ -276,8 +276,19 @@ def build_prompt(cfg, *, sage, seed, sol=None):
     elif sage:
         g["20"] = {"class_type": "MiniMaxH3SageAttention",
                    "inputs": {"model": model_src, "mode": "auto",
+                              "head_chunks": head_chunks,
                               "patch_token_refiner": False}}
         model_src = ["20", 0]
+    if ffn_chunks > 1:
+        # KJNodes'. Deliberately not reimplemented: it patches mlp.forward,
+        # which nothing of ours touches, so unlike head chunking there is no
+        # conflict to resolve by owning it. Placed before SolAttnPatch only
+        # for consistency with the chain order; it patches a different module
+        # and composes with any of these in any order.
+        g["22"] = {"class_type": "MiniMaxChunkFeedForward",
+                   "inputs": {"model": model_src, "chunks": ffn_chunks,
+                              "seq_threshold": 4096}}
+        model_src = ["22", 0]
     if sol is not None:
         g["21"] = {"class_type": "SolAttnPatch",
                    "inputs": {"model": model_src, **SOL_DEFAULTS, **sol}}
@@ -382,8 +393,53 @@ def http_post(url, obj, timeout=60):
     return json.loads(urllib.request.urlopen(req, timeout=timeout).read())
 
 
-async def run_once(host, prompt, client_id, timeout_s):
+async def _poll_vram(host, stop, out, period=0.5):
+    """Sample VRAM in use for the duration of a render, recording the peak.
+
+    Polled from outside rather than read from torch, because the bench is a
+    client: it has no handle on ComfyUI's process. `/system_stats` reports
+    free and total for each device, so in-use is the difference.
+
+    This is a sampled peak, not a true one -- a spike shorter than `period`
+    between two samples is invisible. That is tolerable for comparing arms,
+    where the peak is a broad plateau held across every attention call, and
+    it is why the number is reported as "peak seen" rather than "peak".
+    """
+    import aiohttp
+
+    async with aiohttp.ClientSession() as sess:
+        while not stop.is_set():
+            try:
+                async with sess.get(f"http://{host}/system_stats",
+                                    timeout=aiohttp.ClientTimeout(total=5)) as r:
+                    stats = await r.json()
+                for dev in stats.get("devices", []):
+                    used = dev.get("vram_total", 0) - dev.get("vram_free", 0)
+                    out["peak"] = max(out.get("peak", 0), used)
+            except Exception:
+                pass          # a dropped sample is not a failed render
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=period)
+            except asyncio.TimeoutError:
+                pass
+
+
+async def run_once(host, prompt, client_id, timeout_s, vram=None):
     """Submit and follow the websocket. Returns (total_s, per_node_s, error)."""
+    import aiohttp
+
+    stop = asyncio.Event()
+    poller = (asyncio.create_task(_poll_vram(host, stop, vram))
+              if vram is not None else None)
+    try:
+        return await _run_once_inner(host, prompt, client_id, timeout_s)
+    finally:
+        stop.set()
+        if poller is not None:
+            await poller
+
+
+async def _run_once_inner(host, prompt, client_id, timeout_s):
     import aiohttp
 
     async with aiohttp.ClientSession() as sess:
@@ -440,6 +496,12 @@ def main():
     ap.add_argument("--arms", default="off,sage",
                     help="comma-separated arms, first is the baseline. "
                          "Known: off, sage, sol, sage+sol, sage+sol+morton")
+    ap.add_argument("--vram-arms", default="",
+                    help="comma-separated 'headN/ffnM' VRAM-knob settings, "
+                         "crossed with --arms. e.g. "
+                         "'head1/ffn1,head4/ffn1,head1/ffn2,head4/ffn2' is the "
+                         "2x2 that says whether the two knobs are additive. "
+                         "Empty leaves both off.")
     ap.add_argument("--video-vae", default=DEFAULTS["video_vae"],
                     help="comma-separated video VAEs. More than one crosses "
                          "them with --arms, so a VAE comparison alternates "
@@ -486,15 +548,43 @@ def main():
         return (name.removeprefix("minimax_h3_video_vae_")
                     .removesuffix(".safetensors"))
 
-    combos = [(f"{arm}@{vae_tag(v)}" if len(vaes) > 1 else arm, arm, v)
-              for v in vaes for arm in arms]
+    # The VRAM knobs are a third axis, crossed the same way and for the same
+    # reason. Both of them shrink transients rather than change arithmetic, so
+    # they belong beside the arm rather than inside it.
+    def parse_vram_arm(spec):
+        head = ffn = 1
+        for part in spec.split("/"):
+            part = part.strip()
+            if part.startswith("head"):
+                head = int(part[4:])
+            elif part.startswith("ffn"):
+                ffn = int(part[3:])
+            elif part:
+                raise SystemExit(f"unknown --vram-arms token {part!r}; "
+                                 f"expected headN or ffnM")
+        return head, ffn
+
+    vram_arms = [s.strip() for s in args.vram_arms.split(",") if s.strip()] or [""]
+    knobs = [(s, *parse_vram_arm(s)) for s in vram_arms]
+
+    combos = []
+    for v in vaes:
+        for spec, head, ffn in knobs:
+            for arm in arms:
+                label = arm
+                if len(vaes) > 1:
+                    label += f"@{vae_tag(v)}"
+                if len(knobs) > 1:
+                    label += f" {spec}"
+                combos.append((label, arm, v, head, ffn))
     labels = [c[0] for c in combos]
 
     def graph_for(combo, seed):
-        _label, arm, vae = combo
+        _label, arm, vae, head, ffn = combo
         use_sage, sol = resolve_arm(arm)
         return build_prompt(dict(cfg, video_vae=vae),
-                            sage=use_sage, seed=seed, sol=sol)
+                            sage=use_sage, seed=seed, sol=sol,
+                            head_chunks=head, ffn_chunks=ffn)
 
     if not args.skip_warmup:
         print("warmup (discarded: model load + Triton autotune + text encode) ...", flush=True)
@@ -508,13 +598,18 @@ def main():
     results = {a: [] for a in labels}
     sampler = {a: [] for a in labels}
     decode = {a: [] for a in labels}
+    vram = {a: [] for a in labels}
     width = max(len(a) for a in labels)
     for i in range(args.runs):
         seed = seed_for(i + 1)
         for combo in combos:
             label = combo[0]
+            peak = {}
             total, per_node, err = asyncio.run(run_once(
-                args.host, graph_for(combo, seed), client_id, args.timeout))
+                args.host, graph_for(combo, seed), client_id, args.timeout,
+                vram=peak))
+            if peak.get("peak"):
+                vram[label].append(peak["peak"] / 2**20)
             if err:
                 print(f"  run {i+1} {label}: FAILED: {err}")
                 return 1
@@ -532,24 +627,36 @@ def main():
             # as a win. Reported as n/a below if it never ran.
             if d is not None:
                 decode[label].append(d)
+            pk = vram[label][-1] if vram[label] else None
             print(f"  run {i+1} {label:{width}s}  seed={seed}  total {total:7.1f}s   "
                   f"sampler {s:7.1f}s   decode "
-                  f"{f'{d:6.1f}s' if d is not None else '   n/a'}", flush=True)
+                  f"{f'{d:6.1f}s' if d is not None else '   n/a'}   peak "
+                  f"{f'{pk:7.0f} MiB' if pk else '     n/a'}", flush=True)
 
     print()
     med = statistics.median
     base = labels[0]
     b_s, b_t = med(sampler[base]), med(results[base])
     b_d = med(decode[base]) if decode[base] else None
-    print(f"{'arm':{width}s} {'sampler':>11s} {'decode':>11s} {'total':>11s} "
-          f"{'sampler vs ' + base:>20s} {'decode vs ' + base:>19s}")
+    b_v = med(vram[base]) if vram[base] else None
+    print(f"{'arm':{width}s} {'sampler':>11s} {'decode':>11s} {'peak VRAM':>13s} "
+          f"{'vs ' + base:>11s} {'sampler vs base':>17s}")
     for label in labels:
-        s, t = med(sampler[label]), med(results[label])
+        s = med(sampler[label])
         d = med(decode[label]) if decode[label] else None
+        pk = med(vram[label]) if vram[label] else None
         d_col = f"{d:10.1f}s" if d is not None else f"{'n/a':>11s}"
-        d_rat = (f"{b_d/d:18.2f}x" if (d is not None and b_d) else f"{'n/a':>19s}")
-        print(f"{label:{width}s} {s:10.1f}s {d_col} {t:10.1f}s "
-              f"{b_s/s:19.2f}x {d_rat}")
+        v_col = f"{pk:9.0f} MiB" if pk else f"{'n/a':>13s}"
+        v_dif = (f"{pk - b_v:+10.0f} " if (pk and b_v) else f"{'n/a':>11s}")
+        print(f"{label:{width}s} {s:10.1f}s {d_col} {v_col} {v_dif} "
+              f"{b_s/s:16.3f}x")
+    # The two links in the hypothesis, kept apart on purpose: a knob can free
+    # memory and still return nothing, and reading one number cannot tell that
+    # apart from a knob that never freed anything.
+    print("\n  'vs base' is MiB freed (negative = less VRAM used).")
+    print("  A negative there with 1.000x beside it means the headroom is real "
+          "and does not\n  convert -- which is the outcome h3_config.py's ~2.6% "
+          "ceiling predicts.")
     print(f"\nsampler share of total on {base}: {100*b_s/b_t:.0f}%  "
           f"-- the ceiling on what any attention work can move")
     if b_d:
