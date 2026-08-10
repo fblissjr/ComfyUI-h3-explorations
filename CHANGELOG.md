@@ -39,6 +39,19 @@ artifact.
 
 ### Changed
 
+- Workflows decode through `minimax_h3_video_vae_int8_convrot` instead of
+  the fp16 VAE. Decode 12.8s -> 9.9s (1.29x) at 124 frames, 1344x768, and
+  2300 MiB less resident. Quality measured on paired arms sharing a seed, so
+  the latents are identical and every pixel difference is the decoder: 40.3 /
+  41.8 dB against a different-seed control at 13.8 dB, and the temporal axis
+  `h3_config.py` specifically warned about is flat (per-frame error std/mean
+  0.063, frame-to-frame motion energy int8/fp16 = 0.998, where flicker reads
+  above 1). Measured at 124 frames, not the 250+ this config usually runs.
+- `bench_e2e_h3.py` reports `VAEDecode` time alongside sampler time, and
+  `--video-vae` takes a list, crossing the VAE with `--arms` so a VAE
+  comparison alternates instead of running as two invocations that share no
+  thermal state. A VAE swap invalidates the sampler too, since
+  `MiniMaxH3ImageToVideo` takes the same VAE for keyframe encoding.
 - `attention.py` documents that it mirrors the stock forward's inference
   path only. Upstream grew a `comfy.model_management.in_training` branch
   using the non-in-place `rms_rope_split_half`; mirroring it would be

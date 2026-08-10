@@ -39,20 +39,31 @@ MODELS = dict(
     unet_fl2va="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
     unet_ref2va="minimax_h3_ref2va_pruned_int8_convrot.safetensors",
     clip="qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
-    # Staying on fp16 pending a quality pass. The int8_convrot decoder is
-    # usable (Comfy-Org/ComfyUI#15334 merged 2026-08-06, loader branch at
-    # comfy/sd.py:945) and measured 2666.2 MiB resident against fp16's
-    # 4966.5 -- a real 2300 MiB, engagement confirmed by allocation rather
-    # than by a log line, since the loader prints `dtype: torch.float16` for
-    # both builds and cannot distinguish int8 storage from a dequantized
-    # fallback.
+    # int8_convrot decoder (Comfy-Org/ComfyUI#15334 merged 2026-08-06, loader
+    # branch at comfy/sd.py:945). 2666.2 MiB resident against fp16's 4966.5 --
+    # a real 2300 MiB, engagement confirmed by allocation rather than by a log
+    # line, since the loader prints `dtype: torch.float16` for both builds and
+    # cannot distinguish int8 storage from a dequantized fallback.
     #
-    # What is not measured is quality. A quantized decoder fails in the
-    # temporal axis -- flicker, or block boundaries that only move frame to
-    # frame -- which is the same axis the tau 2.0 sign-off missed by
-    # comparing stills. Swap this in after a video pass at real length, not
-    # before. Decode speed is also unmeasured.
-    video_vae="minimax_h3_video_vae_fp16.safetensors",
+    # Swapped in 2026-08-10 after the quality and speed pass this note used to
+    # ask for. Paired arms, same seed, so the latents are identical and every
+    # pixel difference is the decoder:
+    #
+    #   decode      12.8s -> 9.9s median (1.29x) at 124f, 1344x768
+    #   stills      PSNR 40.3 / 41.8 dB, mean|d| 1.3-1.7 of 255
+    #   control     different seed, same fp16 VAE: 13.8 dB. That is what the
+    #               metric reads when the content actually differs, and it is
+    #               26 dB away -- without it the 40 dB number means nothing.
+    #   temporal    the axis this note called out. Per-frame error is a flat
+    #               offset, not a pulse: std/mean 0.063. Frame-to-frame motion
+    #               energy int8/fp16 = 0.998, i.e. int8 is fractionally
+    #               *smoother*, where flicker would read as > 1.
+    #
+    # Two limits worth keeping: measured at 124 frames, not the 250+ this
+    # config is usually run at, and both arms were compared after mp4 encode,
+    # so a little of that 1.3-1.7 is codec rather than decoder. Both make the
+    # quality figure a floor, not a ceiling.
+    video_vae="minimax_h3_video_vae_int8_convrot.safetensors",
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
 )
 

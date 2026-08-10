@@ -7,14 +7,19 @@ reports what the user experiences, which is the only number that settles
 whether the kernel win survives contact with a 21 GB checkpoint on a
 24 GB card.
 
-Two things are measured per run:
+Three things are measured per run, all from ComfyUI's websocket
+node-transition events except the last:
 
-  - **sampler time**, from ComfyUI's websocket node-transition events.
-    This isolates `SamplerCustomAdvanced` from text encoding and VAE
-    decode, so it is where an attention speedup has to show up.
-  - **total wall-time**, from submit to history. This is what actually
-    changes for the user, and it will always show a smaller ratio than
-    sampler time because encode and decode are unaffected.
+  - **sampler time** -- `SamplerCustomAdvanced` alone, isolated from text
+    encoding and VAE decode. This is where an attention speedup has to
+    show up.
+  - **decode time** -- `VAEDecode` alone. Attention arms do not move it,
+    which is exactly why it is worth printing: it is the denominator that
+    decides how much of a render any attention work can reach. It becomes
+    the measured quantity when `--video-vae` is given more than one VAE.
+  - **total wall-time**, from submit to history. What actually changes for
+    the user, and always a smaller ratio than whichever stage an arm
+    moves, because the other stages are unaffected.
 
 Method notes that matter for trusting the result:
 
@@ -32,6 +37,14 @@ Method notes that matter for trusting the result:
 
     ./bench/bench_e2e_h3.py --runs 3
     ./bench/bench_e2e_h3.py --runs 3 --width 768 --height 768 --steps 10
+
+  VAE A/B -- one arm, two VAEs, crossed so they alternate. Note a VAE swap
+  invalidates the sampler too (MiniMaxH3ImageToVideo takes the same VAE for
+  keyframe encoding), so both sides pay a full sample; keep steps low, the
+  decode column is the one being read:
+
+    ./bench/bench_e2e_h3.py --arms sage+sol --runs 2 --length 124 --steps 6 \
+        --video-vae minimax_h3_video_vae_fp16.safetensors,minimax_h3_video_vae_int8_convrot.safetensors
 
 Needs a running ComfyUI with the MiniMax H3 models installed.
 """
@@ -427,6 +440,11 @@ def main():
     ap.add_argument("--arms", default="off,sage",
                     help="comma-separated arms, first is the baseline. "
                          "Known: off, sage, sol, sage+sol, sage+sol+morton")
+    ap.add_argument("--video-vae", default=DEFAULTS["video_vae"],
+                    help="comma-separated video VAEs. More than one crosses "
+                         "them with --arms, so a VAE comparison alternates "
+                         "like any other arm instead of running as two "
+                         "separate invocations that share no thermal state.")
     ap.add_argument("--skip-warmup", action="store_true",
                     help="Only if a comparable render already ran this session. "
                          "A cold first run pays model load and Triton autotune and "
@@ -437,6 +455,7 @@ def main():
                height=args.height, length=args.length)
     client_id = str(uuid.uuid4())
     SAMPLER_NODE = "10"
+    DECODE_NODE = "11"   # VAEDecode (video). "12" is VAEDecodeAudio.
 
     print(f"MiniMax H3 e2e A/B  {cfg['width']}x{cfg['height']} "
           f"length={cfg['length']} steps={cfg['steps']} seed={args.seed}")
@@ -457,52 +476,85 @@ def main():
         print("or ad-hoc: sage+sol[tau=1.6,int8_qk=1] / sol[start_percent=0.1]")
         return 1
 
-    def graph_for(arm, seed):
+    # Crossing the VAE axis with the arm axis rather than bolting it on: a
+    # VAE swap invalidates MiniMaxH3ImageToVideo (it takes the same VAE for
+    # keyframe encoding), so it re-runs the sampler too. Alternating means
+    # that shared cost lands on both sides instead of on whichever ran second.
+    vaes = [v.strip() for v in args.video_vae.split(",") if v.strip()]
+
+    def vae_tag(name):
+        return (name.removeprefix("minimax_h3_video_vae_")
+                    .removesuffix(".safetensors"))
+
+    combos = [(f"{arm}@{vae_tag(v)}" if len(vaes) > 1 else arm, arm, v)
+              for v in vaes for arm in arms]
+    labels = [c[0] for c in combos]
+
+    def graph_for(combo, seed):
+        _label, arm, vae = combo
         use_sage, sol = resolve_arm(arm)
-        return build_prompt(cfg, sage=use_sage, seed=seed, sol=sol)
+        return build_prompt(dict(cfg, video_vae=vae),
+                            sage=use_sage, seed=seed, sol=sol)
 
     if not args.skip_warmup:
         print("warmup (discarded: model load + Triton autotune + text encode) ...", flush=True)
         total, _, err = asyncio.run(run_once(
-            args.host, graph_for(arms[0], seed_for(0)), client_id, args.timeout))
+            args.host, graph_for(combos[0], seed_for(0)), client_id, args.timeout))
         if err:
             print(f"  warmup FAILED: {err}")
             return 1
         print(f"  {total:.1f}s\n")
 
-    results = {a: [] for a in arms}
-    sampler = {a: [] for a in arms}
-    width = max(len(a) for a in arms)
+    results = {a: [] for a in labels}
+    sampler = {a: [] for a in labels}
+    decode = {a: [] for a in labels}
+    width = max(len(a) for a in labels)
     for i in range(args.runs):
         seed = seed_for(i + 1)
-        for arm in arms:
+        for combo in combos:
+            label = combo[0]
             total, per_node, err = asyncio.run(run_once(
-                args.host, graph_for(arm, seed), client_id, args.timeout))
+                args.host, graph_for(combo, seed), client_id, args.timeout))
             if err:
-                print(f"  run {i+1} {arm}: FAILED: {err}")
+                print(f"  run {i+1} {label}: FAILED: {err}")
                 return 1
             s = per_node.get(SAMPLER_NODE)
             if s is None:
-                print(f"  run {i+1} {arm}: sampler node never executed -- ComfyUI "
+                print(f"  run {i+1} {label}: sampler node never executed -- ComfyUI "
                       f"served this graph from cache, so there is no timing to "
                       f"report. Vary the seed or restart ComfyUI.")
                 return 1
-            results[arm].append(total)
-            sampler[arm].append(s)
-            print(f"  run {i+1} {arm:{width}s}  seed={seed}  total {total:7.1f}s   "
-                  f"sampler {s:7.1f}s", flush=True)
+            d = per_node.get(DECODE_NODE)
+            results[label].append(total)
+            sampler[label].append(s)
+            # Absent rather than zero: a cached or skipped decode is not a
+            # decode that took no time, and averaging a 0 into it would read
+            # as a win. Reported as n/a below if it never ran.
+            if d is not None:
+                decode[label].append(d)
+            print(f"  run {i+1} {label:{width}s}  seed={seed}  total {total:7.1f}s   "
+                  f"sampler {s:7.1f}s   decode "
+                  f"{f'{d:6.1f}s' if d is not None else '   n/a'}", flush=True)
 
     print()
     med = statistics.median
-    base = arms[0]
+    base = labels[0]
     b_s, b_t = med(sampler[base]), med(results[base])
-    print(f"{'arm':{width}s} {'sampler':>11s} {'total':>11s} "
-          f"{'vs ' + base:>12s}")
-    for arm in arms:
-        s, t = med(sampler[arm]), med(results[arm])
-        print(f"{arm:{width}s} {s:10.1f}s {t:10.1f}s {b_s/s:11.2f}x")
+    b_d = med(decode[base]) if decode[base] else None
+    print(f"{'arm':{width}s} {'sampler':>11s} {'decode':>11s} {'total':>11s} "
+          f"{'sampler vs ' + base:>20s} {'decode vs ' + base:>19s}")
+    for label in labels:
+        s, t = med(sampler[label]), med(results[label])
+        d = med(decode[label]) if decode[label] else None
+        d_col = f"{d:10.1f}s" if d is not None else f"{'n/a':>11s}"
+        d_rat = (f"{b_d/d:18.2f}x" if (d is not None and b_d) else f"{'n/a':>19s}")
+        print(f"{label:{width}s} {s:10.1f}s {d_col} {t:10.1f}s "
+              f"{b_s/s:19.2f}x {d_rat}")
     print(f"\nsampler share of total on {base}: {100*b_s/b_t:.0f}%  "
           f"-- the ceiling on what any attention work can move")
+    if b_d:
+        print(f"decode share of total on {base}: {100*b_d/b_t:.0f}%  "
+              f"-- the ceiling on what any VAE work can move")
     return 0
 
 
