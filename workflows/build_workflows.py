@@ -219,12 +219,18 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # first and hands over both the image and the size it was fitted to.
             # Node 5's own resize is then a bit-identical no-op.
             g["15"] = {"class_type": "LoadImage", "inputs": {"image": PLACEHOLDER_IMAGE_A}}
+            # `length` goes through node 17 too, so the reference's 5-15s
+            # window is enforced by the graph rather than only by the
+            # generator. A graph edited in the UI afterwards -- which is the
+            # normal way these get used -- keeps the check.
             g["17"] = {"class_type": "MiniMaxH3KeyframeCanvas",
                        "inputs": {"first_frame": ["15", 0], "mode": canvas_mode,
-                                  "width": cv["width"], "height": cv["height"]}}
+                                  "width": cv["width"], "height": cv["height"],
+                                  "length": length}}
             inputs["first_frame"] = ["17", 2]
             inputs["width"] = ["17", 0]
             inputs["height"] = ["17", 1]
+            inputs["length"] = ["17", 5]
         g["5"] = {"class_type": "MiniMaxH3ImageToVideo", "inputs": inputs}
 
     model_src = ["1", 0]
@@ -718,10 +724,13 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                        _in("first_frame", "IMAGE", optional=True),
                        _in("last_frame", "IMAGE", optional=True)]
         if task == "i2v":
-            # width/height arrive as links from the canvas node rather than as
-            # typed widgets, so they need input sockets.
+            # width/height/length arrive as links from the canvas node rather
+            # than as typed widgets, so they need input sockets. `length` joins
+            # them so the reference's 5-15s window is enforced by the graph and
+            # survives editing in the UI, not only by the generator.
             cond_inputs += [_in("width", "INT", widget=True),
-                            _in("height", "INT", widget=True)]
+                            _in("height", "INT", widget=True),
+                            _in("length", "INT", widget=True)]
         cond = g.add("MiniMaxH3ImageToVideo", (-460, 0), size=(430, 560),
                      widgets=[prompt, cv["width"], cv["height"], length],
                      inputs=cond_inputs,
@@ -735,18 +744,23 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             # MiniMaxH3ImageToVideo -- that node stretches the first keyframe
             # onto width/height non-uniformly (2.33x on a 3:4 still at the
             # default canvas). Fitted first, its resize becomes a no-op.
-            kfc = g.add("MiniMaxH3KeyframeCanvas", (-880, 640), size=(330, 200),
-                        widgets=[canvas_mode, cv["width"], cv["height"]],
+            kfc = g.add("MiniMaxH3KeyframeCanvas", (-880, 640), size=(330, 230),
+                        widgets=[canvas_mode, cv["width"], cv["height"], length],
                         inputs=[_in("first_frame", "IMAGE"),
                                 _in("last_frame", "IMAGE", optional=True)],
+                        # `length` is last because the node appends it there --
+                        # inserting it beside width/height would shift every
+                        # later slot in already-saved graphs.
                         outputs=[_out("width", "INT"), _out("height", "INT"),
                                  _out("first_frame", "IMAGE"),
                                  _out("last_frame", "IMAGE"),
-                                 _out("attn_cost_vs_1to1", "FLOAT")])
+                                 _out("attn_cost_vs_1to1", "FLOAT"),
+                                 _out("length", "INT")])
             g.link(img_a, 0, kfc, "first_frame", "IMAGE")
             g.link(kfc, 2, cond, "first_frame", "IMAGE")
             g.link(kfc, 0, cond, "width", "INT")
             g.link(kfc, 1, cond, "height", "INT")
+            g.link(kfc, 5, cond, "length", "INT")
     g.link(clip, 0, cond, "clip", "CLIP")
 
     noise = g.add("RandomNoise", (40, 0), size=(300, 110), widgets=[seed, "randomize"],

@@ -155,7 +155,8 @@
       ],
       "mode": "fit_to_canvas",
       "width": 1344,
-      "height": 768
+      "height": 768,
+      "length": 345
     }
   },
   "5": {
@@ -178,7 +179,10 @@
         "17",
         1
       ],
-      "length": 362,
+      "length": [
+        "17",
+        5
+      ],
       "first_frame": [
         "17",
         2
