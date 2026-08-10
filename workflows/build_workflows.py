@@ -46,7 +46,7 @@ from h3_config import (  # noqa: E402
     SAMPLING, SAGE_NODE, SEED, SOL_RECOMMENDED,
 )
 
-# Prompt for the 362-frame presets. 15.08s at 24fps needs a shot timeline,
+# Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
 # not one continuous beat -- the guide wants numbered shots with explicit cut
 # times past a few seconds, and a 15s request against a 6s prompt leaves the
 # model twelve seconds it was never told about.
@@ -104,6 +104,37 @@ N/A"""
 # API format
 # --------------------------------------------------------------------------
 
+sys.path.insert(0, str(HERE.parent))
+from h3_rules import (  # noqa: E402
+    aspect_in_range, describe_aspect_range, describe_length,
+    duration_in_range, max_legal_length, min_legal_length,
+)
+
+
+def _check_geometry(length, canvas):
+    """Refuse to emit a graph the reference would reject.
+
+    This config shipped 362 frames for a week. It is on the 17n+5 grid, it is
+    inside ComfyUI's own 3600 limit, and it renders -- it is just 15.083s
+    against a 15s ceiling the reference enforces and ComfyUI does not. Nothing
+    in the pipeline said so, which is exactly the failure this repo exists to
+    make loud, so the generator now holds the rule rather than a comment.
+    """
+    cv = dict(CANVAS, **canvas)
+    if not duration_in_range(length):
+        raise SystemExit(
+            f"length {describe_length(length)} is outside MiniMax H3's 5-15s "
+            f"window; legal counts are {min_legal_length()}-{max_legal_length()} "
+            f"on the 17n+5 grid. Fix LONG_LENGTH/LENGTH in h3_config.py."
+        )
+    if not aspect_in_range(cv["width"], cv["height"]):
+        raise SystemExit(
+            f"canvas {cv['width']}x{cv['height']} is aspect "
+            f"{cv['width'] / cv['height']:.3g}, outside H3's trained "
+            f"{describe_aspect_range()} range."
+        )
+
+
 def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               length: int = LENGTH, seed: int = SEED,
               sol: dict | None = None, canvas_mode: str = "fit_to_canvas",
@@ -122,6 +153,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     """
     if task not in ("t2v", "i2v", "r2v"):
         raise ValueError(task)
+    _check_geometry(length, canvas)
     ref = task == "r2v"
     cv = dict(CANVAS, **canvas)
     prompt = prompt if prompt is not None else {
@@ -387,13 +419,17 @@ never a speed one.
 
 ## Length snaps up to n % 17 == 5
 
-Ask 200, get 209. Ask 300, get 311. Near the top: **311, 328, 345, 362**.
-Trained range is ~124-362 per the node's own tooltip; 362 = 15.08s at 24fps.
+Ask 200, get 209. Ask 300, get 311. Near the top: **311, 328, 345**.
 
-At 362 frames attention is ~76% of the step, against ~50% at 124 -- long
-clips are where sparsity and kernel work pay off most. But 362 is the edge
-of the trained range, and late-clip softening there is ordinary DiT decay.
-**328 or 345 costs less attention and drifts less.**
+**345 is the ceiling, not 362.** ComfyUI's tooltip says ~124-362 and its node
+accepts up to 3600, but the reference generates 5-15s at 24fps and applies
+that ceiling *after* the snap. 362 is 15.083s, so it is refused; 345 is
+14.375s. There is no on-grid count at exactly 15.0s. Ask for 346 and you get
+362, which is why the check has to run on the snapped number -- the reference
+names that exact trap in a comment.
+
+At 345 frames attention is ~76% of the step, against ~50% at 124 -- long
+clips are where sparsity and kernel work pay off most.
 
 Core ComfyUI's `ResolutionSelector` works from a megapixel target, which is
 not how any of this works. Type the numbers.

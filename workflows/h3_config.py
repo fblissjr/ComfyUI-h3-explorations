@@ -192,10 +192,22 @@ CHAIN = ["Load Diffusion Model", "MiniMax H3 SageAttention", "SolAttnPatch"]
 CANVAS = dict(width=1344, height=768)
 FPS = 24.0
 
-# Frame counts snap to a 17k+5 grid and the node's tooltip puts the trained
-# range at ~124-362. 124 is ~5.2s at 24fps.
+# Frame counts snap to a 17k+5 grid. ComfyUI's tooltip puts the trained range
+# at ~124-362, but that upper bound is wrong: the reference generates 5-15s at
+# 24fps and checks the ceiling AFTER the snap, so 362 (15.083s) is refused and
+# 345 (14.375s) is the largest legal count. There is no on-grid count at
+# exactly 15.0s. See h3_rules.py for the rule and where it comes from.
+#
+# **Changed 362 -> 345 on 2026-08-10, and this breaks comparability.** Every
+# measurement in the notes above -- the ~24% attention ceiling, the 2.6%
+# headroom ceiling, tau 1.3 costing 82.3s against tau 2.0, int8_qk/pv at
+# 1.16x -- was taken at 362 frames, a length this config no longer produces.
+# The ratios should survive the 5% length change, but they were not re-taken;
+# treat any of them re-derived at 345 as the number to trust. 362 stays
+# reachable by passing `length=` explicitly if an old figure needs
+# reproducing.
 LENGTH = 124
-LONG_LENGTH = 362
+LONG_LENGTH = 345
 
 SEED = 1
 
