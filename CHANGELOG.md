@@ -4,6 +4,49 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.3.0
+
+### Added
+
+- `bench/check_workflow_schema.py`: validates saved UI workflows against a
+  live `/object_info`. `build_workflows.py` only ever validated the API
+  graphs, which carry no widget list and no slot table, so widget/socket
+  confusion and link-table corruption were invisible to it. Calibrated by
+  requiring a clean report on a graph ComfyUI itself wrote; two
+  false-positive classes (widget-backed input slots, dynamic member slots)
+  were found that way.
+- `bench/check_lowvram_handoff.py`: asserts the sage forward accepts the
+  single-item list KJNodes' low-VRAM block patch hands to attention.
+
+### Fixed
+
+- `attention.py` no longer raises `AttributeError: 'list' object has no
+  attribute 'shape'` when KJNodes' `MiniMaxLowVRAMAttention` is in the same
+  graph. That node patches the *block* forward unconditionally to hand `x`
+  over in a list, and only skips the *attention* forward if another patch
+  owns the key -- so our forward received the list in either node order, and
+  again from Sol-Attn's compose gate on calls it declines. The crash was
+  outside the try/except, so it killed the render instead of degrading.
+- `build_workflows.py` emitted Sol-Attn's `tau_profile` as a 13th widget
+  value on a node with 12 widgets. It is declared `force_input=True`, which
+  makes it a socket; the graphs now declare the socket and drop the value.
+  Harmless in effect -- it sat past the end of the widget list, where
+  LiteGraph drops it -- but the node carried a widget count no build of
+  Sol-Attn has had.
+- `build_workflows.py`'s own widget check counted `force_input` inputs as
+  widgets, which is why it never saw the above. It also only flagged a
+  shortfall, never a surplus.
+
+### Changed
+
+- `attention.py` documents that it mirrors the stock forward's inference
+  path only. Upstream grew a `comfy.model_management.in_training` branch
+  using the non-in-place `rms_rope_split_half`; mirroring it would be
+  theatre, since sageattn has no backward.
+- `build_kernel` records why KJNodes' "pad V to CTA_K=128 in H3 mem-eff sage
+  sm90" fix does not apply here: that bug comes from reimplementing sage's
+  internals, and `sageattn_consume`'s fp8 dispatch excludes sm90.
+
 ## 0.2.0
 
 ### Added

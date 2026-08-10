@@ -599,16 +599,25 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                                   sol["min_tokens"], sol["int8_qk"],
                                   sol["sink_conditioning"], sol["morton"],
                                   sol["morton_curve"], sol["int8_pv"], sol["verbose"],
-                                  sol["use_tma"], sol["dense_blocks"],
-                                  # tau_profile, added by Sol-Attn 0e334dc: per-block
-                                  # tau overriding the base value. Empty means one tau
-                                  # everywhere, which is what we ship. Present here
-                                  # because the widget count must match the node's
-                                  # schema exactly -- the validator caught this the
-                                  # first build after the update, which is the whole
-                                  # reason it runs against live object_info.
-                                  sol.get("tau_profile", "")],
-                         inputs=[_in("model", "MODEL")],
+                                  sol["use_tma"], sol["dense_blocks"]],
+                         # tau_profile, added by Sol-Attn 0e334dc: per-block tau
+                         # overriding the base value. It is declared
+                         # `force_input=True`, so it is a SOCKET, not a widget.
+                         # An earlier version of this file emitted it as a 13th
+                         # widget value instead. That was harmless in effect --
+                         # it landed after dense_blocks, and LiteGraph drops
+                         # widget values past the end of the widget list -- but it
+                         # meant the node carried a widget count no build of
+                         # Sol-Attn has ever had, and the socket was never
+                         # declared at all. Left unconnected: one tau everywhere
+                         # is what we ship.
+                         #
+                         # The API-graph validator cannot catch this class of bug:
+                         # API graphs have no widget list, so widget/socket
+                         # confusion is invisible there. That is what
+                         # check_workflow_schema.py is for.
+                         inputs=[_in("model", "MODEL"),
+                                 _in("tau_profile", "STRING", optional=True)],
                          outputs=[_out("MODEL", "MODEL")],
                          title=("Patch Sol-Attn" if sol_enabled
                                 else "Patch Sol-Attn (bypassed)"))
@@ -925,10 +934,19 @@ def validate_ui(wf: dict, oi: dict, label: str) -> list[str]:
         # widgets_values must cover every widget the node declares, in order,
         # including any that have been converted to inputs.
         spec = oi[n["type"]]["input"]
+        # `force_input=True` turns a scalar input into a socket, so it owns no
+        # widget value. Missing that is how tau_profile got emitted as a 13th
+        # widget on a 12-widget node: this check allows a surplus (see below),
+        # so a spurious extra value was invisible from here.
+        def _is_widget(v):
+            opts = v[1] if len(v) > 1 and isinstance(v[1], dict) else {}
+            if opts.get("forceInput"):
+                return False
+            return isinstance(v[0], list) or v[0] in (
+                "INT", "FLOAT", "STRING", "BOOLEAN", "COMBO", "COMFY_DYNAMICCOMBO_V3")
+
         widget_names = [k for k, v in ((spec.get("required") or {}) | (spec.get("optional") or {})).items()
-                        if isinstance(v[0], list) or v[0] in
-                        ("INT", "FLOAT", "STRING", "BOOLEAN", "COMBO",
-                         "COMFY_DYNAMICCOMBO_V3")]
+                        if _is_widget(v)]
         got = len(n.get("widgets_values") or [])
         # RandomNoise / LoadImage carry an extra frontend-only widget
         # (control_after_generate, the upload button) that /object_info does

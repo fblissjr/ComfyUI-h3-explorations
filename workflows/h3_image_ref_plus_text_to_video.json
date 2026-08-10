@@ -192,6 +192,12 @@
           "name": "model",
           "type": "MODEL",
           "link": 2
+        },
+        {
+          "name": "tau_profile",
+          "type": "STRING",
+          "link": null,
+          "shape": 7
         }
       ],
       "outputs": [
@@ -218,7 +224,6 @@
         true,
         false,
         false,
-        "",
         ""
       ],
       "title": "Patch Sol-Attn"

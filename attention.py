@@ -16,8 +16,12 @@ Replacing the block's `forward` rather than going through ComfyUI's
     rather than at the end of the call.
 
 Everything else -- the fused RMSNorm + split-half RoPE, the output
-projection -- is left exactly as the stock forward does it, including
-running in place on the qkv buffer.
+projection -- is left exactly as the stock forward's *inference* path does
+it, including running in place on the qkv buffer. The stock forward also
+has a `comfy.model_management.in_training` branch that calls the
+non-in-place `rms_rope_split_half`; this file does not mirror it, because
+sageattn has no backward and a training step through this forward would
+fail at the kernel regardless of which rope variant ran.
 """
 
 from __future__ import annotations
@@ -95,6 +99,12 @@ def build_kernel(mode):
         )
 
     attr, extra = MODES[mode]
+    # A note for anyone arriving from KJNodes' "pad V to CTA_K=128 in H3 mem-eff
+    # sage sm90" fix: that bug is not reachable from here. It comes from
+    # reimplementing sage's internals and skipping the kv_len pad that the
+    # top-level sm90 entry point does. We go through sageattn_consume, whose
+    # fp8 dispatch is gated on arch in {sm89, sm100, sm120, sm121} -- sm90
+    # never reaches the fp8 kernel on this path.
     base_kwargs = {
         "tensor_layout": "NHD",
         "is_causal": False,
@@ -198,6 +208,20 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs):
     def forward(self, x, rope_freqs=None, transformer_options={}):
         import comfy.model_management
         import comfy.quant_ops
+
+        # KJNodes' MiniMaxLowVRAMAttention patches the *block* forward to hand
+        # `x` over in a single-item list, so attention can free the block's
+        # normed h right after the qkv GEMM. That block patch is installed
+        # whether or not its attn patch won the object-patch key, so this
+        # forward sees the list in either node order -- and Sol-Attn's compose
+        # gate passes the list through untouched on calls it declines.
+        #
+        # We take the tensor out but keep holding it, giving up the release
+        # KJNodes is buying. `_stock_forward` recomputes from x, and a working
+        # fallback is worth more here than ~250 MiB per call -- same trade the
+        # override path makes below.
+        if isinstance(x, list):
+            x = x.pop()
 
         s = x.shape[0]
         # One fused projection, split into three views of the same buffer.
