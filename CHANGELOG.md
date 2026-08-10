@@ -8,6 +8,20 @@ artifact.
 
 ### Added
 
+- `bench/check_solattn_correctness.py` and `bench/_sol_attn_reference.py`:
+  the first independent correctness check the Sol-Attn Triton kernels have
+  had. The reference is kijai/comfy-kitchen's pure-PyTorch eager
+  implementation, vendored from the unmerged `sol_attn` branch (`ad9a4a8`)
+  because no released wheel ships it; the registry import and the
+  `comfy_kitchen::sol_attn` custom-op wrapper are stripped so importing it
+  cannot collide with a future real one. Kernel agrees with the reference to
+  cos 0.9995-0.9999 at T=512 and T=2048, bf16 and both INT8 paths, against
+  upstream's own 0.998 bar. Includes a red control (kernel at one tau vs
+  reference at 20x that tau, which must disagree) and a warning if the
+  shipped tau is not actually sparsifying at the tested shape. Bounded by
+  the reference being O(T^2): it refuses past 4 GiB of scores, so this
+  checks the kernel's arithmetic, never its behaviour at H3's real length.
+
 - `bench/check_workflow_schema.py`: validates saved UI workflows against a
   live `/object_info`. `build_workflows.py` only ever validated the API
   graphs, which carry no widget list and no slot table, so widget/socket
