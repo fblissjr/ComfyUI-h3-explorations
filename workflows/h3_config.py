@@ -178,7 +178,11 @@ SOL_BASELINE_124F = dict(
 # would change nothing; the explicit modes exist for bisecting accuracy.
 # token_refiner runs over the text span only (~2k rows against ~42k), so
 # patching it is worth well under 1% of attention time.
-SAGE_NODE = dict(mode="auto", patch_token_refiner=False)
+# head_chunks 1 = off. It trades ~4x the attention launches for headroom that
+# converts to wall-clock at the ~2.6% ceiling measured above, so it is for
+# fitting a render that otherwise will not fit. Keep the key ordered as the
+# node declares its inputs: the UI graph maps widget values positionally.
+SAGE_NODE = dict(mode="auto", head_chunks=1, patch_token_refiner=False)
 
 # Node order is not cosmetic. Sol-Attn composes with the attention patches
 # it finds, so it must come after ours; reversed, it overwrites the patch

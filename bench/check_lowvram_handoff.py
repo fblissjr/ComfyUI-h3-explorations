@@ -49,7 +49,7 @@ sys.path.insert(0, str(HERE.parents[2]))
 import attention  # noqa: E402
 from attention import make_minimax_attn_forward  # noqa: E402
 
-S, HEADS, DIM = 8, 2, 4
+S, HEADS, DIM = 8, 7, 4   # 7 heads so 2- and 3-group splits have a remainder
 
 
 class FakeAttn:
@@ -117,9 +117,56 @@ def main():
         assert seen, "the kernel raised but the fallback never ran"
         assert torch.is_tensor(seen[0]), f"fallback got {type(seen[0]).__name__}, not a tensor"
 
+    def head_chunks_partition():
+        # An identity kernel makes reassembly exactly checkable: whatever the
+        # groups are handed must come back in the same slots. A partition bug
+        # -- an off-by-one boundary, a dropped remainder head, groups written
+        # to the wrong columns -- shows up as an exact mismatch rather than as
+        # slightly wrong pixels nobody can attribute later.
+        def identity(qkv, **kw):
+            q, _k, _v = qkv
+            qkv.clear()
+            return q
+
+        x = torch.zeros(S, HEADS * DIM)
+        want = None
+        for n in (1, 2, 3, HEADS):
+            forward = make_minimax_attn_forward(identity, {}, head_chunks=n)
+            attn = FakeAttn()
+            attn.qkv_proj = lambda t: torch.arange(
+                t.shape[0] * HEADS * DIM * 3, dtype=torch.float32
+            ).reshape(t.shape[0], HEADS * DIM * 3)
+            got = forward(attn, x, rope_freqs=None)
+            if want is None:
+                want = got
+            assert torch.equal(got, want), (
+                f"head_chunks={n} disagrees with head_chunks=1; "
+                f"max|d| {(got - want).abs().max().item()}")
+
+    def head_chunks_from_options():
+        # KJNodes publishes its count here. Left at 1 on our node, we must
+        # honour it -- otherwise installing their node next to ours silently
+        # does nothing, which is the bug this whole path exists to fix.
+        seen = []
+
+        def counting(qkv, **kw):
+            q, _k, _v = qkv
+            qkv.clear()
+            seen.append(q.shape[2])
+            return q
+
+        forward = make_minimax_attn_forward(counting, {}, head_chunks=1)
+        forward(FakeAttn(), torch.zeros(S, HEADS * DIM), rope_freqs=None,
+                transformer_options={"minimax_head_chunks": HEADS})
+        assert len(seen) == HEADS, (
+            f"transformer_options head chunks ignored: {len(seen)} kernel "
+            f"call(s), expected {HEADS}")
+
     check("plain tensor still works", tensor_path)
     check("single-item list is unwrapped", list_path)
     check("kernel failure falls back with a tensor", fallback_path)
+    check("head chunking reassembles identically", head_chunks_partition)
+    check("head chunks honoured from transformer_options", head_chunks_from_options)
 
     print(f"\n{len(failures)} failure(s)" if failures else "\nall ok")
     return 1 if failures else 0

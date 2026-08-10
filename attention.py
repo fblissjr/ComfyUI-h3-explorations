@@ -198,11 +198,24 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
     return override
 
 
-def make_minimax_attn_forward(kernel_fn, kernel_kwargs):
+def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1):
     """Build a replacement `Attention.forward` bound to one sage kernel.
 
     `kernel_fn(qkv_list, **kernel_kwargs)` must consume the `[q, k, v]`
     list and return an NHD-shaped output.
+
+    `head_chunks` > 1 runs the heads in that many groups, quantizing and
+    attending one group at a time so the kernel's internal transients shrink
+    by roughly the group count. It costs that many kernel launches per call
+    instead of one. On a 24 GB 4090 the headroom this buys was measured to
+    convert to wall-clock at a ~2.6% ceiling (`workflows/h3_config.py`), so
+    this defaults off and exists to make the 1-vs-4 A/B that config asks for
+    runnable through our node rather than only KJNodes'.
+
+    A `transformer_options["minimax_head_chunks"]` published by KJNodes'
+    MiniMaxLowVRAMAttention is honoured when the node's own input is left at
+    1. Without that, installing their node alongside ours silently does
+    nothing: their head chunking lives in a forward that ours displaces.
     """
 
     def forward(self, x, rope_freqs=None, transformer_options={}):
@@ -243,6 +256,22 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs):
             q = self.q_norm(q)
             k = self.k_norm(k)
 
+        n = head_chunks
+        if n <= 1 and isinstance(transformer_options, dict):
+            n = transformer_options.get("minimax_head_chunks", 1)
+        n = max(1, min(int(n), self.heads))
+
+        if n > 1:
+            try:
+                out = _chunked_heads(self, q, k, v, s, n,
+                                     kernel_fn, kernel_kwargs)
+            except Exception as exc:
+                _log_fallback_once(exc)
+                del q, k, v
+                return _stock_forward(self, x, rope_freqs, transformer_options)
+            del q, k, v  # last refs to the fused qkv buffer, before out_proj
+            return self.out_proj(out.view(s, self.heads * self.head_dim))
+
         qkv = [q, k, v]
         del q, k, v  # the list is now the only owner
 
@@ -260,6 +289,30 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs):
         return self.out_proj(out.view(s, self.heads * self.head_dim))
 
     return forward
+
+
+def _chunked_heads(self, q, k, v, s, n, kernel_fn, kernel_kwargs):
+    """Attend `n` head groups in turn, writing into one output buffer.
+
+    The kernel takes ownership of each group's list, but the groups are
+    *views* into the fused qkv buffer, so nothing is actually freed until
+    the caller drops q/k/v. The saving here is in the kernel's own
+    transients -- the int8/fp8 copies it makes per call -- which scale with
+    the head count it is handed, not with what the caller still holds.
+
+    Uneven splits go to the earlier groups (`i < heads % n`), so 56 heads
+    over 5 groups is 12/11/11/11/11 rather than a ragged final group of 4.
+    """
+    out = torch.empty((1, s, self.heads, self.head_dim),
+                      dtype=q.dtype, device=q.device)
+    start = 0
+    for i in range(n):
+        end = start + self.heads // n + (1 if i < self.heads % n else 0)
+        out[:, :, start:end] = kernel_fn(
+            [q[:, :, start:end], k[:, :, start:end], v[:, :, start:end]],
+            **kernel_kwargs)
+        start = end
+    return out
 
 
 def _stock_forward(self, x, rope_freqs, transformer_options):

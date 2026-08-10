@@ -61,6 +61,20 @@ class MiniMaxH3SageAttention(io.ComfyNode):
                         "no consuming entry point for that kernel."
                     ),
                 ),
+                io.Int.Input(
+                    "head_chunks", default=1, min=1, max=56, optional=True,
+                    tooltip=(
+                        "Run the heads in this many groups, shrinking the "
+                        "kernel's internal transients by roughly the group "
+                        "count at the cost of that many launches per call. "
+                        "1 disables it, which is the measured default: on a "
+                        "24 GB 4090 the headroom this buys converts to "
+                        "wall-clock at a ~2.6% ceiling, so it is for fitting "
+                        "a render that otherwise will not fit, not for speed. "
+                        "Left at 1, a head-chunk count published by KJNodes' "
+                        "MiniMax H3 Low VRAM Attention is used instead."
+                    ),
+                ),
                 io.Boolean.Input(
                     "patch_token_refiner", default=False, optional=True,
                     tooltip=(
@@ -75,7 +89,8 @@ class MiniMaxH3SageAttention(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, model, mode="auto", patch_token_refiner=False) -> io.NodeOutput:
+    def execute(cls, model, mode="auto", head_chunks=1,
+                patch_token_refiner=False) -> io.NodeOutput:
         diffusion_model = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(diffusion_model):
             raise RuntimeError(
@@ -85,7 +100,8 @@ class MiniMaxH3SageAttention(io.ComfyNode):
             )
 
         kernel_fn, kernel_kwargs = build_kernel(mode)
-        forward = make_minimax_attn_forward(kernel_fn, kernel_kwargs)
+        forward = make_minimax_attn_forward(kernel_fn, kernel_kwargs,
+                                            head_chunks=head_chunks)
         reset_fallback_state()
 
         m = model.clone()
@@ -121,9 +137,13 @@ class MiniMaxH3SageAttention(io.ComfyNode):
         )
 
         logger.info(
-            "[h3] MiniMax H3 self-attention on sage (mode=%s, "
+            "[h3] MiniMax H3 self-attention on sage (mode=%s, head_chunks=%s, "
             "%d attention modules patched, sage registered as the "
-            "attention-override fallback)", mode, len(targets),
+            "attention-override fallback)",
+            mode,
+            head_chunks if head_chunks > 1 else "1 (off; KJNodes' value used "
+                                               "if its node publishes one)",
+            len(targets),
         )
         return io.NodeOutput(m)
 
