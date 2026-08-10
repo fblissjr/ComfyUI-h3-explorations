@@ -49,6 +49,14 @@ artifact.
 
 ### Fixed
 
+- `head_chunks` moved after `patch_token_refiner` on `MiniMaxH3SageAttention`.
+  Widget values map positionally in saved graphs, so a new widget at index 1
+  landed an older graph's `patch_token_refiner=False` on an INT with `min=1`.
+  The same hazard had been avoided one commit earlier on
+  `MiniMaxH3KeyframeCanvas`'s output slots — the rule is that widgets are
+  positional too, not just outputs. `bench/check_workflow_schema.py` caught
+  this on its own, which is the first time a check added in this release went
+  red on a defect that was not a deliberate mutation.
 - `attention.py` no longer raises `AttributeError: 'list' object has no
   attribute 'shape'` when KJNodes' `MiniMaxLowVRAMAttention` is in the same
   graph. That node patches the *block* forward unconditionally to hand `x`

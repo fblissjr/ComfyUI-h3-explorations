@@ -6,9 +6,17 @@ flagship piece today is SageAttention kernels for consumer video DiTs on Ada
 (RTX 40xx / sm89), built against the
 [SageAttention-ada fork](https://github.com/fblissjr/SageAttention-ada/).
 
-Four nodes ship today: MiniMax H3 SageAttention (below), a keyframe canvas
-node, a bench-only provenance stamp, and an attention-chain assert. See
-[Layout](#layout) for the full list.
+Five nodes ship today: MiniMax H3 SageAttention (below), a keyframe canvas
+node, a reference-image fit node, a bench-only provenance stamp, and an
+attention-chain assert. See [Layout](#layout) for the full list.
+
+A second thread runs through several of them. ComfyUI's H3 implementation
+diverges from the released reference pipeline in places where the difference
+is invisible: it accepts aspect ratios and clip durations the checkpoint was
+never trained on, and it never upscales a reference image where the reference
+does. Those limits now live in `h3_rules.py` with a citation to the reference
+source for each, and the nodes enforce them rather than leaving a render that
+succeeds and is quietly wrong.
 
 ## What it does
 
@@ -205,26 +213,47 @@ consistently louder on audio for reasons not yet established.
 ## Layout
 
 ```
-attention.py       kernel selection, the replacement Attention.forward,
-                    and the optimized_attention_override
+attention.py       kernel selection, the replacement Attention.forward
+                    (with optional head chunking), and the
+                    optimized_attention_override
 nodes.py            MiniMax H3 SageAttention, the flagship node
 assert_chain.py     Assert Sage Attention Chain -- fails the render if the
                     attention chain did not compose as intended
 keyframe_canvas.py  MiniMax H3 Keyframe Canvas -- derives the generation
-                    canvas from a keyframe instead of silently distorting it
+                    canvas from a keyframe instead of silently distorting it,
+                    and enforces the trained aspect and duration limits
+reference_fit.py    MiniMax H3 Reference Fit -- sizes a reference image the
+                    way the reference pipeline does, including upscaling
 provenance.py       MiniMax H3 Provenance Stamp (bench) -- records what a
                     render's settings actually resolved to
+h3_rules.py         the reference pipeline's input limits in one place:
+                    aspect range, duration window, the 17n+5 frame grid
 docs/               geometry/node notes and the Sol-Attn interop writeup
+coderef/            gitignored symlinks to the reference implementations
+                    (diffusers, DiffSynth-Studio, comfy-kitchen), which the
+                    rules above and several checks cite by file and line
 workflows/          generated example graphs; see build_workflows.py for
                     how they're built and h3_config.py for shared settings
 bench/
   bench_minimax_attn.py      per-module speed + peak VRAM
   bench_e2e_h3.py            full render A/B against a running ComfyUI,
-                             selectable arms via --arms
+                             with arm, canvas, VAE and VRAM-knob axes
+                             (--arms, --canvases, --video-vae, --vram-arms)
+                             and a sampled peak-VRAM column
   check_correctness.py       patched forward vs the stock one
   check_override_routing.py  which calls the override sends to sage
-                             (no CUDA needed)
+  check_lowvram_handoff.py   the forward survives KJNodes' block hand-off,
+                             and head chunking reassembles identically
+  check_keyframe_canvas.py   canvas derivation, plus the aspect and
+                             duration limits ComfyUI does not enforce
+  check_reference_fit.py     reference sizing against both upstream rules
+  check_solattn_correctness.py  Sol-Attn's Triton kernels against the
+                             algorithm author's own eager implementation
+  check_workflow_schema.py   saved UI graphs against a live /object_info
 ```
+
+Everything from `check_override_routing.py` down runs without CUDA except
+`check_solattn_correctness.py`, which needs a GPU and Triton.
 
 Run bench arms one per process. Peak VRAM is biased by a prior arm training
 the caching allocator, and `bench_e2e_h3.py` varies the seed per iteration
