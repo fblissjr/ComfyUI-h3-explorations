@@ -13,6 +13,7 @@ from comfy_api.latest import ComfyExtension, io
 from .assert_chain import SageChainAssert
 from .keyframe_canvas import MiniMaxH3KeyframeCanvas
 from .provenance import MiniMaxH3ProvenanceStamp
+from .reference_fit import MiniMaxH3ReferenceFit
 
 from .attention import (
     MODES,
@@ -151,7 +152,7 @@ class MiniMaxH3SageAttention(io.ComfyNode):
 class H3ExplorationsExtension(ComfyExtension):
     async def get_node_list(self):
         return [MiniMaxH3SageAttention, SageChainAssert, MiniMaxH3KeyframeCanvas,
-                MiniMaxH3ProvenanceStamp]
+                MiniMaxH3ReferenceFit, MiniMaxH3ProvenanceStamp]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:
