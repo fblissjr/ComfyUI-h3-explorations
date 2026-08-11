@@ -128,6 +128,36 @@ from h3_rules import (  # noqa: E402
 )
 
 
+def _resolution_widgets(width, height, length):
+    """The Resolution node's inputs for an explicit width/height.
+
+    Reverse of what the node does: find which band holds this resolution and
+    which option label names it, so a graph asking for 1344x768 selects the
+    entry that says what it costs rather than typing two numbers that say
+    nothing. Falls back to `custom` for anything outside the trained family,
+    which the node then reports as outside rather than refusing.
+    """
+    # Load resolution.py by path rather than as a package member: importing
+    # the package runs its __init__ and nodes.py, which need comfy_api. The
+    # module's own imports need ComfyUI's root (comfy_api) and this repo's
+    # root (h3_rules), both of which this script otherwise runs without.
+    import importlib.util
+
+    for extra in (HERE.parent.parent.parent, HERE.parent):
+        if str(extra) not in sys.path:
+            sys.path.insert(0, str(extra))
+    spec = importlib.util.spec_from_file_location(
+        "_h3_resolution_for_build", HERE.parent / "resolution.py")
+    res = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(res)
+
+    for band, entries in res._resolutions().items():
+        if (width, height) in entries:
+            return {"shape": band, f"{band}_resolution": res._label(width, height),
+                    "length": length}
+    return {"shape": "custom", "width": width, "height": height, "length": length}
+
+
 def _ref_short_edge():
     """ComfyUI's reference short edge, read rather than repeated.
 
@@ -241,10 +271,17 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                           "pingpong": False, "save_output": True}},
     }
 
+    # Resolution decides the geometry for every task except i2v, where the
+    # keyframe decides it and MiniMaxH3KeyframeCanvas is the node that does.
+    if task != "i2v":
+        g["27"] = {"class_type": "MiniMaxH3Resolution",
+                   "inputs": _resolution_widgets(cv["width"], cv["height"], length)}
+
     if ref:
         g["5"] = {"class_type": "MiniMaxH3ReferenceToVideo",
                   "inputs": {"clip": ["2", 0], "vae": ["3", 0], "audio_vae": ["4", 0],
-                             "prompt": prompt, "width": cv["width"], "height": cv["height"],
+                             "prompt": prompt,
+                             "width": ["27", 0], "height": ["27", 1],
                              # 'max' rather than 'match', and the pairing is
                              # load-bearing: under 'match' the stock node sizes
                              # references from the video's pixel area and never
@@ -270,8 +307,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                  "short_edge": _ref_short_edge(),
                                  "lift_downstream_clamp": False}}
     else:
-        inputs = {"clip": ["2", 0], "vae": ["3", 0], "prompt": prompt,
-                  "width": cv["width"], "height": cv["height"], "length": length}
+        # i2v takes its geometry from the keyframe node (below); every other
+        # task takes it from Resolution, so the cost of the choice is visible
+        # on the node where the choice is made.
+        inputs = {"clip": ["2", 0], "vae": ["3", 0], "prompt": prompt}
+        if task == "i2v":
+            inputs |= {"width": cv["width"], "height": cv["height"], "length": length}
+        else:
+            inputs |= {"width": ["27", 0], "height": ["27", 1], "length": ["27", 2]}
         if task == "i2v":
             # first_frame only. Wiring node 17's last_frame from a second
             # LoadImage turns this into the fl2va task the checkpoint is named
@@ -1047,6 +1090,21 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         g.link(model_src, 0, prev_node, "model", "MODEL")
         model_src = prev_node
 
+    # See build_api: geometry comes from Resolution everywhere except i2v,
+    # where the keyframe decides it.
+    resn = None
+    if task != "i2v":
+        rw = _resolution_widgets(cv["width"], cv["height"], length)
+        order = ["shape"] + [k for k in rw if k not in ("shape", "length")] + ["length"]
+        resn = g.add("MiniMaxH3Resolution", (-1900, 900), size=(400, 200),
+                     widgets=[rw[k] for k in order],
+                     outputs=[_out("width", "INT"), _out("height", "INT"),
+                              _out("length", "INT"), _out("video_tokens", "INT"),
+                              _out("tokens_per_frame", "INT"),
+                              _out("attn_cost_vs_16_9", "FLOAT"),
+                              _out("summary", "STRING")],
+                     title="Resolution: shape, and what it costs")
+
     img_a = img_b = None
     if ref:
         cond_inputs = [
@@ -1061,7 +1119,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         ]
         cond = g.add("MiniMaxH3ReferenceToVideo", (-460, 0), size=(430, 620),
                      widgets=[prompt, cv["width"], cv["height"], length, "max"],
-                     inputs=cond_inputs,
+                     inputs=cond_inputs + [
+                         _in("width", "INT", widget=True), _in("height", "INT", widget=True),
+                         _in("length", "INT", widget=True)],
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
         img_a = g.add("LoadImage", (-880, 640), size=(290, 330),
                       widgets=[PLACEHOLDER_IMAGE_A, "image"],
@@ -1099,7 +1159,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                             _in("length", "INT", widget=True)]
         cond = g.add("MiniMaxH3ImageToVideo", (-460, 0), size=(430, 560),
                      widgets=[prompt, cv["width"], cv["height"], length],
-                     inputs=cond_inputs,
+                     inputs=cond_inputs + ([] if task == "i2v" else [
+                         _in("width", "INT", widget=True), _in("height", "INT", widget=True),
+                         _in("length", "INT", widget=True)]),
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
         g.link(vvae, 0, cond, "vae", "VAE")
         if task == "i2v":
@@ -1181,6 +1243,11 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
 
     g.link(model_src, 0, sched, "model", "MODEL")
     g.link(model_src, 0, guider, "model", "MODEL")
+    if resn is not None:
+        g.link(resn, 0, cond, "width", "INT")
+        g.link(resn, 1, cond, "height", "INT")
+        g.link(resn, 2, cond, "length", "INT")
+
     # Pass-through, between conditioning and the sampler, so the report is
     # about the graph that is actually going to run.
     pre = g.add("MiniMaxH3Preflight", (-60, 640), size=(420, 260),
@@ -1302,6 +1369,15 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
                 for w in widgets:
                     if isinstance(w, list) and w and isinstance(w[0], str):
                         known.setdefault(w[0], None)
+            # A DynamicCombo declares each option's inputs nested under
+            # `options`, not as top-level inputs, and the API prompt carries
+            # them flat for ComfyUI to re-nest. Second shape of the same
+            # not-fully-static input set that `formats` was.
+            for option in (meta.get("options") or []):
+                inner = (option.get("inputs") or {}) if isinstance(option, dict) else {}
+                for section in ("required", "optional"):
+                    for name in (inner.get(section) or {}):
+                        known.setdefault(name, None)
 
         given = node["inputs"]
         for name in req:

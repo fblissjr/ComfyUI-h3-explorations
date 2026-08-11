@@ -104,6 +104,40 @@ def widget_inputs(spec):
     return out
 
 
+def expand_dynamic_combo(spec, wants, values):
+    """Insert a DynamicCombo's selected option's widgets after the combo.
+
+    A `DynamicCombo` declares each option's inputs nested under `options`, so
+    `widget_inputs` sees only the combo itself and the count comes up short by
+    however many the selection reveals. The frontend renders the revealed
+    widgets immediately after the combo, and this repo's generator writes them
+    there; if that assumption is ever wrong, a round-trip through the editor
+    shows up here as a count or type mismatch, which is the intended failure.
+    """
+    out = []
+    for i, (name, typ, choices) in enumerate(wants):
+        out.append((name, typ, choices))
+        if typ != "COMBO":
+            continue
+        opts = next((o for _s, n, _t, o in _inputs(spec) if n == name), {}) or {}
+        options = opts.get("options")
+        if not isinstance(options, list) or not options or i >= len(values):
+            continue
+        chosen = values[i]
+        for option in options:
+            if not isinstance(option, dict) or option.get("key") != chosen:
+                continue
+            inner = option.get("inputs") or {}
+            for section in ("required", "optional"):
+                for nm, val in (inner.get(section) or {}).items():
+                    o = val[1] if len(val) > 1 and isinstance(val[1], dict) else {}
+                    if is_combo(val[0]):
+                        out.append((nm, "COMBO", choices_of(val[0], o)))
+                    else:
+                        out.append((nm, val[0], None))
+    return out
+
+
 def format_widgets(spec, chosen):
     """Widgets a combo value pulls in, e.g. VHS_VideoCombine's per-format set.
 
@@ -197,8 +231,10 @@ def check(wf, object_info):
                         f"node declares {outs[i]!r}")
 
         wants = widget_inputs(spec)
-        allowed = len(wants) + EXTRA_WIDGETS.get(t, 0)
         has = n.get("widgets_values")
+        if isinstance(has, list):
+            wants = expand_dynamic_combo(spec, wants, has)
+        allowed = len(wants) + EXTRA_WIDGETS.get(t, 0)
         if isinstance(has, list) and not len(wants) <= len(has) <= allowed:
             flag(n, f"{len(has)} widgets_values, node has {len(wants)} widgets "
                     f"{[w[0] for w in wants]}")

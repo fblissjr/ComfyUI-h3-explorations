@@ -4,6 +4,23 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.8.0
+
+### Added
+
+- `MiniMaxH3Resolution` is wired into every graph except first-frame, where
+  the keyframe decides the geometry and `MiniMaxH3KeyframeCanvas` is the node
+  that does it. Width, height and length now arrive as links from a node whose
+  dropdown says what the choice costs, instead of as two numbers that say
+  nothing: `1344x768  7/4  1008 tok/frame  1.00x`.
+- Both validators learned that a `DynamicCombo` declares its option inputs
+  nested under `options` rather than as top-level inputs. `validate_api`
+  called them unknown; `check_workflow_schema` counted the widgets short.
+  Third and fourth instance of the same shape -- a node whose input set is
+  not fully static -- after VHS's format widgets and dynamic member slots.
+  The UI branch was shown red by removing it and watching the count mismatch
+  return.
+
 ## 0.7.3
 
 ### Fixed
