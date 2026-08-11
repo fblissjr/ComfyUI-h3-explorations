@@ -4,6 +4,26 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.4.2
+
+### Fixed
+
+- `MiniMaxH3ReferenceFit` over-reported its cost by 4x. It counted VAE latent
+  cells, where the DiT patchifies those 2x2 before attending them, so a
+  reference fitted to 2048x2048 reports 4096 vision tokens and not 16384.
+  The 0.3.0 entry's "1024 latent rows instead of 16384" was the same error:
+  the real figures are 256 and 4096.
+- `check_reference_fit.py` imported the node's own `_rows` and graded it
+  against itself, so it passed while every number was 4x high. It now checks
+  against `comfy.ldm.minimax.model._frame_grid`, which is what actually
+  builds the reference block. Reverting the math turns 7 cases red.
+
+### Changed
+
+- That output is now `vision_tokens` rather than `latent_rows`, matching
+  standard transformer terminology: tokens qualified by modality, sequence
+  length for the total.
+
 ## 0.4.1
 
 ### Added

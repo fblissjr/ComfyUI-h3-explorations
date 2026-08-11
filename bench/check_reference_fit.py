@@ -28,7 +28,7 @@ Claims, i.e. what breaks if a case is deleted:
                             is lossy.
   aspect refused            the reference rejects reference images outside
                             1:4..4:1 and ComfyUI does not
-  cost is reported          latent_rows must match what the DiT will
+  cost is reported          vision_tokens must match what the DiT will
                             actually attend, since it is the only signal
                             that upscaling is not free
 
@@ -64,7 +64,7 @@ from comfy_extras.nodes_minimax_h3 import (CANVAS_MULTIPLE,  # noqa: E402
                                            REF_IMAGE_SHORT_EDGE, _resize)
 
 sys.path.insert(0, str(HERE.parent))              # this repo
-from reference_fit import MiniMaxH3ReferenceFit, _rows  # noqa: E402
+from reference_fit import MiniMaxH3ReferenceFit, _tokens  # noqa: E402
 
 # below 2048, exactly 2048, above, non-square, and a portrait
 SOURCES = [(512, 512), (768, 512), (2048, 2048), (4096, 2304), (512, 1024),
@@ -133,13 +133,30 @@ for w, h in SOURCES:
 
 print("\n--- 3. the gap: small references lose rows under ComfyUI's rule ---")
 for w, h in SOURCES:
-    ref_rows = _rows(*reference_rule(w, h))
-    comfy_rows = _rows(*comfy_rule(w, h))
+    ref_tokens = _tokens(*reference_rule(w, h))
+    comfy_tokens = _tokens(*comfy_rule(w, h))
     smaller = min(w, h) < REF_IMAGE_SHORT_EDGE
-    check(f"{w}x{h}: reference {ref_rows} rows vs ComfyUI {comfy_rows}",
-          (ref_rows > comfy_rows) == smaller,
+    check(f"{w}x{h}: reference {ref_tokens} rows vs ComfyUI {comfy_tokens}",
+          (ref_tokens > comfy_tokens) == smaller,
           f"({'expected a gap' if smaller else 'expected none'}"
-          + (f", {ref_rows / comfy_rows:.0f}x)" if comfy_rows and smaller else ")"))
+          + (f", {ref_tokens / comfy_tokens:.0f}x)" if comfy_tokens and smaller else ")"))
+
+print("\n--- 3b. the token count matches the model's own patchify ---")
+# Graded against comfy's `_frame_grid`, which is what actually builds the
+# reference block's rows, rather than against `_tokens` on both sides. Until
+# 2026-08-11 this section compared the node's arithmetic with itself and
+# passed while over-reporting every figure by 4x: it counted VAE latent
+# cells and the DiT patchifies those 2x2 before attending them.
+try:
+    from comfy.ldm.minimax.model import _frame_grid
+    for w, h in SOURCES:
+        tw, th = reference_rule(w, h)
+        want = _frame_grid(th // 16, tw // 16)[0].shape[0]
+        check(f"{w}x{h}: {_tokens(tw, th)} tokens vs model {want}",
+              _tokens(tw, th) == want,
+              f"node says {_tokens(tw, th)}, _frame_grid says {want}")
+except ImportError:
+    print("  (skipped: comfy not importable)")
 
 print("\n--- 4. after this node, the stock node's own resize is a no-op ---")
 for w, h in SOURCES:
@@ -151,7 +168,7 @@ for w, h in SOURCES:
     again = _resize(out, tw, th, "disabled")
     check(f"{w}x{h}: stock path is identity", torch.equal(again, out),
           f"fitted {fw}x{fh}, stock would use {tw}x{th}")
-    check(f"{w}x{h}: latent_rows matches the fitted size", rows == _rows(fw, fh))
+    check(f"{w}x{h}: vision_tokens matches the fitted size", rows == _tokens(fw, fh))
 
 print("\n--- 5. the reference's 1:4..4:1 limit on reference images ---")
 for (w, h), want_ok in [((2048, 2048), True), ((4096, 1024), True),

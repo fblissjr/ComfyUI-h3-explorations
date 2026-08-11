@@ -86,7 +86,7 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
-                io.Int.Output(display_name="latent_rows"),
+                io.Int.Output(display_name="vision_tokens"),
             ],
         )
 
@@ -115,17 +115,17 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
         out = _resize(image[:1], tw, th, "disabled")
         # What the DiT actually pays: reference latents are 16x downsampled
         # spatially, and every one of these rows is attended at every step.
-        latent_rows = _rows(tw, th)
+        tokens = _tokens(tw, th)
         # Always against ComfyUI's current behaviour, so the log answers "what
         # is this node changing" rather than restating what it just did.
-        stock_rows = _rows(*_fit(src_w, src_h, min(1.0, full)))
+        stock_tokens = _tokens(*_fit(src_w, src_h, min(1.0, full)))
 
         logger.info(
             "[h3] reference %dx%d -> %dx%d (%s, short_edge=%d): %d latent rows, "
             "%.2gx ComfyUI's own sizing", src_w, src_h, tw, th, mode,
-            short_edge, latent_rows, latent_rows / stock_rows,
+            short_edge, tokens, tokens / stock_tokens,
         )
-        return io.NodeOutput(out, latent_rows)
+        return io.NodeOutput(out, tokens)
 
 
 def _fit(w, h, scale):
@@ -135,5 +135,14 @@ def _fit(w, h, scale):
     return snap(w), snap(h)
 
 
-def _rows(w, h):
-    return (h // 16) * (w // 16)
+def _tokens(w, h):
+    """Vision tokens a reference of this pixel size contributes to the DiT.
+
+    Two stages, not one. The VAE compresses space by 16, then the DiT
+    patchifies that latent with `patch_size=(1, 2, 2)` before anything is
+    attended (`comfy/ldm/minimax/model.py`, `patchify_video`). Counting only
+    the VAE stage reports four times what the sequence actually carries,
+    which is what this function did until 2026-08-11 and what the number in
+    the 0.3.0 changelog entry came from.
+    """
+    return (h // 32) * (w // 32)
