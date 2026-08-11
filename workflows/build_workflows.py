@@ -471,10 +471,24 @@ class UIGraph:
         for n in self.nodes:
             n["order"] = order[n["id"]]
 
+    @staticmethod
+    def _uuid_for(name: str) -> str:
+        """A stable UUID for a graph, derived from its name.
+
+        The frontend writes `id` as a UUID and we were writing a readable
+        slug. Deterministic rather than random so regenerating a graph does
+        not churn its identity in git, and so the same graph keeps the same
+        id across machines.
+        """
+        import uuid
+
+        return str(uuid.uuid5(uuid.NAMESPACE_URL,
+                              f"https://github.com/fbliss/h3-explorations/{name}"))
+
     def dump(self, workflow_id: str) -> dict:
         self._topo_order()
         return {
-            "id": workflow_id, "revision": 0,
+            "id": self._uuid_for(workflow_id), "revision": 0,
             "last_node_id": self._next_node - 1,
             "last_link_id": self._next_link - 1,
             "nodes": self.nodes, "links": self.links, "groups": [],
