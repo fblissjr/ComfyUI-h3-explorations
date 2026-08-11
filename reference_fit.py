@@ -171,6 +171,10 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
             "%d vision tokens, %.2gx ComfyUI's own sizing", src_w, src_h, tw, th, allow_upscale,
             short_edge, tokens, tokens / stock_tokens,
         )
+        if not lift_downstream_clamp:
+            # An arm from a previous prompt would otherwise survive the
+            # checkbox being switched off.
+            disarm_short_edge_override()
         if lift_downstream_clamp and short_edge > REF_IMAGE_SHORT_EDGE:
             arm_short_edge_override(short_edge)
         elif lift_downstream_clamp:
@@ -289,6 +293,16 @@ def _install_wrapper():
 
     node = core.MiniMaxH3ReferenceToVideo
     current = node.__dict__.get("execute")
+    if current is None:
+        # Inherited from a base or a mixin rather than defined here. Wrapping
+        # `None` would install `classmethod(_make_wrapper(None))` and kill
+        # every reference render in the process, including graphs that never
+        # touched the experimental flag, since the wrapper is global.
+        logger.warning(
+            "[h3] cannot install the short-edge override: "
+            "MiniMaxH3ReferenceToVideo.execute is not defined on the class. "
+            "Upstream moved it; the override will not apply.")
+        return
     inner = current.__func__ if isinstance(current, classmethod) else current
     if getattr(inner, _WRAP_MARKER, False):
         return
@@ -296,7 +310,28 @@ def _install_wrapper():
 
 
 def arm_short_edge_override(value):
-    """Arm the override for the next downstream ReferenceToVideo call."""
+    """Arm the override for the next downstream ReferenceToVideo call.
+
+    Arming is per fit node and consumption is per downstream call, and a
+    graph has one `ReferenceToVideo` for however many references. So two fit
+    nodes arm and one call consumes, and the survivor would sit in the module
+    until some later prompt picked it up -- a render getting an override it
+    never asked for, after the checkbox was turned off. Arming with the same
+    value twice is therefore idempotent by construction, and `disarm` below
+    clears anything left over at the start of each fit node.
+    """
     global _PENDING_SHORT_EDGE
     _install_wrapper()
+    if _PENDING_SHORT_EDGE not in (None, value):
+        logger.warning(
+            "[h3] short-edge override was already armed at %d and is now %d. "
+            "Set the same short_edge on every Reference Resolution node in a "
+            "graph; the downstream node reads one value for all of them.",
+            _PENDING_SHORT_EDGE, value)
     _PENDING_SHORT_EDGE = value
+
+
+def disarm_short_edge_override():
+    """Drop any arm left over from a previous prompt."""
+    global _PENDING_SHORT_EDGE
+    _PENDING_SHORT_EDGE = None

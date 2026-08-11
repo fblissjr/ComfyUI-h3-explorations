@@ -335,10 +335,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     # still succeeds and is quietly slower or numerically different. This
     # turns that into a refused render. `exercise` stays on: install-time
     # evidence is exactly what today has taught us not to trust.
+    # `warn_only` follows `sage`: with the node absent this graph is a
+    # control arm, and a gate that always raises on the control makes the
+    # comparison impossible to run rather than making it safe.
     g["23"] = {"class_type": "SageChainAssert",
-               "inputs": {"model": model_src, "require_override": True,
-                          "require_forward_patch": True, "exercise": True,
-                          "warn_only": False}}
+               "inputs": {"model": model_src, "require_override": sage,
+                          "require_forward_patch": sage, "exercise": sage,
+                          "warn_only": not sage}}
     model_src = ["23", 0]
 
     # Reports what the assembled conditioning actually costs, before the
@@ -562,7 +565,7 @@ fourteen unless you have a reason.
 
 ## If you want this decided for you
 
-`MiniMax H3 Keyframe Canvas` (this repo) derives the resolution from your
+`MiniMax H3 Keyframe Resolution` (this repo) derives the resolution from your
 first keyframe the way the reference pipeline does, fits the keyframes onto
 it, and reports the cost before you render. The first-frame graph is wired
 that way. Text-to-video has no keyframe to derive from, so type a row above.
@@ -1135,7 +1138,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # See the matching note in build_api: last in the chain, asserting the
     # composition rather than any single node's intent.
     assert_node = g.add("SageChainAssert", (-480, 0), size=(360, 130),
-                        widgets=[True, True, True, False],
+                        widgets=[sage, sage, sage, not sage],
                         inputs=[_in("model", "MODEL")],
                         outputs=[_out("model", "MODEL")],
                         title="Assert the attention chain composed")

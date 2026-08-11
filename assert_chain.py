@@ -104,24 +104,47 @@ class SageChainAssert(io.ComfyNode):
         if not torch.cuda.is_available():
             return None, "no CUDA device; skipped"
 
+        # Find the counters by capability rather than by name. ComfyUI
+        # registers a directory custom node under a key derived from its path
+        # (`nodes.py`, `sys_module_name = module_path.replace(".", "_x_")`),
+        # not under its folder name, so `import_module("ComfyUI-SolAttn_triton")`
+        # resolves in a standalone shell and never inside ComfyUI. This check
+        # ran registration-only from the day it was written until 2026-08-11,
+        # and said so in a line nobody read, under a final "chain assert ok".
+        stats_fn = None
         try:
-            import importlib
-            sol = importlib.import_module("ComfyUI-SolAttn_triton")
-            # Read a delta rather than resetting: the counters are shared
-            # process state and another node may be accumulating them.
-            stats_fn = sol.sol_attn_stats
+            import sys as _sys
+
+            for _mod in list(_sys.modules.values()):
+                fn = getattr(_mod, "sol_attn_stats", None)
+                if callable(fn):
+                    # Read a delta rather than resetting: the counters are
+                    # shared process state and another node may be
+                    # accumulating them.
+                    stats_fn = fn
+                    break
+            if stats_fn is None:
+                import importlib
+                stats_fn = importlib.import_module(
+                    "ComfyUI-SolAttn_triton").sol_attn_stats
         except Exception:
+            stats_fn = None
+        if stats_fn is None:
             return None, ("sparse-attention counters not importable, so routing "
                           "could not be confirmed at call time; registration "
                           "checks above still passed")
 
         # min_tokens defaults to 4096 and the kernel needs head_dim 128, so a
         # genuinely small probe would be declined for being small -- which
-        # would look identical to a broken chain. Named in the [B, S, H, D]
-        # layout the override actually takes, so the unpack order and the
-        # construction order agree; a file whose job is being trustworthy
-        # should not read like it has a transposed-axis bug.
-        BATCH, SEQ, HEADS, HEAD_DIM = 1, 4608, 56, 128
+        # would look identical to a broken chain.
+        #
+        # [B, H, S, D] with skip_reshape=True, which is what
+        # `comfy/ldm/minimax/model.py:172` sends. The first version of this
+        # probe used [B, S, H, D] and passed no skip_reshape, which is the
+        # layout the override *produces* internally rather than one it
+        # accepts, so it took the 3D branch and died unpacking four values
+        # into three. It had never executed, so nothing caught that.
+        BATCH, HEADS, SEQ, HEAD_DIM = 1, 56, 4608, 128
         dt = torch.bfloat16
 
         # 3 x 66 MB of probe, plus the kernel's own output and workspace, at the
@@ -137,13 +160,14 @@ class SageChainAssert(io.ComfyNode):
                           f"above still passed; routing was not confirmed at "
                           f"call time")
 
-        q, k, v = (torch.randn(BATCH, SEQ, HEADS, HEAD_DIM, device="cuda", dtype=dt)
+        q, k, v = (torch.randn(BATCH, HEADS, SEQ, HEAD_DIM, device="cuda", dtype=dt)
                    for _ in range(3))
         before = dict(stats_fn())
         try:
             with torch.inference_mode():
                 override(lambda *a, **kw: torch.zeros_like(q),
-                         q, k, v, HEADS, transformer_options=dict(to))
+                         q, k, v, HEADS, skip_reshape=True,
+                         transformer_options=dict(to))
         except Exception as exc:
             return False, f"composed attention raised on a probe call: {exc!r}"
         finally:

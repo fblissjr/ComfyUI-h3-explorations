@@ -225,6 +225,19 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
         if mask is not None or kwargs.get("scale") is not None:
             return fallback()
 
+        # Shape joins mask and scale as a reason to decline rather than to
+        # raise. This override exists to catch calls another patch handed
+        # back, so the one case where a safety net earns its keep is a caller
+        # nobody predicted -- and until 2026-08-11 an unexpected ndim killed
+        # the render instead of degrading. Our own chain probe was that
+        # caller, which is how it was found.
+        want_ndim = 4 if skip_reshape else 3
+        if q.ndim != want_ndim or k.ndim != want_ndim or v.ndim != want_ndim:
+            _log_fallback_once(ValueError(
+                f"expected {want_ndim}D q/k/v for skip_reshape={skip_reshape}, "
+                f"got {q.ndim}D/{k.ndim}D/{v.ndim}D"))
+            return fallback()
+
         if skip_reshape:
             b, _, _, dim_head = q.shape
             layout = "HND"

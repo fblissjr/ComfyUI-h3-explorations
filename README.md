@@ -218,8 +218,8 @@ are generating from. You never need more than two.
 | node | use it when | what it decides |
 |---|---|---|
 | MiniMax H3 Resolution | text-to-video, or reference-to-video | the video's resolution and length, chosen by shape, with the cost shown before you commit |
-| MiniMax H3 Keyframe Canvas | first-frame-to-video | the same, but derived from your keyframe, because a keyframe is patchified on the video's own latent grid and the two must match |
-| MiniMax H3 Reference Fit | any graph with reference images | how large each reference arrives, which sets the vision tokens it contributes. Independent of the video's resolution |
+| MiniMax H3 Keyframe Resolution | first-frame-to-video | the same, but derived from your keyframe, because a keyframe is patchified on the video's own latent grid and the two must match |
+| MiniMax H3 Reference Resolution | any graph with reference images | how large each reference arrives, which sets the vision tokens it contributes. Independent of the video's resolution |
 
 The rule that separates the last two, since both resize an image:
 
@@ -256,11 +256,11 @@ assert_chain.py     Assert Sage Attention Chain -- fails the render if the
 resolution.py       MiniMax H3 Resolution -- pick a resolution by shape and
                     see its token cost in the dropdown you pick it from;
                     says whether you are inside the trained family
-keyframe_canvas.py  MiniMax H3 Keyframe Canvas -- derives the video
+keyframe_canvas.py  MiniMax H3 Keyframe Resolution -- derives the video
                     resolution from a keyframe instead of silently
                     distorting it, and enforces the trained aspect and
                     duration limits
-reference_fit.py    MiniMax H3 Reference Fit -- sizes a reference image the
+reference_fit.py    MiniMax H3 Reference Resolution -- sizes a reference image the
                     way the reference pipeline does, including upscaling
 provenance.py       MiniMax H3 Provenance Stamp (bench) -- records what a
                     render's settings actually resolved to

@@ -4,6 +4,48 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.7.1
+
+### Fixed
+
+- `MiniMaxH3Resolution` ignored every widget and always returned 1344x768. A
+  `DynamicCombo` arrives as one nested dict -- the selected key under the
+  input's own id, the chosen option's inputs alongside it -- not as flattened
+  kwargs. It read `shape.get("key")` and took its values from `**kw`, so every
+  selection fell through to the custom branch and picked up the literal
+  defaults. Its test passed because the test called `execute` with flattened
+  kwargs: the caller was invented rather than observed, so the test agreed
+  with the bug.
+- The armed short-edge override could outlive its prompt. Arming is per fit
+  node and consumption is per downstream call, and a graph has two fit nodes
+  feeding one `ReferenceToVideo`, so the second arm survived into whatever ran
+  next. Each fit node now disarms on entry when the flag is off, and a
+  mismatched second arm warns.
+- `_install_wrapper` would install `classmethod(_make_wrapper(None))` if
+  upstream ever moved `execute` to a base class, killing every reference
+  render in the process including graphs that never enabled the flag. It now
+  declines and says why.
+- `SageChainAssert` was emitted with `warn_only=False` even for `sage=False`,
+  so a control arm would always raise at the gate. `warn_only` now follows
+  `sage`.
+- The display renames reached the nodes but not the shipped in-graph note,
+  the README, or `docs/h3_geometry_and_nodes.md`, which still told readers to
+  search for names the menu no longer has. Two notes in the same graph
+  disagreed.
+
+### Changed
+
+- `SageChainAssert` finds Sol-Attn's counters by capability rather than by
+  module name. ComfyUI registers a directory custom node under a path-derived
+  key, so `import_module("ComfyUI-SolAttn_triton")` resolved in a shell and
+  never inside ComfyUI: the call-time probe had never executed once since the
+  node was written, and every render printed `chain assert ok` with its
+  strongest evidence skipped.
+- The override declines an unexpected `q.ndim` instead of raising. It exists
+  to catch calls another patch handed back, so the case where a safety net
+  earns its keep is a caller nobody predicted -- and it killed the render
+  instead of degrading. Our own probe was that caller.
+
 ## 0.7.0
 
 ### Added

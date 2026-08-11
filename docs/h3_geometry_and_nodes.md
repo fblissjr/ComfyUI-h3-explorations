@@ -85,7 +85,7 @@ registers an `optimized_attention_override`. That second registration is
 what lets Sol-Attn compose rather than silently bypassing sage. Defaults are
 the intended config.
 
-**`MiniMax H3 Keyframe Canvas`** — use it on every i2v and fl2v graph.
+**`MiniMax H3 Keyframe Resolution`** — use it on every i2v and fl2v graph.
 `MiniMaxH3ImageToVideo` takes `width`/`height` as required inputs defaulting
 to 1344x768, and non-uniformly stretches the first keyframe onto them. That
 stretch is faithful to the reference pipeline, which also stretches the

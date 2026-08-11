@@ -187,15 +187,27 @@ class MiniMaxH3Resolution(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, shape, length=124, **kw) -> io.NodeOutput:
+    def execute(cls, shape, length=124) -> io.NodeOutput:
         from comfy_extras.nodes_minimax_h3 import adapt_canvas, temporal_shape
 
-        key = shape if isinstance(shape, str) else shape.get("key", "custom")
+        # A DynamicCombo arrives as ONE nested dict, not as flattened kwargs:
+        # the selected key under the input's own id, and the chosen option's
+        # inputs alongside it. Core reads it the same way -- see
+        # `comfy_extras/nodes_depth_anything_3.py`, `mode["mode"]` then
+        # `mode["pose_method"]`.
+        #
+        # The first version of this read `shape.get("key")` and took its
+        # option inputs from `**kw`, so every selection fell through to the
+        # custom branch and every render came out 1344x768 whatever you
+        # picked. It passed its test because the test called `execute` with
+        # flattened kwargs -- I invented the caller instead of using the real
+        # one, so the test agreed with the bug.
+        key = shape if isinstance(shape, str) else shape["shape"]
         if key == "custom":
-            width = int(kw.get("width", 1344))
-            height = int(kw.get("height", 768))
+            width = int(shape["width"])
+            height = int(shape["height"])
         else:
-            width, height = _parse(kw[f"{key}_resolution"])
+            width, height = _parse(shape[f"{key}_resolution"])
 
         notes = []
         if width % 32 or height % 32:
