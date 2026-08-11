@@ -450,6 +450,27 @@ def _chunked_heads(self, q, k, v, s, n, kernel_fn, kernel_kwargs):
 
     Uneven splits go to the earlier groups (`i < heads % n`), so 56 heads
     over 5 groups is 12/11/11/11/11 rather than a ragged final group of 4.
+
+    **This path carries a flat 572 MiB the single-shot path does not**, at
+    S=41822: the `out` buffer below is full size, where the unchunked path
+    returns the kernel's own output and allocates nothing extra. Measured
+    2026-08-11, extra allocated across the loop:
+
+        n=1  1144 MiB     out 572 + one full-size group output 572
+        n=2   858 MiB     out 572 + 286
+        n=4   715 MiB     out 572 + 143
+        n=8   643 MiB     out 572 + 72
+
+    So the floor for chunking is `full output + largest group transient`, and
+    it is why chunking's advantage stops improving: the group term halves with
+    n while the 572 does not move. Chunking still measures lower per call
+    overall (2645 against 2862 at n=4) because the kernel's own int8/fp8
+    transients shrink faster than this costs -- but the constant is the reason
+    that lead narrows rather than scaling.
+
+    Not removable by assembling differently: concatenating groups at the end
+    would hold every group at once, which is worse. It would need a kernel
+    that writes into a caller-provided view.
     """
     out = torch.empty((1, s, self.heads, self.head_dim),
                       dtype=q.dtype, device=q.device)
