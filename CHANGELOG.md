@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.3.3
+
+### Changed
+
+- The clone is now gated on sage's own
+  `sageattn_consume_prefers_cloned_v(device)` as well as the mode, and asked
+  in the forward where `x.device` is real rather than at graph-patch time,
+  where ComfyUI may not have loaded or cast the model yet and a multi-GPU
+  box would bake an answer for the wrong card. The predicate exists because
+  "does the release happen" and "should I clone" are the same question only
+  until sage's fused-case peak drops below what a cloning caller can reach;
+  gating on it means that flip arrives on upgrade instead of needing an edit
+  here. A fork without the predicate keeps today's behaviour.
+- `check_clone_v_wiring.py` gained a device-gate case. sm89 answers True, so
+  a forward ignoring the predicate outright was invisible to the other three
+  cases; forcing sage to disagree is the only way to see the gate from this
+  arch, and it is what stops the file from grading our answer against itself
+  now that the node reads the same predicate.
+
 ## 0.3.2
 
 ### Added

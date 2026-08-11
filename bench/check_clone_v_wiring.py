@@ -26,6 +26,10 @@ Three cases, in the order a regression would reach them:
   clone_v_changes_storage  : `clone_v=True` actually takes v out of the
                              fused buffer. Delete and the flag can become
                              decorative while both cases above still pass.
+  device_gate_is_honoured  : a False from sage stops the clone. Delete and
+                             the forward can ignore the predicate entirely
+                             without anything on this arch noticing, since
+                             sm89 answers True.
 
 Needs CUDA (sage resolves the device arch at import) but no model, no
 sampling, and no meaningful VRAM.
@@ -173,6 +177,59 @@ def check_clone_v_changes_storage():
     return failures
 
 
+def check_device_gate_is_honoured():
+    """A False from sage must stop the clone, even with the mode saying yes.
+
+    This box answers True, so a forward that ignored the predicate outright
+    would be indistinguishable from a correct one in every case above. The
+    only way to see the gate from here is to make sage disagree and watch the
+    clone not happen -- which is also what keeps this file from grading our
+    own answer against itself once the node reads the same predicate.
+    """
+    import comfy.ops
+    from comfy.ldm.minimax.model import Attention, rope_rotation_table
+
+    torch.set_grad_enabled(False)
+    device = torch.device("cuda")
+    seq = 64
+    real = attn_mod._prefers_cloned_v
+    failures = []
+    try:
+        for answer in (True, False):
+            setattr(attn_mod, "_prefers_cloned_v", lambda _d, a=answer: a)
+            module = Attention(HIDDEN, HEADS, HEAD_DIM, 1e-5, dtype=torch.bfloat16,
+                               device=device, operations=comfy.ops.manual_cast)
+            module = module.to(device).requires_grad_(False)
+            seen = {}
+
+            def recorder(qkv, **_kw):
+                q, _k, v = qkv
+                qkv.clear()
+                seen["q"] = q.untyped_storage().data_ptr()
+                seen["v"] = v.untyped_storage().data_ptr()
+                return torch.zeros_like(q)
+
+            # clone_v=True throughout: the mode says yes, only sage's answer
+            # varies, so the storage difference is the gate and nothing else.
+            forward = make_minimax_attn_forward(recorder, {}, clone_v=True)
+            module.forward = forward.__get__(module, module.__class__)
+            rope = rope_rotation_table(
+                torch.zeros(seq, 96, device=device, dtype=torch.float32),
+                torch.bfloat16)
+            module(torch.randn(seq, HIDDEN, device=device, dtype=torch.bfloat16),
+                   rope_freqs=rope)
+
+            cloned = seen["q"] != seen["v"]
+            ok = cloned == answer
+            print(f"  {'ok  ' if ok else 'FAIL'} sage says {answer!s:5s} "
+                  f"-> forward cloned: {cloned}")
+            if not ok:
+                failures.append(f"predicate={answer}")
+    finally:
+        setattr(attn_mod, "_prefers_cloned_v", real)
+    return failures
+
+
 def main() -> int:
     if not torch.cuda.is_available():
         print("CUDA not available; skipping.", file=sys.stderr)
@@ -185,7 +242,7 @@ def main() -> int:
 
     failures = []
     for fn in (check_predicate_matches_kernel, check_node_wires_it,
-               check_clone_v_changes_storage):
+               check_clone_v_changes_storage, check_device_gate_is_honoured):
         print(f"{fn.__name__}:")
         failures += fn()
 

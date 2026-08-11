@@ -88,6 +88,45 @@ MODES = {
 }
 
 
+_CLONE_V_BY_DEVICE = {}
+
+
+def _prefers_cloned_v(device):
+    """Ask sage whether cloning v pays on `device`, once per device.
+
+    This is the half of the clone decision we cannot answer ourselves.
+    `mode_releases_qkv` covers the mode; sage covers the arch, and owns
+    flipping the answer if its own fused-case peak ever drops below what a
+    cloning caller can reach -- at which point the clone becomes a cost while
+    the release it depends on is still happening. Gating on the predicate
+    rather than on an arch set means that reaches us on upgrade.
+
+    Asked with the device the tensors are actually on, not the one the model
+    was patched from: ComfyUI patches before loading or casting, so at patch
+    time the model can still be on the CPU, and on a multi-GPU box that bakes
+    an answer for the wrong card. The predicate is a list index behind an
+    import-time table, so calling it per forward would be free anyway; the
+    cache is only here to keep the hot path free of attribute lookups.
+    """
+    if device.type != "cuda":
+        # Our kernels are CUDA-only, so this call is already on its way to a
+        # fallback. Sage raises on a non-CUDA device rather than answering,
+        # deliberately -- and a raise here would escape the try/except that
+        # makes that fallback graceful.
+        return False
+
+    index = device.index if device.index is not None else torch.cuda.current_device()
+    hit = _CLONE_V_BY_DEVICE.get(index)
+    if hit is None:
+        predicate = getattr(_sage(), "sageattn_consume_prefers_cloned_v", None)
+        # A fork old enough to have `sageattn_consume` but not the predicate
+        # keeps the behaviour it already had rather than silently losing the
+        # saving. build_kernel is what enforces the floor on fork age.
+        hit = True if predicate is None else bool(predicate(index))
+        _CLONE_V_BY_DEVICE[index] = hit
+    return hit
+
+
 def mode_releases_qkv(mode):
     """Whether `mode`'s kernel frees the float q/k/v as soon as it quantizes.
 
@@ -246,6 +285,10 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
     at seq=41822. Unmeasured for head_chunks > 1, where the chunk loop holds
     all three views across every group anyway.
 
+    `clone_v=True` is a permission, not an instruction: the forward still
+    asks `_prefers_cloned_v` about the device it is actually running on
+    before paying for the copy.
+
     `head_chunks` > 1 runs the heads in that many groups, quantizing and
     attending one group at a time so the kernel's internal transients shrink
     by roughly the group count. It costs that many kernel launches per call
@@ -298,10 +341,13 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
             q = self.q_norm(q)
             k = self.k_norm(k)
 
-        if clone_v:
+        if clone_v and _prefers_cloned_v(x.device):
             # After rope, which only writes q and k. v's own storage is
             # what lets the fused buffer die once the kernel has consumed
-            # q and k; see the docstring above.
+            # q and k; see the docstring above. Two gates, because the
+            # question has two halves: `clone_v` is the mode's answer,
+            # settled when this forward was built, and the predicate is the
+            # device's, which is only knowable here.
             v = v.clone()
 
         n = head_chunks
