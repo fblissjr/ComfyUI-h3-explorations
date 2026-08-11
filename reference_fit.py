@@ -35,6 +35,7 @@ It also carries the reference's 1:4..4:1 check on reference images
 
 from __future__ import annotations
 
+import contextlib
 import logging
 
 from comfy_api.latest import io
@@ -98,6 +99,26 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                         "whether it helps an already-small source is "
                         "unmeasured."
                     )),
+                # APPENDED, and it has to stay last: widget values map
+                # positionally in every saved graph.
+                io.Boolean.Input(
+                    "lift_downstream_clamp", default=False, optional=True,
+                    tooltip=(
+                        "Only matters above 2048. MiniMax H3 Reference to "
+                        "Video clamps with min(1.0, 2048/short_edge), so "
+                        "anything larger this node produces is scaled straight "
+                        "back and the setting appears to do nothing. Turning "
+                        "this on lifts that clamp for exactly one downstream "
+                        "call, then restores it. "
+                        "Above 2048 is off-distribution: 2048 is what the "
+                        "released checkpoint conditioned image references at. "
+                        "Cost climbs quadratically -- 3072 is 16,416 vision "
+                        "tokens against 7,296 -- per reference, on a sequence "
+                        "that already crosses the int32 threshold at 345 "
+                        "frames. Requires ref_image_size on 'max'; under "
+                        "'match' the constant is never read and this logs that "
+                        "it did nothing."
+                    )),
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
@@ -106,7 +127,8 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, mode="reference", short_edge=REF_IMAGE_SHORT_EDGE
+    def execute(cls, image, mode="reference", short_edge=REF_IMAGE_SHORT_EDGE,
+                lift_downstream_clamp=False
                 ) -> io.NodeOutput:
         if image.shape[0] > 1:
             logger.warning(
@@ -140,6 +162,14 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
             "%.2gx ComfyUI's own sizing", src_w, src_h, tw, th, mode,
             short_edge, tokens, tokens / stock_tokens,
         )
+        if lift_downstream_clamp and short_edge > REF_IMAGE_SHORT_EDGE:
+            arm_short_edge_override(short_edge)
+        elif lift_downstream_clamp:
+            logger.info(
+                "[h3] lift_downstream_clamp is on but short_edge is %d, at or "
+                "below the %d clamp, so there is nothing to lift.",
+                short_edge, REF_IMAGE_SHORT_EDGE)
+
         return io.NodeOutput(out, tokens)
 
 
@@ -161,3 +191,98 @@ def _tokens(w, h):
     the 0.3.0 changelog entry came from.
     """
     return (h // 32) * (w // 32)
+
+
+# --------------------------------------------------------------------------
+# Lifting ComfyUI's 2048 clamp, for one downstream call
+# --------------------------------------------------------------------------
+#
+# `MiniMaxH3ReferenceToVideo.execute` sizes image references with
+# `min(1.0, REF_IMAGE_SHORT_EDGE / min(w, h))` (`nodes_minimax_h3.py:226`).
+# The clamp is what lets this node work at all below 2048: we resize first,
+# the stock scale resolves to 1.0, and its resize is a no-op. Above 2048 the
+# same clamp scales our work back down, so `short_edge` is one-directional
+# and a sweep past the default silently does nothing.
+#
+# `REF_IMAGE_SHORT_EDGE` is a module attribute read inside `execute` at call
+# time, so rebinding it changes behaviour. Rebinding it *globally* would be
+# the wrong fix: it is sticky for the process, invisible in the UI, and would
+# reach graphs that do not contain this node -- the same silent-contamination
+# class `nodes.py` guards against when it copies transformer_options. So the
+# override is armed by this node, consumed by exactly one downstream call,
+# and cleared in a `finally`.
+#
+# Above 2048 is off-distribution by construction: 2048 is what the released
+# checkpoint conditioned image references at, carried in the reference
+# pipeline as `ConfigSpec("reference_image_short_edge", 2048)`. This exists to
+# make that measurable, not because bigger is better.
+
+_PENDING_SHORT_EDGE = None
+_WRAP_MARKER = "_h3_explorations_short_edge_wrapper"
+
+
+@contextlib.contextmanager
+def _rebound_short_edge(value):
+    """Swap the module constant for the duration of one call."""
+    import comfy_extras.nodes_minimax_h3 as core
+
+    previous = core.REF_IMAGE_SHORT_EDGE
+    core.REF_IMAGE_SHORT_EDGE = value
+    try:
+        yield
+    finally:
+        core.REF_IMAGE_SHORT_EDGE = previous
+
+
+def _make_wrapper(original):
+    """Wrap `ReferenceToVideo.execute` so an armed override applies once.
+
+    Factored out so the behaviour is testable without a VAE, a CLIP or a
+    model: `bench/check_short_edge_override.py` calls this with a stub.
+    """
+    def wrapper(*args, **kwargs):
+        global _PENDING_SHORT_EDGE
+        pending, _PENDING_SHORT_EDGE = _PENDING_SHORT_EDGE, None
+        if pending is None:
+            return original(*args, **kwargs)
+        if kwargs.get("ref_image_size", "match") == "match":
+            # In `match` the stock node never reads the constant -- it scales
+            # to the generation's pixel area instead. An override that
+            # silently does nothing in the default configuration is worse
+            # than no override, so say so rather than appear to work.
+            logger.warning(
+                "[h3] short_edge override of %d ignored: ref_image_size is "
+                "'match', which sizes references from the video's pixel area "
+                "and never reads the 2048 constant. Set it to 'max'.", pending)
+            return original(*args, **kwargs)
+        logger.info("[h3] lifting the reference clamp to %d for one call "
+                    "(off-distribution above 2048)", pending)
+        with _rebound_short_edge(pending):
+            return original(*args, **kwargs)
+
+    setattr(wrapper, _WRAP_MARKER, True)
+    return wrapper
+
+
+def _install_wrapper():
+    """Wrap the stock node once. Idempotent, and says so if someone else won.
+
+    The chaining packs established the marker convention for exactly this;
+    two packs each wrapping unaware of the other is the collision class this
+    ecosystem keeps producing.
+    """
+    import comfy_extras.nodes_minimax_h3 as core
+
+    node = core.MiniMaxH3ReferenceToVideo
+    current = node.__dict__.get("execute")
+    inner = current.__func__ if isinstance(current, classmethod) else current
+    if getattr(inner, _WRAP_MARKER, False):
+        return
+    node.execute = classmethod(_make_wrapper(inner))
+
+
+def arm_short_edge_override(value):
+    """Arm the override for the next downstream ReferenceToVideo call."""
+    global _PENDING_SHORT_EDGE
+    _install_wrapper()
+    _PENDING_SHORT_EDGE = value

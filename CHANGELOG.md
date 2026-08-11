@@ -4,6 +4,28 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.5.1
+
+### Added
+
+- `lift_downstream_clamp` on `MiniMaxH3ReferenceFit`, appended last so saved
+  widget order is untouched. `MiniMaxH3ReferenceToVideo` sizes references
+  with `min(1.0, 2048/short_edge)`, so anything larger this node produces is
+  scaled straight back and `short_edge` above 2048 appears to do nothing.
+  This lifts that clamp for exactly one downstream call by rebinding the
+  module constant the stock node reads at call time, then restoring it in a
+  `finally`. Off by default, and above 2048 is off-distribution: 2048 is what
+  the released checkpoint conditioned image references at.
+- `bench/check_short_edge_override.py` pins the scope rather than the
+  arithmetic, because a global rebind that outlived its call would change
+  references in graphs that never asked for it. Four properties: applies to
+  exactly one call, restores on a raise, declines under `ref_image_size`
+  `match` where the constant is never read, and installs idempotently behind
+  a marker the way the chaining packs do. Driven through `_make_wrapper`
+  with a stub, so it needs no VAE, CLIP or model. Mutated three ways --
+  never clearing the arm, dropping the `finally`, removing the marker check
+  -- and each turns cases red.
+
 ## 0.5.0
 
 ### Added
