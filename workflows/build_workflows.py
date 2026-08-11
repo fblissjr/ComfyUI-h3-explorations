@@ -43,7 +43,7 @@ HERE = Path(__file__).resolve().parent
 # h3_config.py -- see its docstring for why that matters.
 from h3_config import (  # noqa: E402
     CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS, REF_LORA, REF_LORA_STRENGTH,
-    SAMPLING, SAGE_NODE, SEED, SOL_RECOMMENDED,
+    SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED,
 )
 
 # Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
@@ -248,6 +248,16 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                    "inputs": {"model": model_src, "lora_name": lora[0],
                               "strength_model": lora[1]}}
         model_src = ["18", 0]
+    # Always present, at the base checkpoint's own 12/3, so it changes nothing
+    # by default. It is here to be edited: the turbo LoRAs carry their own
+    # training shifts (the 768p 4-step wants 6/3), and a graph without this
+    # node gives you nowhere to set that and no hint you needed to. Upstream of
+    # sage so the sage-then-Sol adjacency below stays intact -- this patches
+    # model sampling, which is a different surface from either of them.
+    # Node id 19; 18 is the LoRA and 20/21/22 are already spoken for.
+    g["19"] = {"class_type": "MiniMaxH3SigmaShift",
+               "inputs": {"model": model_src, **SIGMA_SHIFT}}
+    model_src = ["19", 0]
     if sage:
         g["20"] = {"class_type": "MiniMaxH3SageAttention",
                    "inputs": {"model": model_src, **SAGE_NODE}}
@@ -614,6 +624,20 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                           title=f"Load LoRA (ref delta, strength {lora[1]})")
         g.link(unet_node, 0, lora_node, "model", "MODEL")
         model_src = lora_node
+
+    # See the matching note in build_api. Titled with its values because the
+    # whole reason it is in the graph is that a turbo LoRA needs them changed,
+    # and a node showing "ModelSamplingMiniMaxH3" and nothing else does not
+    # prompt anyone to look.
+    sigma_node = g.add("MiniMaxH3SigmaShift", (-1500, 700), size=(360, 110),
+                       widgets=[SIGMA_SHIFT["shift_video"],
+                                SIGMA_SHIFT["shift_audio"]],
+                       inputs=[_in("model", "MODEL")],
+                       outputs=[_out("MODEL", "MODEL")],
+                       title=f"Sigma shift (video {SIGMA_SHIFT['shift_video']:g}, "
+                             f"audio {SIGMA_SHIFT['shift_audio']:g})")
+    g.link(model_src, 0, sigma_node, "model", "MODEL")
+    model_src = sigma_node
 
     sage_node = None
     if sage:
@@ -1088,6 +1112,11 @@ def cross_check(written):
               "int8_pv", "verbose", "use_tma", "dense_blocks"]),
             ("UNETLoader", ["unet_name"]),
             ("LoraLoaderModelOnly", ["lora_name", "strength_model"]),
+            # The shifts are here for the same reason as the checkpoint: they
+            # are a free builder value that the two formats can now disagree
+            # about, and a graph sampling off the wrong schedule renders
+            # cleanly rather than failing.
+            ("MiniMaxH3SigmaShift", ["shift_video", "shift_audio"]),
         ):
             if cls not in ui_s or cls not in api_s:
                 continue

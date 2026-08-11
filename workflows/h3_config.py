@@ -223,6 +223,27 @@ SOL_BASELINE_124F = dict(
 # node declares its inputs: the UI graph maps widget values positionally.
 SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 
+# Flow shifts, on `MiniMaxH3SigmaShift` (display name ModelSamplingMiniMaxH3).
+# 12/3 are the base checkpoint's training shifts and the node's own defaults,
+# so these values change nothing on their own. The node is in the graph so the
+# shift is *visible and switchable*, because the turbo LoRAs were distilled at
+# their own shifts and inherit the sampler's, not the base model's:
+#
+#   FL2VA Turbo 4-step v0.1     544p mixed aspect   12 / 3   4 steps
+#   FL2VA Turbo 8-step v1.0     544p                12 / 3   8 or 4 steps
+#   FL2VA Turbo 4-step v1.0     768p (1344x768)      6 / 3   4 steps
+#
+# The 768p one is the trap, and it is the one that matches CANVAS below. Its
+# video shift is 6, half the default, so loading that LoRA into a graph that
+# leaves this at 12 samples it off a schedule it was never distilled for. A
+# graph with no shift node at all gives you no place to notice.
+#
+# Steps move with the LoRA too: SAMPLING["steps"] = 16 is a base-model number
+# and the whole point of these LoRAs is 4 or 8. Changing shift without
+# changing steps, or the reverse, is not a partial improvement.
+# Source: coderef/Minimax-H3-Turbo README, model specs table.
+SIGMA_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
+
 # Node order is not cosmetic. Sol-Attn composes with the attention patches
 # it finds, so it must come after ours; reversed, it overwrites the patch
 # and you silently get sage only.

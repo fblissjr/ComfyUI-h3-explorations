@@ -193,11 +193,22 @@
       "strength_model": 1.0
     }
   },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
   "20": {
     "class_type": "MiniMaxH3SageAttention",
     "inputs": {
       "model": [
-        "18",
+        "19",
         0
       ],
       "mode": "auto",

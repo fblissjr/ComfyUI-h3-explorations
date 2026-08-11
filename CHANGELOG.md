@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.3.6
+
+### Added
+
+- `MiniMaxH3SigmaShift` (ModelSamplingMiniMaxH3) in all four shipped
+  workflows, at the base checkpoint's own 12/3 so it changes nothing by
+  default. It is there to be edited: the turbo LoRAs inherit the sampler's
+  shift rather than carrying their own, and the 4-step v1.0 768p one was
+  distilled at video shift 6. That is the variant whose training resolution
+  matches our 1344x768 canvas, so it is the one people will reach for, and a
+  graph with no shift node gives them nowhere to set it and no hint they
+  needed to. Steps move with the LoRA too: 16 is a base-model number against
+  these LoRAs' 4 or 8. Specs in `h3_config.SIGMA_SHIFT`, sourced from
+  `coderef/Minimax-H3-Turbo`.
+- The shifts joined the UI/API cross-check, for the same reason the
+  checkpoint did: they are a free builder value the two formats can now
+  disagree about, and a graph sampling off the wrong schedule renders
+  cleanly rather than failing.
+
 ## 0.3.5
 
 ### Added
