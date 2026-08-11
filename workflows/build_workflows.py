@@ -640,6 +640,71 @@ are paying full price for a render that otherwise looks fine.
 # f-string, because the strength appears in the prose and the widget it
 # describes comes from REF_LORA_STRENGTH. Hardcoding it here is how a graph
 # ends up shipping a note that contradicts its own node.
+_NOTE_SIZING = """\
+## What the sizing nodes decide, and what Preflight tells you
+
+**Preflight is pass-through.** It changes nothing. It reads the assembled
+conditioning through the model's own `PackedLayout`, so the sequence length
+it draws is the one attention will actually run at.
+
+Read it top to bottom:
+
+```
+1152x768  trained family  864 video tokens/frame
+124 frames (5.167s)  37 latent frames
+sequence length 52,702
+  video         31,968  ############........   60.7%
+  references    17,216  #######.............   32.7%
+  text           3,104  #...................    5.9%
+  audio            414  ....................    0.8%
+if the aspect ratio changed, same length:
+  1:1   768x768      42,046    -20%
+  16:9  1344x768     58,030    +10%
+```
+
+The percentages are the decision. Reference tokens are attended at every
+sampling step exactly as video tokens are, so references at a third of the
+sequence means a third of your attention cost is spent describing them.
+
+**"trained family" vs "OUTSIDE trained family".** Core's conditioning nodes
+take width and height as plain ints and never call `adapt_canvas`, so the 768
+short edge and the 768x1344 area cap constrain nothing you type. 1024x1024 is
+legal, renders, costs more per frame than 16:9, and is outside the family the
+checkpoint was trained on. Outside is a choice, not an error -- but it should
+be one you made on purpose.
+
+## The two resolution nodes are not interchangeable
+
+- A **keyframe** is patchified on the video's own latent grid, so its
+  resolution must equal the video's. That is why *MiniMax H3 Keyframe
+  Resolution* outputs width and height: the keyframe decides them.
+- A **reference** is patchified on its own grid, so its resolution only sets
+  how many vision tokens it contributes. That is why *MiniMax H3 Reference
+  Resolution* does not output width and height.
+
+You will never want both in one graph.
+
+## Reference Resolution needs ref_image_size on `max`
+
+This pairing is load-bearing, not tidiness. Under `match` the stock node
+sizes references from the video's pixel area and never reads the 2048
+constant, so the fit nodes would run, resample twice, and be undone. This
+graph ships with `max` set. If you switch it back to `match`, delete the fit
+nodes too or you are paying for nothing.
+
+`allow_upscale` on is the released pipeline's behaviour: it scales until the
+short side reaches 2048, enlarging small references. ComfyUI's own rule only
+ever shrinks. Upscaling adds tokens, not detail, so whether it helps an
+already-small source is unmeasured -- turn it off and watch the Preflight
+percentages if you want the cheap version.
+
+**The EXPERIMENTAL clamp lift is off and should stay off** unless you are
+running an experiment and expect to discard the result. It monkeypatches a
+core node for one call and pushes references past what the checkpoint was
+conditioned at.
+"""
+
+
 _NOTE_TURBO = f"""\
 ## Turbo LoRA: what the training resolution means
 
@@ -1073,6 +1138,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
           title="Canvas + length: what is actually selectable")
     g.add("MarkdownNote", (-2180, 660), size=(620, 560), widgets=[_NOTE_NODES],
           title="Which nodes, and the order that matters")
+    g.add("MarkdownNote", (-2860, 0), size=(640, 900), widgets=[_NOTE_SIZING],
+          title="Resolution, references, and reading the preflight")
     if variant_note is not None:
         g.add("MarkdownNote", (-2180, 1280), size=(620, 760),
               widgets=[variant_note], title="What this graph is probing")
