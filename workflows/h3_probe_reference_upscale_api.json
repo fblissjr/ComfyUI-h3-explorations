@@ -2,7 +2,7 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
       "weight_dtype": "default"
     }
   },
@@ -92,7 +92,7 @@
     "class_type": "VAEDecode",
     "inputs": {
       "samples": [
-        "22",
+        "10",
         0
       ],
       "vae": [
@@ -105,7 +105,7 @@
     "class_type": "VAEDecodeAudio",
     "inputs": {
       "samples": [
-        "22",
+        "10",
         0
       ],
       "vae": [
@@ -127,7 +127,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_i2v",
+      "filename_prefix": "video/h3_probe_ref_noupscale",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -137,27 +137,8 @@
       "save_output": true
     }
   },
-  "15": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "1-man.png"
-    }
-  },
-  "17": {
-    "class_type": "MiniMaxH3KeyframeCanvas",
-    "inputs": {
-      "first_frame": [
-        "15",
-        0
-      ],
-      "mode": "fit_to_canvas",
-      "width": 1344,
-      "height": 768,
-      "length": 345
-    }
-  },
   "5": {
-    "class_type": "MiniMaxH3ImageToVideo",
+    "class_type": "MiniMaxH3ReferenceToVideo",
     "inputs": {
       "clip": [
         "2",
@@ -167,23 +148,59 @@
         "3",
         0
       ],
-      "prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the subject shown in <Picture 1> holds its position, framing, lighting, and colors exactly as established in the image. The camera pushes in with small amplitude at slow speed while the subject begins to move, the surrounding scene staying continuous with the reference frame.\n\noverall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement.\n\nnon_diegetic_music: N/A",
-      "width": [
-        "17",
+      "audio_vae": [
+        "4",
         0
       ],
-      "height": [
-        "17",
-        1
+      "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed as <Subject 1> turns toward the light and looks off-screen.\n\noverall_soundscape:\nSteady interior room tone continues throughout, with soft footsteps and fabric movement as <Subject 1> crosses the frame.\n\nnon_diegetic_music:\nN/A",
+      "width": 1344,
+      "height": 768,
+      "length": 345,
+      "ref_image_size": "max",
+      "ref_images.ref_image_0": [
+        "24",
+        0
       ],
-      "length": [
-        "17",
-        5
-      ],
-      "first_frame": [
-        "17",
-        2
+      "ref_images.ref_image_1": [
+        "25",
+        0
       ]
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "1-man.png"
+    }
+  },
+  "16": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "2-mountain_landscape.png"
+    }
+  },
+  "24": {
+    "class_type": "MiniMaxH3ReferenceFit",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "allow_upscale": false,
+      "short_edge": 2048,
+      "lift_downstream_clamp": false
+    }
+  },
+  "25": {
+    "class_type": "MiniMaxH3ReferenceFit",
+    "inputs": {
+      "image": [
+        "16",
+        0
+      ],
+      "allow_upscale": false,
+      "short_edge": 2048,
+      "lift_downstream_clamp": false
     }
   },
   "19": {
@@ -254,24 +271,6 @@
         "5",
         1
       ]
-    }
-  },
-  "22": {
-    "class_type": "MiniMaxH3ProvenanceStamp",
-    "inputs": {
-      "latent": [
-        "10",
-        0
-      ],
-      "model": [
-        "23",
-        0
-      ],
-      "sigmas": [
-        "8",
-        0
-      ],
-      "note": "bench i2v"
     }
   }
 }

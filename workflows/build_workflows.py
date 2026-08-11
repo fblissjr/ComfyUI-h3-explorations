@@ -170,6 +170,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               stamp: bool = False, unet: str | None = None,
               lora: tuple[str, float] | None = None,
               steps: int | None = None, shift: dict | None = None,
+              head_chunks: int | None = None, ref_upscale: bool = True,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -256,7 +257,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # and identity fidelity comes out of those vision tokens. Ids 24/25.
         for nid, src in (("24", "15"), ("25", "16")):
             g[nid] = {"class_type": "MiniMaxH3ReferenceFit",
-                      "inputs": {"image": [src, 0], "allow_upscale": True,
+                      "inputs": {"image": [src, 0], "allow_upscale": ref_upscale,
                                  "short_edge": _ref_short_edge(),
                                  "lift_downstream_clamp": False}}
     else:
@@ -315,7 +316,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     model_src = ["19", 0]
     if sage:
         g["20"] = {"class_type": "MiniMaxH3SageAttention",
-                   "inputs": {"model": model_src, **SAGE_NODE}}
+                   "inputs": {"model": model_src, **dict(
+                       SAGE_NODE,
+                       **({} if head_chunks is None
+                          else {"head_chunks": head_chunks}))}}
         model_src = ["20", 0]
     if sol is not None:
         # After sage, never before -- SolAttn composes with the attention
@@ -661,6 +665,33 @@ are paying full price for a render that otherwise looks fine.
 # f-string, because the strength appears in the prose and the widget it
 # describes comes from REF_LORA_STRENGTH. Hardcoding it here is how a graph
 # ends up shipping a note that contradicts its own node.
+def _probe_note(subject, companion, changed, compare, expect):
+    """Note for a probe graph: one variable, its twin, and what to look at.
+
+    A probe that does not name its companion and its seed is a graph with an
+    unusual setting, not an experiment. Every one of these is identical to its
+    twin except the line under "what differs", and they share
+    `h3_config.SEED`, so anything you see between them is that line.
+    """
+    return f"""\
+## Probe: {subject}
+
+**Run this against `{companion}`.** Same seed ({SEED}), same prompt, same
+canvas, same everything except one setting. That is the whole design: if the
+seed moved between the two, the difference you are looking for would be
+underneath the difference you are not.
+
+**What differs:** {changed}
+
+**What to compare:** {compare}
+
+**What to expect:** {expect}
+
+This is a probe, not a render config. If you like what one side does, change
+the setting in the shipped graph rather than rendering from this file.
+"""
+
+
 _NOTE_SIZING = """\
 ## What the sizing nodes decide, and what Preflight tells you
 
@@ -845,6 +876,7 @@ to remove it.
 
 def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              steps: int | None = None, shift: dict | None = None,
+             head_chunks: int | None = None, ref_upscale: bool = True,
              variant_note: str | None = None,
              length: int = LENGTH, seed: int = SEED, preview: bool = False,
              sol: dict | None = None, sol_enabled: bool = True,
@@ -904,7 +936,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         sage_node = g.add("MiniMaxH3SageAttention", (-880, 0), size=(360, 110),
                           widgets=[SAGE_NODE["mode"],
                                    SAGE_NODE["patch_token_refiner"],
-                                   SAGE_NODE["head_chunks"]],
+                                   SAGE_NODE["head_chunks"] if head_chunks is None
+                                   else head_chunks],
                           inputs=[_in("model", "MODEL")],
                           outputs=[_out("MODEL", "MODEL")])
         g.link(model_src, 0, sage_node, "model", "MODEL")
@@ -1007,7 +1040,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         fits = []
         for i, (src, y) in enumerate(((img_a, 640), (img_b, 1010))):
             fit = g.add("MiniMaxH3ReferenceFit", (-580, y), size=(300, 150),
-                        widgets=[True, _ref_short_edge(), False],
+                        widgets=[ref_upscale, _ref_short_edge(), False],
                         inputs=[_in("image", "IMAGE")],
                         outputs=[_out("image", "IMAGE"),
                                  _out("vision_tokens", "INT")],
@@ -1505,6 +1538,57 @@ def main():
               shift=TURBO_SHIFT, variant_note=_NOTE_TURBO,
               out_prefix="video/h3_t2v_turbo_8step"),
          "text -> video + audio, via the 8-step turbo LoRA"),
+
+        # --- probes: pairs, one variable, run against the named twin ---
+        ("h3_probe_reference_upscale.json", "r2v-noupscale", "r2v", None,
+         dict(ref_upscale=False, out_prefix="video/h3_probe_ref_noupscale",
+              variant_note=_probe_note(
+                  "does upscaling a small reference buy anything",
+                  "h3_image_ref_plus_text_to_video.json",
+                  "`allow_upscale` is OFF on both Reference Resolution nodes, "
+                  "so references arrive at ComfyUI's own sizing instead of the "
+                  "released pipeline's 2048 short edge.",
+                  "Preflight's `references` line and percentage, then the "
+                  "identity of the referenced subjects in the output. The "
+                  "shipped graph spends roughly 13,900 more vision tokens on "
+                  "the same two images.",
+                  "Fewer tokens here, and a shorter sequence. Whether identity "
+                  "is worse is the open question -- upscaling adds tokens, not "
+                  "detail, and nobody has measured whether the checkpoint uses "
+                  "them on an already-small source.")),
+         "same references, without the reference pipeline's upscale"),
+
+        ("h3_probe_square_canvas.json", "t2v-1to1", "t2v", LONG_T2V_PROMPT,
+         dict(width=768, height=768,
+              out_prefix="video/h3_probe_square",
+              variant_note=_probe_note(
+                  "what an aspect ratio actually costs",
+                  "h3_text_to_video.json",
+                  "768x768 instead of 1344x768. Both are inside the trained "
+                  "family; only the shape changed.",
+                  "Preflight's sequence length on each, and render time. "
+                  "Attention is O(S^2) and dominates the step.",
+                  "About a third of the attention cost at the same frame "
+                  "count, which is the largest single lever in this pipeline "
+                  "-- larger than any kernel or sparsity setting.")),
+         "the same prompt on the cheapest legal canvas"),
+
+        ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
+         dict(head_chunks=4, out_prefix="video/h3_probe_chunk4",
+              variant_note=_probe_note(
+                  "trading launches for VRAM headroom",
+                  "h3_text_to_video.json",
+                  "`head_chunks` 4 on the SageAttention node instead of 1.",
+                  "Peak VRAM, and wall clock. Nothing about the output should "
+                  "change: chunking splits the heads, it does not alter the "
+                  "arithmetic.",
+                  "Peak attention drops from 2862 MiB to 2645 at the default "
+                  "canvas, because chunking rules out the v clone that only "
+                  "pays unchunked. It costs 4 kernel launches per call, "
+                  "measured at a ~2.6% wall-clock ceiling on a 24 GB 4090. "
+                  "Take it to fit a render that otherwise will not fit, not "
+                  "for speed.")),
+         "the same render with the heads in 4 groups"),
     )
 
     for fname, label, task, prompt, extra, note in GRAPHS:

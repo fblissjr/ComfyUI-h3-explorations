@@ -4,6 +4,31 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.7.0
+
+### Added
+
+- Three probe graphs, each a pair with a named twin, one variable changed, and
+  a note saying what to compare and what to expect.
+  `h3_probe_reference_upscale` runs references without the released
+  pipeline's upscale, against roughly 13,900 fewer vision tokens.
+  `h3_probe_square_canvas` renders the same prompt at 768x768, which is about
+  a third of the attention cost and the largest lever anywhere in this
+  pipeline. `h3_probe_head_chunks` runs the heads in 4 groups, trading kernel
+  launches for 217 MiB of peak.
+- `bench/check_generator_constants.py`. Sharing a constant prevents drift;
+  this prevents un-sharing, which is a different failure on a different
+  timeline -- someone inlining the literal back because it reads more
+  directly. Agreement is not a testable property, so each case forces a
+  disagreement by moving upstream's value and asserting the graph follows.
+  Writing `2048` back into the builder turns it red.
+
+### Changed
+
+- `SEED` is 730451892 rather than 1. Fixed rather than randomised, because
+  the probe graphs are pairs and a seed that moved between them would put the
+  difference you are looking for underneath the difference you are not.
+
 ## 0.6.1
 
 ### Added

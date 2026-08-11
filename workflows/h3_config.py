@@ -284,7 +284,13 @@ FPS = 24.0
 LENGTH = 124
 LONG_LENGTH = 345
 
-SEED = 1
+# Fixed rather than randomised, and deliberately not 1. Every graph and
+# bench arm shares it, which is what makes any two of them comparable: the
+# probe graphs below are pairs differing in exactly one setting, and a seed
+# that moved between them would put the difference you are looking for
+# underneath the difference you are not. Change it if you want a different
+# draw, but change it in one place and regenerate everything.
+SEED = 730451892
 
 # `adapt_canvas` imposes short edge 768 and a hard area cap of 768*1344 =
 # 1,032,192 px, each axis rounded to 32. That cap is why this is a list of
