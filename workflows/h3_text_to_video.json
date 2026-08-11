@@ -1,8 +1,8 @@
 {
   "id": "h3-t2v-sage",
   "revision": 0,
-  "last_node_id": 20,
-  "last_link_id": 21,
+  "last_node_id": 21,
+  "last_link_id": 23,
   "nodes": [
     {
       "id": 1,
@@ -90,7 +90,7 @@
           "type": "VAE",
           "links": [
             5,
-            17
+            19
           ]
         }
       ],
@@ -122,7 +122,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            19
+            21
           ]
         }
       ],
@@ -400,7 +400,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            12
+            14
           ]
         }
       ],
@@ -432,7 +432,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            14
+            16
           ]
         }
       ],
@@ -455,7 +455,7 @@
         130
       ],
       "flags": {},
-      "order": 14,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
@@ -469,7 +469,7 @@
           "name": "SIGMAS",
           "type": "SIGMAS",
           "links": [
-            15
+            17
           ]
         }
       ],
@@ -494,7 +494,7 @@
         70
       ],
       "flags": {},
-      "order": 15,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -505,7 +505,7 @@
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 10
+          "link": 12
         }
       ],
       "outputs": [
@@ -513,7 +513,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            13
+            15
           ]
         }
       ],
@@ -533,33 +533,33 @@
         150
       ],
       "flags": {},
-      "order": 16,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 12
+          "link": 14
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 13
+          "link": 15
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 14
+          "link": 16
         },
         {
           "name": "sigmas",
           "type": "SIGMAS",
-          "link": 15
+          "link": 17
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 11
+          "link": 13
         }
       ],
       "outputs": [
@@ -567,8 +567,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            16,
-            18
+            18,
+            20
           ]
         },
         {
@@ -593,18 +593,18 @@
         60
       ],
       "flags": {},
-      "order": 17,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 16
+          "link": 18
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 17
+          "link": 19
         }
       ],
       "outputs": [
@@ -612,7 +612,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            20
+            22
           ]
         }
       ],
@@ -632,18 +632,18 @@
         60
       ],
       "flags": {},
-      "order": 18,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 18
+          "link": 20
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 19
+          "link": 21
         }
       ],
       "outputs": [
@@ -651,7 +651,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            21
+            23
           ]
         }
       ],
@@ -671,18 +671,18 @@
         520
       ],
       "flags": {},
-      "order": 19,
+      "order": 20,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 20
+          "link": 22
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 21,
+          "link": 23,
           "shape": 7
         },
         {
@@ -765,6 +765,63 @@
     },
     {
       "id": 19,
+      "type": "MiniMaxH3Preflight",
+      "pos": [
+        -60,
+        640
+      ],
+      "size": [
+        420,
+        260
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 10
+        },
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "links": [
+            12
+          ]
+        },
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "links": [
+            13
+          ]
+        },
+        {
+          "name": "sequence_length",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3Preflight"
+      },
+      "title": "Preflight: what this render costs"
+    },
+    {
+      "id": 20,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -775,7 +832,7 @@
         620
       ],
       "flags": {},
-      "order": 12,
+      "order": 13,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -788,7 +845,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 20,
+      "id": 21,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -799,7 +856,7 @@
         560
       ],
       "flags": {},
-      "order": 13,
+      "order": 14,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -889,20 +946,36 @@
       10,
       9,
       0,
-      13,
-      1,
+      19,
+      0,
       "CONDITIONING"
     ],
     [
       11,
       9,
       1,
+      19,
+      1,
+      "LATENT"
+    ],
+    [
+      12,
+      19,
+      0,
+      13,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      19,
+      1,
       14,
       4,
       "LATENT"
     ],
     [
-      12,
+      14,
       10,
       0,
       14,
@@ -910,7 +983,7 @@
       "NOISE"
     ],
     [
-      13,
+      15,
       13,
       0,
       14,
@@ -918,7 +991,7 @@
       "GUIDER"
     ],
     [
-      14,
+      16,
       11,
       0,
       14,
@@ -926,7 +999,7 @@
       "SAMPLER"
     ],
     [
-      15,
+      17,
       12,
       0,
       14,
@@ -934,7 +1007,7 @@
       "SIGMAS"
     ],
     [
-      16,
+      18,
       14,
       0,
       15,
@@ -942,7 +1015,7 @@
       "LATENT"
     ],
     [
-      17,
+      19,
       3,
       0,
       15,
@@ -950,7 +1023,7 @@
       "VAE"
     ],
     [
-      18,
+      20,
       14,
       0,
       16,
@@ -958,7 +1031,7 @@
       "LATENT"
     ],
     [
-      19,
+      21,
       4,
       0,
       16,
@@ -966,7 +1039,7 @@
       "VAE"
     ],
     [
-      20,
+      22,
       15,
       0,
       17,
@@ -974,7 +1047,7 @@
       "IMAGE"
     ],
     [
-      21,
+      23,
       16,
       0,
       17,

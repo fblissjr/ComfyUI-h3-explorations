@@ -58,7 +58,7 @@
         0
       ],
       "conditioning": [
-        "5",
+        "26",
         0
       ]
     }
@@ -83,7 +83,7 @@
         0
       ],
       "latent_image": [
-        "5",
+        "26",
         1
       ]
     }
@@ -156,13 +156,13 @@
       "width": 1344,
       "height": 768,
       "length": 345,
-      "ref_image_size": "match",
+      "ref_image_size": "max",
       "ref_images.ref_image_0": [
-        "15",
+        "24",
         0
       ],
       "ref_images.ref_image_1": [
-        "16",
+        "25",
         0
       ]
     }
@@ -177,6 +177,30 @@
     "class_type": "LoadImage",
     "inputs": {
       "image": "2-mountain_landscape.png"
+    }
+  },
+  "24": {
+    "class_type": "MiniMaxH3ReferenceFit",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "allow_upscale": true,
+      "short_edge": 2048,
+      "lift_downstream_clamp": false
+    }
+  },
+  "25": {
+    "class_type": "MiniMaxH3ReferenceFit",
+    "inputs": {
+      "image": [
+        "16",
+        0
+      ],
+      "allow_upscale": true,
+      "short_edge": 2048,
+      "lift_downstream_clamp": false
     }
   },
   "19": {
@@ -234,6 +258,19 @@
       "require_forward_patch": true,
       "exercise": true,
       "warn_only": false
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
     }
   },
   "22": {

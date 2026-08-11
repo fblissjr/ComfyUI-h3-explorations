@@ -214,16 +214,30 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["5"] = {"class_type": "MiniMaxH3ReferenceToVideo",
                   "inputs": {"clip": ["2", 0], "vae": ["3", 0], "audio_vae": ["4", 0],
                              "prompt": prompt, "width": cv["width"], "height": cv["height"],
-                             "length": length, "ref_image_size": "match",
+                             # 'max' rather than 'match', and the pairing is
+                             # load-bearing: under 'match' the stock node sizes
+                             # references from the video's pixel area and never
+                             # reads the 2048 constant, so the fit nodes below
+                             # would be undone and their two resamples wasted.
+                             "length": length, "ref_image_size": "max",
                              # Autogrow slots are addressed by their flat dotted
                              # path; ComfyUI reassembles them into the nested
                              # dict the node signature expects. Slot ordinals are
                              # 0-based but the prompt tags are 1-based, so
                              # ref_image_0 is <Picture 1>.
-                             "ref_images.ref_image_0": ["15", 0],
-                             "ref_images.ref_image_1": ["16", 0]}}
+                             "ref_images.ref_image_0": ["24", 0],
+                             "ref_images.ref_image_1": ["25", 0]}}
         g["15"] = {"class_type": "LoadImage", "inputs": {"image": PLACEHOLDER_IMAGE_A}}
         g["16"] = {"class_type": "LoadImage", "inputs": {"image": PLACEHOLDER_IMAGE_B}}
+        # One fit node per reference. ComfyUI clamps reference scaling with
+        # min(1.0, 2048/short_edge) where the reference pipeline has none, so
+        # a reference smaller than 2048 on its short side arrives under-sized
+        # and identity fidelity comes out of those vision tokens. Ids 24/25.
+        for nid, src in (("24", "15"), ("25", "16")):
+            g[nid] = {"class_type": "MiniMaxH3ReferenceFit",
+                      "inputs": {"image": [src, 0], "allow_upscale": True,
+                                 "short_edge": 2048,
+                                 "lift_downstream_clamp": False}}
     else:
         inputs = {"clip": ["2", 0], "vae": ["3", 0], "prompt": prompt,
                   "width": cv["width"], "height": cv["height"], "length": length}
@@ -302,9 +316,16 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                           "warn_only": False}}
     model_src = ["23", 0]
 
+    # Reports what the assembled conditioning actually costs, before the
+    # sampler runs. Pass-through, so it cannot change the render.
+    g["26"] = {"class_type": "MiniMaxH3Preflight",
+               "inputs": {"conditioning": ["5", 0], "samples": ["5", 1]}}
+
     # The fork. Both consumers, always, from the same variable.
     g["8"]["inputs"]["model"] = model_src
     g["9"]["inputs"]["model"] = model_src
+    g["9"]["inputs"]["conditioning"] = ["26", 0]
+    g["10"]["inputs"]["latent_image"] = ["26", 1]
 
     if stamp:
         # Bench only. Sits inline between the sampler and both decoders so it
@@ -883,7 +904,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             _in("ref_audios.ref_audio_0", "AUDIO", optional=True, label="ref_audio_0"),
         ]
         cond = g.add("MiniMaxH3ReferenceToVideo", (-460, 0), size=(430, 620),
-                     widgets=[prompt, cv["width"], cv["height"], length, "match"],
+                     widgets=[prompt, cv["width"], cv["height"], length, "max"],
                      inputs=cond_inputs,
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
         img_a = g.add("LoadImage", (-880, 640), size=(290, 330),
@@ -894,8 +915,20 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                       outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
         g.link(vvae, 0, cond, "vae", "VAE")
         g.link(avae, 0, cond, "audio_vae", "VAE")
-        g.link(img_a, 0, cond, "ref_images.ref_image_0", "IMAGE")
-        g.link(img_b, 0, cond, "ref_images.ref_image_1", "IMAGE")
+        # One fit node per reference, between LoadImage and the conditioning
+        # node. See the matching note in build_api: paired with
+        # ref_image_size on 'max', or the stock node undoes them.
+        fits = []
+        for i, (src, y) in enumerate(((img_a, 640), (img_b, 1010))):
+            fit = g.add("MiniMaxH3ReferenceFit", (-580, y), size=(300, 150),
+                        widgets=[True, 2048, False],
+                        inputs=[_in("image", "IMAGE")],
+                        outputs=[_out("image", "IMAGE"),
+                                 _out("vision_tokens", "INT")],
+                        title=f"Reference {i + 1} resolution")
+            g.link(src, 0, fit, "image", "IMAGE")
+            g.link(fit, 0, cond, f"ref_images.ref_image_{i}", "IMAGE")
+            fits.append(fit)
     else:
         cond_inputs = [_in("clip", "CLIP"), _in("vae", "VAE"),
                        _in("first_frame", "IMAGE", optional=True),
@@ -992,8 +1025,20 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
 
     g.link(model_src, 0, sched, "model", "MODEL")
     g.link(model_src, 0, guider, "model", "MODEL")
-    g.link(cond, 0, guider, "conditioning", "CONDITIONING")
-    g.link(cond, 1, sampler, "latent_image", "LATENT")
+    # Pass-through, between conditioning and the sampler, so the report is
+    # about the graph that is actually going to run.
+    pre = g.add("MiniMaxH3Preflight", (-60, 640), size=(420, 260),
+                inputs=[_in("conditioning", "CONDITIONING"),
+                        _in("samples", "LATENT")],
+                outputs=[_out("conditioning", "CONDITIONING"),
+                         _out("samples", "LATENT"),
+                         _out("sequence_length", "INT"),
+                         _out("report", "STRING")],
+                title="Preflight: what this render costs")
+    g.link(cond, 0, pre, "conditioning", "CONDITIONING")
+    g.link(cond, 1, pre, "samples", "LATENT")
+    g.link(pre, 0, guider, "conditioning", "CONDITIONING")
+    g.link(pre, 1, sampler, "latent_image", "LATENT")
     g.link(noise, 0, sampler, "noise", "NOISE")
     g.link(guider, 0, sampler, "guider", "GUIDER")
     g.link(samp, 0, sampler, "sampler", "SAMPLER")

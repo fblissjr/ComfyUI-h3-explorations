@@ -58,7 +58,7 @@
         0
       ],
       "conditioning": [
-        "5",
+        "26",
         0
       ]
     }
@@ -83,7 +83,7 @@
         0
       ],
       "latent_image": [
-        "5",
+        "26",
         1
       ]
     }
@@ -220,6 +220,19 @@
       "require_forward_patch": true,
       "exercise": true,
       "warn_only": false
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
     }
   }
 }

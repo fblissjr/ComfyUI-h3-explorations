@@ -4,6 +4,21 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.6.1
+
+### Added
+
+- `MiniMaxH3ReferenceFit` is wired into both reference graphs, one node per
+  reference image, paired with `ref_image_size` on `max`. The pairing is
+  load-bearing rather than tidy: under `match` the stock node sizes
+  references from the video's pixel area and never reads the 2048 constant,
+  so the fit nodes would be silently undone and their two resamples wasted.
+  Closes the gap where the graphs named for references were the ones
+  under-sizing them.
+- `MiniMaxH3Preflight` sits between conditioning and the sampler in every
+  render graph, with both consumers reading through it, so a graph cannot
+  half-apply it.
+
 ## 0.6.0
 
 ### Added
