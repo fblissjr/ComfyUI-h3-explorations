@@ -79,9 +79,24 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                 io.Int.Input(
                     "short_edge", default=REF_IMAGE_SHORT_EDGE, min=256,
                     max=4096, step=32, tooltip=(
-                        "Target short edge. 2048 is the reference's value. "
+                        "Scale the image until its SHORTER side reaches this, "
+                        "then round to 32. A 1280x720 reference has a short "
+                        "side of 720, so 2048 scales it by 2.844 in both "
+                        "directions, giving 3648x2048 and 7296 vision tokens "
+                        "against 880 unscaled. "
+                        "2048 is a property of the released checkpoint, not a "
+                        "derivation: the reference pipeline carries it beside "
+                        "the canvas rules as `reference_image_short_edge` and "
+                        "would change it for a different checkpoint. "
+                        "Image references are deliberately exempt from the "
+                        "768x1344 area cap that binds the video, which is why "
+                        "a reference may legitimately reach 7.5 megapixels "
+                        "when the video itself cannot exceed about one. "
                         "Lowering it trades identity fidelity for sequence "
-                        "length, which is the actual cost knob here."
+                        "length, which is the actual cost knob here -- and "
+                        "note that upscaling adds tokens, not detail, so "
+                        "whether it helps an already-small source is "
+                        "unmeasured."
                     )),
             ],
             outputs=[
