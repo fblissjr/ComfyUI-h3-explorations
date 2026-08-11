@@ -4,6 +4,27 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.5.0
+
+### Added
+
+- `MiniMaxH3Resolution`. Pick a resolution by shape and read its cost in the
+  dropdown you pick it from: each entry carries resolution, aspect ratio,
+  video tokens per latent frame, and attention cost against 16:9. A
+  `DynamicCombo` bands the choices so no list runs long -- 22 entries at
+  worst -- while all 95 trained resolutions stay reachable, plus `custom`
+  for anything the DiT can patch. The list is swept from `adapt_canvas` at
+  import rather than hardcoded, so it tracks upstream.
+- It answers the question no other node could: whether you are inside the
+  trained family. Core's conditioning nodes never call `adapt_canvas`, so the
+  768 short edge and the area cap constrain nothing you type. 1024x1024 is
+  legal, renders, and is outside the family; the node says so and names the
+  resolution `adapt_canvas` would have given instead.
+- A README section on which sizing node to use when, built on the rule that
+  separates them: a keyframe is patchified on the video's latent grid so its
+  resolution must equal the video's, a reference is patchified on its own so
+  its resolution only sets the vision tokens it contributes.
+
 ## 0.4.3
 
 ### Added

@@ -210,6 +210,40 @@ Measurements, settings worth using, and what did not hold up:
 difference that survived replication, and Sol-Attn renders measure
 consistently louder on audio for reasons not yet established.
 
+## The nodes, and when to use which
+
+Three of these decide size, and which one you want depends only on what you
+are generating from. You never need more than two.
+
+| node | use it when | what it decides |
+|---|---|---|
+| MiniMax H3 Resolution | text-to-video, or reference-to-video | the video's resolution and length, chosen by shape, with the cost shown before you commit |
+| MiniMax H3 Keyframe Canvas | first-frame-to-video | the same, but derived from your keyframe, because a keyframe is patchified on the video's own latent grid and the two must match |
+| MiniMax H3 Reference Fit | any graph with reference images | how large each reference arrives, which sets the vision tokens it contributes. Independent of the video's resolution |
+
+The rule that separates the last two, since both resize an image:
+
+- A keyframe is patchified on the video's own latent grid, so its resolution
+  must equal the video's. That is why the keyframe node outputs width and
+  height and the reference node does not.
+- A reference is patchified on its own grid, so its resolution decides how
+  many vision tokens it contributes and nothing else.
+
+The remaining two are not sizing nodes:
+
+| node | use it when |
+|---|---|
+| MiniMax H3 SageAttention | always. Between the model loader and the sampler |
+| Assert Sage Attention Chain | always, last in the model chain. Turns a silently mis-composed attention stack into a refused render |
+
+Resolution divisibility is the one hard rule and it is architectural: the VAE
+compresses space by 16 and the DiT patchifies that latent 2x2, so every
+dimension must be a multiple of 32. The 768 short edge and the 768x1344 area
+cap are different in kind -- they describe the family the model was trained
+on, and core's conditioning nodes do not enforce them. 1024x1024 renders
+fine and is outside that family. `docs/h3_resolutions.md` has all 95 trained
+resolutions and the derivation.
+
 ## Layout
 
 ```
@@ -219,9 +253,13 @@ attention.py       kernel selection, the replacement Attention.forward
 nodes.py            MiniMax H3 SageAttention, the flagship node
 assert_chain.py     Assert Sage Attention Chain -- fails the render if the
                     attention chain did not compose as intended
-keyframe_canvas.py  MiniMax H3 Keyframe Canvas -- derives the generation
-                    canvas from a keyframe instead of silently distorting it,
-                    and enforces the trained aspect and duration limits
+resolution.py       MiniMax H3 Resolution -- pick a resolution by shape and
+                    see its token cost in the dropdown you pick it from;
+                    says whether you are inside the trained family
+keyframe_canvas.py  MiniMax H3 Keyframe Canvas -- derives the video
+                    resolution from a keyframe instead of silently
+                    distorting it, and enforces the trained aspect and
+                    duration limits
 reference_fit.py    MiniMax H3 Reference Fit -- sizes a reference image the
                     way the reference pipeline does, including upscaling
 provenance.py       MiniMax H3 Provenance Stamp (bench) -- records what a
