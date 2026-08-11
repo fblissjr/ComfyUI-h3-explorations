@@ -4,6 +4,35 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.6.0
+
+### Added
+
+- `MiniMaxH3Preflight`. Reads the assembled conditioning and latent through
+  the model's own `PackedLayout`, so the sequence length it reports is the one
+  attention will run at. Draws on the node: resolution and whether it is
+  inside the trained family, sequence length broken down by segment with
+  bars, what other aspect ratios would cost at the same length and
+  conditioning, and where the int32 thresholds sit for the fused layout.
+  Pass-through. It is the only node that can answer "what am I actually
+  sending", because the total does not exist until conditioning is assembled.
+
+### Changed
+
+- `MiniMaxH3ReferenceFit`'s `mode` combo is now an `allow_upscale` boolean.
+  The two modes differed by exactly `min(1.0, full)` versus `full`, so they
+  were one strategy with the clamp on or off, and `reference`/`down_only`
+  named provenance rather than behaviour. Saved graphs carrying the old
+  string value will need it reset; the node is in no shipped workflow.
+- Display names: "MiniMax H3 Keyframe Resolution" and "MiniMax H3 Reference
+  Resolution", so the pair reads as two answers to one question. Both
+  `node_id`s are unchanged.
+- `lift_downstream_clamp` now announces itself as experimental in its label,
+  leads its tooltip with what it will cost you, and logs a WARNING rather
+  than an info line when armed. It monkeypatches a core node and pushes
+  references off the distribution the checkpoint was trained on; that should
+  be impossible to trip over by accident.
+
 ## 0.5.1
 
 ### Added

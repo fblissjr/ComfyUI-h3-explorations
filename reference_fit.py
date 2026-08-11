@@ -55,7 +55,7 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="MiniMaxH3ReferenceFit",
-            display_name="MiniMax H3 Reference Fit",
+            display_name="MiniMax H3 Reference Resolution",
             category="model/conditioning/minimax",
             description=(
                 "Scales a reference image to MiniMax H3's 2048 short edge, "
@@ -68,14 +68,17 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
             ),
             inputs=[
                 io.Image.Input("image"),
-                io.Combo.Input(
-                    "mode", options=["reference", "down_only"],
-                    default="reference", tooltip=(
-                        "reference: scale to the 2048 short edge in both "
-                        "directions, matching the released pipeline. "
-                        "down_only: ComfyUI's current behaviour, which never "
-                        "enlarges -- here so the two can be A/B'd without "
-                        "rewiring the graph."
+                io.Boolean.Input(
+                    "allow_upscale", default=True, tooltip=(
+                        "Scale the image until its shorter side reaches "
+                        "short_edge, enlarging it if it is smaller. "
+                        "On: matches the released pipeline, which upscales "
+                        "unconditionally. A 1280x720 reference becomes "
+                        "3648x2048, going from 880 to 7296 vision tokens. "
+                        "Off: matches ComfyUI, which only ever shrinks. "
+                        "The two differ by exactly this clamp and nothing "
+                        "else. Upscaling adds tokens, not detail, so whether "
+                        "it helps an already-small source is unmeasured here."
                     )),
                 io.Int.Input(
                     "short_edge", default=REF_IMAGE_SHORT_EDGE, min=256,
@@ -103,7 +106,13 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                 # positionally in every saved graph.
                 io.Boolean.Input(
                     "lift_downstream_clamp", default=False, optional=True,
+                    display_name="EXPERIMENTAL: lift the 2048 clamp",
                     tooltip=(
+                        "EXPERIMENTAL. Leave this off unless you are running "
+                        "an experiment and expect to throw the result away. "
+                        "It monkeypatches a core ComfyUI node for one call and "
+                        "pushes the model outside the distribution it was "
+                        "trained on; nothing downstream is tested there. "
                         "Only matters above 2048. MiniMax H3 Reference to "
                         "Video clamps with min(1.0, 2048/short_edge), so "
                         "anything larger this node produces is scaled straight "
@@ -127,7 +136,7 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, mode="reference", short_edge=REF_IMAGE_SHORT_EDGE,
+    def execute(cls, image, allow_upscale=True, short_edge=REF_IMAGE_SHORT_EDGE,
                 lift_downstream_clamp=False
                 ) -> io.NodeOutput:
         if image.shape[0] > 1:
@@ -146,7 +155,7 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
             )
 
         full = short_edge / min(src_w, src_h)
-        scale = min(1.0, full) if mode == "down_only" else full
+        scale = full if allow_upscale else min(1.0, full)
 
         tw, th = _fit(src_w, src_h, scale)
         out = _resize(image[:1], tw, th, "disabled")
@@ -158,8 +167,8 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
         stock_tokens = _tokens(*_fit(src_w, src_h, min(1.0, full)))
 
         logger.info(
-            "[h3] reference %dx%d -> %dx%d (%s, short_edge=%d): %d latent rows, "
-            "%.2gx ComfyUI's own sizing", src_w, src_h, tw, th, mode,
+            "[h3] reference %dx%d -> %dx%d (allow_upscale=%s, short_edge=%d): "
+            "%d vision tokens, %.2gx ComfyUI's own sizing", src_w, src_h, tw, th, allow_upscale,
             short_edge, tokens, tokens / stock_tokens,
         )
         if lift_downstream_clamp and short_edge > REF_IMAGE_SHORT_EDGE:
@@ -255,8 +264,13 @@ def _make_wrapper(original):
                 "'match', which sizes references from the video's pixel area "
                 "and never reads the 2048 constant. Set it to 'max'.", pending)
             return original(*args, **kwargs)
-        logger.info("[h3] lifting the reference clamp to %d for one call "
-                    "(off-distribution above 2048)", pending)
+        logger.warning(
+            "[h3] EXPERIMENTAL: lifting ComfyUI's reference clamp to %d for "
+            "one call. This monkeypatches a core node and pushes image "
+            "references past the %d the released checkpoint was conditioned "
+            "at. Results are not comparable to anything measured at the "
+            "default, and nothing downstream is tested here.",
+            pending, REF_IMAGE_SHORT_EDGE)
         with _rebound_short_edge(pending):
             return original(*args, **kwargs)
 

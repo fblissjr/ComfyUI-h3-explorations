@@ -95,7 +95,7 @@ def comfy_rule(w, h, short_edge=REF_IMAGE_SHORT_EDGE):
     return tw, th
 
 
-def fitted_size(w, h, mode):
+def fitted_size(w, h, allow_upscale):
     """Drive the NODE, not the helper.
 
     An earlier version of this file called `_fit` with a scale computed here,
@@ -104,19 +104,19 @@ def fitted_size(w, h, mode):
     produced zero failures. Every case below now goes through `execute`.
     """
     out, _rows_out = MiniMaxH3ReferenceFit.execute(
-        torch.rand(1, h, w, 3), mode=mode)
+        torch.rand(1, h, w, 3), allow_upscale=allow_upscale)
     return int(out.shape[2]), int(out.shape[1])
 
 
 print("--- 1. 'reference' mode reproduces the reference's unclamped rule ---")
 for w, h in SOURCES:
-    got = fitted_size(w, h, "reference")
+    got = fitted_size(w, h, True)
     check(f"{w}x{h} -> {got[0]}x{got[1]}", got == reference_rule(w, h),
           f"reference says {reference_rule(w, h)}")
 
 print("\n--- 2. 'down_only' reproduces ComfyUI's current behaviour ---")
 for w, h in SOURCES:
-    got = fitted_size(w, h, "down_only")
+    got = fitted_size(w, h, False)
     check(f"{w}x{h} -> {got[0]}x{got[1]}", got == comfy_rule(w, h),
           f"ComfyUI says {comfy_rule(w, h)}")
 
@@ -125,7 +125,7 @@ print("\n--- 2b. the two modes must actually differ below 2048 ---")
 # source, the mode switch is doing nothing and everything above is measuring
 # one code path twice.
 for w, h in SOURCES:
-    ref_size, down_size = fitted_size(w, h, "reference"), fitted_size(w, h, "down_only")
+    ref_size, down_size = fitted_size(w, h, True), fitted_size(w, h, False)
     smaller = min(w, h) < REF_IMAGE_SHORT_EDGE
     check(f"{w}x{h}: modes {'differ' if smaller else 'agree'}",
           (ref_size != down_size) == smaller,
@@ -161,7 +161,7 @@ except ImportError:
 print("\n--- 4. after this node, the stock node's own resize is a no-op ---")
 for w, h in SOURCES:
     out, rows = MiniMaxH3ReferenceFit.execute(torch.rand(1, h, w, 3),
-                                              mode="reference")
+                                              allow_upscale=True)
     fh, fw = int(out.shape[1]), int(out.shape[2])
     # exactly what nodes_minimax_h3.py then does to it
     tw, th = comfy_rule(fw, fh)

@@ -52,7 +52,7 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="MiniMaxH3KeyframeCanvas",
-            display_name="MiniMax H3 Keyframe Canvas",
+            display_name="MiniMax H3 Keyframe Resolution",
             category="model/conditioning/minimax",
             description=(
                 "Derives the generation canvas from the first keyframe, matching the "
