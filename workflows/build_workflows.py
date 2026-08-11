@@ -440,78 +440,91 @@ def _out(name, type_):
 # is what you need with the graph open. Numbers here come from
 # comfy_extras/nodes_minimax_h3.py, not from lore.
 _NOTE_GEOMETRY = """\
-## You pick an aspect ratio. The canvas is derived from it.
+## You pick an aspect ratio. The resolution follows from it.
 
-There is no resolution setting. `adapt_canvas()` takes your two numbers as a
-*ratio* and computes the canvas:
+`adapt_canvas()` reads your two numbers as a ratio and derives the pixels:
+short edge starts at 768, the area caps at 1,032,192 (768x1344), each axis
+rounds to 32. Asking for 4K gives the same resolution as 720p at the same
+ratio. Exactly 95 resolutions exist across the legal 1/4 to 4 aspect range.
 
-1. Short edge starts at **768**.
-2. If that exceeds the area cap of **1,032,192 px** (768x1344), the whole
-   canvas scales down until it fits.
-3. Each axis rounds to a multiple of **32**.
+Full table, the derivation, and the length and int32 axes:
+`docs/h3_resolutions.md`.
 
-Asking for 4K gives the same canvas as asking for 720p at the same ratio.
-Only 94 canvases exist in the whole legal aspect range of 1/4 to 4.
+## The fourteen worth knowing
 
-## The ones worth knowing
-
-| aspect | canvas | rows/frame | attention |
+| Ask for | Resolution | Video tokens/frame | Attention |
 |---|---|---|---|
 | 21:9 | 1536x672 | 1008 | 1.00x |
 | 2:1 | 1440x704 | 990 | 0.96x |
-| **16:9** | **1344x768** | 1008 | 1.00x |
+| 16:9 | 1344x768 | 1008 | 1.00x |
 | 5:3 | 1280x768 | 960 | 0.91x |
 | 3:2 | 1152x768 | 864 | 0.73x |
 | 4:3 | 1024x768 | 768 | 0.58x |
 | 5:4 | 960x768 | 720 | 0.51x |
-| **1:1** | **768x768** | 576 | **0.33x** |
+| 1:1 | 768x768 | 576 | 0.33x |
 | 4:5 | 768x960 | 720 | 0.51x |
 | 3:4 | 768x1024 | 768 | 0.58x |
 | 2:3 | 768x1152 | 864 | 0.73x |
 | 9:16 | 768x1344 | 1008 | 1.00x |
+| 1:2 | 704x1440 | 990 | 0.96x |
+| 9:21 | 672x1536 | 1008 | 1.00x |
 
-Type one of these into width/height and you get exactly it back. **1:1 costs
-a third of 16:9** at the same frame count, and attention dominates the step,
-so this is the largest speed lever anywhere -- bigger than any kernel or
-sparsity setting.
+All fourteen reproduce themselves, so typing one into width/height gives it
+back. 1:1 costs a third of 16:9 at the same frame count, and attention
+dominates the step, so this is the largest speed lever anywhere, larger than
+any kernel or sparsity setting.
+
+Attention goes as the square of the token count. Video tokens per frame are
+`(w//32) * (h//32)`, which is symmetric, so portrait and landscape of a ratio
+cost the same. 16:9 against 9:16 is a quality question, never a speed one.
+
+## Where the 32 comes from
+
+The VAE compresses space by 16, then the DiT patchifies that latent 2x2
+before attending it. 16 x 2 = 32. Divisible by 16 alone leaves an odd latent
+axis the patchify cannot tile.
+
+Core's conditioning nodes do not apply `adapt_canvas()` to the video
+resolution at all: width and height are plain ints at step 32, so what you
+type is what you get. The 768 and the area cap describe the trained family,
+not a limit the node enforces.
 
 ## Two things that surprise people
 
-**The short edge is not always 768.** It is 768 only while the area cap does
-not bind, which is roughly 3:4 through 7:4. Wider or taller than that and the
-cap takes over: 21:9 is 1536x**672**, 9:21 is **672**x1536. If you expected a
-768 short edge at 21:9, that is why you did not get it.
+The short edge is not always 768. It is 768 only while the area cap does not
+bind, roughly 3:4 through 7:4. Outside that the cap takes over: 21:9 is
+1536x672, 9:21 is 672x1536.
 
-**1.00x is not the ceiling.** Rounding each axis to 32 can land a canvas
-*above* the 16:9 row count: 29:9 gives 1856x576, which is 1044 rows and
-**1.07x**. A few odd wide ratios cost more than 16:9 for no extra pixels.
-Stick to the table unless you have a reason not to.
-
-**Portrait and landscape of a ratio cost the same.** Rows are
-`(h//32)*(w//32)`, which is symmetric. 16:9 against 9:16 is a quality
-question, never a speed one.
+1.00x is not the ceiling. Rounding to 32 can land above the 16:9 token count.
+Ask for 23:7 and you get 1856x576, which is 1044 video tokens against 1008,
+so 1.073x the attention for no extra pixels. That is the worst case in the
+set. Nearby ratios behave: 29:9 gives 1824x576 at 1.036x. Stay on the
+fourteen unless you have a reason.
 
 ## If you want this decided for you
 
-`MiniMax H3 Keyframe Canvas` (this repo) derives the canvas from your first
-keyframe the way the reference pipeline does, fits the keyframes onto it, and
-outputs `attn_cost_vs_1to1` so the price is visible before you render. The
-first-frame graph is wired that way. For text-to-video there is no keyframe
-to derive from, so type a row from the table.
+`MiniMax H3 Keyframe Canvas` (this repo) derives the resolution from your
+first keyframe the way the reference pipeline does, fits the keyframes onto
+it, and reports the cost before you render. The first-frame graph is wired
+that way. Text-to-video has no keyframe to derive from, so type a row above.
 
-## Length snaps up to n % 17 == 5
+## Length rounds up to n % 17 == 5
 
-Ask 200, get 209. Ask 300, get 311. Near the top: **311, 328, 345**.
+Ask 200, get 209. Ask 300, get 311. Near the top: 311, 328, 345.
 
-**345 is the ceiling, not 362.** ComfyUI's tooltip says ~124-362 and its node
+345 is the ceiling, not 362. ComfyUI's tooltip says ~124-362 and its node
 accepts up to 3600, but the reference generates 5-15s at 24fps and applies
-that ceiling *after* the snap. 362 is 15.083s, so it is refused; 345 is
+that ceiling after the rounding. 362 is 15.083s, so it is refused; 345 is
 14.375s. There is no on-grid count at exactly 15.0s. Ask for 346 and you get
-362, which is why the check has to run on the snapped number -- the reference
-names that exact trap in a comment.
+362, which is why the check has to run on the rounded number.
 
-At 345 frames attention is ~76% of the step, against ~50% at 124 -- long
+At 345 frames attention is ~76% of the step, against ~50% at 124, so long
 clips are where sparsity and kernel work pay off most.
+
+345 frames is the frame-count ceiling, not the sequence-length ceiling. At
+1344x768 it is S=108,078, which is already past the fused-layout int32
+crossing at 99,864 tokens. That is safe here only because this repo's node
+refuses any sageattention without `sageattn_consume`. See the doc.
 """
 
 
