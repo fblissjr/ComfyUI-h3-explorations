@@ -4,6 +4,24 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.3.2
+
+### Added
+
+- `bench/check_clone_v_wiring.py`. The 9.1% peak saving depends on two
+  things in different files joined by one argument in `nodes.py`, and
+  dropping that argument changes no output, fails no existing check, and
+  renders identical frames. Three cases: the predicate agrees with the
+  kernel `build_kernel` actually returns, the node passes it down, and the
+  flag really does take v out of the fused buffer. Each was shown red on its
+  own mutation.
+
+### Changed
+
+- The `smooth_k=False` kwarg is now load-bearing for a second reason, noted
+  where it is set: with `smooth_k=True` the K-mean copy eats the clone's
+  saving and turns -286 MiB into +286 MiB.
+
 ## 0.3.1
 
 ### Changed

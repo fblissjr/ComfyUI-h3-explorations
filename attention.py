@@ -124,6 +124,13 @@ def build_kernel(mode):
         # H3 self-attention is unmasked, and ComfyUI passes smooth_k=False
         # on its own sage path. Keeping it off avoids a K-mean pass that
         # buys nothing measurable at these shapes.
+        #
+        # It is also what makes the `clone_v` below pay. With smooth_k=True,
+        # `per_thread_int8` allocates q_int8/k_int8 before evaluating
+        # `k = k - km`, so a full bf16 copy of K sits on top of them and eats
+        # the saving: the clone goes from -286 MiB to +286 MiB at seq=41822.
+        # Turning this on means turning that off. Measured in the fork's
+        # `tests/test_sageattn_consume.py`.
         "smooth_k": False,
         **extra,
     }
