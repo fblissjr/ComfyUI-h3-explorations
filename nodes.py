@@ -143,10 +143,21 @@ class MiniMaxH3SageAttention(io.ComfyNode):
         # override declines would otherwise land on ComfyUI's default
         # attention instead of sage. Chained onto whatever was already
         # there, and left in place for a later patch to chain onto in turn.
-        # Copy before mutating: clone() shallow-copies model_options, so the
-        # transformer_options dict can still be shared with the source model.
-        # Writing through it would install sage on a model the user did not
-        # patch -- which, in an A/B, silently contaminates the control arm.
+        # Copy before mutating. The reason is not the one this comment gave
+        # until 2026-08-11: `clone()` does NOT leave transformer_options
+        # shared. It runs model_options through `comfy.utils.deepcopy_list_dict`
+        # (`comfy/model_patcher.py:453`, on every branch), which recurses into
+        # dicts and lists and passes callables through by reference, so the
+        # clone already owns its own dict. The copy is redundant today.
+        #
+        # Kept anyway, because what it guards against is severe and silent:
+        # writing into a dict the source model still holds would install sage
+        # on a model the user did not patch, which in an A/B contaminates the
+        # control arm and looks like a result. One dict copy per patch is
+        # nothing next to that, and it means this node does not depend on an
+        # upstream guarantee it cannot enforce. `check_clone_v_wiring.py`
+        # pins it against a deliberately shallow-cloning fake, since against
+        # the real ModelPatcher the assertion cannot fail.
         to = m.model_options["transformer_options"] = \
             m.model_options.get("transformer_options", {}).copy()
         to["optimized_attention_override"] = make_sage_override(

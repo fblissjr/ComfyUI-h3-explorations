@@ -79,18 +79,56 @@ class _StubDiffusionModel:
 
 
 class _StubModel:
-    def __init__(self):
-        self.model_options = {"transformer_options": {}}
+    """Stand-in for `comfy.model_patcher.ModelPatcher`, cloning as it does.
+
+    Ported from ComfyUI-AudioLoopHelper's `tests/_fakes.py`, which models the
+    real contract rather than the convenient one. `ModelPatcher.clone()` runs
+    `model_options` through `comfy.utils.deepcopy_list_dict`
+    (`comfy/model_patcher.py:453`), which recurses into dicts and lists and
+    leaves everything else -- callables included -- by reference. A `clone()`
+    that returns `self`, which is what this stub used to do, cannot tell a
+    node that mutates its source apart from one that does not.
+    """
+
+    def __init__(self, transformer_options=None):
+        self.model_options = {"transformer_options": dict(transformer_options or {})}
         self.patched = []
 
     def get_model_object(self, _name):
         return _StubDiffusionModel()
 
+    def _copy_options(self):
+        def walk(o):
+            if isinstance(o, dict):
+                return {k: walk(v) for k, v in o.items()}
+            if isinstance(o, list):
+                return [walk(v) for v in o]
+            return o                      # callables and tensors by reference
+        return walk(self.model_options)
+
     def clone(self):
-        return self
+        c = type(self)()
+        c.model_options = self._copy_options()
+        return c
 
     def add_object_patch(self, key, _value):
         self.patched.append(key)
+
+
+class _SharedOptionsModel(_StubModel):
+    """A hostile clone: new outer dict, but `transformer_options` is shared.
+
+    Not what ComfyUI does today. That is the point -- our node should not
+    depend on upstream's deep copy to avoid writing into the model it was
+    handed, because that guarantee is one refactor upstream from gone and the
+    failure is silent. Under a real `ModelPatcher` the assertion below cannot
+    fail, which would make it decoration; under this one it can.
+    """
+
+    def clone(self):
+        c = type(self)()
+        c.model_options = dict(self.model_options)   # inner dict NOT copied
+        return c
 
 
 def check_predicate_matches_kernel():
@@ -183,6 +221,29 @@ def check_clone_v_changes_storage():
         if not ok:
             failures.append(f"clone_v={clone_v}")
     return failures
+
+
+def check_no_write_through_to_source():
+    """Patching a model must not reach the model the caller still holds.
+
+    The node writes an `optimized_attention_override` into
+    `transformer_options`. If it wrote through a dict shared with the source,
+    a graph that A/Bs patched against unpatched would have sage installed on
+    both arms, silently, and the control would measure the treatment.
+    """
+    real_guard = node_mod._is_minimax_h3
+    setattr(node_mod, "_is_minimax_h3", lambda _m: True)
+    try:
+        source = _SharedOptionsModel({"pre_existing": "untouched"})
+        before = dict(source.model_options["transformer_options"])
+        node_mod.MiniMaxH3SageAttention.execute(source, mode="auto")
+        after = source.model_options["transformer_options"]
+        ok = after == before
+        print(f"  {'ok  ' if ok else 'FAIL'} source transformer_options "
+              f"{'unchanged' if ok else 'MUTATED: ' + str(sorted(set(after) - set(before)))}")
+        return [] if ok else ["write-through to source"]
+    finally:
+        setattr(node_mod, "_is_minimax_h3", real_guard)
 
 
 def check_device_gate_is_honoured():
@@ -375,7 +436,8 @@ def main() -> int:
     for fn in (check_predicate_matches_kernel, check_node_wires_it,
                check_clone_v_changes_storage, check_device_gate_is_honoured,
                check_chunked_path_does_not_clone,
-               check_unchunked_path_hands_over_ownership):
+               check_unchunked_path_hands_over_ownership,
+               check_no_write_through_to_source):
         print(f"{fn.__name__}:")
         failures += fn()
 

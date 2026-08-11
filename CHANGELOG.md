@@ -4,6 +4,30 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.4.1
+
+### Added
+
+- `check_no_write_through_to_source`: patching a model must not reach the
+  model the caller still holds. It runs against a deliberately
+  shallow-cloning fake, because against the real `ModelPatcher` the
+  assertion cannot fail and would be decoration. Under the real thing the
+  node's defensive copy is redundant; the case pins that the node does not
+  depend on that, since the failure it prevents is a contaminated A/B
+  control arm that looks like a result.
+- The `ModelPatcher` stub now clones the way ComfyUI does, ported from
+  ComfyUI-AudioLoopHelper's `tests/_fakes.py`. It previously returned
+  `self`, which cannot tell a node that mutates its source from one that
+  does not.
+
+### Fixed
+
+- The comment explaining that copy said `clone()` shallow-copies
+  `model_options`. It does not, and did not when the comment was written:
+  `clone()` runs them through `comfy.utils.deepcopy_list_dict` on every
+  branch, which landed 2026-02-10. No behaviour was wrong, only the stated
+  reason, which is the kind of thing a later decision gets made on.
+
 ## 0.4.0
 
 ### Changed
