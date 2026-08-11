@@ -50,6 +50,20 @@ MODELS = dict(
     # pixel difference is the decoder:
     #
     #   decode      12.8s -> 9.9s median (1.29x) at 124f, 1344x768
+    #
+    # **Re-measured 2026-08-11 after kijai's decode rewrite (ComfyUI 2a68ce33,
+    # which added chunked IO and streams finalized chunks to the intermediate
+    # device instead of assembling the video on the GPU): 12.8s -> 10.0s,
+    # 1.28x.** Unchanged within noise, so the figure above stands and the
+    # rewrite did not move the int8-vs-fp16 relationship. Worth having
+    # checked rather than assumed: the numbers predated the rewrite and
+    # nothing said whether they survived it.
+    #
+    # Peak VRAM was NOT reproducible in that run: fp16 measured 20263 and
+    # 22528 MiB on two runs of the same seed, and int8 measured higher than
+    # fp16 overall. Process peak is dominated by ComfyUI's dynamic VRAM
+    # reallocating against free memory, not by what the VAE holds, so peak
+    # is not a number to compare VAEs on here.
     #   quality     PSNR 53.3 dB, mean|d| 0.23/255, p99 2/255, max 20/255,
     #               and 79.6% of pixels bit-identical. Lossless PNG straight
     #               off VAEDecode, same latent through both VAE files.
