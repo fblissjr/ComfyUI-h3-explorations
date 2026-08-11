@@ -289,6 +289,19 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["21"] = {"class_type": "SolAttnPatch",
                    "inputs": {"model": model_src, **sol}}
         model_src = ["21", 0]
+    # Last in the chain, because it asserts what the composition ended up
+    # as, not what any one node intended. Sol-Attn negotiates with our
+    # override through a duck-typed attribute that both sides rewrote within
+    # a minute of each other once already; when that seam breaks the render
+    # still succeeds and is quietly slower or numerically different. This
+    # turns that into a refused render. `exercise` stays on: install-time
+    # evidence is exactly what today has taught us not to trust.
+    g["23"] = {"class_type": "SageChainAssert",
+               "inputs": {"model": model_src, "require_override": True,
+                          "require_forward_patch": True, "exercise": True,
+                          "warn_only": False}}
+    model_src = ["23", 0]
+
     # The fork. Both consumers, always, from the same variable.
     g["8"]["inputs"]["model"] = model_src
     g["9"]["inputs"]["model"] = model_src
@@ -966,6 +979,16 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                          _in("meta_batch", "VHS_BatchManager", optional=True),
                          _in("vae", "VAE", optional=True)],
                  outputs=[_out("Filenames", "VHS_FILENAMES")])
+
+    # See the matching note in build_api: last in the chain, asserting the
+    # composition rather than any single node's intent.
+    assert_node = g.add("SageChainAssert", (-480, 0), size=(360, 130),
+                        widgets=[True, True, True, False],
+                        inputs=[_in("model", "MODEL")],
+                        outputs=[_out("model", "MODEL")],
+                        title="Assert the attention chain composed")
+    g.link(model_src, 0, assert_node, "model", "MODEL")
+    model_src = assert_node
 
     g.link(model_src, 0, sched, "model", "MODEL")
     g.link(model_src, 0, guider, "model", "MODEL")

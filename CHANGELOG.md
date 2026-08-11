@@ -4,6 +4,19 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.4.3
+
+### Added
+
+- `SageChainAssert` is now last in the model chain of every render graph,
+  after Sol-Attn, asserting what the composition ended up as rather than what
+  any one node intended. That seam is negotiated through a duck-typed
+  attribute both sides rewrote within a minute of each other once already,
+  and when it breaks the render still succeeds while being quietly slower or
+  numerically different. `exercise` stays on, so the evidence is call-time
+  rather than install-time: a fraction of a second and ~176 MiB transiently,
+  against renders that peak near 3 GB in attention alone.
+
 ## 0.4.2
 
 ### Fixed

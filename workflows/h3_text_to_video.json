@@ -1,8 +1,8 @@
 {
   "id": "h3-t2v-sage",
   "revision": 0,
-  "last_node_id": 19,
-  "last_link_id": 20,
+  "last_node_id": 20,
+  "last_link_id": 21,
   "nodes": [
     {
       "id": 1,
@@ -90,7 +90,7 @@
           "type": "VAE",
           "links": [
             5,
-            16
+            17
           ]
         }
       ],
@@ -122,7 +122,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            18
+            19
           ]
         }
       ],
@@ -299,8 +299,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            7,
-            8
+            7
           ]
         }
       ],
@@ -360,14 +359,14 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            9
+            10
           ]
         },
         {
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            10
+            11
           ]
         }
       ],
@@ -401,7 +400,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            11
+            12
           ]
         }
       ],
@@ -433,7 +432,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            13
+            14
           ]
         }
       ],
@@ -456,13 +455,13 @@
         130
       ],
       "flags": {},
-      "order": 11,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 7
+          "link": 8
         }
       ],
       "outputs": [
@@ -470,7 +469,7 @@
           "name": "SIGMAS",
           "type": "SIGMAS",
           "links": [
-            14
+            15
           ]
         }
       ],
@@ -495,18 +494,18 @@
         70
       ],
       "flags": {},
-      "order": 12,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 8
+          "link": 9
         },
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 9
+          "link": 10
         }
       ],
       "outputs": [
@@ -514,7 +513,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            12
+            13
           ]
         }
       ],
@@ -534,33 +533,33 @@
         150
       ],
       "flags": {},
-      "order": 13,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 11
+          "link": 12
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 12
+          "link": 13
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 13
+          "link": 14
         },
         {
           "name": "sigmas",
           "type": "SIGMAS",
-          "link": 14
+          "link": 15
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 10
+          "link": 11
         }
       ],
       "outputs": [
@@ -568,8 +567,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            15,
-            17
+            16,
+            18
           ]
         },
         {
@@ -594,18 +593,18 @@
         60
       ],
       "flags": {},
-      "order": 14,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 15
+          "link": 16
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 16
+          "link": 17
         }
       ],
       "outputs": [
@@ -613,7 +612,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            19
+            20
           ]
         }
       ],
@@ -633,18 +632,18 @@
         60
       ],
       "flags": {},
-      "order": 15,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 17
+          "link": 18
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 18
+          "link": 19
         }
       ],
       "outputs": [
@@ -652,7 +651,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            20
+            21
           ]
         }
       ],
@@ -672,18 +671,18 @@
         520
       ],
       "flags": {},
-      "order": 16,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 19
+          "link": 20
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 20,
+          "link": 21,
           "shape": 7
         },
         {
@@ -724,6 +723,48 @@
     },
     {
       "id": 18,
+      "type": "SageChainAssert",
+      "pos": [
+        -480,
+        0
+      ],
+      "size": [
+        360,
+        130
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            8,
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SageChainAssert"
+      },
+      "widgets_values": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "title": "Assert the attention chain composed"
+    },
+    {
+      "id": 19,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -734,7 +775,7 @@
         620
       ],
       "flags": {},
-      "order": 17,
+      "order": 12,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -747,7 +788,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 19,
+      "id": 20,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -758,7 +799,7 @@
         560
       ],
       "flags": {},
-      "order": 18,
+      "order": 13,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -824,20 +865,28 @@
       7,
       8,
       0,
-      12,
+      18,
       0,
       "MODEL"
     ],
     [
       8,
-      8,
+      18,
+      0,
+      12,
+      0,
+      "MODEL"
+    ],
+    [
+      9,
+      18,
       0,
       13,
       0,
       "MODEL"
     ],
     [
-      9,
+      10,
       9,
       0,
       13,
@@ -845,7 +894,7 @@
       "CONDITIONING"
     ],
     [
-      10,
+      11,
       9,
       1,
       14,
@@ -853,7 +902,7 @@
       "LATENT"
     ],
     [
-      11,
+      12,
       10,
       0,
       14,
@@ -861,7 +910,7 @@
       "NOISE"
     ],
     [
-      12,
+      13,
       13,
       0,
       14,
@@ -869,7 +918,7 @@
       "GUIDER"
     ],
     [
-      13,
+      14,
       11,
       0,
       14,
@@ -877,7 +926,7 @@
       "SAMPLER"
     ],
     [
-      14,
+      15,
       12,
       0,
       14,
@@ -885,7 +934,7 @@
       "SIGMAS"
     ],
     [
-      15,
+      16,
       14,
       0,
       15,
@@ -893,7 +942,7 @@
       "LATENT"
     ],
     [
-      16,
+      17,
       3,
       0,
       15,
@@ -901,7 +950,7 @@
       "VAE"
     ],
     [
-      17,
+      18,
       14,
       0,
       16,
@@ -909,7 +958,7 @@
       "LATENT"
     ],
     [
-      18,
+      19,
       4,
       0,
       16,
@@ -917,7 +966,7 @@
       "VAE"
     ],
     [
-      19,
+      20,
       15,
       0,
       17,
@@ -925,7 +974,7 @@
       "IMAGE"
     ],
     [
-      20,
+      21,
       16,
       0,
       17,
