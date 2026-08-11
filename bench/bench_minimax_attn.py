@@ -16,6 +16,17 @@ second:
 
 Needs ComfyUI importable (run from the ComfyUI root or with it on
 PYTHONPATH) and about 8 GiB of free VRAM at the default shape.
+
+**What this bench can and cannot tell you.** It reports `allocated` (the sum
+of live tensors) and `reserved` (what the caching allocator holds from the
+driver, which is what the process occupies). Both are per call, on a clean
+allocator, with no model resident.
+
+Neither predicts process peak during a render. Measured 2026-08-11: an arm
+this bench ranks 217 MiB *lower* measured 1186 MiB *higher* in an e2e run,
+and the same e2e configuration varied by 2265 MiB across two runs of one
+seed. Use these numbers to reason about the attention call. Do not use them
+to predict what nvidia-smi will say.
 """
 
 from __future__ import annotations
@@ -216,9 +227,17 @@ def main():
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
     base = torch.cuda.memory_allocated()
+    base_reserved = torch.cuda.memory_reserved()
     out = call()
     torch.cuda.synchronize()
     peak = (torch.cuda.max_memory_allocated() - base) / MiB
+    # Reserved, not just allocated. `allocated` is the sum of live tensors;
+    # `reserved` is what the caching allocator holds from the driver, and it
+    # is what the process actually occupies. Fragmentation raises the second
+    # without raising the first, so a change that lowers allocated can raise
+    # what nvidia-smi reports -- which is the direction an e2e run measured on
+    # 2026-08-11 while this bench said the opposite.
+    reserved = (torch.cuda.max_memory_reserved() - base_reserved) / MiB
     del out
 
     ms = timed(call)
@@ -226,7 +245,7 @@ def main():
     route = "opts" if args.chunks_via_options else "arg"
     print(
         f"{label:14s} seq={args.seq} chunks={args.head_chunks}({route})  "
-        f"{ms:8.2f} ms   peak {peak:7.0f} MiB"
+        f"{ms:8.2f} ms   allocated {peak:7.0f} MiB   reserved {reserved:7.0f} MiB"
     )
 
 

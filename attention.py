@@ -308,6 +308,26 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
     `_prefers_cloned_v` about the device it is actually running on, and
     checks the resolved chunk count, before paying for the copy.
 
+    **Every number above is per attention call, and that is not a render.**
+    Measured 2026-08-11 and worth stating plainly, because the whole reason
+    to want the clone was an assumption this contradicts. An e2e run at 124
+    frames put head_chunks=4 *higher* on process peak than head_chunks=1 by
+    1186 MiB, the opposite direction from the per-call figures, and a second
+    run on the same box measured a 2265 MiB spread across two runs of one
+    unchanged configuration. So the excursion is larger than the effect and
+    the sign cannot be settled at that sample size either way.
+
+    Fragmentation at the call is not the explanation: this bench now reports
+    reserved beside allocated and they track within 8 MiB on all three arms,
+    so a single call on a clean allocator does not fragment. Whatever drives
+    process peak lives in the interaction across 50 blocks and every step
+    with a model resident and ComfyUI's dynamic VRAM reallocating -- exactly
+    what a per-module bench excludes by construction.
+
+    What survives: the clone is free (0.7% wall-clock, bit-identical output)
+    and it lowers the attention call's peak. What does not: any claim that it
+    lowers what a user's card reports. Do not spend anything to get it.
+
     `head_chunks` > 1 runs the heads in that many groups, quantizing and
     attending one group at a time so the kernel's internal transients shrink
     by roughly the group count. It costs that many kernel launches per call

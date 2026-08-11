@@ -4,6 +4,37 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.7.2
+
+### Changed
+
+- Every per-call VRAM figure in this repo is now scoped as per-call, in
+  `attention.py` and in `bench_minimax_attn.py`'s own docstring, because an
+  e2e run contradicted the inference everyone was drawing from them. At 124
+  frames, head_chunks=4 measured 1186 MiB *higher* on process peak than
+  head_chunks=1, the opposite direction from the per-call numbers, and a
+  second run measured a 2265 MiB spread across two runs of one unchanged
+  configuration. The excursion is larger than the effect, so the sign is not
+  settled either way at that sample size -- what is settled is that per-call
+  peak does not predict process peak.
+- `bench_minimax_attn.py` reports `reserved` beside `allocated`. That was to
+  test whether chunking fragments the allocator, since reserved rather than
+  allocated is what a process occupies. It does not: the two track within
+  8 MiB on all three arms, so a single call on a clean allocator does not
+  fragment and the mechanism lives in the interaction across 50 blocks and
+  every step with a model resident -- which a per-module bench excludes by
+  construction.
+- The clone still ships. It is free (0.7% wall-clock, bit-identical output)
+  and it does lower the attention call's peak. It is simply not demonstrated
+  to lower what a user's card reports, and nothing should be spent to get it.
+
+### Fixed
+
+- Workflow `id` is a UUID rather than a readable slug, matching what the
+  frontend writes. Stale copies of three graphs in ComfyUI's own workflow
+  directory, carrying the old slug ids, were the source of "Unable to find
+  workflow in <file>"; they were moved aside rather than deleted.
+
 ## 0.7.1
 
 ### Fixed
