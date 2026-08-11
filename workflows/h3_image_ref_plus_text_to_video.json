@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "8438b257-c7ef-52cb-aa24-bd27c5579931",
+  "id": "df5f8d1b-65e4-5146-b7f1-554ce0ca6717",
   "revision": 0,
   "last_node_id": 27,
   "last_link_id": 31,
@@ -214,8 +214,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3SageAttention",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "MiniMaxH3SageAttention"
       },
       "widgets_values": [
         "auto",
@@ -386,8 +385,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3Resolution",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "MiniMaxH3Resolution"
       },
       "widgets_values": [
         "wide",
@@ -630,8 +628,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3ReferenceFit",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "MiniMaxH3ReferenceFit"
       },
       "widgets_values": [
         true,
@@ -676,8 +673,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3ReferenceFit",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "MiniMaxH3ReferenceFit"
       },
       "widgets_values": [
         true,
@@ -1059,8 +1055,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "SageChainAssert",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "SageChainAssert"
       },
       "widgets_values": [
         true,
@@ -1123,8 +1118,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3Preflight",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "MiniMaxH3Preflight"
       },
       "title": "Preflight: what this render costs"
     },

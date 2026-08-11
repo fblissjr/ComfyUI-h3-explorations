@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "f75f3f08-b711-5cb6-bc23-536e97263290",
+  "id": "9a162b21-8754-57cc-b99d-67ad6da026f7",
   "revision": 0,
   "last_node_id": 23,
   "last_link_id": 26,
@@ -213,8 +213,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3SageAttention",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "MiniMaxH3SageAttention"
       },
       "widgets_values": [
         "auto",
@@ -385,8 +384,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3Resolution",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "MiniMaxH3Resolution"
       },
       "widgets_values": [
         "wide",
@@ -856,8 +854,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "SageChainAssert",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "SageChainAssert"
       },
       "widgets_values": [
         true,
@@ -920,8 +917,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3Preflight",
-        "cnr_id": "comfyui-h3-explorations"
+        "Node name for S&R": "MiniMaxH3Preflight"
       },
       "title": "Preflight: what this render costs"
     },

@@ -456,14 +456,29 @@ class UIGraph:
             "flags": {}, "order": 0, "mode": 0,
             "inputs": [dict(i) for i in (inputs or [])],
             "outputs": [dict(o) for o in (outputs or [])],
-            # `cnr_id` is what ComfyUI-Manager reads to offer "install
-            # missing custom nodes". Without it, someone who opens a shipped
-            # graph without this pack gets red boxes and no way to resolve
-            # them. Only stamped on our own nodes: claiming another pack's
-            # id would send Manager after the wrong repo.
-            "properties": ({"Node name for S&R": type_, "cnr_id": _CNR_ID}
-                           if type_ in _OUR_NODES
-                           else {"Node name for S&R": type_}),
+            # Deliberately NOT emitting `cnr_id` or `aux_id`, reversing a
+            # change made earlier on 2026-08-11.
+            #
+            # `cnr_id` lets ComfyUI-Manager offer "install missing custom
+            # nodes" to someone who opens this graph without the pack. That
+            # audience is strangers pulling from a public registry, which is
+            # not how this repo is used: local only, private, LAN remote. So
+            # the benefit is near zero here, while `useConflictDetection`
+            # ships in the same lazily-loaded chunk as
+            # `useComfyRegistryService` (baseURL https://api.comfy.org) and
+            # the consuming path was not proven to stay local. Under a
+            # local-only constraint, unproven beats unlikely.
+            #
+            # There is also a squatting edge: we would be claiming
+            # "comfyui-h3-explorations", and if a stranger registers that
+            # name later, a user's "install missing" click resolves to their
+            # package rather than nothing.
+            #
+            # `aux_id` is worse and must never be added automatically. Its
+            # conventional value is the git remote's owner/repo, and this
+            # repo's only remote is a LAN address -- deriving it would write
+            # a private IP into every shared workflow.
+            "properties": {"Node name for S&R": type_},
         }
         if widgets is not None:
             # A dict stays a dict. Most nodes serialize widgets_values as a
@@ -538,11 +553,16 @@ class UIGraph:
         slug. Deterministic rather than random so regenerating a graph does
         not churn its identity in git, and so the same graph keeps the same
         id across machines.
+
+        The namespace seed is a bare string rather than a URL. Determinism is
+        the only property needed, and the first version seeded from a
+        github.com URL that named a handle and a repository -- both wrong,
+        and neither anyone's business in a published repo.
         """
         import uuid
 
         return str(uuid.uuid5(uuid.NAMESPACE_URL,
-                              f"https://github.com/fbliss/h3-explorations/{name}"))
+                              f"comfyui-h3-explorations/{name}"))
 
     def dump(self, workflow_id: str) -> dict:
         self._topo_order()

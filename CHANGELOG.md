@@ -4,6 +4,42 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.8.1
+
+### Changed
+
+- Graphs no longer carry `cnr_id`, reversing a change made earlier the same
+  day. It exists so ComfyUI-Manager can offer "install missing custom nodes"
+  to someone opening a graph without this pack -- an audience pulling from a
+  public registry, which is not what this repo is. Meanwhile
+  `useConflictDetection` ships in the same lazily-loaded chunk as
+  `useComfyRegistryService` (baseURL `https://api.comfy.org`) and the
+  consuming path was not proven to stay local. Under a local-only
+  constraint, unproven beats unlikely when the benefit is near zero.
+- The workflow `id` namespace seed is a bare string rather than a fabricated
+  `github.com` URL naming a handle and a repository. Determinism was the only
+  property needed. Every graph id changes once and is stable after.
+- Recorded in the generator, so neither is re-added: never emit `models[]`
+  (it carries download URLs and the local model directory layout), never
+  emit `extra.info` (identity), and never derive `aux_id` automatically --
+  its conventional value is the git remote's `owner/repo`, and this repo's
+  remote is a LAN address, so that would write a private IP into every
+  shared workflow.
+
+### Verified
+
+- Schema: staying on `version: 0.4`. The installed frontend (1.48.7) writes
+  0.4 exclusively across every saved workflow on this machine, there is no
+  schema-1 serializer in the bundle, and ComfyUI's Python side never parses
+  workflow schema at all -- UI workflows move through `userdata` as opaque
+  blobs. Moving to schema 1 gains nothing observable and produces a file the
+  installed frontend has no writer for.
+- Pre-publish scan of tracked content: no home paths, usernames, hostnames,
+  LAN addresses, emails or keys. The only IPv4 matches are `127.0.0.1`
+  defaults. Our graphs leak less than a frontend save, which carries
+  `extra.frontendVersion` and a per-node `ver`; we emit neither and should
+  not start.
+
 ## 0.8.0
 
 ### Added
