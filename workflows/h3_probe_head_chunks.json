@@ -1,4 +1,13 @@
 {
+  "extra": {
+    "ds": {
+      "scale": 0.5,
+      "offset": [
+        3000.0,
+        400.0
+      ]
+    }
+  },
   "id": "3be72d4c-ff8b-5ce4-85fd-dc7971796b27",
   "revision": 0,
   "last_node_id": 23,
@@ -204,7 +213,8 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3SageAttention"
+        "Node name for S&R": "MiniMaxH3SageAttention",
+        "cnr_id": "comfyui-h3-explorations"
       },
       "widgets_values": [
         "auto",
@@ -711,7 +721,7 @@
       "widgets_values": {
         "frame_rate": 24.0,
         "loop_count": 0,
-        "filename_prefix": "video/h3_probe_chunk4",
+        "filename_prefix": "Video/h3_probe_chunk4",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 19,
@@ -753,7 +763,8 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "SageChainAssert"
+        "Node name for S&R": "SageChainAssert",
+        "cnr_id": "comfyui-h3-explorations"
       },
       "widgets_values": [
         true,
@@ -816,7 +827,8 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3Preflight"
+        "Node name for S&R": "MiniMaxH3Preflight",
+        "cnr_id": "comfyui-h3-explorations"
       },
       "title": "Preflight: what this render costs"
     },
@@ -1105,6 +1117,5 @@
   ],
   "groups": [],
   "config": {},
-  "extra": {},
   "version": 0.4
 }

@@ -38,6 +38,15 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 
+# Registry id from pyproject's [tool.comfy], and the nodes this pack owns.
+# Kept beside each other so a node added to one and not the other is visible.
+_CNR_ID = "comfyui-h3-explorations"
+_OUR_NODES = {
+    "MiniMaxH3SageAttention", "SageChainAssert", "MiniMaxH3KeyframeCanvas",
+    "MiniMaxH3ReferenceFit", "MiniMaxH3Resolution", "MiniMaxH3Preflight",
+    "MiniMaxH3ProvenanceStamp",
+}
+
 # Model names, sampler settings, canvas geometry and the SolAttn knobs all
 # used to live here in duplicate with the bench. Single source is
 # h3_config.py -- see its docstring for why that matters.
@@ -404,7 +413,14 @@ class UIGraph:
             "flags": {}, "order": 0, "mode": 0,
             "inputs": [dict(i) for i in (inputs or [])],
             "outputs": [dict(o) for o in (outputs or [])],
-            "properties": {"Node name for S&R": type_},
+            # `cnr_id` is what ComfyUI-Manager reads to offer "install
+            # missing custom nodes". Without it, someone who opens a shipped
+            # graph without this pack gets red boxes and no way to resolve
+            # them. Only stamped on our own nodes: claiming another pack's
+            # id would send Manager after the wrong repo.
+            "properties": ({"Node name for S&R": type_, "cnr_id": _CNR_ID}
+                           if type_ in _OUR_NODES
+                           else {"Node name for S&R": type_}),
         }
         if widgets is not None:
             # A dict stays a dict. Most nodes serialize widgets_values as a
@@ -488,11 +504,15 @@ class UIGraph:
     def dump(self, workflow_id: str) -> dict:
         self._topo_order()
         return {
+            # Frontend saves carry extra.ds; without it litegraph opens at
+            # its default viewport and these graphs start at x = -2860, so
+            # the first thing you see is empty canvas.
+            "extra": {"ds": {"scale": 0.5, "offset": [3000.0, 400.0]}},
             "id": self._uuid_for(workflow_id), "revision": 0,
             "last_node_id": self._next_node - 1,
             "last_link_id": self._next_link - 1,
             "nodes": self.nodes, "links": self.links, "groups": [],
-            "config": {}, "extra": {}, "version": 0.4,
+            "config": {}, "version": 0.4,
         }
 
 
@@ -1544,7 +1564,7 @@ def main():
          "first frame + text -> video + audio (via MiniMaxH3KeyframeCanvas)"),
         ("h3_image_ref_plus_text_to_video_ref_lora.json", "r2v-reflora", "r2v", None,
          dict(unet=MODELS["unet_fl2va"], lora=(REF_LORA, REF_LORA_STRENGTH),
-              out_prefix="video/h3_r2v_fl2va_ref_lora"),
+              out_prefix="Video/h3_r2v_fl2va_ref_lora"),
          "same, but fl2va + the extracted ref LoRA instead of ref2va"),
         # t2v deliberately: the note explains that matching the LoRA's 544p
         # means leaving H3's own canvas rule, and MiniMaxH3KeyframeCanvas is
@@ -1553,12 +1573,12 @@ def main():
         ("h3_text_to_video_turbo.json", "t2v-turbo", "t2v", LONG_T2V_PROMPT,
          dict(lora=(TURBO_LORA, TURBO_LORA_STRENGTH), steps=TURBO_STEPS,
               shift=TURBO_SHIFT, variant_note=_NOTE_TURBO,
-              out_prefix="video/h3_t2v_turbo_8step"),
+              out_prefix="Video/h3_t2v_turbo_8step"),
          "text -> video + audio, via the 8-step turbo LoRA"),
 
         # --- probes: pairs, one variable, run against the named twin ---
         ("h3_probe_reference_upscale.json", "r2v-noupscale", "r2v", None,
-         dict(ref_upscale=False, out_prefix="video/h3_probe_ref_noupscale",
+         dict(ref_upscale=False, out_prefix="Video/h3_probe_ref_noupscale",
               variant_note=_probe_note(
                   "does upscaling a small reference buy anything",
                   "h3_image_ref_plus_text_to_video.json",
@@ -1577,7 +1597,7 @@ def main():
 
         ("h3_probe_square_canvas.json", "t2v-1to1", "t2v", LONG_T2V_PROMPT,
          dict(width=768, height=768,
-              out_prefix="video/h3_probe_square",
+              out_prefix="Video/h3_probe_square",
               variant_note=_probe_note(
                   "what an aspect ratio actually costs",
                   "h3_text_to_video.json",
@@ -1591,7 +1611,7 @@ def main():
          "the same prompt on the cheapest legal canvas"),
 
         ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
-         dict(head_chunks=4, out_prefix="video/h3_probe_chunk4",
+         dict(head_chunks=4, out_prefix="Video/h3_probe_chunk4",
               variant_note=_probe_note(
                   "trading launches for VRAM headroom",
                   "h3_text_to_video.json",

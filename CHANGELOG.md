@@ -4,6 +4,22 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.7.3
+
+### Fixed
+
+- Output prefixes were split across `Video/` and `video/`, which is two
+  sibling directories on a case-sensitive filesystem for what reads as one
+  destination. All eight graphs now write to `Video/`.
+- Our nodes carry `cnr_id` in `properties`, which is what ComfyUI-Manager
+  reads to offer "install missing custom nodes". Without it someone opening
+  a shipped graph without this pack got red boxes and no way to resolve
+  them. Stamped only on nodes this pack owns; claiming another pack's id
+  would send Manager after the wrong repo.
+- Graphs carry `extra.ds`, so they open on the nodes. Without it litegraph
+  starts at its default viewport while these graphs begin at x = -2860, so
+  the first thing you saw was empty canvas.
+
 ## 0.7.2
 
 ### Changed
