@@ -282,12 +282,18 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
     It is not free everywhere, which is why `nodes.py` ties it to
     `mode_releases_qkv` rather than turning it on outright: on the fp16 mode,
     whose kernel holds q/k/v for the whole call, the same clone costs 571 MiB
-    at seq=41822. Unmeasured for head_chunks > 1, where the chunk loop holds
-    all three views across every group anyway.
+    at seq=41822.
 
-    `clone_v=True` is a permission, not an instruction: the forward still
-    asks `_prefers_cloned_v` about the device it is actually running on
-    before paying for the copy.
+    It is also off whenever the heads are chunked, measured rather than
+    assumed: at seq=41822, chunks=4 costs +572 MiB with the clone (3217 vs
+    2645), which is the clone's own size recovered by nothing, and lands
+    above the 3148 of chunking nothing and cloning nothing. `_chunked_heads`
+    holds q, k and v for the whole loop, so the kernel's per-group release
+    has nothing to free.
+
+    `clone_v=True` is a permission, not an instruction: the forward asks
+    `_prefers_cloned_v` about the device it is actually running on, and
+    checks the resolved chunk count, before paying for the copy.
 
     `head_chunks` > 1 runs the heads in that many groups, quantizing and
     attending one group at a time so the kernel's internal transients shrink
@@ -341,19 +347,28 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
             q = self.q_norm(q)
             k = self.k_norm(k)
 
-        if clone_v and _prefers_cloned_v(x.device):
-            # After rope, which only writes q and k. v's own storage is
-            # what lets the fused buffer die once the kernel has consumed
-            # q and k; see the docstring above. Two gates, because the
-            # question has two halves: `clone_v` is the mode's answer,
-            # settled when this forward was built, and the predicate is the
-            # device's, which is only knowable here.
-            v = v.clone()
-
         n = head_chunks
         if n <= 1 and isinstance(transformer_options, dict):
             n = transformer_options.get("minimax_head_chunks", 1)
         n = max(1, min(int(n), self.heads))
+
+        # Deliberately below the whole of the `n` resolution above, including
+        # the transformer_options read -- not beside the clone's old home. The
+        # chunked path keeps q, k and v alive across every group, so the
+        # kernel's per-group release frees nothing and the clone is a flat
+        # cost with nothing to recover it: measured +572 MiB at seq=41822,
+        # which lands chunking-plus-cloning above doing neither. Gating this
+        # on `head_chunks` instead of `n` would read 1 in exactly the case
+        # that motivated the fix, since KJNodes delivers its value through
+        # transformer_options while our own widget stays at 1.
+        if n == 1 and clone_v and _prefers_cloned_v(x.device):
+            # After rope, which only writes q and k. v's own storage is
+            # what lets the fused buffer die once the kernel has consumed
+            # q and k; see the docstring above. Three gates, because the
+            # question has three halves: `clone_v` is the mode's answer,
+            # settled when this forward was built; the predicate is the
+            # device's; and `n` is the path's, known only once resolved.
+            v = v.clone()
 
         if n > 1:
             try:

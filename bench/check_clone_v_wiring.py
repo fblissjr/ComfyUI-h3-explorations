@@ -30,6 +30,10 @@ Three cases, in the order a regression would reach them:
                              the forward can ignore the predicate entirely
                              without anything on this arch noticing, since
                              sm89 answers True.
+  chunked_path_does_not_clone : chunking switches the clone off, by both the
+                             argument and the transformer_options route.
+                             Delete and the KJNodes configuration pays 572
+                             MiB for a copy nothing can recover.
 
 Needs CUDA (sage resolves the device arch at import) but no model, no
 sampling, and no meaningful VRAM.
@@ -230,6 +234,68 @@ def check_device_gate_is_honoured():
     return failures
 
 
+def check_chunked_path_does_not_clone():
+    """Chunking must switch the clone off, by both routes that set it.
+
+    `_chunked_heads` holds q, k and v across every group, so the kernel's
+    per-group release frees nothing and the clone is a flat +572 MiB at
+    seq=41822 -- worse than chunking nothing and cloning nothing. Storage
+    aliasing settles it exactly and needs 64 rows instead of 8 GiB, so the
+    peak measurement stays a one-off in the changelog and this is what holds
+    the behaviour.
+
+    Both routes are here because they are different code reaching the same
+    `n`, and the one that matters is the one we do not control: KJNodes
+    publishes `minimax_head_chunks` through transformer_options while our own
+    widget stays at 1. A gate written against `head_chunks` passes the
+    argument route and lets the published one straight through.
+    """
+    import comfy.ops
+    from comfy.ldm.minimax.model import Attention, rope_rotation_table
+
+    torch.set_grad_enabled(False)
+    device = torch.device("cuda")
+    seq = 64
+    failures = []
+    # (label, forward's own head_chunks, transformer_options, expect a clone)
+    cases = [
+        ("chunks=1", 1, {}, True),
+        ("chunks=4 via argument", 4, {}, False),
+        ("chunks=4 via options", 1, {"minimax_head_chunks": 4}, False),
+    ]
+    for label, head_chunks, options, want_clone in cases:
+        module = Attention(HIDDEN, HEADS, HEAD_DIM, 1e-5, dtype=torch.bfloat16,
+                           device=device, operations=comfy.ops.manual_cast)
+        module = module.to(device).requires_grad_(False)
+        seen = {}
+
+        def recorder(qkv, **_kw):
+            q, _k, v = qkv
+            qkv.clear()
+            # The chunked path calls once per group; the first call is enough
+            # to see whether v came out of the fused buffer.
+            seen.setdefault("q", q.untyped_storage().data_ptr())
+            seen.setdefault("v", v.untyped_storage().data_ptr())
+            return torch.zeros_like(q)
+
+        forward = make_minimax_attn_forward(recorder, {}, head_chunks=head_chunks,
+                                            clone_v=True)
+        module.forward = forward.__get__(module, module.__class__)
+        rope = rope_rotation_table(
+            torch.zeros(seq, 96, device=device, dtype=torch.float32),
+            torch.bfloat16)
+        module(torch.randn(seq, HIDDEN, device=device, dtype=torch.bfloat16),
+               rope_freqs=rope, transformer_options=options)
+
+        cloned = seen["q"] != seen["v"]
+        ok = cloned == want_clone
+        print(f"  {'ok  ' if ok else 'FAIL'} {label:22s} cloned={cloned} "
+              f"(want {want_clone})")
+        if not ok:
+            failures.append(label)
+    return failures
+
+
 def main() -> int:
     if not torch.cuda.is_available():
         print("CUDA not available; skipping.", file=sys.stderr)
@@ -242,7 +308,8 @@ def main() -> int:
 
     failures = []
     for fn in (check_predicate_matches_kernel, check_node_wires_it,
-               check_clone_v_changes_storage, check_device_gate_is_honoured):
+               check_clone_v_changes_storage, check_device_gate_is_honoured,
+               check_chunked_path_does_not_clone):
         print(f"{fn.__name__}:")
         failures += fn()
 

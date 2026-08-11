@@ -4,6 +4,35 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.3.4
+
+### Fixed
+
+- The clone is now off whenever the heads are chunked. `_chunked_heads` holds
+  q, k and v across every group, so the kernel's per-group release frees
+  nothing and the clone was a flat cost: at seq=41822, chunks=4 measured 3217
+  MiB with it against 2645 without -- the clone's own 572 MiB recovered by
+  nothing, and 69 MiB worse than chunking nothing and cloning nothing. Worst
+  for the people least able to afford it, since KJNodes'
+  `MiniMaxLowVRAMAttention` publishes `minimax_head_chunks` through
+  `transformer_options` and our forward honours it with our own widget at 1.
+  Introduced in 0.3.1 and shipped for the length of one session.
+- The gate is code motion, not a new condition: it sits below the whole `n`
+  resolution including the `transformer_options` read. Written against
+  `head_chunks` where the clone used to be, it would read 1 in exactly the
+  KJNodes case that motivated it -- confirmed by mutating it that way and
+  watching only the options-route case go red.
+
+### Added
+
+- `bench/bench_minimax_attn.py` gained `--head-chunks` and
+  `--chunks-via-options`, the latter delivering the value the way KJNodes
+  does. Different code reaching the same `n`, and a fix verified only through
+  our own argument is verified for the configuration nobody affected runs.
+- A `chunked_path_does_not_clone` case covering both routes. Storage aliasing
+  settles it exactly at 64 rows, so the peak numbers stay a one-off here and
+  the check needs no threshold and no 8 GiB.
+
 ## 0.3.3
 
 ### Changed

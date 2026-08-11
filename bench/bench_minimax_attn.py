@@ -157,6 +157,16 @@ def main():
                     help="sage arm only: give v its own storage before the "
                          "hand-off, so releasing q and k frees the fused qkv "
                          "buffer. Costs a third of that buffer up front.")
+    ap.add_argument("--head-chunks", type=int, default=1,
+                    help="Attend the heads in this many groups.")
+    ap.add_argument("--chunks-via-options", action="store_true",
+                    help="Deliver --head-chunks through "
+                         "transformer_options['minimax_head_chunks'] instead of "
+                         "the forward's own argument. This is the route "
+                         "KJNodes' MiniMaxLowVRAMAttention uses, and it "
+                         "reaches the same `n` by different code -- so a fix "
+                         "verified only through the argument is verified for "
+                         "the configuration nobody affected is running.")
     ap.add_argument("--no-rope", action="store_true",
                     help="Take the eager q_norm/k_norm branch instead of the "
                          "fused in-place rope. Changes the qkv aliasing, so it "
@@ -184,8 +194,10 @@ def main():
         from attention import make_minimax_attn_forward
 
         kernel_fn, kernel_kwargs = build_kernel(args.mode)
-        forward = make_minimax_attn_forward(kernel_fn, kernel_kwargs,
-                                            clone_v=args.clone_v)
+        forward = make_minimax_attn_forward(
+            kernel_fn, kernel_kwargs,
+            head_chunks=1 if args.chunks_via_options else args.head_chunks,
+            clone_v=args.clone_v)
         attn.forward = forward.__get__(attn, attn.__class__)
 
     # The rope table is what keeps q, k and v three views of the fused qkv
@@ -193,7 +205,11 @@ def main():
     # the eager branch is a different memory question, not a cheaper way to
     # ask this one.
     rope = None if args.no_rope else build_rope(args.seq, device, dtype)
-    call = lambda: attn(x, rope_freqs=rope)
+    # The forward only reads the key when its own argument is left at 1, which
+    # is exactly the shape KJNodes' node produces.
+    options = ({"minimax_head_chunks": args.head_chunks}
+               if args.chunks_via_options else {})
+    call = lambda: attn(x, rope_freqs=rope, transformer_options=options)
 
     call()  # allocate autotune scratch before the peak is recorded
     torch.cuda.synchronize()
@@ -207,8 +223,9 @@ def main():
 
     ms = timed(call)
     label = args.arm + ("+clone_v" if args.clone_v else "")
+    route = "opts" if args.chunks_via_options else "arg"
     print(
-        f"{label:14s} seq={args.seq} mode={args.mode}  "
+        f"{label:14s} seq={args.seq} chunks={args.head_chunks}({route})  "
         f"{ms:8.2f} ms   peak {peak:7.0f} MiB"
     )
 
