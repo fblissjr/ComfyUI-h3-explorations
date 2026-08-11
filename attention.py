@@ -275,7 +275,7 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
 
     Measured on this repo's `bench_minimax_attn.py`, head_chunks=1, one arm
     per process, four canvases at 124 frames: a 9.1% lower peak at every
-    shape (-286 MiB at seq=41822 down to -165 MiB at seq=24110) for 0.7-1.0%
+    shape (-286 MiB at seq=41822 down to -174 MiB at seq=25406) for 0.7-1.0%
     more time. That lands sage a few MiB under the stock forward's own peak
     while staying ~2.1x faster.
 
@@ -381,6 +381,12 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
             del q, k, v  # last refs to the fused qkv buffer, before out_proj
             return self.out_proj(out.view(s, self.heads * self.head_dim))
 
+        # This branch is load-bearing, not an optimisation for the trivial
+        # case. sage measured the release suppressed by a slicing loop of
+        # *one* group as completely as by four: the saving tracks whether the
+        # caller still holds the parents, not the group count. Routing n=1
+        # through `_chunked_heads` would turn -286 MiB into +572 with nothing
+        # visible in the output. `check_clone_v_wiring.py` pins it.
         qkv = [q, k, v]
         del q, k, v  # the list is now the only owner
 

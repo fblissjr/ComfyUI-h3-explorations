@@ -34,6 +34,10 @@ Three cases, in the order a regression would reach them:
                              argument and the transformer_options route.
                              Delete and the KJNodes configuration pays 572
                              MiB for a copy nothing can recover.
+  unchunked_hands_over_ownership : the n=1 branch gives the kernel the last
+                             reference. Delete and routing n=1 through the
+                             chunk loop -- a plausible simplification --
+                             turns the saving into its own cost, silently.
 
 Needs CUDA (sage resolves the device arch at import) but no model, no
 sampling, and no meaningful VRAM.
@@ -296,6 +300,67 @@ def check_chunked_path_does_not_clone():
     return failures
 
 
+def check_unchunked_path_hands_over_ownership():
+    """The n=1 path must give the kernel the last reference to q, k and v.
+
+    Everything the clone buys depends on this and nothing else. sage-fork
+    measured the suppression directly (`d59b82d`): consume saves 858 MiB on a
+    handover and exactly 0 through a slicing loop -- *including a loop of one
+    group*. So the saving tracks whether the caller still holds the parents,
+    not the group count, and a one-group pass through `_chunked_heads` would
+    lose it as completely as four groups.
+
+    Our n=1 branch avoids that by handing the list over directly, which makes
+    that branch load-bearing rather than an optimisation. Unifying the two
+    paths "because n=1 is just the trivial case" is the refactor that eats
+    it, and it would turn -286 MiB into +572 with every other case in this
+    file still green.
+
+    Pinned by the property rather than the shape: drop the kernel's tensors
+    and watch the fused buffer actually go. A slicing loop frees nothing here
+    because the frame above still owns the parents.
+    """
+    import comfy.ops
+    from comfy.ldm.minimax.model import Attention, rope_rotation_table
+
+    torch.set_grad_enabled(False)
+    device = torch.device("cuda")
+    seq = 8192  # fused buffer is 336 MiB here: unmistakable, and cheap
+    fused_bytes = 3 * seq * HEADS * HEAD_DIM * 2
+    module = Attention(HIDDEN, HEADS, HEAD_DIM, 1e-5, dtype=torch.bfloat16,
+                       device=device, operations=comfy.ops.manual_cast)
+    module = module.to(device).requires_grad_(False)
+    seen = {}
+
+    def recorder(qkv, **_kw):
+        q, k, v = qkv
+        qkv.clear()
+        shape = q.shape
+        torch.cuda.synchronize()
+        before = torch.cuda.memory_allocated()
+        del q, k, v
+        torch.cuda.synchronize()
+        seen["freed"] = before - torch.cuda.memory_allocated()
+        return torch.zeros(shape, device=device, dtype=torch.bfloat16)
+
+    # clone_v=False so the whole fused buffer rides on q, k and v together,
+    # and the freed figure is the fused buffer rather than buffer-plus-clone.
+    forward = make_minimax_attn_forward(recorder, {}, clone_v=False)
+    module.forward = forward.__get__(module, module.__class__)
+    rope = rope_rotation_table(
+        torch.zeros(seq, 96, device=device, dtype=torch.float32), torch.bfloat16)
+    module(torch.randn(seq, HIDDEN, device=device, dtype=torch.bfloat16),
+           rope_freqs=rope)
+
+    freed, want = seen["freed"], fused_bytes
+    ok = freed >= want * 0.9
+    print(f"  {'ok  ' if ok else 'FAIL'} dropping the kernel's q/k/v freed "
+          f"{freed / 2**20:.0f} MiB of a {want / 2**20:.0f} MiB fused buffer")
+    if not ok:
+        return ["n=1 handover"]
+    return []
+
+
 def main() -> int:
     if not torch.cuda.is_available():
         print("CUDA not available; skipping.", file=sys.stderr)
@@ -309,7 +374,8 @@ def main() -> int:
     failures = []
     for fn in (check_predicate_matches_kernel, check_node_wires_it,
                check_clone_v_changes_storage, check_device_gate_is_honoured,
-               check_chunked_path_does_not_clone):
+               check_chunked_path_does_not_clone,
+               check_unchunked_path_hands_over_ownership):
         print(f"{fn.__name__}:")
         failures += fn()
 

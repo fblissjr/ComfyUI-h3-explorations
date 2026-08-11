@@ -4,6 +4,31 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.3.5
+
+### Added
+
+- A `unchunked_hands_over_ownership` case. sage-fork measured (`d59b82d`)
+  that a slicing loop suppresses the release as completely at one group as at
+  four -- the saving tracks whether the caller still holds the parents, not
+  the group count. That makes the `n <= 1` branch's direct hand-over
+  load-bearing rather than a shortcut for the trivial case, and unifying the
+  two paths through `_chunked_heads` would turn -286 MiB into +572 with
+  nothing visible in the output. The case drops the kernel's tensors and
+  asserts the fused buffer actually goes; under that mutation it reports 0
+  MiB freed of 336.
+
+### Fixed
+
+- The canvas sequence lengths in 0.3.1 were derived by fitting `rows*41 + 494`
+  to the single known 41822, which also fits `rows*38 + 3518` -- the true
+  decomposition, since the keyframe conditioning rows scale with the canvas
+  just as the video rows do. The anchor was right and the three extrapolated
+  canvases were 432 to 1296 tokens short. Re-measured at lengths computed
+  from the model's own `PackedLayout`: the peak figures move slightly and the
+  9.1% holds at every canvas. Surfaced by KJNodes' new `MiniMaxH3TokenCounter`
+  (`6ab7e81`), which reads the layout from the model rather than inferring it.
+
 ## 0.3.4
 
 ### Fixed
@@ -76,7 +101,7 @@ artifact.
 
 - The sage forward gives v its own storage before handing q/k/v to a kernel
   that releases them, cutting peak attention VRAM 9.1% at every canvas
-  measured (-286 MiB at seq=41822, -165 MiB at seq=24110) for 0.7-1.0% more
+  measured (-286 MiB at seq=41822, -174 MiB at seq=25406) for 0.7-1.0% more
   time. q, k and v are three views of one fused qkv buffer, so releasing q
   and k frees nothing while v still pins the allocation -- the same fix
   ComfyUI made upstream in `comfy/ldm/minimax/model.py`. Tied to
