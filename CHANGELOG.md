@@ -4,6 +4,29 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.3.1
+
+### Changed
+
+- The sage forward gives v its own storage before handing q/k/v to a kernel
+  that releases them, cutting peak attention VRAM 9.1% at every canvas
+  measured (-286 MiB at seq=41822, -165 MiB at seq=24110) for 0.7-1.0% more
+  time. q, k and v are three views of one fused qkv buffer, so releasing q
+  and k frees nothing while v still pins the allocation -- the same fix
+  ComfyUI made upstream in `comfy/ldm/minimax/model.py`. Tied to
+  `mode_releases_qkv(mode)`, not on outright: on the `fp16` mode, whose
+  kernel holds q/k/v for the whole call, the same clone costs 571 MiB.
+
+### Fixed
+
+- `bench/bench_minimax_attn.py` drove the forward with `rope_freqs=None`,
+  which takes the eager `q_norm`/`k_norm` branch. RMSNorm returns fresh
+  tensors, so q and k were separate allocations and only v pointed into the
+  fused qkv buffer -- not the aliasing the real inference path has, and
+  aliasing is what the bench's peak column is about. It now builds a real
+  rope table, and `--probe` reports the storage q, k and v land in so a null
+  peak result can be told apart from a flag that did nothing.
+
 ## 0.3.0
 
 ### Added

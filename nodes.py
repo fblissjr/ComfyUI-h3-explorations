@@ -20,6 +20,7 @@ from .attention import (
     build_kernel,
     make_minimax_attn_forward,
     make_sage_override,
+    mode_releases_qkv,
     reset_fallback_state,
 )
 
@@ -108,7 +109,8 @@ class MiniMaxH3SageAttention(io.ComfyNode):
 
         kernel_fn, kernel_kwargs = build_kernel(mode)
         forward = make_minimax_attn_forward(kernel_fn, kernel_kwargs,
-                                            head_chunks=head_chunks)
+                                            head_chunks=head_chunks,
+                                            clone_v=mode_releases_qkv(mode))
         reset_fallback_state()
 
         m = model.clone()

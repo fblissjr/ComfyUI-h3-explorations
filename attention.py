@@ -88,6 +88,19 @@ MODES = {
 }
 
 
+def mode_releases_qkv(mode):
+    """Whether `mode`'s kernel frees the float q/k/v as soon as it quantizes.
+
+    Only the modes that go through `sageattn_consume` do. It decides whether
+    cloning v is worth paying for: measured at seq=41822, the clone saves
+    286 MiB on a releasing kernel and costs 571 MiB on one that holds q/k/v
+    for the whole call. Note that sage itself only takes the early-release
+    path on the sm89-family fp8 kernels; on an arch that falls back to the
+    ordinary path this still returns True and the clone is a small loss.
+    """
+    return MODES[mode][0] is None
+
+
 def build_kernel(mode):
     """Return `(fn(qkv_list, **kw) -> NHD output, kwargs)` for `mode`."""
     sa = _sage()
@@ -198,11 +211,33 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
     return override
 
 
-def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1):
+def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
+                              clone_v=False):
     """Build a replacement `Attention.forward` bound to one sage kernel.
 
     `kernel_fn(qkv_list, **kernel_kwargs)` must consume the `[q, k, v]`
     list and return an NHD-shaped output.
+
+    `clone_v` gives v its own storage before the hand-off. q, k and v are
+    three views of one fused qkv buffer, so a kernel that releases q and k
+    as soon as they are quantized frees nothing -- v still pins the whole
+    allocation. `sageattn_consume`'s own docstring measures this: the same
+    call that saves 858 MiB on separately allocated q/k/v saves exactly
+    zero on fused views. Cloning v costs one third of the buffer to let
+    the other two thirds go early. ComfyUI does the same thing upstream
+    (`comfy/ldm/minimax/model.py`, "Fix peak memory issue with H3").
+
+    Measured on this repo's `bench_minimax_attn.py`, head_chunks=1, one arm
+    per process, four canvases at 124 frames: a 9.1% lower peak at every
+    shape (-286 MiB at seq=41822 down to -165 MiB at seq=24110) for 0.7-1.0%
+    more time. That lands sage a few MiB under the stock forward's own peak
+    while staying ~2.1x faster.
+
+    It is not free everywhere, which is why `nodes.py` ties it to
+    `mode_releases_qkv` rather than turning it on outright: on the fp16 mode,
+    whose kernel holds q/k/v for the whole call, the same clone costs 571 MiB
+    at seq=41822. Unmeasured for head_chunks > 1, where the chunk loop holds
+    all three views across every group anyway.
 
     `head_chunks` > 1 runs the heads in that many groups, quantizing and
     attending one group at a time so the kernel's internal transients shrink
@@ -255,6 +290,12 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1):
         else:
             q = self.q_norm(q)
             k = self.k_norm(k)
+
+        if clone_v:
+            # After rope, which only writes q and k. v's own storage is
+            # what lets the fused buffer die once the kernel has consumed
+            # q and k; see the docstring above.
+            v = v.clone()
 
         n = head_chunks
         if n <= 1 and isinstance(transformer_options, dict):
