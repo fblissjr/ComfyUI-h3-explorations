@@ -115,29 +115,26 @@
     }
   },
   "13": {
-    "class_type": "CreateVideo",
+    "class_type": "VHS_VideoCombine",
     "inputs": {
       "images": [
         "11",
         0
       ],
-      "fps": 24.0,
       "audio": [
         "12",
         0
-      ]
-    }
-  },
-  "14": {
-    "class_type": "SaveVideo",
-    "inputs": {
-      "video": [
-        "13",
-        0
       ],
-      "filename_prefix": "video/h3_i2v_sage",
-      "format": "auto",
-      "codec": "auto"
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_i2v",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
     }
   },
   "15": {

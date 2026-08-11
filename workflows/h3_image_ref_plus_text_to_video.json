@@ -1,8 +1,8 @@
 {
   "id": "h3-r2v-sage",
   "revision": 0,
-  "last_node_id": 22,
-  "last_link_id": 24,
+  "last_node_id": 21,
+  "last_link_id": 23,
   "nodes": [
     {
       "id": 1,
@@ -773,14 +773,14 @@
     },
     {
       "id": 19,
-      "type": "CreateVideo",
+      "type": "VHS_VideoCombine",
       "pos": [
         1080,
         0
       ],
       "size": [
-        270,
-        110
+        600,
+        520
       ],
       "flags": {},
       "order": 20,
@@ -796,64 +796,45 @@
           "type": "AUDIO",
           "link": 23,
           "shape": 7
+        },
+        {
+          "name": "meta_batch",
+          "type": "VHS_BatchManager",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": null,
+          "shape": 7
         }
       ],
       "outputs": [
         {
-          "name": "VIDEO",
-          "type": "VIDEO",
-          "links": [
-            24
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "CreateVideo"
-      },
-      "widgets_values": [
-        24.0,
-        8
-      ]
-    },
-    {
-      "id": 20,
-      "type": "SaveVideo",
-      "pos": [
-        1080,
-        170
-      ],
-      "size": [
-        600,
-        400
-      ],
-      "flags": {},
-      "order": 21,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
-          "link": 24
-        }
-      ],
-      "outputs": [
-        {
-          "name": "video",
-          "type": "VIDEO",
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
           "links": null
         }
       ],
       "properties": {
-        "Node name for S&R": "SaveVideo"
+        "Node name for S&R": "VHS_VideoCombine"
       },
-      "widgets_values": [
-        "video/h3_r2v_sage",
-        "auto",
-        "auto"
-      ]
+      "widgets_values": {
+        "frame_rate": 24.0,
+        "loop_count": 0,
+        "filename_prefix": "Video/h3_r2v",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 19,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true
+      }
     },
     {
-      "id": 21,
+      "id": 20,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -872,12 +853,12 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Canvas and length are not free parameters\n\n`adapt_canvas()` ignores your pixel budget. Short edge **768**, hard area\ncap **768x1344 = 1,032,192 px**, each axis rounded to **32**. There is no\nhigher resolution to pick -- asking for 4K gives the same canvas as 720p.\n\nSo resolution is an **aspect-ratio choice**, and it is the single biggest\nspeed lever anywhere, because attention is O(S^2) and dominates the step.\n\n| aspect | canvas | attention |\n|---|---|---|\n| 21:9 / 16:9 / 9:16 | 1536x672 / 1344x768 / 768x1344 | 1.00x |\n| 3:2 / 2:3 | 1152x768 / 768x1152 | 0.73x |\n| 4:3 / 3:4 | 1024x768 / 768x1024 | 0.58x |\n| 5:4 / 4:5 | 960x768 / 768x960 | 0.51x |\n| **1:1** | **768x768** | **0.33x** |\n\n**Portrait and landscape of a ratio cost the same.** Packed rows are\n`(h//32)*(w//32)`, which is symmetric. 16:9 vs 9:16 is a quality question,\nnever a speed one.\n\n## Length snaps up to n % 17 == 5\n\nAsk 200, get 209. Ask 300, get 311. Near the top: **311, 328, 345**.\n\n**345 is the ceiling, not 362.** ComfyUI's tooltip says ~124-362 and its node\naccepts up to 3600, but the reference generates 5-15s at 24fps and applies\nthat ceiling *after* the snap. 362 is 15.083s, so it is refused; 345 is\n14.375s. There is no on-grid count at exactly 15.0s. Ask for 346 and you get\n362, which is why the check has to run on the snapped number -- the reference\nnames that exact trap in a comment.\n\nAt 345 frames attention is ~76% of the step, against ~50% at 124 -- long\nclips are where sparsity and kernel work pay off most.\n\nCore ComfyUI's `ResolutionSelector` works from a megapixel target, which is\nnot how any of this works. Type the numbers.\n"
+        "## You pick an aspect ratio. The canvas is derived from it.\n\nThere is no resolution setting. `adapt_canvas()` takes your two numbers as a\n*ratio* and computes the canvas:\n\n1. Short edge starts at **768**.\n2. If that exceeds the area cap of **1,032,192 px** (768x1344), the whole\n   canvas scales down until it fits.\n3. Each axis rounds to a multiple of **32**.\n\nAsking for 4K gives the same canvas as asking for 720p at the same ratio.\nOnly 94 canvases exist in the whole legal aspect range of 1/4 to 4.\n\n## The ones worth knowing\n\n| aspect | canvas | rows/frame | attention |\n|---|---|---|---|\n| 21:9 | 1536x672 | 1008 | 1.00x |\n| 2:1 | 1440x704 | 990 | 0.96x |\n| **16:9** | **1344x768** | 1008 | 1.00x |\n| 5:3 | 1280x768 | 960 | 0.91x |\n| 3:2 | 1152x768 | 864 | 0.73x |\n| 4:3 | 1024x768 | 768 | 0.58x |\n| 5:4 | 960x768 | 720 | 0.51x |\n| **1:1** | **768x768** | 576 | **0.33x** |\n| 4:5 | 768x960 | 720 | 0.51x |\n| 3:4 | 768x1024 | 768 | 0.58x |\n| 2:3 | 768x1152 | 864 | 0.73x |\n| 9:16 | 768x1344 | 1008 | 1.00x |\n\nType one of these into width/height and you get exactly it back. **1:1 costs\na third of 16:9** at the same frame count, and attention dominates the step,\nso this is the largest speed lever anywhere -- bigger than any kernel or\nsparsity setting.\n\n## Two things that surprise people\n\n**The short edge is not always 768.** It is 768 only while the area cap does\nnot bind, which is roughly 3:4 through 7:4. Wider or taller than that and the\ncap takes over: 21:9 is 1536x**672**, 9:21 is **672**x1536. If you expected a\n768 short edge at 21:9, that is why you did not get it.\n\n**1.00x is not the ceiling.** Rounding each axis to 32 can land a canvas\n*above* the 16:9 row count: 29:9 gives 1856x576, which is 1044 rows and\n**1.07x**. A few odd wide ratios cost more than 16:9 for no extra pixels.\nStick to the table unless you have a reason not to.\n\n**Portrait and landscape of a ratio cost the same.** Rows are\n`(h//32)*(w//32)`, which is symmetric. 16:9 against 9:16 is a quality\nquestion, never a speed one.\n\n## If you want this decided for you\n\n`MiniMax H3 Keyframe Canvas` (this repo) derives the canvas from your first\nkeyframe the way the reference pipeline does, fits the keyframes onto it, and\noutputs `attn_cost_vs_1to1` so the price is visible before you render. The\nfirst-frame graph is wired that way. For text-to-video there is no keyframe\nto derive from, so type a row from the table.\n\n## Length snaps up to n % 17 == 5\n\nAsk 200, get 209. Ask 300, get 311. Near the top: **311, 328, 345**.\n\n**345 is the ceiling, not 362.** ComfyUI's tooltip says ~124-362 and its node\naccepts up to 3600, but the reference generates 5-15s at 24fps and applies\nthat ceiling *after* the snap. 362 is 15.083s, so it is refused; 345 is\n14.375s. There is no on-grid count at exactly 15.0s. Ask for 346 and you get\n362, which is why the check has to run on the snapped number -- the reference\nnames that exact trap in a comment.\n\nAt 345 frames attention is ~76% of the step, against ~50% at 124 -- long\nclips are where sparsity and kernel work pay off most.\n"
       ],
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 22,
+      "id": 21,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1085,14 +1066,6 @@
       19,
       1,
       "AUDIO"
-    ],
-    [
-      24,
-      19,
-      0,
-      20,
-      0,
-      "VIDEO"
     ]
   ],
   "groups": [],

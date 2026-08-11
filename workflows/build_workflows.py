@@ -60,6 +60,13 @@ overall_soundscape: steady heavy rain on asphalt and metal, tyre hiss through st
 
 non_diegetic_music: none."""
 
+# h264-mp4 rather than h265 or an nvenc variant: software x264 at crf 19 is
+# the most portable mp4 there is, and the nvenc paths trade quality per bit
+# for encode speed on a file that takes seconds to write next to a render
+# that takes minutes. Switch to video/h265-mp4 if size matters more than
+# playing everywhere.
+VIDEO_FORMAT = "video/h264-mp4"
+
 # Placeholder input filenames. These are whatever the local install happens
 # to have; swap them for your own before running an i2v or r2v graph.
 PLACEHOLDER_IMAGE_A = "1-man.png"
@@ -186,12 +193,21 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # own half; this is not a mistake in the wiring.
         "11": {"class_type": "VAEDecode", "inputs": {"samples": ["10", 0], "vae": ["3", 0]}},
         "12": {"class_type": "VAEDecodeAudio", "inputs": {"samples": ["10", 0], "vae": ["4", 0]}},
-        "13": {"class_type": "CreateVideo",
-               "inputs": {"images": ["11", 0], "fps": FPS, "audio": ["12", 0]}},
-        "14": {"class_type": "SaveVideo",
-               "inputs": {"video": ["13", 0],
-                          "filename_prefix": out_prefix or f"video/h3_{task}_sage",
-                          "format": "auto", "codec": "auto"}},
+        # VHS_VideoCombine instead of CreateVideo -> SaveVideo: one node, and
+        # it muxes the audio itself. Node id 13; 14 is retired with SaveVideo.
+        # The format sub-widgets (pix_fmt/crf/save_metadata/trim_to_audio) are
+        # h264-mp4's own, and they are keyed here exactly as they are named in
+        # /object_info's format spec -- VHS reads them by name, not position.
+        # trim_to_audio stays False: H3 generates the pair jointly, so trimming
+        # video to the audio track can only lose frames it meant to keep.
+        "13": {"class_type": "VHS_VideoCombine",
+               "inputs": {"images": ["11", 0], "audio": ["12", 0],
+                          "frame_rate": FPS, "loop_count": 0,
+                          "filename_prefix": out_prefix or f"Video/h3_{task}",
+                          "format": VIDEO_FORMAT, "pix_fmt": "yuv420p",
+                          "crf": 19, "save_metadata": True,
+                          "trim_to_audio": False,
+                          "pingpong": False, "save_output": True}},
     }
 
     if ref:
@@ -329,7 +345,15 @@ class UIGraph:
             "properties": {"Node name for S&R": type_},
         }
         if widgets is not None:
-            n["widgets_values"] = list(widgets)
+            # A dict stays a dict. Most nodes serialize widgets_values as a
+            # positional list, but a node whose widget set depends on another
+            # widget cannot -- VHS_VideoCombine adds pix_fmt/crf/... after
+            # `format`, so position cannot address them and the frontend
+            # writes a keyed object instead. `list(a_dict)` silently yields
+            # the keys, which is a graph that loads and renders with every
+            # setting wrong.
+            n["widgets_values"] = (dict(widgets) if isinstance(widgets, dict)
+                                   else list(widgets))
         if title:
             n["title"] = title
         self.nodes.append(n)
@@ -416,26 +440,64 @@ def _out(name, type_):
 # is what you need with the graph open. Numbers here come from
 # comfy_extras/nodes_minimax_h3.py, not from lore.
 _NOTE_GEOMETRY = """\
-## Canvas and length are not free parameters
+## You pick an aspect ratio. The canvas is derived from it.
 
-`adapt_canvas()` ignores your pixel budget. Short edge **768**, hard area
-cap **768x1344 = 1,032,192 px**, each axis rounded to **32**. There is no
-higher resolution to pick -- asking for 4K gives the same canvas as 720p.
+There is no resolution setting. `adapt_canvas()` takes your two numbers as a
+*ratio* and computes the canvas:
 
-So resolution is an **aspect-ratio choice**, and it is the single biggest
-speed lever anywhere, because attention is O(S^2) and dominates the step.
+1. Short edge starts at **768**.
+2. If that exceeds the area cap of **1,032,192 px** (768x1344), the whole
+   canvas scales down until it fits.
+3. Each axis rounds to a multiple of **32**.
 
-| aspect | canvas | attention |
-|---|---|---|
-| 21:9 / 16:9 / 9:16 | 1536x672 / 1344x768 / 768x1344 | 1.00x |
-| 3:2 / 2:3 | 1152x768 / 768x1152 | 0.73x |
-| 4:3 / 3:4 | 1024x768 / 768x1024 | 0.58x |
-| 5:4 / 4:5 | 960x768 / 768x960 | 0.51x |
-| **1:1** | **768x768** | **0.33x** |
+Asking for 4K gives the same canvas as asking for 720p at the same ratio.
+Only 94 canvases exist in the whole legal aspect range of 1/4 to 4.
 
-**Portrait and landscape of a ratio cost the same.** Packed rows are
-`(h//32)*(w//32)`, which is symmetric. 16:9 vs 9:16 is a quality question,
-never a speed one.
+## The ones worth knowing
+
+| aspect | canvas | rows/frame | attention |
+|---|---|---|---|
+| 21:9 | 1536x672 | 1008 | 1.00x |
+| 2:1 | 1440x704 | 990 | 0.96x |
+| **16:9** | **1344x768** | 1008 | 1.00x |
+| 5:3 | 1280x768 | 960 | 0.91x |
+| 3:2 | 1152x768 | 864 | 0.73x |
+| 4:3 | 1024x768 | 768 | 0.58x |
+| 5:4 | 960x768 | 720 | 0.51x |
+| **1:1** | **768x768** | 576 | **0.33x** |
+| 4:5 | 768x960 | 720 | 0.51x |
+| 3:4 | 768x1024 | 768 | 0.58x |
+| 2:3 | 768x1152 | 864 | 0.73x |
+| 9:16 | 768x1344 | 1008 | 1.00x |
+
+Type one of these into width/height and you get exactly it back. **1:1 costs
+a third of 16:9** at the same frame count, and attention dominates the step,
+so this is the largest speed lever anywhere -- bigger than any kernel or
+sparsity setting.
+
+## Two things that surprise people
+
+**The short edge is not always 768.** It is 768 only while the area cap does
+not bind, which is roughly 3:4 through 7:4. Wider or taller than that and the
+cap takes over: 21:9 is 1536x**672**, 9:21 is **672**x1536. If you expected a
+768 short edge at 21:9, that is why you did not get it.
+
+**1.00x is not the ceiling.** Rounding each axis to 32 can land a canvas
+*above* the 16:9 row count: 29:9 gives 1856x576, which is 1044 rows and
+**1.07x**. A few odd wide ratios cost more than 16:9 for no extra pixels.
+Stick to the table unless you have a reason not to.
+
+**Portrait and landscape of a ratio cost the same.** Rows are
+`(h//32)*(w//32)`, which is symmetric. 16:9 against 9:16 is a quality
+question, never a speed one.
+
+## If you want this decided for you
+
+`MiniMax H3 Keyframe Canvas` (this repo) derives the canvas from your first
+keyframe the way the reference pipeline does, fits the keyframes onto it, and
+outputs `attn_cost_vs_1to1` so the price is visible before you render. The
+first-frame graph is wired that way. For text-to-video there is no keyframe
+to derive from, so type a row from the table.
 
 ## Length snaps up to n % 17 == 5
 
@@ -450,10 +512,8 @@ names that exact trap in a comment.
 
 At 345 frames attention is ~76% of the step, against ~50% at 124 -- long
 clips are where sparsity and kernel work pay off most.
-
-Core ComfyUI's `ResolutionSelector` works from a megapixel target, which is
-not how any of this works. Type the numbers.
 """
+
 
 _NOTE_NODES = """\
 ## Node order is load-bearing
@@ -877,12 +937,22 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     adec = g.add("VAEDecodeAudio", (780, 110), size=(260, 60),
                  inputs=[_in("samples", "LATENT"), _in("vae", "VAE")],
                  outputs=[_out("AUDIO", "AUDIO")])
-    mux = g.add("CreateVideo", (1080, 0), size=(270, 110), widgets=[FPS, 8],
-                inputs=[_in("images", "IMAGE"), _in("audio", "AUDIO", optional=True)],
-                outputs=[_out("VIDEO", "VIDEO")])
-    save = g.add("SaveVideo", (1080, 170), size=(600, 400),
-                 widgets=[out_prefix or f"video/h3_{task}_sage", "auto", "auto"],
-                 inputs=[_in("video", "VIDEO")], outputs=[_out("video", "VIDEO")])
+    # One node for mux + save. Its widgets_values is a *dict*, not the
+    # positional list every other node uses -- VHS adds format-dependent
+    # widgets (pix_fmt, crf, ...) after `format`, so position cannot address
+    # them. Shape copied from a frontend-written graph rather than guessed.
+    save = g.add("VHS_VideoCombine", (1080, 0), size=(600, 520),
+                 widgets={"frame_rate": FPS, "loop_count": 0,
+                          "filename_prefix": out_prefix or f"Video/h3_{task}",
+                          "format": VIDEO_FORMAT, "pix_fmt": "yuv420p",
+                          "crf": 19, "save_metadata": True,
+                          "trim_to_audio": False,
+                          "pingpong": False, "save_output": True},
+                 inputs=[_in("images", "IMAGE"),
+                         _in("audio", "AUDIO", optional=True),
+                         _in("meta_batch", "VHS_BatchManager", optional=True),
+                         _in("vae", "VAE", optional=True)],
+                 outputs=[_out("Filenames", "VHS_FILENAMES")])
 
     g.link(model_src, 0, sched, "model", "MODEL")
     g.link(model_src, 0, guider, "model", "MODEL")
@@ -912,9 +982,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     g.link(vvae, 0, vdec, "vae", "VAE")
     g.link(latent_src, latent_slot, adec, "samples", "LATENT")
     g.link(avae, 0, adec, "vae", "VAE")
-    g.link(vdec, 0, mux, "images", "IMAGE")
-    g.link(adec, 0, mux, "audio", "AUDIO")
-    g.link(mux, 0, save, "video", "VIDEO")
+    g.link(vdec, 0, save, "images", "IMAGE")
+    g.link(adec, 0, save, "audio", "AUDIO")
 
     # Guidance in the graph rather than in a doc nobody opens next to it.
     # MarkdownNote is in _UI_ONLY, so these never reach the API form and
@@ -979,6 +1048,21 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
             inner_spec = next(iter((inner.get("required") or inner.get("optional") or {}).values()), None)
             for i in range(tpl.get("max", 0)):
                 known[f"{name}.{tpl['prefix']}{i}"] = inner_spec
+
+        # Format-dependent widgets. VHS_VideoCombine declares `format` as a
+        # combo whose spec carries a per-format widget list (pix_fmt, crf,
+        # save_metadata, ...), and reads those from **kwargs at run time --
+        # `apply_format_widgets` warns and substitutes a default for any it
+        # does not find. They are real inputs that /object_info does not
+        # declare as inputs, so a plain known-name check calls every one of
+        # them unknown. Third false-positive class this validator has had, all
+        # the same shape: a node whose input set is not fully static.
+        for spec in list(req.values()) + list(opt.values()):
+            meta = spec[1] if len(spec) > 1 and isinstance(spec[1], dict) else {}
+            for widgets in (meta.get("formats") or {}).values():
+                for w in widgets:
+                    if isinstance(w, list) and w and isinstance(w[0], str):
+                        known.setdefault(w[0], None)
 
         given = node["inputs"]
         for name in req:

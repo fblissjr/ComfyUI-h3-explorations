@@ -4,6 +4,42 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.4.0
+
+### Changed
+
+- All graphs write video through `VHS_VideoCombine` instead of
+  `CreateVideo` -> `SaveVideo`. One node, muxing the audio itself, at 24 fps,
+  `video/h264-mp4` (yuv420p, crf 19), `save_metadata` on, `save_output` on,
+  prefix `Video/h3_<task>`. h264 rather than h265 or nvenc: software x264 at
+  crf 19 is the most portable mp4, and the nvenc paths trade quality per bit
+  for encode speed on a file that writes in seconds next to a render that
+  takes minutes. `trim_to_audio` stays off, since H3 generates the pair
+  jointly and trimming video to the audio track can only drop frames it meant
+  to keep.
+- The canvas note is rebuilt around the rule rather than examples: you pick
+  an aspect ratio and the canvas is derived, there being only 94 legal
+  canvases in the whole 1/4 to 4 range. It now states two things the old note
+  got wrong by omission. The short edge is 768 only while the area cap does
+  not bind, so 21:9 is 1536x672, not 1536x768. And 1.00x is not the cost
+  ceiling: rounding each axis to 32 puts 29:9 (1856x576) at 1.07x, above
+  16:9, for no extra pixels.
+
+### Fixed
+
+- `UIGraph.add` turned a dict of widget values into a list of its keys.
+  Nothing had passed a dict before `VHS_VideoCombine`, whose widget set
+  depends on the selected format and so serializes keyed rather than
+  positionally. The graph loaded and rendered with every setting wrong.
+- Both validators treated format-dependent widgets as errors, then as
+  invisible. `build_workflows.validate_api` called `pix_fmt`/`crf`/... unknown
+  inputs, though VHS reads them from `**kwargs` and defaults any it does not
+  find. `check_workflow_schema` only understood list-shaped `widgets_values`,
+  so a keyed one fell through both branches and the node went unchecked while
+  reporting ok. Both now resolve the selected format's own widget list out of
+  `/object_info`. Third false-positive class of this shape, all of them nodes
+  whose input set is not fully static.
+
 ## 0.3.7
 
 ### Added

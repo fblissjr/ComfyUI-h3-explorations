@@ -104,6 +104,30 @@ def widget_inputs(spec):
     return out
 
 
+def format_widgets(spec, chosen):
+    """Widgets a combo value pulls in, e.g. VHS_VideoCombine's per-format set.
+
+    /object_info carries these inside the combo's own metadata rather than as
+    declared inputs, because which ones exist depends on the value selected.
+    Returns them in `widget_inputs` shape so both can be checked alike.
+    """
+    if not chosen:
+        return []
+    for _section, _name, _t, opts in _inputs(spec):
+        formats = (opts or {}).get("formats")
+        if isinstance(formats, dict) and chosen in formats:
+            out = []
+            for w in formats[chosen]:
+                if not (isinstance(w, list) and w and isinstance(w[0], str)):
+                    continue
+                if len(w) > 1 and isinstance(w[1], list):
+                    out.append((w[0], "COMBO", w[1]))
+                elif len(w) > 1 and isinstance(w[1], str):
+                    out.append((w[0], w[1], None))
+            return out
+    return []
+
+
 def socket_inputs(spec):
     """Inputs that take a wire, name -> (type, optional)."""
     out = {}
@@ -178,6 +202,33 @@ def check(wf, object_info):
         if isinstance(has, list) and not len(wants) <= len(has) <= allowed:
             flag(n, f"{len(has)} widgets_values, node has {len(wants)} widgets "
                     f"{[w[0] for w in wants]}")
+        elif isinstance(has, dict):
+            # Keyed widgets_values. A node whose widget set depends on another
+            # widget cannot use positions: VHS_VideoCombine appends the chosen
+            # format's own widgets (pix_fmt, crf, save_metadata, ...) after
+            # `format`, so the frontend writes an object instead of a list.
+            # Checking only lists would have skipped this node in silence,
+            # which reads identical to a clean pass.
+            by_name = {w[0]: w for w in wants}
+            for extra in format_widgets(spec, has.get("format")):
+                by_name.setdefault(extra[0], extra)
+            for key, got in has.items():
+                if key == "videopreview":
+                    continue          # frontend DOM widget, not an input
+                if key not in by_name:
+                    flag(n, f"widget {key!r} is not an input of this node, "
+                            f"nor a widget of format {has.get('format')!r}")
+                    continue
+                _name, typ, choices = by_name[key]
+                if typ == "COMBO" and choices and got not in choices:
+                    flag(n, f"widget {key!r} = {got!r} is not one of {choices[:8]}")
+                elif typ in ("INT", "FLOAT") and not isinstance(got, (int, float)):
+                    flag(n, f"widget {key!r} = {got!r} is not numeric")
+                elif typ == "BOOLEAN" and not isinstance(got, bool):
+                    flag(n, f"widget {key!r} = {got!r} is not a boolean")
+            for name, typ, _c in wants:
+                if name not in has:
+                    flag(n, f"widget {name!r} is missing from widgets_values")
         elif isinstance(has, list):
             for (name, typ, choices), got in zip(wants, has):
                 if typ == "CONTROL":
