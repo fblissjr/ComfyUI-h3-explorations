@@ -244,6 +244,21 @@ SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 # Source: coderef/Minimax-H3-Turbo README, model specs table.
 SIGMA_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
+# The turbo graph. This is the 8-step v1.0, which is the one present locally;
+# the other two are listed in the note the graph carries.
+#
+# Its shift is 12/3, the same as base, so the shift node does not move for
+# this LoRA. Only the steps do: 8 instead of 16. That is worth stating plainly
+# because "turbo LoRA" and "change the shift" got learned together, and for
+# two of the three checkpoints the shift is already right.
+#
+# Strength 1.0 is the reference's own default (`--lora-scale` defaults to 1.0
+# in Minimax-H3-Turbo's inference script). Not swept here.
+TURBO_LORA = "h3/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
+TURBO_LORA_STRENGTH = 1.0
+TURBO_STEPS = 8
+TURBO_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
+
 # Node order is not cosmetic. Sol-Attn composes with the attention patches
 # it finds, so it must come after ours; reversed, it overwrites the patch
 # and you silently get sage only.

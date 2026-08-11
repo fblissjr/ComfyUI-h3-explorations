@@ -4,6 +4,32 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.3.7
+
+### Added
+
+- `h3_text_to_video_turbo.json`, on the 8-step v1.0 LoRA at 8 steps. It
+  carries a note on what the training resolution means, which is the part
+  that is not obvious: 544p and 768p are about a factor of two apart in
+  tokens, and H3's own canvas rule is a 768 short edge, so a 544p-distilled
+  LoRA cannot be at home at the same time as the base model. Rendering at
+  1344x768 keeps the base model in its trained canvas and the LoRA off its
+  distillation resolution; rendering at 544p reverses that. Which costs less
+  is unmeasured, and the note says so rather than implying the LoRA wins.
+  t2v deliberately, because `MiniMaxH3KeyframeCanvas` refuses sub-768 and an
+  i2v graph could not demonstrate the choice its own note describes.
+- `steps` and `shift` are builder parameters now, so a variant can move them
+  without a second copy of the graph description.
+
+### Changed
+
+- The `head_chunks` tooltip said "1 disables it" four lines above saying that
+  1 defers to KJNodes' published count. Both were true and together they were
+  misleading. It now says 1 means this node does not chunk, that nothing
+  overrides a published count, and that 1 is not the lowest-peak setting:
+  4 groups peaks at 2645 MiB against 2862 at 1, because chunking rules out
+  the clone that only pays unchunked.
+
 ## 0.3.6
 
 ### Added

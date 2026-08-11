@@ -44,6 +44,7 @@ HERE = Path(__file__).resolve().parent
 from h3_config import (  # noqa: E402
     CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS, REF_LORA, REF_LORA_STRENGTH,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED,
+    TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
 )
 
 # Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
@@ -140,6 +141,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               sol: dict | None = None, canvas_mode: str = "fit_to_canvas",
               stamp: bool = False, unet: str | None = None,
               lora: tuple[str, float] | None = None,
+              steps: int | None = None, shift: dict | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -173,7 +175,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               "inputs": {"sampler_name": SAMPLING["sampler"]}},
         "8": {"class_type": "BasicScheduler",
               "inputs": {"model": None, "scheduler": SAMPLING["scheduler"],
-                         "steps": SAMPLING["steps"], "denoise": SAMPLING["denoise"]}},
+                         "steps": steps if steps is not None else SAMPLING["steps"],
+                         "denoise": SAMPLING["denoise"]}},
         "9": {"class_type": "BasicGuider",
               "inputs": {"model": None, "conditioning": ["5", 0]}},
         "10": {"class_type": "SamplerCustomAdvanced",
@@ -256,7 +259,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     # model sampling, which is a different surface from either of them.
     # Node id 19; 18 is the LoRA and 20/21/22 are already spoken for.
     g["19"] = {"class_type": "MiniMaxH3SigmaShift",
-               "inputs": {"model": model_src, **SIGMA_SHIFT}}
+               "inputs": {"model": model_src,
+                          **(shift if shift is not None else SIGMA_SHIFT)}}
     model_src = ["19", 0]
     if sage:
         g["20"] = {"class_type": "MiniMaxH3SageAttention",
@@ -456,6 +460,7 @@ _NOTE_NODES = """\
 
 ```
 Load Diffusion Model
+  -> ModelSamplingMiniMaxH3       (sigma shift; anywhere before the fork)
   -> MiniMax H3 SageAttention     (this repo)
   -> SolAttnPatch                 (must be AFTER)
   -> BasicScheduler + BasicGuider (MODEL forks to BOTH)
@@ -464,6 +469,16 @@ Load Diffusion Model
 **Sol-Attn must come second.** It composes with the attention patch it
 finds; reversed, it overwrites ours and you silently get sage only, with no
 error and no log line saying so.
+
+**The sigma shift is here to be changed, not because it does anything at
+12/3.** Those are the base checkpoint's training shifts, so the node is a
+no-op as shipped. The turbo LoRAs inherit the sampler's shift instead of
+carrying their own, and the 4-step v1.0 768p one was distilled at video
+shift **6** -- and that is the variant trained at 1344x768, this canvas. Load
+it without changing this and you sample it off a schedule it never saw.
+Steps move with it too: 16 is a base-model number, these want 4 or 8. The
+4-step v0.1 and 8-step v1.0 were both distilled at 12/3 and need no change
+here.
 
 **MODEL forks to two consumers.** Rewiring only the guider leaves the
 scheduler reading sigmas off the unpatched model, and the render still
@@ -518,6 +533,56 @@ are paying full price for a render that otherwise looks fine.
 # f-string, because the strength appears in the prose and the widget it
 # describes comes from REF_LORA_STRENGTH. Hardcoding it here is how a graph
 # ends up shipping a note that contradicts its own node.
+_NOTE_TURBO = f"""\
+## Turbo LoRA: what the training resolution means
+
+This graph loads the **8-step v1.0** LoRA at {TURBO_STEPS} steps, shift
+{TURBO_SHIFT["shift_video"]:g}/{TURBO_SHIFT["shift_audio"]:g}.
+
+| LoRA | trained at | shift (v/a) | steps |
+|---|---|---|---|
+| 4-step v0.1 | 544p, **mixed aspect** | 12 / 3 | 4 |
+| 8-step v1.0 (this graph) | 544p | 12 / 3 | 8 or 4 |
+| 4-step v1.0 768p | **1344x768** | **6** / 3 | 4 |
+
+**Two things move with the LoRA, and only one of them is the shift.** Steps
+always move: 16 is a base-model number. The shift moves only for the 768p
+one, which was distilled at video shift 6. The other two were distilled at
+12/3, which is already the default, so for them the shift node stays put.
+Changing one without the other is not a partial fix.
+
+## The resolution question
+
+A step-distillation LoRA learns to take bigger jumps along the schedule *at
+the token count it saw*. 544p and 768p are roughly a factor of two apart in
+tokens, so a 544p LoRA rendering at 1344x768 is working at about twice the
+sequence length it was distilled on.
+
+**You cannot satisfy both distributions at once, and that is the real
+choice here.** MiniMax H3's own canvas rule is a 768 short edge with a
+1344x768 area cap: that is what `adapt_canvas` enforces and what the
+reference generates. 544p is below it. So:
+
+- Render at **1344x768** and the base model is in its trained canvas while
+  the 544p LoRA is off its distillation resolution.
+- Render at **544p** and the LoRA is home while the base model is outside
+  the canvas family it was trained on. Nothing stops you: the width and
+  height on the conditioning node are plain ints at 32-px steps, so 544p is
+  typeable. `MiniMaxH3KeyframeCanvas` is the node that refuses, which is why
+  this graph is t2v.
+
+**Which one costs less is not measured here.** Do not assume the LoRA's
+resolution wins just because the LoRA is the thing you added.
+
+**The 4-step v1.0 768p is the only one with no resolution gap at this
+canvas** -- it was distilled at exactly 1344x768. The trade is aspect: it saw
+one, where the 4-step v0.1 saw mixed aspect ratios. Render 1:1 or 9:16 and
+the 768p LoRA is the off-distribution one.
+
+Specs from `coderef/Minimax-H3-Turbo`, README model table.
+"""
+
+
 _NOTE_REF_LORA = f"""\
 # This graph, and what to compare it against
 
@@ -586,6 +651,8 @@ to remove it.
 
 
 def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
+             steps: int | None = None, shift: dict | None = None,
+             variant_note: str | None = None,
              length: int = LENGTH, seed: int = SEED, preview: bool = False,
              sol: dict | None = None, sol_enabled: bool = True,
              canvas_mode: str = "fit_to_canvas", stamp: bool = False,
@@ -629,13 +696,13 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # whole reason it is in the graph is that a turbo LoRA needs them changed,
     # and a node showing "ModelSamplingMiniMaxH3" and nothing else does not
     # prompt anyone to look.
+    sh = shift if shift is not None else SIGMA_SHIFT
     sigma_node = g.add("MiniMaxH3SigmaShift", (-1500, 700), size=(360, 110),
-                       widgets=[SIGMA_SHIFT["shift_video"],
-                                SIGMA_SHIFT["shift_audio"]],
+                       widgets=[sh["shift_video"], sh["shift_audio"]],
                        inputs=[_in("model", "MODEL")],
                        outputs=[_out("MODEL", "MODEL")],
-                       title=f"Sigma shift (video {SIGMA_SHIFT['shift_video']:g}, "
-                             f"audio {SIGMA_SHIFT['shift_audio']:g})")
+                       title=f"Sigma shift (video {sh['shift_video']:g}, "
+                             f"audio {sh['shift_audio']:g})")
     g.link(model_src, 0, sigma_node, "model", "MODEL")
     model_src = sigma_node
 
@@ -792,7 +859,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     samp = g.add("KSamplerSelect", (40, 150), size=(300, 60),
                  widgets=[SAMPLING["sampler"]], outputs=[_out("SAMPLER", "SAMPLER")])
     sched = g.add("BasicScheduler", (40, 250), size=(300, 130),
-                  widgets=[SAMPLING["scheduler"], SAMPLING["steps"], SAMPLING["denoise"]],
+                  widgets=[SAMPLING["scheduler"],
+                           steps if steps is not None else SAMPLING["steps"],
+                           SAMPLING["denoise"]],
                   inputs=[_in("model", "MODEL")], outputs=[_out("SIGMAS", "SIGMAS")])
     guider = g.add("BasicGuider", (40, 420), size=(300, 70),
                    inputs=[_in("model", "MODEL"), _in("conditioning", "CONDITIONING")],
@@ -854,7 +923,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
           title="Canvas + length: what is actually selectable")
     g.add("MarkdownNote", (-2180, 660), size=(620, 560), widgets=[_NOTE_NODES],
           title="Which nodes, and the order that matters")
-    if lora is not None:
+    if variant_note is not None:
+        g.add("MarkdownNote", (-2180, 1280), size=(620, 760),
+              widgets=[variant_note], title="What this graph is probing")
+    elif lora is not None:
         g.add("MarkdownNote", (-2180, 1280), size=(620, 620),
               widgets=[_NOTE_REF_LORA], title="What this graph is probing")
 
@@ -1171,6 +1243,15 @@ def main():
          dict(unet=MODELS["unet_fl2va"], lora=(REF_LORA, REF_LORA_STRENGTH),
               out_prefix="video/h3_r2v_fl2va_ref_lora"),
          "same, but fl2va + the extracted ref LoRA instead of ref2va"),
+        # t2v deliberately: the note explains that matching the LoRA's 544p
+        # means leaving H3's own canvas rule, and MiniMaxH3KeyframeCanvas is
+        # the node that refuses to, so an i2v turbo graph could not show the
+        # choice it is describing.
+        ("h3_text_to_video_turbo.json", "t2v-turbo", "t2v", LONG_T2V_PROMPT,
+         dict(lora=(TURBO_LORA, TURBO_LORA_STRENGTH), steps=TURBO_STEPS,
+              shift=TURBO_SHIFT, variant_note=_NOTE_TURBO,
+              out_prefix="video/h3_t2v_turbo_8step"),
+         "text -> video + audio, via the 8-step turbo LoRA"),
     )
 
     for fname, label, task, prompt, extra, note in GRAPHS:
@@ -1186,8 +1267,11 @@ def main():
     # without a browser. Same builder inputs, so they cannot describe a
     # different configuration than the set above.
     for fname, label, task, prompt, extra, _note in GRAPHS:
+        # variant_note is guidance drawn on the canvas; the API form has no
+        # node that carries it and _UI_ONLY would flag it as a desync.
+        api_extra = {k: v for k, v in extra.items() if k != "variant_note"}
         wf = build_api(task, sage=True, length=LONG_LENGTH,
-                       sol=SOL_RECOMMENDED, prompt=prompt, **extra)
+                       sol=SOL_RECOMMENDED, prompt=prompt, **api_extra)
         p = out / fname.replace(".json", "_api.json")
         p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((label, "api", p, wf))

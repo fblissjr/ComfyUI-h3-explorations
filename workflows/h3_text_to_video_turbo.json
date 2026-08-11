@@ -1,8 +1,8 @@
 {
-  "id": "h3-r2v-reflora-sage",
+  "id": "h3-t2v-turbo-sage",
   "revision": 0,
-  "last_node_id": 24,
-  "last_link_id": 25,
+  "last_node_id": 22,
+  "last_link_id": 22,
   "nodes": [
     {
       "id": 1,
@@ -56,7 +56,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            10
+            7
           ]
         }
       ],
@@ -90,7 +90,7 @@
           "type": "VAE",
           "links": [
             6,
-            20
+            17
           ]
         }
       ],
@@ -122,8 +122,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            7,
-            22
+            19
           ]
         }
       ],
@@ -169,7 +168,7 @@
         "Node name for S&R": "LoraLoaderModelOnly"
       },
       "widgets_values": [
-        "h3/minimax_h3_ref_lora_rank_256_bf16.safetensors",
+        "h3/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
         1.0
       ],
       "title": "Load LoRA (ref delta, strength 1.0)"
@@ -339,8 +338,8 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            11,
-            12
+            8,
+            9
           ]
         }
       ],
@@ -359,23 +358,23 @@
     },
     {
       "id": 10,
-      "type": "MiniMaxH3ReferenceToVideo",
+      "type": "MiniMaxH3ImageToVideo",
       "pos": [
         -460,
         0
       ],
       "size": [
         430,
-        620
+        560
       ],
       "flags": {},
-      "order": 17,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
           "name": "clip",
           "type": "CLIP",
-          "link": 10
+          "link": 7
         },
         {
           "name": "vae",
@@ -383,50 +382,15 @@
           "link": 6
         },
         {
-          "name": "audio_vae",
-          "type": "VAE",
-          "link": 7
-        },
-        {
-          "name": "ref_images.ref_image_0",
-          "type": "IMAGE",
-          "link": 8,
-          "label": "ref_image_0",
-          "shape": 7
-        },
-        {
-          "name": "ref_images.ref_image_1",
-          "type": "IMAGE",
-          "link": 9,
-          "label": "ref_image_1",
-          "shape": 7
-        },
-        {
-          "name": "ref_images.ref_image_2",
+          "name": "first_frame",
           "type": "IMAGE",
           "link": null,
-          "label": "ref_image_2",
           "shape": 7
         },
         {
-          "name": "ref_videos.ref_video_0",
+          "name": "last_frame",
           "type": "IMAGE",
           "link": null,
-          "label": "ref_video_0",
-          "shape": 7
-        },
-        {
-          "name": "ref_video_audios.ref_video_audio_0",
-          "type": "AUDIO",
-          "link": null,
-          "label": "ref_video_audio_0",
-          "shape": 7
-        },
-        {
-          "name": "ref_audios.ref_audio_0",
-          "type": "AUDIO",
-          "link": null,
-          "label": "ref_audio_0",
           "shape": 7
         }
       ],
@@ -435,104 +399,29 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            13
+            10
           ]
         },
         {
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            14
+            11
           ]
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3ReferenceToVideo"
+        "Node name for S&R": "MiniMaxH3ImageToVideo"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed as <Subject 1> turns toward the light and looks off-screen.\n\noverall_soundscape:\nSteady interior room tone continues throughout, with soft footsteps and fabric movement as <Subject 1> crosses the frame.\n\nnon_diegetic_music:\nN/A",
+        "integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium shot frames a courier in a soaked red jacket standing over a bicycle at a city crosswalk in heavy evening rain, wet asphalt throwing back the signal lights, a brick facade with iron railings filling the background. The camera tracks right at medium amplitude and moderate speed as she snaps her helmet strap and pushes off.\n[Shot 2] At 00:04.000, the shot cuts to a low tracking shot running alongside the bicycle as it crosses the junction, spray coming off the tyres, painted lane markings streaming past underneath.\n[Shot 3] At 00:08.000, the camera whip pans up to a wide shot of the street as she cuts between two parked cars, pigeons scattering off the railings, neon shopfront signs reflected in the puddles.\n[Shot 4] At 00:11.500, the shot changes to a close shot of her face under the helmet, rain streaking across the lens, as she glances back over her shoulder and then forward again, breathing hard.\n\noverall_soundscape: steady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.\n\nnon_diegetic_music: none.",
         1344,
         768,
-        345,
-        "match"
+        345
       ]
     },
     {
       "id": 11,
-      "type": "LoadImage",
-      "pos": [
-        -880,
-        640
-      ],
-      "size": [
-        290,
-        330
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            8
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "1-man.png",
-        "image"
-      ]
-    },
-    {
-      "id": 12,
-      "type": "LoadImage",
-      "pos": [
-        -880,
-        1010
-      ],
-      "size": [
-        290,
-        330
-      ],
-      "flags": {},
-      "order": 10,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            9
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "2-mountain_landscape.png",
-        "image"
-      ]
-    },
-    {
-      "id": 13,
       "type": "RandomNoise",
       "pos": [
         40,
@@ -543,7 +432,7 @@
         110
       ],
       "flags": {},
-      "order": 11,
+      "order": 10,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -551,7 +440,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            15
+            12
           ]
         }
       ],
@@ -564,7 +453,7 @@
       ]
     },
     {
-      "id": 14,
+      "id": 12,
       "type": "KSamplerSelect",
       "pos": [
         40,
@@ -575,7 +464,7 @@
         60
       ],
       "flags": {},
-      "order": 12,
+      "order": 11,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -583,7 +472,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            17
+            14
           ]
         }
       ],
@@ -595,7 +484,7 @@
       ]
     },
     {
-      "id": 15,
+      "id": 13,
       "type": "BasicScheduler",
       "pos": [
         40,
@@ -606,13 +495,13 @@
         130
       ],
       "flags": {},
-      "order": 13,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 11
+          "link": 8
         }
       ],
       "outputs": [
@@ -620,7 +509,7 @@
           "name": "SIGMAS",
           "type": "SIGMAS",
           "links": [
-            18
+            15
           ]
         }
       ],
@@ -629,12 +518,12 @@
       },
       "widgets_values": [
         "simple",
-        16,
+        8,
         1.0
       ]
     },
     {
-      "id": 16,
+      "id": 14,
       "type": "BasicGuider",
       "pos": [
         40,
@@ -645,18 +534,18 @@
         70
       ],
       "flags": {},
-      "order": 18,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 12
+          "link": 9
         },
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 13
+          "link": 10
         }
       ],
       "outputs": [
@@ -664,7 +553,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            16
+            13
           ]
         }
       ],
@@ -673,7 +562,7 @@
       }
     },
     {
-      "id": 17,
+      "id": 15,
       "type": "SamplerCustomAdvanced",
       "pos": [
         400,
@@ -684,33 +573,33 @@
         150
       ],
       "flags": {},
-      "order": 19,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 15
+          "link": 12
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 16
+          "link": 13
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 17
+          "link": 14
         },
         {
           "name": "sigmas",
           "type": "SIGMAS",
-          "link": 18
+          "link": 15
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 14
+          "link": 11
         }
       ],
       "outputs": [
@@ -718,8 +607,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            19,
-            21
+            16,
+            18
           ]
         },
         {
@@ -733,7 +622,7 @@
       }
     },
     {
-      "id": 18,
+      "id": 16,
       "type": "VAEDecode",
       "pos": [
         780,
@@ -744,18 +633,18 @@
         60
       ],
       "flags": {},
-      "order": 20,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 19
+          "link": 16
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 20
+          "link": 17
         }
       ],
       "outputs": [
@@ -763,7 +652,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            23
+            20
           ]
         }
       ],
@@ -772,7 +661,7 @@
       }
     },
     {
-      "id": 19,
+      "id": 17,
       "type": "VAEDecodeAudio",
       "pos": [
         780,
@@ -783,18 +672,18 @@
         60
       ],
       "flags": {},
-      "order": 21,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 21
+          "link": 18
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 22
+          "link": 19
         }
       ],
       "outputs": [
@@ -802,7 +691,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            24
+            21
           ]
         }
       ],
@@ -811,7 +700,7 @@
       }
     },
     {
-      "id": 20,
+      "id": 18,
       "type": "CreateVideo",
       "pos": [
         1080,
@@ -822,18 +711,18 @@
         110
       ],
       "flags": {},
-      "order": 22,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 23
+          "link": 20
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 24,
+          "link": 21,
           "shape": 7
         }
       ],
@@ -842,7 +731,7 @@
           "name": "VIDEO",
           "type": "VIDEO",
           "links": [
-            25
+            22
           ]
         }
       ],
@@ -855,7 +744,7 @@
       ]
     },
     {
-      "id": 21,
+      "id": 19,
       "type": "SaveVideo",
       "pos": [
         1080,
@@ -866,13 +755,13 @@
         400
       ],
       "flags": {},
-      "order": 23,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
           "name": "video",
           "type": "VIDEO",
-          "link": 25
+          "link": 22
         }
       ],
       "outputs": [
@@ -886,13 +775,13 @@
         "Node name for S&R": "SaveVideo"
       },
       "widgets_values": [
-        "video/h3_r2v_fl2va_ref_lora",
+        "video/h3_t2v_turbo_8step",
         "auto",
         "auto"
       ]
     },
     {
-      "id": 22,
+      "id": 20,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -903,7 +792,7 @@
         620
       ],
       "flags": {},
-      "order": 14,
+      "order": 19,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -916,7 +805,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 23,
+      "id": 21,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -927,7 +816,7 @@
         560
       ],
       "flags": {},
-      "order": 15,
+      "order": 20,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -940,7 +829,7 @@
       "title": "Which nodes, and the order that matters"
     },
     {
-      "id": 24,
+      "id": 22,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -948,10 +837,10 @@
       ],
       "size": [
         620,
-        620
+        760
       ],
       "flags": {},
-      "order": 16,
+      "order": 21,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -959,7 +848,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "# This graph, and what to compare it against\n\nThis is `h3_image_ref_plus_text_to_video.json` with **one thing changed**:\nwhere that graph loads `ref2va`, this one loads `fl2va` and applies Kijai's\nextracted ref LoRA on top.\n\nEverything else is shared by construction -- same seed, same prompt, same\ncanvas, same 362 frames, same 16 steps, same sage and Sol-Attn settings. Open\nboth, point them at the same reference images, run them. Any difference you\nsee is the LoRA.\n\n**Set your own reference images first.** The two `LoadImage` nodes hold\nwhatever placeholders this install happened to have.\n\n## What the LoRA is\n\nThe weight difference between `fl2va` and `ref2va`, extracted at rank 256\n(`Kijai/MiniMax-H3-experimental`, 2026-08-08). Not a trained adapter -- a\nwhole-model delta, covering all 50 blocks, both token_refiner blocks, the\npatch projections, `condition_proj` and the final layer, with full-rank\ndeltas on every norm and bias.\n\nAt strength **1.0** it is meant to turn fl2va into ref2va. Upstream's own\ndescription is *\"completely experimental, I don't even know if it has a use\ncase at this point\"*, so treat the shipped 1.0 as a\nstarting point, not a settled answer.\n\nExpect close, not identical, even when it works: rank 256 truncates the real\ndelta, and on the int8_convrot checkpoint the merge is a dequantize / add /\nrequantize round trip that loses a little more. A small gap is the expected\noutcome, not a broken graph.\n\n## Turning the strength dial\n\nBelow 1.0 you are interpolating toward plain fl2va -- between first/last-frame\nkeyframe conditioning and reference conditioning. That is the one thing two\nseparate checkpoints cannot give you, and it is the reason to keep this graph\naround. Expect it to be ill-behaved before it is useful: the norm and bias\ndeltas interpolate linearly, which is a crude stand-in for interpolating two\nmodels.\n\n**Strength 0.0 and ctrl-B bypass are the same thing.** ComfyUI short-circuits\na LoRA whose strengths are all zero (`nodes.py:729`) and hands back the\nuntouched model, so either route renders true plain fl2va. Use whichever you\nprefer -- just do not treat them as two different baselines.\n\nNeither pays what the 1.0 arm pays. Applying the LoRA to a quantized\ncheckpoint is a dequantize / add / requantize round trip, and the\nzero-strength route skips it. So part of any 1.0-against-0.0 difference is\nthat round trip, not the delta. To see the round trip on its own, render\n**0.01** -- visually nil, but it does not short-circuit.\n\n## One caveat if you are comparing carefully\n\nSol-Attn is on here, same as the shipped graph, because the point is to\ncompare like with like. But its window is a *percent* band that resolves\nagainst the model's own sigma curve, and the LoRA changes the model -- so the\ntwo graphs can end up running a different number of sparse steps. That is a\nsecond difference on top of the LoRA.\n\nIt does not matter for \"does this look right\". It does matter if you are\njudging a subtle quality difference. Bypass `SolAttnPatch` in **both** graphs\nto remove it.\n"
+        "## Turbo LoRA: what the training resolution means\n\nThis graph loads the **8-step v1.0** LoRA at 8 steps, shift\n12/3.\n\n| LoRA | trained at | shift (v/a) | steps |\n|---|---|---|---|\n| 4-step v0.1 | 544p, **mixed aspect** | 12 / 3 | 4 |\n| 8-step v1.0 (this graph) | 544p | 12 / 3 | 8 or 4 |\n| 4-step v1.0 768p | **1344x768** | **6** / 3 | 4 |\n\n**Two things move with the LoRA, and only one of them is the shift.** Steps\nalways move: 16 is a base-model number. The shift moves only for the 768p\none, which was distilled at video shift 6. The other two were distilled at\n12/3, which is already the default, so for them the shift node stays put.\nChanging one without the other is not a partial fix.\n\n## The resolution question\n\nA step-distillation LoRA learns to take bigger jumps along the schedule *at\nthe token count it saw*. 544p and 768p are roughly a factor of two apart in\ntokens, so a 544p LoRA rendering at 1344x768 is working at about twice the\nsequence length it was distilled on.\n\n**You cannot satisfy both distributions at once, and that is the real\nchoice here.** MiniMax H3's own canvas rule is a 768 short edge with a\n1344x768 area cap: that is what `adapt_canvas` enforces and what the\nreference generates. 544p is below it. So:\n\n- Render at **1344x768** and the base model is in its trained canvas while\n  the 544p LoRA is off its distillation resolution.\n- Render at **544p** and the LoRA is home while the base model is outside\n  the canvas family it was trained on. Nothing stops you: the width and\n  height on the conditioning node are plain ints at 32-px steps, so 544p is\n  typeable. `MiniMaxH3KeyframeCanvas` is the node that refuses, which is why\n  this graph is t2v.\n\n**Which one costs less is not measured here.** Do not assume the LoRA's\nresolution wins just because the LoRA is the thing you added.\n\n**The 4-step v1.0 768p is the only one with no resolution gap at this\ncanvas** -- it was distilled at exactly 1344x768. The trade is aspect: it saw\none, where the 4-step v0.1 saw mixed aspect ratios. Render 1:1 or 9:16 and\nthe 768p LoRA is the off-distribution one.\n\nSpecs from `coderef/Minimax-H3-Turbo`, README model table.\n"
       ],
       "title": "What this graph is probing"
     }
@@ -1015,30 +904,6 @@
     ],
     [
       7,
-      4,
-      0,
-      10,
-      2,
-      "VAE"
-    ],
-    [
-      8,
-      11,
-      0,
-      10,
-      3,
-      "IMAGE"
-    ],
-    [
-      9,
-      12,
-      0,
-      10,
-      4,
-      "IMAGE"
-    ],
-    [
-      10,
       2,
       0,
       10,
@@ -1046,122 +911,122 @@
       "CLIP"
     ],
     [
-      11,
+      8,
       9,
       0,
-      15,
-      0,
-      "MODEL"
-    ],
-    [
-      12,
-      9,
-      0,
-      16,
-      0,
-      "MODEL"
-    ],
-    [
       13,
+      0,
+      "MODEL"
+    ],
+    [
+      9,
+      9,
+      0,
+      14,
+      0,
+      "MODEL"
+    ],
+    [
+      10,
       10,
       0,
-      16,
+      14,
       1,
       "CONDITIONING"
     ],
     [
-      14,
+      11,
       10,
       1,
-      17,
+      15,
       4,
       "LATENT"
+    ],
+    [
+      12,
+      11,
+      0,
+      15,
+      0,
+      "NOISE"
+    ],
+    [
+      13,
+      14,
+      0,
+      15,
+      1,
+      "GUIDER"
+    ],
+    [
+      14,
+      12,
+      0,
+      15,
+      2,
+      "SAMPLER"
     ],
     [
       15,
       13,
       0,
-      17,
-      0,
-      "NOISE"
+      15,
+      3,
+      "SIGMAS"
     ],
     [
       16,
+      15,
+      0,
       16,
       0,
+      "LATENT"
+    ],
+    [
       17,
+      3,
+      0,
+      16,
       1,
-      "GUIDER"
-    ],
-    [
-      17,
-      14,
-      0,
-      17,
-      2,
-      "SAMPLER"
+      "VAE"
     ],
     [
       18,
       15,
       0,
       17,
-      3,
-      "SIGMAS"
-    ],
-    [
-      19,
-      17,
-      0,
-      18,
       0,
       "LATENT"
     ],
     [
-      20,
-      3,
-      0,
-      18,
-      1,
-      "VAE"
-    ],
-    [
-      21,
-      17,
-      0,
       19,
-      0,
-      "LATENT"
-    ],
-    [
-      22,
       4,
       0,
-      19,
+      17,
       1,
       "VAE"
     ],
     [
-      23,
-      18,
-      0,
       20,
+      16,
+      0,
+      18,
       0,
       "IMAGE"
     ],
     [
-      24,
-      19,
+      21,
+      17,
       0,
-      20,
+      18,
       1,
       "AUDIO"
     ],
     [
-      25,
-      20,
+      22,
+      18,
       0,
-      21,
+      19,
       0,
       "VIDEO"
     ]
