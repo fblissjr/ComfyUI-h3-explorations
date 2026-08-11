@@ -4,6 +4,15 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.8.2
+
+### Changed
+
+- `PublisherId` removed from `pyproject.toml`. It exists to publish this to
+  ComfyUI's registry, and this repo is not asking to be installed -- the same
+  reason the graphs carry no `cnr_id`. Public so the work is readable, not so
+  it is distributable.
+
 ## 0.8.1
 
 ### Changed

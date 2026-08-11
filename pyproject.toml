@@ -1,9 +1,12 @@
 [project]
 name = "comfyui-h3-explorations"
 description = "Tinkering and research hub for the MiniMax H3 ecosystem in ComfyUI: SageAttention kernels, keyframe/provenance nodes, benchmarks, and workflows."
-version = "0.8.1"
+version = "0.8.2"
 requires-python = ">=3.10"
 
 [tool.comfy]
 DisplayName = "MiniMax H3 Explorations"
-PublisherId = "fbliss"
+# No PublisherId. That field exists to publish this to ComfyUI's registry,
+# and this repo is not asking to be installed -- same reason the generated
+# graphs carry no `cnr_id` and will never carry `aux_id`. It is public so the
+# work is readable, not so it is distributable.
