@@ -119,6 +119,27 @@ from h3_rules import (  # noqa: E402
 )
 
 
+def _ref_short_edge():
+    """ComfyUI's reference short edge, read rather than repeated.
+
+    `MiniMaxH3ReferenceFit` defaults this input to core's
+    `REF_IMAGE_SHORT_EDGE`. Writing 2048 into the graph as a literal would be
+    a second place to edit that agrees with the first only by inspection --
+    if core ever moves the constant, the node's default moves and the shipped
+    graphs quietly do not. There is no test that could tell those apart,
+    because a duplicated decision has no observable disagreement until the
+    day it disagrees.
+    """
+    # This script is designed to run without ComfyUI importable -- it
+    # validates over HTTP -- so put the root on the path just for this.
+    root = HERE.parent.parent.parent
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    from comfy_extras.nodes_minimax_h3 import REF_IMAGE_SHORT_EDGE
+
+    return REF_IMAGE_SHORT_EDGE
+
+
 def _check_geometry(length, canvas):
     """Refuse to emit a graph the reference would reject.
 
@@ -236,7 +257,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         for nid, src in (("24", "15"), ("25", "16")):
             g[nid] = {"class_type": "MiniMaxH3ReferenceFit",
                       "inputs": {"image": [src, 0], "allow_upscale": True,
-                                 "short_edge": 2048,
+                                 "short_edge": _ref_short_edge(),
                                  "lift_downstream_clamp": False}}
     else:
         inputs = {"clip": ["2", 0], "vae": ["3", 0], "prompt": prompt,
@@ -986,7 +1007,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         fits = []
         for i, (src, y) in enumerate(((img_a, 640), (img_b, 1010))):
             fit = g.add("MiniMaxH3ReferenceFit", (-580, y), size=(300, 150),
-                        widgets=[True, 2048, False],
+                        widgets=[True, _ref_short_edge(), False],
                         inputs=[_in("image", "IMAGE")],
                         outputs=[_out("image", "IMAGE"),
                                  _out("vision_tokens", "INT")],
