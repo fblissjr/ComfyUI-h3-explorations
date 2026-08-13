@@ -189,6 +189,57 @@ allocated, or resident weight bytes sampled during the sampler loop.
 **Blocker: not worth the card.** Listed so nobody re-derives the idea and
 spends the time.
 
+> **Amended 2026-08-13, and the amendment matters more than the entry.** That
+> 0.992x was measured in a graph that also loads Sol-Attn, and Sol's compose
+> gate hands every call it TAKES to ComfyUI's stock forward
+> (`__init__.py:373-381` at `842c4ea`) unless a delegate is published. So head
+> chunking never ran on the taken steps at all. The wall-clock that "already
+> answers whether to chunk" is a number for a configuration in which chunking
+> was mostly switched off, and it does not answer the question it was retired
+> for. Entry 8 is the live version.
+
+---
+
+## 8. Does head chunking do anything once nothing is bypassing it
+
+**Tests:** whether `head_chunks` moves peak VRAM when it actually runs on
+every step, and separately whether publishing a `sol_take_forward` delegate is
+worth implementing.
+
+**Why it matters:** the 345-frame reference arms peak at 22,735 MiB on a
+24,564 MiB card. 1,829 MiB of headroom is the whole margin, and today's OOM
+happened on Sol's own kernel, on the sparse path, where chunking cannot reach
+it at any value.
+
+**The trap in the obvious fix.** Sol's gate prefers a delegate over the stock
+forward, so publishing one looks like a one-line win. It is not: our forward
+is built around a single sage kernel (`make_minimax_attn_forward(kernel_fn,
+...)`, and `attention.py` says so outright -- "it calls sage directly and
+never reaches `optimized_attention`"). Hand it a sparse call and it runs
+sage's DENSE kernel, silently disabling Sol-Attn inside its own sigma window,
+with a render that succeeds and looks fine. The delegate contract is
+specifically a forward that *reaches* `optimized_attention` so the override
+chain still decides sparse-versus-dense. KJNodes' low-VRAM forward qualifies
+and self-declares `_uses_optimized_attention = True`; ours does not.
+
+So implementing this means a NEW forward -- the head slicing we already have
+in `_chunked_heads`, calling `optimized_attention` per group instead of
+`kernel_fn` -- not publishing the existing one.
+
+**Cost:** two renders to answer whether it is worth writing at all, which is
+why the measurement comes first. `sage only + chunks 4` against `sage only`
+removes Sol entirely, so chunking runs on every step with no gate in the way.
+If the peak does not move there, chunking is not the lever and no delegate
+should be written.
+
+**Do not reuse the dense/sparse step ratio without re-deriving it.** The
+audit's 5 dense / 11 sparse is specific to shift 12, `simple`, and 16 steps:
+`take` is gated on `min_tokens` and a sigma window resolved as a *percent*
+band, so it moves with clip length, with step count, and with any window
+change. The new 8-step turbo arms do not share it.
+
+**Blocker: none, it is running.** Round 2 of the VRAM probes.
+
 ---
 
 ## Completed, kept for the record
