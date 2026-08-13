@@ -4,6 +4,68 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.10.0
+
+### Changed
+
+- **`MiniMaxH3KeyframeCanvas.mode` now defaults to `match_keyframe`**, and the
+  generator's `canvas_mode` with it. `fit_to_canvas` is the reference
+  pipeline's deliberate-override branch, not its default, and it is lossy:
+  it cover-crops **both** keyframes, so a 3:4 photo forced to 1344x768 keeps
+  43% of its frame. The "it keeps render cost where you put it" defence does
+  not hold at the default, because 1344x768 is already the largest area
+  `adapt_canvas` ever returns -- it only pays once you lower width/height on
+  purpose. `match_keyframe` is also the parity-faithful branch, so anything
+  compared against diffusers wants it.
+- **`MiniMaxH3KeyframeCanvas.length` now defaults to 124**, from 0. At 0 the
+  node forwarded 0, and core's own `min=5` does not catch it: a *linked* input
+  skips range validation entirely, so the shipped default rendered a 5-frame,
+  0.208-second clip. 124 is the trained floor and matches both core's default
+  and `MiniMaxH3Resolution`'s.
+
+  Neither flip touches a saved graph. Widget values are stored per node, so
+  only a newly dropped node moves.
+
+### Added
+
+- Both graph builders take `sampler_name` and `scheduler_name` overrides.
+  Previously every graph inherited `SAMPLING` with no way to vary the sampler,
+  which made the one comparison the vendor's own graphs invite impossible to
+  ship.
+- `TURBO_768P_LORA` / `_STEPS` / `_SHIFT`, `TURBO_HOME_CANVAS` and
+  `TURBO_SAMPLER` in `h3_config.py`, and `check_distill_settings.py` now
+  grades **every** turbo triple the config declares rather than the first one,
+  with a guard that fails if a new `*_TURBO*_LORA` constant appears ungraded.
+  Shown red by setting the 768p shift to 12.
+- Six graph variants, from the 08-13 research. None existed before and each
+  covers a use case or a theory the shipped set could not express:
+
+  | graph | what it is for |
+  |---|---|
+  | `h3_text_to_video_turbo_4step_768p` | the only turbo LoRA whose shift is not 12/3, shipped correct rather than described |
+  | `h3_probe_turbo_home_canvas` | the 8-step LoRA at the 544p it was distilled at, against the same LoRA at 1344x768 |
+  | `h3_probe_turbo_euler` | the vendor's sampler against core's, scheduler held at `simple` |
+  | `h3_probe_ref2v_turbo` | ref2v with an fl2v distill LoRA, deliberately out of distribution |
+  | `h3_probe_canvas_ultrawide` | 1536x672 |
+  | `h3_probe_canvas_portrait` | 768x1344 |
+
+  The last two are the **equal-cost shape control**: 21:9, 16:9 and 9:16 are
+  all 1008 tokens/frame, so all three run at an identical sequence length
+  (verified: 104,478 at 345 frames for all three) while the long edge goes
+  768 to 1536. Every other probe here changes cost to change shape. These
+  change shape with cost held constant, which is the only way to ask whether
+  the model is shape-neutral rather than just cheaper in one orientation.
+
+### Notes
+
+- **The shipped `workflows/*.json` do not yet contain the six new graphs, and
+  still carry the old keyframe defaults and the stale ~1070 MiB note.**
+  Regenerating validates against a live `/object_info`, and the two node
+  default changes above mean ComfyUI must reload this pack first -- so the
+  correct order is: restart ComfyUI, then regenerate, then re-run
+  `bench/check_workflow_schema.py`. Regenerating against a stale server bakes
+  in exactly the mismatch that check exists to catch.
+
 ## 0.9.0
 
 ### Added

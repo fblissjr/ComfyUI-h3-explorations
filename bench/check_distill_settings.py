@@ -245,19 +245,37 @@ def main():
     # ---- h3_config.py ----------------------------------------------------
     def config_is_consistent():
         import h3_config  # noqa: WPS433
-        key = classify(h3_config.TURBO_LORA)
-        assert key, f"TURBO_LORA {h3_config.TURBO_LORA!r} matches no known row"
-        want = LEGAL[key]
-        got = (float(h3_config.TURBO_SHIFT["shift_video"]),
-               float(h3_config.TURBO_SHIFT["shift_audio"]))
-        assert got == (want.shift_video, want.shift_audio), (
-            f"{key}: config shift {got}, distilled at "
-            f"({want.shift_video}, {want.shift_audio})")
-        assert h3_config.TURBO_STEPS in want.steps, (
-            f"{key}: config steps {h3_config.TURBO_STEPS}, "
-            f"distilled for {sorted(want.steps)}")
 
-    check("h3_config turbo triple is legal", config_is_consistent)
+        # Every (lora, steps, shift) triple the config defines, not just the
+        # first. A second turbo LoRA added as constants and never graded is
+        # the same silent-shift bug one indirection further out.
+        triples = [("TURBO", h3_config.TURBO_LORA, h3_config.TURBO_STEPS,
+                    h3_config.TURBO_SHIFT)]
+        if hasattr(h3_config, "TURBO_768P_LORA"):
+            triples.append(("TURBO_768P", h3_config.TURBO_768P_LORA,
+                            h3_config.TURBO_768P_STEPS, h3_config.TURBO_768P_SHIFT))
+
+        # Catch a triple being added to the config without being added here.
+        declared = {n for n in dir(h3_config)
+                    if n.endswith("_LORA") and "TURBO" in n}
+        graded = {"TURBO_LORA", "TURBO_768P_LORA"} & declared
+        assert declared == graded, (
+            f"h3_config declares turbo LoRA constants this check does not "
+            f"grade: {sorted(declared - graded)}")
+
+        for label, lora, steps, shift in triples:
+            key = classify(lora)
+            assert key, f"{label}_LORA {lora!r} matches no known row"
+            want = LEGAL[key]
+            got = (float(shift["shift_video"]), float(shift["shift_audio"]))
+            assert got == (want.shift_video, want.shift_audio), (
+                f"{label} ({key}): config shift {got}, distilled at "
+                f"({want.shift_video}, {want.shift_audio})")
+            assert steps in want.steps, (
+                f"{label} ({key}): config steps {steps}, "
+                f"distilled for {sorted(want.steps)}")
+
+    check("h3_config turbo triples are legal", config_is_consistent)
 
     # ---- every shipped graph, both forms ---------------------------------
     def graphs_are_consistent():

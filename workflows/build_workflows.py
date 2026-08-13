@@ -54,6 +54,8 @@ from h3_config import (  # noqa: E402
     CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS, REF_LORA, REF_LORA_STRENGTH,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
+    TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
+    TURBO_HOME_CANVAS, TURBO_SAMPLER,
 )
 
 # Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
@@ -205,10 +207,11 @@ def _check_geometry(length, canvas):
 
 def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               length: int = LENGTH, seed: int = SEED,
-              sol: dict | None = None, canvas_mode: str = "fit_to_canvas",
+              sol: dict | None = None, canvas_mode: str = "match_keyframe",
               stamp: bool = False, unet: str | None = None,
               lora: tuple[str, float] | None = None,
               steps: int | None = None, shift: dict | None = None,
+              sampler_name: str | None = None, scheduler_name: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
@@ -240,9 +243,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["audio_vae"]}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
         "7": {"class_type": "KSamplerSelect",
-              "inputs": {"sampler_name": SAMPLING["sampler"]}},
+              "inputs": {"sampler_name": sampler_name or SAMPLING["sampler"]}},
         "8": {"class_type": "BasicScheduler",
-              "inputs": {"model": None, "scheduler": SAMPLING["scheduler"],
+              "inputs": {"model": None, "scheduler": scheduler_name or SAMPLING["scheduler"],
                          "steps": steps if steps is not None else SAMPLING["steps"],
                          "denoise": SAMPLING["denoise"]}},
         "9": {"class_type": "BasicGuider",
@@ -858,6 +861,84 @@ conditioned at.
 """
 
 
+_NOTE_TURBO_768P = f"""\
+## The one turbo LoRA whose shift is not 12/3
+
+This graph loads the **4-step v1.0 768p** LoRA at {TURBO_768P_STEPS} steps,
+video shift **{TURBO_768P_SHIFT["shift_video"]:g}** and audio shift
+{TURBO_768P_SHIFT["shift_audio"]:g}.
+
+| LoRA | trained at | shift (v/a) | steps |
+|---|---|---|---|
+| 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |
+| 8-step v1.0 | 544p, mixed aspect | 12 / 3 | 8 or 4 |
+| 4-step v1.0 768p (this graph) | **1344x768** | **6** / 3 | 4 |
+
+**A turbo LoRA inherits the sampler's shift. It does not carry its own.** So
+loading this one into a graph whose ModelSamplingMiniMaxH3 still reads 12/3
+samples it off a schedule it never saw, and **nothing errors** -- the render
+completes and looks plausibly wrong. That is the whole reason this ships as
+its own graph instead of a sentence telling you to change two widgets.
+
+`bench/check_distill_settings.py` enforces the pairing across every shipped
+graph and grades the table above against the vendor's own README.
+
+**This is the one turbo LoRA that is already home on this canvas.** It was
+distilled at 1344x768, which is what this graph renders. The 8-step was
+distilled at 544p, so `h3_text_to_video_turbo.json` is the graph with a
+resolution tension and this one is not.
+
+The trade is steps: 4 here against the 8-step's 8. Fewer evaluations on a
+schedule whose final jump is already the largest one it takes.
+"""
+
+
+_NOTE_REF2V_TURBO = f"""\
+## Deliberately out of distribution
+
+This is `h3_image_ref_plus_text_to_video.json` with an **fl2v** turbo LoRA
+loaded onto the **ref2va** checkpoint. That pairing is not supported and is
+not meant to be: all three released turbo LoRAs are `fl2v`, and the vendor
+lists ref2v distillation as unshipped future work.
+
+It is here because how it fails is informative, and because the failure is
+silent. The two checkpoints have **identical tensor key sets**, so the LoRA
+applies with zero unmatched keys and no warning.
+
+**What the numbers say to expect** (see `docs/h3_ref2v_distillation.md`):
+
+- ref2v is a separate `transformer_ref` partition measuring **4.2%** relative
+  Frobenius from fl2va. The whole 8-step turbo LoRA measures **0.036%**. The
+  distillation target moved about 120x further than the adapter reaches.
+- The LoRA touches only `attn.qkv_proj`, `attn.out_proj`, `mlp.fc1` and
+  `mlp.fc2`. It does **not** touch `final_layer`, `adaln_proj`, the norms or
+  the patch projections -- which is exactly where the two checkpoints differ
+  most (`final_layer.adaln_proj` is essentially rewritten). So expect
+  degradation, not garbage. NaN or noise means a wiring error, not this.
+- fl2v conditioning sits at the target's own rotary coordinates; a reference
+  does not, and pushes the target's origin by 1 to 1206 units.
+
+**Look for identity drift, not collapse.** The subject stays the right kind of
+thing in roughly the right clothes; what goes is the specific face, the
+hairline, logo text, fabric weave. Compare a still against the reference at
+100%.
+
+**The diagnostic test:** re-run with the reference order reversed. If the same
+reference behaves differently at slot 1 than at the end, that is the rotary
+coupling rather than generic quality loss -- fl2v cannot produce that
+signature.
+
+**Knobs, in order of expected payoff.** Lower the LoRA strength first: {TURBO_LORA_STRENGTH:g}
+is shipped here, and public in-distribution evaluation needed 0.75 even on the
+model the LoRA was trained for. Use **0.01, not 0.0**, as the control -- 0.0
+short-circuits the dequantise/add/requantise round trip entirely and is not a
+like-for-like baseline. Then try a two-stage split, and note the ordering:
+**base-last**, not base-first. The distilled student's measured weakness is
+high-frequency detail, resolved at low sigma, and high-frequency identity is
+the entire point of a reference. **Leave the shift at 12/3.**
+"""
+
+
 _NOTE_TURBO = f"""\
 ## Turbo LoRA: what the training resolution means
 
@@ -867,7 +948,7 @@ This graph loads the **8-step v1.0** LoRA at {TURBO_STEPS} steps, shift
 | LoRA | trained at | shift (v/a) | steps |
 |---|---|---|---|
 | 4-step v0.1 | 544p, **mixed aspect** | 12 / 3 | 4 |
-| 8-step v1.0 (this graph) | 544p | 12 / 3 | 8 or 4 |
+| 8-step v1.0 (this graph) | 544p, **mixed aspect** | 12 / 3 | 8 or 4 |
 | 4-step v1.0 768p | **1344x768** | **6** / 3 | 4 |
 
 **Two things move with the LoRA, and only one of them is the shift.** Steps
@@ -977,11 +1058,12 @@ to remove it.
 
 def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              steps: int | None = None, shift: dict | None = None,
+             sampler_name: str | None = None, scheduler_name: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
              variant_note: str | None = None,
              length: int = LENGTH, seed: int = SEED, preview: bool = False,
              sol: dict | None = None, sol_enabled: bool = True,
-             canvas_mode: str = "fit_to_canvas", stamp: bool = False,
+             canvas_mode: str = "match_keyframe", stamp: bool = False,
              unet: str | None = None, lora: tuple[str, float] | None = None,
              out_prefix: str | None = None, title: str | None = None,
              **canvas) -> dict:
@@ -1215,9 +1297,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     noise = g.add("RandomNoise", (40, 0), size=(300, 110), widgets=[seed, "randomize"],
                   outputs=[_out("NOISE", "NOISE")])
     samp = g.add("KSamplerSelect", (40, 150), size=(300, 60),
-                 widgets=[SAMPLING["sampler"]], outputs=[_out("SAMPLER", "SAMPLER")])
+                 widgets=[sampler_name or SAMPLING["sampler"]], outputs=[_out("SAMPLER", "SAMPLER")])
     sched = g.add("BasicScheduler", (40, 250), size=(300, 130),
-                  widgets=[SAMPLING["scheduler"],
+                  widgets=[scheduler_name or SAMPLING["scheduler"],
                            steps if steps is not None else SAMPLING["steps"],
                            SAMPLING["denoise"]],
                   inputs=[_in("model", "MODEL")], outputs=[_out("SIGMAS", "SIGMAS")])
@@ -1673,7 +1755,118 @@ def main():
               out_prefix="Video/h3_t2v_turbo_8step"),
          "text -> video + audio, via the 8-step turbo LoRA"),
 
+        # The 4-step 768p LoRA: the only released turbo whose shift is not
+        # 12/3. It exists as a shipped graph rather than as a note because
+        # "change the shift when you change the LoRA" is the instruction
+        # everyone drops, and a graph that already has it right is worth more
+        # than a paragraph saying to do it. Its training canvas IS the default
+        # canvas, so unlike the 8-step nothing else has to move.
+        ("h3_text_to_video_turbo_4step_768p.json", "t2v-turbo768", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(TURBO_768P_LORA, TURBO_LORA_STRENGTH),
+              steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
+              variant_note=_NOTE_TURBO_768P,
+              out_prefix="Video/h3_t2v_turbo_4step_768p"),
+         "text -> video + audio, via the 4-step 768p turbo LoRA at shift 6"),
+
         # --- probes: pairs, one variable, run against the named twin ---
+
+        ("h3_probe_turbo_home_canvas.json", "t2v-turbo-544p", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(TURBO_LORA, TURBO_LORA_STRENGTH), steps=TURBO_STEPS,
+              shift=TURBO_SHIFT, **TURBO_HOME_CANVAS,
+              out_prefix="Video/h3_probe_turbo_544p",
+              variant_note=_probe_note(
+                  "whether a 544p LoRA would rather have its own canvas",
+                  "h3_text_to_video_turbo.json",
+                  "960x544 instead of 1344x768. Same LoRA, same steps, same "
+                  "shift, same seed and prompt -- only the canvas moved, onto "
+                  "the resolution the 8-step v1.0 was actually distilled at.",
+                  "Whether the output is better, not whether it is faster. It "
+                  "will be faster: 510 tokens/frame against 1008, i.e. 0.26x "
+                  "the attention. That is not the question.",
+                  "Unknown, and that is the point. You cannot satisfy both "
+                  "distributions at once: at 1344x768 the base model is home "
+                  "and the LoRA is stretched to roughly twice the sequence it "
+                  "was distilled on; at 960x544 the LoRA is home and the base "
+                  "model is below H3's own 768 short edge, outside the canvas "
+                  "family it was trained on. The vendor's own graph ships "
+                  "960x544, which is their answer, not a measurement.")),
+         "the 8-step turbo LoRA at the 544p it was distilled at"),
+
+        ("h3_probe_turbo_euler.json", "t2v-turbo-euler", "t2v", LONG_T2V_PROMPT,
+         dict(lora=(TURBO_LORA, TURBO_LORA_STRENGTH), steps=TURBO_STEPS,
+              shift=TURBO_SHIFT, sampler_name=TURBO_SAMPLER,
+              out_prefix="Video/h3_probe_turbo_euler",
+              variant_note=_probe_note(
+                  "whether a distilled model wants a first-order sampler",
+                  "h3_text_to_video_turbo.json",
+                  f"sampler `{TURBO_SAMPLER}` instead of "
+                  f"`{SAMPLING['sampler']}`. The scheduler stays `simple`, "
+                  "which is not a free choice: `simple` reproduces the "
+                  "distillation's own sigma grid EXACTLY at every shift and "
+                  "step count, and every other scheduler deviates from it.",
+                  "Prompt adherence and motion, not speed. Both samplers are "
+                  "one model eval per step, so this costs nothing either way.",
+                  "The vendor ships euler on both their turbo graphs while "
+                  "core ships res_multistep on the base ones, which reads as "
+                  "deliberate. The argument: a distilled model is trained so "
+                  "ONE Euler step from sigma_i lands at sigma_i+1, so a "
+                  "multistep integrator corrects a discretization error that "
+                  "is not the dominant error here, and perturbs a trajectory "
+                  "that was already trained to be right. That is an argument, "
+                  "not a measurement, which is why this is a pair.")),
+         "the turbo graph with the vendor's sampler"),
+
+        # The equal-cost shape control. 21:9, 16:9 and 9:16 are all
+        # (w//32)*(h//32) = 1008 tokens/frame, so all three run at the SAME
+        # sequence length and the same attention cost while the long edge goes
+        # 768 -> 1536. Every other probe here changes cost to change shape;
+        # these two change shape with cost held exactly constant, which is the
+        # only way to ask whether the model is actually shape-neutral.
+        ("h3_probe_canvas_ultrawide.json", "t2v-21by9", "t2v", LONG_T2V_PROMPT,
+         dict(width=1536, height=672, out_prefix="Video/h3_probe_21by9",
+              variant_note=_probe_note(
+                  "shape at constant cost, the long way",
+                  "h3_text_to_video.json",
+                  "1536x672 instead of 1344x768. Both are 1008 tokens/frame, "
+                  "so the sequence length, the attention cost and the render "
+                  "time are the same by construction. The long edge went from "
+                  "1344 to 1536, the widest the trained family allows.",
+                  "Composition and coherence across the wide axis, not speed. "
+                  "Preflight's sequence length should be IDENTICAL to the "
+                  "twin's -- if it is not, one of the two canvases is not "
+                  "what this note claims.",
+                  "Unknown. Every number in this repo was taken at 16:9, so "
+                  "whether the model handles a 2.29:1 frame as well as a "
+                  "1.75:1 one has never been asked. Cost cannot explain any "
+                  "difference you see, which is what makes this worth "
+                  "running.")),
+         "21:9, the same cost as the default canvas"),
+
+        ("h3_probe_canvas_portrait.json", "t2v-9by16", "t2v", LONG_T2V_PROMPT,
+         dict(width=768, height=1344, out_prefix="Video/h3_probe_9by16",
+              variant_note=_probe_note(
+                  "shape at constant cost, the tall way",
+                  "h3_text_to_video.json",
+                  "768x1344 instead of 1344x768. Packed rows are "
+                  "(w//32)*(h//32), which is symmetric, so portrait and "
+                  "landscape of a ratio cost exactly the same: 1008 "
+                  "tokens/frame either way.",
+                  "Whether the model is orientation-neutral. 16:9 against "
+                  "9:16 is a quality question here, never a speed one.",
+                  "Unknown, and the symmetry is the point: if portrait looks "
+                  "worse it is the training distribution talking, not the "
+                  "geometry. Run this against the ultrawide probe and the "
+                  "default and you have three shapes at one price.")),
+         "9:16 portrait, the same cost as the default canvas"),
+
+        ("h3_probe_ref2v_turbo.json", "r2v-turbo", "r2v", None,
+         dict(lora=(TURBO_LORA, TURBO_LORA_STRENGTH), steps=TURBO_STEPS,
+              shift=TURBO_SHIFT,
+              out_prefix="Video/h3_probe_r2v_turbo",
+              variant_note=_NOTE_REF2V_TURBO),
+         "ref2v with an fl2v turbo LoRA -- deliberately out of distribution"),
         ("h3_probe_reference_upscale.json", "r2v-noupscale", "r2v", None,
          dict(ref_upscale=False, out_prefix="Video/h3_probe_ref_noupscale",
               variant_note=_probe_note(

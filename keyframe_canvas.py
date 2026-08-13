@@ -63,29 +63,48 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
             ),
             inputs=[
                 io.Image.Input("first_frame"),
+                # Options keep their order: a saved graph stores the chosen
+                # string, but the default changed on 2026-08-13 from
+                # fit_to_canvas to match_keyframe. Saved graphs carry their own
+                # value and are unaffected; only a newly dropped node moves.
                 io.Combo.Input("mode", options=["fit_to_canvas", "match_keyframe"],
-                               default="fit_to_canvas", tooltip=(
-                                   "fit_to_canvas: you own the geometry -- the keyframe is "
-                                   "cover-cropped into the width/height you pass, so resolution "
-                                   "and render cost stay where you put them. "
-                                   "match_keyframe: the reference pipeline's default -- the "
-                                   "canvas is derived from the keyframe's aspect and your "
-                                   "width/height are ignored.")),
+                               default="match_keyframe", tooltip=(
+                                   "match_keyframe (default): what the reference pipeline "
+                                   "actually does when no size is given -- the canvas is "
+                                   "derived from the keyframe's aspect and your width/height "
+                                   "are ignored. Nothing is cropped, and the first frame is "
+                                   "stretched while a last frame is cover-cropped, as in the "
+                                   "reference. Use this for anything compared against diffusers. "
+                                   "fit_to_canvas: you own the geometry -- BOTH keyframes are "
+                                   "cover-cropped into the width/height you pass. That is the "
+                                   "reference's deliberate-override branch, not its default, "
+                                   "and it is lossy: a 3:4 photo forced to 1344x768 keeps 43% "
+                                   "of its frame. It saves nothing at 1344x768, which is "
+                                   "already the largest area adapt_canvas ever returns, so it "
+                                   "only pays once you lower width/height on purpose.")),
                 io.Int.Input("width", default=1344, min=32, max=16384, step=32,
                              tooltip="Used by fit_to_canvas; ignored by match_keyframe."),
                 io.Int.Input("height", default=768, min=32, max=16384, step=32,
                              tooltip="Used by fit_to_canvas; ignored by match_keyframe."),
                 io.Image.Input("last_frame", optional=True),
-                io.Int.Input("length", default=0, min=0, max=3600, optional=True,
+                # Default moved 0 -> 124 on 2026-08-13. At 0 this output
+                # forwards 0, and core's own min=5 does NOT catch it: a linked
+                # input skips range validation entirely, so the render was a
+                # 5-frame, 0.208s clip. 124 is the trained floor and matches
+                # both core's default and MiniMaxH3Resolution's.
+                io.Int.Input("length", default=124, min=0, max=3600, optional=True,
                              tooltip=(
                                  "Frame count to check and snap, passed straight "
-                                 "through to MiniMax H3 Image to Video. 0 skips "
-                                 "it. The reference snaps to the video VAE's "
+                                 "through to MiniMax H3 Image to Video. The "
+                                 "reference snaps to the video VAE's "
                                  "17n+5 grid and then requires 5-15 seconds at "
                                  "24fps -- in that order, so 346 passes a naive "
                                  "check and then rounds to 362 (15.083s), which "
                                  "is over. ComfyUI's node accepts up to 3600 "
-                                 "with no ceiling. Largest legal count is 345."
+                                 "with no ceiling. Largest legal count is 345. "
+                                 "0 skips the check AND emits 0, which becomes "
+                                 "a 5-frame clip downstream -- do not wire this "
+                                 "output at 0."
                              )),
             ],
             outputs=[

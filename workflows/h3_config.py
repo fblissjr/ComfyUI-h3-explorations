@@ -273,6 +273,32 @@ TURBO_LORA_STRENGTH = 1.0
 TURBO_STEPS = 8
 TURBO_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
+# The other released turbo LoRA, and the only one whose shift is not 12/3.
+# Constants rather than values typed into a graph because the filename, the
+# shift and the step count have to move together -- `bench/check_distill_settings.py`
+# grades this triple against the vendor's own README and fails if any of the
+# three drifts. Distilled at 1344x768, which is `CANVAS`, so unlike the 8-step
+# it is already at home on the default canvas.
+TURBO_768P_LORA = "h3/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors"
+TURBO_768P_STEPS = 4
+TURBO_768P_SHIFT = dict(shift_video=6.0, shift_audio=3.0)
+
+# Where the 8-step v1.0 was actually distilled: 544p, mixed aspect. This is
+# *below* H3's own canvas rule (768 short edge), so `adapt_canvas` never
+# returns it and the base model is outside its trained family here -- which is
+# the whole tension the turbo note describes. The vendor's own ComfyUI graph
+# ships 960x544 for t2va, so this is their answer to it, not ours.
+# 510 tokens/frame against 1008 at 1344x768, i.e. 0.26x the attention.
+TURBO_HOME_CANVAS = dict(width=960, height=544)
+
+# The sampler the vendor ships on both its turbo graphs, against `SAMPLING`'s
+# res_multistep which came from core's base template. A distilled model is
+# trained so one Euler step from sigma_i lands at sigma_i+1, so a multistep
+# integrator corrects a discretization error that is not the dominant error
+# here. That is an argument, not a measurement -- which is why it is a probe
+# pair (`h3_probe_turbo_euler.json`) and not a change to `SAMPLING`.
+TURBO_SAMPLER = "euler"
+
 # Node order is not cosmetic. Sol-Attn composes with the attention patches
 # it finds, so it must come after ours; reversed, it overwrites the patch
 # and you silently get sage only.
