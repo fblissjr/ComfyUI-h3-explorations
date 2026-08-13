@@ -150,7 +150,7 @@
         "15",
         0
       ],
-      "mode": "fit_to_canvas",
+      "mode": "match_keyframe",
       "width": 1344,
       "height": 768,
       "length": 345

@@ -92,7 +92,7 @@
     "class_type": "VAEDecode",
     "inputs": {
       "samples": [
-        "22",
+        "10",
         0
       ],
       "vae": [
@@ -105,7 +105,7 @@
     "class_type": "VAEDecodeAudio",
     "inputs": {
       "samples": [
-        "22",
+        "10",
         0
       ],
       "vae": [
@@ -127,7 +127,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_i2v",
+      "filename_prefix": "Video/h3_probe_21by9",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -137,22 +137,11 @@
       "save_output": true
     }
   },
-  "15": {
-    "class_type": "LoadImage",
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
     "inputs": {
-      "image": "1-man.png"
-    }
-  },
-  "17": {
-    "class_type": "MiniMaxH3KeyframeCanvas",
-    "inputs": {
-      "first_frame": [
-        "15",
-        0
-      ],
-      "mode": "match_keyframe",
-      "width": 1344,
-      "height": 768,
+      "shape": "ultrawide",
+      "ultrawide_resolution": "1536x672  16/7  1008 tok/frame  1.00x",
       "length": 345
     }
   },
@@ -167,21 +156,17 @@
         "3",
         0
       ],
-      "prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the subject shown in <Picture 1> holds its position, framing, lighting, and colors exactly as established in the image. The camera pushes in with small amplitude at slow speed while the subject begins to move, the surrounding scene staying continuous with the reference frame.\n\noverall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement.\n\nnon_diegetic_music: N/A",
+      "prompt": "integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium shot frames a courier in a soaked red jacket standing over a bicycle at a city crosswalk in heavy evening rain, wet asphalt throwing back the signal lights, a brick facade with iron railings filling the background. The camera tracks right at medium amplitude and moderate speed as she snaps her helmet strap and pushes off.\n[Shot 2] At 00:04.000, the shot cuts to a low tracking shot running alongside the bicycle as it crosses the junction, spray coming off the tyres, painted lane markings streaming past underneath.\n[Shot 3] At 00:08.000, the camera whip pans up to a wide shot of the street as she cuts between two parked cars, pigeons scattering off the railings, neon shopfront signs reflected in the puddles.\n[Shot 4] At 00:11.500, the shot changes to a close shot of her face under the helmet, rain streaking across the lens, as she glances back over her shoulder and then forward again, breathing hard.\n\noverall_soundscape: steady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.\n\nnon_diegetic_music: none.",
       "width": [
-        "17",
+        "27",
         0
       ],
       "height": [
-        "17",
+        "27",
         1
       ],
       "length": [
-        "17",
-        5
-      ],
-      "first_frame": [
-        "17",
+        "27",
         2
       ]
     }
@@ -254,24 +239,6 @@
         "5",
         1
       ]
-    }
-  },
-  "22": {
-    "class_type": "MiniMaxH3ProvenanceStamp",
-    "inputs": {
-      "latent": [
-        "10",
-        0
-      ],
-      "model": [
-        "23",
-        0
-      ],
-      "sigmas": [
-        "8",
-        0
-      ],
-      "note": "bench i2v"
     }
   }
 }
