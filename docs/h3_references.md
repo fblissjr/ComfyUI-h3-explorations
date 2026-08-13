@@ -113,6 +113,22 @@ are. Measured against a live render, 1344x768:
 | video, 960x544 source, 124 frames | 18,870 |
 | video, 960x544 source, 345 frames | **52,020** |
 
+**Reference IMAGES cost in two places as well, and the table above is only
+the first.** Measured 2026-08-13 on one graph, toggling `allow_upscale` alone,
+from two Preflight lines:
+
+| segment | refs not upscaled | upscaled to 2048 | delta |
+|---|---|---|---|
+| references | 53,044 | 56,116 | **+3,072** |
+| text | 9,294 | 12,366 | **+3,072** |
+| total | 143,386 | 149,530 | **+6,144** |
+
+The reference-block half is exactly what the table predicts — a 1024x1024
+source is 1,024 rows and a 2048x2048 one is 4,096. The text segment grew by
+the same amount again, because the conditioner's vision blocks read the
+resized image too. **So upscaling one reference image cost 6,144 tokens, not
+3,072**, and any budget built from the table alone is short by half.
+
 **A reference video costs rows in two places, not one.** The DiT reference
 block is the number above; the conditioner also reads the clip at 2 fps and
 each merged frame pair becomes a vision block **inside the text segment**, at

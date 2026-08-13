@@ -205,6 +205,12 @@ So on a sage-only graph the probe runs, sage routes it, nothing named
 `sol_attn_stats` moves, and the node reports "the composed path was not
 taken". Sage is fine. The instrument cannot observe it.
 
+**Confirmed from the log, not only from the source.** The arm that passes
+prints `[h3] chain assert, call-time: routed as sparse=1` — `sparse` is
+Sol-Attn's counter name. The arm that fails prints the sage patch line
+(`50 attention modules patched`) and no `[sol_attn]` lines at all, then
+fails. Both halves of the diagnosis are visible in one run.
+
 The inverse is the part that matters for graphs we actually ship: when the
 assert passes at call time, **what it confirmed is that Sol-Attn routed the
 probe**. It says nothing at call time about sage, which is the node it is
