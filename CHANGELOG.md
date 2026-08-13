@@ -116,6 +116,28 @@ artifact.
   write-ups of this scenario typically stop at a bare `[video editing]`;
   guide section 3.2 adds `audio reuse` whenever the source audio stays
   audible, which here it does at `fully_copy`.
+- **`h3_probe_prompt_concise`, the first graph here that breaks the prompt
+  format on purpose.** It is `h3_ref_video_swap` with one paragraph instead
+  of six sections -- same clip, image, seed, canvas, length and sampler, so
+  the only thing reaching the model that differs is the structure. General
+  prompting research reports working character swaps from prompts far looser
+  than the guides specify, some with no `retention_analysis` and one a single
+  sentence. Those reports are uncontrolled, so they are not evidence the
+  format is useless, only that nobody has measured it -- and the six sections
+  cost tokens in a budget where reference rows already dominate.
+
+  `check_prompt_guide_conformance.py` waives its two structural cases for
+  this graph **by name**, prints the waiver on every run, and still enforces
+  markers, dialogue placement and label agreement on it. Both were verified
+  by mutation: the five conformance cases still go red on a normal graph with
+  the waiver in place, and the probe still goes red when its prompt names a
+  reference the graph does not wire.
+
+  Fixing this exposed a bug in the day-old check: it located prompts by
+  searching for `"subject_definitions:"` in any string input, so the one
+  graph with no section headers was skipped **silently** and counted as a
+  clean pass over a prompt it never read. It now reads the reference node's
+  own `prompt` input.
 - `ref_image_count`, so an arm can wire **one** reference image instead of
   always two. The swap arm takes its environment from the plate, so a second
   image was not merely redundant -- it paid reference rows on every sampling

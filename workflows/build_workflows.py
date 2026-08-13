@@ -1089,6 +1089,31 @@ VIDEO_ROLES = ("structure", "edit", "continue", "motion", "swap")
 AUDIO_ROLES = ("music", "voice", "copy")
 
 
+def _concise_swap_prompt() -> str:
+    """The same request as the `swap` arm, in one paragraph and no sections.
+
+    Deliberately non-conformant, and the only prompt here that is. Both
+    guides specify six sections in a fixed order, and every other graph
+    obeys; general prompting research reports that far looser prompts also
+    work, and nobody has measured whether the structure earns its tokens.
+    This is the twin that answers it -- identical references, seed, canvas
+    and length to `h3_ref_video_swap`, differing in nothing but the prompt.
+
+    It still names every wired label, so `check_ref_prompt_labels` applies to
+    it unchanged. Only the structural cases in
+    `check_prompt_guide_conformance` are waived, by name, and that check
+    prints what it waived.
+    """
+    return (
+        "The character from <Picture 1> replaces the person in <Video 1>, "
+        "keeping the face, hair, build, and clothing of <Picture 1> while "
+        "following the original person's movements, gestures, timing, and "
+        "the camera path of <Video 1> exactly. The setting, lighting, "
+        "framing, and colour of <Video 1> are unchanged. <Audio 1> is reused "
+        "as the target video's complete final audio track."
+    )
+
+
 def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
                 video_role="structure", audio_role="music"):
     """A ref2va prompt declaring EXACTLY the labels this arm wires, in the
@@ -1362,6 +1387,41 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
         "overall_soundscape:", soundscape, "",
         "non_diegetic_music:", music,
     ])
+
+
+_NOTE_PROMPT_STRICTNESS = """\
+## The one graph here that breaks the format on purpose
+
+Every other reference graph carries six sections in the order both guides
+specify. This one carries a single paragraph, and that is the entire
+experiment.
+
+**Read it against `h3_ref_video_swap`.** Same clip, same reference image,
+same seed, same canvas, same length, same sampler. The only thing that
+differs is the prompt structure, which is what makes the pair worth
+rendering and either graph worthless alone.
+
+**Why doubt the format at all?** General prompting research reports working
+character swaps from prompts far looser than this -- some missing
+`retention_analysis` entirely, some with no task-type prefix, one a single
+sentence. Those reports are uncontrolled, so they are not evidence the
+structure is useless; they are evidence nobody has measured it. The six
+sections cost tokens in a budget where reference rows already dominate, and
+"the guide says so" is a reason to comply, not a measurement.
+
+**What to look at, in order:**
+
+1. Does the swap happen at all, or does the model blend the two identities?
+2. Is the plate held -- lighting, framing, camera path, colour?
+3. Does the audio still line up?
+
+If the concise arm matches on all three, the structure is not paying for
+itself at this length and the finding is worth more than the format.
+
+`check_prompt_guide_conformance.py` waives its structural cases for this
+graph **by name**, and prints that it did. Label agreement and marker sets
+are still enforced here exactly as everywhere else -- an unstructured prompt
+is still not allowed to name a reference the graph does not wire."""
 
 
 def _note_ref_relationship(role: str) -> str:
@@ -2864,6 +2924,18 @@ def main():
               out_prefix="Video/h3_r2v_swap",
               variant_note=_note_ref_relationship("swap")),
          "replace a character in a source video with one from an image"),
+
+        # The prompt-structure probe. Everything here is identical to
+        # h3_ref_video_swap above -- same clip, same image, same seed, same
+        # canvas, same length -- so the ONLY difference reaching the model is
+        # whether the prompt is six structured sections or one paragraph.
+        # Read the two side by side; neither is meaningful alone.
+        ("h3_probe_prompt_concise.json", "r2v-swap-concise", "r2v",
+         _concise_swap_prompt(),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
+              out_prefix="Video/h3_probe_prompt_concise",
+              variant_note=_NOTE_PROMPT_STRICTNESS),
+         "same swap, unstructured prompt -- does the six-section format pay?"),
 
         ("h3_ref_video_continue.json", "r2v-continue", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="continue"),

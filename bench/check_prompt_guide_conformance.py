@@ -68,6 +68,24 @@ GUIDE = (REPO / "internal" / "official_prompt_guides"
 
 REF_NODE = "MiniMaxH3ReferenceToVideo"
 
+# Graphs whose prompt is UNSTRUCTURED ON PURPOSE, and only those.
+#
+# h3_probe_prompt_concise is the twin of h3_ref_video_swap: identical clip,
+# image, seed, canvas and length, differing in nothing but whether the prompt
+# is six sections or one paragraph. It exists to measure whether the format
+# earns its tokens, so failing it for lacking the format would delete the
+# experiment.
+#
+# The waiver is deliberately narrow. It suppresses ONLY the two structural
+# cases -- section presence/order, and the task-type prefix. Marker sets,
+# dialogue placement and (in check_ref_prompt_labels) label agreement still
+# apply, because none of those are what the probe is varying: an
+# unstructured prompt still may not name a reference the graph does not wire.
+#
+# Every run prints what it waived. An exemption nobody sees is an exemption
+# that grows.
+_STRUCTURE_PROBES = {"h3_probe_prompt_concise_api"}
+
 # A markdown row of the form `| `value` | prose |`, which is how every table
 # in the guide names its vocabulary.
 _ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
@@ -106,13 +124,18 @@ def ref_prompts() -> dict[str, str]:
         wf = json.loads(path.read_text())
         if not any(n.get("class_type") == REF_NODE for n in wf.values()):
             continue
-        # Found by content, not by node name. Which node owns `prompt` has
-        # already moved once, and a name lookup that stops matching reports
-        # "0 graphs" as a pass rather than as the breakage it is.
+        # Taken from the reference node's own `prompt`, NOT by sniffing for
+        # "subject_definitions:" in any string. Content sniffing looks more
+        # robust and is the opposite: the one graph that matters most here --
+        # the deliberately unstructured probe -- has no section headers at
+        # all, so a content match skipped it silently and reported a clean
+        # pass over a graph it never read.
         for node in wf.values():
-            for value in (node.get("inputs") or {}).values():
-                if isinstance(value, str) and "subject_definitions:" in value:
-                    out[path.stem] = value
+            if node.get("class_type") != REF_NODE:
+                continue
+            value = (node.get("inputs") or {}).get("prompt")
+            if isinstance(value, str):
+                out[path.stem] = value
     return out
 
 
@@ -174,18 +197,21 @@ def main() -> int:
     bad_sections, bad_types, bad_keyframe = [], [], []
     bad_marker, bad_dialogue = [], []
 
+    waived = sorted(_STRUCTURE_PROBES & set(prompts))
     for name, prompt in sorted(prompts.items()):
         body = split_sections(prompt, sections)
+        structural = name not in _STRUCTURE_PROBES
 
         # 1. Six sections, in the guide's order.
         found = [s for s in sections if s in body]
-        if found != sections:
+        if structural and found != sections:
             bad_sections.append(f"{name}: {found or 'none'}")
 
         # 2. The `[...]` task-type prefix.
         m = re.match(r"\s*\[([^\]]*)\]", body.get("summary", ""))
         if not m:
-            bad_types.append(f"{name}: summary has no [task type] prefix")
+            if structural:
+                bad_types.append(f"{name}: summary has no [task type] prefix")
         else:
             declared = [t.strip() for t in m.group(1).split("+")]
             for t in declared:
@@ -212,8 +238,11 @@ def main() -> int:
             if "<d>" in text and sec != "detailed_description":
                 bad_dialogue.append(f"{name}: <d> in {sec}")
 
-    ok("six sections, in order", bad_sections)
-    ok("legal task types", bad_types)
+    # Name the waiver on every run, pass or fail. A silent exemption is how a
+    # check quietly stops covering the thing it was written for.
+    note = f"  ({len(waived)} structure probe waived: {', '.join(waived)})" if waived else ""
+    ok("six sections, in order" + note, bad_sections)
+    ok("legal task types" + note, bad_types)
     ok("no keyframe completion", bad_keyframe)
     ok("markers stay in their set", bad_marker)
     ok("dialogue only in detailed_description", bad_dialogue)

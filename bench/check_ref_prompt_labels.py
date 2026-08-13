@@ -204,6 +204,11 @@ def main():
                         # added, and reports it as a hand-edit.
                         for vrole in bw.VIDEO_ROLES:
                             for arole in bw.AUDIO_ROLES:
+                                # The one deliberately unstructured prompt is
+                                # still generator-produced, so the drift guard
+                                # covers it unchanged -- no exemption needed
+                                # here, only in the conformance check.
+                                legal.add(bw._concise_swap_prompt())
                                 legal.add(bw._ref_prompt(
                                     images=imgs, video=vid, video_audio=vaud,
                                     audio=aud, video_role=vrole, audio_role=arole))
