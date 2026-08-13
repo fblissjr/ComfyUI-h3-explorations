@@ -491,14 +491,20 @@ def _chunked_heads(self, q, k, v, s, n, kernel_fn, kernel_kwargs):
 
     Not removable by assembling differently: concatenating groups at the end
     would hold every group at once, which is worse. It would need a kernel
-    that writes into a caller-provided view -- which reads as out of reach and,
-    on inspection, is not. The sm89 kernel is already stride-aware on its
-    output (`stride_bz_o`, `stride_seq_o`, `stride_h_o`), and a head slice is a
-    contiguous head range: strides unchanged, base pointer shifted, head_dim
-    still innermost. The blocker is the fork's Python and binding layer, where
-    `o` is allocated unconditionally and an optional `out=` would touch four
-    coupled places. Scoped but unscheduled upstream as of 2026-08-13 -- so
-    treat this paragraph as "not available today", not as "not possible".
+    that writes into a caller-provided view.
+
+    That reads as out of reach and may not be. **Reported, not verified:** the
+    sm89 kernel appears already stride-aware on its output (`stride_bz_o`,
+    `stride_seq_o`, `stride_h_o`), which would make a head slice a contiguous
+    head range -- strides unchanged, base pointer shifted, head_dim still
+    innermost -- leaving the blocker at the fork's Python and binding layer,
+    where `o` is allocated unconditionally. That is a source read from
+    upstream, **not a build and not a measurement**, and upstream labelled it
+    unverified when handing it over. It is filed there as scoped and
+    unscheduled as of 2026-08-13. So: "possibly not impossible", which is a
+    weaker thing than the previous wording here implied and a weaker thing
+    than it will look like in six months. The direct probe, if we ever want
+    one, is a chunked call writing into a head-slice view.
     """
     out = torch.empty((1, s, self.heads, self.head_dim),
                       dtype=q.dtype, device=q.device)

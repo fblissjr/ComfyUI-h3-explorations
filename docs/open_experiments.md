@@ -274,6 +274,19 @@ you have to be lucky to catch; running the pair in reversed order and checking
 whether the delta changes magnitude or sign is a positive test that can be
 scheduled. One extra render, and only worth it if the numbers are close.
 
+**The wall-clock half of this is load-bearing outside this repo.** Upstream
+has filed the caller-provided-view work with a trigger-to-act that names this
+A/B: it proceeds only if a consumer adopts head-group chunking in production
+*and* the in-pipeline A/B is acceptable on **wall-clock**. So the minutes
+column here is not incidental to the VRAM question — a null on process peak
+leaves that item live, while chunking being too slow retires it. Report both
+numbers, and do not drop the timing because the memory answer looked
+conclusive.
+
+This also makes the sage-only arms the first clean wall-clock chunking has
+ever had here: the 0.992x in entry 7 was measured with Sol taking most of the
+steps, i.e. with chunking mostly not running.
+
 **A null here does not close the area.** The out buffer is real and constant
 regardless of where process peak is set, and removing it is not something any
 consumer-side arrangement can do — it needs a kernel writing into a
