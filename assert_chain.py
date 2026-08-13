@@ -169,77 +169,122 @@ class SageChainAssert(io.ComfyNode):
         # the sparse patch does not*. Read the gate's own threshold when it is
         # published rather than assuming the default, so a graph that lowers
         # min_tokens does not silently push the probe back above it.
+        # A PAIR OF PROBES, because either one alone is ambiguous.
+        #
+        # The sparse gate falls THROUGH to the foreign patch -- us -- whenever
+        # it declines: `take = gate is not None and ...` then
+        # `return patched_forward(...)`. So a call reaching sage is consistent
+        # with two very different worlds:
+        #
+        #   composed and healthy   the gate is live and declined this call
+        #   composition dead       the gate never engaged, sage gets everything
+        #
+        # A small probe alone reports green in both. That is the same shape as
+        # the counter bug this file just replaced: evidence that cannot
+        # separate "working as designed" from "the mechanism is absent".
+        #
+        # Pinning it from both sides:
+        #   small (below min_tokens)  MUST reach sage -> the fall-through works
+        #   large (above min_tokens)  must NOT reach sage -> the gate is taking
+        #
+        # The second assertion is only sound because of the fresh thread. A
+        # None normally means "cannot tell"; on a thread that has made exactly
+        # one call it cannot mean anything else, so None after a large probe is
+        # positive evidence that sage did not route it.
         BATCH, HEADS, HEAD_DIM = 1, 56, 128
-        gate = to.get("sol_compose") if isinstance(to, dict) else None
-        min_tokens = 4096
-        if isinstance(gate, dict) and isinstance(gate.get("min_tokens"), int):
-            min_tokens = gate["min_tokens"]
-        SEQ = max(256, (min_tokens // 2) // 64 * 64)
         dt = torch.bfloat16
 
-        # 3 x 66 MB of probe, plus the kernel's own output and workspace, at the
-        # moment the model is being staged. On a card already oversubscribed by
-        # H3's stack that is a bad time to be the allocation that fails, so give
-        # up the call-time evidence rather than the render.
-        need = 4 * BATCH * SEQ * HEADS * HEAD_DIM * 2
+        # Whether a sparse patch is in this graph at all, taken from the same
+        # dict its gate reads. Do NOT default a missing key to a size: an
+        # absent `sol_compose` is exactly the dead-composition case above, and
+        # silently substituting 4096 would size a probe for a gate that is not
+        # there and call the result green.
+        gate = to.get("sol_compose") if isinstance(to, dict) else None
+        sparse_expected = isinstance(gate, dict)
+        if sparse_expected and not isinstance(gate.get("min_tokens"), int):
+            return None, ("a sparse patch published `sol_compose` without an "
+                          "int `min_tokens`, so the probe cannot be sized "
+                          "against its gate; registration checks above still "
+                          "passed")
+        min_tokens = gate["min_tokens"] if sparse_expected else 4096
+
+        need = 4 * BATCH * (2 * min_tokens) * HEADS * HEAD_DIM * 2
         free = torch.cuda.mem_get_info()[0]
         if free < need * 4:
             return None, (f"skipped the probe: {free / 2**20:.0f} MiB free, want "
-                          f"{need * 4 / 2**20:.0f} MiB headroom for a "
-                          f"{need / 2**20:.0f} MiB probe. Registration checks "
-                          f"above still passed; routing was not confirmed at "
-                          f"call time")
+                          f"{need * 4 / 2**20:.0f} MiB headroom. Registration "
+                          "checks above still passed; routing was not confirmed "
+                          "at call time")
 
-        q, k, v = (torch.randn(BATCH, HEADS, SEQ, HEAD_DIM, device="cuda", dtype=dt)
-                   for _ in range(3))
-
-        # Fire on a FRESH THREAD, which is what makes this sound without any
-        # private reset. The dispatch value lives on a `threading.local`, so a
-        # thread that has never made a sage call returns None BY CONSTRUCTION.
-        # Read on the execution thread instead and a value left by an earlier
-        # prompt is indistinguishable from this probe's -- a false negative on
-        # exactly the graphs that route consistently, which is the defect
-        # above wearing a better API.
-        #
-        # The module patch is per-module and the CUDA context is process-wide,
-        # so the composed forward is still traversed off-thread.
-        #
-        # Do NOT read stream behaviour from this. PyTorch's current stream is
-        # itself thread-local, so this thread sees the default stream and not
-        # the sampler's. Sound for "did it route", misleading for anything else.
         import threading
 
-        outcome = {}
+        def fire(seq):
+            """One probe of `seq` tokens on a FRESH thread; the sage kernel or None.
 
-        def _probe():
-            try:
-                with torch.inference_mode():
-                    override(lambda *a, **kw: torch.zeros_like(q),
-                             q, k, v, HEADS, skip_reshape=True,
-                             transformer_options=dict(to))
-                outcome["name"] = get_last_dispatched_kernel()
-            except Exception as exc:
-                outcome["error"] = exc
+            Fresh thread is what makes the None sound in both directions. The
+            dispatch value is a `threading.local`, so a thread that has never
+            made a sage call starts at None by construction -- no reset needed,
+            and no chance of reading a value another prompt left behind.
 
-        worker = threading.Thread(target=_probe, name="sage-chain-probe")
-        worker.start()
-        worker.join()
-        del q, k, v
-        torch.cuda.empty_cache()
+            Do NOT read stream behaviour from this. PyTorch's current stream is
+            thread-local too, so this thread sees the default stream, not the
+            sampler's. Sound for "did it route", misleading for anything else.
+            """
+            q, k, v = (torch.randn(BATCH, HEADS, seq, HEAD_DIM, device="cuda",
+                                   dtype=dt) for _ in range(3))
+            out = {}
 
-        if "error" in outcome:
-            return False, f"composed attention raised on a probe call: {outcome['error']!r}"
-        name = outcome.get("name")
-        if name is None:
-            return False, (f"a probe of {SEQ} tokens -- deliberately below the "
-                           f"sparse gate at {min_tokens} so it should fall "
-                           "through -- did not reach sage: the fork's dispatch "
-                           "telemetry is still None on a thread that made "
-                           "exactly this one call")
-        if name not in KNOWN_KERNEL_NAMES:
-            return True, (f"routed to {name!r}, which is not in the fork's "
+            def _probe():
+                try:
+                    with torch.inference_mode():
+                        override(lambda *a, **kw: torch.zeros_like(q),
+                                 q, k, v, HEADS, skip_reshape=True,
+                                 transformer_options=dict(to))
+                    out["name"] = get_last_dispatched_kernel()
+                except Exception as exc:
+                    out["error"] = exc
+
+            worker = threading.Thread(target=_probe, name=f"sage-chain-probe-{seq}")
+            worker.start()
+            worker.join()
+            del q, k, v
+            torch.cuda.empty_cache()
+            return out
+
+        small_n = max(256, (min_tokens // 2) // 64 * 64)
+        small = fire(small_n)
+        if "error" in small:
+            return False, f"composed attention raised on a probe call: {small['error']!r}"
+        small_name = small.get("name")
+        if small_name is None:
+            return False, (f"a {small_n}-token probe, below the sparse gate at "
+                           f"{min_tokens} so it should fall through, did not "
+                           "reach sage. The fall-through to our patch is broken")
+        if small_name not in KNOWN_KERNEL_NAMES:
+            return True, (f"routed to {small_name!r}, not in the fork's "
                           "KNOWN_KERNEL_NAMES -- newer kernel, or a rename")
-        return True, f"sage routed a {SEQ}-token probe on {name}"
+
+        if not sparse_expected:
+            return True, (f"sage routed a {small_n}-token probe on {small_name}; "
+                          "no sparse patch published `sol_compose`, so this "
+                          "graph is sage-only and nothing should be taking "
+                          "calls ahead of it")
+
+        large_n = min_tokens + 512
+        large = fire(large_n)
+        if "error" in large:
+            return False, f"composed attention raised on a probe call: {large['error']!r}"
+        if large.get("name") is not None:
+            return False, (f"a {large_n}-token probe, ABOVE the sparse gate at "
+                           f"{min_tokens}, still reached sage on "
+                           f"{large['name']}. A sparse patch published "
+                           "`sol_compose` but is not taking calls it should "
+                           "take, so composition is registered and dead -- the "
+                           "render will look fine and be dense")
+        return True, (f"sage routed a {small_n}-token probe on {small_name} and "
+                      f"correctly did NOT get the {large_n}-token one, so the "
+                      f"sparse gate at {min_tokens} is live and sage is taking "
+                      "what it declines")
 
     @classmethod
     def execute(cls, model, require_override, require_forward_patch,

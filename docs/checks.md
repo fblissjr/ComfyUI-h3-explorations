@@ -279,9 +279,42 @@ counters.
    and sizes to half of it, so lowering that threshold in a graph cannot
    silently push the probe back above it.
 
-   Both cases verified on a live server: the composed graph reports
-   `sage routed a 2048-token probe on fp8_cuda++`, and the sage-only graph —
-   previously unrunnable — now passes and samples.
+   **One probe was still not enough, and the reason is the same shape again.**
+   The sparse gate *falls through* to our patch whenever it declines
+   (`take = gate is not None and ...` then `return patched_forward(...)`), so a
+   call reaching sage is consistent with two different worlds: composed and
+   healthy with the gate declining, or composition dead with the gate never
+   engaging. A small probe reports green in both — evidence that cannot
+   separate "working as designed" from "the mechanism is absent", which is
+   precisely the counter bug it replaced.
+
+   It now fires a **pair**, pinning the gate from both sides:
+
+   | probe | requirement | proves |
+   |---|---|---|
+   | below `min_tokens` | must reach sage | the fall-through works |
+   | above `min_tokens` | must **not** reach sage | the gate is live and taking |
+
+   The second assertion is sound *only* because of the fresh thread. `None`
+   normally means "cannot tell"; on a thread that has made exactly one call it
+   cannot mean anything else, so `None` after a large probe is positive
+   evidence sage did not route it. The mechanism adopted for the baseline
+   turned out to license the negative too.
+
+   It also refuses to default a missing `sol_compose`. An absent key *is* the
+   dead-composition case, so substituting 4096 would size a probe against a
+   gate that is not there and call it green. Present → sparse expected; absent
+   → sage-only, and the message says which was verified.
+
+   Verified live, both configurations, and they are now distinguishable:
+
+   ```
+   composed:  sage routed a 2048-token probe on fp8_cuda++ and correctly did
+              NOT get the 4608-token one, so the sparse gate at 4096 is live
+              and sage is taking what it declines
+   sage-only: sage routed a 2048-token probe on fp8_cuda++; no sparse patch
+              published `sol_compose`, so this graph is sage-only
+   ```
 
 ### The same defect pointed inward
 
