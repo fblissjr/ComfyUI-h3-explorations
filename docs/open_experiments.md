@@ -1,6 +1,19 @@
 # Open experiments
 
-Last updated: 2026-08-11
+Last updated: 2026-08-13
+
+> **Several of these are now scheduled rather than parked.** The working plan
+> and the render scenes that would settle the quality-blocked ones live in
+> `internal/`, which is **gitignored and not distributed** -- if you cloned
+> this repo you do not have them, by design. The entries below stand on their
+> own; the cross-references are for the owner's checkout. Specifically:
+> **#3** (comfy-kitchen INT8 arm) has a moved target, now 0.2.31; **#6**
+> (revalidate 16 steps) is subsumed by the plan's stage B, which sweeps
+> sampler against step count on the base model and reads a convergence curve
+> rather than judging a single count; and **#1** (reference `short_edge`)
+> stays blocked on the same owner judgment, now recorded as hole H5 with the
+> decision to hold `allow_upscale` at True until its benefit is measured.
+> `docs/checks.md` is the companion index of what *is* checked.
 
 What has not been measured, what each run would settle, and what changes
 depending on the answer. Ordered by value per unit of card time.

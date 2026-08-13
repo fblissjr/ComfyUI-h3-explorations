@@ -752,9 +752,10 @@ are paying full price for a render that otherwise looks fine.
 - **MiniMaxH3MemoryEfficientSageAttentionPatch** (KJNodes) -- same job as
   our node, patches the same key, so they conflict. Ours also registers the
   override.
-- **MiniMaxLowVRAMAttention** -- head chunking. ~1070 MiB saved, but 1000
-  attention calls become 4000. On 24GB freed VRAM converts to wall-clock at
-  a ~2.6% ceiling. Take it only if you are actually hitting OOM.
+- **MiniMaxLowVRAMAttention** -- head chunking. ~3227 MiB saved at 4 groups
+  (measured; three times the ~1070 this note carried before 2026-08-13), but
+  1000 attention calls become 4000. On 24GB freed VRAM converts to wall-clock
+  at a ~2.6% ceiling. Take it only if you are actually hitting OOM.
 - **MiniMaxChunkFeedForward** -- at 362 frames attention peaks ~17.8 GiB
   against FFN's 9-12, so it chunks a peak that is not binding. Short-clip
   feature.

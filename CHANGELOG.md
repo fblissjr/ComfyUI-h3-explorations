@@ -4,6 +4,100 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.9.0
+
+### Added
+
+- `bench/check_distill_settings.py`. The three FL2VA turbo LoRAs do not share
+  a schedule -- two were distilled at video shift 12, the 768p 4-step at 6 --
+  and a LoRA inherits the sampler's shift rather than carrying its own. So
+  loading the 768p one into a graph still reading 12/3 samples it off a
+  schedule it never saw, and nothing errors.
+
+  Covers **every** shipped graph, not only the two that load a LoRA: a turbo
+  graph must match its LoRA's row, a base graph must sit at the base
+  checkpoint's own 12/3, and the UI and API forms of each graph are paired and
+  compared, since they are generated separately and have already diverged once.
+  Both the shifts and the recommended step counts are graded against the vendor
+  README in `coderef/` rather than against themselves; grading only the shifts
+  would leave the step sets self-checked. When `coderef/` is absent that control
+  is skipped and the script **exits 2, not 0**, so a runner keying on the exit
+  code can tell a skipped control from a clean pass.
+
+  LoRA filenames are parsed structurally rather than by substring, because a
+  substring match reads a hypothetical `turbo_8step_v1.0_768p` as the 12/3
+  `turbo_8step_v1.0` row -- the exact silent failure the file exists to catch,
+  committed by the file itself.
+
+  Shown red eight ways before being trusted: config shift wrong, config steps
+  wrong, a turbo graph's shift edited, a base graph's shift edited, the UI and
+  API forms disagreeing, our shifts disagreeing with the vendor, our steps
+  disagreeing with the vendor, and `classify` reverted to substring matching.
+  Green restored after each.
+- `docs/checks.md`, an index of every check: what it defends, what it needs to
+  run, and whether it has been shown red. Ten of twelve have no such record,
+  which is a finding rather than a formatting gap.
+- `docs/h3_ref2v_distillation.md`. lightx2v has shipped three FL2VA turbo
+  LoRAs and no ref2v one, and their roadmap lists it as future work. This is
+  why, from the code. Three mechanisms: fl2v conditioning is positionally
+  *identical* to the target (a first-frame keyframe's rotary coordinates are
+  `torch.equal` to the target's first latent frame) while a reference sits on
+  its own grid and pushes the target's origin by 1 to 1206 units; ref2v is a
+  separate `transformer_ref` partition measuring **4.2% relative Frobenius**
+  from fl2va while the whole 8-step turbo LoRA measures **0.036%**; and the
+  DMD trainer that produced those LoRAs has no ref2v path at all, rejecting
+  non-text conditioning outright.
+
+  Both headline measurements were reproduced independently before shipping:
+  key sets identical (0 on either side, 1082 shared), projection deltas
+  0.037-0.046, `final_layer.adaln_proj` at 1.92 i.e. essentially rewritten,
+  and mean LoRA perturbation 0.00036 across 208 touched modules at
+  `alpha/rank = 0.0625`. The LoRA does not touch `final_layer`, `adaln_proj`,
+  the norms or the patch projections, which is where the checkpoints differ
+  most -- a point in favour of the out-of-distribution experiment working at
+  all.
+
+  Also records three hypotheses that did **not** survive: re-injected
+  reference rows are byte-identical in both tasks, no guidance mechanism
+  exists for either, and DMD here is genuinely data-free so "reference pairs
+  are scarce" does not bite.
+
+### Changed
+
+- `docs/h3_geometry_and_nodes.md` corrected in three places. The low-VRAM
+  saving is **~3227 MiB at 4 groups**, not the ~1070 carried here and in the
+  shipped graph notes -- `workflows/h3_config.py:160` measured three times the
+  earlier estimate. `MiniMaxH3SigmaShift` was listed as an untested
+  third-party node; it is core ComfyUI and sits in all eight shipped graphs.
+  And the keyframe section no longer tells the reader to wire both image
+  outputs: with no `last_frame` input, that slot returns the same tensor as
+  `first_frame`, so wiring it silently anchors the render to return to its
+  opening frame.
+- `workflows/build_workflows.py` carried the same stale ~1070 MiB in its note
+  template, so it was baked into all eight shipped graphs. Fixed at the
+  generator. **The shipped `workflows/*.json` still carry the old number until
+  they are regenerated against a live ComfyUI**, which this change does not do.
+- `README.md`'s `bench/` listing was missing four scripts and understated what
+  needs CUDA or `PYTHONPATH`. It now points at `docs/checks.md` as the index.
+- `docs/open_experiments.md` notes which entries the 2026-08-13 plan
+  schedules, and which stay blocked on owner judgment.
+
+### Notes
+
+- Every check was run against ComfyUI `12666983` (v0.32.0), comfy-kitchen
+  0.2.31 and KJNodes `6ab7e81` on 2026-08-13. All eleven runnable ones pass;
+  `check_workflow_schema.py` needs a live server and was not run. Nothing was
+  stale in the sense of failing -- the staleness was in the documentation
+  around them.
+- **Decided: do not reimplement KJNodes' low-VRAM path.** Their node does
+  three things and we already own head chunking. Their attention patch yields
+  to ours; their block patch is unconditional and unguarded, so writing our
+  own block-level release would collide on
+  `diffusion_model.blocks.{idx}.forward` with no marker convention. The
+  interop cases in `check_lowvram_handoff.py` stay, and that file's name
+  undersells it -- two of its five cases guard our own head-chunk
+  reassembly, not the KJNodes boundary.
+
 ## 0.8.2
 
 ### Changed

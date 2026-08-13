@@ -117,10 +117,22 @@ rule, not a ComfyUI choice, and the node inherits it.
 It is silent, and every frame of the clip inherits it. The node runs
 `adapt_canvas` — ComfyUI's own port of `resolve_canvas_size`, sitting unused
 on the keyframe path — and fits the keyframes onto the result. Wire its
-`width`/`height` and both image outputs into the H3 node; the keyframe then
-arrives already at canvas size and the stock resize is a bit-identical no-op
-(verified, `max|delta| = 0`). With two keyframes the canvas comes from the
-first and the follower is cover-cropped, as in the reference.
+`width`/`height` and the `first_frame` output into the H3 node; the keyframe
+then arrives already at canvas size and the stock resize is a bit-identical
+no-op (verified, `max|delta| = 0`).
+
+**Wire the `last_frame` output only if you connected a `last_frame` input.**
+With no last frame, that output slot returns the *same tensor* as
+`first_frame` (`keyframe_canvas.py:179`), because an IMAGE output cannot be
+null. Wiring it anyway turns a one-anchor render into fl2va with
+`last == first`: the model is anchored to return to its opening frame at
+`frame_count - 1`, a spurious `<Picture 2>` enters the presentation, and a
+second block of cond rows enters the packed sequence. Nothing errors.
+
+With two keyframes the canvas comes from the first. In `match_keyframe` the
+first is stretched and the follower cover-cropped, as in the reference; in
+`fit_to_canvas` **both** are cover-cropped, which is a deliberate divergence.
+Use `match_keyframe` for anything being compared against diffusers.
 
 Cost: output resolution now follows the input's aspect. A 9:16 still renders
 768x1344, the slowest canvas on the area cap. That is the reference's own
@@ -183,7 +195,9 @@ applied wins. Ours additionally registers the attention override. Pick one;
 there is no benefit to both.
 
 **`MiniMaxLowVRAMAttention`** (KJNodes) — head chunking. Shrinks the
-kernel's internal transients by the chunk count (~1070 MiB at 4 groups), but
+kernel's internal transients by the chunk count (**~3227 MiB at 4 groups**,
+measured; `workflows/h3_config.py:160`, three times the ~1070 MiB this doc
+and the shipped graph notes previously carried), but
 turns 1000 attention calls per render into 4000. On a 24 GB 4090 freed VRAM
 converts to wall-clock at a ~2.6% ceiling — weight streaming is already
 hidden behind compute — so it is buying headroom you cannot spend. Take it
@@ -200,7 +214,14 @@ attention call in the process with no per-model guard. Prefer the
 per-workflow node.
 
 **Untested here**, not a recommendation either way: `EasyCache`,
-`MiniMaxH3Cache`, `MiniMaxH3SigmaShift`, `MiniMaxH3TurboLoRA`.
+`MiniMaxH3TurboLoRA`. (`MiniMaxH3Cache` is not installed on this machine, so
+it is absent from `/object_info` rather than untested.)
+
+`MiniMaxH3SigmaShift` was listed here as an untested third-party node until
+2026-08-13. It is **core ComfyUI** (`comfy_extras/nodes_minimax_h3.py`), it
+sits in all eight shipped graphs at 12/3, and
+`bench/check_distill_settings.py` now validates its value against the LoRA
+each graph loads.
 
 ### On `ResolutionSelector`
 

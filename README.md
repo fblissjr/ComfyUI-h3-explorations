@@ -266,7 +266,8 @@ provenance.py       MiniMax H3 Provenance Stamp (bench) -- records what a
                     render's settings actually resolved to
 h3_rules.py         the reference pipeline's input limits in one place:
                     aspect range, duration window, the 17n+5 frame grid
-docs/               geometry/node notes and the Sol-Attn interop writeup
+docs/               geometry/node notes, the Sol-Attn interop writeup, the
+                    check index, and why ref2v resists step distillation
 coderef/            gitignored symlinks to the reference implementations
                     (diffusers, DiffSynth-Studio, comfy-kitchen), which the
                     rules above and several checks cite by file and line
@@ -279,19 +280,40 @@ bench/
                              (--arms, --canvases, --video-vae, --vram-arms)
                              and a sampled peak-VRAM column
   check_correctness.py       patched forward vs the stock one
+  check_clone_v_wiring.py    clone_v reaches the forward, and only on the
+                             modes that earn it
   check_override_routing.py  which calls the override sends to sage
   check_lowvram_handoff.py   the forward survives KJNodes' block hand-off,
                              and head chunking reassembles identically
   check_keyframe_canvas.py   canvas derivation, plus the aspect and
                              duration limits ComfyUI does not enforce
   check_reference_fit.py     reference sizing against both upstream rules
+  check_short_edge_override.py  the reference short-edge override applies
+                             once and never leaks
+  check_distill_settings.py  every turbo LoRA is loaded at the shift and
+                             steps it was distilled at, graded against the
+                             vendor's own README
+  check_generator_constants.py  the generator reads upstream constants
+                             rather than repeating them
   check_solattn_correctness.py  Sol-Attn's Triton kernels against the
                              algorithm author's own eager implementation
   check_workflow_schema.py   saved UI graphs against a live /object_info
+  smoke_h3.py                the chain composes and runs, after any update
 ```
 
-Everything from `check_override_routing.py` down runs without CUDA except
-`check_solattn_correctness.py`, which needs a GPU and Triton.
+**`docs/checks.md` is the index**: what each check defends, what it needs, and
+whether it has been shown red. Read that before adding a new one.
+
+Of the `check_*.py`, all run without CUDA except `check_correctness.py`,
+`check_clone_v_wiring.py` and `check_solattn_correctness.py`; the last needs
+Triton too. The two `bench_*.py` and `smoke_h3.py` are not in that set -- they
+drive a real render and need a GPU, and `bench_e2e_h3.py` and `smoke_h3.py`
+need a running ComfyUI with the models loaded.
+
+`check_clone_v_wiring.py`, `check_correctness.py` and
+`check_short_edge_override.py` need `PYTHONPATH=/path/to/ComfyUI`; every other
+check bootstraps `sys.path` itself. `check_workflow_schema.py` needs a live
+server or a cached `--object-info`.
 
 Run bench arms one per process. Peak VRAM is biased by a prior arm training
 the caching allocator, and `bench_e2e_h3.py` varies the seed per iteration
