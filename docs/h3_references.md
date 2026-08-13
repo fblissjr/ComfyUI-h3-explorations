@@ -237,6 +237,39 @@ retention_analysis:
 
 Graph: `h3_ref_video_edit.json`.
 
+### Replace a character, keeping the video as the plate
+
+The same sockets as the edit above, pointed at the opposite question: there
+the person stays and the garment changes, here the person is the only thing
+that changes. `<Video 1>` is the *plate*; `<Picture 1>` is the new identity.
+
+```
+subject_definitions:
+<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.
+<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.
+<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.
+<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.
+```
+
+**The negative clauses are not from the official guide.** Every relationship
+there is stated as what a reference *provides*; nothing in it tells a
+reference what it does not supply. They come from general prompting research,
+where the reported failure is the model blending the two identities or
+pulling the image's own lighting and background into the plate. Treat them as
+an open question, not a rule -- that is why this arm sits beside
+`h3_ref_video_edit` rather than replacing it.
+
+Two practical notes. It wires **one** image, not two: the environment comes
+from the plate, and a second reference would pay rows on every step to say
+nothing. And a low-resolution reference, or a face far from the camera, is
+the first thing to rule out when likeness fails -- the identity has to
+survive being fitted into the reference budget before any wording matters.
+
+Graph: `h3_ref_video_swap.json`.
+
 ### Continue from the end of a source video
 
 `<Video 1>` is a starting state, not a thing to copy.
@@ -323,6 +356,7 @@ last four vary **what the prompt asks for**, holding the wiring roughly still.
 | `h3_ref_video_to_video` | 2 | yes | yes | | structure |
 | `h3_ref_image_video_audio` | 2 | yes | yes | yes | structure + music |
 | `h3_ref_video_edit` | | yes | yes | | **edit** |
+| `h3_ref_video_swap` | 1 | yes | yes | | **character swap** |
 | `h3_ref_video_continue` | | yes | yes | | **continuation** |
 | `h3_ref_video_motion` | 2 | yes | | | **motion transfer** |
 | `h3_ref_audio_voice` | 2 | | | yes | **voice timbre** |

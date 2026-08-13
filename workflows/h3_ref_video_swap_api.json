@@ -127,7 +127,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_r2v_video_only",
+      "filename_prefix": "Video/h3_r2v_swap",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -160,7 +160,7 @@
         "4",
         0
       ],
-      "prompt": "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.\n<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.\n\nsummary:\n[reference generation] The target video places <Subject 1> in a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.\n<Video 1> (cut and pacing structure): weak_reference - only the pacing of the camera move is followed.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nSteady interior room tone continues throughout, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+      "prompt": "subject_definitions:\n<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.\n<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.\n\nsummary:\n[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, replacing its original character with <Subject 1> from <Picture 1> while preserving the camera movement, environment, and audio.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.\n<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.\n<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] The scene maintains the exact environmental details, lighting, and composition of <Video 1>. Within this space, <Subject 1> performs the exact movements and actions of the original character from <Video 1>, executing every gesture, step, and head turn frame for frame, while the face, hair, and build stay those defined by <Picture 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
       "width": [
         "27",
         0
@@ -174,16 +174,42 @@
         2
       ],
       "ref_image_size": "max",
+      "ref_images.ref_image_0": [
+        "24",
+        0
+      ],
       "ref_videos.ref_video_0": [
         "28",
         0
+      ],
+      "ref_video_audios.ref_video_audio_0": [
+        "28",
+        2
       ]
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "1-man.png"
+    }
+  },
+  "24": {
+    "class_type": "MiniMaxH3ReferenceFit",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "allow_upscale": false,
+      "short_edge": 2048,
+      "lift_downstream_clamp": false
     }
   },
   "28": {
     "class_type": "VHS_LoadVideo",
     "inputs": {
-      "video": "LTX-2_00065.mp4",
+      "video": "20260601_172336_00001-audio.mp4",
       "force_rate": 24.0,
       "custom_width": 0,
       "custom_height": 0,

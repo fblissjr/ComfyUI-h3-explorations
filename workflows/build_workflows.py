@@ -55,7 +55,7 @@ from h3_config import (  # noqa: E402
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
-    TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_LENGTH,
+    TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
 )
 
 # Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
@@ -316,7 +316,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
               ref_video: bool = False, ref_video_audio: bool = True,
-              ref_images_on: bool = True, ref_audio: bool = False,
+              ref_images_on: bool = True, ref_image_count: int = 2,
+              ref_audio: bool = False,
               split_at: int | None = None,
               split_base_last: bool = True,
               out_prefix: str | None = None, **canvas) -> dict:
@@ -425,6 +426,15 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             g["5"]["inputs"].pop("ref_images.ref_image_0", None)
             g["5"]["inputs"].pop("ref_images.ref_image_1", None)
             for _k in ("15", "16", "24", "25"):
+                g.pop(_k, None)
+        elif ref_image_count == 1:
+            # A relationship that needs ONE image, not two. The character-swap
+            # arm takes its environment from the plate, so a second image is
+            # not merely redundant -- it pays reference rows on every sampling
+            # step to say nothing, and check_ref_prompt_labels fails the build
+            # for exactly that.
+            g["5"]["inputs"].pop("ref_images.ref_image_1", None)
+            for _k in ("16", "25"):
                 g.pop(_k, None)
         if ref_audio:
             # Standalone audio, never alone: the reference refuses an audio
@@ -1070,6 +1080,15 @@ conditioned at.
 """
 
 
+# The roles `_ref_prompt` knows how to write, named once so nothing has to
+# keep a second list in sync. check_ref_prompt_labels' drift guard enumerates
+# every prompt the generator can produce, and it imports these rather than
+# repeating them -- when `swap` was added, the hardcoded copy in that check
+# silently stopped covering the generator and failed the shipped graph.
+VIDEO_ROLES = ("structure", "edit", "continue", "motion", "swap")
+AUDIO_ROLES = ("music", "voice", "copy")
+
+
 def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
                 video_role="structure", audio_role="music"):
     """A ref2va prompt declaring EXACTLY the labels this arm wires, in the
@@ -1113,7 +1132,27 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
     audio_n = 0
     subject_from_video = video and not images
 
-    if images and video and video_role == "edit":
+    if images and video and video_role == "swap":
+        # Character replacement: the video is the PLATE and the image is the
+        # new identity. Distinct from `edit` above, which keeps the person in
+        # <Video 1> and changes what they wear -- here the person is what
+        # changes and everything around them is what must not.
+        #
+        # The negative clauses are the whole technique and they are NOT in the
+        # official guide, which never tells a reference what it does not
+        # supply. They come from general prompting research, where the
+        # reported failure is the model blending the two identities, or
+        # dragging the image's lighting and background into the plate. Stated
+        # as an untested hypothesis on purpose: this arm exists to find out
+        # whether the negatives earn their tokens, and h3_ref_video_image_edit
+        # is the twin to read it against.
+        defs.append(
+            "<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.")
+        defs.append(
+            "<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.")
+        retention.append(
+            "<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.")
+    elif images and video and video_role == "edit":
         # The combination worth starting from for an edit: the VIDEO is the
         # source being altered and the IMAGE is what gets put into it. Without
         # the image the prompt has to describe the insert in words, which is
@@ -1182,12 +1221,14 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
 
     if video:
         role_def = {
+            "swap": "<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.",
             "edit": "<Video 1> is the source video for the target video edit.",
             "continue": "<Video 1> is the source video the target video continues from, beginning at its final frame.",
             "motion": "<Video 1> is the source of the walking motion transferred to <Subject 1>; its own scene is not reused.",
             "structure": "<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.",
         }[video_role]
         role_ret = {
+            "swap": "<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.",
             "edit": "<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.",
             "continue": "<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.",
             "motion": "<Video 1> (motion source): attribute_transfer - only the gait and its timing are taken; the scene and the person are not.",
@@ -1212,7 +1253,13 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
 
     # The shot text has to cite each label where its relationship is active
     # (guide 5.3), not merely mention it once in the definitions.
-    if video and video_role == "edit":
+    if video and video_role == "swap":
+        # Environment first, then the swap. The ordering is the point: naming
+        # the plate before the replacement is what the technique claims keeps
+        # the image's own scene from leaking into it.
+        shot.append("The scene maintains the exact environmental details, lighting, and composition of <Video 1>.")
+        shot.append("Within this space, <Subject 1> performs the exact movements and actions of the original character from <Video 1>, executing every gesture, step, and head turn frame for frame, while the face, hair, and build stay those defined by <Picture 1>.")
+    elif video and video_role == "edit":
         shot.append("The shot reproduces <Video 1> frame for frame in framing, camera movement, and timing.")
         if images:
             shot.append("<Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2> and moves through <Subject 3> instead of the original background.")
@@ -1237,6 +1284,7 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
                     + (", holding the unhurried pace of <Video 1>." if video else "."))
 
     summary = {
+        "swap": "The target video is an edited version of <Video 1>, replacing its original character with <Subject 1> from <Picture 1> while preserving the camera movement, environment, and audio",
         "edit": "The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names",
         "continue": "The target video continues <Video 1> from its final frame, without a cut",
         "motion": "The target video places <Subject 1> inside <Subject 2>, carrying the walking motion of <Video 1>",
@@ -1283,7 +1331,12 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
     # belongs to `reference generation`" -- so motion and structure stay
     # reference generation and only edit/continue get their own type.
     types = []
-    if video and video_role == "edit":
+    if video and video_role in ("edit", "swap"):
+        # A character swap IS a direct modification of the source video, so
+        # 3.2 puts it here and not under `reference generation`. Community
+        # write-ups of this scenario often stop at a bare `[video editing]`;
+        # 3.2 is explicit that reused audible audio adds `audio reuse` too,
+        # which the block below supplies.
         types.append("video editing")
     elif video and video_role == "continue":
         types.append("video continuation")
@@ -1313,6 +1366,39 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
 
 def _note_ref_relationship(role: str) -> str:
     what = {
+        "swap": ("replacing a character in a source video", """\
+This is the **character swap** arm: the video is the *plate* and the image is
+the *new identity*. Read it against `h3_ref_video_image_edit`, which is the
+same machinery pointed at a different question -- there the person in
+`<Video 1>` stays and their garment changes; here the person is the only
+thing that changes and everything around them must not.
+
+**Its distinguishing feature is a technique the official guide does not
+contain.** `<Picture 1>` and `<Video 1>` are each told what they do *not*
+supply:
+
+```
+<Picture 1> supplies subject identity only. It does not supply lighting,
+    exposure, colour grade, background, camera angle, pose, framing, or
+    scene composition.
+<Video 1> ... It does not supply the face or identity.
+```
+
+The guide never writes a negative clause -- every relationship there is
+stated as what a reference *provides*. These come from general prompting
+research, where the reported failure is the model blending the two
+identities, or dragging the image's own lighting and background into the
+plate. **Whether the negatives earn their tokens is untested here**, and it
+is the reason this arm exists rather than a claim it ships with.
+
+`[video editing]`, not `[reference generation]`, because the source video is
+directly modified -- and `+ audio reuse` alongside it, since the original
+track stays audible. Community write-ups of this scenario routinely stop at
+a bare `[video editing]`; guide section 3.2 asks for both.
+
+**A reference image that is too small, or a face too far from the camera,
+is the failure mode to rule out first.** The identity has to survive being
+resized into the reference budget before any of the wording above matters."""),
         "edit": ("editing a source video", """\
 This is the **edit / "inpaint over it"** arm, and the first thing to know is
 that H3's reference node has **no mask socket**. The edit is whole-frame
@@ -1834,7 +1920,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              sampler_name: str | None = None, scheduler_name: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
              ref_video: bool = False, ref_video_audio: bool = True,
-             ref_images_on: bool = True, ref_audio: bool = False,
+             ref_images_on: bool = True, ref_image_count: int = 2,
+             ref_audio: bool = False,
              split_at: int | None = None,
              split_base_last: bool = True,
              variant_note: str | None = None,
@@ -2009,9 +2096,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             img_a = g.add("LoadImage", (-880, 640), size=(290, 330),
                           widgets=[PLACEHOLDER_IMAGE_A, "image"],
                           outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
-            img_b = g.add("LoadImage", (-880, 1010), size=(290, 330),
-                          widgets=[PLACEHOLDER_IMAGE_B, "image"],
-                          outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
+            if ref_image_count >= 2:
+                img_b = g.add("LoadImage", (-880, 1010), size=(290, 330),
+                              widgets=[PLACEHOLDER_IMAGE_B, "image"],
+                              outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
         g.link(vvae, 0, cond, "vae", "VAE")
         g.link(avae, 0, cond, "audio_vae", "VAE")
         # One fit node per reference, between LoadImage and the conditioning
@@ -2019,6 +2107,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         # ref_image_size on 'max', or the stock node undoes them.
         fits = []
         for i, (src, y) in enumerate((() if not ref_images_on
+                                      else ((img_a, 640),) if ref_image_count == 1
                                       else ((img_a, 640), (img_b, 1010)))):
             fit = g.add("MiniMaxH3ReferenceFit", (-580, y), size=(300, 150),
                         widgets=[ref_upscale, _ref_short_edge(), False],
@@ -2721,20 +2810,20 @@ def main():
         # sockets and a prompt naming one that is not there fails silently.
         ("h3_ref_video_to_video.json", "r2v-video", "r2v",
          _ref_prompt(images=True, video=True, video_audio=True),
-         dict(length=REF_VIDEO_LENGTH, ref_video=True, out_prefix="Video/h3_r2v_video",
+         dict(**REF_VIDEO_BUDGET, ref_video=True, out_prefix="Video/h3_r2v_video",
               variant_note=_NOTE_REF_VIDEO),
          "images + reference video + its soundtrack -> video + audio"),
 
         ("h3_ref_video_only.json", "r2v-video-only", "r2v",
          _ref_prompt(images=False, video=True),
-         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_video_audio=False, ref_images_on=False,
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_video_audio=False, ref_images_on=False,
               out_prefix="Video/h3_r2v_video_only",
               variant_note=_note_ref_matrix("a reference video and nothing else")),
          "reference video only, silent clip"),
 
         ("h3_ref_video_audio.json", "r2v-video-audio", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True),
-         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_images_on=False,
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_images_on=False,
               out_prefix="Video/h3_r2v_video_audio",
               variant_note=_note_ref_matrix("a reference video with its own soundtrack")),
          "reference video + its soundtrack, no images"),
@@ -2747,35 +2836,45 @@ def main():
 
         ("h3_ref_image_video_audio.json", "r2v-all", "r2v",
          _ref_prompt(images=True, video=True, video_audio=True, audio=True),
-         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_audio=True,
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_audio=True,
               out_prefix="Video/h3_r2v_all",
               variant_note=_note_ref_matrix("every reference type at once")),
          "images + video + its soundtrack + standalone audio"),
 
         ("h3_ref_video_edit.json", "r2v-edit", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="edit"),
-         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_images_on=False,
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_images_on=False,
               out_prefix="Video/h3_r2v_edit",
               variant_note=_note_ref_relationship("edit")),
          "edit a source video -- the closest thing H3 has to inpainting"),
 
         ("h3_ref_video_image_edit.json", "r2v-edit-combo", "r2v",
          _ref_prompt(images=True, video=True, video_audio=True, video_role="edit"),
-         dict(length=REF_VIDEO_LENGTH, ref_video=True,
+         dict(**REF_VIDEO_BUDGET, ref_video=True,
               out_prefix="Video/h3_r2v_edit_combo",
               variant_note=_note_ref_relationship("edit")),
          "edit a source video, with images supplying what replaces what"),
 
+        # The twin of h3_ref_video_image_edit: same sockets, same budget, a
+        # different request. Kept adjacent so the pair reads as the A/B it is.
+        ("h3_ref_video_swap.json", "r2v-swap", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True,
+                     video_role="swap", audio_role="copy"),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
+              out_prefix="Video/h3_r2v_swap",
+              variant_note=_note_ref_relationship("swap")),
+         "replace a character in a source video with one from an image"),
+
         ("h3_ref_video_continue.json", "r2v-continue", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="continue"),
-         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_images_on=False,
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_images_on=False,
               out_prefix="Video/h3_r2v_continue",
               variant_note=_note_ref_relationship("continue")),
          "continue from the end of a source video"),
 
         ("h3_ref_video_motion.json", "r2v-motion", "r2v",
          _ref_prompt(images=True, video=True, video_role="motion"),
-         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_video_audio=False,
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_video_audio=False,
               out_prefix="Video/h3_r2v_motion",
               variant_note=_note_ref_relationship("motion")),
          "transfer motion from a video onto a subject from an image"),

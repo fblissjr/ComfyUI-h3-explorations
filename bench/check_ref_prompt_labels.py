@@ -199,8 +199,11 @@ def main():
             for vid in (True, False):
                 for vaud in (True, False):
                     for aud in (True, False):
-                        for vrole in ("structure", "edit", "continue", "motion"):
-                            for arole in ("music", "voice", "copy"):
+                        # Imported, never repeated. A hardcoded copy here
+                        # stops covering the generator the moment a role is
+                        # added, and reports it as a hand-edit.
+                        for vrole in bw.VIDEO_ROLES:
+                            for arole in bw.AUDIO_ROLES:
                                 legal.add(bw._ref_prompt(
                                     images=imgs, video=vid, video_audio=vaud,
                                     audio=aud, video_role=vrole, audio_role=arole))

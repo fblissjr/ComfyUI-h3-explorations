@@ -140,9 +140,9 @@
   "27": {
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
-      "shape": "wide",
-      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
-      "length": 124
+      "shape": "standard",
+      "shape.standard_resolution": "1024x768  4/3  768 tok/frame  0.58x",
+      "length": 345
     }
   },
   "5": {

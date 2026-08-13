@@ -14,13 +14,28 @@ artifact.
   and the render reached step 4 of 16 at 123.5 s/it before Sol-Attn's kernel
   OOMed and fell back, then sage's OOMed and fell back, then ComfyUI's own
   SDPA OOMed with 21.05 GiB allocated against a 23.54 GiB limit. The fallback
-  chain behaved exactly as designed; there was simply no room. The four
-  video-bearing reference graphs now ship at `REF_VIDEO_LENGTH = 124`
-  (82,686 tokens).
+  chain behaved exactly as designed; there was simply no room.
 
   A reference video is truncated to the **generated** frame count, so its cost
   scales with that number twice over: once for the video rows and once for the
   reference rows. That is why shortening the clip helps disproportionately.
+
+  **The first fix was the wrong lever, and shipping it was a mistake.** Cutting
+  the render to 124 frames also cut the reference to 5.2 seconds -- so the arms
+  built to measure the expensive case stopped containing it. Re-measured
+  best-case-first, the full 345 frames **does** fit once the two incidental
+  costs are given up:
+
+  | config | result | peak | time |
+  |---|---|---|---|
+  | 345f @ 1024x768, refs not upscaled | success | 22,735 MiB / 24,564 | 34.3 min |
+
+  The video-bearing arms now ship at 345 frames on a 4:3 1024x768 canvas with
+  reference images left at native size, as `REF_VIDEO_BUDGET` -- one constant
+  spread into all eight, so the three numbers have a single home. Canvas and
+  reference-image detail are incidental to what these arms measure; reference
+  duration is the entire point. 1,829 MiB of headroom is **not** a general
+  budget: a third reference image or a longer soundtrack can still exceed it.
 - **`MiniMaxH3Preflight` told the user a ceiling was "unreachable at legal
   lengths".** True of length alone, false once references are in play -- which
   is exactly when anyone reads that line. 345 frames plus three reference
@@ -81,6 +96,35 @@ artifact.
   Exits 2, not 0, when the guide is absent. Shown red six ways, including a
   guide whose tables were reformatted away -- the fail-open case, since every
   other assertion is set membership and membership in an empty set passes.
+- **A character-swap arm, `h3_ref_video_swap`** -- the reference video as the
+  base plate with its character replaced by one from a reference image. It is
+  deliberately the twin of `h3_ref_video_image_edit`: same sockets, same
+  budget, opposite request. There the person in `<Video 1>` stays and the
+  garment changes; here the person is the only thing that changes.
+
+  Its distinguishing feature is a technique **the official guide does not
+  contain**: each reference is told what it does *not* supply (`<Picture 1>`
+  supplies identity only, not lighting or background or framing; `<Video 1>`
+  does not supply the face). Every relationship in the guide is stated
+  positively, so these negative clauses come from general prompting research,
+  where the reported failure is the model blending the two identities.
+  **Whether they earn their tokens is untested**, which is why the arm exists
+  next to its twin rather than replacing it.
+
+  It ships `[video editing + reference generation + audio reuse]`, matching
+  the guide's own worked example for this socket combination. Community
+  write-ups of this scenario typically stop at a bare `[video editing]`;
+  guide section 3.2 adds `audio reuse` whenever the source audio stays
+  audible, which here it does at `fully_copy`.
+- `ref_image_count`, so an arm can wire **one** reference image instead of
+  always two. The swap arm takes its environment from the plate, so a second
+  image was not merely redundant -- it paid reference rows on every sampling
+  step to say nothing. `check_ref_prompt_labels.py` caught it as an unnamed
+  wired reference before it shipped.
+- `VIDEO_ROLES` / `AUDIO_ROLES` are now named once in the generator and
+  imported by the drift guard, which previously kept its own hardcoded copy.
+  That copy stopped covering the generator the moment `swap` was added and
+  reported a freshly generated graph as a hand-edit.
 - **The denoising trajectory is now recoverable, not just watchable.** The UI
   graphs gain `GetPreviewOverrideFramesKJ` and a `PreviewImage` sink, which
   return the frames `ModelPreviewOverrideKJ` already decoded through taeh3 as

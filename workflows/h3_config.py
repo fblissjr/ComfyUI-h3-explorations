@@ -387,7 +387,38 @@ SPLIT_AT = 2
 # to the GENERATED frame count, so its cost scales with this number twice over
 # -- once for the video rows and once for the reference rows.
 #
-#   345 frames -> 182,092 tokens   (OOM on 24 GB)
+#   345 frames -> 182,092 tokens   (OOM on 24 GB at 1344x768, refs upscaled)
 #   209 frames -> 120,918
-#   124 frames ->  82,686          (shipped)
-REF_VIDEO_LENGTH = 124
+#   124 frames ->  82,686
+#
+# But shortening the render was the WRONG lever, and shipping 124 was a
+# mistake worth naming. Because the reference is truncated to the generated
+# frame count, cutting the render to fit cuts the reference too -- so the
+# 124-frame arms were testing a 5.2-second reference, and a reference arm
+# that cannot carry a long reference is not testing the expensive case at
+# all. Canvas and reference-image detail are incidental to what these arms
+# measure; reference duration is the whole point.
+#
+# Re-measured 2026-08-13, best case first: the full 345 frames DOES fit once
+# the two incidental costs are given up. Same 14.375-second reference, on the
+# same card, end to end:
+#
+#   345f @ 1024x768, refs not upscaled -> SUCCESS, peak 22,735 MiB, 34.3 min
+#
+# 1,829 MiB of headroom on a 24,564 MiB card, so this is close to the edge
+# and not a general-purpose budget: a third reference image or a longer
+# soundtrack can still push it over. Preflight is the thing to read before
+# widening any of it.
+REF_VIDEO_LENGTH = 345
+
+# The canvas and reference-image policy that measurement bought. 1024x768 is
+# 4:3 rather than the 1344x768 the rest of the repo defaults to -- a real
+# change in what these arms look like, taken deliberately so the reference
+# stays full length. `ref_upscale=False` leaves reference images at their
+# native size instead of taking them to 2048 on the short edge.
+#
+# Spread into every video-bearing reference arm so the three numbers have one
+# home. Editing them here moves all eight arms together, which is the point.
+REF_VIDEO_CANVAS = dict(width=1024, height=768)
+REF_VIDEO_BUDGET = dict(length=REF_VIDEO_LENGTH, **REF_VIDEO_CANVAS,
+                        ref_upscale=False)
