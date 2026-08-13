@@ -24,13 +24,22 @@ Claims, i.e. what breaks if a case is deleted:
   legal task types    the `[...]` prefix uses only types from section 3.2's
                       table, combined with ` + `, with no type repeated --
                       the guide states both rules explicitly
-  no keyframe type    `keyframe completion` never appears. It is legal
-                      vocabulary and structurally inert HERE:
-                      MiniMaxH3ReferenceToVideo has no keyframe socket, and
-                      the reference's `select_block` returns "ref2va" whenever
-                      references are present and silently DROPS image /
-                      last_image. A prompt asking for it is asking for
-                      nothing, with no error to say so
+  keyframe type       `keyframe completion` appears only in a graph that can
+                      honour it. It is legal vocabulary that used to be
+                      structurally inert: MiniMaxH3ReferenceToVideo has no
+                      keyframe socket, and the reference's `select_block`
+                      returns "ref2va" whenever references are present and
+                      silently DROPS image / last_image.
+                      **That reasoning expired on 2026-08-13.** ComfyUI added
+                      `MiniMaxH3AddGuide`, a separate conditioning-stage node
+                      that appends to `minimax_keyframes`, and
+                      `comfy/model_base.py` merges those with `minimax_refs`
+                      additively rather than choosing between them. So the
+                      mechanism now exists and the guide's combined
+                      `[video continuation + keyframe completion]` is
+                      buildable. The case therefore checks the GRAPH, not the
+                      vocabulary: claiming the task type without wiring a node
+                      that can deliver it is still asking for nothing
   markers stay in set visual labels take only 4.1's markers and <Audio N>
                       takes only 4.2's. The two sets share `weak_reference`
                       and nothing else, so a crossed marker is otherwise a
@@ -67,6 +76,11 @@ GUIDE = (REPO / "internal" / "official_prompt_guides"
          / "minimax-h3-official-VIDEO_PROMPT_WRITING_GUIDE_ref_en.md")
 
 REF_NODE = "MiniMaxH3ReferenceToVideo"
+
+# The node that makes `keyframe completion` real. Added to ComfyUI on
+# 2026-08-13; before it, the task type was legal vocabulary with no mechanism
+# behind it on the reference path.
+GUIDE_NODE = "MiniMaxH3AddGuide"
 
 # Graphs whose prompt is UNSTRUCTURED ON PURPOSE, and only those.
 #
@@ -115,6 +129,22 @@ def parse_guide(text: str):
             lines, "`<Subject N>`, `<Picture N>`, and `<Video N>` use the following"),
         "audio": _table_after(lines, "`<Audio N>` uses the following"),
     }
+
+
+def graphs_with_guide() -> set:
+    """Graph stems that wire a keyframe-guide node.
+
+    Read per graph rather than assumed globally: the point of the case is that
+    a prompt may claim `keyframe completion` only when its own graph can
+    deliver it, and a repo-wide "the node exists now" would answer a different
+    question.
+    """
+    out = set()
+    for path in sorted(WORKFLOWS.glob("*_api.json")):
+        wf = json.loads(path.read_text())
+        if any(n.get("class_type") == GUIDE_NODE for n in wf.values()):
+            out.add(path.stem)
+    return out
 
 
 def ref_prompts() -> dict[str, str]:
@@ -197,10 +227,12 @@ def main() -> int:
     bad_sections, bad_types, bad_keyframe = [], [], []
     bad_marker, bad_dialogue = [], []
 
+    with_guide = graphs_with_guide()
     waived = sorted(_STRUCTURE_PROBES & set(prompts))
     for name, prompt in sorted(prompts.items()):
         body = split_sections(prompt, sections)
         structural = name not in _STRUCTURE_PROBES
+        has_guide = name in with_guide
 
         # 1. Six sections, in the guide's order.
         found = [s for s in sections if s in body]
@@ -219,8 +251,11 @@ def main() -> int:
                     bad_types.append(f"{name}: {t!r} is not a guide task type")
             if len(declared) != len(set(declared)):
                 bad_types.append(f"{name}: repeats a type -- {m.group(1)!r}")
-            if "keyframe completion" in declared:
-                bad_keyframe.append(f"{name}: no keyframe socket on {REF_NODE}")
+            if "keyframe completion" in declared and not has_guide:
+                bad_keyframe.append(
+                    f"{name}: claims `keyframe completion` but wires no "
+                    f"{GUIDE_NODE}. The reference node alone cannot honour it, "
+                    "so the prompt asks for something the graph cannot do")
 
         # 3. Markers never cross their set.
         for line in body.get("retention_analysis", "").splitlines():
@@ -243,7 +278,7 @@ def main() -> int:
     note = f"  ({len(waived)} structure probe waived: {', '.join(waived)})" if waived else ""
     ok("six sections, in order" + note, bad_sections)
     ok("legal task types" + note, bad_types)
-    ok("no keyframe completion", bad_keyframe)
+    ok("keyframe completion only where a guide node is wired", bad_keyframe)
     ok("markers stay in their set", bad_marker)
     ok("dialogue only in detailed_description", bad_dialogue)
 

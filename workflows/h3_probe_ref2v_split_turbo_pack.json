@@ -276,7 +276,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "model",
@@ -316,7 +316,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn"
+      "title": "Patch Sol-Attn (bypassed)"
     },
     {
       "id": 9,
@@ -1169,7 +1169,7 @@
       ],
       "flags": {},
       "order": 18,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "model",
@@ -1208,7 +1208,8 @@
         false,
         false,
         ""
-      ]
+      ],
+      "title": "Patch Sol-Attn (stage 2, bypassed)"
     },
     {
       "id": 27,

@@ -2014,7 +2014,8 @@ to remove it.
 """
 
 
-def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks):
+def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks,
+                    sol_enabled=True):
     """The UI twin of `_plain_model_chain`: a second model path, no LoRA.
 
     Same UNETLoader, same shift, same attention chain. The shift MUST match
@@ -2044,7 +2045,15 @@ def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks):
                               sol["use_tma"], sol["dense_blocks"]],
                      inputs=[_in("model", "MODEL"),
                              _in("tau_profile", "STRING", optional=True)],
-                     outputs=[_out("MODEL", "MODEL")])
+                     outputs=[_out("MODEL", "MODEL")],
+                     title=("Patch Sol-Attn (stage 2)" if sol_enabled
+                            else "Patch Sol-Attn (stage 2, bypassed)"))
+        # Bypass here too, or the split graphs ship Sol enabled on their second
+        # model path while every other graph has it off -- and the UI/API
+        # cross-check catches it as a node-set mismatch rather than as the
+        # policy break it actually is.
+        if not sol_enabled:
+            g._node(node)["mode"] = 4
         g.link(src, 0, node, "model", "MODEL")
         src = node
     node = g.add("SageChainAssert", (-480, 900), size=(360, 130),
@@ -2406,6 +2415,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         if lora is None:
             raise SystemExit("split_at needs a `lora`; see build_api")
         plain_src = _plain_chain_ui(g, unet_node, sh=sh, sage=sage, sol=sol,
+                                    sol_enabled=sol_enabled,
                                     head_chunks=head_chunks)
     stage1_src = model_src
     if split_at and not split_base_last:
@@ -3250,6 +3260,31 @@ def main():
                   "-- larger than any kernel or sparsity setting.")),
          "the same prompt on the cheapest legal canvas"),
 
+        # The only shipped graph that turns Sol-Attn ON, now that it is opt-in.
+        # It exists so "is Sol worth what it changes" stays answerable from a
+        # shipped artifact rather than needing a hand-edit -- and that question
+        # is open in a way the speed numbers do not settle, because nobody has
+        # weighed its influence on the output against what it saves.
+        # Read against h3_text_to_video.json, which is now sage-only.
+        ("h3_probe_sol_on.json", "t2v-sol", "t2v", LONG_T2V_PROMPT,
+         dict(sol_on=True, out_prefix="Video/h3_probe_sol_on",
+              variant_note=_probe_note(
+                  "whether Sol-Attn earns its influence on the output",
+                  "h3_text_to_video.json",
+                  "Sol-Attn enabled, at SOL_RECOMMENDED. Its twin is sage-only, "
+                  "which is what every shipped graph is now.",
+                  "Wall clock AND the video. Sol changes what the model "
+                  "computes -- it is sparse attention, not a faster exact "
+                  "kernel -- so a speed win that costs output quality is not a "
+                  "win. Watch motion and drift, the axes fp16-PV was chosen "
+                  "on, since those are where an approximation shows first.",
+                  "Faster, by an amount that grows with sequence length. What "
+                  "is NOT predicted is the output being indistinguishable: "
+                  "the sparse kernel skips blocks the exact one attends, and "
+                  "whether that is visible at H3's shapes is exactly what has "
+                  "never been judged here.")),
+         "Sol-Attn on, against the sage-only twin"),
+
         ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
          dict(head_chunks=4, out_prefix="Video/h3_probe_chunk4",
               variant_note=_probe_note(
@@ -3286,11 +3321,26 @@ def main():
                 f"Run --list-prompts to see them.")
         return 0
 
+    # SOL IS OPT-IN, NOT THE DEFAULT, as of 2026-08-13. The owner's standing
+    # direction: sage is always on and must compose with anything downstream;
+    # Sol-Attn is an optional thing to put on, more often off, because its
+    # influence on the final result has never been weighed against what its
+    # speed buys.
+    #
+    # UI keeps the node and BYPASSES it (mode 4) so enabling it is one click
+    # and the pinned sage-then-Sol order stays visible; the API form omits it
+    # entirely, so a measured graph is sage-only with nothing to reason about.
+    # `_ui_settings` skips bypassed nodes, which is why the two forms still
+    # cross-check as the same configuration.
+    #
+    # A graph opts back in with `sol_on=True` in its extra dict.
     for fname, label, task, prompt, extra, note in GRAPHS:
+        sol_on = bool(extra.get("sol_on", False))
+        rest = {k: v for k, v in extra.items() if k != "sol_on"}
         wf = build_ui(task, sage=True, preview=True,
-                      sol=SOL_RECOMMENDED, sol_enabled=True, prompt=prompt,
-                      title=f"h3-{label}-sage",
-                      **{"length": LONG_LENGTH, **extra})
+                      sol=SOL_RECOMMENDED, sol_enabled=sol_on, prompt=prompt,
+                      title=f"h3-{label}-sage" + ("-sol" if sol_on else ""),
+                      **{"length": LONG_LENGTH, **rest})
         p = out / fname
         p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((label, "ui", p, wf))
@@ -3302,8 +3352,10 @@ def main():
     for fname, label, task, prompt, extra, _note in GRAPHS:
         # variant_note is guidance drawn on the canvas; the API form has no
         # node that carries it and _UI_ONLY would flag it as a desync.
-        api_extra = {k: v for k, v in extra.items() if k != "variant_note"}
-        wf = build_api(task, sage=True, sol=SOL_RECOMMENDED, prompt=prompt,
+        api_extra = {k: v for k, v in extra.items()
+                     if k not in ("variant_note", "sol_on")}
+        wf = build_api(task, sage=True, prompt=prompt,
+                       sol=SOL_RECOMMENDED if extra.get("sol_on") else None,
                        **{"length": LONG_LENGTH, **api_extra})
         p = out / fname.replace(".json", "_api.json")
         p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
@@ -3321,7 +3373,7 @@ def main():
         ("h3_first_frame_to_video_stamped_api.json", "i2v", None),
     ):
         wf = build_api(task, sage=True, length=LONG_LENGTH,
-                       sol=SOL_RECOMMENDED, prompt=prompt, stamp=True)
+                       sol=None, prompt=prompt, stamp=True)
         p = bench / fname
         p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((f"{task}-stamped", "api", p, wf))

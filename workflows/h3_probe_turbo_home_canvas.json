@@ -273,7 +273,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "model",
@@ -313,7 +313,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn"
+      "title": "Patch Sol-Attn (bypassed)"
     },
     {
       "id": 9,
