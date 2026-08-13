@@ -293,42 +293,50 @@ fact.** 0.992x is not merely unreliable, it is biased in a knowable
 contributed exactly 1.0x. Solving `(d/N)x + ((N-d)/N)(1) = 0.992` recovers the
 per-chunked-step factor.
 
-**The dense count `d` is an ASSUMED INPUT and it is not verified.** It is the
-same config-dependent quantity flagged above, and it was nearly hardened into
-a point prediction by using it in a solve. Sensitivity at N=16:
+**The right unknown is the dense WALL-CLOCK SHARE, not the dense step count.**
+Weighting by steps assumes a dense step and a sparse step cost the same, which
+is false by construction — making sparse steps faster is what the sparse
+kernel is *for* (measured on record: 1.15x at 124 frames, 1.39x at 362). With
+`f` the dense share of wall-clock:
 
-| dense steps | per-step factor | slower by | cost under-expressed |
+    ratio = f·x + (1-f)   ⟹   x = 1 − 0.008/f
+
+Step-count weighting is just the `f = d/N` special case, and it **overstates
+the cost** in a knowable direction:
+
+| sparse speedup | f (d=5, N=16) | x | slower by |
 |---|---|---|---|
-| 3 | 0.9573 | 4.3% | 5.3x |
-| 4 | 0.9680 | 3.2% | 4.0x |
-| 5 | 0.9744 | 2.6% | 3.2x |
-| 6 | 0.9787 | 2.1% | 2.7x |
+| 1.00x (step-count weighting) | 0.3125 | 0.9744 | 2.56% |
+| 1.15x (measured, 124f) | 0.3433 | 0.9767 | 2.33% |
+| 1.39x (measured, 362f) | 0.3872 | 0.9793 | 2.07% |
 
-`d=5` comes from an internal audit's CPU reconstruction, which reported it
-reproduced an independently recorded "6 dense at 20 steps". **That control does
-not reproduce here.** Three mappings were tried — shifted sigmas against
-shifted percent bounds, against plain bounds, and unshifted sigmas — and none
-yields 6 at N=20; two yield 5 at both 16 and 20. So either the reconstruction
-is right and this closed form is missing something about `ModelSamplingAV`'s
-dual schedule, or the reproduction claim was wrong. Not resolved.
+An earlier revision of this entry carried a four-row table of `d` values
+instead. It was correct arithmetic on the wrong model; its magnitudes are
+withdrawn, its direction stands.
 
-**So the prediction is directional, not numeric.** Across the whole plausible
-range of `d` the sign is the same and the magnitude is 2.7-5.3x understated,
-so the pre-registered discrimination survives: **near 0.96-0.98x** against
-**0.99x or better**. Do not quote 0.974 as the expected value.
+**The falsification branch needs neither `d` nor `f`.** For any `f < 1`,
+`x < 0.992` — algebraically, not approximately. So "0.99x or better means the
+per-step-overhead model is wrong" is sound no matter how the dense count
+resolves. Only the *confirmation* branch's magnitude was ever input-dependent,
+which leaves the pre-registration in better shape than the unresolved `d`
+suggests. Expect roughly **0.96–0.98x**; treat any single value in it as
+illustrative.
 
-If it comes back at 0.99x or better, the per-step-launch-overhead model is
-wrong and the extra cost is something else. If it lands in the 0.96-0.98 band,
-entry 7's "wall-clock already answers whether to chunk" had the sign right and
-the magnitude wrong by 3x or more — the difference between a free knob and a
-real cost.
+**`d` is the wrong thing to measure, and the planned instrument measured it.**
+The intent was verbose-on plus a dense-path call count — which yields `d`, not
+`f`, and would have produced a precise number for a quantity that does not
+enter the corrected solve. Cancelled before the render rather than after.
 
-**`d` is measurable, not merely uncertain, and should be measured.** Turn
-`verbose` on in SolAttnPatch for one render at the arm's own scheduler, steps
-and shift, and count dense-path calls in the log. The Aug 11 log that produced
-0.992x has already rotated away (all three surviving logs are Aug 13), so this
-needs a fresh short render — cheap, and it converts the solve's input from an
-assumption into a number.
+If the historical 0.992x is ever wanted, `x` is directly measurable with no
+model at all: `dense_phase_time_chunked / dense_phase_time_base`. The whole
+solve exists only because the original figure was an aggregate over a mixed
+run.
+
+**Round 2 supersedes all of it.** Sol removed, every step chunked, so `f = 1`
+and `x` is read straight off the two arms' wall-clock. The reconstruction is
+then optional history — worth doing only to settle whether the audit's
+"reproduces 6 dense at 20 steps" control ever held, which is a real question
+about that audit's credibility but not a prerequisite for this result.
 
 **A null here does not close the area.** The out buffer is real and constant
 regardless of where process peak is set, and removing it is not something any

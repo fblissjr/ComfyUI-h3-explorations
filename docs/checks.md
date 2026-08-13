@@ -189,3 +189,31 @@ Both are honest when written. Only one is still honest after somebody quotes
 half of it. This matters here more than in most repos because measured
 numbers, upstream source reads and analytical estimates sit in the same
 paragraphs, and six months later they are indistinguishable by tone.
+
+### The same defect pointed inward
+
+Within an hour of writing the rule above, the same failure recurred in the
+other direction. A number had been flagged — correctly, and by me — as
+config-dependent and needing re-derivation per config. Two messages later it
+was used as a known input to a solve, and the result pre-registered as a
+prediction.
+
+Nothing careless happened in between. **A caveat accepted about someone else's
+number does not attach to your own later use of that number**, and no normal
+process makes it attach: the caveat is filed as a fact about the old claim,
+while the new claim is being built somewhere else. That makes it structural
+rather than a lapse in attention, which is why "be more careful" does not fix
+it any more than it fixes caveat decay.
+
+The counter that seems to work: **when a caveated number becomes an INPUT,
+re-read the caveat as a precondition of the new claim, not as history attached
+to the old one.** If the caveat says "re-derive per config", then a solve
+using it is blocked until that derivation exists — the same way a missing
+argument blocks a call.
+
+Worth pairing with a second habit from the same incident: check that the
+quantity you are about to measure is the one that enters the model. That solve
+was reformulated from a step count to a wall-clock share, and the instrument
+already planned would have returned a precise value for the abandoned
+variable — a real measurement of the wrong thing, which is harder to notice
+than no measurement at all.
