@@ -8,10 +8,10 @@
       ]
     }
   },
-  "id": "5d2755ce-b8ff-549a-8248-866322805af9",
+  "id": "f3f864f9-0ae0-519c-9a74-dc82aad3322b",
   "revision": 0,
   "last_node_id": 29,
-  "last_link_id": 33,
+  "last_link_id": 32,
   "nodes": [
     {
       "id": 1,
@@ -65,7 +65,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            13
+            12
           ]
         }
       ],
@@ -99,7 +99,7 @@
           "type": "VAE",
           "links": [
             5,
-            29
+            28
           ]
         }
       ],
@@ -132,7 +132,7 @@
           "type": "VAE",
           "links": [
             6,
-            31
+            30
           ]
         }
       ],
@@ -309,7 +309,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            14
+            13
           ]
         }
       ],
@@ -346,21 +346,21 @@
           "name": "width",
           "type": "INT",
           "links": [
-            17
+            16
           ]
         },
         {
           "name": "height",
           "type": "INT",
           "links": [
-            18
+            17
           ]
         },
         {
           "name": "length",
           "type": "INT",
           "links": [
-            19
+            18
           ]
         },
         {
@@ -412,7 +412,7 @@
         {
           "name": "clip",
           "type": "CLIP",
-          "link": 13
+          "link": 12
         },
         {
           "name": "vae",
@@ -448,28 +448,28 @@
         {
           "name": "ref_videos.ref_video_0",
           "type": "IMAGE",
-          "link": 11,
+          "link": null,
           "label": "ref_video_0",
           "shape": 7
         },
         {
           "name": "ref_video_audios.ref_video_audio_0",
           "type": "AUDIO",
-          "link": 12,
+          "link": null,
           "label": "ref_video_audio_0",
           "shape": 7
         },
         {
           "name": "ref_audios.ref_audio_0",
           "type": "AUDIO",
-          "link": null,
+          "link": 11,
           "label": "ref_audio_0",
           "shape": 7
         },
         {
           "name": "width",
           "type": "INT",
-          "link": 17,
+          "link": 16,
           "widget": {
             "name": "width"
           }
@@ -477,7 +477,7 @@
         {
           "name": "height",
           "type": "INT",
-          "link": 18,
+          "link": 17,
           "widget": {
             "name": "height"
           }
@@ -485,7 +485,7 @@
         {
           "name": "length",
           "type": "INT",
-          "link": 19,
+          "link": 18,
           "widget": {
             "name": "length"
           }
@@ -496,14 +496,14 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            20
+            19
           ]
         },
         {
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            21
+            20
           ]
         }
       ],
@@ -511,7 +511,7 @@
         "Node name for S&R": "MiniMaxH3ReferenceToVideo"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, following the pacing of <Video 1>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (cut and pacing structure): weak_reference - only the pacing of the camera move is followed.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+        "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n<Audio 1> is a standalone music reference whose tempo and instrumentation the target video's score follows.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, scored after <Audio 1>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n<Audio 1>: reference - only tempo and instrumentation are referenced, the signal is not copied.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.\n\noverall_soundscape:\nSteady interior room tone continues throughout, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nA slow instrumental score follows the tempo and instrumentation of <Audio 1>.",
         1344,
         768,
         345,
@@ -684,14 +684,14 @@
     },
     {
       "id": 15,
-      "type": "VHS_LoadVideo",
+      "type": "LoadAudio",
       "pos": [
         -880,
-        1380
+        1900
       ],
       "size": [
-        340,
-        500
+        300,
+        130
       ],
       "flags": {},
       "order": 13,
@@ -699,44 +699,20 @@
       "inputs": [],
       "outputs": [
         {
-          "name": "IMAGE",
-          "type": "IMAGE",
+          "name": "AUDIO",
+          "type": "AUDIO",
           "links": [
             11
           ]
-        },
-        {
-          "name": "frame_count",
-          "type": "INT",
-          "links": null
-        },
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "links": [
-            12
-          ]
-        },
-        {
-          "name": "video_info",
-          "type": "VHS_VIDEOINFO",
-          "links": null
         }
       ],
       "properties": {
-        "Node name for S&R": "VHS_LoadVideo"
+        "Node name for S&R": "LoadAudio"
       },
-      "widgets_values": {
-        "video": "20260601_172336_00001-audio.mp4",
-        "force_rate": 24.0,
-        "custom_width": 0,
-        "custom_height": 0,
-        "frame_load_cap": 0,
-        "skip_first_frames": 0,
-        "select_every_nth": 1,
-        "format": "AnimateDiff"
-      },
-      "title": "Reference video (force_rate 24)"
+      "widgets_values": [
+        "4th-ninja-Breathless_Heights.mp3"
+      ],
+      "title": "Standalone audio reference"
     },
     {
       "id": 16,
@@ -758,7 +734,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            24
+            23
           ]
         }
       ],
@@ -790,7 +766,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            26
+            25
           ]
         }
       ],
@@ -819,7 +795,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 15
+          "link": 14
         }
       ],
       "outputs": [
@@ -827,7 +803,7 @@
           "name": "SIGMAS",
           "type": "SIGMAS",
           "links": [
-            27
+            26
           ]
         }
       ],
@@ -858,12 +834,12 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 16
+          "link": 15
         },
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 22
+          "link": 21
         }
       ],
       "outputs": [
@@ -871,7 +847,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            25
+            24
           ]
         }
       ],
@@ -897,27 +873,27 @@
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 24
+          "link": 23
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 25
+          "link": 24
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 26
+          "link": 25
         },
         {
           "name": "sigmas",
           "type": "SIGMAS",
-          "link": 27
+          "link": 26
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 23
+          "link": 22
         }
       ],
       "outputs": [
@@ -925,8 +901,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            28,
-            30
+            27,
+            29
           ]
         },
         {
@@ -957,12 +933,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 28
+          "link": 27
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 29
+          "link": 28
         }
       ],
       "outputs": [
@@ -970,7 +946,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            32
+            31
           ]
         }
       ],
@@ -996,12 +972,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 30
+          "link": 29
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 31
+          "link": 30
         }
       ],
       "outputs": [
@@ -1009,7 +985,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            33
+            32
           ]
         }
       ],
@@ -1035,12 +1011,12 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 32
+          "link": 31
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 33,
+          "link": 32,
           "shape": 7
         },
         {
@@ -1069,7 +1045,7 @@
       "widgets_values": {
         "frame_rate": 24.0,
         "loop_count": 0,
-        "filename_prefix": "Video/h3_r2v_video",
+        "filename_prefix": "Video/h3_r2v_image_audio",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 19,
@@ -1097,7 +1073,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 14
+          "link": 13
         }
       ],
       "outputs": [
@@ -1105,8 +1081,8 @@
           "name": "model",
           "type": "MODEL",
           "links": [
-            15,
-            16
+            14,
+            15
           ]
         }
       ],
@@ -1139,12 +1115,12 @@
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 20
+          "link": 19
         },
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 21
+          "link": 20
         }
       ],
       "outputs": [
@@ -1152,14 +1128,14 @@
           "name": "conditioning",
           "type": "CONDITIONING",
           "links": [
-            22
+            21
           ]
         },
         {
           "name": "samples",
           "type": "LATENT",
           "links": [
-            23
+            22
           ]
         },
         {
@@ -1270,7 +1246,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## The first graph here that wires a reference video\n\nEverything this repo knew about reference video before 2026-08-13 was read off\nsource and never executed. This graph is what executing it looks like.\n\n## force_rate is 24, and it is not optional\n\n`ref_videos.ref_video_0` takes an **IMAGE batch**, not a VIDEO. ComfyUI's node\nhas **no fps input at all** and assumes 24 twice over: once for the DiT's\ntemporal clock, and once for the `<T.T seconds>` labels the conditioner reads\noff the 2 fps subsample. The reference pipeline instead resamples onto 24 from\nthe rate the container reports, and diffusers' own docstring flags the hazard\nin as many words -- a video whose real rate is lost on the way in is\nconditioned at the wrong speed, silently.\n\nSo a 30 fps source at `force_rate=0` is a 25%-slow reference with nothing\nsaid. **Leave it at 24.**\n\n## What it costs, and why there is no fit node on this path\n\nReference rows ride every sampling step exactly as video rows do. A five-second\nreference at the full 1344x768 canvas is **+32,256 rows**, taking the sequence\nfrom 38,222 to 70,478 -- 1.84x, and attention goes as the square, so roughly\n3.4x the attention work. A `max` image reference is +7,168 by comparison.\n\nBudget references by pixel area, not by count: the same clip at 640x360 costs\n+7,040.\n\nThe image path has a Reference Resolution node because ComfyUI clamps image\nreferences with `min(1.0, 2048/short_edge)` where the reference pipeline has\nno clamp. **The video path has the same class of divergence** -- ComfyUI\nrefuses to upscale a reference video, the reference puts it on the full canvas\nrule -- and deliberately has no node closing it. Closing it costs 5x what the\nimage one does, and nothing has measured whether it buys anything.\n\n## Two more divergences to know about\n\n- **Reference audio is not truncated.** The reference cuts a soundtrack to the\n  generated duration; ComfyUI encodes the whole waveform, at 80 rows per\n  unwanted second. Trim it yourself.\n- **The frame count snaps DOWN** to the 17n+5 grid after being truncated to the\n  generated length, and fewer than 5 frames raises.\n\n## Labels\n\n`<Video k>` and `<Audio j>` are numbered independently, and a paired\nsoundtrack's `<Audio j>` is emitted immediately BEFORE its `<Video k>`. One\nvideo with sound therefore reads as `<Audio 1>` then `<Video 1>`. Images are\n`<Picture i>` and come first.\n\n**The shipped clip has no audio track**, so `ref_video_audio_0` receives\nnothing, no `<Audio 1>` is emitted, and the prompt here deliberately does not\ndeclare one. Swap in a clip that has sound and the prompt needs two lines\nadded, per `internal/official_prompt_guides/...ref_en.md` section 4.2, whose\n`<Audio N>` markers are a different set from the visual ones:\n\n```\nsubject_definitions:\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n\nretention_analysis:\n<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.\n```\n\nValid audio markers are `fully_copy`, `partially_copy`, `reference` and\n`weak_reference`. Valid visual markers are `fully_preserved`,\n`partially_preserved`, `attribute_transfer` and `weak_reference`. They do not\ninterchange.\n\nLimits the reference enforces and ComfyUI does not: 9 images, 3 videos, 3\naudios, **12 references total**, and an audio reference may never appear\nwithout an image or video.\n"
+        "## Reference matrix arm: reference images and a standalone audio clip\n\nOne of five graphs that differ only in **which reference sockets are wired**.\nRun them against each other; everything else -- seed, prompt skeleton, canvas,\nlength, sampler, attention chain -- is shared by construction.\n\n| graph | images | video | its soundtrack | standalone audio |\n|---|---|---|---|---|\n| `h3_ref_video_only` | | yes | | |\n| `h3_ref_video_audio` | | yes | yes | |\n| `h3_ref_image_audio` | yes | | | yes |\n| `h3_ref_video_to_video` | yes | yes | yes | |\n| `h3_ref_image_video_audio` | yes | yes | yes | yes |\n\n**The prompt in each one declares exactly the labels that graph wires**, and\n`bench/check_ref_prompt_labels.py` fails the build if that stops being true.\nThe numbering is the tokenizer's, not a convention: references are emitted as\nimages, then videos with each soundtrack's `<Audio j>` immediately BEFORE its\n`<Video k>`, then standalone audio, with a separate 1-based counter per type.\nSo in the all-types arm the soundtrack is `<Audio 1>` and the standalone clip\nis `<Audio 2>`, while the video is `<Video 1>` in every arm that has one.\n\n**A silent clip cannot have its audio socket wired.** VHS raises\n\"failed to extract audio\" when its audio output is pulled on a video with no\naudio stream, and the render dies at execution having validated cleanly. The\nvideo-only arm therefore loads a different, silent clip and leaves the socket\nalone.\n\n**An audio reference is never valid alone.** The reference refuses one that is\nnot paired with at least one image or video, so no arm here wires audio by\nitself.\n\n`force_rate` is 24 on every arm that loads a video. See\n`h3_ref_video_to_video.json` for why that is not optional.\n"
       ],
       "title": "What this graph is probing"
     }
@@ -1361,19 +1337,11 @@
       15,
       0,
       10,
-      6,
-      "IMAGE"
-    ],
-    [
-      12,
-      15,
-      2,
-      10,
-      7,
+      8,
       "AUDIO"
     ],
     [
-      13,
+      12,
       2,
       0,
       10,
@@ -1381,7 +1349,7 @@
       "CLIP"
     ],
     [
-      14,
+      13,
       8,
       0,
       24,
@@ -1389,7 +1357,7 @@
       "MODEL"
     ],
     [
-      15,
+      14,
       24,
       0,
       18,
@@ -1397,7 +1365,7 @@
       "MODEL"
     ],
     [
-      16,
+      15,
       24,
       0,
       19,
@@ -1405,7 +1373,7 @@
       "MODEL"
     ],
     [
-      17,
+      16,
       9,
       0,
       10,
@@ -1413,7 +1381,7 @@
       "INT"
     ],
     [
-      18,
+      17,
       9,
       1,
       10,
@@ -1421,7 +1389,7 @@
       "INT"
     ],
     [
-      19,
+      18,
       9,
       2,
       10,
@@ -1429,7 +1397,7 @@
       "INT"
     ],
     [
-      20,
+      19,
       10,
       0,
       25,
@@ -1437,7 +1405,7 @@
       "CONDITIONING"
     ],
     [
-      21,
+      20,
       10,
       1,
       25,
@@ -1445,7 +1413,7 @@
       "LATENT"
     ],
     [
-      22,
+      21,
       25,
       0,
       19,
@@ -1453,7 +1421,7 @@
       "CONDITIONING"
     ],
     [
-      23,
+      22,
       25,
       1,
       20,
@@ -1461,7 +1429,7 @@
       "LATENT"
     ],
     [
-      24,
+      23,
       16,
       0,
       20,
@@ -1469,7 +1437,7 @@
       "NOISE"
     ],
     [
-      25,
+      24,
       19,
       0,
       20,
@@ -1477,7 +1445,7 @@
       "GUIDER"
     ],
     [
-      26,
+      25,
       17,
       0,
       20,
@@ -1485,7 +1453,7 @@
       "SAMPLER"
     ],
     [
-      27,
+      26,
       18,
       0,
       20,
@@ -1493,7 +1461,7 @@
       "SIGMAS"
     ],
     [
-      28,
+      27,
       20,
       0,
       21,
@@ -1501,7 +1469,7 @@
       "LATENT"
     ],
     [
-      29,
+      28,
       3,
       0,
       21,
@@ -1509,7 +1477,7 @@
       "VAE"
     ],
     [
-      30,
+      29,
       20,
       0,
       22,
@@ -1517,7 +1485,7 @@
       "LATENT"
     ],
     [
-      31,
+      30,
       4,
       0,
       22,
@@ -1525,7 +1493,7 @@
       "VAE"
     ],
     [
-      32,
+      31,
       21,
       0,
       23,
@@ -1533,7 +1501,7 @@
       "IMAGE"
     ],
     [
-      33,
+      32,
       22,
       0,
       23,

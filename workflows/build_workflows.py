@@ -88,9 +88,27 @@ VIDEO_FORMAT = "video/h264-mp4"
 # reference pipeline resamples onto 24 from the rate the container reports.
 # A 30 fps source left at force_rate=0 is conditioned at the wrong speed,
 # silently, and diffusers' own docstring flags exactly this.
+# 960x544, 25 fps, 19.6s, WITH an audio track. Three properties earn it: 25 fps
+# so force_rate=24 has visible work to do, a soundtrack so the paired <Audio 1>
+# path is exercised rather than skipped, and long enough that the
+# truncate-then-snap-to-17n+5 step actually truncates.
 PLACEHOLDER_VIDEO = "20260601_172336_00001-audio.mp4"
+# Silent, for the video-only arm. **VHS RAISES when its audio output is wired
+# on a clip with no audio stream** -- "VHS failed to extract audio from ..." --
+# so a video-only graph has to leave that socket unwired rather than lean on
+# the downstream node treating it as optional. Found by running it, not by
+# reading: the graph validated fine and died at execution.
+PLACEHOLDER_VIDEO_SILENT = "LTX-2_00065.mp4"
+# Standalone audio reference. The reference refuses one that is not paired
+# with at least one image or video, so it never appears alone here.
+PLACEHOLDER_AUDIO = "4th-ninja-Breathless_Heights.mp3"
 REF_VIDEO_FORCE_RATE = 24.0
 
+# Verified present in ComfyUI's ACTUAL input directory, which on this install
+# is not under the ComfyUI tree -- `folder_paths.get_input_directory()` is
+# authoritative and a bare `ls ComfyUI/input` is not. Getting that wrong on
+# 2026-08-13 produced a "29 of 30 combo entries are stale" conclusion that was
+# entirely an artifact of looking in the wrong place.
 PLACEHOLDER_IMAGE_A = "1-man.png"
 PLACEHOLDER_IMAGE_B = "2-mountain_landscape.png"
 
@@ -288,7 +306,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               steps: int | None = None, shift: dict | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
-              ref_video: bool = False, split_at: int | None = None,
+              ref_video: bool = False, ref_video_audio: bool = True,
+              ref_images_on: bool = True, ref_audio: bool = False,
+              split_at: int | None = None,
               split_base_last: bool = True,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
@@ -392,6 +412,18 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                       "inputs": {"image": [src, 0], "allow_upscale": ref_upscale,
                                  "short_edge": _ref_short_edge(),
                                  "lift_downstream_clamp": False}}
+        if not ref_images_on:
+            g["5"]["inputs"].pop("ref_images.ref_image_0", None)
+            g["5"]["inputs"].pop("ref_images.ref_image_1", None)
+            for _k in ("15", "16", "24", "25"):
+                g.pop(_k, None)
+        if ref_audio:
+            # Standalone audio, never alone: the reference refuses an audio
+            # reference unpaired with an image or a video, so every arm that
+            # sets this also sets one of those.
+            g["33"] = {"class_type": "LoadAudio",
+                       "inputs": {"audio": PLACEHOLDER_AUDIO}}
+            g["5"]["inputs"]["ref_audios.ref_audio_0"] = ["33", 0]
         if ref_video:
             # A reference VIDEO and its own soundtrack. Both sockets exist on
             # the stock node and nothing in this repo has ever wired them.
@@ -417,8 +449,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                   "custom_width": 0, "custom_height": 0,
                                   "frame_load_cap": 0, "skip_first_frames": 0,
                                   "select_every_nth": 1, "format": "AnimateDiff"}}
+            g["28"]["inputs"]["video"] = (PLACEHOLDER_VIDEO if ref_video_audio
+                                          else PLACEHOLDER_VIDEO_SILENT)
             g["5"]["inputs"]["ref_videos.ref_video_0"] = ["28", 0]
-            g["5"]["inputs"]["ref_video_audios.ref_video_audio_0"] = ["28", 2]
+            if ref_video_audio:
+                g["5"]["inputs"]["ref_video_audios.ref_video_audio_0"] = ["28", 2]
     else:
         # i2v takes its geometry from the keyframe node (below); every other
         # task takes it from Resolution, so the cost of the choice is visible
@@ -1026,12 +1061,131 @@ conditioned at.
 """
 
 
+def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False):
+    """A ref2va prompt declaring EXACTLY the labels this arm actually wires.
+
+    The label numbering is not free. `MiniMaxH3Tokenizer` emits references in
+    a fixed order -- images, then videos with each soundtrack's `<Audio j>`
+    immediately BEFORE its `<Video k>`, then standalone audio -- with a
+    SEPARATE 1-based counter per type. So a video's soundtrack takes
+    `<Audio 1>` and a standalone clip alongside it is `<Audio 2>`, while the
+    video is `<Video 1>` either way. Declaring a label the graph does not wire,
+    or numbering one differently from the tokenizer, is a prompt that refers to
+    something that is not there.
+
+    Structure and markers follow
+    `internal/official_prompt_guides/...ref_en.md`: the six sections in order,
+    visual markers from section 4.1 (`fully_preserved`, `partially_preserved`,
+    `attribute_transfer`, `weak_reference`) and audio markers from 4.2
+    (`fully_copy`, `partially_copy`, `reference`, `weak_reference`), which are
+    a different set and do not interchange.
+    """
+    defs, retention, shot = [], [], []
+    audio_n = 0
+
+    if images:
+        defs += [
+            "<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.",
+            "<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.",
+        ]
+        retention += [
+            "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.",
+            "<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.",
+        ]
+    if video_audio:
+        audio_n += 1
+        defs.append(f"<Audio {audio_n}> is the synchronized audio track of <Video 1> and is reused in the target video.")
+        retention.append(f"<Audio {audio_n}>: partially_copy - the ambience of <Audio {audio_n}> is kept under the new scene.")
+    if video:
+        defs.append("<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.")
+        retention.append("<Video 1> (cut and pacing structure): weak_reference - only the pacing of the camera move is followed.")
+    if audio:
+        audio_n += 1
+        defs.append(f"<Audio {audio_n}> is a standalone music reference whose tempo and instrumentation the target video's score follows.")
+        retention.append(f"<Audio {audio_n}>: reference - only tempo and instrumentation are referenced, the signal is not copied.")
+
+    if images:
+        shot.append("A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame.")
+    else:
+        shot.append("A medium shot establishes a quiet interior, and a figure enters from the left and stops at the center of the frame.")
+    if video:
+        shot.append("The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.")
+    else:
+        shot.append("The camera trucks right with small amplitude at slow speed.")
+
+    subject = "<Subject 1>" if images else "the figure"
+    summary_parts = [f"The target video places {subject} in a single continuous shot"]
+    if images:
+        summary_parts = ["The target video places <Subject 1> inside <Subject 2> for a single continuous shot"]
+    if video:
+        summary_parts.append("following the pacing of <Video 1>")
+    if audio:
+        summary_parts.append(f"scored after <Audio {audio_n}>")
+
+    soundscape = ("Steady interior room tone continues throughout, with soft footsteps and "
+                  "fabric movement as the subject crosses the frame.")
+    if video_audio:
+        soundscape = ("The ambience of <Audio 1> continues under the shot, with soft footsteps "
+                      "and fabric movement as the subject crosses the frame.")
+    music = (f"A slow instrumental score follows the tempo and instrumentation of <Audio {audio_n}>."
+             if audio else "N/A")
+
+    return "\n".join([
+        "subject_definitions:", *defs, "",
+        "summary:", "[reference generation] " + ", ".join(summary_parts) + ".", "",
+        "retention_analysis:", *retention, "",
+        "detailed_description:",
+        "The target video is in a cinematic live-action style with soft directional lighting.",
+        "[Shot 1] " + " ".join(shot), "",
+        "overall_soundscape:", soundscape, "",
+        "non_diegetic_music:", music,
+    ])
+
+
+def _note_ref_matrix(what: str) -> str:
+    return f"""\
+## Reference matrix arm: {what}
+
+One of five graphs that differ only in **which reference sockets are wired**.
+Run them against each other; everything else -- seed, prompt skeleton, canvas,
+length, sampler, attention chain -- is shared by construction.
+
+| graph | images | video | its soundtrack | standalone audio |
+|---|---|---|---|---|
+| `h3_ref_video_only` | | yes | | |
+| `h3_ref_video_audio` | | yes | yes | |
+| `h3_ref_image_audio` | yes | | | yes |
+| `h3_ref_video_to_video` | yes | yes | yes | |
+| `h3_ref_image_video_audio` | yes | yes | yes | yes |
+
+**The prompt in each one declares exactly the labels that graph wires**, and
+`bench/check_ref_prompt_labels.py` fails the build if that stops being true.
+The numbering is the tokenizer's, not a convention: references are emitted as
+images, then videos with each soundtrack's `<Audio j>` immediately BEFORE its
+`<Video k>`, then standalone audio, with a separate 1-based counter per type.
+So in the all-types arm the soundtrack is `<Audio 1>` and the standalone clip
+is `<Audio 2>`, while the video is `<Video 1>` in every arm that has one.
+
+**A silent clip cannot have its audio socket wired.** VHS raises
+"failed to extract audio" when its audio output is pulled on a video with no
+audio stream, and the render dies at execution having validated cleanly. The
+video-only arm therefore loads a different, silent clip and leaves the socket
+alone.
+
+**An audio reference is never valid alone.** The reference refuses one that is
+not paired with at least one image or video, so no arm here wires audio by
+itself.
+
+`force_rate` is {REF_VIDEO_FORCE_RATE:g} on every arm that loads a video. See
+`h3_ref_video_to_video.json` for why that is not optional.
+"""
+
+
 _REF_VIDEO_PROMPT = """\
 subject_definitions:
 <Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
 <Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.
 <Video 1> is the source video whose camera movement and cutting rhythm the target video follows.
-<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
 
 summary:
 [reference generation] The target video places <Subject 1> inside <Subject 2>, following the pacing of <Video 1>.
@@ -1100,8 +1254,27 @@ image one does, and nothing has measured whether it buys anything.
 
 `<Video k>` and `<Audio j>` are numbered independently, and a paired
 soundtrack's `<Audio j>` is emitted immediately BEFORE its `<Video k>`. One
-video with sound therefore reads as `<Audio 1>` then `<Video 1>`, which is what
-the prompt here says. Images are `<Picture i>` and come first.
+video with sound therefore reads as `<Audio 1>` then `<Video 1>`. Images are
+`<Picture i>` and come first.
+
+**The shipped clip has no audio track**, so `ref_video_audio_0` receives
+nothing, no `<Audio 1>` is emitted, and the prompt here deliberately does not
+declare one. Swap in a clip that has sound and the prompt needs two lines
+added, per `internal/official_prompt_guides/...ref_en.md` section 4.2, whose
+`<Audio N>` markers are a different set from the visual ones:
+
+```
+subject_definitions:
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+
+retention_analysis:
+<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.
+```
+
+Valid audio markers are `fully_copy`, `partially_copy`, `reference` and
+`weak_reference`. Valid visual markers are `fully_preserved`,
+`partially_preserved`, `attribute_transfer` and `weak_reference`. They do not
+interchange.
 
 Limits the reference enforces and ComfyUI does not: 9 images, 3 videos, 3
 audios, **12 references total**, and an audio reference may never appear
@@ -1416,7 +1589,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              steps: int | None = None, shift: dict | None = None,
              sampler_name: str | None = None, scheduler_name: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
-             ref_video: bool = False, split_at: int | None = None,
+             ref_video: bool = False, ref_video_audio: bool = True,
+             ref_images_on: bool = True, ref_audio: bool = False,
+             split_at: int | None = None,
              split_base_last: bool = True,
              variant_note: str | None = None,
              length: int = LENGTH, seed: int = SEED, preview: bool = False,
@@ -1584,19 +1759,22 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                          _in("width", "INT", widget=True), _in("height", "INT", widget=True),
                          _in("length", "INT", widget=True)],
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
-        img_a = g.add("LoadImage", (-880, 640), size=(290, 330),
-                      widgets=[PLACEHOLDER_IMAGE_A, "image"],
-                      outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
-        img_b = g.add("LoadImage", (-880, 1010), size=(290, 330),
-                      widgets=[PLACEHOLDER_IMAGE_B, "image"],
-                      outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
+        img_a = img_b = None
+        if ref_images_on:
+            img_a = g.add("LoadImage", (-880, 640), size=(290, 330),
+                          widgets=[PLACEHOLDER_IMAGE_A, "image"],
+                          outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
+            img_b = g.add("LoadImage", (-880, 1010), size=(290, 330),
+                          widgets=[PLACEHOLDER_IMAGE_B, "image"],
+                          outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
         g.link(vvae, 0, cond, "vae", "VAE")
         g.link(avae, 0, cond, "audio_vae", "VAE")
         # One fit node per reference, between LoadImage and the conditioning
         # node. See the matching note in build_api: paired with
         # ref_image_size on 'max', or the stock node undoes them.
         fits = []
-        for i, (src, y) in enumerate(((img_a, 640), (img_b, 1010))):
+        for i, (src, y) in enumerate((() if not ref_images_on
+                                      else ((img_a, 640), (img_b, 1010)))):
             fit = g.add("MiniMaxH3ReferenceFit", (-580, y), size=(300, 150),
                         widgets=[ref_upscale, _ref_short_edge(), False],
                         inputs=[_in("image", "IMAGE")],
@@ -1606,6 +1784,12 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             g.link(src, 0, fit, "image", "IMAGE")
             g.link(fit, 0, cond, f"ref_images.ref_image_{i}", "IMAGE")
             fits.append(fit)
+        if ref_audio:
+            aud = g.add("LoadAudio", (-880, 1900), size=(300, 130),
+                        widgets=[PLACEHOLDER_AUDIO],
+                        outputs=[_out("AUDIO", "AUDIO")],
+                        title="Standalone audio reference")
+            g.link(aud, 0, cond, "ref_audios.ref_audio_0", "AUDIO")
         if ref_video:
             # See the matching note in build_api. force_rate=24 is the whole
             # point: the stock node has no fps input and assumes 24 twice, so
@@ -1613,7 +1797,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             # nothing said. Its audio output feeds the index-paired soundtrack
             # socket -- ref_video_audio_0 belongs to ref_video_0.
             vid = g.add("VHS_LoadVideo", (-880, 1380), size=(340, 500),
-                        widgets={"video": PLACEHOLDER_VIDEO,
+                        widgets={"video": (PLACEHOLDER_VIDEO if ref_video_audio
+                                           else PLACEHOLDER_VIDEO_SILENT),
                                  "force_rate": REF_VIDEO_FORCE_RATE,
                                  "custom_width": 0, "custom_height": 0,
                                  "frame_load_cap": 0, "skip_first_frames": 0,
@@ -1622,7 +1807,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                                  _out("audio", "AUDIO"), _out("video_info", "VHS_VIDEOINFO")],
                         title="Reference video (force_rate 24)")
             g.link(vid, 0, cond, "ref_videos.ref_video_0", "IMAGE")
-            g.link(vid, 2, cond, "ref_video_audios.ref_video_audio_0", "AUDIO")
+            if ref_video_audio:
+                g.link(vid, 2, cond, "ref_video_audios.ref_video_audio_0", "AUDIO")
     else:
         cond_inputs = [_in("clip", "CLIP"), _in("vae", "VAE"),
                        _in("first_frame", "IMAGE", optional=True),
@@ -2238,10 +2424,43 @@ def main():
 
         # First graph in this repo to wire a reference VIDEO. Everything about
         # that path was read off source until 2026-08-13 and never executed.
-        ("h3_ref_video_to_video.json", "r2v-video", "r2v", _REF_VIDEO_PROMPT,
+        # The reference-combination matrix. Five arms, one per shape of
+        # ref2va request, each with a prompt that declares EXACTLY the labels
+        # its own graph wires -- `bench/check_ref_prompt_labels.py` enforces
+        # that agreement, because the tokenizer derives the labels from the
+        # sockets and a prompt naming one that is not there fails silently.
+        ("h3_ref_video_to_video.json", "r2v-video", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True),
          dict(ref_video=True, out_prefix="Video/h3_r2v_video",
               variant_note=_NOTE_REF_VIDEO),
-         "reference video + its soundtrack + images -> video + audio"),
+         "images + reference video + its soundtrack -> video + audio"),
+
+        ("h3_ref_video_only.json", "r2v-video-only", "r2v",
+         _ref_prompt(images=False, video=True),
+         dict(ref_video=True, ref_video_audio=False, ref_images_on=False,
+              out_prefix="Video/h3_r2v_video_only",
+              variant_note=_note_ref_matrix("a reference video and nothing else")),
+         "reference video only, silent clip"),
+
+        ("h3_ref_video_audio.json", "r2v-video-audio", "r2v",
+         _ref_prompt(images=False, video=True, video_audio=True),
+         dict(ref_video=True, ref_images_on=False,
+              out_prefix="Video/h3_r2v_video_audio",
+              variant_note=_note_ref_matrix("a reference video with its own soundtrack")),
+         "reference video + its soundtrack, no images"),
+
+        ("h3_ref_image_audio.json", "r2v-image-audio", "r2v",
+         _ref_prompt(images=True, audio=True),
+         dict(ref_audio=True, out_prefix="Video/h3_r2v_image_audio",
+              variant_note=_note_ref_matrix("reference images and a standalone audio clip")),
+         "reference images + standalone audio"),
+
+        ("h3_ref_image_video_audio.json", "r2v-all", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True, audio=True),
+         dict(ref_video=True, ref_audio=True,
+              out_prefix="Video/h3_r2v_all",
+              variant_note=_note_ref_matrix("every reference type at once")),
+         "images + video + its soundtrack + standalone audio"),
 
         # --- probes: pairs, one variable, run against the named twin ---
 

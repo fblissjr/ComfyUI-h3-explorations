@@ -127,7 +127,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_r2v_video",
+      "filename_prefix": "Video/h3_r2v_video_audio",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -160,7 +160,7 @@
         "4",
         0
       ],
-      "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, following the pacing of <Video 1>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (cut and pacing structure): weak_reference - only the pacing of the camera move is followed.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+      "prompt": "subject_definitions:\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.\n\nsummary:\n[reference generation] The target video places the figure in a single continuous shot, following the pacing of <Video 1>.\n\nretention_analysis:\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (cut and pacing structure): weak_reference - only the pacing of the camera move is followed.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes a quiet interior, and a figure enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
       "width": [
         "27",
         0
@@ -174,14 +174,6 @@
         2
       ],
       "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ],
-      "ref_images.ref_image_1": [
-        "25",
-        0
-      ],
       "ref_videos.ref_video_0": [
         "28",
         0
@@ -190,42 +182,6 @@
         "28",
         2
       ]
-    }
-  },
-  "15": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "1-man.png"
-    }
-  },
-  "16": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "2-mountain_landscape.png"
-    }
-  },
-  "24": {
-    "class_type": "MiniMaxH3ReferenceFit",
-    "inputs": {
-      "image": [
-        "15",
-        0
-      ],
-      "allow_upscale": true,
-      "short_edge": 2048,
-      "lift_downstream_clamp": false
-    }
-  },
-  "25": {
-    "class_type": "MiniMaxH3ReferenceFit",
-    "inputs": {
-      "image": [
-        "16",
-        0
-      ],
-      "allow_upscale": true,
-      "short_edge": 2048,
-      "lift_downstream_clamp": false
     }
   },
   "28": {

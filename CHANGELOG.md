@@ -4,6 +4,49 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.12.0
+
+### Added
+
+- **The reference-combination matrix.** Five graphs differing only in which
+  reference sockets are wired: video alone, video plus its soundtrack, images
+  plus a standalone audio clip, images plus video plus soundtrack, and all
+  four at once. Everything else is shared by construction, so they are
+  directly comparable.
+- `bench/check_ref_prompt_labels.py`. A `ref2va` prompt refers to its
+  references by label, and `MiniMaxH3Tokenizer` derives those labels **from
+  the wired sockets, not from the prompt** -- so the two drift silently. The
+  check asserts each shipped ref graph's prompt names exactly what its graph
+  wires, in the tokenizer's own numbering: images, then videos with each
+  soundtrack's `<Audio j>` immediately *before* its `<Video k>`, then
+  standalone audio, with a separate 1-based counter per type. A video's
+  soundtrack therefore takes `<Audio 1>` and a standalone clip beside it is
+  `<Audio 2>`.
+
+  It caught a real mismatch on its first run, and was shown red both ways: a
+  prompt naming a label the graph does not wire, and a wired reference the
+  prompt never mentions. The second matters because an unreferenced reference
+  still costs its rows on every sampling step -- the most expensive way to say
+  nothing.
+- `_ref_prompt()` generates each arm's prompt from what it wires, following
+  `internal/official_prompt_guides/...ref_en.md`: the six sections in order,
+  visual markers from section 4.1 and audio markers from 4.2, which are a
+  different set and do not interchange.
+
+### Fixed
+
+- **A silent clip cannot have its audio socket wired.** VHS raises "failed to
+  extract audio" when its audio output is pulled on a video with no audio
+  stream, and the render dies at execution having validated cleanly. The
+  video-only arm loads a different, silent clip and leaves the socket alone.
+  Found by running it.
+- The placeholder input files were checked against `ComfyUI/input`, which on
+  this install is **not** the input directory --
+  `folder_paths.get_input_directory()` resolves elsewhere. That produced a
+  confident "29 of 30 combo entries are stale" conclusion which was entirely
+  an artifact of looking in the wrong place. All placeholders verified against
+  the real directory; the original two images were correct all along.
+
 ## 0.11.0
 
 ### Fixed
