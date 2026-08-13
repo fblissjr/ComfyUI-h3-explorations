@@ -289,17 +289,46 @@ steps, i.e. with chunking mostly not running.
 
 **Pre-registered prediction, so a bad number cannot be explained after the
 fact.** 0.992x is not merely unreliable, it is biased in a knowable
-direction. Chunking ran on the 5 dense steps of 16; the other 11 went to
-Sol's stock forward at exactly 1.0x. Solving
-`(5/16)x + (11/16)(1) = 0.992` gives a per-chunked-step factor of **0.9744**,
-so the cost was under-expressed by **3.2x**. Firing on every step, the clean
-figure should land near **0.974x** — about 2.6% slower rather than 0.8%.
+*direction*: chunking ran only on the dense steps, and every sparse step
+contributed exactly 1.0x. Solving `(d/N)x + ((N-d)/N)(1) = 0.992` recovers the
+per-chunked-step factor.
 
-If it comes back at 0.99x or better, the model above is wrong and the extra
-cost is not per-step launch overhead. If it comes back near 0.974x, entry 7's
-"wall-clock already answers whether to chunk" was right about the sign and
-wrong about the magnitude by 3x, which is the difference between a knob that
-is free and one that is not.
+**The dense count `d` is an ASSUMED INPUT and it is not verified.** It is the
+same config-dependent quantity flagged above, and it was nearly hardened into
+a point prediction by using it in a solve. Sensitivity at N=16:
+
+| dense steps | per-step factor | slower by | cost under-expressed |
+|---|---|---|---|
+| 3 | 0.9573 | 4.3% | 5.3x |
+| 4 | 0.9680 | 3.2% | 4.0x |
+| 5 | 0.9744 | 2.6% | 3.2x |
+| 6 | 0.9787 | 2.1% | 2.7x |
+
+`d=5` comes from an internal audit's CPU reconstruction, which reported it
+reproduced an independently recorded "6 dense at 20 steps". **That control does
+not reproduce here.** Three mappings were tried — shifted sigmas against
+shifted percent bounds, against plain bounds, and unshifted sigmas — and none
+yields 6 at N=20; two yield 5 at both 16 and 20. So either the reconstruction
+is right and this closed form is missing something about `ModelSamplingAV`'s
+dual schedule, or the reproduction claim was wrong. Not resolved.
+
+**So the prediction is directional, not numeric.** Across the whole plausible
+range of `d` the sign is the same and the magnitude is 2.7-5.3x understated,
+so the pre-registered discrimination survives: **near 0.96-0.98x** against
+**0.99x or better**. Do not quote 0.974 as the expected value.
+
+If it comes back at 0.99x or better, the per-step-launch-overhead model is
+wrong and the extra cost is something else. If it lands in the 0.96-0.98 band,
+entry 7's "wall-clock already answers whether to chunk" had the sign right and
+the magnitude wrong by 3x or more — the difference between a free knob and a
+real cost.
+
+**`d` is measurable, not merely uncertain, and should be measured.** Turn
+`verbose` on in SolAttnPatch for one render at the arm's own scheduler, steps
+and shift, and count dense-path calls in the log. The Aug 11 log that produced
+0.992x has already rotated away (all three surviving logs are Aug 13), so this
+needs a fresh short render — cheap, and it converts the solve's input from an
+assumption into a number.
 
 **A null here does not close the area.** The out buffer is real and constant
 regardless of where process peak is set, and removing it is not something any
