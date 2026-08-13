@@ -149,6 +149,27 @@ bug reintroduced. Prefer a control the check compares against (a
 frontend-written graph, the pre-fix code, an independent implementation)
 over asserting against numbers computed in the test itself.
 
+**And the same standard applies to claims, not only to checks -- with the
+uncomfortable finding that re-reading your own work does not meet it.** On
+2026-08-13, eight substantive defects were found across this repo and the sage
+fork. **Not one was caught by whoever wrote it.** Every one came from a second
+reader with independent access to the artifact. That is not a statement about
+carelessness; the defects were things like a probe size that stayed correct
+until its mechanism was replaced, and a caveat that fell off a claim between
+one message and the next. Nothing about either looks wrong when you re-read
+the sentence you just wrote.
+
+So: **a claim derived from a call site, a docstring, or a plausible mechanism
+is an inference, and inferences at that distance fail often enough to justify
+verifying before asserting rather than after.** Say which kind of evidence you
+have *inside* the claim -- "reported, not verified: a source read, not a build"
+survives being quoted; a trailing "(unverified)" reads as hedging and gets
+trimmed. When it matters, get the artifact in front of something that can
+disagree: a control that can go red, an independent implementation, or another
+reader. `docs/checks.md` has the two mechanical forms this takes -- caveat
+decay outward, and a caveat you accepted about someone else's number failing to
+attach when you make it your own input.
+
 ## Reference implementations
 
 `coderef/` (gitignored) holds symlinks to diffusers, DiffSynth-Studio and
