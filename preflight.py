@@ -118,10 +118,16 @@ class MiniMaxH3Preflight(io.ComfyNode):
         # Scheduled conditioning can differ in text length; report the largest,
         # because the peak is what has to fit.
         layout = max(
+            # `frame_count=` was dropped from PackedLayout upstream (the
+            # signature is now text_len, latent_t, latent_h, latent_w, audio_t,
+            # keyframes, refs). Passing it raised TypeError and failed EVERY
+            # graph in this repo at the Preflight node -- not a degraded
+            # number, no render at all. Caught within minutes of a `git pull`
+            # only because a render was already queued; a static check would
+            # not have found it, because the break is in a call into upstream.
             (PackedLayout(cond.shape[1], latent_t, lat_h, lat_w, audio_t,
                           keyframes=cd.get("minimax_keyframes"),
-                          refs=cd.get("minimax_refs"),
-                          frame_count=cd.get("minimax_frame_count"))
+                          refs=cd.get("minimax_refs"))
              for cond, cd in conditioning),
             key=lambda l: l.seq_len)
 

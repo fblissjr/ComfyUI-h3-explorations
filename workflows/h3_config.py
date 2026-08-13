@@ -227,15 +227,39 @@ SOL_BASELINE_124F = dict(
     morton_curve="3d", verbose=False, use_tma=False, dense_blocks="",
 )
 
-# Our own node. `auto` resolves to fp8++ on sm89, so naming it explicitly
-# would change nothing; the explicit modes exist for bisecting accuracy.
+# Our own node. NOT `auto`, which resolves to fp8++ on sm89 -- the FASTEST
+# kernel, which is the wrong end of the tradeoff for this project.
+#
+# Changed 2026-08-13 on two pieces of evidence that point the same way:
+#
+#   Numeric. Swept against an fp32 reference at H=56 D=128 across
+#   S = 4608 / 24576 / 41822 / 78336: fp16-PV holds mean_rtol 0.0362-0.0363
+#   while every fp8 variant sits at 0.0969-0.0984. **2.7x more accurate, and
+#   flat across a 17x range of S** -- so there is no crossover and no
+#   "use fp16 above S=X" rule. One choice covers every canvas, length and
+#   reference count. All three fp8 variants land within 0.0004 of each other,
+#   so the PV accumulator is not the lever: quantizing V to fp8 at all is.
+#
+#   Perceptual. Same seed, same prompt, 124 frames, fp8++ against this:
+#   the owner judged fp16 clearer, with better motion and less drift. That is
+#   the half no rtol answers, and it agreed with the numbers.
+#
+# The cost is real and accepted: this is the one mode with no
+# `sageattn_consume` entry point, so it holds the float q/k/v for the whole
+# call instead of releasing them at quantization. Synthetic says ~1.58x wall
+# clock. `mode_releases_qkv` already reads this correctly and disables the
+# v-clone, which would be a flat loss on a non-releasing kernel.
+#
+# `auto` remains available and is what the probe arms bisect against.
+#
 # token_refiner runs over the text span only (~2k rows against ~42k), so
 # patching it is worth well under 1% of attention time.
 # head_chunks 1 = off. It trades ~4x the attention launches for headroom that
 # converts to wall-clock at the ~2.6% ceiling measured above, so it is for
 # fitting a render that otherwise will not fit. Keep the key ordered as the
 # node declares its inputs: the UI graph maps widget values positionally.
-SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
+SAGE_NODE = dict(mode="fp16 (most accurate)", patch_token_refiner=False,
+                 head_chunks=1)
 
 # Flow shifts, on `MiniMaxH3SigmaShift` (display name ModelSamplingMiniMaxH3).
 # 12/3 are the base checkpoint's training shifts and the node's own defaults,

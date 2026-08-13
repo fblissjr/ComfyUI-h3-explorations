@@ -31,6 +31,8 @@ import logging
 
 import torch
 
+from . import h3_trace as _trace
+
 logger = logging.getLogger(__name__)
 
 _FALLBACK_LOGGED = False
@@ -375,6 +377,14 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
             x = x.pop()
 
         s = x.shape[0]
+        if _trace.enabled:
+            # Recorded at entry so the denominator counts EVERY call, not only
+            # the ones that reached sage. The fork's get_dispatch_counts gives
+            # the numerator; without this, a fallback-heavy render and a
+            # fully-sage one are indistinguishable.
+            _trace.record(seq=s, heads=self.heads, head_dim=self.head_dim,
+                          dtype=x.dtype, module="dit",
+                          has_mask=False, has_scale=False, route="entered")
         # One fused projection, split into three views of the same buffer.
         q, k, v = self.qkv_proj(x).split(self.heads * self.head_dim, dim=-1)
         q = q.view(1, s, self.heads, self.head_dim)
@@ -423,9 +433,11 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
                                      kernel_fn, kernel_kwargs)
             except Exception as exc:
                 _log_fallback_once(exc)
+                _trace.route(s, "fallback_chunked")
                 del q, k, v
                 return _stock_forward(self, x, rope_freqs, transformer_options)
             del q, k, v  # last refs to the fused qkv buffer, before out_proj
+            _trace.route(s, "sage_chunked")
             return self.out_proj(out.view(s, self.heads * self.head_dim))
 
         # This branch is load-bearing, not an optimisation for the trivial
@@ -445,9 +457,11 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
             # Wasteful, but this path only runs when sage has already
             # failed and the alternative is failing the render.
             _log_fallback_once(exc)
+            _trace.route(s, "fallback_kernel")
             del qkv
             return _stock_forward(self, x, rope_freqs, transformer_options)
 
+        _trace.route(s, "sage")
         return self.out_proj(out.view(s, self.heads * self.head_dim))
 
     return forward
