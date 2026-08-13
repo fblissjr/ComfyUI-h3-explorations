@@ -344,7 +344,47 @@ consumer-side arrangement can do — it needs a kernel writing into a
 caller-provided view. That is scoped upstream and unscheduled, not impossible;
 see the amended `_chunked_heads` docstring.
 
-**Blocker: none, it is running.** Round 2 of the VRAM probes.
+### Round 1 result, 2026-08-13 — and read the timing, not the memory
+
+`h3_ref_video_swap_api.json`, 345 frames at 1024x768, unmodified against the
+same graph with `MiniMaxLowVRAMAttention` (head_chunks 4) spliced between sage
+and Sol-Attn:
+
+| arm | whole-GPU peak | wall clock |
+|---|---|---|
+| control | 22,248 MiB | 33.2 min |
+| + lowvram delegate x4 | 22,762 MiB | **30.7 min** |
+
+**Memory: +514 MiB, and that is UNRESOLVED, not "unchanged".** The delta is
+well inside this observable's documented 2,265 MiB single-config excursion
+(entry 7). The probe script auto-printed "the peak did not move, so head
+slicing is not what sets it" — that conclusion is not supported by its own
+instrument and is withdrawn. All that can be said is that the effect is
+smaller than whole-GPU peak can see.
+
+**Time: 0.925x — 7.5% FASTER.** This is the axis that resolves, since
+wall-clock does not carry the allocator excursion, and it is the axis the
+script buried in a parenthetical because it was written to answer a memory
+question. Single run, so it wants a repeat before it is quoted as a figure.
+
+**Do not read this as a result about head chunking.** The delegate is
+KJNodes' `minimax_attn_lowmem_forward`, which chunks *and* releases the
+block's `h` early via a separate block-level patch. A speedup cannot be
+attributed between the two from this arm. The clean test is round 2's
+`sage only` against `sage only + chunks 4`, where nothing else differs.
+
+Worth noting against the pre-registered prediction: it expected chunking to
+cost wall-clock. This arm gained it. If round 2 agrees, the per-step-overhead
+model is wrong — which is the falsification branch, and it holds without
+needing `d` or `f`.
+
+**The script's conclusion logic had no branch for this outcome** — memory
+unresolved, timing moved — so it defaulted to a memory verdict it could not
+support. Same lesson as choosing an instrument that no longer matches the
+model: the interpretation has to be re-checked when the informative axis
+changes, not just the measurement.
+
+**Blocker: none, round 2 is running.**
 
 ---
 
