@@ -190,6 +190,45 @@ half of it. This matters here more than in most repos because measured
 numbers, upstream source reads and analytical estimates sit in the same
 paragraphs, and six months later they are indistinguishable by tone.
 
+### `SageChainAssert`'s call-time case cannot see sage
+
+Found 2026-08-13 by removing Sol-Attn from a graph and watching the assert
+fail for a reason unrelated to what changed.
+
+`_exercise` pushes one tensor through the composed attention and requires a
+routing counter to move. The counter it reads is resolved by scanning loaded
+modules for a callable named **`sol_attn_stats`** (`assert_chain.py:114-131`)
+— Sol-Attn's counters. `attention.py` exposes no counter of its own; the only
+state it publishes is `reset_fallback_state`.
+
+So on a sage-only graph the probe runs, sage routes it, nothing named
+`sol_attn_stats` moves, and the node reports "the composed path was not
+taken". Sage is fine. The instrument cannot observe it.
+
+The inverse is the part that matters for graphs we actually ship: when the
+assert passes at call time, **what it confirmed is that Sol-Attn routed the
+probe**. It says nothing at call time about sage, which is the node it is
+named for. And because Sol-Attn's module is imported process-wide whenever the
+pack is installed, `sol_attn_stats` resolves even in graphs that do not use
+it — so the check cannot distinguish "Sol is not in this graph" from "the
+composed path was not taken".
+
+This is the same check that, per the note at `assert_chain.py:110-113`, "ran
+registration-only from the day it was written until 2026-08-11, and said so in
+a line nobody read, under a final `chain assert ok`". The 2026-08-11 fix
+closed the registration-only gap and wired the new case to the wrong module's
+counters.
+
+**Consequences, in order:**
+
+1. The sage-only configuration is not merely unmeasured (open experiment 9),
+   it is currently **unrunnable** with the shipped assert in the graph.
+2. Every "routed as …" line in this repo's logs is a statement about Sol.
+3. The fix is a counter in `attention.py` incremented where sage actually
+   routes, with Sol's counters kept as a separate optional case. Until then
+   `require_override`/`exercise` must be turned off to run sage alone, and
+   that is a workaround, not a repair.
+
 ### The same defect pointed inward
 
 Within an hour of writing the rule above, the same failure recurred in the

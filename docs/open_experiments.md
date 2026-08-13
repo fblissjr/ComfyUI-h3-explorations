@@ -407,7 +407,13 @@ untestable without the control.
 model, the prompt, or the acceleration. Today that is unattributable, which
 makes it the most expensive gap on this page.
 
-**Blocker: none. This is cheap and nobody has run it.**
+**Blocker, discovered 2026-08-13 by trying it: `SageChainAssert` fails on a
+sage-only graph.** Not because sage is broken — its call-time probe reads
+Sol-Attn's counters (`sol_attn_stats`), and we publish none of our own, so
+with Sol removed nothing moves and the node reports the composed path was not
+taken. Both sage-only arms of round 2 died on it in 1.0 min. See
+`docs/checks.md`. The control needs either that counter added or
+`require_override`/`exercise` turned off, and only the first is a repair.
 
 ---
 
