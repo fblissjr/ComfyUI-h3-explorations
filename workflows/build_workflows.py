@@ -55,7 +55,7 @@ from h3_config import (  # noqa: E402
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
-    TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT,
+    TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_LENGTH,
 )
 
 # Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
@@ -93,6 +93,15 @@ VIDEO_FORMAT = "video/h264-mp4"
 # path is exercised rather than skipped, and long enough that the
 # truncate-then-snap-to-17n+5 step actually truncates.
 PLACEHOLDER_VIDEO = "20260601_172336_00001-audio.mp4"
+# Kept in the input directory but used by NO shipped graph. They exist to make
+# the force_rate hazard reproducible: three 6.00-second clips trimmed to differ
+# only in frame rate, so the 0% / +4.2% / +25.0% timeline errors in the note
+# below can be re-derived rather than trusted. Built with
+#   ffmpeg -ss 2 -t 6 -i <src> -c:v libx264 -crf 18 -c:a aac <dst>
+# from LTX-2_00010-audio1.mp4 (24), 20260601_172336_00001-audio.mp4 (25) and
+# The_Pavement_Turns_To_Carpet.mp4 (30). Safe to delete; nothing references them.
+_FPS_PROBE_CLIPS = ("h3ref_24fps_6s.mp4", "h3ref_25fps_6s.mp4",
+                    "h3ref_30fps_6s.mp4")
 # Silent, for the video-only arm. **VHS RAISES when its audio output is wired
 # on a clip with no audio stream** -- "VHS failed to extract audio from ..." --
 # so a video-only graph has to leave that socket unwired rather than lean on
@@ -928,7 +937,7 @@ the output and they may not appear even when everything is fine.
 ```
 sage routing: arch=sm89 ... pv_accum=fp32+fp16 -> fp8_cuda++
 [sol_attn] chaining onto an existing attention override
-[sol_attn] sparse (1, ..., 56, 128) tau=2.0 int8 pointer
+[sol_attn] sparse (1, ..., 56, 128) tau=1.3 int8 pointer
 ```
 
 Line 1: sage engaged on the fast kernel. Line 3: sparse engaged at your tau.
@@ -1061,78 +1070,238 @@ conditioned at.
 """
 
 
-def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False):
-    """A ref2va prompt declaring EXACTLY the labels this arm actually wires.
+def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
+                video_role="structure", audio_role="music"):
+    """A ref2va prompt declaring EXACTLY the labels this arm wires, in the
+    relationship it actually asks for.
 
-    The label numbering is not free. `MiniMaxH3Tokenizer` emits references in
-    a fixed order -- images, then videos with each soundtrack's `<Audio j>`
-    immediately BEFORE its `<Video k>`, then standalone audio -- with a
-    SEPARATE 1-based counter per type. So a video's soundtrack takes
-    `<Audio 1>` and a standalone clip alongside it is `<Audio 2>`, while the
-    video is `<Video 1>` either way. Declaring a label the graph does not wire,
-    or numbering one differently from the tokenizer, is a prompt that refers to
-    something that is not there.
+    **The socket combination is mechanical; the relationship is the request.**
+    Which sockets are wired decides which labels the tokenizer emits. What the
+    prompt asks those labels to DO is a separate axis, and it is the one that
+    changes the output. Every arm here used to be `structure` + `music`, the
+    thinnest slice of what the guides describe.
 
-    Structure and markers follow
-    `internal/official_prompt_guides/...ref_en.md`: the six sections in order,
-    visual markers from section 4.1 (`fully_preserved`, `partially_preserved`,
-    `attribute_transfer`, `weak_reference`) and audio markers from 4.2
-    (`fully_copy`, `partially_copy`, `reference`, `weak_reference`), which are
-    a different set and do not interchange.
+    `video_role`, from official guide section 2.3, which names exactly three
+    whole-video relationships plus the subject-sourcing rule in 2.1:
+
+      edit       the source video for an edit. `partially_preserved`: keep the
+                 framing, camera and timing, change what the prompt names.
+                 **There is no mask socket on this node** -- the edit is
+                 whole-frame regeneration conditioned on the source, so what
+                 holds it together is `retention_analysis` saying precisely
+                 what survives, not a painted region.
+      continue   a continuation start point. The target begins where the
+                 source ends.
+      motion     motion transferred onto a DIFFERENT subject, via 2.1's
+                 multi-asset subject ("appearance from <Picture 1>, walking
+                 motion from <Video 1>") and the `attribute_transfer` marker.
+                 Needs images, since something must receive the motion.
+      structure  camera movement, cuts and rhythm only, at `weak_reference`.
+
+    `audio_role`, from section 2.4:
+
+      music      background-music style, at `reference`
+      voice      a speaker's timbre and delivery, at `reference`, carrying the
+                 `<Subject N> (Sx)` speaker id the guide requires
+      copy       the track reused as the target's audio, at `fully_copy`
+
+    Markers never cross sets: visual takes fully_preserved /
+    partially_preserved / attribute_transfer / weak_reference (4.1), audio
+    takes fully_copy / partially_copy / reference / weak_reference (4.2).
     """
     defs, retention, shot = [], [], []
     audio_n = 0
+    subject_from_video = video and not images
 
-    if images:
-        defs += [
-            "<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.",
-            "<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.",
-        ]
-        retention += [
-            "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.",
-            "<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.",
-        ]
+    if images and video and video_role == "edit":
+        # The combination worth starting from for an edit: the VIDEO is the
+        # source being altered and the IMAGE is what gets put into it. Without
+        # the image the prompt has to describe the insert in words, which is
+        # exactly the part a reference image is better at than prose.
+        defs.append(
+            "<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.")
+        defs.append(
+            "<Subject 2> is the garment shown in <Picture 1>, which replaces the one <Subject 1> wears in <Video 1>.")
+        defs.append(
+            "<Subject 3> is the environment in <Picture 2>, which replaces the background of <Video 1> while the camera move is kept.")
+        retention.append(
+            "<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment and the background change.")
+        retention.append(
+            "<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 1> replaces the original on <Subject 1>.")
+        retention.append(
+            "<Subject 3> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting come from <Picture 2>.")
+    elif images:
+        if video and video_role == "motion":
+            # 2.1: one subject, two assets, each named for what it provides.
+            defs.append(
+                "<Subject 1> is the person whose appearance comes from <Picture 1> and whose walking motion comes from <Video 1>.")
+            defs.append(
+                "<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.")
+            # 4.1: attribute_transfer means "referenced characteristics are
+            # transferred to a DIFFERENT identifiable target subject", so it
+            # belongs on the source giving the trait away -- <Video 1> below.
+            # On the recipient it reads as asking for this subject's own
+            # appearance to move onto somebody else, the opposite request.
+            retention.append(
+                "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Picture 1>.")
+            retention.append(
+                "<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.")
+        else:
+            defs += [
+                "<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.",
+                "<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.",
+            ]
+            retention += [
+                "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.",
+                "<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.",
+            ]
+    elif subject_from_video:
+        if video_role == "edit":
+            defs.append(
+                "<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.")
+            defs.append(
+                "<Subject 2> is a bright red waxed-cotton jacket that replaces the garment <Subject 1> wears in <Video 1>.")
+            retention.append(
+                "<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment changes.")
+            retention.append(
+                "<Subject 2> (appears in [Shot 1]): attribute_transfer - the red jacket replaces the original garment on <Subject 1>.")
+        else:
+            defs.append(
+                "<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.")
+            retention.append(
+                "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.")
+
     if video_audio:
         audio_n += 1
-        defs.append(f"<Audio {audio_n}> is the synchronized audio track of <Video 1> and is reused in the target video.")
-        retention.append(f"<Audio {audio_n}>: partially_copy - the ambience of <Audio {audio_n}> is kept under the new scene.")
+        if audio_role == "copy":
+            defs.append(f"<Audio {audio_n}> is the synchronized audio track of <Video 1> and is reused in the target video.")
+            retention.append(f"<Audio {audio_n}>: fully_copy - <Audio {audio_n}> is reused 1:1 as the target video's complete final audio track.")
+        else:
+            defs.append(f"<Audio {audio_n}> is the synchronized audio track of <Video 1> and is reused in the target video.")
+            retention.append(f"<Audio {audio_n}>: partially_copy - the ambience of <Audio {audio_n}> is kept under the new scene.")
+
     if video:
-        defs.append("<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.")
-        retention.append("<Video 1> (cut and pacing structure): weak_reference - only the pacing of the camera move is followed.")
+        role_def = {
+            "edit": "<Video 1> is the source video for the target video edit.",
+            "continue": "<Video 1> is the source video the target video continues from, beginning at its final frame.",
+            "motion": "<Video 1> is the source of the walking motion transferred to <Subject 1>; its own scene is not reused.",
+            "structure": "<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.",
+        }[video_role]
+        role_ret = {
+            "edit": "<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.",
+            "continue": "<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.",
+            "motion": "<Video 1> (motion source): attribute_transfer - only the gait and its timing are taken; the scene and the person are not.",
+            "structure": "<Video 1> (cut and pacing structure): weak_reference - only the pacing of the camera move is followed.",
+        }[video_role]
+        defs.append(role_def)
+        retention.append(role_ret)
+
     if audio:
         audio_n += 1
-        defs.append(f"<Audio {audio_n}> is a standalone music reference whose tempo and instrumentation the target video's score follows.")
-        retention.append(f"<Audio {audio_n}>: reference - only tempo and instrumentation are referenced, the signal is not copied.")
+        if audio_role == "voice":
+            # 2.4 requires the target speaker's global id, not a new number.
+            who = "<Subject 1>" if (images or subject_from_video) else "the speaker"
+            defs.append(f"<Audio {audio_n}> is the voice-timbre reference for {who} (S1).")
+            retention.append(f"<Audio {audio_n}>: reference - only timbre and delivery are referenced, the signal is not copied.")
+        elif audio_role == "copy":
+            defs.append(f"<Audio {audio_n}> is the audio asset reused as the target video's audio track.")
+            retention.append(f"<Audio {audio_n}>: fully_copy - reused 1:1 as the target video's complete final audio track.")
+        else:
+            defs.append(f"<Audio {audio_n}> is a standalone music reference whose tempo and instrumentation the target video's score follows.")
+            retention.append(f"<Audio {audio_n}>: reference - only tempo and instrumentation are referenced, the signal is not copied.")
 
-    if images:
-        shot.append("A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame.")
-    else:
-        shot.append("A medium shot establishes a quiet interior, and a figure enters from the left and stops at the center of the frame.")
-    if video:
-        shot.append("The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.")
-    else:
+    # The shot text has to cite each label where its relationship is active
+    # (guide 5.3), not merely mention it once in the definitions.
+    if video and video_role == "edit":
+        shot.append("The shot reproduces <Video 1> frame for frame in framing, camera movement, and timing.")
+        if images:
+            shot.append("<Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2> and moves through <Subject 3> instead of the original background.")
+        elif subject_from_video:
+            shot.append("<Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2>, whose waxed cotton catches the light differently as they turn.")
+        else:
+            shot.append("<Subject 1> keeps their position and motion while the wardrobe named above changes.")
+    elif video and video_role == "continue":
+        shot.append("The shot begins exactly where <Video 1> ends, on the same framing and lighting, and carries the motion forward without a cut.")
+        shot.append("<Subject 1> continues walking out of frame to the right as the camera holds.")
+    elif video and video_role == "motion":
+        shot.append("A medium shot establishes <Subject 2>, then <Subject 1> enters from the left, walking with the gait and timing taken from <Video 1>.")
         shot.append("The camera trucks right with small amplitude at slow speed.")
+    else:
+        if images:
+            shot.append("A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame.")
+        elif subject_from_video:
+            shot.append("A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame.")
+        else:
+            shot.append("A medium shot establishes a quiet interior, and a figure enters from the left and stops at the center of the frame.")
+        shot.append("The camera trucks right with small amplitude at slow speed"
+                    + (", holding the unhurried pace of <Video 1>." if video else "."))
 
-    subject = "<Subject 1>" if images else "the figure"
-    summary_parts = [f"The target video places {subject} in a single continuous shot"]
-    if images:
-        summary_parts = ["The target video places <Subject 1> inside <Subject 2> for a single continuous shot"]
-    if video:
-        summary_parts.append("following the pacing of <Video 1>")
+    summary = {
+        "edit": "The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names",
+        "continue": "The target video continues <Video 1> from its final frame, without a cut",
+        "motion": "The target video places <Subject 1> inside <Subject 2>, carrying the walking motion of <Video 1>",
+        "structure": ("The target video places <Subject 1> inside <Subject 2> for a single continuous shot"
+                      if images else "The target video places <Subject 1> in a single continuous shot"),
+    }[video_role if video else "structure"]
+    if not video and not images:
+        summary = "The target video is a single continuous shot"
     if audio:
-        summary_parts.append(f"scored after <Audio {audio_n}>")
+        summary += (f", with the voice of <Audio {audio_n}>" if audio_role == "voice"
+                    else f", scored after <Audio {audio_n}>")
+
+    # Guide 6: "Write complete dialogue and lyrics only inside `<d>` in
+    # `detailed_description`; do not repeat them in these two sections."
+    # The line therefore lives in the shot, and `overall_soundscape` states
+    # only the relationship for its audible layer (guide 6, same paragraph).
+    if audio and audio_role == "voice":
+        who = "<Subject 1>" if (images or subject_from_video) else "A figure"
+        shot.append(
+            f"{who} (S1) turns toward the camera and says, in the clear timbre "
+            f"referenced from <Audio {audio_n}>, "
+            "<d>[English] I thought you would have gone by now.</d>")
 
     soundscape = ("Steady interior room tone continues throughout, with soft footsteps and "
                   "fabric movement as the subject crosses the frame.")
     if video_audio:
         soundscape = ("The ambience of <Audio 1> continues under the shot, with soft footsteps "
                       "and fabric movement as the subject crosses the frame.")
-    music = (f"A slow instrumental score follows the tempo and instrumentation of <Audio {audio_n}>."
-             if audio else "N/A")
+    if audio and audio_role == "voice":
+        soundscape += (f" The vocal timbre of <Audio {audio_n}> is referenced for the "
+                       "speaking voice, and its signal is not copied.")
+
+    music = "N/A"
+    if audio and audio_role == "music":
+        music = f"A slow instrumental score follows the tempo and instrumentation of <Audio {audio_n}>."
+
+    # Guide 3.2's task-type vocabulary. This is NOT cosmetic: it is the only
+    # place the prompt states what relationship the references stand in, and
+    # every arm shipped `[reference generation]` regardless of role, which
+    # collapsed the exact axis these arms exist to vary.
+    #
+    # 3.2 is explicit that presence does not imply a type -- "if a reference
+    # video provides only camera movement, cuts, or rhythm, it normally
+    # belongs to `reference generation`" -- so motion and structure stay
+    # reference generation and only edit/continue get their own type.
+    types = []
+    if video and video_role == "edit":
+        types.append("video editing")
+    elif video and video_role == "continue":
+        types.append("video continuation")
+    if images or (video and video_role in ("motion", "structure")):
+        types.append("reference generation")
+    # 4.2's markers decide the audio type: fully_copy/partially_copy are a
+    # reuse of the signal, `reference` is not. 3.2: "when editing a source
+    # video, use `audio reuse` as well if its original audio remains audible."
+    if video_audio or (audio and audio_role == "copy"):
+        types.append("audio reuse")
+    if audio and audio_role in ("voice", "music"):
+        types.append("audio reference")
+    if not types:
+        types.append("reference generation")
 
     return "\n".join([
         "subject_definitions:", *defs, "",
-        "summary:", "[reference generation] " + ", ".join(summary_parts) + ".", "",
+        "summary:", f"[{' + '.join(types)}] " + summary + ".", "",
         "retention_analysis:", *retention, "",
         "detailed_description:",
         "The target video is in a cinematic live-action style with soft directional lighting.",
@@ -1140,6 +1309,92 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False):
         "overall_soundscape:", soundscape, "",
         "non_diegetic_music:", music,
     ])
+
+
+def _note_ref_relationship(role: str) -> str:
+    what = {
+        "edit": ("editing a source video", """\
+This is the **edit / "inpaint over it"** arm, and the first thing to know is
+that H3's reference node has **no mask socket**. The edit is whole-frame
+regeneration conditioned on the source, not a painted region. What holds the
+untouched parts still is `retention_analysis` saying precisely what survives:
+
+```
+<Video 1> (source video for the edit): partially_preserved - framing, camera
+    movement, and shot timing are kept; only what is named above changes.
+<Subject 1> ...: partially_preserved - face, build, posture, and motion are
+    retained from <Video 1>; the garment changes.
+<Subject 2> ...: attribute_transfer - the red jacket replaces the original
+    garment on <Subject 1>.
+```
+
+`partially_preserved` is the marker that means "keep this, except". Using
+`fully_preserved` here asks for a copy and gives the edit nowhere to happen;
+using `weak_reference` throws away the framing you are trying to keep."""),
+        "continue": ("continuing from the end of a source video", """\
+The **continuation / extend** arm. `<Video 1>` is a starting state rather than
+a thing to copy, so the marker is `partially_preserved` on the continuation
+relationship and the shot text says plainly that it begins where the source
+ends, without a cut.
+
+Worth knowing about the geometry: the reference video is truncated to the
+GENERATED frame count and snapped down to the 17n+5 grid, so a continuation is
+conditioned on at most as many frames as it will produce. A long source does
+not buy a longer run-up."""),
+        "motion": ("transferring motion onto a different subject", """\
+The **motion transfer** arm, and the one that uses a mechanism the others do
+not. Motion does not ride on `<Video N>`: guide section 2.1 defines ONE subject
+from TWO assets, naming what each provides.
+
+```
+<Subject 1> is the person whose appearance comes from <Picture 1> and whose
+    walking motion comes from <Video 1>.
+<Subject 1> ...: attribute_transfer - the gait and timing of <Video 1> are
+    transferred to the person in <Picture 1>.
+```
+
+`attribute_transfer` is defined as "referenced characteristics are transferred
+to a different identifiable target subject", which is exactly this. The video's
+own scene is explicitly NOT reused, and the definition says so, because
+otherwise the model has two competing environments."""),
+        "voice": ("referencing a speaker's voice", """\
+The **voice timbre** arm. Section 2.4 lists voice as an audio reference use and
+requires the target speaker's **global speaker id** in the definition:
+
+```
+<Audio 1> is the voice-timbre reference for <Subject 1> (S1).
+```
+
+The id comes from the target video's speaker order and is not renumbered for
+the audio. The marker is `reference`, from the AUDIO set -- the signal is not
+copied, only timbre and delivery. `fully_copy` would ask for the source
+waveform itself, which is a different request.
+
+This is the only arm here that puts a spoken line in `overall_soundscape`, so
+it is also the only one testing whether the referenced timbre survives into
+generated speech."""),
+    }[role]
+    return f"""\
+## Reference relationship: {what[0]}
+
+The five socket-combination arms all ask for the same weak thing -- pacing at
+`weak_reference` -- because which sockets are wired is mechanical. **What the
+prompt asks those labels to do is the axis that changes the output**, and this
+arm isolates one point on it.
+
+{what[1]}
+
+## Markers do not cross sets
+
+Visual labels take `fully_preserved`, `partially_preserved`,
+`attribute_transfer`, `weak_reference` (guide 4.1). Audio labels take
+`fully_copy`, `partially_copy`, `reference`, `weak_reference` (4.2). Only
+`weak_reference` appears in both. `bench/check_ref_prompt_labels.py` checks the
+labels exist; it does NOT check you picked a sensible marker, so that part is
+on the reader.
+
+See `docs/h3_references.md` for the full reference-type reference.
+"""
 
 
 def _note_ref_matrix(what: str) -> str:
@@ -1181,31 +1436,6 @@ itself.
 """
 
 
-_REF_VIDEO_PROMPT = """\
-subject_definitions:
-<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.
-<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.
-
-summary:
-[reference generation] The target video places <Subject 1> inside <Subject 2>, following the pacing of <Video 1>.
-
-retention_analysis:
-<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.
-<Video 1> (cut and pacing structure): weak_reference - only the timing of the cuts is followed.
-
-detailed_description:
-The target video is in a cinematic live-action style with soft directional lighting.
-[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>, as <Subject 1> turns toward the light and looks off-screen.
-
-overall_soundscape:
-Steady interior room tone continues throughout, with soft footsteps and fabric movement as <Subject 1> crosses the frame.
-
-non_diegetic_music:
-N/A"""
-
-
 _NOTE_REF_VIDEO = f"""\
 ## The first graph here that wires a reference video
 
@@ -1222,8 +1452,22 @@ the rate the container reports, and diffusers' own docstring flags the hazard
 in as many words -- a video whose real rate is lost on the way in is
 conditioned at the wrong speed, silently.
 
-So a 30 fps source at `force_rate=0` is a 25%-slow reference with nothing
-said. **Leave it at {REF_VIDEO_FORCE_RATE:g}.**
+**Measured**, on three 6.00-second clips trimmed to differ only in frame rate,
+with `force_rate=0` against `force_rate={REF_VIDEO_FORCE_RATE:g}`:
+
+| source | frames handed over | snapped to 17n+5 | H3 reads it as | error | last label |
+|---|---|---|---|---|---|
+| 24 fps | 144 | 141 | 5.875s | 0.0% | `<5.2 seconds>` |
+| 25 fps | 150 | 141 | 5.875s | **+4.2%** | `<5.2 seconds>` |
+| 30 fps | 180 | 175 | **7.292s** | **+25.0%** | `<7.0 seconds>` |
+
+At 30 fps the model is told a six-second reference is seven and a quarter
+seconds of action, and the conditioner's final timestamp says
+`<7.0 seconds>` where it should say `<5.2 seconds>`. **A 24 fps source is
+unaffected either way**, which is exactly why testing on one proves nothing.
+
+`bench/check_ref_prompt_labels.py` fails the build if any reference video
+loader drops off 24.
 
 ## What it costs, and why there is no fit node on this path
 
@@ -1702,6 +1946,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         g.link(model_src, 0, sol_node, "model", "MODEL")
         model_src = sol_node
 
+    prev_node = None
     if preview:
         # The largest practical saving on a long clip, and not a kernel
         # change: a 362-frame render is ~17 min, so seeing step 3 is what
@@ -2001,6 +2246,37 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         g.link(model_src, 0, stampn, "model", "MODEL")
         g.link(sched, 0, stampn, "sigmas", "SIGMAS")
         latent_src, latent_slot = stampn, 0
+    # The preview frames the override node already pushed to its DOM widget,
+    # recovered as an IMAGE batch once sampling is over. The live widget is
+    # transient -- it shows the current step and forgets the previous one --
+    # so this is the only way to see the denoising TRAJECTORY rather than one
+    # moment of it, and it adds no compute: the taeh3 decodes already happened.
+    #
+    # `after_sample` is a pure ordering edge; the node ignores the value. It
+    # hangs off latent_src, not `sampler`, because in the split graph the
+    # frames are still being written during stage 2 and latent_src is the
+    # only handle that means "whichever sampler ran last".
+    #
+    # Two couplings worth knowing before hand-editing:
+    #   - Bypassing the preview node requires bypassing these two as well.
+    #     The frames live on a wrapper that node installs, so without it this
+    #     raises rather than degrading quietly.
+    #   - PreviewImage is load-bearing, not decoration: an IMAGE output with
+    #     no consumer is never executed, so without a sink the frames node
+    #     would not run at all.
+    if prev_node is not None:
+        frames = g.add("GetPreviewOverrideFramesKJ", (1080, 560), size=(340, 80),
+                       inputs=[_in("model", "MODEL"),
+                               _in("after_sample", "LATENT,IMAGE")],
+                       outputs=[_out("frames", "IMAGE")],
+                       title="Preview frames (trajectory)")
+        g.link(prev_node, 0, frames, "model", "MODEL")
+        g.link(latent_src, latent_slot, frames, "after_sample", "LATENT")
+        strip = g.add("PreviewImage", (1080, 700), size=(360, 340),
+                      inputs=[_in("images", "IMAGE")],
+                      title="Denoising trajectory")
+        g.link(frames, 0, strip, "images", "IMAGE")
+
     g.link(latent_src, latent_slot, vdec, "samples", "LATENT")
     g.link(vvae, 0, vdec, "vae", "VAE")
     g.link(latent_src, latent_slot, adec, "samples", "LATENT")
@@ -2265,8 +2541,14 @@ def validate_ui(wf: dict, oi: dict, label: str) -> list[str]:
 # has nowhere to show them, and those decodes cost time that would land in
 # any timing run as an unattributed confound. It belongs in the graph you
 # watch and nowhere near the graph you measure.
+#
+# GetPreviewOverrideFramesKJ and its PreviewImage sink follow it for the same
+# reason and one more: the frames node reads a wrapper ModelPreviewOverrideKJ
+# installs, so in an API graph -- where that node is stripped -- it would not
+# merely be useless, it would raise and fail the render.
 _UI_ONLY = {"MarkdownNote", "Note", "Reroute", "PrimitiveNode",
-            "ModelPreviewOverrideKJ"}
+            "ModelPreviewOverrideKJ", "GetPreviewOverrideFramesKJ",
+            "PreviewImage"}
 
 # Rendered entirely by the frontend, so they have no entry in /object_info.
 # Subset of _UI_ONLY: ModelPreviewOverrideKJ is a real backend node that we
@@ -2361,6 +2643,14 @@ def main():
                     help="running ComfyUI base URL, or a path to a saved object_info.json")
     ap.add_argument("--out", default=str(HERE))
     ap.add_argument("--no-validate", action="store_true")
+    # Loading the right prompt into the right arm, without opening a JSON.
+    # The graphs already ship with theirs baked in; these are for pasting one
+    # into a graph you are editing by hand, or reading one without ComfyUI.
+    ap.add_argument("--list-prompts", action="store_true",
+                    help="one line per shipped graph: its name and prompt's first line")
+    ap.add_argument("--print-prompt", metavar="GRAPH",
+                    help="print one graph's exact prompt to stdout, ready to paste "
+                         "(name may omit the h3_ prefix and the .json suffix)")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -2390,11 +2680,11 @@ def main():
     GRAPHS: tuple[tuple[str, str, str, str | None, dict[str, Any], str], ...] = (
         ("h3_text_to_video.json", "t2v", "t2v", LONG_T2V_PROMPT, {},
          "text -> video + audio"),
-        ("h3_image_ref_plus_text_to_video.json", "r2v", "r2v", None, {},
+        ("h3_image_ref_plus_text_to_video.json", "r2v", "r2v", _ref_prompt(images=True), {},
          "reference image(s) + text -> video + audio"),
         ("h3_first_frame_to_video.json", "i2v", "i2v", None, {},
          "first frame + text -> video + audio (via MiniMaxH3KeyframeCanvas)"),
-        ("h3_image_ref_plus_text_to_video_ref_lora.json", "r2v-reflora", "r2v", None,
+        ("h3_image_ref_plus_text_to_video_ref_lora.json", "r2v-reflora", "r2v", _ref_prompt(images=True),
          dict(unet=MODELS["unet_fl2va"], lora=(REF_LORA, REF_LORA_STRENGTH),
               out_prefix="Video/h3_r2v_fl2va_ref_lora"),
          "same, but fl2va + the extracted ref LoRA instead of ref2va"),
@@ -2431,20 +2721,20 @@ def main():
         # sockets and a prompt naming one that is not there fails silently.
         ("h3_ref_video_to_video.json", "r2v-video", "r2v",
          _ref_prompt(images=True, video=True, video_audio=True),
-         dict(ref_video=True, out_prefix="Video/h3_r2v_video",
+         dict(length=REF_VIDEO_LENGTH, ref_video=True, out_prefix="Video/h3_r2v_video",
               variant_note=_NOTE_REF_VIDEO),
          "images + reference video + its soundtrack -> video + audio"),
 
         ("h3_ref_video_only.json", "r2v-video-only", "r2v",
          _ref_prompt(images=False, video=True),
-         dict(ref_video=True, ref_video_audio=False, ref_images_on=False,
+         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_video_audio=False, ref_images_on=False,
               out_prefix="Video/h3_r2v_video_only",
               variant_note=_note_ref_matrix("a reference video and nothing else")),
          "reference video only, silent clip"),
 
         ("h3_ref_video_audio.json", "r2v-video-audio", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True),
-         dict(ref_video=True, ref_images_on=False,
+         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_images_on=False,
               out_prefix="Video/h3_r2v_video_audio",
               variant_note=_note_ref_matrix("a reference video with its own soundtrack")),
          "reference video + its soundtrack, no images"),
@@ -2457,10 +2747,44 @@ def main():
 
         ("h3_ref_image_video_audio.json", "r2v-all", "r2v",
          _ref_prompt(images=True, video=True, video_audio=True, audio=True),
-         dict(ref_video=True, ref_audio=True,
+         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_audio=True,
               out_prefix="Video/h3_r2v_all",
               variant_note=_note_ref_matrix("every reference type at once")),
          "images + video + its soundtrack + standalone audio"),
+
+        ("h3_ref_video_edit.json", "r2v-edit", "r2v",
+         _ref_prompt(images=False, video=True, video_audio=True, video_role="edit"),
+         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_images_on=False,
+              out_prefix="Video/h3_r2v_edit",
+              variant_note=_note_ref_relationship("edit")),
+         "edit a source video -- the closest thing H3 has to inpainting"),
+
+        ("h3_ref_video_image_edit.json", "r2v-edit-combo", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True, video_role="edit"),
+         dict(length=REF_VIDEO_LENGTH, ref_video=True,
+              out_prefix="Video/h3_r2v_edit_combo",
+              variant_note=_note_ref_relationship("edit")),
+         "edit a source video, with images supplying what replaces what"),
+
+        ("h3_ref_video_continue.json", "r2v-continue", "r2v",
+         _ref_prompt(images=False, video=True, video_audio=True, video_role="continue"),
+         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_images_on=False,
+              out_prefix="Video/h3_r2v_continue",
+              variant_note=_note_ref_relationship("continue")),
+         "continue from the end of a source video"),
+
+        ("h3_ref_video_motion.json", "r2v-motion", "r2v",
+         _ref_prompt(images=True, video=True, video_role="motion"),
+         dict(length=REF_VIDEO_LENGTH, ref_video=True, ref_video_audio=False,
+              out_prefix="Video/h3_r2v_motion",
+              variant_note=_note_ref_relationship("motion")),
+         "transfer motion from a video onto a subject from an image"),
+
+        ("h3_ref_audio_voice.json", "r2v-voice", "r2v",
+         _ref_prompt(images=True, audio=True, audio_role="voice"),
+         dict(ref_audio=True, out_prefix="Video/h3_r2v_voice",
+              variant_note=_note_ref_relationship("voice")),
+         "reference a speaker's voice timbre for generated speech"),
 
         # --- probes: pairs, one variable, run against the named twin ---
 
@@ -2575,13 +2899,13 @@ def main():
                   "default and you have three shapes at one price.")),
          "9:16 portrait, the same cost as the default canvas"),
 
-        ("h3_probe_ref2v_turbo.json", "r2v-turbo", "r2v", None,
+        ("h3_probe_ref2v_turbo.json", "r2v-turbo", "r2v", _ref_prompt(images=True),
          dict(lora=(TURBO_LORA, TURBO_LORA_STRENGTH), steps=TURBO_STEPS,
               shift=TURBO_SHIFT,
               out_prefix="Video/h3_probe_r2v_turbo",
               variant_note=_NOTE_REF2V_TURBO),
          "ref2v with an fl2v turbo LoRA -- deliberately out of distribution"),
-        ("h3_probe_reference_upscale.json", "r2v-noupscale", "r2v", None,
+        ("h3_probe_reference_upscale.json", "r2v-noupscale", "r2v", _ref_prompt(images=True),
          dict(ref_upscale=False, out_prefix="Video/h3_probe_ref_noupscale",
               variant_note=_probe_note(
                   "does upscaling a small reference buy anything",
@@ -2632,10 +2956,29 @@ def main():
          "the same render with the heads in 4 groups"),
     )
 
+    if args.list_prompts or args.print_prompt:
+        want = (args.print_prompt or "").removesuffix(".json").removeprefix("h3_")
+        hit = False
+        for fname, label, task, prompt, _extra, note in GRAPHS:
+            short = fname.removesuffix(".json").removeprefix("h3_")
+            text = prompt if prompt is not None else {
+                "t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]
+            if args.list_prompts:
+                print(f"{short:<34} {label:<20} {text.splitlines()[0][:44]}")
+            elif short == want or label == want:
+                print(text)
+                hit = True
+        if args.print_prompt and not hit:
+            raise SystemExit(
+                f"no graph named {args.print_prompt!r}. "
+                f"Run --list-prompts to see them.")
+        return 0
+
     for fname, label, task, prompt, extra, note in GRAPHS:
-        wf = build_ui(task, sage=True, length=LONG_LENGTH, preview=True,
+        wf = build_ui(task, sage=True, preview=True,
                       sol=SOL_RECOMMENDED, sol_enabled=True, prompt=prompt,
-                      title=f"h3-{label}-sage", **extra)
+                      title=f"h3-{label}-sage",
+                      **{"length": LONG_LENGTH, **extra})
         p = out / fname
         p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((label, "ui", p, wf))
@@ -2648,8 +2991,8 @@ def main():
         # variant_note is guidance drawn on the canvas; the API form has no
         # node that carries it and _UI_ONLY would flag it as a desync.
         api_extra = {k: v for k, v in extra.items() if k != "variant_note"}
-        wf = build_api(task, sage=True, length=LONG_LENGTH,
-                       sol=SOL_RECOMMENDED, prompt=prompt, **api_extra)
+        wf = build_api(task, sage=True, sol=SOL_RECOMMENDED, prompt=prompt,
+                       **{"length": LONG_LENGTH, **api_extra})
         p = out / fname.replace(".json", "_api.json")
         p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((label, "api", p, wf))

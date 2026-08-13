@@ -182,10 +182,20 @@ class MiniMaxH3Preflight(io.ComfyNode):
             lines.append(f"int32: {total:,} is past the csrc/fused uint32 wrap "
                          f"at {_CSRC_FUSED:,}. This one is NOT fixed.")
         elif total >= _INT32_FUSED:
+            # "unreachable at legal lengths" was true of LENGTH alone and false
+            # once references are in play, which is exactly when this line is
+            # read. 345 frames plus three reference videos reaches 201,246 with
+            # entirely legal inputs -- core permits 3 videos and 345 is the
+            # legal maximum -- so the old wording reassured the user about a
+            # ceiling they can actually hit. Report the headroom instead of
+            # asserting there is enough.
+            head = _CSRC_FUSED - total
             lines.append(
                 f"int32: past the fused crossing at {_INT32_FUSED:,}, which "
                 f"every sage build that can run this node has fixed. Next "
-                f"ceiling {_CSRC_FUSED:,}, unreachable at legal lengths.")
+                f"ceiling {_CSRC_FUSED:,} is NOT fixed and is "
+                f"{head:,} away ({100 * total / _CSRC_FUSED:.0f}% of it). "
+                f"Length alone cannot reach it; references can.")
         else:
             lines.append(f"int32: under the fused crossing at {_INT32_FUSED:,} "
                          f"(a contiguous layout would say {_CONTIGUOUS_STRIDE and 2**31 // _CONTIGUOUS_STRIDE:,}).")

@@ -28,6 +28,18 @@ Claims, i.e. what breaks if a case is deleted:
                         ahead of a standalone clip
   every ref graph seen  the walk found the shipped ref graphs. Without it a
                         rename turns this into a silent pass over nothing
+  force_rate is 24      every VHS_LoadVideo feeding a reference socket resamples
+                        onto 24. ComfyUI's node has no fps input and assumes 24
+                        twice -- the DiT's temporal clock and the
+                        "<T.T seconds>" labels -- so a source at another rate is
+                        conditioned at the wrong speed with nothing said.
+                        MEASURED on trimmed 6.00s clips: at force_rate=0 a
+                        25 fps source is read as 4.2% longer than it is, and a
+                        30 fps source as 7.292s instead of 6.000s, a 25%
+                        stretch whose last conditioner label reads
+                        "<7.0 seconds>" against the correct "<5.2 seconds>".
+                        A 24 fps source is unaffected either way, which is why
+                        testing on one proves nothing
 
 Reads the shipped API graphs. No CUDA, no model, no ComfyUI import.
 
@@ -130,7 +142,78 @@ def main():
                 bad.append(f"{name}: uses undefined {sorted(used - defined)}")
         assert not bad, "\n         ".join(bad)
 
+    def force_rate_is_24():
+        bad = []
+        for path in sorted(WORKFLOWS.glob("*_api.json")):
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            # which loaders actually feed a reference socket
+            feeding = set()
+            for node in doc.values():
+                if not isinstance(node, dict) or node.get("class_type") != REF_NODE:
+                    continue
+                for key, val in (node.get("inputs") or {}).items():
+                    if key.startswith(("ref_videos.", "ref_video_audios.")) \
+                            and isinstance(val, list) and val:
+                        feeding.add(str(val[0]))
+            for nid in feeding:
+                loader = doc.get(nid, {})
+                if loader.get("class_type") != "VHS_LoadVideo":
+                    continue
+                rate = loader.get("inputs", {}).get("force_rate")
+                if rate != 24 and rate != 24.0:
+                    bad.append(f"{path.name} node {nid}: force_rate={rate!r}, "
+                               "so a non-24fps source is conditioned at the "
+                               "wrong speed")
+        assert not bad, "\n         ".join(bad)
+
+    def prompts_match_the_generator():
+        """A baked prompt that no longer matches its generator is drift.
+
+        The graphs carry their prompt inline, which is what makes them
+        editable -- and what lets a hand-edit diverge from `_ref_prompt`
+        silently. Rebuild every prompt the GRAPHS table declares and assert
+        each shipped graph carries one of them verbatim.
+        """
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "_bw_for_check", REPO / "workflows" / "build_workflows.py")
+        if spec is None or spec.loader is None:
+            raise AssertionError("could not load build_workflows to compare")
+        # build_workflows imports h3_config as a bare name, so its own
+        # directory has to be importable; ComfyUI's root has to come FIRST so
+        # a later bare `import nodes` finds ComfyUI's and not this repo's.
+        import sys as _sys
+        for extra in (str(REPO / "workflows"), str(REPO.parents[1])):
+            if extra not in _sys.path:
+                _sys.path.insert(0, extra)
+        try:
+            import nodes  # noqa: F401
+        except Exception:
+            pass
+        bw = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(bw)
+
+        # every prompt `_ref_prompt` can produce for the roles in use
+        legal = set()
+        for imgs in (True, False):
+            for vid in (True, False):
+                for vaud in (True, False):
+                    for aud in (True, False):
+                        for vrole in ("structure", "edit", "continue", "motion"):
+                            for arole in ("music", "voice", "copy"):
+                                legal.add(bw._ref_prompt(
+                                    images=imgs, video=vid, video_audio=vaud,
+                                    audio=aud, video_role=vrole, audio_role=arole))
+        bad = [name for name, inputs in graphs
+               if isinstance(inputs.get("prompt"), str)
+               and inputs["prompt"] not in legal]
+        assert not bad, (
+            "these graphs carry a prompt `_ref_prompt` cannot produce, so a "
+            "hand-edit has diverged from the generator: " + ", ".join(bad))
+
     check("every ref graph seen", every_ref_graph_seen)
+    check("baked prompts match the generator", prompts_match_the_generator)
+    check("reference videos are resampled to 24 fps", force_rate_is_24)
     check("prompt labels match the wired references", labels_agree)
     check("no undefined subject labels", subjects_resolve)
 

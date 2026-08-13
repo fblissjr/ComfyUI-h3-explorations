@@ -4,6 +4,119 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.13.0
+
+### Fixed
+
+- **The reference-video graphs shipped at a length that does not fit on a
+  24 GB card.** Measured, not predicted: at 345 frames the arm builds a
+  **182,092-token** sequence (102,816 video, 60,212 references, 16,352 text)
+  and the render reached step 4 of 16 at 123.5 s/it before Sol-Attn's kernel
+  OOMed and fell back, then sage's OOMed and fell back, then ComfyUI's own
+  SDPA OOMed with 21.05 GiB allocated against a 23.54 GiB limit. The fallback
+  chain behaved exactly as designed; there was simply no room. The four
+  video-bearing reference graphs now ship at `REF_VIDEO_LENGTH = 124`
+  (82,686 tokens).
+
+  A reference video is truncated to the **generated** frame count, so its cost
+  scales with that number twice over: once for the video rows and once for the
+  reference rows. That is why shortening the clip helps disproportionately.
+- **`MiniMaxH3Preflight` told the user a ceiling was "unreachable at legal
+  lengths".** True of length alone, false once references are in play -- which
+  is exactly when anyone reads that line. 345 frames plus three reference
+  videos reaches 201,246 against a 199,728 wrap, with entirely legal inputs.
+  It now reports the remaining headroom and says plainly that length alone
+  cannot reach it but references can. Caught by reading Preflight's own output
+  on a live render.
+
+- **All fourteen reference arms shipped the same task-type prefix.** Every
+  prompt opened `[reference generation]`, hardcoded, including the two edits
+  and the continuation -- so `h3_ref_video_edit` and `h3_ref_video_only`
+  opened with identical words and the relationship axis those arms exist to
+  vary had quietly collapsed. The prefix is now derived from the arm's role
+  against the official guide's section 3.2 vocabulary, combined with ` + `
+  and never repeated: the edit-plus-images arm now reads
+  `[video editing + reference generation + audio reuse]`, which is the
+  guide's own worked example verbatim. Motion and structure stay
+  `reference generation`, because 3.2 is explicit that presence does not
+  imply a type -- only a video actually edited or continued earns its own.
+- **The voice arm put its only spoken line in `overall_soundscape`.** Guide
+  section 6: dialogue and lyrics go only inside `<d>` in
+  `detailed_description`. In the soundscape nothing anchored the line in
+  time. It now sits in the shot with its `(S1)` speaker id, and the
+  soundscape states only the reference relationship, which is what that
+  section is for.
+- **The motion arm marked the recipient of a transfer, not its source.**
+  `attribute_transfer` is defined as characteristics transferred *to* a
+  different subject, so on `<Subject 1>` it read as a request to move that
+  person's appearance onto somebody else -- the opposite of the arm's intent.
+  `<Subject 1>` is now `fully_preserved` from its image and `<Video 1>`
+  carries the transfer. Independently corroborated by two outside
+  character-swap examples that mark it the same way.
+- **Three Sol-Attn documents quoted a `tau` nobody runs.** The note baked
+  into all 26 UI graphs showed `tau=2.0` in its "check it is actually
+  running" example, and `docs/SOLATTN.md` showed `tau=1.2 bf16`. The node's
+  own default is **1.3** and `SOL_RECOMMENDED` pins 1.3, so anyone following
+  the instructions saw a number that disagreed with their own log and had no
+  way to tell which was wrong. `SOL_BASELINE_124F`'s 1.2 is untouched -- it
+  reproduces old measurements on purpose.
+- `docs/SOLATTN.md` located `SOL_RECOMMENDED` in `build_workflows.py` (it is
+  in `h3_config.py`) and said it ships a `dense_blocks` starting set (it
+  ships `""`; the set is `SOL_ARTIFACT_INSURANCE`, deliberately not wired).
+
+### Added
+
+- **`bench/check_prompt_guide_conformance.py`**, which takes its vocabulary
+  from the official guide's own tables at run time rather than from us. This
+  exists because `check_ref_prompt_labels.py` rebuilds every prompt the
+  generator can produce and compares -- a real guard against hand-edits, and
+  structurally unable to catch a generator that is confidently wrong. It
+  passed clean through the entire prefix collapse above. The new check
+  asserts the six sections and their order, the task-type vocabulary and its
+  combining rule, that markers never cross the visual/audio sets, and that
+  `<d>` appears only in `detailed_description`. It also rejects
+  `keyframe completion`, which is legal vocabulary and inert here:
+  `MiniMaxH3ReferenceToVideo` has no keyframe socket and the reference
+  implementation drops `image`/`last_image` whenever references are present.
+  Exits 2, not 0, when the guide is absent. Shown red six ways, including a
+  guide whose tables were reformatted away -- the fail-open case, since every
+  other assertion is set membership and membership in an empty set passes.
+- **The denoising trajectory is now recoverable, not just watchable.** The UI
+  graphs gain `GetPreviewOverrideFramesKJ` and a `PreviewImage` sink, which
+  return the frames `ModelPreviewOverrideKJ` already decoded through taeh3 as
+  an image batch. The live widget shows the current step and forgets the
+  previous one; this keeps the whole run, at no extra compute, which is what
+  makes two sampler or scheduler arms comparable without paying for a full
+  decode each. UI-only, like the preview node itself: in an API graph the
+  frames node would not merely be useless, it would raise.
+- `force_rate` is now guarded, with the hazard measured rather than argued.
+  On three 6.00-second clips trimmed to differ only in frame rate:
+
+  | source | H3 reads it as | error | last conditioner label |
+  |---|---|---|---|
+  | 24 fps | 5.875s | 0.0% | `<5.2 seconds>` |
+  | 25 fps | 5.875s | **+4.2%** | `<5.2 seconds>` |
+  | 30 fps | **7.292s** | **+25.0%** | `<7.0 seconds>` |
+
+  At 30 fps the model is told a six-second reference is seven and a quarter
+  seconds of action. A 24 fps source is unaffected either way, **which is why
+  testing on one proves nothing**. `check_ref_prompt_labels.py` now fails the
+  build if any loader feeding a reference socket drops off 24.
+
+### Verified
+
+- **The reference cost model is exact.** Preflight on a live render reported
+  `references 60,212`; the model predicted 60,212 from the clip's own
+  properties (345 ref frames, latent_t 102, canvas clamped to 960x544 by the
+  no-upscale rule, plus two 1024x1024 images upscaled to 2048x2048).
+- **The untruncated reference-audio divergence is real, and now observed.**
+  Preflight reported `audio refs 1,562` rows = 781 latents = **19.52 seconds**
+  of audio conditioning for a **14.375 second** generation. The reference
+  pipeline truncates a soundtrack to the generated duration; ComfyUI encodes
+  the whole waveform. 412 rows carried past the end of the clip.
+- The Preflight duration line, fixed in 0.11.0, is live and correct on a
+  reference graph -- the case where it was absent in 7 of 8 graphs before.
+
 ## 0.12.0
 
 ### Added

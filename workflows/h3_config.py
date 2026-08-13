@@ -373,3 +373,21 @@ REF_LORA_STRENGTH = 1.0
 # k=2-3 sweet spot was still sigma 0.84 there; here k=3 is 0.9524. So the
 # useful boundary is lower here and the sweep starts at 1.
 SPLIT_AT = 2
+
+# Generated length for the reference-video graphs, and it is lower than
+# LONG_LENGTH for a measured reason. At 345 frames the reference arm builds a
+# 182,092-token sequence -- 102,816 video, 60,212 references, 16,352 text --
+# and it does NOT fit on a 24 GB 4090. Measured 2026-08-13: the render reached
+# step 4 of 16 at 123.5 s/it, then Sol-Attn's kernel OOMed and fell back, then
+# sage's OOMed and fell back, then ComfyUI's own SDPA OOMed with 21.05 GiB
+# allocated against a 23.54 GiB limit. The fallback chain behaved perfectly;
+# there was simply no room.
+#
+# A reference video is the most expensive input in the model: it is truncated
+# to the GENERATED frame count, so its cost scales with this number twice over
+# -- once for the video rows and once for the reference rows.
+#
+#   345 frames -> 182,092 tokens   (OOM on 24 GB)
+#   209 frames -> 120,918
+#   124 frames ->  82,686          (shipped)
+REF_VIDEO_LENGTH = 124

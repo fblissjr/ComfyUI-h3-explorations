@@ -127,7 +127,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_r2v_image_audio",
+      "filename_prefix": "Video/h3_r2v_motion",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -142,7 +142,7 @@
     "inputs": {
       "shape": "wide",
       "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
-      "length": 345
+      "length": 124
     }
   },
   "5": {
@@ -160,7 +160,7 @@
         "4",
         0
       ],
-      "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n<Audio 1> is a standalone music reference whose tempo and instrumentation the target video's score follows.\n\nsummary:\n[reference generation + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, scored after <Audio 1>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n<Audio 1>: reference - only tempo and instrumentation are referenced, the signal is not copied.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.\n\noverall_soundscape:\nSteady interior room tone continues throughout, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nA slow instrumental score follows the tempo and instrumentation of <Audio 1>.",
+      "prompt": "subject_definitions:\n<Subject 1> is the person whose appearance comes from <Picture 1> and whose walking motion comes from <Video 1>.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n<Video 1> is the source of the walking motion transferred to <Subject 1>; its own scene is not reused.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2>, carrying the walking motion of <Video 1>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Picture 1>.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n<Video 1> (motion source): attribute_transfer - only the gait and its timing are taken; the scene and the person are not.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left, walking with the gait and timing taken from <Video 1>. The camera trucks right with small amplitude at slow speed.\n\noverall_soundscape:\nSteady interior room tone continues throughout, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
       "width": [
         "27",
         0
@@ -182,8 +182,8 @@
         "25",
         0
       ],
-      "ref_audios.ref_audio_0": [
-        "33",
+      "ref_videos.ref_video_0": [
+        "28",
         0
       ]
     }
@@ -224,10 +224,17 @@
       "lift_downstream_clamp": false
     }
   },
-  "33": {
-    "class_type": "LoadAudio",
+  "28": {
+    "class_type": "VHS_LoadVideo",
     "inputs": {
-      "audio": "4th-ninja-Breathless_Heights.mp3"
+      "video": "LTX-2_00065.mp4",
+      "force_rate": 24.0,
+      "custom_width": 0,
+      "custom_height": 0,
+      "frame_load_cap": 0,
+      "skip_first_frames": 0,
+      "select_every_nth": 1,
+      "format": "AnimateDiff"
     }
   },
   "19": {

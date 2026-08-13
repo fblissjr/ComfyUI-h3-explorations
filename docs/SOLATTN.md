@@ -24,7 +24,7 @@ persistent object can dissolve partway through a clip and be replaced by
 something else, with no recovery. Sections marked RETRACTED or REOPENED
 below have not been re-measured yet.
 
-Working configuration lives in `workflows/build_workflows.py` as
+Working configuration lives in `workflows/h3_config.py` as
 `SOL_RECOMMENDED`, with the reasoning for each knob in the comment above it.
 The generated graphs are in `workflows/`.
 
@@ -144,7 +144,9 @@ same job for the packed conditioning rows. Both are cheaper than backing
 every attention call both sparse and dense and logs per-block relative
 error worst-first. Run it at the `tau` you actually intend to use, since a
 profile taken at a gentler setting is measured where the failure does not
-occur. `SOL_RECOMMENDED` ships a starting set pending our own probe run.
+occur. `SOL_RECOMMENDED` ships `dense_blocks=""` -- no blocks forced dense.
+A starting set exists as `SOL_ARTIFACT_INSURANCE` in `h3_config.py`, which is
+deliberately NOT what the graphs wire, pending our own probe run.
 
 ### The earlier judgments, at length 124
 
@@ -314,7 +316,7 @@ Confirmed engaged, rather than assumed, from its own verbose logging:
 
 ```
 [sol_attn] composed with 50 object-patched attention forward(s)
-[sol_attn] sparse (1, 37826, 56, 128) tau=1.2 bf16
+[sol_attn] sparse (1, 37826, 56, 128) tau=1.3 int8 pointer
 ```
 
 with no `dense: <reason>` lines and zero kernel failures.

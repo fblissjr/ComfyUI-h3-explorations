@@ -56,6 +56,7 @@ papercut and is listed under Gaps.
 | `check_lowvram_handoff.py` | **more than its name says.** Three cases are KJNodes interop (the `[x]` list hand-off, the fallback with a list input, `minimax_head_chunks` honoured from `transformer_options`); **two are ours regardless of KJNodes** -- the plain tensor path, and that head chunking at 1/2/3/7 groups reassembles bit-identically | - | yes | not recorded |
 | `check_schema_defaults.py` | every node's `io.Schema` defaults match its `execute()` signature defaults, for all 7 nodes. ComfyUI does **not** inject a schema default for an input a prompt omits, so the two are independent and a split means the UI and the API path see different values | `PYTHONPATH` self-bootstrapped | yes | **yes**, on the real `length` split, 2026-08-13 |
 | `check_ref_prompt_labels.py` | every ref graph's prompt names **exactly** the labels its graph wires. The tokenizer derives `<Picture i>` / `<Video k>` / `<Audio j>` from the wired sockets, not from the prompt, so the two drift silently -- and a video's soundtrack takes `<Audio 1>` ahead of a standalone clip, which is easy to number wrong by hand | - | yes | **yes**, both directions, 2026-08-13 |
+| `check_prompt_guide_conformance.py` | every shipped ref prompt against the **official guide's own tables**, parsed at run time -- the six sections and their order, the `[...]` task-type vocabulary and its ` + ` combining rule, markers never crossing the visual/audio sets, and `<d>` only in `detailed_description`. Exists because `check_ref_prompt_labels.py` compares the generator to itself and so passed clean while all fourteen arms shipped a hardcoded `[reference generation]`. Also rejects `keyframe completion`, which is legal vocabulary and structurally inert here. Exits 2, not 0, when the guide is absent | the guide in `internal/` | yes | **yes**, six mutations incl. the fail-open guard, 2026-08-13 |
 | `check_distill_settings.py` | **every** shipped graph, both forms: a turbo graph matches its LoRA's shift and steps, a base graph sits at the base checkpoint's 12/3, and the UI and API forms of each are paired and compared. Shifts *and* recommended step counts graded against the vendor README, not against itself. Exits 2, not 0, when that control is skipped | - | yes | **yes**, eight mutations, 2026-08-13 |
 | `check_solattn_correctness.py` | Sol-Attn's Triton kernels against the algorithm's own reference, cosine > 0.998 | CUDA, Triton | no | not recorded |
 | `check_keyframe_canvas.py` | canvas derivation, plus the aspect and duration rules | `PYTHONPATH` self-bootstrapped | yes | not recorded |
@@ -66,7 +67,7 @@ papercut and is listed under Gaps.
 | `smoke_h3.py` | the H3 chain composes and runs, after any node-pack update. **The only thing here that actually POSTs a prompt**, and on 2026-08-13 it was the only reason anyone discovered every API graph was unsubmittable -- `validate_api` was asserting the wrong shape, so no static check could have found it | live ComfyUI, GPU, model | no | n/a, it is a smoke test |
 
 "claims block" means the file carries a `Claims, i.e. what breaks if a case is
-deleted:` header enumerating what each case defends. Seven of fourteen do.
+deleted:` header enumerating what each case defends. Eight of fifteen do.
 
 ### A note on `check_lowvram_handoff.py`
 
