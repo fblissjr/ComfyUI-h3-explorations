@@ -348,8 +348,135 @@ see the amended `_chunked_heads` docstring.
 
 ---
 
+## 9. A clean run with no speed-ups at all
+
+**Tests:** whether the stack costs prompt adherence and reference fidelity,
+not just time.
+
+**Why it matters:** every reference graph here ships sage plus Sol-Attn, and
+several add a turbo LoRA on top. There is **no arm anywhere in this repo that
+renders without them**, so every quality judgment ever made here has been made
+through the stack. General prompting research reports that stacking
+accelerators degrades adherence and that a plain 20-25 step run is the thing
+to fall back on when references are being ignored — untested here, and
+untestable without the control.
+
+**Cost:** one render per comparison, at base steps, on an existing graph.
+
+**Decision it changes:** whether a disappointing reference result is the
+model, the prompt, or the acceleration. Today that is unattributable, which
+makes it the most expensive gap on this page.
+
+**Blocker: none. This is cheap and nobody has run it.**
+
+---
+
+## 10. The swap arm measures likeness with likeness turned down
+
+**Tests:** whether `allow_upscale=True` fits the reference-video budget.
+
+**Why it matters:** `REF_VIDEO_BUDGET` sets `ref_upscale=False` across all
+eight video-bearing arms, which was right for the arms that vary structure,
+motion or continuation. `h3_ref_video_swap` is the one arm whose entire
+subject is **identity**, and its reference is `1-man.png` at 1024x1024 —
+1.0 MP, half the 2048 short edge the model accepts. General prompting research
+puts the floor for face likeness at 2 MP and says a small reference or a face
+far from camera is the first failure to rule out. So that arm currently
+undercuts the thing it exists to measure.
+
+Cost is known from the table in `docs/h3_references.md`: 1,024 → 4,096
+reference rows, about +2% on a ~147k sequence.
+
+**Second-order:** `h3_probe_reference_upscale` exists to A/B upscaling against
+`h3_image_ref_plus_text_to_video`. Now that `ref_upscale=False` is the default
+for eight arms, that probe no longer isolates its own variable.
+
+**Blocker: none, it is priced in round 2's third arm.**
+
+---
+
+## 11. Does a reference video's INPUT resolution cost tokens
+
+**Tests:** whether feeding a downscaled clip reduces the sequence, or only
+decode time.
+
+**Why it matters:** general prompting research recommends downscaling a
+reference video hard when it is only providing motion, and our loaders sit at
+native (`custom_width: 0`). A reference video already costs rows in two
+places — the DiT reference block, and vision blocks inside the *text* segment
+at 2 fps, ~519 tokens per merged pair (`docs/h3_references.md`). The DiT side
+is resized to canvas, so input resolution should not touch it. Whether the
+**Qwen vision** side tokenizes at input resolution is the open half, and if it
+does, downscaling is a real lever on the ceiling rather than a load-time
+saving.
+
+**Cost:** two Preflight reads. No render, no GPU time, no sampling.
+
+**Blocker: none — this is the cheapest unrun item here.**
+
+---
+
+## 12. Aspect-ratio agreement between references and target
+
+**Tests:** whether mismatched aspect ratios across reference video, reference
+images and the target canvas degrade output.
+
+**Why it matters:** general prompting research says line them up. Nothing here
+does — `1-man.png` is 1:1, the placeholder clips are 16:9, and the arms render
+4:3 or 7:4. If it matters, it is a confound sitting under every reference
+result on this page.
+
+**Cost:** a matched-ratio arm against an existing one.
+
+**Blocker: needs a quality judgment, not a measurement.** Listed because the
+mismatch is currently invisible and unacknowledged rather than accepted.
+
+---
+
+## 13. Preflight's token math has an independent implementation now
+
+**Tests:** our packed-sequence arithmetic against somebody else's.
+
+**Why it matters:** every validation of the reference cost model so far has
+compared Preflight to numbers this repo derived. KJNodes shipped
+`MiniMaxH3TokenCounter` on 2026-08-11, which builds the same
+`[text | keyframes/refs | audio | video]` layout and reports `seq_len` plus a
+breakdown, written by a different author from the same upstream source. This
+repo's stated preference is an independent implementation over a self-derived
+number, and one is now sitting in `custom_nodes/`.
+
+Note the two are already known to differ elsewhere: `docs/h3_resolutions.md`
+records it computing its int32 warning from the contiguous stride where our
+Preflight uses the fused one. That is a reason to diff them, not a reason to
+assume either is wrong.
+
+**Cost:** wire it beside Preflight in one graph and compare, or lift its
+arithmetic into a CUDA-free check.
+
+**Blocker: none.** The strongest available control for a number this repo
+leans on heavily.
+
+---
+
 ## Completed, kept for the record
 
+- **Should we load through `DiffusionModelLoaderKJ`** — no, decided
+  2026-08-13, recorded so it is not re-opened on the strength of its feature
+  list. It offers six inputs where stock `UNETLoader` has two, and **three of
+  them mutate global state as a side effect of loading**: `sage_attention`
+  patches comfy attention globally, `enable_fp16_accumulation` flips
+  `torch.backends.cuda.matmul.allow_fp16_accumulation` (and its `else` branch
+  turns it *off*), `patch_cublaslinear` swaps `nn.Linear`. In a repo whose
+  premise is that two arms differ in one variable, that is three new ways for
+  a graph to silently change numerics. `sage_attention` is specifically
+  hostile here — we install our own H3 patch and compose Sol-Attn onto it in a
+  pinned order that `SageChainAssert` verifies, so a second global sage path
+  would either double-patch or shadow ours. Its fp8 `weight_dtype` options are
+  moot on an already-int8 checkpoint, and the fp16-accumulation flag cannot
+  reach sage's kernels at all (confirmed against the fork's source): it would
+  change Linear numerics while telling us nothing about attention. `VAELoaderKJ`
+  is a TAE selector we already get through the preview override;
+  `GGUFLoaderKJ` and `CheckpointLoaderKJ` do not apply.
 - **int8 VAE decode after ComfyUI `2a68ce33`** — re-measured 2026-08-11 at
   1.28x against 1.29x recorded. Unchanged; the figure stands.
 - **Does per-call attention peak predict process peak** — no. See
