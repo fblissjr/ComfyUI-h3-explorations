@@ -62,7 +62,7 @@ papercut and is listed under Gaps.
 | `check_short_edge_override.py` | the reference short-edge override applies once and never leaks | `PYTHONPATH` | no | **yes**, documented in-file |
 | `check_generator_constants.py` | the workflow generator reads upstream constants rather than repeating them | `PYTHONPATH` self-bootstrapped | no | not recorded |
 | `check_workflow_schema.py` | saved UI graphs against a live ComfyUI `/object_info`, type-checking widget values positionally | **live ComfyUI**, or `--object-info` cache | no | not recorded |
-| `smoke_h3.py` | the H3 chain composes and runs, after any node-pack update | live ComfyUI, GPU, model | no | n/a, it is a smoke test |
+| `smoke_h3.py` | the H3 chain composes and runs, after any node-pack update. **The only thing here that actually POSTs a prompt**, and on 2026-08-13 it was the only reason anyone discovered every API graph was unsubmittable -- `validate_api` was asserting the wrong shape, so no static check could have found it | live ComfyUI, GPU, model | no | n/a, it is a smoke test |
 
 "claims block" means the file carries a `Claims, i.e. what breaks if a case is
 deleted:` header enumerating what each case defends. Six of thirteen do.
@@ -143,6 +143,10 @@ Ordered by how much they undermine the standard above.
 4. **The `PYTHONPATH` split is invisible until it fails.** Three scripts
    require it and give a bare import error; six do not. Either all of them
    should bootstrap `sys.path`, or none should.
+
+0. **Run `smoke_h3.py` after any change to the generator.** It is the only
+   check that submits, and the class of bug it found -- a graph the validators
+   pass and the server refuses -- is invisible to everything else here.
 
 5. **`check_workflow_schema.py` and `smoke_h3.py` cannot run unattended.**
    Both need a live ComfyUI, and `smoke_h3.py` needs the models loaded too, so

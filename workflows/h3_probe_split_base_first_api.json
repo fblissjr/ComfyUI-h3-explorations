@@ -42,11 +42,11 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "model": [
-        "23",
+        "43",
         0
       ],
       "scheduler": "simple",
-      "steps": 16,
+      "steps": 8,
       "denoise": 1.0
     }
   },
@@ -54,7 +54,7 @@
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "23",
+        "43",
         0
       ],
       "conditioning": [
@@ -79,7 +79,7 @@
         0
       ],
       "sigmas": [
-        "8",
+        "29",
         0
       ],
       "latent_image": [
@@ -92,7 +92,7 @@
     "class_type": "VAEDecode",
     "inputs": {
       "samples": [
-        "22",
+        "32",
         0
       ],
       "vae": [
@@ -105,7 +105,7 @@
     "class_type": "VAEDecodeAudio",
     "inputs": {
       "samples": [
-        "22",
+        "32",
         0
       ],
       "vae": [
@@ -127,7 +127,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_t2v",
+      "filename_prefix": "Video/h3_probe_split_basefirst",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -171,11 +171,22 @@
       ]
     }
   },
+  "18": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+      "strength_model": 1.0
+    }
+  },
   "19": {
     "class_type": "MiniMaxH3SigmaShift",
     "inputs": {
       "model": [
-        "1",
+        "18",
         0
       ],
       "shift_video": 12.0,
@@ -241,22 +252,113 @@
       ]
     }
   },
-  "22": {
-    "class_type": "MiniMaxH3ProvenanceStamp",
+  "29": {
+    "class_type": "SplitSigmas",
     "inputs": {
-      "latent": [
-        "10",
-        0
-      ],
-      "model": [
-        "23",
-        0
-      ],
       "sigmas": [
         "8",
         0
       ],
-      "note": "bench t2v"
+      "step": 2
+    }
+  },
+  "30": {
+    "class_type": "DisableNoise",
+    "inputs": {}
+  },
+  "40": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "41": {
+    "class_type": "MiniMaxH3SageAttention",
+    "inputs": {
+      "model": [
+        "40",
+        0
+      ],
+      "mode": "auto",
+      "patch_token_refiner": false,
+      "head_chunks": 1
+    }
+  },
+  "42": {
+    "class_type": "SolAttnPatch",
+    "inputs": {
+      "model": [
+        "41",
+        0
+      ],
+      "tau": 1.3,
+      "start_percent": 0.2,
+      "end_percent": 0.9,
+      "min_tokens": 4096,
+      "int8_qk": true,
+      "sink_conditioning": "exact_kv_and_rows",
+      "morton": false,
+      "morton_curve": "2d_frame",
+      "int8_pv": true,
+      "verbose": false,
+      "use_tma": false,
+      "dense_blocks": ""
+    }
+  },
+  "43": {
+    "class_type": "SageChainAssert",
+    "inputs": {
+      "model": [
+        "42",
+        0
+      ],
+      "require_override": true,
+      "require_forward_patch": true,
+      "exercise": true,
+      "warn_only": false
+    }
+  },
+  "31": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "32": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "30",
+        0
+      ],
+      "guider": [
+        "31",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "29",
+        1
+      ],
+      "latent_image": [
+        "10",
+        0
+      ]
     }
   }
 }

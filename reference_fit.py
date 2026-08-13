@@ -131,9 +131,32 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
-                io.Int.Output(display_name="vision_tokens"),
+                # Named `latent_rows` since 2026-08-13. `_tokens` returns the
+                # DiT's packed rows, `(h//32)*(w//32)`, not Qwen vision tokens
+                # -- the two coincide below Qwen's max_pixels and diverge above
+                # it. The description and the module docstring both already
+                # called this `latent_rows`; the output did not. display_name
+                # is free to change, unlike node_id and position.
+                io.Int.Output(display_name="latent_rows"),
             ],
+            # Hidden inputs are not part of `inputs=[]`, so adding them moves
+            # no widget position. `prompt` is what lets this node see whether
+            # the downstream node is actually on 'max'.
+            hidden=[io.Hidden.prompt, io.Hidden.unique_id],
         )
+
+    @classmethod
+    def fingerprint_inputs(cls, lift_downstream_clamp=False, **kwargs):
+        """Force re-execution whenever the experimental clamp lift is armed.
+
+        The arm is a side effect of `execute`, and a cached node does not run.
+        So editing only the prompt text downstream left this node cached, the
+        arm never fired, and the render silently reverted to the 2048 clamp
+        with the checkbox still ticked. Returning a changing value here keeps
+        the node out of the cache for exactly the configuration that depends
+        on it, and leaves normal use cached.
+        """
+        return float("nan") if lift_downstream_clamp else None
 
     @classmethod
     def execute(cls, image, allow_upscale=True, short_edge=REF_IMAGE_SHORT_EDGE,
@@ -166,24 +189,73 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
         # is this node changing" rather than restating what it just did.
         stock_tokens = _tokens(*_fit(src_w, src_h, min(1.0, full)))
 
+        # Clear this node's own arm FIRST, unconditionally. The previous code
+        # only disarmed when the checkbox was off, so the "nothing to lift"
+        # branch -- the one that says out loud it is doing nothing -- was the
+        # branch that let a previous prompt's 3072 through.
+        node_id = getattr(cls.hidden, "unique_id", None)
+        disarm_short_edge_override(node_id)
+
+        # Does the node we feed actually read the constant we are about to
+        # lift? Under core's default `ref_image_size='match'` it never does:
+        # references are sized from the video's pixel area instead, this node's
+        # resize is undone, and the log below would otherwise claim an
+        # improvement that did not happen.
+        downstream = _downstream_ref_image_size(
+            getattr(cls.hidden, "prompt", None), node_id)
+        effective = downstream in (None, "max")
+
         logger.info(
             "[h3] reference %dx%d -> %dx%d (allow_upscale=%s, short_edge=%d): "
-            "%d vision tokens, %.2gx ComfyUI's own sizing", src_w, src_h, tw, th, allow_upscale,
-            short_edge, tokens, tokens / stock_tokens,
+            "%d latent rows, %.2gx ComfyUI's own sizing%s",
+            src_w, src_h, tw, th, allow_upscale, short_edge, tokens,
+            tokens / stock_tokens,
+            "" if effective else "  -- BUT SEE THE WARNING BELOW",
         )
-        if not lift_downstream_clamp:
-            # An arm from a previous prompt would otherwise survive the
-            # checkbox being switched off.
-            disarm_short_edge_override()
-        if lift_downstream_clamp and short_edge > REF_IMAGE_SHORT_EDGE:
-            arm_short_edge_override(short_edge)
-        elif lift_downstream_clamp:
-            logger.info(
-                "[h3] lift_downstream_clamp is on but short_edge is %d, at or "
-                "below the %d clamp, so there is nothing to lift.",
-                short_edge, REF_IMAGE_SHORT_EDGE)
+        if not effective:
+            logger.warning(
+                "[h3] MiniMax H3 Reference to Video is on ref_image_size=%r, "
+                "so it sizes references from the video's pixel area and never "
+                "reads the %d constant. This node's resize is undone "
+                "downstream: the %d rows above will NOT be what the DiT sees, "
+                "and you are paying two lanczos resamples for nothing. Set it "
+                "to 'max'.", downstream, REF_IMAGE_SHORT_EDGE, tokens)
+
+        if lift_downstream_clamp:
+            if short_edge > REF_IMAGE_SHORT_EDGE:
+                arm_short_edge_override(short_edge, node_id)
+            else:
+                logger.info(
+                    "[h3] lift_downstream_clamp is on but short_edge is %d, at "
+                    "or below the %d clamp, so there is nothing to lift.",
+                    short_edge, REF_IMAGE_SHORT_EDGE)
 
         return io.NodeOutput(out, tokens)
+
+
+def _downstream_ref_image_size(prompt, node_id):
+    """`ref_image_size` of the ReferenceToVideo this node feeds, or None.
+
+    None means "could not tell" -- no prompt, no consumer found, or a graph
+    shape this does not understand -- and is deliberately treated as "fine"
+    rather than as a warning, because a false alarm on every render would be
+    worse than the silence it replaces.
+    """
+    if not prompt or node_id is None:
+        return None
+    node_id = str(node_id)
+    sizes = set()
+    for spec in prompt.values():
+        if not isinstance(spec, dict) or spec.get("class_type") != "MiniMaxH3ReferenceToVideo":
+            continue
+        inputs = spec.get("inputs") or {}
+        feeds = any(isinstance(v, list) and v and str(v[0]) == node_id
+                    for v in inputs.values())
+        if feeds:
+            sizes.add(inputs.get("ref_image_size", "match"))
+    if len(sizes) != 1:
+        return None
+    return sizes.pop()
 
 
 def _fit(w, h, scale):
@@ -230,7 +302,12 @@ def _tokens(w, h):
 # pipeline as `ConfigSpec("reference_image_short_edge", 2048)`. This exists to
 # make that measurable, not because bigger is better.
 
-_PENDING_SHORT_EDGE = None
+# Keyed by the arming node's unique_id, not a bare value. With one global
+# value, two fit nodes in one graph resolved by execution order: the one with
+# the checkbox OFF called a global disarm and silently cancelled the other's
+# arm, and ComfyUI's order between independent nodes is not the graph's visual
+# order and not settable. Per-node entries make disarm affect only its own.
+_PENDING_SHORT_EDGE: dict[str, int] = {}
 _WRAP_MARKER = "_h3_explorations_short_edge_wrapper"
 
 
@@ -254,8 +331,18 @@ def _make_wrapper(original):
     model: `bench/check_short_edge_override.py` calls this with a stub.
     """
     def wrapper(*args, **kwargs):
-        global _PENDING_SHORT_EDGE
-        pending, _PENDING_SHORT_EDGE = _PENDING_SHORT_EDGE, None
+        # Consume and clear on EVERY call, armed or not, in a finally. An arm
+        # that is never consumed is an arm that reaches a later prompt, and
+        # clearing only on the armed path is what let that happen.
+        armed = dict(_PENDING_SHORT_EDGE)
+        _PENDING_SHORT_EDGE.clear()
+        pending = max(armed.values()) if armed else None
+        if len(set(armed.values())) > 1:
+            logger.warning(
+                "[h3] two Reference Resolution nodes armed different short "
+                "edges (%s); the downstream node reads ONE value for all of "
+                "them, so %d is being used for every reference in this graph.",
+                sorted(set(armed.values())), pending)
         if pending is None:
             return original(*args, **kwargs)
         if kwargs.get("ref_image_size", "match") == "match":
@@ -309,29 +396,45 @@ def _install_wrapper():
     node.execute = classmethod(_make_wrapper(inner))
 
 
-def arm_short_edge_override(value):
+def arm_short_edge_override(value, node_id=None):
     """Arm the override for the next downstream ReferenceToVideo call.
 
-    Arming is per fit node and consumption is per downstream call, and a
-    graph has one `ReferenceToVideo` for however many references. So two fit
-    nodes arm and one call consumes, and the survivor would sit in the module
-    until some later prompt picked it up -- a render getting an override it
-    never asked for, after the checkbox was turned off. Arming with the same
-    value twice is therefore idempotent by construction, and `disarm` below
-    clears anything left over at the start of each fit node.
+    Arming is per fit node and consumption is per downstream call, and a graph
+    has one `ReferenceToVideo` for however many references. The entry is keyed
+    by `node_id` so a sibling fit node with the checkbox off cannot cancel it;
+    the wrapper reconciles multiple arms and warns if they disagree.
+
+    **Known residual, and it is not closable through the public surface.** If a
+    prompt arms and no `ReferenceToVideo` runs -- the node is muted, execution
+    is interrupted, an unrelated branch raises -- the entry survives until the
+    next call to that node, which may be in a later prompt that never asked
+    for it. Closing it properly needs a prompt identity the wrapper can compare
+    against, and ComfyUI does not expose `prompt_id` to nodes (see
+    `provenance.py`, same finding). What is closed: the wrapper now clears on
+    every call rather than only the armed path, and every fit node clears its
+    own entry before arming, so the window is one prompt that contains the fit
+    node, does not reach the downstream node, and is followed by a prompt that
+    reaches the downstream node without the fit node.
     """
-    global _PENDING_SHORT_EDGE
     _install_wrapper()
-    if _PENDING_SHORT_EDGE not in (None, value):
+    key = str(node_id) if node_id is not None else "_anonymous"
+    previous = _PENDING_SHORT_EDGE.get(key)
+    if previous not in (None, value):
         logger.warning(
-            "[h3] short-edge override was already armed at %d and is now %d. "
-            "Set the same short_edge on every Reference Resolution node in a "
-            "graph; the downstream node reads one value for all of them.",
-            _PENDING_SHORT_EDGE, value)
-    _PENDING_SHORT_EDGE = value
+            "[h3] short-edge override for node %s was armed at %d and is now "
+            "%d.", key, previous, value)
+    _PENDING_SHORT_EDGE[key] = value
 
 
-def disarm_short_edge_override():
-    """Drop any arm left over from a previous prompt."""
-    global _PENDING_SHORT_EDGE
-    _PENDING_SHORT_EDGE = None
+def disarm_short_edge_override(node_id=None):
+    """Drop this node's arm, or every arm when no node is named.
+
+    Called unconditionally at the top of each `execute`, which is what stops a
+    previous prompt's value surviving the checkbox being switched off -- the
+    old code only disarmed on the checkbox-off path, so the branch that logged
+    "there is nothing to lift" was the branch that let 3072 through.
+    """
+    if node_id is None:
+        _PENDING_SHORT_EDGE.clear()
+    else:
+        _PENDING_SHORT_EDGE.pop(str(node_id), None)

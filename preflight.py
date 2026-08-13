@@ -31,7 +31,7 @@ contiguous figure and so stays silent through the range that matters. That
 crossing is fixed in every sage build able to run this repo's attention node,
 because `build_kernel` refuses any sageattention without `sageattn_consume`
 and the int64 fix precedes it. The next ceiling is the `csrc/fused` uint32
-wrap near 199,729, which no legal H3 length reaches -- about 660 frames
+wrap near 199,728, which no legal H3 length reaches on its own -- about 660 frames
 against a 345 maximum. Both numbers are stated so an absent warning is not
 mistaken for clearance.
 """
@@ -132,11 +132,22 @@ class MiniMaxH3Preflight(io.ComfyNode):
 
         tokens_per_frame = (width // 32) * (height // 32)
         in_family = adapt_canvas(width, height) == (width, height)
+        # `minimax_frame_count` is set ONLY on the keyframe path -- core
+        # writes it inside `if keyframes:` and MiniMaxH3ReferenceToVideo never
+        # writes it at all. Sourcing the duration line from it alone meant the
+        # line vanished on 7 of the 8 shipped graphs, including every ref
+        # graph, which is exactly where the 345-frame ceiling matters most.
+        # `latent_t` is already in hand, so derive it when the key is absent
+        # rather than printing nothing and letting absence read as "fine".
         frames = None
         for _cond, cd in conditioning:
             if cd.get("minimax_frame_count"):
                 frames = cd["minimax_frame_count"]
                 break
+        derived = frames is None
+        if derived and latent_t:
+            # inverse of video_latent_t: latent_t = ((n - 5) // 17) * 5 + 2
+            frames = ((latent_t - 2) // 5) * 17 + 5 if latent_t > 2 else 5
 
         label = {"text": "text", "cond": "keyframes", "ref_img": "references",
                  "ref_audio": "audio refs", "audio": "audio", "video": "video"}
@@ -146,7 +157,8 @@ class MiniMaxH3Preflight(io.ComfyNode):
             f"  {tokens_per_frame} video tokens/frame",
         ]
         if frames:
-            lines.append(f"{describe_length(frames)}  {latent_t} latent frames")
+            lines.append(f"{describe_length(frames)}  {latent_t} latent frames"
+                         + ("  (derived from the latent)" if derived else ""))
         lines.append(f"sequence length {total:,}")
         for kind, n in sorted(by_kind.items(), key=lambda kv: -kv[1]):
             lines.append(f"  {label.get(kind, kind):<12}{n:>8,}  "

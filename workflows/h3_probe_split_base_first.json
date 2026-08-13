@@ -8,10 +8,10 @@
       ]
     }
   },
-  "id": "94788cd6-66e8-5c07-9936-c00e991eded6",
+  "id": "0a25aa82-53e0-5316-b6dc-86a3d517e2fb",
   "revision": 0,
-  "last_node_id": 29,
-  "last_link_id": 32,
+  "last_node_id": 33,
+  "last_link_id": 39,
   "nodes": [
     {
       "id": 1,
@@ -33,7 +33,8 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            1
+            1,
+            9
           ]
         }
       ],
@@ -65,7 +66,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            12
+            7
           ]
         }
       ],
@@ -99,7 +100,7 @@
           "type": "VAE",
           "links": [
             6,
-            28
+            35
           ]
         }
       ],
@@ -131,8 +132,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            7,
-            30
+            37
           ]
         }
       ],
@@ -178,7 +178,7 @@
         "Node name for S&R": "LoraLoaderModelOnly"
       },
       "widgets_values": [
-        "h3/minimax_h3_ref_lora_rank_256_bf16.safetensors",
+        "h3/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
         1.0
       ],
       "title": "Load LoRA (ref delta, strength 1.0)"
@@ -348,7 +348,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            13
+            8
           ]
         }
       ],
@@ -385,21 +385,21 @@
           "name": "width",
           "type": "INT",
           "links": [
-            16
+            15
           ]
         },
         {
           "name": "height",
           "type": "INT",
           "links": [
-            17
+            16
           ]
         },
         {
           "name": "length",
           "type": "INT",
           "links": [
-            18
+            17
           ]
         },
         {
@@ -435,23 +435,23 @@
     },
     {
       "id": 11,
-      "type": "MiniMaxH3ReferenceToVideo",
+      "type": "MiniMaxH3ImageToVideo",
       "pos": [
         -460,
         0
       ],
       "size": [
         430,
-        620
+        560
       ],
       "flags": {},
-      "order": 21,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
           "name": "clip",
           "type": "CLIP",
-          "link": 12
+          "link": 7
         },
         {
           "name": "vae",
@@ -459,56 +459,21 @@
           "link": 6
         },
         {
-          "name": "audio_vae",
-          "type": "VAE",
-          "link": 7
-        },
-        {
-          "name": "ref_images.ref_image_0",
-          "type": "IMAGE",
-          "link": 9,
-          "label": "ref_image_0",
-          "shape": 7
-        },
-        {
-          "name": "ref_images.ref_image_1",
-          "type": "IMAGE",
-          "link": 11,
-          "label": "ref_image_1",
-          "shape": 7
-        },
-        {
-          "name": "ref_images.ref_image_2",
+          "name": "first_frame",
           "type": "IMAGE",
           "link": null,
-          "label": "ref_image_2",
           "shape": 7
         },
         {
-          "name": "ref_videos.ref_video_0",
+          "name": "last_frame",
           "type": "IMAGE",
           "link": null,
-          "label": "ref_video_0",
-          "shape": 7
-        },
-        {
-          "name": "ref_video_audios.ref_video_audio_0",
-          "type": "AUDIO",
-          "link": null,
-          "label": "ref_video_audio_0",
-          "shape": 7
-        },
-        {
-          "name": "ref_audios.ref_audio_0",
-          "type": "AUDIO",
-          "link": null,
-          "label": "ref_audio_0",
           "shape": 7
         },
         {
           "name": "width",
           "type": "INT",
-          "link": 16,
+          "link": 15,
           "widget": {
             "name": "width"
           }
@@ -516,7 +481,7 @@
         {
           "name": "height",
           "type": "INT",
-          "link": 17,
+          "link": 16,
           "widget": {
             "name": "height"
           }
@@ -524,7 +489,7 @@
         {
           "name": "length",
           "type": "INT",
-          "link": 18,
+          "link": 17,
           "widget": {
             "name": "length"
           }
@@ -535,194 +500,29 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            19
+            18
           ]
         },
         {
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            20
+            19
           ]
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3ReferenceToVideo"
+        "Node name for S&R": "MiniMaxH3ImageToVideo"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed as <Subject 1> turns toward the light and looks off-screen.\n\noverall_soundscape:\nSteady interior room tone continues throughout, with soft footsteps and fabric movement as <Subject 1> crosses the frame.\n\nnon_diegetic_music:\nN/A",
+        "integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium shot frames a courier in a soaked red jacket standing over a bicycle at a city crosswalk in heavy evening rain, wet asphalt throwing back the signal lights, a brick facade with iron railings filling the background. The camera tracks right at medium amplitude and moderate speed as she snaps her helmet strap and pushes off.\n[Shot 2] At 00:04.000, the shot cuts to a low tracking shot running alongside the bicycle as it crosses the junction, spray coming off the tyres, painted lane markings streaming past underneath.\n[Shot 3] At 00:08.000, the camera whip pans up to a wide shot of the street as she cuts between two parked cars, pigeons scattering off the railings, neon shopfront signs reflected in the puddles.\n[Shot 4] At 00:11.500, the shot changes to a close shot of her face under the helmet, rain streaking across the lens, as she glances back over her shoulder and then forward again, breathing hard.\n\noverall_soundscape: steady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.\n\nnon_diegetic_music: none.",
         1344,
         768,
-        345,
-        "max"
+        345
       ]
     },
     {
       "id": 12,
-      "type": "LoadImage",
-      "pos": [
-        -880,
-        640
-      ],
-      "size": [
-        290,
-        330
-      ],
-      "flags": {},
-      "order": 10,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            8
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "1-man.png",
-        "image"
-      ]
-    },
-    {
-      "id": 13,
-      "type": "LoadImage",
-      "pos": [
-        -880,
-        1010
-      ],
-      "size": [
-        290,
-        330
-      ],
-      "flags": {},
-      "order": 11,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            10
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "2-mountain_landscape.png",
-        "image"
-      ]
-    },
-    {
-      "id": 14,
-      "type": "MiniMaxH3ReferenceFit",
-      "pos": [
-        -580,
-        640
-      ],
-      "size": [
-        300,
-        150
-      ],
-      "flags": {},
-      "order": 12,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 8
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            9
-          ]
-        },
-        {
-          "name": "latent_rows",
-          "type": "INT",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "MiniMaxH3ReferenceFit"
-      },
-      "widgets_values": [
-        true,
-        2048,
-        false
-      ],
-      "title": "Reference 1 resolution"
-    },
-    {
-      "id": 15,
-      "type": "MiniMaxH3ReferenceFit",
-      "pos": [
-        -580,
-        1010
-      ],
-      "size": [
-        300,
-        150
-      ],
-      "flags": {},
-      "order": 13,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "link": 10
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            11
-          ]
-        },
-        {
-          "name": "latent_rows",
-          "type": "INT",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "MiniMaxH3ReferenceFit"
-      },
-      "widgets_values": [
-        true,
-        2048,
-        false
-      ],
-      "title": "Reference 2 resolution"
-    },
-    {
-      "id": 16,
       "type": "RandomNoise",
       "pos": [
         40,
@@ -733,7 +533,7 @@
         110
       ],
       "flags": {},
-      "order": 14,
+      "order": 11,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -741,7 +541,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            23
+            22
           ]
         }
       ],
@@ -754,7 +554,7 @@
       ]
     },
     {
-      "id": 17,
+      "id": 13,
       "type": "KSamplerSelect",
       "pos": [
         40,
@@ -765,7 +565,7 @@
         60
       ],
       "flags": {},
-      "order": 15,
+      "order": 12,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -773,7 +573,8 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            25
+            24,
+            31
           ]
         }
       ],
@@ -785,7 +586,7 @@
       ]
     },
     {
-      "id": 18,
+      "id": 14,
       "type": "BasicScheduler",
       "pos": [
         40,
@@ -796,13 +597,13 @@
         130
       ],
       "flags": {},
-      "order": 22,
+      "order": 25,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 14
+          "link": 13
         }
       ],
       "outputs": [
@@ -810,7 +611,7 @@
           "name": "SIGMAS",
           "type": "SIGMAS",
           "links": [
-            26
+            25
           ]
         }
       ],
@@ -819,12 +620,12 @@
       },
       "widgets_values": [
         "simple",
-        16,
+        8,
         1.0
       ]
     },
     {
-      "id": 19,
+      "id": 15,
       "type": "BasicGuider",
       "pos": [
         40,
@@ -835,18 +636,18 @@
         70
       ],
       "flags": {},
-      "order": 24,
+      "order": 26,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 15
+          "link": 14
         },
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 21
+          "link": 20
         }
       ],
       "outputs": [
@@ -854,7 +655,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            24
+            23
           ]
         }
       ],
@@ -863,7 +664,7 @@
       }
     },
     {
-      "id": 20,
+      "id": 16,
       "type": "SamplerCustomAdvanced",
       "pos": [
         400,
@@ -874,23 +675,23 @@
         150
       ],
       "flags": {},
-      "order": 25,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 23
+          "link": 22
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 24
+          "link": 23
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 25
+          "link": 24
         },
         {
           "name": "sigmas",
@@ -900,7 +701,7 @@
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 22
+          "link": 21
         }
       ],
       "outputs": [
@@ -908,8 +709,7 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            27,
-            29
+            33
           ]
         },
         {
@@ -923,7 +723,7 @@
       }
     },
     {
-      "id": 21,
+      "id": 17,
       "type": "VAEDecode",
       "pos": [
         780,
@@ -934,18 +734,18 @@
         60
       ],
       "flags": {},
-      "order": 26,
+      "order": 30,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 27
+          "link": 34
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 28
+          "link": 35
         }
       ],
       "outputs": [
@@ -953,7 +753,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            31
+            38
           ]
         }
       ],
@@ -962,7 +762,7 @@
       }
     },
     {
-      "id": 22,
+      "id": 18,
       "type": "VAEDecodeAudio",
       "pos": [
         780,
@@ -973,18 +773,18 @@
         60
       ],
       "flags": {},
-      "order": 27,
+      "order": 31,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 29
+          "link": 36
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 30
+          "link": 37
         }
       ],
       "outputs": [
@@ -992,7 +792,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            32
+            39
           ]
         }
       ],
@@ -1001,7 +801,7 @@
       }
     },
     {
-      "id": 23,
+      "id": 19,
       "type": "VHS_VideoCombine",
       "pos": [
         1080,
@@ -1012,18 +812,18 @@
         520
       ],
       "flags": {},
-      "order": 28,
+      "order": 32,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 31
+          "link": 38
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 32,
+          "link": 39,
           "shape": 7
         },
         {
@@ -1052,7 +852,7 @@
       "widgets_values": {
         "frame_rate": 24.0,
         "loop_count": 0,
-        "filename_prefix": "Video/h3_r2v_fl2va_ref_lora",
+        "filename_prefix": "Video/h3_probe_split_basefirst",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 19,
@@ -1063,7 +863,7 @@
       }
     },
     {
-      "id": 24,
+      "id": 20,
       "type": "SageChainAssert",
       "pos": [
         -480,
@@ -1074,13 +874,13 @@
         130
       ],
       "flags": {},
-      "order": 16,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 13
+          "link": 8
         }
       ],
       "outputs": [
@@ -1088,8 +888,7 @@
           "name": "model",
           "type": "MODEL",
           "links": [
-            14,
-            15
+            27
           ]
         }
       ],
@@ -1105,6 +904,180 @@
       "title": "Assert the attention chain composed"
     },
     {
+      "id": 21,
+      "type": "MiniMaxH3SigmaShift",
+      "pos": [
+        -1500,
+        900
+      ],
+      "size": [
+        360,
+        110
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            10
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SigmaShift"
+      },
+      "widgets_values": [
+        12.0,
+        3.0
+      ],
+      "title": "Sigma shift (stage 2, must match stage 1)"
+    },
+    {
+      "id": 22,
+      "type": "MiniMaxH3SageAttention",
+      "pos": [
+        -880,
+        900
+      ],
+      "size": [
+        360,
+        110
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SageAttention"
+      },
+      "widgets_values": [
+        "auto",
+        false,
+        1
+      ]
+    },
+    {
+      "id": 23,
+      "type": "SolAttnPatch",
+      "pos": [
+        -880,
+        1040
+      ],
+      "size": [
+        360,
+        330
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 11
+        },
+        {
+          "name": "tau_profile",
+          "type": "STRING",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SolAttnPatch"
+      },
+      "widgets_values": [
+        1.3,
+        0.2,
+        0.9,
+        4096,
+        true,
+        "exact_kv_and_rows",
+        false,
+        "2d_frame",
+        true,
+        false,
+        false,
+        ""
+      ]
+    },
+    {
+      "id": 24,
+      "type": "SageChainAssert",
+      "pos": [
+        -480,
+        900
+      ],
+      "size": [
+        360,
+        130
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "links": [
+            13,
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SageChainAssert"
+      },
+      "widgets_values": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "title": "Assert the stage-2 chain composed"
+    },
+    {
       "id": 25,
       "type": "MiniMaxH3Preflight",
       "pos": [
@@ -1116,18 +1089,18 @@
         260
       ],
       "flags": {},
-      "order": 23,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 19
+          "link": 18
         },
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 20
+          "link": 19
         }
       ],
       "outputs": [
@@ -1135,14 +1108,15 @@
           "name": "conditioning",
           "type": "CONDITIONING",
           "links": [
-            21
+            20,
+            28
           ]
         },
         {
           "name": "samples",
           "type": "LATENT",
           "links": [
-            22
+            21
           ]
         },
         {
@@ -1163,6 +1137,181 @@
     },
     {
       "id": 26,
+      "type": "SplitSigmas",
+      "pos": [
+        400,
+        250
+      ],
+      "size": [
+        300,
+        90
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 25
+        }
+      ],
+      "outputs": [
+        {
+          "name": "high_sigmas",
+          "type": "SIGMAS",
+          "links": [
+            26
+          ]
+        },
+        {
+          "name": "low_sigmas",
+          "type": "SIGMAS",
+          "links": [
+            32
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SplitSigmas"
+      },
+      "widgets_values": [
+        2
+      ],
+      "title": "Split the schedule at step 2"
+    },
+    {
+      "id": 27,
+      "type": "BasicGuider",
+      "pos": [
+        400,
+        420
+      ],
+      "size": [
+        300,
+        70
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 27
+        },
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 28
+        }
+      ],
+      "outputs": [
+        {
+          "name": "GUIDER",
+          "type": "GUIDER",
+          "links": [
+            30
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BasicGuider"
+      },
+      "title": "Stage 2 guider"
+    },
+    {
+      "id": 28,
+      "type": "DisableNoise",
+      "pos": [
+        400,
+        520
+      ],
+      "size": [
+        300,
+        60
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "NOISE",
+          "type": "NOISE",
+          "links": [
+            29
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DisableNoise"
+      },
+      "title": "Stage 2 adds no noise"
+    },
+    {
+      "id": 29,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+        760,
+        250
+      ],
+      "size": [
+        320,
+        150
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise",
+          "type": "NOISE",
+          "link": 29
+        },
+        {
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 30
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 31
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 32
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 33
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": [
+            34,
+            36
+          ]
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SamplerCustomAdvanced"
+      },
+      "title": "Stage 2: finish"
+    },
+    {
+      "id": 30,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1173,7 +1322,7 @@
         620
       ],
       "flags": {},
-      "order": 17,
+      "order": 21,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1186,7 +1335,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 27,
+      "id": 31,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1197,7 +1346,7 @@
         560
       ],
       "flags": {},
-      "order": 18,
+      "order": 22,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1210,7 +1359,7 @@
       "title": "Which nodes, and the order that matters"
     },
     {
-      "id": 28,
+      "id": 32,
       "type": "MarkdownNote",
       "pos": [
         -2860,
@@ -1221,7 +1370,7 @@
         900
       ],
       "flags": {},
-      "order": 19,
+      "order": 23,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1234,7 +1383,7 @@
       "title": "Resolution, references, and reading the preflight"
     },
     {
-      "id": 29,
+      "id": 33,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1242,10 +1391,10 @@
       ],
       "size": [
         620,
-        620
+        760
       ],
       "flags": {},
-      "order": 20,
+      "order": 24,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1253,7 +1402,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "# This graph, and what to compare it against\n\nThis is `h3_image_ref_plus_text_to_video.json` with **one thing changed**:\nwhere that graph loads `ref2va`, this one loads `fl2va` and applies Kijai's\nextracted ref LoRA on top.\n\nEverything else is shared by construction -- same seed, same prompt, same\ncanvas, same 362 frames, same 16 steps, same sage and Sol-Attn settings. Open\nboth, point them at the same reference images, run them. Any difference you\nsee is the LoRA.\n\n**Set your own reference images first.** The two `LoadImage` nodes hold\nwhatever placeholders this install happened to have.\n\n## What the LoRA is\n\nThe weight difference between `fl2va` and `ref2va`, extracted at rank 256\n(`Kijai/MiniMax-H3-experimental`, 2026-08-08). Not a trained adapter -- a\nwhole-model delta, covering all 50 blocks, both token_refiner blocks, the\npatch projections, `condition_proj` and the final layer, with full-rank\ndeltas on every norm and bias.\n\nAt strength **1.0** it is meant to turn fl2va into ref2va. Upstream's own\ndescription is *\"completely experimental, I don't even know if it has a use\ncase at this point\"*, so treat the shipped 1.0 as a\nstarting point, not a settled answer.\n\nExpect close, not identical, even when it works: rank 256 truncates the real\ndelta, and on the int8_convrot checkpoint the merge is a dequantize / add /\nrequantize round trip that loses a little more. A small gap is the expected\noutcome, not a broken graph.\n\n## Turning the strength dial\n\nBelow 1.0 you are interpolating toward plain fl2va -- between first/last-frame\nkeyframe conditioning and reference conditioning. That is the one thing two\nseparate checkpoints cannot give you, and it is the reason to keep this graph\naround. Expect it to be ill-behaved before it is useful: the norm and bias\ndeltas interpolate linearly, which is a crude stand-in for interpolating two\nmodels.\n\n**Strength 0.0 and ctrl-B bypass are the same thing.** ComfyUI short-circuits\na LoRA whose strengths are all zero (`nodes.py:729`) and hands back the\nuntouched model, so either route renders true plain fl2va. Use whichever you\nprefer -- just do not treat them as two different baselines.\n\nNeither pays what the 1.0 arm pays. Applying the LoRA to a quantized\ncheckpoint is a dequantize / add / requantize round trip, and the\nzero-strength route skips it. So part of any 1.0-against-0.0 difference is\nthat round trip, not the delta. To see the round trip on its own, render\n**0.01** -- visually nil, but it does not short-circuit.\n\n## One caveat if you are comparing carefully\n\nSol-Attn is on here, same as the shipped graph, because the point is to\ncompare like with like. But its window is a *percent* band that resolves\nagainst the model's own sigma curve, and the LoRA changes the model -- so the\ntwo graphs can end up running a different number of sparse steps. That is a\nsecond difference on top of the LoRA.\n\nIt does not matter for \"does this look right\". It does matter if you are\njudging a subtle quality difference. Bypass `SolAttnPatch` in **both** graphs\nto remove it.\n"
+        "## Two-stage split: plain base model on the high-noise steps, distilled student on the finish\n\nOne `BasicScheduler` feeds `SplitSigmas`, and both halves sample **the same\ncurve**. That shared schedule is the whole precondition, and it is why both\nstages carry the same `ModelSamplingMiniMaxH3` values. Two different shifts\nwould mean the two halves are integrating different curves and the handoff\nmeans nothing.\n\nRun this against **h3_probe_split_base_last.json**, which is the same graph with the two models\nswapped.\n\n**Why this ordering.** This is the Krea 2 arrangement, where the\nwin was seed and compositional diversity at near-turbo cost: the base model\nforms the composition in the high-noise steps and the distilled student\ndelivers a fast, sharp finish. It is the right way round when the finish is\nabout sharpness rather than identity.\n\n## Sweep the boundary from 1, not from 3\n\nH3's schedule is far more front-loaded than the model this pattern came from.\nAt video shift 12 and 8 steps the evaluation points are\n\n```\n1.0  0.9882  0.973  0.9524  0.9231  0.878  0.8  0.6316\n```\n\nSeven of the eight sit at sigma >= 0.8, and the **final interval alone covers\nthe bottom 63% of the range**. Krea 2's sweet spot of k=2-3 was still at sigma\n0.84 there; here k=3 is 0.9524, barely denoised. This graph ships k=2.\n\n## Honest caveats\n\n- **Both orderings have a handoff mismatch.** A distilled student's state after\n  its steps is not on the base model's trajectory, so whichever model receives\n  the handoff gets an input whose sigma label does not match its actual noise\n  content. The reverse ordering has the same problem mirrored. Nobody has\n  measured this for H3.\n- **Two samplers are expressible here and nowhere else.** Each stage has its\n  own `KSamplerSelect`, so a multistep base stage into a first-order distilled\n  finish is one graph. At low k the base stage has no multistep history yet and\n  degenerates to euler, which is exactly where the front-loaded schedule wants\n  the boundary -- so that freedom is smallest where it is most wanted.\n- `add_noise` is not a widget in this stack. `DisableNoise` is the\n  custom-sampler spelling of it, and it is what stage 2 reads.\n"
       ],
       "title": "What this graph is probing"
     }
@@ -1309,46 +1458,6 @@
     ],
     [
       7,
-      4,
-      0,
-      11,
-      2,
-      "VAE"
-    ],
-    [
-      8,
-      12,
-      0,
-      14,
-      0,
-      "IMAGE"
-    ],
-    [
-      9,
-      14,
-      0,
-      11,
-      3,
-      "IMAGE"
-    ],
-    [
-      10,
-      13,
-      0,
-      15,
-      0,
-      "IMAGE"
-    ],
-    [
-      11,
-      15,
-      0,
-      11,
-      4,
-      "IMAGE"
-    ],
-    [
-      12,
       2,
       0,
       11,
@@ -1356,10 +1465,50 @@
       "CLIP"
     ],
     [
-      13,
+      8,
       9,
       0,
+      20,
+      0,
+      "MODEL"
+    ],
+    [
+      9,
+      1,
+      0,
+      21,
+      0,
+      "MODEL"
+    ],
+    [
+      10,
+      21,
+      0,
+      22,
+      0,
+      "MODEL"
+    ],
+    [
+      11,
+      22,
+      0,
+      23,
+      0,
+      "MODEL"
+    ],
+    [
+      12,
+      23,
+      0,
       24,
+      0,
+      "MODEL"
+    ],
+    [
+      13,
+      24,
+      0,
+      14,
       0,
       "MODEL"
     ],
@@ -1367,44 +1516,36 @@
       14,
       24,
       0,
-      18,
+      15,
       0,
       "MODEL"
     ],
     [
       15,
-      24,
+      10,
       0,
-      19,
-      0,
-      "MODEL"
+      11,
+      4,
+      "INT"
     ],
     [
       16,
       10,
-      0,
+      1,
       11,
-      9,
+      5,
       "INT"
     ],
     [
       17,
       10,
-      1,
+      2,
       11,
-      10,
+      6,
       "INT"
     ],
     [
       18,
-      10,
-      2,
-      11,
-      11,
-      "INT"
-    ],
-    [
-      19,
       11,
       0,
       25,
@@ -1412,58 +1553,66 @@
       "CONDITIONING"
     ],
     [
-      20,
+      19,
       11,
       1,
       25,
       1,
       "LATENT"
+    ],
+    [
+      20,
+      25,
+      0,
+      15,
+      1,
+      "CONDITIONING"
     ],
     [
       21,
       25,
-      0,
-      19,
       1,
-      "CONDITIONING"
-    ],
-    [
-      22,
-      25,
-      1,
-      20,
+      16,
       4,
       "LATENT"
     ],
     [
-      23,
-      16,
+      22,
+      12,
       0,
-      20,
+      16,
       0,
       "NOISE"
     ],
     [
-      24,
-      19,
+      23,
+      15,
       0,
-      20,
+      16,
       1,
       "GUIDER"
     ],
     [
-      25,
-      17,
+      24,
+      13,
       0,
-      20,
+      16,
       2,
       "SAMPLER"
     ],
     [
-      26,
-      18,
+      25,
+      14,
       0,
-      20,
+      26,
+      0,
+      "SIGMAS"
+    ],
+    [
+      26,
+      26,
+      0,
+      16,
       3,
       "SIGMAS"
     ],
@@ -1471,47 +1620,103 @@
       27,
       20,
       0,
-      21,
+      27,
       0,
-      "LATENT"
+      "MODEL"
     ],
     [
       28,
-      3,
+      25,
       0,
-      21,
+      27,
       1,
-      "VAE"
+      "CONDITIONING"
     ],
     [
       29,
-      20,
+      28,
       0,
-      22,
+      29,
+      0,
+      "NOISE"
+    ],
+    [
+      30,
+      27,
+      0,
+      29,
+      1,
+      "GUIDER"
+    ],
+    [
+      31,
+      13,
+      0,
+      29,
+      2,
+      "SAMPLER"
+    ],
+    [
+      32,
+      26,
+      1,
+      29,
+      3,
+      "SIGMAS"
+    ],
+    [
+      33,
+      16,
+      0,
+      29,
+      4,
+      "LATENT"
+    ],
+    [
+      34,
+      29,
+      0,
+      17,
       0,
       "LATENT"
     ],
     [
-      30,
-      4,
+      35,
+      3,
       0,
-      22,
+      17,
       1,
       "VAE"
     ],
     [
-      31,
-      21,
+      36,
+      29,
       0,
-      23,
+      18,
+      0,
+      "LATENT"
+    ],
+    [
+      37,
+      4,
+      0,
+      18,
+      1,
+      "VAE"
+    ],
+    [
+      38,
+      17,
+      0,
+      19,
       0,
       "IMAGE"
     ],
     [
-      32,
-      22,
+      39,
+      18,
       0,
-      23,
+      19,
       1,
       "AUDIO"
     ]

@@ -141,8 +141,8 @@
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
       "shape": "custom",
-      "width": 960,
-      "height": 544,
+      "shape.width": 960,
+      "shape.height": 544,
       "length": 345
     }
   },

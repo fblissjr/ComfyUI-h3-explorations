@@ -141,7 +141,7 @@
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
       "shape": "wide",
-      "wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
       "length": 345
     }
   },
@@ -169,7 +169,10 @@
         "27",
         1
       ],
-      "length": 345,
+      "length": [
+        "27",
+        2
+      ],
       "ref_image_size": "max",
       "ref_images.ref_image_0": [
         "24",

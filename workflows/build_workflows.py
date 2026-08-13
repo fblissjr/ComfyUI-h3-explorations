@@ -55,7 +55,7 @@ from h3_config import (  # noqa: E402
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
-    TURBO_HOME_CANVAS, TURBO_SAMPLER,
+    TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT,
 )
 
 # Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
@@ -80,6 +80,17 @@ VIDEO_FORMAT = "video/h264-mp4"
 
 # Placeholder input filenames. These are whatever the local install happens
 # to have; swap them for your own before running an i2v or r2v graph.
+# A reference VIDEO is an IMAGE batch, not a VIDEO: `ref_videos.ref_video_0`
+# takes frames. VHS_LoadVideo is the loader because it is the one that exposes
+# `force_rate`, and force_rate=24 is not optional here. ComfyUI's node has no
+# fps input at all and assumes 24 twice over -- for the DiT's temporal clock
+# and for the `<T.T seconds>` labels the conditioner reads -- while the
+# reference pipeline resamples onto 24 from the rate the container reports.
+# A 30 fps source left at force_rate=0 is conditioned at the wrong speed,
+# silently, and diffusers' own docstring flags exactly this.
+PLACEHOLDER_VIDEO = "20260601_172336_00001-audio.mp4"
+REF_VIDEO_FORCE_RATE = 24.0
+
 PLACEHOLDER_IMAGE_A = "1-man.png"
 PLACEHOLDER_IMAGE_B = "2-mountain_landscape.png"
 
@@ -153,11 +164,25 @@ def _resolution_widgets(width, height, length):
     res = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(res)
 
+    # DynamicCombo members are addressed by their DOTTED path in the API form:
+    # `shape.wide_resolution`, not `wide_resolution`. The flat spelling was
+    # what this emitted until 2026-08-13, and ComfyUI's executor rejects it
+    # with `required_input_missing` naming `shape.wide_resolution` -- so every
+    # API graph in this repo was unsubmittable, which is the form the benches
+    # drive. Our own `validate_api` accepted it, which is why nobody noticed:
+    # it was checking a shape ComfyUI does not use. Found by running
+    # `bench/smoke_h3.py` against a live server, not by any check.
+    #
+    # Both spellings were tried against a running ComfyUI before this changed;
+    # dotted is accepted and flat is refused, for the band case and the custom
+    # case alike.
     for band, entries in res._resolutions().items():
         if (width, height) in entries:
-            return {"shape": band, f"{band}_resolution": res._label(width, height),
+            return {"shape": band,
+                    f"shape.{band}_resolution": res._label(width, height),
                     "length": length}
-    return {"shape": "custom", "width": width, "height": height, "length": length}
+    return {"shape": "custom", "shape.width": width, "shape.height": height,
+            "length": length}
 
 
 def _ref_short_edge():
@@ -220,6 +245,41 @@ def _check_geometry(length, canvas):
         )
 
 
+def _plain_model_chain(g, *, sage, sol, shift, head_chunks):
+    """A second model path off the same UNETLoader, WITHOUT the LoRA.
+
+    The two-stage split runs a different model on each half, so it needs two
+    chains. This mirrors the primary chain built inline in `build_api` -- see
+    the comments there for why each node sits where it does -- with ids in the
+    40s and one difference: no `LoraLoaderModelOnly`.
+
+    **The shift must be identical on both.** Both halves read sigmas from one
+    `BasicScheduler`, and the shift is what that schedule is built from; two
+    different shifts would mean the two halves are integrating different
+    curves and the handoff is meaningless.
+    """
+    src = ["1", 0]
+    g["40"] = {"class_type": "MiniMaxH3SigmaShift",
+               "inputs": {"model": src,
+                          **(shift if shift is not None else SIGMA_SHIFT)}}
+    src = ["40", 0]
+    if sage:
+        g["41"] = {"class_type": "MiniMaxH3SageAttention",
+                   "inputs": {"model": src, **dict(
+                       SAGE_NODE,
+                       **({} if head_chunks is None
+                          else {"head_chunks": head_chunks}))}}
+        src = ["41", 0]
+    if sol is not None:
+        g["42"] = {"class_type": "SolAttnPatch", "inputs": {"model": src, **sol}}
+        src = ["42", 0]
+    g["43"] = {"class_type": "SageChainAssert",
+               "inputs": {"model": src, "require_override": sage,
+                          "require_forward_patch": sage, "exercise": sage,
+                          "warn_only": not sage}}
+    return ["43", 0]
+
+
 def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               length: int = LENGTH, seed: int = SEED,
               sol: dict | None = None, canvas_mode: str = "match_keyframe",
@@ -228,6 +288,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               steps: int | None = None, shift: dict | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
+              ref_video: bool = False, split_at: int | None = None,
+              split_base_last: bool = True,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -305,7 +367,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                              # references from the video's pixel area and never
                              # reads the 2048 constant, so the fit nodes below
                              # would be undone and their two resamples wasted.
-                             "length": length, "ref_image_size": "max",
+                             # Wired, not a literal. It was `length` until
+                             # 2026-08-13, which meant sweeping length on
+                             # MiniMaxH3Resolution moved the canvas and left the
+                             # duration behind -- silently, and only in the API
+                             # form, which is the form the benches drive. It
+                             # also skipped the node's own snap_length().
+                             "length": ["27", 2], "ref_image_size": "max",
                              # Autogrow slots are addressed by their flat dotted
                              # path; ComfyUI reassembles them into the nested
                              # dict the node signature expects. Slot ordinals are
@@ -324,6 +392,33 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                       "inputs": {"image": [src, 0], "allow_upscale": ref_upscale,
                                  "short_edge": _ref_short_edge(),
                                  "lift_downstream_clamp": False}}
+        if ref_video:
+            # A reference VIDEO and its own soundtrack. Both sockets exist on
+            # the stock node and nothing in this repo has ever wired them.
+            #
+            # There is NO fit node on this path, deliberately. The image path
+            # has one because ComfyUI clamps reference images with
+            # min(1.0, 2048/short_edge) where the reference does not. The video
+            # path has the SAME class of divergence -- ComfyUI refuses to
+            # upscale a reference video, the reference puts it on the full
+            # canvas rule -- but closing it is expensive in a way the image one
+            # is not: a 5s reference at full canvas is +32,256 rows, against
+            # +7,168 for a `max` image reference. So the divergence is
+            # documented and left open until the cost is known to buy anything.
+            #
+            # The audio pairing is by INDEX, not by link: ref_video_audio_0
+            # belongs to ref_video_0. The tokenizer emits that soundtrack's
+            # <Audio j> label immediately BEFORE its <Video k>, and the two
+            # counters are independent, so one video with sound reads as
+            # "<Audio 1> ... <Video 1>".
+            g["28"] = {"class_type": "VHS_LoadVideo",
+                       "inputs": {"video": PLACEHOLDER_VIDEO,
+                                  "force_rate": REF_VIDEO_FORCE_RATE,
+                                  "custom_width": 0, "custom_height": 0,
+                                  "frame_load_cap": 0, "skip_first_frames": 0,
+                                  "select_every_nth": 1, "format": "AnimateDiff"}}
+            g["5"]["inputs"]["ref_videos.ref_video_0"] = ["28", 0]
+            g["5"]["inputs"]["ref_video_audios.ref_video_audio_0"] = ["28", 2]
     else:
         # i2v takes its geometry from the keyframe node (below); every other
         # task takes it from Resolution, so the cost of the choice is visible
@@ -424,6 +519,61 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     g["9"]["inputs"]["model"] = model_src
     g["9"]["inputs"]["conditioning"] = ["26", 0]
     g["10"]["inputs"]["latent_image"] = ["26", 1]
+
+    if split_at:
+        # Two-stage split. ONE BasicScheduler feeds SplitSigmas, so both halves
+        # sample the same curve -- that shared schedule is the whole
+        # precondition, and it is why both stages must also share a shift.
+        #
+        # Built on SamplerCustomAdvanced rather than KSamplerAdvanced. Krea 2's
+        # version of this uses KSamplerAdvanced, and KSamplerAdvanced with
+        # add_noise disabled was BROKEN on nested latents until core 27bca654
+        # (2026-08-12): it called torch.zeros(latent.size()) on a NestedTensor,
+        # which is what H3's AV latent is. The custom-sampler route was never
+        # broken.
+        #
+        # `split_at` counts steps of the shared schedule, so at 8 steps
+        # split_at=1 means stage 1 runs step 0 alone. H3's schedule is far more
+        # front-loaded than Krea 2's -- at shift 12 seven of eight evals sit at
+        # sigma >= 0.8 and the final interval covers the bottom 63% of the
+        # range -- so the useful boundary is much lower here. Sweep from 1.
+        if not lora:
+            raise SystemExit(
+                "split_at needs a `lora`: the point of the split is that the "
+                "two stages run different models. Without one both halves are "
+                "the same model and the split is an expensive no-op.")
+        g["29"] = {"class_type": "SplitSigmas",
+                   "inputs": {"sigmas": ["8", 0], "step": split_at}}
+        g["30"] = {"class_type": "DisableNoise", "inputs": {}}
+
+        # `model_src` carries the LoRA. The second chain is the plain model.
+        plain_src = _plain_model_chain(g, sage=sage, sol=sol, shift=shift,
+                                       head_chunks=head_chunks)
+        # base_last: distilled student takes the high-noise majority, the plain
+        #   base model finishes. This is the ordering for ref2v -- the
+        #   student's measured deficit is high-frequency detail, resolved at
+        #   low sigma, and high-frequency identity is what a reference is for,
+        #   so the intuitive ordering puts its weakness where demand is highest.
+        # base_first: the Krea 2 ordering, base for composition then a fast
+        #   distilled finish. Right when the finish is about sharpness.
+        stage1, stage2 = ((model_src, plain_src) if split_base_last
+                          else (plain_src, model_src))
+        g["8"]["inputs"]["model"] = stage1
+        g["9"]["inputs"]["model"] = stage1
+        g["31"] = {"class_type": "BasicGuider",
+                   "inputs": {"model": stage2, "conditioning": ["26", 0]}}
+        g["32"] = {"class_type": "SamplerCustomAdvanced",
+                   "inputs": {"noise": ["30", 0], "guider": ["31", 0],
+                              "sampler": ["7", 0], "sigmas": ["29", 1],
+                              "latent_image": ["10", 0]}}
+        # Stage 1 takes the high half and hands its leftover-noise latent on.
+        # `add_noise` is not a knob here: stage 2's noise source is
+        # DisableNoise, which is the custom-sampler spelling of it.
+        g["10"]["inputs"]["sigmas"] = ["29", 0]
+        g["11"]["inputs"]["samples"] = ["32", 0]
+        g["12"]["inputs"]["samples"] = ["32", 0]
+        if stamp:
+            raise SystemExit("stamp and split_at are not wired together")
 
     if stamp:
         # Bench only. Sits inline between the sampler and both decoders so it
@@ -876,6 +1026,152 @@ conditioned at.
 """
 
 
+_REF_VIDEO_PROMPT = """\
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.
+<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.
+<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> inside <Subject 2>, following the pacing of <Video 1>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.
+<Video 1> (cut and pacing structure): weak_reference - only the timing of the cuts is followed.
+
+detailed_description:
+The target video is in a cinematic live-action style with soft directional lighting.
+[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>, as <Subject 1> turns toward the light and looks off-screen.
+
+overall_soundscape:
+Steady interior room tone continues throughout, with soft footsteps and fabric movement as <Subject 1> crosses the frame.
+
+non_diegetic_music:
+N/A"""
+
+
+_NOTE_REF_VIDEO = f"""\
+## The first graph here that wires a reference video
+
+Everything this repo knew about reference video before 2026-08-13 was read off
+source and never executed. This graph is what executing it looks like.
+
+## force_rate is 24, and it is not optional
+
+`ref_videos.ref_video_0` takes an **IMAGE batch**, not a VIDEO. ComfyUI's node
+has **no fps input at all** and assumes 24 twice over: once for the DiT's
+temporal clock, and once for the `<T.T seconds>` labels the conditioner reads
+off the 2 fps subsample. The reference pipeline instead resamples onto 24 from
+the rate the container reports, and diffusers' own docstring flags the hazard
+in as many words -- a video whose real rate is lost on the way in is
+conditioned at the wrong speed, silently.
+
+So a 30 fps source at `force_rate=0` is a 25%-slow reference with nothing
+said. **Leave it at {REF_VIDEO_FORCE_RATE:g}.**
+
+## What it costs, and why there is no fit node on this path
+
+Reference rows ride every sampling step exactly as video rows do. A five-second
+reference at the full 1344x768 canvas is **+32,256 rows**, taking the sequence
+from 38,222 to 70,478 -- 1.84x, and attention goes as the square, so roughly
+3.4x the attention work. A `max` image reference is +7,168 by comparison.
+
+Budget references by pixel area, not by count: the same clip at 640x360 costs
++7,040.
+
+The image path has a Reference Resolution node because ComfyUI clamps image
+references with `min(1.0, 2048/short_edge)` where the reference pipeline has
+no clamp. **The video path has the same class of divergence** -- ComfyUI
+refuses to upscale a reference video, the reference puts it on the full canvas
+rule -- and deliberately has no node closing it. Closing it costs 5x what the
+image one does, and nothing has measured whether it buys anything.
+
+## Two more divergences to know about
+
+- **Reference audio is not truncated.** The reference cuts a soundtrack to the
+  generated duration; ComfyUI encodes the whole waveform, at 80 rows per
+  unwanted second. Trim it yourself.
+- **The frame count snaps DOWN** to the 17n+5 grid after being truncated to the
+  generated length, and fewer than 5 frames raises.
+
+## Labels
+
+`<Video k>` and `<Audio j>` are numbered independently, and a paired
+soundtrack's `<Audio j>` is emitted immediately BEFORE its `<Video k>`. One
+video with sound therefore reads as `<Audio 1>` then `<Video 1>`, which is what
+the prompt here says. Images are `<Picture i>` and come first.
+
+Limits the reference enforces and ComfyUI does not: 9 images, 3 videos, 3
+audios, **12 references total**, and an audio reference may never appear
+without an image or video.
+"""
+
+
+def _note_split(base_last: bool) -> str:
+    order = ("distilled student on the high-noise steps, plain base model on "
+             "the finish" if base_last else
+             "plain base model on the high-noise steps, distilled student on "
+             "the finish")
+    twin = ("h3_probe_split_base_first.json" if base_last
+            else "h3_probe_split_base_last.json")
+    why = ("""**Why this ordering.** The distilled student's measured deficit is
+high-frequency detail, and high-frequency detail is resolved at low sigma. So
+putting the student on the *finishing* steps places its known weakness exactly
+where a reference-heavy or identity-heavy render needs the most. Base-last
+spends the base model's cost where it buys most and keeps the speedup where
+the student is strong."""
+           if base_last else
+           """**Why this ordering.** This is the Krea 2 arrangement, where the
+win was seed and compositional diversity at near-turbo cost: the base model
+forms the composition in the high-noise steps and the distilled student
+delivers a fast, sharp finish. It is the right way round when the finish is
+about sharpness rather than identity.""")
+    return f"""\
+## Two-stage split: {order}
+
+One `BasicScheduler` feeds `SplitSigmas`, and both halves sample **the same
+curve**. That shared schedule is the whole precondition, and it is why both
+stages carry the same `ModelSamplingMiniMaxH3` values. Two different shifts
+would mean the two halves are integrating different curves and the handoff
+means nothing.
+
+Run this against **{twin}**, which is the same graph with the two models
+swapped.
+
+{why}
+
+## Sweep the boundary from 1, not from 3
+
+H3's schedule is far more front-loaded than the model this pattern came from.
+At video shift 12 and 8 steps the evaluation points are
+
+```
+1.0  0.9882  0.973  0.9524  0.9231  0.878  0.8  0.6316
+```
+
+Seven of the eight sit at sigma >= 0.8, and the **final interval alone covers
+the bottom 63% of the range**. Krea 2's sweet spot of k=2-3 was still at sigma
+0.84 there; here k=3 is 0.9524, barely denoised. This graph ships k={SPLIT_AT}.
+
+## Honest caveats
+
+- **Both orderings have a handoff mismatch.** A distilled student's state after
+  its steps is not on the base model's trajectory, so whichever model receives
+  the handoff gets an input whose sigma label does not match its actual noise
+  content. The reverse ordering has the same problem mirrored. Nobody has
+  measured this for H3.
+- **Two samplers are expressible here and nowhere else.** Each stage has its
+  own `KSamplerSelect`, so a multistep base stage into a first-order distilled
+  finish is one graph. At low k the base stage has no multistep history yet and
+  degenerates to euler, which is exactly where the front-loaded schedule wants
+  the boundary -- so that freedom is smallest where it is most wanted.
+- `add_noise` is not a widget in this stack. `DisableNoise` is the
+  custom-sampler spelling of it, and it is what stage 2 reads.
+"""
+
+
 _NOTE_TURBO_768P = f"""\
 ## The one turbo LoRA whose shift is not 12/3
 
@@ -1075,10 +1371,53 @@ to remove it.
 """
 
 
+def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks):
+    """The UI twin of `_plain_model_chain`: a second model path, no LoRA.
+
+    Same UNETLoader, same shift, same attention chain. The shift MUST match
+    stage 1's: both halves read sigmas from one `BasicScheduler`, so two
+    different shifts would have them integrating different curves and the
+    handoff would mean nothing.
+    """
+    src = g.add("MiniMaxH3SigmaShift", (-1500, 900), size=(360, 110),
+                widgets=[sh["shift_video"], sh["shift_audio"]],
+                inputs=[_in("model", "MODEL")], outputs=[_out("MODEL", "MODEL")],
+                title="Sigma shift (stage 2, must match stage 1)")
+    g.link(unet_node, 0, src, "model", "MODEL")
+    if sage:
+        node = g.add("MiniMaxH3SageAttention", (-880, 900), size=(360, 110),
+                     widgets=[SAGE_NODE["mode"], SAGE_NODE["patch_token_refiner"],
+                              SAGE_NODE["head_chunks"] if head_chunks is None
+                              else head_chunks],
+                     inputs=[_in("model", "MODEL")], outputs=[_out("MODEL", "MODEL")])
+        g.link(src, 0, node, "model", "MODEL")
+        src = node
+    if sol is not None:
+        node = g.add("SolAttnPatch", (-880, 1040), size=(360, 330),
+                     widgets=[sol["tau"], sol["start_percent"], sol["end_percent"],
+                              sol["min_tokens"], sol["int8_qk"],
+                              sol["sink_conditioning"], sol["morton"],
+                              sol["morton_curve"], sol["int8_pv"], sol["verbose"],
+                              sol["use_tma"], sol["dense_blocks"]],
+                     inputs=[_in("model", "MODEL"),
+                             _in("tau_profile", "STRING", optional=True)],
+                     outputs=[_out("MODEL", "MODEL")])
+        g.link(src, 0, node, "model", "MODEL")
+        src = node
+    node = g.add("SageChainAssert", (-480, 900), size=(360, 130),
+                 widgets=[sage, sage, sage, not sage],
+                 inputs=[_in("model", "MODEL")], outputs=[_out("model", "MODEL")],
+                 title="Assert the stage-2 chain composed")
+    g.link(src, 0, node, "model", "MODEL")
+    return node
+
+
 def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              steps: int | None = None, shift: dict | None = None,
              sampler_name: str | None = None, scheduler_name: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
+             ref_video: bool = False, split_at: int | None = None,
+             split_base_last: bool = True,
              variant_note: str | None = None,
              length: int = LENGTH, seed: int = SEED, preview: bool = False,
              sol: dict | None = None, sol_enabled: bool = True,
@@ -1262,11 +1601,28 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                         widgets=[ref_upscale, _ref_short_edge(), False],
                         inputs=[_in("image", "IMAGE")],
                         outputs=[_out("image", "IMAGE"),
-                                 _out("vision_tokens", "INT")],
+                                 _out("latent_rows", "INT")],
                         title=f"Reference {i + 1} resolution")
             g.link(src, 0, fit, "image", "IMAGE")
             g.link(fit, 0, cond, f"ref_images.ref_image_{i}", "IMAGE")
             fits.append(fit)
+        if ref_video:
+            # See the matching note in build_api. force_rate=24 is the whole
+            # point: the stock node has no fps input and assumes 24 twice, so
+            # a 30 fps source left at 0 is conditioned at the wrong speed with
+            # nothing said. Its audio output feeds the index-paired soundtrack
+            # socket -- ref_video_audio_0 belongs to ref_video_0.
+            vid = g.add("VHS_LoadVideo", (-880, 1380), size=(340, 500),
+                        widgets={"video": PLACEHOLDER_VIDEO,
+                                 "force_rate": REF_VIDEO_FORCE_RATE,
+                                 "custom_width": 0, "custom_height": 0,
+                                 "frame_load_cap": 0, "skip_first_frames": 0,
+                                 "select_every_nth": 1, "format": "AnimateDiff"},
+                        outputs=[_out("IMAGE", "IMAGE"), _out("frame_count", "INT"),
+                                 _out("audio", "AUDIO"), _out("video_info", "VHS_VIDEOINFO")],
+                        title="Reference video (force_rate 24)")
+            g.link(vid, 0, cond, "ref_videos.ref_video_0", "IMAGE")
+            g.link(vid, 2, cond, "ref_video_audios.ref_video_audio_0", "AUDIO")
     else:
         cond_inputs = [_in("clip", "CLIP"), _in("vae", "VAE"),
                        _in("first_frame", "IMAGE", optional=True),
@@ -1363,8 +1719,22 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     g.link(model_src, 0, assert_node, "model", "MODEL")
     model_src = assert_node
 
-    g.link(model_src, 0, sched, "model", "MODEL")
-    g.link(model_src, 0, guider, "model", "MODEL")
+    # The second model path for a two-stage split: same UNETLoader, same
+    # shift, no LoRA. Built here rather than lower down because the stage-1
+    # guider has to be linked to the right chain the first time -- there is no
+    # re-linking in this writer.
+    plain_src = None
+    if split_at:
+        if lora is None:
+            raise SystemExit("split_at needs a `lora`; see build_api")
+        plain_src = _plain_chain_ui(g, unet_node, sh=sh, sage=sage, sol=sol,
+                                    head_chunks=head_chunks)
+    stage1_src = model_src
+    if split_at and not split_base_last:
+        # base_first: the plain base model runs the high-noise steps.
+        stage1_src = plain_src
+    g.link(stage1_src, 0, sched, "model", "MODEL")
+    g.link(stage1_src, 0, guider, "model", "MODEL")
     if resn is not None:
         g.link(resn, 0, cond, "width", "INT")
         g.link(resn, 1, cond, "height", "INT")
@@ -1387,8 +1757,49 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     g.link(noise, 0, sampler, "noise", "NOISE")
     g.link(guider, 0, sampler, "guider", "GUIDER")
     g.link(samp, 0, sampler, "sampler", "SAMPLER")
-    g.link(sched, 0, sampler, "sigmas", "SIGMAS")
+    if not split_at:
+        # With a split, SplitSigmas sits between these two and the link is
+        # made below. This writer has no re-link, so a link made here would
+        # be left dangling on the input it no longer owns.
+        g.link(sched, 0, sampler, "sigmas", "SIGMAS")
     latent_src, latent_slot = sampler, 0
+
+    if split_at:
+        # See the matching note in build_api. ONE BasicScheduler feeds
+        # SplitSigmas, so both halves sample the same curve -- that shared
+        # schedule is the precondition, and it is why both stages must carry
+        # the same shift.
+        split = g.add("SplitSigmas", (400, 250), size=(300, 90),
+                      widgets=[split_at],
+                      inputs=[_in("sigmas", "SIGMAS")],
+                      outputs=[_out("high_sigmas", "SIGMAS"),
+                               _out("low_sigmas", "SIGMAS")],
+                      title=f"Split the schedule at step {split_at}")
+        g.link(sched, 0, split, "sigmas", "SIGMAS")
+        g.link(split, 0, sampler, "sigmas", "SIGMAS")
+        stage2_src = plain_src if split_base_last else model_src
+        guider2 = g.add("BasicGuider", (400, 420), size=(300, 70),
+                        inputs=[_in("model", "MODEL"), _in("conditioning", "CONDITIONING")],
+                        outputs=[_out("GUIDER", "GUIDER")],
+                        title="Stage 2 guider")
+        g.link(stage2_src, 0, guider2, "model", "MODEL")
+        g.link(pre, 0, guider2, "conditioning", "CONDITIONING")
+        nonoise = g.add("DisableNoise", (400, 520), size=(300, 60),
+                        outputs=[_out("NOISE", "NOISE")],
+                        title="Stage 2 adds no noise")
+        sampler2 = g.add("SamplerCustomAdvanced", (760, 250), size=(320, 150),
+                         inputs=[_in("noise", "NOISE"), _in("guider", "GUIDER"),
+                                 _in("sampler", "SAMPLER"), _in("sigmas", "SIGMAS"),
+                                 _in("latent_image", "LATENT")],
+                         outputs=[_out("output", "LATENT"),
+                                  _out("denoised_output", "LATENT")],
+                         title="Stage 2: finish")
+        g.link(nonoise, 0, sampler2, "noise", "NOISE")
+        g.link(guider2, 0, sampler2, "guider", "GUIDER")
+        g.link(samp, 0, sampler2, "sampler", "SAMPLER")
+        g.link(split, 1, sampler2, "sigmas", "SIGMAS")
+        g.link(sampler, 0, sampler2, "latent_image", "LATENT")
+        latent_src, latent_slot = sampler2, 0
     if stamp:
         # Bench only. Inline between the sampler and both decoders so it has a
         # real data dependency on the sampler -- ComfyUI orders by dependency,
@@ -1485,21 +1896,31 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
         # declare as inputs, so a plain known-name check calls every one of
         # them unknown. Third false-positive class this validator has had, all
         # the same shape: a node whose input set is not fully static.
-        for spec in list(req.values()) + list(opt.values()):
+        for parent, spec in list(req.items()) + list(opt.items()):
             meta = spec[1] if len(spec) > 1 and isinstance(spec[1], dict) else {}
             for widgets in (meta.get("formats") or {}).values():
                 for w in widgets:
                     if isinstance(w, list) and w and isinstance(w[0], str):
                         known.setdefault(w[0], None)
             # A DynamicCombo declares each option's inputs nested under
-            # `options`, not as top-level inputs, and the API prompt carries
-            # them flat for ComfyUI to re-nest. Second shape of the same
-            # not-fully-static input set that `formats` was.
+            # `options` rather than as top-level inputs, and the API prompt
+            # addresses them by their DOTTED path: `shape.wide_resolution`.
+            #
+            # This registered the BARE name until 2026-08-13, on the belief
+            # that "the API prompt carries them flat for ComfyUI to re-nest".
+            # It does not. ComfyUI's executor rejects the flat spelling with
+            # `required_input_missing` naming `shape.wide_resolution`, so this
+            # validator was passing graphs the server refuses -- every API
+            # graph in the repo, for as long as the Resolution node has been
+            # wired into them. A validator that accepts what the server
+            # rejects is worse than no validator: it is a green light for a
+            # graph that cannot run. Caught by `bench/smoke_h3.py` against a
+            # live server, which is the only thing here that actually submits.
             for option in (meta.get("options") or []):
                 inner = (option.get("inputs") or {}) if isinstance(option, dict) else {}
                 for section in ("required", "optional"):
                     for name in (inner.get(section) or {}):
-                        known.setdefault(name, None)
+                        known.setdefault(f"{parent}.{name}", None)
 
         given = node["inputs"]
         for name in req:
@@ -1552,10 +1973,33 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
                   f"the node will snap it up to {ln + (5 - ln % 17) % 17}")
 
     # The mistake this whole file exists to prevent.
+    #
+    # A two-stage split legitimately has TWO model paths -- that is the point
+    # of it -- so the invariant becomes: at most one source per stage, and a
+    # second source is only allowed when SplitSigmas is actually present. That
+    # keeps the check able to fail: without the SplitSigmas condition, adding a
+    # stray second model path to an ordinary graph would now pass.
+    split_nodes = [nid for nid, n in graph.items()
+                   if n["class_type"] == "SplitSigmas"]
     consumers = [(nid, n) for nid, n in graph.items()
                  if n["class_type"] in ("BasicScheduler", "BasicGuider")]
     srcs = {tuple(n["inputs"]["model"]) for _, n in consumers
             if isinstance(n["inputs"].get("model"), list)}
+    if split_nodes and len(srcs) == 2:
+        # Both halves must still read sigmas from the SAME BasicScheduler --
+        # one schedule cut in two is the precondition the whole split rests on.
+        sched_ids = {nid for nid, n in graph.items()
+                     if n["class_type"] == "BasicScheduler"}
+        if len(sched_ids) != 1:
+            e(f"split graph has {len(sched_ids)} BasicScheduler nodes; both "
+              "stages must read one schedule or they are integrating "
+              "different curves")
+        for nid in split_nodes:
+            src = graph[nid]["inputs"].get("sigmas")
+            if not (isinstance(src, list) and src[0] in sched_ids):
+                e(f"node {nid} (SplitSigmas): sigmas do not come from the "
+                  "graph's BasicScheduler")
+        srcs = set()          # two sources are expected here; checked above
     if len(srcs) > 1:
         e(f"BasicScheduler and BasicGuider read MODEL from different sources {srcs}; "
           f"one of them is bypassing a model patch")
@@ -1792,7 +2236,30 @@ def main():
               out_prefix="Video/h3_t2v_turbo_4step_768p"),
          "text -> video + audio, via the 4-step 768p turbo LoRA at shift 6"),
 
+        # First graph in this repo to wire a reference VIDEO. Everything about
+        # that path was read off source until 2026-08-13 and never executed.
+        ("h3_ref_video_to_video.json", "r2v-video", "r2v", _REF_VIDEO_PROMPT,
+         dict(ref_video=True, out_prefix="Video/h3_r2v_video",
+              variant_note=_NOTE_REF_VIDEO),
+         "reference video + its soundtrack + images -> video + audio"),
+
         # --- probes: pairs, one variable, run against the named twin ---
+
+        ("h3_probe_split_base_last.json", "t2v-split-baselast", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(TURBO_LORA, TURBO_LORA_STRENGTH), steps=TURBO_STEPS,
+              shift=TURBO_SHIFT, split_at=SPLIT_AT, split_base_last=True,
+              out_prefix="Video/h3_probe_split_baselast",
+              variant_note=_note_split(True)),
+         "distilled high-noise, plain base model finishes"),
+
+        ("h3_probe_split_base_first.json", "t2v-split-basefirst", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(TURBO_LORA, TURBO_LORA_STRENGTH), steps=TURBO_STEPS,
+              shift=TURBO_SHIFT, split_at=SPLIT_AT, split_base_last=False,
+              out_prefix="Video/h3_probe_split_basefirst",
+              variant_note=_note_split(False)),
+         "plain base high-noise, distilled finish (the Krea 2 ordering)"),
 
         ("h3_probe_turbo_home_canvas.json", "t2v-turbo-544p", "t2v",
          LONG_T2V_PROMPT,

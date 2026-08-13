@@ -141,7 +141,7 @@
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
       "shape": "square",
-      "square_resolution": "768x768  1  576 tok/frame  0.33x",
+      "shape.square_resolution": "768x768  1  576 tok/frame  0.33x",
       "length": 345
     }
   },

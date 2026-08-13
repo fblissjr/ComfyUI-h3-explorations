@@ -86,6 +86,57 @@ check("declines under match", got == BASE, f"saw {got}")
 check("and consumes the arm rather than holding it",
       wrapped(ref_image_size="max") == BASE)
 
+print("\nper_node_arms:")
+# Two fit nodes in one graph, one armed and one not. With a single global
+# value the unarmed one's disarm wiped the armed one's entry, and which won
+# came down to ComfyUI's execution order between independent nodes -- not the
+# graph's visual order, and not settable. Same graph, two possible renders.
+rf.disarm_short_edge_override()
+rf.arm_short_edge_override(3072, node_id="11")
+rf.disarm_short_edge_override("12")          # the sibling with the box off
+got = wrapped(ref_image_size="max")
+check("a sibling's disarm does not cancel this node's arm", got == 3072,
+      f"saw {got}")
+
+rf.disarm_short_edge_override()
+rf.arm_short_edge_override(3072, node_id="11")
+rf.disarm_short_edge_override("11")          # this node's own disarm
+got = wrapped(ref_image_size="max")
+check("a node's own disarm does clear it", got == BASE, f"saw {got}")
+
+print("\narm_does_not_survive_an_unrelated_call:")
+# The wrapper used to clear only on the armed path, so an arm that was never
+# consumed sat in the module until some later prompt picked it up. It now
+# clears on every call.
+rf.disarm_short_edge_override()
+rf.arm_short_edge_override(3072, node_id="11")
+first = wrapped(ref_image_size="max")
+second = wrapped(ref_image_size="max")
+third = wrapped(ref_image_size="max")
+check("armed once, applied once",
+      first == 3072 and second == BASE and third == BASE,
+      f"saw {first}, {second}, {third}")
+
+print("\ndownstream_ref_image_size:")
+# The 'match' detector that makes the node's own log honest. A false alarm on
+# every render would be worse than the silence it replaces, so "cannot tell"
+# must read as None rather than as a warning.
+PROMPT = {
+    "9": {"class_type": "MiniMaxH3ReferenceToVideo",
+          "inputs": {"ref_images.ref_image_0": ["13", 0], "ref_image_size": "match"}},
+    "13": {"class_type": "MiniMaxH3ReferenceFit", "inputs": {}},
+}
+check("reads the consumer's setting", rf._downstream_ref_image_size(PROMPT, "13") == "match")
+check("None when this node feeds nothing", rf._downstream_ref_image_size(PROMPT, "99") is None)
+check("None without a prompt", rf._downstream_ref_image_size(None, "13") is None)
+MAXP = {"9": {"class_type": "MiniMaxH3ReferenceToVideo",
+              "inputs": {"ref_images.ref_image_0": ["13", 0], "ref_image_size": "max"}}}
+check("reads 'max' when set", rf._downstream_ref_image_size(MAXP, "13") == "max")
+DEFP = {"9": {"class_type": "MiniMaxH3ReferenceToVideo",
+              "inputs": {"ref_images.ref_image_0": ["13", 0]}}}
+check("absent key reads as core's 'match' default",
+      rf._downstream_ref_image_size(DEFP, "13") == "match")
+
 print("\ninstall_is_idempotent:")
 original = core.MiniMaxH3ReferenceToVideo.__dict__.get("execute")
 try:

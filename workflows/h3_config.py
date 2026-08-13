@@ -364,3 +364,12 @@ ASPECTS = {
 # delta. To see the round trip by itself, render 0.01: visually nil, but it
 # does not short-circuit, so it pays the full cost.
 REF_LORA_STRENGTH = 1.0
+
+# Where a two-stage split cuts the shared schedule, in steps. 2 of 8 is the
+# shipped starting point, not a finding. H3's schedule is far more
+# front-loaded than the model the split pattern came from: at video shift 12
+# and 8 steps, seven of the eight evaluation points sit at sigma >= 0.8 and
+# the final interval alone covers the bottom 63% of the range. Krea 2's
+# k=2-3 sweet spot was still sigma 0.84 there; here k=3 is 0.9524. So the
+# useful boundary is lower here and the sweep starts at 1.
+SPLIT_AT = 2

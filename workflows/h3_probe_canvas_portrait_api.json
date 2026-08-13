@@ -141,7 +141,7 @@
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
       "shape": "tall",
-      "tall_resolution": "768x1344  4/7  1008 tok/frame  1.00x",
+      "shape.tall_resolution": "768x1344  4/7  1008 tok/frame  1.00x",
       "length": 345
     }
   },

@@ -141,7 +141,7 @@
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
       "shape": "ultrawide",
-      "ultrawide_resolution": "1536x672  16/7  1008 tok/frame  1.00x",
+      "shape.ultrawide_resolution": "1536x672  16/7  1008 tok/frame  1.00x",
       "length": 345
     }
   },

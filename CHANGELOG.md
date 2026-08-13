@@ -4,6 +4,92 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.11.0
+
+### Fixed
+
+- **Every API graph in this repo was unsubmittable, and had been since
+  `93b08b1` wired the Resolution node in.** `MiniMaxH3Resolution.shape` is a
+  `COMFY_DYNAMICCOMBO_V3`, and ComfyUI addresses a DynamicCombo's members by
+  their **dotted** path: `shape.wide_resolution`. The generator wrote them
+  flat, and ComfyUI's executor answers with `required_input_missing` naming
+  `shape.wide_resolution`. The API form is the form `bench/*` drives, so every
+  bench run since then was POSTing a prompt the server refuses.
+
+  **`validate_api` had it exactly backwards**, on a belief written into its own
+  comment: "the API prompt carries them flat for ComfyUI to re-nest". It does
+  not. So the validator was green-lighting graphs the server rejects, and once
+  the generator was fixed it briefly rejected the correct form. A validator
+  that accepts what the server refuses is worse than no validator.
+
+  Both spellings were tried against a running ComfyUI before either changed:
+  dotted accepted, flat refused, for the band case and the `custom` case
+  alike. **Found by `bench/smoke_h3.py`, the only thing here that actually
+  submits a prompt** -- no static check could have caught it, because the
+  static check was the thing that was wrong.
+- The three ref `_api` graphs hardcoded `length` while wiring `width`/`height`,
+  so sweeping length on `MiniMaxH3Resolution` moved the canvas and left the
+  duration behind, silently, and only in the form the benches drive. It also
+  skipped the node's own `snap_length()`.
+- Four bugs in `reference_fit.py`'s clamp-lift machinery, all one family:
+  the "nothing to lift" branch neither armed nor disarmed, so it was the
+  branch that let a previous prompt's value through; a **cached** fit node
+  never armed at all, so editing only the downstream prompt silently reverted
+  to the 2048 clamp with the checkbox still ticked; an unconsumed arm survived
+  into a later prompt; and with two fit nodes the one with the box **off**
+  cancelled the other's arm, resolved by an execution order that is neither
+  the graph's visual order nor settable. Arms are now per node, cleared on
+  every downstream call, and `fingerprint_inputs` keeps the node out of the
+  cache exactly when the arm depends on it.
+- `MiniMaxH3ReferenceFit` now reads the downstream `ref_image_size` from the
+  prompt and **says so when it is on `match`** -- under which the stock node
+  sizes references from the video's pixel area, never reads the 2048 constant,
+  and undoes this node's resize entirely. The log previously reported a 3.6x
+  to 16x improvement that had not happened.
+- `MiniMaxH3Preflight` printed its duration line only when
+  `minimax_frame_count` was present, which core sets **only** on the keyframe
+  path. It was therefore absent from 7 of the 8 shipped graphs, including every
+  ref graph -- where the 345-frame ceiling matters most. Derived from
+  `latent_t` when the key is absent, and marked as derived.
+- `preflight.py`'s docstring said the `csrc/fused` uint32 wrap sits near
+  199,729; the code computes 199,728.
+
+### Added
+
+- **Reference video, wired for the first time.** `h3_ref_video_to_video.json`
+  loads a clip through `VHS_LoadVideo` at **`force_rate=24`** into
+  `ref_videos.ref_video_0`, with its own soundtrack into the index-paired
+  `ref_video_audios.ref_video_audio_0`. The rate is not optional: the stock
+  node has no fps input and assumes 24 twice, for the DiT's temporal clock and
+  for the `<T.T seconds>` labels the conditioner reads, so a 30 fps source at
+  `force_rate=0` is conditioned 25% slow with nothing said.
+
+  No fit node on this path, deliberately. The same no-upscale divergence
+  exists as for images, but a five-second reference at full canvas is +32,256
+  rows against +7,168 for a `max` image reference, so it is documented and
+  left open until the cost is known to buy something.
+- **The two-stage split, both orderings.** `h3_probe_split_base_last.json` and
+  `h3_probe_split_base_first.json`: one `BasicScheduler` into `SplitSigmas`,
+  two `SamplerCustomAdvanced` stages, `DisableNoise` on the second, and a
+  second model chain at an identical shift so the halves run different models
+  on one schedule. Built on the custom-sampler stack rather than
+  `KSamplerAdvanced`, which was broken on nested latents until core
+  `27bca654` (2026-08-12) -- and H3's AV latent is a NestedTensor.
+- `bench/check_schema_defaults.py` (from 0.10.1) and six new cases in
+  `check_short_edge_override.py` covering the arm fixes above.
+
+### Changed
+
+- `validate_api`'s model-fork invariant understands the split: two model
+  sources are allowed **only** when `SplitSigmas` is present, and both stages
+  must still read sigmas from one `BasicScheduler`. Verified it still catches
+  a stray second source on a non-split graph, and a third source on a split
+  one -- a relaxation that could not fail would be worse than the check it
+  replaced.
+- `MiniMaxH3ReferenceFit`'s second output is `latent_rows`, not
+  `vision_tokens`. It returns the DiT's packed rows; the description and the
+  module docstring already called it that.
+
 ## 0.10.1
 
 ### Fixed

@@ -622,7 +622,7 @@
           ]
         },
         {
-          "name": "vision_tokens",
+          "name": "latent_rows",
           "type": "INT",
           "links": null
         }
@@ -667,7 +667,7 @@
           ]
         },
         {
-          "name": "vision_tokens",
+          "name": "latent_rows",
           "type": "INT",
           "links": null
         }
