@@ -6,6 +6,29 @@ artifact.
 
 ## 0.13.0
 
+### Changed
+
+- **Sage runs `fp16 (most accurate)`, not `auto`.** `auto` resolves to the
+  *fastest* kernel, which is the wrong end of this project's tradeoff.
+  Measured against an fp32 reference across a 17x range of sequence length,
+  fp16-PV is **2.7x more accurate and flat** -- no canvas or clip length flips
+  the answer -- and the owner judged it clearer with better motion and less
+  drift on video at the same seed. Costs ~1.58x wall clock; the heaviest
+  shipped config still peaks at 21,186 MiB of 24,564.
+- **Sol-Attn is opt-in and ships OFF.** Bypassed in every UI graph, omitted
+  from every API graph. It changes what the model computes, and that has never
+  been weighed against what its speed buys. `h3_probe_sol_on.json` is the one
+  graph that enables it, so the question stays answerable from an artifact.
+  Flipping the default also exposed the split graphs' second model chain
+  adding Sol unconditionally, which would have shipped stage 2 enabled while
+  everything else was off.
+- `check_prompt_guide_conformance.py` now tests the **graph** rather than the
+  vocabulary for `keyframe completion`. It rejected the type outright because
+  `MiniMaxH3ReferenceToVideo` has no keyframe socket; ComfyUI's new
+  `MiniMaxH3AddGuide` supplies one, and `model_base.py` merges its keyframes
+  with references additively. The verdict was still right for our graphs, the
+  reason was false.
+
 ### Fixed
 
 - **The reference-video graphs shipped at a length that does not fit on a

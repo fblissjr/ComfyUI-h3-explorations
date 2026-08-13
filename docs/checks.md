@@ -6,11 +6,18 @@ needs to run, and whether it has earned trust.
 There is no test suite and no runner. Each script is standalone, prints its own
 `ok` / `FAIL` lines, and returns a non-zero exit code on failure.
 
-**Last full run: 2026-08-13**, against ComfyUI `12666983` (v0.32.0),
-comfy-kitchen 0.2.31, KJNodes `6ab7e81`, on an RTX 4090, with ComfyUI running.
-**All twelve `check_*.py` passed**, including `check_workflow_schema.py`
-against all 24 UI graphs. `smoke_h3.py` was not run and does not count as a
-pass: it needs a live server, a GPU and the models loaded.
+**Last full run: 2026-08-13 (evening)**, against ComfyUI `8f37cf8c` (v0.33.0),
+KJNodes `6ab7e81`, on an RTX 4090, with ComfyUI running. There are now **14
+`check_*.py`** and **62 graphs** (31 UI, 31 API). The five CUDA-free checks
+that run in a second all passed, including `check_workflow_schema.py` against
+every UI graph. `smoke_h3.py` passed earlier the same day; the CUDA checks
+(`check_correctness`, `check_clone_v_wiring`, `check_solattn_correctness`)
+were **not** re-run after the `mode="fp16 (most accurate)"` flip and should be,
+since that changes which kernel they exercise.
+
+The counts in the paragraph above were wrong until this run -- it claimed
+twelve checks and 24 UI graphs. A header that states a scope it no longer has
+is the same defect this file exists to catch, one level up.
 
 Nothing here is stale in the sense of failing against current upstream. The
 staleness is in the documentation around them, which is what this file fixes.

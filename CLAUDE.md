@@ -38,6 +38,7 @@ mismatch it is supposed to catch.
 | `docs/h3_ref2v_distillation.md` | why ref2v resists step distillation |
 | `docs/h3_resolutions.md` | all 95 legal canvases and what each costs |
 | `docs/open_experiments.md` | what is deliberately **not** measured, and the blocker for each |
+| `internal/postmortems/` | gitignored. The 2026-08-13 session postmortem carries eight forward items, each phrased so it can be marked done or refuted. Start there rather than re-deriving what is open. |
 | `workflows/h3_config.py` | every shared constant. Nothing here may have a second copy anywhere. |
 | `workflows/build_workflows.py` | generates all graphs. Never hand-edit a `workflows/*.json`. |
 | `bench/check_*.py` | fast, mostly CUDA-free guards |
@@ -94,7 +95,30 @@ the labels the graph wires -- the tokenizer derives `<Picture i>` /
 `<Video k>` / `<Audio j>` from the **sockets**, not the prompt, so the two
 drift silently.
 
-## Two traps that have each bitten more than once
+## Two settings you will be tempted to "fix". Don't, without measuring.
+
+**Sage runs `mode="fp16 (most accurate)"`, not `auto`.** `auto` resolves to
+`fp8_cuda++` -- the *fastest* kernel -- which looks like the sensible default
+and is the wrong end of this project's tradeoff. Measured 2026-08-13 against
+an fp32 reference: fp16-PV holds mean_rtol 0.0362-0.0363 where every fp8
+variant sits at 0.0969-0.0984, **2.7x more accurate and flat across a 17x
+range of sequence length**, so there is no canvas or clip length where the
+answer flips. The owner then judged it on video at the same seed: "way
+clearer and better motion and less drift". It costs roughly 1.58x wall clock
+and holds q/k/v for the whole call (no `sageattn_consume` path), and the
+heaviest shipped config still peaks at 21,186 MiB of 24,564. All three fp8
+variants land within 0.0004 of each other, so the PV accumulator is not the
+lever -- quantizing V to fp8 at all is.
+
+**Sol-Attn is opt-in and shipped OFF.** Every graph carries the node bypassed
+in the UI form and omits it from the API form. That is policy, not an
+oversight: sage must always be on and compose with anything downstream, while
+Sol changes *what the model computes* and nobody has weighed that against
+what its speed buys. `h3_probe_sol_on.json` is the single graph that enables
+it, and exists so the question stays answerable. Re-enable one with
+`sol_on=True` in its `GRAPHS` entry, not by hand-editing a saved graph.
+
+## Three traps that have each bitten more than once
 
 **`import nodes` resolves to ours.** This repo has a `nodes.py`, and
 `workflows/build_workflows.py` inserts the repo root at `sys.path[0]`, so a later bare
@@ -106,6 +130,16 @@ debugging rounds.
 **DynamicCombo members are dotted in the API form.** `shape.wide_resolution`,
 not `wide_resolution`. ComfyUI's executor rejects the flat spelling with
 `required_input_missing`. The UI form is positional and unaffected.
+
+**A ComfyUI `git pull` can break every graph here, and nothing local will say
+so.** On 2026-08-13 upstream dropped `frame_count` from `PackedLayout`;
+`preflight.py` still passed it, so all 60 graphs failed at the Preflight node
+-- no render at all, not a degraded number. **No check in `bench/` covers a
+call INTO a dependency we do not control**, and no amount of local validation
+can: the only instrument that sees a broken contract is the contract being
+used. So **run `bench/smoke_h3.py` after any ComfyUI or node-pack update**,
+not only after changing the generator. It surfaced that day only because an
+unrelated render happened to be queued.
 
 A check here is not trusted until it has been shown to go red for the right
 reason -- break the thing it guards, watch it fail, put it back. Three
