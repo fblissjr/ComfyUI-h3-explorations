@@ -184,6 +184,21 @@ def _ref_short_edge():
 def _check_geometry(length, canvas):
     """Refuse to emit a graph the reference would reject.
 
+    **Scope note, since 2026-08-13.** `canvas_mode` now defaults to
+    `match_keyframe`, under which `MiniMaxH3KeyframeCanvas` derives the canvas
+    from the loaded keyframe and the width/height in the graph are inert. So
+    for an i2v graph the aspect assertion below validates the *configured*
+    fallback, not what will render: swap in a 3:4 still and the graph renders
+    768x1344, the most expensive canvas on the area cap, having passed a check
+    that looked at 1344x768.
+
+    That is not a hole, but it is a relocation worth naming. The aspect
+    guarantee moves from build time to run time, where the node enforces it on
+    the *source image* and raises -- which is where the reference enforces it
+    too (`resolve_canvas_size`, called on `keyframes[0].size`). The check here
+    still earns its place because the fallback matters the moment someone
+    switches the mode back.
+
     This config shipped 362 frames for a week. It is on the 17n+5 grid, it is
     inside ComfyUI's own 3600 limit, and it renders -- it is just 15.083s
     against a 15s ceiling the reference enforces and ComfyUI does not. Nothing
@@ -982,8 +997,12 @@ resolution wins just because the LoRA is the thing you added.
 
 **The 4-step v1.0 768p is the only one with no resolution gap at this
 canvas** -- it was distilled at exactly 1344x768. The trade is aspect: it saw
-one, where the 4-step v0.1 saw mixed aspect ratios. Render 1:1 or 9:16 and
-the 768p LoRA is the off-distribution one.
+that one shape, where **both** 544p LoRAs (v0.1 and the 8-step v1.0 this
+graph loads) saw mixed aspect ratios. So render 1:1 or 9:16 and the 768p LoRA
+becomes the off-distribution one while this graph's LoRA is at home on shape
+and away on resolution. Neither is free; they are away in different
+directions. `h3_text_to_video_turbo_4step_768p.json` is the sibling to
+compare against.
 
 Specs from `coderef/Minimax-H3-Turbo`, README model table.
 """
@@ -1733,6 +1752,10 @@ def main():
     # it modifies is the point: the two are meant to be compared, so anything
     # that differs between them has to be visible in one place. Everything not
     # in `extra` -- seed, prompt, canvas, length, sampler, sage, Sol -- is
+    # shared by construction, with ONE exception since 2026-08-13: an i2v
+    # graph under the new `match_keyframe` default derives its canvas from the
+    # loaded keyframe at run time, so its width/height are inert and it is not
+    # canvas-comparable to the t2v and r2v graphs. See `_check_geometry`.
     # shared by construction and cannot drift apart.
     GRAPHS: tuple[tuple[str, str, str, str | None, dict[str, Any], str], ...] = (
         ("h3_text_to_video.json", "t2v", "t2v", LONG_T2V_PROMPT, {},
@@ -1832,7 +1855,12 @@ def main():
                   "1536x672 instead of 1344x768. Both are 1008 tokens/frame, "
                   "so the sequence length, the attention cost and the render "
                   "time are the same by construction. The long edge went from "
-                  "1344 to 1536, the widest the trained family allows.",
+                  "1344 to 1536. **1536 is not the end of that axis**: the "
+                  "legal 1:4..4:1 family holds eight canvases at exactly 1008 "
+                  "tokens/frame -- 1344x768, 1536x672, 1792x576 and 2016x512, "
+                  "plus each of those transposed -- so the equal-cost run goes "
+                  "to a 3.94:1 frame. This probe takes one step along it, not "
+                  "the last one.",
                   "Composition and coherence across the wide axis, not speed. "
                   "Preflight's sequence length should be IDENTICAL to the "
                   "twin's -- if it is not, one of the two canvases is not "

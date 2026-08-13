@@ -7,10 +7,10 @@ There is no test suite and no runner. Each script is standalone, prints its own
 `ok` / `FAIL` lines, and returns a non-zero exit code on failure.
 
 **Last full run: 2026-08-13**, against ComfyUI `12666983` (v0.32.0),
-comfy-kitchen 0.2.31, KJNodes `6ab7e81`, on an RTX 4090. **All ten
-`check_*.py` that can run headless passed.** Two were not run and neither
-counts as a pass: `check_workflow_schema.py` needs a live server, and
-`smoke_h3.py` needs a live server, a GPU and the models loaded.
+comfy-kitchen 0.2.31, KJNodes `6ab7e81`, on an RTX 4090, with ComfyUI running.
+**All twelve `check_*.py` passed**, including `check_workflow_schema.py`
+against all 24 UI graphs. `smoke_h3.py` was not run and does not count as a
+pass: it needs a live server, a GPU and the models loaded.
 
 Nothing here is stale in the sense of failing against current upstream. The
 staleness is in the documentation around them, which is what this file fixes.
@@ -54,6 +54,7 @@ papercut and is listed under Gaps.
 | `check_clone_v_wiring.py` | `clone_v` reaches the forward, and only on modes that earn it | CUDA, `PYTHONPATH` | no | not recorded |
 | `check_override_routing.py` | which calls the attention override sends to sage and which it declines, including the fallback when the kernel raises | - | yes | not recorded |
 | `check_lowvram_handoff.py` | **more than its name says.** Three cases are KJNodes interop (the `[x]` list hand-off, the fallback with a list input, `minimax_head_chunks` honoured from `transformer_options`); **two are ours regardless of KJNodes** -- the plain tensor path, and that head chunking at 1/2/3/7 groups reassembles bit-identically | - | yes | not recorded |
+| `check_schema_defaults.py` | every node's `io.Schema` defaults match its `execute()` signature defaults, for all 7 nodes. ComfyUI does **not** inject a schema default for an input a prompt omits, so the two are independent and a split means the UI and the API path see different values | `PYTHONPATH` self-bootstrapped | yes | **yes**, on the real `length` split, 2026-08-13 |
 | `check_distill_settings.py` | **every** shipped graph, both forms: a turbo graph matches its LoRA's shift and steps, a base graph sits at the base checkpoint's 12/3, and the UI and API forms of each are paired and compared. Shifts *and* recommended step counts graded against the vendor README, not against itself. Exits 2, not 0, when that control is skipped | - | yes | **yes**, eight mutations, 2026-08-13 |
 | `check_solattn_correctness.py` | Sol-Attn's Triton kernels against the algorithm's own reference, cosine > 0.998 | CUDA, Triton | no | not recorded |
 | `check_keyframe_canvas.py` | canvas derivation, plus the aspect and duration rules | `PYTHONPATH` self-bootstrapped | yes | not recorded |
@@ -64,7 +65,7 @@ papercut and is listed under Gaps.
 | `smoke_h3.py` | the H3 chain composes and runs, after any node-pack update | live ComfyUI, GPU, model | no | n/a, it is a smoke test |
 
 "claims block" means the file carries a `Claims, i.e. what breaks if a case is
-deleted:` header enumerating what each case defends. Five of twelve do.
+deleted:` header enumerating what each case defends. Six of thirteen do.
 
 ### A note on `check_lowvram_handoff.py`
 
@@ -125,15 +126,15 @@ Two things there have no code check and cannot get one until the graphs exist:
 
 Ordered by how much they undermine the standard above.
 
-1. **Ten of twelve have no record of having been shown red.** Only
-   `check_short_edge_override.py` and `check_distill_settings.py` document
-   their own calibration. For the rest, the repo's central trust standard is
+1. **Ten of thirteen have no record of having been shown red.** Only
+   `check_short_edge_override.py`, `check_distill_settings.py` and
+   `check_schema_defaults.py` document their own calibration. For the rest, the repo's central trust standard is
    unverifiable from the artifacts. This does not mean they are wrong -- it
    means nobody can tell.
 
-2. **Seven of twelve have no claims block**, so "what breaks if this case is
+2. **Seven of thirteen have no claims block**, so "what breaks if this case is
    deleted" is not recoverable without reading the assertions and inferring
-   backwards. The five that have one are the model to copy.
+   backwards. The six that have one are the model to copy.
 
 3. **No runner.** Every script prints its own ad-hoc `ok` / `FAIL`, with no
    shared harness and no case registry. There is no way to run everything and

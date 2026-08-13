@@ -293,6 +293,9 @@ bench/
   check_distill_settings.py  every turbo LoRA is loaded at the shift and
                              steps it was distilled at, graded against the
                              vendor's own README
+  check_schema_defaults.py   every node's schema defaults match its execute()
+                             signature defaults -- ComfyUI injects neither, so
+                             a split means the UI and the API path differ
   check_generator_constants.py  the generator reads upstream constants
                              rather than repeating them
   check_solattn_correctness.py  Sol-Attn's Triton kernels against the

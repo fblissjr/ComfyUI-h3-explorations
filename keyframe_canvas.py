@@ -124,8 +124,16 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, first_frame, mode="fit_to_canvas", width=1344, height=768,
-                last_frame=None, length=0) -> io.NodeOutput:
+    # These MUST match the schema defaults above. ComfyUI does not inject a
+    # schema default for an input a prompt omits -- the Python default is what
+    # applies -- so the widget default only protects a node newly dropped in
+    # the UI. An API-format prompt that leaves `length` out lands on the
+    # signature's value, and at 0 that emits 0 from slot 5 and renders a
+    # 5-frame 0.208s clip. The API path is how the benches are driven, so a
+    # split between these two is a live bug on exactly the path that matters.
+    # `bench/check_schema_defaults.py` asserts they agree, for every node here.
+    def execute(cls, first_frame, mode="match_keyframe", width=1344, height=768,
+                last_frame=None, length=124) -> io.NodeOutput:
         if first_frame.shape[0] > 1:
             # the H3 node takes [:1] silently; say so rather than let a batch
             # look like it was used

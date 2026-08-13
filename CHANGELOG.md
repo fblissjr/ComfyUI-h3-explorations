@@ -4,6 +4,51 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.10.1
+
+### Fixed
+
+- **`MiniMaxH3KeyframeCanvas.execute` still carried the old defaults**
+  (`mode="fit_to_canvas"`, `length=0`) after 0.10.0 moved the schema to
+  `match_keyframe` / 124. ComfyUI does **not** inject a schema default for an
+  input a prompt omits -- the Python signature default is what applies -- so
+  the widget fix only protected a node newly dropped in the UI. An
+  API-format prompt that left `length` out still emitted 0 from slot 5 and
+  rendered the 5-frame, 0.208-second clip 0.10.0 exists to kill, on exactly
+  the path `bench/*` drives renders over. Found by review, not by the tests.
+- The ultrawide probe's note claimed 1536 is "the widest the trained family
+  allows". It is not. Sweeping `adapt_canvas` over the legal 1:4..4:1 range
+  gives **eight** canvases at exactly 1008 tokens/frame -- 1344x768,
+  1536x672, 1792x576 and 2016x512, plus each transposed -- so the equal-cost
+  axis runs to a 3.94:1 frame, not 2.29:1. The note now says so and says this
+  probe takes one step along it rather than the last one.
+- `_NOTE_TURBO` still read "the trade is aspect: it saw one, where the 4-step
+  v0.1 saw mixed aspect ratios" after the table was corrected to show the
+  8-step v1.0 as mixed-aspect too. It named the wrong sibling.
+- The 0.10.0 "Notes" block described the shipped graphs as not yet
+  regenerated. They were regenerated in the same release, so all three of its
+  statements had become false.
+
+### Added
+
+- `bench/check_schema_defaults.py`. Asserts every node's `io.Schema` defaults
+  match its `execute()` signature defaults, across all 7 nodes, plus that a
+  required input never acquires a signature default (which would quietly make
+  it optional on the API path). This is the general form of the bug above:
+  the two are independent by construction and nothing else compares them.
+  Shown red on the real `length` split before being trusted.
+
+### Changed
+
+- `_check_geometry` now documents its own scope. Under the `match_keyframe`
+  default an i2v graph derives its canvas from the loaded keyframe at run
+  time, so the aspect assertion validates the configured *fallback* rather
+  than what renders -- swap in a 3:4 still and the graph renders 768x1344
+  having passed a check that looked at 1344x768. The guarantee is not lost,
+  it moves to the node, which enforces it on the source image and raises. The
+  `GRAPHS` comment's "canvas is shared by construction" claim now carries the
+  i2v exception.
+
 ## 0.10.0
 
 ### Changed
@@ -58,13 +103,12 @@ artifact.
 
 ### Notes
 
-- **The shipped `workflows/*.json` do not yet contain the six new graphs, and
-  still carry the old keyframe defaults and the stale ~1070 MiB note.**
-  Regenerating validates against a live `/object_info`, and the two node
-  default changes above mean ComfyUI must reload this pack first -- so the
-  correct order is: restart ComfyUI, then regenerate, then re-run
-  `bench/check_workflow_schema.py`. Regenerating against a stale server bakes
-  in exactly the mismatch that check exists to catch.
+- The shipped `workflows/*.json` were regenerated against a live ComfyUI in
+  the same release. `/object_info` was checked first and reported the new
+  `match_keyframe` / `124` defaults, confirming the pack had reloaded --
+  regenerating against a stale server bakes in exactly the mismatch
+  `check_workflow_schema.py` exists to catch. 31 graphs written and
+  validated, UI/API cross-check passing.
 
 ## 0.9.0
 
