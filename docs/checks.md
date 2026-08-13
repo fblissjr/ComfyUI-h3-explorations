@@ -158,3 +158,34 @@ Ordered by how much they undermine the standard above.
    `check_distill_settings.py` is the only one that answers this properly, by
    exiting 2 rather than 0 when one of its controls did not run. That pattern
    is worth copying.
+
+---
+
+## Write the evidence kind inside the claim, not beside it
+
+Not about a check, but about how a claim in this repo stops being true.
+
+On 2026-08-13 an upstream finding arrived explicitly labelled unverified — a
+read of somebody's source, not a build and not a measurement. It was written
+into `attention.py` as "on inspection, is not", with the label dropped. Nobody
+asserted anything false at any point. Each hop repeated the previous hop's
+confidence and left the caveat behind, because a trailing "(unverified)" reads
+as the sender hedging rather than as part of the claim, and hedges are what
+get trimmed when text is copied.
+
+The wording that survives a copy-paste states what kind of evidence it is
+*inside* the sentence:
+
+> **Reported, not verified:** the sm89 kernel appears already stride-aware on
+> its output … That is a source read from upstream, **not a build and not a
+> measurement**.
+
+against the version that does not:
+
+> …which reads as out of reach and, on inspection, is not. The sm89 kernel is
+> already stride-aware on its output.
+
+Both are honest when written. Only one is still honest after somebody quotes
+half of it. This matters here more than in most repos because measured
+numbers, upstream source reads and analytical estimates sit in the same
+paragraphs, and six months later they are indistinguishable by tone.

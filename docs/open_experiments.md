@@ -287,6 +287,20 @@ This also makes the sage-only arms the first clean wall-clock chunking has
 ever had here: the 0.992x in entry 7 was measured with Sol taking most of the
 steps, i.e. with chunking mostly not running.
 
+**Pre-registered prediction, so a bad number cannot be explained after the
+fact.** 0.992x is not merely unreliable, it is biased in a knowable
+direction. Chunking ran on the 5 dense steps of 16; the other 11 went to
+Sol's stock forward at exactly 1.0x. Solving
+`(5/16)x + (11/16)(1) = 0.992` gives a per-chunked-step factor of **0.9744**,
+so the cost was under-expressed by **3.2x**. Firing on every step, the clean
+figure should land near **0.974x** — about 2.6% slower rather than 0.8%.
+
+If it comes back at 0.99x or better, the model above is wrong and the extra
+cost is not per-step launch overhead. If it comes back near 0.974x, entry 7's
+"wall-clock already answers whether to chunk" was right about the sign and
+wrong about the magnitude by 3x, which is the difference between a knob that
+is free and one that is not.
+
 **A null here does not close the area.** The out buffer is real and constant
 regardless of where process peak is set, and removing it is not something any
 consumer-side arrangement can do — it needs a kernel writing into a
