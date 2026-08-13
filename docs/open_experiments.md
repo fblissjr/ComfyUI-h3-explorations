@@ -238,6 +238,33 @@ audit's 5 dense / 11 sparse is specific to shift 12, `simple`, and 16 steps:
 band, so it moves with clip length, with step count, and with any window
 change. The new 8-step turbo arms do not share it.
 
+**The observable had to change before the arm could answer anything.** The
+first version of this probe took a single-run `max()` of whole-GPU
+`nvidia-smi` samples. Predicted effect ~715 MiB; entry 7's documented
+single-config excursion is 2265 MiB. It could not have resolved the effect in
+either direction, and a null would have been reportable as "chunking is
+inert". Now sampling torch *allocated*
+(`torch_vram_total - torch_vram_free` from `/system_stats`) at 1 Hz, which
+excludes sibling processes and the allocator reserve, and comparing on **p90**
+— a max is one excursion, a p90 is the level the run sat at.
+
+**Do not turn that into "prefer p90 over max".** It is right *here* because
+the observable is a noisy 33-minute sampled series. For a high-water mark over
+a bounded region — `torch.cuda.max_memory_allocated()` around one call,
+baseline-subtracted — max *is* the statistic and a percentile of it is
+meaningless. Same principle, opposite implementation; the instrument shape
+decides. Flagged because the slogan travels better than the reasoning.
+
+**And state the question narrowly.** "Does chunking lower the peak" is too
+loose to be falsified: `_chunked_heads` already measures net *per call* lower
+(2645 against 2862 MiB at n=4, a 7.6% saving), and both terms are s-linear —
+`out` is `(1, s, 56, 128)` bf16, exactly 571.8 MiB at S=41822 and ~2010 MiB at
+these arms' size — so the ratio is scale-invariant and the absolute saving
+grows. The open question is whether a per-call transient saving reaches
+**process** peak at all, or whether that peak is set by what stays resident
+across the whole step: weights, latents, and ~53k reference rows. A null
+answers that, not "chunking does nothing".
+
 **Blocker: none, it is running.** Round 2 of the VRAM probes.
 
 ---
