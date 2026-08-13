@@ -160,6 +160,40 @@ in the 50 blocks plus the 2 token-refiner blocks. They do not touch
 `condition_proj`. **That is a point in favour of the experiment working at
 all**, and it is why total breakdown would be surprising.
 
+### A third-party LoRA adapts exactly the path this one avoids
+
+Measured 2026-08-13 by reading the safetensors headers, no GPU:
+
+| LoRA | modules | what it touches | rank |
+|---|---|---|---|
+| `minimax_h3_fl2v_turbo_8step_v1.0` | 208 | `qkv_proj`, `out_proj`, `fc1`, `fc2` only | 128 / 384 |
+| `minimax_h3_turbo_v4_step600_ema` | **259** | the same 208, **plus 51 `adaln_proj.linear`** | 64, **adaln at 16** |
+| `minimax_h3_turbo_4step_ema_ckpt850` | 259 | same shape as v4 | 64 / 16 |
+
+The 51 extra modules are the 50 per-block `adaln_proj.linear` **and
+`final_layer.adaln_proj.linear`** -- which is to say, precisely the modules
+named two paragraphs above as where the two checkpoints differ most, the one
+whose delta norm is 1.92 and is therefore essentially rewritten.
+
+A separate low rank for that path (16, against 64 for attention and MLP) is a
+deliberate design decision, not an artifact of how the LoRA was extracted.
+
+**This narrows the thesis of this document.** The claim was never that
+distilling ref2va is impossible -- it is that the *official* turbo LoRAs are
+fl2v distillations that do not adapt the conditioning-modulation path, so
+using one on ref2va asks the model to run a schedule it never saw while its
+modulation is still the one fl2v needs. A LoRA that does adapt that path is
+not covered by any measurement here. General prompting research reports
+exactly this split in practice -- lightx2v failing to blend references on
+ref2va while the v4 family holds prompt adherence -- and the header
+difference above is a mechanism that would produce that result.
+
+**Untested here.** Nothing in this repo has yet rendered ref2va with v4, and
+the weight analysis says only that v4 *touches* the right modules, not that
+it touches them *well*. `h3_probe_ref2v_turbo` currently runs ref2va with an
+fl2v distill, which is the arm the community reports as the failing one; its
+missing twin is the same graph with v4.
+
 Reproduce with the checkpoints in `models/diffusion_models/` and the LoRA in
 `models/loras/`: dequantise each `*.weight` by its `*.weight_scale`, then
 compare Frobenius norms. The LoRA delta is `(alpha/rank) * B @ A`, and its

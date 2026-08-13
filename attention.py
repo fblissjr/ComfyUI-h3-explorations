@@ -80,6 +80,20 @@ def _sage():
 # because on Ada "auto" already resolves to fp8++ and a user picking it
 # explicitly would otherwise silently lose ~435 MiB per call for nothing.
 # Only the fp16 kernel has no consuming entry point.
+# `fp8++` against `fp8` is NOT an isolation of the accumulator, however much
+# the key names suggest it. Upstream, `fp32+fp16` also co-varies the V
+# quantization scale_max (2.25 against 448.0, `sageattention/core.py`), so the
+# two arms differ in the quantized V tensor as well. Any rtol or wall-clock
+# delta between them is the pair, not the accumulator -- confirmed against the
+# fork's source 2026-08-13. Do not report one as "the cost of fp16 accum".
+#
+# Related, because it has already caused one wrong assumption: `fp32+fp16` is
+# fp16 accumulation at INSTRUCTION granularity flushed into an fp32 register
+# accumulator, not pure fp16 accumulation. The pure form is unimplemented
+# upstream and trips a `static_assert(..., "half is WIP")`.
+#
+# This is also the sm89 DEFAULT, which `auto` already resolves to. It is the
+# baseline every arm here is measured against, not a knob left unturned.
 MODES = {
     "auto": (None, {}),
     "fp8++ (fastest)": (None, {"pv_accum_dtype": "fp32+fp16"}),

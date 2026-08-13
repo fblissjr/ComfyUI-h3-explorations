@@ -299,6 +299,44 @@ TURBO_HOME_CANVAS = dict(width=960, height=544)
 # pair (`h3_probe_turbo_euler.json`) and not a change to `SAMPLING`.
 TURBO_SAMPLER = "euler"
 
+# A third-party turbo LoRA that is NOT interchangeable with the two above, and
+# cannot be loaded by `LoraLoaderModelOnly` at all on our checkpoint.
+#
+# Measured from the safetensors headers 2026-08-13 (see
+# docs/h3_ref2v_distillation.md): the official fl2v LoRAs touch 208 modules,
+# all `qkv_proj` / `out_proj` / `fc1` / `fc2`. This one touches 259 -- the same
+# 208 plus **51 `adaln_proj.linear`**, at a separate rank 16 against 64 for
+# everything else. Those 51 are the 50 per-block `adaln_proj` and
+# `final_layer.adaln_proj`, which is exactly where fl2va and ref2va diverge
+# most: that last one has a relative delta of 1.92, i.e. is rewritten.
+#
+# It needs `ComfyUI-MiniMax-H3-Turbo`'s own two nodes rather than the stock
+# loader, and the reason is specific to us: our base is PRUNED
+# (`..._ref2va_pruned_int8_convrot`), and that pack's node re-injects the
+# LoRA's time conditioning at run time from a `silu(t_emb)` grid it ships.
+# The stock loader would apply the weights and silently skip that.
+#
+# Settings are the pack's own, not ours to tune here. README: 4 steps is the
+# minimum, 4-8 the useful range, 6-8 noticeably better, past 8 no benefit and
+# it starts over-sharpening. Its shipped example uses 6; we take 8 because
+# every reference arm carries audio and audio is the axis its README calls
+# still-weak at low step counts. Strength is tuned for 1.0. Scheduler stays
+# `simple`.
+#
+# Shift stays at the base 12/3 -- the pack's `generate.py` hardcodes
+# SHIFT_VIDEO 12 / SHIFT_AUDIO 3 and its example graph carries no
+# ModelSamplingMiniMaxH3 node at all.
+#
+# `low_vram` merges the LoRA instead of applying it at run time. It is the
+# cheaper peak, and it is the WRONG default here: the README says merging is
+# softer on quantized bases, and ours is int8 *and* pruned, so we would be
+# paying that penalty twice. Off unless something OOMs.
+TURBO_PACK_LORA = "h3/minimax_h3_turbo_v4_step600_ema.safetensors"
+TURBO_PACK_STEPS = 8
+TURBO_PACK_STRENGTH = 1.0
+TURBO_PACK_SCHEDULER = "simple"
+TURBO_PACK_LOW_VRAM = False
+
 # Node order is not cosmetic. Sol-Attn composes with the attention patches
 # it finds, so it must come after ours; reversed, it overwrites the patch
 # and you silently get sage only.

@@ -101,6 +101,25 @@ BASE_SHIFT = (12.0, 3.0)
 _NAME = re.compile(r"turbo_(\d+)step_(v\d+\.\d+)(?:_(\d+p))?", re.IGNORECASE)
 
 
+# A third-party family from ComfyUI-MiniMax-H3-Turbo, named
+# `turbo_v<major>_step<checkpoint>_ema` -- version before step, and the number
+# after `step` is a training checkpoint, NOT a sampling step count. Reading it
+# as one would grade an 8-step graph against "600 steps" and pass anything.
+_PACK_NAME = re.compile(r"turbo_v(\d+)_step(\d+)(?:_ema)?", re.IGNORECASE)
+
+# Its README, not our preference: 4 is the minimum, 4-8 the useful range, past
+# 8 it stops helping and over-sharpens. Shift is NOT changed -- the pack's
+# generate.py hardcodes 12/3 and its example graph carries no shift node.
+PACK_STEPS = (4, 8)
+PACK_SHIFT = (12.0, 3.0)
+
+
+def classify_pack(lora_name):
+    """The pack family, or None. Deliberately separate from `classify`: these
+    are graded against a step RANGE and a fixed shift, not a single row."""
+    return bool(_PACK_NAME.search(lora_name.replace("-", "_")))
+
+
 def classify(lora_name):
     """Which legal row a lora filename belongs to, or None if unrecognised."""
     m = _NAME.search(lora_name.replace("-", "_"))
@@ -138,7 +157,11 @@ def read_api(doc) -> Found:
     steps: int | None = None
     for node in doc.values():
         ct, inp = node.get("class_type"), node.get("inputs", {})
-        if ct == "LoraLoaderModelOnly":
+        if ct in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA"):
+            # The pack node is a turbo loader too. Matching only the stock
+            # one made its graphs read as BASE graphs -- policed for shift,
+            # which they happened to satisfy, and never graded on steps.
+            # A pass for the wrong reason is what this file exists to stop.
             loras.append(inp.get("lora_name", ""))
         elif ct == "MiniMaxH3SigmaShift":
             sv, sa = _literal(inp.get("shift_video")), _literal(inp.get("shift_audio"))
@@ -158,7 +181,7 @@ def read_ui(doc) -> Found:
     steps: int | None = None
     for node in doc.get("nodes", []):
         t, w = node.get("type"), node.get("widgets_values") or []
-        if t == "LoraLoaderModelOnly" and w:
+        if t in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA") and w:
             loras.append(w[0])
         elif t == "MiniMaxH3SigmaShift" and len(w) >= 2:
             shift = (float(w[0]), float(w[1]))
@@ -258,7 +281,23 @@ def main():
         # Catch a triple being added to the config without being added here.
         declared = {n for n in dir(h3_config)
                     if n.endswith("_LORA") and "TURBO" in n}
-        graded = {"TURBO_LORA", "TURBO_768P_LORA"} & declared
+        # TURBO_PACK_LORA is graded, but by classify_pack against a step range
+        # rather than by a vendor row, so it is asserted here directly instead
+        # of joining `triples`.
+        if hasattr(h3_config, "TURBO_PACK_LORA"):
+            assert classify_pack(h3_config.TURBO_PACK_LORA), (
+                f"TURBO_PACK_LORA {h3_config.TURBO_PACK_LORA!r} does not parse "
+                "as the pack's turbo_v<n>_step<ckpt> family")
+            lo, hi = PACK_STEPS
+            assert lo <= h3_config.TURBO_PACK_STEPS <= hi, (
+                f"TURBO_PACK_STEPS {h3_config.TURBO_PACK_STEPS} outside the "
+                f"documented {lo}-{hi}")
+            assert h3_config.TURBO_PACK_SCHEDULER == "simple", (
+                "the pack documents `simple` and nothing else")
+            assert h3_config.TURBO_PACK_STRENGTH == 1.0, (
+                "the pack tunes for strength 1.0 across its whole step range")
+
+        graded = {"TURBO_LORA", "TURBO_768P_LORA", "TURBO_PACK_LORA"} & declared
         assert declared == graded, (
             f"h3_config declares turbo LoRA constants this check does not "
             f"grade: {sorted(declared - graded)}")
@@ -299,6 +338,23 @@ def main():
 
             turbo_graphs[path.name] = (found, turbo)
             for lora in turbo:
+                # The third-party family is graded against a step RANGE and
+                # the unchanged base shift, not against a single vendor row.
+                if classify_pack(lora):
+                    assert found.shift == PACK_SHIFT, (
+                        f"{path.name}: {lora} does not carry its own shift -- "
+                        f"its generate.py hardcodes {PACK_SHIFT[0]}/{PACK_SHIFT[1]} "
+                        f"and its example graph has no shift node at all -- "
+                        f"but the graph sits at {found.shift}")
+                    assert found.steps is not None, (
+                        f"{path.name}: loads {lora} but no BasicScheduler step "
+                        "count could be read")
+                    lo, hi = PACK_STEPS
+                    assert lo <= found.steps <= hi, (
+                        f"{path.name}: {lora} is documented for {lo}-{hi} steps "
+                        f"({lo} the minimum, past {hi} it over-sharpens); "
+                        f"graph has {found.steps}")
+                    continue
                 key = classify(lora)
                 assert key, (
                     f"{path.name}: lora {lora!r} matches no known row. A "

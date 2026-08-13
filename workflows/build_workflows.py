@@ -56,6 +56,8 @@ from h3_config import (  # noqa: E402
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
     TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
+    TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
+    TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
 )
 
 # Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
@@ -317,6 +319,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
               ref_video: bool = False, ref_video_audio: bool = True,
               ref_images_on: bool = True, ref_image_count: int = 2,
+              turbo_pack: bool = False,
               ref_audio: bool = False,
               split_at: int | None = None,
               split_base_last: bool = True,
@@ -349,8 +352,16 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["video_vae"]}},
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["audio_vae"]}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
-        "7": {"class_type": "KSamplerSelect",
-              "inputs": {"sampler_name": sampler_name or SAMPLING["sampler"]}},
+        # The turbo pack ships its own SAMPLER source rather than a name for
+        # KSamplerSelect. On a recent ComfyUI it self-reports as bit-for-bit
+        # the stock result -- it exists to keep older builds stepping the
+        # audio stream on its own clock, which is precisely the thing that
+        # breaks first at low step counts, and every reference arm here
+        # carries audio.
+        "7": ({"class_type": "MiniMaxH3TurboSampler", "inputs": {}}
+              if turbo_pack else
+              {"class_type": "KSamplerSelect",
+               "inputs": {"sampler_name": sampler_name or SAMPLING["sampler"]}}),
         "8": {"class_type": "BasicScheduler",
               "inputs": {"model": None, "scheduler": scheduler_name or SAMPLING["scheduler"],
                          "steps": steps if steps is not None else SAMPLING["steps"],
@@ -518,9 +529,19 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # sage-then-Sol order, which is the part that is load-bearing, and a
         # LoRA in front of both is orthogonal to it.
         # Node id 18; 20/21/22 are already spoken for.
-        g["18"] = {"class_type": "LoraLoaderModelOnly",
-                   "inputs": {"model": model_src, "lora_name": lora[0],
-                              "strength_model": lora[1]}}
+        # The turbo pack's loader is not a drop-in for LoraLoaderModelOnly and
+        # substituting one for the other is a silent-wrong, not an error: our
+        # base is PRUNED, and this LoRA's time conditioning has to be
+        # re-injected at run time from a grid the pack ships. The stock loader
+        # applies the weights, skips that, and reports nothing.
+        g["18"] = ({"class_type": "MiniMaxH3TurboLoRA",
+                    "inputs": {"model": model_src, "lora_name": lora[0],
+                               "strength": lora[1],
+                               "low_vram": TURBO_PACK_LOW_VRAM}}
+                   if turbo_pack else
+                   {"class_type": "LoraLoaderModelOnly",
+                    "inputs": {"model": model_src, "lora_name": lora[0],
+                               "strength_model": lora[1]}})
         model_src = ["18", 0]
     # Always present, at the base checkpoint's own 12/3, so it changes nothing
     # by default. It is here to be edited: the turbo LoRAs carry their own
@@ -1389,6 +1410,65 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
     ])
 
 
+_NOTE_TURBO_PACK = """\
+## A different turbo LoRA, and a different loader on purpose
+
+Read against `h3_probe_ref2v_turbo.json`. Same task, same references, same
+seed. The variable is which turbo LoRA, and it is not a small one.
+
+**Measured from the safetensors headers, not argued:**
+
+| LoRA | modules | touches | rank |
+|---|---|---|---|
+| official fl2v 8-step | 208 | `qkv_proj`, `out_proj`, `fc1`, `fc2` | 128 / 384 |
+| this one (v4 600 ema) | **259** | those **plus 51 `adaln_proj.linear`** | 64, adaln at **16** |
+
+Those 51 extra modules are the 50 per-block `adaln_proj` and
+`final_layer.adaln_proj` -- which `docs/h3_ref2v_distillation.md` measured as
+the place fl2va and ref2va differ MOST, the last one at a relative delta of
+1.92, i.e. rewritten. So the official LoRA leaves the conditioning-modulation
+path untouched on a checkpoint whose modulation is the thing that changed,
+and this one adapts it at a deliberately separate low rank.
+
+**Why the pack's own two nodes instead of `LoraLoaderModelOnly`.** Our base is
+*pruned*. This LoRA's time conditioning has to be re-injected at run time from
+a `silu(t_emb)` grid the pack ships. The stock loader applies the weights,
+silently skips that, and reports nothing -- a wrong render, not an error.
+
+**`low_vram` is off, and that is deliberate.** On it merges the LoRA into the
+weights for a lower peak; its README says merging comes out softer on
+quantized bases, and ours is int8 *and* pruned, so we would pay that twice.
+It is the dial to reach for on an OOM, not before.
+
+**What this arm is not.** The pack's README claims t2v and i2v and never
+mentions ref2va. Running it here is our experiment; a poor result is evidence
+about an unsupported combination, not a defect in the LoRA."""
+
+
+_NOTE_TURBO_PACK_SPLIT = """\
+## Base first, distill last -- the variant with an actual prior behind it
+
+Two stages off one `SplitSigmas`: the base checkpoint runs the opening steps,
+the turbo LoRA finishes. Its twin is `h3_probe_ref2v_turbo_pack.json`, the
+same LoRA with no split.
+
+**The reason to expect this to help is specific.** What diverges between fl2va
+and ref2va is concentrated in the conditioning-modulation path -- the
+`adaln_proj` family -- and conditioning binds hardest in the EARLY steps,
+while composition and identity are still being decided. Late steps are mostly
+refinement. So spend undistilled steps where the references are established
+and distilled steps where they are only being sharpened.
+
+If that story is right, this arm keeps reference blending that the
+single-stage distill loses, at most of the speed. If the single-stage arm
+already blends fine, this one costs time for nothing and the story was wrong.
+Both outcomes are worth knowing and neither is readable from one arm alone.
+
+**Watch the audio.** Its README calls audio the weaker axis at low step
+counts, and these arms carry a `fully_copy` reference track, so a distilled
+tail is exactly where lip-sync and continuity would break first."""
+
+
 _NOTE_PROMPT_STRICTNESS = """\
 ## The one graph here that breaks the format on purpose
 
@@ -1981,6 +2061,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
              ref_video: bool = False, ref_video_audio: bool = True,
              ref_images_on: bool = True, ref_image_count: int = 2,
+             turbo_pack: bool = False,
              ref_audio: bool = False,
              split_at: int | None = None,
              split_base_last: bool = True,
@@ -2016,11 +2097,23 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         # Before the attention patches -- see the matching note in build_api.
         # The strength widget is the one thing this graph exists to be swept,
         # so the node gets a title that says what its arm is.
-        lora_node = g.add("LoraLoaderModelOnly", (-1500, 560), size=(560, 110),
-                          widgets=[lora[0], lora[1]],
-                          inputs=[_in("model", "MODEL")],
-                          outputs=[_out("MODEL", "MODEL")],
-                          title=f"Load LoRA (ref delta, strength {lora[1]})")
+        # See build_api: the turbo pack's loader is not interchangeable with
+        # the stock one on a pruned base. Its widget list is three long
+        # (lora_name, strength, low_vram) -- the pack's own shipped example
+        # graph carries only two, because low_vram was added after it was
+        # written, so that example is not the thing to copy the shape from.
+        lora_node = (
+            g.add("MiniMaxH3TurboLoRA", (-1500, 560), size=(560, 140),
+                  widgets=[lora[0], lora[1], TURBO_PACK_LOW_VRAM],
+                  inputs=[_in("model", "MODEL")],
+                  outputs=[_out("MODEL", "MODEL")],
+                  title=f"Turbo LoRA (pack node, strength {lora[1]})")
+            if turbo_pack else
+            g.add("LoraLoaderModelOnly", (-1500, 560), size=(560, 110),
+                  widgets=[lora[0], lora[1]],
+                  inputs=[_in("model", "MODEL")],
+                  outputs=[_out("MODEL", "MODEL")],
+                  title=f"Load LoRA (ref delta, strength {lora[1]})"))
         g.link(unet_node, 0, lora_node, "model", "MODEL")
         model_src = lora_node
 
@@ -2251,8 +2344,13 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
 
     noise = g.add("RandomNoise", (40, 0), size=(300, 110), widgets=[seed, "randomize"],
                   outputs=[_out("NOISE", "NOISE")])
-    samp = g.add("KSamplerSelect", (40, 150), size=(300, 60),
-                 widgets=[sampler_name or SAMPLING["sampler"]], outputs=[_out("SAMPLER", "SAMPLER")])
+    samp = (g.add("MiniMaxH3TurboSampler", (40, 150), size=(300, 60),
+                  outputs=[_out("SAMPLER", "SAMPLER")],
+                  title="Turbo Sampler (pack node)")
+            if turbo_pack else
+            g.add("KSamplerSelect", (40, 150), size=(300, 60),
+                  widgets=[sampler_name or SAMPLING["sampler"]],
+                  outputs=[_out("SAMPLER", "SAMPLER")]))
     sched = g.add("BasicScheduler", (40, 250), size=(300, 130),
                   widgets=[scheduler_name or SAMPLING["scheduler"],
                            steps if steps is not None else SAMPLING["steps"],
@@ -3076,6 +3174,49 @@ def main():
               out_prefix="Video/h3_probe_r2v_turbo",
               variant_note=_NOTE_REF2V_TURBO),
          "ref2v with an fl2v turbo LoRA -- deliberately out of distribution"),
+        # The twin of the arm above, and the only difference that matters is
+        # WHICH turbo LoRA. That one is an fl2v distill touching 208 modules,
+        # none of them the conditioning-modulation path. This one touches 259,
+        # the extra 51 being every `adaln_proj.linear` including
+        # `final_layer`'s -- exactly where fl2va and ref2va diverge most.
+        # See docs/h3_ref2v_distillation.md for the header measurement.
+        #
+        # Its own README claims t2v and i2v only and never mentions ref2va, so
+        # this arm is OUR experiment, not the author's claim. Settings are the
+        # pack's own; the graph differs from its twin in the two nodes the
+        # pack requires, not in shift, canvas, seed or prompt.
+        ("h3_probe_ref2v_turbo_pack.json", "r2v-turbo-pack", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True,
+                     video_role="swap", audio_role="copy"),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
+              turbo_pack=True,
+              lora=(TURBO_PACK_LORA, TURBO_PACK_STRENGTH),
+              steps=TURBO_PACK_STEPS, scheduler_name=TURBO_PACK_SCHEDULER,
+              out_prefix="Video/h3_probe_r2v_turbo_pack",
+              variant_note=_NOTE_TURBO_PACK),
+         "character swap on ref2va with the adaln-touching turbo LoRA"),
+
+        # The variant with the better prior. If ref2va's divergence really is
+        # in the conditioning-modulation path, it binds hardest in the EARLY
+        # steps, where composition and identity are still being decided. So
+        # run those on the undistilled base and hand the tail to the distill:
+        # the references get established by the model that understands them,
+        # and the cheap steps go where the work is mostly refinement.
+        #
+        # `split_base_last=False` puts base FIRST. Its twin is the arm above,
+        # which is the same LoRA with no split at all.
+        ("h3_probe_ref2v_split_turbo_pack.json", "r2v-split-turbo-pack", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True,
+                     video_role="swap", audio_role="copy"),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
+              turbo_pack=True,
+              lora=(TURBO_PACK_LORA, TURBO_PACK_STRENGTH),
+              steps=TURBO_PACK_STEPS, scheduler_name=TURBO_PACK_SCHEDULER,
+              split_at=SPLIT_AT, split_base_last=False,
+              out_prefix="Video/h3_probe_r2v_split_turbo_pack",
+              variant_note=_NOTE_TURBO_PACK_SPLIT),
+         "base establishes the references, the distill finishes the clip"),
+
         ("h3_probe_reference_upscale.json", "r2v-noupscale", "r2v", _ref_prompt(images=True),
          dict(ref_upscale=False, out_prefix="Video/h3_probe_ref_noupscale",
               variant_note=_probe_note(
