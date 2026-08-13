@@ -31,10 +31,15 @@ confirms a block list parsed rather than that an exemption fired. That
 distinction has cost this project several measurements.
 
 `exercise=True` closes it by pushing one tensor through the composed
-attention and reading the sparse patch's own call counters before and after.
-That is call-time evidence. It costs a fraction of a second and ~176 MiB
-transiently, and it degrades to a warning when the counters are not
-importable, since they belong to a third-party package that may rename them.
+attention and reading the sage fork's own dispatch telemetry
+(`get_last_dispatched_kernel`), which names the kernel that took the call.
+That is call-time evidence about *sage*, and it degrades to a warning rather
+than a failure whenever the probe could not be run at all.
+
+Until 2026-08-13 it read the SPARSE package's counters instead, which made it
+a control that could not fail: it passed when that package routed, in graphs
+that may not even use it, and reported "path not taken" on a sage-only graph
+where sage was working perfectly.
 """
 from __future__ import annotations
 
@@ -92,10 +97,16 @@ class SageChainAssert(io.ComfyNode):
         """Fire one attention call through the composed path; report what ran.
 
         Returns (ok, detail). Structural checks above prove registration;
-        this proves routing. The counters belong to the sparse package, so
-        every failure to reach them is a warning rather than an assertion --
-        an absent counter means "cannot tell", not "did not fire", and
-        conflating those is the error this whole node exists to prevent.
+        this proves routing, and now also identity -- it reports which sage
+        kernel took the call rather than only that something happened.
+
+        `None` means "cannot tell" and is returned for every reason the probe
+        could not be run: no CUDA, no telemetry, not enough free VRAM.
+        `False` is reserved for "ran, and sage did not take it". Conflating
+        those is the error this whole node exists to prevent, and the
+        pre-2026-08-13 version committed it -- it read a THIRD package's
+        counter, so "that package is not in this graph" arrived here as
+        "the composed path was not taken".
         """
         try:
             import torch
@@ -104,47 +115,66 @@ class SageChainAssert(io.ComfyNode):
         if not torch.cuda.is_available():
             return None, "no CUDA device; skipped"
 
-        # Find the counters by capability rather than by name. ComfyUI
-        # registers a directory custom node under a key derived from its path
-        # (`nodes.py`, `sys_module_name = module_path.replace(".", "_x_")`),
-        # not under its folder name, so `import_module("ComfyUI-SolAttn_triton")`
-        # resolves in a standalone shell and never inside ComfyUI. This check
-        # ran registration-only from the day it was written until 2026-08-11,
-        # and said so in a line nobody read, under a final "chain assert ok".
-        stats_fn = None
-        try:
-            import sys as _sys
-
-            for _mod in list(_sys.modules.values()):
-                fn = getattr(_mod, "sol_attn_stats", None)
-                if callable(fn):
-                    # Read a delta rather than resetting: the counters are
-                    # shared process state and another node may be
-                    # accumulating them.
-                    stats_fn = fn
-                    break
-            if stats_fn is None:
-                import importlib
-                stats_fn = importlib.import_module(
-                    "ComfyUI-SolAttn_triton").sol_attn_stats
-        except Exception:
-            stats_fn = None
-        if stats_fn is None:
-            return None, ("sparse-attention counters not importable, so routing "
-                          "could not be confirmed at call time; registration "
-                          "checks above still passed")
-
-        # min_tokens defaults to 4096 and the kernel needs head_dim 128, so a
-        # genuinely small probe would be declined for being small -- which
-        # would look identical to a broken chain.
+        # WHAT THIS READS, and why it is not the sparse package's counters.
         #
+        # Until 2026-08-13 this probe required a counter named
+        # `sol_attn_stats` to move -- the SPARSE pack's, never sage's, and
+        # never ours. Two consequences, both live for months:
+        #
+        #   * On a graph with no sparse patch the probe fired, sage routed it,
+        #     nothing named sol_attn_stats moved, and this node reported "the
+        #     composed path was not taken". Sage was fine; the instrument
+        #     could not see it. That made a sage-only graph unrunnable.
+        #   * When it PASSED, what it confirmed was that the sparse pack
+        #     routed. It never said anything at call time about sage, which is
+        #     the node this file is named for. And because that pack is
+        #     imported process-wide once installed, the symbol resolved even in
+        #     graphs that do not use it -- so the check could not tell "not in
+        #     this graph" from "path not taken". A control that cannot fail.
+        #
+        # The fork exports the right primitive as public API:
+        # `get_last_dispatched_kernel()` is set on every sage call and names
+        # the kernel, so this asserts routing AND identity in one read.
+        try:
+            from sageattention import (get_last_dispatched_kernel,
+                                       KNOWN_KERNEL_NAMES)
+        except Exception as exc:
+            return None, (f"sage dispatch telemetry unavailable ({exc}), so "
+                          "routing could not be confirmed at call time; "
+                          "registration checks above still passed")
+
         # [B, H, S, D] with skip_reshape=True, which is what
         # `comfy/ldm/minimax/model.py:172` sends. The first version of this
         # probe used [B, S, H, D] and passed no skip_reshape, which is the
         # layout the override *produces* internally rather than one it
         # accepts, so it took the 3D branch and died unpacking four values
         # into three. It had never executed, so nothing caught that.
-        BATCH, HEADS, SEQ, HEAD_DIM = 1, 56, 4608, 128
+        # SIZE THE PROBE BELOW THE SPARSE GATE, and note that the correct
+        # size INVERTED when this check stopped reading the sparse package's
+        # counters.
+        #
+        # Old check: a large probe was required, because it needed the sparse
+        # kernel to fire so its counter would move. A small probe was declined
+        # for being small and looked identical to a broken chain.
+        #
+        # New check: it asks whether SAGE took the call. On a composed graph a
+        # large probe is taken by the sparse patch, which runs its own kernel
+        # and never reaches sage -- so a large probe now proves the opposite of
+        # what is wanted and fails on every correctly composed graph. Measured
+        # 2026-08-13: at 4608 the log shows `[sol_attn] sparse (1, 4608, ...)`
+        # and sage dispatch stays None. The chain was fine.
+        #
+        # Below the gate the sparse patch declines and the call falls through
+        # to sage, which is exactly the composition claim: *sage handles what
+        # the sparse patch does not*. Read the gate's own threshold when it is
+        # published rather than assuming the default, so a graph that lowers
+        # min_tokens does not silently push the probe back above it.
+        BATCH, HEADS, HEAD_DIM = 1, 56, 128
+        gate = to.get("sol_compose") if isinstance(to, dict) else None
+        min_tokens = 4096
+        if isinstance(gate, dict) and isinstance(gate.get("min_tokens"), int):
+            min_tokens = gate["min_tokens"]
+        SEQ = max(256, (min_tokens // 2) // 64 * 64)
         dt = torch.bfloat16
 
         # 3 x 66 MB of probe, plus the kernel's own output and workspace, at the
@@ -162,27 +192,54 @@ class SageChainAssert(io.ComfyNode):
 
         q, k, v = (torch.randn(BATCH, HEADS, SEQ, HEAD_DIM, device="cuda", dtype=dt)
                    for _ in range(3))
-        before = dict(stats_fn())
-        try:
-            with torch.inference_mode():
-                override(lambda *a, **kw: torch.zeros_like(q),
-                         q, k, v, HEADS, skip_reshape=True,
-                         transformer_options=dict(to))
-        except Exception as exc:
-            return False, f"composed attention raised on a probe call: {exc!r}"
-        finally:
-            del q, k, v
-            torch.cuda.empty_cache()
 
-        after = stats_fn()
-        moved = {key: after.get(key, 0) - before.get(key, 0)
-                 for key in set(after) | set(before)}
-        moved = {key: n for key, n in moved.items() if n}
-        if not moved:
-            return False, ("a probe call through the composed attention "
-                           "incremented no routing counter at all, which means "
-                           "the composed path was not taken")
-        return True, "routed as " + ", ".join(f"{k}={n}" for k, n in sorted(moved.items()))
+        # Fire on a FRESH THREAD, which is what makes this sound without any
+        # private reset. The dispatch value lives on a `threading.local`, so a
+        # thread that has never made a sage call returns None BY CONSTRUCTION.
+        # Read on the execution thread instead and a value left by an earlier
+        # prompt is indistinguishable from this probe's -- a false negative on
+        # exactly the graphs that route consistently, which is the defect
+        # above wearing a better API.
+        #
+        # The module patch is per-module and the CUDA context is process-wide,
+        # so the composed forward is still traversed off-thread.
+        #
+        # Do NOT read stream behaviour from this. PyTorch's current stream is
+        # itself thread-local, so this thread sees the default stream and not
+        # the sampler's. Sound for "did it route", misleading for anything else.
+        import threading
+
+        outcome = {}
+
+        def _probe():
+            try:
+                with torch.inference_mode():
+                    override(lambda *a, **kw: torch.zeros_like(q),
+                             q, k, v, HEADS, skip_reshape=True,
+                             transformer_options=dict(to))
+                outcome["name"] = get_last_dispatched_kernel()
+            except Exception as exc:
+                outcome["error"] = exc
+
+        worker = threading.Thread(target=_probe, name="sage-chain-probe")
+        worker.start()
+        worker.join()
+        del q, k, v
+        torch.cuda.empty_cache()
+
+        if "error" in outcome:
+            return False, f"composed attention raised on a probe call: {outcome['error']!r}"
+        name = outcome.get("name")
+        if name is None:
+            return False, (f"a probe of {SEQ} tokens -- deliberately below the "
+                           f"sparse gate at {min_tokens} so it should fall "
+                           "through -- did not reach sage: the fork's dispatch "
+                           "telemetry is still None on a thread that made "
+                           "exactly this one call")
+        if name not in KNOWN_KERNEL_NAMES:
+            return True, (f"routed to {name!r}, which is not in the fork's "
+                          "KNOWN_KERNEL_NAMES -- newer kernel, or a rename")
+        return True, f"sage routed a {SEQ}-token probe on {name}"
 
     @classmethod
     def execute(cls, model, require_override, require_forward_patch,

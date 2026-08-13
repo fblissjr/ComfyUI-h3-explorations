@@ -255,8 +255,33 @@ counters.
    symbol process so it acquires a removal checklist. The repair waits for
    that rather than importing an underscore symbol.
 
-   Until then `require_override`/`exercise` must be turned off to run sage
-   alone, and that is a workaround, not a repair.
+**FIXED and verified 2026-08-13**, without needing the reset and without any
+   new contract surface. The probe now fires on a **fresh thread**: the
+   dispatch value lives on a `threading.local`, so a thread that has never made
+   a sage call returns `None` by construction. The thread-locality that was the
+   hazard becomes the mechanism.
+
+   Two things the verification itself turned up:
+
+   * **The off-thread probe does traverse the composed forward** — the open
+     question when this was designed. Confirmed by the log: at 4608 tokens it
+     produced `[sol_attn] sparse (1, 4608, 56, 128)`.
+   * **That first attempt still failed, and correctly.** At 4608 the sparse
+     patch *takes* the call and runs its own kernel, so sage never runs and the
+     new check truthfully said so. The right probe size **inverted** when the
+     instrument changed: the old counter check needed a probe large enough for
+     the sparse kernel to fire, the new one needs a probe small enough for the
+     sparse patch to decline, so the call falls through to sage. That is the
+     composition claim this node is named for — *sage handles what the sparse
+     patch does not* — and it had never been the thing being tested.
+
+   The probe now reads the gate's own `min_tokens` from `transformer_options`
+   and sizes to half of it, so lowering that threshold in a graph cannot
+   silently push the probe back above it.
+
+   Both cases verified on a live server: the composed graph reports
+   `sage routed a 2048-token probe on fp8_cuda++`, and the sage-only graph —
+   previously unrunnable — now passes and samples.
 
 ### The same defect pointed inward
 

@@ -407,8 +407,8 @@ untestable without the control.
 model, the prompt, or the acceleration. Today that is unattributable, which
 makes it the most expensive gap on this page.
 
-**Blocker, discovered 2026-08-13 by trying it: `SageChainAssert` fails on a
-sage-only graph.** Not because sage is broken — its call-time probe reads
+**Blocker CLEARED 2026-08-13** — see `docs/checks.md`. Was: `SageChainAssert`
+fails on a sage-only graph. Not because sage is broken — its call-time probe reads
 Sol-Attn's counters (`sol_attn_stats`), and we publish none of our own, so
 with Sol removed nothing moves and the node reports the composed path was not
 taken. Both sage-only arms of round 2 died on it in 1.0 min. See
