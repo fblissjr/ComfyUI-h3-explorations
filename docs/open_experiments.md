@@ -265,6 +265,21 @@ grows. The open question is whether a per-call transient saving reaches
 across the whole step: weights, latents, and ~53k reference rows. A null
 answers that, not "chunking does nothing".
 
+**If two arms land close, reverse them before believing it.** The arms run
+sequentially in one process with a `POST /free` between, which is
+order-dependent state by construction — the same hazard class that cost an
+upstream measurement ~535 MiB of a real delta once, via an allocator primed by
+the preceding arm. Waiting to *notice* suspiciously-close numbers is a symptom
+you have to be lucky to catch; running the pair in reversed order and checking
+whether the delta changes magnitude or sign is a positive test that can be
+scheduled. One extra render, and only worth it if the numbers are close.
+
+**A null here does not close the area.** The out buffer is real and constant
+regardless of where process peak is set, and removing it is not something any
+consumer-side arrangement can do — it needs a kernel writing into a
+caller-provided view. That is scoped upstream and unscheduled, not impossible;
+see the amended `_chunked_heads` docstring.
+
 **Blocker: none, it is running.** Round 2 of the VRAM probes.
 
 ---

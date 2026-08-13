@@ -482,9 +482,23 @@ def _chunked_heads(self, q, k, v, s, n, kernel_fn, kernel_kwargs):
     transients shrink faster than this costs -- but the constant is the reason
     that lead narrows rather than scaling.
 
+    **"Does not move" above is about `n`, not about `S`.** Read as a claim
+    about sequence length it is simply false, and it has been misread that way
+    once: `out` is `(1, s, heads, head_dim)`, so it is s-linear like every
+    other term here -- 41822 * 56 * 128 * 2 bytes is exactly the 571.79 MiB in
+    the table, and it is roughly 2010 MiB at 147k. Nothing here decays with
+    scale; the per-call ratio is scale-invariant and the absolute saving grows.
+
     Not removable by assembling differently: concatenating groups at the end
     would hold every group at once, which is worse. It would need a kernel
-    that writes into a caller-provided view.
+    that writes into a caller-provided view -- which reads as out of reach and,
+    on inspection, is not. The sm89 kernel is already stride-aware on its
+    output (`stride_bz_o`, `stride_seq_o`, `stride_h_o`), and a head slice is a
+    contiguous head range: strides unchanged, base pointer shifted, head_dim
+    still innermost. The blocker is the fork's Python and binding layer, where
+    `o` is allocated unconditionally and an optional `out=` would touch four
+    coupled places. Scoped but unscheduled upstream as of 2026-08-13 -- so
+    treat this paragraph as "not available today", not as "not possible".
     """
     out = torch.empty((1, s, self.heads, self.head_dim),
                       dtype=q.dtype, device=q.device)
