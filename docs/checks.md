@@ -230,10 +230,33 @@ counters.
 1. The sage-only configuration is not merely unmeasured (open experiment 9),
    it is currently **unrunnable** with the shipped assert in the graph.
 2. Every "routed as …" line in this repo's logs is a statement about Sol.
-3. The fix is a counter in `attention.py` incremented where sage actually
-   routes, with Sol's counters kept as a separate optional case. Until then
-   `require_override`/`exercise` must be turned off to run sage alone, and
-   that is a workaround, not a repair.
+3. The fix is **not** a counter of our own, which was the first plan. The
+   sage fork already exports `get_last_dispatched_kernel()` and
+   `KNOWN_KERNEL_NAMES` as public API, set on every sage call including the
+   sm89 fp8++ path. That proves routing *and* identity in one read, so the
+   assert can require "landed on fp8_cuda++" rather than "something moved" —
+   the claim this node's name has always implied and never made.
+
+   **Two preconditions, both of which would otherwise reproduce today's false
+   negative.** The value is `threading.local`, so the probe and the read must
+   happen on the same thread: fine while `SageChainAssert` runs as a graph
+   node, *not* fine if anyone moves it to an HTTP-side check, where it would
+   return `None` and read as "sage did not route". And it is last-dispatch,
+   not a count, so it must be read immediately after the probe.
+
+   It also needs a reset to be sound. Without one the check reduces to a
+   before/after comparison that is conclusive in one direction only: a change
+   proves routing, but an unchanged value does not disprove it, since the
+   probe may route to the same kernel a previous call already recorded and the
+   thread-local persists across prompts on one worker. That failure mode is a
+   **false negative on graphs that route consistently** — the same defect being
+   fixed, wearing a better API. `_reset_dispatch_for_test` exists but is
+   explicitly not public; upstream is promoting it through their downstream
+   symbol process so it acquires a removal checklist. The repair waits for
+   that rather than importing an underscore symbol.
+
+   Until then `require_override`/`exercise` must be turned off to run sage
+   alone, and that is a workaround, not a repair.
 
 ### The same defect pointed inward
 
