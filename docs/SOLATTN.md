@@ -21,21 +21,44 @@ this fork, this model, this box".
 
 ## Read this before quoting any number on this page
 
-**Most of the measurements here were taken in a regime where Sol-Attn cannot
-show a gain.** Upstream's own statement is that nothing is visible below
-roughly 250–300 frames at 1344x768. The frontier table below is at **length
-124 = 37,296 video tokens**, well under that floor. Those are not weak
-results; they are measurements of the wrong regime.
+Status 2026-08-14, end of session. This page changed more in one day than in
+the two weeks before it, and a large share of what it used to say is now
+labelled rather than deleted. Read this list first.
 
-What survives: the **362-frame** table (107,856 tokens) and the profiling
-table. What does not: the 124-frame frontier numbers, and the quality
-judgements taken at that length.
+### Do not rely on
 
-Second standing caveat: **`start_percent` and `end_percent` have never been
-measured at all**, at any length, on either backend. They are the paper's
-defaults, carried through.
+| claim | why not |
+|---|---|
+| every e2e timing from Run 1, incl. **1.611x** | taken at **362 frames, an illegal length** (15.083s, past the 15.0s ceiling), against an **fp8** sage baseline the graphs do not ship, and before it was known that sage runs 5/16 steps in the Sol arm. Wrong on three axes. |
+| `centroid_tail` = **2.5%** | the measurement is sound (two runs, 0.1% spread) but it is at 362. Ordering is trustworthy; the magnitude is not pinned to a shipped config. |
+| `reuse_qkv_memory` "no VRAM saving" | **uninformative, not negative.** The peak-VRAM column was reporting torch-active bytes, which resolved only the resident-weight plateau. The instrument could not have shown a saving. |
+| the **2.7x** fp8-vs-fp16 accuracy figure | synthetic `torch.randn` input; **1.3x** on real captured H3 activations. Everything in `bench/` inherits this -- `bench_minimax_attn.py:201` builds `randn` and nothing here uses captured activations. |
+| **0.999919** and the other correctness cosines | **implementation fidelity, not accuracy.** Kernel is graded against the reference *at the same tau*, so the sparse approximation is on both sides and cancels. Not comparable to any dense kernel's accuracy number. Also T=512 synthetic. |
+| **1.4x** CUDA over Triton e2e | upstream conversation. Never reproduced here. |
+| `centroid_tail` **5-10%** e2e | upstream conversation. Ours measured 2.5%. |
+| "38 text rows", "sequence 12,264" | from `smoke_h3.py`, which **substitutes both the prompt and the length**. Not a scaled-down version of any shipped graph. Everything derived from it -- that audio dominates the sink, that text is the whole v2 narrowing, that `sink_q` start is 0 -- is a statement about the harness. |
+| the reference-load table's **35.1% / 57.9%** | wrong on three axes for what we ship: a **v1** formula (v2 changed the mechanism), at **362**, at **1344x768** where the ref graphs are 1024x768. |
+| "with Sol on, sage gets nothing" | **retracted.** Sage runs **5 of 16 steps** -- the sigma window, not just `min_tokens`. |
+| bench progress read from its own stdout mid-run | the warmup `print` lacks `flush=True`; under `tee` stdout is block-buffered. A finished render can read as "still in warmup" for 20 minutes. Read ComfyUI's log instead. |
 
----
+### Can rely on
+
+All verified on this box today, by running rather than reading:
+
+- **The CUDA seam works.** Live render, `cuda-int8` in the log, sage's override found and chained, 50 forwards composed.
+- **345 is legal, 362 is not.** `h3_rules.py:25` and diffusers `before_denoise.py:399-407`, independently.
+- **H3's DiT has exactly one attention site**, `comfy/ldm/minimax/model.py:184`, at the full packed length.
+- **Sage runs 5 of 16 steps with Sol on** at the shipped window -- verified at both the compose gate and the override, and cross-checked against this page's own 20-step figure of 6 dense steps.
+- **The two backends are arithmetically equivalent** at T=512 fidelity, each graded in its own measured `centroid_tail` mode.
+- **`reuse_qkv_memory` cannot change output** -- numerically identical to the normal entry, six digits.
+- **v1 -> v2 is schema-identical**, so no graph regeneration is needed across that upgrade.
+- Every check added today was **shown red** before being trusted.
+
+### Never measured, still
+
+`start_percent` and `end_percent`, at any length, on either backend. The
+segment breakdown of any graph **as shipped**. Sol's accuracy against dense
+attention at production sequence length, on real activations.
 
 ## Start here
 
