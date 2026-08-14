@@ -136,6 +136,50 @@ anything else means the block arithmetic is wrong.
 If this passes, the 345-frame run becomes a confirmation rather than the only
 way to learn the answer.
 
+### RESULT 2026-08-14: v2 confirmed, and the prediction was wrong
+
+Ran at length 39, prompt and both references untouched, `verbose=True`:
+
+```
+[h3] preflight ... 39 frames ... sequence length 28,868
+[sol_attn] conditioning sink: KV blocks (0, 263) exact, dense query blocks (260, 263)
+[sol_attn] sparse (1, 28868, 56, 128) tau=1.3 cuda-int8
+```
+
+| | predicted | logged |
+|---|---|---|
+| sequence | 28,868 | **28,868** |
+| KV blocks | `(0, 263)` | **`(0, 263)`** |
+| query start | 132 | **260** |
+
+**v2 works, and works harder than predicted.** The whole conditioning region
+stays exact as keys and values, and only the last **3 blocks of 263** run dense
+on the query side. Those 3 are the target audio. Reference queries are sparse,
+which is the entire point of the change, and a v1 fallback would have printed
+`(0, 263)`.
+
+**The query start was wrong because I carried a t2v identity into a reference
+graph.** v2 uses `audio_start // 64`. On t2v, `audio_start == text_len` because
+the layout is `[text][audio][video]` with nothing in between — I had written
+that sentence myself, correctly, days-of-argument earlier in this session. With
+references the layout is `[text][refs][audio][video]`, so
+`audio_start = 8450 + 8192 = 16,642` and `16642 // 64 = 260`. Not 132.
+
+That is the same failure this whole plan documents: **a relation derived under
+one configuration, applied to another.** It is the fourth instance today and
+the first where the author caught it, and only because the number was written
+down in advance where it could go red. Predicting `text_len // 64` and seeing
+260 is a caught error; predicting nothing and seeing 260 is a shrug.
+
+The pre-registration also localised the error precisely. Sequence and KV blocks
+matched to the digit, so the segment arithmetic was right and exactly one term
+was wrong — no hunting.
+
+**Consequence for the 345-frame run:** it is now a confirmation, not the
+experiment. Same references and prompt, so `audio_start` is unchanged and the
+query start should still be **260**; only the KV end moves with video and audio
+rows. The mechanism question is answered.
+
 **Not a speed measurement.** Reference rows are pinned exact and cannot be
 sparsified, so this arm should be slower per token than the t2v twin while
 still verifying the mechanism.
