@@ -246,6 +246,17 @@ def resolve_arm(name):
             overrides[k] = float(v)
         else:
             overrides[k] = v
+    # An ad-hoc base that names a known arm INHERITS it, so
+    # `shipped[centroid_tail=0]` means "the shipped config with that one knob
+    # moved" rather than "the node defaults with that one knob moved". Without
+    # this a sweep silently measures a different config than the one it is
+    # named after -- and `shipped[...]` would also have come out sage-OFF,
+    # because "shipped" does not start with "sage".
+    if base in ARMS:
+        base_sage, base_sol = ARMS[base]
+        if base_sol is None:
+            raise SystemExit(f"arm {base!r} has no Sol settings to override")
+        return base_sage, dict(base_sol, **overrides)
     return ("kj" if base.startswith("kj") else base.startswith("sage")), overrides
 
 
@@ -365,6 +376,7 @@ from h3_config import (  # noqa: E402
     SOL_BASELINE_124F as SOL_DEFAULTS,
     SOL_CUDA_DEFAULTS,
     SOL_RECOMMENDED,
+    SOL_RECOMMENDED_CUDA,
 )
 
 # Below this, a Sol-Attn arm cannot show anything.
@@ -413,7 +425,12 @@ ARMS = {
     # quote a render time from, because it is the only one whose settings
     # are the ones you would actually open. Everything else here is a probe
     # that isolates one knob against the 124-frame baseline.
-    "shipped":   (True, dict(SOL_RECOMMENDED)),
+    # "shipped" means what workflows/ actually wires, which since 2026-08-14
+    # is the CUDA node at SOL_RECOMMENDED_CUDA. The Triton config it replaced
+    # is still reachable as `shipped_triton`, which needs --sol-backend triton
+    # and exists to reproduce a pre-migration number rather than to be run.
+    "shipped":   (True, dict(SOL_RECOMMENDED_CUDA)),
+    "shipped_triton": (True, dict(SOL_RECOMMENDED)),
     "sage+sol+morton": (True, {"morton": True}),
     # int8_qk puts SolAttn's exact branch on INT8 QK instead of fp16, which
     # its own tooltip says helps at tau<=1.5 -- we run tau=1.2. Without it
@@ -493,7 +510,7 @@ ARMS = {
     # appear at the low end first. If motion is genuinely the least-affected
     # axis, 0.3/0.4 should buy back the artifact for less time than lowering
     # tau does. Stills cannot judge this; it needs watching to the end.
-    **{f"shipped+start{pct}": (True, dict(SOL_RECOMMENDED, start_percent=pct))
+    **{f"shipped+start{pct}": (True, dict(SOL_RECOMMENDED_CUDA, start_percent=pct))
        for pct in (0.0, 0.1, 0.3, 0.4)},
 }
 
