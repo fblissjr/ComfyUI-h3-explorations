@@ -38,6 +38,27 @@ A render at 362 frames / 16 steps is roughly 10 minutes, so budget
 
 ---
 
+## Scoreboard: predictions against outcomes
+
+Kept because a plan that is never scored is a to-do list. Run 1, 2026-08-14:
+
+| question | predicted | measured | verdict |
+|---|---|---|---|
+| Sol vs sage, sampler | 1.35–1.55x | **1.611x** | wrong, low |
+| `centroid_tail` on vs off | 5–10% | **2.5%** | wrong, high |
+| `reuse_qkv_memory` VRAM | ~1 GB | — | **uninformative**, broken instrument |
+
+Two of three wrong, in opposite directions, which is what pre-registering is
+for. The third was not a negative result: the VRAM column was reporting
+torch-active bytes and could not have shown a saving.
+
+**What the run cost that the plan did not predict:** two bench defects, both
+found by running rather than reading. `bench_e2e_h3.py` had been benching
+`mode="auto"` sage since 2026-08-13, and its peak-VRAM column was not
+measuring device VRAM. Both are now checked (`check_bench_matches_shipped.py`)
+or fixed. Budget for this: the first real run of any harness after a gap is
+partly a test of the harness.
+
 ## Run 1 — the foundation, plus two knobs that ride along free
 
 ```bash
