@@ -99,14 +99,32 @@ drift silently.
 
 **Sage runs `mode="fp16 (most accurate)"`, not `auto`.** `auto` resolves to
 `fp8_cuda++` -- the *fastest* kernel -- which looks like the sensible default
-and is the wrong end of this project's tradeoff. Measured 2026-08-13 against
-an fp32 reference: fp16-PV holds mean_rtol 0.0362-0.0363 where every fp8
-variant sits at 0.0969-0.0984, **2.7x more accurate and flat across a 17x
-range of sequence length**, so there is no canvas or clip length where the
-answer flips. The owner then judged it on video at the same seed: "way
-clearer and better motion and less drift". It costs roughly 1.58x wall clock
-and holds q/k/v for the whole call (no `sageattn_consume` path), and the
-heaviest shipped config still peaks at 21,186 MiB of 24,564. All three fp8
+and is the wrong end of this project's tradeoff. The owner judged it on video
+at the same seed: "way clearer and better motion and less drift". **That
+perceptual verdict is the load-bearing half and it is the half that has held.**
+
+The numeric half is weaker than it was written, and the correction is worth
+carrying because the original is the kind of sentence that gets quoted.
+Measured 2026-08-13 against an fp32 reference, fp16-PV held mean_rtol
+0.0362-0.0363 where every fp8 variant sat at 0.0969-0.0984 -- **2.7x more
+accurate and flat across a 17x range of sequence length**. Every one of those
+figures is a **synthetic `torch.randn` measurement**. On q/k/v captured from a
+real H3 forward the gap is roughly **1.3x**, and the sage fork calls every
+synthetic rtol a pessimistic bound rather than an estimate: real attention has
+concentrated softmax and correlated keys, which quantization handles far better
+than iid gaussian noise. Nothing in `bench/` uses captured activations, so
+every accuracy number this repo prints inherits that. The flatness claim came
+from the same sweep and is equally unverified on real inputs.
+
+**The decision does not change** -- 1.3x still favours fp16, and the perceptual
+leg is independent -- but do not defend it with 2.7x. `h3_capture.py` exists to
+settle this and has never been run.
+
+fp16 also holds q/k/v for the whole call (no `sageattn_consume` path), costing
+roughly 1.58x **per attention call**. That is a kernel number, not a render
+number: it was written here as "wall clock", and if attention were nearly all
+of H3's compute a render should be ~1.5x slower, which nothing observed shows.
+The heaviest shipped config still peaks at 21,186 MiB of 24,564. All three fp8
 variants land within 0.0004 of each other, so the PV accumulator is not the
 lever -- quantizing V to fp8 at all is.
 
@@ -133,8 +151,8 @@ not `wide_resolution`. ComfyUI's executor rejects the flat spelling with
 
 **A ComfyUI `git pull` can break every graph here, and nothing local will say
 so.** On 2026-08-13 upstream dropped `frame_count` from `PackedLayout`;
-`preflight.py` still passed it, so all 60 graphs failed at the Preflight node
--- no render at all, not a degraded number. **No check in `bench/` covers a
+`preflight.py` still passed it, so **every graph in the repo** failed at the
+Preflight node -- no render at all, not a degraded number. **No check in `bench/` covers a
 call INTO a dependency we do not control**, and no amount of local validation
 can: the only instrument that sees a broken contract is the contract being
 used. So **run `bench/smoke_h3.py` after any ComfyUI or node-pack update**,
