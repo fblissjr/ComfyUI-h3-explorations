@@ -3363,6 +3363,60 @@ def main():
                   "never been judged here.")),
          "Sol-Attn on, against the sage-only twin"),
 
+        # Sol-Attn ON at full reference load: images + a reference video + its
+        # soundtrack + standalone audio. This is the heaviest sink the model
+        # accepts, and it is the workload the owner actually renders -- the
+        # tau/morton/centroid_tail arms moved here from t2v on 2026-08-14 for
+        # exactly that reason.
+        #
+        # It matters for Sol specifically because every reference row is pinned
+        # exact as a KEY at any tau, so this is where the sink is largest and
+        # where v2's narrowing has the most to do. It is also where Sol has the
+        # LEAST headroom: pinned rows raise the token count without adding
+        # anything sparsifiable, so read it as a mechanism and quality arm, not
+        # a speed one.
+        ("h3_probe_sol_on_all_refs.json", "r2v-all-sol", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True, audio=True),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_audio=True, sol_on=True,
+              out_prefix="Video/h3_probe_sol_on_all_refs",
+              variant_note=_probe_note(
+                  "what Sol-Attn does when every reference type is present",
+                  "h3_ref_image_video_audio.json",
+                  "Sol-Attn enabled, at SOL_RECOMMENDED_CUDA. Its twin is the "
+                  "same references sage-only.",
+                  "The `[sol_attn] conditioning sink` line with `verbose` on, "
+                  "and then the video. Reference rows are exact keys at any "
+                  "tau, so what to watch is whether the SUBJECTS survive -- "
+                  "face and identity against the reference images, motion "
+                  "against the reference video, and the soundtrack.",
+                  "A large sink and a small dense-query span. NOT a speed win "
+                  "proportional to the token count: exact reference rows are "
+                  "work Sol cannot skip, so this arm should be slower per "
+                  "token than a text-only one while still being the case worth "
+                  "getting right.")),
+         "every reference type at once, with Sol-Attn ON"),
+
+        # Sol-Attn ON with an input image rather than references. Keyframe
+        # `cond` rows land in the sink too, so this is the third sink shape:
+        # text-only, reference-heavy, and keyframe.
+        ("h3_probe_sol_on_i2v.json", "i2v-sol", "i2v", None,
+         dict(sol_on=True, out_prefix="Video/h3_probe_sol_on_i2v",
+              variant_note=_probe_note(
+                  "whether Sol-Attn preserves a supplied first frame",
+                  "h3_first_frame_to_video.json",
+                  "Sol-Attn enabled, at SOL_RECOMMENDED_CUDA. Its twin is the "
+                  "same first frame sage-only.",
+                  "Whether the opening frame still matches the image you "
+                  "supplied, and whether the clip drifts away from it faster "
+                  "than the sage-only twin does. The keyframe rows sit in the "
+                  "sink, so they are exact keys -- drift here would be the "
+                  "video losing them, not the conditioning being dropped.",
+                  "Close to the twin at the opening and diverging later, since "
+                  "that is where a block-sparse router has had the most steps "
+                  "to accumulate. Unmeasured: nobody has run Sol on a keyframe "
+                  "graph at all.")),
+         "first frame + text, with Sol-Attn ON"),
+
         ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
          dict(head_chunks=4, out_prefix="Video/h3_probe_chunk4",
               variant_note=_probe_note(
