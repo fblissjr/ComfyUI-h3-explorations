@@ -258,6 +258,70 @@ Length and reference count belong on the sweep axis, not fixed at the cheap
 end. A bench that cannot produce a signal is the timing equivalent of a check
 that cannot go red.
 
+### References are pinned exact, and a video reference dominates the sequence
+
+`_sink_blocks` covers rows `[0, video_start)`. From `PackedLayout` that is
+text, keyframe `cond`, keyframe `cond_audio`, `ref_img`, `ref_audio` **and the
+target audio segment** -- every reference type, whatever it is. `exact_kv`
+makes all of it exact KV for every query; `exact_kv_and_rows` additionally
+runs those query rows dense.
+
+Row counts differ by two orders of magnitude between types (measured, see
+`docs/h3_references.md`, at 1344x768):
+
+| reference | DiT rows | also adds to text |
+|---|---|---|
+| audio, per second | 80 | - |
+| image at `match` | ~1,008 | - |
+| image at `max`, 1024x1024 | 4,096 | +4,096 |
+| image at `max`, 1280x720 | 7,296 | +7,296 |
+| video, 960x544, 124 frames | 18,870 | ~+1,700 |
+| video, 960x544, 345 frames | **52,020** | +4,667 |
+
+Images and videos pay in **two** segments, and the text segment is inside the
+sink as well, so a reference grows the exact region twice.
+
+Share of attention forced exact, at a 362-frame 1344x768 target (arithmetic
+over the row counts above; `S` = sink rows, `T = S + V`, exact work is `T*S`
+for `exact_kv` and `2*T*S - S^2` for `exact_kv_and_rows`):
+
+| configuration | `exact_kv` | `exact_kv_and_rows` |
+|---|---|---|
+| t2v, no references | 1.5% | 2.9% |
+| 3 images at `match` | 4.1% | 8.1% |
+| 3 images at `max` 1280x720 | 29.6% | 50.5% |
+| 1 video ref, 124 frames | 17.1% | 31.2% |
+| 1 video ref, 345 frames | **35.1%** | **57.9%** |
+
+So at the shipped `exact_kv_and_rows`, one long video reference forces 58% of
+the attention exact and leaves Sol-Attn only 42% to work on, at any tau.
+**"More context" is not the same as "more sparsity"**: a video reference is
+context this configuration deliberately pins dense, and it is exactly the
+workload with the most reason to want Sol.
+
+### The sink conflates two things worth separating
+
+`final_layer(h, t_emb, video_seg, audio_seg)` reads out only the target video
+and target audio segments. So the rows in the sink split into:
+
+- **reference and conditioning rows** -- outputs discarded. They matter only
+  as keys and values for later layers, so running *their queries* dense is a
+  second-order effect.
+- **the target audio segment** -- decoded output, first-order, and the stated
+  reason `exact_kv_and_rows` is on at all ("what keeps the generated audio
+  intact", `h3_config.py`).
+
+`exact_kv_and_rows` treats both identically. With a 345-frame video reference
+that means paying ~23 points of extra forced-exact work on reference rows in
+order to get the audio rows dense.
+
+They are separable, and the kernel already allows it: target audio is a single
+contiguous segment immediately before video (`PackedLayout` appends target
+audio then target video, "always the last two segments"), so
+`sink_q = [audio_start // BLOCK, video_start // BLOCK]` would run only the
+audio queries dense. The node hardcodes `sink_q = sink_blocks` instead. This
+is a proposal, not a measurement, and it is upstream's call.
+
 ### `centroid_tail` may stop being a toggle
 
 Upstream is considering making it unconditional -- "probably should even if
