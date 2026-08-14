@@ -1,6 +1,6 @@
 # Open experiments
 
-Last updated: 2026-08-13
+Last updated: 2026-08-14
 
 > **Several of these are now scheduled rather than parked.** The working plan
 > and the render scenes that would settle the quality-blocked ones live in
@@ -501,6 +501,70 @@ arithmetic into a CUDA-free check.
 
 **Blocker: none.** The strongest available control for a number this repo
 leans on heavily.
+
+---
+
+## 14. There is no output-quality instrument for any modality
+
+**Tests:** nothing yet. This entry exists because four entries above are filed
+under "blocker: owner judgment" and that is only half true — it is the blocker
+on the *verdict*, not on getting a first pass.
+
+**The observation that prompted it.** Asked why quality work here leans on
+audio, the honest answer turned out not to be "audio matters more". It is that
+`bench/` has **no output-quality tooling at all**: every number in it is
+kernel-level cosine or rtol against a reference tensor, and nothing reads a
+rendered frame or a decoded waveform. What exists at the output level is ad
+hoc, and it split by whether a number could be extracted mechanically:
+
+| modality | what was measured | status |
+|---|---|---|
+| audio | dB mean/peak per render | **retracted** — did not survive 362 frames; `SOLATTN.md` says accuracy against the sage output was never checked at all |
+| video | human viewing — object dissolve, prompt adherence at 12 steps | `SOLATTN.md`'s Quality section is marked **REOPENED**: judged from stills, and the failure mode is temporal |
+| reference image identity | nothing | entry #1, blocked on owner judgment |
+
+Audio is not over-tested. It is the one that got a *number*, because `ffmpeg`
+prints dB and nothing prints "the subject still looks like itself". That is
+instrument availability, not a claim about what matters — and the one number it
+did produce was retracted, which is the argument for building the instrument
+rather than against it.
+
+**Why it matters:** #1, #6, #9 and #12 are all queued behind the owner
+watching renders, and that queue does not drain by adding card time. A
+mechanical screen would not settle any of them, but it would order them —
+say which pairs are worth watching and which are indistinguishable — and it
+would catch regressions between the sessions where somebody is watching.
+
+**Arms:** none. The deliverable is the instrument, and the repo already knows
+what shape each one has to be:
+
+- **temporal, not per-frame.** `SOLATTN.md` is explicit that a grid of stills
+  cannot catch the object-dissolve artifact, and states the form a gate takes:
+  track one small persistent object frame by frame. A per-frame metric
+  averaged over a clip would report the artifact as noise.
+- **not a numeric diff of two renders.** Comparing finished renders
+  numerically measures trajectory chaos — at 20 steps of a flow ODE any
+  perturbation diverges while both outputs look fine. That trap is already in
+  `SOLATTN.md`'s measurement-traps list and it is the reason the obvious
+  instrument is the wrong one.
+- **not through a codec.** `h3_config.py` records the first int8-VAE quality
+  pass measuring an h264 round trip's noise floor (1.63/255 at 41.1 dB) and
+  reporting it as the decoder. Three comparisons returning the same number was
+  the tell. Whatever this reads, it reads it before encode.
+- **audio has the cheapest first version**: the paired files already exist, so
+  accuracy against the sage output is a comparison, not a render.
+
+**Cost:** unknown, and deliberately not estimated here. Scoping it is the
+first task, not a thing to guess at.
+
+**Decision it changes:** whether #1, #6, #9 and #12 stay blocked on a person.
+
+**Blocker: none, and that is the point.** Every other entry blocked on owner
+judgment has been listed that way since 2026-08-13 without anyone asking what
+would make the judgment cheaper. A screen that can go red is worth more than
+another parked question, and this repo's own rule — a check is not trusted
+until it has been shown red for the right reason — applies to the instrument
+before it applies to anything it grades.
 
 ---
 

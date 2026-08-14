@@ -644,19 +644,33 @@ that the key list is non-empty (`assert_chain.py:305-308`), and their node
 never touches `optimized_attention_override`, so ours survives and
 `exercise=True` probes *our* override while every real DiT call runs theirs.
 
-Two things bound the damage. It is only the **sage-only** graphs that bite:
-H3's DiT has exactly one `optimized_attention` site
-(`comfy/ldm/minimax/model.py:184`, verified), and with Sol on, Sol takes that
-call **on the sparse steps only** -- 11 of 16 at the shipped window. Steps 0-3
-and 15 fall outside it, the compose gate declines them, and they run sage.
-So a Sol graph is exposed on its 5 dense steps, not immune. And KJNodes' *other* attention node,
-`MiniMaxLowVRAMAttention`, yields politely — `if attn_key in
-m.object_patches: continue` (`nodes/minimax_nodes.py:193`). One of their two
-composes and one wins; only the polite one is written up in `docs/checks.md`.
+**Turning Sol on does not protect you from it.** This page said the opposite
+until 2026-08-14 — "with Sol on, sage gets nothing, so only sage-only graphs
+bite" — and that was wrong for a reason worth keeping: it reasoned from
+`min_tokens` alone and forgot the sigma window. H3's DiT does have exactly one
+`optimized_attention` site (`comfy/ldm/minimax/model.py:184`, verified), but
+Sol only *takes* that call inside its window. `_compose_module_patch` declines
+on sigma before delegating (`vendor/sol_attn_minimax.py:571-574`), and
+`make_override` applies the same gate again. At the shipped `0.2 / 0.9`, 16
+steps, `shift_video=12.0`, that is **11 sparse and 5 dense** — the same 11/16
+this page's own sigma-window table gives, arrived at independently.
+
+So a Sol graph runs sage on 5 of 16 steps, and with their node downstream
+those 5 run fp8. They are steps 0-3 and 15: the warm-up that sets structure
+and the final refinement. **Whether those steps are more precision-sensitive
+than the middle is an inference, not a measurement** — nobody has measured
+`start_percent` at any length, which is the same gap flagged at the top of
+this page. The exposure is real either way; its cost is not known.
+
+KJNodes' *other* attention node, `MiniMaxLowVRAMAttention`, yields politely —
+`if attn_key in m.object_patches: continue` (`nodes/minimax_nodes.py:193`).
+One of their two composes and one wins; only the polite one is written up in
+`docs/checks.md`.
 
 No shipped graph wires it. This is a "do not reach for it for VRAM headroom"
 note, and an argument for `SageChainAssert` learning to check that the patch
-is *ours*.
+is *ours* — which is the only thing here that would catch it, since the fp8
+swap is silent at every other layer.
 
 Confirmed engaged rather than assumed, from the log:
 
