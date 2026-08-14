@@ -356,6 +356,66 @@ this as answered is the exact failure this plan keeps documenting.
 
 ---
 
+## Run 1c — upstream's two questions, sharing Run 1b's control
+
+Added 2026-08-14, mid-run. Kijai, signing off:
+
+> gotta sleep so good luck testing, I'm most interested in: is morton worth
+> anything / is centroid_tail ok as default
+
+Both are **quality** questions and this repo has only speed numbers for either.
+`morton=False` was set on a Triton speed result (1.16x alone, a net loss
+stacked on int8); its quality effect is unmeasured, which kijai has said
+himself. `centroid_tail=True` is the CUDA node's default and we measured 2.5%
+e2e — a cost, not a verdict on whether it is *ok*.
+
+**`centroid_tail` is the one with a clock on it.** Upstream is weighing making
+it unconditional. If that lands, `centroid_tail=False` disappears and the A/B
+separating the toggle from the kernel becomes unrunnable. That is the only
+experiment in this plan that can expire.
+
+### The efficient part: the control already exists
+
+`t2v-1.3` from Run 1b is shipped settings at tau 1.3 — `centroid_tail=True`,
+`morton=False`. It is rendering now. So each question costs **one** render
+against it, not a pair:
+
+| arm | differs from `t2v-1.3` by | answers |
+|---|---|---|
+| `t2v-1.3-centroid_off` | `centroid_tail=False` | is the default ok |
+| `t2v-1.3-morton_on` | `morton=True` | is morton worth anything |
+
+Same seed, same prompt, same canvas, same length, same tau. One variable each.
+
+Run on t2v deliberately, and this is the one place t2v is the *right* choice:
+its prompt was written with a whip pan, brick and railings, rain texture and
+percussive audio so a router artifact has somewhere to show. Neither of these
+knobs is about reference handling, so the reference oracle buys nothing here
+and the artifact-sensitive content buys everything.
+
+### Predictions
+
+- **`centroid_tail=False`**: slower by roughly the 2.5% already measured, and
+  *slightly* more accurate — it is the finer per-row tail. If the quality
+  difference is invisible at 345 frames, "ok as default" is answered yes and
+  upstream can make it unconditional without cost.
+- **`morton=True`**: slower (1.16x on Triton, and the CUDA cost is unmeasured).
+  Quality genuinely unknown — this is the one arm here with no prior at all.
+  Reordering video tokens into compact 3D neighbourhoods changes *which* blocks
+  the router keeps, which is the most plausible mechanism for a quality change
+  in the whole config.
+- **What would surprise me**: morton visibly helping. If it does, the shipped
+  `False` is trading an unmeasured gain for a measured speed win, and that is
+  the wrong trade for a repo whose default is accuracy over speed.
+
+### Ordering
+
+These jump ahead of Run 1b's remaining reference arms. The tau question has
+upstream's own datapoint at 2.0 and no deadline; `centroid_tail` has a
+deadline and an upstream request. Run 1b's refs arms follow.
+
+---
+
 ## Run 2 — `start_percent`, the knob with no justification
 
 ```bash
