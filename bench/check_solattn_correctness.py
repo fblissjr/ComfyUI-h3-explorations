@@ -294,12 +294,21 @@ def main():
         # fidelity number against one of those compares different referents
         # and flatters Sol by roughly the size of its own approximation, which
         # is the error two sessions nearly published on 2026-08-14.
-        print(f"\n  vs DENSE attention, i.e. total error including the "
-              f"approximation:")
+        nblk = (t + 63) // 64
+        print(f"\n  vs DENSE attention -- total error, approximation included."
+              f"\n  ON SYNTHETIC INPUT AT T={t} ({nblk} blocks of 64). "
+              f"DOUBLY PESSIMISTIC, DO NOT QUOTE:")
         print(f"    cuda   {cosine(cuda_tau, dense):.6f}")
         print(f"    triton {cosine(outs['int8'], dense):.6f}")
-        print("  Compare THIS to a dense kernel's accuracy number, never the "
-              "fidelity\n  figures above.")
+        print(f"  Two reasons this is a floor, not an estimate. (1) torch.randn "
+              f"gives a\n  near-uniform softmax, so attention mass does not "
+              f"concentrate and there is\n  nothing for a block router to find "
+              f"-- the premise of the method is absent.\n  (2) {nblk} blocks is "
+              f"a different regime from production's ~1,626 at 345\n  frames, "
+              f"not a small version of it. Re-run on captured activations at\n"
+              f"  production S before this number means anything. This IS the "
+              f"quantity\n  comparable to a dense kernel's accuracy figure -- "
+              f"but only once measured\n  somewhere the method's premise holds.")
 
         print(f"\n  distance from the algorithm, each in its own tail mode:")
         print(f"    cuda        {cosine(cuda_tau, cuda_ref):.6f}")
