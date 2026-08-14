@@ -136,8 +136,11 @@ def summary():
     if not enabled:
         return "capture disabled"
     if not _block_of:
-        return ("[h3_capture] NO CALLS SEEN. The sage forward never ran -- with "
-                "Sol-Attn on it takes the only DiT attention call and sage gets "
-                "nothing. Bypass Sol and re-run.")
+        return ("[h3_capture] NO CALLS SEEN. The sage forward never ran. If "
+                "Sol-Attn was on, it takes the calls inside its sigma window "
+                "and sage keeps the rest -- 5 of 16 steps at the shipped "
+                "0.2/0.9, which are steps 0-3 and 15. So Sol does NOT explain "
+                "zero files; it explains a skewed sample. Check the block and "
+                "step selectors first, then bypass Sol and re-run.")
     return (f"[h3_capture] {len(_block_of)} blocks seen, "
             f"{max(_calls.values())} steps, {len(_written)} files written")

@@ -123,7 +123,7 @@ correct in context. Do not add one to silence the check.
 
 ```retraction-consumers
 PHRASE: 2.7x more accurate
-ALLOW: workflows/h3_config.py CHANGELOG.md
+ALLOW: workflows/h3_config.py CHANGELOG.md CLAUDE.md
 WHY: all three carry the synthetic-input caveat inline. Deliberately NOT
      matching bare "2.7x" -- attention.py and README.md use that string for a
      speed figure against torch flash, a different and correct claim.

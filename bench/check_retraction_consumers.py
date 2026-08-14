@@ -93,6 +93,26 @@ def iter_files():
         yield path
 
 
+def normalise(text):
+    """Collapse whitespace and case so line-wrapped prose still matches.
+
+    Added 2026-08-14 after this check passed over a live consumer. `h3_capture.py`
+    carried "sage gets nothing" split across a line break -- `"sage gets "` then
+    `"nothing"` -- and a raw substring test walked straight past it. Prose is
+    wrapped at 79 columns everywhere in this repo, so a multi-word phrase is
+    *more* likely than not to straddle a break, which made the naive matcher
+    close to useless on exactly the phrases worth tracking.
+
+    Case-folding is the same class of hole: "Zero DiT calls" opening a sentence.
+    """
+    # Python joins adjacent string literals, so a phrase can be split by a
+    # `" ... "` seam as well as a newline -- h3_capture.py hid a live consumer
+    # that way, past the whitespace fix. Collapse the seam the way the parser
+    # does, then the whitespace, then case.
+    text = re.sub(r"[\"']\s*[\"']", "", text)
+    return re.sub(r"\s+", " ", text).casefold()
+
+
 def scannable(name, text):
     """The prose of a file, minus any definition block.
 
@@ -148,13 +168,14 @@ def main():
     for path in iter_files():
         name = str(path.relative_to(REPO))
         try:
-            contents[name] = scannable(name, path.read_text(encoding="utf-8"))
+            contents[name] = normalise(scannable(name, path.read_text(encoding="utf-8")))
         except (UnicodeDecodeError, OSError):
             continue
 
     unlisted, stale = [], []
     for row in rows:
-        found = {name for name, text in contents.items() if row["phrase"] in text}
+        needle = normalise(row["phrase"])
+        found = {name for name, text in contents.items() if needle in text}
         allowed = set(row["allow"])
         for name in sorted(found - allowed):
             unlisted.append((row["phrase"], name))
