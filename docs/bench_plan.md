@@ -374,6 +374,49 @@ it unconditional. If that lands, `centroid_tail=False` disappears and the A/B
 separating the toggle from the kernel becomes unrunnable. That is the only
 experiment in this plan that can expire.
 
+### AMENDED mid-run — no t2v, no turbo LoRAs
+
+Owner, 2026-08-14, while the t2v arms were running:
+
+> stop testing t2v and dont test distill turbo loras - just base with sage/sol
+> and use ref images/videos/audio and input images
+
+So the design below is rewritten and the t2v arms are cancelled, including the
+one already rendering. The argument for t2v — that its prompt was written to
+surface router artifacts — was a good argument for a workload the owner does
+not run. **A knob validated on content nobody renders is not validated**, which
+is the same shape as every other finding on this page: measured under one
+configuration, applied to another.
+
+`t2v-1.3` had completed (10:18 at 345 frames, 1344x768) and is kept only as a
+timing datapoint. It is no longer the control.
+
+**The control is now `h3_probe_sol_on_refs` at shipped settings** — tau 1.3,
+`centroid_tail=True`, `morton=False`, 1024x768, `allow_upscale=False`. Every
+arm differs from it by one field. Base model plus sage and Sol throughout; no
+turbo or distill LoRA anywhere in this run.
+
+| arm | differs by | answers |
+|---|---|---|
+| `refs-1.3` | — | the control |
+| `refs-1.3-centroid_off` | `centroid_tail=False` | kijai: is the default ok |
+| `refs-1.3-morton_on` | `morton=True` | kijai: is morton worth anything |
+| `refs-1.0` | `tau=1.0` | his stated quality peak |
+| `refs-2.0` | `tau=2.0` | the setting he says is usable |
+
+The cost of moving off t2v is real and worth stating: the reference prompt is a
+single continuous shot with the camera trucking right at small amplitude, which
+is the *least* favourable content for surfacing a block-sparse artifact. A null
+on any of these arms is therefore weak evidence, not proof of no effect. What
+replaces the t2v control as a sanity check is the face oracle — `1-man.png` is
+a reference the subject can be compared against directly.
+
+**Still uncovered, and the owner asked for it:** video references, audio
+references, and input images. No Sol-enabled graph exists for any of those —
+the shipped reference graphs omit the Sol node from their API form entirely, so
+it cannot be patched in at submit time. That needs a `sol_on=True` entry in
+`GRAPHS`, which is a graph addition rather than a bench flag.
+
 ### The efficient part: the control already exists
 
 `t2v-1.3` from Run 1b is shipped settings at tau 1.3 — `centroid_tail=True`,
