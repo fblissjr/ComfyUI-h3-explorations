@@ -1,0 +1,118 @@
+# What holds, and what does not
+
+Last updated: 2026-08-14
+
+`docs/checks.md` indexes what is *checked*. `docs/open_experiments.md` indexes
+what is *not measured*. This file is the third case and the one that kept
+biting: claims that **were** measured, are written down as numbers, and should
+not be relied on — because the conditions they were taken under are not the
+conditions we ship.
+
+An entry leaves this file when someone re-measures it, not when someone
+re-reads it.
+
+## Relationship to `SOLATTN.md`'s header
+
+Both were written on 2026-08-14, in parallel, by two sessions that did not
+know the other was doing it — which is its own entry in the postmortem.
+
+The split, so neither drifts: **SOLATTN.md's header is the Sol-Attn quick
+reference**, read by someone about to quote a number off that page. **This
+file is the repo-wide ledger** and owns the three things a topic page cannot:
+claims that are not about Sol-Attn (the fp8/fp16 accuracy figure is a sage
+claim; the smoke's prompt substitution is a harness one), the **what restores
+it** column, and the environment section below — the venv and `coderef/` are
+not in git and nothing else records what changed there.
+
+If the two disagree, this file is wrong until proven otherwise: SOLATTN.md is
+maintained by whoever is running the measurements.
+
+## Why this file exists
+
+On 2026-08-14 two sessions working the same repo found nine separate claims in
+this class, and **not one of them was caught by whoever wrote it**. Every one
+came from a second reader. The pattern was identical each time: a number
+measured under one configuration, carried into another, with the qualifying
+sentence living in a different file — or in the same file, one paragraph away
+from the table.
+
+That is caveat decay, and `docs/checks.md` already names it. What it did not
+have was somewhere for the *surviving* list to live, so each caveat was
+attached to whichever page happened to discuss it, and none of them were
+attached to the number.
+
+---
+
+## Do not rely on these
+
+| claim | why not | what restores it |
+|---|---|---|
+| **Sol vs sage = 1.611x** | Wrong on three axes: taken at `--length 362` (illegal — see below), against an **fp8** sage baseline the graphs do not ship, and sage runs 5 of 16 steps inside a Sol arm so the fp16 fix moves **both** arms, not just the control | Run 1 redone at 345 with the shipped fp16 baseline — running now |
+| **`centroid_tail` = 2.5% e2e** | Ours, two runs, 0.1% spread — but at 362 | same run |
+| **Upstream's `centroid_tail` ~5–10% e2e** | Upstream conversation, his box, his settings. Never reproduced here, and our own 2.5% disagrees | reproduce, or drop the figure |
+| **CUDA is 1.4x over Triton e2e** | Upstream conversation. Never reproduced here | a paired run on this box |
+| **`reuse_qkv_memory` saves nothing** | Not a negative result. The VRAM column was reporting torch-active bytes and could not have seen it | fixed instrument (`f1dff99`), rerun |
+| **any peak-VRAM figure between 13:08:49 and `f1dff99`** | An external write reverted the device poller on disk; a `git add -A` then committed the reverted state | re-measure |
+| **fp8 is 2.7x less accurate than fp16** | **Synthetic input.** The sage fork measures 1.3x on real captured H3 activations and calls every synthetic rtol a pessimistic bound. `bench/bench_minimax_attn.py:201` builds `torch.randn`; nothing in `bench/` uses captured activations, and our 0.0969–0.0984 matches the fork's synthetic 0.098, not its real-activation 0.026 | the capture hook is written (`756a65e`) and has never been run |
+| **Sol is 0.999919 accurate** | Implementation fidelity, not total error — the harness compares kernel against reference **at the same tau**, so the sparse approximation is on both sides and cancels. Also `T=512`, and the O(T²) reference cannot run at real length | the Sol-vs-dense diagnostic (`44becf0`), once the card frees |
+| **text = 38 rows, sequence = 12,264** | `smoke_h3.py:106-109` substitutes **both** the prompt (27 words, against the graph's 216) and the length. Not a scaled-down shipped graph — text does not scale with length and was replaced | one preflight on a shipped graph, unmodified |
+| **everything derived from that**: audio dominates the sink; text is the whole v2 narrowing; `sink_q` start is 0 on t2v | all smoke-harness statements. On the shipped graph, text extrapolates to ~304 rows / 4 blocks — still an extrapolation from one point | same preflight |
+| **the sink's audio framing** | A **t2v** framing. In reference-heavy graphs the sink is overwhelmingly *reference* rows, and a video reference's failure mode is motion drift, not the thinness argument the knob is named for | measurement at reference load; the bench has no `--refs` axis yet |
+| **reference-load table: 35.1% / 57.9%** | Wrong on three axes — v1 formula (v2 stops running reference queries dense), 362 frames, 1344x768. The shipped reference arms are 345 at 1024x768 | redo as v1-vs-v2, measured not derived |
+| **"with Sol on, sage gets nothing"** | Retracted 2026-08-14. Reasoned from `min_tokens` and forgot the sigma window. Sage runs 5 of 16 steps | — corrected in place |
+| **`min_tokens` 4096 is "very likely wrong"** | Retracted. One `optimized_attention` site at the full packed length, so 4096 and 12288 select the same thing — everything | — corrected in place |
+| **"fp16 lands on the steps where precision matters most"** | Inference, not measurement. `start_percent` has never been measured at any length on either backend | measure `start_percent` (Run 2, not started) |
+| **any bench progress read from its own stdout mid-run** | The warmup `print` lacks `flush=True`, and `tee` makes stdout block-buffered, so finished lines sit in the buffer. Read ComfyUI's progress lines instead | add `flush=True` |
+
+**362 is not a legal length.** `h3_rules.py` applies the reference's 15.0 s
+ceiling *after* the frame-count snap, so 362 is 15.083 s and refused; 345 is
+the largest count on the 17n+5 grid, and all 34 shipped API graphs carry it. A
+362-frame render succeeds and reports nothing, which is why this went
+unnoticed. `bench_e2e_h3.py` warns as of `34b42b3`.
+
+---
+
+## These hold
+
+Kept short on purpose — every row is something a second reader confirmed or an
+instrument that has been shown red.
+
+- **The CUDA seam works.** Live render, `cuda-int8` in the log, override
+  chained, 50 forwards composed. Not a source read.
+- **345 legal / 362 illegal**, from `h3_rules.py:25` and the reference.
+- **One `optimized_attention` site**, `comfy/ldm/minimax/model.py:184`.
+- **Sage runs 5 of 16 steps under Sol** at the shipped window — verified at two
+  layers of the node source and cross-checked against this repo's own
+  sigma-window table, which independently gives 11/16 sparse.
+- **`reuse_qkv_memory` is numerically identical** to the normal entry, six
+  digits. It cannot change output. What it *buys* is unmeasured.
+- **Both backends are arithmetically equivalent** at `T=512` fidelity.
+- **All 34 API graphs carry 345**, read from their widgets.
+- **Every `bench/check_*.py` passes**, and the ones added today were each shown
+  red first: `check_sol_kernel` (4 cases), `check_bench_matches_shipped`,
+  `vendored`, `node_version`.
+- **The node is vendored, symlinked and hash-pinned**, so the file ComfyUI
+  loads cannot drift from the tracked one, and an unrecorded hash fails rather
+  than warns.
+
+---
+
+## Environment, because it is not in git
+
+The venv and ComfyUI were both changed today and neither is version-controlled
+here:
+
+- `comfy-kitchen` replaced: `0.2.31` → `0.2.31+sol.c04ef20`, **built from
+  source for sm_89 only**. It will not work on another architecture, and it
+  declares a version the stock wheel also declares.
+- `nanobind` 2.14.0 added.
+- `custom_nodes/ComfyUI-SolAttn-cuda/` created; its `sol_attn_minimax.py` is a
+  **symlink into this repo's `vendor/`**. Editing through the installed path
+  writes into the tracked file.
+- `coderef/comfy-kitchen-sol/` cloned at `c04ef20` with submodules, and its
+  `pyproject.toml` **edited** — that is a modification to a checkout of
+  someone else's tree.
+
+Record the node hash and the `comfy-kitchen` tag with any measurement. The
+branch rebases and the build declares a stock version number, so nothing else
+can tell two builds apart.
