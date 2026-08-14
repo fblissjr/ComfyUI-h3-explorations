@@ -271,11 +271,35 @@ The density is the soft input and it moves every ceiling above.
 all. This needs `LoadImage` → `MiniMaxH3ReferenceFit` → the r2v path, as a
 `--refs` axis, so a paired same-seed A/B is still possible.
 
-It is the highest-value unmeasured question and the most expensive to set up.
-Arithmetic over the measured row counts in `docs/h3_references.md` says one
-345-frame video reference at `exact_kv_and_rows` forces **57.9%** of attention
-exact, against 35.1% at `exact_kv` — a 23-point swing, where `start_percent`
-0.2 → 0.3 is one step of sixteen.
+It is the most expensive to set up. It was also called "the highest-value
+unmeasured question", and both that ranking and the number behind it are
+withdrawn — see below.
+
+> **The 23-point swing is retracted. Do not quote it, here or anywhere.**
+> Arithmetic over `docs/h3_references.md`'s row counts put one video reference
+> at **57.9%** of attention forced exact under `exact_kv_and_rows` against
+> **35.1%** under `exact_kv`. Wrong on three axes for anything we ship:
+> a **v1 formula** — kijai's v2 stopped running reference *queries* dense, so
+> the query-side term no longer scales with reference size at all; a **362-frame
+> target**, which is not a legal length; and **1344x768**, where every shipped
+> reference arm is 1024x768.
+>
+> The "345-frame video reference" phrasing is its own trap and is why this
+> survived a caveat sweep: 345 is the **reference** length and reads as the
+> shipped config, which hides that the **target** was 362. A retracted number
+> wearing a legal-looking number next to it is harder to spot than a bare one.
+
+**And the ranking inverted.** Reference rows are pinned exact, so they raise the
+token count without adding anything Sol can sparsify — arithmetic over the
+preflight's measured rows puts a video-reference arm's attention ceiling near
+1.58x against t2v's ~8x. Reference-heavy is where Sol has the **least** room,
+not the most, which is the opposite of what this plan assumed when it ranked
+this run first.
+
+The question is still worth answering — `sink_conditioning` is a real knob and
+nobody has measured it at reference load on either node version. What is gone
+is the number that made it look urgent. Re-derive under v2 before scheduling
+this, and expect a smaller answer.
 
 *Prediction:* at one image reference at `match` the two settings are within
 noise; with a video reference `exact_kv` is worth 15–25% of sampler time, and
