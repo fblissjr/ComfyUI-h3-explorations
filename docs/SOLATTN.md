@@ -47,7 +47,14 @@ All verified on this box today, by running rather than reading:
 
 - **The CUDA seam works.** Live render, `cuda-int8` in the log, sage's override found and chained, 50 forwards composed.
 - **345 is legal, 362 is not.** `h3_rules.py` and diffusers `before_denoise.py`, independently.
-- **H3's DiT has exactly one attention site**, `comfy/ldm/minimax/model.py`, at the full packed length.
+- **H3's DiT reaches `optimized_attention` from one source line but 52 modules.**
+  `comfy/ldm/minimax/model.py`: the 50 `DiTBlock.attn` at the full packed length,
+  plus 2 `TokenRefiner` blocks on the text tokens alone (311 rows in the shipped
+  graph). This page said "exactly one attention site" until 2026-08-14 — true of
+  the line, misleading about the modules, and the refiner pair is exactly what
+  keeps `ModelAttentionBackend` from being a no-op. The VAE has its own call
+  (`comfy/ldm/minimax/vae.py`) that no override can reach: it passes no
+  `transformer_options`, so `wrap_attn` skips the lookup.
 - **Sage runs 5 of 16 steps with Sol on** at the shipped window -- verified at both the compose gate and the override, and cross-checked against this page's own 20-step figure of 6 dense steps.
 - **The two backends are arithmetically equivalent** at T=512 fidelity, each graded in its own measured `centroid_tail` mode.
 - **`reuse_qkv_memory` cannot change output** -- numerically identical to the normal entry, six digits.
@@ -247,7 +254,7 @@ own way to get this wrong.
 | `tau` | 1.3 | Routing threshold in sigmas of the proxy row. A key block is exact when its mean score over the query block clears `tau * sqrt(var)`. Higher is sparser. Upstream densities: 1.0 keeps ~16% exact, 1.5 ~7%, 2.0 ~2.7%. |
 | `start_percent` | 0.2 | Dense before this point. **Never measured** — see the step table below, it is badly non-linear. |
 | `end_percent` | 0.9 | Dense after this point. Also never measured. |
-| `min_tokens` | 12288 | Shorter sequences stay dense. `SOL_RECOMMENDED_CUDA` pins 4096, and **neither value changes anything**: H3's DiT has one attention site at the full packed length, and the shortest clip past 5 frames is already S = 7,194. Both thresholds select everything. |
+| `min_tokens` | 12288 | Shorter sequences stay dense. `SOL_RECOMMENDED_CUDA` pins 4096, and **neither value changes anything** — but not for the reason first written here. The 50 DiT calls are at the full packed length and the shortest clip past 5 frames is already S = 7,194, so both thresholds take them; the 2 token-refiner calls are ~311 rows, so both thresholds reject them. The conclusion survives the 52-module correction; the "both select everything" reasoning does not. |
 | `sink_conditioning` | `exact_kv_and_rows` | See the reference section — this is the dominant knob at reference load. |
 | `morton` | False | Z-order the video tokens so each 64-token block is a compact 3D neighbourhood. Exactly neutral for dense attention. |
 | `morton_curve` | `2d_frame` | Z-order within each frame, leaving frame order alone. Correct for H3, whose `FRAME_PER_TOKEN` is `(1,4,4,4,4)`. |
@@ -281,11 +288,15 @@ not noise.
 `mode="auto"` -> `fp8_cuda++`, not the shipped `fp16 (most accurate)`,
 because the bench had drifted from `h3_config.py` (see `docs/checks.md`).
 fp8 sage is the *fast* kernel, so this ratio **understates** against the
-shipped configuration. And the understatement is one-sided: H3's DiT has
-exactly one attention site (`comfy/ldm/minimax/model.py`) at the full
-packed length, so with Sol on, sage takes **zero** DiT calls -- the mode
-affects the sage-only arm and nothing else. A corrected re-baseline is the
-number to quote.
+shipped configuration. **The understatement is not clean, though.** This
+paragraph used to say that with Sol on sage takes **zero** DiT calls, so the
+mode affected the sage-only arm and nothing else. That is the claim retracted
+at the top of this page, and it survived here after being fixed in two other
+places -- caveat decay, in the exact form `docs/checks.md` describes. Sage
+runs 5 of 16 steps in the Sol arm, so the fp8 drift hit **both** arms: 16 of
+16 steps in sage-only, 5 of 16 in shipped. Correcting both to fp16 slows
+sage-only more, so the direction still understates -- but the magnitude is not
+pinned, and a corrected re-baseline is the number to quote.
 
 **`centroid_tail` is worth 2.5%**, not the 5-10% upstream reports e2e
 (1.611x against 1.571x). Two consequences: it is not where the CUDA
@@ -689,6 +700,37 @@ and sage is bypassed; outside it, sage runs dense.
 `func` argument — no chaining. Downstream of Sol it deletes Sol silently; the
 graph still renders. Sage partly survives because it also object-patches the 50
 attention forwards, a path that never reaches `optimized_attention`.
+**Re-verified 2026-08-14 against ComfyUI `55b6a9b1`**, after the comfy-kitchen
+attention merge, because that merge touched this exact function.
+
+That merge (`bf4c9a08`, #15479) added a second and stricter bypass. When the
+node selects "comfy kitchen attention", `set_model_optimized_attention` copies
+the backend's `container_function` onto the override and `wrap_attn` dispatches
+straight to it — `func` is not even in that signature. "pytorch attention"
+leaves `container_function` None and takes the old path. H3 is on the container
+path, not exempt from it: `comfy/ldm/minimax/model.py` wraps q/k/v in
+`AttentionTensorContainer` before the call. Our overrides declare no
+`container_function`, so `wrap_attn` takes the containers and hands us raw
+tensors with `func` first — unchanged and still working, but it forfeits
+comfy-kitchen's prequantize entry, which only runs when the containers arrive
+intact.
+
+**Against a forward-patching sage node the backend is nearly inert, and that is
+its own trap.** KJNodes' node and ours both replace
+`diffusion_model.blocks.{i}.attn.forward` and so delete the call site; the
+comfy-kitchen override reaches none of the 50 DiT blocks, **in either order**,
+because the two nodes use different seams and never contend. What it does reach
+is the 2 token-refiner blocks, and nothing else. Selecting it on a sage graph
+changes 2 of 52 attention modules, which from the outside is indistinguishable
+from the backend being slow.
+
+**Sol is what actually breaks, and the combination is worse than either alone.**
+`_compose_module_patch` gates on `transformer_options["sol_compose"]`, which
+survives the node's `model.clone()`. So inside the sigma window the composed
+forward still fires and calls `stock()` — routing the call away from sage's
+patch and into comfy-kitchen int8 rather than into Sol's sparse kernel. No Sol
+sparsity, no sage patch, dense comfy-kitchen int8, and no error anywhere. Read
+from source 2026-08-14, not rendered.
 
 **KJNodes' `MiniMaxH3MemoryEfficientSageAttentionPatch` silently replaces our
 sage node, and no check catches it.** Read from source 2026-08-14, not
@@ -708,9 +750,10 @@ never touches `optimized_attention_override`, so ours survives and
 **Turning Sol on does not protect you from it.** This page said the opposite
 until 2026-08-14 — "with Sol on, sage gets nothing, so only sage-only graphs
 bite" — and that was wrong for a reason worth keeping: it reasoned from
-`min_tokens` alone and forgot the sigma window. H3's DiT does have exactly one
-`optimized_attention` site (`comfy/ldm/minimax/model.py`, verified), but
-Sol only *takes* that call inside its window. `_compose_module_patch` declines
+`min_tokens` alone and forgot the sigma window. H3's DiT does route every
+`optimized_attention` call through one source line
+(`comfy/ldm/minimax/model.py`, verified), but Sol only *takes* those calls
+inside its window. `_compose_module_patch` declines
 on sigma before delegating (`vendor/sol_attn_minimax.py`), and
 `make_override` applies the same gate again. At the shipped `0.2 / 0.9`, 16
 steps, `shift_video=12.0`, that is **11 sparse and 5 dense** — the same 11/16

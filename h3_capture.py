@@ -36,10 +36,19 @@ receives. Capturing before it would measure a tensor no kernel ever sees.
 
 ## Why sage, and why Sol must be off
 
-These are the tensors the *sage* path holds. With Sol-Attn on, sage receives
-nothing -- H3's DiT has one attention site and Sol takes it -- so a capture
-run must have Sol bypassed or it will produce no files and look like a broken
-hook rather than an empty one. The block counter warns when that happens.
+These are the tensors the *sage* path holds, and **a capture run must have
+Sol-Attn bypassed** -- but not for the reason this docstring gave until
+2026-08-14. It said sage receives nothing with Sol on, so the run would
+produce no files. That is the claim retracted in `docs/SOLATTN.md`: Sol only
+takes the calls inside its sigma window, so at the shipped `0.2 / 0.9` and 16
+steps sage still runs **5 of 16** steps.
+
+The real failure is worse than an empty directory, because it is not empty.
+Those 5 steps are 0-3 and 15 -- both ends of the schedule and none of the
+middle -- so a capture taken with Sol on yields a plausible-looking set of
+files drawn from an unrepresentative slice of the trajectory, and every
+accuracy number computed from it inherits that skew silently. An empty run
+announces itself; this one does not. The block counter still warns.
 """
 
 from __future__ import annotations
