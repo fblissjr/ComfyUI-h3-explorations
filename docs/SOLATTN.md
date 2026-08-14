@@ -54,6 +54,44 @@ All verified on this box today, by running rather than reading:
 - **v1 -> v2 is schema-identical**, so no graph regeneration is needed across that upgrade.
 - Every check added today was **shown red** before being trusted.
 
+### Measured 2026-08-14, late: the first shipped-graph segment breakdown
+
+Every segment figure this repo had cited came from `bench/smoke_h3.py`, which
+substitutes **both** the prompt and the length. This is `h3_probe_sol_on_api.json`
+submitted **as shipped** — 345 frames, 1344x768, the graph's own 216-word prompt
+— with only `verbose` changed:
+
+```
+sequence length 104,277
+  video   102,816   98.6%
+  audio     1,150    1.1%
+  text        311    0.3%
+```
+
+So `video_start = 1,461` and the conditioning region is **23 blocks** of 64.
+
+**This verifies v2's `sink_q` on real geometry**, which is the gap upstream
+flagged as exercised only synthetically. Predicted from the layout:
+KV `(0, ceil(1461/64)) = (0, 23)`, and v2's query span starting at
+`text_len // 64 = 311 // 64 = 4`. Logged:
+
+```
+conditioning sink: KV blocks (0, 23) exact, dense query blocks (4, 23)
+```
+
+Exact match. KV untouched, query span narrowed by 4 blocks of 23 — v1 would
+have read `(0, 23)`. A start of 4 rather than 0 also distinguishes "v2 engaged"
+from v2's own silent `audio is None` fallback, which returns the v1 range.
+
+Two things follow. **On t2v the saving is real but small**: 4 blocks of 23 in a
+region that is itself 1.4% of the sequence. And **the earlier claim that a
+short-prompt t2v graph cannot discriminate v2 was wrong** — it assumed 38 text
+rows, which was the smoke harness's substituted prompt. The shipped graph has
+311.
+
+The full packed sequence goes through the CUDA kernel at the shipped length:
+`sparse (1, 104277, 56, 128) tau=1.3 cuda-int8`.
+
 ### Never measured, still
 
 `start_percent` and `end_percent`, at any length, on either backend. The
