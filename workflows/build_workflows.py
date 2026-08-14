@@ -52,13 +52,43 @@ _OUR_NODES = {
 # h3_config.py -- see its docstring for why that matters.
 from h3_config import (  # noqa: E402
     CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS, REF_LORA, REF_LORA_STRENGTH,
-    SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED,
+    SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
     TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
 )
+
+# The Sol-Attn node every graph wires. Switched from kijai's Triton pack
+# (`SolAttnPatch`) to the CUDA one on 2026-08-14; see SOL_RECOMMENDED_CUDA in
+# h3_config.py for what that does and does not carry over.
+#
+# It is a node id in saved graphs, so it obeys the one rule in CLAUDE.md: the
+# UI form matches `widgets_values` POSITIONALLY against the schema, so
+# SOL_WIDGETS below must stay in the node's declared input order, widgets only
+# (`model` and `tau_profile` are sockets, not widgets). Verified against a live
+# /object_info, which is the only thing that can confirm it.
+SOL_NODE = "SolAttnMiniMax"
+SOL_WIDGET_ORDER = ("tau", "start_percent", "end_percent", "min_tokens",
+                    "sink_conditioning", "morton", "morton_curve",
+                    "centroid_tail", "routed_cap_percent", "reuse_qkv_memory",
+                    "verbose", "dense_blocks")
+
+
+def _sol_widgets(sol):
+    """Widget values in schema order. Raises rather than emitting a short list.
+
+    A missing key would silently shift every later widget by one, which is
+    exactly the failure that cost a real bug on 2026-08-10 -- a saved graph
+    stores widgets_values as a bare list and matches by index.
+    """
+    missing = [k for k in SOL_WIDGET_ORDER if k not in sol]
+    if missing:
+        raise KeyError(f"Sol config is missing {missing}; widgets are positional "
+                       f"and a short list re-points every later one")
+    return [sol[k] for k in SOL_WIDGET_ORDER]
+
 
 # Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
 # not one continuous beat -- the guide wants numbered shots with explicit cut
@@ -300,7 +330,7 @@ def _plain_model_chain(g, *, sage, sol, shift, head_chunks):
                           else {"head_chunks": head_chunks}))}}
         src = ["41", 0]
     if sol is not None:
-        g["42"] = {"class_type": "SolAttnPatch", "inputs": {"model": src, **sol}}
+        g["42"] = {"class_type": SOL_NODE, "inputs": {"model": src, **sol}}
         src = ["42", 0]
     g["43"] = {"class_type": "SageChainAssert",
                "inputs": {"model": src, "require_override": sage,
@@ -565,7 +595,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # After sage, never before -- SolAttn composes with the attention
         # patches it finds, and reversed it overwrites ours and you silently
         # get sage only. Node id 21 matches `bench/bench_e2e_h3.py`.
-        g["21"] = {"class_type": "SolAttnPatch",
+        g["21"] = {"class_type": SOL_NODE,
                    "inputs": {"model": model_src, **sol}}
         model_src = ["21", 0]
     # Last in the chain, because it asserts what the composition ended up
@@ -937,7 +967,7 @@ _NOTE_NODES = """\
 Load Diffusion Model
   -> ModelSamplingMiniMaxH3       (sigma shift; anywhere before the fork)
   -> MiniMax H3 SageAttention     (this repo)
-  -> SolAttnPatch                 (must be AFTER)
+  -> SolAttnMiniMax               (must be AFTER)
   -> BasicScheduler + BasicGuider (MODEL forks to BOTH)
 ```
 
@@ -961,7 +991,7 @@ succeeds -- which is why that mistake survives.
 
 ## Check it is actually running, once per graph change
 
-Turn `verbose` on in SolAttnPatch for one render, then off. You want three
+Turn `verbose` on in Patch Sol-Attn (MiniMax) for one render, then off. You want three
 lines. **Read them in the terminal** -- piping or redirecting block-buffers
 the output and they may not appear even when everything is fine.
 
@@ -987,7 +1017,8 @@ are paying full price for a render that otherwise looks fine.
 - **MiniMax H3 SageAttention** -- INT8-QK / FP8-PV kernel on all 50 DiT
   attention forwards, plus an `optimized_attention_override` registration.
   That second part is what lets Sol-Attn compose instead of bypassing sage.
-- **SolAttnPatch** -- block-sparse attention. Settings are pinned from
+- **Patch Sol-Attn (MiniMax)** -- block-sparse attention, on the CUDA
+  kernel (`comfy_kitchen.sol_attn`). Settings are pinned from
   `workflows/h3_config.py`; edit there and regenerate, not here.
 
 ## Deliberately absent
@@ -2009,7 +2040,7 @@ two graphs can end up running a different number of sparse steps. That is a
 second difference on top of the LoRA.
 
 It does not matter for "does this look right". It does matter if you are
-judging a subtle quality difference. Bypass `SolAttnPatch` in **both** graphs
+judging a subtle quality difference. Bypass `SolAttnMiniMax` in **both** graphs
 to remove it.
 """
 
@@ -2037,12 +2068,8 @@ def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks,
         g.link(src, 0, node, "model", "MODEL")
         src = node
     if sol is not None:
-        node = g.add("SolAttnPatch", (-880, 1040), size=(360, 330),
-                     widgets=[sol["tau"], sol["start_percent"], sol["end_percent"],
-                              sol["min_tokens"], sol["int8_qk"],
-                              sol["sink_conditioning"], sol["morton"],
-                              sol["morton_curve"], sol["int8_pv"], sol["verbose"],
-                              sol["use_tma"], sol["dense_blocks"]],
+        node = g.add(SOL_NODE, (-880, 1040), size=(360, 330),
+                     widgets=_sol_widgets(sol),
                      inputs=[_in("model", "MODEL"),
                              _in("tau_profile", "STRING", optional=True)],
                      outputs=[_out("MODEL", "MODEL")],
@@ -2163,12 +2190,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         # passes MODEL straight through, so a graph carrying a disabled
         # Sol-Attn node still loads and renders without the node installed.
         # The error-prone part is the ordering above, not the toggle.
-        sol_node = g.add("SolAttnPatch", (-880, 190), size=(360, 330),
-                         widgets=[sol["tau"], sol["start_percent"], sol["end_percent"],
-                                  sol["min_tokens"], sol["int8_qk"],
-                                  sol["sink_conditioning"], sol["morton"],
-                                  sol["morton_curve"], sol["int8_pv"], sol["verbose"],
-                                  sol["use_tma"], sol["dense_blocks"]],
+        sol_node = g.add(SOL_NODE, (-880, 190), size=(360, 330),
+                         widgets=_sol_widgets(sol),
                          # tau_profile, added by Sol-Attn 0e334dc: per-block tau
                          # overriding the base value. It is declared
                          # `force_input=True`, so it is a SOCKET, not a widget.
@@ -2833,7 +2856,7 @@ def cross_check(written):
     Compares which nodes are present and, for the ones carrying settings we
     pin, that the pinned values match. Widget *order* differs between the two
     formats by design (UI is positional, API is keyed), so this checks the
-    node set plus SolAttnPatch and MiniMaxH3SageAttention values explicitly
+    node set plus the Sol-Attn and MiniMaxH3SageAttention values explicitly
     rather than trying to align every widget by index.
     """
     by_task = {}
@@ -2859,7 +2882,7 @@ def cross_check(written):
         # are positional in schema order; API inputs are keyed, so each entry
         # is the schema order of the widgets we care about.
         #
-        # SolAttnPatch is here because its settings have actually drifted.
+        # The Sol-Attn node is here because its settings have actually drifted.
         # UNETLoader and LoraLoaderModelOnly joined it the moment `unet` and
         # `lora` became free builder parameters: before that the checkpoint
         # was derived from `task` inside both builders and the two formats
@@ -2868,10 +2891,11 @@ def cross_check(written):
         # to catch, and the node-set check above cannot see it -- both formats
         # carry a UNETLoader either way.
         for cls, order in (
-            ("SolAttnPatch",
-             ["tau", "start_percent", "end_percent", "min_tokens",
-              "int8_qk", "sink_conditioning", "morton", "morton_curve",
-              "int8_pv", "verbose", "use_tma", "dense_blocks"]),
+            # Derived from SOL_WIDGET_ORDER rather than repeated, so the
+            # drift check cannot itself drift from what the builder emits --
+            # a check comparing the generator to a stale copy of the
+            # generator passes for the wrong reason.
+            (SOL_NODE, list(SOL_WIDGET_ORDER)),
             ("UNETLoader", ["unet_name"]),
             ("LoraLoaderModelOnly", ["lora_name", "strength_model"]),
             # The shifts are here for the same reason as the checkpoint: they
@@ -3271,7 +3295,7 @@ def main():
               variant_note=_probe_note(
                   "whether Sol-Attn earns its influence on the output",
                   "h3_text_to_video.json",
-                  "Sol-Attn enabled, at SOL_RECOMMENDED. Its twin is sage-only, "
+                  "Sol-Attn enabled, at SOL_RECOMMENDED_CUDA. Its twin is sage-only, "
                   "which is what every shipped graph is now.",
                   "Wall clock AND the video. Sol changes what the model "
                   "computes -- it is sparse attention, not a faster exact "
@@ -3338,7 +3362,7 @@ def main():
         sol_on = bool(extra.get("sol_on", False))
         rest = {k: v for k, v in extra.items() if k != "sol_on"}
         wf = build_ui(task, sage=True, preview=True,
-                      sol=SOL_RECOMMENDED, sol_enabled=sol_on, prompt=prompt,
+                      sol=SOL_RECOMMENDED_CUDA, sol_enabled=sol_on, prompt=prompt,
                       title=f"h3-{label}-sage" + ("-sol" if sol_on else ""),
                       **{"length": LONG_LENGTH, **rest})
         p = out / fname
@@ -3355,7 +3379,7 @@ def main():
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("variant_note", "sol_on")}
         wf = build_api(task, sage=True, prompt=prompt,
-                       sol=SOL_RECOMMENDED if extra.get("sol_on") else None,
+                       sol=SOL_RECOMMENDED_CUDA if extra.get("sol_on") else None,
                        **{"length": LONG_LENGTH, **api_extra})
         p = out / fname.replace(".json", "_api.json")
         p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
@@ -3384,7 +3408,7 @@ def main():
     # Cross-check the two formats of each task describe the same graph. The
     # per-format validators below only prove each is well-formed against
     # object_info; nothing there would notice the UI graph carrying a
-    # SolAttnPatch the API graph lacks, which is exactly the state this file
+    # the Sol node the API graph lacks, which is exactly the state this file
     # was in before 2026-08-06.
     drift = cross_check(written)
     if drift:

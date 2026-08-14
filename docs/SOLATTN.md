@@ -6,9 +6,11 @@ blocks exactly and covers the rest with one pooled term per block, so the whole
 sequence still contributes to the softmax denominator.
 
 **Two implementations exist and this page covers both.** As of 2026-08-14 the
-CUDA one is what this repo measures against; the Triton one is what every
-shipped graph still wires and what every number older than that date was taken
-on. They are not interchangeable and they do not share a knob vocabulary.
+CUDA one is what every shipped graph wires and what this repo measures against.
+The Triton one is what every number older than that date was taken on, and it
+stays installed for that reason. They are not interchangeable and they do not
+share a knob vocabulary — see `SOL_RECOMMENDED_CUDA` in `h3_config.py` for what
+the migration did and did not carry over.
 
 Everything here is single-machine (RTX 4090, sm_89), single-workload. The sage
 baseline is [SageAttention-ada](https://github.com/fblissjr/SageAttention-ada),
@@ -47,7 +49,7 @@ defaults, carried through.
 | speed | upstream reports **1.4x over Triton at the same tau, end to end** | baseline |
 | accuracy vs the algorithm's reference | 0.999919 | 0.999885 (int8), 0.999995 (bf16) |
 | default tail mode | `centroid_tail=True` | per-row, not adjustable |
-| status here | what new work measures | what all 62 shipped graphs wire |
+| status here | **what every shipped graph wires, and what new work measures** | kept for reproducing pre-2026-08-14 numbers |
 
 **Use CUDA.** The backends are arithmetically equivalent (see below), so there
 is no accuracy argument for Triton, and CUDA is faster. Triton stays installed
@@ -100,12 +102,24 @@ The smoke is the only one that submits a prompt. Its three log lines are the
 composition check: sage engaged, Sol found sage's override already installed
 (the ordering check), and sparse actually ran.
 
-**The smoke line above tests Triton, not CUDA.** `h3_probe_sol_on_api.json`
-wires `SolAttnPatch`. The CUDA node has its own `_apply_patch`,
-`_compose_module_patch` and `_install_compose_hooks` — different code for the
-same job — so a green there says nothing about the CUDA seam. As of 2026-08-14
-the CUDA composition seam is **unverified**; point `--workflow` at a graph
-wiring `SolAttnMiniMax` once one exists.
+**The CUDA seam is verified as of 2026-08-14**, and it is a different code
+path from Triton's — `_apply_patch`, `_compose_module_patch` and
+`_install_compose_hooks` are the CUDA node's own. What a passing run looks
+like, from the log:
+
+```
+[sol_attn] chaining onto an existing attention override
+[sol_attn] composed with 50 patched attention forward(s)
+[sol_attn] dense (1, 2048, 56, 128): seq 2048 < 4096
+[sol_attn] sparse (1, 4608, 56, 128) tau=1.3 cuda-int8
+[h3] chain assert: sage routed a 2048-token probe on fp16_cuda and correctly
+     did NOT get the 4608-token one, so the sparse gate at 4096 is live
+[sol_attn] conditioning sink: KV blocks (0, 3) exact, dense query blocks (0, 3)
+```
+
+**Check the kernel tag.** `cuda-int8` is the CUDA kernel; Triton logs
+`int8 pointer`. That string is the difference between the kernel running and a
+silent fallback.
 
 ### 4. Know where the gains live before you measure
 
@@ -186,7 +200,8 @@ being removed — passing a key the node no longer declares is an error.
 ## The Triton node
 
 `SolAttnPatch`, from [ComfyUI-SolAttn_triton](https://github.com/kijai/ComfyUI-SolAttn_triton).
-Every shipped graph wires this, with Sol bypassed.
+Shipped graphs wired this until 2026-08-14; they now wire the CUDA node. It
+stays installed for reproducing older numbers and for `SolAttnBlockProbe`.
 
 Its knob set differs: it has `int8_qk`, `int8_pv` and `use_tma`, and lacks
 `centroid_tail`, `routed_cap_percent` and `reuse_qkv_memory`. `SOL_RECOMMENDED`
@@ -564,7 +579,6 @@ about 2 hours.
 
 | question | why it matters | blocker |
 |---|---|---|
-| **does the CUDA node compose with sage at all** | different code from the Triton path; a broken seam still renders, silently sage-only | needs a graph wiring `SolAttnMiniMax` |
 | `centroid_tail` on/off, e2e | separates the toggle from the kernel | **none — has a deadline, upstream may remove the toggle** |
 | `sink_conditioning` at reference load | 23-point swing, biggest lever there is | bench is t2v-only, needs reference wiring |
 | `start_percent` 0.0–0.4 | zero measurements, ever | none, arms exist |

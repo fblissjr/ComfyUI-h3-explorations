@@ -31,7 +31,17 @@ import logging
 
 import torch
 
-from . import h3_trace as _trace
+# ComfyUI imports this as a package member, so the relative form is correct
+# there. `bench/check_override_routing.py` and `bench/check_lowvram_handoff.py`
+# import `attention` top-level, where a relative import raises
+# "attempted relative import with no known parent package" -- which is exactly
+# what happened between 2026-08-13 (when h3_trace arrived) and 2026-08-14: both
+# checks died at import and nobody ran them, so the breakage was invisible.
+# Support both, rather than making two checks depend on how this file is loaded.
+try:
+    from . import h3_trace as _trace
+except ImportError:                              # loaded as a top-level module
+    import h3_trace as _trace
 
 logger = logging.getLogger(__name__)
 

@@ -6,26 +6,34 @@ needs to run, and whether it has earned trust.
 There is no test suite and no runner. Each script is standalone, prints its own
 `ok` / `FAIL` lines, and returns a non-zero exit code on failure.
 
-**Last full run: 2026-08-13 (evening)**, against ComfyUI `8f37cf8c` (v0.33.0),
-KJNodes `6ab7e81`, on an RTX 4090, with ComfyUI running. There are now **15
-`check_*.py`** and **62 graphs** (31 UI, 31 API). The five CUDA-free checks
-that run in a second all passed, including `check_workflow_schema.py` against
-every UI graph. `smoke_h3.py` passed earlier the same day; the CUDA checks
-(`check_correctness`, `check_clone_v_wiring`) were **not** re-run after the
-`mode="fp16 (most accurate)"` flip and should be, since that changes which
-kernel they exercise.
+**Last full run: 2026-08-14**, same box, ComfyUI restarted, live server. All
+`check_*.py` pass; `smoke_h3.py` passes on both the default graph (exit 2, Sol
+correctly absent) and `h3_probe_sol_on_api.json` (exit 0, CUDA seam confirmed).
+There are now **15 `check_*.py`** and **65 graphs**, all wiring the CUDA
+Sol-Attn node. `check_correctness.py`, `check_clone_v_wiring.py` and
+`check_short_edge_override.py` were re-run too -- owed since the
+`mode="fp16 (most accurate)"` flip, and owed again because `comfy_kitchen` is
+now built from source rather than the pinned wheel. All pass. Free the GPU
+(`POST /free` with `unload_models`) before the CUDA ones or they OOM and look
+like regressions.
 
-**Partial run 2026-08-14**, same box. `check_sol_kernel.py` added and shown
-red. `check_solattn_correctness.py` re-run and extended to the CUDA kernel
-after `bench/_sol_attn_reference.py` was re-vendored from `ad9a4a8` to
-`c04ef20`; it passes. Nothing else was re-run.
+Three things this run found that no previous run could have:
 
-The counts in the paragraph above were wrong until this run -- it claimed
-twelve checks and 24 UI graphs. A header that states a scope it no longer has
-is the same defect this file exists to catch, one level up.
+- **`check_override_routing.py` and `check_lowvram_handoff.py` had been dead
+  since 2026-08-13.** `456654d` added `from . import h3_trace` to
+  `attention.py`; both checks import `attention` top-level, where a relative
+  import raises. They died at import, nobody ran them, and the breakage was
+  invisible for a day. `attention.py` now supports both load forms.
+- **`smoke_h3.py` was broken in two directions at once** -- see its own
+  docstring. One needle could never match; two assertions could never pass on
+  a compliant graph.
+- **`check_solattn_correctness.py` was grading Triton cross-mode** after the
+  oracle was re-vendored, and passed anyway. See the note below.
 
-Nothing here is stale in the sense of failing against current upstream. The
-staleness is in the documentation around them, which is what this file fixes.
+The counts in this header have been wrong twice now -- once claiming twelve
+checks and 24 UI graphs, once claiming 62 graphs after the total moved to 65. A
+header that states a scope it no longer has is the same defect this file exists
+to catch, one level up, and it keeps recurring because nothing checks it.
 
 ## The standard
 

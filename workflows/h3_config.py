@@ -248,6 +248,45 @@ SOL_BASELINE_124F = dict(
 # NOT wired into any graph, deliberately: the node id is provisional until
 # upstream lands global attention timestep scheduling in core. Bench arms are
 # code we can rename, saved graphs are not.
+# What the graphs wire as of 2026-08-14: SOL_RECOMMENDED's measured choices,
+# translated into the CUDA node's vocabulary. This is the shipped config.
+#
+# Carried over unchanged, each with its evidence in the SOL_RECOMMENDED block
+# above: tau 1.3 (below the artifact onset, costs 82.3 s against 2.0 at 362
+# frames), exact_kv_and_rows (keeps generated audio intact), morton off (net
+# loss stacked on int8), dense_blocks "" (does not fix what tau fixes, costs
+# 39.2 s), start/end 0.2/0.9 (never measured, on either backend).
+#
+# **This migration is not settings-neutral, and one knob makes that
+# unavoidable.** The Triton kernel evaluates the pooled tail per row; the CUDA
+# node defaults `centroid_tail=True`, one tail per 64-token query block. There
+# is no CUDA spelling of "what Triton did" -- `centroid_tail=False` is the
+# closest and is a different code path, not the same one. Measured 2026-08-14,
+# the two modes differ by cos 0.9988 against the algorithm's own reference,
+# which is a real change to what the model computes. True is chosen because it
+# is the node's default and where upstream is heading (it is weighing making it
+# unconditional), not because it was measured better here.
+#
+# Two knobs deliberately left at the node's default rather than tuned, to keep
+# this a single-variable change:
+#   min_tokens 4096   NOT the node's 12288. Carried from SOL_RECOMMENDED so the
+#                     backend swap is the only variable. It is very likely
+#                     wrong -- a third of the node's own stated dense/sparse
+#                     crossover, and two orders below where gains appear -- and
+#                     `bench_e2e_h3.py` has an arm for it. Change it on a
+#                     measurement, not on this reasoning.
+#   reuse_qkv_memory  False. Verified numerically identical to the normal entry
+#                     (cos agreeing to six digits), so it cannot change output,
+#                     and upstream reports it drops attention's peak below the
+#                     FFN's. Left off only because it is a separate question
+#                     from the migration. Cheap win when someone measures it.
+SOL_RECOMMENDED_CUDA = dict(
+    tau=1.3, start_percent=0.2, end_percent=0.9, min_tokens=4096,
+    sink_conditioning="exact_kv_and_rows", morton=False,
+    morton_curve="2d_frame", centroid_tail=True, routed_cap_percent=0,
+    reuse_qkv_memory=False, verbose=False, dense_blocks="",
+)
+
 SOL_CUDA_DEFAULTS = dict(
     tau=1.3, start_percent=0.2, end_percent=0.9, min_tokens=12288,
     sink_conditioning="exact_kv_and_rows", morton=False,
