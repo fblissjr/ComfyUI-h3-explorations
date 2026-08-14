@@ -138,8 +138,11 @@ ALLOW: docs/evidence.md docs/SOLATTN.md
 WHY: both are retraction statements naming it as withdrawn.
 
 PHRASE: zero DiT calls
-ALLOW: docs/bench_plan.md
-WHY: inside a "RETRACTED 2026-08-14" bullet that states the 5-of-16 correction.
+ALLOW: docs/bench_plan.md docs/checks.md
+WHY: bench_plan's is inside a "RETRACTED 2026-08-14" bullet stating the
+     5-of-16 correction. checks.md quotes it as the worked example of why this
+     check is an allowlist rather than caveat-detection -- and it was caught
+     by the check on the commit that added it, which is the behaviour wanted.
 
 PHRASE: exactly one attention site
 ALLOW: docs/SOLATTN.md
