@@ -194,6 +194,46 @@ Two things follow, both more useful than the cancelled run:
   `reuse_qkv_memory` measuring nothing -- it shrinks an allocation on the
   steps that are not setting the peak.
 
+## PRIORITY INVERSION, 2026-08-14: stop measuring t2v
+
+Measured today, and it reverses the ordering this plan was built on.
+
+The first shipped-graph segment breakdown (345f, 1344x768) is
+`104,277 = video 102,816 + audio 1,150 + text 311`. Conditioning is **1.4% of
+the sequence**. So on t2v, `exact_kv` against `exact_kv_and_rows` moves 2.8% of
+the attention work to 2.5%. There is nothing there to find, and the sink work
+aimed at t2v was aimed at the wrong workload.
+
+The larger reversal: **t2v is where Sol-Attn helps MOST, not least.** Reference
+rows are pinned exact, so they raise the token count without adding anything
+Sol can sparsify. Arithmetic over the measured row counts, at 10% assumed
+routed density:
+
+| configuration | forced exact | attn ceiling | e2e ceiling |
+|---|---|---|---|
+| t2v | 2.8% | 8.00x | 1.84x |
+| 3 image refs at `match` | 8.2% | 5.76x | 1.76x |
+| 1 video ref, 124f | 32.2% | 2.57x | 1.47x |
+| 1 video ref, 345f | **59.2%** | **1.58x** | **1.24x** |
+
+Run 1 measured 1.611x e2e on t2v against a 1.84x ceiling -- 87% of what the
+arithmetic allows, which is a sanity check on both.
+
+This repo (and this plan) has been saying reference-heavy work is "the workload
+with the most reason to want Sol". **That is backwards.** It is the workload
+where Sol has the least room.
+
+It is also the real argument for v2, and not the one in its tooltip: v2 does
+nothing for t2v (1.84x -> 1.85x) and takes the 345-frame video-reference case
+from 59.2% forced exact to 36.6%, e2e ceiling 1.24x -> 1.45x.
+
+**Decision: drop t2v sink work entirely.** Keep t2v Sol arms, because that is
+where the win lives. Move `sink_conditioning` to the reference bench, where it
+is now the difference between Sol being worth running and not.
+
+Caveat: arithmetic over measured row counts with an assumed 10% routed density.
+The density is the soft input and it moves every ceiling above.
+
 ## Run 4 — `sink_conditioning` at reference load
 
 **Blocked on a build.** `bench_e2e_h3.py` is t2v-only — no reference wiring at

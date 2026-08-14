@@ -1,0 +1,20 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index d4166f8..7cd1d1c 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -16,7 +16,14 @@ build-backend = "setuptools.build_meta"
+ 
+ [project]
+ name = "comfy-kitchen"
+-version = "0.2.31"
++# LOCAL EDIT, not upstream. The branch declares plain "0.2.31", identical to
++# the PyPI wheel ComfyUI pins in requirements.txt, so nothing could tell the
++# fork build from the stock one. The local segment makes `uv pip list` and
++# `comfy_kitchen.__version__` answer that. PEP 440 still matches this against
++# `==0.2.31`, so a plain requirements install stays satisfied and will not
++# clobber it. Re-apply after pulling this branch; `bench/check_sol_kernel.py`
++# in ComfyUI-h3-explorations is what notices if it is lost.
++version = "0.2.31+sol.c04ef20"
+ description = "Fast Kernel Library for ComfyUI with multiple compute backends"
+ readme = "README.md"
+ requires-python = ">=3.10"

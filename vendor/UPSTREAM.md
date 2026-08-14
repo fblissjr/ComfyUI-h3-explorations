@@ -35,8 +35,15 @@ git apply --check --directory=vendor vendor/patches/001-foo.patch
 
 tells you instantly whether it still applies to the current drop. That is
 controlled duplication with a drift detector attached, rather than a fork.
-Delete the patch when upstream takes it. **There are none right now**, which
-is the preferred state.
+Delete the patch when upstream takes it. **There are no proposal patches**,
+which is the preferred state.
+
+`vendor/patches/001-local-version-tag.patch` is a different animal and is
+deliberately not a ledger entry: it is a **local build config change we never
+want upstream to take** (tagging their branch with our build id). It is
+recorded as a patch for the same reason -- so that an edit sitting in a
+gitignored checkout of someone else's tree is reproducible from this repo
+rather than existing only on one disk.
 
 ---
 
