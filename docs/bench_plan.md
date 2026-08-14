@@ -228,6 +228,103 @@ be turned on in `SOL_RECOMMENDED_CUDA`.
 
 ---
 
+## Run 1b — tau 1.0 against 1.3, with a positive control
+
+Pre-registered 2026-08-14, before running. Owner's call to redo the tau sweep
+after kijai said "should do a tau sweep at some point"; owner's constraint that
+it must not be t2v-only.
+
+### Why the old sweep does not answer this
+
+A tau sweep was already run on **Triton** Sol and found drift above ~1.5. Three
+things make that non-transferable, and the first is a live risk rather than a
+technicality.
+
+**`centroid_tail` moves the cliff and probably moves it down.** Triton pools
+the tail **per row**. The CUDA node defaults `centroid_tail=True` — one pooled
+tail per 64-token query block, 64x coarser. Coarser pooling is exactly the
+mechanism that would relocate a tau cliff, in the direction of damage at *lower*
+tau. If the CUDA cliff is under 1.5, the shipped 1.3 is already past the edge.
+The old finding was measured on the other tail mode and cannot rule that out.
+
+**The band that decides anything was never sampled.** The old sweep established
+"≥1.5 is bad". Kijai says quality *peaks* at 1.0 and degrades monotonically
+above it. Both can hold — gradual from 1.0, cliff at 1.5 — and 1.0 against 1.3
+is the only comparison that moves `SOL_RECOMMENDED_CUDA`.
+
+**Regime.** The old arms ran at 124 frames (below the token floor) or 362 (not
+a legal length). Long-range temporal dependence is what tau damages and it is
+weakest at 124.
+
+### What tau actually touches — checked, not assumed
+
+`_sink_blocks` returns `blocks = (0, ceil(video_start/64))` as the exact-KV set
+in **every** mode except `off`. So text, keyframe, reference and audio rows are
+exact keys for every query **at every tau**. Tau does not gate the
+reference→video pathway at all; it sparsifies **video↔video** attention.
+
+This matters for how the run is justified. References are not more
+tau-sensitive. What a reference buys is an **oracle**: `1-man.png` is a face,
+and "does this still look like the reference" is a judgement a person can make,
+where "does this look worse" is the judgement that once rated one plain-sage
+render "dramatically more interesting" than two others differing only by seed.
+
+### Arms
+
+Four renders, one seed, 345 frames, CUDA, `centroid_tail` at its shipped
+default.
+
+| arm | graph | canvas | tau | role |
+|---|---|---|---|---|
+| refs-1.0 | `h3_probe_sol_on_refs` | 1024x768 | 1.0 | the question |
+| refs-1.3 | `h3_probe_sol_on_refs` | 1024x768 | 1.3 | shipped baseline |
+| t2v-1.0 | `h3_probe_sol_on` | 1344x768 | 1.0 | positive control |
+| t2v-1.3 | `h3_probe_sol_on` | 1344x768 | 1.3 | positive control |
+
+**The t2v pair is a control, not a second experiment, and it is the part that
+makes a null interpretable.** The refs prompt is "the camera trucks right with
+small amplitude at slow speed" — a single continuous shot with mild motion,
+which is the *least* favourable content for surfacing a block-sparse artifact.
+This repo has already recorded that weakness once: the earlier quality nulls
+came from a slow-camera, diffuse-fog prompt "where a block-sparse artifact is
+least likely to surface". The t2v prompt was written deliberately with a whip
+pan, brick and railings, rain texture and percussive audio so a router artifact
+has somewhere to show.
+
+So: **refs null + t2v null** means tau 1.0-vs-1.3 is invisible at 345 frames.
+**refs null + t2v difference** means our reference test content cannot detect
+this and the null is about the prompt, not about tau. Without the control those
+two are indistinguishable, which is the "a run under the floor produces a null
+that reads as a finding" trap in a different costume.
+
+Refs run at **1024x768** because the 1344x768 refs graph killed the server
+during DiT staging earlier today, with both references upscaled to 2048.
+
+### Predictions
+
+- **Speed:** 1.0 slower than 1.3 on both pairs, single-digit percent. Tau
+  changes routing density, and the sink is small on t2v.
+- **t2v quality:** a visible difference at 345 frames, or the control has
+  failed and no null from this run means anything.
+- **refs quality:** genuinely uncertain, which is why it is being run. If kijai
+  is right that 1.0 is the quality peak, 1.3 should be *worse* on face identity
+  across the clip.
+- **What would falsify kijai's framing for H3:** 1.0 and 1.3 indistinguishable
+  on the t2v control. That would mean the monotonic-degradation claim does not
+  bite in the band we ship.
+
+### The gate, stated honestly
+
+There is no instrument (`docs/open_experiments.md` #14). This is a person
+watching each clip to the end, tracking the face against `1-man.png` on the
+refs pair and one small persistent object on the t2v pair. Stills cannot judge
+it — the failure is a small object dissolving over ~4 frames, and a grid of
+sampled shot-times will miss it. **Renders produced unattended; the judgement is
+not made until the owner watches them.** Recording a speed delta and filing
+this as answered is the exact failure this plan keeps documenting.
+
+---
+
 ## Run 2 — `start_percent`, the knob with no justification
 
 ```bash
