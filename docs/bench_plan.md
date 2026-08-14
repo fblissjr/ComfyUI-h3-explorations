@@ -101,6 +101,41 @@ the block arithmetic is wrong.
 This is the pair the two probe graphs exist for. Run the t2v twin in the same
 session and both lines can be read against each other.
 
+### The discriminating number does not depend on clip length
+
+Added before the re-run, and it makes this cheap. **The query start is
+`text_len // 64` and text does not scale with frame count.** Only video and
+audio rows do. So the 132 is invariant: it is the same at 39 frames as at 345,
+and a short run tests the number that discriminates without the load that
+killed the box on the first attempt.
+
+At length 39, holding the prompt and both references **unchanged** — which is
+mandatory, since substituting the prompt is what made every earlier preflight
+figure describe the harness instead of a graph:
+
+```
+text        8,450   unchanged, does not scale with length
+references  8,192   unchanged
+audio         130   ~80 rows/s at 1.625 s
+video      12,096   12 latent frames x 1008
+sequence   28,868   still far above min_tokens 4096, so Sol engages
+```
+
+`video_start` = 16,772 → 263 blocks. Predicted:
+
+```
+[sol_attn] conditioning sink: KV blocks (0, 263) exact, dense query blocks (132, 263)
+```
+
+**The start is the assertion; the end is the weaker half.** 132 is arithmetic
+over a measured text length. 263 carries an extrapolated audio row count, so a
+small miss there is a bad audio estimate, not a failed mechanism. A start of
+132 confirms v2; a start of 0 is v1 or the silent `audio is None` fallback;
+anything else means the block arithmetic is wrong.
+
+If this passes, the 345-frame run becomes a confirmation rather than the only
+way to learn the answer.
+
 **Not a speed measurement.** Reference rows are pinned exact and cannot be
 sparsified, so this arm should be slower per token than the t2v twin while
 still verifying the mechanism.
