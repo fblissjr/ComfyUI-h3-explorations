@@ -459,6 +459,79 @@ deadline and an upstream request. Run 1b's refs arms follow.
 
 ---
 
+## RESULT — morton drops a reference feature. Owner-observed, control pending.
+
+2026-08-14. Five reference arms at seed 730451892, 345 frames, 1024x768,
+`allow_upscale=False`, base checkpoints, sage + Sol, no LoRA.
+
+### Speed, which is the half that answers nothing
+
+| arm | sampler+decode | vs control |
+|---|---|---|
+| `refs-1.0` | 462.0 s | +2.4% |
+| `refs-1.3` (control) | 451.0 s | — |
+| `refs-1.3-centroid_off` | 453.4 s | +0.5% |
+| `refs-1.3-morton_on` | 446.8 s | **-0.9%** |
+| `refs-2.0` | 420.4 s | -6.8% |
+
+All five: sequence 83,840 tokens, `conditioning sink: KV blocks (0, 86) exact,
+dense query blocks (68, 86)`. Identical across arms, as it should be — the sink
+does not depend on tau.
+
+**These knobs are far smaller here than on t2v.** `centroid_tail` costs 0.5%
+against the 2.5% measured on t2v; the whole tau range 1.0→2.0 spans 9.9%.
+Consistent with the exact-work arithmetic: reference rows are pinned exact at
+any tau, so there is less for Sol to sparsify. On the workload actually
+rendered, tau is barely a speed lever.
+
+### The finding, and it came from a person looking
+
+The owner, comparing first frames: every arm except morton shows the
+reference's snow gullies on the high slopes; morton shows green forested
+hillside with no peak at all.
+
+Verified against the reference. `2-mountain_landscape.png` is a snow-capped
+peak with white gullies running down dark rock — the most distinctive thing in
+it. The prompt says `<Subject 2>` is the environment "whose architecture,
+palette, and lighting are carried into the target video", `fully_preserved`.
+Checked both tau extremes independently: 1.0 and 2.0 both retain the gullies.
+
+So **four arms retain the feature and morton alone loses it**, across a routing
+change (tau 1.0 → 2.0) large enough that it should have disturbed it if
+anything would.
+
+**Morton did engage** — verified, not inferred:
+`[sol_attn] H3 Morton: ACTIVE: video span [5504, 83840), grid (102, 24, 32),
+curve 2d_frame`, and 5504 is exactly the 86-block sink boundary.
+
+### Why this is not yet a result
+
+Every arm diverged compositionally — different building angles, camera
+positions, one gained a pond. That is expected at 16 steps of a flow ODE and is
+this repo's own recorded trap: comparing finished renders measures chaos, not
+quality. **n=1 for morton.** A 4-vs-1 pattern is more than divergence should
+produce, since divergence scatters randomly rather than removing one specific
+referenced feature from exactly the arm that reorders tokens — but that is an
+argument, not a control.
+
+**The control is queued:** the same pair at seed 424242, control first. If
+morton loses the peak again and the control keeps it again, it is morton. If
+the control also loses it, the first observation was the trajectory moving.
+
+### Provisional answer to kijai's question
+
+"Is morton worth anything" — **provisionally no, and possibly negative.** It
+costs 0.9% *in its favour* on speed, i.e. it is free, and it appears to cost
+reference fidelity. If the seed control holds, `morton=False` is right for the
+reason the config never had: it was set on a Triton speed measurement, and the
+quality axis kijai flagged as untested is the one that condemns it.
+
+`centroid_tail` is untouched by this: `centroid_off` retained the feature, so
+nothing here argues against the default. Its quality verdict still needs
+watching, not stills.
+
+---
+
 ## Run 2 — `start_percent`, the knob with no justification
 
 ```bash
