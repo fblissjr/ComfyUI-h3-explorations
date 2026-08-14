@@ -568,6 +568,55 @@ before it applies to anything it grades.
 
 ---
 
+## 15. tau 1.0 against 1.3, and morton's quality axis
+
+**Tests:** two defaults the algorithm's author reframed on 2026-08-14, both of
+which we set on evidence that turns out to address a different question.
+
+> Kijai: "tau 1.0 is where it's the default *max* quality, any higher further
+> degrades it, but also speeds it up. morton may or may not increase quality,
+> that's something to test."
+
+**Why it matters — and this is the part worth reading carefully.** Neither
+statement contradicts anything measured here. Both reveal that what we measured
+was a different axis from what we claimed.
+
+**tau.** `h3_config.py` presents 1.3 as the quality choice, on the grounds that
+it sits below the object-dissolve artifact's onset (~1.5). True, and it is a
+statement about where quality falls off a *cliff*. Kijai's is about where
+quality *peaks*: 1.0, degrading monotonically above it. So 1.3 is a
+speed-for-quality trade we have been describing as a quality decision, and we
+sit in the gradual-degradation band between the two thresholds — precisely the
+band with no dramatic tell, which a stills-based judgement cannot see. Every
+tau arm ever run here compared 1.3 against 2.0, so all it establishes is that
+1.3 beats something worse. **1.3 against 1.0 has never been run.**
+
+**morton.** We set `morton=False` on a speed result: worth 1.16x alone, a net
+loss stacked on int8, 94% GPU utilisation against 99% elsewhere. Kijai says the
+quality effect is untested. Reordering video tokens so each 64-token block is a
+compact 3D neighbourhood changes *which* blocks the router keeps — the most
+plausible mechanism for a quality change there is. If it helps, the 1.16x is
+buying something and the default trades an unmeasured gain for a measured one.
+
+**Arms:** `shipped` (tau 1.3, morton off), `shipped[tau=1.0]`,
+`shipped[morton=1]`, `shipped[tau=1.0,morton=1]`. The ad-hoc arm syntax in
+`bench_e2e_h3.py` already supports all four; no harness work.
+
+**Cost:** 4 arms at 345 frames. Time is the cheap half.
+
+**Decision it changes:** `SOL_RECOMMENDED_CUDA`'s two most-quoted values.
+
+**Blocker: the same one as #1, #6, #9 and #12 — an instrument.** Speed will
+answer itself in one run. The quality half is a gradual degradation with no
+artifact to point at, which is the failure mode #14 exists for: stills cannot
+see it, a numeric diff of two renders measures trajectory chaos, and there is
+no output-quality tooling for any modality. **Run the speed half now and do not
+pretend the quality half was answered by it.** Recording the timing alone would
+produce exactly the reading this repo keeps having to retract — "1.0 costs N
+seconds" filed as if the tradeoff had been priced.
+
+---
+
 ## Completed, kept for the record
 
 - **Should we load through `DiffusionModelLoaderKJ`** — no, decided

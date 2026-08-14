@@ -1987,7 +1987,7 @@ where that graph loads `ref2va`, this one loads `fl2va` and applies Kijai's
 extracted ref LoRA on top.
 
 Everything else is shared by construction -- same seed, same prompt, same
-canvas, same 362 frames, same 16 steps, same sage and Sol-Attn settings. Open
+canvas, same length, same 16 steps, same sage and Sol-Attn settings. Open
 both, point them at the same reference images, run them. Any difference you
 see is the LoRA.
 
@@ -2032,16 +2032,20 @@ zero-strength route skips it. So part of any 1.0-against-0.0 difference is
 that round trip, not the delta. To see the round trip on its own, render
 **0.01** -- visually nil, but it does not short-circuit.
 
-## One caveat if you are comparing carefully
+## One caveat if you re-enable Sol-Attn
 
-Sol-Attn is on here, same as the shipped graph, because the point is to
-compare like with like. But its window is a *percent* band that resolves
-against the model's own sigma curve, and the LoRA changes the model -- so the
-two graphs can end up running a different number of sparse steps. That is a
-second difference on top of the LoRA.
+Sol-Attn is **bypassed** here, same as its twin and same as every shipped
+graph -- it is opt-in, and the two `h3_probe_sol_on*` graphs are the only ones
+that turn it on. This paragraph is about what happens if you enable it in both
+to compare with it running.
+
+Its window is a *percent* band that resolves against the model's own sigma
+curve, and the LoRA changes the model -- so the two graphs can end up running a
+different number of sparse steps. That is a second difference on top of the
+LoRA, and it is not visible anywhere in the UI.
 
 It does not matter for "does this look right". It does matter if you are
-judging a subtle quality difference. Bypass `SolAttnMiniMax` in **both** graphs
+judging a subtle quality difference. Leave `SolAttnMiniMax` bypassed in **both** graphs
 to remove it.
 """
 
@@ -3285,11 +3289,58 @@ def main():
                   "-- larger than any kernel or sparsity setting.")),
          "the same prompt on the cheapest legal canvas"),
 
-        # The only shipped graph that turns Sol-Attn ON, now that it is opt-in.
-        # It exists so "is Sol worth what it changes" stays answerable from a
-        # shipped artifact rather than needing a hand-edit -- and that question
-        # is open in a way the speed numbers do not settle, because nobody has
-        # weighed its influence on the output against what it saves.
+        # TWO graphs turn Sol-Attn ON. Both are probes; everything else ships
+        # it bypassed. This one puts references in front of it, and exists
+        # because the t2v probe below cannot verify what v2 of the CUDA node
+        # changed.
+        #
+        # v2 narrowed `sink_q` to the target-audio rows, leaving reference
+        # queries sparse. The narrowing is `audio_start // 64` blocks, and on
+        # t2v `audio_start` IS the text length -- measured 311 rows on the
+        # shipped graph, so 4 blocks. Four is a real signal and too thin to
+        # trust: an off-by-one in the block arithmetic would be
+        # indistinguishable from success, and v2's `audio is None` fallback
+        # silently reproduces v1's `(0, N)`. With references the sink is
+        # thousands of rows, so the narrowing is tens of blocks and unmissable.
+        #
+        # Paired with `h3_probe_sol_on.json` deliberately: same canvas, same
+        # length, same seed, same Sol settings, references the only variable.
+        # Read the `conditioning sink` line from both.
+        #
+        # This is a MECHANISM probe, not a speed one, and the distinction is
+        # load-bearing after 2026-08-14. Reference rows are pinned exact, so
+        # they raise the token count without adding anything Sol can sparsify
+        # -- arithmetic over the measured row counts puts a video-reference
+        # arm's attention ceiling near 1.58x against t2v's ~8x. Reference-heavy
+        # work is where Sol has the LEAST room, not the most, which is the
+        # opposite of what this repo assumed for weeks. Do not read a slow
+        # result here as Sol underperforming.
+        ("h3_probe_sol_on_refs.json", "r2v-sol", "r2v", _ref_prompt(images=True),
+         dict(sol_on=True, out_prefix="Video/h3_probe_sol_on_refs",
+              variant_note=_probe_note(
+                  "whether Sol-Attn's conditioning sink behaves at reference load",
+                  "h3_probe_sol_on.json",
+                  "reference images, against a t2v twin. Sol settings, canvas, "
+                  "length and seed are identical; the sink grows from a few "
+                  "hundred rows to thousands.",
+                  "The `[sol_attn] conditioning sink` log line, with `verbose` "
+                  "on. Read the START of the dense query range, not the size "
+                  "of the change: a start of 0 means v2 did not engage, or the "
+                  "audio span was never published and it fell back to v1 "
+                  "silently. Then the video, for whether pinning references "
+                  "exact actually preserves them.",
+                  "KV blocks unchanged and the dense query range starting tens "
+                  "of blocks in, where the t2v twin starts at 4. NOT predicted: "
+                  "a speed win. References are exact rows Sol cannot sparsify, "
+                  "so this arm should be SLOWER per token than the t2v twin "
+                  "while still verifying the mechanism.")),
+         "reference images with Sol-Attn ON -- the sink at reference load"),
+
+        # The other Sol-Attn probe, and the older one. It exists so "is Sol
+        # worth what it changes" stays answerable from a shipped artifact
+        # rather than needing a hand-edit -- and that question is open in a way
+        # the speed numbers do not settle, because nobody has weighed its
+        # influence on the output against what it saves.
         # Read against h3_text_to_video.json, which is now sage-only.
         ("h3_probe_sol_on.json", "t2v-sol", "t2v", LONG_T2V_PROMPT,
          dict(sol_on=True, out_prefix="Video/h3_probe_sol_on",

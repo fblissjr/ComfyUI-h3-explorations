@@ -132,9 +132,18 @@ lever -- quantizing V to fp8 at all is.
 in the UI form and omits it from the API form. That is policy, not an
 oversight: sage must always be on and compose with anything downstream, while
 Sol changes *what the model computes* and nobody has weighed that against
-what its speed buys. `h3_probe_sol_on.json` is the single graph that enables
-it, and exists so the question stays answerable. Re-enable one with
-`sol_on=True` in its `GRAPHS` entry, not by hand-editing a saved graph.
+what its speed buys. Two probe graphs enable it and exist so the question
+stays answerable: `h3_probe_sol_on.json` (t2v) asks whether Sol earns its
+influence on the output, and `h3_probe_sol_on_refs.json` puts references in
+front of it, which is the only way to verify the conditioning sink — on t2v
+the sink is a few hundred rows and the signal is too thin to trust. Re-enable
+another with `sol_on=True` in its `GRAPHS` entry, not by hand-editing a saved
+graph.
+
+**Reference-heavy is where Sol has the LEAST room, not the most**, which is
+the opposite of what this repo assumed for weeks. Reference rows are pinned
+exact, so they raise the token count without adding anything Sol can
+sparsify. Treat the refs probe as a mechanism check, not a speed one.
 
 ## Three traps that have each bitten more than once
 

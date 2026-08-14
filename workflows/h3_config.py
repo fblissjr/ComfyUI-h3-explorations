@@ -137,6 +137,32 @@ SAMPLING = dict(sampler="res_multistep", scheduler="simple", steps=16, denoise=1
 #                     the two-phenomena note below. Costs 82.3 s of sampler
 #                     against tau 2.0, measured same-seed at 362 frames
 #                     (712.1 s against 629.8 s), and worth it.
+#
+#                     **Reframed 2026-08-14 by the algorithm's author, and
+#                     this is a correction to what the line above implies.**
+#                     Kijai: "tau 1.0 is where it's the default max quality,
+#                     any higher further degrades it, but also speeds it up."
+#                     So quality is maximal at 1.0 and falls monotonically
+#                     from there -- our 1.3 is NOT the quality choice this
+#                     note has been presenting it as. It is a speed-for-
+#                     quality trade, taken without knowing there was a trade.
+#
+#                     Both statements are true and they are different
+#                     thresholds. Ours is where the object-dissolve artifact
+#                     APPEARS (~1.5); his is where quality PEAKS (1.0).
+#                     Between them quality degrades gradually with no
+#                     dramatic tell, which is exactly the region we sit in
+#                     and exactly the region a stills-based judgement cannot
+#                     see. Everything we measured about 1.3 was measured
+#                     against 2.0, so it says 1.3 beats a worse setting; no
+#                     arm here has ever compared 1.3 against 1.0.
+#
+#                     UNCHANGED pending measurement, deliberately. Moving it
+#                     costs sampler time on every render and the quality
+#                     claim is upstream's, not ours -- so it is a bench arm
+#                     (`sage+sol[tau=1.0]`, the syntax already exists), not
+#                     an edit. Do not "fix" this to 1.0 on the strength of
+#                     this paragraph.
 #   dense_blocks ""   Was 33-35,39-42, the two highest-error regions on the
 #                     author's per-block sensitivity profile. Dropped: it
 #                     does not fix the artifact tau does, and costs 39.2 s.
@@ -148,6 +174,18 @@ SAMPLING = dict(sampler="res_multistep", scheduler="simple", steps=16, denoise=1
 #   morton off        Worth 1.16x alone but a net loss stacked on int8
 #                     (1.34x against 1.39x), and its arm runs at 94% GPU
 #                     utilisation where every other arm hits 99%.
+#
+#                     **That is a SPEED result and it is the only axis anyone
+#                     has measured.** Kijai, 2026-08-14: "morton may or may
+#                     not increase quality, that's something to test." So
+#                     `morton=False` is settled on speed and silent on
+#                     quality -- reordering video tokens so each 64-token
+#                     block is a compact 3D neighbourhood is exactly the kind
+#                     of change that would alter WHICH blocks the router
+#                     keeps, and nobody here has looked. If it does improve
+#                     quality, the 1.16x it costs buys something, and the
+#                     current default is trading an unmeasured gain for a
+#                     measured one. See docs/open_experiments.md.
 #   int8_qk/pv on     Worth 1.16x on top of plain sparsity at 362 frames.
 #
 # Head chunking is deliberately not in this chain, and as of 2026-08-10 that

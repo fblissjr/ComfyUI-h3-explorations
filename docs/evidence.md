@@ -60,7 +60,7 @@ attached to the number.
 | **the sink's audio framing** | A **t2v** framing. In reference-heavy graphs the sink is overwhelmingly *reference* rows, and a video reference's failure mode is motion drift, not the thinness argument the knob is named for | measurement at reference load; the bench has no `--refs` axis yet |
 | **reference-load table: 35.1% / 57.9%** | Wrong on three axes — v1 formula (v2 stops running reference queries dense), 362 frames, 1344x768. The shipped reference arms are 345 at 1024x768 | redo as v1-vs-v2, measured not derived |
 | **"with Sol on, sage gets nothing"** | Retracted 2026-08-14. Reasoned from `min_tokens` and forgot the sigma window. Sage runs 5 of 16 steps | — corrected in place |
-| **`min_tokens` 4096 is "very likely wrong"** | Retracted. One `optimized_attention` site at the full packed length, so 4096 and 12288 select the same thing — everything | — corrected in place |
+| **`min_tokens` 4096 is "very likely wrong"** | Retracted, and the retraction's reasoning was itself corrected 2026-08-14: it is one `optimized_attention` call in source but **52 modules** through it. Conclusion survives — the 50 DiT blocks run at the full packed length, above both thresholds, and the 2 refiner blocks run at the text span, below both — so 4096 and 12288 still select the same thing | — corrected in place |
 | **"fp16 lands on the steps where precision matters most"** | Inference, not measurement. `start_percent` has never been measured at any length on either backend | measure `start_percent` (Run 2, not started) |
 | **any bench progress read from its own stdout mid-run** | The warmup `print` lacks `flush=True`, and `tee` makes stdout block-buffered, so finished lines sit in the buffer. Read ComfyUI's progress lines instead | add `flush=True` |
 
@@ -80,7 +80,11 @@ instrument that has been shown red.
 - **The CUDA seam works.** Live render, `cuda-int8` in the log, override
   chained, 50 forwards composed. Not a source read.
 - **345 legal / 362 illegal**, from `h3_rules.py` and the reference.
-- **One `optimized_attention` site**, `comfy/ldm/minimax/model.py`.
+- **One `optimized_attention` call in source**, `comfy/ldm/minimax/model.py`,
+  reached by **52 modules** — 50 DiT blocks plus 2 token-refiner blocks, all
+  sharing one `Attention.forward` (`num_layers=50`,
+  `token_refiner_num_layers=2`). "One call site" is not "one call", and the
+  refiner blocks see only the text span while the 50 see the full sequence.
 - **Sage runs 5 of 16 steps under Sol** at the shipped window — verified at two
   layers of the node source and cross-checked against this repo's own
   sigma-window table, which independently gives 11/16 sparse.
