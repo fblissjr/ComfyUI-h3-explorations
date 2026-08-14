@@ -62,6 +62,13 @@ Claims, i.e. what breaks if a case is deleted:
                      arm keeps printing under the old name. Parsed from the
                      node file with `ast`, so this stays free of ComfyUI.
 
+  no_triton_graphs   no shipped graph wires the Triton Sol node. Both nodes
+                     are legal and both render, so a graph that drifted back
+                     would run a different kernel silently while every pinned
+                     setting and every number in this repo describes the CUDA
+                     one. The generator derives the id from one constant, so
+                     this catches a hand-edited graph or a stale regeneration.
+
   vendored           the file ComfyUI loads is the one this repo tracks. Before
                      2026-08-14 three untracked copies of this node existed on
                      one box and nothing could say which was running; a
@@ -151,6 +158,14 @@ def declared_inputs(path):
 # The node that needs THIS dependency. `SolAttnPatch` is kijai's Triton pack
 # and does not touch comfy_kitchen, so it deliberately does not arm the gate.
 CUDA_SOL_NODE = "SolAttnMiniMax"
+
+# The Triton node. Shipped graphs migrated off it on 2026-08-14 (`8a12646`)
+# and must not drift back: both nodes are valid, both load, both render, and a
+# graph wiring the Triton one would run a DIFFERENT KERNEL while every pinned
+# setting, every doc and every measurement in this repo describes the CUDA one.
+# Nothing else catches it -- check_workflow_schema.py validates against
+# /object_info, where SolAttnPatch is a perfectly legal node.
+TRITON_SOL_NODE = "SolAttnPatch"
 
 # What `internal/refs/sol_attn_minimax.py` actually passes. `_run()` calls the
 # registry entry for the normal path and reaches into `backends.cuda` directly
@@ -285,6 +300,14 @@ else:
                   else f"direct CUDA entry accepts {len(CUDA_KWARGS)} kwargs")
 
 import hashlib
+
+print("\nno shipped graph wires the Triton node:")
+triton_graphs = graphs_wiring(TRITON_SOL_NODE)
+check("no_triton_graphs", not triton_graphs,
+      f"{len(triton_graphs)} graph(s) wire {TRITON_SOL_NODE}: "
+      f"{', '.join(triton_graphs[:3])}" + (" ..." if len(triton_graphs) > 3 else "")
+      if triton_graphs else
+      f"0 of {len(list((_REPO / 'workflows').glob('*.json')))} graphs")
 
 print("\nthe node ComfyUI loads is the one this repo tracks:")
 if not _VENDORED.is_file():

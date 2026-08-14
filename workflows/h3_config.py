@@ -454,7 +454,7 @@ TURBO_PACK_SCHEDULER = "simple"
 TURBO_PACK_LOW_VRAM = False
 
 # `CHAIN` was here and is gone as of 2026-08-14. It listed the node order --
-# Load Diffusion Model, MiniMax H3 SageAttention, SolAttnPatch -- and nothing
+# Load Diffusion Model, MiniMax H3 SageAttention, SolAttnMiniMax -- and nothing
 # imported it. Node order IS load-bearing (Sol composes with the attention
 # patches it finds, so it must come after ours; reversed it overwrites the
 # patch and you silently get sage only), which is exactly why a copy of it
