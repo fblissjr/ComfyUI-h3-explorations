@@ -282,6 +282,25 @@ def main():
         # of them against an algorithm it is not implementing, which is worth
         # about 1.2e-3 of apparent quality -- larger than the gap being
         # measured, so it would invent a winner.
+        # NOT the same quantity as the cases above, and the distinction is
+        # the whole point. Every graded case compares a kernel against the
+        # reference AT THE SAME TAU, so the block-sparse approximation is on
+        # both sides and cancels: they measure "does this kernel implement Sol
+        # faithfully". This line measures "how far is Sol's output from exact
+        # attention" -- kernel error and approximation error together.
+        #
+        # Only this second number is comparable to an accuracy figure from a
+        # dense kernel (e.g. sage's mean_rtol against SDPA). Quoting the
+        # fidelity number against one of those compares different referents
+        # and flatters Sol by roughly the size of its own approximation, which
+        # is the error two sessions nearly published on 2026-08-14.
+        print(f"\n  vs DENSE attention, i.e. total error including the "
+              f"approximation:")
+        print(f"    cuda   {cosine(cuda_tau, dense):.6f}")
+        print(f"    triton {cosine(outs['int8'], dense):.6f}")
+        print("  Compare THIS to a dense kernel's accuracy number, never the "
+              "fidelity\n  figures above.")
+
         print(f"\n  distance from the algorithm, each in its own tail mode:")
         print(f"    cuda        {cosine(cuda_tau, cuda_ref):.6f}")
         print(f"    triton int8 {cosine(outs['int8'], ref_tau):.6f}")
