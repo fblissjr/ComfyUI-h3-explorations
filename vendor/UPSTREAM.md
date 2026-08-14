@@ -133,7 +133,7 @@ not yet relayed. Different repo (KJNodes), same author.
 
 It warns at `seq_len * 7168 >= 2**31` = 299,593 tokens, using the *contiguous*
 stride. H3 hands the kernels three views of one fused qkv buffer at stride
-21504, so the real int32 crossing is ~99,846 — and every shipped graph here is
+21504, so the real int32 crossing is ~99,864 — and every shipped graph here is
 past it at 102,816. Our `preflight.py` already names this and our sage fork
 carries the int64 specialisation, so nothing of ours is at risk. The point is
 that their counter is not a second opinion on the question it appears to
