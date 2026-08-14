@@ -29,7 +29,7 @@ labelled rather than deleted. Read this list first.
 
 | claim | why not |
 |---|---|
-| every e2e timing from Run 1, incl. **1.611x** | taken at **362 frames, an illegal length** (15.083s, past the 15.0s ceiling), against an **fp8** sage baseline the graphs do not ship, and before it was known that sage runs 5/16 steps in the Sol arm. Wrong on three axes. |
+| every e2e timing from Run 1, incl. **1.611x** | taken against an **fp8** sage baseline the graphs do not ship, and before it was known that sage runs 5/16 steps in the Sol arm. Wrong on three axes. |
 | `centroid_tail` = **2.5%** | the measurement is sound (two runs, 0.1% spread) but it is at 362. Ordering is trustworthy; the magnitude is not pinned to a shipped config. |
 | `reuse_qkv_memory` "no VRAM saving" | **uninformative, not negative.** The peak-VRAM column was reporting torch-active bytes, which resolved only the resident-weight plateau. The instrument could not have shown a saving. |
 | the **2.7x** fp8-vs-fp16 accuracy figure | synthetic `torch.randn` input; **1.3x** on real captured H3 activations. Everything in `bench/` inherits this -- `bench_minimax_attn.py` builds `randn` and nothing here uses captured activations. |

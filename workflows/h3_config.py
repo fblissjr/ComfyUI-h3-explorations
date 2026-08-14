@@ -512,8 +512,12 @@ FPS = 24.0
 
 # Frame counts snap to a 17k+5 grid. ComfyUI's tooltip puts the trained range
 # at ~124-362, but that upper bound is wrong: the reference generates 5-15s at
-# 24fps and checks the ceiling AFTER the snap, so 362 (15.083s) is refused and
-# 345 (14.375s) is the largest legal count. There is no on-grid count at
+# 24fps and checks the ceiling AFTER the snap, so 362 (15.083s) is refused by
+# THE REFERENCE PIPELINE and 345 (14.375s) is the largest count it will emit.
+# **362 is trained** -- corrected 2026-08-14; the reference's 15.0 is a round
+# number one grid step below the real maximum, not a model boundary. 345 stays
+# the default because a graph exported from here then also runs in diffusers,
+# which is a portability argument and not a quality one. There is no on-grid count at
 # exactly 15.0s. See h3_rules.py for the rule and where it comes from.
 #
 # **Changed 362 -> 345 on 2026-08-10, and this breaks comparability.** Every

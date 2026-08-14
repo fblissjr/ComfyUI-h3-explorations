@@ -806,29 +806,32 @@ def main():
     # that that page's own 124-frame frontier table sits under this floor.
     # Warn rather than gate -- a short run is legitimate for proving the chain
     # composes at all, which is what the verbose arm is for.
-    # Is this length one the model was trained to produce? h3_rules owns the
-    # rule; the bench must not restate it. MAX_DURATION is 15.0s and the grid
-    # is 17n+5, so 345 (14.375s) is the largest legal count and 362 (15.083s)
-    # is NOT -- h3_rules.py says so explicitly, and every shipped graph is
-    # at 345 via LONG_LENGTH.
+    # Would the REFERENCE PIPELINE emit this length? h3_rules owns the rule;
+    # the bench must not restate it. Its MAX_DURATION is the reference's
+    # hard-coded 15.0s, so 362 (15.083s) sits just outside and 345 (14.375s)
+    # is the largest count under it on the 17n+5 grid.
     #
-    # This exists because on 2026-08-14 an entire bench run went to 362,
-    # picked off SOLATTN.md's historical table without checking it against the
-    # rules file in this same repo. The renders succeed, which is the problem:
-    # nothing anywhere said the length was out of distribution.
+    # **That is NOT a training boundary.** 362 is the longest length H3 was
+    # trained on (upstream, 2026-08-14); the reference's 15.0 is a round
+    # number landing one grid step short of it. This warning said "out of
+    # distribution" until 2026-08-14 and was wrong -- it reported a valid
+    # render as a problem, which is the one thing a check must never do.
+    # It now reports what it can actually support: the reference would
+    # decline this, and the model is fine with it.
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
         import h3_rules as _rules
         if not _rules.duration_in_range(cfg["length"]):
             snapped = _rules.snap_length(cfg["length"])
-            print(f"WARNING: length {cfg['length']} snaps to {snapped} = "
-                  f"{_rules.duration_of(snapped):.3f}s, outside the trained "
-                  f"window\n         ({_rules.MIN_DURATION}-"
-                  f"{_rules.MAX_DURATION}s). The render will succeed and the "
-                  f"model is out of\n         distribution. Shipped graphs use "
-                  f"LONG_LENGTH; use that unless you mean this.\n")
+            print(f"NOTE: length {cfg['length']} snaps to {snapped} = "
+                  f"{_rules.duration_of(snapped):.3f}s, outside the "
+                  f"REFERENCE\n      pipeline's {_rules.MIN_DURATION}-"
+                  f"{_rules.MAX_DURATION}s window. That is the reference's "
+                  f"ceiling, not a\n      training limit -- 362 is trained. "
+                  f"The render is valid; diffusers would\n      decline to "
+                  f"produce it. Record which you meant.\n")
     except Exception as exc:
-        print(f"  (could not check duration legality: {exc})")
+        print(f"  (could not check duration against the reference: {exc})")
 
     vt = video_tokens(cfg["width"], cfg["height"], cfg["length"])
     if vt < SOL_TOKEN_FLOOR and any(resolve_arm(a)[1] is not None for a in arms):

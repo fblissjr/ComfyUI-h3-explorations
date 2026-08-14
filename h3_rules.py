@@ -22,9 +22,24 @@ ComfyUI enforces only the grid, and only by snapping. Its node accepts
 `length` up to 3600 (`comfy_extras/nodes_minimax_h3.py`), i.e. 150 seconds,
 with no ceiling at all, and `adapt_canvas` resolves a canvas for any aspect.
 
-Note that this makes the repo's own long preset illegal: 362 frames is
-15.083s, past the 15s ceiling, and 345 (14.375s) is the largest legal count
-on the 17n+5 grid. There is no on-grid count at exactly 15.0s.
+**362 is TRAINED and this file's ceiling does not say otherwise. Corrected
+2026-08-14 and the correction matters more than the rule.** `MAX_DURATION`
+below is the reference *pipeline's* `max_duration`, a hard-coded 15.0 in
+`modular_pipeline.py`. 362 frames is 15.083s, so the reference pipeline does
+refuse it -- that transcription is accurate and was checked at the source.
+
+What was wrong was the inference drawn from it. This docstring said the
+refusal made 362 "illegal" and the repo's long preset out of distribution.
+**362 is the longest length H3 was trained on** (upstream, 2026-08-14). The
+15.0 is a round number in a spec that lands one grid step below the real
+training maximum, not a statement about the model. There is no on-grid count
+at exactly 15.0s, which is how the gap appears.
+
+So `duration_in_range` answers "would the reference pipeline emit this",
+which is worth knowing and is NOT "is this in distribution". Do not treat a
+False as a reason to avoid a length, and do not let a checker built on it
+report a valid render as a problem -- a check that goes red while the state
+is correct is worse than no check.
 """
 
 from __future__ import annotations

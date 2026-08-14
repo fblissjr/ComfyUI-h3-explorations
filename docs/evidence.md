@@ -47,8 +47,8 @@ attached to the number.
 
 | claim | why not | what restores it |
 |---|---|---|
-| **Sol vs sage = 1.611x** | Wrong on three axes: taken at `--length 362` (illegal — see below), against an **fp8** sage baseline the graphs do not ship, and sage runs 5 of 16 steps inside a Sol arm so the fp16 fix moves **both** arms, not just the control | Run 1 redone at 345 with the shipped fp16 baseline — running now |
-| **`centroid_tail` = 2.5% e2e** | Ours, two runs, 0.1% spread — but at 362 | same run |
+| **Sol vs sage = 1.611x** | Wrong on **two** axes, not three: an **fp8** sage baseline the graphs do not ship, and sage running 5 of 16 steps inside a Sol arm so the fp16 fix moves **both** arms. **The length objection is WITHDRAWN 2026-08-14** — 362 is trained; only the reference pipeline declines it | rerun with the shipped fp16 baseline; length was never the problem |
+| **`centroid_tail` = 2.5% e2e** | Ours, two runs, 0.1% spread, at 362 — **which is fine.** Retained here only because it shares Run 1's fp8 baseline | rerun on the fp16 baseline |
 | **Upstream's `centroid_tail` ~5–10% e2e** | Upstream conversation, his box, his settings. Never reproduced here, and our own 2.5% disagrees | reproduce, or drop the figure |
 | **CUDA is 1.4x over Triton e2e** | Upstream conversation. Never reproduced here | a paired run on this box |
 | **`reuse_qkv_memory` saves nothing** | Not a negative result. The VRAM column was reporting torch-active bytes and could not have seen it | fixed instrument (`f1dff99`), rerun |
@@ -64,11 +64,17 @@ attached to the number.
 | **"fp16 lands on the steps where precision matters most"** | Inference, not measurement. `start_percent` has never been measured at any length on either backend | measure `start_percent` (Run 2, not started) |
 | **any bench progress read from its own stdout mid-run** | The warmup `print` lacks `flush=True`, and `tee` makes stdout block-buffered, so finished lines sit in the buffer. Read ComfyUI's progress lines instead | add `flush=True` |
 
-**362 is not a legal length.** `h3_rules.py` applies the reference's 15.0 s
-ceiling *after* the frame-count snap, so 362 is 15.083 s and refused; 345 is
-the largest count on the 17n+5 grid, and all 34 shipped API graphs carry it. A
-362-frame render succeeds and reports nothing, which is why this went
-unnoticed. `bench_e2e_h3.py` warns as of `34b42b3`.
+**362 is a trained length. Corrected 2026-08-14.** The reference *pipeline*
+refuses it — its `max_duration` is a hard-coded 15.0 s and 362 is 15.083 s —
+but that is a spec ceiling landing one grid step short of the real training
+maximum, not a statement about the model. 362 is the longest length H3 was
+trained on. This repo called it "illegal" and "out of distribution" for most
+of 2026-08-14, which was an inference from a validator, not a fact about the
+checkpoint.
+
+All 34 shipped API graphs are at 345 (`LONG_LENGTH`), which stays a reasonable
+default — it is inside the reference's window, so a graph exported from here
+runs in diffusers too. That is a portability argument, not a quality one.
 
 ---
 

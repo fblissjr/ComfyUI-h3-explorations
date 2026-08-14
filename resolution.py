@@ -225,7 +225,9 @@ class MiniMaxH3Resolution(io.ComfyNode):
         if not duration_in_range(snapped):
             notes.append(
                 f"WARNING {describe_length(snapped)} is outside the reference's "
-                f"5-15s window; the largest legal count is 345")
+                f"5-15s window, which is the REFERENCE pipeline's ceiling "
+                f"rather than a training limit -- 362 is trained. 345 is "
+                f"the largest count the reference would emit")
 
         tokens_per_frame = (width // 32) * (height // 32)
         latent_frames = temporal_shape(snapped)[1]

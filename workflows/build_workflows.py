@@ -947,7 +947,9 @@ Ask 200, get 209. Ask 300, get 311. Near the top: 311, 328, 345.
 
 345 is the ceiling, not 362. ComfyUI's tooltip says ~124-362 and its node
 accepts up to 3600, but the reference generates 5-15s at 24fps and applies
-that ceiling after the rounding. 362 is 15.083s, so it is refused; 345 is
+that ceiling after the rounding. 362 is 15.083s, so the reference refuses it
+-- though 362 is a trained length and the 15.0s is the reference's spec
+ceiling, not a model limit. 345 is
 14.375s. There is no on-grid count at exactly 15.0s. Ask for 346 and you get
 362, which is why the check has to run on the rounded number.
 

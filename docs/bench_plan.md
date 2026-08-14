@@ -42,18 +42,19 @@ A render at 362 frames / 16 steps is roughly 10 minutes, so budget
 
 Kept because a plan that is never scored is a to-do list. Run 1, 2026-08-14:
 
-> **Every number in this table was taken at `--length 362`, which is not a
-> legal length.** `h3_rules.py` applies the reference's 15.0 s ceiling after
-> the frame-count snap, so 362 is 15.083 s and refused; 345 is the largest
-> count on the 17n+5 grid and is what all 34 shipped API graphs carry. The
-> command block below still reads 362 because that is what ran. The renders
-> succeeded and nothing reported the model was out of distribution, which is
-> how it happened; `bench_e2e_h3.py` now warns (`34b42b3`). Treat these as
-> ratios that probably transfer — 102,816 against 107,856 video tokens, both
-> far above the floor — and not as numbers for the shipped config. Run 1 is
-> being redone at 345.
+> **The length objection to this table is WITHDRAWN, 2026-08-14.** It said
+> `--length 362` was "not a legal length". The reference *pipeline* does
+> refuse 362 — `max_duration` is a hard-coded 15.0 s and 362 is 15.083 s —
+> but **362 is the longest length H3 was trained on**, and the reference's
+> ceiling lands one grid step short of it. Calling it illegal was an inference
+> from a validator presented as a fact about the checkpoint.
+>
+> What still stands: these ran against an **fp8** sage baseline the graphs do
+> not ship, and the `reuse_qkv_memory` column could not see what it measured.
+> Those are the reasons to redo Run 1. The length is not one of them, and the
+> redo does not need to move to 345 to be valid.
 
-| question | predicted | measured (at 362, illegal) | verdict |
+| question | predicted | measured (at 362) | verdict |
 |---|---|---|---|
 | Sol vs sage, sampler | 1.35–1.55x | **1.611x** | wrong, low |
 | `centroid_tail` on vs off | 5–10% | **2.5%** | wrong, high |
@@ -63,11 +64,13 @@ Two of three wrong, in opposite directions, which is what pre-registering is
 for. The third was not a negative result: the VRAM column was reporting
 torch-active bytes and could not have shown a saving.
 
-**The scoreboard carried no length caveat until 2026-08-14**, while the
-illegal length was recorded in three other files. That is the failure this
-repo keeps paying for — a caveat that lives anywhere except attached to the
-number it qualifies gets separated from it the first time somebody quotes the
-table. A verdict column reading "wrong, low" is precisely what gets quoted.
+**A caveat was attached here on 2026-08-14 and then had to be withdrawn the
+same day.** It said the length was illegal; it was not. Worth keeping as the
+record of both moves: the first was right that an unqualified number in a
+verdict column is what gets quoted, and the second is that a caveat asserted
+past its evidence costs more than the bare number did. `h3_rules.py`
+transcribed the reference's validator correctly and this file turned that into
+a claim about the model.
 
 **What the run cost that the plan did not predict:** two bench defects, both
 found by running rather than reading. `bench_e2e_h3.py` had been benching
@@ -252,9 +255,10 @@ The old finding was measured on the other tail mode and cannot rule that out.
 above it. Both can hold — gradual from 1.0, cliff at 1.5 — and 1.0 against 1.3
 is the only comparison that moves `SOL_RECOMMENDED_CUDA`.
 
-**Regime.** The old arms ran at 124 frames (below the token floor) or 362 (not
-a legal length). Long-range temporal dependence is what tau damages and it is
-weakest at 124.
+**Regime.** The old arms ran at 124 frames, below the token floor, where
+long-range temporal dependence — the thing tau damages — is weakest. (An
+earlier draft of this said 362 was "not a legal length" as a second reason.
+Withdrawn: 362 is trained, and only the reference pipeline declines it.)
 
 ### What tau actually touches — checked, not assumed
 
