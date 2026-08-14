@@ -156,7 +156,7 @@ left to make.
 | `tau` | 1.3 | Routing threshold in sigmas of the proxy row. A key block is exact when its mean score over the query block clears `tau * sqrt(var)`. Higher is sparser. Upstream densities: 1.0 keeps ~16% exact, 1.5 ~7%, 2.0 ~2.7%. |
 | `start_percent` | 0.2 | Dense before this point. **Never measured** — see the step table below, it is badly non-linear. |
 | `end_percent` | 0.9 | Dense after this point. Also never measured. |
-| `min_tokens` | 12288 | Shorter sequences stay dense. `SOL_RECOMMENDED` pins **4096**, which is a third of this and two orders below where gains appear. |
+| `min_tokens` | 12288 | Shorter sequences stay dense. `SOL_RECOMMENDED_CUDA` pins 4096, and **neither value changes anything**: H3's DiT has one attention site at the full packed length, and the shortest clip past 5 frames is already S = 7,194. Both thresholds select everything. |
 | `sink_conditioning` | `exact_kv_and_rows` | See the reference section — this is the dominant knob at reference load. |
 | `morton` | False | Z-order the video tokens so each 64-token block is a compact 3D neighbourhood. Exactly neutral for dense attention. |
 | `morton_curve` | `2d_frame` | Z-order within each frame, leaving frame order alone. Correct for H3, whose `FRAME_PER_TOKEN` is `(1,4,4,4,4)`. |

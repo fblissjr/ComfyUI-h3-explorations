@@ -269,12 +269,17 @@ SOL_BASELINE_124F = dict(
 #
 # Two knobs deliberately left at the node's default rather than tuned, to keep
 # this a single-variable change:
-#   min_tokens 4096   NOT the node's 12288. Carried from SOL_RECOMMENDED so the
-#                     backend swap is the only variable. It is very likely
-#                     wrong -- a third of the node's own stated dense/sparse
-#                     crossover, and two orders below where gains appear -- and
-#                     `bench_e2e_h3.py` has an arm for it. Change it on a
-#                     measurement, not on this reasoning.
+#   min_tokens 4096   NOT the node's 12288, and it does not matter. Retracted
+#                     2026-08-14: this said "very likely wrong, a third of the
+#                     node's crossover". That reasoned from a call distribution
+#                     that does not exist. H3's DiT has exactly ONE attention
+#                     site (`comfy/ldm/minimax/model.py:184`) at the full packed
+#                     length, and frame counts satisfy n %% 17 == 5, so the
+#                     shortest clip past 5 frames is 22 frames -> S = 7,194,
+#                     already above 4096. Only a 5-frame render falls below.
+#                     4096 and 12288 therefore select the same thing -- all of
+#                     it -- at every length anyone renders. The small calls that
+#                     suggested otherwise were SageChainAssert's own probes.
 #   reuse_qkv_memory  False. Verified numerically identical to the normal entry
 #                     (cos agreeing to six digits), so it cannot change output,
 #                     and upstream reports it drops attention's peak below the
