@@ -42,7 +42,18 @@ A render at 362 frames / 16 steps is roughly 10 minutes, so budget
 
 Kept because a plan that is never scored is a to-do list. Run 1, 2026-08-14:
 
-| question | predicted | measured | verdict |
+> **Every number in this table was taken at `--length 362`, which is not a
+> legal length.** `h3_rules.py` applies the reference's 15.0 s ceiling after
+> the frame-count snap, so 362 is 15.083 s and refused; 345 is the largest
+> count on the 17n+5 grid and is what all 34 shipped API graphs carry. The
+> command block below still reads 362 because that is what ran. The renders
+> succeeded and nothing reported the model was out of distribution, which is
+> how it happened; `bench_e2e_h3.py` now warns (`34b42b3`). Treat these as
+> ratios that probably transfer — 102,816 against 107,856 video tokens, both
+> far above the floor — and not as numbers for the shipped config. Run 1 is
+> being redone at 345.
+
+| question | predicted | measured (at 362, illegal) | verdict |
 |---|---|---|---|
 | Sol vs sage, sampler | 1.35–1.55x | **1.611x** | wrong, low |
 | `centroid_tail` on vs off | 5–10% | **2.5%** | wrong, high |
@@ -51,6 +62,12 @@ Kept because a plan that is never scored is a to-do list. Run 1, 2026-08-14:
 Two of three wrong, in opposite directions, which is what pre-registering is
 for. The third was not a negative result: the VRAM column was reporting
 torch-active bytes and could not have shown a saving.
+
+**The scoreboard carried no length caveat until 2026-08-14**, while the
+illegal length was recorded in three other files. That is the failure this
+repo keeps paying for — a caveat that lives anywhere except attached to the
+number it qualifies gets separated from it the first time somebody quotes the
+table. A verdict column reading "wrong, low" is precisely what gets quoted.
 
 **What the run cost that the plan did not predict:** two bench defects, both
 found by running rather than reading. `bench_e2e_h3.py` had been benching
