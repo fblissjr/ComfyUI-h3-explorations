@@ -144,7 +144,9 @@ class SageChainAssert(io.ComfyNode):
                           "registration checks above still passed")
 
         # [B, H, S, D] with skip_reshape=True, which is what
-        # `comfy/ldm/minimax/model.py:172` sends. The first version of this
+        # `comfy/ldm/minimax/model.py:184` sends -- it is the model's ONLY
+        # `optimized_attention` call site, verified 2026-08-14, and it moved
+        # from :172 when AddGuide landed. The first version of this
         # probe used [B, S, H, D] and passed no skip_reshape, which is the
         # layout the override *produces* internally rather than one it
         # accepts, so it took the 3D branch and died unpacking four values

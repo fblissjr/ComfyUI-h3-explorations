@@ -106,8 +106,17 @@ artifact.
   Measured against an fp32 reference across a 17x range of sequence length,
   fp16-PV is **2.7x more accurate and flat** -- no canvas or clip length flips
   the answer -- and the owner judged it clearer with better motion and less
-  drift on video at the same seed. Costs ~1.58x wall clock; the heaviest
-  shipped config still peaks at 21,186 MiB of 24,564.
+  drift on video at the same seed. Costs ~1.58x per attention call; the
+  heaviest shipped config still peaks at 21,186 MiB of 24,564.
+
+  **Both numbers were qualified on 2026-08-14 and the entry above is left as
+  written.** The 2.7x is a synthetic-`torch.randn` figure; on q/k/v captured
+  from a real H3 forward the fp8-to-fp16 gap is ~1.3x, and the sage fork calls
+  every synthetic rtol a pessimistic bound rather than an estimate. The 1.58x
+  said "wall clock" here and is a per-call kernel cost -- the fork retracted
+  that framing, on the grounds that if attention were nearly all of H3's
+  compute a render should run ~1.5x slower and nothing observed shows it. The
+  decision stands on its perceptual leg, which is independent of both.
 - **Sol-Attn is opt-in and ships OFF.** Bypassed in every UI graph, omitted
   from every API graph. It changes what the model computes, and that has never
   been weighed against what its speed buys. `h3_probe_sol_on.json` is the one

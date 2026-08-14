@@ -309,7 +309,27 @@ SOL_CUDA_DEFAULTS = dict(
 #   while every fp8 variant sits at 0.0969-0.0984. **2.7x more accurate, and
 #   flat across a 17x range of S** -- so there is no crossover and no
 #   "use fp16 above S=X" rule. One choice covers every canvas, length and
-#   reference count. All three fp8 variants land within 0.0004 of each other,
+#   reference count.
+#
+#   **That 2.7x is a SYNTHETIC-INPUT number and the gap is ~1.3x on real
+#   activations** (added 2026-08-14). `bench/bench_minimax_attn.py:201` builds
+#   `torch.randn`, and nothing in `bench/` uses captured activations, so every
+#   figure above inherits it -- our 0.0969-0.0984 matches the sage fork's
+#   synthetic 0.098, not its real-activation 0.026. The fork measures the
+#   fp8-to-fp16 gap narrowing from 2.6x to 1.3x on q/k/v captured from an
+#   actual H3 forward, and calls every synthetic rtol a pessimistic bound
+#   rather than an estimate. Real attention has structure -- concentrated
+#   softmax, correlated keys -- that quantization handles far better than iid
+#   gaussian noise. The flatness claim comes from the same sweep and is
+#   equally unverified on real inputs.
+#
+#   **The decision does not change**, because its other leg is perceptual and
+#   independent: the owner judged fp16 clearer with better motion and less
+#   drift on video at the same seed. 1.3x still favours fp16. What weakens is
+#   the numeric argument's size, not its direction. `h3_capture.py` exists to
+#   settle it and has not been run.
+#
+#   All three fp8 variants land within 0.0004 of each other,
 #   so the PV accumulator is not the lever: quantizing V to fp8 at all is.
 #
 #   Perceptual. Same seed, same prompt, 124 frames, fp8++ against this:
