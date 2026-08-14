@@ -76,6 +76,37 @@ measuring device VRAM. Both are now checked (`check_bench_matches_shipped.py`)
 or fixed. Budget for this: the first real run of any harness after a gap is
 partly a test of the harness.
 
+## Pre-registered: the v2 `sink_q` line on `h3_probe_sol_on_refs`
+
+Written **before** the re-run, 2026-08-14, because a prediction recorded after
+the fact is not one. The first attempt died during model staging, one step
+before the line printed, but its preflight survived in the log — so the
+prediction is arithmetic over measured row counts, not a guess.
+
+From that run's preflight, sequence 120,608: video 102,816, text 8,450,
+references 8,192, audio 1,150. So `video_start = 17,792`, the conditioning
+region is `ceil(17792/64)` = 278 blocks, and v2 starts the dense query range at
+`text_len // 64` = `8450 // 64` = 132.
+
+```
+[sol_attn] conditioning sink: KV blocks (0, 278) exact, dense query blocks (132, 278)
+```
+
+**Pass/fail, not interpretation.** A narrowing of 132 of 278 blocks, against 4
+of 23 on the t2v twin. Both failure modes read `(0, 278)` — v2 not engaging,
+and the `audio is None` path falling back to v1 silently — so a start of 132 is
+unambiguous and a start of 0 is unambiguous the other way. Anything else means
+the block arithmetic is wrong.
+
+This is the pair the two probe graphs exist for. Run the t2v twin in the same
+session and both lines can be read against each other.
+
+**Not a speed measurement.** Reference rows are pinned exact and cannot be
+sparsified, so this arm should be slower per token than the t2v twin while
+still verifying the mechanism.
+
+---
+
 ## Run 1 — the foundation, plus two knobs that ride along free
 
 ```bash
