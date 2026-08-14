@@ -273,17 +273,39 @@ and "does this still look like the reference" is a judgement a person can make,
 where "does this look worse" is the judgement that once rated one plain-sage
 render "dramatically more interesting" than two others differing only by seed.
 
+### AMENDED before running — the range goes UP, not down
+
+The draft below picked 1.0 / 1.15 / 1.3 and said "drop everything above, we
+know ≥1.5 is bad". That premise came from the old Triton sweep and it did not
+survive contact with upstream. Kijai, 2026-08-14, running **tau 2.0**:
+
+> `8/8 [01:38<00:00, 12.26s/it]` @tau 2.0, which is very sparse — it looked
+> good. i think we can push it up
+
+Owner's read: "not good but acceptable."
+
+That is in apparent tension with his own "1.0 is where quality peaks" and it
+resolves the same way both statements are true: degradation from 1.0 is
+**monotonic but gentle enough that 2.0 is still usable**. If that holds on our
+shapes, sitting at 1.3 leaves a large amount of speed on the table for a
+quality difference nobody has looked at — and 2.0 is dramatically sparser.
+
+So the sweep brackets the curve instead of sampling one end. Narrowing to
+1.0–1.3 would have measured the half where nothing is at stake.
+
 ### Arms
 
-Four renders, one seed, 345 frames, CUDA, `centroid_tail` at its shipped
-default.
+Five renders, one seed, 345 frames, CUDA, `centroid_tail` at its shipped
+default. Three tau values spanning the range, on the workload with an oracle;
+two on the workload written to surface artifacts.
 
 | arm | graph | canvas | tau | role |
 |---|---|---|---|---|
-| refs-1.0 | `h3_probe_sol_on_refs` | 1024x768 | 1.0 | the question |
+| refs-1.0 | `h3_probe_sol_on_refs` | 1024x768 | 1.0 | kijai's quality peak |
 | refs-1.3 | `h3_probe_sol_on_refs` | 1024x768 | 1.3 | shipped baseline |
-| t2v-1.0 | `h3_probe_sol_on` | 1344x768 | 1.0 | positive control |
-| t2v-1.3 | `h3_probe_sol_on` | 1344x768 | 1.3 | positive control |
+| refs-2.0 | `h3_probe_sol_on_refs` | 1024x768 | 2.0 | the one he says is usable |
+| t2v-1.3 | `h3_probe_sol_on` | 1344x768 | 1.3 | control, shipped |
+| t2v-2.0 | `h3_probe_sol_on` | 1344x768 | 2.0 | control, far end |
 
 **The t2v pair is a control, not a second experiment, and it is the part that
 makes a null interpretable.** The refs prompt is "the camera trucks right with
@@ -310,12 +332,17 @@ during DiT staging earlier today, with both references upscaled to 2048.
   changes routing density, and the sink is small on t2v.
 - **t2v quality:** a visible difference at 345 frames, or the control has
   failed and no null from this run means anything.
-- **refs quality:** genuinely uncertain, which is why it is being run. If kijai
-  is right that 1.0 is the quality peak, 1.3 should be *worse* on face identity
-  across the clip.
-- **What would falsify kijai's framing for H3:** 1.0 and 1.3 indistinguishable
-  on the t2v control. That would mean the monotonic-degradation claim does not
-  bite in the band we ship.
+- **refs quality:** genuinely uncertain, which is why it is being run. If 1.0
+  is the quality peak, face identity should degrade monotonically 1.0 → 1.3 →
+  2.0 across the clip.
+- **The decision it changes:** if 1.0 and 2.0 are hard to tell apart on the
+  refs pair, tau is not the lever this repo has treated it as, and the shipped
+  1.3 should move UP for the speed. If 2.0 is clearly worse and 1.0 clearly
+  better, 1.3 is a defensible middle and stays.
+- **What would falsify kijai's "push it up":** 2.0 visibly damaged on either
+  workload at 345 frames. His datapoint was 8 steps at an unrecorded canvas
+  and length; ours is 16 steps at 345, where long-range temporal dependence is
+  strongest and a router artifact has the most room to accumulate.
 
 ### The gate, stated honestly
 
