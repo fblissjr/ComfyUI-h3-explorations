@@ -1,15 +1,23 @@
 #!/usr/bin/env python3
-"""Check Sol-Attn's Triton kernels against the algorithm's own reference.
+"""Check Sol-Attn's Triton and CUDA kernels against the algorithm's own reference.
 
-The Triton kernels in ComfyUI-SolAttn_triton have never had an independent
-correctness check. Every judgement about them so far -- ours and upstream's
--- has been "the render looks right", which cannot separate a kernel bug
-from a sparsity setting that was always going to soften the output.
+Neither kernel has ever had an independent correctness check. Every judgement
+about them so far -- ours and upstream's -- has been "the render looks right",
+which cannot separate a kernel bug from a sparsity setting that was always
+going to soften the output.
 
 kijai/comfy-kitchen's unmerged `sol_attn` branch ships a pure-PyTorch eager
 implementation of the same algorithm, written by its author. It is O(T^2)
 and slow, but it is a *second implementation*, which is the thing we have
 been missing. `bench/_sol_attn_reference.py` vendors it.
+
+Two kernels are graded against it: the Triton one in ComfyUI-SolAttn_triton,
+and the CUDA one in a local build of the branch (`comfy_kitchen.sol_attn`,
+absent from the stock PyPI wheel -- `bench/check_sol_kernel.py` is what tells
+those apart). Upstream reports the CUDA path received correctness fixes the
+Triton path did not, and reports it as the higher-quality of the two. That is
+the author's own report, not something measured here; these cases are what
+would let this repo say anything of its own about it.
 
 What each case claims, i.e. what breaks if it is deleted:
 
@@ -36,6 +44,30 @@ What each case claims, i.e. what breaks if it is deleted:
       at a very different one. If this still passes, the metric cannot see
       a routing difference and the three cases above prove nothing. A check
       that cannot fail is decoration.
+
+  cuda == reference at tau -inf / at real tau
+      The same two cases through `comfy_kitchen.sol_attn`. Separate from the
+      Triton arms rather than folded into them: they are different kernels
+      with different reported histories, and a single pass/fail over both
+      would let one carry the other.
+
+  cuda red control
+      The CUDA arm gets its own mismatched-tau control. Reusing Triton's
+      would prove nothing about a kernel it never called.
+
+  tail mode (diagnostic, not a case)
+      `centroid_tail` shares one pooled tail across a query block instead of
+      computing it per row, and upstream puts it at ~5e-4 cosine -- well
+      inside this file's 0.998 bar, so a kernel on the opposite mode from the
+      reference still passes. The Triton kernel has no such parameter and its
+      mode is not documented, so it is MEASURED here (agreement against the
+      reference in both modes, better one wins) rather than asserted from
+      reading the kernel. Printed, never graded: if the two modes ever land
+      far enough apart to matter, that is a finding to act on, not a failure.
+
+Exit codes: 0 all graded cases passed, 1 a case failed, 2 nothing was graded
+or an arm was skipped for cause (no CUDA, no Triton, no `sol_attn` in the
+installed comfy_kitchen). A skipped arm must not read as a passing one.
 
 Needs CUDA and Triton. Small shapes only -- the reference materialises the
 full score matrix and refuses past 4 GiB, so it can never run at H3's real
@@ -87,6 +119,27 @@ def load_triton_kernels():
     bf16 = importlib.import_module(f"{name}._tri_fwd")
     return int8.sol_attn_int8, bf16.sol_attn
 
+
+def load_cuda_kernel():
+    """`comfy_kitchen.sol_attn`, or (None, why) if this build has no such thing.
+
+    Present only in a local build of kijai/comfy-kitchen's `sol_attn` branch.
+    The stock PyPI wheel is version-identical and has no `sol_attn`, which is
+    the whole reason `bench/check_sol_kernel.py` exists.
+    """
+    try:
+        ck = importlib.import_module("comfy_kitchen")
+    except Exception as exc:
+        return None, f"comfy_kitchen is not importable: {exc}"
+    if not hasattr(ck, "sol_attn"):
+        return None, ("the installed comfy_kitchen has no sol_attn (stock PyPI "
+                      "wheel); build kijai's `sol_attn` branch to grade it")
+    cuda = importlib.import_module("comfy_kitchen.backends.cuda")
+    if not hasattr(cuda, "sol_attn"):
+        return None, ("only the eager reference is present, which is the oracle "
+                      "itself -- grading it against itself proves nothing")
+    return ck.sol_attn, None
+
 # Driven far enough negative that every block clears the routing threshold.
 # Not -inf: the threshold is tau * sqrt(...), and -inf would make the
 # comparison nan rather than always-true.
@@ -132,6 +185,7 @@ def main():
     print(f"  B={b} T={t} H={h} D={d} bf16, tau={args.tau}, bar cos>{args.bar}\n")
 
     failures = []
+    skipped = []
 
     def report(name, got, bar, want_pass=True):
         ok = (got > bar) if want_pass else (got < bar)
@@ -159,7 +213,15 @@ def main():
                cosine(out, ref_dense), args.bar)
 
     # 3. The measurement, at the tau we actually ship.
-    ref_tau = reference(q, k, v, tau=args.tau)
+    #
+    #    Against the PER-ROW reference, because that is the mode the Triton
+    #    kernel is on -- measured in case 5, not assumed. This mattered: the
+    #    reference gained `centroid_tail` (default True) when it was
+    #    re-vendored on 2026-08-14, which silently made these arms cross-mode.
+    #    They still passed, because the two modes differ by cos 0.9988 and the
+    #    bar is 0.998 -- looser than the discrepancy it was meant to catch.
+    #    A bar that cannot see a whole-algorithm difference is not a bar.
+    ref_tau = reference(q, k, v, tau=args.tau, centroid_tail=False)
     outs = {}
     for label, fn, kw in (("bf16", sol_attn_bf16, {}),
                           ("int8", sol_attn_int8, {"int8_pv": True}),
@@ -171,9 +233,62 @@ def main():
     # 4. Red control. A far larger tau routes far fewer blocks; if the
     #    comparison cannot tell that apart from the real thing, nothing above
     #    is evidence.
-    ref_wrong = reference(q, k, v, tau=args.tau * 20)
+    ref_wrong = reference(q, k, v, tau=args.tau * 20, centroid_tail=False)
     report(f"tau {args.tau} vs reference at tau {args.tau * 20}",
            cosine(outs["int8"], ref_wrong), args.bar, want_pass=False)
+
+    # 5. Which tail mode is each kernel on? Not graded -- see the docstring.
+    #    Neither kernel documents it and Triton has no such parameter, so it
+    #    is measured. Every arm above and below grades against the matching
+    #    mode; without this they are silently cross-mode.
+    ref_centroid = reference(q, k, v, tau=args.tau, centroid_tail=True)
+    mode_gap = cosine(ref_tau, ref_centroid)
+
+    def tail_mode(out, label):
+        c_centroid, c_perrow = cosine(out, ref_centroid), cosine(out, ref_tau)
+        picked = c_centroid >= c_perrow
+        print(f"  {label:<12s} centroid_tail={'True ' if picked else 'False'} "
+              f"(centroid {c_centroid:.6f} vs per-row {c_perrow:.6f})")
+        return picked
+
+    print(f"\n  tail mode measured (the modes differ by cos {mode_gap:.6f}, "
+          f"and the bar is {args.bar}):")
+    tail_mode(outs["bf16"], "triton bf16")
+
+    # 6. The CUDA kernel, graded separately against the same oracle, in its
+    #    own tail mode. Folding it into the Triton arms would let one kernel's
+    #    result carry the other's.
+    cuda_sol, why = load_cuda_kernel()
+    print()
+    if cuda_sol is None:
+        print(f"  SKIP  CUDA arm: {why}")
+        skipped.append("cuda")
+    else:
+        cuda_tau = cuda_sol(q, k, v, tau=args.tau)
+        cuda_centroid = tail_mode(cuda_tau, "cuda")
+        cuda_ref = ref_centroid if cuda_centroid else ref_tau
+        cuda_wrong = (reference(q, k, v, tau=args.tau * 20, centroid_tail=True)
+                      if cuda_centroid else ref_wrong)
+        print()
+        report("cuda == reference at tau -inf",
+               cosine(cuda_sol(q, k, v, tau=DENSE_TAU), ref_dense), args.bar)
+        report(f"cuda == reference at tau {args.tau}",
+               cosine(cuda_tau, cuda_ref), args.bar)
+        report(f"cuda tau {args.tau} vs reference at tau {args.tau * 20}",
+               cosine(cuda_tau, cuda_wrong), args.bar, want_pass=False)
+
+        # Not a case: the two kernels' distance from the algorithm, each in
+        # its own tail mode. Comparing them in a single mode would score one
+        # of them against an algorithm it is not implementing, which is worth
+        # about 1.2e-3 of apparent quality -- larger than the gap being
+        # measured, so it would invent a winner.
+        print(f"\n  distance from the algorithm, each in its own tail mode:")
+        print(f"    cuda        {cosine(cuda_tau, cuda_ref):.6f}")
+        print(f"    triton int8 {cosine(outs['int8'], ref_tau):.6f}")
+        print(f"    triton bf16 {cosine(outs['bf16'], ref_tau):.6f}")
+        print("  Same algorithm, so this is kernel arithmetic (INT8 vs full "
+              "precision), not\n  a quality ranking of a render. It cannot see "
+              "behaviour at 40k tokens.")
 
     # How much sparsity is even active here: if the shipped tau routes
     # everything exact at this size, cases 3 and 4 are testing nothing.
@@ -183,8 +298,16 @@ def main():
         print("  WARNING: the shipped tau is not sparsifying at this shape, so the "
               "\n           agreement above is the dense case twice. Raise --tokens.")
 
-    print(f"\n{len(failures)} failure(s): {failures}" if failures else "\nall ok")
-    return 1 if failures else 0
+    if failures:
+        print(f"\n{len(failures)} failure(s): {failures}")
+        return 1
+    if skipped:
+        # Exit 2, not 0. An arm that did not run must not read as one that
+        # passed -- docs/checks.md gap 5.
+        print(f"\nINCOMPLETE: {len(skipped)} arm(s) skipped: {', '.join(skipped)}")
+        return 2
+    print("\nall ok")
+    return 0
 
 
 if __name__ == "__main__":

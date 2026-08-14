@@ -227,6 +227,34 @@ SOL_BASELINE_124F = dict(
     morton_curve="3d", verbose=False, use_tma=False, dense_blocks="",
 )
 
+# The CUDA node's knob set (`SolAttnMiniMax`, comfy_kitchen.sol_attn). A
+# SEPARATE dict rather than overrides on the Triton one, because the two nodes
+# do not share a vocabulary: `int8_qk`, `int8_pv` and `use_tma` do not exist
+# here (the CUDA kernel routes in INT8 unconditionally), and `centroid_tail`,
+# `routed_cap_percent` and `reuse_qkv_memory` do not exist there. Merging them
+# would let a Triton-only knob be silently dropped on a CUDA arm, which turns
+# `sage+sol+int8` into plain `sol` while it still prints as an int8 result.
+#
+# Values are the node's own defaults EXCEPT the two noted, so this reproduces
+# what a user gets from dropping the node in untouched:
+#   min_tokens 12288  the node's default, NOT SOL_BASELINE_124F's 4096.
+#                     Upstream puts the dense/sparse crossover near 12k and
+#                     the win only appears at high token counts; 4096 engages
+#                     Sol-Attn in the regime where it costs time. Which of the
+#                     two is right here is unmeasured -- that is the point of
+#                     having both spellings visible.
+#   verbose False     as everywhere else; the verbose arm opts in by name.
+#
+# NOT wired into any graph, deliberately: the node id is provisional until
+# upstream lands global attention timestep scheduling in core. Bench arms are
+# code we can rename, saved graphs are not.
+SOL_CUDA_DEFAULTS = dict(
+    tau=1.3, start_percent=0.2, end_percent=0.9, min_tokens=12288,
+    sink_conditioning="exact_kv_and_rows", morton=False,
+    morton_curve="2d_frame", centroid_tail=True, routed_cap_percent=0,
+    reuse_qkv_memory=False, verbose=False, dense_blocks="",
+)
+
 # Our own node. NOT `auto`, which resolves to fp8++ on sm89 -- the FASTEST
 # kernel, which is the wrong end of the tradeoff for this project.
 #

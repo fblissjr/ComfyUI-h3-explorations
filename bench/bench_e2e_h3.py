@@ -162,6 +162,31 @@ def _is_adhoc(name):
     return name.endswith("]") and "[" in name
 
 
+# Which Sol-Attn node the sol arms build. Set once from --sol-backend, before
+# any arm is resolved. A module global rather than a parameter threaded through
+# resolve_arm/build_prompt because it is a property of the RUN, not of an arm:
+# mixing backends inside one A/B would compare two kernels and call it a knob.
+SOL_BACKEND = "triton"
+
+
+def sol_node():
+    """(class_type, knob defaults) for the active backend.
+
+    Resolved lazily: the knob dicts are imported from h3_config further down
+    this file, so a module-level table here would NameError at import.
+    """
+    from h3_config import SOL_BASELINE_124F, SOL_CUDA_DEFAULTS
+    return {
+        "triton": ("SolAttnPatch", SOL_BASELINE_124F),
+        "cuda": ("SolAttnMiniMax", SOL_CUDA_DEFAULTS),
+    }[SOL_BACKEND]
+
+
+def sol_knobs():
+    """The active backend's knob set, for typing and validating overrides."""
+    return sol_node()[1]
+
+
 def resolve_arm(name):
     """(sage on?, SolAttn overrides) for a named arm or an ad-hoc spec.
 
@@ -196,9 +221,14 @@ def resolve_arm(name):
             continue
         k, _, v = pair.partition("=")
         k, v = k.strip(), v.strip()
-        if k not in SOL_DEFAULTS:
-            raise SystemExit(f"unknown SolAttn knob {k!r}; known: {sorted(SOL_DEFAULTS)}")
-        proto = SOL_DEFAULTS[k]
+        if k not in sol_knobs():
+            other = SOL_CUDA_DEFAULTS if SOL_BACKEND == "triton" else SOL_DEFAULTS
+            hint = (f"; {k!r} is a {'CUDA' if SOL_BACKEND == 'triton' else 'Triton'}-only "
+                    f"knob and this run is --sol-backend {SOL_BACKEND}"
+                    if k in other else "")
+            raise SystemExit(f"unknown SolAttn knob {k!r}{hint}; "
+                             f"known: {sorted(sol_knobs())}")
+        proto = sol_knobs()[k]
         if isinstance(proto, bool):
             overrides[k] = v.lower() in ("1", "true", "yes", "on")
         elif isinstance(proto, int):
@@ -290,8 +320,12 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
                               "seq_threshold": 4096}}
         model_src = ["22", 0]
     if sol is not None:
-        g["21"] = {"class_type": "SolAttnPatch",
-                   "inputs": {"model": model_src, **SOL_DEFAULTS, **sol}}
+        # Node id 21 for both backends: they are alternatives, never both in
+        # one graph, and keeping the id stable keeps the timing breakdown
+        # comparable across a --sol-backend switch.
+        class_type, defaults = sol_node()
+        g["21"] = {"class_type": class_type,
+                   "inputs": {"model": model_src, **defaults, **sol}}
         model_src = ["21", 0]
     g["8"]["inputs"]["model"] = model_src
     g["9"]["inputs"]["model"] = model_src
@@ -320,8 +354,40 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "workflows"))
 from h3_config import (  # noqa: E402
     SOL_BASELINE_124F as SOL_DEFAULTS,
+    SOL_CUDA_DEFAULTS,
     SOL_RECOMMENDED,
 )
+
+# Below this, a Sol-Attn arm cannot show anything.
+#
+# In TOKENS, not frames. Frames were the first spelling here and it was wrong:
+# video tokens are `latent_t * (w//32) * (h//32)`, so the canvas is half the
+# quantity. 250 frames at 1344x768 is 72,576 video tokens; the same 250 frames
+# at 832x768 is 44,928 -- a third less, and on the wrong side of the floor. A
+# frame-count guard passes that second run and lets it read as a null result.
+#
+# 60k is the lowest figure upstream names as working ("surprisingly well on
+# only 60k tokens"). His separate statement that nothing is visible under
+# ~250-300 frames implies 72k-88k at the 1344x768 he works at, so this is the
+# permissive end of his range on purpose -- the guard should fire only when a
+# run is definitely uninformative, not merely small.
+#
+# Video tokens only. The real attention sequence is the packed
+# [text][cond][ref][audio][video], so this under-counts, which is the safe
+# direction for a floor.
+SOL_TOKEN_FLOOR = 60_000
+
+
+def video_tokens(width, height, length):
+    """Video tokens for a canvas and pixel-frame count.
+
+    `latent_t = ((n - 5) // 17) * 5 + 2` is the inverse of preflight.py:155,
+    and reproduces both figures this repo already records: 362 frames -> 107
+    latent frames, 124 -> 37.
+    """
+    n = int(length)
+    latent_t = ((n - 5) // 17) * 5 + 2 if n > 5 else 2
+    return latent_t * (int(width) // 32) * (int(height) // 32)
 
 # name -> (sage on?, SolAttn overrides or None)
 ARMS = {
@@ -384,6 +450,42 @@ ARMS = {
     # at ~20% cost by its own tooltip. The knob behind "it helps audio".
     "sage+sol+morton+audio": (True, {"morton": True,
                                      "sink_conditioning": "exact_kv_and_rows"}),
+
+    # --- start_percent sweep, added 2026-08-14 ------------------------------
+    #
+    # `start_percent` is the only knob in SOL_RECOMMENDED that was never
+    # measured. 0.2 is the paper's number and it was carried straight through;
+    # every other knob there has a paragraph of evidence above it in
+    # h3_config.py. Upstream's report is that a later start affects motion
+    # least, which would make this the first lever to reach for when quality
+    # needs clawing back -- but that is the author's observation, not a
+    # measurement of ours, and it is the reason these arms exist.
+    #
+    # They extend `shipped` (SOL_RECOMMENDED), NOT SOL_DEFAULTS. Sweeping this
+    # against the 124-frame baseline would measure start_percent at tau=1.2
+    # and sink_conditioning="exact_kv", which is not what anyone runs -- and
+    # h3_config.py already carries the receipt for that mistake: "a knob
+    # validated at one setting of another knob is not validated". If tau ever
+    # moves, these arms move with it, which is the point of deriving them.
+    #
+    # RUN THESE LONG. `--length` defaults to 73 and the whole frontier table
+    # in docs/SOLATTN.md was measured at 124; upstream is explicit that the
+    # gains only appear at high token counts -- large canvas, long duration,
+    # or many references -- and that the relative gain grows with size, with
+    # its own 1.4x figure taken around 500 frames. A start_percent sweep at
+    # the default length measures the regime where Sol-Attn has nothing to
+    # find, and would read as "this knob does nothing".
+    #
+    # What each is predicted to show, written down before running so the
+    # result can contradict it: time should fall roughly linearly as
+    # start_percent drops (more steps inside the sparse window), and the
+    # moving-content artifact -- a small persistent object dissolving partway
+    # through a clip, documented under Quality in docs/SOLATTN.md -- should
+    # appear at the low end first. If motion is genuinely the least-affected
+    # axis, 0.3/0.4 should buy back the artifact for less time than lowering
+    # tau does. Stills cannot judge this; it needs watching to the end.
+    **{f"shipped+start{pct}": (True, dict(SOL_RECOMMENDED, start_percent=pct))
+       for pct in (0.0, 0.1, 0.3, 0.4)},
 }
 
 
@@ -560,7 +662,17 @@ def main():
                     help="Only if a comparable render already ran this session. "
                          "A cold first run pays model load and Triton autotune and "
                          "will read as a large fake win for whichever arm is second.")
+    ap.add_argument("--sol-backend", choices=("triton", "cuda"), default="triton",
+                    help="Which Sol-Attn node the sol arms build. triton is "
+                         "SolAttnPatch (ComfyUI-SolAttn_triton) and stays the "
+                         "default so every recorded number stays comparable. "
+                         "cuda is SolAttnMiniMax on comfy_kitchen.sol_attn, "
+                         "which needs a build of kijai's sol_attn branch -- "
+                         "check with bench/check_sol_kernel.py.")
     args = ap.parse_args()
+
+    global SOL_BACKEND
+    SOL_BACKEND = args.sol_backend
 
     cfg = dict(DEFAULTS, steps=args.steps, width=args.width,
                height=args.height, length=args.length)
@@ -586,6 +698,42 @@ def main():
         print(f"unknown arm(s) {unknown}; known: {list(ARMS)}")
         print("or ad-hoc: sage+sol[tau=1.6,int8_qk=1] / sol[start_percent=0.1]")
         return 1
+
+    # Named arms are written in the Triton vocabulary. Under --sol-backend
+    # cuda a Triton-only knob has nowhere to go, and dropping it silently
+    # would turn `sage+sol+int8` into plain `sol` while it still prints as an
+    # int8 result -- a whole arm quietly measuring something else. Refuse.
+    if SOL_BACKEND != "triton":
+        for name in arms:
+            if _is_adhoc(name) or name not in ARMS:
+                continue
+            orphan = sorted(set(ARMS[name][1] or {}) - set(sol_knobs()))
+            if orphan:
+                print(f"arm {name!r} sets {orphan}, which the {SOL_BACKEND} node "
+                      f"does not have.\nIt would silently become a different arm. "
+                      f"Drop it, or run --sol-backend triton.")
+                return 2
+
+    # A Sol-Attn arm below the length floor cannot produce a signal, and a null
+    # there reads as "the knob does nothing" rather than "this run could not
+    # have shown anything". docs/SOLATTN.md carries the full note, including
+    # that that page's own 124-frame frontier table sits under this floor.
+    # Warn rather than gate -- a short run is legitimate for proving the chain
+    # composes at all, which is what the verbose arm is for.
+    vt = video_tokens(cfg["width"], cfg["height"], cfg["length"])
+    if vt < SOL_TOKEN_FLOOR and any(resolve_arm(a)[1] is not None for a in arms):
+        print(f"WARNING: {cfg['width']}x{cfg['height']} at length {cfg['length']} is "
+              f"{vt:,} video tokens, below the\n"
+              f"         ~{SOL_TOKEN_FLOOR:,} floor where Sol-Attn's gains become "
+              f"visible. Upstream reports\n"
+              f"         nothing measurable under ~250-300 frames at 1344x768. A "
+              f"null result here\n"
+              f"         is uninformative, not evidence the setting does not matter.\n"
+              f"         Raise --length, or the canvas -- tokens are "
+              f"latent_t x (w/32) x (h/32),\n"
+              f"         so both axes count. 362 frames at 1344x768 is "
+              f"{video_tokens(1344, 768, 362):,}, near\n"
+              f"         the model's ~100k ceiling.\n")
 
     # Crossing the VAE axis with the arm axis rather than bolting it on: a
     # VAE swap invalidates MiniMaxH3ImageToVideo (it takes the same VAE for

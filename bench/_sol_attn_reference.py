@@ -1,26 +1,50 @@
 """Sol-Attn eager reference, vendored from kijai/comfy-kitchen.
 
-Source: branch `sol_attn`, commit ad9a4a8, file
+Source: branch `sol_attn`, commit c04ef20, file
 `comfy_kitchen/backends/eager/sol_attn.py`. Vendored rather than imported
-because that branch is unmerged and ships no wheel -- the installed
-comfy_kitchen (0.2.28) has no `sol_attn` at all.
+because that branch is unmerged and ships no wheel on PyPI -- the stock
+comfy-kitchen (0.2.31) has no `sol_attn` at all. A local build of the branch
+does, and `bench/check_sol_kernel.py` is what tells the two apart.
 
 DO NOT EDIT to fix a disagreement. The entire value of this file is that it
-was written by the algorithm's author and not by us: if it and the Triton
-kernel disagree, that is the finding. Re-vendor from upstream instead.
+was written by the algorithm's author and not by us: if it and a kernel
+disagree, that is the finding. Re-vendor from upstream instead.
 
 Two deletions from the original, both deliberate:
 
   - the `from ...registry import registry` import and the
     `@torch.library.custom_op("comfy_kitchen::sol_attn")` wrapper. Importing
     those here would register a `comfy_kitchen::sol_attn` op in the running
-    process, which collides the moment a real wheel ships one.
-  - `_accepts_max_blocks`, which only existed to feed that wrapper.
+    process, which now really does collide: a local build of the branch is
+    installed and registers that op itself.
+  - `_accepts_max_blocks`, which only existed to feed that wrapper. Its
+    `functools` and `inspect` imports go with it.
 
 The pure function is otherwise byte-identical to upstream.
 
-It is O(T^2) and materialises the full score tensor, so it refuses past
-4 GiB -- it cannot run at H3's real sequence length. Small shapes only.
+## Re-vendored 2026-08-14, from ad9a4a8 to c04ef20
+
+The previous vendor predated two upstream additions, and the first one is not
+cosmetic:
+
+  - **`centroid_tail`, default True.** Every row shares its query block's
+    centroid tail rather than computing its own. Upstream measures ~5e-4
+    cosine against per-row for 64x less routing work. It is the DEFAULT, and
+    `internal/refs/sol_attn_minimax.py` exposes it defaulting True, so between
+    ad9a4a8 and now the vendored oracle did not contain the path a real render
+    would take. Any correctness verdict from the old file describes
+    `centroid_tail=False` only.
+  - **`key_bias`**, a per-key logit bias for mask-like inputs. Unused by us --
+    the H3 node declines masked attention outright (`_ineligible` returns
+    "masked attention") -- so it is dead weight here, kept only because
+    editing the vendored function is what this file forbids.
+
+Upstream also reports correctness fixes on the CUDA side in this range
+(reported by the author, not verified here). That is a further reason the old
+vendor could not adjudicate: it was the pre-fix algorithm.
+
+It is O(T^2) and materialises the full score tensor, so it refuses past 4 GiB
+-- it cannot run at H3's real sequence length. Small shapes only.
 """
 
 
@@ -32,6 +56,32 @@ _LOG2E = 1.4426950408889634
 # Past this the caller almost certainly wanted a fused backend and got
 # silently downgraded; a clear error beats an allocator failure.
 _MAX_SCORE_BYTES = 4 * 2**30
+
+
+def _normalize_key_bias(key_bias, batch, t, device):
+    """Reduce SDPA-mask-like forms -- (T,), (B, T), (B|1, 1, 1, T), bool or
+    float -- to (B, T) float log-bias. Rejects head/query-varying masks and
+    wrong-device tensors (a host pointer would poison the CUDA context).
+    """
+    if key_bias.device != device:
+        raise ValueError(
+            f"sol_attn: key_bias must be on {device}, got {key_bias.device}")
+    if key_bias.dim() == 4:
+        if key_bias.shape[1] != 1 or key_bias.shape[2] != 1:
+            raise ValueError(
+                "sol_attn: key_bias must be key-only; a mask varying over "
+                f"heads or queries ({tuple(key_bias.shape)}) cannot be "
+                "expressed by this op -- use a dense attention for those calls")
+        key_bias = key_bias[:, 0, 0, :]
+    if key_bias.dim() == 1:
+        key_bias = key_bias.unsqueeze(0)
+    if key_bias.dim() != 2 or key_bias.shape[-1] != t or key_bias.shape[0] not in (1, batch):
+        raise ValueError(
+            f"sol_attn: key_bias must be (T,), (B, T) or (B, 1, 1, T), got "
+            f"{tuple(key_bias.shape)} for T={t}, B={batch}")
+    if key_bias.dtype == torch.bool:
+        key_bias = torch.where(key_bias, 0.0, float("-inf"))
+    return key_bias.float()
 
 
 def _pool(x: torch.Tensor, n_blocks: int, reduce: str) -> torch.Tensor:
@@ -57,6 +107,8 @@ def sol_attn(
     scale: float | None = None,
     sink_blocks: list[int] | None = None,
     sink_q: list[int] | None = None,
+    centroid_tail: bool = True,
+    key_bias: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Sol-Attn over ``(B, T, H, D)`` tensors. See the module docstring."""
     b, t, h, d = q.shape
@@ -104,6 +156,11 @@ def sol_attn(
     vch = vc.permute(0, 2, 1, 3)
 
     s_tok = (qh @ kh.transpose(-1, -2)) * log2s                     # (B, H, T, T)
+    if key_bias is not None:
+        # Per-key logit bias (natural log). Exact branch only: biased blocks
+        # must be sink-covered, the pooled tail cannot see per-token bias.
+        kb = _normalize_key_bias(key_bias, b, t, q.device)
+        s_tok = s_tok + (kb * _LOG2E).reshape(-1, 1, 1, t)
     s_blk = (qh @ kch.transpose(-1, -2)) * log2s                    # (B, H, T, N)
 
     # A block is routed if its mean score over the query block clears the
@@ -125,6 +182,10 @@ def sol_attn(
     keep_tok = ex_tok.repeat_interleave(BLOCK, dim=-1)[..., :t]
     neg = torch.finfo(s_tok.dtype).min
     s_tok = s_tok.masked_fill(~keep_tok, neg)
+    if centroid_tail:
+        # Every row shares its query-block centroid's tail (colmean IS the
+        # centroid score); ~5e-4 cosine vs per-row, 64x less routing work.
+        s_blk = colmean.gather(2, qblk.view(1, 1, t, 1).expand(b, h, t, n))
     s_blk = s_blk.masked_fill(ex_tok | ~valid_blk, neg)
 
     # One softmax over both branches. A pooled term carries its block's length in

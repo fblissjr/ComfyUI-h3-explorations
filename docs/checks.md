@@ -7,13 +7,18 @@ There is no test suite and no runner. Each script is standalone, prints its own
 `ok` / `FAIL` lines, and returns a non-zero exit code on failure.
 
 **Last full run: 2026-08-13 (evening)**, against ComfyUI `8f37cf8c` (v0.33.0),
-KJNodes `6ab7e81`, on an RTX 4090, with ComfyUI running. There are now **14
+KJNodes `6ab7e81`, on an RTX 4090, with ComfyUI running. There are now **15
 `check_*.py`** and **62 graphs** (31 UI, 31 API). The five CUDA-free checks
 that run in a second all passed, including `check_workflow_schema.py` against
 every UI graph. `smoke_h3.py` passed earlier the same day; the CUDA checks
-(`check_correctness`, `check_clone_v_wiring`, `check_solattn_correctness`)
-were **not** re-run after the `mode="fp16 (most accurate)"` flip and should be,
-since that changes which kernel they exercise.
+(`check_correctness`, `check_clone_v_wiring`) were **not** re-run after the
+`mode="fp16 (most accurate)"` flip and should be, since that changes which
+kernel they exercise.
+
+**Partial run 2026-08-14**, same box. `check_sol_kernel.py` added and shown
+red. `check_solattn_correctness.py` re-run and extended to the CUDA kernel
+after `bench/_sol_attn_reference.py` was re-vendored from `ad9a4a8` to
+`c04ef20`; it passes. Nothing else was re-run.
 
 The counts in the paragraph above were wrong until this run -- it claimed
 twelve checks and 24 UI graphs. A header that states a scope it no longer has
@@ -65,7 +70,8 @@ papercut and is listed under Gaps.
 | `check_ref_prompt_labels.py` | every ref graph's prompt names **exactly** the labels its graph wires. The tokenizer derives `<Picture i>` / `<Video k>` / `<Audio j>` from the wired sockets, not from the prompt, so the two drift silently -- and a video's soundtrack takes `<Audio 1>` ahead of a standalone clip, which is easy to number wrong by hand | - | yes | **yes**, both directions, 2026-08-13 |
 | `check_prompt_guide_conformance.py` | every shipped ref prompt against the **official guide's own tables**, parsed at run time -- the six sections and their order, the `[...]` task-type vocabulary and its ` + ` combining rule, markers never crossing the visual/audio sets, and `<d>` only in `detailed_description`. Exists because `check_ref_prompt_labels.py` compares the generator to itself and so passed clean while all fourteen arms shipped a hardcoded `[reference generation]`. The `keyframe completion` case checks the GRAPH, not the vocabulary: the type is allowed only where the graph wires `MiniMaxH3AddGuide` (added to ComfyUI 2026-08-13, and merged with refs additively by `comfy/model_base.py`, so the mechanism now exists). Before that node it was rejected outright on the grounds that nothing could honour it -- reasoning that expired the day the node landed. Exits 2, not 0, when the guide is absent. Carries **one waiver**, `_STRUCTURE_PROBES`: `h3_probe_prompt_concise` is unstructured on purpose, so its section and prefix cases are skipped **by name and printed on every run** -- its markers, dialogue placement and label agreement are still enforced, proven by mutating it | the guide in `internal/` | yes | **yes**, six mutations incl. the fail-open guard, plus the waiver shown narrow, 2026-08-13 |
 | `check_distill_settings.py` | **every** shipped graph, both forms: a turbo graph matches its LoRA's shift and steps, a base graph sits at the base checkpoint's 12/3, and the UI and API forms of each are paired and compared. Shifts *and* recommended step counts graded against the vendor README, not against itself. Exits 2, not 0, when that control is skipped | - | yes | **yes**, eight mutations, 2026-08-13 |
-| `check_solattn_correctness.py` | Sol-Attn's Triton kernels against the algorithm's own reference, cosine > 0.998 | CUDA, Triton | no | not recorded |
+| `check_solattn_correctness.py` | Sol-Attn's Triton **and CUDA** kernels against the algorithm's own reference, cosine > 0.998, each graded in its own measured `centroid_tail` mode. Exits 2, not 0, when the CUDA arm is skipped for cause | CUDA, Triton, and a fork build of comfy_kitchen for the CUDA arm | yes | **partial**, 2026-08-14: the re-vendor exposed a real cross-mode defect (see below), but no case has been mutated |
+| `check_sol_kernel.py` | that the installed `comfy_kitchen` still carries `sol_attn`, that it is the CUDA backend and not the eager reference alone, and that its signature still accepts the kwargs our node passes. **The first check here covering a call INTO a dependency we do not control**, and it covers exactly one contract. Presence is gated on a graph wiring `SolAttnMiniMax`, because Sol is shipped OFF and absent is the expected state; ungated it exits 2. Also pins `SOL_CUDA_DEFAULTS` against the inputs the node declares -- parsed with `ast` rather than imported, so the check stays free of ComfyUI | - | yes | **yes**, 2026-08-14: `present` with the stock PyPI wheel as the control, `schema` by simulating an upstream rename |
 | `check_keyframe_canvas.py` | canvas derivation, plus the aspect and duration rules | `PYTHONPATH` self-bootstrapped | yes | not recorded |
 | `check_reference_fit.py` | reference image sizing against both upstream rules, and that the stock resize becomes a no-op after our node | `PYTHONPATH` self-bootstrapped | yes | not recorded |
 | `check_short_edge_override.py` | the reference short-edge override applies once and never leaks | `PYTHONPATH` | no | **yes**, documented in-file |
@@ -96,6 +102,31 @@ last-node-wins silently -- the collision class `reference_fit.py`'s
 `_WRAP_MARKER` exists to prevent. **Decided 2026-08-13: keep the split, do not
 reimplement.** The interop cases stay because that boundary has already
 produced one real bug (the `clone_v` regression at `head_chunks=4`).
+
+### A note on `check_solattn_correctness.py`: updating an oracle changes the check
+
+Re-vendoring `bench/_sol_attn_reference.py` on 2026-08-14 (`ad9a4a8` ->
+`c04ef20`) added `centroid_tail`, defaulting **True**. The Triton kernel has
+no such parameter and runs the per-row mode. So the moment the oracle was
+updated, every Triton case was grading the kernel against a different
+algorithm than the one it implements -- and **all of them still passed**,
+because the two modes differ by cos 0.9988 and the bar is 0.998. The bar was
+looser than a whole-branch change to the algorithm.
+
+Three things worth keeping from that:
+
+- **Nobody edited a case, and the cases broke.** The defect entered through a
+  dependency the check trusts. A check is only as pinned as its oracle, and
+  the oracle here is deliberately something we do not control.
+- **It passed, which is the bad outcome.** Had it gone red the re-vendor would
+  have been examined immediately. Passing is what let it sit.
+- The fix was not to tighten the bar but to **measure which mode each kernel
+  is on** and grade it against that. The mode is now printed on every run,
+  for both kernels, because the source does not document it and reading the
+  kernel to decide would be an inference where a measurement was available.
+
+The general form: when an oracle gains an option, every assertion against it
+inherits a new case, exactly as CLAUDE.md says an "off"/"absent" state does.
 
 ## What is deliberately not checked
 

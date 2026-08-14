@@ -111,6 +111,170 @@ Both are in the size range long clips reach, so any long-sequence
 Sol-Attn measurement needs a build at or after those commits to mean
 anything.
 
+## The CUDA node, 2026-08-14
+
+A second implementation now exists: CUDA kernels on kijai/comfy-kitchen's
+unmerged `sol_attn` branch (`c04ef20`), driven by a single-file node in
+`internal/refs/sol_attn_minimax.py` (`node_id="SolAttnMiniMax"`). Everything
+on this page above was measured against the Triton pack and none of it
+transfers automatically.
+
+**Nothing in this section is a render measurement.** It is what the options
+do, from the node source, the kernel signature, and the eager reference, plus
+three things measured on a 4090 by `bench/check_solattn_correctness.py` and
+one ad-hoc kernel smoke. The quality and timing questions this page exists to
+answer are all still open for the CUDA path.
+
+### Installing it is not a drop-in
+
+`comfy_kitchen.sol_attn` ships on no wheel. The branch build declares version
+`0.2.31`, byte-identical to the PyPI version ComfyUI pins in
+`requirements.txt`, so the fork build and the stock wheel are
+indistinguishable to `pip list` and a `--force-reinstall` swaps the kernel out
+with no error and no log line -- the node then falls back to dense on every
+call and the render merely gets slower. The local build here is tagged
+`0.2.31+sol.c04ef20` for that reason, and `bench/check_sol_kernel.py` is what
+notices if it is lost.
+
+`node_id="SolAttnMiniMax"` is provisional. Upstream's position is that a
+proper node waits on global attention timestep scheduling landing in core, so
+**do not bake this node id into a shipped graph** -- see the one rule in
+CLAUDE.md. A bench arm is code we can rename; a saved graph is not.
+
+### What each option does
+
+The four marked NEW have no counterpart on the Triton node. Three Triton
+options are gone: `int8_qk`, `int8_pv` and `use_tma`. The CUDA kernel routes
+in INT8 unconditionally, so there is no quantization choice left to make.
+
+| option | default | what it does |
+|---|---|---|
+| `tau` | 1.3 | Routing threshold, in sigmas of the proxy row. A key block is exact when its mean score over the query block clears `tau * sqrt(var)`; everything else contributes one pooled term. Higher is sparser and cheaper. Upstream's densities: 1.0 keeps ~16% of blocks exact, 1.5 ~7%, 2.0 ~2.7%. |
+| `start_percent` | 0.2 | Dense before this point in sampling. **The one knob here with no measured rationale anywhere in this repo** -- 0.2 is the paper's number, carried through. Upstream reports a later start affects motion least, which makes it the first thing to raise when quality needs clawing back. Reported, not measured here. |
+| `end_percent` | 0.9 | Dense after this point. |
+| `min_tokens` | 12288 | Shorter sequences stay dense. Note `SOL_RECOMMENDED` pins **4096**, and the node's own description says dense is usually faster below ~12k. The two disagree and the disagreement is unmeasured. |
+| `sink_conditioning` | `exact_kv_and_rows` | H3 packs `[text][cond][ref][audio][video]` into one sequence. `exact_kv`: every query sees the conditioning rows exactly (~3% cost). `exact_kv_and_rows`: those query rows also run dense (~17%). `off`: no protection. Those rows are ~250-400 of a ~38k sequence -- thin enough to be exactly what a block-sparse router drops first. |
+| `morton` | False | Reorder video tokens into Z-order so each 64-token block is a compact 3D neighbourhood. Exactly neutral for dense attention. |
+| `morton_curve` | `2d_frame` | `2d_frame` Z-orders within each frame and leaves frame order alone -- correct for H3, whose `FRAME_PER_TOKEN` is `(1,4,4,4,4)`, so index-adjacent frames are 1 or 4 real frames apart and a 3D curve groups temporally distant tokens. |
+| `centroid_tail` NEW | True | Evaluate the pooled branch once per 64-token query block at its centroid instead of per row, for 64x less routing work. Upstream: ~1.4x on the **operation**, **~5-10% end to end**, ~5e-4 cosine cost. Do not confuse the two figures -- see the unit trap below. |
+| `routed_cap_percent` NEW | 0 | Cap the routed-block list at this percent of the sequence; 0 is uncapped. Bounds the only workspace term that grows with T². Upstream reports ~30 as 3x headroom at tau 1.4 and lossless. Below the actual density it silently degrades routed blocks to their pooled term, so it trades quality for memory, not for free. |
+| `reuse_qkv_memory` NEW | False | Write the attention output into H3's fused qkv buffer instead of allocating. Upstream: cuts peak VRAM by one output-sized tensor, ~1.2 GB at 80k tokens, enough to put attention's peak below the FFN's. Safe for H3 specifically, which discards that buffer after attention; leave off for other models. |
+| `tau_profile` NEW | (unset) | Per-block tau overriding the base, as `blocks=tau` entries separated by `;` or newlines. A `force_input` string, so it needs a node wired to it. |
+| `dense_blocks` | `""` | Blocks kept fully dense, e.g. `0-2,-1`. First and last blocks are the most approximation-sensitive. |
+| `verbose` | False | Per-shape dispatch logging, logged once per distinct shape. |
+
+### The three things actually measured here
+
+On a 4090, `B=1 T=512 H=4 D=128` bf16 at tau 1.3, against the eager reference
+the algorithm's author wrote:
+
+- **The two kernels' arithmetic is equivalent.** CUDA sits at cos 0.999919
+  from the reference, Triton INT8 at 0.999885, Triton bf16 at 0.999995. There
+  is no accuracy gap between the backends at this shape.
+- **They run different tail modes**: CUDA defaults `centroid_tail=True`, the
+  Triton kernel is per-row and has no such parameter. Measured by grading each
+  against both reference modes, not read off the source. This is a real
+  behavioural difference between the backends but it is **not** where the
+  speed comes from -- see the unit trap below.
+- **The `reuse_qkv_memory` path is numerically identical** to the normal entry
+  (cos 0.999810 against dense SDPA, both, to six digits, on a fully-exact
+  control). It changes where the output lands, not what it is.
+
+### The unit trap: kernel speed is not end-to-end speed
+
+Upstream reports **CUDA at 1.4x over Triton at the same tau, end to end**, and
+separately that **`centroid_tail` is worth ~5-10% end to end**. Both figures
+are the author's, on his hardware, reported not reproduced here.
+
+The `centroid_tail` tooltip's "~1.4x faster" is the *operation*, not the
+render. Pairing it with the 1.4x e2e figure -- as this document did briefly on
+2026-08-14 -- is numerology across two different denominators, and it is wrong
+in a way that is easy to miss because the digits match. The arithmetic that
+kills it: when only the kernel changes, e2e speedup can never exceed kernel
+speedup, so a 1.4x *e2e* win demands a kernel-level gap considerably larger
+than 1.4x. A knob worth 1.4x on the op cannot produce it, and upstream's own
+5-10% figure confirms it does not. The backend gap is the kernel
+implementation; `centroid_tail` is a slice of it.
+
+So: **never quote a number from `bench_minimax_attn.py` against one from
+`bench_e2e_h3.py`.** They have different denominators, attention is only part
+of a step, and Sol is only active inside the `start_percent`/`end_percent`
+window on top of that. Two instruments, two units.
+
+### Where the gains actually live
+
+Upstream is explicit that the win shows up only at high token counts -- large
+canvas, long duration, or many references -- and that the relative gain grows
+with size. The floor he gives is blunt: **nothing is visible below roughly
+250-300 frames**, and his 1.4x figure was taken around 500. Reported, not
+reproduced here.
+
+That invalidates the regime this page's own frontier table was measured in.
+**Length 124 is below the floor** -- less than half of it. So is the bench's
+default `--length 73`. Everything in the table above was measured where
+upstream says there is nothing to see, which reframes it: those numbers are
+not a weak version of the result, they are a measurement of the wrong regime.
+The "15% is a floor, and the length it was measured at is why" section below
+was reaching for this and stopped short of the number.
+
+It is also why `SOL_RECOMMENDED` pinning `min_tokens=4096` against the node's
+own 12288 is a live question rather than a detail: below the crossover
+Sol-Attn engages and costs time, and 4096 engages it well inside the regime
+upstream says is a loss.
+
+**The floor is a token count, not a frame count.** Video tokens are
+`latent_t * (w/32) * (h/32)` with `latent_t = ((n - 5) // 17) * 5 + 2`, so the
+canvas is half the quantity and "250 frames" means different things on
+different shapes:
+
+| canvas | 73 frames | 124 | 250 | 300 | 362 |
+|---|---|---|---|---|---|
+| 1344x768 (1008/frame) | 22,176 | 37,296 | 72,576 | 87,696 | **107,856** |
+| 832x768 (624/frame) | 13,728 | 23,088 | 44,928 | 54,288 | 66,768 |
+
+Upstream's ~100k ceiling is the 1344x768 / 362-frame / 15s configuration, and
+the table puts it at 107,856 video tokens -- so "100k" is that corner of the
+space, and the packed sequence adds text, audio and reference rows on top.
+Upstream separately reports quality holding "surprisingly well on only 60k
+tokens", which is a different claim from the speed floor and should not be
+merged with it.
+
+Two consequences:
+
+- **A frame-count guard is wrong.** 250 frames at 832x768 is 44,928 tokens --
+  below the floor, while 250 frames at 1344x768 is comfortably above it.
+  `bench_e2e_h3.py` warns on tokens for this reason; the first version of that
+  guard counted frames and would have passed the small-canvas run and let it
+  read as a null result.
+- **`min_tokens=4096` in `SOL_RECOMMENDED` is the outlier that needs
+  justifying**, not the node's 12288. 4096 is a third of the node's own stated
+  dense/sparse crossover and two orders below where the gains appear. Those
+  are not contradictory numbers -- ~12k is roughly where Sol-Attn stops
+  *losing* and ~60k+ is where it *wins* -- but 4096 sits below both, which
+  means the shipped config engages Sol-Attn in the regime upstream describes
+  as a loss. That is measurable and unmeasured.
+
+Length and reference count belong on the sweep axis, not fixed at the cheap
+end. A bench that cannot produce a signal is the timing equivalent of a check
+that cannot go red.
+
+### `centroid_tail` may stop being a toggle
+
+Upstream is considering making it unconditional -- "probably should even if
+it's technically a bit more lossy", on the grounds that there are too many
+options for an average user, with model-specific defaults in the model config
+as the alternative. Reported from conversation, not a shipped change.
+
+If that lands, `centroid_tail=False` disappears and the A/B that separates the
+toggle from the kernel becomes unrunnable. So that experiment has a clock on
+it. `SOL_CUDA_DEFAULTS` pins the value rather than inheriting it, which is the
+usual defence, but pinning cannot survive an input being removed -- passing a
+key the node no longer declares is an error, not a silent no-op.
+
+Grading each kernel in the other's tail mode costs about 1.2e-3 of apparent
+accuracy -- larger than the gap between the kernels. Done naively it invents a
+CUDA win that is not there. It did, once, before the modes were measured.
+
 ## Quality
 
 **REOPENED.** Everything in this section was judged from still frames, and

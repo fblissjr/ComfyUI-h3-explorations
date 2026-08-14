@@ -4,6 +4,99 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.14.0
+
+### Added
+
+- **`bench/check_sol_kernel.py`** -- the first check here covering a call INTO
+  a dependency we do not control. Asserts the installed `comfy_kitchen`
+  carries `sol_attn`, that it is the CUDA backend rather than the eager
+  reference alone, and that the signature still accepts the kwargs our node
+  passes. Presence is gated on a graph wiring `SolAttnMiniMax`, because
+  Sol-Attn ships OFF and "absent" is the expected state on any machine that
+  has not built the fork; ungated it exits 2, not 0. Shown red against the
+  stock PyPI wheel as the control. A second case pins `SOL_CUDA_DEFAULTS`
+  against the inputs the node declares, parsed with `ast` so the check needs
+  no ComfyUI -- upstream is weighing making `centroid_tail` unconditional,
+  and a knob that gets *renamed* rather than removed would otherwise leave
+  the pin silently not reaching it while the bench arm kept printing under the
+  old name. Shown red by simulating exactly that rename.
+- **`custom_nodes/ComfyUI-SolAttn-cuda/`** -- the CUDA node installed
+  standalone, upstream's file kept byte-identical with a two-line
+  `__init__.py` shim and a README recording provenance. Deliberately NOT
+  vendored into this repo: the node id is provisional, so when upstream ships
+  the real node this is a directory to delete rather than a graph migration.
+  Verified through ComfyUI's own loader path.
+- **CUDA arms in `check_solattn_correctness.py`**, grading
+  `comfy_kitchen.sol_attn` against the same eager oracle as the Triton
+  kernels, with its own red control. Exits 2 when the CUDA arm is skipped for
+  cause.
+- **`start_percent` sweep arms** in `bench_e2e_h3.py`
+  (`shipped+start0.0/0.1/0.3/0.4`), derived from `SOL_RECOMMENDED` so they
+  track tau rather than pinning it. It was the only knob in that config with
+  no measured rationale -- 0.2 is the paper's number, carried through
+  unexamined.
+- **`--sol-backend {triton,cuda}`** in `bench_e2e_h3.py`, selecting which
+  Sol-Attn node the sol arms build. `triton` stays the default so every
+  recorded number stays comparable. The two nodes do not share a vocabulary,
+  so `SOL_CUDA_DEFAULTS` is a separate dict in `h3_config.py` and the run
+  **refuses** rather than silently dropping an orphaned knob -- otherwise
+  `sage+sol+int8` under the CUDA backend becomes plain `sol` and still prints
+  as an int8 result.
+- **A token-floor warning.** Upstream reports Sol-Attn's gains are invisible
+  below ~250-300 frames at 1344x768. `bench_e2e_h3.py` defaults to
+  `--length 73` and the frontier table in `docs/SOLATTN.md` was measured at
+  124 -- both far under. A Sol arm below the floor now says so, because a null
+  result there reads as "this knob does nothing" rather than "this run could
+  not have shown anything". Counted in **tokens**, not frames: video tokens
+  are `latent_t * (w/32) * (h/32)`, so 250 frames is 72,576 tokens at
+  1344x768 but only 44,928 at 832x768. The first version of the guard counted
+  frames and would have passed that second run.
+
+### Changed
+
+- **`bench/_sol_attn_reference.py` re-vendored**, `ad9a4a8` -> `c04ef20`. The
+  old vendor predated `centroid_tail` (default **True**), which shares one
+  pooled tail per query block instead of computing it per row -- so the oracle
+  did not contain the path a real render takes, and any correctness verdict
+  from it described `centroid_tail=False` only.
+- **`check_solattn_correctness.py` now measures which tail mode each kernel is
+  on** and grades it against the matching reference, instead of assuming.
+  Re-vendoring silently made every Triton arm cross-mode and **they all still
+  passed**, because the two modes differ by cos 0.9988 and the bar is 0.998 --
+  the bar was looser than a whole-branch change to the algorithm. Measured,
+  not read off the kernel: Triton is per-row, the CUDA kernel defaults to
+  centroid. Graded in matched modes the two backends' arithmetic is
+  equivalent (cuda 0.999919, triton int8 0.999885); the naive cross-mode
+  comparison invents a CUDA quality win that is not there.
+
+### Corrected
+
+- **Kernel speed is not end-to-end speed, and this page briefly conflated
+  them.** `docs/SOLATTN.md` paired upstream's "CUDA is 1.4x over Triton at the
+  same tau" with the `centroid_tail` tooltip's "~1.4x faster" and proposed
+  they were the same number, making the backend gap a default gap. The first
+  is end to end, the second is the operation. Since e2e speedup can never
+  exceed kernel speedup when only the kernel changes, a 1.4x e2e win requires
+  a kernel gap well above 1.4x, so a knob worth 1.4x on the op cannot explain
+  it -- and upstream puts `centroid_tail` at ~5-10% e2e, which settles it. The
+  matching digits were the whole basis of the claim.
+- **The 124-frame frontier table measures the wrong regime.** Upstream's floor
+  for seeing anything is ~250-300 frames. That is not a weaker version of the
+  result; it is a measurement taken where there was nothing to find.
+
+### Notes
+
+- A local build of kijai/comfy-kitchen's `sol_attn` branch is installed as
+  `0.2.31+sol.c04ef20`. The branch declares plain `0.2.31`, identical to the
+  wheel ComfyUI pins, so nothing could otherwise distinguish the two and a
+  `--force-reinstall` would swap the kernel out with no error -- the node
+  falls back to dense and the render merely gets slower.
+- `SolAttnMiniMax` is **not** wired into any graph, deliberately. Upstream's
+  position is that a proper node waits on global attention timestep scheduling
+  landing in ComfyUI core, so the node id is provisional, and this repo's one
+  rule is that a node id in a saved graph is forever.
+
 ## 0.13.0
 
 ### Changed
