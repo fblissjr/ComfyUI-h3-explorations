@@ -62,6 +62,17 @@ Claims, i.e. what breaks if a case is deleted:
                      arm keeps printing under the old name. Parsed from the
                      node file with `ast`, so this stays free of ComfyUI.
 
+  vendored           the file ComfyUI loads is the one this repo tracks. Before
+                     2026-08-14 three untracked copies of this node existed on
+                     one box and nothing could say which was running; a
+                     measurement is meaningless if the code under it is
+                     unidentified.
+  node_version       the tracked file's sha256 is a version we have named and
+                     dated. Upstream publishes this node through conversation
+                     rather than a repository, so an unrecorded hash FAILS
+                     rather than warns -- it forces the drop to be recorded in
+                     vendor/README.md before it can be run.
+
   signature          our node calls `sol_attn` with `centroid_tail` and the
                      direct CUDA entry with `reuse_qkv_memory`. Both arrived
                      on the branch within days of each other, and the branch
@@ -93,13 +104,30 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent
 
-# Where the node file may be. It is upstream's and lives OUTSIDE this repo on
-# purpose (see custom_nodes/ComfyUI-SolAttn-cuda/README.md); the reference copy
-# under internal/ is the fallback for a checkout that has not installed it.
+# Where the node file may be. Since 2026-08-14 it is VENDORED into this repo
+# (vendor/README.md) and the installed path is a symlink into it, so the
+# tracked file and the running file cannot diverge.
 _NODE_PATHS = (
+    _REPO / "vendor" / "sol_attn_minimax.py",
     _REPO.parent / "ComfyUI-SolAttn-cuda" / "sol_attn_minimax.py",
-    _REPO / "internal" / "refs" / "sol_attn_minimax.py",
 )
+
+# Where ComfyUI loads the node from. Should be a symlink INTO vendor/, so the
+# tracked file and the running file cannot diverge -- see vendor/README.md.
+_INSTALLED = _REPO.parent / "ComfyUI-SolAttn-cuda" / "sol_attn_minimax.py"
+_VENDORED = _REPO / "vendor" / "sol_attn_minimax.py"
+
+# sha256 -> label. Upstream publishes this file through conversation, not a
+# repository, so provenance is by hand and an unrecorded hash is a FAILURE
+# rather than a warning: it forces a version to be named and dated before it
+# can be run, which is exactly what was missing when three untracked copies
+# existed on this box and none was authoritative.
+KNOWN_NODE_VERSIONS = {
+    "3a5f0051fce61d9da1a0b1aaaf03bc16af654d7be59a929bcde395a058918d73":
+        "v1 (2026-08-14 10:48) -- sink_q = whole conditioning range",
+    "d856ba83557d18fbe642011e7a101f597cceea75fcf2e9d600ae064d062de526":
+        "v2 (2026-08-14 14:19) -- sink_q narrowed to the target audio span",
+}
 
 
 def declared_inputs(path):
@@ -255,6 +283,32 @@ else:
             check("signature_cuda", not gone,
                   f"direct CUDA entry missing {gone}" if gone
                   else f"direct CUDA entry accepts {len(CUDA_KWARGS)} kwargs")
+
+import hashlib
+
+print("\nthe node ComfyUI loads is the one this repo tracks:")
+if not _VENDORED.is_file():
+    skip("vendored", f"no vendored copy at {_VENDORED}")
+    skip("node_version", "nothing to hash")
+else:
+    digest = hashlib.sha256(_VENDORED.read_bytes()).hexdigest()
+    if not _INSTALLED.exists():
+        skip("vendored", f"node not installed at {_INSTALLED}")
+    else:
+        same = _INSTALLED.resolve() == _VENDORED.resolve()
+        how = "symlink" if _INSTALLED.is_symlink() else "copy"
+        if not same and _INSTALLED.is_file():
+            same = hashlib.sha256(_INSTALLED.read_bytes()).hexdigest() == digest
+        check("vendored", same,
+              f"installed is a {how} of the tracked file"
+              if same else
+              f"{_INSTALLED} differs from {_VENDORED} -- the running node is "
+              f"not the tracked one")
+    label = KNOWN_NODE_VERSIONS.get(digest)
+    check("node_version", label is not None,
+          label if label else
+          f"sha256 {digest[:16]}... is not a recorded version; add it to "
+          f"KNOWN_NODE_VERSIONS and vendor/README.md before running it")
 
 print("\nSOL_CUDA_DEFAULTS pins only knobs the node declares:")
 node_file = next((p for p in _NODE_PATHS if p.is_file()), None)

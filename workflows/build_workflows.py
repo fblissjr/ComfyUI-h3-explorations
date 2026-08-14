@@ -555,9 +555,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # they touch different surfaces -- but applying the LoRA clones the
         # ModelPatcher, and keeping that clone upstream of both attention
         # nodes avoids inserting it between the two that have to compose.
-        # h3_config.CHAIN does not list this node and should not: it pins the
-        # sage-then-Sol order, which is the part that is load-bearing, and a
-        # LoRA in front of both is orthogonal to it.
+        # The load-bearing ordering constraint is sage-then-Sol (see
+        # docs/SOLATTN.md's Ordering section, and SageChainAssert, which fails
+        # the render when it is violated). A LoRA in front of both is
+        # orthogonal to it and does not belong in that constraint.
         # Node id 18; 20/21/22 are already spoken for.
         # The turbo pack's loader is not a drop-in for LoraLoaderModelOnly and
         # substituting one for the other is a silent-wrong, not an error: our

@@ -126,18 +126,35 @@ silent fallback.
 Video tokens are `latent_t * (w/32) * (h/32)`, with
 `latent_t = ((n - 5) // 17) * 5 + 2`:
 
-| canvas | 73 frames | 124 | 250 | 300 | 362 |
-|---|---|---|---|---|---|
-| 1344x768 (1008/frame) | 22,176 | 37,296 | 72,576 | 87,696 | **107,856** |
-| 832x768 (624/frame) | 13,728 | 23,088 | 44,928 | 54,288 | 66,768 |
+| canvas | 73 frames | 124 | 250 | 300 | **345** | 362 |
+|---|---|---|---|---|---|---|
+| 1344x768 (1008/frame) | 22,176 | 37,296 | 72,576 | 87,696 | **102,816** | 107,856 |
+| 1024x768 (768/frame) | 16,896 | 28,416 | 55,296 | 66,816 | **78,336** | 82,176 |
+| 832x768 (624/frame) | 13,728 | 23,088 | 44,928 | 54,288 | **63,648** | 66,768 |
 
-Upstream's ~100k model ceiling is the 1344x768 / 362-frame / 15s corner. The
-floor for seeing anything is ~60k tokens; `bench_e2e_h3.py` warns below it.
+**345 is the column to read.** It is `LONG_LENGTH`, and all 34 shipped API
+graphs carry it — verified by reading their `length` widgets, not assumed.
+1344x768 is the t2v and image-reference canvas; 1024x768 is what every
+video-reference arm ships (`REF_VIDEO_CANVAS`).
+
+**362 is not a legal length.** The column is kept only so old numbers can be
+read, and it is the reason to distrust them. `h3_rules.py` applies the
+reference's 15.0 s ceiling *after* the frame-count snap, so 362 is 15.083 s
+and refused, and 345 is the largest count on the 17n+5 grid. A 362-frame
+render still succeeds and nothing says the model is out of distribution,
+which is how Run 1 of the 2026-08-14 bench came to be taken there.
+`bench_e2e_h3.py` now warns (`34b42b3`).
+
+Upstream's ~100k model ceiling is the 1344x768 / 345-frame corner. The floor
+for seeing anything is ~60k tokens; `bench_e2e_h3.py` warns below it.
 **A run under the floor produces a null result that reads as "this knob does
 nothing".**
 
 Note this is a *token* floor, not a frame floor — 250 frames is 72,576 tokens
-at 1344x768 but only 44,928 at 832x768, on opposite sides of the line.
+at 1344x768 but only 44,928 at 832x768, on opposite sides of the line. Two
+shipped graphs stay under it even at 345: `h3_probe_square_canvas` (768x768,
+58,752) and `h3_probe_turbo_home_canvas` (960x544, 52,020). Neither enables
+Sol-Attn today, and enabling it on either would measure nothing.
 
 ---
 
@@ -151,6 +168,19 @@ Four have no Triton counterpart; three Triton options are gone, because the
 CUDA kernel routes in INT8 unconditionally and there is no quantization choice
 left to make.
 
+**Rows are in widget order, and that is not cosmetic.** A saved graph stores
+`widgets_values` as a bare list matched by index, so this table doubles as
+that list — regroup it semantically and you will pair a value with the wrong
+knob.
+
+Widget order is not quite the declared input order. `tau_profile` is
+`force_input`, so it is a socket rather than a widget and takes no slot in
+`widgets_values`; it is declared between `verbose` and `dense_blocks` but sits
+last here, and the graphs bake **12** values, not 13. Checked against both the
+node source and a live `/object_info` — the two disagree in presentation
+(`/object_info` reports required inputs before optional ones), which is its
+own way to get this wrong.
+
 | option | default | what it does |
 |---|---|---|
 | `tau` | 1.3 | Routing threshold in sigmas of the proxy row. A key block is exact when its mean score over the query block clears `tau * sqrt(var)`. Higher is sparser. Upstream densities: 1.0 keeps ~16% exact, 1.5 ~7%, 2.0 ~2.7%. |
@@ -163,9 +193,9 @@ left to make.
 | `centroid_tail` NEW | True | One pooled tail per query block instead of per row, 64x less routing work. Upstream: ~1.4x on the **operation**, **~5–10% end to end**, ~5e-4 cosine. |
 | `routed_cap_percent` NEW | 0 | Cap routed blocks as a percent of sequence; 0 is uncapped. Bounds the only workspace term growing with T². Below the actual density it silently degrades routed blocks to their pooled term. |
 | `reuse_qkv_memory` NEW | False | Write the output into H3's fused qkv buffer instead of allocating. Upstream: ~1.2 GB at 80k tokens, enough to put attention's peak below the FFN's. Safe for H3, which discards that buffer; leave off for other models. |
-| `tau_profile` NEW | unset | Per-block tau, `blocks=tau` separated by `;` or newlines. `force_input`, so it needs a node wired to it. |
-| `dense_blocks` | `""` | Blocks kept fully dense, e.g. `0-2,-1`. First and last are the most approximation-sensitive. |
 | `verbose` | False | Per-shape dispatch logging, once per distinct shape. |
+| `dense_blocks` | `""` | Blocks kept fully dense, e.g. `0-2,-1`. First and last are the most approximation-sensitive. |
+| `tau_profile` NEW | unset | Per-block tau, `blocks=tau` separated by `;` or newlines. `force_input`, so it needs a node wired to it — which is why the graphs bake 12 widget values and not 13. |
 
 ### What has actually been measured on it here
 
@@ -578,12 +608,16 @@ what is installed — put it in the run log.
 ## Ordering
 
 ```
-Load Diffusion Model -> MiniMax H3 SageAttention -> SolAttn* -> BasicGuider
+Load Diffusion Model -> MiniMax H3 SageAttention -> SolAttn* -> SageChainAssert -> BasicGuider
 ```
 
 Sol must come second: it walks the model's existing object patches and composes
 with the attention forwards it finds. Reversed, it overwrites sage's patch and
 you silently get sage only.
+
+`SageChainAssert` comes last because it can only grade patches that are already
+installed. Every shipped graph wires it there; the diagram above omitted it
+until 2026-08-14 while all 71 graphs carried it.
 
 They **alternate rather than stack.** Inside the sigma window Sol runs sparse
 and sage is bypassed; outside it, sage runs dense.
@@ -594,6 +628,33 @@ and sage is bypassed; outside it, sage runs dense.
 `func` argument — no chaining. Downstream of Sol it deletes Sol silently; the
 graph still renders. Sage partly survives because it also object-patches the 50
 attention forwards, a path that never reaches `optimized_attention`.
+
+**KJNodes' `MiniMaxH3MemoryEfficientSageAttentionPatch` silently replaces our
+sage node, and no check catches it.** Read from source 2026-08-14, not
+rendered. It writes `diffusion_model.blocks.{i}.attn.forward` unconditionally
+(`nodes/ltxv_nodes.py:2194`); so does ours (`nodes.py:137`). Pure
+last-node-wins, in both directions, with no marker convention. On sm89 its
+forward hardcodes `per_channel_fp8(v)` into
+`qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf` — fp8 PV, with no mode
+input to change it. That is the opposite of the fp16-PV choice `SAGE_NODE`
+exists to pin, arrived at without touching a widget.
+
+`SageChainAssert` reports green through it. `require_forward_patch` only tests
+that the key list is non-empty (`assert_chain.py:305-308`), and their node
+never touches `optimized_attention_override`, so ours survives and
+`exercise=True` probes *our* override while every real DiT call runs theirs.
+
+Two things bound the damage. It is only the **sage-only** graphs that bite:
+H3's DiT has exactly one `optimized_attention` site
+(`comfy/ldm/minimax/model.py:184`, verified), so with Sol on, Sol takes that
+call and sage gets nothing either way. And KJNodes' *other* attention node,
+`MiniMaxLowVRAMAttention`, yields politely — `if attn_key in
+m.object_patches: continue` (`nodes/minimax_nodes.py:193`). One of their two
+composes and one wins; only the polite one is written up in `docs/checks.md`.
+
+No shipped graph wires it. This is a "do not reach for it for VRAM headroom"
+note, and an argument for `SageChainAssert` learning to check that the patch
+is *ours*.
 
 Confirmed engaged rather than assumed, from the log:
 

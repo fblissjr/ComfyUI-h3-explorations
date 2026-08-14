@@ -433,10 +433,21 @@ TURBO_PACK_STRENGTH = 1.0
 TURBO_PACK_SCHEDULER = "simple"
 TURBO_PACK_LOW_VRAM = False
 
-# Node order is not cosmetic. Sol-Attn composes with the attention patches
-# it finds, so it must come after ours; reversed, it overwrites the patch
-# and you silently get sage only.
-CHAIN = ["Load Diffusion Model", "MiniMax H3 SageAttention", "SolAttnPatch"]
+# `CHAIN` was here and is gone as of 2026-08-14. It listed the node order --
+# Load Diffusion Model, MiniMax H3 SageAttention, SolAttnPatch -- and nothing
+# imported it. Node order IS load-bearing (Sol composes with the attention
+# patches it finds, so it must come after ours; reversed it overwrites the
+# patch and you silently get sage only), which is exactly why a copy of it
+# that no code reads is worse than none: when the graphs moved to
+# `SolAttnMiniMax` on 2026-08-14 this list stayed on the Triton node id and
+# nothing could notice, because there was nothing to notice with.
+#
+# The order now lives in one place that a reader reaches, docs/SOLATTN.md's
+# Ordering section, and in one place a machine checks -- every graph's actual
+# wiring, with `SageChainAssert` as the runtime gate that fails the render
+# when the chain is not composed as intended. A constant is not a check.
+#
+# If this is ever wanted back, bring it back with a check that reads it.
 
 CANVAS = dict(width=1344, height=768)
 FPS = 24.0
