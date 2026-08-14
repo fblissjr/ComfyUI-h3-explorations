@@ -166,7 +166,16 @@ def _is_adhoc(name):
 # any arm is resolved. A module global rather than a parameter threaded through
 # resolve_arm/build_prompt because it is a property of the RUN, not of an arm:
 # mixing backends inside one A/B would compare two kernels and call it a knob.
-SOL_BACKEND = "triton"
+#
+# Default flipped triton -> cuda on 2026-08-14. The two backends were shown
+# arithmetically equivalent against the algorithm's own eager reference (cuda
+# 0.999919, triton int8 0.999885, each in its own centroid_tail mode), so there
+# is no accuracy argument for Triton, and upstream reports cuda at 1.4x
+# end-to-end at the same tau. Triton stays reachable, and stays installed,
+# because every number recorded before this date was taken on it and
+# check_solattn_correctness.py grades the two against the same oracle -- a
+# cross-check that only exists while both are present.
+SOL_BACKEND = "cuda"
 
 
 def sol_node():
@@ -662,13 +671,14 @@ def main():
                     help="Only if a comparable render already ran this session. "
                          "A cold first run pays model load and Triton autotune and "
                          "will read as a large fake win for whichever arm is second.")
-    ap.add_argument("--sol-backend", choices=("triton", "cuda"), default="triton",
-                    help="Which Sol-Attn node the sol arms build. triton is "
-                         "SolAttnPatch (ComfyUI-SolAttn_triton) and stays the "
-                         "default so every recorded number stays comparable. "
-                         "cuda is SolAttnMiniMax on comfy_kitchen.sol_attn, "
-                         "which needs a build of kijai's sol_attn branch -- "
-                         "check with bench/check_sol_kernel.py.")
+    ap.add_argument("--sol-backend", choices=("cuda", "triton"), default="cuda",
+                    help="Which Sol-Attn node the sol arms build. cuda "
+                         "(SolAttnMiniMax on comfy_kitchen.sol_attn) is the "
+                         "default as of 2026-08-14 -- verify the kernel is "
+                         "present with bench/check_sol_kernel.py, because a "
+                         "stock comfy-kitchen silently falls back to dense. "
+                         "triton (SolAttnPatch) is kept for reproducing "
+                         "pre-2026-08-14 numbers, which were all taken on it.")
     args = ap.parse_args()
 
     global SOL_BACKEND
