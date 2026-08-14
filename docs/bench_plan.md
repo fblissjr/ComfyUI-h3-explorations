@@ -518,7 +518,28 @@ argument, not a control.
 morton loses the peak again and the control keeps it again, it is morton. If
 the control also loses it, the first observation was the trajectory moving.
 
-### Provisional answer to kijai's question
+### RETRACTED same day — it does not replicate
+
+The seed-424242 control ran at 17:31 and 17:39. **The morton arm has the
+mountains and streams.** A later frame of the seed-1 morton clip also carries
+the man's face, the alpine lake and its reflection. So morton is not
+systematically dropping reference detail, and the seed-1 observation was
+framing and trajectory.
+
+**The method was the defect, and this page had already named it.** The
+comparison used ONE FRAME per clip. `docs/SOLATTN.md` says a grid of stills at
+sampled shot-times cannot catch this class of thing and that the failure mode
+is temporal. A single still is weaker than the grid it warns against.
+
+The control was also built so it could fail to answer: it asked "does morton
+lose the peak again" without requiring the peak to be in frame. At seed 424242
+both arms open on close meadow shots with no distant view, so the still version
+of the test was unanswerable. Only watching the video resolved it.
+
+**This reached upstream before it was checked.** Treat the morton question as
+open and unmeasured, not as answered in either direction.
+
+### Superseded — the provisional answer that was wrong
 
 "Is morton worth anything" — **provisionally no, and possibly negative.** It
 costs 0.9% *in its favour* on speed, i.e. it is free, and it appears to cost
