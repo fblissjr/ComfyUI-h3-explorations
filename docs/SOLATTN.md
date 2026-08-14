@@ -646,8 +646,10 @@ never touches `optimized_attention_override`, so ours survives and
 
 Two things bound the damage. It is only the **sage-only** graphs that bite:
 H3's DiT has exactly one `optimized_attention` site
-(`comfy/ldm/minimax/model.py:184`, verified), so with Sol on, Sol takes that
-call and sage gets nothing either way. And KJNodes' *other* attention node,
+(`comfy/ldm/minimax/model.py:184`, verified), and with Sol on, Sol takes that
+call **on the sparse steps only** -- 11 of 16 at the shipped window. Steps 0-3
+and 15 fall outside it, the compose gate declines them, and they run sage.
+So a Sol graph is exposed on its 5 dense steps, not immune. And KJNodes' *other* attention node,
 `MiniMaxLowVRAMAttention`, yields politely — `if attn_key in
 m.object_patches: continue` (`nodes/minimax_nodes.py:193`). One of their two
 composes and one wins; only the polite one is written up in `docs/checks.md`.

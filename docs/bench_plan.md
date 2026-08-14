@@ -165,10 +165,17 @@ Two things follow, both more useful than the cancelled run:
   earlier note calling it "very likely wrong" was reasoning from a call
   distribution that does not exist. It only bites below 22 frames, which is
   below the token floor anyway.
-- **The bench graph has no `SageChainAssert`,** so in its Sol arms sage takes
-  zero DiT calls. Anything that changes sage's configuration moves the
-  sage-only arm and nothing else. That is why the `mode="auto"` defect was
-  one-sided.
+- **Sage still runs 5 of 16 steps in a Sol arm.** RETRACTED 2026-08-14: this
+  said sage takes "zero DiT calls" with Sol on, so a sage-config change moved
+  only the sage-only arm. That was right about the `min_tokens` gate and
+  ignored the **sigma window**. At `start=0.2/end=0.9`, steps 0-3 and 15 fall
+  outside Sol's window; the compose gate declines them and they run sage's
+  forward patch at fp16. So `mode="auto"` -> `fp16` slows BOTH arms, and the
+  corrected ratio improves less than the one-sided reasoning predicted.
+  Corollary worth testing: a Sol render's peak VRAM may be set by those 5
+  dense steps rather than the 11 sparse ones, which would explain
+  `reuse_qkv_memory` measuring nothing -- it shrinks an allocation on the
+  steps that are not setting the peak.
 
 ## Run 4 — `sink_conditioning` at reference load
 
