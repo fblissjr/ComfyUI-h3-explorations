@@ -169,6 +169,46 @@ left to make.
 
 ### What has actually been measured on it here
 
+#### End to end, 2026-08-14
+
+First e2e measurement of the CUDA node. 1344x768, **362 frames** (107,856
+video tokens, above the ~60k floor), 16 steps, `res_multistep`/`simple`,
+2 runs plus a discarded warmup, arms alternating, kernel build
+`0.2.31+sol.c04ef20`.
+
+| arm | sampler | vs sage |
+|---|---|---|
+| sage only | 794.7s | 1.000x |
+| **shipped (Sol on)** | **493.4s** | **1.611x** |
+| shipped, `centroid_tail=0` | 505.8s | 1.571x |
+| shipped, `reuse_qkv_memory=1` | 493.5s | 1.610x |
+
+Run-to-run spread was 0.1% on sage and 0.12% on shipped, so the ordering is
+not noise.
+
+**Read the baseline before quoting 1.611x.** That sage arm ran
+`mode="auto"` -> `fp8_cuda++`, not the shipped `fp16 (most accurate)`,
+because the bench had drifted from `h3_config.py` (see `docs/checks.md`).
+fp8 sage is the *fast* kernel, so this ratio **understates** against the
+shipped configuration. And the understatement is one-sided: H3's DiT has
+exactly one attention site (`comfy/ldm/minimax/model.py:184`) at the full
+packed length, so with Sol on, sage takes **zero** DiT calls -- the mode
+affects the sage-only arm and nothing else. A corrected re-baseline is the
+number to quote.
+
+**`centroid_tail` is worth 2.5%**, not the 5-10% upstream reports e2e
+(1.611x against 1.571x). Two consequences: it is not where the CUDA
+advantage over Triton comes from, and if upstream makes the toggle
+unconditional, little is lost here.
+
+**`reuse_qkv_memory` is unmeasured, not neutral.** It came back identical on
+time and VRAM, but the VRAM column at the time was reporting torch-active
+bytes rather than device usage and resolved only the resident-weight plateau
+-- every arm agreed to the megabyte. The instrument could not have shown a
+saving. Re-run pending with a device-level metric.
+
+#### Kernel level
+
 On a 4090, `B=1 T=512 H=4 D=128` bf16 at tau 1.3, against the eager reference
 the algorithm's author wrote:
 
@@ -177,11 +217,20 @@ the algorithm's author wrote:
 - **They run different tail modes.** CUDA defaults `centroid_tail=True`; Triton
   is per-row and has no such parameter. Measured by grading each against both
   reference modes, not read off the source.
-- **`reuse_qkv_memory` is numerically identical** to the normal entry — cos
+- **`reuse_qkv_memory` is numerically identical** to the normal entry -- cos
   0.999810 against dense SDPA on a fully-exact control, both to six digits. It
   changes where the output lands, not what it is.
 
-No end-to-end render measurement exists for the CUDA node yet.
+#### The exact branch is all-INT8, and that is worth knowing
+
+`sol_attn_exact.cu` runs `mma_s8` for QK into int32 and `mma_u8s8` for PV --
+uint8 P, int8 V -- with fp32 output accumulation and bf16 I/O. There is no
+fp16/bf16 MMA anywhere in the Sol kernels and no option to enable one, which
+is why `int8_qk`/`int8_pv` do not exist on this node: they are unconditional.
+
+This sits oddly beside sage running `fp16 (most accurate)` on the small calls,
+but see the note under Quality before drawing the obvious conclusion -- the
+accuracy figure that argument rests on is a synthetic-input number.
 
 ### `centroid_tail` may stop being a toggle
 
@@ -376,6 +425,41 @@ not a measurement, and upstream's call.
 
 **REOPENED.** Everything in this section was judged from still frames, and the
 failure mode that matters is temporal. Read the next subsection first.
+
+### The 2.7x sage accuracy figure is synthetic, and real activations say 1.3x
+
+Relevant here because Sol's exact branch is all-INT8 (uint8 P, int8 V), which
+looks damning next to this repo running sage at `fp16 (most accurate)` on the
+grounds that 8-bit V costs 2.7x accuracy. **That comparison does not hold up.**
+
+Reported by the sage fork's claude on 2026-08-14, from its CHANGELOG v0.7.0
+and commits `13b19e0` / `12a5872` / `1f619b4`; not re-derived here:
+
+- The 2.7x is measured on `torch.randn` q/k/v. On q/k/v **captured from a real
+  H3 forward**, fp8++ lands at mean_rtol 0.026 rather than 0.098, and the
+  fp8-to-fp16 gap **narrows from 2.6x to 1.3x**. Their own verdict line: "Every
+  accuracy figure this repo quotes from a synthetic bench is a pessimistic
+  bound, not an estimate."
+- The mechanism is worth keeping: on iid gaussian input softmax is near
+  uniform, so the output is a near-cancelling average of S random vectors.
+  Elements sit near zero, and an element-wise relative error with a symmetric
+  denominator is dominated by cancellation. Cosine is blind to exactly that.
+  The two metrics fail in opposite directions, which is why a cosine and an
+  rtol from different harnesses cannot be compared.
+- **"Quantizing V to fp8 at all is the lever" over-attributes.** The fp8 and
+  fp16 sage kernels differ in *both* PV operands -- P is unscaled e4m3 against
+  fp16 -- and no sage kernel exists with mixed operands, so nothing isolates V
+  from P. What was measured is an 8-bit PV matmul against a 16-bit one.
+- INT8-V specifically is **unmeasured** on either side. Sage has no int8-V
+  kernel at all.
+- Provenance: the script producing those tables is not committed in the sage
+  fork. The numbers live in prose and commit messages. Cite as an uncommitted
+  ad-hoc run.
+
+So the honest statement about Sol's INT8 PV is that it is the same *class* as
+the arm this project measured as costlier, that the cost of that class on real
+H3 activations is 1.3x rather than 2.7x, and that nobody has measured int8-V.
+Not "Sol throws away the accuracy we pay 1.58x for".
 
 ### The artifact stills cannot show
 

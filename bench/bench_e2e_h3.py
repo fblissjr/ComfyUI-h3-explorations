@@ -575,79 +575,33 @@ def http_post(url, obj, timeout=60):
 
 
 async def _poll_vram(host, stop, out, period=0.5):
-    """Record peak VRAM for a render, two ways, because they are not the same.
+    """Sample VRAM in use for the duration of a render, recording the peak.
 
-    `dev` -- device memory in use, from a single long-lived streaming
-    `nvidia-smi`. This is what "peak VRAM" means to a user: how close the box
-    came to OOM, allocator pool included.
+    Polled from outside rather than read from torch, because the bench is a
+    client: it has no handle on ComfyUI's process. `/system_stats` reports
+    free and total for each device, so in-use is the difference.
 
-    `torch` -- ComfyUI's `/system_stats`, in-use as `vram_total - vram_free`.
-    That is NOT device usage. `comfy/model_management.py:1785` defines free as
-    `mem_free_cuda + (mem_reserved - mem_active)`, i.e. driver-free PLUS
-    torch's cached-but-unused reserve, so the difference is torch-ACTIVE
-    bytes. Correct for ComfyUI's own model-management decisions, and the right
-    number for "how much is really live", but ~12 GB below device usage on
-    this box under `--cuda-malloc`.
-
-    Both are reported because reporting one under the name "peak VRAM" is how
-    this bench spent 2026-08-14 measuring `reuse_qkv_memory` with an
-    instrument that could not see it: every arm came back identical to the
-    megabyte, because the active-bytes number was resolving the resident-weight
-    plateau rather than the attention transient the flag targets.
-
-    Both are SAMPLED peaks -- a spike shorter than the interval is invisible.
-    That is tolerable when the peak is a broad plateau and is why these are
-    "peak seen", not "peak". A flag that moves only a brief transient needs a
-    different instrument than either of these.
+    This is a sampled peak, not a true one -- a spike shorter than `period`
+    between two samples is invisible. That is tolerable for comparing arms,
+    where the peak is a broad plateau held across every attention call, and
+    it is why the number is reported as "peak seen" rather than "peak".
     """
     import aiohttp
 
-    smi = None
-    try:
-        smi = await asyncio.create_subprocess_exec(
-            "nvidia-smi", "--query-gpu=memory.used",
-            "--format=csv,noheader,nounits", "-lms", str(int(period * 1000)),
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
-    except Exception:
-        pass              # no nvidia-smi: the torch number still gets reported
-
-    async def pump_dev():
-        if smi is None or smi.stdout is None:
-            return
+    async with aiohttp.ClientSession() as sess:
         while not stop.is_set():
-            line = await smi.stdout.readline()
-            if not line:
-                return
             try:
-                out["dev"] = max(out.get("dev", 0), int(line.split()[0]) * 2**20)
-            except (ValueError, IndexError):
-                pass
-
-    async def pump_torch():
-        async with aiohttp.ClientSession() as sess:
-            while not stop.is_set():
-                try:
-                    async with sess.get(f"http://{host}/system_stats",
-                                        timeout=aiohttp.ClientTimeout(total=5)) as r:
-                        stats = await r.json()
-                    for dev in stats.get("devices", []):
-                        used = dev.get("vram_total", 0) - dev.get("vram_free", 0)
-                        out["torch"] = max(out.get("torch", 0), used)
-                except Exception:
-                    pass      # a dropped sample is not a failed render
-                try:
-                    await asyncio.wait_for(stop.wait(), timeout=period)
-                except asyncio.TimeoutError:
-                    pass
-
-    try:
-        await asyncio.gather(pump_dev(), pump_torch())
-    finally:
-        if smi is not None and smi.returncode is None:
-            try:
-                smi.kill()
-                await smi.wait()
+                async with sess.get(f"http://{host}/system_stats",
+                                    timeout=aiohttp.ClientTimeout(total=5)) as r:
+                    stats = await r.json()
+                for dev in stats.get("devices", []):
+                    used = dev.get("vram_total", 0) - dev.get("vram_free", 0)
+                    out["peak"] = max(out.get("peak", 0), used)
             except Exception:
+                pass          # a dropped sample is not a failed render
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=period)
+            except asyncio.TimeoutError:
                 pass
 
 
@@ -905,9 +859,8 @@ def main():
             total, per_node, err = asyncio.run(run_once(
                 args.host, graph_for(combo, seed), client_id, args.timeout,
                 vram=peak))
-            if peak.get("dev") or peak.get("torch"):
-                vram[label].append((peak.get("dev", 0) / 2**20,
-                                    peak.get("torch", 0) / 2**20))
+            if peak.get("peak"):
+                vram[label].append(peak["peak"] / 2**20)
             if err:
                 print(f"  run {i+1} {label}: FAILED: {err}")
                 return 1
@@ -928,9 +881,8 @@ def main():
             pk = vram[label][-1] if vram[label] else None
             print(f"  run {i+1} {label:{width}s}  seed={seed}  total {total:7.1f}s   "
                   f"sampler {s:7.1f}s   decode "
-                  f"{f'{d:6.1f}s' if d is not None else '   n/a'}   peak dev "
-                  f"{f'{pk[0]:7.0f}' if pk else '    n/a'} / torch "
-                  f"{f'{pk[1]:7.0f} MiB' if pk else '    n/a'}", flush=True)
+                  f"{f'{d:6.1f}s' if d is not None else '   n/a'}   peak "
+                  f"{f'{pk:7.0f} MiB' if pk else '     n/a'}", flush=True)
 
     print()
     med = statistics.median
@@ -947,20 +899,17 @@ def main():
     multi_canvas = len({(c[5], c[6]) for c in combos}) > 1
 
     ref_tokens = max((cw // 32) * (ch // 32) for _l, _a, _v, _h, _f, cw, ch in combos)
-    # Device peak, not torch-active. See _poll_vram: they differ by ~12 GB
-    # under --cuda-malloc, and reporting either as bare "peak VRAM" is what
-    # made the reuse_qkv_memory arm unmeasurable on 2026-08-14.
-    print(f"{'arm':{width}s} {'sampler':>11s} {'decode':>11s} {'peak dev':>13s} "
+    print(f"{'arm':{width}s} {'sampler':>11s} {'decode':>11s} {'peak VRAM':>13s} "
           f"{'vs base':>11s} {'sampler vs base':>17s}"
           + (f" {'attn O(S^2)':>12s}" if multi_canvas else ""))
     for label in labels:
         cw, ch = canvas_of[label]
         my_base = base_of[(cw, ch)]
         r_s = med(sampler[my_base])
-        r_v = med([v[0] for v in vram[my_base]]) if vram[my_base] else None
+        r_v = med(vram[my_base]) if vram[my_base] else None
         s = med(sampler[label])
         d = med(decode[label]) if decode[label] else None
-        pk = med([v[0] for v in vram[label]]) if vram[label] else None
+        pk = med(vram[label]) if vram[label] else None
         d_col = f"{d:10.1f}s" if d is not None else f"{'n/a':>11s}"
         v_col = f"{pk:9.0f} MiB" if pk else f"{'n/a':>13s}"
         v_dif = (f"{pk - r_v:+10.0f} " if (pk and r_v) else f"{'n/a':>11s}")
