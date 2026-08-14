@@ -806,6 +806,30 @@ def main():
     # that that page's own 124-frame frontier table sits under this floor.
     # Warn rather than gate -- a short run is legitimate for proving the chain
     # composes at all, which is what the verbose arm is for.
+    # Is this length one the model was trained to produce? h3_rules owns the
+    # rule; the bench must not restate it. MAX_DURATION is 15.0s and the grid
+    # is 17n+5, so 345 (14.375s) is the largest legal count and 362 (15.083s)
+    # is NOT -- h3_rules.py:25 says so explicitly, and every shipped graph is
+    # at 345 via LONG_LENGTH.
+    #
+    # This exists because on 2026-08-14 an entire bench run went to 362,
+    # picked off SOLATTN.md's historical table without checking it against the
+    # rules file in this same repo. The renders succeed, which is the problem:
+    # nothing anywhere said the length was out of distribution.
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        import h3_rules as _rules
+        if not _rules.duration_in_range(cfg["length"]):
+            snapped = _rules.snap_length(cfg["length"])
+            print(f"WARNING: length {cfg['length']} snaps to {snapped} = "
+                  f"{_rules.duration_of(snapped):.3f}s, outside the trained "
+                  f"window\n         ({_rules.MIN_DURATION}-"
+                  f"{_rules.MAX_DURATION}s). The render will succeed and the "
+                  f"model is out of\n         distribution. Shipped graphs use "
+                  f"LONG_LENGTH; use that unless you mean this.\n")
+    except Exception as exc:
+        print(f"  (could not check duration legality: {exc})")
+
     vt = video_tokens(cfg["width"], cfg["height"], cfg["length"])
     if vt < SOL_TOKEN_FLOOR and any(resolve_arm(a)[1] is not None for a in arms):
         print(f"WARNING: {cfg['width']}x{cfg['height']} at length {cfg['length']} is "
