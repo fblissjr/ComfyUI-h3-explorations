@@ -91,7 +91,10 @@ def main() -> int:
     args = ap.parse_args()
     base = f"http://{args.host}"
 
-    wf_path = WF / args.workflow
+    # A path with a separator is taken as-is, so a scratch graph can be smoked
+    # without being written into workflows/ where check_workflow_schema.py and
+    # the generator would both have opinions about it.
+    wf_path = Path(args.workflow) if "/" in args.workflow else WF / args.workflow
     if not wf_path.is_file():
         print(f"no such workflow: {wf_path}")
         return 2
