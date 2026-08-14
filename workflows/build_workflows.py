@@ -2022,7 +2022,7 @@ deltas interpolate linearly, which is a crude stand-in for interpolating two
 models.
 
 **Strength 0.0 and ctrl-B bypass are the same thing.** ComfyUI short-circuits
-a LoRA whose strengths are all zero (`nodes.py:729`) and hands back the
+a LoRA whose strengths are all zero (`nodes.py`) and hands back the
 untouched model, so either route renders true plain fl2va. Use whichever you
 prefer -- just do not treat them as two different baselines.
 

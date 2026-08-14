@@ -605,7 +605,7 @@ artifact.
 
 - `docs/h3_geometry_and_nodes.md` corrected in three places. The low-VRAM
   saving is **~3227 MiB at 4 groups**, not the ~1070 carried here and in the
-  shipped graph notes -- `workflows/h3_config.py:160` measured three times the
+  shipped graph notes -- `workflows/h3_config.py` measured three times the
   earlier estimate. `MiniMaxH3SigmaShift` was listed as an untested
   third-party node; it is core ComfyUI and sits in all eight shipped graphs.
   And the keyframe section no longer tells the reader to wire both image

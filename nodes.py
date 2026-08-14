@@ -148,7 +148,7 @@ class MiniMaxH3SageAttention(io.ComfyNode):
         # Copy before mutating. The reason is not the one this comment gave
         # until 2026-08-11: `clone()` does NOT leave transformer_options
         # shared. It runs model_options through `comfy.utils.deepcopy_list_dict`
-        # (`comfy/model_patcher.py:453`, on every branch), which recurses into
+        # (`comfy/model_patcher.py`, on every branch), which recurses into
         # dicts and lists and passes callables through by reference, so the
         # clone already owns its own dict. The copy is redundant today.
         #

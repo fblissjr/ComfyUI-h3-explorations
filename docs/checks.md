@@ -264,7 +264,7 @@ fail for a reason unrelated to what changed.
 
 `_exercise` pushes one tensor through the composed attention and requires a
 routing counter to move. The counter it reads is resolved by scanning loaded
-modules for a callable named **`sol_attn_stats`** (`assert_chain.py:114-131`)
+modules for a callable named **`sol_attn_stats`** (`assert_chain.py`)
 — Sol-Attn's counters. `attention.py` exposes no counter of its own; the only
 state it publishes is `reset_fallback_state`.
 
@@ -286,7 +286,7 @@ pack is installed, `sol_attn_stats` resolves even in graphs that do not use
 it — so the check cannot distinguish "Sol is not in this graph" from "the
 composed path was not taken".
 
-This is the same check that, per the note at `assert_chain.py:110-113`, "ran
+This is the same check that, per the note at `assert_chain.py`, "ran
 registration-only from the day it was written until 2026-08-11, and said so in
 a line nobody read, under a final `chain assert ok`". The 2026-08-11 fix
 closed the registration-only gap and wired the new case to the wrong module's

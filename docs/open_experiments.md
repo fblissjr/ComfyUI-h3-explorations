@@ -192,7 +192,7 @@ spends the time.
 > **Amended 2026-08-13, and the amendment matters more than the entry.** That
 > 0.992x was measured in a graph that also loads Sol-Attn, and Sol's compose
 > gate hands every call it TAKES to ComfyUI's stock forward
-> (`__init__.py:373-381` at `842c4ea`) unless a delegate is published. So head
+> (`__init__.py` at `842c4ea`) unless a delegate is published. So head
 > chunking never ran on the taken steps at all. The wall-clock that "already
 > answers whether to chunk" is a number for a configuration in which chunking
 > was mostly switched off, and it does not answer the question it was retired

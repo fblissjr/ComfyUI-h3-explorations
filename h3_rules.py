@@ -8,10 +8,10 @@ generator, which is the same reason `workflows/h3_config.py` exists.
 
 Sources, all in `coderef/diffusers` (the reference implementation):
 
-  aspect    modular_pipelines/minimax_h3/modular_pipeline.py:32-33 defines
+  aspect    modular_pipelines/minimax_h3/modular_pipeline.py defines
             MINIMAX_H3_MIN/MAX_ASPECT_RATIO; resolve_canvas_size raises
-            outside them at :76-80.
-  duration  modular_pipelines/minimax_h3/before_denoise.py:397-414. The
+            outside them.
+  duration  modular_pipelines/minimax_h3/before_denoise.py. The
             ceiling is checked AFTER the frame count snaps, with a comment
             naming the trap: 346 frames passes a pre-snap check and then
             rounds to 362, i.e. 15.083s.

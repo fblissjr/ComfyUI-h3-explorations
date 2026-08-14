@@ -84,7 +84,7 @@ class _StubModel:
     Ported from ComfyUI-AudioLoopHelper's `tests/_fakes.py`, which models the
     real contract rather than the convenient one. `ModelPatcher.clone()` runs
     `model_options` through `comfy.utils.deepcopy_list_dict`
-    (`comfy/model_patcher.py:453`), which recurses into dicts and lists and
+    (`comfy/model_patcher.py`), which recurses into dicts and lists and
     leaves everything else -- callables included -- by reference. A `clone()`
     that returns `self`, which is what this stub used to do, cannot tell a
     node that mutates its source apart from one that does not.

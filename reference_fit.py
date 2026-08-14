@@ -2,12 +2,12 @@
 
 `MiniMaxH3ReferenceToVideo` sizes reference images with
 
-    scale = min(1.0, REF_IMAGE_SHORT_EDGE / min(w, h))     # nodes_minimax_h3.py:226
+    scale = min(1.0, REF_IMAGE_SHORT_EDGE / min(w, h))     # nodes_minimax_h3.py
 
 and the reference pipeline with
 
     scale = reference_image_short_edge / min(width, height)  # diffusers
-                                    # modular_pipelines/minimax_h3/before_encoder.py:490
+                                    # modular_pipelines/minimax_h3/before_encoder.py
 
 Same constant (2048), same round-to-32, one difference: the `min(1.0, ...)`.
 ComfyUI never upscales. So a reference smaller than 2048 on its short edge
@@ -29,7 +29,7 @@ times slower". The `latent_rows` output is there to make that visible before
 you queue a render rather than after.
 
 It also carries the reference's 1:4..4:1 check on reference images
-(`before_encoder.py:488`), which ComfyUI does not have -- the same limit
+(`before_encoder.py`), which ComfyUI does not have -- the same limit
 `h3_rules` holds for the canvas.
 """
 
@@ -283,7 +283,7 @@ def _tokens(w, h):
 # --------------------------------------------------------------------------
 #
 # `MiniMaxH3ReferenceToVideo.execute` sizes image references with
-# `min(1.0, REF_IMAGE_SHORT_EDGE / min(w, h))` (`nodes_minimax_h3.py:226`).
+# `min(1.0, REF_IMAGE_SHORT_EDGE / min(w, h))` (`nodes_minimax_h3.py`).
 # The clamp is what lets this node work at all below 2048: we resize first,
 # the stock scale resolves to 1.0, and its resize is a no-op. Above 2048 the
 # same clamp scales our work back down, so `short_edge` is one-directional

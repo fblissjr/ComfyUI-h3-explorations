@@ -144,7 +144,7 @@ class SageChainAssert(io.ComfyNode):
                           "registration checks above still passed")
 
         # [B, H, S, D] with skip_reshape=True, which is what
-        # `comfy/ldm/minimax/model.py:184` sends -- it is the model's ONLY
+        # `comfy/ldm/minimax/model.py` sends -- it is the model's ONLY
         # `optimized_attention` call site, verified 2026-08-14, and it moved
         # from :172 when AddGuide landed. The first version of this
         # probe used [B, S, H, D] and passed no skip_reshape, which is the

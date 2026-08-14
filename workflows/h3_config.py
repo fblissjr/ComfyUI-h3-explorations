@@ -40,7 +40,7 @@ MODELS = dict(
     unet_ref2va="minimax_h3_ref2va_pruned_int8_convrot.safetensors",
     clip="qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
     # int8_convrot decoder (Comfy-Org/ComfyUI#15334 merged 2026-08-06, loader
-    # branch at comfy/sd.py:945). 2666.2 MiB resident against fp16's 4966.5 --
+    # branch at comfy/sd.py). 2666.2 MiB resident against fp16's 4966.5 --
     # a real 2300 MiB, engagement confirmed by allocation rather than by a log
     # line, since the loader prints `dtype: torch.float16` for both builds and
     # cannot distinguish int8 storage from a dequantized fallback.
@@ -273,7 +273,7 @@ SOL_BASELINE_124F = dict(
 #                     2026-08-14: this said "very likely wrong, a third of the
 #                     node's crossover". That reasoned from a call distribution
 #                     that does not exist. H3's DiT has exactly ONE attention
-#                     site (`comfy/ldm/minimax/model.py:184`) at the full packed
+#                     site (`comfy/ldm/minimax/model.py`) at the full packed
 #                     length, and frame counts satisfy n %% 17 == 5, so the
 #                     shortest clip past 5 frames is 22 frames -> S = 7,194,
 #                     already above 4096. Only a 5-frame render falls below.
@@ -312,7 +312,7 @@ SOL_CUDA_DEFAULTS = dict(
 #   reference count.
 #
 #   **That 2.7x is a SYNTHETIC-INPUT number and the gap is ~1.3x on real
-#   activations** (added 2026-08-14). `bench/bench_minimax_attn.py:201` builds
+#   activations** (added 2026-08-14). `bench/bench_minimax_attn.py` builds
 #   `torch.randn`, and nothing in `bench/` uses captured activations, so every
 #   figure above inherits it -- our 0.0969-0.0984 matches the sage fork's
 #   synthetic 0.098, not its real-activation 0.026. The fork measures the
@@ -519,7 +519,7 @@ ASPECTS = {
 #
 # Strength 0.0 and bypassing the node are the same thing, not two baselines.
 # `LoraLoader.load_lora` short-circuits when both strengths are zero (ComfyUI
-# nodes.py:729) and `LoraLoaderModelOnly` always passes strength_clip=0, so
+# nodes.py) and `LoraLoaderModelOnly` always passes strength_clip=0, so
 # either route hands back the untouched model and renders true plain fl2va.
 #
 # What neither gives you is a baseline that took the same path as the 1.0

@@ -415,7 +415,7 @@ SOL_TOKEN_FLOOR = 60_000
 def video_tokens(width, height, length):
     """Video tokens for a canvas and pixel-frame count.
 
-    `latent_t = ((n - 5) // 17) * 5 + 2` is the inverse of preflight.py:155,
+    `latent_t = ((n - 5) // 17) * 5 + 2` is the inverse of preflight.py,
     and reproduces both figures this repo already records: 362 frames -> 107
     latent frames, 124 -> 37.
     """
@@ -582,7 +582,7 @@ async def _poll_vram(host, stop, out, period=0.5):
     came to OOM, allocator pool included.
 
     `torch` -- ComfyUI's `/system_stats`, in-use as `vram_total - vram_free`.
-    That is NOT device usage. `comfy/model_management.py:1785` defines free as
+    That is NOT device usage. `comfy/model_management.py` defines free as
     `mem_free_cuda + (mem_reserved - mem_active)`, i.e. driver-free PLUS
     torch's cached-but-unused reserve, so the difference is torch-ACTIVE
     bytes. Correct for ComfyUI's own model-management decisions, and the right
@@ -809,7 +809,7 @@ def main():
     # Is this length one the model was trained to produce? h3_rules owns the
     # rule; the bench must not restate it. MAX_DURATION is 15.0s and the grid
     # is 17n+5, so 345 (14.375s) is the largest legal count and 362 (15.083s)
-    # is NOT -- h3_rules.py:25 says so explicitly, and every shipped graph is
+    # is NOT -- h3_rules.py says so explicitly, and every shipped graph is
     # at 345 via LONG_LENGTH.
     #
     # This exists because on 2026-08-14 an entire bench run went to 362,

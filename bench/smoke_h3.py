@@ -62,7 +62,7 @@ from pathlib import Path
 WF = Path(__file__).resolve().parent.parent / "workflows"
 
 # (label, needle, needs_sol). The needles are matched against the ComfyUI log,
-# so they must be the strings the code actually emits -- `assert_chain.py:268`
+# so they must be the strings the code actually emits -- `assert_chain.py`
 # for the sage one. Anything here that no longer appears in the source is a
 # stale needle, not a finding; grep before believing a MISSING.
 WANT = [

@@ -78,7 +78,7 @@ a merge on every future drop.
 
 The input's help says sequences below ~12k stay dense because "below ~12k
 tokens dense is usually faster". True in general, and inert for H3: the DiT
-has **exactly one** attention site (`comfy/ldm/minimax/model.py:184`) at the
+has **exactly one** attention site (`comfy/ldm/minimax/model.py`) at the
 full packed length, and frame counts satisfy `n % 17 == 5`, so the shortest
 clip past 5 frames is already S = 7,194 at 1344x768. Every value from 4096 to
 12288 selects the same thing — everything.

@@ -123,7 +123,7 @@ no-op (verified, `max|delta| = 0`).
 
 **Wire the `last_frame` output only if you connected a `last_frame` input.**
 With no last frame, that output slot returns the *same tensor* as
-`first_frame` (`keyframe_canvas.py:179`), because an IMAGE output cannot be
+`first_frame` (`keyframe_canvas.py`), because an IMAGE output cannot be
 null. Wiring it anyway turns a one-anchor render into fl2va with
 `last == first`: the model is anchored to return to its opening frame at
 `frame_count - 1`, a spurious `<Picture 2>` enters the presentation, and a
@@ -196,7 +196,7 @@ there is no benefit to both.
 
 **`MiniMaxLowVRAMAttention`** (KJNodes) — head chunking. Shrinks the
 kernel's internal transients by the chunk count (**~3227 MiB at 4 groups**,
-measured; `workflows/h3_config.py:160`, three times the ~1070 MiB this doc
+measured; `workflows/h3_config.py`, three times the ~1070 MiB this doc
 and the shipped graph notes previously carried), but
 turns 1000 attention calls per render into 4000. On a 24 GB 4090 freed VRAM
 converts to wall-clock at a ~2.6% ceiling — weight streaming is already

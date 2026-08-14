@@ -166,7 +166,7 @@ at several sizes -- the smoke log shows 2048 and 4608 alongside 12,264.
 synthetic probes, 2048 and 4608 tokens, precisely to check the sparse gate
 takes one and declines the other. They are the entire population.
 
-H3's DiT has **exactly one** attention site, `comfy/ldm/minimax/model.py:184`,
+H3's DiT has **exactly one** attention site, `comfy/ldm/minimax/model.py`,
 and S there is the full packed length. Frame counts satisfy `n % 17 == 5`, so
 at 1344x768 the shortest clip past 5 frames is 22 frames -> S = 7,194, already
 above 4096; only a 5-frame render (S ~ 2,096) falls below. (Found by the sage

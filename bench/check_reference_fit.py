@@ -2,9 +2,9 @@
 """Reference-image sizing: does ComfyUI give a reference the rows it should?
 
 The gap. ComfyUI sizes reference images with `min(1.0, 2048 / min(w, h))`
-(`comfy_extras/nodes_minimax_h3.py:226`); the reference pipeline uses
+(`comfy_extras/nodes_minimax_h3.py`); the reference pipeline uses
 `2048 / min(w, h)` with no clamp (diffusers
-`modular_pipelines/minimax_h3/before_encoder.py:490`). Same constant, same
+`modular_pipelines/minimax_h3/before_encoder.py`). Same constant, same
 round-to-32. ComfyUI simply never upscales, so a reference below 2048 on its
 short edge reaches the DiT smaller than the released pipeline would send it,
 and reference tokens are latent rows.
@@ -80,7 +80,7 @@ def check(name, cond, detail=""):
 
 
 def reference_rule(w, h, short_edge=REF_IMAGE_SHORT_EDGE):
-    """diffusers before_encoder.py:490-492, transcribed."""
+    """diffusers before_encoder.py, transcribed."""
     scale = short_edge / min(w, h)
     tw = max(CANVAS_MULTIPLE, round(w * scale / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
     th = max(CANVAS_MULTIPLE, round(h * scale / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
@@ -88,7 +88,7 @@ def reference_rule(w, h, short_edge=REF_IMAGE_SHORT_EDGE):
 
 
 def comfy_rule(w, h, short_edge=REF_IMAGE_SHORT_EDGE):
-    """nodes_minimax_h3.py:226-228, transcribed."""
+    """nodes_minimax_h3.py, transcribed."""
     scale = min(1.0, short_edge / min(w, h))
     tw = max(CANVAS_MULTIPLE, round(w * scale / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
     th = max(CANVAS_MULTIPLE, round(h * scale / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)

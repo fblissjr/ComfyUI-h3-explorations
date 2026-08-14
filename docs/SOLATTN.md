@@ -32,7 +32,7 @@ labelled rather than deleted. Read this list first.
 | every e2e timing from Run 1, incl. **1.611x** | taken at **362 frames, an illegal length** (15.083s, past the 15.0s ceiling), against an **fp8** sage baseline the graphs do not ship, and before it was known that sage runs 5/16 steps in the Sol arm. Wrong on three axes. |
 | `centroid_tail` = **2.5%** | the measurement is sound (two runs, 0.1% spread) but it is at 362. Ordering is trustworthy; the magnitude is not pinned to a shipped config. |
 | `reuse_qkv_memory` "no VRAM saving" | **uninformative, not negative.** The peak-VRAM column was reporting torch-active bytes, which resolved only the resident-weight plateau. The instrument could not have shown a saving. |
-| the **2.7x** fp8-vs-fp16 accuracy figure | synthetic `torch.randn` input; **1.3x** on real captured H3 activations. Everything in `bench/` inherits this -- `bench_minimax_attn.py:201` builds `randn` and nothing here uses captured activations. |
+| the **2.7x** fp8-vs-fp16 accuracy figure | synthetic `torch.randn` input; **1.3x** on real captured H3 activations. Everything in `bench/` inherits this -- `bench_minimax_attn.py` builds `randn` and nothing here uses captured activations. |
 | **0.999919** and the other correctness cosines | **implementation fidelity, not accuracy.** Kernel is graded against the reference *at the same tau*, so the sparse approximation is on both sides and cancels. Not comparable to any dense kernel's accuracy number. Also T=512 synthetic. |
 | **1.4x** CUDA over Triton e2e | upstream conversation. Never reproduced here. |
 | `centroid_tail` **5-10%** e2e | upstream conversation. Ours measured 2.5%. |
@@ -46,8 +46,8 @@ labelled rather than deleted. Read this list first.
 All verified on this box today, by running rather than reading:
 
 - **The CUDA seam works.** Live render, `cuda-int8` in the log, sage's override found and chained, 50 forwards composed.
-- **345 is legal, 362 is not.** `h3_rules.py:25` and diffusers `before_denoise.py:399-407`, independently.
-- **H3's DiT has exactly one attention site**, `comfy/ldm/minimax/model.py:184`, at the full packed length.
+- **345 is legal, 362 is not.** `h3_rules.py` and diffusers `before_denoise.py`, independently.
+- **H3's DiT has exactly one attention site**, `comfy/ldm/minimax/model.py`, at the full packed length.
 - **Sage runs 5 of 16 steps with Sol on** at the shipped window -- verified at both the compose gate and the override, and cross-checked against this page's own 20-step figure of 6 dense steps.
 - **The two backends are arithmetically equivalent** at T=512 fidelity, each graded in its own measured `centroid_tail` mode.
 - **`reuse_qkv_memory` cannot change output** -- numerically identical to the normal entry, six digits.
@@ -282,7 +282,7 @@ not noise.
 because the bench had drifted from `h3_config.py` (see `docs/checks.md`).
 fp8 sage is the *fast* kernel, so this ratio **understates** against the
 shipped configuration. And the understatement is one-sided: H3's DiT has
-exactly one attention site (`comfy/ldm/minimax/model.py:184`) at the full
+exactly one attention site (`comfy/ldm/minimax/model.py`) at the full
 packed length, so with Sol on, sage takes **zero** DiT calls -- the mode
 affects the sage-only arm and nothing else. A corrected re-baseline is the
 number to quote.
@@ -684,7 +684,7 @@ They **alternate rather than stack.** Inside the sigma window Sol runs sparse
 and sage is bypassed; outside it, sage runs dense.
 
 **`ModelAttentionBackend` must not be downstream of either.** ComfyUI's
-`set_model_optimized_attention` (`comfy/model_patcher.py:688`) assigns
+`set_model_optimized_attention` (`comfy/model_patcher.py`) assigns
 `optimized_attention_override` unconditionally and its closure discards the
 `func` argument — no chaining. Downstream of Sol it deletes Sol silently; the
 graph still renders. Sage partly survives because it also object-patches the 50
@@ -693,7 +693,7 @@ attention forwards, a path that never reaches `optimized_attention`.
 **KJNodes' `MiniMaxH3MemoryEfficientSageAttentionPatch` silently replaces our
 sage node, and no check catches it.** Read from source 2026-08-14, not
 rendered. It writes `diffusion_model.blocks.{i}.attn.forward` unconditionally
-(`nodes/ltxv_nodes.py:2194`); so does ours (`nodes.py:137`). Pure
+(`nodes/ltxv_nodes.py`); so does ours (`nodes.py`). Pure
 last-node-wins, in both directions, with no marker convention. On sm89 its
 forward hardcodes `per_channel_fp8(v)` into
 `qk_int8_sv_f8_accum_f16_fuse_v_scale_attn_inst_buf` — fp8 PV, with no mode
@@ -701,7 +701,7 @@ input to change it. That is the opposite of the fp16-PV choice `SAGE_NODE`
 exists to pin, arrived at without touching a widget.
 
 `SageChainAssert` reports green through it. `require_forward_patch` only tests
-that the key list is non-empty (`assert_chain.py:305-308`), and their node
+that the key list is non-empty (`assert_chain.py`), and their node
 never touches `optimized_attention_override`, so ours survives and
 `exercise=True` probes *our* override while every real DiT call runs theirs.
 
@@ -709,9 +709,9 @@ never touches `optimized_attention_override`, so ours survives and
 until 2026-08-14 — "with Sol on, sage gets nothing, so only sage-only graphs
 bite" — and that was wrong for a reason worth keeping: it reasoned from
 `min_tokens` alone and forgot the sigma window. H3's DiT does have exactly one
-`optimized_attention` site (`comfy/ldm/minimax/model.py:184`, verified), but
+`optimized_attention` site (`comfy/ldm/minimax/model.py`, verified), but
 Sol only *takes* that call inside its window. `_compose_module_patch` declines
-on sigma before delegating (`vendor/sol_attn_minimax.py:571-574`), and
+on sigma before delegating (`vendor/sol_attn_minimax.py`), and
 `make_override` applies the same gate again. At the shipped `0.2 / 0.9`, 16
 steps, `shift_video=12.0`, that is **11 sparse and 5 dense** — the same 11/16
 this page's own sigma-window table gives, arrived at independently.
@@ -724,7 +724,7 @@ than the middle is an inference, not a measurement** — nobody has measured
 this page. The exposure is real either way; its cost is not known.
 
 KJNodes' *other* attention node, `MiniMaxLowVRAMAttention`, yields politely —
-`if attn_key in m.object_patches: continue` (`nodes/minimax_nodes.py:193`).
+`if attn_key in m.object_patches: continue` (`nodes/minimax_nodes.py`).
 One of their two composes and one wins; only the polite one is written up in
 `docs/checks.md`.
 

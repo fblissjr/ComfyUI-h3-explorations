@@ -53,9 +53,9 @@ attached to the number.
 | **CUDA is 1.4x over Triton e2e** | Upstream conversation. Never reproduced here | a paired run on this box |
 | **`reuse_qkv_memory` saves nothing** | Not a negative result. The VRAM column was reporting torch-active bytes and could not have seen it | fixed instrument (`f1dff99`), rerun |
 | **any peak-VRAM figure between 13:08:49 and `f1dff99`** | An external write reverted the device poller on disk; a `git add -A` then committed the reverted state | re-measure |
-| **fp8 is 2.7x less accurate than fp16** | **Synthetic input.** The sage fork measures 1.3x on real captured H3 activations and calls every synthetic rtol a pessimistic bound. `bench/bench_minimax_attn.py:201` builds `torch.randn`; nothing in `bench/` uses captured activations, and our 0.0969–0.0984 matches the fork's synthetic 0.098, not its real-activation 0.026 | the capture hook is written (`756a65e`) and has never been run |
+| **fp8 is 2.7x less accurate than fp16** | **Synthetic input.** The sage fork measures 1.3x on real captured H3 activations and calls every synthetic rtol a pessimistic bound. `bench/bench_minimax_attn.py` builds `torch.randn`; nothing in `bench/` uses captured activations, and our 0.0969–0.0984 matches the fork's synthetic 0.098, not its real-activation 0.026 | the capture hook is written (`756a65e`) and has never been run |
 | **Sol is 0.999919 accurate** | Implementation fidelity, not total error — the harness compares kernel against reference **at the same tau**, so the sparse approximation is on both sides and cancels. Also `T=512`, and the O(T²) reference cannot run at real length | the Sol-vs-dense diagnostic (`44becf0`), once the card frees |
-| **text = 38 rows, sequence = 12,264** | `smoke_h3.py:106-109` substitutes **both** the prompt (27 words, against the graph's 216) and the length. Not a scaled-down shipped graph — text does not scale with length and was replaced | one preflight on a shipped graph, unmodified |
+| **text = 38 rows, sequence = 12,264** | `smoke_h3.py` substitutes **both** the prompt (27 words, against the graph's 216) and the length. Not a scaled-down shipped graph — text does not scale with length and was replaced | one preflight on a shipped graph, unmodified |
 | **everything derived from that**: audio dominates the sink; text is the whole v2 narrowing; `sink_q` start is 0 on t2v | all smoke-harness statements. On the shipped graph, text extrapolates to ~304 rows / 4 blocks — still an extrapolation from one point | same preflight |
 | **the sink's audio framing** | A **t2v** framing. In reference-heavy graphs the sink is overwhelmingly *reference* rows, and a video reference's failure mode is motion drift, not the thinness argument the knob is named for | measurement at reference load; the bench has no `--refs` axis yet |
 | **reference-load table: 35.1% / 57.9%** | Wrong on three axes — v1 formula (v2 stops running reference queries dense), 362 frames, 1344x768. The shipped reference arms are 345 at 1024x768 | redo as v1-vs-v2, measured not derived |
@@ -79,8 +79,8 @@ instrument that has been shown red.
 
 - **The CUDA seam works.** Live render, `cuda-int8` in the log, override
   chained, 50 forwards composed. Not a source read.
-- **345 legal / 362 illegal**, from `h3_rules.py:25` and the reference.
-- **One `optimized_attention` site**, `comfy/ldm/minimax/model.py:184`.
+- **345 legal / 362 illegal**, from `h3_rules.py` and the reference.
+- **One `optimized_attention` site**, `comfy/ldm/minimax/model.py`.
 - **Sage runs 5 of 16 steps under Sol** at the shipped window — verified at two
   layers of the node source and cross-checked against this repo's own
   sigma-window table, which independently gives 11/16 sparse.
