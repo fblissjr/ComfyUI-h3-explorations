@@ -40,8 +40,10 @@ import torch
 # Support both, rather than making two checks depend on how this file is loaded.
 try:
     from . import h3_trace as _trace
+    from . import h3_capture as _capture
 except ImportError:                              # loaded as a top-level module
     import h3_trace as _trace
+    import h3_capture as _capture
 
 logger = logging.getLogger(__name__)
 
@@ -413,6 +415,14 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
         else:
             q = self.q_norm(q)
             k = self.k_norm(k)
+
+        # Post-RMSNorm, post-RoPE: exactly what the kernel receives, and the
+        # only point where capturing means anything. Inert unless H3_CAPTURE
+        # is set in the environment -- no node input and no graph change,
+        # because a capture at real length writes gigabytes per call and must
+        # not be reachable by opening a workflow.
+        if _capture.enabled:
+            _capture.maybe_capture(self, q, k, v, length_hint=s)
 
         n = head_chunks
         if n <= 1 and isinstance(transformer_options, dict):
