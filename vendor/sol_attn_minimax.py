@@ -261,10 +261,13 @@ def _patch_packed_layout(module):
         except Exception as exc:                      # never break model construction
             logging.info(f"[sol_attn] H3 Morton span resolution failed: {exc}")
             span = None
-        bounds = next(((a, b) for a, b, kind in getattr(self, "segments", []) or []
-                       if kind == "video"), None)
+        segs = getattr(self, "segments", []) or []
+        bounds = next(((a, b) for a, b, kind in segs if kind == "video"), None)
+        # Target audio is the segment immediately before video; sink_q only
+        # needs THOSE query rows dense, not the (possibly huge) reference rows.
+        audio = next(((a, b) for a, b, kind in segs if kind == "audio"), None)
         if torch.is_tensor(getattr(self, "position_ids", None)) and bounds is not None:
-            _SPANS[id(self.position_ids)] = (self, bounds, span)
+            _SPANS[id(self.position_ids)] = (self, bounds, audio, span)
 
     layout_cls.__init__ = __init__
     _PATCHED_LAYOUTS.add(id(layout_cls))
@@ -297,6 +300,7 @@ def install_h3_morton(model):
             model._sol_morton_state = None
             model._sol_transformer_options = None
             transformer_options.pop("sol_h3_video_span", None)
+            transformer_options.pop("sol_h3_audio_span", None)
 
     def rope_freqs(position_ids, device):
         """Publish the layout only. Permuting happens in the block hook, which is
@@ -308,12 +312,13 @@ def install_h3_morton(model):
             _h3_log_once("no layout registered; Morton and the conditioning sink are inactive")
             return original_rope_freqs(position_ids, device)
 
-        _layout, bounds, span = entry
+        _layout, bounds, audio, span = entry
         # Publish the video-segment boundary so the attention override can keep
         # the conditioning rows (text / audio / reference) exact.
         options = getattr(model, "_sol_transformer_options", None)
         if options is not None:
             options["sol_h3_video_span"] = bounds
+            options["sol_h3_audio_span"] = audio
         if getattr(model, "_sol_morton_active", False):
             if span is None:
                 _h3_log_once("video grid does not match the segment; Morton inactive")
@@ -477,7 +482,16 @@ def _sink_blocks(transformer_options, tokens, mode):
     if tokens < video_stop or video_start <= 0:
         return (0, 0), (0, 0)
     blocks = (0, (video_start + BLOCK_SIZE - 1) // BLOCK_SIZE)
-    return blocks, (blocks if mode == "exact_kv_and_rows" else (0, 0))
+    if mode != "exact_kv_and_rows":
+        return blocks, (0, 0)
+    # Dense-query protection exists for the TARGET AUDIO rows; reference rows
+    # only need the exact-KV side. Fall back to the whole conditioning range
+    # when the layout did not publish an audio span.
+    audio = (transformer_options or {}).get("sol_h3_audio_span")
+    if audio is None:
+        return blocks, blocks
+    audio_start, _audio_stop = audio
+    return blocks, (audio_start // BLOCK_SIZE, blocks[1])
 
 
 def make_override(tau=1.0, min_tokens=4096,
@@ -725,7 +739,10 @@ class SolAttnMiniMax(io.ComfyNode):
                                default="exact_kv_and_rows",
                                tooltip="exact_kv: every query sees the packed "
                                        "text/audio/reference rows exactly (~3% cost). "
-                                       "exact_kv_and_rows: also runs those query rows dense."),
+                                       "exact_kv_and_rows: additionally runs the TARGET "
+                                       "AUDIO query rows dense (what keeps generated "
+                                       "audio intact); reference rows stay sparse, so "
+                                       "the cost no longer scales with reference size."),
                 io.Boolean.Input("morton", default=False,
                                  tooltip="Reorder video tokens into Morton (Z-order) so each "
                                          "64-token block is a compact 3D neighbourhood. "
