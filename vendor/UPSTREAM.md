@@ -41,9 +41,11 @@ which is the preferred state.
 `vendor/patches/001-local-version-tag.patch` is a different animal and is
 deliberately not a ledger entry: it is a **local build config change we never
 want upstream to take** (tagging their branch with our build id). It is
-recorded as a patch for the same reason -- so that an edit sitting in a
-gitignored checkout of someone else's tree is reproducible from this repo
-rather than existing only on one disk.
+recorded as a patch so that an edit to a gitignored checkout of someone else's
+tree is reproducible from this repo rather than existing only on one disk, and
+`vendor/rebuild_kernel.sh` applies it only for the duration of a build. The
+checkout stays clean at rest, because a standing modification there does not
+conflict on `git pull`, it blocks it.
 
 ---
 
