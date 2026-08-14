@@ -139,27 +139,36 @@ audio precisely so a router artifact has somewhere to show.
 
 ---
 
-## Run 3 — `min_tokens`, reframed
+## Run 3 — `min_tokens`: CANCELLED, there is nothing to measure
 
-```bash
-python bench/bench_e2e_h3.py --length 362 --steps 16 --runs 2 \
-  --arms "shipped,shipped[min_tokens=12288]"
-```
+Superseded 2026-08-14. This was planned as "does sparsifying the small
+conditioning calls matter", on the belief that a render makes attention calls
+at several sizes -- the smoke log shows 2048 and 4608 alongside 12,264.
 
-Two arms, ~50 minutes, and **lower priority than it looks.** At 362 frames the
-main DiT attention is one ~108k-token call, far above either threshold, so this
-does not touch it. What it changes is whether the *small* calls get sparsified —
-the smoke log shows calls at 2048 and 4608 alongside the 12,264 one.
+**Those small calls are our own instrumentation.** `SageChainAssert` fires two
+synthetic probes, 2048 and 4608 tokens, precisely to check the sparse gate
+takes one and declines the other. They are the entire population.
 
-So this is a quality question about conditioning-path attention, not a speed
-question. `SOL_RECOMMENDED_CUDA` pins 4096 against the node's 12288, and 4096
-sparsifies calls that upstream considers below the crossover.
+H3's DiT has **exactly one** attention site, `comfy/ldm/minimax/model.py:184`,
+and S there is the full packed length. Frame counts satisfy `n % 17 == 5`, so
+at 1344x768 the shortest clip past 5 frames is 22 frames -> S = 7,194, already
+above 4096; only a 5-frame render (S ~ 2,096) falls below. (Found by the sage
+fork's claude, confirmed against the installed tree here.)
 
-*Prediction:* sampler time within noise, because the small calls are a tiny
-share. If it moves more than ~2%, the small calls matter more than assumed and
-that is itself the finding.
+So at any real length `min_tokens` at 4096 and at 12288 select the same thing:
+everything. The knob cannot change what happens, and an arm would measure
+noise and report it as "within prediction" -- the worst kind of green.
 
----
+Two things follow, both more useful than the cancelled run:
+
+- **`min_tokens=4096` in `SOL_RECOMMENDED_CUDA` is harmless, not wrong.** The
+  earlier note calling it "very likely wrong" was reasoning from a call
+  distribution that does not exist. It only bites below 22 frames, which is
+  below the token floor anyway.
+- **The bench graph has no `SageChainAssert`,** so in its Sol arms sage takes
+  zero DiT calls. Anything that changes sage's configuration moves the
+  sage-only arm and nothing else. That is why the `mode="auto"` defect was
+  one-sided.
 
 ## Run 4 — `sink_conditioning` at reference load
 
