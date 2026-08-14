@@ -101,6 +101,67 @@ instrument that has been shown red.
 
 ---
 
+## Enumerated consumers, checked mechanically
+
+A retraction is done when every **consumer** of the claim is enumerated, not
+when the claim is corrected. That is today's most-repeated failure in one
+sentence: "sage gets nothing" was retracted and went on producing wrong answers
+in three more places, and the 23-point swing was retracted in this file while
+still carrying an argument in `docs/bench_plan.md`.
+
+The block below makes that enumeration executable.
+`bench/check_retraction_consumers.py` fails when a retracted phrase appears in a
+file **not** listed for it. There is no caveat-detection and no judgement: a
+mention inside a `RETRACTED:` block and a live use are indistinguishable to a
+matcher, so the check does not try. It answers one decidable question — has this
+claim reached a file nobody signed off on — which is the failure mode that
+actually occurred, four times, all in files that acquired the claim *after* the
+retraction.
+
+Adding a file here is a claim that someone read that occurrence and it is
+correct in context. Do not add one to silence the check.
+
+```retraction-consumers
+PHRASE: 2.7x more accurate
+ALLOW: workflows/h3_config.py CHANGELOG.md
+WHY: all three carry the synthetic-input caveat inline. Deliberately NOT
+     matching bare "2.7x" -- attention.py and README.md use that string for a
+     speed figure against torch flash, a different and correct claim.
+
+PHRASE: 23-point swing
+ALLOW: docs/evidence.md docs/bench_plan.md docs/SOLATTN.md
+WHY: bench_plan's is inside the retraction block that replaced the argument;
+     SOLATTN's are its "Do not rely on" table and the reference section.
+
+PHRASE: sage gets nothing
+ALLOW: docs/evidence.md docs/SOLATTN.md
+WHY: both are retraction statements naming it as withdrawn.
+
+PHRASE: zero DiT calls
+ALLOW: docs/bench_plan.md
+WHY: inside a "RETRACTED 2026-08-14" bullet that states the 5-of-16 correction.
+
+PHRASE: exactly one attention site
+ALLOW: docs/SOLATTN.md
+WHY: the sentence that contains it says the page claimed this until 2026-08-14
+     and corrects it to 52 modules.
+
+PHRASE: 38 text rows
+ALLOW: docs/SOLATTN.md
+WHY: both name it as a smoke-harness figure rather than a shipped-graph one.
+```
+
+**What this does not defend, and the gap is not small.** The sharpest decay
+found on 2026-08-14 has no string to match: `docs/bench_plan.md` read "one
+**345-frame** video reference", where 345 is the *reference* length and looks
+like the shipped config, concealing that the *target* was 362. The retracted
+thing was the **pairing** of two numbers, not any token in the sentence. No
+phrase matcher can see that, and a check that appears to cover a class it
+silently omits is how the 2026-08-13 validator bug worked — so it is said here
+rather than left to be assumed.
+
+---
+
 ## Environment, because it is not in git
 
 The venv and ComfyUI were both changed today and neither is version-controlled
