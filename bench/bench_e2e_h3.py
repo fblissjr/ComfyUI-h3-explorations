@@ -324,10 +324,22 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
                    "inputs": {"model": model_src}}
         model_src = ["20", 0]
     elif sage:
+        # From SAGE_NODE, not a literal. This was `mode="auto"` until
+        # 2026-08-14, and it had been wrong since the fp16 flip landed in
+        # h3_config.py and the graphs on 2026-08-13: `auto` resolves to
+        # fp8_cuda++, the FASTEST kernel, where the shipped config is
+        # "fp16 (most accurate)" and costs ~1.58x for 2.7x the accuracy.
+        #
+        # So every e2e arm measured between those dates compared against a
+        # sage baseline nobody ships, and the direction of the error is not
+        # neutral: fp8 sage is fast, so a Sol arm measured against it looks
+        # LESS impressive than against the real one. Reading a shared
+        # constant rather than repeating it is the fix, which is the same
+        # lesson check_generator_constants.py exists to enforce for the
+        # generator -- and the bench was never covered by it.
         g["20"] = {"class_type": "MiniMaxH3SageAttention",
-                   "inputs": {"model": model_src, "mode": "auto",
-                              "head_chunks": head_chunks,
-                              "patch_token_refiner": False}}
+                   "inputs": {"model": model_src,
+                              **dict(SAGE_NODE, head_chunks=head_chunks)}}
         model_src = ["20", 0]
     if ffn_chunks > 1:
         # KJNodes'. Deliberately not reimplemented: it patches mlp.forward,
@@ -373,6 +385,7 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
 # into it by name rather than by editing the baseline.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "workflows"))
 from h3_config import (  # noqa: E402
+    SAGE_NODE,
     SOL_BASELINE_124F as SOL_DEFAULTS,
     SOL_CUDA_DEFAULTS,
     SOL_RECOMMENDED,

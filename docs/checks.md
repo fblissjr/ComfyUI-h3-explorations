@@ -29,6 +29,9 @@ Three things this run found that no previous run could have:
   a compliant graph.
 - **`check_solattn_correctness.py` was grading Triton cross-mode** after the
   oracle was re-vendored, and passed anyway. See the note below.
+- **`bench_e2e_h3.py` had been benching a sage config nobody ships**, since
+  2026-08-13. See the note below; it is now covered by
+  `check_bench_matches_shipped.py`.
 
 The counts in this header have been wrong twice now -- once claiming twelve
 checks and 24 UI graphs, once claiming 62 graphs after the total moved to 65. A
@@ -79,6 +82,7 @@ papercut and is listed under Gaps.
 | `check_prompt_guide_conformance.py` | every shipped ref prompt against the **official guide's own tables**, parsed at run time -- the six sections and their order, the `[...]` task-type vocabulary and its ` + ` combining rule, markers never crossing the visual/audio sets, and `<d>` only in `detailed_description`. Exists because `check_ref_prompt_labels.py` compares the generator to itself and so passed clean while all fourteen arms shipped a hardcoded `[reference generation]`. The `keyframe completion` case checks the GRAPH, not the vocabulary: the type is allowed only where the graph wires `MiniMaxH3AddGuide` (added to ComfyUI 2026-08-13, and merged with refs additively by `comfy/model_base.py`, so the mechanism now exists). Before that node it was rejected outright on the grounds that nothing could honour it -- reasoning that expired the day the node landed. Exits 2, not 0, when the guide is absent. Carries **one waiver**, `_STRUCTURE_PROBES`: `h3_probe_prompt_concise` is unstructured on purpose, so its section and prefix cases are skipped **by name and printed on every run** -- its markers, dialogue placement and label agreement are still enforced, proven by mutating it | the guide in `internal/` | yes | **yes**, six mutations incl. the fail-open guard, plus the waiver shown narrow, 2026-08-13 |
 | `check_distill_settings.py` | **every** shipped graph, both forms: a turbo graph matches its LoRA's shift and steps, a base graph sits at the base checkpoint's 12/3, and the UI and API forms of each are paired and compared. Shifts *and* recommended step counts graded against the vendor README, not against itself. Exits 2, not 0, when that control is skipped | - | yes | **yes**, eight mutations, 2026-08-13 |
 | `check_solattn_correctness.py` | Sol-Attn's Triton **and CUDA** kernels against the algorithm's own reference, cosine > 0.998, each graded in its own measured `centroid_tail` mode. Exits 2, not 0, when the CUDA arm is skipped for cause | CUDA, Triton, and a fork build of comfy_kitchen for the CUDA arm | yes | **partial**, 2026-08-14: the re-vendor exposed a real cross-mode defect (see below), but no case has been mutated |
+| `check_bench_matches_shipped.py` | that `bench_e2e_h3.py`'s `shipped` arm builds the same sage and Sol settings the graphs actually wire, node for node. Exists because `check_generator_constants.py` pins the **generator** and nothing pinned the **bench** -- a gap that cost a day of numbers when the `fp16 (most accurate)` flip landed everywhere except here | - | yes | **yes**, 2026-08-14, by reintroducing the exact historical `mode="auto"` |
 | `check_sol_kernel.py` | that the installed `comfy_kitchen` still carries `sol_attn`, that it is the CUDA backend and not the eager reference alone, and that its signature still accepts the kwargs our node passes. **The first check here covering a call INTO a dependency we do not control**, and it covers exactly one contract. Presence is gated on a graph wiring `SolAttnMiniMax`, because Sol is shipped OFF and absent is the expected state; ungated it exits 2. Also pins `SOL_CUDA_DEFAULTS` against the inputs the node declares -- parsed with `ast` rather than imported, so the check stays free of ComfyUI | - | yes | **yes**, 2026-08-14: `present` with the stock PyPI wheel as the control, `schema` by simulating an upstream rename |
 | `check_keyframe_canvas.py` | canvas derivation, plus the aspect and duration rules | `PYTHONPATH` self-bootstrapped | yes | not recorded |
 | `check_reference_fit.py` | reference image sizing against both upstream rules, and that the stock resize becomes a no-op after our node | `PYTHONPATH` self-bootstrapped | yes | not recorded |
@@ -135,6 +139,23 @@ Three things worth keeping from that:
 
 The general form: when an oracle gains an option, every assertion against it
 inherits a new case, exactly as CLAUDE.md says an "off"/"absent" state does.
+
+### A note on the bench: an error that flatters nothing gets missed longest
+
+`bench_e2e_h3.py` hardcoded `"mode": "auto"` on its sage node. The
+`mode="fp16 (most accurate)"` flip on 2026-08-13 changed `h3_config.py` and
+every shipped graph and did not change the bench, so from that day every e2e
+arm was compared against a baseline nobody runs.
+
+The instructive part is why it survived. `auto` resolves to `fp8_cuda++`, the
+**fastest** kernel. A fast baseline makes every competing arm look *worse*, so
+the bug produced conservative numbers. Nothing looked too good to be true,
+which is the signal people actually check for. **A bug that overstates gets
+caught; one that understates does not.**
+
+`check_generator_constants.py` already enforced "read the shared constant,
+don't repeat it" -- for the generator. The bench was never in scope, and the
+bench is where the numbers come from.
 
 ## What is deliberately not checked
 
