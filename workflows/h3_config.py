@@ -377,8 +377,14 @@ SOL_CUDA_DEFAULTS = dict(
 #   **The decision does not change**, because its other leg is perceptual and
 #   independent: the owner judged fp16 clearer with better motion and less
 #   drift on video at the same seed. 1.3x still favours fp16. What weakens is
-#   the numeric argument's size, not its direction. `h3_capture.py` exists to
-#   settle it and has not been run.
+#   the numeric argument's size, not its direction.
+#
+#   **`h3_capture.py` ran on 2026-08-15 and the captures exist**, at blocks
+#   0/24/49 of a dense 124-frame 1344x768 render, in
+#   ~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/. They were made for a
+#   different question and **no sage kernel has been graded against them yet**,
+#   so this caveat is unchanged -- but the data no longer has to be produced
+#   before someone can settle it.
 #
 #   All three fp8 variants land within 0.0004 of each other,
 #   so the PV accumulator is not the lever: quantizing V to fp8 at all is.

@@ -120,8 +120,17 @@ every accuracy number this repo prints inherits that. The flatness claim came
 from the same sweep and is equally unverified on real inputs.
 
 **The decision does not change** -- 1.3x still favours fp16, and the perceptual
-leg is independent -- but do not defend it with 2.7x. `h3_capture.py` exists to
-settle this and has never been run.
+leg is independent -- but do not defend it with 2.7x.
+
+**`h3_capture.py` ran for the first time on 2026-08-15, and the data now
+exists**: three files at blocks 0/24/49, step 1, `[1, 56, 37826, 128]` bf16,
+from a dense 124-frame 1344x768 render with Sol-Attn bypassed, in
+`~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/` with a README. **The
+fp8-vs-fp16 question is still unanswered** -- those captures were made and used
+for a different question (Morton's effect on block centroids, `docs/morton.md`)
+and nothing has yet graded a sage kernel against them. So the caveat above
+stands unchanged; what has gone away is the excuse. Anyone re-running a render
+to make this data is duplicating work that is already on disk.
 
 fp16 also holds q/k/v for the whole call (no `sageattn_consume` path), costing
 roughly 1.58x **per attention call**. That is a kernel number, not a render
