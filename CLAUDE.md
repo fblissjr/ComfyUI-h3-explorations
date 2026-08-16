@@ -38,6 +38,7 @@ mismatch it is supposed to catch.
 | `docs/h3_ref2v_distillation.md` | why ref2v resists step distillation |
 | `docs/h3_resolutions.md` | all 95 legal canvases and what each costs |
 | `docs/open_experiments.md` | what is deliberately **not** measured, and the blocker for each |
+| `internal/plan_2026-08-16_sol_fp16_and_triton_retirement.md` | gitignored. The live Sol-Attn plan: retiring Triton, and the gated decision on a 16-bit PV branch. Every claim carries an evidence grade and a file:line, so it survives a context compaction. `docs/open_experiments.md` #17 is its public half. |
 | `internal/postmortems/` | gitignored. **Start with the newest and work back** rather than re-deriving what is open; each one's forward items are phrased so they can be marked done or refuted. Newest is `2026-08-15_session_morton-sampler-and-refs.md` (eight items, and a repeat escape the 2026-08-14 one also names). |
 | `docs/morton.md` | what Morton reordering does to Sol-Attn's blocks, measured on the latent grid **and on captured activations**. Read its assumption chain before quoting any of it: five of six links are now verified, and link 6 (does any of it reach the output) is not. |
 | `docs/sol_engine_reference.md` | NVLabs' own Sol-Engine recipe for H3, read from `coderef/Sana` at `origin/sol-engine`. Their validated policy, how ours differs, FirstBlockCache, and why their published speedups are not comparable to ours. |
