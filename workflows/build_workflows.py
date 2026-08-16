@@ -228,14 +228,14 @@ non_diegetic_music: N/A"""
 
 R2V_PROMPT = """subject_definitions:
 <Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, whose setting, palette, and lighting are carried into the target video.
 
 summary:
 [reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.
 
 detailed_description:
 The target video is in a cinematic live-action style with soft directional lighting.
@@ -1292,6 +1292,20 @@ def _concise_swap_prompt() -> str:
     )
 
 
+# **Do not put a specific attribute in a generic template.** The environment
+# line said "architecture, palette, and lighting" until 2026-08-16, on every
+# image-reference arm, for whatever image happened to be wired. Measured that
+# day (docs/prompt_length_experiment.md): against a mountain-lake reference
+# with no buildings in it, the arm whose detailed_description was silent about
+# the environment rendered the man inside a timber veranda with a chalet beside
+# it -- the word had nothing to contradict it, so it built one. The arm whose
+# description named the actual lake and meadow produced no structure at all.
+#
+# The generator cannot see the reference, so it must only assert what is true
+# of ANY environment. "setting" is; "architecture" is not. Naming the real
+# content is the prompt author's job, and it is load-bearing rather than
+# decorative -- a label is a bare ordinal and carries no meaning until
+# something says what it is.
 def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
                 video_role="structure", audio_role="music"):
     """A ref2va prompt declaring EXACTLY the labels this arm wires, in the
@@ -1371,14 +1385,14 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
         retention.append(
             "<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 1> replaces the original on <Subject 1>.")
         retention.append(
-            "<Subject 3> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting come from <Picture 2>.")
+            "<Subject 3> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting come from <Picture 2>.")
     elif images:
         if video and video_role == "motion":
             # 2.1: one subject, two assets, each named for what it provides.
             defs.append(
                 "<Subject 1> is the person whose appearance comes from <Picture 1> and whose walking motion comes from <Video 1>.")
             defs.append(
-                "<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.")
+                "<Subject 2> is the environment in <Picture 2>, whose setting, palette, and lighting are carried into the target video.")
             # 4.1: attribute_transfer means "referenced characteristics are
             # transferred to a DIFFERENT identifiable target subject", so it
             # belongs on the source giving the trait away -- <Video 1> below.
@@ -1387,15 +1401,15 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
             retention.append(
                 "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Picture 1>.")
             retention.append(
-                "<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.")
+                "<Subject 2> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.")
         else:
             defs += [
                 "<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.",
-                "<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.",
+                "<Subject 2> is the environment in <Picture 2>, whose setting, palette, and lighting are carried into the target video.",
             ]
             retention += [
                 "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.",
-                "<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.",
+                "<Subject 2> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.",
             ]
     elif subject_from_video:
         if video_role == "edit":

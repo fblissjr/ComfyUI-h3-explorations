@@ -367,6 +367,72 @@ stream, and the render dies at execution having validated cleanly.
 
 ---
 
+## A label is a bare ordinal. You have to say what it is.
+
+**Measured 2026-08-16**, paired render, one variable —
+`docs/prompt_length_experiment.md` for the full pre-registration and verdict.
+
+The tokenizer emits `<Picture 1>`, `<Picture 2>`, `<Video 1>` and nothing else.
+There is no socket, flag or payload field carrying what a reference *is*, what
+it is *for*, or which subject it belongs to — verified against
+`comfy/ldm/minimax/model.py`. Three images wired to one subject and three
+images wired to three subjects are **identical graphs**. The model only knows
+which you meant because the prompt says so.
+
+So the prompt is not a description of the output. It is the only place the
+inputs acquire meaning.
+
+### The authority order, so far
+
+Two n=1 results on this model in this pipeline, in the same direction. Neither
+is in any guide.
+
+1. **`subject_definitions` beats `retention_analysis`.** A brunette reference
+   described as blonde in the definitions rendered blonde, despite
+   `fully_preserved` on the retention line. Owner's observation.
+2. **A specific `detailed_description` beats `subject_definitions`.** Both arms
+   of the length experiment carried a byte-identical definition claiming
+   `<Subject 2>` had "architecture", against a mountain-lake reference with no
+   buildings in it. The arm whose description said nothing about the
+   environment rendered the subject **inside a timber veranda with a chalet
+   beside it**. The arm whose description named the lake, the reflection, the
+   meadow and the conifers produced **no structure at all**.
+
+Read together: **a wrong word in `subject_definitions` is load-bearing exactly
+to the extent that nothing downstream contradicts it.** Silence downstream is
+not neutral — it leaves the definition in charge.
+
+### What follows for writing one
+
+- **Say what each reference is**, at least at the level of a noun and its
+  salient attributes. "the environment in `<Picture 2>`" is thin; the model has
+  to infer everything from the pixels and whatever adjectives you supplied.
+- **Do not assert an attribute you have not looked at.** The generic template
+  that shipped on every image-reference arm until 2026-08-16 said "architecture,
+  palette, and lighting" for whatever image happened to be wired. It now says
+  "setting", which is true of any environment. `_ref_prompt()` cannot see the
+  image; a person writing by hand can and should.
+- **Describe the environment in `detailed_description` even when a reference
+  supplies it.** This is the counter-intuitive one. It feels redundant — the
+  reference is *right there* — and it is the difference between the two clips
+  above.
+- **A reference wired but never described costs its rows on every step and
+  says nothing.** `bench/check_ref_prompt_labels.py` catches the unnamed case;
+  `bench/preflight_graph.py` also warns when a defined label is never cited in
+  `detailed_description`, which is the guide's actual requirement
+  (`coderef/MiniMax-H3/skills/h3-prompt-writing/references/ref-en.txt:231`)
+  and the half `subjects_resolve` did not implement.
+
+### One caution on the experiment behind this
+
+The length arm had **no working control**. Both prompts carried the identical
+camera sentence, which was supposed to bound seed noise; the long arm executed
+the move and the short one did not, because the long arm elaborated it with
+consequences. You cannot hold one sentence constant inside a prompt whose
+length you are varying — the model reads it in context, not as a string. So the
+direction above is credible (four results agree, and the architecture one is
+binary rather than aesthetic) and the magnitude is not bounded.
+
 ## Prompt structure
 
 Six sections, in this order:

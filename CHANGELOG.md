@@ -4,6 +4,54 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.27.0
+
+### Fixed
+
+- **The generic environment template asserted an attribute it could not know,
+  and it built one.** Every image-reference arm said `<Subject 2> is the
+  environment in <Picture 2>, whose **architecture**, palette, and lighting are
+  carried into the target video` — for whatever image happened to be wired.
+
+  Measured the same day (`docs/prompt_length_experiment.md`, `1fa5607`) against
+  a mountain-lake reference containing no buildings: the arm whose
+  `detailed_description` said nothing about the environment rendered the
+  subject **inside a timber veranda with a chalet beside it**, and the arm
+  whose description named the lake, reflection and meadow produced **no
+  structure at all**. Identical `subject_definitions` in both.
+
+  Now "setting", which is true of any environment. The generator cannot see the
+  reference, so it must not assert content; naming the real content is the
+  prompt author's job. Seven template strings, 87 graphs regenerated, zero
+  graphs still claiming architecture. The hand-written image scenes keep theirs
+  — a green-lit marble corridor genuinely has architecture.
+
+### Added
+
+- **`docs/h3_references.md`: "A label is a bare ordinal. You have to say what
+  it is."** Records the authority order from two n=1 results, neither in any
+  guide: `subject_definitions` beats `retention_analysis` (the owner's
+  blonde-against-a-brunette-reference case), and a specific
+  `detailed_description` beats `subject_definitions` (the architecture case
+  above). Together: **a wrong word in the definitions is load-bearing exactly
+  to the extent that nothing downstream contradicts it**, and silence
+  downstream is not neutral.
+
+  With what follows for writing one, including the counter-intuitive part —
+  describe the environment in `detailed_description` *even when a reference
+  supplies it*.
+
+- **The verdict in `docs/prompt_length_experiment.md`**, judged against
+  predictions written before either clip was watched. Four of five confirmed.
+
+  The fifth was the control and it was **invalid by construction**: both
+  prompts carried the identical camera sentence, the long arm executed the move
+  and the short one did not, because the long arm elaborated it with
+  consequences. You cannot hold one sentence constant inside a prompt whose
+  length you are varying — a conditioning model reads it in context, not as a
+  string. Consequence recorded plainly: the direction is credible and the
+  magnitude has no noise bound.
+
 ## 0.26.0
 
 ### Added
