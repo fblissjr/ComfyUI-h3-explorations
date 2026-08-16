@@ -1,6 +1,52 @@
 # Morton ordering in Sol-Attn: what it does, and what we actually know
 
-Last updated: 2026-08-15.
+Last updated: 2026-08-15. Line numbers are valid at commit `7e5ba88`.
+
+## Where everything is
+
+Grouped by what you would open it for. Paths are repo-relative except the two
+sibling node packs, which live beside this repo under ComfyUI's `custom_nodes/`.
+
+### The implementation, none of which is ours
+
+| file | what it is |
+|---|---|
+| `vendor/sol_attn_minimax.py` | The CUDA Sol-Attn node, kept byte-identical to upstream. All the Morton machinery: `morton_perm` (`:150-188`), the block-alignment rotation `_perm_for` (`:205-224`), the video-span resolver `_video_span` (`:227-245`), and the install plus hooks `install_h3_morton` (`:276-396`). The node's own `morton` and `morton_curve` inputs and their tooltips are at `:746-753`. |
+| `ComfyUI-SolAttn_triton/_morton.py` | The Triton pack's Morton, for Wan. **Its docstring (`:1-11`) is the load-bearing quote on this page**: it says Z-ordering "lets the same quality be reached at higher sparsity", which is the axis nothing here has tested. |
+| `ComfyUI-SolAttn_triton/_morton_h3.py` | The H3 variant of the same, reordering only the video span rather than the whole packed sequence. The CUDA node's copy is inlined from these two. |
+| `ComfyUI-SolAttn-cuda/` | A two-line loader shim over `vendor/sol_attn_minimax.py`, plus a README on why the node id is provisional and why it is not vendored into this repo. |
+
+### What we built to look at it
+
+| file | what it does |
+|---|---|
+| `bench/analyze_morton.py` | Every number and ASCII map on this page. No GPU, no model, about a second. Imports the shipped `morton_perm` and cross-checks it against an independently written implementation (`:115-140`) before printing. **`block_ids` (`:152-166`) is the one to read if you touch this**: grouping by `j // 64` instead of `(video_start + j) // 64` measures a partition no reference graph has, and that mistake reverses the conclusion about `_perm_for`. |
+| `bench/gen_morton_figures.py` | The SVG block maps for the shareable version of this page. Same permutation, drawn instead of printed; captions derived from the geometry rather than typed. |
+| `h3_capture.py` | Captures real q/k/v from a live forward. Written for a different question and **never run**. It is the missing input to the routing simulation in "Tests run and not run". |
+
+### Where the settings live
+
+| file | what it holds |
+|---|---|
+| `workflows/h3_config.py` | `SOL_RECOMMENDED_CUDA` is the shipped Sol config, including `morton=False` and `morton_curve="2d_frame"`, each with its evidence in a comment above. Nothing in this repo may hold a second copy of these. |
+| `docs/SOLATTN.md` | Everything else about Sol-Attn: the two backends, the sigma window, the reference-load tables, and a "do not rely on" list of its own retracted numbers. Morton is one knob there; this page is the deep dive. |
+| `docs/h3_resolutions.md` | All 95 legal canvases. The source for the 3-of-48 count below. |
+
+### The prior attempt, and why it is worth reading before starting a new one
+
+| reference | what happened |
+|---|---|
+| commit `3b86b21` | Records a Morton observation, hedged as n=1, and sends it upstream. |
+| commit `440eea9` | Retracts it the same day. It did not replicate at a second seed. The commit message is the method postmortem, and it is short. |
+| `internal/postmortems/2026-08-14_span_tau-and-morton.md` | The long version, gitignored. Section 4 is the useful part: nothing in the repo checks whether a quality judgement used an appropriate instrument, and that is what failed. |
+| commit `9ffe33e` | Adds the analyser and the geometry results on this page. |
+| commit `7e5ba88` | Scopes this page's absence claims and cuts two mechanisms it had invented to explain an unestablished effect. |
+
+### Not read
+
+arXiv 2607.24027, the Sol-Attn paper. It postdates the assistant's training
+data and nobody here has opened it. It is the most likely place for several
+"not known" rows below to already be answered.
 
 ## The short version
 
@@ -204,7 +250,7 @@ permutes the matching rows of the rope table so positions travel with their
 tokens, and applies the inverse permutation after the last block.
 
 So under dense attention, Morton is exactly neutral. The node's own tooltip
-says this, and the argument above is why it is true rather than approximately
+says this (`vendor/sol_attn_minimax.py:746-749`), and the argument above is why it is true rather than approximately
 true.
 
 Under block-sparse attention it is not neutral, for exactly one reason: the
@@ -221,8 +267,11 @@ traced to block membership is a trajectory difference, not a Morton effect.
 The implementation lives in `vendor/sol_attn_minimax.py`, kept byte-identical
 to upstream. Four pieces:
 
-`morton_perm(grid, device, curve)` builds the permutation and its inverse for
-a grid of `(latent_t, h//32, w//32)`, and caches them. Two curves:
+`morton_perm(grid, device, curve)` (`vendor/sol_attn_minimax.py:150-188`)
+builds the permutation and its inverse for a grid of
+`(latent_t, h//32, w//32)`, and caches them. The bit-interleave itself is
+`part1by2` at `:171-178`; the two curves differ by one line, `:182` against
+`:184`. Two curves:
 
 - `3d` interleaves t, h and w equally, producing roughly 4x4x4 bricks.
 - `2d_frame` puts the frame index in the high bits so frames never mix, and
@@ -231,14 +280,15 @@ a grid of `(latent_t, h//32, w//32)`, and caches them. Two curves:
   latent frames are either 1 or 4 real frames apart. A 3D curve groups
   temporally distant tokens as if they were neighbors.
 
-`_perm_for(grid, curve, device, start)` rotates the permutation by
+`_perm_for(grid, curve, device, start)` (`:205-224`) rotates the permutation by
 `(-start) % 64`. This exists because the kernel counts blocks from absolute
 row 0 of the packed sequence, not from the start of the video span. Reference
 rows push the video span off a 64 boundary, and without the rotation every
 Z-order cell would split across two blocks.
 
-`install_h3_morton(model)` wraps the model's `_forward` and `rope_freqs`, and
-registers hooks on the transformer blocks. The first block's pre-hook permutes
+`install_h3_morton(model)` (`:276-396`) wraps the model's `_forward` and
+`rope_freqs`, and registers hooks on the transformer blocks. The permute is
+`pre_hook` at `:329-372` and the inverse is `post_hook` at `:374-388`. The first block's pre-hook permutes
 the hidden states and the rope table together, later blocks reuse the table,
 and the last block's post-hook applies the inverse. The comment in the source
 is worth repeating: doing this as one decision with both tensors in hand is
@@ -358,7 +408,8 @@ This nearly went into this document as the opposite finding. Grouping tokens
 by their index within the video span rather than by their absolute row
 measures a partition that exists on no graph with references, and it makes the
 rotation look like the cause of the damage it prevents. The corrected grouping
-is in `block_ids()` and the reason is in its docstring.
+is in `block_ids()` (`bench/analyze_morton.py:152-166`) and the reason is in
+its docstring.
 
 ### The damage does not concentrate at one edge of the frame
 
@@ -408,7 +459,8 @@ artifact is ever reproduced, `3d` is where to look for it.
 
 ## What upstream says the payoff is, and why our arms could not find it
 
-From the Morton docstring in the Triton pack, read in source on 2026-08-15:
+From the Morton docstring in the Triton pack, `_morton.py:1-11`, read in
+source on 2026-08-15:
 
 > Z-ordering makes each block a roughly 4 x 4 x 4 neighbourhood, which
 > concentrates the mass into fewer blocks and lets the same quality be reached
