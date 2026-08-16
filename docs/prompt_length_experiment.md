@@ -115,5 +115,82 @@ to be.
 
 ## Verdict
 
-*Not yet judged. To be filled in after viewing, against the predictions above
-rather than alongside them.*
+Judged 2026-08-16 by the owner, with frames sampled at 1 / 5 / 9 / 14 s.
+**Four of five predictions confirmed. The fifth — the control — was refuted,
+and its refutation is the most useful thing here.**
+
+| # | prediction | outcome |
+|---|---|---|
+| 1 | entrance more deliberate in B | **confirmed.** B has him in frame at 1 s. A is empty at 1 s and he arrives around midway |
+| 2 | B's environment matches `<Picture 2>` more closely | **confirmed, strongly.** B reproduces the lake, the mirror reflection, the wildflower foreground and the gold-lit faces. A has a mountain silhouette and none of the rest |
+| 3 | B integrates the subject's lighting better | **confirmed.** B lights him warm from frame left, inside the scene. A ends up indoors and backlit — a lighting failure caused by finding 5 rather than by the reference |
+| 4 | camera indistinguishable (the control) | **refuted, and the control was invalid.** See below |
+| 5 | neither clip contains architecture | **refuted: A has it, B does not** |
+
+### The headline: a detailed description overrode a defective definition
+
+`subject_definitions` is **byte-identical** in both arms and both say
+`<Subject 2>` carries "architecture". `2-mountain_landscape.png` has none — no
+buildings, no structures.
+
+- **A** opens *inside* a timber veranda with carved brackets, a chalet at frame
+  left, and keeps him under that roof for the rest of the clip.
+- **B** has no structure anywhere in any sampled frame.
+
+The only difference is that A's `detailed_description` says nothing about the
+environment beyond "a medium shot establishes `<Subject 2>`", while B spends
+~150 words naming the lake, the reflection, the meadow and the conifers.
+
+**So the defective definition drove the render only where the description was
+silent.** That extends the owner's blonde/brunette observation rather than
+repeating it: that one established `subject_definitions` beats
+`retention_analysis`; this establishes `detailed_description` beats
+`subject_definitions`, when it is specific enough. Both are n=1 and both are on
+this model in this pipeline, which is more than any guide offers.
+
+The practical form: **a wrong word in `subject_definitions` is load-bearing
+exactly to the extent that nothing downstream contradicts it.**
+
+### Why the control was not a control, which invalidates the noise bound
+
+Both prompts carry the identical string `The camera trucks right with small
+amplitude at slow speed`. **B executes a camera move; A is essentially static
+between 9 s and 14 s.**
+
+The control assumed identical text is an identical instruction. It is not. In A
+that sentence is 13 of 46 words, asserted and unsupported. In B it closes 391
+words and is *elaborated* — "for the whole take, so the far ridge shifts
+slightly against him and the reflection slides across the water while his
+position in frame stays near centre" — so the move has consequences the rest of
+the description can be checked against.
+
+**You cannot hold one sentence constant inside a prompt whose length you are
+varying**, because a conditioning model reads the sentence in context, not as a
+string. The control was invalid by construction.
+
+Consequence, stated plainly: **this experiment has no working noise bound.**
+Predictions 1, 2, 3 and 5 all point the same way and the architecture result is
+binary rather than a matter of degree, which is why the direction is credible.
+But nothing here separates "long prompts help" from "this seed happened to
+differ", and the instrument that was supposed to do that measured something
+else instead.
+
+### What this licenses, and what it does not
+
+**Licensed:** describe the environment explicitly in `detailed_description`,
+even when a reference supplies it, because a silent description leaves a
+defective or generic definition in charge. And fix `subject_definitions` — the
+"architecture" wording is a template defect that has shipped on every image-
+reference arm.
+
+**Not licensed:** any general claim that 350-500 words beats 46. n=1, one seed,
+one scene, one prompt pair, no working control, at 15.083 s — roughly double
+the longest duration any prompting authority demonstrates. The next arm should
+vary length on a scene with **no defective definition to override**, which
+would separate "long prompts help" from "long prompts happened to correct a bug
+in this prompt".
+
+### Still settled, independent of all of the above
+
++404 tokens, +64 MiB, no measurable time difference. Cost is not a reason to
+avoid guide-length prompts.
