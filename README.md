@@ -64,8 +64,11 @@ divergence is by design. This result sits at the kernel's known level.
 
 The above is one module in isolation. This is a full render through a
 running ComfyUI at the bundled i2v template's settings (1344x768, length 73,
-20 steps, `res_multistep`/`simple`, `int8_convrot` weights), warmup
-discarded, arms alternating, two paired runs. Reproduce with
+20 steps, `int8_convrot` weights), warmup discarded, arms alternating, two
+paired runs. **Taken on `res_multistep`/`simple`**, which was the default
+until 2026-08-15 and is not what the bench runs now — re-running it today
+samples `er_sde`/`beta` and the numbers are not directly comparable.
+Reproduce with
 `bench/bench_e2e_h3.py`:
 
 | | sampler | total render |

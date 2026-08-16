@@ -61,15 +61,31 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "workflows"))
+from h3_config import SAMPLING  # noqa: E402
+
 # Settings lifted from the bundled i2v template so this measures the
 # configuration people actually run.
+#
+# **`sampler` and `scheduler` are READ from `h3_config.SAMPLING`, never typed
+# here.** They were hardcoded `res_multistep` / `simple` until 2026-08-15, when
+# the shipped pair became `er_sde` / `beta` -- the exact shape of the bug
+# `check_bench_matches_shipped.py` exists for, one field over. That check pins
+# the sage and Sol nodes and says nothing about the sampler, so the gap was
+# real: the bench could have kept sampling a schedule no graph ships, and on a
+# Sol arm the scheduler alone moves 2 of 16 steps between the sparse and dense
+# branches. Deriving it closes the hole without needing a check to notice.
+#
+# `steps` deliberately stays 20 and NOT `SAMPLING["steps"]`: every frontier
+# table in `docs/SOLATTN.md` was taken at 20, and the bench's job is to
+# reproduce them. The `shipped` arm is what carries the graphs' own settings.
 DEFAULTS = dict(
     unet="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
     clip="qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
     video_vae="minimax_h3_video_vae_fp16.safetensors",
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
-    sampler="res_multistep",
-    scheduler="simple",
+    sampler=SAMPLING["sampler"],
+    scheduler=SAMPLING["scheduler"],
     steps=20,
     width=1344,
     height=768,
@@ -383,7 +399,6 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
 # SOL_DEFAULTS stays the 124-frame baseline so recorded measurements remain
 # comparable. SOL_RECOMMENDED is what the shipped workflows run; arms opt
 # into it by name rather than by editing the baseline.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "workflows"))
 from h3_config import (  # noqa: E402
     SAGE_NODE,
     SOL_BASELINE_124F as SOL_DEFAULTS,

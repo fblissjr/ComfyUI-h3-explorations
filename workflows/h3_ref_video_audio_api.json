@@ -35,7 +35,7 @@
   "7": {
     "class_type": "KSamplerSelect",
     "inputs": {
-      "sampler_name": "res_multistep"
+      "sampler_name": "er_sde"
     }
   },
   "8": {
@@ -45,7 +45,7 @@
         "23",
         0
       ],
-      "scheduler": "simple",
+      "scheduler": "beta",
       "steps": 16,
       "denoise": 1.0
     }

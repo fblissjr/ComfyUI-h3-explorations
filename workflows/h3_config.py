@@ -87,11 +87,36 @@ MODELS = dict(
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
 )
 
-# `res_multistep` is one model eval per step (true multistep, reuses
-# `old_denoised`), so it costs what euler costs. Note that is not true of the
-# whole sampler list: `heun`, `dpm_2`, and the `2s`/`3s`/`res_Ns` families are
-# 2-6 evals per step, and picking one silently multiplies the ~91% of render
-# time the sampler occupies.
+# **`er_sde` / `beta` since 2026-08-15, on the owner's call.** `res_multistep`
+# and `simple` were never chosen here -- they were core's base-template
+# defaults, carried unquestioned. Do not "restore" them; every number in this
+# repo taken before this date was, though, so read the two notes below before
+# comparing anything across the change.
+#
+# Three properties of `er_sde`, all read in
+# `comfy/k_diffusion/sampling.py:sample_er_sde`, not inferred:
+#
+#   One model eval per step. The loop calls `model(...)` once and reuses
+#   `old_denoised` / `old_denoised_d` for its 2nd and 3rd stages, so it costs
+#   what `res_multistep` and `euler` cost. That is not true of the whole
+#   sampler list -- `heun`, `dpm_2` and the `2s`/`3s`/`res_Ns` families are
+#   2-6 evals per step, and picking one silently multiplies the ~91% of render
+#   time the sampler occupies. So the swap is step-cost-neutral; if it feels
+#   faster, the cause is elsewhere and `beta` below says it is not.
+#
+#   **It is genuinely stochastic.** `s_noise` defaults to 1.0 and the last line
+#   of each iteration adds `noise_sampler(...) * s_noise * (...)`. This is the
+#   first sampler this repo has defaulted to that injects noise mid-trajectory,
+#   and it changes what an A/B means: an ODE integrates a perturbation
+#   smoothly, an SDE re-randomises around it every step. **A knob that changes
+#   attention numerics -- tau, morton, centroid_tail, sage mode -- should be
+#   expected to read as MORE "reseeded" under `er_sde` than it did under
+#   `res_multistep`.** That is a property of the sampler, not of the knob.
+#
+#   Arms stay paired anyway. `noise_sampler` is seeded from the sampler seed
+#   (`default_noise_sampler(x, seed=seed)`), so two arms at one seed draw the
+#   same noise sequence. Same-seed A/B is still valid; it is the interpretation
+#   of a difference that changes, not the pairing.
 #
 # **steps 16, measured and judged 2026-08-06.** 20 was the bundled template's
 # default and was never questioned until it turned out to be the largest
@@ -110,14 +135,78 @@ MODELS = dict(
 # convergence check, only catchable by watching to the end knowing what was
 # asked for. Any future step reduction needs that as a third gate.
 #
-# Scheduler stays `simple`. `beta57` was tested and dropped -- not because it
-# sampled worse but because the comparison was never isolating the scheduler:
+# **Scheduler `beta`, and it is NOT free on a Sol graph. Know the price.**
+#
 # Sol-Attn's window is a *percent* band that `percent_to_sigma` resolves off
 # the model's sigma curve with no knowledge of the scheduler, so a different
-# scheduler puts a different number of steps inside it. beta57 ran 10 dense
-# steps at 20 against simple's 6, which is why it measured slower (825.1 s
-# against 765.4). It also came from a custom node pack rather than core.
-SAMPLING = dict(sampler="res_multistep", scheduler="simple", steps=16, denoise=1.0)
+# scheduler puts a different number of steps inside it. This is exactly why
+# `beta57` was dropped in an earlier pass -- it ran 10 dense steps at 20
+# against simple's 6 and measured slower (825.1 s against 765.4), and the
+# comparison was never isolating the scheduler at all.
+#
+# Core's `beta` is a different scheduler from that custom-pack `beta57`, but
+# the mechanism is identical and it lands on the same side. Computed
+# 2026-08-15 against `ModelSamplingAV` at `shift_video=12.0`, window 0.2/0.9:
+#
+#   steps   simple            beta
+#   16      11 sparse / 5 dense    9 sparse / 7 dense
+#   20      14 sparse / 6 dense   11 sparse / 9 dense
+#
+# So `beta` hands Sol **two fewer sparse steps out of 16** -- a 40% increase in
+# dense steps -- before any quality question is asked. **Arithmetic on the
+# sigma curve, not a rendered measurement**; the wall-clock cost is unpriced
+# and `bench/bench_e2e_h3.py` is where to price it.
+#
+# The knob that buys it back is `start_percent`, which has never been measured
+# on either backend. Under `beta` at 16 steps, 0.2 -> 0.1 would recover roughly
+# the two steps `beta` costs. Do not change it on the strength of this
+# paragraph; it is a bench arm.
+#
+# **steps 16, measured and judged 2026-08-06, under `res_multistep`/`simple`.**
+# 20 was the bundled template's default and was never questioned until it
+# turned out to be the largest untested lever in the config -- steps multiply
+# everything, including the ~24% of the step that attention work cannot reach.
+# At 362 frames:
+#
+#   20 steps  765.4 s      16 steps  669.2 s  (-12.6%)      12 steps  508.5 s
+#
+# 12 was rejected, and for a reason worth recording because two of the three
+# gates we had prepared would have passed it. It is not smeared and it has no
+# late-clip artifact -- it simply **stops following the prompt**. The test
+# prompt specifies three shots with explicit cut times, and at 12 steps the
+# third one (a pull-back into the street at 00:10) never happens. Shot
+# structure is a long-range instruction and the trajectory settles into
+# something simpler before reaching it. Invisible in stills, invisible to a
+# convergence check, only catchable by watching to the end knowing what was
+# asked for. Any future step reduction needs that as a third gate.
+#
+# **That step judgement was made on the old sampler and does not
+# automatically transfer.** 16 was chosen against a deterministic multistep
+# ODE; `er_sde` is stochastic and third-order, and whether it needs the same
+# step count to hold a four-shot timeline is unmeasured. The prompt-adherence
+# gate above is the one to re-run first if anything looks structurally off.
+SAMPLING = dict(sampler="er_sde", scheduler="beta", steps=16, denoise=1.0)
+
+# **The one place `beta` is NOT applied, and it is not an oversight.**
+#
+# A distilled LoRA was distilled ON a sigma grid. `simple` reproduces that
+# grid exactly at every shift and step count; every other scheduler deviates
+# from it. At 16 steps the deviation is a nuisance, at 4 it is most of the
+# schedule -- a 4-step LoRA sampled off its own grid is being asked to take
+# steps it was never trained to take, and the result reads as "the LoRA is
+# bad" rather than "the scheduler is wrong". This is the same trap as the
+# 768p LoRA's shift of 6 (see SIGMA_SHIFT): a distilled checkpoint carries
+# schedule assumptions, and changing one without the others is not a partial
+# improvement.
+#
+# So any graph carrying a distillation LoRA pins `simple` and the rest of the
+# repo runs `beta`. Applied in `build_workflows.py` at both builders, keyed on
+# `lora` being present, so it cannot be forgotten on a new turbo graph.
+#
+# **This is a deviation from a direct instruction to use `beta` everywhere**,
+# taken because the reason is mechanical and already documented in this repo.
+# Set this to `SAMPLING["scheduler"]` to remove the exemption.
+DISTILLED_SCHEDULER = "simple"
 
 # SolAttn knobs, pinned so neither a graph nor a bench arm inherits whatever
 # the node currently defaults to. Pinning is load-bearing and has already

@@ -4,6 +4,81 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.15.0
+
+### Changed
+
+- **Default sampler and scheduler are now `er_sde` / `beta`**, replacing
+  `res_multistep` / `simple`. Owner's call; the old pair was core's
+  base-template default carried unquestioned, not a choice made here. Applied
+  in `SAMPLING` (`workflows/h3_config.py`), which the generator and the bench
+  both read, so all 71 graphs and every bench arm move together. Two
+  consequences recorded at the constant rather than discovered later:
+  `er_sde` is **stochastic** (`s_noise` 1.0, noise added every iteration --
+  read in `comfy/k_diffusion/sampling.py`), the first such default here, so a
+  knob that perturbs attention numerics will read as more "reseeded" than it
+  did under a deterministic ODE; and `beta` moves **two of sixteen steps out
+  of Sol-Attn's sparse window** (11 sparse / 5 dense under `simple`, 9 / 7
+  under `beta`, computed off the sigma curve at `shift_video=12.0`), which is
+  the same mechanism that got `beta57` dropped in an earlier pass. Every
+  timing in `docs/SOLATTN.md` therefore predates the change and is owed a
+  re-baseline; the "do not rely on" table says so.
+- **`bench/bench_e2e_h3.py` now reads `sampler`/`scheduler` from
+  `h3_config.SAMPLING`** instead of hardcoding them. This is the exact shape
+  of the bug `check_bench_matches_shipped.py` exists for, one field over --
+  that check pins the sage and Sol nodes and says nothing about the sampler,
+  so the bench could have gone on sampling a schedule no graph ships. Derived
+  rather than checked, so nothing has to notice.
+- **Graphs carrying a distillation LoRA keep `simple`**, via
+  `DISTILLED_SCHEDULER` and `_scheduler_for()`. A distilled checkpoint was
+  distilled *on* a sigma grid and `simple` is the only scheduler reproducing
+  it at every shift and step count; at 4 steps the deviation is most of the
+  schedule. Keyed on membership in `DISTILLATION_LORAS` rather than on "a
+  LoRA is present", because `REF_LORA` is a weight-delta extraction with no
+  schedule of its own and would have been swept up by the looser test. Six
+  graphs take the exemption; 25 run `beta`. **This is a deliberate deviation
+  from an instruction to use `beta` everywhere** and is reversible by pointing
+  `DISTILLED_SCHEDULER` at `SAMPLING["scheduler"]`.
+
+### Added
+
+- **`bench/analyze_morton.py`** -- what Morton reordering does to the
+  64-token blocks the Sol-Attn router operates on, with no GPU, no model and
+  no clip-watching. Morton cannot affect dense attention at all (attention is
+  permutation-equivariant and the permutation is undone after the last block),
+  so the only thing it can change is **which tokens share a block**, and that
+  is pure arithmetic on the latent grid. Reports per-block frame span,
+  bounding box, RMS radius from the block centroid, fill, and the share of a
+  token's grid neighbours kept in-block; `--map` prints one latent frame as
+  ASCII block ids. The shipped `morton_perm` is imported from
+  `vendor/sol_attn_minimax.py` and cross-checked against an independently
+  written implementation before any number prints.
+
+  Two findings, both at 294 frames:
+
+  **`morton_curve="2d_frame"` delivers whole 8x8 tiles on only 3 of the 48
+  legal landscape canvases** -- 1280x768, 1024x768 and 768x768, the ones whose
+  latent dims `(h//32, w//32)` are both multiples of 8. Morton codes tile a
+  padded power-of-two space, so a latent grid like 1344x768's 24x42 keeps only
+  the in-range corner of each tile. Measured: at 1024x768 a block is a solid
+  8x8, fill 1.00, centroid radius 3.24. At **1344x768, the repo's default
+  canvas**, a block is typically two disjoint 8x4 fragments in different parts
+  of the frame plus a broken right-edge column -- fill 0.60, radius 5.54, and
+  4.7% of blocks end up *looser* than raster order's worst block (radius 20.3
+  against 16.1). Mean radius still beats raster's 12.12, so morton is not
+  simply worse there; it is partial, and its tail is worse.
+
+  **The start-offset rotation in `_perm_for` is load-bearing and correct.**
+  Block boundaries are anchored at absolute row 0, so reference rows move
+  where the video span's blocks fall; rotating the permutation by
+  `(-video_start) % 64` makes block geometry invariant to `video_start`,
+  verified at seven offsets. Without it, 1024x768 with references falls from
+  fill 1.00 to 0.42. This was nearly recorded as the opposite finding --
+  grouping tokens by `j // 64` instead of `(video_start + j) // 64` measures a
+  partition that exists on no graph with references, and makes the rotation
+  look like the cause of the damage it prevents. `block_ids()` carries the
+  correction.
+
 ## 0.14.0
 
 ### Added

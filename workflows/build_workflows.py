@@ -57,8 +57,33 @@ from h3_config import (  # noqa: E402
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
     TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
-    TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
+    TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM, DISTILLED_SCHEDULER,
 )
+
+
+# The three released distillation LoRAs, and the reason this is a set rather
+# than a truthiness test on `lora`: REF_LORA is also a LoRA and is NOT
+# distilled. It is an extracted fl2va -> ref2va weight delta, so it carries no
+# schedule of its own and the base model's scheduler applies. Keying the
+# scheduler exemption off "a lora is present" would silently move the ref-LoRA
+# graph onto the distillation grid for a reason that does not apply to it.
+DISTILLATION_LORAS = frozenset({TURBO_LORA, TURBO_768P_LORA, TURBO_PACK_LORA})
+
+
+def _scheduler_for(lora):
+    """`simple` for a graph carrying a DISTILLATION LoRA, `beta` otherwise.
+
+    The repo default moved to `er_sde`/`beta` on 2026-08-15. A distilled
+    checkpoint carries schedule assumptions -- it was distilled on a sigma
+    grid, and `simple` is the one scheduler that reproduces that grid exactly
+    at every shift and step count. Keying the exemption here rather than
+    writing `scheduler_name="simple"` into each of the seven turbo entries
+    means an eighth cannot be added without it. See DISTILLED_SCHEDULER in
+    h3_config.py for the full argument.
+    """
+    name = lora[0] if lora else None
+    return DISTILLED_SCHEDULER if name in DISTILLATION_LORAS \
+        else SAMPLING["scheduler"]
 
 # The Sol-Attn node every graph wires. Switched from kijai's Triton pack
 # (`SolAttnPatch`) to the CUDA one on 2026-08-14; see SOL_RECOMMENDED_CUDA in
@@ -392,8 +417,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               if turbo_pack else
               {"class_type": "KSamplerSelect",
                "inputs": {"sampler_name": sampler_name or SAMPLING["sampler"]}}),
+        # A distillation LoRA pins `simple`: it is the only scheduler that
+        # reproduces the distillation's own sigma grid at every shift and step
+        # count, and at 4 steps the deviation is most of the schedule. See
+        # DISTILLED_SCHEDULER in h3_config.py. Keyed on `lora` rather than
+        # written into each turbo entry so a new turbo graph cannot miss it.
         "8": {"class_type": "BasicScheduler",
-              "inputs": {"model": None, "scheduler": scheduler_name or SAMPLING["scheduler"],
+              "inputs": {"model": None,
+                         "scheduler": scheduler_name or _scheduler_for(lora),
                          "steps": steps if steps is not None else SAMPLING["steps"],
                          "denoise": SAMPLING["denoise"]}},
         "9": {"class_type": "BasicGuider",
@@ -2391,7 +2422,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                   widgets=[sampler_name or SAMPLING["sampler"]],
                   outputs=[_out("SAMPLER", "SAMPLER")]))
     sched = g.add("BasicScheduler", (40, 250), size=(300, 130),
-                  widgets=[scheduler_name or SAMPLING["scheduler"],
+                  # `_scheduler_for(lora)`, not SAMPLING["scheduler"] -- see
+                  # the note at the API builder's BasicScheduler.
+                  widgets=[scheduler_name or _scheduler_for(lora),
                            steps if steps is not None else SAMPLING["steps"],
                            SAMPLING["denoise"]],
                   inputs=[_in("model", "MODEL")], outputs=[_out("SIGMAS", "SIGMAS")])

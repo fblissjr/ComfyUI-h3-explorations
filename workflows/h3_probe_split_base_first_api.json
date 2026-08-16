@@ -35,7 +35,7 @@
   "7": {
     "class_type": "KSamplerSelect",
     "inputs": {
-      "sampler_name": "res_multistep"
+      "sampler_name": "er_sde"
     }
   },
   "8": {

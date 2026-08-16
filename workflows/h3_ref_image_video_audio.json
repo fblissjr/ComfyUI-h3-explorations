@@ -831,7 +831,7 @@
         "Node name for S&R": "KSamplerSelect"
       },
       "widgets_values": [
-        "res_multistep"
+        "er_sde"
       ]
     },
     {
@@ -868,7 +868,7 @@
         "Node name for S&R": "BasicScheduler"
       },
       "widgets_values": [
-        "simple",
+        "beta",
         16,
         1.0
       ]

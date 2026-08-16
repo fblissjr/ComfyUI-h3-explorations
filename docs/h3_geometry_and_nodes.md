@@ -73,9 +73,29 @@ or 345 costs proportionally less attention *and* reduces it.
 | `RandomNoise` → `KSamplerSelect` → `BasicScheduler` → `BasicGuider` → `SamplerCustomAdvanced` | standard custom-sampler stack |
 | `VAEDecode` + `VAEDecodeAudio` → `CreateVideo` → `SaveVideo` | video and audio decode separately |
 
-`res_multistep` is one model eval per step (true multistep, reuses
-`old_denoised`), so it costs exactly what euler costs — sampler choice here
-is a quality decision, never a speed one.
+The default pair is **`er_sde` / `beta`** as of 2026-08-15, replacing
+`res_multistep` / `simple`, which were core's base-template defaults rather
+than a choice anyone made here. `er_sde` is one model eval per step, so the
+sampler swap is cost-neutral; sampler choice here is a quality decision, never
+a speed one. Two consequences worth carrying:
+
+- **`er_sde` injects noise every step** (`s_noise` defaults to 1.0). It is the
+  first stochastic sampler this repo has defaulted to, and it changes how an
+  A/B reads: a knob that perturbs attention numerics will look more "reseeded"
+  than it did under a deterministic ODE. Arms at one seed still draw the same
+  noise sequence, so the pairing is intact.
+- **`beta` costs Sol-Attn two sparse steps of sixteen.** Sol's window is a
+  percent band resolved off the sigma curve, so the scheduler decides how many
+  steps land inside it: 11 sparse / 5 dense under `simple`, 9 / 7 under `beta`.
+  Arithmetic, not a rendered measurement.
+
+Graphs carrying a **distillation** LoRA keep `simple`, because that is the one
+scheduler reproducing the distillation's own sigma grid. See
+`DISTILLED_SCHEDULER` in `workflows/h3_config.py`.
+
+Note this is not true of the whole sampler list: `heun`, `dpm_2`, and the
+`2s`/`3s`/`res_Ns` families are 2-6 evals per step, and picking one silently
+multiplies the ~91% of render time the sampler occupies.
 
 ### Use from this repo
 
