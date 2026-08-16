@@ -1,6 +1,14 @@
 # Morton ordering in Sol-Attn: what it does, and what we actually know
 
-Last updated: 2026-08-15. Line numbers are valid at commit `7e5ba88`.
+Last updated: 2026-08-16. Line numbers are valid at commit `7e5ba88` and are
+checked by `bench/check_doc_links.py`, which resolves every `path:line`
+citation on this page and fails when one goes out of range.
+
+**Scope.** This page owns token order: block geometry, the curves, the capture
+analysis, and the assumption chain. It does not own Sol-Attn's knobs or our
+measured Sol-Attn numbers -- [`docs/SOLATTN.md`](SOLATTN.md) does, and it is the
+entry point. What upstream claims lives in
+[`docs/sol_upstream.md`](sol_upstream.md).
 
 ## Where everything is
 
@@ -22,16 +30,17 @@ sibling node packs, which live beside this repo under ComfyUI's `custom_nodes/`.
 |---|---|
 | `bench/analyze_morton.py` | Every number and ASCII map on this page. No GPU, no model, about a second. Imports the shipped `morton_perm` and cross-checks it against an independently written implementation (`:115-140`) before printing. **`block_ids` (`:152-166`) is the one to read if you touch this**: grouping by `j // 64` instead of `(video_start + j) // 64` measures a partition no reference graph has, and that mistake reverses the conclusion about `_perm_for`. |
 | `bench/gen_morton_figures.py` | The SVG block maps for the shareable version of this page. Same permutation, drawn instead of printed; captions derived from the geometry rather than typed. |
-| `h3_capture.py` | Captures real q/k/v from a live forward. Written for a different question and **never run**. It is the missing input to the routing simulation in "Tests run and not run". |
+| `h3_capture.py` | Captures real q/k/v from a live forward. **First run 2026-08-16**, after sitting unrun since it was written; it produced the activation measurement below that settled link 5. Captures are durable at `~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/`. Arm it with `H3_CAPTURE` in the environment **before** ComfyUI starts -- it is read at module import, so there is no way to arm it on a running server. |
+| `bench/analyze_capture.py` | Grades a capture: per-block centroid fidelity and mass concentration, under raster and each curve. Deliberately does **not** reimplement the router -- replicating the threshold formula from `sol_attn_preprocess.cu` would put a fidelity risk between the measurement and the claim, and neither test needs it. |
 
 ### Where the settings live
 
 | file | what it holds |
 |---|---|
-| `workflows/h3_config.py` | `SOL_RECOMMENDED_CUDA` is the shipped Sol config, including `morton=False` and `morton_curve="2d_frame"`, each with its evidence in a comment above. Nothing in this repo may hold a second copy of these. |
-| `docs/SOLATTN.md` | Everything else about Sol-Attn: the two backends, the sigma window, the reference-load tables, and a "do not rely on" list of its own retracted numbers. Morton is one knob there; this page is the deep dive. |
+| `workflows/h3_config.py` | `SOL_RECOMMENDED_CUDA` is the shipped Sol config, including `morton=False` and, **since 2026-08-16, `morton_curve="3d"`** -- changed on the activation measurement below, and changing nothing today because Morton is off. Each carries its evidence in a comment above. Nothing in this repo may hold a second copy of these. |
+| `docs/SOLATTN.md` | **The entry point, and the authority on everything that is not token order**: the backends, the sigma window, the reference-load tables, and the ledger of its own retracted numbers. Morton is one knob there and a verdict-plus-link; this page is the deep dive it links to. |
 | `docs/h3_resolutions.md` | All 95 legal canvases. The source for the 3-of-48 count below. |
-| `docs/sol_engine_reference.md` | What NVLabs' own Sol-Engine does for H3, read from `coderef/Sana` at `origin/sol-engine`. **Their validated H3 policy runs no token reordering and says why**, which is the sharpest external check on everything here. Also records that Sol-Engine ships Morton for Wan, on by default, 3D only. |
+| `docs/sol_upstream.md` | What upstream says, and only that: the paper, Sol-Engine, and the other ComfyUI packs. **Every H3 profile NVLabs publishes runs no token reordering, and one of them says why**, which is the sharpest external check on everything here. Also records that Sol-Engine ships Morton for Wan, on by default, 3D only. The counter-argument to their reasoning is on this page, not that one. |
 
 ### The prior attempt, and why it is worth reading before starting a new one
 
@@ -43,11 +52,26 @@ sibling node packs, which live beside this repo under ComfyUI's `custom_nodes/`.
 | commit `9ffe33e` | Adds the analyser and the geometry results on this page. |
 | commit `7e5ba88` | Scopes this page's absence claims and cuts two mechanisms it had invented to explain an unestablished effect. |
 
-### Not read
+### The paper, read 2026-08-16
 
-arXiv 2607.24027, the Sol-Attn paper. It postdates the assistant's training
-data and nobody here has opened it. It is the most likely place for several
-"not known" rows below to already be answered.
+arXiv 2607.24027 was fetched and read on 2026-08-16, after this page spent two
+weeks listing it as the cheapest unrun item. It is summarised in
+[`docs/sol_upstream.md`](sol_upstream.md), which owns it.
+
+**It contains no token reordering at all** -- no Morton, no Z-order, no
+permutation, no spatial block layout. Neither do the published Sol-Engine docs,
+nor either third-party ComfyUI pack.
+
+That does not weaken this page; it sharpens what it can say. The attribution
+chain has now narrowed four times: from "upstream says the payoff is at higher
+sparsity", to "that is the Wan file, not H3", to "the H3 file makes no quality
+claim", to **"it is not part of the published method at all"**. Morton on H3 is
+one implementer's addition, and the one sentence stating a payoff for it is
+about a different model in a pack we no longer run. Read the sparsity rationale
+below with that in front of it.
+
+What the paper does settle for this page: `tau` is its `beta`, and it is never
+swept, so nothing upstream adjudicates the tau-by-Morton experiment either.
 
 ## What a block is, and why the order matters
 
@@ -74,7 +98,9 @@ sky, a face and a wall at once, and the mean of those three is none of them.
 8 is 64. A square holds one small area, and the mean of one small area is more
 likely to describe it. Morton is also safe by construction: the code applies the
 order before the first transformer block and removes it after the last, so under
-dense attention the output is unchanged.
+dense attention the output is unchanged **in exact arithmetic**. Those last
+three words are load-bearing and are measured below -- in floating point it is
+not bit-identical, and that has consequences for how a Morton A/B reads.
 
 That is the whole question this page answers. Does it produce the square, and
 what follows when it does not.
@@ -110,11 +136,14 @@ absence claim on this page.
 
 What this page does establish, by measurement rather than by reading:
 
-1. Morton cannot change dense attention at all. It is a permutation that gets
-   undone, and attention is permutation-equivariant. The only thing it can
-   change is which tokens share a 64-token block, which is what the sparse
+1. Morton cannot change what dense attention *computes*. It is a permutation
+   that gets undone, and attention is permutation-equivariant. The only thing it
+   can change is which tokens share a 64-token block, which is what the sparse
    router summarizes. That makes most of the question pure arithmetic on the
-   latent grid, answerable with no GPU and no watching of clips.
+   latent grid, answerable with no GPU and no watching of clips. **It is not
+   bit-identical, though**, and a dense Morton render will still diverge from a
+   dense non-Morton one -- see "Neutral in exact arithmetic, not in floating
+   point" below before reading any A/B as a Morton effect.
 2. Morton delivers the compact tiles it promises on 3 of the 48 legal
    landscape canvases. The default canvas here, 1344x768, is not one of them.
    On it a block is typically two disconnected fragments in different parts of
@@ -137,8 +166,8 @@ earned. Six links, and only the first four are verified.
 
 | # | link | status |
 |---|---|---|
-| 1 | Sol cuts the sequence into 64-token blocks, counted from index 0 | verified, `sol_attn_route.cu:18`, `:288`, `:435` |
-| 2 | Routing and the pooled tail are centroid quantities | verified, `sol_attn_route.cu:20-21`: "Both the routing decision and the tail VALUES are centroid quantities" |
+| 1 | Sol cuts the sequence into 64-token blocks, counted from index 0 | verified, `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_attn_route.cu:18`, `:288`, `:435` |
+| 2 | Routing and the pooled tail are centroid quantities | verified, `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_attn_route.cu:20-21`: "Both the routing decision and the tail VALUES are centroid quantities" |
 | 3 | Morton changes which tokens share a block | verified, node source and `bench/analyze_morton.py` |
 | 4 | The partition computed here is the partition the kernel uses | deterministic given grid and `video_start`; not an estimate, not a sample |
 | 5 | **A fragmented block's centroid represents its members worse than a compact block's** | **MEASURED 2026-08-15 on captured activations. True.** See below |
@@ -154,22 +183,26 @@ What is left is link 6. A real improvement in centroid fidelity is not the same
 as a visible improvement in output, and the shipped curve's improvement is
 small: +0.6% to +3.0% depending on depth.
 
-There is a specific reason to doubt it as a universal rather than just to
-flag it as unproven. Spatial compactness is a **proxy** for feature
-similarity, and proxies fail at the interesting places: a tight 8x8 tile
-straddling a hard object boundary may have a worse centroid than a scattered
-block sitting entirely inside uniform sky. Whether compactness buys centroid
-quality *on average, on H3* is exactly the unmeasured quantity.
+There was a specific reason to doubt link 5 as a universal rather than just to
+flag it as unproven, and it is worth keeping now that the measurement has gone
+the other way. Spatial compactness is a **proxy** for feature similarity, and
+proxies fail at the interesting places: a tight 8x8 tile straddling a hard
+object boundary may have a worse centroid than a scattered block sitting
+entirely inside uniform sky. That objection predicted the tail result below --
+`2d_frame` improves the mean while making a minority of blocks worse than
+raster's worst -- so it was right about the shape and wrong about the average.
 
-**The cheap test.** Capture `k` from one forward, then for each block compute
-the mean cosine of its members to their own centroid, under Morton and under
-raster. One number per ordering. No renders, no clips, and it either supports
-link 5 or kills this whole line of argument. `h3_capture.py` exists for it and
-has never been run.
+**The test that settled it** was cheap, exactly as predicted: capture `k` from
+one forward, then for each block compute the mean cosine of its members to their
+own centroid, under Morton and under raster. One number per ordering, no renders,
+no clips. It ran on 2026-08-16 and it supported link 5 rather than killing it.
+See "What the captured activations say".
 
-Until that runs, the defensible claim is the geometry alone: on 1344x768,
-24.1% of blocks are a solid 8x8 and the rest are two or three disconnected
-fragments; on 1280x768 and 1024x768 it is 100%. Whether that matters is open.
+The claim that no longer needs hedging is therefore the centroid one. The claim
+that still does is link 6: on 1344x768, 24.1% of blocks are a solid 8x8 and the
+rest are two or three disconnected fragments; on 1280x768 and 1024x768 it is
+100%. That the tighter grouping summarises better is now measured. Whether it
+reaches the screen is open.
 
 ## What counts as evidence here
 
@@ -293,27 +326,24 @@ Around and after, on video diffusion specifically: Sparse VideoGen and its
 successor SVG2, radial attention, SpargeAttn, Video Sparse Attention,
 PAROAttention, DraftAttention. All 2025.
 
-The limit: the Sol-Attn paper is arXiv 2607.24027, which postdates this
-assistant's training data. Nothing here is drawn from it, and its related-work
-section may already answer questions this page treats as open. Nobody here has
-read it. Every Sol-Attn claim below comes from the node source, the CUDA
-kernels, or the eager reference implementation.
+The limit, and it narrowed on 2026-08-16: the Sol-Attn paper was read that day
+at the depth recorded in [`docs/sol_upstream.md`](sol_upstream.md) -- abstract,
+ablation summary and HTML, not the full PDF. It contains no token reordering and
+no related work on space-filling curves, so it does not answer the questions
+this section raises. Everything below still comes from the node source, the CUDA
+kernels, or the eager reference implementation, and that is now a choice rather
+than a gap.
 
 ## How Sol-Attn uses blocks
 
-Sol-Attn splits the sequence into 64-token blocks. For each query block it
-routes a subset of key blocks to an exact branch and covers everything else
-with one pooled term per block, so the full sequence still contributes to the
-softmax denominator. Nothing is dropped; most of it is approximated.
+The routing mechanism, `tau`, and the sink belong to
+[`docs/SOLATTN.md`](SOLATTN.md); this page does not restate them. One sentence
+is needed here because everything below hinges on it:
 
-`tau` sets the routing threshold. Read in the CUDA preprocessing kernel by the
-survey agent, `tau` multiplies the standard deviation of the proxy score row
-for that head and query block. It is a z-score multiplier, already normalized
-per head and per block, which makes it less arbitrary than a raw threshold
-would be. Higher `tau` keeps fewer blocks exact.
-
-The quantity that decides whether the pooled term is a good stand-in is how
-similar the 64 tokens in a block are to each other. That is the entire hinge.
+**Sol-Attn gives each 64-token block a single pooled summary, and the quantity
+that decides whether that summary is a good stand-in is how similar the 64
+tokens in a block are to each other.** That is the entire hinge, and token
+order is what decides which 64 tokens those are.
 
 ## Why Morton can only act through block membership
 
@@ -324,14 +354,61 @@ per-token. Sol-Attn's Morton permutes the video span of the hidden states,
 permutes the matching rows of the rope table so positions travel with their
 tokens, and applies the inverse permutation after the last block.
 
-So under dense attention, Morton is exactly neutral. The node's own tooltip
-says this (`vendor/sol_attn_minimax.py:746-749`), and the argument above is why it is true rather than approximately
-true.
+So under dense attention, Morton is neutral in exact arithmetic. The node's own
+tooltip says this (`vendor/sol_attn_minimax.py:746-749`), and the argument above
+is why it is true as mathematics rather than approximately true.
 
 Under block-sparse attention it is not neutral, for exactly one reason: the
 blocks are cut at fixed 64-token boundaries in the permuted order, so the
 permutation decides who shares a block. Everything Morton does, good or bad,
 flows through that.
+
+**One precision, because the short form of this claim gets repeated.** "Token
+order is the only thing that changes which 64 tokens share a block" is true of
+*Morton*, and not quite true in general: the blocks are cut every 64 rows from
+absolute row 0 of the packed sequence, so **where the video span starts moves
+tokens between blocks as well**. That is not a reordering, it is an offset, and
+it is exactly what the `(-video_start) % 64` rotation in `_perm_for` exists to
+cancel. So the full statement is that block membership is a function of the
+permutation *and* `video_start mod 64`, and Morton controls the first while
+`_perm_for` neutralises the second. See "Morton still works with references".
+
+### Neutral in exact arithmetic, not in floating point
+
+Measured 2026-08-16, and it changes how to read every Morton A/B on this page.
+
+Floating-point addition is not associative, so permuting the keys changes the
+order the softmax denominator and the value-weighted sum accumulate in.
+PyTorch SDPA, bf16, `T=4096`, permute q/k/v together and apply the inverse:
+
+```
+bitwise identical:      False
+elements differing:     44%
+max abs diff:           9.77e-04
+cosine:                 0.9999964
+```
+
+Sage is a different kernel, but nothing about the argument is kernel-specific --
+any implementation that reduces over keys in a different order lands somewhere
+different in the last bits.
+
+Two consequences, and the second is the useful one:
+
+- **"Exactly neutral" is a statement about mathematics, not about output.** A
+  dense Morton render and a dense non-Morton render at the same seed are not the
+  same file.
+- **There is a non-Morton explanation for "it feels like a different seed".**
+  Over 16 steps of a flow-matching ODE a 1e-3 perturbation at step 0 is
+  amplified, and `er_sde` injects noise every step on top. So the reseed-like
+  impression the owner reported is exactly what a bit-level perturbation
+  produces, with no block-membership effect required. That does not mean Morton
+  has no effect on output; it means **this class of observation cannot
+  distinguish one from the other**, and a Morton A/B judged by eye is measuring
+  both at once.
+
+The cheapest available check on real output: the ordering sweep below rendered
+both dense arms (`2d_frame` at 861.6 s and Morton off at 860.8 s). Nobody has
+compared those two clips' pixels, and doing so costs no GPU.
 
 This is a useful fact for experiment design. It means most of the question
 needs no render. It also means any observed Morton effect that cannot be
@@ -685,29 +762,54 @@ Six arms at 1344x768, 294 frames, 16 steps, one run each, same seed. The last
 two are the isolation control: all 50 blocks forced dense, so Sol-Attn does
 nothing and the permutation is the only difference between them.
 
-| arm | sampler | vs its pair |
-|---|---|---|
-| sparse, morton off (shipped) | 454.0 s | |
-| sparse, morton `2d_frame` | 452.8 s | 1.0027x |
-| sparse, morton `3d` | 454.8 s | |
-| sparse, `hilbert` | 453.2 s | |
-| dense, morton `2d_frame` | 861.6 s | 1.0009x |
-| **dense, morton off** | **860.8 s** | |
+| arm | sampler |
+|---|---|
+| sparse, morton off (shipped) | 454.0 s |
+| sparse, morton `2d_frame` | 452.8 s |
+| sparse, morton `3d` | 454.8 s |
+| sparse, `hilbert` | 453.2 s |
+| dense, morton `2d_frame` | 861.6 s |
+| **dense, morton off** | **860.8 s** |
 
-**The permutation costs 0.8 s of 861, or 1.0009x.** That is the isolated
-number, and it retracts `h3_config.py`'s "worth 1.16x alone, 94% GPU
-utilisation" for this backend. The old figure was Triton, 362 frames, and
-stacked on int8. It is not wrong about what it measured; it does not describe
-the CUDA kernel at this length.
+The "vs its pair" ratio column this table used to carry is gone deliberately.
+Every within-pair difference here is under the noise floor, and a ratio printed
+to four decimal places reads as a measurement whatever caveat sits beside it.
+
+**The permutation is free, and "free" is the strongest claim these arms
+support.** Both pairs, with their signs:
+
+| pair | morton off | morton on | delta |
+|---|---|---|---|
+| dense (the isolation control) | 860.8 s | 861.6 s | **+0.8 s**, 0.093% |
+| sparse | 454.0 s | 452.8 s | **-1.2 s**, 0.264% the other way |
+
+**The two pairs disagree in sign**, and the sparse one says the permutation made
+the render faster, which it cannot have. One run per arm, against a bench whose
+measured run-to-run spread was 0.1% and 0.12% at 362 frames. So both deltas sit
+at or under what this experiment can resolve, and the honest reading is that the
+permutation costs nothing measurable -- not that it costs 0.8 s.
+
+**This page said "the permutation costs 0.8 s of 861, or 1.0009x. That is the
+isolated number" for most of 2026-08-16.** It was one arm of a two-arm result, quoted
+as though the other arm did not exist, three paragraphs above a passage that
+kills a VRAM finding for having exactly this property. **Opposite signs across a
+control pair means "no effect", and it means that for time the same way it means
+it for memory.** Caught by a second reader; not by the page that contains both
+paragraphs.
+
+What survives unchanged is what it retracts: `h3_config.py`'s "worth 1.16x
+alone, 94% GPU utilisation" does not describe this backend. That figure was
+Triton, 362 frames, stacked on int8. It is not wrong about what it measured, and
+a real 1.16x cost would have been far outside this noise floor.
 
 **The three curves are indistinguishable on speed**, 452.8 to 454.8 s across a
 2 s spread on single runs. So there is no speed argument for or against any of
 them, and the choice rests entirely on the activation measurements above.
 
-**Sol-Attn itself is worth 1.896x on the sampler** here, 860.8 s dense against
-454.0 s sparse, same config with only `dense_blocks` changed. That is a cleaner
-number than the retracted 1.611x in `docs/SOLATTN.md`, which compared against
-an fp8 sage baseline nobody ships. One run per arm.
+**The dense pair also priced Sol-Attn itself**, since it is the same config with
+only `dense_blocks` changed. That is a Sol-Attn number rather than a Morton one,
+so it lives in [`docs/SOLATTN.md`](SOLATTN.md) with the arm it replaces.
+Canonical there; not restated here.
 
 **Do not quote peak VRAM from this run.** It looked at first like Morton saved
 3.7 GB, consistently across all three curves. The dense control killed it:
@@ -770,6 +872,50 @@ increase quality, that's something to test". That is good evidence the author
 has not tested it, and no evidence at all about anyone else. Here, the speed
 result is settled and the quality question is untouched.
 
+## Sol-Engine says H3 needs no reordering. Our capture disagrees
+
+NVLabs ship Morton for Wan, on by default, and leave it out of H3 entirely.
+Their stated reason is quoted in
+[`docs/sol_upstream.md`](sol_upstream.md#morton-in-sol-engine-which-does-exist):
+the packed video tail "is already a contiguous grid-ordered block, and the
+routing works on it directly".
+
+**That reasoning does not obviously distinguish H3 from Wan**, and it is worth
+saying so. "Already a contiguous grid-ordered block" is true of raster order,
+which is exactly the layout Morton is applied to *fix* on Wan. Wan's 720p grid
+is 45x80, so a 64-token raster block is under one row wide; H3 at 1344x768 is
+24x42, so a block is about 1.5 rows. If anything H3's raster blocks are the
+less degenerate of the two.
+
+**And the capture measurement disagrees with the assertion.** On real H3 q/k,
+Morton3D raises per-block centroid fidelity by 4.1% / 6.4% / 8.7% at blocks
+0 / 24 / 49. That is not an output-quality result and it does not make them
+wrong -- their claim may be "the benefit does not justify the cost", which is a
+different statement, and they run Ulysses sequence parallelism where a global
+permutation interacts with sharding in ways a single GPU does not face. But the
+disagreement is real, and with the paper now read it is the sharpest open
+question on this page: the only party who has measured whether reordering helps
+H3 is us, and we measured the summary, not the picture.
+
+### Their ablation control, which we have now half-run
+
+`config/wan21_t2v_14b/reorder_only.toml` is a "reorder-only control: global
+Morton3D order with every layer forced dense through the Sol-Attn adapter" --
+reordering on, every layer dense. Since the permutation is output-neutral under
+dense attention, that arm isolates what the permutation *costs* from what it
+buys.
+
+We copied it on 2026-08-16 and it was half a control. Forcing every block dense
+disables Sol-Attn entirely, so the arm measures "no sparse attention plus a
+permutation", not "a permutation". The missing arm was dense-without-Morton, it
+cost one 15-minute render, and it is what turned 861.6 s into the 0.8 s isolated
+figure below. It also killed a 3.7 GB VRAM "saving" that all three sparse curves
+agreed on.
+
+**Structural version, worth more than the number: three arms agreeing is not a
+control; a fourth arm that isolates the variable is.** The three agreed because
+all three had Morton on, which was the thing under test.
+
 ## What we know and what we do not
 
 Known, by measurement on this machine:
@@ -802,7 +948,9 @@ Not known:
 - What Morton does to the routing decision itself. Block membership is
   measured; which blocks the router then selects is not.
 - How a fixed curve compares to the content-based clustering that SVG2 uses.
-- What the Sol-Attn paper says about any of this.
+- Whether a dense Morton render differs from a dense non-Morton one by more
+  than the floating-point noise measured above. Two rendered clips already
+  exist for this and nobody has looked at them.
 
 ## Tests run and not run
 
@@ -815,18 +963,30 @@ Run:
 - `bench/smoke_h3.py` on `h3_probe_sol_on_api.json`, green, with all three
   chain lines and the CUDA kernel tag confirmed in the log.
 
+Also run, 2026-08-16:
+
+- **Read arXiv 2607.24027.** It was the cheapest thing on this list and it
+  answered one row: the paper says nothing about token order at all. See
+  [`docs/sol_upstream.md`](sol_upstream.md).
+- **The capture and the centroid analysis.** `h3_capture.py` ran for the first
+  time; `bench/analyze_capture.py` graded three depths. This is what settled
+  link 5.
+- **The ordering sweep, six arms**, including the dense pair that isolated the
+  permutation cost.
+
 Not run, in the order they would answer the most:
 
-- Read arXiv 2607.24027. First because it is the cheapest thing on the list,
-  and because several rows in "not known" above may already be answered there.
 - A `tau` by Morton grid at equal wall clock. Nothing blocks it but GPU time.
-- The routing simulation. Capture real q and k from one forward, then compute
-  the selected-block masks offline for both orderings. Because Morton is
-  exactly a permutation of the same tensors at the first transformer block,
-  one capture gives exact masks for both arms without a second render.
-  `h3_capture.py` exists for this and has never been run.
+- **The routing simulation proper.** The capture answered which tokens share a
+  block and how well the centroid represents them. It did **not** compute the
+  selected-block masks, which is the step that turns "membership changed" into
+  "this fraction of routed blocks changed, in these places". One capture is
+  enough for both orderings without a second render.
 - A clean canvas against a ragged canvas at matched settings.
-- `morton_curve="3d"` on a long clip. Not rendered here.
+- `morton_curve="3d"` on a long clip. Not rendered here, and it is now the
+  shipped curve if Morton is ever turned on.
+- Watch the five clips from the ordering sweep. Every conclusion from that run
+  is about time and memory, not picture.
 
 Prior commits for context: `3b86b21` records the Morton observation that was
 sent upstream, `440eea9` retracts it, and `bd392c2` adds the Sol-enabled probe
@@ -834,11 +994,16 @@ graphs the reference arms use.
 
 ## What to try next, in order
 
-1. Read the paper before running anything. An afternoon of GPU time costs more
-   than a download, and the experiment below may already be in it.
+1. Compare the two dense clips already on disk. Zero GPU, and it answers
+   whether the floating-point divergence above is visible. If it is, every
+   past Morton impression is explained without reference to block membership,
+   and the bar for a Morton quality claim goes up sharply.
 2. Run the `tau` by Morton grid. Pick a Morton-on `tau` that matches Morton-off
    at the shipped `tau` on wall clock, so the comparison is quality at equal
-   speed rather than quality at equal `tau`.
+   speed rather than quality at equal `tau`. Note what the paper adds here: the
+   correction's advantage over drop-the-block **widens as sparsity rises**, so
+   pushing `tau` may cost less than a keep-or-drop intuition suggests. That is
+   their ablation on their models, not ours.
 3. Run the routing simulation. It converts "block membership changes" into
    "this fraction of routed blocks changes, in these places", which is a number
    rather than a judgment.

@@ -63,6 +63,8 @@ attached to the number.
 | **`min_tokens` 4096 is "very likely wrong"** | Retracted, and the retraction's reasoning was itself corrected 2026-08-14: it is one `optimized_attention` call in source but **52 modules** through it. Conclusion survives — the 50 DiT blocks run at the full packed length, above both thresholds, and the 2 refiner blocks run at the text span, below both — so 4096 and 12288 still select the same thing | — corrected in place |
 | **"fp16 lands on the steps where precision matters most"** | Inference, not measurement. `start_percent` has never been measured at any length on either backend | measure `start_percent` (Run 2, not started) |
 | **any bench progress read from its own stdout mid-run** | The warmup `print` lacks `flush=True`, and `tee` makes stdout block-buffered, so finished lines sit in the buffer. Read ComfyUI's progress lines instead | add `flush=True` |
+| **Morton is "worth 1.16x alone", at "94% GPU utilisation"** | Retracted 2026-08-16. Triton, 362 frames, stacked on int8 — correct for what it measured, and not a description of the CUDA backend, where the permutation is free. It had been the standing argument for `morton=False` in `h3_config.py` and in `docs/SOLATTN.md`'s Configuration findings, and the two disagreed for several hours | a CUDA Morton arm at fixed tau, if anyone wants a cost number at all |
+| **the CUDA replacement, "0.8 s of 861, or 1.0009x"** | **Do not quote this either**, and it is the more instructive of the two. It is one arm of a two-arm control presented as the isolated number: the dense pair moved +0.8 s and the sparse pair moved −1.2 s, i.e. opposite signs, both at or under the bench's measured run-to-run spread on one run per arm. Morton-on cannot be faster, so the pair is measuring noise. The correct claim is unquantified — **free** | more runs per arm, if the cost is ever worth pinning. Nothing currently depends on it |
 
 **362 is the max length, and every "345 is legal / 362 is illegal" claim is
 withdrawn. Owner decision, 2026-08-16.** 345 is the largest count the
@@ -135,6 +137,12 @@ Adding a file here is a claim that someone read that occurrence and it is
 correct in context. Do not add one to silence the check.
 
 ```retraction-consumers
+ONE LINE PER FIELD. The parser reads only the line beginning `ALLOW:`, so a
+wrapped continuation is silently dropped and the row enumerates fewer files
+than it appears to. That fails closed -- the missing files show up as
+unlisted consumers -- but it wastes a run, which is how it was found on
+2026-08-16.
+
 PHRASE: 2.7x more accurate
 ALLOW: docs/evidence.md
 WHY: the figure was DELETED repo-wide on 2026-08-16, not caveated, so the
@@ -168,6 +176,28 @@ WHY: the sentence that contains it says the page claimed this until 2026-08-14
 PHRASE: 38 text rows
 ALLOW: docs/SOLATTN.md
 WHY: both name it as a smoke-harness figure rather than a shipped-graph one.
+
+PHRASE: worth 1.16x alone
+ALLOW: docs/evidence.md docs/morton.md docs/SOLATTN.md docs/open_experiments.md docs/bench_plan.md CHANGELOG.md
+WHY: Triton, 362 frames, stacked on int8, retracted 2026-08-16 when a dense
+     control showed the CUDA permutation free. morton.md owns the
+     retraction; SOLATTN.md's is the "do not rely on" row and the corrected
+     Configuration-findings bullet; open_experiments.md and bench_plan.md
+     name it as withdrawn in the paragraphs that used to argue from it;
+     CHANGELOG.md records the retraction as history and is not rewritten.
+     Enumerated the same day the retraction was made -- the earlier three
+     same-session retractions were not, and one of them (this one) went on
+     being asserted in SOLATTN.md's Configuration findings for hours
+     afterwards. That is the open question raised in
+     internal/postmortems/2026-08-15_session_morton-sampler-and-refs.md,
+     answered by the failure recurring rather than by argument.
+
+PHRASE: 94% GPU utilisation
+ALLOW: docs/evidence.md docs/morton.md docs/SOLATTN.md docs/open_experiments.md CHANGELOG.md
+WHY: the same measurement and the same retraction. Listed separately because
+     the two halves of that claim were quoted independently -- h3_config.py
+     carried the utilisation figure as the mechanism story for the 1.16x, so
+     either half can reappear without the other.
 ```
 
 **What this does not defend, and the gap is not small.** The sharpest decay

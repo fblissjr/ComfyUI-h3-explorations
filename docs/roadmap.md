@@ -264,6 +264,41 @@ env-driven and needs no code change.
    that can close the reconstruction question.
 6. **Watch a clip end to end.** Nothing above substitutes for it.
 
+### Two decisions that need no card, added 2026-08-16
+
+Both fell out of reading Sol-Engine's H3 profiles properly. Neither is
+scheduled work; both are calls the owner can make.
+
+**Adopt `dense_blocks="0-1"`, or decide not to.** Every H3 profile NVLabs
+publishes runs the first two transformer blocks dense --
+`SOL_ATTN_FIRST_DENSE_LAYERS=2` on the single-card RTX 5090 cell,
+`H3_SOL_DENSE_LAYERS=2` on GB200, `dense_blocks: int = 2` on GB10, and the
+A100 README's prose. We ship none, which makes their tested recipe strictly
+more conservative than ours in exactly one place.
+
+The cost, by arithmetic rather than measurement: the 2026-08-16 dense/sparse
+pair was 860.8 s against 454.0 s across 50 blocks, so **assuming uniform
+per-block cost** two blocks is about 16 s of 454, or 3.6%. That assumption is
+the weak part and it is cheap to check with one arm.
+
+What this does **not** need is the block probe at item 3. That instrument
+answers "which blocks does sparsity hurt *here*", which is the question for
+choosing **our own** list. Copying a list four hardware profiles already
+validated needs no instrument, and conflating the two is why this sat as
+`SOL_ARTIFACT_INSURANCE`, unwired, for weeks.
+
+**Decide whether to build the NVLabs sm89 kernel and compare.** PR #464
+(2026-08-15) added an official BF16 SM89 CuTe Sol-Attn kernel, so there are now
+two independent 4090 implementations: comfy-kitchen's, which we build and run,
+and NVLabs' own. Which is faster or more accurate on this card is unmeasured,
+and it is the only external cross-check available to us since the Triton pack
+was deleted.
+
+Cost: one Python dependency (`cutlass.cute`; torch 2.13, CUDA 13.2 and Triton
+3.7.1 already clear their floors) plus a seam, because their public API has no
+`sink_q` and `exact_kv_and_rows`'s query half would have to be done outside the
+kernel. Full accounting in [`docs/sol_upstream.md`](sol_upstream.md).
+
 **Scaffolded means every entry point raises.** Three files exist to fix the
 design decisions -- metric choice, the control each one needs, the permanent
 node id -- before implementation, so those get argued once.

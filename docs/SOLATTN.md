@@ -5,6 +5,46 @@ block-sparse attention. Each 64-token query block attends a routed subset of key
 blocks exactly and covers the rest with one pooled term per block, so the whole
 sequence still contributes to the softmax denominator.
 
+## Start here: this page, and the two it links to
+
+**This is the Sol-Attn entry point and the authority.** It owns the knobs, the
+sink, the ordering rules, and every Sol-Attn number measured on this box. Two
+deep dives hang off it, each owning a topic this page deliberately does not:
+
+| page | owns | do not |
+|---|---|---|
+| [`docs/morton.md`](morton.md) | token order: block geometry, the curves, the capture analysis, the six-arm ordering sweep, the assumption chain | quote it against this page's config values |
+| [`docs/sol_upstream.md`](sol_upstream.md) | what upstream says: the paper, Sol-Engine's per-profile H3 recipes, the other ComfyUI packs | read any number there as comparable to ours |
+
+The rule that keeps them from drifting, after `docs/SOLATTN.md` and
+`docs/morton.md` spent a day asserting opposite Morton figures: **a number is
+stated once, in the page that owns it, and everywhere else is a one-line verdict
+plus a `Canonical:` link.** If this page and a deep dive disagree about
+something the deep dive owns, the deep dive is right.
+
+Repo-wide ledgers sit above all three: [`docs/evidence.md`](evidence.md) for
+claims that were measured and should not be relied on,
+[`docs/checks.md`](checks.md) for what is guarded,
+[`docs/open_experiments.md`](open_experiments.md) for what is deliberately not
+measured.
+
+## What the published method actually claims
+
+Read 2026-08-16 at the depth recorded in
+[`docs/sol_upstream.md`](sol_upstream.md) -- abstract, ablation summary and
+HTML, not the full PDF. Four things matter for how this page is read:
+
+- **The contribution is the correction, not the routing.** Unselected blocks
+  reuse their proxy scores rather than being dropped, and the paper's ablation
+  shows that advantage **widening as sparsity rises**. So `centroid_tail` is the
+  method's core claim, not the side knob this page treated it as.
+- **`tau` is the paper's `beta`** in `t_i = mu_i + beta * sigma_i`, confirming
+  what the CUDA source says it means -- **and the paper never sweeps it.**
+  Nothing upstream adjudicates our 1.3 against Sol-Engine's 1.0.
+- **H3 is not evaluated anywhere in the paper.** The 4090 build, the H3 port and
+  Morton are all work sitting on top of the published method.
+- **No token reordering appears in it.** See [`docs/morton.md`](morton.md).
+
 **Two implementations exist and this page covers both.** As of 2026-08-14 the
 CUDA one is what every shipped graph wires and what this repo measures against.
 The Triton one is what every number older than that date was taken on, and it
@@ -49,6 +89,8 @@ labelled rather than deleted. Read this list first.
 | the reference-load table's **35.1% / 57.9%** | wrong on three axes for what we ship: a **v1** formula (v2 changed the mechanism), at **362**, at **1344x768** where the ref graphs are 1024x768. |
 | "with Sol on, sage gets nothing" | **retracted.** Sage runs **5 of 16 steps** -- the sigma window, not just `min_tokens`. |
 | bench progress read from its own stdout mid-run | the warmup `print` lacks `flush=True`; under `tee` stdout is block-buffered. A finished render can read as "still in warmup" for 20 minutes. Read ComfyUI's log instead. |
+| Morton **"worth 1.16x alone, 94% GPU utilisation"** | **RETRACTED 2026-08-16.** Triton, 362 frames, stacked on int8. On CUDA the permutation is free -- two control pairs disagreeing in sign, both under the noise floor. It had been sitting in this page's Configuration findings and in `h3_config.py` as a live argument |
+| the Morton permutation **"costs 0.8 s of 861, or 1.0009x"** | the replacement for the row above, and wrong the same way in miniature: one arm of a two-arm control quoted as the isolated number, while the sparse pair moved 1.2 s the *other* way. Both are under this bench's run-to-run spread on single runs. **Free is the claim; 1.0009x is not a measurement of anything** |
 | **any quality A/B on this page, as a like-for-like** | all of it was taken on `res_multistep`. The default sampler is `er_sde` since 2026-08-15, which injects noise every step. A knob that perturbs attention numerics reads as more "reseeded" under it. Timings should carry (both are one eval per step); quality comparisons are owed a re-run. |
 
 ### Can rely on
@@ -269,8 +311,8 @@ own way to get this wrong.
 | `end_percent` | 0.9 | Dense after this point. Also never measured. |
 | `min_tokens` | 12288 | Shorter sequences stay dense. `SOL_RECOMMENDED_CUDA` pins 4096, and **neither value changes anything** — but not for the reason first written here. The 50 DiT calls are at the full packed length and the shortest clip past 5 frames is already S = 7,194, so both thresholds take them; the 2 token-refiner calls are ~311 rows, so both thresholds reject them. The conclusion survives the 52-module correction; the "both select everything" reasoning does not. |
 | `sink_conditioning` | `exact_kv_and_rows` | See the reference section — this is the dominant knob at reference load. |
-| `morton` | False | Z-order the video tokens so each 64-token block is a compact 3D neighbourhood. Exactly neutral for dense attention. |
-| `morton_curve` | `2d_frame` | Z-order within each frame, leaving frame order alone. Correct for H3, whose `FRAME_PER_TOKEN` is `(1,4,4,4,4)`. |
+| `morton` | False | Z-order the video tokens so each 64-token block is a compact 3D neighbourhood. Neutral for dense attention **in exact arithmetic** -- not bit-identical, measured. `Canonical: docs/morton.md` |
+| `morton_curve` | `2d_frame` | Node default. Z-order within each frame, leaving frame order alone. **`SOL_RECOMMENDED_CUDA` pins `3d` since 2026-08-16**, on a centroid-fidelity measurement; changes nothing while `morton=False`. `Canonical: docs/morton.md` |
 | `centroid_tail` NEW | True | One pooled tail per query block instead of per row, 64x less routing work. Upstream: ~1.4x on the **operation**, **~5–10% end to end**, ~5e-4 cosine. |
 | `routed_cap_percent` NEW | 0 | Cap routed blocks as a percent of sequence; 0 is uncapped. Bounds the only workspace term growing with T². Below the actual density it silently degrades routed blocks to their pooled term. |
 | `reuse_qkv_memory` NEW | False | Write the output into H3's fused qkv buffer instead of allocating. Upstream: ~1.2 GB at 80k tokens, enough to put attention's peak below the FFN's. Safe for H3, which discards that buffer; leave off for other models. |
@@ -322,6 +364,25 @@ bytes rather than device usage and resolved only the resident-weight plateau
 -- every arm agreed to the megabyte. The instrument could not have shown a
 saving. Re-run pending with a device-level metric.
 
+#### End to end, 2026-08-16: a clean Sol-versus-dense number
+
+**Sol-Attn is worth 1.896x on the sampler**: 860.8 s dense against 454.0 s
+sparse, 1344x768, 294 frames, 16 steps, one run per arm.
+
+This is the number to quote instead of the retracted 1.611x, and the reason is
+the baseline. Both arms are the **same shipped config with only `dense_blocks`
+changed**, so the comparison isolates the sparsity and nothing else. The 1.611x
+arm compared against an fp8 sage baseline no graph ships, which is wrong in a
+direction nobody has pinned.
+
+It came out of the ordering sweep, whose other five arms are about token order
+and live in [`docs/morton.md`](morton.md) with the method. Two caveats travel
+with it: one run per arm, and 294 frames rather than the shipped 362.
+
+**Do not quote peak VRAM from that run.** Morton appeared to save 3.7 GB across
+all three sparse curves; the dense control showed it *costing* 2.1 GB. Opposite
+signs, so it is an allocator artifact, not an arm effect.
+
 #### Kernel level
 
 On a 4090, `B=1 T=512 H=4 D=128` bf16 at tau 1.3, against the eager reference
@@ -353,6 +414,14 @@ Upstream is weighing making it unconditional — "probably should even if it's
 technically a bit more lossy", on the grounds that there are too many options
 for an average user, with model-specific defaults as the alternative. Reported
 from conversation, not a shipped change.
+
+**Two things found 2026-08-16 make that likelier, and both raise the stakes on
+the A/B.** Sol-Engine's own public entry point has **no toggle at all**
+(`coderef/Sana/techniques/sparse_backends/sol_attn/interface.py:397-408`), so the reference implementation already treats it as
+unconditional. And the paper treats the correction as its core contribution
+rather than an optimisation, with an ablation showing its advantage growing as
+sparsity rises. A knob this page priced at 2.5% of render time is the thing the
+method is *for*. See [`docs/sol_upstream.md`](sol_upstream.md).
 
 If it lands, `centroid_tail=False` disappears and the A/B that separates the
 toggle from the kernel becomes unrunnable. **That experiment has a clock on
@@ -550,7 +619,7 @@ rows carry a deliberate 0.001 of noise augmentation and audio rows are clean.
 
 Verified against a second implementation on 2026-08-16: DiffSynth's H3 pipeline
 uses the same formula with the same two constants (`imgvid_cond_noise_aug =
-0.999`, `audio_cond_noise_aug = 1.0`, `minimax_h3_audio_video.py:35-36`). Two
+0.999`, `audio_cond_noise_aug = 1.0`, `coderef/DiffSynth-Studio/diffsynth/pipelines/minimax_h3_audio_video.py:35-36`). Two
 independent sources agreeing makes this one of the better-supported claims on
 this page. It changes nothing about Sol — the rows are still pinned and still
 unsparsifiable — it just is not "exact".
@@ -747,15 +816,30 @@ the token floor.
 - **`int8_qk` and `int8_pv` both on** (Triton only). Worth 1.16x on top of plain
   sparsity at 362 frames. Upstream's tooltip says int8 helps at `tau<=1.5` and
   becomes a net loss at `tau>=2.0`.
-- **Morton off.** Worth 1.16x alone but a net loss stacked on int8 (1.34x
-  against 1.39x). Its arm runs at 94% GPU utilisation where every other arm hits
-  99% — the permutation adds non-tensor-core work that stops paying once int8
-  has shrunk the exact branch. Upstream now defaults it off too.
+- **Morton off**, and the speed argument for that is **RETRACTED 2026-08-16**.
+  This bullet used to say the permutation was worth 1.16x alone and cost GPU
+  utilisation. That was Triton, at 362 frames, stacked on int8. On the CUDA
+  backend the permutation is **free**, measured by a dense control pair that
+  varies nothing else: the two pairs disagree in sign (+0.8 s of 861 dense,
+  -1.2 s of 454 sparse) and both sit at or under this bench's run-to-run
+  spread, so the resolvable cost is zero. Do not quote either delta as a cost;
+  that is a mistake `docs/morton.md` made and corrected. The three curves are
+  speed-indistinguishable. So there is no longer any speed argument for or
+  against Morton, and the case rests entirely on quality, which is unmeasured.
+  Upstream defaults it off too, and no H3 profile NVLabs ships reorders at all.
+  `Canonical: docs/morton.md`.
 - **`sink_conditioning="exact_kv_and_rows"`, on** — but see the reference
   section above, which is where this gets expensive.
-- **`dense_blocks`**, from a `SolAttnBlockProbe` run at your own tau. Seven of
-  fifty blocks costs roughly 54 s on a 362-frame render. `SOL_RECOMMENDED` ships
-  it empty: it does not fix the artifact that tau fixes, and costs 39.2 s.
+- **`dense_blocks`**, which we ship empty and which has two ways to choose a
+  list, only one of them currently available. Choosing **our own** needs a
+  `SolAttnBlockProbe` run at our own tau, and that instrument went with the
+  Triton pack -- see "The Triton node" above; it is not an available action
+  today. **Copying a validated list needs no instrument**: every H3 profile
+  NVLabs publishes runs `0-1` dense. Costs: seven of fifty blocks was roughly
+  54 s on a 362-frame Triton render, and by arithmetic off the 2026-08-16 dense
+  pair (860.8 s against 454.0 s over 50 blocks, assuming uniform per-block cost)
+  two blocks is about 16 s of 454, or 3.6%. `SOL_RECOMMENDED_CUDA` still ships
+  it empty; the decision is in [`docs/roadmap.md`](roadmap.md).
 
 ### Record the commit with every measurement
 
@@ -943,5 +1027,7 @@ about 2 hours.
 | `start_percent` 0.0–0.4 | zero measurements, ever | none, arms exist |
 | `min_tokens` 4096 vs 12288 | our pin is a third of the node's crossover | none |
 | re-baseline the frontier above 60k tokens | most numbers here are the wrong regime | GPU hours |
-| CUDA e2e vs Triton e2e, ours | we have upstream's 1.4x, not our own | none |
+| CUDA e2e vs Triton e2e, ours | we have upstream's 1.4x, not our own | **the Triton pack is deleted**; recover from `kijai/ComfyUI-SolAttn_triton@842c4ea` first |
+| **comfy-kitchen's 4090 kernel vs NVLabs' own** | since PR #464 (2026-08-15) there are two independent sm89 implementations; which is faster or more accurate here is unknown, and it is the only external cross-check available on this card | one Python dep (`cutlass.cute`) and a seam -- their API has no `sink_q`, so `exact_kv_and_rows`'s query half needs doing at the integration layer. See [`docs/sol_upstream.md`](sol_upstream.md) |
+| **`dense_blocks="0-1"`** | every H3 profile NVLabs ships runs the first two blocks dense and we ship none; it is the one place their tested recipe is strictly more conservative | nothing. It is a config decision, costed in [`docs/roadmap.md`](roadmap.md) |
 | quality at tau 1.3, watched to the end | the artifact is temporal and length-dependent | a human watching |

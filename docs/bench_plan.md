@@ -364,9 +364,11 @@ Added 2026-08-14, mid-run. Kijai, signing off:
 > anything / is centroid_tail ok as default
 
 Both are **quality** questions and this repo has only speed numbers for either.
-`morton=False` was set on a Triton speed result (1.16x alone, a net loss
-stacked on int8); its quality effect is unmeasured, which kijai has said
-himself. `centroid_tail=True` is the CUDA node's default and we measured 2.5%
+`morton=False` was set on a Triton speed result (worth 1.16x alone, a net loss
+stacked on int8), **retracted for the CUDA backend on 2026-08-16** — isolated
+against a dense control the permutation is free, with the two pairs disagreeing
+in sign and both under the noise floor. Its quality effect is still unmeasured,
+which kijai has said himself. `centroid_tail=True` is the CUDA node's default and we measured 2.5%
 e2e — a cost, not a verdict on whether it is *ok*.
 
 **`centroid_tail` is the one with a clock on it.** Upstream is weighing making
@@ -442,8 +444,10 @@ and the artifact-sensitive content buys everything.
   *slightly* more accurate — it is the finer per-row tail. If the quality
   difference is invisible at 345 frames, "ok as default" is answered yes and
   upstream can make it unconditional without cost.
-- **`morton=True`**: slower (1.16x on Triton, and the CUDA cost is unmeasured).
-  Quality genuinely unknown — this is the one arm here with no prior at all.
+- **`morton=True`**: **free on CUDA, measured 2026-08-16** — the dense control
+  pair and the sparse pair disagree in sign and both sit under the noise floor,
+  so there is no speed cost to weigh against a quality gain. The 1.16x was
+  Triton. Quality genuinely unknown — this is the one arm here with no prior at all.
   Reordering video tokens into compact 3D neighbourhoods changes *which* blocks
   the router keeps, which is the most plausible mechanism for a quality change
   in the whole config.
