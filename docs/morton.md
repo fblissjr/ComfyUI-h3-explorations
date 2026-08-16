@@ -406,12 +406,22 @@ References change what row the video span starts on, and the kernel counts its
 the tiles stop lining up with the blocks, and every tile would be split in
 half. `_perm_for` rotates the permutation by that offset to realign them.
 
-Measured at seven `video_start` offsets from 0 to 20,000: at 1024x768 every
-block came out a solid 8x8 square at every offset, radius 3.24 and fill 1.00.
-Remove the rotation and the blocks scatter, fill 0.42 on that same canvas,
-which is more scattered than raster order manages and more scattered than the
-ragged 1344x768 canvas gets with the rotation in place. So reference load does
-not degrade Morton, and the rotation is why.
+**This one is exhaustive rather than sampled.** Block shape depends only on
+`video_start mod 64`, so there are exactly 64 distinct cases and all 64 were
+run. At 1024x768 every block is a solid 8x8 square in every one of them, radius
+3.240371 at all 64, spread exactly zero. At the ragged 1344x768 the spread is
+1.7e-3, which is nil.
+
+Remove the rotation and blocks degrade to radius 3.24-6.84 at 1024x768,
+depending on the offset, roughly 2x looser at worst.
+
+**Retracted, 2026-08-15: "without the rotation you would be better off with
+Morton off."** Not true. Raster order at 1024x768 is radius 9.25, and
+un-rotated Morton never exceeds 6.84, so it beats raster at 0 of 64 offsets.
+The original and correct comparison was against the *ragged canvas*, fill 0.42
+against 0.60; that got upgraded to "worse than raster" in a later edit and
+nothing caught it until the exhaustive run. The rotation earns its place on the
+2x, not on rescuing Morton from being harmful.
 
 This nearly went into this document as the opposite finding. Grouping tokens
 by their index within the video span rather than by their absolute row
