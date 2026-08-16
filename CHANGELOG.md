@@ -4,6 +4,49 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.29.0
+
+### Added
+
+- **`bench/analyze_routing.py`** — the routed-density instrument
+  (`docs/open_experiments.md` #18). Answers the question under every curve
+  comparison in this repo: a fixed-`tau` A/B does not hold the operating point
+  fixed, because `kcvar` is a variance over the block centroids the permutation
+  defines. Emits **two** densities, deliberately, because conflating them is
+  how the prototype behind this mislabelled its own output: *ordering-effect*
+  (forced-exact pairs dropped from numerator and denominator — the number to
+  compare curves with) and *kernel* (what the kernel routes, the number to size
+  `routed_cap_percent` against). Also reports the `tau` that reproduces
+  raster's density per ordering.
+
+  The pooling is imported from upstream's eager reference rather than
+  transcribed; the threshold is transcribed and cross-checked against a second,
+  deliberately naive implementation in the same file. No GPU, no model, ~5 s.
+
+  Measured on the 2026-08-15 capture (1344x768, 124 frames, blocks 24/49, 8 of
+  56 heads, float routing rule — the kernel's INT8 quantization is skipped):
+  `hilbert` routes **1.171x** raster at block 24 and **1.113x** at block 49,
+  while `3d` routes **0.987x** at block 49. The direction is not derivable from
+  block coherence, and it is not even the same sign across curves at one depth.
+
+  **Six controls, each shown red for the right reason** before the numbers were
+  trusted; the mutation harness is in `internal/`. One of them exists because
+  the first version of the identity control compared `torch.arange` to
+  `torch.arange` and stayed green under a deliberate mutation — the same defect
+  as `verify_adjacency` in 0.28.0, written the same day it was found. It is now
+  a within-block shuffle, which is a non-trivial permutation with a forced
+  answer, paired with its converse so both cannot pass by nothing happening.
+
+### Fixed
+
+- **`h3_capture.py` built its transposed copies on the device.** Three
+  `[1,H,S,D]` buffers next to a model already near the card's limit: 5.4 GiB at
+  S=124,582, against ~6.7 GiB headroom. The copy now happens on the host, which
+  changes where the intermediate lives and not a byte that is saved. This is
+  plausibly **why every capture on this box is 124 frames** — the failure would
+  have presented as a length limit rather than a tooling one, and 124 frames is
+  37,826 tokens, below the ~60k floor `docs/SOLATTN.md` warns about.
+
 ## 0.28.0
 
 ### Fixed

@@ -123,7 +123,18 @@ def maybe_capture(module, q, k, v, length_hint=None):
 
     # [1, S, H, D] -> [B, H, S, D]. contiguous() because the consumer slices
     # heads and expects them to be the outer stride.
-    qh, kh, vh = (t.transpose(1, 2).contiguous() for t in (q, k, v))
+    #
+    # **Copy to CPU BEFORE transpose/contiguous, not after.** Doing it on the
+    # device allocates three [1,H,S,D] buffers next to a model that is already
+    # near the card's limit: 5.4 GiB at S=124,582 (2 image refs, 362f), against
+    # ~6.7 GiB headroom at that size. The old order OOMed the render rather than
+    # the capture, so it would have looked like a length limit, not a tooling
+    # one. `q` arrives contiguous, so `.cpu()` is a straight copy and the
+    # transpose then costs host memory, which is not the scarce resource.
+    # Saved bytes are identical either way; only where the intermediate lives
+    # changes. Changed 2026-08-16 -- captures before that date used the old
+    # order, which is why they are all 124f.
+    qh, kh, vh = (t.cpu().transpose(1, 2).contiguous() for t in (q, k, v))
     seq = qh.shape[2]
     name = (f"qkv_L{length_hint if length_hint is not None else 'na'}"
             f"_S{seq}_b{block}_s{step}.pt")
