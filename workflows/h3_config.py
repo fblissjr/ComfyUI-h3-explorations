@@ -761,7 +761,12 @@ REF_LORA_STRENGTH = 1.0
 # SVD of a real weight difference. But "correctly applied" and "exact on the
 # gradeable modules" are still not "renders the same". That needs a paired
 # render, and until it exists do not call the two interchangeable.
-REF_VIA_LORA = True
+# NAME MATTERS: this must NOT end in `_LORA`. `bench/check_lora_alpha.py`
+# selects LoRA *filenames* with `n.endswith("_LORA")` and then resolves each on
+# disk, so a bool called REF_VIA_LORA crashed it with a bare TypeError on
+# 2026-08-16. `*_LORA` means "a LoRA filename" in this file; a flag about one
+# has to be spelled differently.
+REF_LORA_ENABLED = True
 
 # **The ref2va checkpoint is still required and must not be deleted from
 # MODELS.** The builder has ONE LoRA slot, so a reference graph that already
@@ -781,7 +786,7 @@ def ref_base_and_lora():
     graph format and missed in the other -- which is exactly the drift this
     file exists to prevent.
     """
-    if REF_VIA_LORA:
+    if REF_LORA_ENABLED:
         return MODELS["unet_fl2va"], (REF_LORA, REF_LORA_STRENGTH)
     return MODELS["unet_ref2va"], None
 

@@ -129,7 +129,7 @@ All in `workflows/h3_config.py`, all single switches, all regenerate with
 |---|---|---|---|
 | `CANVAS_TIER` | `full` | full / near / fast / draft | 1.00 / 0.91 / 0.73 / 0.58 attention |
 | length | 362 | 17n+5 grid | linear in tokens |
-| `REF_VIA_LORA` | `True` | True / False | LoRA path vs ref2va checkpoint |
+| `REF_LORA_ENABLED` | `True` | True / False | LoRA path vs ref2va checkpoint |
 | `REF_LORA_STRENGTH` | 1.0 | 0.0-1.0 | model interpolation |
 | `SOL_CUDA_DEFAULTS` | Sol off in graphs | tau, window, sinks | see `docs/SOLATTN.md` |
 
@@ -162,9 +162,16 @@ boundary, not on rank** -- 64 non-quantized modules reconstruct at residual
 which are also the *most rewritten* modules in the model. The 200 int8 modules
 are **not gradeable** from these artifacts: the delta is ~0.36 quantization
 steps RMS and the only available target differences two independently
-quantized checkpoints. A naive read of those 200 says "the LoRA is wrong"; the
-split falling on the int8 boundary rather than on rank is the tell that it is
-the instrument, not the LoRA.
+quantized checkpoints.
+
+A naive read of those 200 says "the LoRA is wrong". **The three-way
+cross-check refutes that.** We hold a second independent quantization
+(`fp8_scaled`), so the two targets can be graded against each other: they
+agree at cos 0.040, while the LoRA agrees with the fp8 target at 0.351 --
+**9x better**. The LoRA is closer to the truth than either target, which is
+exactly why neither can grade it. `int8_convrot` applies a rotation, so
+differencing two independently rotated checkpoints yields the wrong quantity,
+not merely a noisy one.
 
 **Consequence:** the delta is comparable to the quantization step of the base
 it is applied to, which bounds what *any* extraction can deliver. A

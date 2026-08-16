@@ -6,7 +6,7 @@ linear algebra on the tensors it needs. About a minute.
 
 ## Why this exists
 
-`REF_VIA_LORA` makes fl2va + this LoRA the canonical reference path, replacing
+`REF_LORA_ENABLED` makes fl2va + this LoRA the canonical reference path, replacing
 the ref2va checkpoint. That rests on a claim `h3_config.py` phrased as a
 "should": at strength 1.0 the extracted delta reconstructs ref2va, up to rank
 truncation and requantization error. Nobody had checked.
