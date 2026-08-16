@@ -154,11 +154,12 @@ recommendation.
 
 **Tests:** whether 16 is still the right step count.
 
-**Why it matters:** it was measured at 362 frames on 2026-08-06, and 362 is
-now known to be illegal — the reference applies its 15s ceiling after the
-17n+5 snap, so 345 is the maximum. The rejection of 12 steps rested on a real
-gate (the third shot of a three-shot prompt silently stops happening) but was
-measured on a configuration that no longer exists.
+**Why it matters:** it was measured at 362 frames on 2026-08-06. That length
+was called illegal on 2026-08-14 and the default moved to 345; both were
+reverted on 2026-08-16, so **the 2026-08-06 measurement is back on the shipped
+length** and this entry no longer needs a re-measure to be comparable. The
+rejection of 12 steps rested on a real gate — the third shot of a three-shot
+prompt silently stops happening — and that gate still stands.
 
 **Cost:** 3 arms at 345 frames, and someone watching each to the end knowing
 what the prompt asked for.
@@ -624,7 +625,7 @@ seconds" filed as if the tradeoff had been priced.
 ## 16. The single-frame path: four questions the first render did not answer
 
 Added 2026-08-15, when `length=1` became reachable and
-`workflows/h3_image_edit.json` shipped. The path works end to end and the VAE
+`workflows/image/h3_image_edit.json` shipped (it was `workflows/h3_image_edit.json` until the image graphs were foldered by use case on 2026-08-16). The path works end to end and the VAE
 question is settled with ground truth (37.27 dB against 22.04 dB on a `T=1`
 round trip, in `CHANGELOG.md`). These four are not.
 
@@ -762,6 +763,54 @@ paired renders.
 
 ---
 
+## 16f. Which prompt format a single-frame edit wants
+
+Added 2026-08-16, when the image path moved to `workflows/image/` and its
+prompts were rewritten into the guide's structure.
+
+**Tests:** whether the official ref2va structure earns its tokens on a still
+frame, and separately whether the two audio sections cost anything when
+carried on a graph that has no audio decoder.
+
+**Why it is open rather than decided.** This path shipped flat prose until
+2026-08-16, on the argument that the guide is a *video* guide -- two audio
+sections and a `[Shot 1]` with shot timing. Then the r/StableDiffusion author
+whose write-up this path follows published a second prompt set, and **between
+their two posts they switched from flat prose to the guide's structure** with
+the audio sections dropped. They had rendered a couple of thousand images by
+then. But neither post held the scene or the references fixed, so it is a
+practitioner's revealed preference and not a measurement -- the same grade of
+evidence as the Custom-GPT kit in `internal/PROMPTING.md` section 4.2.
+
+**The arms exist and are unrendered.** `h3_image_style.json` (four sections,
+the shipped default), `h3_image_probe_format_av.json` (all six, audio ones
+`N/A`), `h3_image_probe_format_flat.json` (one paragraph). Same scene, same two
+references, same seed. The content is generated once per scene and rendered
+into all three formats, so the arms cannot differ in wording -- which is what
+the two Reddit posts do differ in, and why they cannot answer this.
+
+**What to look at:** whether the style reference brings its own cottage. That
+is the scene's designed failure and it is visible at a glance, which matters
+because there is still no output-quality instrument here (#14).
+
+**Ladder, and read a result against it:** `av` -> `sections` removes only the
+audio pair. `sections` -> `flat` removes the guide's formal apparatus as a unit
+-- headers, shot marker, and marker vocabulary rendered as English. That last
+rung is three things on purpose: a paragraph carrying `attribute_transfer -`
+mid-sentence is a form nobody writes, and beating a strawman would tell us
+nothing.
+
+**Cost:** 3 renders, seconds each at one frame with 2 references.
+
+**Blocker: none for the renders, owner judgment for the verdict.**
+
+**Two follow-ups it would open, not close.** If the structured arms win,
+whether the `<Subject N>` indirection specifically is what did it (the flat arm
+keeps it, deliberately, so content is held fixed). And whether the result holds
+on a one-reference scene, where there are no roles to confuse.
+
+---
+
 ## 17. A 16-bit PV branch for the CUDA Sol-Attn kernel
 
 **Tests:** whether `sol_attn_exact.cu` should get a 16-bit PV matmul, keeping
@@ -884,23 +933,45 @@ tie-breaker between two numbers; it is the only way to get a second one.**
 
 ### Three gates, all cheap, before any CUDA is written
 
-**17a. Profile the CUDA exact kernel per stage.** One `ncu` run on
-`h3_probe_sol_on_api.json` settles MMA-bound against staging-bound. While there,
-record routed density: `sol_attn_stats()` counts dispatches, not blocks, so
-**how much of Sol's work the exact branch even is has never been measured**.
-*Blocker: an idle GPU -- ncu serializes kernels, so it cannot share the card
-with a render.*
+**All three are SCAFFOLDED and none are implemented** as of 2026-08-16 -- every
+entry point raises. The scaffolds exist to fix the metric, the control and the
+sampling before the measurement, because in each case a wrong design produces a
+plausible number rather than an error.
 
-**17b. Decompose Sol's error on the captured activations.**
-`~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/` has blocks 0/24/49 and
-`bench/analyze_capture.py` already loads them and computes real attention
-weights. Split Sol's error into sparsity error (eager Sol against dense) and
-quantization error (CUDA Sol against eager Sol at the same tau). **If
-quantization error is small against sparsity error, a 16-bit PV buys nothing
-measurable and 17 is closed without writing a kernel.** Those captures were
-made for a different question and nothing has yet graded a kernel against them;
-this would also be the first accuracy figure in this repo taken on real
-activations, which is what every withdrawn one lacked. *Blocker: none.*
+**17a. Profile the CUDA exact kernel per stage.**
+`bench/profile_sol_stages.py`. One `ncu` run settles MMA-bound against
+staging-bound, which is the whole uncertainty in the 2.5x estimate. While
+there, record routed density: `sol_attn_stats()` counts dispatches, not blocks
+(`vendor/sol_attn_minimax.py:102-104`), so **how much of Sol's work the exact
+branch even is has never been measured**. Two hazards the scaffold already
+carries: `ncu` needs the card alone, and Sol runs only inside the sigma window,
+so an unfiltered capture mixes 5 dense sage steps into the average.
+*Blocker: an idle GPU.*
+
+**17b. Decompose Sol's error on captured activations.**
+`bench/analyze_sol_error.py`. Split total error into sparsity error (eager Sol
+against dense) and quantization error (CUDA Sol against eager Sol at the same
+tau). **If quantization error is small against sparsity error, a 16-bit PV buys
+nothing measurable and 17 closes without a kernel being written**, so this runs
+before anything expensive.
+
+`bench/check_solattn_correctness.py` already computes both quantities and
+already says why they do not count: at T=512 on `torch.randn` it prints DOUBLY
+PESSIMISTIC, DO NOT QUOTE, because a near-uniform softmax leaves a block router
+nothing to find and 8 blocks is a different regime rather than a small version
+of production. 17b is that same decomposition somewhere the premise holds.
+*Blocker: none.*
+
+**17c. Capture a reference-heavy render.** NEW, and it gates the value of the
+other two. Every Sol measurement in this repo -- and the existing captures at
+`~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/` -- is t2v on fl2va with
+zero references, while the work actually being done is reference-heavy.
+Reference rows are pinned by `sink_conditioning`, so reference-heavy is where
+Sol has the **least** room: every existing ratio is an optimistic bound for the
+real workload, and a bigger pinned region makes a 16-bit PV *more* expensive,
+not less. `h3_capture.py` is env-driven and graph-agnostic, so this is one
+render with `H3_CAPTURE` set against `h3_probe_sol_on_refs_api.json` -- no code
+change. Run 17b on both captures and report both. *Blocker: none.*
 
 ### The port itself, if the gates pass
 

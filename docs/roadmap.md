@@ -177,6 +177,41 @@ not merely a noisy one.
 it is applied to, which bounds what *any* extraction can deliver. A
 higher-rank LoRA would be writing detail the int8 checkpoint cannot store.
 
+**The HF "hybrid" checkpoints are an adaln swap, and we can build them
+locally.** MEASURED 2026-08-16 by byte-comparing
+`smhfacct/Minimax-H3-fl2va-ref2va-hybrid-models` against both parents, every
+probe with a control confirming the parents actually differ there. The
+community framing is "hybrid models"; the reality is narrower:
+
+- Only `blocks.{N..49}.adaln_proj.linear.{weight,bias}` are taken from ref2va.
+  **Everything else is 100% fl2va** -- attention, MLP, norms, `final_layer`.
+  The filename range is which blocks take ref2va's adaln (`b20-49` = blocks
+  20-49, boundary confirmed at 19/20).
+- They are **already `int8_convrot`**, decoded from the file's own
+  `comfy_quant` tensor. Same format and key set we run, so no conversion and
+  no VRAM change -- and no bf16 version exists or can be derived from them.
+- Net effect on delivered modulation is **1.1-4.7%**. The adaln *weight* is
+  strongly anti-correlated between parents (cos -0.71 to -0.83) but the *bias*
+  is cos ~0.9995 and dominates. It is a small broad perturbation, only
+  ~1.3-2x more targeted at reference rows than at ordinary video rows.
+- **It cannot be a reference-pathway transplant.** `adaln_proj`'s input is an
+  8-dim timestep coordinate from the shared `adaln_t_table`; reference rows are
+  distinguished only by being pinned at `VISUAL_COND_TIMESTEP`. It carries no
+  reference image content.
+- It deliberately leaves `final_layer.adaln_proj` on fl2va -- **the single
+  most-rewritten tensor between the parents** (rel_delta 1.92).
+
+**So it does coarsely, in four fixed steps and skipping the most-changed
+tensor, what the ref LoRA does exactly and continuously across all 51 adaln
+projections plus `final_layer`.** Both routes independently agree that adaln is
+the only thing meaningfully different between the parents. Evidence behind the
+community praise is three comments, no samples, no numbers.
+
+**Not worth the 84 GB**: any variant is reproducible from files already on disk
+by copying those tensors between two safetensors. The discrete block-selective
+blend *is* a different interpolation path from a uniform LoRA strength, so it
+remains a distinct experiment if anyone wants it -- just a local one.
+
 **Attention is not very sparse on this workload.** MEASURED on captured
 activations: at its most concentrated a query still needs 178 key blocks of
 591 to hold 90% of its mass, and 394 at the first block. That bounds what any

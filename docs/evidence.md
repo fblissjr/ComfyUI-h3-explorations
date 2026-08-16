@@ -1,6 +1,6 @@
 # What holds, and what does not
 
-Last updated: 2026-08-14
+Last updated: 2026-08-16.
 
 `docs/checks.md` indexes what is *checked*. `docs/open_experiments.md` indexes
 what is *not measured*. This file is the third case and the one that kept
@@ -58,23 +58,31 @@ attached to the number.
 | **text = 38 rows, sequence = 12,264** | `smoke_h3.py` substitutes **both** the prompt (27 words, against the graph's 216) and the length. Not a scaled-down shipped graph — text does not scale with length and was replaced | one preflight on a shipped graph, unmodified |
 | **everything derived from that**: audio dominates the sink; text is the whole v2 narrowing; `sink_q` start is 0 on t2v | all smoke-harness statements. On the shipped graph, text extrapolates to ~304 rows / 4 blocks — still an extrapolation from one point | same preflight |
 | **the sink's audio framing** | A **t2v** framing. In reference-heavy graphs the sink is overwhelmingly *reference* rows, and a video reference's failure mode is motion drift, not the thinness argument the knob is named for | measurement at reference load; the bench has no `--refs` axis yet |
-| **reference-load table: 35.1% / 57.9%** | Wrong on three axes — v1 formula (v2 stops running reference queries dense), 362 frames, 1344x768. The shipped reference arms are 345 at 1024x768 | redo as v1-vs-v2, measured not derived |
+| **reference-load table: 35.1% / 57.9%** | Wrong on three axes — v1 formula (v2 stops running reference queries dense), 362 frames, 1344x768. The shipped reference arms were 345 at 1024x768, and are 362 since 2026-08-16 | redo as v1-vs-v2, measured not derived |
 | **"with Sol on, sage gets nothing"** | Retracted 2026-08-14. Reasoned from `min_tokens` and forgot the sigma window. Sage runs 5 of 16 steps | — corrected in place |
 | **`min_tokens` 4096 is "very likely wrong"** | Retracted, and the retraction's reasoning was itself corrected 2026-08-14: it is one `optimized_attention` call in source but **52 modules** through it. Conclusion survives — the 50 DiT blocks run at the full packed length, above both thresholds, and the 2 refiner blocks run at the text span, below both — so 4096 and 12288 still select the same thing | — corrected in place |
 | **"fp16 lands on the steps where precision matters most"** | Inference, not measurement. `start_percent` has never been measured at any length on either backend | measure `start_percent` (Run 2, not started) |
 | **any bench progress read from its own stdout mid-run** | The warmup `print` lacks `flush=True`, and `tee` makes stdout block-buffered, so finished lines sit in the buffer. Read ComfyUI's progress lines instead | add `flush=True` |
 
-**362 is a trained length. Corrected 2026-08-14.** The reference *pipeline*
-refuses it — its `max_duration` is a hard-coded 15.0 s and 362 is 15.083 s —
-but that is a spec ceiling landing one grid step short of the real training
-maximum, not a statement about the model. 362 is the longest length H3 was
-trained on. This repo called it "illegal" and "out of distribution" for most
-of 2026-08-14, which was an inference from a validator, not a fact about the
-checkpoint.
+**362 is the max length, and every "345 is legal / 362 is illegal" claim is
+withdrawn. Owner decision, 2026-08-16.** 345 is the largest count the
+*reference pipeline* will emit — its `max_duration` is a hard-coded 15.0 s and
+362 is 15.083 s — which is a fact about diffusers. This repo turned that into
+"362 is illegal / out of distribution" for most of 2026-08-14 and withdrew a
+bench run over it; that was an inference from a validator, not a fact about the
+checkpoint, and the framing survived the first correction because 345 stayed
+the default.
 
-All 34 shipped API graphs are at 345 (`LONG_LENGTH`), which stays a reasonable
-default — it is inside the reference's window, so a graph exported from here
-runs in diffusers too. That is a portability argument, not a quality one.
+`LONG_LENGTH` is now 362 and all shipped graphs carry it. `duration_in_range()`
+is the model's window; `reference_would_emit()` is the separate portability
+question.
+
+**What 362 rests on, stated because this table exists for exactly this.** One
+upstream statement recorded 2026-08-14 (`6e85e48`) with no artifact attached,
+plus LightX2V shipping a 362-frame config. MiniMax's README gives a rounded
+"4-15 seconds" and the official checkpoint configs state no frame limit at all,
+so the primary source neither confirms nor refutes it. This is a decision taken
+on thin evidence, not a measurement — do not quote it as one.
 
 ---
 
@@ -85,7 +93,6 @@ instrument that has been shown red.
 
 - **The CUDA seam works.** Live render, `cuda-int8` in the log, override
   chained, 50 forwards composed. Not a source read.
-- **345 legal / 362 illegal**, from `h3_rules.py` and the reference.
 - **One `optimized_attention` call in source**, `comfy/ldm/minimax/model.py`,
   reached by **52 modules** — 50 DiT blocks plus 2 token-refiner blocks, all
   sharing one `Attention.forward` (`num_layers=50`,
@@ -97,7 +104,7 @@ instrument that has been shown red.
 - **`reuse_qkv_memory` is numerically identical** to the normal entry, six
   digits. It cannot change output. What it *buys* is unmeasured.
 - **Both backends are arithmetically equivalent** at `T=512` fidelity.
-- **All 34 API graphs carry 345**, read from their widgets.
+- **All 34 API graphs carry `LONG_LENGTH`**, read from their widgets.
 - **Every `bench/check_*.py` passes**, and the ones added today were each shown
   red first: `check_sol_kernel` (4 cases), `check_bench_matches_shipped`,
   `vendored`, `node_version`.
@@ -171,6 +178,33 @@ thing was the **pairing** of two numbers, not any token in the sentence. No
 phrase matcher can see that, and a check that appears to cover a class it
 silently omits is how the 2026-08-13 validator bug worked — so it is said here
 rather than left to be assumed.
+
+**The general form, named 2026-08-16 after it happened again.** This check
+defends the *spelling* of a retracted claim, not the claim. A retracted
+**measurement** can reappear in any wording containing no listed phrase, and
+**derived figures are exactly that shape** — a spread between two withdrawn
+numbers, a ratio of them, a rescale, a rounding. The instance: after the
+accuracy ratios were withdrawn, `CLAUDE.md` kept a sentence saying all three
+fp8 variants land within a stated tolerance of each other — a mean_rtol spread
+from the same withdrawn sweep — nine lines below the paragraph announcing there
+was no numeric half left. The commit that removed its neighbours left it, and
+its author read that paragraph twice the same day. Two properties made it
+invisible: it carried no retracted token, and it read as a conclusion rather
+than as a number.
+
+So when withdrawing a measurement, grep for the *quantities* it produced and
+not only for the sentence it was written in.
+
+**And it cannot be closed by adding a row, which was tried on 2026-08-16 and
+reverted the same hour.** The ledger is an allowlist: every phrase needs at
+least one file that legitimately contains it, and the `stale_allowlist` case
+warns when a listed phrase is absent from its own allowed files. A spelling
+that should appear **nowhere** therefore cannot be expressed — listing it emits
+a permanent warning on every run, which is the crying-wolf failure this repo
+treats as worse than no check. The model fits a claim with a legitimate home
+and a forbidden everywhere-else; it does not fit a claim that is simply banned.
+Catching those needs a different instrument, and until one exists this
+paragraph is the instrument.
 
 ---
 

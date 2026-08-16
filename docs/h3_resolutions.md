@@ -1,6 +1,6 @@
 # MiniMax H3: every legal resolution, and why the set is what it is
 
-Last updated: 2026-08-11.
+Last updated: 2026-08-16.
 
 Every number here comes from running `comfy_extras/nodes_minimax_h3.py` and
 `comfy/ldm/minimax/model.py`, not from reading them.
@@ -31,6 +31,27 @@ Attention is quoted against 1:1 at the same frame count, and it goes as the
 square of the token count, because attention is O(S^2) and video tokens
 dominate S. 1:1 costs a third of 16:9. That is the largest single lever in
 this repo, larger than any kernel or sparsity setting.
+
+## Picking one: `CANVAS_TIER`
+
+The generator does not ask you to type a resolution. `workflows/h3_config.py`
+carries `CANVAS_TIER` and four tiers along the fixed-768-height ramp, so
+"render this cheaper" is one edit and a regenerate:
+
+| tier | canvas | ratio | tok/frame | attention |
+|---|---|---|---|---|
+| `full` | 1344x768 | 1.75 | 1008 | 1.00x |
+| `near` | 1280x768 | 1.67 exact 5:3 | 960 | 0.91x |
+| `fast` | 1152x768 | 1.50 exact 3:2 | 864 | 0.73x |
+| `draft` | 1024x768 | 1.33 exact 4:3 | 768 | 0.58x |
+
+All four are stable fixed points of `adapt_canvas` (verified, not asserted), so
+every tier stays inside the trained family. Three hit a common ratio exactly,
+which the shipped default does not.
+
+**The Sol-Attn caveat:** at 243 frames `fast` is 62,208 tokens and `draft` is
+55,296. Sol needs roughly 60k before it shows anything, so `draft` is for "does
+the pipeline run", never for a Sol measurement. See `docs/roadmap.md`.
 
 ## The complete set
 
@@ -174,13 +195,19 @@ temporal chunking, not from the DiT.
 | 345 | 345 | 14.375s | 102 |
 | 346 | 362 | 15.083s | 107 |
 
-345 is the ceiling, not 362. The reference generates 5 to 15 seconds at 24
-fps and applies that limit after the rounding, so 362 frames at 15.083s is
-refused while 345 at 14.375s passes. There is no on-grid count at exactly
-15.0 seconds. Ask for 346 and you get 362, which is why the check has to run
-on the rounded number rather than the requested one.
+**362 is the ceiling** -- 15.083s, the longest length H3 was trained on, and
+the shipped `LONG_LENGTH`. Ask for 363 and you get 379, which is over, and
+that is why the check runs on the rounded number rather than the requested
+one.
 
-345 is the frame-count ceiling and not the sequence-length ceiling. The
+The reference pipeline stops one grid step earlier at 345, because its
+`max_duration` is a hard-coded 15.0s applied after the rounding. That is a
+fact about diffusers, not a limit on the model: a 362-frame graph renders
+here and will not run unmodified there. Ask `h3_rules.reference_would_emit()`
+when you care. There is no on-grid count at exactly 15.0 seconds, which is
+how the gap appears.
+
+The frame count is not the sequence-length ceiling. The
 chaining packs pin context from a previous clip, which adds conditioning
 tokens, so a chained shot runs longer in sequence length than the same clip
 alone at the same frame count.
@@ -197,7 +224,8 @@ offsets cross at `2^31 / 21504` = 99,864 tokens.
 | 260 | 82,594 | |
 | 311 | 97,884 | under |
 | 328 | 102,982 | over |
-| 345 | 108,078 | over, and this is the shipped default |
+| 345 | 108,078 | over |
+| 362 | 113,406 | over, and this is the shipped default |
 
 The crossing sits between 311 and 328 frames at 1344x768, so the workflows
 in this repo ship past it. That is safe here only because `build_kernel()`

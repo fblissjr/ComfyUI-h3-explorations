@@ -26,8 +26,12 @@ this fork, this model, this box".
 
 ## Read this before quoting any number on this page
 
-Status 2026-08-14, end of session. This page changed more in one day than in
-the two weeks before it, and a large share of what it used to say is now
+Status 2026-08-16. The table below was written 2026-08-14, when this page
+changed more in one day than in the two weeks before it. Two things have
+happened since: **every fp8-vs-fp16 accuracy ratio was withdrawn** (see the
+row below and `docs/evidence.md`), and **the Triton backend was deleted**, so
+the Triton numbers here are now unreproducible without recovering the pack
+from upstream. A large share of what this page says is
 labelled rather than deleted. Read this list first.
 
 ### Do not rely on
@@ -535,6 +539,21 @@ that does not account for it is measuring two things at once.
 `_sink_blocks` covers rows `[0, video_start)`. From `PackedLayout` that is text,
 keyframe `cond`, keyframe `cond_audio`, `ref_img`, `ref_audio` **and the target
 audio segment** — every reference type, whatever it is.
+
+**"Pinned exact" is exact for audio and off by one part in a thousand for
+visual, and the distinction is worth keeping because this whole argument turns
+on those rows being immovable.** The pin is a per-row timestep, not a mask:
+`comfy/ldm/minimax/model.py:32-33` sets `VISUAL_COND_TIMESTEP = 0.999` and
+`AUDIO_COND_TIMESTEP = 1.0`, applied at `:566-567` as `max(t, aug)` over the
+`cond` / `ref_img` and `cond_audio` / `ref_audio` segments. So visual reference
+rows carry a deliberate 0.001 of noise augmentation and audio rows are clean.
+
+Verified against a second implementation on 2026-08-16: DiffSynth's H3 pipeline
+uses the same formula with the same two constants (`imgvid_cond_noise_aug =
+0.999`, `audio_cond_noise_aug = 1.0`, `minimax_h3_audio_video.py:35-36`). Two
+independent sources agreeing makes this one of the better-supported claims on
+this page. It changes nothing about Sol — the rows are still pinned and still
+unsparsifiable — it just is not "exact".
 
 Row counts differ by two orders of magnitude between types (measured, see
 `docs/h3_references.md`, at 1344x768):
