@@ -194,6 +194,31 @@ bug reintroduced. Prefer a control the check compares against (a
 frontend-written graph, the pre-fix code, an independent implementation)
 over asserting against numbers computed in the test itself.
 
+**A baseline that shares mutable state with the thing it measures is not a
+baseline.** `check_single_frame.py` compared against core's *original*
+`temporal_shape` function object -- but its body resolves the two grid helpers
+through module globals, which are exactly what the patch replaces, so both
+sides of the comparison ran the patched helpers. It could only see changes made
+inside `temporal_shape` itself, and reported green with a helper deliberately
+broken at n=200. Rebuild the baseline from source into its own namespace
+(`ast` works and stays CUDA-free); holding a reference is not enough.
+
+**A check whose input already satisfies the expected outcome cannot fail, and
+it is most convincing when it is emptiest.** The first single-image scene asked
+to age a subject to 60 against a reference of a man well past 70. It rendered,
+it looked like a working edit, and it demonstrated only that the pipeline runs.
+Before trusting a passing case, ask what the input would have to look like for
+it to fail.
+
+**The positive case, because these get recorded less often than failures.** On
+2026-08-15 `bench_e2e_h3.py` refused an entire run because an override dict
+carried a `_curve` key the Sol node does not declare. It validates every
+override key against the node's real inputs precisely so a dropped knob cannot
+silently turn one arm into a different configuration -- without it, a Hilbert
+ordering arm would have rendered as plain `2d_frame` and been reported as a
+Hilbert result. Same failure class as the two above, opposite outcome, and the
+only difference was that someone had written the guard.
+
 **And the same standard applies to claims, not only to checks -- with the
 uncomfortable finding that re-reading your own work does not meet it.** On
 2026-08-13, eight substantive defects were found across this repo and the sage
