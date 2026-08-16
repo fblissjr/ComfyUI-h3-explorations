@@ -12,8 +12,8 @@ sibling node packs, which live beside this repo under ComfyUI's `custom_nodes/`.
 | file | what it is |
 |---|---|
 | `vendor/sol_attn_minimax.py` | The CUDA Sol-Attn node, kept byte-identical to upstream. All the Morton machinery: `morton_perm` (`:150-188`), the block-alignment rotation `_perm_for` (`:205-224`), the video-span resolver `_video_span` (`:227-245`), and the install plus hooks `install_h3_morton` (`:276-396`). The node's own `morton` and `morton_curve` inputs and their tooltips are at `:746-753`. |
-| `ComfyUI-SolAttn_triton/_morton.py` | The Triton pack's Morton, for Wan. **Its docstring (`:1-11`) is the load-bearing quote on this page**: it says Z-ordering "lets the same quality be reached at higher sparsity", which is the axis nothing here has tested. |
-| `ComfyUI-SolAttn_triton/_morton_h3.py` | The H3 variant of the same, reordering only the video span rather than the whole packed sequence. The CUDA node's copy is inlined from these two. |
+| `ComfyUI-SolAttn_triton/_morton.py` | The Triton pack's Morton, **for Wan**. Its docstring (`:1-11`) carries the only stated payoff anywhere in either pack: Z-ordering "lets the same quality be reached at higher sparsity". That sentence appears exactly once in the pack, and it is in the Wan file. |
+| `ComfyUI-SolAttn_triton/_morton_h3.py` | The H3 variant, reordering only the video span rather than the whole packed sequence. **Makes no quality or sparsity claim** — its docstring is purely mechanical. The CUDA node inlines from both files, and contains the word "sparsity" zero times. |
 | `ComfyUI-SolAttn-cuda/` | A two-line loader shim over `vendor/sol_attn_minimax.py`, plus a README on why the node id is provisional and why it is not vendored into this repo. |
 
 ### What we built to look at it
@@ -66,11 +66,13 @@ What this page does establish, by measurement rather than by reading:
    landscape canvases. The default canvas here, 1344x768, is not one of them.
    On it a block is typically two disconnected fragments in different parts of
    the frame.
-3. Every Morton arm **this project** has run held `tau` fixed, while the
-   author's own docstring puts the payoff at higher sparsity. So this
+3. Every Morton arm **this project** has run held `tau` fixed, while the one
+   place upstream states a payoff puts it at higher sparsity. So this
    project's arms were designed in a way that could not find the effect, and
    "a different seed that saves ten seconds" is the result you should expect
-   from them. This says nothing about arms anyone else has run.
+   from them. This says nothing about arms anyone else has run. Read the next
+   section carefully before repeating the attribution: that statement is in
+   the **Wan** Morton file, and the H3 path makes no quality claim at all.
 
 If you only take one thing: the next Morton experiment should vary `tau` and
 Morton together, not Morton alone.
@@ -466,7 +468,28 @@ source on 2026-08-15:
 > concentrates the mass into fewer blocks and lets the same quality be reached
 > at higher sparsity.
 
-The payoff is stated as being at higher sparsity. At fixed `tau`, Morton can
+**Check which file that is before leaning on it.** Line 1 of the same docstring
+opens "Morton (Z-order) token reordering **for Wan**". Three facts, all from
+greps on 2026-08-15:
+
+- The sentence appears exactly once in the whole Triton pack, in the Wan file.
+- `_morton_h3.py`, the H3 variant, makes **no** quality or sparsity claim. Its
+  docstring is entirely mechanical: which segment gets reordered, why the span
+  is registered from `PackedLayout.__init__`, which three pieces are gated.
+- The CUDA node contains the word "sparsity" **zero** times. Its `morton`
+  tooltip says only "compact 3D neighbourhood" and "exactly neutral for dense
+  attention". Our `vendor/` copy is byte-identical to upstream's POC, so that
+  absence is upstream's and not ours.
+
+So the honest version is narrower than "upstream says Morton pays off at higher
+sparsity on H3". It is: upstream states that rationale for Wan, states nothing
+either way for H3, and told us directly on 2026-08-14 that Morton "may or may
+not increase quality, that's something to test" — which is consistent with the
+H3 file being silent. Whether the Wan rationale carries to H3 is a question to
+ask, not an argument to quote.
+
+Taking the mechanism at face value anyway, because it is the only stated one:
+the payoff is at higher sparsity. At fixed `tau`, Morton can
 only add work: it costs a permutation and some non-tensor-core time, which is
 what this project measured when it recorded the Morton arm running at 94% GPU
 utilization where every other arm hit 99%.
