@@ -4,6 +4,79 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.26.0
+
+### Added
+
+- **`bench/preflight_graph.py` — grade a prompt and price a render before you
+  queue it.** Static, no CUDA and no server: it grades against the guide's
+  mechanical rules (ordinals derived from sockets, every defined label cited in
+  `detailed_description`, one retention line per label, markers never crossing
+  the visual/audio sets, no `(Sx)` in `retention_analysis`, `<d>` placement and
+  language tag, cut times inside the clip) and prices the packed sequence.
+
+  **Takes paths and never globs**, which is the point: both prompt checks only
+  ever saw `workflows/*_api.json`, so hand-built graphs were ungoverned and a
+  new directory was invisible. Reports, never refuses — a tool that blocks you
+  in your own repo gets disabled. Names what it cannot count: a video reference
+  is a floor, not a budget.
+
+  Shown red six ways. A seventh mutation looked green and had simply failed to
+  apply, caught only by diffing the mutant; that is recorded in its row rather
+  than quietly fixed. It imports `wired_labels`, `_audio_sections_optional` and
+  `_STRUCTURE_PROBES` rather than restating them — the first run without the
+  last two reported FAIL on 7 of 8 image graphs for sections that structurally
+  cannot apply.
+
+- **`docs/prompt_length_experiment.md`**, pre-registered before either clip was
+  watched (`7de7a16`): five predictions with confidence, an internal control,
+  and the RoPE confound named up front. Prompt length is not a free variable —
+  `text_len` is the temporal cursor for every reference block and both target
+  segments (`comfy/ldm/minimax/model.py:307-318`).
+
+### Changed
+
+- **CLAUDE.md: 293 lines to 215, and it stopped being an archive.** An audit
+  found 19 stale or wrong claims. Six were the Triton block alone, which still
+  described a deleted pack as "moved, not deleted" and told the reader to
+  symlink it back to run a probe that no longer exists; that block is now four
+  lines. Also corrected: two probe graphs to four, the dotted-import list
+  (which omitted the two files importing at *module* scope, the worse case),
+  "pinned exact" to 0.999 visual / 1.0 audio, and a `nodes.py:2245-2250`
+  citation that resolved to our own 194-line file — inside the paragraph
+  warning that `import nodes` finds ours.
+
+  Added what the day cost to learn: 362 as the ceiling with what it rests on,
+  `REF_LORA_ENABLED` with an explicit "do not call fl2va+LoRA and ref2va
+  interchangeable", restarting by port owner rather than `pgrep | head -1`, and
+  "when you reverse a decision, update the document that argued for it."
+
+- **Five reference arms stopped asking for something they did not contain.**
+  `h3_ref_video_only`, `h3_ref_video_audio`, `h3_ref_video_to_video`,
+  `h3_ref_image_video_audio` and `h3_probe_sol_on_all_refs` carried
+  `<Video 1> (cut and pacing structure): weak_reference` inside a single-shot
+  prompt whose summary says "a single continuous shot". A cut-structure
+  reference on a cutless prompt asks for nothing. Narrowed to camera movement;
+  the cut language can return if these arms ever gain a shot timeline.
+
+- `bench/check_lora_alpha.py` fails with a sentence rather than a bare
+  `TypeError` when a constant ends in `_LORA` and is not a filename.
+
+### Fixed
+
+- **`docs/evidence.md` records what the retraction ledger cannot see.** A
+  `mean_rtol` spread survived the fp8/fp16 withdrawal because the sentence
+  contained no listed phrase: the check defends the *spelling* of a retracted
+  claim, not the claim, and derived figures are exactly that shape. Also
+  records that the gap **cannot be closed by adding a row** — the allowlist
+  needs every phrase to have a legitimate home, so a spelling that should
+  appear nowhere emits a permanent warning. Tried, reverted the same hour.
+
+- `bench/preflight_graph.py` priced no 1024x768 arm on first writing: it
+  assumed the linked source was `MiniMaxH3Resolution` *and* assumed its `wide`
+  shape, so the most OOM-prone graphs in the repo reported "cannot price"
+  rather than a number. Follows the link now.
+
 ## 0.25.0
 
 ### Changed
@@ -213,6 +286,22 @@ artifact.
   render, at any step count or sizing. First evidence here that telling a
   reference what it does *not* supply does something; still uncontrolled, since
   no arm omitted the negative clause.
+
+- **The three prompt-format arms rendered, and none of them failed.** Same
+  scene, same two references, same seed, one pass. `av` (six sections) differs
+  from `sections` (four) by a grey-scale mean of **3.45**/255 -- against an
+  h264 round-trip floor of ~1.6 -- for 15 extra prompt tokens. `flat` (one
+  paragraph) differs from both by **~44.6**, a materially different picture.
+  **No cottage appeared in any arm**: the `attribute_transfer` role bound with
+  and without the section scaffolding, and identity, freckling and the graphite
+  medium held in all three.
+
+  A negative result, recorded as one. It is not "format does not matter": n=1
+  per arm on one scene at one seed, and the `flat` arm keeps the negative
+  clause because content is held fixed across formats, so it is not the bare
+  community-style prompt. `docs/open_experiments.md` #16f names the three arms
+  that would discriminate -- drop the negative clause, run the ladder on the
+  three-reference scene, repeat at more seeds.
 
 ### Known wrong
 

@@ -9,7 +9,8 @@ diffusers reference pipeline, and ComfyUI's own code. Every number marked
 **measured** was taken on this install against a live render; everything else
 is read from source and says so.
 
-Written 2026-08-13 against ComfyUI v0.33.0.
+Written 2026-08-13 against ComfyUI v0.33.0. Reference-image sizing
+re-read from source and corrected 2026-08-16.
 
 ---
 
@@ -38,12 +39,15 @@ frame loader, which is why the frame rate is your problem (below).
 
 ### Image references
 
-Scaled by `short_edge / min(w, h)` and rounded to 32. **ComfyUI clamps that
-with `min(1.0, ...)` and the reference pipeline does not**, so a reference
-smaller than 2048 on its short side reaches the DiT under-sized — and identity
-fidelity is the whole job of a reference image. `MiniMaxH3ReferenceFit` exists
-to close that gap; it needs the downstream `ref_image_size` on `max`, or the
-stock node re-sizes from the video's pixel area instead and undoes it.
+Scaled and rounded to 32. **ComfyUI clamps the scale with `min(1.0, ...)` and
+the reference pipeline does not**, so a reference smaller than 2048 on its
+short side reaches the DiT under-sized — and identity fidelity is the whole job
+of a reference image. `MiniMaxH3ReferenceFit` exists to close that gap.
+
+Two separate knobs decide the final size and they are constantly confused for
+each other. See **Sizing a reference image** below; the short version is that
+`ref_image_size` never upscales in either of its modes, so `max` alone does
+nothing for a reference that is already under 2048.
 
 Refused outside 1:4..4:1. Image references are deliberately **exempt from the
 768x1344 area cap** that binds the video, which is why one can legitimately
@@ -108,10 +112,17 @@ are. Measured against a live render, 1344x768:
 |---|---|
 | audio, per second | 80 |
 | image at `match` | ~1,008 |
-| image at `max`, 1024x1024 source | 4,096 |
-| image at `max`, 1280x720 source | 7,296 |
+| image, 1024x1024 source, **upscaled** to 2048 | 4,096 |
+| image, 1280x720 source, **upscaled** to 2048 | 7,296 |
 | video, 960x544 source, 124 frames | 18,870 |
 | video, 960x544 source, 345 frames | **52,020** |
+
+> **Corrected 2026-08-16.** The two image rows above used to read "at `max`",
+> which credited our node's effect to core. `max` alone cannot produce either
+> number: it clamps with `min(1.0, ...)`, so a 1024x1024 source at `max` is
+> **1,024 rows, unchanged**. 4,096 and 7,296 are what you get with
+> `MiniMaxH3ReferenceFit(allow_upscale=True)` feeding `max`. The next section
+> is why.
 
 **Reference IMAGES cost in two places as well, and the table above is only
 the first.** Measured 2026-08-13 on one graph, toggling `allow_upscale` alone,
@@ -165,6 +176,12 @@ soundtrack:
 | 124 frames | 78,019 | **success**, 740s, peak 21,938 MiB |
 | 345 frames | 182,092 | **OOM** at step 4 of 16, 21.05 GiB allocated |
 
+**The video-reference arms ship 362 frames as of 2026-08-16**, not the 345
+these rows were measured at. `REF_VIDEO_LENGTH` was deleted rather than raised
+-- a safe length here depends on reference count, kind, duration, canvas and
+upscale, so no constant is right twice. Treat the table as the shape of the
+cliff, not as clearance, and read preflight before any reference render.
+
 The failure is graceful and worth recognising: Sol-Attn's kernel OOMed and
 fell back, then sage's OOMed and fell back, then ComfyUI's own SDPA OOMed.
 Three clean degradations, each logged. There was simply no room.
@@ -174,6 +191,148 @@ spare. Reference video is the most expensive input in the model.
 
 **Budget by pixel area, not by count.** The same clip at 640x360 costs a third
 of what it costs at 960x544.
+
+---
+
+## Sizing a reference image: two knobs, not one
+
+The single most confused thing on this page, and the confusion was in this
+document until 2026-08-16. `ref_image_size` on `MiniMaxH3ReferenceToVideo` and
+`allow_upscale` on `MiniMaxH3ReferenceFit` are **orthogonal**. Neither is a
+version of the other.
+
+### What each one actually does
+
+`comfy_extras/nodes_minimax_h3.py:297-301`, read from source:
+
+```python
+if ref_image_size == "match":
+    scale = min(1.0, math.sqrt((width * height) / (w * h)))
+else:  # "max"
+    scale = min(1.0, REF_IMAGE_SHORT_EDGE / min(w, h))   # 2048
+```
+
+**Both branches clamp with `min(1.0, ...)`. Core never upscales in either
+mode.** `max` changes *which ceiling* sizes a reference down — the 2048 short
+edge instead of the generation's pixel area — not the direction. Core's own
+socket tooltip says so: "downscaled to 2048 short edge if larger, **never
+upscaled**".
+
+`reference_fit.py:181` is the only thing in the stack that drops that clamp:
+
+```python
+scale = full if allow_upscale else min(1.0, full)
+```
+
+So: **`ref_image_size` picks the ceiling; `allow_upscale` decides whether a
+small reference is raised to it.** You need `max` *and* `allow_upscale=True` to
+condition at 2048.
+
+### Scope: one is global, one is per reference
+
+| | `ref_image_size` | `allow_upscale` |
+|---|---|---|
+| lives on | `MiniMaxH3ReferenceToVideo` | `MiniMaxH3ReferenceFit` |
+| applies to | **all image references at once** | **one reference** |
+| touches video refs | no | no |
+| touches audio refs | no | no |
+
+`ref_image_size` is read in exactly one loop, the `ref_images` one. Video
+references never see it — they take `adapt_canvas` from their own aspect ratio
+(`:315-319`) — and audio has no spatial sizing at all.
+
+`MiniMaxH3ReferenceFit` takes **one image per node** and warns if you feed it a
+batch (`reference_fit.py:165-168`), so upscaling is decided per reference. Five
+references means five nodes and five independent decisions.
+
+### The four combinations
+
+| ReferenceFit | conditioning node | what happens |
+|---|---|---|
+| `allow_upscale=True` | `max` | 2048 survives. **The working combination.** |
+| `allow_upscale=True` | `match` | upscale **undone** — core re-shrinks to the generation's pixel area, and you paid two lanczos resamples for nothing |
+| `allow_upscale=False` | `max` | both no-ops for anything under 2048 |
+| `allow_upscale=False` | `match` | reference sized to the generation's pixel area |
+
+Row two is why the node inspects its consumer at run time
+(`reference_fit.py:199-206`) and warns. Row three is the state **10 of the 18
+shipped graphs that wire ReferenceFit are in**, deliberately — `REF_VIDEO_BUDGET`
+holds `allow_upscale=False` to fit 24 GB. As of 2026-08-16 the node says "NO
+CHANGE" in the log when it lands there, because its presence in a graph
+otherwise reads as "the references were fitted".
+
+### Worked examples
+
+Five image references, `ref_image_size='max'` on the conditioning node
+throughout, `short_edge=2048`. Rows are `(w/32) x (h/32)` after the round-to-32
+— the VAE compresses by 16 and the DiT patchifies 2x2 on top. Computed from the
+formulas above, not measured.
+
+| source | short edge | upscale off | rows | upscale on | rows | factor |
+|---|---|---|---|---|---|---|
+| 1024x512 | 512 | 1024x512 | 512 | 4096x2048 | 8,192 | **16.00x** |
+| 960x1280 | 960 | 960x1280 | 1,200 | 2048x2720 | 5,440 | 4.53x |
+| 2048x2612 | 2048 | 2048x2624 | 5,248 | 2048x2624 | 5,248 | **1.00x** |
+| 768x512 | 512 | 768x512 | 384 | 3072x2048 | 6,144 | **16.00x** |
+| 1920x1080 | 1080 | 1920x1088 | 2,040 | 3648x2048 | 7,296 | 3.58x |
+
+`2048x2612` is already at the target, so `allow_upscale` changes nothing —
+`full = 2048/2048 = 1.0` in both modes. That is the second "no change" case the
+node reports.
+
+Mixing them, same five references:
+
+| scenario | reference rows | vs baseline | with the text twin |
+|---|---|---|---|
+| none upscaled | 9,384 | 1.00x | ~18,768 |
+| **only the two 512-short-edge** (1024x512, 768x512) | 22,824 | 2.43x | ~45,648 |
+| only the two largest (960x1280, 1920x1080) | 18,880 | 2.01x | ~37,760 |
+| all upscaled | 32,320 | 3.44x | ~64,640 |
+
+**The counterintuitive one, and the reason this table is here: the smaller the
+reference, the more upscaling costs it.** Rows are quadratic in the scale
+factor and the scale factor is `2048 / short_edge`, so a 512-short-edge image
+pays 16x and a 1080 one pays 3.58x. Upscaling the two *smallest* references
+above adds **13,440 rows**; upscaling the two *largest* adds **9,496**. The
+instinct that big references are the expensive ones is backwards — big
+references are already close to the ceiling, and the ceiling is where everything
+ends up.
+
+The "text twin" column is not padding. Reference images cost again in the text
+segment, at 75-160 rows *above* the reference segment itself (measured, see the
+count ladder above), because the conditioner's vision blocks read the resized
+image too. So all five upscaled is roughly **64,600 rows before a single frame
+of video** — against 37,296 for an entire 124-frame render at 1344x768.
+
+Nothing here says the 2048 version looks better. That is
+`docs/open_experiments.md` #1, still unmeasured, and its own entry notes that
+2048 "is a good reason to offer it and a weaker reason to default to it,
+because upscaling adds tokens rather than detail."
+
+### Should video and audio have fit nodes too?
+
+Both have the same kind of divergence from the reference pipeline. The answers
+go opposite ways.
+
+**Audio: yes, and it already exists — it is a trim, not a fit.** ComfyUI
+encodes the whole waveform (`_encode_ref_audio`, no truncation on either the
+soundtrack or the standalone path) where the reference pipeline cuts a
+soundtrack to the generated duration. So here ComfyUI does **more** than the
+reference, at 80 rows per second of excess, and closing the gap *saves* rows
+while moving toward the reference's behaviour. Core already ships
+`TrimAudioDuration` (`comfy_extras/nodes_audio.py:430`), so this is a wiring
+fix and a Preflight warning, not a new node.
+
+**Video: no, not now.** The divergence is real and the same shape as the image
+one — never upscaled, where the reference puts the clip on the full canvas rule
+— but building it would make **the most expensive input in the model** more
+expensive. A 960x544 clip at 345 frames is already 52,020 rows, the reference
+arms already OOM on 24 GB past about 124 generated frames with images at `max`,
+and closing this gap costs roughly 5x what the image one does. It would also be
+building the expensive version of an idea whose cheap version is unproven:
+settle whether upscaling helps at all on images first. If it does not, the
+video question dissolves; if it does, the video fit finally has an evidence base
+to justify its cost.
 
 ---
 
@@ -410,7 +569,11 @@ LoRA — both experiments, both documented in their own notes.
 - **No fps input.** 24 is assumed twice; use `force_rate=24`.
 - **Reference video is never upscaled**, where the reference pipeline upscales.
 - **Reference audio is never truncated**, where the reference pipeline
-  truncates to the generated duration.
+  truncates to the generated duration. Costs 80 rows per second of excess;
+  core's `TrimAudioDuration` closes it without a new node here.
+- **`ref_image_size='max'` does not upscale.** Neither mode does. It picks
+  which ceiling sizes a reference down; `MiniMaxH3ReferenceFit` with
+  `allow_upscale=True` is the only thing that raises a small one to it.
 - **Reference video is truncated to the generated frame count**, so a short
   render cannot be conditioned on a long reference.
 - **12-total and audio-never-alone are unenforced** by ComfyUI.

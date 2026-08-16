@@ -206,7 +206,27 @@ def classify(header):
 # The LoRAs this repo names
 
 def lora_constants():
-    return sorted(n for n in dir(h3_config) if n.endswith("_LORA"))
+    """Every `*_LORA` constant in h3_config, which this file treats as a
+    filename.
+
+    The suffix IS the selector, so a constant that ends in `_LORA` and is not a
+    filename is a naming collision, not an input. On 2026-08-16 a bool called
+    `REF_VIA_LORA` (a flag about the ref LoRA, not a LoRA) reached `resolve()`
+    and died on `Path / bool` with a bare TypeError -- a traceback where the
+    reader needed a sentence. It was renamed to `REF_LORA_ENABLED`; this guard
+    is here so the next collision reports itself instead of crashing.
+    """
+    names = sorted(n for n in dir(h3_config) if n.endswith("_LORA"))
+    bad = [n for n in names if not isinstance(getattr(h3_config, n), str)]
+    if bad:
+        raise SystemExit(
+            f"h3_config has {len(bad)} constant(s) ending in `_LORA` that are "
+            f"not filenames: {', '.join(bad)}.\n"
+            f"In this file `*_LORA` means 'a LoRA filename' and the suffix is "
+            f"how they are selected. Rename the flag (e.g. `_LORA_ENABLED`), "
+            f"or this check cannot tell a knob from an asset."
+        )
+    return names
 
 
 def resolve(name):
