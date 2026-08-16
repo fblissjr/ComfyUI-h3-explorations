@@ -77,6 +77,42 @@ What this page does establish, by measurement rather than by reading:
 If you only take one thing: the next Morton experiment should vary `tau` and
 Morton together, not Morton alone.
 
+## The one assumption everything downstream rests on
+
+Stated plainly, because the rest of this page is more persuasive than it has
+earned. Six links, and only the first four are verified.
+
+| # | link | status |
+|---|---|---|
+| 1 | Sol cuts the sequence into 64-token blocks, counted from index 0 | verified, `sol_attn_route.cu:18`, `:288`, `:435` |
+| 2 | Routing and the pooled tail are centroid quantities | verified, `sol_attn_route.cu:20-21`: "Both the routing decision and the tail VALUES are centroid quantities" |
+| 3 | Morton changes which tokens share a block | verified, node source and `bench/analyze_morton.py` |
+| 4 | The partition computed here is the partition the kernel uses | deterministic given grid and `video_start`; not an estimate, not a sample |
+| 5 | **A fragmented block's centroid represents its members worse than a compact block's** | **assumed, never measured** |
+| 6 | Therefore Morton's canvas dependence matters for output | rests entirely on 5 |
+
+Link 5 is the whole argument and it is a story. The reasoning is that
+neighbouring latents are correlated, so a spatially compact block has a mean
+that stands in better for its members. Plausible. Not checked on real
+activations, or on any activations.
+
+There is a specific reason to doubt it as a universal rather than just to
+flag it as unproven. Spatial compactness is a **proxy** for feature
+similarity, and proxies fail at the interesting places: a tight 8x8 tile
+straddling a hard object boundary may have a worse centroid than a scattered
+block sitting entirely inside uniform sky. Whether compactness buys centroid
+quality *on average, on H3* is exactly the unmeasured quantity.
+
+**The cheap test.** Capture `k` from one forward, then for each block compute
+the mean cosine of its members to their own centroid, under Morton and under
+raster. One number per ordering. No renders, no clips, and it either supports
+link 5 or kills this whole line of argument. `h3_capture.py` exists for it and
+has never been run.
+
+Until that runs, the defensible claim is the geometry alone: on 1344x768,
+24.1% of blocks are a solid 8x8 and the rest are two or three disconnected
+fragments; on 1280x768 and 1024x768 it is 100%. Whether that matters is open.
+
 ## What counts as evidence here
 
 This page mixes three kinds of statement and they are not interchangeable.
