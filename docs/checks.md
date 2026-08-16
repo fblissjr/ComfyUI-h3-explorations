@@ -310,6 +310,36 @@ Ordered by how much they undermine the standard above.
    check that submits, and the class of bug it found -- a graph the validators
    pass and the server refuses -- is invisible to everything else here.
 
+6. **`sol_curves.verify_adjacency` was, until 2026-08-16, a check whose input
+   could not fail** -- the clearest instance in this repo of the standard above
+   being violated in code rather than in prose. It counts non-adjacent steps
+   along the Hilbert curve, and its only call site
+   (`bench/analyze_capture.py`) passed `side=64`. On a power-of-two square,
+   adjacency is Hilbert's *defining property*: zero is what every correct
+   implementation returns, so the assertion could only ever go red on a
+   corrupted `hilbert_d`, never on the ordering being scored. Meanwhile the
+   ordering actually applied is a 24x42 rectangle clipped out of that square,
+   which splices the curve in **6 places of 1007**. So the repo asserted "a
+   Hilbert curve never jumps" in `sol_curves.py`, in `docs/morton.md` and in
+   the node's UI tooltip, and held a green check that was structurally incapable
+   of contradicting it.
+
+   Fixed by giving `verify_adjacency` `height`/`width` parameters and calling
+   both forms: the square stays a **gate** (non-zero means `hilbert_d` is
+   broken), the rectangle is **reported, never gated** -- a non-zero result
+   there is expected, and no threshold that would make it pass/fail has been
+   established. Asking "what would the input have to look like for this to
+   fail?" is the question that finds this class, and it is worth asking of every
+   row in the index above.
+
+   **The connectivity numbers have the opposite problem: no instrument at all.**
+   The 60%/90% connected-block figures in `sol_curves.py`, `docs/morton.md` and
+   the node tooltip are not computed by anything in `bench/` --
+   `analyze_morton.py` reports radius, fill and neighbour retention, and has no
+   notion of connectivity. They reproduce exactly when re-derived, so this is a
+   missing instrument rather than a bad number, but it is the only load-bearing
+   figure in the Morton work that no committed script can regenerate.
+
 5. **`check_workflow_schema.py` and `smoke_h3.py` cannot run unattended.**
    Both need a live ComfyUI, and `smoke_h3.py` needs the models loaded too, so
    both are absent from any headless pass -- and a check that is silently

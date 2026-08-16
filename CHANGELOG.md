@@ -4,6 +4,86 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.28.0
+
+### Fixed
+
+- **`verify_adjacency` was a check whose input could not fail.** It counts
+  non-adjacent steps along the Hilbert curve, and its only call site
+  (`bench/analyze_capture.py`) passed `side=64`. On a power-of-two square,
+  adjacency is Hilbert's defining property — zero is what every correct
+  implementation returns, so the assertion could only go red on a corrupted
+  `hilbert_d`, never on the ordering being scored. The ordering that actually
+  runs is a rectangle clipped out of that square, which splices the curve in
+  **6 places of 1007** at latent 24x42.
+
+  So the repo asserted "a Hilbert curve never jumps" in `sol_curves.py`, in
+  `docs/morton.md` and in the node's UI tooltip while holding a green check
+  structurally incapable of contradicting it. `verify_adjacency` now takes
+  `height`/`width`; the square stays a gate, the rectangle is reported and
+  never gated (no threshold for it has been established). Corrected in all
+  three places. Indexed in `docs/checks.md`.
+
+- **`docs/morton.md` predicted the sign of a routed-density change it could not
+  derive.** The argument moved the threshold and held the scores fixed. Both
+  move: `colmean` is taken against the same mean-centred pooled key centroids
+  whose variance sets the threshold, so coherence raises numerator and
+  denominator together and the formula does not say which wins. Replaced with
+  the source reading, and marked as not-derivable rather than re-signed.
+
+- **`docs/morton.md`: "the residue is the frame-sliding, which no curve fixes"
+  was wrong.** A per-frame phase change fixes most of it — 86.1% to 93.8%
+  connected at (37,24,42). The claim survived because the metric that would
+  have caught it excludes frame-straddling blocks, which are exactly the blocks
+  a phase change acts on.
+
+- **`docs/morton.md`: the connectivity and radius table did not state its
+  restriction.** The figures reproduce exactly (59.9%/90.0%, 4.88/4.49/11.90)
+  but only over single-frame blocks; over all blocks it is 57.1%/85.8%. The
+  metric is **undefined for `3d`**, whose every block spans four frames, so
+  that table can never rank `3d` against `hilbert`.
+
+- One corrupted sentence in `docs/morton.md`'s capture section.
+
+### Added
+
+- **`docs/morton.md`: the stopping rule for curve work.** Past the shipped
+  `hilbert`, a 26% better block radius and +14 points of connectivity buy ~0.3%
+  centroid fidelity. Spatial compactness has saturated as a proxy; a fourth
+  curve is not where the remaining quality is, and the unsaturated axis is
+  dimensionality, not geometry.
+
+- **`docs/open_experiments.md` #18: routed density under each curve.** The
+  cheapest unrun item in the repo — captures on disk, no render, no GPU — and
+  the missing denominator under every ordering A/B run here. Specifies scoring
+  against upstream's eager reference rather than a fresh transcription of the
+  threshold formula, and records the sigma axis as the prerequisite that kills
+  any compensation scheme if it goes the wrong way.
+
+- **Canvas sweep and the serpentine form**, in `docs/morton.md`. Rotation is
+  the wrong shape of the phase fix: a Hilbert curve is an open path, not a
+  cycle, so rotating splices its two ends together. Reversing alternate frames
+  achieves the same alignment with no splice and is the only form that survives
+  832x480. Also records that **`3d` collapses at 832x480** (48.2%, worst of
+  five), which no page said.
+
+- **The custom-node import-order trap**, in `CLAUDE.md` and
+  `sol_curves.install()`. ComfyUI imports packs in bare `os.listdir` order with
+  no sort, so anything patching another pack must do it at `execute()` time and
+  count what it patched. Recorded before it bit.
+
+- **A tripwire for `centroid_tail`'s "~1.4x"** in `docs/evidence.md`. It is the
+  operation, not end-to-end; ours measured 2.5% e2e, making it the smallest
+  knob in the node rather than the largest. Two readers have now quoted it as
+  e2e. Deliberately not added to the `retraction-consumers` block, because the
+  string is correct where it appears.
+
+- **The operating-point warning on the curve node and in `CLAUDE.md`.** Block
+  membership feeds `kcvar`, so changing the ordering moves the routing
+  threshold: a fixed-`tau` curve A/B varies two things. Notes that
+  `tau_profile` is keyed per transformer block and therefore cannot express a
+  sigma-dependent correction.
+
 ## 0.27.0
 
 ### Fixed

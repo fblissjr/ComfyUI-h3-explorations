@@ -129,6 +129,30 @@ for visual (`comfy/ldm/minimax/model.py:32-33`) — so they raise the token coun
 without adding anything Sol can sparsify. The refs probe is a mechanism check,
 not a speed one.
 
+**Changing the token ordering moves the operating point, so a fixed-`tau` curve
+A/B varies two things.** The router's threshold is
+`tau * sqrt(sum_d c_d^2 * kcvar_d * log2s^2)` and `kcvar` is the variance across
+the block centroids, which the permutation defines. **The direction is not
+derivable** — the scores are taken against those same pooled centroids, so
+numerator and denominator both move with block coherence; it is empirical per
+curve and per depth. Every Morton or Hilbert A/B run here compared two operating
+points while believing it compared two orderings. `bench/analyze_routing.py`
+would settle it from the captures already on disk, and does not exist yet. Do
+not re-derive the old "coherent blocks route fewer, so Morton is more
+approximate" argument — `docs/morton.md` retired it, with the reason.
+
+**The permutation is free, and geometry has stopped buying activations.** No
+curve costs measurable time on CUDA (all three within 2 s of 453). And past the
+shipped `hilbert`, a 26% better block radius and +14 points of connectivity buy
+~0.3% centroid fidelity — so **a fourth curve is not where the quality is**, and
+proposing one means arguing against that table in `docs/morton.md` first. The
+unsaturated axis is dimensionality (`3d` mixes frames), not curve geometry.
+
+**`centroid_tail`'s "~1.4x" is the operation, not end-to-end.** Measured 2.5%
+e2e here, which makes it the *smallest* knob in the node against sol's 1.20x and
+int8's 1.39x. Two separate readers have quoted the tooltip as an e2e figure and
+built arguments on it. See `docs/evidence.md`.
+
 **362 frames is the ceiling** (`h3_rules.MAX_LENGTH`), and `MAX_DURATION`
 derives from it. 345 was never a model limit — it is the largest count
 *diffusers* emits, and presenting that as legality cost a withdrawn bench run.
@@ -165,6 +189,16 @@ one. **Resolve by identity, not by name** — start from
 `nodes.NODE_CLASS_MAPPINGS`, then collect every `sys.modules` entry whose
 `__file__` matches. Verify against a live `/object_info`, the only surface that
 can tell a patched module from a patched copy of one.
+
+**The same family, not yet bitten, recorded before it does: custom-node import
+order is `os.listdir` order, with no sort** (`ComfyUI/nodes.py:2356`). So
+whether `ComfyUI-SolAttn-cuda` imports before `ComfyUI-h3-explorations` is a
+property of directory entry order, not of the names — it holds today by
+accident. **Anything that patches another pack must do it at `execute()` time
+and count what it patched**, which is why `sol_curves.install()` returns an int
+and the node raises on zero. Moving that to `__init__.py` to catch an earlier
+hook would swap a loud failure for a silent one: patch nothing, log nothing,
+render with the unpatched path, look fine. That proposal has been made once.
 
 **DynamicCombo members are dotted in the API form.** `shape.wide_resolution`,
 not `wide_resolution`; the executor rejects the flat spelling with

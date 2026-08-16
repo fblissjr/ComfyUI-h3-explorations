@@ -8,13 +8,31 @@ Hilbert, and it exists because of one measured weakness in Z-order.
 **Z-order jumps.** Consecutive points on a Z-order curve are often far apart in
 space, because the curve crosses quadrant boundaries: at side 64, 2047 of 4095
 consecutive steps are non-adjacent. That is what fragments a 64-token block on a
-grid whose dimensions are not multiples of 8, and H3's default 1344x768 canvas
-(latent 24x42) is exactly such a grid. A Hilbert curve never jumps; consecutive
-points are always neighbours. Measured on the 1344x768 latent grid, blocks that
-form a single connected region: Z-order 60%, Hilbert 90%.
+grid whose dimensions are not multiples of 8, and the 1344x768 canvas (latent
+24x42) is exactly such a grid. A Hilbert curve on a **power-of-two square**
+never jumps; consecutive points are always neighbours.
+
+**On the rectangle that actually runs, it jumps a little, and the docstring
+here claimed otherwise until 2026-08-16.** `hilbert_perm` computes on the next
+power of two and drops out-of-range points, which splices the curve across each
+dropped run. Measured at 24x42: **6 non-adjacent steps of 1007 within a frame**,
+against 0 of 4095 on the 64x64 square. Two orders of magnitude better than
+Z-order and the reason to prefer it stands -- but "never jumps" is a property of
+the square, and `verify_adjacency`'s default argument is that square, so the
+check cannot see this. Pass a rectangle to make it look.
+
+Measured on the 1344x768 latent grid, blocks that form a single connected
+region: Z-order 60%, Hilbert 90% **over single-frame blocks**; 57% and 86% over
+all blocks. The restriction matters and is not cosmetic -- the excluded blocks
+are the frame-straddling ones, and the metric is undefined for `3d`, whose every
+block spans four frames. See `docs/morton.md`. Nothing in `bench/` computes
+connectivity, so these two numbers are the only ones here without an instrument.
 
 That is a geometry result. Whether it survives contact with real activations is
-what `bench/analyze_capture.py` is for.
+what `bench/analyze_capture.py` is for -- and the answer so far is that it
+mostly does not scale: past this curve, large geometry gains buy ~0.3% centroid
+fidelity. Read the stopping rule in `docs/morton.md` before adding a fourth
+curve.
 
 ## Why this is not a fork
 
@@ -82,16 +100,43 @@ def hilbert_d(x: int, y: int, side: int) -> int:
     return d
 
 
-def verify_adjacency(side: int = 64) -> int:
-    """Non-adjacent steps along the curve. Zero is the defining property.
+def verify_adjacency(side: int = 64, height: int | None = None,
+                     width: int | None = None) -> int:
+    """Non-adjacent steps along the curve, on a square or on a real grid.
 
     Called before the permutation is trusted, because a subtly wrong Hilbert is
     still a valid permutation and would silently produce a worse ordering that
     looks like a real result.
+
+    **The default argument cannot fail, and that is the point of the other
+    two.** On a power-of-two square, adjacency is Hilbert's defining property,
+    so `verify_adjacency(64) == 0` is true of every correct implementation and
+    tells you only that `hilbert_d` is not broken. It says nothing about the
+    ordering the node actually applies: `hilbert_perm` clips a rectangle out of
+    that square and drops the rest, which splices the curve across each dropped
+    run. Until 2026-08-16 this was the only form called anywhere
+    (`bench/analyze_capture.py`), so the repo asserted "never jumps" against the
+    one input where that cannot be false. Pass `height`/`width` for the number
+    that describes the shipped path -- at 24x42 it is 6, not 0.
+
+    A non-zero rectangle result is **expected, not a failure**. Use it to
+    compare curves and to notice a regression, not as a pass/fail gate; the
+    threshold that would make it a gate has not been established.
     """
-    pts = sorted(((x, y) for x in range(side) for y in range(side)),
-                 key=lambda p: hilbert_d(p[0], p[1], side))
-    if len(set(pts)) != side * side:
+    if (height is None) != (width is None):
+        raise ValueError("pass both height and width, or neither")
+    if height is None or width is None:
+        pts = sorted(((x, y) for x in range(side) for y in range(side)),
+                     key=lambda p: hilbert_d(p[0], p[1], side))
+        expected = side * side
+    else:
+        span = 1
+        while span < max(height, width):
+            span <<= 1
+        pts = sorted(((i % width, i // width) for i in range(height * width)),
+                     key=lambda p: hilbert_d(p[0], p[1], span))
+        expected = height * width
+    if len(set(pts)) != expected:
         raise RuntimeError("hilbert_d is not injective; the permutation is invalid")
     return sum(1 for a, b in zip(pts, pts[1:])
                if abs(a[0] - b[0]) + abs(a[1] - b[1]) != 1)
@@ -103,6 +148,24 @@ def hilbert_perm(grid, device="cpu"):
     Frames keep their original order and never mix, which is the `2d_frame`
     convention and is right for H3: `FRAME_PER_TOKEN` is (1, 4, 4, 4, 4), so
     index-adjacent latent frames are 1 or 4 real frames apart.
+
+    **Every frame gets the same `within`, and changing that is a real idea with
+    one wrong form.** Tokens per frame is not a multiple of 64 on most canvases
+    (1008 % 64 = 48 at 1344x768), so consecutive frames are cut at different
+    offsets along the curve and their blocks come out different shapes. Giving
+    frame `f` a phase shift of `(f * area) % BLOCK_SIZE` equalises that and
+    measurably tightens the blocks -- see `docs/morton.md`.
+
+    Do it by **reversing the curve on alternate frames, not by rotating it.** A
+    Hilbert curve is an open path, not a cycle: at side 64 it runs (0,0) to
+    (63,0), 63 cells apart. `torch.roll` on this permutation splices those two
+    ends together and puts a 63-cell jump inside one block of every frame. That
+    costs more than it buys on at least one shipped canvas (832x480). The
+    rotation form has been proposed once, on the stated grounds that "Hilbert is
+    a closed loop so rotating preserves adjacency"; the premise is false.
+
+    Neither form is implemented. `docs/morton.md` has the measurement and the
+    reason it is not obviously worth shipping.
     """
     key = (tuple(int(x) for x in grid), "hilbert")
     hit = _CACHE.get(key)
@@ -152,6 +215,22 @@ def install(vendor_path) -> int:
     failure**, not a no-op: it means the node is not loaded, or is loaded from a
     different file than the one passed, and the caller should say so rather than
     report success.
+
+    **Call this from `execute()`, never from `__init__.py`.** ComfyUI imports
+    custom-node packages in bare `os.listdir` order with no sort
+    (`ComfyUI/nodes.py:2356`), so there is no guarantee `ComfyUI-SolAttn-cuda`
+    is imported before this package -- it depends on directory entry order, and
+    it works today by accident. An import-time rebind that runs first finds
+    nothing in `sys.modules`, patches zero modules, and has no caller to fail:
+    the render then runs the unpatched curve and looks fine. Deferring to
+    execute time is what makes the zero above loud instead of silent.
+
+    This is the same class of failure as the two-module trap in CLAUDE.md
+    (patching a copy of a module and reporting success) and it has the same
+    tell: the log line says it worked. Any future scheme that needs to intercept
+    Sol-Attn *earlier* than this -- to read the override's parameters, say -- has
+    to solve the ordering problem rather than assume it, and must keep a
+    zero-is-a-failure check at execute time regardless of where it installs.
     """
     patched = 0
     for module in _live_modules(vendor_path):

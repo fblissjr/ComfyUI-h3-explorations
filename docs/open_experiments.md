@@ -910,6 +910,51 @@ is consistent with the expected mechanism and is not a sweep.
 
 ---
 
+## 18. Routed density under each curve, at fixed `tau`
+
+**Tests:** how far a token ordering moves Sol-Attn's operating point. Every
+Morton and Hilbert A/B this repo has run compared two orderings *and* two
+sparsity levels, without knowing the size or the sign of the second.
+
+**Blocker: none. This is the cheapest unrun item in the repo and it has been
+open longest.** The captures are on disk
+(`~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/`, blocks 0/24/49). No
+render, no GPU, no server. It belongs in `bench/analyze_routing.py`.
+
+**Method, and one constraint that is not optional.** Score with upstream's eager
+reference (`coderef/comfy-kitchen-sol/comfy_kitchen/backends/eager/sol_attn.py`,
+routing at `:112-142`), not a fresh transcription of the threshold formula. Its
+own docstring says it "defines the algorithm, not the CUDA kernel's arithmetic",
+which is exactly the right relationship: it is upstream's statement of what
+routing *means*, so using it keeps a reimplementation risk out from between the
+measurement and the claim. `bench/analyze_capture.py` already builds all four
+orderings and applies the `(-video_start) % 64` roll -- reuse that, do not
+rebuild it. Count the conditioning rows into the block population, since `kcvar`
+is a variance over *all* block centroids; exclude the forced-exact pairs
+(diagonal +-1 and sink) from the density, since they never consult the
+threshold.
+
+**What it must report, not just a number.** Density per (curve, depth), and the
+`tau` that returns each curve to raster's density. If those compensating taus
+differ by depth, that is expressible as a `tau_profile` -- it is keyed per
+transformer block (`vendor/sol_attn_minimax.py:55-76`). If they differ by
+*sigma*, nothing in the node can compensate it, and the whole idea dies there.
+
+**Do not build a compensation table off this alone.** The only capture is step 1
+of 6, and Sol runs 11 of 16 steps at the shipped window. Three depths is also
+three points to cover fifty blocks. A second capture at a late step is the
+prerequisite for anything shipping, and is a separate small job:
+`h3_capture.py` needs `H3_CAPTURE` set before ComfyUI starts.
+
+**Why it matters beyond Morton.** It is the missing denominator under
+`docs/morton.md`'s six-arm sweep, under `SOL_RECOMMENDED_CUDA`'s pinning of
+`3d`, and under any future curve. It converts "these two orderings scored X and
+Y" into "these two orderings sat at different points on the speed-quality curve,
+this far apart" -- which is the difference between a comparison and a
+coincidence.
+
+---
+
 ## 17. A 16-bit PV branch for the CUDA Sol-Attn kernel
 
 **Tests:** whether `sol_attn_exact.cu` should get a 16-bit PV matmul, keeping

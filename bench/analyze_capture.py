@@ -220,9 +220,22 @@ def main():
     # thing measured here is the thing that would run.
     sys.path.insert(0, str(REPO))
     import sol_curves
+    # Two calls, and only the first is a gate. The square is the correctness
+    # check on hilbert_d -- zero there is the defining property, so a non-zero
+    # means the implementation is broken and nothing below is worth reading.
+    # The rectangle is the DESCRIPTION of the ordering this run actually scores:
+    # hilbert_perm clips the grid out of the next power of two, which splices
+    # the curve, and that is expected rather than a failure. Reported, never
+    # gated -- no threshold for it has been established. Until 2026-08-16 only
+    # the square was called here, which asserted "never jumps" against the one
+    # input on which it cannot be false. See sol_curves.verify_adjacency.
     bad = sol_curves.verify_adjacency(64)
     if bad:
         raise SystemExit(f"hilbert curve is broken: {bad} non-adjacent steps")
+    splices = sol_curves.verify_adjacency(height=grid[1], width=grid[2])
+    print(f"  hilbert on {grid[1]}x{grid[2]}: {splices} non-adjacent steps of "
+          f"{grid[1] * grid[2] - 1} within a frame "
+          f"(0 of 4095 on the 64x64 square; clipping is why)\n")
     hperm, _ = sol_curves.hilbert_perm(grid, "cpu")
     orders["hilbert"] = torch.roll(hperm, pad) if pad else hperm
 

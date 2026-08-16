@@ -33,6 +33,30 @@ The two metrics disagree about which of `3d` and `hilbert` leads, and neither
 has been rendered. **This node exists so that comparison can be made, not
 because an answer is known.** `3d` needs no node; it is already selectable on
 Sol-Attn's own combo.
+
+## What this node silently changes besides the ordering
+
+**It moves the operating point Sol-Attn was configured at, and no A/B run here
+has accounted for that.** The router's threshold is
+`tau * sqrt(sum_d c_d^2 * kcvar_d * log2s^2)`, and `kcvar` is the variance
+across the block centroids -- which the permutation defines. So a curve change
+moves the threshold, and the fraction of blocks routed exact at a fixed `tau`
+moves with it. Direction is not derivable from the formula: the scores are
+computed against the same pooled centroids, so numerator and denominator both
+respond to block coherence. It has to be measured per curve and per depth.
+
+Two consequences for anyone wiring this node:
+
+  - **A fixed-`tau` comparison of two curves varies two things.** Whatever it
+    shows is a mix of "different blocks" and "different sparsity", and the split
+    is unknown until `bench/analyze_routing.py` exists.
+  - **Compensation is expressible but not measured.** `SolAttnMiniMax` takes a
+    `tau_profile`, which is keyed per transformer block, so a depth-dependent
+    correction fits. It cannot express a sigma-dependent one, and whether the
+    divergence is sigma-dependent is unmeasured -- the only capture is step 1
+    of 6. Do not build the compensation table before that is known.
+
+See `docs/morton.md`, "Holding `tau` fixed does not hold sparsity fixed".
 """
 
 from __future__ import annotations
@@ -64,9 +88,14 @@ class MiniMaxH3SolAttnCurve(io.ComfyNode):
                 "Override Sol-Attn's token ordering with a curve its own node "
                 "does not list. Place AFTER SolAttnMiniMax, and turn that "
                 "node's `morton` on -- this is inert otherwise. `hilbert` "
-                "never jumps between consecutive points, where Z-order jumps "
-                "on half its steps, so its 64-token blocks stay connected on "
-                "grids whose latent dims are not multiples of 8."
+                "almost never jumps between consecutive points (6 steps of "
+                "1007 at latent 24x42) where Z-order jumps on half of them, "
+                "so its 64-token blocks stay nearly connected on grids whose "
+                "latent dims are not multiples of 8. "
+                "CHANGING THE CURVE CHANGES THE OPERATING POINT: block "
+                "membership feeds the router's threshold, so the fraction of "
+                "blocks routed exact moves at a fixed tau. A curve A/B at "
+                "fixed tau is not a controlled comparison. See docs/morton.md."
             ),
             inputs=[
                 io.Model.Input("model"),

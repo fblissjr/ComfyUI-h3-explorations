@@ -518,14 +518,36 @@ Block membership determines `kc`. Morton changes membership. So `kcvar` changes,
 so the threshold changes, so **the number of blocks routed exact changes at a
 fixed `tau`.**
 
-**Direction, and this part is inference rather than measurement.** Morton is
-supposed to make blocks internally more coherent. Coherent blocks have centroids
-that sit further from the global mean rather than being averaged toward it, so
-the variance across centroids should *rise*, the threshold with it, and fewer
-blocks should clear it. That would mean turning Morton on at fixed `tau` makes
-the render **more** approximate, not merely differently blocked. The measured
-mass-concentration result points the same way, but nothing has measured the
-routed density directly.
+**Direction is not derivable, and this page asserted for a day that it was.**
+Corrected 2026-08-16. What stood here argued that coherent blocks push centroids
+away from the global mean, so `kcvar` rises, so the threshold rises, so fewer
+blocks clear it, so Morton at fixed `tau` is **more** approximate. That
+reasoning moves the threshold and holds the scores fixed, and both move.
+
+**Read from source, not measured.** The routing test is `colmean > thr`
+(`coderef/comfy-kitchen-sol/comfy_kitchen/backends/eager/sol_attn.py:112-142`).
+`thr` is the quantity above. `colmean` is the query block's mean score against
+the **mean-centred pooled key centroids** -- and a more coherent key block has
+less internal cancellation in its pooled centroid, so its score against a
+matching query rises too. Numerator and denominator both climb with coherence.
+Nothing in the formula says which climbs faster, so **the sign of the routed
+density change is an empirical question per curve and per depth, not something
+this page can argue.** Any future version of the old paragraph is a regression.
+
+That is also why the answer is not a single scalar: it can differ in sign
+between two curves at the same depth, and between two depths for one curve.
+
+> **Reported, not reproducible here yet.** A run on 2026-08-16 measured routed
+> density against the eager reference on the existing capture and found the sign
+> going the *other* way at both deep blocks -- `hilbert` routing ~11-15% **more**
+> blocks than raster at blocks 24 and 49, and `3d` routing slightly fewer at
+> block 49 despite having the best centroid fidelity there. If that holds it
+> confirms the paragraph above rather than replacing it: density is not a
+> function of coherence. It is recorded here as **pending**, not as a number to
+> quote, because no script in `bench/` produces it -- see the open item below.
+> Scope of the run as reported: the float routing rule (no INT8 quantisation of
+> pooled keys or query centroids, which the kernel does), 8 of 56 heads, three
+> depths, one capture, one step, one prompt.
 
 Two consequences, and the first is a correction:
 
@@ -540,6 +562,23 @@ Two consequences, and the first is a correction:
   `tau * sqrt(sum_d c_d^2 * kcvar_d)` under raster and under each curve is
   arithmetic on tensors we already have. That converts "membership changes"
   into "routed density changes by X% at fixed tau", which is a number.
+  **Score it against the eager reference, not a fresh implementation of the
+  formula** -- `backends/eager/sol_attn.py` is upstream's own statement of the
+  algorithm ("Defines the algorithm, not the CUDA kernel's arithmetic", its
+  docstring) and using it keeps a reimplementation risk out from between the
+  measurement and the claim. It belongs in `bench/analyze_routing.py`; nothing
+  produces it today.
+
+**The axis this does not cover, and it may matter more than depth.** Routed
+density is measured at whatever step the capture was taken at -- step 1 of 6 for
+the capture on disk. Sol runs 11 of 16 steps at the shipped sigma window, and
+nothing says the divergence is constant across them. This is load-bearing for
+any compensation scheme: `tau_profile` is keyed **per transformer block**
+(`parse_tau_profile` -> `{block: tau}`, read from
+`transformer_options["sol_block"]`, `vendor/sol_attn_minimax.py:55-76`,
+`:524-529`), so it can express a depth-dependent correction and **cannot express
+a sigma-dependent one at all.** Measure a late-step capture before building
+anything on top of the depth numbers.
 
 **One precision, because the short form of this claim gets repeated.** "Token
 order is the only thing that changes which 64 tokens share a block" is true of
@@ -755,11 +794,23 @@ side 64 that is 2047 of 4095 consecutive steps. A Hilbert curve never jumps;
 adjacency of consecutive points is its defining property, verified here at
 sides 8, 16 and 64 before anything was measured with it.
 
-That matters exactly where Morton is failing. A run of 64 consecutive points
-along a curve with no jumps is a connected region whatever the grid shape, so
-it does not need the grid to factor.
+**"Never jumps" is a property of the square, and the square is not what runs.**
+Corrected 2026-08-16, and it is the difference between the check that exists and
+the check that would have caught something. `hilbert_perm` computes on the next
+power of two and drops the out-of-range points, so a 24x42 grid is a rectangle
+clipped out of 64x64. Dropping points splices the curve across each gap.
+Measured on the shipped path at 24x42: **6 non-adjacent steps of 1007 within a
+frame**, against 0 of 4095 on the 64x64 square that `verify_adjacency` actually
+tests. Still two orders of magnitude better than Z-order's ~50%, and the
+argument below survives -- but the defining property does not hold on any canvas
+this repo renders, and the check cannot see that. See `docs/checks.md`.
 
-Measured at real block alignment:
+That matters exactly where Morton is failing. A run of 64 consecutive points
+along a curve with few jumps is very nearly a connected region whatever the grid
+shape, so it does not need the grid to factor.
+
+Measured at real block alignment, **over single-frame blocks only** -- read the
+restriction below before quoting any of it:
 
 | canvas | ordering | blocks connected | mean radius |
 |---|---|---|---|
@@ -772,12 +823,112 @@ Measured at real block alignment:
 Raster is 100% connected because a run along a row is trivially connected,
 which is why radius has to be read alongside it.
 
+> ### The restriction this table did not state, and what it hides
+>
+> Added 2026-08-16 after the numbers were re-derived independently. They
+> reproduce exactly -- 59.9% / 90.0% connected, 4.88 / 4.49 / 11.90 radius -- but
+> **only when blocks spanning more than one latent frame are excluded.** Over
+> every full block the same measurement gives:
+>
+> | ordering | connected, single-frame blocks | connected, all blocks |
+> |---|---|---|
+> | z-order `2d_frame` | 59.9% | 57.1% |
+> | `hilbert` | 90.0% | 85.8% |
+>
+> Two consequences, and the second is the one that bites:
+>
+> - The excluded blocks are **exactly the frame-straddling ones**, ~4.7% at this
+>   grid. So the headline metric behind this whole section is structurally blind
+>   to frame sliding -- the failure mode the section names as the larger of the
+>   two. A curve change aimed at sliding cannot show up here at all.
+> - **The metric is undefined for `3d`.** Every `3d` block spans four latent
+>   frames by construction, so the single-frame population is empty and the
+>   computation divides by zero. This table therefore cannot rank `3d` against
+>   `hilbert` even in principle, and must never be read as if it does.
+>
+> **No committed script computes connectivity.** `bench/analyze_morton.py` has no
+> notion of it; it reports radius, fill and neighbour retention. The 60%/90%
+> figures -- quoted in `sol_curves.py`'s docstring and in the node's UI tooltip --
+> are the only numbers on this page with no instrument behind them. They are
+> sound; they are just not reproducible from this repo, and that is a gap in
+> `docs/checks.md`, not a reason to distrust them.
+
 So Hilbert recovers most of the gap on the awkward canvases and changes nothing
-on the clean ones. It does not fully close it; the residue is the frame-sliding
-above, which no curve fixes. As a change it is small: same interface, a
-permutation and its inverse, cached once, and the same start-offset rotation
-applies unchanged. `morton_curve` already has two options and this would be a
-third.
+on the clean ones. As a change it is small: same interface, a permutation and
+its inverse, cached once, and the same start-offset rotation applies unchanged.
+`morton_curve` already has two options and this would be a third.
+
+### Frame sliding: "no curve fixes it" was wrong
+
+**Corrected 2026-08-16.** This section said the residue after Hilbert is the
+frame-sliding above, "which no curve fixes". A per-frame *phase* change fixes
+most of it, and the reason the claim survived is that the metric above cannot
+see the blocks it acts on.
+
+The distinction that makes it work, because the obvious version of the idea is
+false: **no permutation can put a block boundary on a frame boundary.** Blocks
+are cut at absolute row multiples of 64, 1008 % 64 = 48, and the straddling-block
+fraction is therefore identical for every ordering -- measured, 6.2% at
+(37,24,42), the same for raster, `2d_frame`, `3d` and `hilbert`. What a
+per-frame rotation by `(frame_index * area) % 64` changes is the **cut phase**:
+every frame gets sliced at the same offset along its own curve, so every frame's
+blocks take the same shape. That is the "aligned to the frame start
+(hypothetical) -- 93%" row of the table above, made real without padding.
+
+Measured with `bench/analyze_morton.py`'s own `block_stats`, all blocks, grid
+(37,24,42), `video_start` 530:
+
+| ordering | connected | radius | fill | nbr |
+|---|---|---|---|---|
+| raster | 95.4% | 12.09 | 0.62 | 44.4% |
+| `2d_frame` | 58.1% | 5.49 | 0.61 | 57.6% |
+| `3d` | 97.9% | 1.68 | 0.99 | 76.6% |
+| `hilbert` (shipped) | 86.1% | 5.02 | 0.71 | 58.2% |
+| `hilbert` + per-frame rotation | 93.8% | 4.10 | 0.89 | 59.6% |
+| `hilbert` + serpentine | 93.8% | 4.09 | 0.84 | 59.4% |
+
+**Two things stop this from being a free win, and both are why it is not
+shipped.**
+
+*It is not universal.* Swept across canvases, rotation makes 832x480 **worse**:
+
+| canvas | grid | tok/frame | %64 | `hilbert` | +rotation | +serpentine | `3d` |
+|---|---|---|---|---|---|---|---|
+| 1344x768 | 24x42 | 1008 | 48 | 86.1% | 93.8% | 93.8% | 97.9% |
+| 1280x768 | 24x40 | 960 | 0 | 100.0% | 100.0% | 100.0% | 100.0% |
+| 1152x640 | 20x36 | 720 | 16 | 80.5% | 91.3% | 91.3% | 98.6% |
+| 1024x576 | 18x32 | 576 | 0 | 100.0% | 100.0% | 100.0% | 99.7% |
+| 832x480 | 15x26 | 390 | 6 | 68.3% | **67.4%** | **84.4%** | **48.2%** |
+| 1216x704 | 22x38 | 836 | 4 | 77.8% | 84.9% | 83.8% | 91.3% |
+
+*Rotation is the wrong form of the idea.* **A Hilbert curve is an open path, not
+a cycle** -- at side 64 it runs (0,0) to (63,0), Manhattan distance 63. Rotating
+the start splices those two ends together, putting one 63-cell jump per frame
+*inside* a block. Reversing the curve on alternate frames (serpentine) achieves
+the same phase alignment with no splice, matches rotation everywhere else, and
+is the only one of the two that survives 832x480. **If this is ever built, build
+the serpentine form.** Anyone proposing rotation on the grounds that "Hilbert is
+a closed loop so rotating preserves adjacency" has the premise backwards; that
+argument has been made once and it is wrong.
+
+Also visible in that sweep and not written down anywhere else: **`3d` collapses
+at 832x480**, where it is the worst ordering of the five. Full row, all blocks,
+`video_start` 530:
+
+| ordering | connected at 832x480 (15x26) |
+|---|---|
+| raster | 84.4% |
+| `2d_frame` | 49.6% |
+| `3d` | **48.2%** |
+| `hilbert` | 68.3% |
+| `hilbert` + serpentine | 84.4% |
+
+So the canvas rule this page spent a day narrowing to a `2d_frame`-only rule is
+not quite that either: **`3d` has its own bad canvas, and 832x480 is a shipped
+one.** `SOL_RECOMMENDED_CUDA` pins `3d`, which changes nothing while
+`morton=False`, but it is the wrong pin for this canvas if it is ever turned on.
+Geometry only -- no activation measurement exists at 832x480, and the capture is
+1344x768, so this does not yet say `3d` renders worse there.
 
 **Still link 5.** Whether 90% connected beats 60% connected in the output is
 unmeasured, exactly as with everything else on this page.
@@ -815,10 +966,40 @@ weights are identical under every ordering, so this measures regrouping alone.
 | 24 | 178.0 | 149.3 (-16.1%) | 144.7 (-18.7%) | **142.1 (-20.2%)** |
 | 49 | 238.1 | 228.9 (-3.9%) | 236.3 (-0.8%) | **226.8 (-4.7%)** |
 
-Four things follow.
+Five things follow.
 
 **Link 5 is true.** Morton raises centroid fidelity on real activations at
 every depth measured. The canvas result is therefore about something real.
+
+**Geometry has decoupled from activations, and that is the stopping rule for
+curve work.** Added 2026-08-16, and it is the most useful thing on this page for
+deciding what *not* to build. Between shipped `hilbert` and the best geometry
+anyone has produced for it -- a generalised (gilbert) rectangle decomposition
+plus serpentine frame alternation, which removes the clipping splices *and* the
+phase mismatch -- the geometric metrics move a long way and the activation
+metrics barely move:
+
+| | shipped `hilbert` | + gilbert + serpentine | change |
+|---|---|---|---|
+| mean block radius, (37,24,42) | 5.02 | 3.71 | **-26%** |
+| blocks connected, all blocks | 86.1% | 100% | **+14 pts** |
+| centroid fidelity, block 24 | 0.7748 | 0.7774 | +0.3% |
+| centroid fidelity, block 49 | 0.8978 | 0.9014 | +0.4% |
+| mass concentration, block 24 | 142.1 | 139.9 | -1.5% |
+| mass concentration, block 49 | 226.8 | 225.3 | -0.7% |
+
+(Geometry re-derived here; the gilbert/serpentine activation numbers are
+**reported from the same unlanded 2026-08-16 run** as the routed-density result
+above and carry the same caveat.)
+
+**Read the gap, not the rows.** A 26% radius improvement buying 0.3% centroid
+fidelity means spatial compactness has stopped being the binding constraint. The
+proxy that justified this entire page -- compact block, better centroid -- is
+saturated at the shipped curve. **A fourth curve is not where the remaining
+quality is**, and anyone about to build one should have to say why this table is
+wrong first. What is unsaturated is the *dimensionality* choice: `3d` still wins
+centroid fidelity outright (0.9434 at block 49 against 0.9014) by mixing frames,
+which is a different axis from curve geometry entirely.
 
 **Both added curves beat the shipped `2d_frame` on both metrics at every block
 measured.** They do not beat each other consistently: `3d` leads centroid
@@ -828,9 +1009,9 @@ the ranking, which is why both are bench arms and neither is a new default.
 `hilbert` comes from `sol_curves.py` and needs the `MiniMaxH3SolAttnCurve`
 node; `3d` needs nothing, it is already on Sol-Attn's own combo.
 
-Taking `3d` alone against the shipped curve, it scores higher State that as the measurement it
-is: it says nothing yet about output, and no render has been made with `3d` on
-a long clip.
+Taking `3d` alone against the shipped curve, it scores higher on centroid
+fidelity at every depth sampled. State that as the measurement it is: it says
+nothing yet about output, and no render has been made with `3d` on a long clip.
 
 It does sit awkwardly against the reasoning behind the default. `2d_frame` was
 chosen because H3's `FRAME_PER_TOKEN` is `(1, 4, 4, 4, 4)`, so index-adjacent
