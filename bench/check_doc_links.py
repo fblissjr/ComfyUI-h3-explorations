@@ -18,12 +18,22 @@ edit to any cited file silently invalidates them, and the failure is invisible
 believes it.
 
 **Symbol references of the form `path::Symbol`.** Added hours after the first
-two, when a peer session found six of them invisible here. Five were
-`nodes.py::LoadImage.INPUT_TYPES` -- `LoadImage` exists only in ComfyUI's
-2595-line `nodes.py`, ours is 194 lines and has no such class, so it is exactly
-the ambiguity `ambiguous_roots` was written for, in the repo whose named trap
-is "`import nodes` resolves to ours", written by someone who had just read that
-trap. The sixth was a diffusers path with no root prefix that resolved nowhere.
+two, when a peer session found six of them invisible here.
+
+Five were `nodes.py::LoadImage.INPUT_TYPES`, written that same day: `LoadImage`
+exists only in ComfyUI's 2595-line `nodes.py`, ours is 194 lines and has no such
+class, so it is exactly the ambiguity `ambiguous_roots` was written for, in the
+repo whose named trap is "`import nodes` resolves to ours", by someone who had
+just read that trap.
+
+**The sixth was nobody's mistake that day, and it is the better advertisement.**
+`docs/h3_geometry_and_nodes.md` cited a diffusers path with no root prefix,
+resolving nowhere. It was introduced in `6375763` on **2026-08-06** and had been
+dead for ten days, in a doc that had been read and edited repeatedly since. So
+one pass caught new work and a stale committed defect together -- and only the
+new work had a second reader watching for it. That is the case for a mechanical
+check over careful reading: careful reading was happening, and it had not found
+this in ten days.
 
 **The gap was invisible from a green run, which is the lesson.** The grammar
 was `path:line`; a `::symbol` reference has no line number, so it was not a
