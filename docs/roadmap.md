@@ -193,7 +193,7 @@ half rate on sm_89, as upstream claims for sm_120.
 
 | question | why it matters | blocker |
 |---|---|---|
-| Does fl2va+LoRA render the same as ref2va? | the LoRA is now canonical on 18 graphs | a paired render; weights cannot settle it |
+| Does fl2va+LoRA render the same as ref2va? | the LoRA is now canonical on 18 graphs | **rendered 2026-08-16, awaiting a human watching.** `lora_ab_A_fl2va_lora_00001` vs `lora_ab_B_ref2va_00001`, same seed, 243 frames, one variable. Encoded sizes differ 41% (2.33 vs 3.29 MB), so the outputs are genuinely different -- not a null. Which is better is the open half |
 | Is the Sol exact kernel MMA-bound or staging-bound? | decides whether a 16-bit PV costs 2.5x or much less | an idle card, `ncu` |
 | Sparsity error against quantization error, on real activations | if quantization is small, a 16-bit PV buys nothing | none but card time |
 | Routed density at production length | nobody knows how much of Sol's work the exact branch is | the block probe, which does not exist yet |
