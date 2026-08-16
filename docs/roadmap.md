@@ -212,6 +212,51 @@ by copying those tensors between two safetensors. The discrete block-selective
 blend *is* a different interpolation path from a uniform LoRA strength, so it
 remains a distinct experiment if anyone wants it -- just a local one.
 
+**`subject_definitions` overrides the reference image. Two independent
+instances.** MEASURED 2026-08-16, and this is the most transferable thing
+learned this session because it is about prompting, not about a model.
+
+`_ref_prompt()` emits a generic template asserting that Subject 2's
+"**architecture**, palette, and lighting are carried into the target video".
+The reference used here (`2-mountain_landscape.png`) is an alpine lake with
+snow peaks, conifers and a wildflower meadow -- **no buildings, no structures,
+nothing architectural**. Both renders put the man inside a building looking out
+through a window. Neither could have got that from the image; both got it from
+the definition. Confirmed independently by Gemini, blind, from the clips and
+the reference alone.
+
+That is the second instance of the pattern. The first, from the owner's own
+prompting work, is a brunette reference described as blonde in
+`subject_definitions` producing a blonde output despite `retention_analysis`
+saying `fully_preserved`. Different attribute type, different session, one of
+them accidental. **`subject_definitions` is binding authority and
+`retention_analysis` cannot correct it.** A prompt that asserts an attribute
+the reference lacks will get that attribute hallucinated rather than dropped.
+
+The same prompt also specifies "steady interior room tone" over an outdoor
+scene, and carries two contradictory lighting instructions. All three defects
+come from one generic template pasted onto references it does not match.
+
+**The LoRA and the ref2va checkpoint are equivalent on identity.** MEASURED
+2026-08-16 by paired render: same graph, same seed, 243 frames, one variable
+(fl2va + ref LoRA @1.0 against the ref2va checkpoint). Judged blind by the
+owner and independently by Gemini, both without knowing which arm was which.
+
+- **Identity: equivalent.** Face structure, hair, suit and tie all preserved
+  against the reference in both. That is what the weight measurement predicted
+  (all 51 adaln projections at cosine 1.0000) and it held.
+- **Scene coherence: ref2va ahead, one pair.** Its background parallaxes
+  correctly against the window frame during the camera move; the LoRA arm's
+  reads as a flat backdrop. A temporal failure, invisible in stills.
+- **Subject presence: 60% against 90% of runtime.** Largely explained by the
+  prompt specifying no timing at all, so this is free variation rather than a
+  model property.
+- **Lighting: NOT evidence.** See the retraction in `docs/evidence.md`.
+
+**Do not treat this as settling the question.** One pair, one seed, and a
+prompt defective in three ways -- one of which demonstrably drove both outputs.
+`REF_LORA_ENABLED` stays `True`; nothing here argues for flipping it.
+
 **Attention is not very sparse on this workload.** MEASURED on captured
 activations: at its most concentrated a query still needs 178 key blocks of
 591 to hold 90% of its mass, and 394 at the first block. That bounds what any
@@ -228,7 +273,7 @@ half rate on sm_89, as upstream claims for sm_120.
 
 | question | why it matters | blocker |
 |---|---|---|
-| Does fl2va+LoRA render the same as ref2va? | the LoRA is now canonical on 18 graphs | **rendered 2026-08-16, awaiting a human watching.** `lora_ab_A_fl2va_lora_00001` vs `lora_ab_B_ref2va_00001`, same seed, 243 frames, one variable. Encoded sizes differ 41% (2.33 vs 3.29 MB), so the outputs are genuinely different -- not a null. Which is better is the open half |
+| Does fl2va+LoRA render the same as ref2va? | the LoRA is canonical on 18 graphs | **Rendered and judged 2026-08-16 -- partially answered, see below. Identity: equivalent. Scene coherence: ref2va ahead in one pair. Re-run owed on a sound prompt.** |
 | Is the Sol exact kernel MMA-bound or staging-bound? | decides whether a 16-bit PV costs 2.5x or much less | an idle card, `ncu` |
 | Sparsity error against quantization error, on real activations | if quantization is small, a 16-bit PV buys nothing | none but card time |
 | Routed density at production length | nobody knows how much of Sol's work the exact branch is | the block probe, which does not exist yet |
@@ -247,6 +292,28 @@ env-driven and needs no code change.
 ---
 
 ## Next, in order
+
+**0. Fix `_ref_prompt()` before running anything else on references.** New top
+priority as of 2026-08-16, and it displaces the Sol work because it is cheaper
+and currently more load-bearing. The generator asserts attributes generically
+-- "architecture, palette, and lighting" -- regardless of what the reference
+actually contains, and that assertion is binding: both arms of the LoRA A/B
+built a house that exists in no reference image. Every reference measurement in
+this repo inherits the defect, and the fix needs no GPU. Either derive the
+attribute list from the reference, or drop it and let the image speak.
+
+Two further defects in the same template, same root cause: an interior
+soundscape specified over an outdoor scene, and two contradictory lighting
+instructions. Separately, all 20 reference prompts are single-shot with a
+`detailed_description` of 46-73 words against the guide's stated 350-500, so a
+ten-second clip is driven by about three seconds of instruction and the model
+improvises the rest -- which is what produced the 60%-against-90% subject
+presence in the A/B.
+
+**0b. Re-run the LoRA A/B on a sound prompt.** Only after 0. Twenty-five
+minutes of card time, and it is the actual answer to whether the LoRA is safe
+as canonical. Today's run says equivalent on identity and leaves scene
+coherence on one pair.
 
 1. **Capture a reference-heavy render.** One render, no code change. Every
    measurement downstream is single-workload without it.
