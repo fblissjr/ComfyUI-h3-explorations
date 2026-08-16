@@ -4,6 +4,39 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.19.0
+
+### Added
+
+- **`docs/open_experiments.md` #17: a 16-bit PV branch for the CUDA Sol-Attn
+  kernel.** Scoping pass, no code. Three things it establishes. First, the
+  scope is one matmul, not a rewrite: sage's `fp16 (most accurate)` is
+  `qk_int8_sv_f16` -- INT8 QK, 16-bit PV -- so the Sol equivalent is moving
+  `mma_u8s8` to `mma_bf16` and nothing else. Second, **it has already been
+  measured, on Triton**: `bench_e2e_h3.py:475` records that the Triton exact
+  branch is 16-bit by default, so `sol, no int8` (827.9 s, 1.20x over sage)
+  already prices a stronger version of this change against the all-INT8
+  714.9 s. Third, the fragment layout is a solved problem in-tree --
+  `sol_attn_route.cu:446-465` already runs bf16 PV, and `perm_key` exists only
+  to make the INT8 repack free.
+- **`bench/mma_rate.cu`**, a tensor-core MMA issue-rate microbenchmark. Not a
+  check and not wired to one; it needs `nvcc`, which nothing else in `bench/`
+  does. It exists so #17's cost numbers have a reproduction path. Measured on
+  this 4090: int8 `m16n8k32` 334.5 TMAC/s against bf16/f16 `m16n8k16` f32-accum
+  at 83.8 (0.25x) and f16-accum at 167.3 (0.50x). **Confirms on sm_89 what
+  `sol_layout.cuh:81` claims for sm_120** -- f32-accumulate forms issue at half
+  rate. A cuBLAS GEMM was tried first and rejected as the instrument:
+  `torch._int_mm` reaches ~142 TOPS of int8's ~660 peak while bf16 `matmul`
+  sits at its own peak, which would have inverted the conclusion.
+
+### Notes
+
+- #17's MMA arithmetic predicts 2.5x on the exact branch; the repo's own
+  Triton measurement says 16% for a larger change. **The disagreement is the
+  result** -- it means the CUDA exact kernel is not MMA-issue-bound, and
+  nothing here has ever profiled it per stage. #17a and #17b are the two gates,
+  and 17b may close the entry without a kernel being written.
+
 ## 0.18.0
 
 ### Changed
