@@ -159,10 +159,17 @@ def hilbert_perm(grid, device="cpu"):
     Do it by **reversing the curve on alternate frames, not by rotating it.** A
     Hilbert curve is an open path, not a cycle: at side 64 it runs (0,0) to
     (63,0), 63 cells apart. `torch.roll` on this permutation splices those two
-    ends together and puts a 63-cell jump inside one block of every frame. That
-    costs more than it buys on at least one shipped canvas (832x480). The
-    rotation form has been proposed once, on the stated grounds that "Hilbert is
-    a closed loop so rotating preserves adjacency"; the premise is false.
+    ends together and puts a 63-cell jump inside one block of every frame. Swept
+    over all 48 legal canvases, that costs more than it buys on 5 of them
+    (1536x672, 1440x736, 1408x736, 1376x736, 896x768); serpentine regresses on
+    none. The rotation form has been proposed once, on the stated grounds that
+    "Hilbert is a closed loop so rotating preserves adjacency"; the premise is
+    false.
+
+    **Take canvases from `docs/h3_resolutions.md`.** An earlier version of this
+    note cited 832x480 as a shipped canvas. It is not a legal H3 resolution at
+    all -- the legal set is 48 landscape/square canvases plus portrait mirrors,
+    and it excludes most of the sizes video work makes you expect.
 
     Neither form is implemented. `docs/morton.md` has the measurement and the
     reason it is not obviously worth shipping.

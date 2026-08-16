@@ -10,6 +10,34 @@ measured Sol-Attn numbers -- [`docs/SOLATTN.md`](SOLATTN.md) does, and it is the
 entry point. What upstream claims lives in
 [`docs/sol_upstream.md`](sol_upstream.md).
 
+> ## Read this before quoting any number here: the evidence base is one canvas
+>
+> **Every activation measurement on this page is 1344x768.** One capture, one
+> canvas, one prompt, one step. That includes the centroid-fidelity table, the
+> mass-concentration table, the routed-density figures, the curve matrix and the
+> stopping rule. The geometry sweeps now cover all 48 legal canvases; nothing
+> that touches real activations covers more than one.
+>
+> **And 1344x768 is the worst possible single choice for it**, twice over:
+>
+> - It is the **most expensive** canvas in the legal set -- 1008 video tokens
+>   per frame, the 1.00x row in [`docs/h3_resolutions.md`](h3_resolutions.md).
+>   Every renderable comparison costs the maximum, which is why so few of them
+>   have been run. 1152x768 is 0.73x, 1024x768 is 0.58x, 768x768 is 0.33x. A
+>   quality A/B that is unaffordable at 1.00x is affordable three times over at
+>   0.58x, and `CANVAS_TIER` in `workflows/h3_config.py` makes it one edit.
+> - It is **`2d_frame`'s worst canvas**, which is the whole reason this page
+>   exists. So the shipped curve is being judged where it is weakest, and the
+>   alternatives where they flatter best. `3d` scores 97.9% connected here and
+>   67.2% at 1440x736; a page measured at the second number would tell a
+>   different story about which curve to pin.
+>
+> **Aspect ratio, not resolution, is the lever.** The cost is
+> `(W/32) x (H/32)` per frame and attention goes as its square, so 1:1 costs a
+> third of 16:9 at the same frame count. Before running anything here, decide
+> which canvas the answer is supposed to generalise to, and pick a cheap one to
+> measure it at unless the canvas itself is the variable.
+
 ## Where everything is
 
 Grouped by what you would open it for. Paths are repo-relative except the two
@@ -900,45 +928,62 @@ Measured with `bench/analyze_morton.py`'s own `block_stats`, all blocks, grid
 **Two things stop this from being a free win, and both are why it is not
 shipped.**
 
-*It is not universal.* Swept across canvases, rotation makes 832x480 **worse**:
+> **The first version of this sweep used four canvases H3 cannot render.**
+> Corrected 2026-08-16, hours after it was committed. 1152x640, 1024x576,
+> 832x480 and 1216x704 are not in `adapt_canvas()`'s output and appear nowhere
+> in `docs/h3_resolutions.md`; they were picked from general video-model habit
+> and asserted to be shipped without checking the one page in this repo whose
+> whole job is to answer that. One of them carried a conclusion
+> ("`3d` collapses at 832x480, and 832x480 is a shipped one") that was wrong
+> twice over. **Take canvases from `docs/h3_resolutions.md`, always** -- the
+> legal set is 48 landscape/square resolutions plus their portrait mirrors, and
+> it does not contain the obvious ones.
 
-| canvas | grid | tok/frame | %64 | `hilbert` | +rotation | +serpentine | `3d` |
-|---|---|---|---|---|---|---|---|
-| 1344x768 | 24x42 | 1008 | 48 | 86.1% | 93.8% | 93.8% | 97.9% |
-| 1280x768 | 24x40 | 960 | 0 | 100.0% | 100.0% | 100.0% | 100.0% |
-| 1152x640 | 20x36 | 720 | 16 | 80.5% | 91.3% | 91.3% | 98.6% |
-| 1024x576 | 18x32 | 576 | 0 | 100.0% | 100.0% | 100.0% | 99.7% |
-| 832x480 | 15x26 | 390 | 6 | 68.3% | **67.4%** | **84.4%** | **48.2%** |
-| 1216x704 | 22x38 | 836 | 4 | 77.8% | 84.9% | 83.8% | 91.3% |
+*It is not universal.* Swept over **all 48 legal landscape/square canvases**
+(portrait mirrors are identical -- tokens per frame is `(W/32)x(H/32)`, which is
+symmetric), at latent_t 37 and `video_start` 530, all blocks:
+
+| | min | mean | max |
+|---|---|---|---|
+| `hilbert` (shipped) | 77.1% | 85.9% | 100% |
+| + per-frame rotation | **74.3%** | 90.5% | 100% |
+| + serpentine | 83.9% | **92.4%** | 100% |
+| `3d` | 67.2% | 89.4% | 100% |
+
+- **Serpentine is never worse than plain `hilbert`. 0 of 48.**
+- **Rotation is worse on 5 of 48**: 1536x672, 1440x736, 1408x736, 1376x736,
+  896x768. It also has the worst floor of any ordering here.
+- Neither dominates the other: serpentine wins 29, rotation wins 12, 7 tie.
+
+**Only 3 of the 48 have tokens per frame divisible by 64**, so the phase problem
+this fixes is the normal case, not a corner case. 1344x768 is not special for
+having it; it is special only for being the canvas everything here was measured
+on.
 
 *Rotation is the wrong form of the idea.* **A Hilbert curve is an open path, not
 a cycle** -- at side 64 it runs (0,0) to (63,0), Manhattan distance 63. Rotating
 the start splices those two ends together, putting one 63-cell jump per frame
-*inside* a block. Reversing the curve on alternate frames (serpentine) achieves
-the same phase alignment with no splice, matches rotation everywhere else, and
-is the only one of the two that survives 832x480. **If this is ever built, build
-the serpentine form.** Anyone proposing rotation on the grounds that "Hilbert is
-a closed loop so rotating preserves adjacency" has the premise backwards; that
-argument has been made once and it is wrong.
+*inside* a block, and those five regressions are where that splice costs more
+than the phase alignment buys. Reversing the curve on alternate frames
+(serpentine) achieves the same alignment with no splice and never regresses.
+**If this is ever built, build the serpentine form.** Anyone proposing rotation
+on the grounds that "Hilbert is a closed loop so rotating preserves adjacency"
+has the premise backwards; that argument has been made once and it is wrong.
 
-Also visible in that sweep and not written down anywhere else: **`3d` collapses
-at 832x480**, where it is the worst ordering of the five. Full row, all blocks,
-`video_start` 530:
+Also visible only once the sweep covers legal canvases: **`3d` is the most
+canvas-sensitive ordering of the four, not the most robust.** Its floor is
+67.2%, below plain `hilbert`'s, and its five worst are all legal shipped-set
+canvases: 1440x736 (67.2%), 1376x736 (69.4%), 1568x672 (69.7%), 1504x672
+(70.1%), 1952x544 (70.9%). It reaches 97.9% at 1344x768, which is the canvas
+this page happens to measure on, and that single number is where its reputation
+here comes from.
 
-| ordering | connected at 832x480 (15x26) |
-|---|---|
-| raster | 84.4% |
-| `2d_frame` | 49.6% |
-| `3d` | **48.2%** |
-| `hilbert` | 68.3% |
-| `hilbert` + serpentine | 84.4% |
-
-So the canvas rule this page spent a day narrowing to a `2d_frame`-only rule is
-not quite that either: **`3d` has its own bad canvas, and 832x480 is a shipped
-one.** `SOL_RECOMMENDED_CUDA` pins `3d`, which changes nothing while
-`morton=False`, but it is the wrong pin for this canvas if it is ever turned on.
-Geometry only -- no activation measurement exists at 832x480, and the capture is
-1344x768, so this does not yet say `3d` renders worse there.
+So the canvas rule this page narrowed to a `2d_frame`-only rule is not quite
+that either. `SOL_RECOMMENDED_CUDA` pins `3d`, which changes nothing while
+`morton=False` -- but the pin rests on centroid fidelity measured at one canvas,
+and the geometry says `3d`'s behaviour varies more across canvases than anything
+else on offer. Geometry only: no activation measurement exists at any canvas
+except 1344x768.
 
 **Still link 5.** Whether 90% connected beats 60% connected in the output is
 unmeasured, exactly as with everything else on this page.

@@ -60,12 +60,29 @@ artifact.
   threshold formula, and records the sigma axis as the prerequisite that kills
   any compensation scheme if it goes the wrong way.
 
-- **Canvas sweep and the serpentine form**, in `docs/morton.md`. Rotation is
-  the wrong shape of the phase fix: a Hilbert curve is an open path, not a
-  cycle, so rotating splices its two ends together. Reversing alternate frames
-  achieves the same alignment with no splice and is the only form that survives
-  832x480. Also records that **`3d` collapses at 832x480** (48.2%, worst of
-  five), which no page said.
+- **Canvas sweep and the serpentine form**, in `docs/morton.md`, over **all 48
+  legal landscape/square canvases**. Rotation is the wrong shape of the phase
+  fix: a Hilbert curve is an open path, not a cycle, so rotating splices its two
+  ends together, and that costs more than the alignment buys on 5 of the 48
+  (1536x672, 1440x736, 1408x736, 1376x736, 896x768). Reversing alternate frames
+  achieves the same alignment with no splice and **regresses on none**. Also
+  records that only 3 of 48 canvases have tokens per frame divisible by 64, so
+  the phase problem is the normal case; and that **`3d` is the most
+  canvas-sensitive ordering, not the most robust** — floor 67.2%, below plain
+  `hilbert`'s, against 97.9% at the one canvas everything here is measured on.
+
+  **The first version of this sweep used four canvases H3 cannot render**
+  (1152x640, 1024x576, 832x480, 1216x704), taken from general video-model habit
+  rather than from `docs/h3_resolutions.md`, and drew a conclusion from one of
+  them. Corrected the same day; the legal set is 48 landscape/square canvases
+  plus portrait mirrors and does not contain the obvious sizes.
+
+- **The one-canvas warning**, at the top of `docs/morton.md`. Every activation
+  measurement on that page is 1344x768 — which is both the most expensive canvas
+  in the legal set (1.00x; 1152x768 is 0.73x, 1024x768 0.58x, 768x768 0.33x) and
+  `2d_frame`'s worst, so the shipped curve is judged where it is weakest and the
+  alternatives where they flatter best. Aspect ratio is the lever, not
+  resolution, and `CANVAS_TIER` makes it one edit.
 
 - **The custom-node import-order trap**, in `CLAUDE.md` and
   `sol_curves.install()`. ComfyUI imports packs in bare `os.listdir` order with
