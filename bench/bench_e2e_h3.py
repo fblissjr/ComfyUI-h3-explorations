@@ -367,7 +367,13 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
                    "inputs": {"model": model_src, "chunks": ffn_chunks,
                               "seq_threshold": 4096}}
         model_src = ["22", 0]
+    curve = None
     if sol is not None:
+        # `_curve` is not a Sol-Attn knob; it selects an ordering that node's
+        # combo cannot express, via our own node downstream. Popped before the
+        # dict reaches the node, which would reject the key.
+        sol = dict(sol)
+        curve = sol.pop("_curve", None)
         # Node id 21 for both backends: they are alternatives, never both in
         # one graph, and keeping the id stable keeps the timing breakdown
         # comparable across a --sol-backend switch.
@@ -375,6 +381,12 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
         g["21"] = {"class_type": class_type,
                    "inputs": {"model": model_src, **defaults, **sol}}
         model_src = ["21", 0]
+    if curve:
+        # AFTER 21. It overwrites the transformer option that node sets, so
+        # reversed it would be the one overwritten.
+        g["23"] = {"class_type": "MiniMaxH3SolAttnCurve",
+                   "inputs": {"model": model_src, "curve": curve}}
+        model_src = ["23", 0]
     g["8"]["inputs"]["model"] = model_src
     g["9"]["inputs"]["model"] = model_src
     return g
@@ -504,6 +516,26 @@ ARMS = {
     # at ~20% cost by its own tooltip. The knob behind "it helps audio".
     "sage+sol+morton+audio": (True, {"morton": True,
                                      "sink_conditioning": "exact_kv_and_rows"}),
+
+    # --- token ordering, added 2026-08-15 -----------------------------------
+    #
+    # Measured on captured activations before any of these were rendered
+    # (bench/analyze_capture.py, docs/morton.md): against the shipped
+    # 2d_frame, `3d` leads on per-block centroid fidelity and `hilbert` leads
+    # on mass concentration, at both blocks sampled. The two metrics disagree
+    # about which is better, which is why both are arms rather than a new
+    # default.
+    "shipped+morton2d": (True, dict(SOL_RECOMMENDED_CUDA, morton=True)),
+    "shipped+morton3d": (True, dict(SOL_RECOMMENDED_CUDA, morton=True,
+                                    morton_curve="3d")),
+    "shipped+hilbert": (True, dict(SOL_RECOMMENDED_CUDA, morton=True,
+                                   _curve="hilbert")),
+    # Sol-Engine's own control, copied from config/wan21_t2v_14b/reorder_only.toml:
+    # reordering on, every layer forced dense. The permutation is output-neutral
+    # under dense attention, so this arm isolates what reordering COSTS from
+    # what it buys, and doubles as a check that it really is neutral.
+    "shipped+reorder_only": (True, dict(SOL_RECOMMENDED_CUDA, morton=True,
+                                        dense_blocks="0-49")),
 
     # --- start_percent sweep, added 2026-08-14 ------------------------------
     #

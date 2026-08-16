@@ -210,11 +210,21 @@ def main():
 
     vendor = load_shipped_morton()
     n = stop - start
+    pad = (-start) % BLOCK
     orders = {"raster": torch.arange(n)}
     for curve in ("2d_frame", "3d"):
         perm, _ = vendor.morton_perm(grid, "cpu", curve)
-        pad = (-start) % BLOCK
         orders[f"morton_{curve}"] = torch.roll(perm, pad) if pad else perm
+
+    # Our added curve, from the same module the runtime patch uses, so the
+    # thing measured here is the thing that would run.
+    sys.path.insert(0, str(REPO))
+    import sol_curves
+    bad = sol_curves.verify_adjacency(64)
+    if bad:
+        raise SystemExit(f"hilbert curve is broken: {bad} non-adjacent steps")
+    hperm, _ = sol_curves.hilbert_perm(grid, "cpu")
+    orders["hilbert"] = torch.roll(hperm, pad) if pad else hperm
 
     print("TEST 1  centroid fidelity: mean cosine of a key to its block centroid")
     print("        higher is better. this IS link 5.\n")

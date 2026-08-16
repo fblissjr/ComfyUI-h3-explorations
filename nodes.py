@@ -16,6 +16,7 @@ from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
 from .reference_fit import MiniMaxH3ReferenceFit
 from .resolution import MiniMaxH3Resolution
+from .sol_curve_node import MiniMaxH3SolAttnCurve
 
 from .attention import (
     MODES,
@@ -181,9 +182,12 @@ class MiniMaxH3SageAttention(io.ComfyNode):
 
 class H3ExplorationsExtension(ComfyExtension):
     async def get_node_list(self):
+        # Append only. A saved graph stores widget values as a bare list matched
+        # by index and wires links to integer slots, so inserting anywhere but
+        # the end silently re-points every later entry in every existing graph.
         return [MiniMaxH3SageAttention, SageChainAssert, MiniMaxH3KeyframeCanvas,
                 MiniMaxH3ReferenceFit, MiniMaxH3Resolution, MiniMaxH3Preflight,
-                MiniMaxH3ProvenanceStamp]
+                MiniMaxH3ProvenanceStamp, MiniMaxH3SolAttnCurve]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:
