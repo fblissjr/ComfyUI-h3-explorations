@@ -38,7 +38,9 @@ mismatch it is supposed to catch.
 | `docs/h3_ref2v_distillation.md` | why ref2v resists step distillation |
 | `docs/h3_resolutions.md` | all 95 legal canvases and what each costs |
 | `docs/open_experiments.md` | what is deliberately **not** measured, and the blocker for each |
-| `internal/postmortems/` | gitignored. The 2026-08-13 session postmortem carries eight forward items, each phrased so it can be marked done or refuted. Start there rather than re-deriving what is open. |
+| `internal/postmortems/` | gitignored. **Start with the newest and work back** rather than re-deriving what is open; each one's forward items are phrased so they can be marked done or refuted. Newest is `2026-08-15_session_morton-sampler-and-refs.md` (eight items, and a repeat escape the 2026-08-14 one also names). |
+| `docs/morton.md` | what Morton reordering does to Sol-Attn's blocks, measured on the latent grid. Read its assumption chain before quoting any of it: four links are verified, the fifth carries everything downstream and is unmeasured. |
+| `internal/reference_library.md` | the 19 reference images in the input `h3_refs/` folder, their DiT cost at both size modes, and which carry logos, text or IP. Read before wiring a reference arm. |
 | `workflows/h3_config.py` | every shared constant. Nothing here may have a second copy anywhere. |
 | `workflows/build_workflows.py` | generates all graphs. Never hand-edit a `workflows/*.json`. |
 | `bench/check_*.py` | fast, mostly CUDA-free guards |

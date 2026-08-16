@@ -238,6 +238,32 @@ The remaining two are not sizing nodes:
 | MiniMax H3 SageAttention | always. Between the model loader and the sampler |
 | Assert Sage Attention Chain | always, last in the model chain. Turns a silently mis-composed attention stack into a refused render |
 
+### One frame: H3 as an image editor
+
+`workflows/h3_image_edit.json` renders a single image instead of a clip -- one
+reference image plus a prompt, ref2va, `length=1`. At one frame H3 behaves like
+a reference-driven image editor, and it keeps the 3D and identity handling that
+makes it interesting for that.
+
+It rests on a **temporary patch**. ComfyUI's H3 nodes floor `length` at 5, so
+this pack lifts that floor in memory at load (`single_frame.py`), verifying at
+every startup that no other length changed. When ComfyUI ships the same change
+(Comfy-Org/ComfyUI#15644) the shim retires itself and says so in the log; delete
+it then. Without it, that graph refuses to validate rather than quietly
+rendering five frames.
+
+Two things to know before using it:
+
+- **Decode with the single-image H3 VAE**, not the video one. Measured here on
+  a `T=1` round trip with ground truth: 37.27 dB / SSIM 0.947 against
+  22.04 dB / 0.821 for the stock video VAE. Both decode without error, which is
+  the trap -- the wrong one returns a harsher, colour-shifted image rather than
+  failing. And never wire the image VAE into a video graph; its own README says
+  it regresses multi-frame reconstruction.
+- **The canvas is no longer the cost lever.** At one frame the video segment is
+  9% of the sequence and the references are 44%, so `ref_image_size` and the
+  prompt decide the cost. Read the Preflight report.
+
 Resolution divisibility is the one hard rule and it is architectural: the VAE
 compresses space by 16 and the DiT patchifies that latent 2x2, so every
 dimension must be a multiple of 32. The 768 short edge and the 768x1344 area
@@ -268,6 +294,10 @@ provenance.py       MiniMax H3 Provenance Stamp (bench) -- records what a
                     render's settings actually resolved to
 h3_rules.py         the reference pipeline's input limits in one place:
                     aspect range, duration window, the 17n+5 frame grid
+single_frame.py     TEMPORARY. Lifts ComfyUI's 5-frame floor in memory so
+                    H3 can render one frame as an image editor. Deleted
+                    when ComfyUI ships it (Comfy-Org/ComfyUI#15644); it
+                    retires itself and says so at startup
 docs/               geometry/node notes, the Sol-Attn interop writeup, the
                     check index, and why ref2v resists step distillation
 coderef/            gitignored symlinks to the reference implementations
