@@ -127,6 +127,29 @@ At 768 height the two collapse into one test, because both latent dims divide by
 8 exactly when tokens per frame divides by 64. **So the rule is: both `h/32` and
 `w/32` must be multiples of 8.**
 
+**The same rule in pixels, which is the form worth remembering.** A Morton tile
+is 8x8 tokens and a token is 32x32 pixels, so a tile is a **256x256 pixel
+square**. The canvas has to be a whole number of those squares in both
+directions: **width and height both divisible by 256.**
+
+**And that is why it is 3 of 48 rather than something about Morton.** H3's
+canvas ladder steps in 32-pixel increments; Morton needs 256, so only one rung
+in eight lines up on each axis independently. Verified against the list in
+`docs/h3_resolutions.md` rather than reasoned about:
+
+- Only **two** heights in the whole legal landscape set are divisible by 256:
+  512 and 768. The other seven -- 544, 576, 608, 640, 672, 704, 736 -- all miss.
+- 768 is the common one: **20 of the 48** canvases sit at that height, and all
+  20 pass on height. Of those, only three widths are multiples of 256: 768,
+  1024 and 1280.
+- The next rung, 1536x768, is 1,179,648 pixels against the 1,032,192 cap. So the
+  list stops at three because **the ladder runs out of room**, not because of
+  anything Morton does.
+
+One near-miss worth knowing, because it looks like a bug if you rediscover it:
+**2048x512 tiles perfectly** and is 1,048,576 pixels -- **16,384 over the cap**.
+A shape the curve would handle cleanly and the model will not render.
+
 ## The short version
 
 We have no quality result. We also did not find one anywhere else, and that
