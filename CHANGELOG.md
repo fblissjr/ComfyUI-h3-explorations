@@ -4,6 +4,43 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.17.0
+
+### Measured
+
+- **Three distinct identities compose in one single-frame edit; the card is
+  what breaks first.** 13 arms through the new `bench/bench_image_edit_refs.py`,
+  drawing from the `h3_refs/` library rather than re-rendering one subject:
+  1 reference 9,135 rows / 42s, 2 refs 17,352 / 78s, 3 refs 32,093 / 198s,
+  4 refs 40,294 / 280s (two identities, no blending, the right garment on the
+  right person), 6 refs 56,710 / 491s (three identities, all correct), and
+  9 refs **OOM on a 24 GB 4090**.
+
+- **Reference images are paid for TWICE, which the cost model here missed.**
+  Each one enters as Qwen vision tokens in the `text` segment AND as latent
+  rows in the reference segment, and the text half scales with reference count,
+  landing 75-160 rows *above* the reference half at every rung of the ladder.
+  So a "44% references / 46% text" reading of Preflight was wrong: the prompt is
+  under 200 tokens and the references are ~89% of the sequence. Ladder recorded
+  in `docs/h3_references.md`; nine references is ~94k rows, more than the
+  124-frame video graph asks for.
+
+- **`ref_image_size="max"` is a no-op on the shipped image graph.**
+  `MiniMaxH3ReferenceFit` has already taken the reference to 2048 short edge and
+  core's `max` is `min(1.0, 2048 / short_edge)`. The real lever is the fit
+  node's `allow_upscale`: 8,192 reference rows and 84s with it, 2,048 and 18s
+  without, 1,682 and 16s under `match`. At 1:1 on the face all three hold the
+  same identity. One subject, one seed -- not enough to move the default, and
+  recorded as such in `docs/open_experiments.md` #16e -- but it is the first
+  evidence either way and it points at the shipped default costing 5x for
+  nothing.
+
+### Added
+
+- **`bench/bench_image_edit_refs.py`** -- the sweep above. Refuses to run
+  against a server whose length floor is 5 rather than quietly producing a table
+  about 5-frame renders.
+
 ## 0.16.0
 
 ### Added

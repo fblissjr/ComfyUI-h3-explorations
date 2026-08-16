@@ -1600,13 +1600,25 @@ sequence length 9,240      text        4,276   46.3%
                            audio           4    0.0%
 ```
 
-**The video is 9% of it.** Changing the canvas moves almost nothing -- 1:1
-saves 3%, 16:9 costs 2% -- where in a 124-frame render the canvas is the
-single largest lever. What costs here is the prompt and the references, both
-of which ride every sampling step. `ref_image_size` is `max` (2048 short edge)
-for identity fidelity, and on a single frame that one choice is roughly 4.7x
-the entire video segment. Read the Preflight report before reaching for the
-resolution dropdown.
+**The video is 9% of it, and the reference is nearly all the rest.** Read that
+`text` row carefully: the prompt is under 200 tokens of it. The other ~4,100
+are the reference image again, as Qwen vision tokens -- **every reference is
+paid for twice**, once in the text segment and once as latent rows, and both
+ride every sampling step. Measured across a 1/2/3/4/6 ladder on 2026-08-15, the
+text half scales with reference COUNT and lands 75-160 rows *above* the
+reference half at every rung (see `docs/h3_references.md`).
+
+So changing the canvas moves almost nothing here -- 1:1 saves 3%, 16:9 costs
+2% -- where in a 124-frame render it is the single largest lever. What costs is
+the references, doubled. Nine of them at this sizing is ~94k rows and **OOMs a
+24 GB 4090**, which is more than the 124-frame video graph asks for.
+
+`ref_image_size` is `max` (2048 short edge), and note that it is a **no-op
+here**: `MiniMaxH3ReferenceFit` has already taken the reference to 2048 and
+core's `max` is `min(1.0, 2048 / short_edge)`. The real lever is the fit node's
+`allow_upscale`, worth 4.9x the reference rows and 5.2x the wall clock -- and
+on the one sample compared at 1:1, worth no visible identity difference. See
+`docs/open_experiments.md` #16e before assuming it earns its cost.
 
 For scale: the whole sequence is 9,240 rows against ~82,686 for the 124-frame
 reference graph, which is why this renders in seconds."""

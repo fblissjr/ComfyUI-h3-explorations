@@ -266,9 +266,15 @@ Two things to know before using it:
   the trap -- the wrong one returns a harsher, colour-shifted image rather than
   failing. And never wire the image VAE into a video graph; its own README says
   it regresses multi-frame reconstruction.
-- **The canvas is no longer the cost lever.** At one frame the video segment is
-  9% of the sequence and the references are 44%, so `ref_image_size` and the
-  prompt decide the cost. Read the Preflight report.
+- **The canvas is no longer the cost lever, and the references cost double.**
+  At one frame the video segment is 9% of the sequence; nearly all the rest is
+  the references, which are paid for twice -- as Qwen vision tokens inside the
+  "text" segment and again as latent rows. Preflight labels the first half
+  `text`, but the prompt is under 200 tokens of it. Nine references at the
+  shipped sizing is ~94k rows and OOMs a 24 GB card. Read the Preflight report,
+  and see `docs/open_experiments.md` #16e for what the sizing knobs actually
+  buy: on the sample compared, 4.9x the reference rows bought no visible
+  identity difference.
 
 Resolution divisibility is the one hard rule and it is architectural: the VAE
 compresses space by 16 and the DiT patchifies that latent 2x2, so every

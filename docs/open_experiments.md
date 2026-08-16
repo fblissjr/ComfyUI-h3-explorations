@@ -693,6 +693,61 @@ on the whole list.
 and render times are mechanical; whether four faces still look like four
 specific people is not.
 
+**RESULT (2026-08-16), 13 arms via `bench/bench_image_edit_refs.py`.** Three
+things settled and one still open.
+
+*Composition is not what breaks; the card is.* Measured sequence and wall clock
+at the shipped sizing, one frame each:
+
+| refs | sequence | secs | outcome |
+|---:|---:|---:|---|
+| 1 | 9,135 | 42 | identity held |
+| 2 | 17,352 | 78 | subject + scene composed |
+| 3 | 32,093 | 198 | subject + garment + place, jersey text legible |
+| 4 | 40,294 | 280 | **two distinct identities, no blending**, right garment on the right person |
+| 6 | 56,710 | 491 | **three distinct identities**, all correct |
+| 9 | ~94,000 | -- | **OOM on a 24 GB 4090** |
+
+Three separate faces survive in one frame. What fails first is memory, and it
+fails between 6 and 9 references at this sizing.
+
+*The cost model was wrong, and the correction is the finding.* Reference images
+are paid for TWICE -- as Qwen vision tokens in the `text` segment and again as
+latent rows -- and the text half scales with count, landing 75-160 rows above
+the reference half at every rung. The ladder is recorded in
+`docs/h3_references.md`. The projected costs in the bench script are therefore
+about half of true, and 9 references is ~94k rows: more than the 124-frame
+video graph, on a single frame.
+
+*What `allow_upscale` buys is, on this evidence, nothing.* Same seed, same two
+references, three sizings:
+
+| sizing | ref rows | secs |
+|---|---:|---:|
+| `max` + fit upscale (SHIPPED) | 8,192 | 84 |
+| `max`, no fit upscale | 2,048 | 18 |
+| `match` | 1,682 | 16 |
+
+4.9x the rows and 5.2x the wall clock, and at 1:1 on the face all three hold
+the same identity, glasses, hair and features. **One subject, one seed, one
+scene -- this is not enough to move the default on its own**, and identity
+drift is exactly what a person judges better than a crop comparison. But it is
+the first evidence either way, and it points at the shipped default costing 5x
+for nothing. `size-small-source` is the sharper version of the same point: a
+662x1177 source enlarged 3.1x to reach 2048 cost 14,784 reference rows and
+186s, more than the entire four-reference composition, for the least detailed
+source in the library.
+
+**STILL OPEN, and it is 16b's question in a new place:** whether the sizing
+result holds across subjects and seeds. Two cheap follow-ups: repeat the three
+sizings on 3 more subjects at 2 seeds, and re-run the 9-reference arm at native
+sizes (~19k reference rows rather than ~94k), which should fit and would tell
+us whether 9 identities hold when the memory wall is moved.
+
+*Canvas, at one frame, is nearly free and nothing chose itself.* 768x1152,
+1024x1536 (out of family), 1344x768 and 768x768 all rendered cleanly at
+comparable cost. 16d stays open on owner judgment.
+
 **16d. In-family 768x1152 against the community's 1024x1536.** The shipped
 graph uses the in-family canvas; the write-up it follows renders 1.57 MP, 52%
 over H3's area cap. At one frame the canvas costs almost nothing (the video
