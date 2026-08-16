@@ -32,9 +32,17 @@ device at import -- so free the GPU before it like the others. These pass
 checks were NOT re-run that day** -- a render was resident and they OOM against
 a busy GPU, which is indistinguishable from a regression. They are owed.
 
-There are now **20 `check_*.py`** and **87 graphs** (68 in `workflows/`, 16 in
+There are now **21 `check_*.py`** and **87 graphs** (68 in `workflows/`, 16 in
 `workflows/image/`, 3 bench-stamped), all wiring the CUDA
 Sol-Attn node.
+
+**Plus one thing in this index that is not a `check_*.py` and is deliberately
+excluded from that count**: `bench/preflight_graph.py`, listed last. It grades
+and prices rather than gating, it is run by a person before a render rather
+than by the suite, and its filename does not match the glob the count is taken
+from. Counting it there would make a load-bearing sentence wrong for the fourth
+time; leaving it out of the index entirely would hide a tool that has a red
+control and defends real ground.
 
 **Partial run 2026-08-16**, when the image graphs moved into
 `workflows/image/` and their prompts were rewritten. Pass:
@@ -43,10 +51,30 @@ Sol-Attn node.
 `check_sol_kernel`, `check_generator_constants`, `check_schema_defaults`,
 `check_reference_fit`, `check_retraction_consumers`,
 `check_bench_matches_shipped`; the generator validated all 87 against a live
-`/object_info`. **`smoke_h3.py` was NOT run and no image graph was rendered** --
-the work was build-only by request, so every graph in `workflows/image/` is
-schema-valid and unsubmitted. Treat that exactly as this file says to: a green
-validator on an unsubmitted graph is unverified. `check_correctness.py`, `check_clone_v_wiring.py` and
+`/object_info`. Later the same day all 20 `check_*.py` were run together and
+all pass.
+
+**Third partial run 2026-08-16**, when the Sol-Attn docs were reorganised and
+`check_doc_links.py` was added as the 21st. **16 of 21 run, all pass**:
+`check_doc_links`, `check_retraction_consumers`, `check_generator_constants`,
+`check_schema_defaults`, `check_reference_fit`, `check_keyframe_canvas`,
+`check_distill_settings`, `check_lora_alpha`, `check_bench_matches_shipped`,
+`check_provenance_stamp`, `check_override_routing`, `check_lowvram_handoff`,
+`check_ref_prompt_labels`, `check_prompt_guide_conformance`,
+`check_single_frame`, `check_sol_kernel`. **Five were NOT run and are owed**:
+the four CUDA ones (`check_correctness`, `check_clone_v_wiring`,
+`check_short_edge_override`, `check_solattn_correctness`) because a peer
+session held the card, and `check_workflow_schema` because it needs a live
+`/object_info`. That change touched no graph, no node and no schema, so the
+five cover nothing it could have broken -- but "did not apply" and "did not run"
+are different states and this file does not conflate them.
+
+**Ten single-frame renders were submitted** to price `allow_upscale` and
+`steps` (`open_experiments` #16e, #16g), which means three of the eight image
+graphs -- `h3_image_edit`, `h3_image_style`, `h3_image_multiperson` -- have now
+executed end to end rather than merely validating. **`smoke_h3.py` was still
+not run**, and the other five image graphs remain unsubmitted, so for those a
+green validator is still an unverified graph. `check_correctness.py`, `check_clone_v_wiring.py` and
 `check_short_edge_override.py` were re-run too -- owed since the
 `mode="fp16 (most accurate)"` flip, and owed again because `comfy_kitchen` is
 now built from source rather than the pinned wheel. All pass. Free the GPU
@@ -120,6 +148,7 @@ papercut and is listed under Gaps.
 | `check_solattn_correctness.py` | Sol-Attn's **CUDA kernel** against the algorithm's own eager reference, cosine > 0.998, graded in the kernel's own measured `centroid_tail` mode. **Scope narrowed 2026-08-16**: the Triton arms went with the pack. They graded a kernel no graph had wired since 2026-08-14, and worse, the CUDA arm was coupled to them by control flow alone -- the script loaded Triton first and returned 2 on failure, *before* the CUDA arm was reached, so an absent pack silently disabled the only correctness check on the kernel that does run. The tail mode is now measured BEFORE the graded cases so they use the matching oracle. Exits 2 when there is no CUDA or no `sol_attn`, which is the expected state on a machine that has not built the fork | CUDA and a fork build of comfy_kitchen | yes | **yes**, 2026-08-16: the red control was shown red against a copy by pointing it at the same tau, where it reports cos 0.999919 and correctly fails "must differ". Numbers identical before and after the Triton strip, so removing those arms moved no CUDA figure |
 | `check_bench_matches_shipped.py` | that `bench_e2e_h3.py`'s `shipped` arm builds the same sage and Sol settings the graphs actually wire, node for node. Exists because `check_generator_constants.py` pins the **generator** and nothing pinned the **bench** -- a gap that cost a day of numbers when the `fp16 (most accurate)` flip landed everywhere except here | - | yes | **yes**, 2026-08-14, by reintroducing the exact historical `mode="auto"` |
 | `check_retraction_consumers.py` | that a retracted claim has not reached a file nobody signed off on. Reads the `retraction-consumers` block in `docs/evidence.md` -- a phrase per retracted claim plus the files allowed to contain it -- and fails on a hit anywhere else. **Deliberately an allowlist, not caveat-detection**: "is this mention caveated" is not decidable (`docs/bench_plan.md` legitimately contains `zero DiT calls` inside a RETRACTED bullet), and the same string can be two claims (`attention.py`'s `2.7x` is kernel speed, not the retracted accuracy figure). It answers the one decidable question, which is also the failure that occurred four times on 2026-08-14: all four consumers were files that acquired the claim *after* the retraction. **Does not defend the pairing case** -- `bench_plan.md`'s "one 345-frame video reference", where the reference length looked like the shipped config and hid a 362-frame target, has no matchable token, and a second reader found it | - | yes | **yes**, 2026-08-14, two controls: a new consumer added to `README.md` (red, named the file), and the ledger block deleted (red, refuses to pass with nothing to check). It also went red on its own first run, correctly -- it was scanning itself and the definition block, which is why both are now excluded |
+| `check_doc_links.py` | that a doc does not point at a file or line that is gone. Two pointer classes: relative markdown links between docs, and `path:line` code citations. Exists because the 2026-08-16 `sol_engine_reference.md` -> `sol_upstream.md` rename broke `CLAUDE.md:41` **within an hour of a wholesale CLAUDE.md rewrite whose purpose was removing stale references**, and nothing said so -- a peer session caught it by eye. Takes paths on the CLI; with none it **walks the repo** rather than globbing a directory somebody remembered, which is the hole that let `workflows/image/` go ungoverned by two prompt checks. Resolves against the filesystem, not git, so brand-new untracked work is not a false red. `coderef/` citations warn rather than fail -- a machine that has not cloned diffusers is not broken. Skips `CHANGELOG.md` on purpose: a changelog records what was true then, and `CHANGELOG.md:455` correctly names a file that no longer exists. **Cannot tell whether a cited line still says what the citation claims**, which is why `docs/morton.md` pins a commit as well. Its `ambiguous_roots` case found a live one on its first run: `CLAUDE.md` cited a bare `nodes.py` with a line range, meaning ComfyUI's 2595-line file, and it resolved to our 194-line one -- in the paragraph warning that `import nodes` resolves to ours. Citations into ComfyUI's tree now carry a `ComfyUI/` prefix. **This row deliberately does not spell that citation in its own backticked form**, for the same reason `check_retraction_consumers.py` excludes itself: the file describing a bad pointer would otherwise contain one. **Scope widened the same day to `path::symbol`**, after a peer found six of those invisible to the `path:line` grammar. Five were the same ambiguous bare `nodes.py`, written that day. **The sixth was a diffusers path introduced in `6375763` on 2026-08-06 that had resolved nowhere for ten days**, in a doc read and edited repeatedly since -- so one pass caught new work and a stale committed defect together, and only the new work had a second reader looking for it. That gap was unreadable from a green run: the whole-repo pass said 34 citations and green while one doc contributed zero and held two ambiguous refs. **Not covered and correctly absent look identical unless the check prints what it examined**, which is why `parses_the_corpus` reports counts per grammar rather than only passing | - | yes | **yes**, 2026-08-16, eight controls. Five on the original grammar: a line past EOF (`citations_in_range`), the doc rename re-applied (`doc_links_resolve`, 4 files named), a one-file corpus with no references (`parses_the_corpus` -- it refuses to pass on silence), a full path cut to a basename (`no_bare_basenames`), and the `ComfyUI/` prefix removed (`ambiguous_roots`). Three more on the symbol grammar: a symbol absent from the file it names (`symbols_exist`), a bare `nodes.py::` (`ambiguous_roots`), and a symbol ref to a nonexistent file (`citations_resolve`). **Two failures worth more than the controls that passed.** One attempt appeared to prove the check inert and was a wrong grep pattern in the control. The other was real: the symbol pass was written *below* the reporting section, so it classified into lists already printed and the check reported green over a path resolving nowhere -- caught only because the diffusers path was known-bad beforehand |
 | `check_provenance_stamp.py` | that `provenance.py` records the knobs that actually ran. Five cases; the load-bearing one is **`closure_is_read_not_declared`** -- two overrides built from the real `make_override`, differing in exactly one CUDA-only knob, must produce DIFFERENT recorded values. A key being present proves it was LISTED; only a value that MOVES proves it was READ, and the old version passed the former while failing the latter. Also pins that every `SOL_CLOSURE_KEYS` name is a real node parameter and that every node parameter is recorded -- the 2026-08-16 bug was wrong in BOTH directions at once, asking for three Triton knobs the CUDA node does not have (recorded as "not detected" forever, indistinguishable from a knob that was off) while omitting three that do run, `centroid_tail` among them. `version_bump_has_no_consumer` records that NOTHING reads `stamp_schema_version`, so the 1 -> 2 bump protects a future reader only, and fails the day a consumer appears without handling it | - | yes | **yes**, 2026-08-16, by reintroducing the exact pre-fix key list: both key cases go red and name the specific keys |
 | `check_sol_kernel.py` | that the installed `comfy_kitchen` still carries `sol_attn`, that it is the CUDA backend and not the eager reference alone, and that its signature still accepts the kwargs our node passes. **The first check here covering a call INTO a dependency we do not control**, and it covers exactly one contract. Presence is gated on a graph wiring `SolAttnMiniMax`, because Sol is shipped OFF and absent is the expected state; ungated it exits 2. Also pins `SOL_CUDA_DEFAULTS` against the inputs the node declares -- parsed with `ast` rather than imported, so the check stays free of ComfyUI | - | yes | **yes**, 2026-08-14: `present` with the stock PyPI wheel as the control, `schema` by simulating an upstream rename |
 | `check_lora_alpha.py` | that every `*_LORA` in `h3_config.py` resolves on disk, and that none of them hides a scale ComfyUI cannot see. ComfyUI reads `alpha` only from a `"<module>.alpha"` tensor and falls back to 1.0, **never** from the file's `__metadata__`; diffusers' #14408 documents a published H3 turbo LoRA carrying alpha 8 against rank 128 in metadata alone, which such a loader applies **16x too strong**, silently. **The first check here whose subject is a third-party binary** -- `check_prompt_guide_conformance.py` parses someone else's file but grades our prompts with it, `check_sol_kernel.py` grades a dependency's API. The exemption is the hard part: three kijai `_resized_avg_` conversions in this install carry a metadata `alpha` and are correct, because they also declare the scale baked into `lora_B`, so a declared bake outranks a declared alpha. Also pins its own premise by reading `comfy/lora.py`, so it fails loudly rather than quietly the day that loader grows a metadata channel. Both controls are synthetic and run every invocation, because every real file here is currently clean and an all-clean corpus cannot tell a working check from an inert one | - | yes | **yes**, 2026-08-16, five mutations, documented in-file: a dangling `REF_LORA` (red, and the scale case correctly declined to run), the unsafe branch deleted (`control:unsafe` red), the exemption widened by presence (`control:unsafe` red), the exemption removed (`control:baked` red, and three correct files misclassified), and a fake ComfyUI that reads `__metadata__` (`premise` red). A sixth mutation changed no verdict and is recorded as proving nothing |
@@ -129,10 +158,33 @@ papercut and is listed under Gaps.
 | `check_short_edge_override.py` | the reference short-edge override applies once and never leaks | `PYTHONPATH` | no | **yes**, documented in-file |
 | `check_generator_constants.py` | the workflow generator reads upstream constants rather than repeating them | `PYTHONPATH` self-bootstrapped | no | not recorded |
 | `check_workflow_schema.py` | saved UI graphs against a live ComfyUI `/object_info`, type-checking widget values positionally. Takes paths from the CLI, so it is the one walker that cannot read `GRAPH_DIRS` -- pass `workflows/*.json workflows/image/*.json`. Exempts `LoadImage` values carrying a subfolder from the combo-membership test (2026-08-16): that combo comes from a non-recursive `os.listdir`, while the node's own `VALIDATE_INPUTS` checks the filesystem, so this file was rejecting graphs the server renders | **live ComfyUI**, or `--object-info` cache | no | not recorded |
+| `preflight_graph.py` | **not a gate -- a report, run by hand before you queue.** Grades a prompt against the guide's mechanical rules (ordinals derived from sockets, every defined label cited in `detailed_description`, one retention line per label, markers never crossing the visual/audio sets, no `(Sx)` in `retention_analysis`, `<d>` placement and language tag, cut times inside the clip) and prices the packed sequence statically. Takes paths, never globs, so hand-built graphs are gradeable -- which is why it exists: the two prompt checks only ever saw `workflows/*_api.json`. **Reports, never refuses**, because a tool that blocks you in your own repo gets disabled. Names what it cannot count: a video reference is a floor, not a budget. Imports `wired_labels`, `_audio_sections_optional` and `_STRUCTURE_PROBES` rather than restating them -- the first run without the last two reported FAIL on 7 of 8 image graphs for sections that structurally cannot apply | reference images on disk; no CUDA, no model, no server | no | **yes**, 6 mutations 2026-08-16: wrong ordinal (both directions), `(Sx)` in retention, visual marker on an audio label, audio marker on a visual label, a timestamp on `[Shot 1]`, `<d>` with no language tag. A 7th appeared green and was **my mutation failing to apply** -- the source said `partially_copy` where the patch expected `reference`, so nothing changed and the check "passed" having tested nothing. Caught only by diffing the mutant against the source; recorded because it is the trap this file exists for |
 | `smoke_h3.py` | the H3 chain composes and runs, after any node-pack update. **The only thing here that actually POSTs a prompt**, and on 2026-08-13 it was the only reason anyone discovered every API graph was unsubmittable -- `validate_api` was asserting the wrong shape, so no static check could have found it | live ComfyUI, GPU, model | no | n/a, it is a smoke test |
 
 "claims block" means the file carries a `Claims, i.e. what breaks if a case is
 deleted:` header enumerating what each case defends. Eight of fifteen do.
+
+### Citations that cannot resolve, for `check_doc_links.py`
+
+The ledger that check reads, kept here rather than in the script for the same
+reason `retraction-consumers` lives in `docs/evidence.md`: the enumeration
+belongs beside the prose it governs, and nothing gets a second copy.
+
+An entry asserts that someone looked and the target is *deliberately* gone. It
+is not a way to silence a broken link.
+
+```doc-link-absent
+PATH: _morton.py
+WHY: the Triton pack's Wan Morton file, deleted with the pack on 2026-08-16
+     (commit 6872dfd). docs/morton.md quotes its docstring as the only stated
+     payoff for reordering anywhere in either pack, so the citation has to
+     stay. Recover from github.com/kijai/ComfyUI-SolAttn_triton at 842c4ea.
+
+PATH: _morton_h3.py
+WHY: same pack, same deletion. Cited for the opposite reason -- it is the H3
+     variant and makes NO quality or sparsity claim, which is the whole point
+     of the comparison it appears in.
+```
 
 ### A note on `check_lowvram_handoff.py`
 

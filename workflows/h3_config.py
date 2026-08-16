@@ -187,12 +187,15 @@ SAMPLING = dict(sampler="er_sde", scheduler="simple", steps=16, denoise=1.0)
 #   morton off        **The 1.16x speed cost below is retracted for the CUDA
 #                     backend, measured 2026-08-16.** Isolated properly -- all
 #                     50 blocks dense, morton on against morton off, so the
-#                     permutation is the only difference -- it costs 0.8 s of
-#                     861 s, or 1.0009x. In the sparse arm it is 1.2 s of 454,
-#                     1.0027x. **The permutation is free at 1344x768 / 294
-#                     frames on the CUDA kernel.** The old figure was Triton,
-#                     362 frames, and stacked on int8; it is not wrong for what
-#                     it measured, it just does not describe this backend.
+#                     permutation is the only difference -- it came out +0.8 s
+#                     of 861. The sparse pair moved 1.2 s of 454 the OTHER way,
+#                     i.e. morton-on faster, which it cannot be. Opposite signs,
+#                     both at or under this bench's run-to-run spread on one run
+#                     per arm. **The permutation is free at 1344x768 / 294
+#                     frames on the CUDA kernel**, and neither delta should be
+#                     quoted as a cost. The old figure was Triton, 362 frames,
+#                     and stacked on int8; it is not wrong for what it measured,
+#                     it just does not describe this backend.
 #
 #                     morton stays OFF anyway, now on a different basis: the
 #                     reason is no longer cost, it is that nothing has shown it
@@ -212,10 +215,13 @@ SAMPLING = dict(sampler="er_sde", scheduler="simple", steps=16, denoise=1.0)
 #                     quality -- reordering video tokens so each 64-token
 #                     block is a compact 3D neighbourhood is exactly the kind
 #                     of change that would alter WHICH blocks the router
-#                     keeps, and nobody here has looked. If it does improve
-#                     quality, the 1.16x it costs buys something, and the
-#                     current default is trading an unmeasured gain for a
-#                     measured one. See docs/open_experiments.md.
+#                     keeps, and nobody here has looked. The old form of this
+#                     sentence said a quality gain would mean "the 1.16x it
+#                     costs buys something" -- caveat decay inside this very
+#                     comment, three paragraphs under the retraction. There is
+#                     no cost to buy anything with: the permutation is free, so
+#                     any quality gain at all would make morton worth turning
+#                     on. See docs/morton.md and docs/open_experiments.md.
 #   int8_qk/pv on     Worth 1.16x on top of plain sparsity at 362 frames.
 #
 # Head chunking is deliberately not in this chain, and as of 2026-08-10 that
@@ -591,6 +597,65 @@ IMAGE_VAE = "minimax_h3_t1_image_vae_step1597.safetensors"
 # option reaches it and says which side of the family you are on.
 IMAGE_EDIT_CANVAS = dict(width=768, height=1152)
 
+# What every single-frame image graph spends, in one place.
+#
+# **`ref_upscale=False`, and it is the opposite of the video default.** The fit
+# node's upscaling takes a reference's short edge to 2048; on this path that is
+# the single largest cost.
+#
+# **Confirmed here 2026-08-16 rather than inherited.** `h3_image_style`, the
+# two-reference graphite scene, rendered both ways at the same seed with
+# nothing else changed:
+#
+#   allow_upscale=True    89.1s
+#   allow_upscale=False   18.1s     <- ships here
+#
+# 4.9x the wall clock. The two images were compared side by side and against
+# the source reference: same identity, same freckle pattern, same head angle,
+# same expression, same hairstyle, and the graphite medium transferred in both
+# without the style reference dragging its cottage along. If anything the
+# cheaper one has crisper hair strands.
+#
+# That reproduces the earlier 84s/18s ladder (`open_experiments` #16e) on a
+# second occasion, which is why the default moved here where #16e declined to
+# move it: that entry rested on ONE subject at one seed and said so. This is
+# still a small n -- two subjects, two seeds -- but the renders are seconds, so
+# the cost of being wrong is a re-render rather than an afternoon.
+#
+# **The video graphs keep `ref_upscale=True`.** Nothing here transfers to them:
+# a 124-frame render is minutes, identity has to survive motion as well as a
+# still, and REF_VIDEO_BUDGET turns it off for an unrelated reason (fitting a
+# long reference in 24 GB).
+#
+# **`steps` stays at 16 on this path, and that was tested, not assumed.** The
+# obvious companion optimisation is fewer steps, and on the easy scenes it
+# looks free: `h3_image_edit` (one reference, a camera move) renders at 16 in
+# 13.0s and at 8 in 4.0s, and the two are near-indistinguishable -- same man,
+# same suit, same tie, same three-quarter view. `h3_image_style` at 8 keeps its
+# freckling and its medium too.
+#
+# **`h3_image_multiperson` is where it breaks, and it is the scene that
+# matters.** Three references, 16 steps 25.0s against 8 steps 10.0s: at 8 the
+# woman's freckling is largely gone and her pendant has disappeared, and
+# freckling is precisely the identity marker that scene's `partially_preserved`
+# entry names. So the saving is ~15s on the one graph where the detail is the
+# whole point.
+#
+# The lesson is about the test, not the number: measured only on the
+# one-reference portrait, 8 steps looks free everywhere. **A check whose input
+# already satisfies the expected outcome cannot fail**, and a single portrait
+# is that input for step count. One paired render per scene, consistent with
+# the expected mechanism (fewer steps, less fine detail) -- not a sweep, and
+# not enough to justify a per-scene step count.
+#
+# **`ref_image_size` stays `max` and is still a no-op**, but for a NEW reason,
+# and the old one is now wrong. It used to be a no-op because the fit node had
+# already reached 2048 so core's `min(1.0, 2048/short_edge)` was 1.0. With the
+# fit node no longer upscaling, a sub-2048 source hits `min(1.0, >1.0)` = 1.0
+# and is left at native size. Same outcome, different mechanism -- and for a
+# source ABOVE 2048 the two diverge, so do not simplify this away.
+IMAGE_EDIT_BUDGET = dict(**IMAGE_EDIT_CANVAS, ref_upscale=False)
+
 # The default canvas, chosen by TIER rather than typed, so "render this
 # cheaper" is one edit instead of a hunt through GRAPHS.
 #
@@ -847,3 +912,38 @@ SPLIT_AT = 2
 REF_VIDEO_CANVAS = dict(width=1024, height=768)
 REF_VIDEO_BUDGET = dict(length=LONG_LENGTH, **REF_VIDEO_CANVAS,
                         ref_upscale=False)
+
+
+# ---------------------------------------------------------------------------
+# Where generated graphs live
+# ---------------------------------------------------------------------------
+
+# Graphs are foldered by USE CASE, relative to `workflows/`. Video is the
+# primary case and stays at the root; the single-frame image gen/edit path is
+# experimental and gets its own folder, so "what does this repo ship for
+# video" is answerable by listing a directory.
+#
+# **This tuple is the discovery list, and it is shared on purpose.** Every
+# check in `bench/` that walks the shipped graphs used a bare
+# `workflows/*.json`, which is non-recursive -- so the moment the image graphs
+# moved down a level, six checks would have gone on passing over a set that no
+# longer contained them. That is the failure mode this repo keeps naming:
+# correctly-absent and broken look identical from a green run. Adding a
+# directory here is what makes every walker see it at once.
+#
+# `bench/` and `archive/` are deliberately NOT here. The stamped bench graphs
+# read another pack's closure internals and are expected to break; the archive
+# is history. Neither should be graded against the live schema.
+GRAPH_DIRS: tuple[str, ...] = ("", "image")
+
+
+def graph_paths(workflows, pattern: str = "*.json") -> list:
+    """Every shipped graph under `workflows`, in a stable order.
+
+    `workflows` is the repo's `workflows/` directory as a `pathlib.Path`.
+    Returns paths, sorted within each directory, root first.
+    """
+    out = []
+    for sub in GRAPH_DIRS:
+        out += sorted((workflows / sub if sub else workflows).glob(pattern))
+    return out

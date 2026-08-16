@@ -57,7 +57,9 @@ while everything else grows linearly, so at 362 frames attention is ~76% of
 the step against ~50% at 124 — long clips are where kernel and sparsity work
 pays off most. And late-clip identity softening at 362 is the ordinary
 long-clip DiT failure at the edge of the trained range; stepping down to 328
-or 345 costs proportionally less attention *and* reduces it.
+or 345 costs proportionally less attention *and* reduces it. 362 is the
+shipped default, so that step down is a deliberate choice per render, not a
+setting you inherit.
 
 ## Which nodes to use
 
@@ -95,11 +97,11 @@ stretch is faithful to the reference pipeline, which also stretches the
 geometry anchor and cover-crops any follower. What ComfyUI lacks is the
 *default* that normally makes it a no-op: the reference derives the canvas
 from the first keyframe when no size is given
-(`modular_pipelines/minimax_h3/before_encoder.py::MiniMaxH3ResizeStep` ->
+(`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py::MiniMaxH3ResizeStep` ->
 `resolve_canvas_size`) and then skips the resize once the keyframe matches.
 The reference's deliberate-override branch is ComfyUI's default branch.
 
-Measured distortion at the default canvas, from
+Measured distortion at 1344x768, from
 `bench/check_keyframe_canvas.py`:
 
 | source | ratio | stretch |
@@ -111,7 +113,7 @@ Measured distortion at the default canvas, from
 | 1920x1080 | 1.778 (true 16:9) | 1.016x |
 | 1344x768 | 1.750 | 1.00x |
 
-**The default canvas is 7:4, not 16:9.** 1344/768 = 1.7500; 16/9 = 1.7778. A
+**1344x768 is 7:4, not 16:9.** 1344/768 = 1.7500; 16/9 = 1.7778. A
 genuine 16:9 source takes a 1.6% squeeze, not a no-op — small, but do not read
 the table as "16:9 is safe". Round-to-32 on both axes means no H3 canvas is
 exactly 16:9: `adapt_canvas(16, 9)` returns 1344x768. That is the model's canvas

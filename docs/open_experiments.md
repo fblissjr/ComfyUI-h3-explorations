@@ -592,12 +592,20 @@ band with no dramatic tell, which a stills-based judgement cannot see. Every
 tau arm ever run here compared 1.3 against 2.0, so all it establishes is that
 1.3 beats something worse. **1.3 against 1.0 has never been run.**
 
-**morton.** We set `morton=False` on a speed result: worth 1.16x alone, a net
-loss stacked on int8, 94% GPU utilisation against 99% elsewhere. Kijai says the
-quality effect is untested. Reordering video tokens so each 64-token block is a
-compact 3D neighbourhood changes *which* blocks the router keeps — the most
-plausible mechanism for a quality change there is. If it helps, the 1.16x is
-buying something and the default trades an unmeasured gain for a measured one.
+**morton.** We set `morton=False` on a speed result — worth 1.16x alone, a net
+loss stacked on int8, 94% GPU utilisation against 99% elsewhere — and **that
+result is RETRACTED for the CUDA backend, 2026-08-16.** It was Triton, 362
+frames, stacked on int8. Isolated against a dense control the permutation is
+free -- the dense and sparse pairs disagree in sign and both sit under the
+bench's run-to-run spread -- and the three curves are speed-indistinguishable.
+Kijai says the quality effect is untested, and it still is.
+
+This makes the arm **more** worth running, not less. Reordering video tokens so
+each 64-token block is a compact 3D neighbourhood changes *which* blocks the
+router keeps, and on captured activations it measurably tightens the per-block
+centroid. With the cost at zero, any quality gain at all would justify turning
+it on, so the default is no longer a trade — it is an untested knob left off.
+`Canonical: docs/morton.md`.
 
 **Arms:** `shipped` (tau 1.3, morton off), `shipped[tau=1.0]`,
 `shipped+morton2d`, `shipped+morton3d`, `shipped+hilbert`, and
@@ -743,8 +751,21 @@ for nothing. `size-small-source` is the sharper version of the same point: a
 186s, more than the entire four-reference composition, for the least detailed
 source in the library.
 
+**RESOLVED FOR THE IMAGE PATH, 2026-08-16.** The sizing result was reproduced
+on a second subject and seed -- `h3_image_style`, two references, 89.1s with
+the fit upscale against 18.1s without, and the pair compared against the source
+reference rather than against each other: same identity, freckle pattern, head
+angle, expression and hairstyle, with the graphite medium transferring in both.
+So `ref_upscale=False` is now the default for every graph in
+`workflows/image/` (`h3_config.IMAGE_EDIT_BUDGET`), and the whole eight-graph
+set renders in about two minutes against about eleven.
+
+**Two subjects and two seeds is still a small n**, and none of it transfers to
+the video path, which keeps `ref_upscale=True`: a 124-frame render is minutes,
+and identity there has to survive motion as well as a still frame.
+
 **STILL OPEN, and it is 16b's question in a new place:** whether the sizing
-result holds across subjects and seeds. Two cheap follow-ups: repeat the three
+result holds across more subjects and seeds. Two cheap follow-ups: repeat the three
 sizings on 3 more subjects at 2 seeds, and re-run the 9-reference arm at native
 sizes (~19k reference rows rather than ~94k), which should fit and would tell
 us whether 9 identities hold when the memory wall is moved.
@@ -811,6 +832,38 @@ on a one-reference scene, where there are no roles to confuse.
 
 ---
 
+## 16g. Step count on the single-frame path
+
+Added and partly answered 2026-08-16.
+
+**Tests:** whether one frame needs the 16 steps the video path uses.
+
+**RESULT: it does, and the value is in where it breaks.** One paired render per
+scene, same seed, `ref_upscale=False`, 16 against 8:
+
+| scene | refs | 16 steps | 8 steps | verdict |
+|---|---:|---:|---:|---|
+| `h3_image_edit` | 1 | 13.0s | 4.0s | indistinguishable |
+| `h3_image_style` | 2 | 18.0s | 7.0s | freckling and medium both hold |
+| `h3_image_multiperson` | 3 | 25.0s | 10.0s | **8 loses the freckling and the pendant** |
+
+At three references, 8 steps drops precisely the fine detail that scene's
+`partially_preserved` entry names as retained. It buys ~15s on the one graph
+where that detail is the point, so **`steps` stays 16** and no per-scene step
+count was introduced.
+
+**The methodological point is the durable half.** Measured only on the
+one-reference portrait -- the obvious scene to try, and the fastest -- 8 steps
+looks free everywhere and the default would have moved. A check whose input
+already satisfies the expected outcome cannot fail, and a single studio
+portrait is that input for step count.
+
+**Still open:** a real sweep (12, 10) on the three-reference scene, and whether
+a per-scene step count is worth the complexity. One paired render per condition
+is consistent with the expected mechanism and is not a sweep.
+
+---
+
 ## 17. A 16-bit PV branch for the CUDA Sol-Attn kernel
 
 **Tests:** whether `sol_attn_exact.cu` should get a 16-bit PV matmul, keeping
@@ -854,8 +907,8 @@ the proposed config and it has no `int8_pv=True` counterpart profiled beside it.
 
 **And Triton cannot price a CUDA change anyway.** `docs/morton.md` retracted
 exactly this move on 2026-08-16: `h3_config.py`'s "morton is worth 1.16x alone"
-was Triton, 362 frames, stacked on int8, and the CUDA isolation put it at
-1.0009x. Its verdict -- "correct for what it measured, wrong as a description
+was Triton, 362 frames, stacked on int8, and the CUDA isolation found no
+resolvable cost at all. Its verdict -- "correct for what it measured, wrong as a description
 of the CUDA backend" -- applies here unchanged. The 2026-08-14 CUDA migration
 postmortem is blunter: **every headline number that migration produced was
 withdrawn.**
@@ -888,8 +941,8 @@ branch is a thin slice.
 
 ### The layout problem is already solved in-tree
 
-Expected to be the hard part; it is not. `sol_attn_route.cu:446-465` already
-runs bf16 PV inside the Sol codebase, and `sol_layout.cuh:102-114` already
+Expected to be the hard part; it is not. `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_attn_route.cu:446-465` already
+runs bf16 PV inside the Sol codebase, and `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_layout.cuh:102-114` already
 carries `mma_bf16` and `pack_bf2`. The INT8 QK score tile feeds a 16-bit A
 operand with no shuffle and no permutation -- two adjacent n8 tiles are exactly
 the `m16n8k16` A layout. Sage does the same (`RS_32_to_16` in its
@@ -897,7 +950,7 @@ the `m16n8k16` A layout. Sage does the same (`RS_32_to_16` in its
 not derived from a fragment map on paper.
 
 Consequence: **`perm_key` exists only to make the INT8 repack free**
-(`sol_layout.cuh:61-63`). A 16-bit path does not need it, and V^T stays in the
+(`coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_layout.cuh:61-63`). A 16-bit path does not need it, and V^T stays in the
 logical key order it is already stored in.
 
 ### MMA issue rates, measured on this box 2026-08-16
@@ -913,7 +966,7 @@ f16  m16n8k16 -> f32     1.640        83.8     0.25x
 f16  m16n8k16 -> f16     0.821       167.3     0.50x
 ```
 
-`sol_layout.cuh:81` justifies the all-INT8 branch with "sm_120 is issue-rate
+`coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_layout.cuh:81` justifies the all-INT8 branch with "sm_120 is issue-rate
 bound and f32-accumulate forms issue at half rate". **That holds on sm_89 too**
 -- identical instruction count, exactly 2x the time. Verified rather than
 carried over.
@@ -980,9 +1033,9 @@ change. Run 17b on both captures and report both. *Blocker: none.*
 | `ops/sol_attn_exact.cu` | the real work. `pack4u8`/`mma_u8s8`/`__dp4a` l-sum become `pack_bf2`/`mma_bf16`/a plain float sum; `PKC` 2 to 4; `LDV` 64 to 128 bytes; the epilogue drops the `vsc` multiply and the 255. Removes the `log2(255)` exponent fold and the num/den-quantize-identically subtlety rather than adding one. |
 | `ops/sol_layout.cuh` | `swz_v` re-derived for a 128-byte V row. The header says to enumerate both 16-lane LDS.64 phases against 32 banks; that is not optional. |
 | `ops/sol_attn_vtranspose.cu` | a bf16 variant: transpose without quantize. |
-| `ops/sol_attn_route.cu` | **the dangerous part.** Both route kernels hand over `o_part * (255/vsc)` and `l * 255` to land in the INT8 exact kernel's units (lines 190-199, 483-488). A 16-bit branch wants plain units. Ten lines -- and `sol_layout.cuh:19-21` warns this class of drift "is invisible to either side's own test". |
+| `ops/sol_attn_route.cu` | **the dangerous part.** Both route kernels hand over `o_part * (255/vsc)` and `l * 255` to land in the INT8 exact kernel's units (lines 190-199, 483-488). A 16-bit branch wants plain units. Ten lines -- and `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_layout.cuh:19-21` warns this class of drift "is invisible to either side's own test". |
 | `ops/sol_attn.cu`, `dlpack_bindings.cpp`, `backends/cuda/__init__.py`, `constraints.py` | plan sizing (`vTi` doubles), the flag, validation. |
-| `CMakeLists.txt:135-139` | sol sources are listed explicitly; a new `.cu` needs adding, a template parameter does not. |
+| `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/CMakeLists.txt:135-139` | sol sources are listed explicitly; a new `.cu` needs adding, a template parameter does not. |
 | `tests/test_sol_attn.py` | parametrize the existing cosine cases over the flag. The eager reference is full-precision and already the oracle for both, so **a case asserting 16-bit scores no worse than INT8 is free, and it is the one that would catch a bad handover.** |
 
 Ours: a node input appended **last** (`vendor/sol_attn_minimax.py`, the

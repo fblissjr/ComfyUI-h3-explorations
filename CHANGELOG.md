@@ -4,6 +4,235 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.25.0
+
+### Changed
+
+- **The three Sol-Attn documents now own one topic each, and `SOLATTN.md` is
+  the entry point.** They had been peers, all three asserting Sol-Attn numbers,
+  with the link graph running upward only -- `morton.md` and the upstream doc
+  both pointed at `SOLATTN.md` and it linked to neither. That is a hub with no
+  spokes, and it produced live contradiction rather than the theoretical kind:
+  `docs/SOLATTN.md` sold Morton as "worth 1.16x alone" in its Configuration
+  findings while `docs/morton.md` carried the retraction of exactly that
+  figure.
+
+  The split: **`SOLATTN.md`** owns what we run and every number measured on
+  this box. **`morton.md`** owns token order. **`sol_upstream.md`** owns what
+  other people claim and asserts none of our numbers. The rule that keeps them
+  apart is that a number is stated once, in the page that owns it, and
+  everywhere else is a one-line verdict plus a `Canonical:` link.
+
+- **`docs/sol_engine_reference.md` is renamed `docs/sol_upstream.md`**, because
+  it stopped being about one vendor's framework. It gained the Sol-Attn paper
+  and a section on the two other ComfyUI Sol-Attn packs. `CHANGELOG.md:455`
+  still names the old path and is deliberately not rewritten; it records what
+  0.18.0 added.
+
+- **The Sol-Attn paper is read and recorded.** arXiv 2607.24027 was fetched on
+  2026-08-16 -- abstract, ablation summary and HTML, not the full PDF, and the
+  doc says so. `docs/morton.md` had listed it as unread in five separate
+  places, including as the cheapest unrun item on its own to-do list. Four
+  findings land: the contribution is the **correction** (unselected blocks
+  reuse their proxy scores) rather than the routing, and its advantage widens
+  as sparsity rises; `tau` is the paper's `beta` and **is never swept**, so
+  nothing upstream adjudicates our 1.3 against Sol-Engine's 1.0; **H3 is not
+  evaluated in the paper at all**; and **no token reordering appears in it**,
+  which narrows the Morton attribution for the fourth time -- from "upstream
+  says the payoff is at higher sparsity" to "not part of the published method".
+
+### Fixed
+
+- **`docs/morton.md` contradicted itself about `h3_capture.py`** in three
+  places, saying it had never been run while its own results section recorded
+  the first run. Also corrected: it described `SOL_RECOMMENDED_CUDA` as pinning
+  `morton_curve="2d_frame"` when `h3_config.py` had moved to `"3d"`.
+
+- **The Morton permutation cost is corrected from "0.8 s of 861, or 1.0009x"
+  to "free".** The old sentence quoted one arm of a two-arm control as "the
+  isolated number". The other arm moved 1.2 s the opposite way -- morton-on
+  *faster*, which it cannot be -- and both deltas sit at or under this bench's
+  measured run-to-run spread on one run per arm. **Opposite signs across a
+  control pair means no effect**, which is the argument the same section
+  already makes about a VRAM figure three paragraphs later, unapplied to time.
+  Found by a second reader. The ratio column is deleted from the arm table:
+  a figure printed to four decimal places reads as a measurement whatever
+  caveat sits beside it.
+
+- **Two "gaps" against Sol-Engine were miscategorised and are corrected.**
+  `thresh_type` was written as a knob our node fails to expose; comfy-kitchen's
+  CUDA kernel implements only the `diag` threshold math, so it is an
+  unimplemented kernel path, and NVLabs' own single-consumer-card H3 profile
+  runs `diag` too -- the mode we already run. `kv_splits` was written as a gap;
+  Sol-Engine raises `"kv_splits=2/4 is currently available on SM90 only"`, so a
+  4090 gets 1 there as well. Also corrected: "exact thresholding for H3" is
+  A100/H100 only, and the A100 cell they call their validated policy runs the
+  **Triton reference**, not a CuTe kernel.
+
+- **`h3_config.py`'s Morton comment contradicted itself**, arguing three
+  paragraphs below its own retraction that a quality gain would mean "the 1.16x
+  it costs buys something". There is no cost to buy anything with.
+
+### Added
+
+- **`bench/check_doc_links.py`**, and `docs/checks.md` grows a
+  `doc-link-absent` ledger for citations that are deliberately unresolvable.
+  Checks both relative markdown links between docs and `path:line` code
+  citations. It exists because the rename above broke `CLAUDE.md:41` within an
+  hour of a CLAUDE.md rewrite whose whole purpose was removing stale
+  references, and nothing in the repo noticed.
+
+  **It found a live one on its first run.** `CLAUDE.md` cited
+  `nodes.py:2245-2250` meaning ComfyUI's 2595-line file; it resolved to our
+  194-line one -- inside the paragraph warning that `import nodes` finds ours.
+  Citations into ComfyUI's tree now carry a `ComfyUI/` prefix. Thirteen further
+  citations were bare basenames and are now paths.
+
+  Shown red five ways before being trusted, including one attempt that appeared
+  to prove it inert and was a wrong grep pattern in the control rather than a
+  hole in the check.
+
+- **Two card-free decisions in `docs/roadmap.md`**: whether to adopt
+  `dense_blocks="0-1"` (every published H3 profile runs the first two blocks
+  dense; ~3.6% by arithmetic, and it needs no block probe because copying a
+  validated list is not the same question as choosing our own), and whether to
+  build NVLabs' new sm89 CuTe kernel for a cross-check against comfy-kitchen's.
+
+## 0.24.0
+
+### Changed
+
+- **Image graphs are foldered by use case: `workflows/image/`.** Video is the
+  primary case and stays at the root. The routing is *derived* --
+  `_graph_dir()` sends a graph there when its `GRAPHS` entry sets
+  `single_frame=True`, which is exactly what makes it an image graph -- so
+  there is no `image=True` flag to fall out of sync with reality.
+
+  **The reading side needed real work, and the reason is a demonstrated
+  failure rather than a predicted one.** Six checks walked graphs with a bare
+  `workflows/*.json`, which is non-recursive. Run against a `GRAPH_DIRS` that
+  had not learned about the new folder, `check_ref_prompt_labels` and
+  `check_prompt_guide_conformance` **both exited 0 while covering 20 ref graphs
+  instead of 28** -- no error, no warning, just a smaller number on a line
+  nobody has a prior for. Discovery is now `h3_config.graph_paths()` in one
+  place, and `check_ref_prompt_labels` carries a case that compares the
+  discovered set against what is on disk, shown red by reverting `GRAPH_DIRS`.
+
+- **The single-frame prompts are in the guide's structure, reversing a
+  decision this file never recorded.** It lived only in
+  `_image_edit_prompt()`'s docstring and in the waiver comment in
+  `check_prompt_guide_conformance.py`, both of which argued at length that the
+  guide could not apply to a still. Both are rewritten rather than deleted. What changed is
+  evidence: the r/StableDiffusion author this path follows published a second
+  prompt set on 2026-08-15, and **between their two posts they switched from
+  flat prose to the guide's structure** with the audio sections dropped, after
+  rendering a couple of thousand images. Neither post held the scene or the
+  references fixed, so it is a revealed preference and not a measurement --
+  which is why this ships as a ladder rather than a rewrite.
+
+  `_image_prompt(scene, fmt)` replaces it, over six scenes drawn from both
+  write-ups and three formats: `av` (all six sections, audio ones `N/A`),
+  `sections` (the four visual ones, **the default**) and `flat`. Content is
+  written once per scene and rendered into all three, so the arms cannot differ
+  in wording -- which is exactly what the two Reddit posts do differ in, and
+  why they cannot answer this. `docs/open_experiments.md` #16f states the
+  question and what would settle it.
+
+  The half of the old argument that survives: the audio sections describe a
+  track a single-frame graph structurally cannot produce. Hence `sections` is
+  the default and `av` is the arm.
+
+- **`check_prompt_guide_conformance` grades image graphs properly now.** The
+  blanket `h3_image_edit` waiver became a structural rule --
+  `overall_soundscape` and `non_diegetic_music` are not required of a graph
+  with no `VAEDecodeAudio`, read off the graph rather than off a name. The
+  whole-file waiver had been buying silence on four cases to excuse two. Its
+  "six sections, in order" case now **actually checks order**: it compared
+  against a list built by iterating the guide's own sections, so it could only
+  ever detect a missing section.
+
+- **Both validators accept `LoadImage` paths carrying a subfolder.**
+  `LoadImage` builds its combo from a non-recursive `os.listdir`
+  (`ComfyUI/nodes.py::LoadImage.INPUT_TYPES`) but validates with `VALIDATE_INPUTS` ->
+  `folder_paths.exists_annotated_filepath`, and the executor skips its own
+  combo check for any input a node validates itself. So `h3_refs/face_x.png`
+  renders, and `validate_api` plus `check_workflow_schema` were **rejecting
+  graphs the server accepts** -- the mirror of the 2026-08-13 bug where the
+  validator accepted graphs the server rejected. Bare filenames are still
+  checked. The UI cost is real and documented: the dropdown will not offer the
+  value, though the graph renders.
+
+### Added
+
+- **Eight graphs in `workflows/image/`**, replacing the single
+  `h3_image_edit.json`. Six scenes, each exercising a different retention
+  marker -- camera move, style transfer, environment composite, two-person
+  composition, selective recolor, character sheet -- plus two probes rendering
+  the `style` scene in the other two prompt formats. All name documented
+  `h3_refs/` assets instead of the input-root placeholders, so a result is
+  attributable to a subject somebody can look up.
+
+- **`docs/h3_image_editing.md`** -- the experimental image use case in one
+  place: the layout rule and why it needed a check, the format ladder, the six
+  scenes and what fails first in each, and what is still unsettled.
+
+- **Reference images up to three per graph.** `build_api`/`build_ui` take
+  `ref_images=(...)`, which names the files and sets the count from its own
+  length. Node ids stay fixed per slot (15/24, 16/25, 34/35) because two
+  benches address the first pair by name. Three is the ceiling: the UI node's
+  socket list declares `ref_image_0..2` and that list is positional in every
+  saved graph, so a fourth has to be appended, never inserted.
+
+### Measured
+
+- **`allow_upscale=False` is now the default for every image graph**, and it
+  was confirmed here rather than inherited. `h3_image_style`, two references,
+  same seed: **89.1s with the fit upscale against 18.1s without**, a 4.9x
+  saving. The pair was compared against the source reference rather than
+  against each other -- same identity, freckle pattern, head angle, expression
+  and hairstyle, graphite medium transferring in both, and in neither did the
+  style reference drag its own cottage in. That reproduces #16e's 84s/18s
+  ladder on a second subject and seed, which is why the default moved here
+  where #16e had declined to move it. The whole eight-graph set now renders in
+  about **two minutes against about eleven**. Video graphs are untouched.
+
+- **`steps` stays at 16, and the reason is the useful part.** 16 against 8, one
+  paired render per scene: `h3_image_edit` (1 ref) 13.0s vs 4.0s and
+  indistinguishable; `h3_image_style` (2 refs) 18.0s vs 7.0s with freckling and
+  medium both holding; **`h3_image_multiperson` (3 refs) 25.0s vs 10.0s, where
+  8 steps loses the woman's freckling and her pendant** -- precisely the detail
+  that scene's `partially_preserved` entry names as retained. ~15s bought on
+  the one graph where the detail is the point.
+
+  **Measured only on the one-reference portrait, 8 steps looks free
+  everywhere.** That is this repo's own trap -- a check whose input already
+  satisfies the expected outcome cannot fail -- and it is the reason the ladder
+  was run on the hard scenes before touching a default. Recorded as #16g.
+
+- **The `attribute_transfer` role binds.** No cottage appeared in any style-scene
+  render, at any step count or sizing. First evidence here that telling a
+  reference what it does *not* supply does something; still uncontrolled, since
+  no arm omitted the negative clause.
+
+### Known wrong
+
+- **`crop` cannot be retained on a 1:1 reference.** `h3_image_style` and
+  `h3_image_recolor` both claim the crop is preserved; both references are
+  1024x1024 against a 768x1152 canvas, so the model widens the frame because it
+  has to. The claim is unachievable as written. Not fixed -- it needs either a
+  square canvas for those scenes or the word dropped.
+
+### Not done
+
+- **The three format arms were not rendered.** They are the point of #16f and
+  remain unjudged; the renders above were for cost, on `h3_image_style`'s
+  shipped `sections` form only.
+- **`smoke_h3.py` still not run.** Every graph in
+  `workflows/image/` is schema-valid against a live `/object_info` and
+  unsubmitted, and `smoke_h3.py` was not run -- so by this repo's own standard
+  they are unverified, including the three format arms whose whole purpose is
+  to be looked at.
+
 ## 0.23.0
 
 ### Removed
