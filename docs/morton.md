@@ -169,6 +169,48 @@ directions: **width and height both divisible by 256.**
 Reproduce: `python bench/analyze_morton.py --canvas 1344x768 --length 294`,
 which prints both curves side by side.
 
+### The rule of thumb, per curve, swept over all 48 landscape canvases
+
+Measured 2026-08-17, every legal landscape canvas at 294 frames. **`3d` has a
+canvas rule too -- it is just a different and much weaker one, and it is about
+height.**
+
+A `3d` block is a 4x4x4 brick, so what it wants is the *token* grid divisible
+by 4. Height in tokens is `h/32`, so the rule lands on **height divisible by
+128 pixels**:
+
+| height | `h/32` | `%4` | canvases | `3d` radius, min-max |
+|---|---|---|---|---|
+| **768** | 24 | 0 | 20 | **1.62 - 1.80** |
+| **640** | 20 | 0 | 4 | **1.62 - 1.65** |
+| **512** | 16 | 0 | 3 | **1.67 - 1.70** |
+| 704 | 22 | 2 | 3 | 1.80 - 1.93 |
+| 576 | 18 | 2 | 5 | 1.70 - 2.00 |
+| 544 | 17 | 1 | 4 | 1.84 - 2.55 |
+| 608 | 19 | 3 | 3 | 1.84 - 2.43 |
+| 672 | 21 | 1 | 3 | 1.86 - 2.45 |
+| 736 | 23 | 3 | 3 | 1.90 - 2.39 |
+
+**Width barely matters on `3d`.** At height 768 the twenty canvases span 24 to
+43 tokens wide and all land between 1.62 and 1.80. The odd-token heights are
+where it degrades, worst case 2.55 at 1888x544 and 1952x544 with fill dropping
+to 0.63.
+
+So, as rules of thumb:
+
+- **`3d` (shipped): use a height of 768, 640 or 512.** Pick any width. 768 is
+  the most common height in the legal set -- 20 of the 48 landscape canvases --
+  so most renders already satisfy this without trying.
+- **`2d_frame`: both dimensions divisible by 256**, which is 768x768,
+  1024x768, 1280x768 and the portrait 768x1024. Everything else is ragged, and
+  ragged is the common case rather than the exception.
+
+**What this is a rule about, and it is not output quality.** Every number here
+is block geometry -- how compact the 64 tokens sharing a summary are. Whether
+compactness reaches the screen is link 6 and is still unverified, so "optimal
+Morton shape" means "the router's per-block summaries describe tighter regions"
+and nothing more. Do not read the table as a quality ranking of canvases.
+
 **And that is why it is 3 of 48 rather than something about Morton.** H3's
 canvas ladder steps in 32-pixel increments; Morton needs 256, so only one rung
 in eight lines up on each axis independently. Verified against the list in
