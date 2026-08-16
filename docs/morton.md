@@ -13,7 +13,7 @@ sibling node packs, which live beside this repo under ComfyUI's `custom_nodes/`.
 |---|---|
 | `vendor/sol_attn_minimax.py` | The CUDA Sol-Attn node, kept byte-identical to upstream. All the Morton machinery: `morton_perm` (`:150-188`), the block-alignment rotation `_perm_for` (`:205-224`), the video-span resolver `_video_span` (`:227-245`), and the install plus hooks `install_h3_morton` (`:276-396`). The node's own `morton` and `morton_curve` inputs and their tooltips are at `:746-753`. |
 | `ComfyUI-SolAttn_triton/_morton.py` | The Triton pack's Morton, **for Wan**. Its docstring (`:1-11`) carries the only stated payoff anywhere in either pack: Z-ordering "lets the same quality be reached at higher sparsity". That sentence appears exactly once in the pack, and it is in the Wan file. |
-| `ComfyUI-SolAttn_triton/_morton_h3.py` | The H3 variant, reordering only the video span rather than the whole packed sequence. **Makes no quality or sparsity claim** — its docstring is purely mechanical. The CUDA node inlines from both files, and contains the word "sparsity" zero times. |
+| `ComfyUI-SolAttn_triton/_morton_h3.py` | The H3 variant, reordering only the video span rather than the whole packed sequence. **Makes no quality or sparsity claim**; its docstring is purely mechanical. The CUDA node inlines from both files, and contains the word "sparsity" zero times. |
 | `ComfyUI-SolAttn-cuda/` | A two-line loader shim over `vendor/sol_attn_minimax.py`, plus a README on why the node id is provisional and why it is not vendored into this repo. |
 
 ### What we built to look at it
@@ -47,6 +47,58 @@ sibling node packs, which live beside this repo under ComfyUI's `custom_nodes/`.
 arXiv 2607.24027, the Sol-Attn paper. It postdates the assistant's training
 data and nobody here has opened it. It is the most likely place for several
 "not known" rows below to already be answered.
+
+## What a block is, and why the order matters
+
+Read this first. The rest of the page uses these words as if they were
+obvious, and they are only obvious once.
+
+**A token is one 32 by 32 pixel square of one latent frame.** At 1344x768 a
+frame is 42 tokens wide and 24 tokens high, so 1008 tokens per frame. The model
+puts them in one list: frame by frame, then row by row, then left to right.
+That order is called raster order.
+
+**A block is 64 tokens taken in a row from that list**, and it is the unit
+Sol-Attn makes a decision about. Sol-Attn gives each block one summary, the mean
+of its 64 tokens, which the CUDA source calls the centroid. It uses that
+centroid twice: to decide whether to compute the block exactly, and, if it does
+not, as the stand-in for all 64 rows. So the centroid has to describe the block.
+When it does, both uses are right. When it does not, both are wrong.
+
+**Under raster order a block is a thin strip.** 64 tokens is one full row of 42
+plus 22 of the next, so it runs the whole width of the frame. A strip can hold
+sky, a face and a wall at once, and the mean of those three is none of them.
+
+**Morton order exists to replace that strip with an 8x8 square**, since 8 times
+8 is 64. A square holds one small area, and the mean of one small area is more
+likely to describe it. Morton is also safe by construction: the code applies the
+order before the first transformer block and removes it after the last, so under
+dense attention the output is unchanged.
+
+That is the whole question this page answers. Does it produce the square, and
+what follows when it does not.
+
+### It produces the square on 3 of 48 canvases, and there are two reasons
+
+Measured at 1344x768: 24.1% of blocks are one solid 8x8, 46% are two
+disconnected pieces, 25% are three. At 1280x768, 1024x768 and 768x768 it is
+100%.
+
+Two separate things go wrong, and **the second one is the smaller of the two**,
+which is the opposite of what this page said in its first draft:
+
+1. **The frame does not hold a whole number of blocks.** 1008 / 64 = 15.75, so
+   block boundaries and frame boundaries drift apart, and every frame starts the
+   pattern somewhere new.
+2. **The grid is not a multiple of 8.** 42 / 8 = 5.25, so the rightmost Z-order
+   tile is 2 wide instead of 8, and the leftover shifts everything after it.
+
+Reason 1 does most of the damage. Aligned to the frame start, 93% of blocks stay
+in one piece; at the real alignment, 60% do.
+
+At 768 height the two collapse into one test, because both latent dims divide by
+8 exactly when tokens per frame divides by 64. **So the rule is: both `h/32` and
+`w/32` must be multiples of 8.**
 
 ## The short version
 
@@ -139,27 +191,6 @@ So: where this page says nobody has done something, read "we did not find it".
 Our search was a handful of local checkouts, one survey pass, and one comment
 from the author. Notably absent from it is the Sol-Attn paper itself, which is
 the most likely place for a quality result to already exist.
-
-## What a block is, concretely
-
-The rest of this page talks about tokens and blocks. Both are physical things
-here, and sizing them makes everything that follows easier to hold.
-
-One token is one 32x32 pixel patch of one latent frame. At 1344x768 a frame is
-42 patches wide and 24 patches high, so 1008 tokens per frame.
-
-One block is 64 tokens, and it is the unit Sol-Attn makes a decision about:
-compute this block exactly, or replace it with one average vector. That
-decision is good when the 64 tokens resemble each other, because one vector
-can then stand for all of them. It is bad when they do not.
-
-The model produces tokens in raster order, meaning frame, then row, then
-column. So 64 tokens in a row are a strip 42 patches wide and less than 2
-patches tall, running the full width of the frame. Morton is supposed to
-replace that strip with an 8x8 square of patches.
-
-That is the whole question this page answers: does it, and what changes when
-it does not.
 
 ## What Morton order is
 
@@ -591,7 +622,7 @@ greps on 2026-08-15:
 So the honest version is narrower than "upstream says Morton pays off at higher
 sparsity on H3". It is: upstream states that rationale for Wan, states nothing
 either way for H3, and told us directly on 2026-08-14 that Morton "may or may
-not increase quality, that's something to test" — which is consistent with the
+not increase quality, that's something to test", which is consistent with the
 H3 file being silent. Whether the Wan rationale carries to H3 is a question to
 ask, not an argument to quote.
 
