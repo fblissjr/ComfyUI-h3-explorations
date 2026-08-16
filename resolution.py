@@ -41,11 +41,11 @@ from comfy_api.latest import io
 try:
     from .h3_rules import (aspect_in_range, describe_aspect_range,
                            describe_length, duration_in_range, duration_of,
-                           is_single_frame, snap_length)
+                           is_single_frame, reference_would_emit, snap_length)
 except ImportError:  # pragma: no cover
     from h3_rules import (aspect_in_range, describe_aspect_range,  # type: ignore[no-redef]
                           describe_length, duration_in_range, duration_of,
-                          is_single_frame, snap_length)
+                          is_single_frame, reference_would_emit, snap_length)
 
 logger = logging.getLogger(__name__)
 
@@ -206,11 +206,12 @@ class MiniMaxH3Resolution(io.ComfyNode):
                 io.Int.Input(
                     "length", default=124, min=1, max=3600, step=1, tooltip=(
                         "Frame count at 24 fps, rounded UP to the video VAE's "
-                        "17n+5 temporal grid. 200 gives 209, 300 gives 311. The "
-                        "reference generates 5-15s and applies that ceiling "
-                        "after the rounding, so 345 (14.375s) is the largest "
-                        "legal count and 346 rounds to 362 (15.083s), which is "
-                        "over. This node warns rather than refusing. "
+                        "17n+5 temporal grid. 200 gives 209, 300 gives 311. "
+                        "362 (15.083s) is the longest length H3 was trained "
+                        "on and the ceiling this node warns above. The "
+                        "reference pipeline stops one grid step earlier, at "
+                        "345, which is a fact about that pipeline and not a "
+                        "limit on the model. This node warns rather than refusing. "
                         "1 is the single exception to the grid: it renders ONE "
                         "frame for the single-image edit path, needs the "
                         "single-image H3 VAE to decode, and none of the "
@@ -296,10 +297,13 @@ class MiniMaxH3Resolution(io.ComfyNode):
                 "ComfyUI that has taken the same change upstream.")
         elif not duration_in_range(snapped):
             notes.append(
-                f"WARNING {describe_length(snapped)} is outside the reference's "
-                f"5-15s window, which is the REFERENCE pipeline's ceiling "
-                f"rather than a training limit -- 362 is trained. 345 is "
-                f"the largest count the reference would emit")
+                f"WARNING {describe_length(snapped)} is outside H3's trained "
+                f"window: 5s to 362 frames (15.083s)")
+        elif not reference_would_emit(snapped):
+            notes.append(
+                f"NOTE {describe_length(snapped)} is trained, but past the "
+                f"reference pipeline's 15.0s ceiling -- this graph will not "
+                f"run unmodified in diffusers")
 
         tokens_per_frame = (width // 32) * (height // 32)
         latent_frames = temporal_shape(snapped)[1]

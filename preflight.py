@@ -31,8 +31,8 @@ contiguous figure and so stays silent through the range that matters. That
 crossing is fixed in every sage build able to run this repo's attention node,
 because `build_kernel` refuses any sageattention without `sageattn_consume`
 and the int64 fix precedes it. The next ceiling is the `csrc/fused` uint32
-wrap near 199,728, which no legal H3 length reaches on its own -- about 660 frames
-against a 345 maximum. Both numbers are stated so an absent warning is not
+wrap near 199,728, which no H3 length reaches on its own -- about 660 frames
+against a 362 maximum. Both numbers are stated so an absent warning is not
 mistaken for clearance.
 """
 
@@ -142,7 +142,7 @@ class MiniMaxH3Preflight(io.ComfyNode):
         # writes it inside `if keyframes:` and MiniMaxH3ReferenceToVideo never
         # writes it at all. Sourcing the duration line from it alone meant the
         # line vanished on 7 of the 8 shipped graphs, including every ref
-        # graph, which is exactly where the 345-frame ceiling matters most.
+        # graph, which is exactly where the frame ceiling matters most.
         # `latent_t` is already in hand, so derive it when the key is absent
         # rather than printing nothing and letting absence read as "fine".
         frames = None
@@ -194,13 +194,13 @@ class MiniMaxH3Preflight(io.ComfyNode):
             lines.append(f"int32: {total:,} is past the csrc/fused uint32 wrap "
                          f"at {_CSRC_FUSED:,}. This one is NOT fixed.")
         elif total >= _INT32_FUSED:
-            # "unreachable at legal lengths" was true of LENGTH alone and false
+            # "unreachable at any length" was true of LENGTH alone and false
             # once references are in play, which is exactly when this line is
-            # read. 345 frames plus three reference videos reaches 201,246 with
-            # entirely legal inputs -- core permits 3 videos and 345 is the
-            # legal maximum -- so the old wording reassured the user about a
-            # ceiling they can actually hit. Report the headroom instead of
-            # asserting there is enough.
+            # read. 345 frames plus three reference videos already reaches
+            # 201,246 -- core permits 3 videos, and 362 is longer still -- so
+            # the old wording reassured the user about a ceiling they can
+            # actually hit. Report the headroom instead of asserting there is
+            # enough.
             head = _CSRC_FUSED - total
             lines.append(
                 f"int32: past the fused crossing at {_INT32_FUSED:,}, which "

@@ -11,10 +11,8 @@ Sources, all in `coderef/diffusers` (the reference implementation):
   aspect    modular_pipelines/minimax_h3/modular_pipeline.py defines
             MINIMAX_H3_MIN/MAX_ASPECT_RATIO; resolve_canvas_size raises
             outside them.
-  duration  modular_pipelines/minimax_h3/before_denoise.py. The
-            ceiling is checked AFTER the frame count snaps, with a comment
-            naming the trap: 346 frames passes a pre-snap check and then
-            rounds to 362, i.e. 15.083s.
+  duration  the FLOOR only, modular_pipelines/minimax_h3/before_denoise.py.
+            The ceiling here is the model's, not the reference's -- see below.
   grid      align_num_frames, modular_pipeline.py -- frames must be
             17n + 5 for the video VAE to encode them.
 
@@ -22,24 +20,25 @@ ComfyUI enforces only the grid, and only by snapping. Its node accepts
 `length` up to 3600 (`comfy_extras/nodes_minimax_h3.py`), i.e. 150 seconds,
 with no ceiling at all, and `adapt_canvas` resolves a canvas for any aspect.
 
-**362 is TRAINED and this file's ceiling does not say otherwise. Corrected
-2026-08-14 and the correction matters more than the rule.** `MAX_DURATION`
-below is the reference *pipeline's* `max_duration`, a hard-coded 15.0 in
-`modular_pipeline.py`. 362 frames is 15.083s, so the reference pipeline does
-refuse it -- that transcription is accurate and was checked at the source.
+**The ceiling is 362 frames, and it is the model's, not the reference
+pipeline's. Owner decision, 2026-08-16.** Every "345 is the largest legal
+count" claim this repo used to carry is withdrawn -- 345 was the largest
+count *diffusers* will emit, which is a fact about diffusers.
 
-What was wrong was the inference drawn from it. This docstring said the
-refusal made 362 "illegal" and the repo's long preset out of distribution.
-**362 is the longest length H3 was trained on** (upstream, 2026-08-14). The
-15.0 is a round number in a spec that lands one grid step below the real
-training maximum, not a statement about the model. There is no on-grid count
-at exactly 15.0s, which is how the gap appears.
+`MAX_LENGTH = 362` is the longest length H3 was trained on. Know what that
+rests on before quoting it: **one upstream statement recorded on 2026-08-14
+(`6e85e48`) with no artifact attached**, plus one third-party config that
+ships it (LightX2V's `minimax_h3_t2av.json`, 362 frames). MiniMax's own
+README gives a rounded "4-15 seconds", which neither confirms it nor refutes
+it -- a product spec is not a training bound -- and the official checkpoint
+configs are silent: no max frame count, no `max_position_embeddings`, RoPE is
+theta-based. The owner weighed that and chose 362. It is a decision made on
+thin evidence, recorded as such, rather than a measurement.
 
-So `duration_in_range` answers "would the reference pipeline emit this",
-which is worth knowing and is NOT "is this in distribution". Do not treat a
-False as a reason to avoid a length, and do not let a checker built on it
-report a valid render as a problem -- a check that goes red while the state
-is correct is worse than no check.
+The reference pipeline refuses 362 (its `max_duration` is a hard-coded 15.0
+and 362 is 15.083s; verified at the source, twice). That is now a
+portability note and nothing more: ask `reference_would_emit()` if you care
+whether a graph also runs in diffusers, and do not call the answer legality.
 """
 
 from __future__ import annotations
@@ -54,7 +53,19 @@ MAX_ASPECT_RATIO = 4
 # onto that, so duration and frame count are the same statement.
 FPS = 24
 MIN_DURATION = 5.0
-MAX_DURATION = 15.0
+
+# The ceiling, in frames rather than seconds, because the grid is what the
+# model actually constrains and seconds are the derived quantity. Deriving
+# MAX_DURATION from it is what keeps `duration_in_range(362)` true: no
+# on-grid count lands on a round 15.0s, so a seconds-first ceiling always
+# excludes its own maximum by 0.083s.
+MAX_LENGTH = 362
+MAX_DURATION = MAX_LENGTH / FPS  # 15.083s
+
+# diffusers' hard-coded `max_duration`. Kept, and kept SEPARATE, for the one
+# question it answers: would a graph exported from here also run in the
+# reference pipeline. That is portability, not legality -- see the docstring.
+REFERENCE_MAX_DURATION = 15.0
 
 # The video VAE encodes 17 pixel frames per chunk and keeps 5 latents.
 FRAME_FACTOR = 17
@@ -135,9 +146,24 @@ def duration_in_range(length):
 
 
 def max_legal_length():
-    """Largest on-grid frame count inside the duration ceiling."""
-    n = math.floor((MAX_DURATION * FPS - FRAME_REMAINDER) / FRAME_FACTOR)
-    return n * FRAME_FACTOR + FRAME_REMAINDER
+    """Longest length H3 was trained on: 362 frames, 15.083s.
+
+    Returns `MAX_LENGTH` rather than deriving it, because deriving a frame
+    count from a seconds ceiling is what produced the 345 answer this repo
+    shipped for a week.
+    """
+    return MAX_LENGTH
+
+
+def reference_would_emit(length):
+    """True if diffusers' pipeline would also emit this length.
+
+    The portability question, and the ONLY thing the reference's 15.0s
+    ceiling is evidence about. A False here means a graph exported from this
+    repo will not run unmodified in diffusers -- it does not mean the model
+    cannot generate it. 362 is the case that separates the two.
+    """
+    return MIN_DURATION <= duration_of(snap_length(length)) <= REFERENCE_MAX_DURATION
 
 
 def min_legal_length():

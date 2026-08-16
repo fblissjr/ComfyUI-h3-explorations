@@ -123,7 +123,7 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                         "released checkpoint conditioned image references at. "
                         "Cost climbs quadratically -- 3072 is 16,416 vision "
                         "tokens against 7,296 -- per reference, on a sequence "
-                        "that already crosses the int32 threshold at 345 "
+                        "that already crosses the int32 threshold at 362 "
                         "frames. Requires ref_image_size on 'max'; under "
                         "'match' the constant is never read and this logs that "
                         "it did nothing."
@@ -212,6 +212,33 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
             tokens / stock_tokens,
             "" if effective else "  -- BUT SEE THE WARNING BELOW",
         )
+
+        # Say "no change" out loud. The ratio above already carries it -- 1.0
+        # prints as "1x" -- which is exactly the problem: it reads as a
+        # successful resize at a glance, and a reader who sees this node in a
+        # graph concludes the reference was fitted. As of 2026-08-16 that is
+        # false in 10 of the 18 shipped graphs that wire it, because
+        # `REF_VIDEO_BUDGET` holds `allow_upscale=False` to fit 24 GB and every
+        # reference in the library is under the clamp.
+        #
+        # INFO and not WARNING on purpose. Inert here is usually the correct
+        # state, deliberately chosen, and a warning that fires on more than half
+        # the shipped graphs every render is how a project learns to ignore
+        # warnings -- worse than not having one.
+        if tokens == stock_tokens:
+            if not allow_upscale and full > 1.0:
+                logger.info(
+                    "[h3] reference fit made NO CHANGE: allow_upscale is off "
+                    "and this reference's short edge (%d) is already inside "
+                    "the %d clamp, so this node reproduced ComfyUI's own "
+                    "sizing exactly. Wired but inert -- turn allow_upscale on "
+                    "to reach the %d the reference pipeline conditions at.",
+                    min(src_w, src_h), short_edge, short_edge)
+            else:
+                logger.info(
+                    "[h3] reference fit made NO CHANGE: %dx%d is already what "
+                    "ComfyUI's own sizing produces at short_edge=%d.",
+                    tw, th, short_edge)
         if not effective:
             logger.warning(
                 "[h3] MiniMax H3 Reference to Video is on ref_image_size=%r, "

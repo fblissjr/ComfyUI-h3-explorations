@@ -135,14 +135,20 @@ print("\n--- 6. the duration window is enforced, checked AFTER the grid snap ---
 from h3_rules import (duration_in_range, duration_of,  # noqa: E402
                       max_legal_length, min_legal_length, snap_length)
 
-# The order is the whole point. 346 passes any check written against the
-# request and then rounds to 362 = 15.083s, which is over the ceiling -- the
-# reference names this exact case in a comment. A check that snapped after
-# validating would pass every one of these and still render an illegal clip.
+# The order is the whole point: snapping happens BEFORE the ceiling check, so
+# a request under the ceiling can land over it. 363 is the case that shows it
+# -- it passes any check written against the request and then rounds to 379 =
+# 15.79s, which is past 362. A check that snapped after validating would pass
+# every one of these.
+#
+# 362 is the ceiling as of 2026-08-16 (h3_rules.MAX_LENGTH), so 346 and 362
+# are ACCEPTED here where they were refused before. That flip is the whole
+# point of the change and this list is where it is pinned.
 LENGTH_CASES = [
     (124, True), (260, True), (328, True), (345, True),   # inside
-    (346, False),                                          # snaps to 362
-    (362, False), (400, False),                            # over
+    (346, True),                                           # snaps to 362, the ceiling
+    (362, True),                                           # the ceiling itself
+    (363, False), (400, False),                            # snap past it
     (20, False), (100, False),                             # under 5s
     # 1 is refused on THIS path even though the pack makes it legal elsewhere.
     # MiniMaxH3ImageToVideo pins a last_frame at frame_count - 1, which in a
@@ -163,10 +169,10 @@ for n, want_ok in LENGTH_CASES:
     check(f"length {n} -> {snap_length(n)} ({duration_of(snap_length(n)):.3f}s): "
           f"{'accepted' if want_ok else 'refused'}", raised != want_ok)
 
-check(f"largest legal count is {max_legal_length()}",
-      max_legal_length() == 345 and duration_in_range(345)
-      and not duration_in_range(snap_length(346)),
-      f"345 in range, 346 snaps to {snap_length(346)} which is not")
+check(f"largest count is {max_legal_length()}",
+      max_legal_length() == 362 and duration_in_range(362)
+      and not duration_in_range(snap_length(363)),
+      f"362 in range, 363 snaps to {snap_length(363)} which is not")
 check(f"smallest legal count is {min_legal_length()}",
       min_legal_length() == 124, "matches the node default and the trained floor")
 

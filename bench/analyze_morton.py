@@ -66,7 +66,7 @@ Run it to see them at your own grid; they are printed with the evidence.
 
     python bench/analyze_morton.py                       # every shipped canvas
     python bench/analyze_morton.py --canvas 1344x768 --length 294
-    python bench/analyze_morton.py --canvas 1024x768 --length 345 \
+    python bench/analyze_morton.py --canvas 1024x768 --length 362 \
         --video-start 16821 --map          # what a reference graph really gets
 
 `--map` prints one frame of one block partition as ASCII, which is the fastest
@@ -386,8 +386,8 @@ SHIPPED = [
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--canvas", help="WIDTHxHEIGHT, e.g. 1344x768")
-    ap.add_argument("--length", type=int, default=345,
-                    help="pixel frame count (17n+5). 345 = LONG_LENGTH")
+    ap.add_argument("--length", type=int, default=362,
+                    help="pixel frame count (17n+5). 362 = LONG_LENGTH, the ceiling")
     ap.add_argument("--video-start", type=int, default=0,
                     help="absolute row the video span starts at. Nonzero on "
                          "any graph with references; see Preflight's output")
