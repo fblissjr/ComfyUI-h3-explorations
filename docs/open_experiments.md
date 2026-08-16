@@ -934,16 +934,54 @@ is a variance over *all* block centroids; exclude the forced-exact pairs
 (diagonal +-1 and sink) from the density, since they never consult the
 threshold.
 
-**Those two exclusions are different things and the prototype conflated them.**
-Excluding forced-exact *pairs* from the density is right -- they never consult
-the threshold. Excluding conditioning *rows* from the block population is
-wrong, because `kcvar` is a variance over every block centroid in the sequence,
-so dropping 530 rows changes the threshold for every query block. The
-2026-08-16 prototype did the first and not the second, which its author flagged;
-**expect the reported numbers to move when it is done properly, and do not
-carry them forward as a baseline.** This is also the reason to score the whole
-packed sequence rather than slicing the video span: the slice is a different
-partition from the one the kernel sees.
+**Those two exclusions are different things, and only one of them is an
+exclusion.** Forced-exact *pairs* come out of the density -- they never consult
+the threshold. Conditioning *rows* stay in the block population, because
+`kcvar` is a variance over every block centroid in the sequence and dropping
+530 rows would move the threshold for every query block. That is also the
+reason to score the whole packed sequence rather than slicing the video span:
+the slice is a different partition from the one the kernel sees.
+
+> **A caveat stood here on 2026-08-16 saying the prototype had dropped the
+> conditioning rows, and it was wrong.** Withdrawn the same day after reading
+> the script rather than the report of it:
+> `internal/scripts/sol_curve_2026-08-16/probe_routed_density.py:41` sets
+> `n = S // BLOCK` over the full 37,826-row sequence, and `kc`, `kmean` and
+> `kc_var` are all computed over that population. The threshold is already
+> derived the way the kernel derives it, and no reported number moves for this
+> reason. Left in place because "expect the numbers to move" would have sent
+> the next reader hunting a discrepancy that does not exist -- a wrong caveat
+> costs more than a missing one.
+
+### Pick which density you are reporting, and emit both
+
+**The real defect in the prototype, and it is a labelling one.** Its docstring
+claims diagonal, neighbour *and sink* blocks are excluded from numerator and
+denominator. The code masks only `|i-j| <= 1`
+(`internal/scripts/sol_curve_2026-08-16/probe_routed_density.py:47`); there is no sink mask
+anywhere. Sink pairs sit in the denominator and are judged by the threshold
+like any other pair, when the kernel forces them exact regardless.
+
+So the figures produced on 2026-08-16 are **"the fraction of non-adjacent pairs
+the threshold would route"**, not "the fraction the kernel routes exact". The
+kernel's number is higher. Two consequences, and they point opposite ways:
+
+- **The ratios stand.** Same pair set under every ordering, and forced-exact
+  status is ordering-invariant, so the 1.15x / 1.11x comparisons are unaffected.
+- **The absolutes do not mean what their label says**, and anything sized
+  against them -- `routed_cap_percent` headroom, cost estimates -- would be
+  sized against the wrong quantity.
+
+These are two different measurements and neither substitutes for the other:
+
+| | what it answers | how |
+|---|---|---|
+| **ordering-effect density** | what did the permutation do | drop *every* forced-exact pair -- diagonal, neighbour, sink-KV range, sink-query range -- from numerator and denominator |
+| **kernel density** | what does the kernel actually route, and what does it cost | count forced pairs in, as the kernel does |
+
+**Emit both.** It is one extra mask, and reporting one while labelling it the
+other is the mistake that already happened once here. `docs/morton.md`'s pending
+figures are the first kind and are labelled as such.
 
 **What it must report, not just a number.** Density per (curve, depth), and the
 `tau` that returns each curve to raster's density. If those compensating taus

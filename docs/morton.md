@@ -548,6 +548,16 @@ between two curves at the same depth, and between two depths for one curve.
 > Scope of the run as reported: the float routing rule (no INT8 quantisation of
 > pooled keys or query centroids, which the kernel does), 8 of 56 heads, three
 > depths, one capture, one step, one prompt.
+>
+> **Read those percentages as ratios, not as levels.** They are the fraction of
+> **non-adjacent pairs the threshold would route**, not the fraction the kernel
+> routes exact -- the probe masks `|i-j| <= 1` but not the sink ranges, which
+> the kernel forces exact regardless. The kernel's number is higher. The
+> *comparisons* are unaffected, since the pair set is identical under every
+> ordering and forced-exact status does not depend on the permutation, so the
+> ~11-15% relative gaps stand. **Nothing may be sized against the absolute
+> figures** -- `routed_cap_percent` headroom in particular. `docs/open_experiments.md`
+> #18 requires both quantities to be emitted separately for this reason.
 
 Two consequences, and the first is a correction:
 
