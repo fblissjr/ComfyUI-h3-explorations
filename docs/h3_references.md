@@ -129,6 +129,26 @@ the same amount again, because the conditioner's vision blocks read the
 resized image too. **So upscaling one reference image cost 6,144 tokens, not
 3,072**, and any budget built from the table alone is short by half.
 
+**And the text half scales with reference COUNT, measured across a ladder.**
+Reported 2026-08-15 by the single-frame session, from Preflight lines on
+1/2/3/4/6 references at the shipped sizing. Their measurement, not re-derived
+here:
+
+| references | text rows | reference rows |
+|---|---|---|
+| 1 | 4,171 | 4,096 |
+| 4 | 19,778 | 19,648 |
+| 6 | 28,002 | 27,840 |
+
+Two things follow. The text segment does not merely grow, it lands **75-160
+rows above the reference segment itself** at every rung, so "images cost
+double" is if anything an understatement. And the prompt is under 200 tokens of
+that text column, so the column is almost entirely vision blocks.
+
+**Nine references at the shipped sizing is roughly 94,000 rows and OOMs on a
+24 GB card**, which is larger than the whole 124-frame video graph. Same
+source, same date.
+
 **A reference video costs rows in two places, not one.** The DiT reference
 block is the number above; the conditioner also reads the clip at 2 fps and
 each merged frame pair becomes a vision block **inside the text segment**, at
