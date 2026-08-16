@@ -28,11 +28,15 @@ are the frame-straddling ones, and the metric is undefined for `3d`, whose every
 block spans four frames. See `docs/morton.md`. Nothing in `bench/` computes
 connectivity, so these two numbers are the only ones here without an instrument.
 
-That is a geometry result. Whether it survives contact with real activations is
-what `bench/analyze_capture.py` is for -- and the answer so far is that it
-mostly does not scale: past this curve, large geometry gains buy ~0.3% centroid
-fidelity. Read the stopping rule in `docs/morton.md` before adding a fourth
-curve.
+That is a geometry result, and geometry is **not** how to choose between
+orderings. Measured on the capture: two arms with indistinguishable block
+geometry differ consistently on centroid fidelity at three depths, and the
+geometrically best arm is not the best on activations. Compactness is the wrong
+objective here rather than an exhausted one. `bench/analyze_morton.py`'s radius
+and connectivity answer mechanism questions -- does a block hold one region or
+three -- and must not be used to rank curves; `bench/analyze_capture.py` is what
+ranks them. See "Geometry does not rank orderings" in `docs/morton.md`, and read
+it before adding a fourth curve.
 
 ## Why this is not a fork
 

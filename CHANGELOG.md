@@ -47,11 +47,22 @@ artifact.
 
 ### Added
 
-- **`docs/morton.md`: the stopping rule for curve work.** Past the shipped
-  `hilbert`, a 26% better block radius and +14 points of connectivity buy ~0.3%
-  centroid fidelity. Spatial compactness has saturated as a proxy; a fourth
-  curve is not where the remaining quality is, and the unsaturated axis is
-  dimensionality, not geometry.
+- **`docs/morton.md`: "geometry does not rank orderings".** Two arms with
+  indistinguishable block geometry (radius 4.09 vs 4.10, both 93.8% connected)
+  differ consistently on centroid fidelity at all three captured depths, and the
+  geometrically best arm of four is not the best on activations — the ranking
+  inverts. So spatial compactness is the **wrong objective**, not a saturated
+  one, which forecloses more: `analyze_morton.py`'s radius and connectivity
+  answer mechanism questions and are not a basis for choosing a curve. A second
+  leg from the legal-canvas sweep: geometric rankings are not stable across
+  canvases either, so tuning against them picks a different winner per
+  resolution.
+
+  Stated separately from **the priority call** ("a fourth curve is not where the
+  remaining quality is"), which is a judgement resting on the 0.3–0.9% total
+  spread, speed-identical arms, `3d` winning by mixing frames, and link 6 being
+  untouched. Kept apart deliberately so the methodology finding cannot be cited
+  as if it settled the priority question.
 
 - **`docs/open_experiments.md` #18: routed density under each curve.** The
   cheapest unrun item in the repo — captures on disk, no render, no GPU — and

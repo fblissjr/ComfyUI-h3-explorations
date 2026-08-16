@@ -1026,35 +1026,64 @@ Five things follow.
 **Link 5 is true.** Morton raises centroid fidelity on real activations at
 every depth measured. The canvas result is therefore about something real.
 
-**Geometry has decoupled from activations, and that is the stopping rule for
-curve work.** Added 2026-08-16, and it is the most useful thing on this page for
-deciding what *not* to build. Between shipped `hilbert` and the best geometry
-anyone has produced for it -- a generalised (gilbert) rectangle decomposition
-plus serpentine frame alternation, which removes the clipping splices *and* the
-phase mismatch -- the geometric metrics move a long way and the activation
-metrics barely move:
+**Geometry does not rank orderings.** Added 2026-08-16. This is a statement
+about the *instrument*, not about how much headroom is left, and the two get
+confused constantly -- so they are separated here deliberately, and the second
+one is a judgement call while this one is not.
 
-| | shipped `hilbert` | + gilbert + serpentine | change |
-|---|---|---|---|
-| mean block radius, (37,24,42) | 5.02 | 3.71 | **-26%** |
-| blocks connected, all blocks | 86.1% | 100% | **+14 pts** |
-| centroid fidelity, block 24 | 0.7748 | 0.7774 | +0.3% |
-| centroid fidelity, block 49 | 0.8978 | 0.9014 | +0.4% |
-| mass concentration, block 24 | 142.1 | 139.9 | -1.5% |
-| mass concentration, block 49 | 226.8 | 225.3 | -0.7% |
+Four arms, same capture, same canvas, all blocks:
 
-(Geometry re-derived here; the gilbert/serpentine activation numbers are
-**reported from the same unlanded 2026-08-16 run** as the routed-density result
-above and carry the same caveat.)
+| arm | radius | connected | b0 cos | b24 cos | b49 cos |
+|---|---|---|---|---|---|
+| `hilbert` (shipped) | 5.02 | 86.1% | 0.7652 | 0.7748 | 0.8978 |
+| + serpentine | 4.09 | 93.8% | 0.7694 | 0.7796 | 0.9023 |
+| + rotation | 4.10 | 93.8% | **0.7706** | **0.7820** | **0.9070** |
+| gilbert + serpentine | **3.71** | **100.0%** | 0.7694 | 0.7774 | 0.9014 |
 
-**Read the gap, not the rows.** A 26% radius improvement buying 0.3% centroid
-fidelity means spatial compactness has stopped being the binding constraint. The
-proxy that justified this entire page -- compact block, better centroid -- is
-saturated at the shipped curve. **A fourth curve is not where the remaining
-quality is**, and anyone about to build one should have to say why this table is
-wrong first. What is unsaturated is the *dimensionality* choice: `3d` still wins
-centroid fidelity outright (0.9434 at block 49 against 0.9014) by mixing frames,
-which is a different axis from curve geometry entirely.
+Two readings, and neither is "diminishing returns":
+
+- **Identical geometry, consistently different activations.** Serpentine and
+  rotation are geometrically indistinguishable -- 4.09 against 4.10 radius, both
+  93.8% connected -- and rotation is ahead on centroid fidelity at *all three
+  depths*. Geometry cannot see whatever separates them.
+- **The ranking inverts.** `gilbert + serpentine` is geometrically the best of
+  the four by a wide margin, and has the *smallest* activation gain of the three
+  improvements (+0.34% at block 24, against rotation's +0.93%).
+
+So spatial compactness is not a saturated proxy for centroid fidelity. It is the
+**wrong objective**, and an earlier version of this section said "saturated",
+which invites "geometry still buys something, just less". It does not reliably
+buy anything: it ranks these four arms differently from how the activations do.
+
+**What that forecloses, and it is most of this page's method.** `radius`, `fill`
+and `nbr` in `bench/analyze_morton.py` are what nearly every curve argument here
+has been run on, including the canvas sweep above and the case for serpentine.
+They are still the right tool for *mechanism* questions -- does a block hold one
+region or three -- and they are not a basis for choosing between orderings.
+Choose on the capture.
+
+**A second leg, from the legal-canvas sweep above:** geometric rankings are not
+even stable across canvases. `3d` runs 67.2% to 98.7% connected over the legal
+set and swaps places with every other ordering along the way. So tuning against
+radius or connectivity does not just optimise the wrong thing -- it picks a
+different winner at each resolution.
+
+> **Caveat, and it belongs inside the claim.** Both readings rest on differences
+> of 0.002 to 0.007 in mean cosine, from one capture, one canvas, one step. They
+> are stated because they are *consistent across three depths*; a second capture
+> could erase them. The activation numbers are **reported from the unlanded
+> 2026-08-16 prototype**, same status as the routed-density result above. The
+> geometry columns are re-derived here.
+
+**Separately, the priority call: a fourth curve is not where the remaining
+quality is.** This is a judgement and does not follow from the finding above --
+someone may later argue there is headroom in orderings, and they must not be
+able to cite "geometry does not rank orderings" as if it settled that. The case
+rests on four other things: the whole spread across every arm ever measured is
+0.3-0.9% centroid fidelity; all of them are speed-identical (452.8-454.8 s); `3d`
+beats every 2D arm by mixing frames, which is a different axis entirely
+(0.9434 at block 49 against `gilbert + serpentine`'s 0.9014); and link 6 is
+untouched, so none of it is known to reach the output at all.
 
 **Both added curves beat the shipped `2d_frame` on both metrics at every block
 measured.** They do not beat each other consistently: `3d` leads centroid
