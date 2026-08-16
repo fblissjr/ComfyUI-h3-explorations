@@ -1,78 +1,69 @@
 #!/usr/bin/env python3
-"""Check Sol-Attn's Triton and CUDA kernels against the algorithm's own reference.
+"""Check Sol-Attn's CUDA kernel against the algorithm's own eager reference.
 
-Neither kernel has ever had an independent correctness check. Every judgement
-about them so far -- ours and upstream's -- has been "the render looks right",
+The kernel had no independent correctness check before this file. Every
+judgement about it -- ours and upstream's -- was "the render looks right",
 which cannot separate a kernel bug from a sparsity setting that was always
 going to soften the output.
 
 kijai/comfy-kitchen's unmerged `sol_attn` branch ships a pure-PyTorch eager
-implementation of the same algorithm, written by its author. It is O(T^2)
-and slow, but it is a *second implementation*, which is the thing we have
-been missing. `bench/_sol_attn_reference.py` vendors it.
+implementation of the same algorithm, written by its author. It is O(T^2) and
+slow, but it is a *second implementation*, which is the thing we were missing.
+`bench/_sol_attn_reference.py` vendors it.
 
-Two kernels are graded against it: the Triton one in ComfyUI-SolAttn_triton,
-and the CUDA one in a local build of the branch (`comfy_kitchen.sol_attn`,
-absent from the stock PyPI wheel -- `bench/check_sol_kernel.py` is what tells
-those apart). Upstream reports the CUDA path received correctness fixes the
-Triton path did not, and reports it as the higher-quality of the two. That is
-the author's own report, not something measured here; these cases are what
-would let this repo say anything of its own about it.
+**Scope narrowed 2026-08-16: this grades the CUDA kernel only.** It used to
+grade the Triton kernel too, and the Triton arms were removed with the pack
+(see `internal/plan_2026-08-16_sol_fp16_and_triton_retirement.md`, Track A1).
+Two reasons. The Triton arms graded a kernel no graph has wired since
+2026-08-14, so a regression there could not reach a render. And the CUDA arm
+never needed them: the script loaded Triton first and returned 2 on failure,
+so an absent pack silently disabled the only correctness check on the kernel
+that does run. That coupling was an accident of control flow, not of method.
 
 What each case claims, i.e. what breaks if it is deleted:
 
   reference == SDPA at tau -inf
-      Calibration of the oracle itself. With the routing threshold driven
-      to negative infinity every block is exact, so Sol-Attn degenerates to
-      dense attention and MUST reproduce scaled_dot_product_attention. If
-      this fails, the reference is wrong or wired up wrong, and every other
-      number in this file is meaningless.
+      Calibration of the oracle itself. With the routing threshold driven to
+      negative infinity every block is exact, so Sol-Attn degenerates to dense
+      attention and MUST reproduce scaled_dot_product_attention. If this
+      fails, the reference is wrong or wired up wrong and every other number
+      in this file is meaningless.
 
-  triton == reference at tau -inf
+  cuda == reference at tau -inf
       Same degeneration, through the kernel. Isolates plumbing -- layout,
-      scale, sink handling -- from the sparsity approximation, because at
-      this tau there is no approximation left to blame.
+      scale, sink handling -- from the sparsity approximation, because at this
+      tau there is no approximation left to blame.
 
-  triton == reference at real tau
-      The measurement. Both implementations route the same blocks by the
-      same rule, so they should agree closely; the residual is INT8 vs
-      full precision, not algorithm. Upstream's own CUDA-vs-eager tests
-      assert cos > 0.998, which is the bar used here.
+  cuda == reference at real tau
+      The measurement. Both implementations route the same blocks by the same
+      rule, so they should agree closely; the residual is INT8 against full
+      precision, not algorithm. Upstream's own CUDA-vs-eager tests assert
+      cos > 0.998, which is the bar used here.
 
   mismatched tau DISAGREES
-      The red control. Compares the kernel at one tau against the reference
-      at a very different one. If this still passes, the metric cannot see
-      a routing difference and the three cases above prove nothing. A check
-      that cannot fail is decoration.
-
-  cuda == reference at tau -inf / at real tau
-      The same two cases through `comfy_kitchen.sol_attn`. Separate from the
-      Triton arms rather than folded into them: they are different kernels
-      with different reported histories, and a single pass/fail over both
-      would let one carry the other.
-
-  cuda red control
-      The CUDA arm gets its own mismatched-tau control. Reusing Triton's
-      would prove nothing about a kernel it never called.
+      The red control. Compares the kernel at one tau against the reference at
+      a very different one. If this passes, the metric cannot see a routing
+      difference and every case above proves nothing. A check that cannot fail
+      is decoration.
 
   tail mode (diagnostic, not a case)
       `centroid_tail` shares one pooled tail across a query block instead of
-      computing it per row, and upstream puts it at ~5e-4 cosine -- well
-      inside this file's 0.998 bar, so a kernel on the opposite mode from the
-      reference still passes. The Triton kernel has no such parameter and its
-      mode is not documented, so it is MEASURED here (agreement against the
-      reference in both modes, better one wins) rather than asserted from
-      reading the kernel. Printed, never graded: if the two modes ever land
-      far enough apart to matter, that is a finding to act on, not a failure.
+      computing it per row, and it is worth ~5e-4 cosine -- well inside the
+      0.998 bar, so a kernel graded against the wrong mode still passes. So it
+      is MEASURED (agreement against the reference in both modes, better one
+      wins) and the graded cases use the matching oracle. Grading cross-mode
+      was a live defect here until 2026-08-14; see `docs/checks.md`.
 
 Exit codes: 0 all graded cases passed, 1 a case failed, 2 nothing was graded
-or an arm was skipped for cause (no CUDA, no Triton, no `sol_attn` in the
-installed comfy_kitchen). A skipped arm must not read as a passing one.
+(no CUDA, or the installed comfy_kitchen has no `sol_attn` -- the expected
+state on a machine that has not built the fork). A skipped run must not read
+as a passing one.
 
-Needs CUDA and Triton. Small shapes only -- the reference materialises the
-full score matrix and refuses past 4 GiB, so it can never run at H3's real
-sequence length. That is a real limit on what this establishes: it checks
-the kernel's arithmetic, not its behaviour at 40k tokens.
+Needs CUDA and a fork build of comfy_kitchen. Small shapes only -- the
+reference materialises the full score matrix and refuses past 4 GiB, so it can
+never run at H3's real sequence length. That is a real limit on what this
+establishes: it checks the kernel's arithmetic, not its behaviour at 40k
+tokens. The run that would close that gap is gate B0b in the plan above.
 
     python bench/check_solattn_correctness.py
     python bench/check_solattn_correctness.py --tokens 1024 --heads 8
@@ -83,7 +74,6 @@ from __future__ import annotations
 import argparse
 import importlib
 import sys
-import types
 from pathlib import Path
 
 import torch
@@ -93,61 +83,6 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from _sol_attn_reference import sol_attn as reference  # noqa: E402
-
-# Moved out of `custom_nodes/` into `coderef/` on 2026-08-16 so ComfyUI stops
-# registering its two nodes -- the owner runs `SolAttnMiniMax` (CUDA) in
-# everything and no graph has wired the Triton node since 2026-08-14. The pack
-# is still a live dependency of THIS script, which is the point of searching
-# both locations rather than just repointing: a checkout that has not moved yet
-# keeps working, and one that has does not silently drop the CUDA arm.
-#
-# Order matters. `coderef/` first, so that after the move a stale copy left in
-# `custom_nodes/` cannot shadow the one being maintained.
-_TRITON_CANDIDATES = (
-    HERE.parents[0] / "coderef" / "ComfyUI-SolAttn_triton",   # current home
-    HERE.parents[1] / "ComfyUI-SolAttn_triton",               # pre-2026-08-16
-)
-
-
-def _triton_dir():
-    for path in _TRITON_CANDIDATES:
-        if (path / "_int8_fwd.py").is_file():
-            return path
-    return None
-
-
-SOLATTN_DIR = _triton_dir()
-
-
-def load_triton_kernels():
-    """Import Sol-Attn's kernel modules without running its node registration.
-
-    Two obstacles. The modules use relative imports (`from ._autotune_log
-    import ...`), so they must load as a package, not as loose files. And the
-    directory is `ComfyUI-SolAttn_triton`, whose hyphen is not a legal module
-    name, so it cannot simply go on sys.path.
-
-    Binding a synthetic package with `__path__` pointed at the directory
-    solves both, and deliberately never executes the real `__init__.py` --
-    that file registers ComfyUI nodes and pulls in comfy_api. We want the
-    kernels, not the side effects.
-    """
-    if SOLATTN_DIR is None:
-        raise FileNotFoundError(
-            "the Sol-Attn Triton pack was not found. Looked in:\n  "
-            + "\n  ".join(str(p) for p in _TRITON_CANDIDATES)
-            + "\nIt is tooling-only since 2026-08-16 and no longer lives in "
-              "custom_nodes/, but this check still needs it -- see "
-              "docs/SOLATTN.md, 'The Triton node'.")
-    name = "_solattn_triton_pkg"
-    if name not in sys.modules:
-        pkg = types.ModuleType(name)
-        pkg.__path__ = [str(SOLATTN_DIR)]
-        sys.modules[name] = pkg
-    int8 = importlib.import_module(f"{name}._int8_fwd")
-    bf16 = importlib.import_module(f"{name}._tri_fwd")
-    return int8.sol_attn_int8, bf16.sol_attn
-
 
 def load_cuda_kernel():
     """`comfy_kitchen.sol_attn`, or (None, why) if this build has no such thing.
@@ -194,14 +129,15 @@ def main():
     args = ap.parse_args()
 
     if not torch.cuda.is_available():
-        print("no CUDA; the Triton kernels cannot run. Nothing checked.")
+        print("no CUDA; the kernel cannot run. Nothing checked.")
         return 2
 
-    try:
-        sol_attn_int8, sol_attn_bf16 = load_triton_kernels()
-    except Exception as exc:
-        print(f"could not import the Triton kernels from "
-              f"ComfyUI-SolAttn_triton: {type(exc).__name__}: {exc}")
+    # Exit 2, not 1. An absent kernel is the EXPECTED state on a machine that
+    # has not built kijai's fork -- the same third case check_sol_kernel.py
+    # gates on. A missing dependency is not a failing kernel.
+    cuda_sol, why = load_cuda_kernel()
+    if cuda_sol is None:
+        print(f"no CUDA Sol-Attn kernel to grade: {why}")
         return 2
 
     torch.manual_seed(args.seed)
@@ -210,11 +146,10 @@ def main():
     q, k, v = (torch.randn(shape, device="cuda", dtype=torch.bfloat16)
                for _ in range(3))
 
-    print(f"Sol-Attn Triton vs the algorithm's eager reference")
+    print(f"Sol-Attn CUDA kernel vs the algorithm's eager reference")
     print(f"  B={b} T={t} H={h} D={d} bf16, tau={args.tau}, bar cos>{args.bar}\n")
 
     failures = []
-    skipped = []
 
     def report(name, got, bar, want_pass=True):
         ok = (got > bar) if want_pass else (got < bar)
@@ -234,118 +169,77 @@ def main():
     ref_dense = reference(q, k, v, tau=DENSE_TAU)
     report("reference == SDPA at tau -inf", cosine(ref_dense, dense), 0.9999)
 
-    # 2. Plumbing, with the approximation switched off.
-    for label, fn, kw in (("bf16", sol_attn_bf16, {}),
-                          ("int8", sol_attn_int8, {"int8_pv": True})):
-        out = fn(q, k, v, tau=DENSE_TAU, **kw)
-        report(f"triton {label} == reference at tau -inf",
-               cosine(out, ref_dense), args.bar)
+    # 2. Plumbing, with the approximation switched off. At this tau every
+    #    block is exact, so layout / scale / sink handling are isolated from
+    #    the sparsity approximation -- there is none left to blame.
+    report("cuda == reference at tau -inf",
+           cosine(cuda_sol(q, k, v, tau=DENSE_TAU), ref_dense), args.bar)
 
-    # 3. The measurement, at the tau we actually ship.
-    #
-    #    Against the PER-ROW reference, because that is the mode the Triton
-    #    kernel is on -- measured in case 5, not assumed. This mattered: the
-    #    reference gained `centroid_tail` (default True) when it was
-    #    re-vendored on 2026-08-14, which silently made these arms cross-mode.
-    #    They still passed, because the two modes differ by cos 0.9988 and the
-    #    bar is 0.998 -- looser than the discrepancy it was meant to catch.
-    #    A bar that cannot see a whole-algorithm difference is not a bar.
+    # 3. Which tail mode is the kernel on? MEASURED, not assumed, and it runs
+    #    before the graded cases because it decides which oracle they use.
+    #    `centroid_tail` is worth ~5e-4 cosine -- well inside the 0.998 bar --
+    #    so a kernel graded against the wrong mode passes anyway. That defect
+    #    was live in this file until 2026-08-14; see docs/checks.md.
     ref_tau = reference(q, k, v, tau=args.tau, centroid_tail=False)
-    outs = {}
-    for label, fn, kw in (("bf16", sol_attn_bf16, {}),
-                          ("int8", sol_attn_int8, {"int8_pv": True}),
-                          ("int8 (pv off)", sol_attn_int8, {"int8_pv": False})):
-        outs[label] = fn(q, k, v, tau=args.tau, **kw)
-        report(f"triton {label} == reference at tau {args.tau}",
-               cosine(outs[label], ref_tau), args.bar)
-
-    # 4. Red control. A far larger tau routes far fewer blocks; if the
-    #    comparison cannot tell that apart from the real thing, nothing above
-    #    is evidence.
-    ref_wrong = reference(q, k, v, tau=args.tau * 20, centroid_tail=False)
-    report(f"tau {args.tau} vs reference at tau {args.tau * 20}",
-           cosine(outs["int8"], ref_wrong), args.bar, want_pass=False)
-
-    # 5. Which tail mode is each kernel on? Not graded -- see the docstring.
-    #    Neither kernel documents it and Triton has no such parameter, so it
-    #    is measured. Every arm above and below grades against the matching
-    #    mode; without this they are silently cross-mode.
     ref_centroid = reference(q, k, v, tau=args.tau, centroid_tail=True)
     mode_gap = cosine(ref_tau, ref_centroid)
+    cuda_tau = cuda_sol(q, k, v, tau=args.tau)
 
-    def tail_mode(out, label):
-        c_centroid, c_perrow = cosine(out, ref_centroid), cosine(out, ref_tau)
-        picked = c_centroid >= c_perrow
-        print(f"  {label:<12s} centroid_tail={'True ' if picked else 'False'} "
-              f"(centroid {c_centroid:.6f} vs per-row {c_perrow:.6f})")
-        return picked
-
+    c_centroid = cosine(cuda_tau, ref_centroid)
+    c_perrow = cosine(cuda_tau, ref_tau)
+    cuda_centroid = c_centroid >= c_perrow
+    cuda_ref = ref_centroid if cuda_centroid else ref_tau
     print(f"\n  tail mode measured (the modes differ by cos {mode_gap:.6f}, "
           f"and the bar is {args.bar}):")
-    tail_mode(outs["bf16"], "triton bf16")
+    print(f"    cuda  centroid_tail={'True ' if cuda_centroid else 'False'} "
+          f"(centroid {c_centroid:.6f} vs per-row {c_perrow:.6f})\n")
 
-    # 6. The CUDA kernel, graded separately against the same oracle, in its
-    #    own tail mode. Folding it into the Triton arms would let one kernel's
-    #    result carry the other's.
-    cuda_sol, why = load_cuda_kernel()
-    print()
-    if cuda_sol is None:
-        print(f"  SKIP  CUDA arm: {why}")
-        skipped.append("cuda")
-    else:
-        cuda_tau = cuda_sol(q, k, v, tau=args.tau)
-        cuda_centroid = tail_mode(cuda_tau, "cuda")
-        cuda_ref = ref_centroid if cuda_centroid else ref_tau
-        cuda_wrong = (reference(q, k, v, tau=args.tau * 20, centroid_tail=True)
-                      if cuda_centroid else ref_wrong)
-        print()
-        report("cuda == reference at tau -inf",
-               cosine(cuda_sol(q, k, v, tau=DENSE_TAU), ref_dense), args.bar)
-        report(f"cuda == reference at tau {args.tau}",
-               cosine(cuda_tau, cuda_ref), args.bar)
-        report(f"cuda tau {args.tau} vs reference at tau {args.tau * 20}",
-               cosine(cuda_tau, cuda_wrong), args.bar, want_pass=False)
+    # 4. The measurement, at the tau we ship, against the matching mode.
+    report(f"cuda == reference at tau {args.tau}",
+           cosine(cuda_tau, cuda_ref), args.bar)
 
-        # Not a case: the two kernels' distance from the algorithm, each in
-        # its own tail mode. Comparing them in a single mode would score one
-        # of them against an algorithm it is not implementing, which is worth
-        # about 1.2e-3 of apparent quality -- larger than the gap being
-        # measured, so it would invent a winner.
-        # NOT the same quantity as the cases above, and the distinction is
-        # the whole point. Every graded case compares a kernel against the
-        # reference AT THE SAME TAU, so the block-sparse approximation is on
-        # both sides and cancels: they measure "does this kernel implement Sol
-        # faithfully". This line measures "how far is Sol's output from exact
-        # attention" -- kernel error and approximation error together.
-        #
-        # Only this second number is comparable to an accuracy figure from a
-        # dense kernel (e.g. sage's mean_rtol against SDPA). Quoting the
-        # fidelity number against one of those compares different referents
-        # and flatters Sol by roughly the size of its own approximation, which
-        # is the error two sessions nearly published on 2026-08-14.
-        nblk = (t + 63) // 64
-        print(f"\n  vs DENSE attention -- total error, approximation included."
-              f"\n  ON SYNTHETIC INPUT AT T={t} ({nblk} blocks of 64). "
-              f"DOUBLY PESSIMISTIC, DO NOT QUOTE:")
-        print(f"    cuda   {cosine(cuda_tau, dense):.6f}")
-        print(f"    triton {cosine(outs['int8'], dense):.6f}")
-        print(f"  Two reasons this is a floor, not an estimate. (1) torch.randn "
-              f"gives a\n  near-uniform softmax, so attention mass does not "
-              f"concentrate and there is\n  nothing for a block router to find "
-              f"-- the premise of the method is absent.\n  (2) {nblk} blocks is "
-              f"a different regime from production's ~1,626 at 345\n  frames, "
-              f"not a small version of it. Re-run on captured activations at\n"
-              f"  production S before this number means anything. This IS the "
-              f"quantity\n  comparable to a dense kernel's accuracy figure -- "
-              f"but only once measured\n  somewhere the method's premise holds.")
+    # 5. Red control. A far larger tau routes far fewer blocks; if the metric
+    #    cannot tell that apart from the real thing, cases 2 and 4 prove
+    #    nothing. Graded in the kernel's own tail mode for the same reason as
+    #    case 4 -- a cross-mode control would fail for the wrong reason and
+    #    still look like it worked.
+    cuda_wrong = reference(q, k, v, tau=args.tau * 20, centroid_tail=cuda_centroid)
+    report(f"cuda tau {args.tau} vs reference at tau {args.tau * 20}",
+           cosine(cuda_tau, cuda_wrong), args.bar, want_pass=False)
 
-        print(f"\n  distance from the algorithm, each in its own tail mode:")
-        print(f"    cuda        {cosine(cuda_tau, cuda_ref):.6f}")
-        print(f"    triton int8 {cosine(outs['int8'], ref_tau):.6f}")
-        print(f"    triton bf16 {cosine(outs['bf16'], ref_tau):.6f}")
-        print("  Same algorithm, so this is kernel arithmetic (INT8 vs full "
-              "precision), not\n  a quality ranking of a render. It cannot see "
-              "behaviour at 40k tokens.")
+    # Not a case: distance from DENSE attention, i.e. kernel error and the
+    # block-sparse approximation together.
+    #
+    # The distinction from every graded case above is the whole point. Those
+    # compare kernel against reference AT THE SAME TAU, so the approximation
+    # sits on both sides and cancels: they measure "does this kernel implement
+    # Sol faithfully". This measures "how far is Sol's output from exact
+    # attention". Only the second is comparable to a dense kernel's accuracy
+    # figure, and quoting the first against one flatters Sol by the size of its
+    # own approximation -- the error two sessions nearly published on
+    # 2026-08-14.
+    nblk = (t + 63) // 64
+    print(f"\n  vs DENSE attention -- total error, approximation included."
+          f"\n  ON SYNTHETIC INPUT AT T={t} ({nblk} blocks of 64). "
+          f"DOUBLY PESSIMISTIC, DO NOT QUOTE:")
+    print(f"    cuda   {cosine(cuda_tau, dense):.6f}")
+    print(f"  Two reasons this is a floor, not an estimate. (1) torch.randn "
+          f"gives a\n  near-uniform softmax, so attention mass does not "
+          f"concentrate and there is\n  nothing for a block router to find "
+          f"-- the premise of the method is absent.\n  (2) {nblk} blocks is "
+          f"a different regime from production's ~1,626 at 345\n  frames, "
+          f"not a small version of it. Re-run on captured activations at\n"
+          f"  production S before this number means anything. This IS the "
+          f"quantity\n  comparable to a dense kernel's accuracy figure -- "
+          f"but only once measured\n  somewhere the method's premise holds. "
+          f"That run is gate B0b in\n  internal/plan_2026-08-16_sol_fp16_and_triton_retirement.md.")
+
+    print(f"\n  distance from the algorithm, in the kernel's own tail mode: "
+          f"{cosine(cuda_tau, cuda_ref):.6f}")
+    print("  Same algorithm on both sides, so this is kernel arithmetic (INT8 "
+          "vs full\n  precision), not a quality ranking of a render. It cannot "
+          "see behaviour at\n  40k tokens.")
+
 
     # How much sparsity is even active here: if the shipped tau routes
     # everything exact at this size, cases 3 and 4 are testing nothing.
@@ -358,11 +252,6 @@ def main():
     if failures:
         print(f"\n{len(failures)} failure(s): {failures}")
         return 1
-    if skipped:
-        # Exit 2, not 0. An arm that did not run must not read as one that
-        # passed -- docs/checks.md gap 5.
-        print(f"\nINCOMPLETE: {len(skipped)} arm(s) skipped: {', '.join(skipped)}")
-        return 2
     print("\nall ok")
     return 0
 

@@ -800,11 +800,31 @@ def main():
                          "default as of 2026-08-14 -- verify the kernel is "
                          "present with bench/check_sol_kernel.py, because a "
                          "stock comfy-kitchen silently falls back to dense. "
-                         "triton (SolAttnPatch) is kept for reproducing "
-                         "pre-2026-08-14 numbers, which were all taken on it.")
+                         "triton (SolAttnPatch) was REMOVED on 2026-08-16 and "
+                         "now refuses; see the note where it is rejected.")
     args = ap.parse_args()
 
     global SOL_BACKEND
+    # The Triton pack was deleted on 2026-08-16 (plan Track A3), so SolAttnPatch
+    # no longer exists and a triton arm would build a graph that fails at
+    # validation -- late, and looking like a bench bug rather than a missing
+    # node. Refuse here instead.
+    #
+    # The Triton-vocabulary ARMS below (`sage+sol+int8`, `shipped_triton`, and
+    # everything keyed on int8_qk / int8_pv / use_tma) are still defined and are
+    # now unreachable. Removing them is a scoped follow-up, not a one-liner:
+    # SOL_DEFAULTS is SOL_BASELINE_124F, which several non-Sol arms also read.
+    # Left deliberately rather than half-removed.
+    if args.sol_backend == "triton":
+        ap.error(
+            "--sol-backend triton is gone. The Triton Sol-Attn pack was removed "
+            "on 2026-08-16: no graph had wired SolAttnPatch since 2026-08-14, "
+            "and every number it could reproduce already carries "
+            "docs/SOLATTN.md's 'do not rely on' caveats (362 frames, an "
+            "unrecorded build, res_multistep). Source is recoverable from "
+            "github.com/kijai/ComfyUI-SolAttn_triton if a number ever has to be "
+            "re-derived. See internal/plan_2026-08-16_sol_fp16_and_triton_"
+            "retirement.md, Track A3.")
     SOL_BACKEND = args.sol_backend
 
     cfg = dict(DEFAULTS, steps=args.steps, width=args.width,
