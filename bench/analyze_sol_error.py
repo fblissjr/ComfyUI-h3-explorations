@@ -28,8 +28,8 @@ PESSIMISTIC, DO NOT QUOTE and names two reasons:
    concentrate and there is nothing for a block router to find. **The premise
    of the method is absent**, so the sparsity term is measured where it cannot
    work.
-2. 8 blocks is a different regime from production's ~1,626 at 345 frames, not
-   a small version of it.
+2. 8 blocks is a different regime from production's ~1,700 at 362 frames,
+   not a small version of it.
 
 This script is that check re-run somewhere the premise holds. It is the same
 decomposition on real captured activations.

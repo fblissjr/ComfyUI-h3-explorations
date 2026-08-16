@@ -95,7 +95,7 @@ def run_ncu(workflow, launch_skip=0, launch_count=0):
     """Submit the graph under `ncu` and return the parsed per-kernel rows.
 
     TODO(scaffolding): decide how to bound the capture. Profiling every launch
-    of a 345-frame render is not viable -- 50 DiT blocks x 11 sparse steps is
+    of a full-length render is not viable -- 50 DiT blocks x 11 sparse steps is
     550 exact-kernel launches. Bound it, and print what was skipped: a silent
     cap reads as "covered everything".
     """

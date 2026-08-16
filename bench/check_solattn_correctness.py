@@ -227,7 +227,7 @@ def main():
           f"gives a\n  near-uniform softmax, so attention mass does not "
           f"concentrate and there is\n  nothing for a block router to find "
           f"-- the premise of the method is absent.\n  (2) {nblk} blocks is "
-          f"a different regime from production's ~1,626 at 345\n  frames, "
+          f"a different regime from production's ~1,700 at 362\n  frames, "
           f"not a small version of it. Re-run on captured activations at\n"
           f"  production S before this number means anything. This IS the "
           f"quantity\n  comparable to a dense kernel's accuracy figure -- "
