@@ -332,6 +332,39 @@ Ordered by how much they undermine the standard above.
    fail?" is the question that finds this class, and it is worth asking of every
    row in the index above.
 
+   **A control cannot see a branch its input never reaches, and a
+   before/after snapshot is exactly that shape.** Third instance of the family,
+   2026-08-16. When `_ref_prompt` gained per-socket roles, the control was a
+   byte-identity snapshot: all 43 prompts captured *before* the change, 0 of 43
+   different after, 0 of 87 regenerated graphs changed. That is a real control
+   and it proved what it claimed — the additive constraint held **for the path
+   that already had graphs**. It could not have caught anything on the new
+   path, because no graph exercised the new path until one existed. Two defects
+   were sitting there and both surfaced within ninety seconds of the first
+   three-role graph being built:
+
+   - the generator defined a garment subject, gave it `attribute_transfer`, and
+     never cited it in `detailed_description`;
+   - `check_ref_prompt_labels.py` enumerated `images` as `(True, False)`, which
+     cannot express a role tuple, so the first honest three-role graph was
+     reported as a hand-edit. Its own comment said a hardcoded copy "stops
+     covering the generator the moment a role is added" — it was right about
+     the risk and still missed it, because **what changed was the *shape* of
+     the argument rather than one of its values, and an enumeration written
+     over old values is blind to a new form.**
+
+   Same family as `verify_adjacency` (input cannot fail) and the identity
+   control that compared `arange` against `arange` (input is the expected
+   answer), one level up: **the input never reaches the code under test.** The
+   question that finds all three is the same one — *what would the input have
+   to be for this to fail?* — and for a regression snapshot the answer is
+   "something that did not exist when the snapshot was taken."
+
+   The fix generalises too, and it is cheap: **when adding a code path, add the
+   first caller in the same change and let the existing checks judge it.** A
+   new branch with no caller is unobserved by construction, however green the
+   suite is.
+
    **A written requirement is not a control, and this repo produced a clean
    instance the same day.** `docs/open_experiments.md` #18 requires that
    conditioning rows stay in the block population, because `kcvar` is a variance

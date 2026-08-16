@@ -59,6 +59,7 @@ from h3_config import (  # noqa: E402
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
     TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
+    CAPTURE_REF_IMAGES,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
 )
@@ -1361,6 +1362,19 @@ _IMAGE_ROLE_PROSE = {
 #: existing graph is a constant rather than a coincidence of ordering.
 _DEFAULT_IMAGE_ROLES = ("character", "environment")
 
+#: Every image role a graph may declare, exported for the same reason
+#: `VIDEO_ROLES` is: `bench/check_ref_prompt_labels.py` reproduces every prompt
+#: the generator can emit, and a hardcoded copy there stops covering this file
+#: the moment a role is added.
+#:
+#: **Adding a role is not enough to make the check see it.** That check used to
+#: enumerate `images` as `(True, False)`, which cannot express a role tuple at
+#: all -- so the first graph to declare three roles read as a hand-edited
+#: prompt. A new *form* of an argument is invisible to an enumeration written
+#: for its old *values*; when the shape of an input changes, the enumerator
+#: has to change with it.
+IMAGE_ROLES = tuple(_IMAGE_ROLE_PROSE)
+
 
 def _image_roles(images):
     """Normalise `images=` into a tuple of role names.
@@ -1396,6 +1410,14 @@ def _image_roles(images):
     return roles
 
 
+def _role_label(image_roles, want):
+    """`<Subject N>` for the first socket carrying `want`, or None."""
+    for n, role in enumerate(image_roles, start=1):
+        if role == want:
+            return f"<Subject {n}>"
+    return None
+
+
 def _env_label(image_roles):
     """`<Subject N>` for the environment reference, or None if there isn't one.
 
@@ -1406,13 +1428,11 @@ def _env_label(image_roles):
     carries `environment`, and the callers drop the beat rather than naming a
     subject that is not a place.
     """
-    for n, role in enumerate(image_roles, start=1):
-        if role == "environment":
-            return f"<Subject {n}>"
-    return None
+    return _role_label(image_roles, "environment")
 
 
-def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
+def _ref_prompt(*, images: bool | tuple[str, ...] = True,
+                video=False, video_audio=False, audio=False,
                 video_role="structure", audio_role="music"):
     """A ref2va prompt declaring EXACTLY the labels this arm wires, in the
     relationship it actually asks for.
@@ -1613,9 +1633,24 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
             # always <Subject 2> once roles are declared per socket. Resolving
             # it by role rather than by ordinal is what stops a three-reference
             # arm reading "a medium shot establishes <the garment>".
-            shot.append(f"A medium shot establishes {_env_label(image_roles)}, then <Subject 1> enters from the left and stops at the center of the frame."
-                        if _env_label(image_roles) else
-                        "A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame.")
+            # Every DEFINED subject has to be cited in detailed_description --
+            # `check_ref_prompt_labels` enforces it, and it is right to: a
+            # subject that carries a retention marker and never appears in the
+            # shot is asking the model to transfer something onto nothing.
+            # The first version of the role work defined a garment, gave it
+            # `attribute_transfer`, and never put it in the shot; the check
+            # caught it the first time a graph exercised the path.
+            env = _env_label(image_roles)
+            worn = _role_label(image_roles, "garment")
+            enters = (f"<Subject 1> enters from the left{f' wearing {worn}' if worn else ''}"
+                      " and stops at the center of the frame.")
+            shot.append(f"A medium shot establishes {env}, then {enters}" if env
+                        else f"A medium shot frames the scene, then {enters}")
+            # Anything with no scripted beat of its own still has to appear.
+            for n, role in enumerate(image_roles, start=1):
+                if role in ("character", "environment", "garment"):
+                    continue
+                shot.append(f"<Subject {n}> is visible in the shot.")
         elif subject_from_video:
             shot.append("A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame.")
         else:
@@ -4117,6 +4152,28 @@ def main():
               out_prefix="Video/h3_r2v_all",
               variant_note=_note_ref_matrix("every reference type at once")),
          "images + video + its soundtrack + standalone audio"),
+
+        # A CAPTURE target, not a render target. It exists so `h3_capture.py`
+        # has a graph to point at, and so the next capture is a re-run rather
+        # than archaeology: the 2026-08-15 capture's config survives only as
+        # prose in a README on the share, which is why nothing about it could
+        # be reproduced from this repo.
+        #
+        # Sol-Attn is absent, as in every UI graph, and that is a REQUIREMENT
+        # here rather than the usual default. Dense attention is
+        # permutation-equivariant, so one capture serves every token ordering
+        # at every block; a capture taken with Sol on is a slice of a
+        # trajectory that diverged, and only valid for the arm that took it.
+        #
+        # 362 frames at 1024x768 with native reference sizes is roughly 97k
+        # tokens: above the ~60k floor `docs/SOLATTN.md` warns about, and well
+        # under the 182,092 that OOMed this card. All three numbers come from
+        # REF_VIDEO_BUDGET, so they move with the other reference arms.
+        ("h3_probe_capture_ref3.json", "probe-capture-ref3", "r2v",
+         _ref_prompt(images=("character", "garment", "environment")),
+         dict(**REF_VIDEO_BUDGET, ref_images=CAPTURE_REF_IMAGES,
+              out_prefix="Video/h3_probe_capture_ref3"),
+         "3 references spanning 0.78-4.23 MP; the h3_capture.py target"),
 
         ("h3_ref_video_edit.json", "r2v-edit", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="edit"),

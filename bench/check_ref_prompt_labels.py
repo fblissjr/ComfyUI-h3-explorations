@@ -54,6 +54,7 @@ Reads the shipped API graphs. No CUDA, no model, no ComfyUI import.
 
 from __future__ import annotations
 
+import itertools
 import json
 import re
 import sys
@@ -285,8 +286,23 @@ def main():
         spec.loader.exec_module(bw)
 
         # every prompt `_ref_prompt` can produce for the roles in use
+        #
+        # `images` is enumerated over ROLE TUPLES, not over (True, False).
+        # Until 2026-08-16 it was the bool pair, which could not express a role
+        # tuple at all, so the first graph declaring three roles was reported
+        # as a hand-edit -- a false positive that accused the graph of the
+        # check's own blind spot. The comment below already said a hardcoded
+        # copy stops covering the generator "the moment a role is added"; it
+        # was right about the risk and still missed it, because what changed
+        # was the SHAPE of the argument rather than its value.
+        #
+        # Built from `IMAGE_ROLES` and `_REF_IMAGE_NODES` so neither the role
+        # list nor the socket count is duplicated here.
+        image_arms = [False]
+        for n in range(1, len(bw._REF_IMAGE_NODES) + 1):
+            image_arms += list(itertools.product(bw.IMAGE_ROLES, repeat=n))
         legal = set()
-        for imgs in (True, False):
+        for imgs in image_arms:
             for vid in (True, False):
                 for vaud in (True, False):
                     for aud in (True, False):
