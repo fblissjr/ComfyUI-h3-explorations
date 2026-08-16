@@ -363,6 +363,49 @@ blocks are cut at fixed 64-token boundaries in the permuted order, so the
 permutation decides who shares a block. Everything Morton does, good or bad,
 flows through that.
 
+### Holding `tau` fixed does not hold sparsity fixed
+
+**Read from the kernel source 2026-08-16, and it undercuts an argument this page
+makes three times.** The routing threshold is not a constant that `tau` scales.
+It is derived from the block partition, so **Morton moves the threshold itself.**
+
+The chain, in
+`coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_attn_preprocess.cu`:
+
+1. `kcvar[d]` is the variance **across the NTB block centroids** of dimension
+   `d` -- `prep_pooled_stats` means over blocks, then sums `(kc - mean)^2` over
+   blocks (`:107-123`).
+2. The threshold for a query block is
+   `tau * sqrt(sum_d c_d^2 * kcvar_d * log2s^2)`, where `c` is the query
+   centroid (`:192-199`).
+
+Block membership determines `kc`. Morton changes membership. So `kcvar` changes,
+so the threshold changes, so **the number of blocks routed exact changes at a
+fixed `tau`.**
+
+**Direction, and this part is inference rather than measurement.** Morton is
+supposed to make blocks internally more coherent. Coherent blocks have centroids
+that sit further from the global mean rather than being averaged toward it, so
+the variance across centroids should *rise*, the threshold with it, and fewer
+blocks should clear it. That would mean turning Morton on at fixed `tau` makes
+the render **more** approximate, not merely differently blocked. The measured
+mass-concentration result points the same way, but nothing has measured the
+routed density directly.
+
+Two consequences, and the first is a correction:
+
+- **"Morton at fixed tau measures the cost and none of the payoff" is too
+  clean.** This page says a version of that three times. If the threshold moves,
+  a fixed-`tau` Morton arm is not the same operating point with a permutation
+  added -- it is already somewhere else on the speed-quality curve, in an
+  unknown direction and by an unknown amount. Every past Morton A/B here
+  varied two things while believing it varied one.
+- **It is cheap to settle and needs no render.** The captures at blocks 0, 24
+  and 49 are on disk. Counting how many key blocks clear
+  `tau * sqrt(sum_d c_d^2 * kcvar_d)` under raster and under each curve is
+  arithmetic on tensors we already have. That converts "membership changes"
+  into "routed density changes by X% at fixed tau", which is a number.
+
 **One precision, because the short form of this claim gets repeated.** "Token
 order is the only thing that changes which 64 tokens share a block" is true of
 *Morton*, and not quite true in general: the blocks are cut every 64 rows from
@@ -867,6 +910,16 @@ Every Morton arm run here has held `tau` at its shipped value and toggled
 Morton alone. Under the mechanism as its author states it, that arm cannot
 find the benefit. It measures the cost and none of the payoff.
 
+**That sentence is the tidy version and it is not quite right.** Holding `tau`
+fixed does not hold sparsity fixed, because the threshold is derived from the
+variance across block centroids and Morton changes those centroids -- see
+"Holding `tau` fixed does not hold sparsity fixed" above. So a fixed-`tau` arm
+is not "the same operating point plus a permutation" with the payoff withheld;
+it is an unmeasured distance away along the same curve the payoff lives on. The
+conclusion survives -- that arm cannot cleanly attribute anything -- but the
+reason is worse than the one stated here, and the paragraph above (`94% GPU
+utilization`) is quoting a retracted Triton figure besides.
+
 The author has also said directly, on 2026-08-14, that Morton "may or may not
 increase quality, that's something to test". That is good evidence the author
 has not tested it, and no evidence at all about anyone else. Here, the speed
@@ -946,7 +999,11 @@ Not known:
 - Whether the clean canvases behave differently from the ragged ones in output,
   as opposed to in block geometry.
 - What Morton does to the routing decision itself. Block membership is
-  measured; which blocks the router then selects is not.
+  measured; which blocks the router then selects is not. **The mechanism is now
+  read from source** -- Morton moves the threshold, not just the membership, so
+  fixed-`tau` arms do not hold sparsity fixed -- but the size and even the sign
+  of that shift are unmeasured. See "Holding `tau` fixed does not hold sparsity
+  fixed". This is the cheapest unrun item on the page and needs no GPU.
 - How a fixed curve compares to the content-based clustering that SVG2 uses.
 - Whether a dense Morton render differs from a dense non-Morton one by more
   than the floating-point noise measured above. Two rendered clips already
@@ -977,11 +1034,15 @@ Also run, 2026-08-16:
 Not run, in the order they would answer the most:
 
 - A `tau` by Morton grid at equal wall clock. Nothing blocks it but GPU time.
-- **The routing simulation proper.** The capture answered which tokens share a
-  block and how well the centroid represents them. It did **not** compute the
-  selected-block masks, which is the step that turns "membership changed" into
-  "this fraction of routed blocks changed, in these places". One capture is
-  enough for both orderings without a second render.
+- **The routing simulation proper, and it is now the top of the list.** The
+  capture answered which tokens share a block and how well the centroid
+  represents them. It did **not** compute the selected-block masks, which is the
+  step that turns "membership changed" into "this fraction of routed blocks
+  changed, in these places". One capture is enough for both orderings without a
+  second render. Promoted 2026-08-16 on the threshold finding: because `kcvar`
+  is computed over the block centroids, Morton moves the routing threshold as
+  well as the membership, so this is no longer a nice-to-have number -- it is
+  what decides whether any fixed-`tau` Morton arm is a controlled comparison.
 - A clean canvas against a ragged canvas at matched settings.
 - `morton_curve="3d"` on a long clip. Not rendered here, and it is now the
   shipped curve if Morton is ever turned on.
@@ -994,19 +1055,27 @@ graphs the reference arms use.
 
 ## What to try next, in order
 
-1. Compare the two dense clips already on disk. Zero GPU, and it answers
+1. **Count the routed blocks under each ordering, off the existing captures.**
+   Zero GPU, no render, tensors already on disk. It settles whether a
+   fixed-`tau` Morton arm is even a controlled comparison, which every other
+   item on this list assumes. If routed density moves, the tau-by-Morton grid
+   below has to be designed around it rather than on top of it.
+   This absorbs what this list used to carry separately as "run the routing
+   simulation" -- same capture, same arithmetic, and the threshold finding is
+   the reason it moved from third place to first.
+2. Compare the two dense clips already on disk. Zero GPU, and it answers
    whether the floating-point divergence above is visible. If it is, every
    past Morton impression is explained without reference to block membership,
    and the bar for a Morton quality claim goes up sharply.
-2. Run the `tau` by Morton grid. Pick a Morton-on `tau` that matches Morton-off
+3. Run the `tau` by Morton grid. Pick a Morton-on `tau` that matches Morton-off
    at the shipped `tau` on wall clock, so the comparison is quality at equal
-   speed rather than quality at equal `tau`. Note what the paper adds here: the
-   correction's advantage over drop-the-block **widens as sparsity rises**, so
-   pushing `tau` may cost less than a keep-or-drop intuition suggests. That is
-   their ablation on their models, not ours.
-3. Run the routing simulation. It converts "block membership changes" into
-   "this fraction of routed blocks changes, in these places", which is a number
-   rather than a judgment.
+   speed rather than quality at equal `tau`. **Design it after item 1**, not
+   before: if Morton already moves routed density at fixed `tau`, "equal wall
+   clock" and "equal sparsity" are different axes and the grid has to say which
+   one it holds. Note what the paper adds here: the correction's advantage over
+   drop-the-block **widens as sparsity rises**, so pushing `tau` may cost less
+   than a keep-or-drop intuition suggests. That is their ablation on their
+   models, not ours.
 4. Compare 1280x768 against 1344x768 at matched settings. 1280x768 is 5:3,
    costs 0.95x the tokens of 16:9, and is the only near-16:9 canvas where
    Morton produces the tiles it is supposed to. If Morton matters at all, the
