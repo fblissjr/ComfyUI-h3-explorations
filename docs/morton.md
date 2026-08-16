@@ -37,6 +37,36 @@ entry point. What upstream claims lives in
 > third of 16:9 at the same frame count. Before running anything here, decide
 > which canvas the answer is supposed to generalise to, and pick a cheap one to
 > measure it at unless the canvas itself is the variable.
+>
+> ### And the capture is 124 frames, which is below Sol's token floor
+>
+> 37,826 tokens against the ~60k floor in
+> [`docs/SOLATTN.md`](SOLATTN.md). Noted 2026-08-16. **Be precise about what
+> that does and does not invalidate, because the floor is a *speed* floor** --
+> it is defined as the length below which a knob's effect vanishes into a null
+> that reads as "this does nothing", and `bench_e2e_h3.py` warns on it. Applying
+> it to activation statistics is not automatic and must not be asserted as if it
+> were.
+>
+> What genuinely does not transfer from 124 frames:
+>
+> - **Routed density**, most of all. `kcvar` is a variance over *every* block
+>   centroid, and the capture has 591 blocks against roughly 1,700 at 362
+>   frames. Different population, different variance, different threshold. The
+>   pending density figures are the most length-sensitive numbers on this page.
+> - **The conditioning share.** 530 rows is 1.4% of this sequence and about
+>   0.5% at 362 frames, so the sink's weight in every block statistic differs.
+>
+> What does transfer:
+>
+> - **The geometry.** Measured both ways: latent_t 37 against 107 at 1344x768
+>   moves connectivity by 0.3 points (86.1% to 85.8%) and radius by 0.04. Block
+>   shape is a per-frame property and the frame count barely touches it, so the
+>   canvas sweeps above stand at any length.
+>
+> Centroid fidelity and mass concentration sit in between and nobody has
+> measured which side they fall on. Treat them as untested at length rather than
+> as invalidated.
 
 ## Where everything is
 
@@ -1069,11 +1099,13 @@ radius or connectivity does not just optimise the wrong thing -- it picks a
 different winner at each resolution.
 
 > **Caveat, and it belongs inside the claim.** Both readings rest on differences
-> of 0.002 to 0.007 in mean cosine, from one capture, one canvas, one step. They
-> are stated because they are *consistent across three depths*; a second capture
-> could erase them. The activation numbers are **reported from the unlanded
-> 2026-08-16 prototype**, same status as the routed-density result above. The
-> geometry columns are re-derived here.
+> of 0.002 to 0.007 in mean cosine, from one capture, one canvas, one step, at
+> **124 frames -- below Sol's ~60k token floor** (see the box at the top of this
+> page for what that does and does not invalidate). They are stated because they
+> are *consistent across three depths*; a second capture could erase them. The
+> activation numbers are **reported from the unlanded 2026-08-16 prototype**,
+> same status as the routed-density result above. The geometry columns are
+> re-derived here, and geometry is the one part measured to be length-insensitive.
 
 **Separately, the priority call: a fourth curve is not where the remaining
 quality is.** This is a judgement and does not follow from the finding above --
