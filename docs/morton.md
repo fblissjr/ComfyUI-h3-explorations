@@ -205,6 +205,31 @@ So, as rules of thumb:
   1024x768, 1280x768 and the portrait 768x1024. Everything else is ragged, and
   ragged is the common case rather than the exception.
 
+### Which rule applies to you depends on where your graph came from
+
+**The CUDA node ships both curves, and its own default is the canvas-sensitive
+one.** `io.Combo.Input("morton_curve", options=["3d", "2d_frame"],
+default="2d_frame")` (`vendor/sol_attn_minimax.py:750`). Only **Sol-Engine**
+ships 3D-only, and it does not point Morton at H3 at all -- see
+[`docs/sol_upstream.md`](sol_upstream.md). Those two facts get conflated.
+
+So there are two starting points and they land on different rules:
+
+| you start from | `morton_curve` you get | rule of thumb |
+|---|---|---|
+| a graph from `build_workflows.py` | **`3d`**, baked in `widgets_values` | height 768 / 640 / 512, any width |
+| a fresh `SolAttnMiniMax` dropped in your own graph | **`2d_frame`**, the node default | both dims divisible by 256 |
+
+Verified rather than assumed: the four Sol-enabled probe graphs bake
+`'3d'` at widget index 6, e.g. `h3_probe_sol_on.json`
+`[1.3, 0.2, 0.9, 4096, 'exact_kv_and_rows', False, '3d', ...]`.
+
+**The trap is that flipping `morton` on is one widget and choosing the curve is
+another.** Turning Morton on in a hand-built graph silently selects the curve
+with the strict canvas rule, on a canvas that probably does not satisfy it.
+That is most of the distance between "Morton does nothing useful here" and the
+geometry this page measures.
+
 **What this is a rule about, and it is not output quality.** Every number here
 is block geometry -- how compact the 64 tokens sharing a summary are. Whether
 compactness reaches the screen is link 6 and is still unverified, so "optimal
