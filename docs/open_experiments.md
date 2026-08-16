@@ -659,6 +659,40 @@ different edit modality from reference conditioning, and the refusal is a
 guess wearing an error message. **Blocker:** one render, plus deciding what a
 `last_frame` should mean at one frame.
 
+**16e. How many reference images does a single-frame edit actually hold?
+Untested, and the cost curve says the limit is not the one we would guess.**
+Every render on this path used ONE reference. Core caps images at 9 (and
+videos at 3, audio at 3), and the sequence arithmetic says nothing breaks
+before that: one 1024x1024 reference through `MiniMaxH3ReferenceFit` at
+`allow_upscale=True` is 4,096 rows (measured by Preflight, and the arithmetic
+agrees exactly), so nine of them is 36,864 reference rows and 42,008 total --
+**51% of the 124-frame reference video graph, which already fits on the 4090.**
+Turn the fit node's upscaling off and nine references cost 9,216 rows, a
+sequence of 14,360.
+
+So VRAM and sequence length are NOT the binding constraint, and the interesting
+limits are the ones no number here predicts: whether identities stay separate
+past two or three people, whether the model still attends to `<Picture 7>` when
+it is told to, and whether prompt adherence degrades with label count. The
+community write-up reached four (three people plus a location) and reported it
+works; nobody has published where it stops.
+
+**Decision it changes:** whether the shipped graph stays single-reference, and
+whether `allow_upscale=True` is right on THIS path -- it is the single largest
+cost here (4x per reference) and it exists for identity fidelity, which is the
+one thing a multi-subject edit stresses most.
+
+**Arms:** 1, 2, 3, 4, 6, 9 references at the shipped canvas, same seed, prompt
+naming every label; then the 4-reference arm repeated with `allow_upscale=False`
+to price the fit node. `internal/reference_library.md` has 19 images ready.
+
+**Cost:** 7 renders, seconds each at one frame. This is the cheapest experiment
+on the whole list.
+
+**Blocker: none for the numbers, owner judgment for the verdict.** Token counts
+and render times are mechanical; whether four faces still look like four
+specific people is not.
+
 **16d. In-family 768x1152 against the community's 1024x1536.** The shipped
 graph uses the in-family canvas; the write-up it follows renders 1.57 MP, 52%
 over H3's area cap. At one frame the canvas costs almost nothing (the video
