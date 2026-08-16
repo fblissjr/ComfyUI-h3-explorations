@@ -60,7 +60,7 @@ from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parent.parent
-TEMPLATE = REPO / "workflows" / "h3_image_edit_api.json"
+TEMPLATE = REPO / "workflows" / "image" / "h3_image_edit_api.json"
 
 # Node ids in the shipped API graph. Named rather than repeated as literals so
 # a generator change that renumbers them fails loudly here instead of quietly

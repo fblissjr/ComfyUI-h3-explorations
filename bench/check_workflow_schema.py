@@ -61,6 +61,36 @@ NON_NODES = {"MarkdownNote", "Note", "Reroute", "PrimitiveNode"}
 EXTRA_WIDGETS = {"LoadImage": 1, "LoadImageMask": 1, "LoadAudio": 1, "LoadVideo": 1}
 
 
+# Inputs whose node validates against the filesystem instead of its own combo
+# list, so a value the combo does not offer can still be legal.
+#
+# `LoadImage` builds its combo from a NON-RECURSIVE `os.listdir` of the input
+# directory (`ComfyUI/nodes.py::LoadImage.INPUT_TYPES`), so nothing in a
+# subfolder ever reaches `/object_info`. It also defines `VALIDATE_INPUTS` ->
+# `folder_paths.exists_annotated_filepath`, and ComfyUI's executor skips its
+# own combo check for any input the node validates itself. So
+# `h3_refs/face_x.png` submits and renders, and flagging it here would be this
+# checker being stricter than the server -- the same class of defect as being
+# looser, which cost a day on 2026-08-13 in the other direction.
+#
+# Read out of both files on 2026-08-16 rather than inferred from a render.
+#
+# **The UI cost, which is real and is not a defect:** the frontend populates
+# that dropdown from the same list, so opening one of these graphs shows the
+# subfolder value in the widget but will not offer it in the menu. It renders
+# correctly; re-picking it from the dropdown is what you cannot do.
+#
+# Bare filenames are still checked against the list. Only values carrying a
+# subfolder are exempt, which is exactly the case `/object_info` cannot see.
+ANNOTATED_INPUTS = {("LoadImage", "image")}
+
+
+def annotated_path(class_type, name, val):
+    """True when this widget legally holds a path the combo list cannot show."""
+    return ((class_type, name) in ANNOTATED_INPUTS
+            and isinstance(val, str) and "/" in val)
+
+
 def is_combo(t):
     # V1 serialized a combo as a bare list of choices; V3 emits "COMBO" with
     # the choices under opts["options"], and a dynamic combo as its own type.
@@ -256,7 +286,8 @@ def check(wf, object_info):
                             f"nor a widget of format {has.get('format')!r}")
                     continue
                 _name, typ, choices = by_name[key]
-                if typ == "COMBO" and choices and got not in choices:
+                if (typ == "COMBO" and choices and got not in choices
+                        and not annotated_path(t, key, got)):
                     flag(n, f"widget {key!r} = {got!r} is not one of {choices[:8]}")
                 elif typ in ("INT", "FLOAT") and not isinstance(got, (int, float)):
                     flag(n, f"widget {key!r} = {got!r} is not numeric")
@@ -270,7 +301,8 @@ def check(wf, object_info):
                 if typ == "CONTROL":
                     continue
                 if typ == "COMBO":
-                    if choices and got not in choices:
+                    if (choices and got not in choices
+                            and not annotated_path(t, name, got)):
                         shown = choices[:8]
                         flag(n, f"widget {name!r} = {got!r} is not one of "
                                 f"{shown}{'...' if len(choices) > 8 else ''}")

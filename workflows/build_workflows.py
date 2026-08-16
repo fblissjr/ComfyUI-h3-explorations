@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import urllib.request
 from pathlib import Path
@@ -51,7 +52,7 @@ _OUR_NODES = {
 # used to live here in duplicate with the bench. Single source is
 # h3_config.py -- see its docstring for why that matters.
 from h3_config import (  # noqa: E402
-    IMAGE_VAE, IMAGE_EDIT_CANVAS,
+    IMAGE_VAE, IMAGE_EDIT_BUDGET,
     CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS, REF_LORA, REF_LORA_STRENGTH,
     ref_base_and_lora,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
@@ -157,6 +158,59 @@ REF_VIDEO_FORCE_RATE = 24.0
 # entirely an artifact of looking in the wrong place.
 PLACEHOLDER_IMAGE_A = "1-man.png"
 PLACEHOLDER_IMAGE_B = "2-mountain_landscape.png"
+
+# (LoadImage id, MiniMaxH3ReferenceFit id) per reference slot, in socket order.
+#
+# **Fixed per slot rather than allocated in a loop.** `bench_e2e_h3.py` and
+# `bench_image_edit_refs.py` both address the first pair as "15"/"24" by name,
+# so a renumbering would silently point a bench at the wrong node. Slot 3 takes
+# 34/35 because 26-33 and 40-43 are already spoken for in this graph.
+#
+# Three is the ceiling and it is not arbitrary: the UI builder declares
+# `ref_image_0..2` on the conditioning node, and that socket list is
+# positional in every saved graph. Growing it means APPENDING a fourth, never
+# inserting one.
+_REF_IMAGE_NODES = (("15", "24"), ("16", "25"), ("34", "35"))
+
+
+def _graph_dir(out, extra: dict):
+    """Which directory under `workflows/` a graph is written to.
+
+    **Derived from `single_frame`, never declared per graph.** The split is by
+    use case -- video at the root, the experimental image gen/edit path in
+    `image/` -- and "renders one frame" is exactly what makes a graph an image
+    graph. A separate `image=True` flag would be a second source of truth for
+    one fact, and the two would eventually disagree; the failure would be a
+    graph in the wrong folder, which is invisible until a check that walks one
+    folder stops seeing it.
+
+    `h3_config.GRAPH_DIRS` is the matching list on the reading side. If a third
+    use case ever appears, both have to learn about it.
+    """
+    return out / "image" if extra.get("single_frame") else out
+
+
+def _ref_image_slots(ref_images_on: bool, ref_image_count: int,
+                     ref_images: tuple[str, ...] | None):
+    """[(load_id, fit_id, filename)] for the reference images a graph wires.
+
+    `ref_images` names the files explicitly and sets the count from its own
+    length, which is what the image graphs use -- a scene's references are part
+    of what the scene IS, not a separate knob to keep in sync. Without it the
+    count comes from `ref_image_count` and the files are the two placeholders,
+    which is what every video graph has always done.
+    """
+    if not ref_images_on:
+        return []
+    files = (list(ref_images) if ref_images is not None
+             else [PLACEHOLDER_IMAGE_A, PLACEHOLDER_IMAGE_B][:ref_image_count])
+    if not 1 <= len(files) <= len(_REF_IMAGE_NODES):
+        raise SystemExit(
+            f"{len(files)} reference images: the conditioning node declares "
+            f"{len(_REF_IMAGE_NODES)} image sockets. Appending a fourth means "
+            "appending it to the UI builder's socket list too, at the END -- "
+            "saved graphs match sockets by position.")
+    return [(ld, fit, f) for (ld, fit), f in zip(_REF_IMAGE_NODES, files)]
 
 T2V_PROMPT = """integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a lone lighthouse keeper on a wet stone balcony at dawn, wearing a heavy oilskin coat, the lamp housing glowing behind him. Grey-blue sea fog rolls past below the railing and gulls cross the frame. The camera pushes in with small amplitude at slow speed as he raises a brass telescope, holds it steady against his eye, then lowers it and turns toward the light. [Shot 2] At 00:03.000, the shot cuts to a close-up of the rotating lamp assembly, the beam sweeping past the lens and out into the fog.
 
@@ -373,6 +427,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
               ref_video: bool = False, ref_video_audio: bool = True,
               ref_images_on: bool = True, ref_image_count: int = 2,
+              ref_images: tuple[str, ...] | None = None,
               turbo_pack: bool = False,
               ref_audio: bool = False,
               split_at: int | None = None,
@@ -493,6 +548,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                    "inputs": _resolution_widgets(cv["width"], cv["height"], length)}
 
     if ref:
+        slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
         g["5"] = {"class_type": "MiniMaxH3ReferenceToVideo",
                   "inputs": {"clip": ["2", 0], "vae": ["3", 0], "audio_vae": ["4", 0],
                              "prompt": prompt,
@@ -514,33 +570,26 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                              # dict the node signature expects. Slot ordinals are
                              # 0-based but the prompt tags are 1-based, so
                              # ref_image_0 is <Picture 1>.
-                             "ref_images.ref_image_0": ["24", 0],
-                             "ref_images.ref_image_1": ["25", 0]}}
-        g["15"] = {"class_type": "LoadImage", "inputs": {"image": PLACEHOLDER_IMAGE_A}}
-        g["16"] = {"class_type": "LoadImage", "inputs": {"image": PLACEHOLDER_IMAGE_B}}
+                             **{f"ref_images.ref_image_{i}": [fit, 0]
+                                for i, (_ld, fit, _f) in enumerate(slots)}}}
         # One fit node per reference. ComfyUI clamps reference scaling with
         # min(1.0, 2048/short_edge) where the reference pipeline has none, so
         # a reference smaller than 2048 on its short side arrives under-sized
-        # and identity fidelity comes out of those vision tokens. Ids 24/25.
-        for nid, src in (("24", "15"), ("25", "16")):
-            g[nid] = {"class_type": "MiniMaxH3ReferenceFit",
-                      "inputs": {"image": [src, 0], "allow_upscale": ref_upscale,
-                                 "short_edge": _ref_short_edge(),
-                                 "lift_downstream_clamp": False}}
-        if not ref_images_on:
-            g["5"]["inputs"].pop("ref_images.ref_image_0", None)
-            g["5"]["inputs"].pop("ref_images.ref_image_1", None)
-            for _k in ("15", "16", "24", "25"):
-                g.pop(_k, None)
-        elif ref_image_count == 1:
-            # A relationship that needs ONE image, not two. The character-swap
-            # arm takes its environment from the plate, so a second image is
-            # not merely redundant -- it pays reference rows on every sampling
-            # step to say nothing, and check_ref_prompt_labels fails the build
-            # for exactly that.
-            g["5"]["inputs"].pop("ref_images.ref_image_1", None)
-            for _k in ("16", "25"):
-                g.pop(_k, None)
+        # and identity fidelity comes out of those vision tokens.
+        #
+        # Loaders first, THEN fits, matching the order these keys have always
+        # been emitted in. Interleaving is equivalent to ComfyUI -- an API
+        # graph is a dict - but it reorders the JSON in every existing
+        # reference graph, and a diff that changes nothing is a diff nobody
+        # reads carefully.
+        for load_id, _fit_id, fname in slots:
+            g[load_id] = {"class_type": "LoadImage", "inputs": {"image": fname}}
+        for load_id, fit_id, _fname in slots:
+            g[fit_id] = {"class_type": "MiniMaxH3ReferenceFit",
+                         "inputs": {"image": [load_id, 0],
+                                    "allow_upscale": ref_upscale,
+                                    "short_edge": _ref_short_edge(),
+                                    "lift_downstream_clamp": False}}
         if ref_audio:
             # Standalone audio, never alone: the reference refuses an audio
             # reference unpaired with an image or a video, so every arm that
@@ -1111,21 +1160,27 @@ are paying full price for a render that otherwise looks fine.
 # f-string, because the strength appears in the prose and the widget it
 # describes comes from REF_LORA_STRENGTH. Hardcoding it here is how a graph
 # ends up shipping a note that contradicts its own node.
-def _probe_note(subject, companion, changed, compare, expect):
+def _probe_note(subject, companion, changed, compare, expect,
+                held="same prompt, same canvas"):
     """Note for a probe graph: one variable, its twin, and what to look at.
 
     A probe that does not name its companion and its seed is a graph with an
     unusual setting, not an experiment. Every one of these is identical to its
     twin except the line under "what differs", and they share
     `h3_config.SEED`, so anything you see between them is that line.
+
+    `held` is what stays fixed, and it is a parameter because the default
+    sentence claimed "same prompt" -- which is a contradiction on the two image
+    probes whose prompt IS the variable. A boilerplate line that contradicts
+    the paragraph under it teaches the reader to skim the boilerplate.
     """
     return f"""\
 ## Probe: {subject}
 
-**Run this against `{companion}`.** Same seed ({SEED}), same prompt, same
-canvas, same everything except one setting. That is the whole design: if the
-seed moved between the two, the difference you are looking for would be
-underneath the difference you are not.
+**Run this against `{companion}`.** Same seed ({SEED}), {held}, same
+everything except one setting. That is the whole design: if the seed moved
+between the two, the difference you are looking for would be underneath the
+difference you are not.
 
 **What differs:** {changed}
 
@@ -1373,14 +1428,21 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
             "edit": "<Video 1> is the source video for the target video edit.",
             "continue": "<Video 1> is the source video the target video continues from, beginning at its final frame.",
             "motion": "<Video 1> is the source of the walking motion transferred to <Subject 1>; its own scene is not reused.",
-            "structure": "<Video 1> is the source video whose camera movement and cutting rhythm the target video follows.",
+            "structure": "<Video 1> is the source video whose camera movement the target video follows.",  # NOT "cutting rhythm": see role_ret below
         }[video_role]
         role_ret = {
             "swap": "<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.",
             "edit": "<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.",
             "continue": "<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.",
             "motion": "<Video 1> (motion source): attribute_transfer - only the gait and its timing are taken; the scene and the person are not.",
-            "structure": "<Video 1> (cut and pacing structure): weak_reference - only the pacing of the camera move is followed.",
+            # Was "(cut and pacing structure) ... only the pacing" until
+            # 2026-08-16, which asked for something the prompt did not
+            # contain: every ref arm is a SINGLE shot whose summary says
+            # "a single continuous shot", so a cut-structure reference had
+            # no cuts to follow. Five graphs shipped that contradiction.
+            # Narrowed to what the arm actually asks for. If these arms ever
+            # gain a shot timeline, the cut language can come back with it.
+            "structure": "<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.",
         }[video_role]
         defs.append(role_def)
         retention.append(role_ret)
@@ -1624,70 +1686,603 @@ So changing the canvas moves almost nothing here -- 1:1 saves 3%, 16:9 costs
 the references, doubled. Nine of them at this sizing is ~94k rows and **OOMs a
 24 GB 4090**, which is more than the 124-frame video graph asks for.
 
-`ref_image_size` is `max` (2048 short edge), and note that it is a **no-op
-here**: `MiniMaxH3ReferenceFit` has already taken the reference to 2048 and
-core's `max` is `min(1.0, 2048 / short_edge)`. The real lever is the fit node's
-`allow_upscale`, worth 4.9x the reference rows and 5.2x the wall clock -- and
-on the one sample compared at 1:1, worth no visible identity difference. See
-`docs/open_experiments.md` #16e before assuming it earns its cost.
+**The numbers above are the `allow_upscale=True` shape, which this graph no
+longer ships.** They are kept because they are what a reference costs when the
+fit node takes it to 2048, and that is still one `ref_upscale=True` away.
 
-For scale: the whole sequence is 9,240 rows against ~82,686 for the 124-frame
-reference graph, which is why this renders in seconds."""
+### `allow_upscale` is off here, and it was the whole cost
+
+The fit node's upscaling is the single largest lever on this path. Measured at
+one seed on the two-reference scene, then confirmed here 2026-08-16 on the
+shipped graph:
+
+| sizing | ref rows | secs |
+|---|---:|---:|
+| `max` + fit upscale (what this used to ship) | 8,192 | 84 |
+| `max`, no fit upscale (**ships now**) | 2,048 | 18 |
+| `match` | 1,682 | 16 |
+
+4.9x the rows and 5.2x the wall clock, and at 1:1 on the face all three held
+the same identity, glasses, hair and features. `docs/open_experiments.md` #16e
+has the caveat that matters: that comparison is one subject at one seed, and it
+is why the VIDEO graphs have not moved.
+
+`ref_image_size` stays `max` (2048 short edge) and is still a **no-op** for
+every reference in `h3_refs/`, but for a different reason than before, and the
+old one is now wrong. It used to be a no-op because the fit node had already
+reached 2048, so core's `min(1.0, 2048 / short_edge)` was 1.0. Now the fit node
+leaves the source alone and a sub-2048 reference hits `min(1.0, >1.0)` = 1.0
+instead. Same outcome, different mechanism -- and above 2048 the two diverge,
+so it is not redundant.
+
+For scale, measured by `bench/preflight_graph.py` rather than estimated -- an
+earlier version of this paragraph said "~5,200" from arithmetic and was 58%
+high:
+
+```
+h3_image_edit          3,282     1 reference
+h3_image_recolor       3,304     1
+h3_image_sheet         3,260     1
+h3_image_style         5,386     2
+h3_image_composite     5,419     2
+h3_image_multiperson   7,520     3
+```
+
+Against ~82,686 for the 124-frame reference video graph, which is why these
+render in seconds."""
 
 
-def _image_edit_prompt() -> str:
-    """The single-image edit prompt, and deliberately NOT in the guide format.
+# --------------------------------------------------------------------------
+# The single-frame image gen/edit prompts
+# --------------------------------------------------------------------------
+#
+# **This reverses a decision, so read why before reverting it.** Until
+# 2026-08-16 there was one image prompt, `_image_edit_prompt`, and its
+# docstring argued at length that the guide format *cannot* apply to a still:
+# two of its six sections are audio, and `detailed_description` is specified as
+# `[Shot 1]` with camera movement and shot timing, none of which a one-frame
+# render has. So it shipped a plain paragraph in the form the community's
+# first write-up used.
+#
+# What changed is evidence, not taste. The author of that write-up published a
+# second set on 2026-08-15 (`internal/refs/`), and between the two posts they
+# switched formats: post 1 is flat `Task: Reference-guided generation. ...`
+# prose, post 2 is the guide's structure with the two audio sections dropped.
+# The move is in the direction the old docstring argued against, by someone
+# who had rendered a couple of thousand images on this path.
+#
+# That is a reason to test, not a reason to believe. **Neither post is a
+# controlled comparison** -- the scenes differ, the references differ, and
+# nothing was held fixed -- so what we have is a practitioner's revealed
+# preference, which is the same grade of evidence as the Custom-GPT kit in
+# `internal/PROMPTING.md` section 4.2. Hence the ladder below rather than a
+# rewrite.
+#
+# The half of the old argument that survives intact: the audio sections
+# describe something a single-frame graph structurally cannot produce (it has
+# no `VAEDecodeAudio` at all). That is why `sections` is the default and `av`
+# is the arm, and not the other way round.
 
-    Every other prompt here follows MiniMax's official prompt guide, and this
-    one cannot: that guide is a *video* prompt guide. Its six sections include
-    `overall_soundscape` and `non_diegetic_music`, and its `detailed_description`
-    is written as `[Shot 1]` with camera movement and shot timing. On a single
-    still frame all of that describes something that does not exist, and asking
-    for a truck-right at 24 fps on a one-frame render is an instruction the
-    model can only be confused by.
+# The three formats, as a ladder. Each rung removes exactly one thing, so a
+# difference between two arms has one candidate cause.
+#
+#   av        all six guide sections, audio ones present and "N/A"
+#   sections  the four visual sections            <- av minus the audio pair
+#   flat      one paragraph, no headers, no [Shot 1]
+#                                                 <- sections minus scaffolding
+#
+# `flat` drops the shot marker as well as the headers, deliberately: it is the
+# community's post-1 form and this repo's own previous shipped form, and both
+# are unscaffolded prose. So B->C is "all remaining structure", not "headers
+# only". Stated because a two-thing rung is the kind of detail that gets
+# forgotten and then mis-attributed.
+#
+# **`flat` keeps `<Subject N>` even though the community's post-1 prompts do
+# not**, and that is a deliberate departure from reproducing their form. The
+# subject labels are the only place the reference roles are stated, so
+# dropping them would change what the arm SAYS as well as how it is laid out,
+# and the comparison would no longer be about format. If the structured arms
+# win, whether the subject indirection specifically is what did it is a
+# separate follow-up and a separate arm.
+IMAGE_FORMATS = ("av", "sections", "flat")
 
-    So this follows the form the community's working image-edit prompts take --
-    a plain instruction naming `<Picture 1>` and stating what is preserved
-    against what changes -- rather than inventing a still-image dialect of a
-    video spec. `bench/check_prompt_guide_conformance.py` waives the structural
-    cases for this graph by name and keeps every other rule; label agreement in
-    `check_ref_prompt_labels.py` is NOT waived, because naming a reference the
-    graph does not wire is wrong in any format.
+# What each reference DOES, per scene. The whole point of the exercise: a
+# reference the prompt never assigns a job to still costs its rows on every
+# sampling step, and the model has to guess what it was for.
+#
+# **Content is written ONCE per scene and rendered into all three formats.**
+# Hand-writing a flat variant would have let the arms differ in wording as
+# well as in structure, which would measure the writing and report it as the
+# format. Same sentences, different scaffolding, or the ladder means nothing.
+#
+# Every scene names an `h3_refs/` asset from `internal/reference_library.md`,
+# so the subject of a result is documented rather than being whatever was in
+# the input root that day. `face_elderly_man_suit_1024x1024.png` is
+# byte-identical to the `1-man.png` this path used before (md5 f277a530...),
+# so the camera scene is the same render it always was, under the name that
+# says what it is.
+#
+# **Scenes are drawn from the two r/StableDiffusion write-ups**, chosen so each
+# exercises a different retention marker rather than a different subject:
+# fully_preserved, partially_preserved and attribute_transfer all appear, and
+# `style` is the one where getting the roles wrong is visible at a glance --
+# a style reference that leaks its own content produces a cottage.
+_IMAGE_SCENES: dict[str, dict] = {
+    # The scene that has to stay honest about what it is testing. Its first
+    # version asked to age the subject to 60 against a reference of a man well
+    # past 70: it rendered, it looked like a working edit, and it demonstrated
+    # only that the pipeline runs. A prompt the input already satisfies cannot
+    # fail. A camera move cannot be a no-op on a fixed photograph, and it is
+    # the capability worth showing -- rotating the camera while keeping the
+    # room and the person consistent is what image edit models are worst at
+    # and what a video model is structurally good at.
+    "camera": dict(
+        refs=("h3_refs/face_elderly_man_suit_1024x1024.png",),
+        subjects=[
+            "<Subject 1> is the man in <Picture 1>, with his own facial "
+            "structure, eyes, nose, mouth, ears, skin tone and texture, white "
+            "hair and hairline, dark suit, white shirt and navy tie.",
+        ],
+        summary="Re-photograph <Subject 1> from a camera moved to his left "
+                "and slightly down, keeping the studio, the wardrobe and the "
+                "key light of <Picture 1> unchanged",
+        retention=[
+            "<Subject 1>: partially_preserved - identity, age, wardrobe, "
+            "background and lighting are retained; only the camera position "
+            "and the resulting occlusions change.",
+        ],
+        style="One realistic portrait photograph in the same photographic "
+              "style as <Picture 1>.",
+        body="The camera sits about 45 degrees to <Subject 1>'s left and "
+             "slightly below its original height, so he is seen in "
+             "three-quarter view rather than facing the lens. <Subject 1> turns "
+             "his head to follow the camera and looks directly into it, while "
+             "his shoulders stay squared to his original facing, so the turn "
+             "reads in the neck and head and not in the torso. The newly "
+             "visible side of his face and head is consistent with the "
+             "original view. The plain brown studio background and the soft "
+             "directional key light falling from the same side are unchanged.",
+    ),
 
-    **The scene has to be one the reference does not already satisfy**, and the
-    first version of this shipped one that did. It asked to age the subject to
-    60; the placeholder reference (`1-man.png`) is a man well past 70, so the
-    instruction had nothing to do and the render was a re-rendering of the
-    input. It looked like a working edit and demonstrated only that the
-    pipeline runs. A no-op prompt is an unfalsifiable test: it cannot fail.
+    # Two references with opposite jobs, and the one scene where a role
+    # mistake is unmissable: if <Picture 2> is read as content rather than as
+    # technique, a cottage and a woodland arrive with the graphite.
+    "style": dict(
+        refs=("h3_refs/face_freckled_woman_redhair_1024x1024.png",
+              "h3_refs/style_pencil_cottage_1024x1024.png"),
+        subjects=[
+            "<Subject 1> is the adult woman in <Picture 1>, with her own "
+            "facial geometry, expression, gaze, freckling, red hair and head "
+            "angle.",
+            "<Subject 2> is the graphite drawing technique in <Picture 2>: its "
+            "pencil contours, hatching, tonal modelling, erased highlights and "
+            "visible paper. <Picture 2> supplies no subject, no scene and no "
+            "composition.",
+        ],
+        summary="Convert <Subject 1> into one finished graphite portrait, "
+                "transferring only the drawing medium of <Subject 2>",
+        retention=[
+            "<Subject 1>: fully_preserved - identity, facial geometry, "
+            "expression, gaze, hairstyle, head angle, crop and the lighting "
+            "relationships are retained.",
+            "<Subject 2>: attribute_transfer - its graphite handling is "
+            "applied to <Subject 1> without copying its cottage, its woodland "
+            "or its composition.",
+        ],
+        style="One monochrome graphite drawing on off-white paper.",
+        body="<Subject 1> is rendered in the technique of <Subject 2>: precise "
+             "pencil contours, varied pressure, fine parallel and cross "
+             "hatching, soft tonal modelling, erased highlights and visible "
+             "paper tooth. <Subject 1>'s face and expression are preserved "
+             "while photographic microtexture becomes drawn value and "
+             "mark-making. Every region is converted to the medium of "
+             "<Subject 2> consistently, including hair, skin, clothing and "
+             "background; no area stays photographic or coloured, and no "
+             "cottage, woodland or other content from <Subject 2> appears. "
+             "Exactly one adult, and no added person, text, signature or "
+             "decorative frame.",
+    ),
 
-    So the scene is a camera move, which this reference cannot already be. It
-    is also the capability worth showing: rotating the camera while keeping the
-    room and the person consistent is what image edit models are worst at and
-    what a video model is structurally good at, and it is gradeable at a glance
-    -- either the head turned and stayed the same man, or it did not.
+    # Identity against a whole new environment. The failure this scene is
+    # written to expose is the cutout: correct pixels, wrong light, no contact
+    # shadow, and the person visibly pasted onto a plate.
+    "composite": dict(
+        refs=("h3_refs/face_young_man_glasses_1024x1024.png",
+              "h3_refs/scene_alpine_lake_meadow_1024x1024.png"),
+        subjects=[
+            "<Subject 1> is the young man in <Picture 1>, with his own face, "
+            "curly hair, black-rimmed glasses, build and clothing.",
+            "<Subject 2> is the outdoor environment in <Picture 2>: its "
+            "meadow, lake, mountains, palette, daylight direction and depth. "
+            "<Picture 2> supplies no person.",
+        ],
+        summary="Place <Subject 1> inside <Subject 2> as one photograph taken "
+                "in that location",
+        retention=[
+            "<Subject 1>: partially_preserved - face, hair, glasses, build and "
+            "clothing are retained; the studio background, its flat "
+            "illumination and the original framing are not.",
+            "<Subject 2>: fully_preserved - the meadow, lake, mountains, "
+            "palette and daylight are the complete replacement environment.",
+        ],
+        style="One realistic outdoor photograph, single exposure.",
+        body="<Subject 1> stands in the foreground meadow of <Subject 2>, framed "
+             "from the knees up and turned slightly away from the lake. His "
+             "studio background is gone entirely. <Subject 1> is relit to "
+             "belong to <Subject 2>: its daylight direction produces coherent "
+             "highlights and shaded planes across his face, glasses, hair and "
+             "clothing, the flat studio illumination does not survive, and cool "
+             "reflected light from the water reaches his shaded side. His feet "
+             "meet the ground of <Subject 2> with a dark contact patch and one "
+             "connected cast shadow running in the same direction and softness "
+             "as the shadows already in the meadow. Perspective, scale, colour "
+             "temperature and depth of field agree with <Subject 2>, so the "
+             "result reads as one camera exposure rather than a cutout. "
+             "Exactly one person, and no halo, pasted edge or floating feet.",
+    ),
 
-    One reference image on purpose. The interesting failure of an edit model is
-    whether identity survives a change, and a second reference adds a second
-    variable while costing reference rows on every sampling step.
+    # Three references, two of them people. Identity separation is the
+    # question, and it is the one thing the cost arithmetic cannot predict:
+    # 2026-08-16 measured four and six references composing cleanly, so what
+    # this scene asks is whether the prompt can still say WHICH person is
+    # which once there are two faces in front of it.
+    "multiperson": dict(
+        refs=("h3_refs/face_young_man_glasses_1024x1024.png",
+              "h3_refs/face_freckled_woman_redhair_1024x1024.png",
+              "h3_refs/scene_officers_corridor_1376x768.jpeg"),
+        subjects=[
+            "<Subject 1> is the young man in <Picture 1>, with his own face, "
+            "curly hair, black-rimmed glasses, build and clothing.",
+            "<Subject 2> is the adult woman in <Picture 2>, with her own face, "
+            "freckling, red hair, build and clothing.",
+            "<Subject 3> is the green-lit marble corridor in <Picture 3>: its "
+            "architecture, palette, lighting and depth. <Picture 3> supplies "
+            "no person.",
+        ],
+        summary="Place <Subject 1> and <Subject 2> together in <Subject 3> as "
+                "one photograph of two people in conversation",
+        retention=[
+            "<Subject 1>: partially_preserved - face, hair, glasses, build and "
+            "clothing are retained; pose, framing and lighting change.",
+            "<Subject 2>: partially_preserved - face, freckling, hair, build "
+            "and clothing are retained; pose, framing and lighting change.",
+            "<Subject 3>: fully_preserved - the corridor is the complete "
+            "environment, with its own architecture, palette and green light.",
+        ],
+        style="One realistic photograph, medium-wide, single exposure.",
+        body="The two adults stand an arm's length apart in the middle of the "
+             "corridor, angled toward each other. <Subject 1> is camera-left "
+             "with one hand at his side and his head turned toward her; "
+             "<Subject 2> is camera-right, speaking, one hand raised at chest "
+             "height. Each keeps their own face, hair, build and clothing with "
+             "no blending between them and no feature of one appearing on the "
+             "other. Their eyelines meet, their scale agrees with the corridor, "
+             "and both sets of feet meet the floor with contact shadows in the "
+             "same direction as the architecture's own. The green key light of "
+             "<Subject 3> falls across both of them. Exactly two people appear "
+             "anywhere in the frame, and the corridor behind them stays empty.",
+    ),
+
+    # The strictest retention case in the set: everything is held except two
+    # named attributes. It is here because "change only X" is where an edit
+    # model usually drifts wardrobe, crop or expression while nobody is
+    # looking at them, and because the reference cannot already satisfy it.
+    "recolor": dict(
+        refs=("h3_refs/face_freckled_woman_redhair_1024x1024.png",),
+        subjects=[
+            "<Subject 1> is the adult woman and the complete portrait image in "
+            "<Picture 1>, including her clothing, the background, the crop and "
+            "the lighting.",
+        ],
+        summary="Make one selective colour edit to <Subject 1>: her visible "
+                "skin becomes sapphire blue and her hair becomes silver-white, "
+                "in the same portrait photograph",
+        retention=[
+            "<Subject 1>: partially_preserved - skin colour and hair colour "
+            "change; identity, facial geometry, age, expression, gaze, pose, "
+            "crop, clothing, background, lighting, camera angle and depth of "
+            "field are all retained.",
+        ],
+        style="One photorealistic portrait photograph.",
+        body="Exactly two colour attributes of <Subject 1> change. All visible "
+             "skin becomes a rich, unmistakable sapphire blue while keeping its "
+             "pores, freckling pattern, shading, highlights and tonal depth. "
+             "All hair becomes luminous silver-white while keeping the exact "
+             "hairline, strand detail, shape, volume and shadows. The face of "
+             "<Subject 1> is the same face: the same eyes, the same "
+             "expression, the same gaze, the same head angle. Everything else "
+             "in <Subject 1> is untouched -- clothing keeps its colour, "
+             "material, folds, highlights and shadows, and the background is "
+             "unchanged. No makeup is added, no facial feature is altered, and "
+             "no object is changed. Exactly one adult, and no text or border.",
+    ),
+
+    # Geometric consistency from a single view, which is the thing a video
+    # model should be structurally good at and an image editor is not. Read it
+    # against `camera`: same capability, one view against three.
+    "sheet": dict(
+        refs=("h3_refs/face_young_man_glasses_1024x1024.png",),
+        subjects=[
+            "<Subject 1> is the young man in <Picture 1>, with his own face, "
+            "curly hair, black-rimmed glasses, build, clothing and footwear.",
+        ],
+        summary="Present <Subject 1> as one character sheet of three "
+                "consistent views",
+        retention=[
+            "<Subject 1>: fully_preserved - face, hair, glasses, build, "
+            "clothing and footwear are identical in all three views; only the "
+            "viewing angle differs.",
+        ],
+        style="One clean photographic character sheet on a seamless "
+              "light-grey studio ground.",
+        body="Three full-body views of <Subject 1> stand side by side on one "
+             "canvas: front, side and rear, in that order left to right, at the "
+             "same height and the same distance from the camera. Every view "
+             "carries the identical face, hair, glasses, body and clothing of "
+             "<Subject 1>, and the rear view's hair, collar and footwear follow "
+             "from the front view rather than being invented freely. "
+             "<Subject 1> holds a neutral relaxed stance with arms clear of the "
+             "torso and both feet visible in each view. Even studio lighting "
+             "falls the same way on all three. No captions, labels, borders or "
+             "panel gutters.",
+    ),
+}
+
+
+# Guide section 4.1's visual markers, in the English the flat arm uses. Audio
+# markers are absent because a single-frame graph has no audio layer to give
+# one to.
+_MARKER_PROSE = {
+    "fully_preserved": "is fully preserved",
+    "partially_preserved": "is partially preserved",
+    "attribute_transfer": "supplies an attribute transfer",
+    "weak_reference": "is a weak reference",
+}
+
+
+def _marker_to_prose(line: str) -> str:
+    """`<Subject 1>: fully_preserved - x` -> `<Subject 1> is fully preserved: x`.
+
+    Raises rather than passing an unknown marker through: a marker this does
+    not recognise is either a typo or a fifth marker, and both mean the flat
+    arm would silently carry different text from its twin -- which is the one
+    thing that would make the comparison meaningless.
     """
+    m = re.match(r"(<Subject \d+>): (\w+) - (.*)$", line, re.S)
+    if not m or m.group(2) not in _MARKER_PROSE:
+        raise ValueError(f"retention line is not `<Subject N>: <marker> - ...` "
+                         f"with a known marker: {line!r}")
+    return f"{m.group(1)} {_MARKER_PROSE[m.group(2)]}: {m.group(3)}"
+
+
+def _image_prompt(scene: str = "camera", fmt: str = "sections") -> str:
+    """A single-frame image gen/edit prompt, in one of three formats.
+
+    `scene` selects the content from `_IMAGE_SCENES`; `fmt` selects the
+    scaffolding from `IMAGE_FORMATS`. Content and format are separate on
+    purpose -- see the ladder note above.
+
+    What every format guarantees, because these are the parts that are not
+    stylistic:
+
+    - **Every `<Picture N>` the graph wires gets a job, and only jobs the
+      graph can honour.** `check_ref_prompt_labels` fails the build otherwise,
+      in any format, and it is not waived for image graphs: naming a reference
+      that is not wired is wrong however the prompt is laid out.
+    - **A reference that supplies technique says what it does NOT supply.**
+      The official guide never writes a negative clause -- every relationship
+      there is stated as what a reference provides -- so this comes from
+      general prompting research and from the community write-ups, where the
+      reported failure is a style reference dragging its own content along.
+      Untested here, like the same technique in `_ref_prompt`'s swap arm.
+    - **Retention markers stay inside the guide's visual set**
+      (fully_preserved / partially_preserved / attribute_transfer /
+      weak_reference). `check_prompt_guide_conformance` enforces that on image
+      graphs unwaived, because a marker is vocabulary rather than structure.
+    """
+    if fmt not in IMAGE_FORMATS:
+        raise ValueError(f"unknown image prompt format {fmt!r}; "
+                         f"expected one of {IMAGE_FORMATS}")
+    if scene not in _IMAGE_SCENES:
+        raise ValueError(f"unknown image scene {scene!r}; "
+                         f"expected one of {tuple(_IMAGE_SCENES)}")
+    s = _IMAGE_SCENES[scene]
+
+    # `reference generation` and nothing else, from guide section 3.2. The
+    # other five types describe relationships a still frame cannot stand in:
+    # there is no source video to edit or continue, no audio to reuse or
+    # reference, and a reference here is guidance rather than a frame anchor
+    # of the target, which is what `keyframe completion` means.
+    summary = "[reference generation] " + s["summary"] + "."
+
+    if fmt == "flat":
+        # One paragraph, no headers, no shot marker. The community's post-1
+        # form and this repo's previous shipped form. Same sentences as the
+        # structured arms, so the only variable is the scaffolding.
+        #
+        # **The retention markers become English here, and that is on
+        # purpose.** Leaving `attribute_transfer - ...` sitting mid-paragraph
+        # would produce a form nobody writes, and an arm nobody would write is
+        # a strawman: if it rendered worse, "the structure wins" and "loose
+        # vocabulary tokens are noise" would be indistinguishable. So this rung
+        # removes the guide's formal apparatus as a UNIT -- headers, shot
+        # marker and marker vocabulary -- which is the thing actually in
+        # question, and keeps every clause's content word for word.
+        return " ".join([
+            "Task: reference-guided single-image edit.",
+            *s["subjects"], *[_marker_to_prose(r) for r in s["retention"]],
+            s["style"], s["body"],
+        ])
+
+    out = [
+        "subject_definitions:", *s["subjects"], "",
+        "summary:", summary, "",
+        "retention_analysis:", *s["retention"], "",
+        # Guide section 5.3 wants the style stated on its own line BEFORE
+        # [Shot 1] on the reference path, not inside it -- the opposite of the
+        # t2v rule, and the case `check_prompt_guide_conformance` reads.
+        "detailed_description:", s["style"], "[Shot 1] " + s["body"],
+    ]
+    if fmt == "av":
+        # The arm. "N/A" is the guide's own value for an absent layer, so this
+        # is the most conformant thing a graph with no audio decoder can say
+        # -- which is exactly the question: does carrying the sections at all
+        # cost anything on a still?
+        out += ["", "overall_soundscape:", "N/A",
+                "", "non_diegetic_music:", "N/A"]
+    return "\n".join(out)
+
+
+def _note_image_scene(what: str, watch: str) -> str:
+    """Note for a canonical image graph: what it asks for, what to look at."""
+    return f"""\
+## Single-frame image edit: {what}
+
+One frame, so this is an image editor rather than a video render. The path,
+the VAE and the shim it rests on are documented once in `h3_image_edit.json`
+and in `docs/h3_image_editing.md`; this note is only about this scene.
+
+**References, and their jobs.** Every `<Picture N>` this graph wires is given
+an explicit role in `subject_definitions`, and the ones that supply technique
+rather than content also say what they do *not* supply. An unassigned
+reference still costs its rows on every sampling step and the model has to
+guess what it was for.
+
+**What to look at:** {watch}
+
+**The prompt format is the four visual guide sections**, not the six. The two
+audio ones describe a track this graph has no decoder for. Whether that is the
+right call is what `h3_image_probe_format_av.json` exists to answer -- render
+that and this one's twin scene together before assuming either way.
+"""
+
+
+def _image_graphs() -> tuple:
+    """The `GRAPHS` rows for the single-frame image path.
+
+    Kept as a function rather than inlined so the scene table stays the one
+    place a scene is described: a row here is a filename, a scene name and a
+    format, and everything about what the render CONTAINS lives in
+    `_IMAGE_SCENES`.
+    """
+    def scene(fname, label, scene_name, note, *, fmt="sections", extra=None):
+        s = _IMAGE_SCENES[scene_name]
+        return (fname, label, "r2v", _image_prompt(scene_name, fmt),
+                dict(single_frame=True, length=1, ref_images=s["refs"],
+                     **IMAGE_EDIT_BUDGET,
+                     out_prefix=f"Image/{fname.removesuffix('.json')}",
+                     variant_note=note, **(extra or {})),
+                f"{len(s['refs'])} reference image(s) -> ONE image: "
+                f"{scene_name}, {fmt} prompt")
+
     return (
-        "Task: reference-guided single-image edit. Re-photograph the same man "
-        "from <Picture 1> from a different camera position.\n"
-        "Move the camera about 45 degrees to his left and slightly down, so he "
-        "is seen in a three-quarter view rather than facing the lens. He turns "
-        "his head to follow the camera and looks directly into it. His "
-        "shoulders stay squared to his original facing, so the turn reads in "
-        "the neck and head, not the torso.\n"
-        "Keep him unmistakably the same person: the same facial structure, "
-        "eyes, nose, mouth, ears, skin tone and texture, the same white hair "
-        "and hairline, and the same age.\n"
-        "Keep the same dark suit, white shirt and navy tie, the same plain "
-        "brown studio background, and the same soft directional key light "
-        "falling from the same side.\n"
-        "The newly visible side of his face and head is consistent with the "
-        "original view. One realistic portrait photograph in the same "
-        "photographic style as <Picture 1>."
+        # The canonical graph, and the one carrying the long note about the
+        # path itself. Its scene is a camera move because that is the one
+        # thing this reference cannot already satisfy -- the version before it
+        # asked to age a man well past 70 to 60, which rendered, looked like a
+        # working edit, and proved only that the pipeline runs.
+        scene("h3_image_edit.json", "r2i", "camera", _NOTE_IMAGE_EDIT),
+
+        scene("h3_image_style.json", "r2i-style", "style",
+              _note_image_scene(
+                  "a style reference that must not bring its own content",
+                  "whether the drawing technique of <Picture 2> arrives "
+                  "WITHOUT its cottage and woodland. That is the whole test: "
+                  "a style reference read as content is the most common "
+                  "multi-reference failure, and here it is unmissable. Then "
+                  "whether the likeness in <Picture 1> survives the medium "
+                  "change, and whether any region stays photographic.")),
+
+        scene("h3_image_composite.json", "r2i-composite", "composite",
+              _note_image_scene(
+                  "one identity relit into a different environment",
+                  "the contact shadow and the light direction, before the "
+                  "face. A composite fails as a CUTOUT long before it fails "
+                  "as a likeness: correct pixels, studio lighting still on "
+                  "them, no shadow where the feet meet the ground. The prompt "
+                  "asks for the studio illumination not to survive, which is "
+                  "a harder request than it reads as.")),
+
+        scene("h3_image_multiperson.json", "r2i-multiperson", "multiperson",
+              _note_image_scene(
+                  "two identities in one frame, plus a place",
+                  "whether the two faces stay two people. 2026-08-16 measured "
+                  "four and six references composing cleanly on this path, so "
+                  "the cost side is answered and the open question is "
+                  "attribution -- does the prompt still control WHICH person "
+                  "is which once there are two of them. Watch for features of "
+                  "one appearing on the other, and for a third person.")),
+
+        scene("h3_image_recolor.json", "r2i-recolor", "recolor",
+              _note_image_scene(
+                  "changing exactly two attributes and nothing else",
+                  "everything that was NOT asked to change. The named edit "
+                  "(skin, hair) is the easy half; the test is whether the "
+                  "crop, expression, gaze, clothing colour, folds and "
+                  "background all survive it. Edit models drift wardrobe "
+                  "while nobody is looking at the wardrobe.")),
+
+        scene("h3_image_sheet.json", "r2i-sheet", "sheet",
+              _note_image_scene(
+                  "three consistent views from one",
+                  "the rear view, which is the only one with no source "
+                  "pixels behind it. Hair, collar and footwear there have to "
+                  "FOLLOW from the front view rather than be invented, and "
+                  "that is the geometric consistency a video model should be "
+                  "structurally better at than an image editor.")),
+
+        # --- the format ladder --------------------------------------------
+        #
+        # Both arms are the `style` scene, so their twin is
+        # `h3_image_style.json` and the ONLY difference is the scaffolding --
+        # the sentences are generated from one scene entry for all three. See
+        # the ladder note above `IMAGE_FORMATS`.
+        #
+        # `style` rather than `camera` because it is the scene where the
+        # reference roles carry the most weight: one reference supplies
+        # identity, the other supplies technique and is explicitly told it
+        # supplies nothing else. If structure helps anywhere, it helps here.
+        scene("h3_image_probe_format_av.json", "r2i-fmt-av", "style",
+              _probe_note(
+                  "whether the two audio sections cost anything on a still",
+                  "h3_image_style.json",
+                  "all six guide sections instead of four, with "
+                  "`overall_soundscape` and `non_diegetic_music` present and "
+                  "set to the guide's own `N/A`. Same scene, same references, "
+                  "same seed.",
+                  "the image, against its twin. There is no audio to judge -- "
+                  "this graph has no `VAEDecodeAudio` at all -- so the "
+                  "question is purely whether carrying two more section "
+                  "headers changes what gets drawn.",
+                  "no visible difference, which is the useful outcome: it "
+                  "would mean the four-section default is free of risk and "
+                  "the shorter prompt is simply cheaper. A visible difference "
+                  "is the more interesting result and would mean conditioning "
+                  "on section headers reaches the image, which nothing here "
+                  "has ever shown.",
+                  held="same scene, same references, same canvas"),
+              fmt="av"),
+
+        scene("h3_image_probe_format_flat.json", "r2i-fmt-flat", "style",
+              _probe_note(
+                  "whether the guide structure earns its tokens on a still",
+                  "h3_image_style.json",
+                  "one unbroken paragraph: no section headers, no `[Shot 1]`, "
+                  "the same sentences in the same order. This is the form the "
+                  "community's first write-up used and the form this repo "
+                  "shipped until 2026-08-16.",
+                  "whether the roles still bind. The structured twin states "
+                  "`attribute_transfer` on the style reference in its own "
+                  "section; here the same clause is mid-paragraph. If "
+                  "structure matters, this is where the cottage shows up.",
+                  "genuinely open, and it is the reason this arm exists. The "
+                  "author of the write-up switched from this form to the "
+                  "structured one between their two posts, which is a "
+                  "practitioner's revealed preference and not a controlled "
+                  "comparison -- neither post held the scene or the "
+                  "references fixed. This pair does.",
+                  held="same scene, same references, same canvas"),
+              fmt="flat"),
     )
 
 
@@ -2271,7 +2866,7 @@ deltas interpolate linearly, which is a crude stand-in for interpolating two
 models.
 
 **Strength 0.0 and ctrl-B bypass are the same thing.** ComfyUI short-circuits
-a LoRA whose strengths are all zero (`nodes.py`) and hands back the
+a LoRA whose strengths are all zero (`ComfyUI/nodes.py`) and hands back the
 untouched model, so either route renders true plain fl2va. Use whichever you
 prefer -- just do not treat them as two different baselines.
 
@@ -2351,6 +2946,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
              ref_video: bool = False, ref_video_audio: bool = True,
              ref_images_on: bool = True, ref_image_count: int = 2,
+             ref_images: tuple[str, ...] | None = None,
              turbo_pack: bool = False,
              ref_audio: bool = False,
              split_at: int | None = None,
@@ -2548,24 +3144,36 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                          _in("width", "INT", widget=True), _in("height", "INT", widget=True),
                          _in("length", "INT", widget=True)],
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
-        img_a = img_b = None
-        if ref_images_on:
-            img_a = g.add("LoadImage", (-880, 640), size=(290, 330),
-                          widgets=[PLACEHOLDER_IMAGE_A, "image"],
-                          outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
-            if ref_image_count >= 2:
-                img_b = g.add("LoadImage", (-880, 1010), size=(290, 330),
-                              widgets=[PLACEHOLDER_IMAGE_B, "image"],
-                              outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
+        slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
+        if len(slots) > 2 and ref_video:
+            # The third loader would land on the reference-video node's own
+            # row. No graph asks for both, and this is here so that stays true
+            # by refusal rather than by nobody having tried it.
+            raise SystemExit(
+                "3 reference images plus a reference video would overlap in "
+                "the UI layout; give the video row its own y before allowing "
+                "this combination.")
         g.link(vvae, 0, cond, "vae", "VAE")
         g.link(avae, 0, cond, "audio_vae", "VAE")
         # One fit node per reference, between LoadImage and the conditioning
         # node. See the matching note in build_api: paired with
         # ref_image_size on 'max', or the stock node undoes them.
+        #
+        # Loaders first, THEN fits, which is the order this builder has always
+        # created them in. Interleaving would renumber every node in every
+        # existing reference graph for no gain -- the ids are ours to assign,
+        # but a 70-file diff that changes nothing is a diff nobody reads.
+        loads = [g.add("LoadImage", (-880, 640 + 370 * i), size=(290, 330),
+                       widgets=[fname, "image"],
+                       outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
+                 for i, (_ld, _ft, fname) in enumerate(slots)]
+        if loads:
+            img_a = loads[0]
+        if len(loads) > 1:
+            img_b = loads[1]
         fits = []
-        for i, (src, y) in enumerate((() if not ref_images_on
-                                      else ((img_a, 640),) if ref_image_count == 1
-                                      else ((img_a, 640), (img_b, 1010)))):
+        for i, src in enumerate(loads):
+            y = 640 + 370 * i
             fit = g.add("MiniMaxH3ReferenceFit", (-580, y), size=(300, 150),
                         widgets=[ref_upscale, _ref_short_edge(), False],
                         inputs=[_in("image", "IMAGE")],
@@ -2882,6 +3490,42 @@ def load_object_info(source: str) -> dict:
     return json.loads(Path(source).read_text())
 
 
+# Inputs whose node declares VALIDATE_INPUTS and checks the filesystem instead
+# of the combo list. Only `LoadImage.image` so far; add one when its node is
+# read, not on the assumption that other loaders behave the same way.
+_ANNOTATED_INPUTS = {("LoadImage", "image")}
+
+
+def _annotated_path(class_type: str, name: str, val) -> bool:
+    """True when this input legally takes a path the combo list does not offer.
+
+    **This validator was stricter than the server, which is the same defect as
+    being looser -- the direction differs, not the class.** `LoadImage`
+    populates its combo from a NON-RECURSIVE `os.listdir` of the input
+    directory (`ComfyUI/nodes.py`, `LoadImage.INPUT_TYPES`), so a file in a subfolder
+    never appears in `/object_info`. But the node also defines
+    `VALIDATE_INPUTS` -> `folder_paths.exists_annotated_filepath`, and
+    ComfyUI's executor SKIPS its own combo check for any input the node
+    validates itself. So `h3_refs/face_x.png` executes cleanly and this file
+    was rejecting it.
+
+    Verified by reading both, 2026-08-16, not inferred from behaviour:
+    `ComfyUI/nodes.py::LoadImage.VALIDATE_INPUTS` and
+    `ComfyUI/folder_paths.py::exists_annotated_filepath`, which joins the name under
+    the input dir, refuses traversal, and returns `os.path.exists`.
+
+    Membership is still checked for every bare filename -- the escape hatch is
+    only for values carrying a subfolder, which is exactly the case
+    `/object_info` cannot see. A typo in a root-level filename still fails.
+
+    What this does NOT do is confirm the file exists; that needs the server's
+    input directory, which this generator does not have. `bench/smoke_h3.py`
+    submits and would surface a missing reference as a server-side rejection.
+    """
+    return (class_type, name) in _ANNOTATED_INPUTS and isinstance(val, str) \
+        and "/" in val
+
+
 def _combo_options(spec):
     """Combo option lists come in two shapes across ComfyUI node versions."""
     t = spec[0]
@@ -2983,7 +3627,7 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
             if s is None:
                 continue
             opts = _combo_options(s)
-            if opts is not None and val not in opts:
+            if opts is not None and val not in opts and not _annotated_path(ct, name, val):
                 e(f"node {nid} ({ct}).{name}: {val!r} is not an available option")
                 continue
             meta = s[1] if len(s) > 1 and isinstance(s[1], dict) else {}
@@ -3719,16 +4363,22 @@ def main():
                   "graph at all.")),
          "first frame + text, with Sol-Attn ON"),
 
-        # The single-image edit path, and the only graph here that is not a
-        # video. It is last because it is the newest and because appending is
-        # the habit that keeps saved graphs working; nothing about it belongs
-        # in the middle of the video arms.
-        ("h3_image_edit.json", "r2i", "r2v", _image_edit_prompt(),
-         dict(single_frame=True, length=1, ref_image_count=1,
-              **IMAGE_EDIT_CANVAS, out_prefix="Image/h3_image_edit",
-              variant_note=_NOTE_IMAGE_EDIT),
-         "one reference image + text -> ONE edited image (needs this pack's "
-         "single-frame shim)"),
+        # --- the single-frame image gen/edit path -------------------------
+        #
+        # Every graph below renders ONE FRAME and is written to
+        # `workflows/image/` rather than beside the video graphs -- the split
+        # is by use case, and `_graph_dir` derives it from `single_frame` so
+        # there is no second place to keep in sync. Video is the primary case;
+        # this one is experimental and moves faster.
+        #
+        # They come last for the reason they always did: appending is the habit
+        # that keeps saved graphs working.
+        #
+        # `ref_images` names the scene's own references from the documented
+        # `h3_refs/` library instead of the two root placeholders, so a result
+        # is attributable to a subject somebody can look up in
+        # `internal/reference_library.md`.
+        *_image_graphs(),
 
         ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
          dict(head_chunks=4, out_prefix="Video/h3_probe_chunk4",
@@ -3786,7 +4436,8 @@ def main():
                       sol=SOL_RECOMMENDED_CUDA, sol_enabled=sol_on, prompt=prompt,
                       title=f"h3-{label}-sage" + ("-sol" if sol_on else ""),
                       **{"length": LONG_LENGTH, **rest})
-        p = out / fname
+        p = _graph_dir(out, extra) / fname
+        p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((label, "ui", p, wf))
         print(f"  {p.name}: {note}")
@@ -3802,7 +4453,8 @@ def main():
         wf = build_api(task, sage=True, prompt=prompt,
                        sol=SOL_RECOMMENDED_CUDA if extra.get("sol_on") else None,
                        **{"length": LONG_LENGTH, **api_extra})
-        p = out / fname.replace(".json", "_api.json")
+        p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")
+        p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((label, "api", p, wf))
 

@@ -177,6 +177,13 @@ CUDA_KWARGS = REGISTRY_KWARGS + ("reuse_qkv_memory",)
 failures = []
 skipped = []
 
+# Graph discovery, shared with every other walker. A bare non-recursive glob
+# here would have stopped covering `workflows/image/` on 2026-08-16 and the
+# "no shipped graph wires the Triton node" case would still have printed a
+# confident count. See h3_config.GRAPH_DIRS.
+sys.path.insert(0, str(_REPO / "workflows"))
+from h3_config import graph_paths  # noqa: E402
+
 
 def check(name, ok, detail=""):
     print(f"  {'ok  ' if ok else 'FAIL'} {name}" + (f"   {detail}" if detail else ""))
@@ -192,7 +199,7 @@ def skip(name, why):
 def graphs_wiring(node_id):
     """Shipped graphs that wire `node_id`, in either the API or the UI form."""
     out = []
-    for path in sorted((_REPO / "workflows").glob("*.json")):
+    for path in graph_paths(_REPO / "workflows"):
         try:
             graph = json.loads(path.read_text())
         except (OSError, ValueError):
@@ -307,7 +314,7 @@ check("no_triton_graphs", not triton_graphs,
       f"{len(triton_graphs)} graph(s) wire {TRITON_SOL_NODE}: "
       f"{', '.join(triton_graphs[:3])}" + (" ..." if len(triton_graphs) > 3 else "")
       if triton_graphs else
-      f"0 of {len(list((_REPO / 'workflows').glob('*.json')))} graphs")
+      f"0 of {len(graph_paths(_REPO / 'workflows'))} graphs")
 
 print("\nthe node ComfyUI loads is the one this repo tracks:")
 if not _VENDORED.is_file():

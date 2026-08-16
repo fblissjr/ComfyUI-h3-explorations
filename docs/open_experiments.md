@@ -823,7 +823,53 @@ nothing.
 
 **Cost:** 3 renders, seconds each at one frame with 2 references.
 
-**Blocker: none for the renders, owner judgment for the verdict.**
+**RESULT (2026-08-16). All three arms rendered; none failed.** Same scene, same
+two references, same seed, same 16 steps, one pass so nothing drifted between
+them. ~18s each.
+
+| arm | prompt tokens | sequence | mean pixel delta vs `sections` |
+|---|---:|---:|---:|
+| `sections` (default) | 326 | 5,386 | -- |
+| `av` (six sections) | 341 | 5,401 | **3.45** |
+| `flat` (one paragraph) | 292 | 5,352 | **44.61** |
+
+Grey-scale mean absolute difference, 0-255. For scale, an h264 round trip on
+*identical* pixels measures ~1.6 (`h3_config.py`), so 3.45 is close to the
+floor and 44.61 is 13x larger.
+
+**The two audio sections cost essentially nothing**, in tokens (15) or in
+output (3.45, near the noise floor). The prediction in the probe's own note --
+"no visible difference, which is the useful outcome" -- held. Carrying them is
+free; so is not carrying them, which is why the four-section default stands on
+the honesty argument rather than a cost one.
+
+**The scaffolding is a large lever on the image and did NOT break the role
+binding.** `flat` differs from both structured arms by 44.6, which is a
+materially different picture -- tighter crop, the subject larger in frame. But
+a prompt text change moves the image by construction, so a large delta is
+expected and is not by itself a defect. What matters is the designed failure:
+**no cottage appeared in any of the three.** Identity, freckle pattern, head
+angle and the graphite medium held in all three. `attribute_transfer` bound
+without the section scaffolding.
+
+**So the honest reading is a negative result: on this scene, at this seed,
+format did not decide whether the roles bound.** That is worth having and it is
+not "format does not matter" -- see the limits below.
+
+**Limits, and they are real.** n=1 per arm, one scene, one seed. The `flat` arm
+deliberately KEEPS the negative clause ("<Picture 2> supplies no subject, no
+scene and no composition") because content is held fixed across formats, so it
+carried the same protection the structured arms have -- it is not the bare
+community-style prompt. And a two-reference style transfer with an explicit
+negative clause may simply be too easy a case to separate the formats.
+
+**What would actually discriminate**, in order: drop the negative clause from
+one arm (that is the untested technique, not the scaffolding); run the ladder
+on `h3_image_multiperson`, where three references and two identities give the
+model more to confuse; and repeat at 2-3 seeds, since one seed cannot separate
+a format effect from a sample.
+
+**Blocker: none. The next arms are cheap and specified above.**
 
 **Two follow-ups it would open, not close.** If the structured arms win,
 whether the `<Subject N>` indirection specifically is what did it (the flat arm

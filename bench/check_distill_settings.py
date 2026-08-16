@@ -67,6 +67,11 @@ sys.path.insert(0, str(REPO / "workflows"))
 WORKFLOWS = REPO / "workflows"
 VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 
+# Graphs live in more than one directory since 2026-08-16; a bare
+# `WORKFLOWS.glob` is non-recursive and would quietly stop covering the image
+# path. See h3_config.GRAPH_DIRS.
+from h3_config import graph_paths  # noqa: E402
+
 
 class Row(NamedTuple):
     shift_video: float
@@ -319,7 +324,7 @@ def main():
     # ---- every shipped graph, both forms ---------------------------------
     def graphs_are_consistent():
         turbo_graphs, base_graphs = {}, {}
-        for path in sorted(WORKFLOWS.glob("*.json")):
+        for path in graph_paths(WORKFLOWS):
             doc = json.loads(path.read_text(encoding="utf-8"))
             found = read_api(doc) if "nodes" not in doc else read_ui(doc)
             turbo = [l for l in found.loras if is_turbo(l)]

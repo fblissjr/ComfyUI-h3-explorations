@@ -243,10 +243,20 @@ The remaining two are not sizing nodes:
 
 ### One frame: H3 as an image editor
 
-`workflows/h3_image_edit.json` renders a single image instead of a clip -- one
-reference image plus a prompt, ref2va, `length=1`. At one frame H3 behaves like
-a reference-driven image editor, and it keeps the 3D and identity handling that
-makes it interesting for that.
+`workflows/image/h3_image_edit.json` renders a single image instead of a clip --
+one reference image plus a prompt, ref2va, `length=1`. At one frame H3 behaves
+like a reference-driven image editor, and it keeps the 3D and identity handling
+that makes it interesting for that.
+
+**This is the experimental use case and it has its own folder.** Video is the
+primary one and its graphs stay at the root of `workflows/`; every single-frame
+graph is written to `workflows/image/`. Eight ship there: six scenes drawn from
+the r/StableDiffusion write-ups (camera move, style transfer, environment
+composite, two-person composition, selective recolor, character sheet) and two
+probes that render the same scene in a different prompt format.
+`docs/h3_image_editing.md` is the full account -- what each scene tests, why
+the prompts changed to the guide's structure on 2026-08-16, and what is still
+unsettled.
 
 It rests on a **temporary patch**. ComfyUI's H3 nodes floor `length` at 5, so
 this pack lifts that floor in memory at load (`single_frame.py`), verifying at
@@ -320,6 +330,8 @@ coderef/            gitignored symlinks to the reference implementations
                     rules above and several checks cite by file and line
 workflows/          generated example graphs; see build_workflows.py for
                     how they're built and h3_config.py for shared settings
+  image/            the experimental single-frame image gen/edit graphs,
+                    foldered by use case so video stays the primary one
 bench/
   bench_minimax_attn.py      per-module speed + peak VRAM
   bench_e2e_h3.py            full render A/B against a running ComfyUI,

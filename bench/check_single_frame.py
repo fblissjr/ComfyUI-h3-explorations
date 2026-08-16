@@ -476,7 +476,7 @@ def main():
 
         bad = []
         seen = 0
-        for path in sorted((REPO / "workflows").glob("*_api.json")):
+        for path in cfg.graph_paths(REPO / "workflows", "*_api.json"):
             types, vaes, lengths = facts(path)
             if not any(t.startswith("MiniMaxH3") for t in types):
                 continue

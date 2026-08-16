@@ -28,6 +28,12 @@ Claims, i.e. what breaks if a case is deleted:
                         ahead of a standalone clip
   every ref graph seen  the walk found the shipped ref graphs. Without it a
                         rename turns this into a silent pass over nothing
+  discovery is total    no directory under workflows/ holds graphs that
+                        discovery cannot see. The case above only asserts the
+                        set is non-empty, which a PARTIAL walk also satisfies:
+                        demonstrated 2026-08-16, where a stale GRAPH_DIRS made
+                        this file and check_prompt_guide_conformance both exit
+                        0 while covering 20 ref graphs instead of 28
   force_rate is 24      every VHS_LoadVideo feeding a reference socket resamples
                         onto 24. ComfyUI's node has no fps input and assumes 24
                         twice -- the DiT's temporal clock and the
@@ -55,6 +61,16 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO / "workflows"
+
+# Graph discovery comes from h3_config, not from a `WORKFLOWS.glob("*.json")`
+# here. That glob is non-recursive, so when the image graphs moved into
+# `workflows/image/` on 2026-08-16 every walker that kept it would have gone on
+# passing over a set that no longer contained them -- and this file's own
+# "every ref graph seen" case would still have found the video ones and
+# reported ok. Correctly-absent and silently-dropped look identical from a
+# green run, which is the failure this repo keeps naming.
+sys.path.insert(0, str(REPO / "workflows"))
+from h3_config import GRAPH_DIRS, graph_paths  # noqa: E402
 
 REF_NODE = "MiniMaxH3ReferenceToVideo"
 
@@ -99,7 +115,7 @@ def main():
     print("ref graph prompts against the labels they wire")
 
     graphs = []
-    for path in sorted(WORKFLOWS.glob("*_api.json")):
+    for path in graph_paths(WORKFLOWS, "*_api.json"):
         doc = json.loads(path.read_text(encoding="utf-8"))
         for node in doc.values():
             if isinstance(node, dict) and node.get("class_type") == REF_NODE:
@@ -108,6 +124,43 @@ def main():
     def every_ref_graph_seen():
         assert graphs, "no shipped graph carries a MiniMaxH3ReferenceToVideo"
         print(f"        ({len(graphs)} ref graph(s))")
+
+    def no_graph_directory_is_invisible():
+        """Nothing under `workflows/` holds graphs that discovery cannot see.
+
+        **This case exists because the failure it catches was demonstrated,
+        not imagined.** On 2026-08-16 the image graphs moved into
+        `workflows/image/`. Run against a `GRAPH_DIRS` that still said `("",)`,
+        this file and `check_prompt_guide_conformance` both **exited 0 while
+        covering 20 ref graphs instead of 28** -- no error, no warning, a
+        smaller number printed in a line nobody has a prior for.
+
+        `assert graphs` above cannot catch that: the video graphs are still
+        there, so the set is non-empty and every case passes over the subset it
+        can see. The only thing that can catch it is comparing the discovered
+        set against what is actually on disk.
+
+        `bench/` and `archive/` are excluded ON PURPOSE and are named here so
+        the exclusion is visible: the stamped bench graphs read another pack's
+        internals and are expected to break, and the archive is history.
+        Neither should be graded against the live schema.
+        """
+        excluded = {"bench", "archive", "__pycache__"}
+        on_disk = set()
+        for p in WORKFLOWS.rglob("*.json"):
+            rel = p.relative_to(WORKFLOWS)
+            if set(rel.parts) & excluded:
+                continue
+            # GRAPH_DIRS spells the root as "", where `relative_to` gives "."
+            on_disk.add("" if rel.parent == Path(".")
+                        else rel.parent.as_posix())
+        seen = set(GRAPH_DIRS)
+        missed = sorted(on_disk - seen)
+        assert not missed, (
+            f"{missed} under workflows/ hold graphs that no check walks. Add "
+            f"them to h3_config.GRAPH_DIRS or to this case's `excluded` set -- "
+            f"discovery currently covers {sorted(seen)}, and a directory "
+            f"missing from it fails SILENTLY, with every case still green")
 
     def labels_agree():
         bad = []
@@ -142,9 +195,47 @@ def main():
                 bad.append(f"{name}: uses undefined {sorted(used - defined)}")
         assert not bad, "\n         ".join(bad)
 
+    def subjects_cited_where_they_act():
+        """Every defined <Subject N> is named in detailed_description.
+
+        Guide 5.3 asks for each label at its first real appearance AND where
+        its role applies, not merely once in `subject_definitions`. A subject
+        defined and then described only as "he" or "the likeness" leaves the
+        binding between the reference and the action to inference.
+
+        **This case exists because it was MISSED, not predicted.** The version
+        above checks that every subject USED is defined -- the dangling
+        direction -- and passes clean on a prompt that defines two subjects and
+        cites neither. Six of the eight image graphs shipped that way on
+        2026-08-16 and every check here was green; `bench/preflight_graph.py`,
+        written in another session, caught it on first contact. That is
+        CLAUDE.md's second-reader finding, and the fix is to make the check
+        able to see it rather than to rely on the second reader.
+
+        Scoped to `detailed_description` because that is where the guide puts
+        the requirement, and skipped for prompts with no such section -- the
+        flat structure probe has no sections by construction, and grading it
+        here would delete the experiment.
+        """
+        bad = []
+        for name, inputs in graphs:
+            prompt = inputs.get("prompt", "")
+            if not isinstance(prompt, str) or "detailed_description:" not in prompt:
+                continue
+            defined = set(re.findall(r"^(<Subject \d+>) is", prompt, re.M))
+            body = prompt.split("detailed_description:", 1)[1]
+            # stop at the next section header, if any
+            body = re.split(r"^\w+:", body, maxsplit=1, flags=re.M)[0]
+            missing = sorted(d for d in defined if d not in body)
+            if missing:
+                bad.append(f"{name}: defines {missing} but never cites "
+                           f"{'it' if len(missing) == 1 else 'them'} in "
+                           f"detailed_description, where the role applies")
+        assert not bad, "\n         ".join(bad)
+
     def force_rate_is_24():
         bad = []
-        for path in sorted(WORKFLOWS.glob("*_api.json")):
+        for path in graph_paths(WORKFLOWS, "*_api.json"):
             doc = json.loads(path.read_text(encoding="utf-8"))
             # which loaders actually feed a reference socket
             feeding = set()
@@ -209,22 +300,25 @@ def main():
                                 # covers it unchanged -- no exemption needed
                                 # here, only in the conformance check.
                                 legal.add(bw._concise_swap_prompt())
-                                # The single-image edit prompt. A second
-                                # generator function rather than a mode of
-                                # `_ref_prompt`, because the guide format it
-                                # produces is a VIDEO format -- soundscape,
-                                # shot timing, camera movement -- and none of
-                                # those sections mean anything on one still
-                                # frame. Listed here so the drift guard covers
-                                # it exactly like every other prompt: what is
-                                # waived for this graph is the guide's
-                                # STRUCTURE (in check_prompt_guide_conformance),
-                                # never the requirement that the shipped text
-                                # came from the generator.
-                                legal.add(bw._image_edit_prompt())
                                 legal.add(bw._ref_prompt(
                                     images=imgs, video=vid, video_audio=vaud,
                                     audio=aud, video_role=vrole, audio_role=arole))
+
+        # The single-frame image prompts. A second generator rather than a mode
+        # of `_ref_prompt` because the content differs in kind -- no shot
+        # timing, no camera path over time, no audio layer -- but the drift
+        # guard covers them exactly like every other prompt. What is waived for
+        # the image graphs is the guide's STRUCTURE (and only in
+        # check_prompt_guide_conformance); never the requirement that the
+        # shipped text came from the generator.
+        #
+        # **Enumerated from the generator's own tables, not from a list here.**
+        # A hardcoded set of scene names would stop covering a scene the moment
+        # one was added, and would report the new graph as a hand-edit -- the
+        # same mistake `VIDEO_ROLES` is imported above to avoid.
+        for scene_name in bw._IMAGE_SCENES:
+            for image_fmt in bw.IMAGE_FORMATS:
+                legal.add(bw._image_prompt(scene_name, image_fmt))
         bad = [name for name, inputs in graphs
                if isinstance(inputs.get("prompt"), str)
                and inputs["prompt"] not in legal]
@@ -233,10 +327,14 @@ def main():
             "hand-edit has diverged from the generator: " + ", ".join(bad))
 
     check("every ref graph seen", every_ref_graph_seen)
+    check("no graph directory is invisible to discovery",
+          no_graph_directory_is_invisible)
     check("baked prompts match the generator", prompts_match_the_generator)
     check("reference videos are resampled to 24 fps", force_rate_is_24)
     check("prompt labels match the wired references", labels_agree)
     check("no undefined subject labels", subjects_resolve)
+    check("every defined subject is cited where it acts",
+          subjects_cited_where_they_act)
 
     print(f"\n{len(failures)} failure(s)" if failures else
           "\nall ok -- every ref prompt names exactly what its graph wires")

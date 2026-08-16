@@ -17,7 +17,7 @@
   "3": {
     "class_type": "VAELoader",
     "inputs": {
-      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+      "vae_name": "minimax_h3_t1_image_vae_step1597.safetensors"
     }
   },
   "4": {
@@ -101,48 +101,22 @@
       ]
     }
   },
-  "12": {
-    "class_type": "VAEDecodeAudio",
-    "inputs": {
-      "samples": [
-        "10",
-        0
-      ],
-      "vae": [
-        "4",
-        0
-      ]
-    }
-  },
   "13": {
-    "class_type": "VHS_VideoCombine",
+    "class_type": "SaveImage",
     "inputs": {
       "images": [
         "11",
         0
       ],
-      "audio": [
-        "12",
-        0
-      ],
-      "frame_rate": 24.0,
-      "loop_count": 0,
-      "filename_prefix": "Video/h3_r2v_video",
-      "format": "video/h264-mp4",
-      "pix_fmt": "yuv420p",
-      "crf": 19,
-      "save_metadata": true,
-      "trim_to_audio": false,
-      "pingpong": false,
-      "save_output": true
+      "filename_prefix": "Image/h3_image_composite"
     }
   },
   "27": {
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
-      "shape": "standard",
-      "shape.standard_resolution": "1024x768  4/3  768 tok/frame  0.58x",
-      "length": 362
+      "shape": "tall",
+      "shape.tall_resolution": "768x1152  2/3  864 tok/frame  0.73x",
+      "length": 1
     }
   },
   "5": {
@@ -160,7 +134,7 @@
         "4",
         0
       ],
-      "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement the target video follows.\n\nsummary:\n[reference generation + audio reuse] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+      "prompt": "subject_definitions:\n<Subject 1> is the young man in <Picture 1>, with his own face, curly hair, black-rimmed glasses, build and clothing.\n<Subject 2> is the outdoor environment in <Picture 2>: its meadow, lake, mountains, palette, daylight direction and depth. <Picture 2> supplies no person.\n\nsummary:\n[reference generation] Place <Subject 1> inside <Subject 2> as one photograph taken in that location.\n\nretention_analysis:\n<Subject 1>: partially_preserved - face, hair, glasses, build and clothing are retained; the studio background, its flat illumination and the original framing are not.\n<Subject 2>: fully_preserved - the meadow, lake, mountains, palette and daylight are the complete replacement environment.\n\ndetailed_description:\nOne realistic outdoor photograph, single exposure.\n[Shot 1] <Subject 1> stands in the foreground meadow of <Subject 2>, framed from the knees up and turned slightly away from the lake. His studio background is gone entirely. <Subject 1> is relit to belong to <Subject 2>: its daylight direction produces coherent highlights and shaded planes across his face, glasses, hair and clothing, the flat studio illumination does not survive, and cool reflected light from the water reaches his shaded side. His feet meet the ground of <Subject 2> with a dark contact patch and one connected cast shadow running in the same direction and softness as the shadows already in the meadow. Perspective, scale, colour temperature and depth of field agree with <Subject 2>, so the result reads as one camera exposure rather than a cutout. Exactly one person, and no halo, pasted edge or floating feet.",
       "width": [
         "27",
         0
@@ -181,27 +155,19 @@
       "ref_images.ref_image_1": [
         "25",
         0
-      ],
-      "ref_videos.ref_video_0": [
-        "28",
-        0
-      ],
-      "ref_video_audios.ref_video_audio_0": [
-        "28",
-        2
       ]
     }
   },
   "15": {
     "class_type": "LoadImage",
     "inputs": {
-      "image": "1-man.png"
+      "image": "h3_refs/face_young_man_glasses_1024x1024.png"
     }
   },
   "16": {
     "class_type": "LoadImage",
     "inputs": {
-      "image": "2-mountain_landscape.png"
+      "image": "h3_refs/scene_alpine_lake_meadow_1024x1024.png"
     }
   },
   "24": {
@@ -226,19 +192,6 @@
       "allow_upscale": false,
       "short_edge": 2048,
       "lift_downstream_clamp": false
-    }
-  },
-  "28": {
-    "class_type": "VHS_LoadVideo",
-    "inputs": {
-      "video": "20260601_172336_00001-audio.mp4",
-      "force_rate": 24.0,
-      "custom_width": 0,
-      "custom_height": 0,
-      "frame_load_cap": 0,
-      "skip_first_frames": 0,
-      "select_every_nth": 1,
-      "format": "AnimateDiff"
     }
   },
   "18": {

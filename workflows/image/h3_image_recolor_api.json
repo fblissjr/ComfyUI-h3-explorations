@@ -17,7 +17,7 @@
   "3": {
     "class_type": "VAELoader",
     "inputs": {
-      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+      "vae_name": "minimax_h3_t1_image_vae_step1597.safetensors"
     }
   },
   "4": {
@@ -92,7 +92,7 @@
     "class_type": "VAEDecode",
     "inputs": {
       "samples": [
-        "22",
+        "10",
         0
       ],
       "vae": [
@@ -101,63 +101,26 @@
       ]
     }
   },
-  "12": {
-    "class_type": "VAEDecodeAudio",
-    "inputs": {
-      "samples": [
-        "22",
-        0
-      ],
-      "vae": [
-        "4",
-        0
-      ]
-    }
-  },
   "13": {
-    "class_type": "VHS_VideoCombine",
+    "class_type": "SaveImage",
     "inputs": {
       "images": [
         "11",
         0
       ],
-      "audio": [
-        "12",
-        0
-      ],
-      "frame_rate": 24.0,
-      "loop_count": 0,
-      "filename_prefix": "Video/h3_i2v",
-      "format": "video/h264-mp4",
-      "pix_fmt": "yuv420p",
-      "crf": 19,
-      "save_metadata": true,
-      "trim_to_audio": false,
-      "pingpong": false,
-      "save_output": true
+      "filename_prefix": "Image/h3_image_recolor"
     }
   },
-  "15": {
-    "class_type": "LoadImage",
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
     "inputs": {
-      "image": "1-man.png"
-    }
-  },
-  "17": {
-    "class_type": "MiniMaxH3KeyframeCanvas",
-    "inputs": {
-      "first_frame": [
-        "15",
-        0
-      ],
-      "mode": "match_keyframe",
-      "width": 1344,
-      "height": 768,
-      "length": 362
+      "shape": "tall",
+      "shape.tall_resolution": "768x1152  2/3  864 tok/frame  0.73x",
+      "length": 1
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ImageToVideo",
+    "class_type": "MiniMaxH3ReferenceToVideo",
     "inputs": {
       "clip": [
         "2",
@@ -167,30 +130,64 @@
         "3",
         0
       ],
-      "prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the subject shown in <Picture 1> holds its position, framing, lighting, and colors exactly as established in the image. The camera pushes in with small amplitude at slow speed while the subject begins to move, the surrounding scene staying continuous with the reference frame.\n\noverall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement.\n\nnon_diegetic_music: N/A",
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the adult woman and the complete portrait image in <Picture 1>, including her clothing, the background, the crop and the lighting.\n\nsummary:\n[reference generation] Make one selective colour edit to <Subject 1>: her visible skin becomes sapphire blue and her hair becomes silver-white, in the same portrait photograph.\n\nretention_analysis:\n<Subject 1>: partially_preserved - skin colour and hair colour change; identity, facial geometry, age, expression, gaze, pose, crop, clothing, background, lighting, camera angle and depth of field are all retained.\n\ndetailed_description:\nOne photorealistic portrait photograph.\n[Shot 1] Exactly two colour attributes of <Subject 1> change. All visible skin becomes a rich, unmistakable sapphire blue while keeping its pores, freckling pattern, shading, highlights and tonal depth. All hair becomes luminous silver-white while keeping the exact hairline, strand detail, shape, volume and shadows. The face of <Subject 1> is the same face: the same eyes, the same expression, the same gaze, the same head angle. Everything else in <Subject 1> is untouched -- clothing keeps its colour, material, folds, highlights and shadows, and the background is unchanged. No makeup is added, no facial feature is altered, and no object is changed. Exactly one adult, and no text or border.",
       "width": [
-        "17",
+        "27",
         0
       ],
       "height": [
-        "17",
+        "27",
         1
       ],
       "length": [
-        "17",
-        5
-      ],
-      "first_frame": [
-        "17",
+        "27",
         2
+      ],
+      "ref_image_size": "max",
+      "ref_images.ref_image_0": [
+        "24",
+        0
       ]
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "h3_refs/face_freckled_woman_redhair_1024x1024.png"
+    }
+  },
+  "24": {
+    "class_type": "MiniMaxH3ReferenceFit",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "allow_upscale": false,
+      "short_edge": 2048,
+      "lift_downstream_clamp": false
+    }
+  },
+  "18": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/minimax_h3_ref_lora_rank_256_bf16.safetensors",
+      "strength_model": 1.0
     }
   },
   "19": {
     "class_type": "MiniMaxH3SigmaShift",
     "inputs": {
       "model": [
-        "1",
+        "18",
         0
       ],
       "shift_video": 12.0,
@@ -233,24 +230,6 @@
         "5",
         1
       ]
-    }
-  },
-  "22": {
-    "class_type": "MiniMaxH3ProvenanceStamp",
-    "inputs": {
-      "latent": [
-        "10",
-        0
-      ],
-      "model": [
-        "23",
-        0
-      ],
-      "sigmas": [
-        "8",
-        0
-      ],
-      "note": "bench i2v"
     }
   }
 }

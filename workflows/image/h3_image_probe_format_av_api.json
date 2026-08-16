@@ -17,7 +17,7 @@
   "3": {
     "class_type": "VAELoader",
     "inputs": {
-      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+      "vae_name": "minimax_h3_t1_image_vae_step1597.safetensors"
     }
   },
   "4": {
@@ -101,48 +101,22 @@
       ]
     }
   },
-  "12": {
-    "class_type": "VAEDecodeAudio",
-    "inputs": {
-      "samples": [
-        "10",
-        0
-      ],
-      "vae": [
-        "4",
-        0
-      ]
-    }
-  },
   "13": {
-    "class_type": "VHS_VideoCombine",
+    "class_type": "SaveImage",
     "inputs": {
       "images": [
         "11",
         0
       ],
-      "audio": [
-        "12",
-        0
-      ],
-      "frame_rate": 24.0,
-      "loop_count": 0,
-      "filename_prefix": "Video/h3_r2v_video",
-      "format": "video/h264-mp4",
-      "pix_fmt": "yuv420p",
-      "crf": 19,
-      "save_metadata": true,
-      "trim_to_audio": false,
-      "pingpong": false,
-      "save_output": true
+      "filename_prefix": "Image/h3_image_probe_format_av"
     }
   },
   "27": {
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
-      "shape": "standard",
-      "shape.standard_resolution": "1024x768  4/3  768 tok/frame  0.58x",
-      "length": 362
+      "shape": "tall",
+      "shape.tall_resolution": "768x1152  2/3  864 tok/frame  0.73x",
+      "length": 1
     }
   },
   "5": {
@@ -160,7 +134,7 @@
         "4",
         0
       ],
-      "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose architecture, palette, and lighting are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement the target video follows.\n\nsummary:\n[reference generation + audio reuse] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - architecture, palette, and lighting are retained.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+      "prompt": "subject_definitions:\n<Subject 1> is the adult woman in <Picture 1>, with her own facial geometry, expression, gaze, freckling, red hair and head angle.\n<Subject 2> is the graphite drawing technique in <Picture 2>: its pencil contours, hatching, tonal modelling, erased highlights and visible paper. <Picture 2> supplies no subject, no scene and no composition.\n\nsummary:\n[reference generation] Convert <Subject 1> into one finished graphite portrait, transferring only the drawing medium of <Subject 2>.\n\nretention_analysis:\n<Subject 1>: fully_preserved - identity, facial geometry, expression, gaze, hairstyle, head angle, crop and the lighting relationships are retained.\n<Subject 2>: attribute_transfer - its graphite handling is applied to <Subject 1> without copying its cottage, its woodland or its composition.\n\ndetailed_description:\nOne monochrome graphite drawing on off-white paper.\n[Shot 1] <Subject 1> is rendered in the technique of <Subject 2>: precise pencil contours, varied pressure, fine parallel and cross hatching, soft tonal modelling, erased highlights and visible paper tooth. <Subject 1>'s face and expression are preserved while photographic microtexture becomes drawn value and mark-making. Every region is converted to the medium of <Subject 2> consistently, including hair, skin, clothing and background; no area stays photographic or coloured, and no cottage, woodland or other content from <Subject 2> appears. Exactly one adult, and no added person, text, signature or decorative frame.\n\noverall_soundscape:\nN/A\n\nnon_diegetic_music:\nN/A",
       "width": [
         "27",
         0
@@ -181,27 +155,19 @@
       "ref_images.ref_image_1": [
         "25",
         0
-      ],
-      "ref_videos.ref_video_0": [
-        "28",
-        0
-      ],
-      "ref_video_audios.ref_video_audio_0": [
-        "28",
-        2
       ]
     }
   },
   "15": {
     "class_type": "LoadImage",
     "inputs": {
-      "image": "1-man.png"
+      "image": "h3_refs/face_freckled_woman_redhair_1024x1024.png"
     }
   },
   "16": {
     "class_type": "LoadImage",
     "inputs": {
-      "image": "2-mountain_landscape.png"
+      "image": "h3_refs/style_pencil_cottage_1024x1024.png"
     }
   },
   "24": {
@@ -226,19 +192,6 @@
       "allow_upscale": false,
       "short_edge": 2048,
       "lift_downstream_clamp": false
-    }
-  },
-  "28": {
-    "class_type": "VHS_LoadVideo",
-    "inputs": {
-      "video": "20260601_172336_00001-audio.mp4",
-      "force_rate": 24.0,
-      "custom_width": 0,
-      "custom_height": 0,
-      "frame_load_cap": 0,
-      "skip_first_frames": 0,
-      "select_every_nth": 1,
-      "format": "AnimateDiff"
     }
   },
   "18": {
