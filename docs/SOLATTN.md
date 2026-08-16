@@ -310,7 +310,7 @@ own way to get this wrong.
 | `start_percent` | 0.2 | Dense before this point. **Never measured** — see the step table below, it is badly non-linear. |
 | `end_percent` | 0.9 | Dense after this point. Also never measured. |
 | `min_tokens` | 12288 | Shorter sequences stay dense. `SOL_RECOMMENDED_CUDA` pins 4096, and **neither value changes anything** — but not for the reason first written here. The 50 DiT calls are at the full packed length and the shortest clip past 5 frames is already S = 7,194, so both thresholds take them; the 2 token-refiner calls are ~311 rows, so both thresholds reject them. The conclusion survives the 52-module correction; the "both select everything" reasoning does not. |
-| `sink_conditioning` | `exact_kv_and_rows` | See the reference section — this is the dominant knob at reference load. |
+| `sink_conditioning` | `exact_kv_and_rows` | Keeps the target audio's queries exact. **NOT the dominant knob at reference load** — that was v1 arithmetic; under the v2 node the swing is ~0.5 points, not 23. See the reference section. |
 | `morton` | False | Z-order the video tokens so each 64-token block is a compact 3D neighbourhood. Neutral for dense attention **in exact arithmetic** -- not bit-identical, measured. **Under Sol it is not a free toggle: block membership feeds `kcvar`, so turning it on moves the routing threshold and the routed density at a fixed `tau`.** Direction not derivable, unmeasured. `Canonical: docs/morton.md` |
 | `morton_curve` | `2d_frame` | Node default. Z-order within each frame, leaving frame order alone. **`SOL_RECOMMENDED_CUDA` pins `3d` since 2026-08-16**, on a centroid-fidelity measurement; changes nothing while `morton=False`. `Canonical: docs/morton.md` |
 | `centroid_tail` NEW | True | One pooled tail per query block instead of per row, 64x less routing work. Upstream: ~1.4x on the **operation**, **~5–10% end to end**, ~5e-4 cosine. **Ours measured 2.5% e2e, which makes this the smallest knob in the node, not the largest.** The tooltip's "~1.4x" has been read as end-to-end twice; see `docs/evidence.md`. |
@@ -651,14 +651,63 @@ those row counts; `S` = sink rows, `T = S + V`, exact work is `T*S` for
 | 1 video ref, 124 frames | 17.1% | 31.2% |
 | 1 video ref, 345 frames | **35.1%** | **57.9%** |
 
-**"More context" is not "more sparsity."** At the shipped
-`exact_kv_and_rows`, one long video reference forces 58% of attention exact and
-leaves Sol 42% at any tau — and that is exactly the workload with the most
-reason to want Sol.
+> ### That `exact_kv_and_rows` column is the v1 formula. Recomputed 2026-08-16.
+>
+> The retraction of this table has existed since 2026-08-16 (`docs/evidence.md`,
+> and the "Do not rely on" row above), but **three claims in the prose below it
+> were never updated** and went on asserting the withdrawn numbers. Fixed here.
+>
+> `2*T*S - S²` assumes dense queries over **all** `S` sink rows. v2 of the node
+> runs dense queries over the **target audio segment only** — `_sink_blocks`
+> returns `sink_q = (audio_start // 64, video_start // 64)`
+> (`vendor/sol_attn_minimax.py:487-494`). With `A` = target audio rows, exact
+> work is `T*S + A*T - A*S`, which reduces to the old formula exactly when
+> `A = S`.
+>
+> `A` is **measured**, not assumed: `temporal_shape(362)` gives `audio_t` 603,
+> and the segment is `audio_t * 2` = **1,206 rows** (`comfy/ldm/minimax/model.py:391`).
+>
+> | configuration | `exact_kv` | v1 `_and_rows` | **v2 `_and_rows`** |
+> |---|---|---|---|
+> | t2v, no references | 1.5% | 2.9% | **2.6%** |
+> | 3 images at `match` | 4.1% | 8.1% | **5.1%** |
+> | 3 images at `max` 1280x720 | 29.6% | 50.5% | **30.2%** |
+> | 1 video ref, 124 frames | 17.1% | 31.2% | **17.9%** |
+> | 1 video ref, 345 frames | 35.1% | 57.9% | **35.6%** |
+>
+> **The control that says the method is right:** recomputing the v1 column from
+> the doc's own `2p - p²` reproduces all five published figures to within
+> rounding. Only then was the v2 formula applied.
+>
+> **Still derived, not measured.** `A` is measured and the formulae are read
+> from source, but each row's `S` is recovered from the published `exact_kv`
+> percentage rather than counted out of a `PackedLayout`. `docs/evidence.md`
+> asks for "v1-vs-v2, measured not derived"; this is half of it. Counting real
+> `S` per configuration finishes it.
 
-For heavy-reference work, `sink_conditioning` is the dominant knob, not `tau`
-and not `start_percent`: a 23-point swing where `start_percent` 0.2 → 0.3 is one
-step of 16.
+**The mechanism, which is the part worth carrying:** v1 and v2 diverge in
+proportion to **how much of the sink is references rather than target audio.**
+On t2v the audio segment is most of the sink, so the two agree. At heavy
+reference load `A/S` falls to about 2%, the dense-query term nearly vanishes,
+and `exact_kv_and_rows` collapses onto `exact_kv`.
+
+**"More context" is not "more sparsity" — but the sink is not what causes it.**
+One long video reference forces about **36%** of attention exact, not 58%, and
+essentially all of that is the exact-KV side, which `sink_conditioning` cannot
+turn off. The reference rows are the cost; running their queries dense was
+never the cost.
+
+**`sink_conditioning` is NOT the dominant knob at reference load. Retracted
+2026-08-16.** The claim was a 23-point swing at 345 frames. Under v2 the same
+swing is **0.5 points** (35.1% to 35.6%), which is smaller than `start_percent`
+0.2 → 0.3, smaller than `tau`, and inside any plausible run-to-run spread. The
+knob still does what it is for — it keeps the generated audio's queries exact —
+but it is a quality knob with a rounding-error price, not a speed lever.
+
+**The v1 path still exists and is reachable.** `_sink_blocks` falls back to
+`sink_q = sink_blocks` when the layout published no audio span
+(`vendor/sol_attn_minimax.py:489-491`). Any graph that reaches that branch is
+priced by the v1 column, so the old numbers are stale rather than dead.
 
 ### The sink conflates two things worth separating
 
@@ -673,9 +722,23 @@ and target audio segments. So the sink holds:
 
 `exact_kv_and_rows` treats both identically. Target audio is a single contiguous
 segment immediately before video, so `sink_q = [audio_start // BLOCK,
-video_start // BLOCK]` would run only the audio queries dense. The kernel takes
-an arbitrary `sink_q`; the node hardcodes `sink_q = sink_blocks`. A proposal,
-not a measurement, and upstream's call.
+video_start // BLOCK]` runs only the audio queries dense.
+
+**This was written as a proposal, and it SHIPPED. Corrected 2026-08-16, having
+been stale since 2026-08-14.** The paragraph used to end "the node hardcodes
+`sink_q = sink_blocks`. A proposal, not a measurement, and upstream's call."
+Upstream took the call: commit `1b675c6` installed v2 (`d856ba83` upstream),
+schema-identical to v1, and `_sink_blocks` has returned the narrowed span ever
+since (`vendor/sol_attn_minimax.py:487-494`). The cost consequence is in the
+recomputed table above, and it is large: this is why `sink_conditioning` stopped
+being the dominant knob at reference load.
+
+**The span it narrows to is the right one, verified rather than assumed.**
+`_patch_packed_layout` takes `next(kind == "audio")`, and a reference
+soundtrack cannot match it: reference audio is labelled `ref_audio`
+(`comfy/ldm/minimax/model.py:364`, `:377`) while the target segment is appended
+as `audio` immediately before `video` (`:391`, `:398`). So the fallback at
+`:489-491` fires only when there is no target audio at all.
 
 ---
 
@@ -1023,7 +1086,7 @@ about 2 hours.
 | question | why it matters | blocker |
 |---|---|---|
 | `centroid_tail` on/off, e2e | separates the toggle from the kernel | **none — has a deadline, upstream may remove the toggle** |
-| `sink_conditioning` at reference load | 23-point swing, biggest lever there is | bench is t2v-only, needs reference wiring |
+| `sink_conditioning` at reference load | **De-prioritised 2026-08-16.** The "23-point swing, biggest lever there is" was v1 arithmetic; recomputed against the v2 node it is ~0.5 points, below the bench's noise floor. Measuring it would now cost a reference-wired bench to resolve a rounding error | still needs reference wiring, but there is no longer a reason to build it for this |
 | `start_percent` 0.0–0.4 | zero measurements, ever | none, arms exist |
 | `min_tokens` 4096 vs 12288 | our pin is a third of the node's crossover | none |
 | re-baseline the frontier above 60k tokens | most numbers here are the wrong regime | GPU hours |

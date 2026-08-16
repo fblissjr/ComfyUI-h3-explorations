@@ -934,6 +934,17 @@ is a variance over *all* block centroids; exclude the forced-exact pairs
 (diagonal +-1 and sink) from the density, since they never consult the
 threshold.
 
+**Those two exclusions are different things and the prototype conflated them.**
+Excluding forced-exact *pairs* from the density is right -- they never consult
+the threshold. Excluding conditioning *rows* from the block population is
+wrong, because `kcvar` is a variance over every block centroid in the sequence,
+so dropping 530 rows changes the threshold for every query block. The
+2026-08-16 prototype did the first and not the second, which its author flagged;
+**expect the reported numbers to move when it is done properly, and do not
+carry them forward as a baseline.** This is also the reason to score the whole
+packed sequence rather than slicing the video span: the slice is a different
+partition from the one the kernel sees.
+
 **What it must report, not just a number.** Density per (curve, depth), and the
 `tau` that returns each curve to raster's density. If those compensating taus
 differ by depth, that is expressible as a `tau_profile` -- it is keyed per
