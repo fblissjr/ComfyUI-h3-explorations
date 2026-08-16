@@ -150,13 +150,52 @@ def _restore(mod, snap):
         delattr(mod, "_h3_explorations_single_frame")
 
 
+def _server_shim_disabled():
+    """True when a local ComfyUI is running with the shim's kill switch set.
+
+    Decidable only for a local server, by reading the serving process's own
+    environment: `/object_info` reports the same floor of 5 whether the shim
+    was switched off on purpose or failed to apply, and treating those alike
+    is how a check ends up red on a correct configuration. Best-effort -- any
+    error means "cannot tell", which keeps the strict assertion.
+    """
+    try:
+        for proc in pathlib.Path("/proc").iterdir():
+            if not proc.name.isdigit():
+                continue
+            try:
+                cmd = (proc / "cmdline").read_bytes()
+                if b"main.py" not in cmd:
+                    continue
+                env = (proc / "environ").read_bytes()
+            except OSError:
+                continue
+            if b"H3_EXPLORATIONS_NO_SINGLE_FRAME=1" in env:
+                return True
+    except Exception:
+        pass
+    return False
+
+
+class _Skipped(Exception):
+    """A case that could not run, as distinct from one that failed.
+
+    Same convention as `smoke_h3.py`: a run that did not verify what its name
+    implies must not exit 0, and must not exit 1 either -- crying wolf trains
+    the reader to ignore a red line. It exits 2 and names what was skipped.
+    """
+
+
 def main():
-    failures = []
+    failures, skipped = [], []
 
     def check(name, fn):
         try:
             fn()
             print(f"  ok    {name}")
+        except _Skipped as exc:
+            skipped.append(name)
+            print(f"  SKIP  {name}: {exc}")
         except Exception as exc:
             failures.append(name)
             print(f"  FAIL  {name}: {exc}")
@@ -385,6 +424,89 @@ def main():
         finally:
             core.temporal_shape = saved
 
+    def shipped_graphs_pair_the_vae_with_the_length():
+        """The one-frame VAE and length=1 imply each other, in every graph.
+
+        The invariant with the worst failure mode on this path, and until now
+        nothing checked it. Both directions render cleanly and are wrong only
+        in the pixels:
+
+          image VAE in a video graph -- its own README says the image-
+          specialised decoder materially regresses multi-frame reconstruction,
+          with patch-grid ghosting and cross-frame mixing. Measured here: a
+          5-frame latent through it leaves grid-aligned gradient energy at
+          1.46x the off-grid average.
+
+          video VAE in the image graph -- 22.04 dB against the image VAE's
+          37.27 on a T=1 round trip of the same source. It does not fail, it
+          returns a harsher, colour-shifted picture.
+
+        `cross_check` in the generator compares the UI and API forms against
+        each other, which catches them disagreeing but not both being wrong.
+        This reads the shipped files and checks each one against its own length.
+        """
+        import importlib.util as _ilu
+        import json as _json
+
+        spec = _ilu.spec_from_file_location(
+            "_h3_config_probe", REPO / "workflows" / "h3_config.py")
+        assert spec and spec.loader
+        cfg = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(cfg)
+
+        def facts(path):
+            doc = _json.loads(path.read_text(encoding="utf-8"))
+            if "nodes" in doc:  # UI form
+                nodes = [n for n in doc["nodes"] if n.get("mode", 0) == 0]
+                types = [n["type"] for n in nodes]
+                vaes = {(n.get("widgets_values") or [None])[0]
+                        for n in nodes if n["type"] == "VAELoader"}
+                # UI widgets are positional and untyped -- an int in the list
+                # could be a length, a seed or a step count -- so length is
+                # read from the API twin. What this form contributes is the
+                # node set and the VAE filenames.
+                return types, vaes, None
+            nodes = [n for n in doc.values() if isinstance(n, dict)]
+            types = [n["class_type"] for n in nodes]
+            vaes = {n["inputs"].get("vae_name")
+                    for n in nodes if n["class_type"] == "VAELoader"}
+            lengths = {n["inputs"]["length"] for n in nodes
+                       if isinstance(n.get("inputs", {}).get("length"), int)}
+            return types, vaes, lengths
+
+        bad = []
+        seen = 0
+        for path in sorted((REPO / "workflows").glob("*_api.json")):
+            types, vaes, lengths = facts(path)
+            if not any(t.startswith("MiniMaxH3") for t in types):
+                continue
+            seen += 1
+            single = 1 in (lengths or set())
+            has_image_vae = cfg.IMAGE_VAE in vaes
+            if single != has_image_vae:
+                bad.append(
+                    f"{path.name}: length=1 is {single} but the image VAE is "
+                    f"{'loaded' if has_image_vae else 'absent'} "
+                    f"({sorted(str(v) for v in vaes)})")
+            if single:
+                for unwanted in ("VAEDecodeAudio", "VHS_VideoCombine"):
+                    if unwanted in types:
+                        bad.append(f"{path.name}: single-frame graph carries "
+                                   f"{unwanted}; one frame has no soundtrack "
+                                   f"and nothing to mux")
+                if "SaveImage" not in types:
+                    bad.append(f"{path.name}: single-frame graph has no SaveImage")
+                # and the UI twin must agree on the node set
+                ui = path.with_name(path.name.replace("_api.json", ".json"))
+                if ui.is_file():
+                    ui_types, _ui_vaes, _ = facts(ui)
+                    if "VAEDecodeAudio" in ui_types or "VHS_VideoCombine" in ui_types:
+                        bad.append(f"{ui.name}: UI twin still carries a video "
+                                   f"output node")
+        assert seen, "no H3 graphs found; this case would pass over nothing"
+        assert not bad, "\n         ".join(bad)
+        print(f"        ({seen} H3 graphs checked for VAE/length agreement)")
+
     def live_server_agrees():
         import json
         import urllib.request
@@ -393,11 +515,12 @@ def main():
         try:
             urllib.request.urlopen(f"{base}/system_stats", timeout=2).read()
         except Exception as exc:
-            raise AssertionError(
-                f"SKIPPED -- no ComfyUI at {base} ({type(exc).__name__}). This "
-                f"is the only case that reads what ComfyUI validates against; "
-                f"treat the rest of this file as unverified against a server") \
-                from None
+            raise _Skipped(
+                f"no ComfyUI at {base} ({type(exc).__name__}). This is the "
+                f"only case that reads what ComfyUI validates against, so "
+                f"nothing here has been confirmed against a server -- which "
+                f"is exactly how the wrong-module-copy bug survived an "
+                f"in-process check that agreed with it") from None
         bad = {}
         for name in shim.NODE_CLASSES:
             with urllib.request.urlopen(f"{base}/object_info/{name}", timeout=5) as fh:
@@ -405,6 +528,17 @@ def main():
             spec = info[name]["input"]["required"]["length"][1]
             if spec.get("min") != 1:
                 bad[name] = spec.get("min")
+        if bad and _server_shim_disabled():
+            # The third case, and it is not a failure. `/object_info` cannot
+            # tell "deliberately off" from "failed to apply", and those call
+            # for opposite reactions -- so the environment of the serving
+            # process is asked, which is the only thing that distinguishes
+            # them. A run against a deliberately-disabled server has verified
+            # nothing about the live surface, so it skips rather than passing.
+            raise _Skipped(
+                f"the live server was started with {shim.DISABLE_ENV} set, so "
+                f"a floor of {sorted(set(bad.values()))} is correct there and "
+                f"proves nothing either way. Restart without it to check this.")
         assert not bad, (
             f"the running server still reports a floor above 1: {bad}. The "
             f"shim patched something, but not what ComfyUI serves")
@@ -421,11 +555,21 @@ def main():
     check("every loaded copy of the module is found and patched", every_copy_is_found)
     check("the Resolution node refuses length=1 on an unpatched ComfyUI",
           resolution_refuses_without_support)
+    check("shipped graphs pair the one-frame VAE with length=1, both ways",
+          shipped_graphs_pair_the_vae_with_the_length)
     check("LIVE: the running server reports a floor of 1", live_server_agrees)
 
-    print(f"\n{len(failures)} failure(s)" if failures else
-          "\nall ok -- length=1 renders one frame, every other length is untouched")
-    return 1 if failures else 0
+    if failures:
+        print(f"\n{len(failures)} failure(s)"
+              + (f", {len(skipped)} skipped" if skipped else ""))
+        return 1
+    if skipped:
+        print(f"\n{len(skipped)} case(s) SKIPPED: {', '.join(skipped)}")
+        print("Exit 2, not 0: the offline cases passed, but the live surface "
+              "was never asked.")
+        return 2
+    print("\nall ok -- length=1 renders one frame, every other length is untouched")
+    return 0
 
 
 if __name__ == "__main__":

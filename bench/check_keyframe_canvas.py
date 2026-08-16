@@ -144,6 +144,13 @@ LENGTH_CASES = [
     (346, False),                                          # snaps to 362
     (362, False), (400, False),                            # over
     (20, False), (100, False),                             # under 5s
+    # 1 is refused on THIS path even though the pack makes it legal elsewhere.
+    # MiniMaxH3ImageToVideo pins a last_frame at frame_count - 1, which in a
+    # one-frame video is frame 0 -- on top of first_frame -- and fl2va at one
+    # frame is unmeasured. The single-image path is ref2v. Before the refusal
+    # was explicit this still raised, with a message about seconds that sent
+    # the reader looking for a duration problem.
+    (1, False),
 ]
 for n, want_ok in LENGTH_CASES:
     img = torch.rand(1, 768, 1024, 3)
