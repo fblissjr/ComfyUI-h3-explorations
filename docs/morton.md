@@ -204,10 +204,12 @@ What this page does establish, by measurement rather than by reading:
    bit-identical, though**, and a dense Morton render will still diverge from a
    dense non-Morton one -- see "Neutral in exact arithmetic, not in floating
    point" below before reading any A/B as a Morton effect.
-2. Morton delivers the compact tiles it promises on 3 of the 48 legal
-   landscape canvases. The default canvas here, 1344x768, is not one of them.
-   On it a block is typically two disconnected fragments in different parts of
-   the frame.
+2. Under `2d_frame`, Morton delivers the compact tiles it promises on 3 of
+   the 48 legal landscape canvases. 1344x768 -- the canvas this repo's t2v
+   graphs happen to bake, `CANVAS_TIERS["full"]`, and one option among 95 --
+   is not one of them. On it a block is typically two disconnected fragments in
+   different parts of the frame. **Under `3d`, the shipped curve, this does not
+   apply**: see the callout under the canvas rule.
 3. Every Morton arm **this project** has run held `tau` fixed, while the one
    place upstream states a payoff puts it at higher sparsity. So this
    project's arms were designed in a way that could not find the effect, and
@@ -1049,8 +1051,9 @@ all three had Morton on, which was the thing under test.
 Known, by measurement on this machine:
 
 - Morton is exactly neutral for dense attention, by construction.
-- It produces whole 8x8 tiles on 1280x768, 1024x768 and 768x768, and ragged
-  fragments everywhere else, including the 1344x768 default.
+- Under `2d_frame` it produces whole 8x8 tiles on 1280x768, 1024x768 and
+  768x768, and ragged fragments everywhere else, 1344x768 included. Under `3d`
+  the canvas barely matters: radius ~1.6 and fill 0.98 on every canvas tested.
 - On 1344x768 it improves mean block compactness by roughly 2x over raster and
   makes 4.7% of blocks worse than raster's worst.
 - The reference-offset rotation works and makes geometry independent of how
