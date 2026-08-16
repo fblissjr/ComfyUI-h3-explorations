@@ -53,7 +53,7 @@ attached to the number.
 | **CUDA is 1.4x over Triton e2e** | Upstream conversation. Never reproduced here | a paired run on this box |
 | **`reuse_qkv_memory` saves nothing** | Not a negative result. The VRAM column was reporting torch-active bytes and could not have seen it | fixed instrument (`f1dff99`), rerun |
 | **any peak-VRAM figure between 13:08:49 and `f1dff99`** | An external write reverted the device poller on disk; a `git add -A` then committed the reverted state | re-measure |
-| **fp8 is 2.7x less accurate than fp16** | **Synthetic input.** The sage fork measures 1.3x on real captured H3 activations and calls every synthetic rtol a pessimistic bound. `bench/bench_minimax_attn.py` builds `torch.randn`; nothing in `bench/` uses captured activations, and our 0.0969–0.0984 matches the fork's synthetic 0.098, not its real-activation 0.026. **Do not grep-and-replace "2.7x"** — `attention.py` and `README.md` use the same string for a *speed* figure against torch's flash backend, which is a different, correct claim. Two numbers, one spelling | the capture hook is written (`756a65e`) and has never been run. Note it currently captures with Sol on, which yields steps 0-3 and 15 only — both ends of the schedule, none of the middle |
+| **any fp8-vs-fp16 sage accuracy ratio**, spelled here once as **"2.7x more accurate"** so the tripwire below has something to match | **WITHDRAWN 2026-08-16 by the owner, and deleted rather than caveated** — the only entry in this table handled that way. This row is now the sole place the phrase appears in the repo. Two competing ratios had accumulated (a synthetic `torch.randn` sweep run here, and a smaller figure reported secondhand from the sage fork's captured activations) plus the `mean_rtol` values behind both. Ruled out on provenance, not on size: the sweep measures an input distribution H3 does not have; the real-activation figure was never re-derived here and its script is not committed in the fork, so it was an uncommitted ad-hoc run cited across a repo boundary; and nothing in `bench/` uses captured activations, so a rerun today would reproduce the synthetic instrument rather than replace it. The **decision** to ship `fp16 (most accurate)` is unaffected — it rests on the owner's perceptual verdict, which never depended on a ratio. **`attention.py` and `README.md` keep a "2.7x" that is a *speed* figure against torch's flash backend — a different, correct claim. Two numbers, one spelling; do not sweep it.** | grade a sage kernel against `~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/`, which exists and has never been used for this. Until then this repo has no accuracy figure and must not acquire one by inference |
 | **Sol is 0.999919 accurate** | Implementation fidelity, not total error — the harness compares kernel against reference **at the same tau**, so the sparse approximation is on both sides and cancels. Also `T=512`, and the O(T²) reference cannot run at real length | the Sol-vs-dense diagnostic (`44becf0`), once the card frees |
 | **text = 38 rows, sequence = 12,264** | `smoke_h3.py` substitutes **both** the prompt (27 words, against the graph's 216) and the length. Not a scaled-down shipped graph — text does not scale with length and was replaced | one preflight on a shipped graph, unmodified |
 | **everything derived from that**: audio dominates the sink; text is the whole v2 narrowing; `sink_q` start is 0 on t2v | all smoke-harness statements. On the shipped graph, text extrapolates to ~304 rows / 4 blocks — still an extrapolation from one point | same preflight |
@@ -129,10 +129,13 @@ correct in context. Do not add one to silence the check.
 
 ```retraction-consumers
 PHRASE: 2.7x more accurate
-ALLOW: workflows/h3_config.py CHANGELOG.md CLAUDE.md
-WHY: all three carry the synthetic-input caveat inline. Deliberately NOT
-     matching bare "2.7x" -- attention.py and README.md use that string for a
-     speed figure against torch flash, a different and correct claim.
+ALLOW: docs/evidence.md
+WHY: the figure was DELETED repo-wide on 2026-08-16, not caveated, so the
+     allowlist collapses to this ledger. The phrase is retained here so the
+     check keeps a tripwire on it: if it reappears in any file, someone has
+     reintroduced a withdrawn number. Still deliberately NOT matching bare
+     "2.7x" -- attention.py and README.md use that string for a speed figure
+     against torch flash, a different and correct claim.
 
 PHRASE: 23-point swing
 ALLOW: docs/evidence.md docs/bench_plan.md docs/SOLATTN.md

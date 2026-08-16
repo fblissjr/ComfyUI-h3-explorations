@@ -1,10 +1,12 @@
 """Capture real q/k/v from an H3 render, for kernel-divergence work.
 
 Exists because accuracy numbers measured on `torch.randn` are a pessimistic
-bound rather than an estimate. The sage fork measured the fp8-vs-fp16 gap at
-2.7x on synthetic input and 1.3x on real captured activations -- a 2x error in
-the number this repo cites to justify running fp16. Real captures are the only
-way to settle that, and the previous capture set was not kept.
+bound rather than an estimate. Every fp8-vs-fp16 accuracy ratio this repo used
+to carry was **withdrawn on 2026-08-16 as untrusted** (`docs/evidence.md`) --
+the synthetic sweep measures an input distribution H3 does not have, and the
+competing real-activation figure was never re-derived here. Real captures are
+the only way to settle it, and no kernel has yet been graded against the ones
+this script produced.
 
 **Inert unless `H3_CAPTURE` is set.** No node input, no schema change, no graph
 change: this must not be reachable by opening a workflow, because a capture at

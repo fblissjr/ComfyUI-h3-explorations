@@ -150,8 +150,11 @@ runs faster.
 | 362 | 109,126 | 757.7 ms | 2107.9 ms | 2.78x | ~76% |
 
 The kernel ratio is flat, 2.77x to 2.81x across a 2.9x span of sequence
-length, and per-call accuracy is flat with it (mean rtol 0.0978-0.0985), so
-nothing is traded for the extra length.
+length. This is a **speed** table and the ratios are what it measures. The
+accompanying per-call accuracy figure was removed on 2026-08-16 along with
+every other synthetic-input accuracy number in this repo
+(`docs/evidence.md`), so no claim is made here about what the extra length
+costs in accuracy.
 
 What changes is leverage, not the multiplier. A 362-frame render logs 49.66
 s/it at 20 steps. Fifty blocks at 757.7 ms each account for 37.9 s of that,

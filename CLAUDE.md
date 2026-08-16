@@ -106,21 +106,21 @@ and is the wrong end of this project's tradeoff. The owner judged it on video
 at the same seed: "way clearer and better motion and less drift". **That
 perceptual verdict is the load-bearing half and it is the half that has held.**
 
-The numeric half is weaker than it was written, and the correction is worth
-carrying because the original is the kind of sentence that gets quoted.
-Measured 2026-08-13 against an fp32 reference, fp16-PV held mean_rtol
-0.0362-0.0363 where every fp8 variant sat at 0.0969-0.0984 -- **2.7x more
-accurate and flat across a 17x range of sequence length**. Every one of those
-figures is a **synthetic `torch.randn` measurement**. On q/k/v captured from a
-real H3 forward the gap is roughly **1.3x**, and the sage fork calls every
-synthetic rtol a pessimistic bound rather than an estimate: real attention has
-concentrated softmax and correlated keys, which quantization handles far better
-than iid gaussian noise. Nothing in `bench/` uses captured activations, so
-every accuracy number this repo prints inherits that. The flatness claim came
-from the same sweep and is equally unverified on real inputs.
+**There is no numeric half any more. Withdrawn 2026-08-16 by the owner, as
+untrusted.** This paragraph used to carry an fp8-vs-fp16 accuracy ratio and the
+`mean_rtol` figures behind it, first from a synthetic `torch.randn` sweep and
+then a smaller ratio reported secondhand from the sage fork's captured
+activations. The numbers are gone from this repo -- code, configs, docs and
+node text -- because their provenance could not be defended: the synthetic
+sweep measures an input distribution H3 does not have, the real-activation
+figure was never re-derived here and its script is not committed in the fork,
+and nothing in `bench/` uses captured activations at all. See
+`docs/evidence.md`.
 
-**The decision does not change** -- 1.3x still favours fp16, and the perceptual
-leg is independent -- but do not defend it with 2.7x.
+**The decision does not change, and it never rested on those numbers.** It
+rests on the perceptual verdict above, which is independent of every retracted
+figure. **Do not reintroduce a ratio to defend it.** If an accuracy claim is
+wanted, measure it here on the captures that now exist and cite that run.
 
 **`h3_capture.py` ran for the first time on 2026-08-15, and the data now
 exists**: three files at blocks 0/24/49, step 1, `[1, 56, 37826, 128]` bf16,

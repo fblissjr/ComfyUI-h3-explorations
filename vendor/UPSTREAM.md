@@ -115,9 +115,11 @@ of thing that suggests a hand-merge and is one deletion to fix.
 int8 V — with fp32 accumulation. No fp16/bf16 MMA anywhere and no option.
 
 The question worth asking is **not** "this is too lossy". Our own headline
-evidence for caring (2.7x from 8-bit V) turned out to be a synthetic-input
-number; on real captured H3 activations the sage fork measures the gap at
-1.3x. And int8-V specifically is unmeasured by anyone.
+evidence for caring was an fp8-vs-fp16 accuracy ratio, and **that figure was
+withdrawn on 2026-08-16 as untrusted and removed from this repo**
+(`docs/evidence.md`): it came from a synthetic `torch.randn` sweep, and the
+competing real-activation figure was never re-derived here. And int8-V
+specifically is unmeasured by anyone.
 
 The honest version: *has anyone checked where INT8 PV lands at ~100k tokens?*
 Upstream's own eager reference is O(T²) and refuses past 4 GiB, so it cannot

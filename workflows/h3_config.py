@@ -380,45 +380,31 @@ SOL_CUDA_DEFAULTS = dict(
 # Our own node. NOT `auto`, which resolves to fp8++ on sm89 -- the FASTEST
 # kernel, which is the wrong end of the tradeoff for this project.
 #
-# Changed 2026-08-13 on two pieces of evidence that point the same way:
+# Changed 2026-08-13. It rested on two legs; one has been withdrawn.
 #
-#   Numeric. Swept against an fp32 reference at H=56 D=128 across
-#   S = 4608 / 24576 / 41822 / 78336: fp16-PV holds mean_rtol 0.0362-0.0363
-#   while every fp8 variant sits at 0.0969-0.0984. **2.7x more accurate, and
-#   flat across a 17x range of S** -- so there is no crossover and no
-#   "use fp16 above S=X" rule. One choice covers every canvas, length and
-#   reference count.
+#   Perceptual, and this is now the whole argument. Same seed, same prompt,
+#   124 frames, fp8++ against this: the owner judged fp16 clearer, with better
+#   motion and less drift. That is the half no rtol answers, and it is the half
+#   that has held.
 #
-#   **That 2.7x is a SYNTHETIC-INPUT number and the gap is ~1.3x on real
-#   activations** (added 2026-08-14). `bench/bench_minimax_attn.py` builds
-#   `torch.randn`, and nothing in `bench/` uses captured activations, so every
-#   figure above inherits it -- our 0.0969-0.0984 matches the sage fork's
-#   synthetic 0.098, not its real-activation 0.026. The fork measures the
-#   fp8-to-fp16 gap narrowing from 2.6x to 1.3x on q/k/v captured from an
-#   actual H3 forward, and calls every synthetic rtol a pessimistic bound
-#   rather than an estimate. Real attention has structure -- concentrated
-#   softmax, correlated keys -- that quantization handles far better than iid
-#   gaussian noise. The flatness claim comes from the same sweep and is
-#   equally unverified on real inputs.
+#   Numeric -- **WITHDRAWN 2026-08-16 by the owner, as untrusted.** This block
+#   used to carry an fp8-vs-fp16 accuracy ratio, the `mean_rtol` sweep behind
+#   it, and a smaller ratio reported secondhand from the sage fork's captured
+#   activations. All of it is removed rather than caveated, because the
+#   provenance could not be defended: the sweep is `torch.randn`, which is not
+#   the input distribution H3 has; the real-activation figure was never
+#   re-derived here and the script producing it is not committed in the fork;
+#   and nothing in `bench/` uses captured activations, so every accuracy number
+#   this repo could print inherits the synthetic instrument. See
+#   `docs/evidence.md`. **Do not reintroduce a ratio here.**
 #
-#   **The decision does not change**, because its other leg is perceptual and
-#   independent: the owner judged fp16 clearer with better motion and less
-#   drift on video at the same seed. 1.3x still favours fp16. What weakens is
-#   the numeric argument's size, not its direction.
+#   **The decision does not change and never depended on the withdrawn leg.**
 #
-#   **`h3_capture.py` ran on 2026-08-15 and the captures exist**, at blocks
-#   0/24/49 of a dense 124-frame 1344x768 render, in
-#   ~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/. They were made for a
-#   different question and **no sage kernel has been graded against them yet**,
-#   so this caveat is unchanged -- but the data no longer has to be produced
-#   before someone can settle it.
-#
-#   All three fp8 variants land within 0.0004 of each other,
-#   so the PV accumulator is not the lever: quantizing V to fp8 at all is.
-#
-#   Perceptual. Same seed, same prompt, 124 frames, fp8++ against this:
-#   the owner judged fp16 clearer, with better motion and less drift. That is
-#   the half no rtol answers, and it agreed with the numbers.
+#   **The captures now exist** -- blocks 0/24/49 of a dense 124-frame 1344x768
+#   render, in ~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/. They were
+#   made for a different question and **no sage kernel has been graded against
+#   them**. That is the run that would let this repo state an accuracy figure
+#   of its own; until it happens there is no number to quote.
 #
 # The cost is real and accepted: this is the one mode with no
 # `sageattn_consume` entry point, so it holds the float q/k/v for the whole

@@ -69,13 +69,36 @@ artifact.
   `torch._int_mm` reaches ~142 TOPS of int8's ~660 peak while bf16 `matmul`
   sits at its own peak, which would have inverted the conclusion.
 
+### Retracted
+
+- **Every fp8-vs-fp16 sage accuracy ratio, withdrawn by the owner as untrusted
+  and deleted rather than caveated.** Removed from `CLAUDE.md`,
+  `workflows/h3_config.py`, `docs/SOLATTN.md`, `docs/evidence.md`,
+  `vendor/UPSTREAM.md`, `h3_capture.py`, `README.md` and
+  `docs/open_experiments.md`, along with the `mean_rtol` values behind them.
+  Ruled out on provenance, not on size: the sweep is `torch.randn`, which is
+  not the input distribution H3 has; the competing real-activation figure was
+  never re-derived here and its script is not committed in the sage fork, so it
+  was an uncommitted ad-hoc run cited across a repo boundary; and nothing in
+  `bench/` uses captured activations, so re-running today would reproduce the
+  synthetic instrument rather than replace it. **The decision to ship
+  `fp16 (most accurate)` is unaffected** -- it rests on the owner's perceptual
+  verdict, which never depended on a ratio. `docs/evidence.md` keeps one
+  deliberate spelling of the phrase so `check_retraction_consumers.py` has a
+  tripwire; that check now fails if the number reappears anywhere else.
+- **Not swept:** `attention.py` and `README.md` keep a "2.7x" that is a *speed*
+  figure against torch's flash backend, and `vendor/sol_attn_minimax.py` has a
+  "2.0 ~ 2.7%" routing density. Different claims, same spelling.
+
 ### Notes
 
-- #17's MMA arithmetic predicts 2.5x on the exact branch; the repo's own
-  Triton measurement says 16% for a larger change. **The disagreement is the
-  result** -- it means the CUDA exact kernel is not MMA-issue-bound, and
-  nothing here has ever profiled it per stage. #17a and #17b are the two gates,
-  and 17b may close the entry without a kernel being written.
+- #17's cost estimate is now MMA arithmetic alone, predicting 2.5x on the exact
+  branch. The Triton figures it was first written against **do not price this
+  change** -- corrected the same day. That backend dispatches two different
+  kernels rather than toggling a dtype, so its bf16-vs-int8 arms vary the PV
+  dtype, the QK dtype and the implementation at once; the within-kernel
+  isolation has never been run. Using Triton numbers to describe the CUDA
+  backend is also the move `docs/morton.md` retracted on 2026-08-16.
 
 ## 0.18.0
 
@@ -469,20 +492,17 @@ artifact.
 
 - **Sage runs `fp16 (most accurate)`, not `auto`.** `auto` resolves to the
   *fastest* kernel, which is the wrong end of this project's tradeoff.
-  Measured against an fp32 reference across a 17x range of sequence length,
-  fp16-PV is **2.7x more accurate and flat** -- no canvas or clip length flips
-  the answer -- and the owner judged it clearer with better motion and less
-  drift on video at the same seed. Costs ~1.58x per attention call; the
-  heaviest shipped config still peaks at 21,186 MiB of 24,564.
+  An accuracy ratio measured against an fp32 reference was recorded here and
+  **its figures were withdrawn on 2026-08-16 (see 0.19.0) and removed from this
+  entry.** The owner judged fp16 clearer with better motion and less drift on
+  video at the same seed. Costs ~1.58x per attention call; the heaviest shipped
+  config still peaks at 21,186 MiB of 24,564.
 
-  **Both numbers were qualified on 2026-08-14 and the entry above is left as
-  written.** The 2.7x is a synthetic-`torch.randn` figure; on q/k/v captured
-  from a real H3 forward the fp8-to-fp16 gap is ~1.3x, and the sage fork calls
-  every synthetic rtol a pessimistic bound rather than an estimate. The 1.58x
-  said "wall clock" here and is a per-call kernel cost -- the fork retracted
-  that framing, on the grounds that if attention were nearly all of H3's
-  compute a render should run ~1.5x slower and nothing observed shows it. The
-  decision stands on its perceptual leg, which is independent of both.
+  **The 1.58x was also qualified on 2026-08-14** -- it said "wall clock" here
+  and is a per-call kernel cost. The fork retracted that framing, on the
+  grounds that if attention were nearly all of H3's compute a render should run
+  ~1.5x slower and nothing observed shows it. The decision stands on its
+  perceptual leg, which never depended on either number.
 - **Sol-Attn is opt-in and ships OFF.** Bypassed in every UI graph, omitted
   from every API graph. It changes what the model computes, and that has never
   been weighed against what its speed buys. `h3_probe_sol_on.json` is the one

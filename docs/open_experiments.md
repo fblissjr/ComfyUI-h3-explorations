@@ -775,31 +775,67 @@ int8 against `MMA_SV_K 16` fp16). So "give Sol an fp16 path" means one thing --
 move the PV matmul from `mma_u8s8` to a 16-bit MMA. QK stays INT8 on both
 sides. Read as "add fp16 kernels" this looks like a rewrite; it is one matmul.
 
-### Most of this has already been measured, on the other backend
+### A 16-bit Sol-Attn exists on Triton -- but it does NOT price this change
 
-**`bench_e2e_h3.py:475`: "int8_qk puts SolAttn's exact branch on INT8 QK
-instead of fp16".** The Triton backend's exact branch is 16-bit *by default*.
-Every Triton number on `docs/SOLATTN.md` therefore already prices this:
+**Corrected 2026-08-16, same day this entry was written.** The first draft said
+the Triton numbers "already price" a 16-bit PV. They do not, and the reason is
+the failure shape the 2026-08-15 postmortem names three times: a measurement
+stated at a scope wider than it was taken at.
 
-| arm | what it is | sampler | vs sage |
-|---|---|---|---|
-| `sol, no int8` | 16-bit QK **and** PV | 827.9 s | 1.20x |
-| `sol + int8_qk` | INT8 QK, 16-bit PV -- **the proposed config** | profiled only | attention 2668 ms vs sage dense 4296 ms |
-| `sol + int8_qk + int8_pv` | all-INT8, what CUDA does | 714.9 s | 1.39x |
+What is verified, read from `ComfyUI-SolAttn_triton/__init__.py` rather than
+from our own bench comment:
 
-So a 16-bit Sol-Attn is not speculative: it exists, it runs, and going all the
-way to 16-bit on *both* matmuls costs about 16% against full INT8 while still
-beating dense sage by 1.20x. The proposed config is the middle row, which was
-profiled but never given an e2e arm.
+- The node dispatches **two different kernels**, not one kernel with a dtype
+  flag: `kernel = _sol_attn_int8_kernel if int8_qk else _sol_attn_kernel`
+  (`:214`), logged as `int8` or `bf16` (`:222`).
+- `int8_pv` is passed only when `int8_qk` is on (`:213`), and the node's own
+  default is **`int8_pv=True`** (`:468`). Our `SOL_BASELINE_124F` pins it
+  `False`, which is the only reason the bench's `sage+sol+int8qk` arm really is
+  INT8 QK with 16-bit PV. **Read from the node alone, that arm is full INT8.**
 
-Accuracy, same page, same caveats: Triton bf16 grades 0.999995 against the
-eager reference where Triton INT8 grades 0.999885 and CUDA grades 0.999919.
+So the frontier table's `sol, no int8` (827.9 s) against `sol + int8 + int8_pv`
+(714.9 s) is **bf16 kernel against int8 kernel** -- it varies the PV dtype, the
+QK dtype, and the implementation, all at once. It cannot be read as the price
+of the PV dtype.
 
-**Every figure in that table inherits SOLATTN.md's "do not rely on" list** --
-362 frames (not a legal length), an unrecorded build, pre-2026-08-14,
-`res_multistep`. And Triton is a different implementation with different
-bottlenecks. Treat the table as a bound on the question, not a prediction for
-the CUDA path.
+**The clean isolation has never been run.** `int8_qk=True` with `int8_pv` on
+against off, same kernel, one variable, is the arm that would price this, and
+there is no such row anywhere. The 2668 ms profile is the only measurement of
+the proposed config and it has no `int8_pv=True` counterpart profiled beside it.
+
+**And Triton cannot price a CUDA change anyway.** `docs/morton.md` retracted
+exactly this move on 2026-08-16: `h3_config.py`'s "morton is worth 1.16x alone"
+was Triton, 362 frames, stacked on int8, and the CUDA isolation put it at
+1.0009x. Its verdict -- "correct for what it measured, wrong as a description
+of the CUDA backend" -- applies here unchanged. The 2026-08-14 CUDA migration
+postmortem is blunter: **every headline number that migration produced was
+withdrawn.**
+
+Everything above also inherits SOLATTN.md's "do not rely on" list: 362 frames
+(not a legal length), an unrecorded build, pre-2026-08-14, `res_multistep`.
+
+**Not an accuracy argument, and the first draft used it as one.** Triton bf16
+grades 0.999995 against the eager reference where Triton INT8 grades 0.999885.
+SOLATTN.md lists those cosines under "do not rely on": they are **implementation
+fidelity, not accuracy** -- each kernel is graded against the reference *at the
+same tau*, so the sparse approximation sits on both sides and cancels -- and
+they are T=512 synthetic. They say the bf16 kernel tracks its own reference more
+closely. They say nothing about what 16-bit buys on real H3 activations, which
+is the question.
+
+### The one measured fact that bears on the cost
+
+From the captured-activation run written up in `docs/morton.md`, real q/k, this
+model, 124 frames: **attention is not very sparse on this workload.** At its
+most concentrated a query still needs 178 key blocks of 591 to hold 90% of its
+mass, and 394 at block 0.
+
+That is a bound on how small the exact branch can be, and it pushes the cost of
+a 16-bit PV **up**, not down: the more work sits in the exact branch, the more
+of the kernel a 2.5x PV touches. It is not the routed density -- mass
+concentration and the tau routing decision are different quantities -- but it is
+the closest measured thing, and it argues against the assumption that the exact
+branch is a thin slice.
 
 ### The layout problem is already solved in-tree
 
@@ -837,13 +873,16 @@ Exact-kernel MMA per warp per key block: QK is 8 n-tiles x 4 k-chunks = 32; PV
 INT8 is 16 x 2 = 32; PV 16-bit is 16 x 4 = 64. So the arithmetic predicts
 **2.5x on the exact branch** with f32 accumulate, 1.5x with f16 accumulate.
 
-**The arithmetic says 2.5x and the repo's own Triton measurement says 16% for a
-stronger change. That disagreement is the finding.** It means the exact kernel
-is not MMA-issue-bound, and nobody knows what it *is* bound by, because the
-CUDA Sol path has never been profiled per stage here. Which of the two numbers
-governs is the first thing to settle.
+**This is now the only cost estimate that exists**, and it is arithmetic over
+an instruction-rate measurement, not a kernel measurement. It is an upper bound
+on the MMA term alone: it assumes the exact kernel is MMA-issue-bound, and if
+the kernel is bound by cp.async staging instead -- which the 16-bit V tile also
+makes worse, doubling `LDV` and taking smem from 32 KB to 48 KB per block -- the
+real figure sits somewhere below 2.5x for a reason this arithmetic cannot see.
+Nothing here has profiled the CUDA Sol path per stage. **17a is no longer a
+tie-breaker between two numbers; it is the only way to get a second one.**
 
-### Two gates, both cheap, before any CUDA is written
+### Three gates, all cheap, before any CUDA is written
 
 **17a. Profile the CUDA exact kernel per stage.** One `ncu` run on
 `h3_probe_sol_on_api.json` settles MMA-bound against staging-bound. While there,
@@ -858,10 +897,10 @@ with a render.*
 weights. Split Sol's error into sparsity error (eager Sol against dense) and
 quantization error (CUDA Sol against eager Sol at the same tau). **If
 quantization error is small against sparsity error, a 16-bit PV buys nothing
-measurable and 17 is closed without writing a kernel.** Same instrument that
-took sage's synthetic 2.7x figure to 1.3x on real inputs; CLAUDE.md notes those
-captures were made for a different question and nothing has yet graded a kernel
-against them. *Blocker: none.*
+measurable and 17 is closed without writing a kernel.** Those captures were
+made for a different question and nothing has yet graded a kernel against them;
+this would also be the first accuracy figure in this repo taken on real
+activations, which is what every withdrawn one lacked. *Blocker: none.*
 
 ### The port itself, if the gates pass
 
@@ -890,12 +929,15 @@ all, and if so whether it ships on. Also whether the standing suspicion --
 that Sol's all-INT8 branch discards what sage's 16-bit PV pays 1.58x for --
 survives contact with a measurement.
 
-**Blocker: 17b, and it may close the entry.** The motivating premise is the one
-`docs/SOLATTN.md`'s Quality section already retracts: the 2.7x is synthetic,
-real activations say 1.3x, and INT8-V specifically is unmeasured on either
-side. The perceptual half of the sage verdict is the durable half, and it is a
-verdict about *dense* attention -- it does not transfer unexamined to a kernel
-that is also dropping most of the blocks.
+**Blocker: 17b, and it may close the entry.** The motivating premise -- that
+Sol's INT8 PV discards what sage's 16-bit PV pays for -- rested on an
+fp8-vs-fp16 accuracy ratio that was **withdrawn on 2026-08-16 as untrusted and
+removed from this repo** (`docs/evidence.md`). So the premise now has no
+supporting number at all, in either direction: INT8-V is unmeasured, sage's fp8
+and fp16 kernels differ in both PV operands so nothing isolates V, and the
+durable half of the sage verdict is perceptual -- a verdict about *dense*
+attention, which does not transfer unexamined to a kernel that is also dropping
+most of the blocks.
 
 ---
 

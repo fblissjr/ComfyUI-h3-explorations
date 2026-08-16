@@ -32,7 +32,7 @@ labelled rather than deleted. Read this list first.
 | every e2e timing from Run 1, incl. **1.611x** | taken against an **fp8** sage baseline the graphs do not ship, and before it was known that sage runs 5/16 steps in the Sol arm. Wrong on three axes. |
 | `centroid_tail` = **2.5%** | the measurement is sound (two runs, 0.1% spread) but it is at 362. Ordering is trustworthy; the magnitude is not pinned to a shipped config. |
 | `reuse_qkv_memory` "no VRAM saving" | **uninformative, not negative.** The peak-VRAM column was reporting torch-active bytes, which resolved only the resident-weight plateau. The instrument could not have shown a saving. |
-| the **2.7x** fp8-vs-fp16 accuracy figure | synthetic `torch.randn` input; **1.3x** on real captured H3 activations. Everything in `bench/` inherits this -- `bench_minimax_attn.py` builds `randn` and nothing here uses captured activations. |
+| any fp8-vs-fp16 sage accuracy ratio | **withdrawn entirely 2026-08-16**, not caveated. The figures are removed from this repo; `bench_minimax_attn.py` builds `randn` and nothing here uses captured activations, so no accuracy number measured today would be defensible either. See `docs/evidence.md`. |
 | **0.999919** and the other correctness cosines | **implementation fidelity, not accuracy.** Kernel is graded against the reference *at the same tau*, so the sparse approximation is on both sides and cancels. Not comparable to any dense kernel's accuracy number. Also T=512 synthetic. |
 | **1.4x** CUDA over Triton e2e | upstream conversation. Never reproduced here. |
 | `centroid_tail` **5-10%** e2e | upstream conversation. Ours measured 2.5%. |
@@ -529,40 +529,47 @@ not a measurement, and upstream's call.
 **REOPENED.** Everything in this section was judged from still frames, and the
 failure mode that matters is temporal. Read the next subsection first.
 
-### The 2.7x sage accuracy figure is synthetic, and real activations say 1.3x
+### There is no usable fp8-vs-fp16 sage accuracy figure, and the ratios are gone
 
-Relevant here because Sol's exact branch is all-INT8 (uint8 P, int8 V), which
-looks damning next to this repo running sage at `fp16 (most accurate)` on the
-grounds that 8-bit V costs 2.7x accuracy. **That comparison does not hold up.**
+**Withdrawn 2026-08-16 by the owner, as untrusted.** This subsection used to
+carry two competing accuracy ratios for sage's fp8 against its fp16 PV -- one
+from a synthetic `torch.randn` sweep run here, one smaller figure reported
+secondhand from the sage fork's captured activations -- along with the
+`mean_rtol` values behind both. Every one of those numbers has been removed
+from this repo rather than caveated. What ruled them out:
 
-Reported by the sage fork's claude on 2026-08-14, from its CHANGELOG v0.7.0
-and commits `13b19e0` / `12a5872` / `1f619b4`; not re-derived here:
+- The sweep is `torch.randn`, which is not the input distribution H3 has. On
+  iid gaussian input softmax is near uniform, so the output is a
+  near-cancelling average and an element-wise relative error is dominated by
+  cancellation. The instrument answers a different question than the one asked.
+- The real-activation figure was **never re-derived here**, and the script
+  producing it is not committed in the sage fork -- the numbers lived in prose
+  and commit messages. That is an uncommitted ad-hoc run cited across a repo
+  boundary, which is the weakest provenance any claim here had.
+- Nothing in `bench/` uses captured activations, so a fresh run today would
+  reproduce the synthetic instrument, not replace it.
 
-- The 2.7x is measured on `torch.randn` q/k/v. On q/k/v **captured from a real
-  H3 forward**, fp8++ lands at mean_rtol 0.026 rather than 0.098, and the
-  fp8-to-fp16 gap **narrows from 2.6x to 1.3x**. Their own verdict line: "Every
-  accuracy figure this repo quotes from a synthetic bench is a pessimistic
-  bound, not an estimate."
-- The mechanism is worth keeping: on iid gaussian input softmax is near
-  uniform, so the output is a near-cancelling average of S random vectors.
-  Elements sit near zero, and an element-wise relative error with a symmetric
-  denominator is dominated by cancellation. Cosine is blind to exactly that.
-  The two metrics fail in opposite directions, which is why a cosine and an
-  rtol from different harnesses cannot be compared.
-- **"Quantizing V to fp8 at all is the lever" over-attributes.** The fp8 and
-  fp16 sage kernels differ in *both* PV operands -- P is unscaled e4m3 against
-  fp16 -- and no sage kernel exists with mixed operands, so nothing isolates V
-  from P. What was measured is an 8-bit PV matmul against a 16-bit one.
-- INT8-V specifically is **unmeasured** on either side. Sage has no int8-V
+What survives, because it never depended on a ratio:
+
+- **The fp8 and fp16 sage kernels differ in *both* PV operands** -- P is
+  unscaled e4m3 against fp16 -- and no sage kernel exists with mixed operands,
+  so nothing isolates V from P. Any claim of the form "quantizing V is the
+  lever" over-attributes. What differs between those kernels is an 8-bit PV
+  matmul against a 16-bit one.
+- **INT8-V specifically is unmeasured** on either side. Sage has no int8-V
   kernel at all.
-- Provenance: the script producing those tables is not committed in the sage
-  fork. The numbers live in prose and commit messages. Cite as an uncommitted
-  ad-hoc run.
+- A cosine and an rtol from different harnesses cannot be compared; they fail
+  in opposite directions.
 
 So the honest statement about Sol's INT8 PV is that it is the same *class* as
-the arm this project measured as costlier, that the cost of that class on real
-H3 activations is 1.3x rather than 2.7x, and that nobody has measured int8-V.
-Not "Sol throws away the accuracy we pay 1.58x for".
+sage's fp8 arm, that nobody has measured what that class costs on real H3
+activations, and that nobody has measured int8-V. **Not** "Sol throws away the
+accuracy we pay 1.58x for" -- that sentence was built on the withdrawn figures.
+
+The captures that would settle it exist
+(`~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/`) and no kernel has been
+graded against them. Until that runs, this repo has no accuracy figure to quote
+and should not acquire one by inference.
 
 ### The artifact stills cannot show
 
