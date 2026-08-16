@@ -31,6 +31,7 @@ sibling node packs, which live beside this repo under ComfyUI's `custom_nodes/`.
 | `workflows/h3_config.py` | `SOL_RECOMMENDED_CUDA` is the shipped Sol config, including `morton=False` and `morton_curve="2d_frame"`, each with its evidence in a comment above. Nothing in this repo may hold a second copy of these. |
 | `docs/SOLATTN.md` | Everything else about Sol-Attn: the two backends, the sigma window, the reference-load tables, and a "do not rely on" list of its own retracted numbers. Morton is one knob there; this page is the deep dive. |
 | `docs/h3_resolutions.md` | All 95 legal canvases. The source for the 3-of-48 count below. |
+| `docs/sol_engine_reference.md` | What NVLabs' own Sol-Engine does for H3, read from `coderef/Sana` at `origin/sol-engine`. **Their validated H3 policy runs no token reordering and says why**, which is the sharpest external check on everything here. Also records that Sol-Engine ships Morton for Wan, on by default, 3D only. |
 
 ### The prior attempt, and why it is worth reading before starting a new one
 
@@ -527,29 +528,36 @@ every ordering with no second render and no approximation.
 **Centroid fidelity.** Mean cosine of each key to its own block's centroid,
 over all 56 heads and all 582 whole video blocks:
 
-| block | raster | morton `2d_frame` | morton `3d` |
-|---|---|---|---|
-| 0 | 0.7523 | 0.7565 (+0.6%) | 0.7830 (+4.1%) |
-| 24 | 0.7442 | 0.7665 (+3.0%) | 0.7915 (+6.4%) |
-| 49 | 0.8678 | 0.8804 (+1.5%) | **0.9434 (+8.7%)** |
+| block | raster | morton `2d_frame` | morton `3d` | `hilbert` |
+|---|---|---|---|---|
+| 0 | 0.7523 | 0.7565 (+0.6%) | 0.7830 (+4.1%) | not run |
+| 24 | 0.7442 | 0.7665 (+3.0%) | **0.7915 (+6.4%)** | 0.7748 (+4.1%) |
+| 49 | 0.8678 | 0.8804 (+1.5%) | **0.9434 (+8.7%)** | 0.8978 (+3.5%) |
 
 **Mass concentration.** Key blocks needed to hold 90% of a query's attention
 mass, of 591. Sampled: 4 heads of 56, 48 video queries each. The attention
 weights are identical under every ordering, so this measures regrouping alone.
 
-| block | raster | morton `2d_frame` | morton `3d` |
-|---|---|---|---|
-| 0 | 393.7 | 386.5 (-1.8%) | 365.8 (-7.1%) |
-| 24 | 178.0 | **149.3 (-16.1%)** | 144.7 (-18.7%) |
-| 49 | 238.1 | 228.9 (-3.9%) | 236.3 (-0.8%) |
+| block | raster | morton `2d_frame` | morton `3d` | `hilbert` |
+|---|---|---|---|---|
+| 0 | 393.7 | 386.5 (-1.8%) | 365.8 (-7.1%) | not run |
+| 24 | 178.0 | 149.3 (-16.1%) | 144.7 (-18.7%) | **142.1 (-20.2%)** |
+| 49 | 238.1 | 228.9 (-3.9%) | 236.3 (-0.8%) | **226.8 (-4.7%)** |
 
 Four things follow.
 
 **Link 5 is true.** Morton raises centroid fidelity on real activations at
 every depth measured. The canvas result is therefore about something real.
 
-**`3d` scores higher than `2d_frame` on both metrics at every block
-measured**, by 3x to 6x on centroid fidelity. State that as the measurement it
+**Both added curves beat the shipped `2d_frame` on both metrics at every block
+measured.** They do not beat each other consistently: `3d` leads centroid
+fidelity, `hilbert` leads mass concentration, and `hilbert` has the higher floor
+at block 49 (min 0.8740 against `3d`'s 0.8636). The two metrics disagree about
+the ranking, which is why both are bench arms and neither is a new default.
+`hilbert` comes from `sol_curves.py` and needs the `MiniMaxH3SolAttnCurve`
+node; `3d` needs nothing, it is already on Sol-Attn's own combo.
+
+Taking `3d` alone against the shipped curve, it scores higher State that as the measurement it
 is: it says nothing yet about output, and no render has been made with `3d` on
 a long clip.
 

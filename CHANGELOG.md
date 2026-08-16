@@ -4,6 +4,77 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.18.0
+
+### Added
+
+- **`sol_curves.py` and `MiniMaxH3SolAttnCurve`** -- a per-frame 2D Hilbert
+  token ordering for Sol-Attn, in the shape `morton_perm` already returns.
+  Installed by rebinding that one name on the live node: `_perm_for` resolves
+  it as a plain module global and the curve arrives as a string through
+  `transformer_options`, so a new ordering needs no edit to upstream's file and
+  no kernel rebuild. `install()` resolves the module **by identity, not by
+  name**, because a running ComfyUI can hold two objects for one file and
+  patching the wrong one looks exactly like success; zero patched is treated as
+  a failure rather than a silent no-op. The node must sit after
+  `SolAttnMiniMax`, which it overwrites a transformer option of.
+- **`bench/analyze_capture.py`** -- answers whether Morton helps the *router*,
+  from captured q/k rather than from geometry. Two tests, neither
+  reimplementing the kernel: per-block centroid fidelity (the assumption
+  everything else rests on) and mass concentration (upstream's stated
+  mechanism). Because a dense capture is permutation-equivariant, one render
+  gives every ordering exactly, at every block.
+- **`docs/sol_engine_reference.md`** -- NVLabs' own Sol-Engine recipe for H3,
+  read from `coderef/Sana` at `origin/sol-engine`. Their validated policy, how
+  ours differs, FirstBlockCache, the `thresh_type` knob kijai's kernel does not
+  have, and why their published speedups share no denominator with ours.
+- **Four ordering arms plus the reorder-only control** in `bench_e2e_h3.py`.
+  The control needed no code: `--arms 'shipped[morton=1,dense_blocks=0-49]'`
+  already expresses it. Copied from Sol-Engine's own
+  `config/wan21_t2v_14b/reorder_only.toml`; reordering on with every layer
+  dense isolates what the permutation costs from what it buys, and checks that
+  it really is output-neutral.
+
+### Measured
+
+- **Link 5 holds.** First ever run of `h3_capture.py`. On captured activations
+  from a dense 124-frame 1344x768 render, Morton raises per-block centroid
+  fidelity at every depth sampled, so the canvas result is about something
+  real. Blocks 24 / 49, against raster 0.7442 / 0.8678: `2d_frame` 0.7665 /
+  0.8804, `3d` 0.7915 / 0.9434, `hilbert` 0.7748 / 0.8978.
+- **Both added curves beat the shipped `2d_frame` on both metrics, and do not
+  beat each other.** `3d` leads centroid fidelity, `hilbert` leads mass
+  concentration (142.1 / 226.8 blocks for 90% of mass against `2d_frame`'s
+  149.3 / 228.9), and `hilbert` has the higher floor at block 49. The metrics
+  disagree, so both are arms and neither is a new default.
+- **Attention is not very sparse on this workload.** At its most concentrated a
+  query still needs 178 of 591 blocks for 90% of its mass, and 394 at block 0.
+  That bounds what any block-sparse method can save here.
+- **1280x768 at 294 frames peaks at 23,192 MiB of 24,564** on plain t2v with no
+  references. Tighter than expected, and it constrains every reference plan.
+
+### Fixed
+
+- `analyze_capture.py` restricted itself to block 0 on the grounds that later
+  blocks diverge. Wrong when the capture is dense: attention is
+  permutation-equivariant, so the Morton arm's q/k is the permuted capture at
+  every block. The restriction was self-imposed and it mattered, because block
+  0 is the worst place to ask -- early-layer attention is closest to uniform.
+- `MiniMaxH3SolAttnCurve.execute()` had no default where its schema declared
+  one, so an API graph omitting the widget would have raised instead of
+  defaulting. Caught by `check_schema_defaults.py`, which now covers 8 nodes.
+
+### Corrected
+
+- **Sol-Engine does ship Morton.** This repo said three times on 2026-08-15
+  that no token reordering exists upstream. It exists, is on by default for
+  Wan, off for Hunyuan, absent for H3, and is only ever the 3D curve. The
+  claim was made from a grep whose non-empty output was misread as empty.
+- **The "same quality at higher sparsity" line is not the paper's.** It is one
+  sentence in the Triton pack's *Wan* Morton file. The paper (arXiv 2607.24027)
+  contains no token reordering at all, does not evaluate H3, and does not
+  ablate the threshold. Sol-Engine's H3 policy states no reordering explicitly.
+
 ## 0.17.0
 
 ### Measured

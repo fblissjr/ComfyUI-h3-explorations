@@ -840,7 +840,16 @@ def main():
         for name in arms:
             if _is_adhoc(name) or name not in ARMS:
                 continue
-            orphan = sorted(set(ARMS[name][1] or {}) - set(sol_knobs()))
+            # A leading underscore marks a bench-level key that is NOT a node
+            # input: `build_prompt` pops it before the dict reaches the node.
+            # `_curve` is the one, and it selects an ordering through our own
+            # MiniMaxH3SolAttnCurve rather than through Sol-Attn's combo.
+            # Exempting only `_`-prefixed keys keeps this guard doing its job
+            # for every real knob, which is the whole point of it: it caught
+            # this on the first run rather than letting the arm render as a
+            # silently different configuration.
+            keys = {k for k in (ARMS[name][1] or {}) if not k.startswith("_")}
+            orphan = sorted(keys - set(sol_knobs()))
             if orphan:
                 print(f"arm {name!r} sets {orphan}, which the {SOL_BACKEND} node "
                       f"does not have.\nIt would silently become a different arm. "
