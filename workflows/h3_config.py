@@ -497,10 +497,30 @@ TURBO_SAMPLER = "euler"
 # most: that last one has a relative delta of 1.92, i.e. is rewritten.
 #
 # It needs `ComfyUI-MiniMax-H3-Turbo`'s own two nodes rather than the stock
-# loader, and the reason is specific to us: our base is PRUNED
-# (`..._ref2va_pruned_int8_convrot`), and that pack's node re-injects the
-# LoRA's time conditioning at run time from a `silu(t_emb)` grid it ships.
-# The stock loader would apply the weights and silently skip that.
+# loader, for TWO independent reasons. Both measured 2026-08-16 from the
+# safetensors headers; neither is the int8.
+#
+# 1. Key names, and this one is about the file, not our base. Its keys are
+#    bare (`blocks.0.adaln_proj.linear.lora_A.weight`), while
+#    `comfy/lora.py:192-196` builds its key map from `model.state_dict()`,
+#    where every key carries a `diffusion_model.` prefix. Nothing matches, so
+#    zero keys load. The stock loader does not "apply the weights and skip the
+#    time conditioning" -- it applies nothing at all.
+#
+# 2. Our base is curve-form, which is what PRUNED means here. Such a
+#    checkpoint ships an `adaln_t_table` and has no `time_embedder` module at
+#    all (`comfy/ldm/minimax/model.py:440-452`, consumed at :629-636), and its
+#    adaln takes an 8-wide curve coordinate: `blocks.0.adaln_proj.linear.weight`
+#    is [96768, 8]. This LoRA's adaln half was trained full-width, lora_A being
+#    [16, 2688], so `lora_B @ lora_A` is [96768, 2688] and cannot be added to a
+#    [96768, 8] weight at any strength or by any loader. Its attn/mlp half
+#    would fit ([64, 5376] against a [21504, 5376] weight); only the 51 adaln
+#    modules are impossible. The `fp8_scaled` build carries the same [96768, 8]
+#    and the same table, so swapping quantization changes nothing.
+#
+# Hence the pack shipping its own `silu(t_emb)` grid: on a curve-form base the
+# table must be regenerated, not patched. The official `_comfyui_` turbo LoRAs
+# load here precisely because they carry no adaln keys at all.
 #
 # Settings are the pack's own, not ours to tune here. README: 4 steps is the
 # minimum, 4-8 the useful range, 6-8 noticeably better, past 8 no benefit and
