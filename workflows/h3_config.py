@@ -721,18 +721,46 @@ REF_LORA_STRENGTH = 1.0
 #   reference graphs add a patch. Fewer checkpoint permutations to keep
 #   consistent, and a bench arm can move the strength without a reload.
 #
-# **What is NOT established, and it matters before quoting the two as
-# equivalent:** nobody has checked that fl2va + this LoRA at 1.0 actually
-# reconstructs ref2va. The extraction covers 474 of 474 modules exactly (read
-# from both safetensors headers 2026-08-16), and ComfyUI applies it correctly
-# -- the file carries no `__metadata__` and no `.alpha` tensors, so
+# **Measured 2026-08-16 by `bench/analyze_ref_lora.py`, and the answer is two
+# answers.** Keep COVERAGE and RECONSTRUCTION apart; conflating them is the
+# same shape as the phantom-keys bug in provenance.py.
+#
+#   COVERAGE      verified exactly: 474/474 modules, zero unmatched either
+#                 direction, 794 tensors = 264 lora pairs + full-rank .diff on
+#                 every norm and .diff_b on every bias. A whole-model delta.
+#
+#   RECONSTRUCTION splits on the INT8 BOUNDARY, not on rank:
+#                 * 64 non-quantized modules -- residual 0.0022, cosine
+#                   1.0000. Essentially exact, and this includes all 51 rank-8
+#                   adaln projections, which are ALSO the most-rewritten
+#                   modules in the model (relative delta 1.86; final_layer's
+#                   is 1.92, i.e. replaced rather than adjusted). The parts
+#                   that change most are the parts reconstructed best.
+#                 * 200 int8 modules -- NOT GRADEABLE from these files. The
+#                   LoRA's delta there is ~0.36 quantization steps RMS, below
+#                   the half-step needed to resolve it, and the only available
+#                   target differences two INDEPENDENTLY quantized checkpoints
+#                   so it carries both files' quantization error against a
+#                   true relative delta of only 0.033.
+#
+# A naive read of those 200 says residual 1.05 / cosine 0.023, i.e. "the LoRA
+# is wrong". It is not: the split falling exactly on the int8 boundary rather
+# than on rank is the tell, since a bad extraction would not be perfect on 64
+# modules and orthogonal on 200. **Do not quote that number as a defect.**
+#
+# **The consequence that bounds the whole approach:** the delta being applied
+# is comparable to the quantization step of the checkpoint it is applied to.
+# So a higher-rank extraction would be writing detail this int8 base cannot
+# store -- the binding constraint is the quantization, not the rank. That is
+# the argument against trying to extract a better LoRA.
+#
+# **Still open:** whether the two produce the same OUTPUT. ComfyUI applies it correctly -- no
+# `__metadata__` and no `.alpha` tensors, so
 # `comfy/weight_adapter/lora.py:247-250` takes the `alpha = 1.0` branch and
 # applies the raw factors with no `alpha/rank` division, which is right for an
-# SVD of a real weight difference. But "correctly applied" is not
-# "reconstructs the target". Rank truncation (256 on the projections, 8 on
-# adaln) and the dequantize/requantize round trip on the 200 int8 weights both
-# sit between the two, unmeasured. Run the paired render before treating
-# fl2va+LoRA@1.0 as ref2va.
+# SVD of a real weight difference. But "correctly applied" and "exact on the
+# gradeable modules" are still not "renders the same". That needs a paired
+# render, and until it exists do not call the two interchangeable.
 REF_VIA_LORA = True
 
 # **The ref2va checkpoint is still required and must not be deleted from
