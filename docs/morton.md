@@ -733,6 +733,22 @@ mechanism behind it is not what was written.
 
 ### A Hilbert curve fixes most of it, and looks like a drop-in
 
+**It is a `2d_frame`-class curve, and that is the first thing to know about
+it.** `sol_curves.py:36`: "2D Hilbert within each latent frame, frames left in
+original order". So it never mixes frames, exactly like `2d_frame`, and it is a
+**replacement for `2d_frame` rather than a competitor to `3d`**. The three
+curves are two families:
+
+| family | curves | block shape | canvas-sensitive |
+|---|---|---|---|
+| per-frame 2D | `2d_frame`, `hilbert` | 8x8 tile inside one frame | `2d_frame` yes, `hilbert` much less |
+| 3D | `3d` | 4x4x4 brick over 4 latent frames | barely |
+
+That matters when reading the capture table above, which lists all three side
+by side without saying so: `3d` buys its scores by mixing frames, and the other
+two decline to. Comparing `hilbert` against `3d` is comparing across that
+choice, not within it.
+
 Z-order's weakness is that it jumps: consecutive points on the curve are often
 far apart in space, because the curve crosses quadrant boundaries. Measured, at
 side 64 that is 2047 of 4095 consecutive steps. A Hilbert curve never jumps;
@@ -841,6 +857,20 @@ against pushing `tau` far.
 Caveats, and they are not small: one render, one step, one prompt, t2v, 124
 frames, 6 steps. Test 2 samples 4 heads of 56. Dense activations, so a real
 sparse run's trajectory would differ. And none of this is output quality.
+
+**One more, added 2026-08-17, and it bears on the config change this
+measurement caused.** The capture is at **1344x768**, which is a ragged canvas
+and therefore **`2d_frame`'s worst case**. Geometry at that canvas puts
+`2d_frame` at radius 5.54 / fill 0.60 against 3.24 / 1.00 on a clean one, so
+the arm that lost was measured where it is weakest. On a clean canvas the gap
+between `2d_frame` and `3d` would be expected to narrow; whether it narrows to
+nothing, or reverses, is unmeasured.
+
+That does not undo the result -- `3d` also beat raster, and beat `2d_frame` on
+the tail as well as the mean -- but it does mean **`morton_curve="3d"` is
+pinned on a comparison taken at one canvas that disadvantaged the alternative.**
+The fix is cheap and the harness exists: capture once at 1280x768 and re-run
+`analyze_capture.py`. One render, no new code.
 
 ### The tail is worse than raster, even where the mean is better
 
@@ -1241,6 +1271,10 @@ Not run, in the order they would answer the most:
   is computed over the block centroids, Morton moves the routing threshold as
   well as the membership, so this is no longer a nice-to-have number -- it is
   what decides whether any fixed-`tau` Morton arm is a controlled comparison.
+- **A second capture at 1280x768.** The existing one is at 1344x768, which is
+  `2d_frame`'s worst case, and it is what moved `SOL_RECOMMENDED_CUDA` to `3d`.
+  One render re-runs the whole comparison on ground that does not disadvantage
+  the loser. Cheapest way to check a shipped default that rests on one canvas.
 - A clean canvas against a ragged canvas at matched settings.
 - `morton_curve="3d"` on a long clip. Not rendered here, and it is now the
   shipped curve if Morton is ever turned on.
