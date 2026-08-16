@@ -420,6 +420,60 @@ prevent.
 Reproduce with `python bench/analyze_morton.py --canvas 1344x768 --length 294
 --map`.
 
+### Most of the damage is misalignment, not edge clipping
+
+Worth separating, because this page attributed it to clipping first and that is
+the smaller effect. Two things go wrong on a grid that is not a multiple of 8:
+the Z-order cells get clipped at the frame edge, and 1008 tokens per frame is
+not a multiple of 64 so blocks slide relative to the frame. Measured at
+1344x768, counting blocks that form a single connected region:
+
+| block alignment | connected | mean radius |
+|---|---|---|
+| aligned to the frame start (hypothetical) | 93% | 3.41 |
+| real, cut every 64 rows from row 0 | 60% | 4.89 |
+
+Frame-aligned Morton on the ragged canvas is nearly as good as on a clean one.
+The sliding is what costs most of it. At 768 height the two conditions are
+mathematically equivalent -- both latent dims divisible by 8 holds exactly when
+tokens per frame is divisible by 64 -- so the canvas rule is unchanged. The
+mechanism behind it is not what was written.
+
+### A Hilbert curve fixes most of it, and looks like a drop-in
+
+Z-order's weakness is that it jumps: consecutive points on the curve are often
+far apart in space, because the curve crosses quadrant boundaries. Measured, at
+side 64 that is 2047 of 4095 consecutive steps. A Hilbert curve never jumps;
+adjacency of consecutive points is its defining property, verified here at
+sides 8, 16 and 64 before anything was measured with it.
+
+That matters exactly where Morton is failing. A run of 64 consecutive points
+along a curve with no jumps is a connected region whatever the grid shape, so
+it does not need the grid to factor.
+
+Measured at real block alignment:
+
+| canvas | ordering | blocks connected | mean radius |
+|---|---|---|---|
+| 1344x768 | z-order | 60% | 4.89 |
+| 1344x768 | **hilbert** | **90%** | **4.49** |
+| 1344x768 | raster | 100% | 11.90 |
+| 1280x768 | z-order | 100% | 3.24 |
+| 1280x768 | hilbert | 100% | 3.24 |
+
+Raster is 100% connected because a run along a row is trivially connected,
+which is why radius has to be read alongside it.
+
+So Hilbert recovers most of the gap on the awkward canvases and changes nothing
+on the clean ones. It does not fully close it; the residue is the frame-sliding
+above, which no curve fixes. As a change it is small: same interface, a
+permutation and its inverse, cached once, and the same start-offset rotation
+applies unchanged. `morton_curve` already has two options and this would be a
+third.
+
+**Still link 5.** Whether 90% connected beats 60% connected in the output is
+unmeasured, exactly as with everything else on this page.
+
 ### The tail is worse than raster, even where the mean is better
 
 On 1344x768, 4.7% of Morton blocks have a larger radius than raster order's
