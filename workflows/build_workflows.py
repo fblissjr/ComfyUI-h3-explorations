@@ -202,8 +202,20 @@ def _ref_image_slots(ref_images_on: bool, ref_image_count: int,
     """
     if not ref_images_on:
         return []
+    placeholders = [PLACEHOLDER_IMAGE_A, PLACEHOLDER_IMAGE_B]
+    if ref_images is None and ref_image_count > len(placeholders):
+        # `[A, B][:3]` is 2 files, not an error, so without this a graph asking
+        # for 3 placeholder references silently wires 2. That lands as a
+        # check_ref_prompt_labels failure much later, naming the prompt rather
+        # than the count that caused it. Ask for explicit `ref_images` instead:
+        # a third placeholder would have to be chosen here, sight unseen, and
+        # the role prose in _IMAGE_ROLE_PROSE is the caller's to declare.
+        raise SystemExit(
+            f"ref_image_count={ref_image_count} but only {len(placeholders)} "
+            "placeholder images exist. Pass `ref_images=(...)` naming the "
+            "files, so the graph declares what it wires.")
     files = (list(ref_images) if ref_images is not None
-             else [PLACEHOLDER_IMAGE_A, PLACEHOLDER_IMAGE_B][:ref_image_count])
+             else placeholders[:ref_image_count])
     if not 1 <= len(files) <= len(_REF_IMAGE_NODES):
         raise SystemExit(
             f"{len(files)} reference images: the conditioning node declares "
@@ -1306,6 +1318,100 @@ def _concise_swap_prompt() -> str:
 # content is the prompt author's job, and it is load-bearing rather than
 # decorative -- a label is a bare ordinal and carries no meaning until
 # something says what it is.
+#: What each image-reference role asks of its picture, as (definition,
+#: retention) with `{i}` for the subject/picture ordinal.
+#:
+#: **A role is declared by the caller, never inferred from the socket.**
+#: `_ref_prompt` cannot see the file wired to a socket, so any relationship it
+#: states is an assertion about content it has not looked at. This repo has
+#: already paid for that: the environment template claimed "architecture" for
+#: whatever image happened to be there, and a mountain-lake reference with no
+#: buildings produced a timber veranda and a chalet (`1fa5607`,
+#: `docs/prompt_length_experiment.md`). The graph author picked the file and is
+#: the only one who knows what is in it, so the role travels with the graph.
+#:
+#: Markers follow guide 4.1. `attribute_transfer` is for a characteristic moved
+#: onto a *different* subject, which is why the garment carries it and the
+#: character does not.
+_IMAGE_ROLE_PROSE = {
+    "character": (
+        "<Subject {i}> is the main character in <Picture {i}>, whose face, hair, and clothing are carried into the target video.",
+        "<Subject {i}> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.",
+    ),
+    # Scoped to setting/palette/lighting and deliberately NOT to occupants: an
+    # environment plate may contain people, and a broader line puts them in
+    # competition with <Subject 1>'s identity.
+    "environment": (
+        "<Subject {i}> is the environment in <Picture {i}>, whose setting, palette, and lighting are carried into the target video.",
+        "<Subject {i}> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.",
+    ),
+    "garment": (
+        "<Subject {i}> is the garment shown in <Picture {i}>, which <Subject 1> wears in the target video.",
+        "<Subject {i}> (appears in [Shot 1]): attribute_transfer - the garment from <Picture {i}> is placed on <Subject 1>.",
+    ),
+    # Last resort, and it asserts only what is true of any image reference.
+    # Prefer adding a named role above over reaching for this.
+    "subject": (
+        "<Subject {i}> is an additional reference subject shown in <Picture {i}>, whose appearance is carried into the target video.",
+        "<Subject {i}> (appears in [Shot 1]): fully_preserved - the appearance of <Subject {i}> is retained.",
+    ),
+}
+
+#: What `images=True` has always meant. Named so the byte-identity of every
+#: existing graph is a constant rather than a coincidence of ordering.
+_DEFAULT_IMAGE_ROLES = ("character", "environment")
+
+
+def _image_roles(images):
+    """Normalise `images=` into a tuple of role names.
+
+    Accepts the three spellings a caller can want, and nothing else:
+
+      False / None          no image references
+      True                  the historical pair, ("character", "environment")
+      ("character", ...)    an explicit role per socket, in socket order
+
+    An int is deliberately NOT accepted. `images=3` would have to invent roles
+    for pictures it cannot see, which is the failure this table exists to
+    prevent -- the caller wiring the files is the one who knows what they are.
+    """
+    if not images:
+        return ()
+    if images is True:
+        return _DEFAULT_IMAGE_ROLES
+    roles = tuple(images)
+    unknown = [r for r in roles if r not in _IMAGE_ROLE_PROSE]
+    if unknown:
+        raise SystemExit(
+            f"_ref_prompt: unknown image role(s) {unknown}. Known roles are "
+            f"{sorted(_IMAGE_ROLE_PROSE)}. Add one to _IMAGE_ROLE_PROSE with "
+            "prose written against the official guide rather than passing a "
+            "role the table cannot render.")
+    if not 1 <= len(roles) <= len(_REF_IMAGE_NODES):
+        raise SystemExit(
+            f"_ref_prompt: {len(roles)} image roles, but the builder wires "
+            f"{len(_REF_IMAGE_NODES)} image sockets. These must match -- "
+            "bench/check_ref_prompt_labels.py fails the build when the prompt "
+            "names labels the graph does not wire.")
+    return roles
+
+
+def _env_label(image_roles):
+    """`<Subject N>` for the environment reference, or None if there isn't one.
+
+    The shot prose has an establishing beat that puts <Subject 1> inside the
+    scene, and it hard-coded `<Subject 2>` while that was the only arrangement
+    the builder could express. With roles declared per socket the environment
+    can sit anywhere, so this resolves it by role. Returns None when no socket
+    carries `environment`, and the callers drop the beat rather than naming a
+    subject that is not a place.
+    """
+    for n, role in enumerate(image_roles, start=1):
+        if role == "environment":
+            return f"<Subject {n}>"
+    return None
+
+
 def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
                 video_role="structure", audio_role="music"):
     """A ref2va prompt declaring EXACTLY the labels this arm wires, in the
@@ -1345,6 +1451,8 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
     partially_preserved / attribute_transfer / weak_reference (4.1), audio
     takes fully_copy / partially_copy / reference / weak_reference (4.2).
     """
+    image_roles = _image_roles(images)
+    image_count = len(image_roles)
     defs, retention, shot = [], [], []
     audio_n = 0
     subject_from_video = video and not images
@@ -1403,14 +1511,16 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
             retention.append(
                 "<Subject 2> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.")
         else:
-            defs += [
-                "<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.",
-                "<Subject 2> is the environment in <Picture 2>, whose setting, palette, and lighting are carried into the target video.",
-            ]
-            retention += [
-                "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.",
-                "<Subject 2> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.",
-            ]
+            # One line per wired socket, in socket order, from the role the
+            # graph declared. `images=True` resolves to
+            # ("character", "environment"), whose prose is byte-identical to
+            # what this branch hard-coded before 2026-08-16 -- so every
+            # existing graph regenerates unchanged, which is checked rather
+            # than asserted (see the snapshot control in the commit).
+            for i, role in enumerate(image_roles, start=1):
+                line, ret = _IMAGE_ROLE_PROSE[role]
+                defs.append(line.format(i=i))
+                retention.append(ret.format(i=i))
     elif subject_from_video:
         if video_role == "edit":
             defs.append(
@@ -1499,7 +1609,13 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
         shot.append("The camera trucks right with small amplitude at slow speed.")
     else:
         if images:
-            shot.append("A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame.")
+            # The establishing beat needs the ENVIRONMENT subject, which is not
+            # always <Subject 2> once roles are declared per socket. Resolving
+            # it by role rather than by ordinal is what stops a three-reference
+            # arm reading "a medium shot establishes <the garment>".
+            shot.append(f"A medium shot establishes {_env_label(image_roles)}, then <Subject 1> enters from the left and stops at the center of the frame."
+                        if _env_label(image_roles) else
+                        "A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame.")
         elif subject_from_video:
             shot.append("A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame.")
         else:
@@ -1512,7 +1628,9 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
         "edit": "The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names",
         "continue": "The target video continues <Video 1> from its final frame, without a cut",
         "motion": "The target video places <Subject 1> inside <Subject 2>, carrying the walking motion of <Video 1>",
-        "structure": ("The target video places <Subject 1> inside <Subject 2> for a single continuous shot"
+        "structure": ((f"The target video places <Subject 1> inside {_env_label(image_roles)} for a single continuous shot"
+                       if _env_label(image_roles) else
+                       "The target video places <Subject 1> in a single continuous shot")
                       if images else "The target video places <Subject 1> in a single continuous shot"),
     }[video_role if video else "structure"]
     if not video and not images:

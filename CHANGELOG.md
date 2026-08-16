@@ -4,6 +4,48 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.30.0
+
+### Added
+
+- **`_ref_prompt` takes a role per image socket, so a graph can wire three
+  references.** `_REF_IMAGE_NODES` has declared 3 sockets since it was written
+  while `_ref_prompt` only ever emitted 2 labels, so the third was unreachable
+  — `check_ref_prompt_labels.py` requires the prompt to name exactly what the
+  graph wires, and the mismatch made 3 a build failure rather than an option.
+
+  `images=` now accepts `True` (the historical pair) or an explicit tuple of
+  roles in socket order: `("character", "garment", "environment")`. **An int is
+  deliberately rejected** — `images=3` would make the generator invent a
+  relationship for a picture it cannot see, which is the failure `1fa5607` paid
+  for when the environment template asserted "architecture" for whatever image
+  happened to be wired. The caller picks the file, so the caller declares the
+  role.
+
+- **`_env_label()`**, because the establishing beat had a hidden ordinal
+  dependency. The shot prose and the `structure` summary hard-coded
+  `<Subject 2>` as the environment, which is only true when the roles are the
+  historical pair. With a garment at socket 2 the generated prompt read "a
+  medium shot establishes <the garment>". Now resolved by role, and the beat is
+  dropped entirely when no socket carries `environment`. Found by reading the
+  three-role output, not by any check.
+
+### Fixed
+
+- **`ref_image_count` above the placeholder count truncated silently.**
+  `[A, B][:3]` is two files, not an error, so a graph asking for three
+  placeholder references wired two and surfaced much later as a prompt/label
+  mismatch naming the wrong cause. Now refuses and asks for explicit
+  `ref_images=(...)`.
+
+### Verified
+
+- **Byte-identity, as a control rather than an assertion.** All 43 prompts were
+  snapshotted via `--print-prompt` *before* the change; after it, 0 of 43
+  differ and 0 of 87 regenerated graphs changed. `check_ref_prompt_labels`,
+  `check_prompt_guide_conformance`, `check_generator_constants` and
+  `check_workflow_schema` pass, and `smoke_h3.py` rendered.
+
 ## 0.29.0
 
 ### Added
