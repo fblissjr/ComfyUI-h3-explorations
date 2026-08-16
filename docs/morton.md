@@ -140,13 +140,18 @@ earned. Six links, and only the first four are verified.
 | 2 | Routing and the pooled tail are centroid quantities | verified, `sol_attn_route.cu:20-21`: "Both the routing decision and the tail VALUES are centroid quantities" |
 | 3 | Morton changes which tokens share a block | verified, node source and `bench/analyze_morton.py` |
 | 4 | The partition computed here is the partition the kernel uses | deterministic given grid and `video_start`; not an estimate, not a sample |
-| 5 | **A fragmented block's centroid represents its members worse than a compact block's** | **assumed, never measured** |
-| 6 | Therefore Morton's canvas dependence matters for output | rests entirely on 5 |
+| 5 | **A fragmented block's centroid represents its members worse than a compact block's** | **MEASURED 2026-08-15 on captured activations. True.** See below |
+| 6 | Therefore Morton's canvas dependence matters for output | still rests on 5 holding at a size that shows; untested |
 
-Link 5 is the whole argument and it is a story. The reasoning is that
-neighbouring latents are correlated, so a spatially compact block has a mean
-that stands in better for its members. Plausible. Not checked on real
-activations, or on any activations.
+**Link 5 was a story until 2026-08-15. It is now measured, and it is true.**
+See "What the captured activations say" below. The short version: Morton does
+raise centroid fidelity on real q/k, at every depth sampled. The reasoning was
+that neighbouring latents are correlated, so a spatially compact block has a
+mean that stands in better for its members, and that is what the numbers show.
+
+What is left is link 6. A real improvement in centroid fidelity is not the same
+as a visible improvement in output, and the shipped curve's improvement is
+small: +0.6% to +3.0% depending on depth.
 
 There is a specific reason to doubt it as a universal rather than just to
 flag it as unproven. Spatial compactness is a **proxy** for feature
@@ -504,6 +509,75 @@ third.
 
 **Still link 5.** Whether 90% connected beats 60% connected in the output is
 unmeasured, exactly as with everything else on this page.
+
+### What the captured activations say
+
+**First run of `h3_capture.py`, 2026-08-15.** One dense render, Sol-Attn
+bypassed so sage took every call: 124 frames, 1344x768, t2v, 6 steps. Three
+captures at blocks 0, 24 and 49, step 1, each `[1, 56, 37826, 128]` bf16, taken
+after the fused RMSNorm+RoPE. Sequence 37,826 = 530 conditioning rows + 37,296
+video rows, grid (37, 24, 42), 591 blocks. Analysed by
+`bench/analyze_capture.py`. Files and provenance kept outside the repo; see
+that script's docstring.
+
+Because the capture is dense, attention is permutation-equivariant, so a Morton
+arm's q/k is *exactly* the permuted capture at every block. One render gives
+every ordering with no second render and no approximation.
+
+**Centroid fidelity.** Mean cosine of each key to its own block's centroid,
+over all 56 heads and all 582 whole video blocks:
+
+| block | raster | morton `2d_frame` | morton `3d` |
+|---|---|---|---|
+| 0 | 0.7523 | 0.7565 (+0.6%) | 0.7830 (+4.1%) |
+| 24 | 0.7442 | 0.7665 (+3.0%) | 0.7915 (+6.4%) |
+| 49 | 0.8678 | 0.8804 (+1.5%) | **0.9434 (+8.7%)** |
+
+**Mass concentration.** Key blocks needed to hold 90% of a query's attention
+mass, of 591. Sampled: 4 heads of 56, 48 video queries each. The attention
+weights are identical under every ordering, so this measures regrouping alone.
+
+| block | raster | morton `2d_frame` | morton `3d` |
+|---|---|---|---|
+| 0 | 393.7 | 386.5 (-1.8%) | 365.8 (-7.1%) |
+| 24 | 178.0 | **149.3 (-16.1%)** | 144.7 (-18.7%) |
+| 49 | 238.1 | 228.9 (-3.9%) | 236.3 (-0.8%) |
+
+Four things follow.
+
+**Link 5 is true.** Morton raises centroid fidelity on real activations at
+every depth measured. The canvas result is therefore about something real.
+
+**`3d` scores higher than `2d_frame` on both metrics at every block
+measured**, by 3x to 6x on centroid fidelity. State that as the measurement it
+is: it says nothing yet about output, and no render has been made with `3d` on
+a long clip.
+
+It does sit awkwardly against the reasoning behind the default. `2d_frame` was
+chosen because H3's `FRAME_PER_TOKEN` is `(1, 4, 4, 4, 4)`, so index-adjacent
+latent frames are 1 or 4 real frames apart and a 3D curve groups temporally
+distant tokens. That argument is mechanically correct. These numbers do not
+refute it; they show that whatever it costs, `3d` still summarises better on
+this capture. Why is not established. One candidate, untested: video latents
+may be more temporally redundant than the argument assumes.
+
+The next step this implies is a `3d` render, not a config change.
+
+**The geometry predicted the tail and the activations confirmed it
+independently.** `2d_frame`'s p10 centroid fidelity is *below* raster at blocks
+0 and 49 (0.7291 against 0.7483; 0.8455 against 0.8618) while its mean is above.
+That is exactly what the geometry said: 4.7% of `2d_frame` blocks are looser
+than raster's worst. Two unrelated measurements, same shape. `3d` improves the
+mean and the tail together.
+
+**Attention is not very sparse on this workload.** At its most concentrated a
+query still needs 178 of 591 blocks for 90% of its mass, and 394 at block 0.
+That bounds what any block-sparse method can save here, and it is an argument
+against pushing `tau` far.
+
+Caveats, and they are not small: one render, one step, one prompt, t2v, 124
+frames, 6 steps. Test 2 samples 4 heads of 56. Dense activations, so a real
+sparse run's trajectory would differ. And none of this is output quality.
 
 ### The tail is worse than raster, even where the mean is better
 
