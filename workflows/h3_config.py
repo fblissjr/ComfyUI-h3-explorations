@@ -591,29 +591,75 @@ IMAGE_VAE = "minimax_h3_t1_image_vae_step1597.safetensors"
 # option reaches it and says which side of the family you are on.
 IMAGE_EDIT_CANVAS = dict(width=768, height=1152)
 
-CANVAS = dict(width=1344, height=768)
+# The default canvas, chosen by TIER rather than typed, so "render this
+# cheaper" is one edit instead of a hunt through GRAPHS.
+#
+# **The structural fact that makes this worth having**, measured against
+# `adapt_canvas` on 2026-08-16 by enumerating the whole legal family:
+#
+#   Every ratio at or above 1.75 costs the SAME. 1344x768, 1536x672,
+#   1792x576 and 2016x512 are all 1008 tokens/frame, because the area cap
+#   binds and simply trades width for height. **Going wider is free and buys
+#   no speed.** The only cheap direction is toward square, and it is a smooth
+#   32px ramp -- 20 legal landscape canvases between 1:1 and 16:9, each about
+#   0.04 apart in ratio. Attention goes as the SQUARE of tokens, so small
+#   width steps move the cost a lot.
+#
+# All four tiers are legal `adapt_canvas` outputs and inside the trained
+# family. Three of them hit a common ratio exactly, which 1344x768 does not --
+# it is 1.75, and true 16:9 (1376x768, 1.79) is not only absent from the
+# family below the cap but costs MORE.
+#
+#   tier    canvas      ratio           tok/f  attention
+#   full    1344x768    1.75            1008   1.00x   <- ships
+#   near    1280x768    1.67 exact 5:3   960   0.91x
+#   fast    1152x768    1.50 exact 3:2   864   0.73x
+#   draft   1024x768    1.33 exact 4:3   768   0.58x
+#
+# **Which tier to use.** `fast` is the iteration canvas: exact 3:2, 27% off
+# attention, and only 0.25 of ratio from what ships, so framing reads the
+# same. `near` when a comparison has to stay visually close to the shipped
+# canvas. `draft` changes the framing enough that it is for "does the pipeline
+# run", not "does this look right".
+#
+# **The trap, and it is specific to Sol-Attn.** Sol needs roughly 60k tokens
+# before it shows anything; below that a null result reads as "this knob does
+# nothing". At 243 frames: `full` is 72,576 tokens, `fast` is 62,208 (just
+# above), `draft` is 55,296 -- BELOW the floor. So a Sol measurement may use
+# `fast` and must not use `draft`. Non-Sol work has no such constraint.
+CANVAS_TIER = "full"
+
+CANVAS_TIERS = {
+    "full":  dict(width=1344, height=768),
+    "near":  dict(width=1280, height=768),
+    "fast":  dict(width=1152, height=768),
+    "draft": dict(width=1024, height=768),
+}
+
+CANVAS = dict(CANVAS_TIERS[CANVAS_TIER])
 FPS = 24.0
 
-# Frame counts snap to a 17k+5 grid. ComfyUI's tooltip puts the trained range
-# at ~124-362, but that upper bound is wrong: the reference generates 5-15s at
-# 24fps and checks the ceiling AFTER the snap, so 362 (15.083s) is refused by
-# THE REFERENCE PIPELINE and 345 (14.375s) is the largest count it will emit.
-# **362 is trained** -- corrected 2026-08-14; the reference's 15.0 is a round
-# number one grid step below the real maximum, not a model boundary. 345 stays
-# the default because a graph exported from here then also runs in diffusers,
-# which is a portability argument and not a quality one. There is no on-grid count at
-# exactly 15.0s. See h3_rules.py for the rule and where it comes from.
+# Frame counts snap to a 17k+5 grid. 362 is the ceiling -- the longest length
+# H3 was trained on -- and `h3_rules.MAX_LENGTH` is where that lives. Read its
+# docstring before quoting it: it is an owner decision on thin evidence, not a
+# measurement.
 #
-# **Changed 362 -> 345 on 2026-08-10, and this breaks comparability.** Every
-# measurement in the notes above -- the ~24% attention ceiling, the 2.6%
-# headroom ceiling, tau 1.3 costing 82.3s against tau 2.0, int8_qk/pv at
-# 1.16x -- was taken at 362 frames, a length this config no longer produces.
-# The ratios should survive the 5% length change, but they were not re-taken;
-# treat any of them re-derived at 345 as the number to trust. 362 stays
-# reachable by passing `length=` explicitly if an old figure needs
-# reproducing.
+# **Restored 362 -> LONG_LENGTH on 2026-08-16, reverting the 2026-08-10 change
+# to 345.** 345 was never a model boundary; it is the largest count *diffusers*
+# will emit, and this repo spent a week presenting that as legality. The
+# portability argument it rested on is now a question you ask explicitly
+# (`h3_rules.reference_would_emit`) rather than a default that quietly caps the
+# render.
+#
+# **Comparability, both directions.** The measurements above -- the ~24%
+# attention ceiling, the 2.6% headroom ceiling, tau 1.3 against tau 2.0,
+# int8_qk/pv at 1.16x -- were taken at 362, then the default moved to 345 and
+# they were never re-taken. Moving back to 362 restores the length they were
+# measured at. Anything measured BETWEEN 2026-08-10 and 2026-08-16 was taken at
+# 345 and now sits one grid step below the default; the 5% length change should
+# not move a ratio, but it was not re-checked in either direction.
 LENGTH = 124
-LONG_LENGTH = 345
+LONG_LENGTH = 362
 
 # Fixed rather than randomised, and deliberately not 1. Every graph and
 # bench arm shares it, which is what makes any two of them comparable: the
@@ -656,6 +702,62 @@ ASPECTS = {
 # does not short-circuit, so it pays the full cost.
 REF_LORA_STRENGTH = 1.0
 
+# HOW a reference graph gets its reference capability. Canonical since
+# 2026-08-16: the fl2va base plus the extracted delta LoRA above, rather than
+# loading the separate ref2va checkpoint.
+#
+# **This is the one switch.** Flip it to False and regenerate, and every
+# reference graph goes back to the ref2va checkpoint with no other edit. That
+# is the whole reason it exists as a constant rather than a per-graph choice.
+#
+# Why the LoRA is the better default here, and it is not about quality:
+#
+#   It makes reference conditioning a KNOB. The checkpoint path has two
+#   states, ref2va or not. The LoRA path has a continuous strength, so
+#   "how much reference conditioning" becomes an axis you can sweep in one
+#   graph instead of a variable you can only toggle by swapping a 21 GB file.
+#
+#   It collapses two code paths into one base. Every graph loads fl2va;
+#   reference graphs add a patch. Fewer checkpoint permutations to keep
+#   consistent, and a bench arm can move the strength without a reload.
+#
+# **What is NOT established, and it matters before quoting the two as
+# equivalent:** nobody has checked that fl2va + this LoRA at 1.0 actually
+# reconstructs ref2va. The extraction covers 474 of 474 modules exactly (read
+# from both safetensors headers 2026-08-16), and ComfyUI applies it correctly
+# -- the file carries no `__metadata__` and no `.alpha` tensors, so
+# `comfy/weight_adapter/lora.py:247-250` takes the `alpha = 1.0` branch and
+# applies the raw factors with no `alpha/rank` division, which is right for an
+# SVD of a real weight difference. But "correctly applied" is not
+# "reconstructs the target". Rank truncation (256 on the projections, 8 on
+# adaln) and the dequantize/requantize round trip on the 200 int8 weights both
+# sit between the two, unmeasured. Run the paired render before treating
+# fl2va+LoRA@1.0 as ref2va.
+REF_VIA_LORA = True
+
+# **The ref2va checkpoint is still required and must not be deleted from
+# MODELS.** The builder has ONE LoRA slot, so a reference graph that already
+# spends it -- the three turbo probes -- cannot also carry the ref delta and
+# keeps the checkpoint. Verified after the 2026-08-16 regeneration: 18 graphs
+# on the LoRA path, 3 on the checkpoint, and the 3 are exactly the turbo ones.
+#
+# So "reference conditioning" and "turbo distillation" do not currently stack.
+# That is a builder limitation, not a model one; stacking would need a second
+# LoraLoaderModelOnly in the chain, which nobody has tried.
+
+
+def ref_base_and_lora():
+    """What a reference graph loads: (unet_name, (lora_name, strength) or None).
+
+    Both builders call this, so the switch above cannot be honoured in one
+    graph format and missed in the other -- which is exactly the drift this
+    file exists to prevent.
+    """
+    if REF_VIA_LORA:
+        return MODELS["unet_fl2va"], (REF_LORA, REF_LORA_STRENGTH)
+    return MODELS["unet_ref2va"], None
+
+
 # Where a two-stage split cuts the shared schedule, in steps. 2 of 8 is the
 # shipped starting point, not a finding. H3's schedule is far more
 # front-loaded than the model the split pattern came from: at video shift 12
@@ -665,42 +767,41 @@ REF_LORA_STRENGTH = 1.0
 # useful boundary is lower here and the sweep starts at 1.
 SPLIT_AT = 2
 
-# Generated length for the reference-video graphs, and it is lower than
-# LONG_LENGTH for a measured reason. At 345 frames the reference arm builds a
-# 182,092-token sequence -- 102,816 video, 60,212 references, 16,352 text --
-# and it does NOT fit on a 24 GB 4090. Measured 2026-08-13: the render reached
-# step 4 of 16 at 123.5 s/it, then Sol-Attn's kernel OOMed and fell back, then
-# sage's OOMed and fell back, then ComfyUI's own SDPA OOMed with 21.05 GiB
-# allocated against a 23.54 GiB limit. The fallback chain behaved perfectly;
-# there was simply no room.
+# **`REF_VIDEO_LENGTH` was deleted on 2026-08-16. Do not reintroduce it.**
+# Owner's reasoning, and it is the right one: a safe length for a reference
+# arm is not a constant. It depends on how many references are wired, their
+# kinds, their durations, the canvas, and whether they are upscaled -- so a
+# single number can only be right for the one configuration it was measured
+# on, and wrong-but-silent everywhere else. A test or a bench should render
+# the duration that test calls for. The video-bearing arms now take
+# `LONG_LENGTH` like everything else.
 #
-# A reference video is the most expensive input in the model: it is truncated
-# to the GENERATED frame count, so its cost scales with this number twice over
-# -- once for the video rows and once for the reference rows.
+# The measurement that number came from is kept, because it is data and the
+# ceiling it describes is real. **At 345 frames, 1024x768, references not
+# upscaled, the reference arm peaked at 22,735 MiB of 24,564 and took 34.3
+# minutes end to end** (2026-08-13). That is 1,829 MiB of headroom, and it was
+# the *best* case -- the same arm at 1344x768 with references upscaled built a
+# 182,092-token sequence and OOMed at step 4 of 16, after Sol-Attn, sage and
+# ComfyUI's own SDPA each fell back correctly and still found no room.
 #
 #   345 frames -> 182,092 tokens   (OOM on 24 GB at 1344x768, refs upscaled)
 #   209 frames -> 120,918
 #   124 frames ->  82,686
 #
-# But shortening the render was the WRONG lever, and shipping 124 was a
-# mistake worth naming. Because the reference is truncated to the generated
-# frame count, cutting the render to fit cuts the reference too -- so the
-# 124-frame arms were testing a 5.2-second reference, and a reference arm
-# that cannot carry a long reference is not testing the expensive case at
-# all. Canvas and reference-image detail are incidental to what these arms
-# measure; reference duration is the whole point.
+# **So expect these arms to sit at or over the edge at 362.** That is ~5% more
+# tokens against 1,829 MiB, and a reference video is the most expensive input
+# in the model -- truncated to the GENERATED frame count, so this length costs
+# twice over, once for the video rows and once for the reference rows. Read
+# preflight before running one, and if it OOMs, shorten THAT run rather than
+# reaching for a new constant.
 #
-# Re-measured 2026-08-13, best case first: the full 345 frames DOES fit once
-# the two incidental costs are given up. Same 14.375-second reference, on the
-# same card, end to end:
-#
-#   345f @ 1024x768, refs not upscaled -> SUCCESS, peak 22,735 MiB, 34.3 min
-#
-# 1,829 MiB of headroom on a 24,564 MiB card, so this is close to the edge
-# and not a general-purpose budget: a third reference image or a longer
-# soundtrack can still push it over. Preflight is the thing to read before
-# widening any of it.
-REF_VIDEO_LENGTH = 345
+# One thing not to relearn: shortening the render is the wrong lever for
+# fitting a reference arm. The reference is truncated to the generated frame
+# count, so cutting the render cuts the reference too -- the 124-frame arms
+# this repo once shipped were testing a 5.2-second reference, and a reference
+# arm that cannot carry a long reference is not testing the expensive case at
+# all. Canvas and reference-image detail are the incidental costs to give up
+# first; reference duration is the whole point.
 
 # The canvas and reference-image policy that measurement bought. 1024x768 is
 # 4:3 rather than the 1344x768 the rest of the repo defaults to -- a real
@@ -711,5 +812,5 @@ REF_VIDEO_LENGTH = 345
 # Spread into every video-bearing reference arm so the three numbers have one
 # home. Editing them here moves all eight arms together, which is the point.
 REF_VIDEO_CANVAS = dict(width=1024, height=768)
-REF_VIDEO_BUDGET = dict(length=REF_VIDEO_LENGTH, **REF_VIDEO_CANVAS,
+REF_VIDEO_BUDGET = dict(length=LONG_LENGTH, **REF_VIDEO_CANVAS,
                         ref_upscale=False)

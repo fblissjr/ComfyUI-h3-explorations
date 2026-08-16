@@ -142,7 +142,7 @@
     "inputs": {
       "shape": "wide",
       "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
-      "length": 345
+      "length": 362
     }
   },
   "5": {

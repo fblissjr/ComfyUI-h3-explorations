@@ -53,6 +53,7 @@ _OUR_NODES = {
 from h3_config import (  # noqa: E402
     IMAGE_VAE, IMAGE_EDIT_CANVAS,
     CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS, REF_LORA, REF_LORA_STRENGTH,
+    ref_base_and_lora,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
@@ -94,7 +95,7 @@ def _sol_widgets(sol):
     return [sol[k] for k in SOL_WIDGET_ORDER]
 
 
-# Prompt for the long presets (345 frames, 14.375s). That needs a shot timeline,
+# Prompt for the long presets (362 frames, 15.083s). That needs a shot timeline,
 # not one continuous beat -- the guide wants numbered shots with explicit cut
 # times past a few seconds, and a 15s request against a 6s prompt leaves the
 # model twelve seconds it was never told about.
@@ -402,6 +403,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             "because a single frame's audio is 0.04s of nothing.")
     _check_geometry(length, canvas)
     ref = task == "r2v"
+    # Reference graphs take the base+LoRA route by default (h3_config's
+    # REF_VIA_LORA). An explicit `unet` or `lora` still wins, which is what
+    # keeps the turbo-pack and split graphs -- and any deliberate ref2va
+    # control -- working unchanged.
+    if ref and unet is None and lora is None:
+        unet, lora = ref_base_and_lora()
     cv = dict(CANVAS, **canvas)
     prompt = prompt if prompt is not None else {
         "t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]
@@ -1000,23 +1007,27 @@ that way. Text-to-video has no keyframe to derive from, so type a row above.
 
 ## Length rounds up to n % 17 == 5
 
-Ask 200, get 209. Ask 300, get 311. Near the top: 311, 328, 345.
+Ask 200, get 209. Ask 300, get 311. Near the top: 311, 328, 345, 362.
 
-345 is the ceiling, not 362. ComfyUI's tooltip says ~124-362 and its node
-accepts up to 3600, but the reference generates 5-15s at 24fps and applies
-that ceiling after the rounding. 362 is 15.083s, so the reference refuses it
--- though 362 is a trained length and the 15.0s is the reference's spec
-ceiling, not a model limit. 345 is
-14.375s. There is no on-grid count at exactly 15.0s. Ask for 346 and you get
-362, which is why the check has to run on the rounded number.
+362 is the ceiling -- 15.083s, and the longest length H3 was trained on.
+ComfyUI's own node accepts up to 3600 with no ceiling at all. Ask for 363 and
+you get 379, which is over, and that is why the check runs on the rounded
+number rather than the request.
+
+The reference pipeline stops one grid step earlier, at 345, because its
+`max_duration` is a hard-coded 15.0s. That is a fact about diffusers, not a
+limit on the model: a graph at 362 renders here and will not run unmodified
+there. There is no on-grid count at exactly 15.0s, which is how the gap
+appears.
 
 At 345 frames attention is ~76% of the step, against ~50% at 124, so long
-clips are where sparsity and kernel work pay off most.
+clips are where sparsity and kernel work pay off most. 362 is 5% longer
+again.
 
-345 frames is the frame-count ceiling, not the sequence-length ceiling. At
-1344x768 it is S=108,078, which is already past the fused-layout int32
-crossing at 99,864 tokens. That is safe here only because this repo's node
-refuses any sageattention without `sageattn_consume`. See the doc.
+The frame count is not the sequence-length ceiling. At 1344x768, 345 frames
+is S=108,078 -- already past the fused-layout int32 crossing at 99,864
+tokens -- and 362 is longer still. That is safe here only because this repo's
+node refuses any sageattention without `sageattn_consume`. See the doc.
 """
 
 
@@ -1524,7 +1535,7 @@ Upstream tracking: Comfy-Org/ComfyUI#15644.
 
 | | this graph | the video graphs |
 |---|---|---|
-| length | **1** | 124-345 |
+| length | **1** | 124-362 |
 | VAE | **single-image H3 VAE** | `minimax_h3_video_vae_int8_convrot` |
 | audio | no decoder at all | decoded and muxed |
 | output | `SaveImage` | `VHS_VideoCombine` |
@@ -2359,6 +2370,12 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # exits -- leaving a graph that loads the one-frame VAE for a 124-frame
     # clip, which is exactly what the guard exists to prevent.
     _check_single_frame(single_frame, length)
+    # Same resolution as build_api, and it has to be the same call: a
+    # reference graph that took the LoRA route in one format and the
+    # checkpoint route in the other would be two different models rendering
+    # from what reads as one config.
+    if ref and unet is None and lora is None:
+        unet, lora = ref_base_and_lora()
     cv = dict(CANVAS, **canvas)
     prompt = prompt if prompt is not None else {
         "t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]

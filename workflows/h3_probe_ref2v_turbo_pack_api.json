@@ -140,7 +140,7 @@
     "inputs": {
       "shape": "standard",
       "shape.standard_resolution": "1024x768  4/3  768 tok/frame  0.58x",
-      "length": 345
+      "length": 362
     }
   },
   "5": {

@@ -142,7 +142,7 @@
     "inputs": {
       "shape": "square",
       "shape.square_resolution": "768x768  1  576 tok/frame  0.33x",
-      "length": 345
+      "length": 362
     }
   },
   "5": {

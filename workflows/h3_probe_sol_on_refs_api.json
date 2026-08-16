@@ -2,7 +2,7 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
       "weight_dtype": "default"
     }
   },
@@ -142,7 +142,7 @@
     "inputs": {
       "shape": "wide",
       "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
-      "length": 345
+      "length": 362
     }
   },
   "5": {
@@ -220,11 +220,22 @@
       "lift_downstream_clamp": false
     }
   },
+  "18": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/minimax_h3_ref_lora_rank_256_bf16.safetensors",
+      "strength_model": 1.0
+    }
+  },
   "19": {
     "class_type": "MiniMaxH3SigmaShift",
     "inputs": {
       "model": [
-        "1",
+        "18",
         0
       ],
       "shift_video": 12.0,
