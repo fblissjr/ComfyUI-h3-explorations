@@ -134,7 +134,7 @@ directions: **width and height both divisible by 256.**
 
 > ### The canvas rule is a `2d_frame` rule. `3d` does not have this problem.
 >
-> **Stated unconditionally on this page until 2026-08-17, and that was wrong in
+> **Stated unconditionally on this page until 2026-08-16, and that was wrong in
 > a way that got repeated.** Everything above and below about ragged canvases
 > describes `morton_curve="2d_frame"`. `SOL_RECOMMENDED_CUDA` has pinned
 > **`3d`** since 2026-08-16, and `3d` is close to canvas-independent. Measured
@@ -171,7 +171,7 @@ which prints both curves side by side.
 
 ### The rule of thumb, per curve, swept over all 48 landscape canvases
 
-Measured 2026-08-17, every legal landscape canvas at 294 frames. **`3d` has a
+Measured 2026-08-16, every legal landscape canvas at 294 frames. **`3d` has a
 canvas rule too -- it is just a different and much weaker one, and it is about
 height.**
 
@@ -858,7 +858,7 @@ Caveats, and they are not small: one render, one step, one prompt, t2v, 124
 frames, 6 steps. Test 2 samples 4 heads of 56. Dense activations, so a real
 sparse run's trajectory would differ. And none of this is output quality.
 
-**One more, added 2026-08-17, and it bears on the config change this
+**One more, added 2026-08-16, and it bears on the config change this
 measurement caused.** The capture is at **1344x768**, which is a ragged canvas
 and therefore **`2d_frame`'s worst case**. Geometry at that canvas puts
 `2d_frame` at radius 5.54 / fill 0.60 against 3.24 / 1.00 on a clean one, so
@@ -908,7 +908,7 @@ references at four different sizes produce one `video_start`; that number mod
 tiles cleanly tiles cleanly at any reference load, and one that does not is not
 made worse by adding references.
 
-**Confirmed on `3d` as well, 2026-08-17**, since `3d` is now the shipped curve
+**Confirmed on `3d` as well, 2026-08-16**, since `3d` is now the shipped curve
 and the exhaustive run above predates it. At 1024x768, `video_start` 0 / 33 /
 63: `3d` holds radius 1.61-1.62 and fill 0.98 throughout, and `2d_frame` holds
 3.24 / 1.00. The `_noroll` control moves in both cases -- `2d_frame` to radius
