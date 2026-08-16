@@ -1015,6 +1015,53 @@ Clips, in arm order, for whoever watches them: `h3_sage_ab_00093` (morton off),
 (reorder-only, dense). **Nobody has watched them. No quality claim follows from
 this section.**
 
+## Should you turn it on? The short answer for someone who just wants to know
+
+Put here so the answer stops being re-derived, differently, in every
+conversation. Nothing in this section is new; it is the rest of the page
+compressed to the question people actually ask.
+
+**Default: off.** Not because it is known to hurt, but because **nobody has
+measured whether it helps -- not us, not upstream, not either third-party
+pack.** It is off in the node, off in every shipped graph here, absent from
+NVLabs' H3 profiles, and the author's own words are that it "may or may not
+increase quality, that's something to test". Everything anyone has tuned was
+tuned with it off.
+
+**It costs nothing, so the only real cost is that your outputs change.** The
+permutation is free within measurement error. But it is **not bit-neutral**, so
+the same seed gives a different render. Treat turning it on as a reseed, not an
+upgrade.
+
+**Turn it on only if you are willing to test rather than assume**, and if so:
+
+- **Check more than one seed.** The single quality finding this repo ever had
+  was retracted because it vanished at the second seed, within an hour.
+- **Get the curve right, because it is a second widget.** From a graph built
+  here you get `3d` and want height 768, 640 or 512, any width. From a fresh
+  node you get `2d_frame` and want 768x768, 1024x768 or 1280x768. Turning
+  Morton on without checking the curve is the most likely way to conclude it
+  does nothing.
+- **Raise `tau` at the same time.** The only stated payoff anywhere is *same
+  quality at higher sparsity*. At fixed `tau` you get the perturbation and none
+  of the payoff -- and, because the threshold is derived from the block
+  centroids, fixed `tau` is not even a fixed operating point.
+
+**Leave it off when:**
+
+- You have seeds you like. It changes all of them.
+- You are A/B-ing anything else. It is a confound.
+- You are on `2d_frame` and a canvas that is not one of the three. That is the
+  one configuration measured to make a minority of blocks *worse* than
+  anything raster produces -- 4.7% at 1344x768. `3d` does this at 0%.
+- The clip is short or small. Below roughly 60k tokens nothing here is
+  measurable either way.
+
+**What would change this answer:** one person watching a Morton-on and a
+Morton-off clip end to end, at matched wall clock rather than matched `tau`,
+on a canvas that suits the curve. That is a couple of hours of GPU time and
+nobody has spent it.
+
 ## What upstream says the payoff is, and why our arms could not find it
 
 From the Morton docstring in the Triton pack, `_morton.py:1-11`, read in
