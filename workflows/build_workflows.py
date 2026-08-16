@@ -269,6 +269,21 @@ def _ref_short_edge():
     return REF_IMAGE_SHORT_EDGE
 
 
+def _check_single_frame(single_frame, length):
+    """`single_frame` is a property of the LENGTH; they may not disagree.
+
+    Shared by both builders. Passing one without the other produces a graph
+    that loads the one-frame VAE and renders five frames, or renders one frame
+    and decodes it with the video decoder -- both silent, both wrong, and
+    neither visible until someone looks at the pixels.
+    """
+    if single_frame != is_single_frame(length):
+        raise SystemExit(
+            f"single_frame={single_frame} with length={length}: the "
+            f"single-image path is length=1 and nothing else. Set both or "
+            f"neither.")
+
+
 def _check_geometry(length, canvas):
     """Refuse to emit a graph the reference would reject.
 
@@ -375,15 +390,16 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     """
     if task not in ("t2v", "i2v", "r2v"):
         raise ValueError(task)
-    # `single_frame` is a property of the LENGTH, so the two are not allowed to
-    # disagree. Passing one without the other produced a graph that loaded the
-    # image VAE and rendered five frames, or rendered one frame and decoded it
-    # with the video decoder -- both silent, both wrong.
-    if single_frame != is_single_frame(length):
+    _check_single_frame(single_frame, length)
+    if single_frame and (stamp or split_at):
+        # Both reach for node 12, which the single-frame path deletes. Not
+        # reachable from GRAPHS, but `build_api` is a public entry the benches
+        # drive, and the failure would otherwise be a bare KeyError from a
+        # dict literal rather than a sentence naming the combination.
         raise SystemExit(
-            f"single_frame={single_frame} with length={length}: the "
-            f"single-image path is length=1 and nothing else. Set both or "
-            f"neither.")
+            "single_frame does not compose with stamp or split_at: both wire "
+            "the audio decoder (node 12), which the one-frame path removes "
+            "because a single frame's audio is 0.04s of nothing.")
     _check_geometry(length, canvas)
     ref = task == "r2v"
     cv = dict(CANVAS, **canvas)
@@ -1495,10 +1511,14 @@ that floors above 1 (Wan uses `min=1` at all 16 of its length inputs, Hunyuan
 at 3, Cosmos at 3). This pack lifts that floor in memory at load
 (`single_frame.py`), which means:
 
-**If this pack is missing or its shim is disabled, this graph fails to
-validate.** ComfyUI rejects `length=1` before anything runs. That is the
-intended failure -- it names the thing that has to change instead of quietly
-rendering five frames. Upstream tracking: Comfy-Org/ComfyUI#15644.
+**If the shim is disabled, `MiniMaxH3Resolution` refuses the render** and says
+why. That refusal is load-bearing and it is ours, not ComfyUI's: **measured
+2026-08-15, ComfyUI accepts this graph without the shim and renders five
+frames through the single-image VAE, silently.** Its validator enforces a
+widget's `min` only on LITERAL values, and this graph wires `length` over a
+link from the Resolution node, so core never checks it -- it just clamps 1 up
+to 5 at execution. The note here said the opposite until it was tested.
+Upstream tracking: Comfy-Org/ComfyUI#15644.
 
 ### What is different from every other graph here
 
@@ -2321,6 +2341,12 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              out_prefix: str | None = None, title: str | None = None,
              **canvas) -> dict:
     ref = task == "r2v"
+    # The same consistency guard `build_api` carries, and it has to be here
+    # too: `main()` writes every UI graph in one loop BEFORE the API loop runs,
+    # so a guard only in `build_api` lets a wrong `.json` reach disk and then
+    # exits -- leaving a graph that loads the one-frame VAE for a 124-frame
+    # clip, which is exactly what the guard exists to prevent.
+    _check_single_frame(single_frame, length)
     cv = dict(CANVAS, **canvas)
     prompt = prompt if prompt is not None else {
         "t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]
@@ -3147,6 +3173,27 @@ def cross_check(written):
                     errs.append(
                         f"{task}: {cls}.{key} is {widgets[i]!r} in "
                         f"{ui_name} but {api_s[cls][key]!r} in {api_name}")
+
+        # VAELoader is compared as a SET of filenames rather than through the
+        # keyed dicts above, and it has to be: every graph loads two VAEs, and
+        # `_ui_settings`/`_api_settings` key by CLASS NAME, so the second
+        # VAELoader silently overwrites the first and whichever survives is an
+        # accident of iteration order. Adding "VAELoader" to the list above
+        # would compare one arbitrary loader against another.
+        #
+        # It is here for the same reason UNETLoader is: `vae_name` became a
+        # free builder value when the single-frame path introduced the image
+        # VAE, so the two formats can now disagree about which decoder a graph
+        # loads. That difference renders cleanly and looks wrong only in the
+        # pixels -- a video graph on the one-frame VAE, or the reverse.
+        ui_vaes = sorted(
+            str((n.get("widgets_values") or [None])[0]) for n in ui["nodes"]
+            if n["type"] == "VAELoader" and n.get("mode", 0) == 0)
+        api_vaes = sorted(str(n["inputs"].get("vae_name")) for n in api.values()
+                          if isinstance(n, dict) and n.get("class_type") == "VAELoader")
+        if ui_vaes != api_vaes:
+            errs.append(f"{task}: the two forms load different VAEs -- "
+                        f"{ui_name} has {ui_vaes}, {api_name} has {api_vaes}")
     return errs
 
 

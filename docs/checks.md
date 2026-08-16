@@ -9,8 +9,11 @@ There is no test suite and no runner. Each script is standalone, prints its own
 **Last full run: 2026-08-14**, same box, ComfyUI restarted, live server. All
 `check_*.py` pass; `smoke_h3.py` passes on both the default graph (exit 2, Sol
 correctly absent) and `h3_probe_sol_on_api.json` (exit 0, CUDA seam confirmed).
-**Partial run 2026-08-15**, when the single-frame path landed: the CUDA-free
-checks all pass (`check_single_frame`, `check_keyframe_canvas`,
+**Partial run 2026-08-15**, when the single-frame path landed. `check_single_frame`
+**does touch CUDA** despite living with the fast checks -- importing the H3
+node module pulls in `nodes` -> `comfy.model_management`, which initialises the
+device at import -- so free the GPU before it like the others. These pass
+(`check_single_frame`, `check_keyframe_canvas`,
 `check_schema_defaults`, `check_generator_constants`, `check_reference_fit`,
 `check_ref_prompt_labels`, `check_prompt_guide_conformance`,
 `check_workflow_schema`), the generator validated 73 graphs against a live

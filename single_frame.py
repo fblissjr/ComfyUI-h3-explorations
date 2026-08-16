@@ -39,7 +39,13 @@ it is not a quality claim. At `length=1`:
     `first_frame`. Reference images have no such problem, which is why the
     single-image path here is ref2v and not fl2v.
 
-**Why `length >= 2` is safe is verified at apply time, not argued.** The two
+**One thing this DOES widen, and it is not the arithmetic.** Lowering the
+schema floor means prompt validation now accepts `length` 2, 3 and 4, which it
+rejected outright before. They render exactly as 5 does, because that is what
+they always snapped to -- but "nothing else changes" is a claim about output,
+not about what the API admits. Say it that way.
+
+**Why every other length is safe is verified at apply time, not argued.** The two
 grid functions keep upstream's own body for every count above 1 -- the patch
 delegates rather than reimplementing, so an upstream change to the 17k+5
 arithmetic still flows through. `temporal_shape` is the one function that has
@@ -89,6 +95,12 @@ _MARK = "_h3_explorations_single_frame"
 # The upper bound is read off the node's own schema so it tracks upstream; this
 # is only the fallback for a schema that does not declare one.
 _DOMAIN_MAX_FALLBACK = 3600
+
+# The sweep starts below zero on purpose. `length` arrives over links as well
+# as widgets and links are never min-validated, so the reachable domain is not
+# the widget's range -- `MiniMaxH3KeyframeCanvas` emits 0 as its "opt out"
+# sentinel, straight into the stock node.
+_DOMAIN_MIN = -8
 
 _TOOLTIP_NOTE = (
     " -- ComfyUI-h3-explorations lowered this floor from 5 to 1 for the "
@@ -207,7 +219,15 @@ def _make_temporal_shape(mod):
         # clamp this exists to relax lives inside it. Reads its constants and
         # its two helpers off the module so it composes with the patched pair
         # above and does not become a second copy of FPS / AUDIO_LATENT_FPS.
-        frame_count = mod.align_frame_count(max(1, length))
+        #
+        # **Only an explicit 1 is a single frame. 0 and below keep the old
+        # 5-frame floor**, which `max(1, length)` -- the obvious spelling, and
+        # the one the community patch uses -- would silently change. That is
+        # not hypothetical here: `MiniMaxH3KeyframeCanvas` documents `length=0`
+        # as "opt out", emits it as a LINK into the stock node, and link values
+        # are never min-validated. Under `max(1, length)` that sentinel would
+        # start rendering one frame instead of five.
+        frame_count = mod.align_frame_count(length if length >= 1 else 5)
         duration = frame_count / mod.FPS
         return (frame_count, mod.video_latent_t(frame_count),
                 round(duration * mod.AUDIO_LATENT_FPS))
@@ -265,16 +285,21 @@ def schema_length_max(node_cls):
 
 
 def unchanged_domain(mod, node_classes=NODE_CLASSES):
-    """Every length whose answer this patch must not move: 2 .. the node max.
+    """Every length whose answer this patch must not move. 1 is the exception.
 
-    The domain is the node's own declared range, so it covers exactly what a
-    user or an API submission can get past validation -- not an arbitrary
-    window. 1 is excluded because it is the one answer meant to change.
+    Runs from `_DOMAIN_MIN` to the node's own declared maximum, so it covers
+    what a user or an API submission can get past validation -- and then some.
+    It deliberately starts BELOW zero rather than at 2: `length` reaches these
+    functions over links as well as widgets, links are never min-validated, and
+    this repo's own keyframe node emits 0 as an "opt out" sentinel. A sweep
+    starting at 2 would have proved nothing about the value most likely to
+    arrive from our own graphs.
     """
     ceilings = [schema_length_max(getattr(mod, name))
                 for name in node_classes if hasattr(mod, name)]
     ceilings = [c for c in ceilings if isinstance(c, int)]
-    return range(2, (max(ceilings) if ceilings else _DOMAIN_MAX_FALLBACK) + 1)
+    top = max(ceilings) if ceilings else _DOMAIN_MAX_FALLBACK
+    return [n for n in range(_DOMAIN_MIN, top + 1) if n != 1]
 
 
 _SCHEMA_MARK = "_h3_explorations_length_floor"
@@ -303,10 +328,17 @@ def _relax_schema(node_cls):
         inp = _length_input(schema)
         if inp is not None:
             inp.min = 1
-            # step 17 with a floor of 1 makes the UI arrow step 1 -> 18, which
-            # is not a range anyone wants to walk. Core's own patch does the
-            # same thing. Nothing validates step server-side; this is the
-            # widget's increment only.
+            # step 1, and this is OUR choice rather than a precedent. Read
+            # 2026-08-15: no `comfy_extras` family pairs `min=1` with `step=1`
+            # -- Wan is min=1/step=4 at all 16 of its length inputs, Hunyuan
+            # min=1/step=4, Cosmos min=1/step=4 or 8. The community patch uses
+            # step=1 and this follows it, because H3's grid is 17n+5: core's
+            # current 5/17 pairing walks 5, 22, 39, all on the grid, while
+            # 1/17 would walk 1, 18, 35, none of which are. Rather than pick a
+            # step that lands off-grid, let every value through and let
+            # `align_frame_count` snap it, which it does regardless.
+            # Nothing validates step server-side; this is the widget's
+            # increment only.
             inp.step = 1
             inp.tooltip = (inp.tooltip or "") + _TOOLTIP_NOTE
         return schema
@@ -316,17 +348,23 @@ def _relax_schema(node_cls):
     return True
 
 
-def _patch_one(mod) -> tuple[bool, str, tuple[str, ...]]:
-    """Patch a single module copy. Returns (patched, reason, function names)."""
+def _prepare_one(mod):
+    """Verify one module copy and return the installer for it, or a reason.
+
+    Split from installation so `apply()` can check EVERY copy before touching
+    any of them. Patching as it goes leaves the process half-patched when a
+    later copy refuses -- reporting `applied=False` while one copy is already
+    live, which is precisely the state this module claims never to install.
+    """
     if getattr(mod, _MARK, False):
-        return True, "already applied", ()
+        return (lambda: None), "already applied", ()
 
     missing = [n for n in ("align_frame_count", "video_latent_t",
                            "temporal_shape", "FPS", "AUDIO_LATENT_FPS")
                if not hasattr(mod, n)]
     if missing:
-        return False, (f"{MODULE} is not the shape this shim knows "
-                       f"(missing {', '.join(missing)}); not patching"), ()
+        return None, (f"{MODULE} is not the shape this shim knows "
+                      f"(missing {', '.join(missing)}); not patching"), ()
 
     align = _make_align_frame_count(mod.align_frame_count)
     latent_t = _make_video_latent_t(mod.video_latent_t)
@@ -345,21 +383,30 @@ def _patch_one(mod) -> tuple[bool, str, tuple[str, ...]]:
     for n in unchanged_domain(mod):
         before, after = mod.temporal_shape(n), staged(n)
         if before != after:
-            return False, (f"refusing to patch: length={n} would change from "
-                           f"{before} to {after}"), ()
+            return None, (f"refusing to patch: length={n} would change from "
+                          f"{before} to {after}"), ()
     if staged(1) != (1, 1, round(1 / mod.FPS * mod.AUDIO_LATENT_FPS)):
-        return False, (f"refusing to patch: length=1 gives {staged(1)}, "
-                       f"which is not a single frame"), ()
+        return None, (f"refusing to patch: length=1 gives {staged(1)}, "
+                      f"which is not a single frame"), ()
 
-    # setattr rather than attribute assignment: these are module globals being
-    # replaced, which is the whole mechanism, and a type checker is right that
-    # a module has no such declared attribute.
-    setattr(mod, "align_frame_count", align)
-    setattr(mod, "video_latent_t", latent_t)
-    setattr(mod, "temporal_shape", staged)
-    setattr(mod, _MARK, True)
-    return True, "patched", ("align_frame_count", "video_latent_t",
-                             "temporal_shape")
+    def install():
+        # setattr rather than attribute assignment: these are module globals
+        # being replaced, which is the whole mechanism, and a type checker is
+        # right that a module has no such declared attribute.
+        setattr(mod, "align_frame_count", align)
+        setattr(mod, "video_latent_t", latent_t)
+        # Built against the MODULE, not against the `_Staged` stand-in used for
+        # verification above. The stand-in freezes FPS and both helpers as class
+        # attributes, so installing it would make the comment in
+        # `_make_temporal_shape` false and would silently ignore anyone who
+        # replaces `align_frame_count` later -- where core's own composes.
+        # The two are equivalent at this point precisely because the helpers
+        # have just been installed on the module.
+        setattr(mod, "temporal_shape", _make_temporal_shape(mod))
+        setattr(mod, _MARK, True)
+
+    return install, "patched", ("align_frame_count", "video_latent_t",
+                                "temporal_shape")
 
 
 def apply(module=None, log=True) -> Report:
@@ -422,12 +469,20 @@ def apply(module=None, log=True) -> Report:
                         {k: id(v) for k, v in _registered_classes().items()},
                         {k: [id(c) for c in v] for k, v in targets.items()})
 
+        # Two phases: verify EVERY copy, then install. A single refusal aborts
+        # the whole thing with nothing touched, so "not patched" never means
+        # "some copies patched" -- the half-applied state the docstring
+        # promises never to leave behind.
         functions: tuple[str, ...] = ()
+        installers = []
         for mod in copies:
-            ok, reason, patched = _patch_one(mod)
-            if not ok:
+            install, reason, patched = _prepare_one(mod)
+            if install is None:
                 return _done(Report(False, reason, healthy=False), log)
+            installers.append(install)
             functions = functions or patched
+        for install in installers:
+            install()
 
         schemas = tuple(
             name for name, group in targets.items()
@@ -468,8 +523,10 @@ _ACTIVE_BANNER = (
     "frame), which core normally floors at 5.\n"
     "    why    H3 is a strong single-image edit model at one frame. H3 is the "
     "only video family in comfy_extras with a floor above 1.\n"
-    "    scope  ONLY length=1 changes. Every length >= 2 is verified identical "
-    "at load, across the node's whole legal range, or nothing is patched.\n"
+    "    scope  Only length=1 RENDERS differently: every other input from -8 "
+    "to the node maximum is verified identical at load, or nothing is patched.\n"
+    "           The floor also makes prompt validation ACCEPT 2-4, which it "
+    "rejected before; those snap to 5 exactly as 5 does.\n"
     "    needs  the single-image H3 VAE to decode (Mamad8/MiniMax-H3-Image-VAE) "
     "-- never wire that VAE into a video graph.\n"
     "    ENDS   when ComfyUI ships this upstream (Comfy-Org/ComfyUI#15644). "

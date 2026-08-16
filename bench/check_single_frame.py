@@ -54,14 +54,26 @@ Claims, i.e. what breaks if a case is deleted:
                              2026-08-15 it was the only thing that could tell
                              a patched module from a patched *copy* of one
 
-No CUDA, no model, no server. Needs ComfyUI importable.
+**This one TOUCHES CUDA, unlike most of `bench/check_*.py`.** It has to import
+`comfy_extras.nodes_minimax_h3` to patch it, that module opens with
+`import nodes`, and `nodes` pulls in `comfy.model_management`, which
+initialises the device at import (`model_management.py`, `get_total_memory` at
+module scope). With a render resident that raises
+`torch.AcceleratorError: CUDA error: out of memory` before the first case runs
+-- which reads as a regression and is not one. Free the GPU first:
 
+    curl -X POST localhost:8188/free -H 'Content-Type: application/json' \\
+         -d '{"unload_models": true, "free_memory": true}'
     PYTHONPATH=/path/to/ComfyUI python bench/check_single_frame.py
+
+No model weights are loaded and the LIVE case is the only one wanting a server.
 """
 
 from __future__ import annotations
 
+import ast
 import importlib.util
+import pathlib
 import re
 import sys
 from pathlib import Path
@@ -89,6 +101,43 @@ def _load_shim():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def _pristine_from_source(path):
+    """An INDEPENDENT baseline: the three grid functions re-executed from source.
+
+    Holding references to the module's own function objects does not work, and
+    the way it fails is subtle enough to have shipped. `temporal_shape`'s body
+    resolves `align_frame_count` and `video_latent_t` through module globals --
+    the very names `apply()` replaces -- so a saved reference to the original
+    `temporal_shape` still calls the PATCHED helpers. Both sides of the
+    comparison then move together and the sweep can only see changes made
+    inside `temporal_shape` itself. Reproduced 2026-08-15: with
+    `_make_align_frame_count` mutated to return 999 at n == 200, the headline
+    case still reported `moved == [1]`.
+
+    Re-executing from source gives functions whose globals are a namespace
+    nothing patches. Extracted with `ast` rather than imported, so the baseline
+    also costs no torch, no CUDA and no ComfyUI import.
+    """
+    tree = ast.parse(pathlib.Path(path).read_text(encoding="utf-8"))
+    keep = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in (
+                "align_frame_count", "video_latent_t", "temporal_shape"):
+            keep.append(node)
+        elif isinstance(node, ast.Assign) and any(
+                getattr(t, "id", "") in ("FPS", "AUDIO_LATENT_FPS")
+                for t in node.targets):
+            keep.append(node)
+    ns = {}
+    exec(compile(ast.Module(body=keep, type_ignores=[]), str(path), "exec"), ns)
+    missing = [n for n in ("align_frame_count", "video_latent_t",
+                           "temporal_shape", "FPS") if n not in ns]
+    assert not missing, (
+        f"could not rebuild a baseline from {path}: missing {missing}. "
+        f"Without one this file cannot compare against anything.")
+    return ns
 
 
 def _snapshot(mod):
@@ -121,20 +170,28 @@ def main():
         "the core module is already patched before this check ran; it cannot "
         "compare against a pristine baseline and would pass trivially")
 
-    # The baseline, captured before anything is touched. Every comparison below
-    # is against these three objects rather than against numbers typed here --
-    # a check that asserts its own arithmetic agrees with itself, not with core.
-    pristine_align, pristine_latent_t, pristine_shape = _snapshot(core)
+    # The baseline: core's grid functions re-executed from source into their
+    # own namespace, so nothing `apply()` does can reach them. Comparisons are
+    # against these rather than against numbers typed here -- a check that
+    # asserts its own arithmetic agrees with itself, not with core.
+    base = _pristine_from_source(pathlib.Path(core.__file__))
+    pristine_align = base["align_frame_count"]
+    pristine_latent_t = base["video_latent_t"]
+    pristine_shape = base["temporal_shape"]
     domain = shim.unchanged_domain(core)
     stock_one = pristine_shape(1)
 
     report = shim.apply(module=core, log=False)
     assert report.applied and report.healthy, f"shim did not apply: {report.line()}"
     print(f"        ({report.line()})")
-    print(f"        (domain swept: length {domain.start}..{domain.stop - 1})")
+    print(f"        (domain swept: length {min(domain)}..{max(domain)}, "
+          f"{len(domain)} values, 1 excluded as the one meant to change)")
 
     def exactly_one_answer_moves():
-        moved = [n for n in range(1, domain.stop)
+        # The swept domain plus the one value it excludes, so this counts
+        # changes over EVERY reachable length rather than over the ones the
+        # shim chose to look at.
+        moved = [n for n in sorted(set(domain) | {1})
                  if pristine_shape(n) != core.temporal_shape(n)]
         assert moved == [1], (
             f"expected exactly one length to change and it to be 1; "
@@ -283,6 +340,51 @@ def main():
         finally:
             sys.modules.pop(stub.__name__, None)
 
+    def resolution_refuses_without_support():
+        """A length of 1 on a ComfyUI that cannot render one frame must RAISE.
+
+        ComfyUI validates a widget's `min` only on literal values. The shipped
+        image graph wires `length` over a link from this node, so core never
+        checks it -- measured 2026-08-15 with the shim disabled, the graph was
+        accepted and rendered FIVE frames through the single-image VAE with
+        nothing said. `MiniMaxH3Resolution` is what converts that into a
+        refused render, and this is the case that keeps it doing so.
+        """
+        import importlib.util as _ilu
+
+        # resolution.py falls back to a bare `import h3_rules` when it is not
+        # loaded as a package member, so the repo root has to be importable.
+        # APPENDED, never inserted: this directory also contains a `nodes.py`,
+        # and ComfyUI's must keep winning that name.
+        if str(REPO) not in sys.path:
+            sys.path.append(str(REPO))
+        spec = _ilu.spec_from_file_location("_h3_resolution_probe", REPO / "resolution.py")
+        assert spec and spec.loader
+        res = _ilu.module_from_spec(spec)
+        spec.loader.exec_module(res)
+
+        shape = {"shape": "tall", "tall_resolution": "768x1152  2/3  864 tok/frame  0.73x"}
+        # Control: with single-frame support present, length=1 must go through.
+        res.MiniMaxH3Resolution.execute(shape, length=1)
+
+        # Now simulate a ComfyUI without it, by restoring the pristine function
+        # on the module the probe consults.
+        saved = core.temporal_shape
+        core.temporal_shape = pristine_shape
+        try:
+            try:
+                res.MiniMaxH3Resolution.execute(shape, length=1)
+            except RuntimeError as exc:
+                assert "single frame" in str(exc), f"refused for the wrong reason: {exc}"
+            else:
+                raise AssertionError(
+                    "length=1 was accepted on a ComfyUI that clamps it to 5; "
+                    "the graph would render 5 frames through a 1-frame VAE")
+            # and a normal video length must still be unaffected by the guard
+            res.MiniMaxH3Resolution.execute(shape, length=124)
+        finally:
+            core.temporal_shape = saved
+
     def live_server_agrees():
         import json
         import urllib.request
@@ -317,6 +419,8 @@ def main():
     check("applying twice is a no-op", applying_twice_is_a_noop)
     check("nothing outside the H3 node module calls these", nothing_else_calls_in)
     check("every loaded copy of the module is found and patched", every_copy_is_found)
+    check("the Resolution node refuses length=1 on an unpatched ComfyUI",
+          resolution_refuses_without_support)
     check("LIVE: the running server reports a floor of 1", live_server_agrees)
 
     print(f"\n{len(failures)} failure(s)" if failures else

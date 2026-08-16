@@ -249,8 +249,14 @@ It rests on a **temporary patch**. ComfyUI's H3 nodes floor `length` at 5, so
 this pack lifts that floor in memory at load (`single_frame.py`), verifying at
 every startup that no other length changed. When ComfyUI ships the same change
 (Comfy-Org/ComfyUI#15644) the shim retires itself and says so in the log; delete
-it then. Without it, that graph refuses to validate rather than quietly
-rendering five frames.
+it then.
+
+With the shim disabled, `MiniMaxH3Resolution` refuses the render. That guard
+exists because **ComfyUI does not catch this**: its validator enforces a
+widget's `min` only on literal values, and the graph wires `length` over a
+link, so without the guard core silently clamps 1 up to 5 and renders a
+five-frame clip through a one-frame VAE. Measured, after this README claimed
+the opposite.
 
 Two things to know before using it:
 
