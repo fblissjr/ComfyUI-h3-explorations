@@ -679,6 +679,53 @@ latent frame covers 1 real frame where later ones cover 4. So `3d` pools a
 1-frame latent with 4-frame latents precisely at the clip start. If a start
 artifact is ever reproduced, `3d` is where to look for it.
 
+### Rendered, 2026-08-16: the permutation is free and the curves are indistinguishable on speed
+
+Six arms at 1344x768, 294 frames, 16 steps, one run each, same seed. The last
+two are the isolation control: all 50 blocks forced dense, so Sol-Attn does
+nothing and the permutation is the only difference between them.
+
+| arm | sampler | vs its pair |
+|---|---|---|
+| sparse, morton off (shipped) | 454.0 s | |
+| sparse, morton `2d_frame` | 452.8 s | 1.0027x |
+| sparse, morton `3d` | 454.8 s | |
+| sparse, `hilbert` | 453.2 s | |
+| dense, morton `2d_frame` | 861.6 s | 1.0009x |
+| **dense, morton off** | **860.8 s** | |
+
+**The permutation costs 0.8 s of 861, or 1.0009x.** That is the isolated
+number, and it retracts `h3_config.py`'s "worth 1.16x alone, 94% GPU
+utilisation" for this backend. The old figure was Triton, 362 frames, and
+stacked on int8. It is not wrong about what it measured; it does not describe
+the CUDA kernel at this length.
+
+**The three curves are indistinguishable on speed**, 452.8 to 454.8 s across a
+2 s spread on single runs. So there is no speed argument for or against any of
+them, and the choice rests entirely on the activation measurements above.
+
+**Sol-Attn itself is worth 1.896x on the sampler** here, 860.8 s dense against
+454.0 s sparse, same config with only `dense_blocks` changed. That is a cleaner
+number than the retracted 1.611x in `docs/SOLATTN.md`, which compared against
+an fp8 sage baseline nobody ships. One run per arm.
+
+**Do not quote peak VRAM from this run.** It looked at first like Morton saved
+3.7 GB, consistently across all three curves. The dense control killed it:
+Morton saves 3,706 MiB in the sparse arm and *costs* 2,144 MiB in the dense
+one. Opposite signs, so it is not a Morton effect, and it matches
+`h3_config.py`'s standing warning that process peak here tracks ComfyUI's
+allocator rather than the arm. Had the control not been run, a 3.7 GB saving
+would have been reported as a finding.
+
+**The `hilbert` arm completing is the node's live verification.**
+`MiniMaxH3SolAttnCurve` raises when the permutation patch does not install, so
+a clean run is proof the curve engaged rather than an assumption.
+
+Clips, in arm order, for whoever watches them: `h3_sage_ab_00093` (morton off),
+`00094` (`2d_frame`), `00095` (`3d`), `00096` (`hilbert`), `00097`
+(reorder-only, dense). **Nobody has watched them. No quality claim follows from
+this section.**
+
 ## What upstream says the payoff is, and why our arms could not find it
 
 From the Morton docstring in the Triton pack, `_morton.py:1-11`, read in

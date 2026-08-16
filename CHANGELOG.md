@@ -6,6 +6,42 @@ artifact.
 
 ## 0.18.0
 
+### Changed
+
+- **`SOL_RECOMMENDED_CUDA`'s `morton_curve` is now `3d`**, was `2d_frame`.
+  This changes nothing about what renders today, because `morton` ships off;
+  it changes which curve you get if you turn it on. On captured activations
+  `3d` beats `2d_frame` on per-block centroid fidelity at every depth sampled,
+  and all three curves measured speed-identical, so the switch was wired to the
+  weakest option for no reason. The `FRAME_PER_TOKEN` argument for `2d_frame`
+  is mechanically correct and is not refuted by this; it simply does not win.
+
+### Retracted
+
+- **"morton is worth 1.16x alone, at 94% GPU utilisation"**, for the CUDA
+  backend. Isolated properly on 2026-08-16 -- all 50 blocks dense, morton on
+  against morton off, so the permutation is the only difference -- it costs
+  **0.8 s of 861, or 1.0009x**. In the sparse arm, 1.2 s of 454. The
+  permutation is free at 1344x768 / 294 frames. The old figure was Triton, 362
+  frames, stacked on int8; correct for what it measured, wrong as a
+  description of this backend. `morton` stays off, now because nothing has
+  shown it changes the output rather than because it costs anything.
+- **A 3.7 GB peak-VRAM saving from Morton**, before it was ever written down.
+  It appeared consistently across all three curves in the sparse arms. The
+  dense control killed it: Morton saves 3,706 MiB sparse and *costs* 2,144 MiB
+  dense. Opposite signs, so not a Morton effect. Recorded because the control
+  is the only reason it did not ship as a finding.
+
+### Measured
+
+- **Sol-Attn is worth 1.896x on the sampler** at 1344x768 / 294 frames, 860.8 s
+  dense against 454.0 s sparse, same config with only `dense_blocks` changed.
+  Cleaner than the retracted 1.611x, which compared against an fp8 sage
+  baseline nobody ships. One run per arm.
+- **The three token orderings are indistinguishable on speed**, 452.8 to
+  454.8 s across a 2 s spread. The choice between them rests entirely on the
+  activation measurements, not on cost.
+
 ### Added
 
 - **`sol_curves.py` and `MiniMaxH3SolAttnCurve`** -- a per-frame 2D Hilbert

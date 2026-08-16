@@ -287,7 +287,7 @@
       "min_tokens": 4096,
       "sink_conditioning": "exact_kv_and_rows",
       "morton": false,
-      "morton_curve": "2d_frame",
+      "morton_curve": "3d",
       "centroid_tail": true,
       "routed_cap_percent": 0,
       "reuse_qkv_memory": false,

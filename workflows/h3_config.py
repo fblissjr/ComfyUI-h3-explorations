@@ -184,9 +184,26 @@ SAMPLING = dict(sampler="er_sde", scheduler="simple", steps=16, denoise=1.0)
 #                     are ~250-400 in a ~38k sequence, thin enough to be
 #                     exactly what a block-sparse router drops first -- the
 #                     same shape as the object-dissolve artifact above.
-#   morton off        Worth 1.16x alone but a net loss stacked on int8
-#                     (1.34x against 1.39x), and its arm runs at 94% GPU
-#                     utilisation where every other arm hits 99%.
+#   morton off        **The 1.16x speed cost below is retracted for the CUDA
+#                     backend, measured 2026-08-16.** Isolated properly -- all
+#                     50 blocks dense, morton on against morton off, so the
+#                     permutation is the only difference -- it costs 0.8 s of
+#                     861 s, or 1.0009x. In the sparse arm it is 1.2 s of 454,
+#                     1.0027x. **The permutation is free at 1344x768 / 294
+#                     frames on the CUDA kernel.** The old figure was Triton,
+#                     362 frames, and stacked on int8; it is not wrong for what
+#                     it measured, it just does not describe this backend.
+#
+#                     morton stays OFF anyway, now on a different basis: the
+#                     reason is no longer cost, it is that nothing has shown it
+#                     changes the output. See docs/morton.md.
+#
+#                     Do NOT quote peak VRAM from that run. The four arms
+#                     spanned 17,326-23,208 MiB with morton saving 3.7 GB in
+#                     the sparse arm and costing 2.1 GB in the dense one --
+#                     opposite signs, so not a morton effect, and consistent
+#                     with the warning above that process peak here tracks the
+#                     allocator rather than the arm.
 #
 #                     **That is a SPEED result and it is the only axis anyone
 #                     has measured.** Kijai, 2026-08-14: "morton may or may
@@ -339,7 +356,17 @@ SOL_BASELINE_124F = dict(
 SOL_RECOMMENDED_CUDA = dict(
     tau=1.3, start_percent=0.2, end_percent=0.9, min_tokens=4096,
     sink_conditioning="exact_kv_and_rows", morton=False,
-    morton_curve="2d_frame", centroid_tail=True, routed_cap_percent=0,
+    # `3d`, not `2d_frame`, since 2026-08-16. This changes NOTHING today
+    # because morton is off; it changes which curve you get if you turn it on.
+    # On captured activations `3d` beats `2d_frame` on per-block centroid
+    # fidelity at every depth sampled (0.7915/0.9434 against 0.7665/0.8804 at
+    # blocks 24/49), and all three curves measured speed-identical, so the
+    # switch was wired to the weakest of them for no reason. `2d_frame` was
+    # chosen on the FRAME_PER_TOKEN argument -- (1,4,4,4,4) means a 3D curve
+    # groups temporally distant tokens -- which is mechanically correct and
+    # which the measurement does not refute; it just does not win. See
+    # docs/morton.md.
+    morton_curve="3d", centroid_tail=True, routed_cap_percent=0,
     reuse_qkv_memory=False, verbose=False, dense_blocks="",
 )
 
