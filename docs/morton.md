@@ -4,9 +4,10 @@ Last updated: 2026-08-15.
 
 ## The short version
 
-There is no confirmed quality result yet. Morton has never been tested on the
-axis its author says it acts on, so "does Morton improve anything" remains
-open in both directions.
+We have no quality result. We also did not find one anywhere else, and that
+second statement is much weaker than it sounds: it describes what we searched,
+not what exists. See "What counts as evidence here" below before quoting any
+absence claim on this page.
 
 What this page does establish, by measurement rather than by reading:
 
@@ -19,13 +20,41 @@ What this page does establish, by measurement rather than by reading:
    landscape canvases. The default canvas here, 1344x768, is not one of them.
    On it a block is typically two disconnected fragments in different parts of
    the frame.
-3. Every Morton arm this project has run held `tau` fixed. The author's own
-   docstring says the payoff appears at higher sparsity. So those arms were
-   designed in a way that could not find the effect, and "a different seed
-   that saves ten seconds" is the result you should expect from them.
+3. Every Morton arm **this project** has run held `tau` fixed, while the
+   author's own docstring puts the payoff at higher sparsity. So this
+   project's arms were designed in a way that could not find the effect, and
+   "a different seed that saves ten seconds" is the result you should expect
+   from them. This says nothing about arms anyone else has run.
 
 If you only take one thing: the next Morton experiment should vary `tau` and
 Morton together, not Morton alone.
+
+## What counts as evidence here
+
+This page mixes three kinds of statement and they are not interchangeable.
+
+**Measured.** Block geometry, from `bench/analyze_morton.py`. Deterministic
+arithmetic on the latent grid, cross-checked against a second implementation.
+These figures are as solid as anything here gets, and they are also the least
+interesting kind of claim: they describe the permutation, not the output.
+
+**Read in source.** The kernel behaviour, the tooltip and docstring quotes, the
+comparisons to other projects. Accurate transcription, but a docstring is what
+the author wrote, not a measurement.
+
+**Impressions.** The owner's reactions to rendered clips. These are n of about
+three, not blind, not controlled, from part-time work on a single machine, with
+no fixed viewing protocol. **They are motivation, not evidence.** They are worth
+recording because they are what prompted the work. They are not worth building
+a mechanism on top of, and this page did exactly that in an earlier draft: it
+took "the start and end seem to differ" and went looking for geometry that
+would explain it. Explaining an effect that has not been established is how the
+retracted finding in `440eea9` happened, one level up.
+
+So: where this page says nobody has done something, read "we did not find it".
+Our search was a handful of local checkouts, one survey pass, and one comment
+from the author. Notably absent from it is the Sol-Attn paper itself, which is
+the most likely place for a quality result to already exist.
 
 ## What a block is, concretely
 
@@ -145,9 +174,9 @@ PAROAttention, DraftAttention. All 2025.
 
 The limit: the Sol-Attn paper is arXiv 2607.24027, which postdates this
 assistant's training data. Nothing here is drawn from it, and its related-work
-section may already answer questions this page treats as open. Reading it is a
-task nobody has done yet. Every Sol-Attn claim below comes from the node
-source, the CUDA kernels, or the eager reference implementation.
+section may already answer questions this page treats as open. Nobody here has
+read it. Every Sol-Attn claim below comes from the node source, the CUDA
+kernels, or the eager reference implementation.
 
 ## How Sol-Attn uses blocks
 
@@ -310,9 +339,13 @@ single worst block: 20.3 against 16.1. So Morton is not uniformly better
 there. It tightens most blocks a lot and makes a minority worse than anything
 raster produces. On 1024x768 no block exceeds raster's worst.
 
-This is the most plausible mechanism we have for "sometimes I like it,
-sometimes I don't", and it is a mechanism rather than a finding. Nobody has
-shown that those blocks are the ones producing a visible difference.
+It is tempting to offer this as the explanation for Morton feeling
+inconsistent. Resist that. There is no established inconsistency to explain:
+the impression rests on a handful of unblinded viewings. A mechanism that
+explains an unestablished effect is worse than no mechanism, because it makes
+the effect feel confirmed. What the tail result licenses is narrower, and it
+is enough: **if** Morton produces a visible difference on this canvas, these
+are the blocks to look at first.
 
 ### The rotation for reference rows is correct
 
@@ -352,20 +385,20 @@ Under `2d_frame`, blocks covering the first latent frame have a mean radius of
 than average rather than worse. Under `3d`, every block spans exactly 4 latent
 frames, including the first.
 
-This matters for one of the anecdotes this work started from: that the start
-and the end of a clip seem to differ more than the middle, in a sample of
-about three. Morton block geometry does not predict that under `2d_frame`,
-which is the shipped curve. Two readings are available and this page cannot
-choose between them:
+One impression prompted this measurement: that the start and the end of a clip
+seem to differ more than the middle, across about three clips. Block geometry
+does not predict that under `2d_frame`.
 
-- The observation is trajectory divergence. Once the first frames differ, a
-  sampler carries that difference forward, which the same anecdote notes.
-  Under this reading it says nothing about Morton.
-- Something other than block geometry is responsible, for example the
-  interaction between the sigma window and the schedule. Sol runs dense on the
-  first four steps and the last one at the shipped settings, so the ends of the
-  denoising schedule are not the same as the ends of the clip and should not be
-  confused with them.
+The honest conclusion is that there is nothing here to explain yet. An
+impression at that sample size, unblinded, is consistent with no effect at all,
+and the same impression notes that once the first frames differ the rest
+follows, which is what any sampler does. Two candidate mechanisms were drafted
+for this page and both were cut, because writing them down gave a
+not-yet-established observation the shape of a finding.
+
+What the measurement does buy is a cheap negative: **if** a start effect is
+ever established, the shipped curve's block geometry is not where it comes
+from, and that is one fewer place to look.
 
 There is one place where the mechanism would predict a start effect, and it is
 the curve nobody runs. `3d` mixes 4 latent frames per block, and H3's first
@@ -391,8 +424,9 @@ Morton alone. Under the mechanism as its author states it, that arm cannot
 find the benefit. It measures the cost and none of the payoff.
 
 The author has also said directly, on 2026-08-14, that Morton "may or may not
-increase quality, that's something to test". So the speed result is settled
-and the quality question is untouched.
+increase quality, that's something to test". That is good evidence the author
+has not tested it, and no evidence at all about anyone else. Here, the speed
+result is settled and the quality question is untouched.
 
 ## What we know and what we do not
 
@@ -410,14 +444,17 @@ Known, by measurement on this machine:
 
 Not known:
 
-- Whether any of this is visible. No quality comparison has survived scrutiny.
-  The one finding recorded, that Morton dropped a reference feature, was judged
-  from a single frame per clip, reached upstream, and failed to replicate at a
-  second seed within the hour. It is retracted in commit `440eea9`, and the
-  method failure is written up there.
+- Whether any of this is visible. No quality comparison run **here** has
+  survived scrutiny. The one finding recorded, that Morton dropped a reference
+  feature, was judged from a single frame per clip, reached upstream, and
+  failed to replicate at a second seed within the hour. It is retracted in
+  commit `440eea9`, and the method failure is written up there.
+- Whether anyone outside this project already has a quality result. We did not
+  find one, in a search that did not include the paper. Absence of a result in
+  our search is not absence of a result.
 - Whether Morton at a higher `tau` beats no Morton at a lower one at equal wall
-  clock. This is the experiment the mechanism actually predicts, and it has
-  never been run.
+  clock. This is the experiment the mechanism predicts, and this project has
+  not run it.
 - Whether the clean canvases behave differently from the ragged ones in output,
   as opposed to in block geometry.
 - What Morton does to the routing decision itself. Block membership is
@@ -438,6 +475,8 @@ Run:
 
 Not run, in the order they would answer the most:
 
+- Read arXiv 2607.24027. First because it is the cheapest thing on the list,
+  and because several rows in "not known" above may already be answered there.
 - A `tau` by Morton grid at equal wall clock. Nothing blocks it but GPU time.
 - The routing simulation. Capture real q and k from one forward, then compute
   the selected-block masks offline for both orderings. Because Morton is
@@ -445,8 +484,7 @@ Not run, in the order they would answer the most:
   one capture gives exact masks for both arms without a second render.
   `h3_capture.py` exists for this and has never been run.
 - A clean canvas against a ragged canvas at matched settings.
-- `morton_curve="3d"` on a long clip. Never rendered.
-- Reading arXiv 2607.24027.
+- `morton_curve="3d"` on a long clip. Not rendered here.
 
 Prior commits for context: `3b86b21` records the Morton observation that was
 sent upstream, `440eea9` retracts it, and `bd392c2` adds the Sol-enabled probe
@@ -454,17 +492,19 @@ graphs the reference arms use.
 
 ## What to try next, in order
 
-1. Run the `tau` by Morton grid. Pick a Morton-on `tau` that matches Morton-off
+1. Read the paper before running anything. An afternoon of GPU time costs more
+   than a download, and the experiment below may already be in it.
+2. Run the `tau` by Morton grid. Pick a Morton-on `tau` that matches Morton-off
    at the shipped `tau` on wall clock, so the comparison is quality at equal
    speed rather than quality at equal `tau`.
-2. Run the routing simulation. It converts "block membership changes" into
+3. Run the routing simulation. It converts "block membership changes" into
    "this fraction of routed blocks changes, in these places", which is a number
    rather than a judgment.
-3. Compare 1280x768 against 1344x768 at matched settings. 1280x768 is 5:3,
+4. Compare 1280x768 against 1344x768 at matched settings. 1280x768 is 5:3,
    costs 0.95x the tokens of 16:9, and is the only near-16:9 canvas where
    Morton produces the tiles it is supposed to. If Morton matters at all, the
    gap between those two canvases is where it should be largest.
-4. If any of the above shows an effect, the interesting follow-up is not more
+5. If any of the above shows an effect, the interesting follow-up is not more
    Morton. It is whether a better layout exists. The clean-canvas result says
    the tile shape is a lever, and the SVG2 comparison says a content-based
    layout is the version of this idea that other people found worth computing
