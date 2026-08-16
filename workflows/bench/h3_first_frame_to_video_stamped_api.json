@@ -45,7 +45,7 @@
         "23",
         0
       ],
-      "scheduler": "beta",
+      "scheduler": "simple",
       "steps": 16,
       "denoise": 1.0
     }

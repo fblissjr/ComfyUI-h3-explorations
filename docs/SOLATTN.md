@@ -40,8 +40,7 @@ labelled rather than deleted. Read this list first.
 | the reference-load table's **35.1% / 57.9%** | wrong on three axes for what we ship: a **v1** formula (v2 changed the mechanism), at **362**, at **1344x768** where the ref graphs are 1024x768. |
 | "with Sol on, sage gets nothing" | **retracted.** Sage runs **5 of 16 steps** -- the sigma window, not just `min_tokens`. |
 | bench progress read from its own stdout mid-run | the warmup `print` lacks `flush=True`; under `tee` stdout is block-buffered. A finished render can read as "still in warmup" for 20 minutes. Read ComfyUI's log instead. |
-| **every timing on this page, as a current figure** | all of it predates the 2026-08-15 move to `er_sde`/`beta`. `beta` alone takes Sol from 11 sparse steps of 16 to 9, so every Sol arm here was measured with 22% more of the schedule inside the sparse window than it gets today. The *orderings* should survive; the ratios are owed a re-baseline. |
-| **any quality A/B on this page, as a like-for-like** | `er_sde` injects noise every step and is the first stochastic sampler defaulted to here. A knob that perturbs attention numerics reads as more "reseeded" under it than under the deterministic `res_multistep` these were taken on. |
+| **any quality A/B on this page, as a like-for-like** | all of it was taken on `res_multistep`. The default sampler is `er_sde` since 2026-08-15, which injects noise every step. A knob that perturbs attention numerics reads as more "reseeded" under it. Timings should carry (both are one eval per step); quality comparisons are owed a re-run. |
 
 ### Can rely on
 

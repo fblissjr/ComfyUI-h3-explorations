@@ -868,7 +868,7 @@
         "Node name for S&R": "BasicScheduler"
       },
       "widgets_values": [
-        "beta",
+        "simple",
         16,
         1.0
       ]

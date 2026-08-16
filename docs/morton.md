@@ -27,6 +27,27 @@ What this page does establish, by measurement rather than by reading:
 If you only take one thing: the next Morton experiment should vary `tau` and
 Morton together, not Morton alone.
 
+## What a block is, concretely
+
+The rest of this page talks about tokens and blocks. Both are physical things
+here, and sizing them makes everything that follows easier to hold.
+
+One token is one 32x32 pixel patch of one latent frame. At 1344x768 a frame is
+42 patches wide and 24 patches high, so 1008 tokens per frame.
+
+One block is 64 tokens, and it is the unit Sol-Attn makes a decision about:
+compute this block exactly, or replace it with one average vector. That
+decision is good when the 64 tokens resemble each other, because one vector
+can then stand for all of them. It is bad when they do not.
+
+The model produces tokens in raster order, meaning frame, then row, then
+column. So 64 tokens in a row are a strip 42 patches wide and less than 2
+patches tall, running the full width of the frame. Morton is supposed to
+replace that strip with an 8x8 square of patches.
+
+That is the whole question this page answers: does it, and what changes when
+it does not.
+
 ## What Morton order is
 
 Morton order, also called Z-order, maps a multi-dimensional coordinate to a

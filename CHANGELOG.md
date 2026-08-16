@@ -8,37 +8,21 @@ artifact.
 
 ### Changed
 
-- **Default sampler and scheduler are now `er_sde` / `beta`**, replacing
-  `res_multistep` / `simple`. Owner's call; the old pair was core's
-  base-template default carried unquestioned, not a choice made here. Applied
-  in `SAMPLING` (`workflows/h3_config.py`), which the generator and the bench
-  both read, so all 71 graphs and every bench arm move together. Two
-  consequences recorded at the constant rather than discovered later:
-  `er_sde` is **stochastic** (`s_noise` 1.0, noise added every iteration --
-  read in `comfy/k_diffusion/sampling.py`), the first such default here, so a
-  knob that perturbs attention numerics will read as more "reseeded" than it
-  did under a deterministic ODE; and `beta` moves **two of sixteen steps out
-  of Sol-Attn's sparse window** (11 sparse / 5 dense under `simple`, 9 / 7
-  under `beta`, computed off the sigma curve at `shift_video=12.0`), which is
-  the same mechanism that got `beta57` dropped in an earlier pass. Every
-  timing in `docs/SOLATTN.md` therefore predates the change and is owed a
-  re-baseline; the "do not rely on" table says so.
+- **Default sampler is now `er_sde`**, replacing `res_multistep`. Owner's
+  call; the old value was core's base-template default carried unquestioned.
+  One eval per step either way, so it is step-cost-neutral. It is stochastic
+  (`s_noise` 1.0), the first such default here, which matters for reading an
+  A/B more than for speed. The scheduler stays `simple`: `beta` was tried the
+  same day and reverted because it moves two of sixteen steps out of
+  Sol-Attn's sparse window (11 sparse / 5 dense under `simple`, 9 / 7 under
+  `beta`) with no benefit measured against that. Reasoning lives at `SAMPLING`
+  in `workflows/h3_config.py` and nowhere else, same as every other default.
 - **`bench/bench_e2e_h3.py` now reads `sampler`/`scheduler` from
   `h3_config.SAMPLING`** instead of hardcoding them. This is the exact shape
   of the bug `check_bench_matches_shipped.py` exists for, one field over --
   that check pins the sage and Sol nodes and says nothing about the sampler,
   so the bench could have gone on sampling a schedule no graph ships. Derived
   rather than checked, so nothing has to notice.
-- **Graphs carrying a distillation LoRA keep `simple`**, via
-  `DISTILLED_SCHEDULER` and `_scheduler_for()`. A distilled checkpoint was
-  distilled *on* a sigma grid and `simple` is the only scheduler reproducing
-  it at every shift and step count; at 4 steps the deviation is most of the
-  schedule. Keyed on membership in `DISTILLATION_LORAS` rather than on "a
-  LoRA is present", because `REF_LORA` is a weight-delta extraction with no
-  schedule of its own and would have been swept up by the looser test. Six
-  graphs take the exemption; 25 run `beta`. **This is a deliberate deviation
-  from an instruction to use `beta` everywhere** and is reversible by pointing
-  `DISTILLED_SCHEDULER` at `SAMPLING["scheduler"]`.
 
 ### Added
 
