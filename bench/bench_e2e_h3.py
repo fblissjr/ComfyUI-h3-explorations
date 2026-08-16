@@ -871,9 +871,14 @@ def main():
             keys = {k for k in (ARMS[name][1] or {}) if not k.startswith("_")}
             orphan = sorted(keys - set(sol_knobs()))
             if orphan:
+                # Used to say "or run --sol-backend triton". That backend was
+                # deleted on 2026-08-16 and now refuses at argparse, so the
+                # remediation pointed at a wall. These arms are Triton-only and
+                # are simply unreachable; naming them is the useful part.
                 print(f"arm {name!r} sets {orphan}, which the {SOL_BACKEND} node "
                       f"does not have.\nIt would silently become a different arm. "
-                      f"Drop it, or run --sol-backend triton.")
+                      f"Drop those keys -- the Triton backend that had them was "
+                      f"removed\n(6872dfd), so there is no backend to switch to.")
                 return 2
 
     # A Sol-Attn arm below the length floor cannot produce a signal, and a null
@@ -882,30 +887,32 @@ def main():
     # that that page's own 124-frame frontier table sits under this floor.
     # Warn rather than gate -- a short run is legitimate for proving the chain
     # composes at all, which is what the verbose arm is for.
-    # Would the REFERENCE PIPELINE emit this length? h3_rules owns the rule;
-    # the bench must not restate it. Its MAX_DURATION is the reference's
-    # hard-coded 15.0s, so 362 (15.083s) sits just outside and 345 (14.375s)
-    # is the largest count under it on the 17n+5 grid.
+    # Two separate questions, and h3_rules owns both -- the bench must not
+    # restate either. `duration_in_range` is the MODEL's window, 5s to 362
+    # frames. `reference_would_emit` is diffusers' hard-coded 15.0s ceiling,
+    # which stops one grid step earlier at 345.
     #
-    # **That is NOT a training boundary.** 362 is the longest length H3 was
-    # trained on (upstream, 2026-08-14); the reference's 15.0 is a round
-    # number landing one grid step short of it. This warning said "out of
-    # distribution" until 2026-08-14 and was wrong -- it reported a valid
-    # render as a problem, which is the one thing a check must never do.
-    # It now reports what it can actually support: the reference would
-    # decline this, and the model is fine with it.
+    # This warning said "out of distribution" at 362 until 2026-08-14 and was
+    # wrong -- it reported a valid render as a problem, which is the one thing
+    # a check must never do. Keeping the two questions apart is what stops
+    # that recurring: a length can be trained and still not be portable.
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
         import h3_rules as _rules
+        snapped = _rules.snap_length(cfg["length"])
         if not _rules.duration_in_range(cfg["length"]):
-            snapped = _rules.snap_length(cfg["length"])
+            print(f"WARNING: length {cfg['length']} snaps to {snapped} = "
+                  f"{_rules.duration_of(snapped):.3f}s, outside H3's\n"
+                  f"         trained window ({_rules.MIN_DURATION}s to "
+                  f"{_rules.MAX_LENGTH} frames). Nothing here has measured "
+                  f"the model\n         out there.\n")
+        elif not _rules.reference_would_emit(cfg["length"]):
             print(f"NOTE: length {cfg['length']} snaps to {snapped} = "
-                  f"{_rules.duration_of(snapped):.3f}s, outside the "
-                  f"REFERENCE\n      pipeline's {_rules.MIN_DURATION}-"
-                  f"{_rules.MAX_DURATION}s window. That is the reference's "
-                  f"ceiling, not a\n      training limit -- 362 is trained. "
-                  f"The render is valid; diffusers would\n      decline to "
-                  f"produce it. Record which you meant.\n")
+                  f"{_rules.duration_of(snapped):.3f}s, which is trained but\n"
+                  f"      past the reference pipeline's "
+                  f"{_rules.REFERENCE_MAX_DURATION}s ceiling. The render is "
+                  f"valid; diffusers\n      would decline to produce it. "
+                  f"Record which you meant.\n")
     except Exception as exc:
         print(f"  (could not check duration against the reference: {exc})")
 
