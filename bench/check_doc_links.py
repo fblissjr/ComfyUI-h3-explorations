@@ -17,16 +17,40 @@ edit to any cited file silently invalidates them, and the failure is invisible
 -- a reader follows `sol_attn_route.cu:18` to whatever line 18 says today and
 believes it.
 
+**Symbol references of the form `path::Symbol`.** Added hours after the first
+two, when a peer session found six of them invisible here. Five were
+`nodes.py::LoadImage.INPUT_TYPES` -- `LoadImage` exists only in ComfyUI's
+2595-line `nodes.py`, ours is 194 lines and has no such class, so it is exactly
+the ambiguity `ambiguous_roots` was written for, in the repo whose named trap
+is "`import nodes` resolves to ours", written by someone who had just read that
+trap. The sixth was a diffusers path with no root prefix that resolved nowhere.
+
+**The gap was invisible from a green run, which is the lesson.** The grammar
+was `path:line`; a `::symbol` reference has no line number, so it was not a
+citation as far as this file was concerned, and the whole-repo run said 34
+citations and green. `docs/h3_image_editing.md` contributed zero while
+containing two ambiguous references. **"Not covered" and "correctly absent"
+look identical from the outside** unless the check reports what it examined,
+which is why `parses_the_corpus` prints its counts rather than just passing.
+
 Claims, i.e. what breaks if a case is deleted:
 
-- `parses_the_corpus`  -- a run that finds no files, or files but no citations,
-                          FAILS. This check must not go green by looking at
-                          nothing. CLAUDE.md's rule: a check whose input already
-                          satisfies the expected outcome cannot fail.
+- `parses_the_corpus`  -- a run that finds no files, or files but no references
+                          of either grammar, FAILS. This check must not go green
+                          by looking at nothing. CLAUDE.md's rule: a check whose
+                          input already satisfies the expected outcome cannot
+                          fail.
 - `doc_links_resolve`  -- every relative markdown link to a repo file exists.
                           This is the rename case above.
-- `citations_resolve`  -- every `path:line` citation resolves to a real file.
+- `citations_resolve`  -- every `path:line` citation and every `path::symbol`
+                          reference resolves to a real file.
 - `citations_in_range` -- the cited line or range is inside that file.
+- `symbols_exist`      -- the symbol named after `::` appears in the file named
+                          before it. Only the leading dotted component is
+                          checked: `LoadImage.INPUT_TYPES` verifies `LoadImage`,
+                          because `INPUT_TYPES` may be inherited rather than
+                          written there, and a case that fails on correct input
+                          is worse than no case.
 - `no_bare_basenames`  -- a citation with no directory part that does not sit
                           at the repo root is refused. `sol_layout.cuh:81` is
                           not a path; it is a hint that happens to be unique
@@ -52,6 +76,19 @@ Triton pack being the whole of it today.
 `morton_perm` moving from line 150 to line 90 while something else lands on 150
 passes every case here. Only a human reading both settles that, which is why
 `docs/morton.md` pins a commit as well.
+
+**It sweeps only backticked `path:line` and `path::symbol`, not every path
+mentioned in prose.** A bare `nodes.py` in a sentence is legitimate English and
+flagging it would be a false red, which CLAUDE.md rates worse than no check at
+all. The cost of that choice is real: an ambiguous path written without either
+marker is still invisible here.
+
+**Ordering hazard for whoever edits this.** The symbol pass appends into the
+same `bare` / `unresolved` / `ambiguous` lists the citation pass uses, so it
+MUST run before the reporting section. It did not, on first writing: symbol
+refs were classified into lists that had already been printed, and the check
+reported green over a path that resolves nowhere. It said `symbols_exist ok`
+while `citations_resolve` had already been decided without them.
 
 **It does not scan `CHANGELOG.md`, deliberately.** A changelog records what was
 true when it was written. `CHANGELOG.md:455` correctly names
@@ -93,6 +130,19 @@ SKIP_FILES = {"CHANGELOG.md"}
 # `path.ext:12` or `path.ext:12-34`, inside backticks.
 CITATION = re.compile(
     r"`([A-Za-z0-9_./-]+\.[A-Za-z0-9]{1,5}):(\d+)(?:-(\d+))?`"
+)
+# `path.ext::Symbol` or `path.ext::Class.method`. Added 2026-08-16 after a peer
+# session found six of these invisible to the check: five were
+# `nodes.py::LoadImage.INPUT_TYPES`, which is the SAME ambiguity
+# `ambiguous_roots` exists for -- LoadImage lives only in ComfyUI's 2595-line
+# nodes.py, ours is 194 lines and has no such class -- written by someone who
+# had just read the trap, in the repo whose named trap it is.
+#
+# Only the `::` form is swept, not every backticked path. A bare `nodes.py`
+# mention in prose is legitimate and flagging it would be a false red, which
+# CLAUDE.md rates worse than no check. `::` is an explicit citation intent.
+SYMBOL_REF = re.compile(
+    r"`([A-Za-z0-9_./-]+\.[A-Za-z0-9]{1,5})::([A-Za-z0-9_.]+)`"
 )
 # [text](target) where target is a relative path, not a URL or an anchor.
 DOC_LINK = re.compile(r"\[[^\]]*\]\((?!https?:|mailto:|#)([^)#]+)(?:#[^)]*)?\)")
@@ -173,7 +223,7 @@ def main():
         print("FAIL parses_the_corpus: no files to scan")
         return 1
 
-    citations, links = [], []
+    citations, links, symbols = [], [], []
     for path in files:
         try:
             text = path.read_text(encoding="utf-8")
@@ -184,16 +234,20 @@ def main():
             for m in CITATION.finditer(line):
                 citations.append((str(rel), n, m.group(1), int(m.group(2)),
                                   int(m.group(3) or m.group(2))))
+            for m in SYMBOL_REF.finditer(line):
+                symbols.append((str(rel), n, m.group(1), m.group(2)))
             for m in DOC_LINK.finditer(line):
                 links.append((str(rel), n, m.group(1), path.parent))
 
-    if not citations:
+    if not citations and not symbols:
         print(f"FAIL parses_the_corpus: {len(files)} file(s) scanned, zero "
-              "`path:line` citations found. Either the corpus is wrong or the "
-              "citation format changed; this check will not pass on silence.")
+              "`path:line` citations and zero `path::symbol` references found. "
+              "Either the corpus is wrong or the citation format changed; this "
+              "check will not pass on silence.")
         return 1
     print(f"  ok    parses_the_corpus   {len(files)} file(s), "
-          f"{len(citations)} citation(s), {len(links)} doc link(s)")
+          f"{len(citations)} citation(s), {len(symbols)} symbol ref(s), "
+          f"{len(links)} doc link(s)")
 
     fails, warns = [], []
 
@@ -233,6 +287,36 @@ def main():
         if not (1 <= start <= end <= nlines):
             out_of_range.append((src, n, cited, start, end, nlines))
 
+    missing_symbol = []
+    for src, n, cited, symbol in symbols:
+        if cited in absent:
+            continue
+        hits = resolve(cited)
+        if "/" not in cited and not hits:
+            bare.append((src, n, cited))
+            continue
+        if not hits:
+            (coderef_missing if cited.startswith("coderef/") else unresolved
+             ).append((src, n, cited))
+            continue
+        if len(hits) > 1:
+            ambiguous.append((src, n, cited, hits))
+            continue
+        body = hits[0].read_text(encoding="utf-8", errors="replace")
+        # The leading component is the class or function. Checking every dotted
+        # part would fail on `LoadImage.INPUT_TYPES` where INPUT_TYPES is
+        # inherited rather than written in that file.
+        head = symbol.split(".")[0]
+        if not re.search(rf"\b{re.escape(head)}\b", body):
+            missing_symbol.append((src, n, cited, symbol, head))
+
+    for src, n, cited, symbol, head in missing_symbol:
+        fails.append(
+            f"  FAIL  symbols_exist      {src}:{n} -> {cited}::{symbol} but "
+            f"{head!r} does not appear in that file")
+    if not missing_symbol:
+        print(f"  ok    symbols_exist      {len(symbols)} symbol ref(s) found "
+              "in the file they name")
     for src, n, cited in bare:
         fails.append(
             f"  FAIL  no_bare_basenames   {src}:{n} cites `{cited}` with no "
@@ -245,6 +329,8 @@ def main():
         fails.append(f"  FAIL  citations_resolve  {src}:{n} -> {cited} does not exist")
     if not unresolved:
         print(f"  ok    citations_resolve  {len(citations)} citation(s) resolve")
+
+    # --- symbol refs: same path cases, plus does the symbol exist ----------
 
     for src, n, cited, hits in ambiguous:
         where = " and ".join(str(h.relative_to(COMFY.parent)) for h in hits)
