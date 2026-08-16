@@ -332,6 +332,23 @@ Ordered by how much they undermine the standard above.
    fail?" is the question that finds this class, and it is worth asking of every
    row in the index above.
 
+   **A written requirement is not a control, and this repo produced a clean
+   instance the same day.** `docs/open_experiments.md` #18 requires that
+   conditioning rows stay in the block population, because `kcvar` is a variance
+   over every centroid the kernel pools. When `bench/analyze_routing.py` was
+   built against that requirement, a mutant computing `kcvar` over the video
+   blocks only **passed every control the script had**. The requirement was
+   stated, agreed by two readers, implemented correctly — and enforced by
+   nothing, so an implementation that violated it would have shipped green. It
+   now has an explicit control asserting the population is the full pooled set
+   and that the block count equals `sequence // 64`.
+
+   The generalisation is worth more than the instance: **every "must" written
+   into a spec is a candidate control, and the ones most likely to lack one are
+   the requirements everybody agrees with**, because agreement feels like
+   coverage. When adding a requirement to a doc, ask in the same breath which
+   assertion would go red if someone ignored it.
+
    **The connectivity numbers have the opposite problem: no instrument at all.**
    The 60%/90% connected-block figures in `sol_curves.py`, `docs/morton.md` and
    the node tooltip are not computed by anything in `bench/` --

@@ -595,27 +595,42 @@ this page can argue.** Any future version of the old paragraph is a regression.
 That is also why the answer is not a single scalar: it can differ in sign
 between two curves at the same depth, and between two depths for one curve.
 
-> **Reported, not reproducible here yet.** A run on 2026-08-16 measured routed
-> density against the eager reference on the existing capture and found the sign
-> going the *other* way at both deep blocks -- `hilbert` routing ~11-15% **more**
-> blocks than raster at blocks 24 and 49, and `3d` routing slightly fewer at
-> block 49 despite having the best centroid fidelity there. If that holds it
-> confirms the paragraph above rather than replacing it: density is not a
-> function of coherence. It is recorded here as **pending**, not as a number to
-> quote, because no script in `bench/` produces it -- see the open item below.
-> Scope of the run as reported: the float routing rule (no INT8 quantisation of
-> pooled keys or query centroids, which the kernel does), 8 of 56 heads, three
-> depths, one capture, one step, one prompt.
->
-> **Read those percentages as ratios, not as levels.** They are the fraction of
-> **non-adjacent pairs the threshold would route**, not the fraction the kernel
-> routes exact -- the probe masks `|i-j| <= 1` but not the sink ranges, which
-> the kernel forces exact regardless. The kernel's number is higher. The
-> *comparisons* are unaffected, since the pair set is identical under every
-> ordering and forced-exact status does not depend on the permutation, so the
-> ~11-15% relative gaps stand. **Nothing may be sized against the absolute
-> figures** -- `routed_cap_percent` headroom in particular. `docs/open_experiments.md`
-> #18 requires both quantities to be emitted separately for this reason.
+### Measured. The paragraph above is confirmed, not replaced
+
+**`bench/analyze_routing.py`, landed 2026-08-16 (`51527c3`).** Ordering-effect
+density -- forced-exact pairs dropped from numerator and denominator -- against
+raster, on the capture, `tau` 1.3, 8 of 56 heads:
+
+| depth | raster | `2d_frame` | `3d` | `hilbert` |
+|---|---|---|---|---|
+| block 24 | 14.40% | 1.157x | 1.150x | **1.171x** |
+| block 49 | 13.49% | 1.087x | **0.987x** | 1.113x |
+
+Compensating `tau` -- the value that returns each curve to raster's density --
+at block 49: `2d_frame` 1.367, `3d` 1.290, `hilbert` 1.387.
+
+**Block 49 is the counterexample, and it is why the section above says "not
+derivable" rather than "the sign is reversed".** At one depth, under one
+ordering `3d` routes *fewer* blocks than raster while `hilbert` routes *more*.
+Opposite signs at the same depth kills any monotone coherence-to-density story
+in either direction -- including the corrected one. And `3d` has the best
+centroid fidelity at that depth (0.9434), so the ordering with the most coherent
+blocks is the one that routes fewest. Coherence does not predict density.
+
+**Two densities, and they answer different questions.** The table above is
+ordering effect. `analyze_routing.py` also emits kernel density, which counts
+the forced-exact pairs the kernel routes regardless, and that is the number for
+anything about cost or for sizing `routed_cap_percent`. Do not substitute one
+for the other; an uncontrolled prototype reported the first while labelled as
+the second, which is the mistake this split exists to prevent.
+
+> **Does not transfer to 362 frames.** `kcvar` is a variance over the whole
+> pooled population and the capture has **591 blocks against roughly 1,700** at
+> length, so the threshold is derived from a different population. The script
+> prints this warning itself below 60k tokens. Also still the float routing
+> rule -- the kernel INT8-quantises pooled keys and query centroids and this
+> does not -- 8 of 56 heads, three depths, one capture, one step, one prompt,
+> one canvas.
 
 Two consequences, and the first is a correction:
 
@@ -634,8 +649,10 @@ Two consequences, and the first is a correction:
   formula** -- `backends/eager/sol_attn.py` is upstream's own statement of the
   algorithm ("Defines the algorithm, not the CUDA kernel's arithmetic", its
   docstring) and using it keeps a reimplementation risk out from between the
-  measurement and the claim. It belongs in `bench/analyze_routing.py`; nothing
-  produces it today.
+  measurement and the claim. **Done 2026-08-16** -- `bench/analyze_routing.py`
+  imports `_pool` from that module rather than transcribing it, and
+  cross-checks its own threshold against a deliberately naive transcription in
+  the same file. Numbers above.
 
 **The axis this does not cover, and it may matter more than depth.** Routed
 density is measured at whatever step the capture was taken at -- step 1 of 6 for
