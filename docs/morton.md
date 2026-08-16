@@ -132,6 +132,43 @@ is 8x8 tokens and a token is 32x32 pixels, so a tile is a **256x256 pixel
 square**. The canvas has to be a whole number of those squares in both
 directions: **width and height both divisible by 256.**
 
+> ### The canvas rule is a `2d_frame` rule. `3d` does not have this problem.
+>
+> **Stated unconditionally on this page until 2026-08-17, and that was wrong in
+> a way that got repeated.** Everything above and below about ragged canvases
+> describes `morton_curve="2d_frame"`. `SOL_RECOMMENDED_CUDA` has pinned
+> **`3d`** since 2026-08-16, and `3d` is close to canvas-independent. Measured
+> at 294 frames:
+>
+> | canvas | | `2d_frame` radius / fill | `3d` radius / fill |
+> |---|---|---|---|
+> | 1344x768 | ragged | 5.54 / 0.60 | **1.66 / 0.98** |
+> | 1152x768 | ragged | 5.25 / 0.72 | **1.62 / 0.98** |
+> | 1280x768 | clean | 3.24 / 1.00 | 1.62 / 0.98 |
+> | 1024x768 | clean | 3.24 / 1.00 | 1.62 / 0.98 |
+>
+> `3d` lands at radius ~1.6 and fill 0.98 on every canvas tested, ragged or
+> clean, and **0.0% of its blocks are looser than raster's worst** anywhere --
+> against 4.7% for `2d_frame` at 1344x768. The reason is structural: a `3d`
+> block is a 4x4x4 brick spanning four latent frames, so a leftover in the
+> frame *width* has three other axes to absorb it. `2d_frame` never mixes
+> frames, so a 64-token run has to close as an 8x8 tile inside one frame or not
+> at all, and that is the constraint the divisibility rule expresses.
+>
+> **So "only 3 of 48 canvases work, do not judge Morton on the default" is a
+> true statement about the curve we no longer ship.** On the shipped curve the
+> default canvas is fine.
+>
+> `3d` pays for it elsewhere and the bill is not measured: **100% of its blocks
+> span more than one latent frame**, which is exactly the `FRAME_PER_TOKEN`
+> objection -- H3's first latent frame covers 1 real frame where later ones
+> cover 4, so `3d` pools a 1-frame latent with 4-frame latents at the clip
+> start. Trading a spatial problem for a temporal one is not obviously a win,
+> and no render has been made with `3d` on a long clip.
+
+Reproduce: `python bench/analyze_morton.py --canvas 1344x768 --length 294`,
+which prints both curves side by side.
+
 **And that is why it is 3 of 48 rather than something about Morton.** H3's
 canvas ladder steps in 32-pixel increments; Morton needs 256, so only one rung
 in eight lines up on each axis independently. Verified against the list in
@@ -752,11 +789,26 @@ References change what row the video span starts on, and the kernel counts its
 the tiles stop lining up with the blocks, and every tile would be split in
 half. `_perm_for` rotates the permutation by that offset to realign them.
 
-**This one is exhaustive rather than sampled.** Block shape depends only on
-`video_start mod 64`, so there are exactly 64 distinct cases and all 64 were
+**This one is exhaustive rather than sampled, and it is the answer to "do my
+reference sizes matter".** They do not. **Block shape depends only on
+`video_start mod 64`**, so there are exactly 64 distinct cases and all 64 were
 run. At 1024x768 every block is a solid 8x8 square in every one of them, radius
 3.240371 at all 64, spread exactly zero. At the ragged 1344x768 the spread is
 1.7e-3, which is nil.
+
+Why the count and the resolutions of the references drop out: they change
+**how many rows precede the video**, and nothing else Morton can see. Four
+references at four different sizes produce one `video_start`; that number mod
+64 selects one of 64 cases; all 64 are verified identical. So a canvas that
+tiles cleanly tiles cleanly at any reference load, and one that does not is not
+made worse by adding references.
+
+**Confirmed on `3d` as well, 2026-08-17**, since `3d` is now the shipped curve
+and the exhaustive run above predates it. At 1024x768, `video_start` 0 / 33 /
+63: `3d` holds radius 1.61-1.62 and fill 0.98 throughout, and `2d_frame` holds
+3.24 / 1.00. The `_noroll` control moves in both cases -- `2d_frame` to radius
+6.82 and fill 0.41 at offset 33, `3d` to 3.18 / 0.35 -- so the rotation is
+doing real work for both curves, not just the one it was written for.
 
 Remove the rotation and blocks degrade to radius 3.24-6.84 at 1024x768,
 depending on the offset, roughly 2x looser at worst.
