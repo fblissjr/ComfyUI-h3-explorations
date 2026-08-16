@@ -7,11 +7,13 @@ sequence still contributes to the softmax denominator.
 
 **Two implementations exist and this page covers both.** As of 2026-08-14 the
 CUDA one is what every shipped graph wires and what this repo measures against.
-The Triton one is what every number older than that date was taken on. It was
-**moved out of `custom_nodes/` into `coderef/` on 2026-08-16**, so it no longer
-registers nodes and cannot be wired by accident — but it is kept, not retired,
-and two live tooling dependencies still need the directory. See "The Triton
-node". They are not interchangeable and they do not share a knob vocabulary —
+The Triton one is what every number older than that date was taken on, and it
+was **DELETED on 2026-08-16** (commit `6872dfd`) after its last two
+dependencies were removed. It is recoverable from
+`github.com/kijai/ComfyUI-SolAttn_triton` at `842c4ea`; nothing in this tree
+references it. This page still covers it because pre-2026-08-14 numbers were
+taken on it and they are still quoted here. They are not interchangeable and
+they do not share a knob vocabulary —
 see `SOL_RECOMMENDED_CUDA` in `h3_config.py` for what the migration did and did
 not carry over.
 
@@ -50,7 +52,7 @@ labelled rather than deleted. Read this list first.
 All verified on this box today, by running rather than reading:
 
 - **The CUDA seam works.** Live render, `cuda-int8` in the log, sage's override found and chained, 50 forwards composed.
-- **345 is legal, 362 is not.** `h3_rules.py` and diffusers `before_denoise.py`, independently.
+- **362 is the max length, 345 is where diffusers stops.** `h3_rules.py` (`MAX_LENGTH`) and diffusers `before_denoise.py`, which answer two different questions -- see `reference_would_emit()`.
 - **H3's DiT reaches `optimized_attention` from one source line but 52 modules.**
   `comfy/ldm/minimax/model.py`: the 50 `DiTBlock.attn` at the full packed length,
   plus 2 `TokenRefiner` blocks on the text tokens alone (311 rows in the shipped
@@ -116,7 +118,7 @@ attention at production sequence length, on real activations.
 | | CUDA | Triton |
 |---|---|---|
 | node id | `SolAttnMiniMax` | `SolAttnPatch` |
-| pack | `custom_nodes/ComfyUI-SolAttn-cuda/` | `coderef/ComfyUI-SolAttn_triton/` (moved out of `custom_nodes/` 2026-08-16; not registered) |
+| pack | `custom_nodes/ComfyUI-SolAttn-cuda/` | **deleted 2026-08-16**; upstream `kijai/ComfyUI-SolAttn_triton@842c4ea` |
 | needs | a source build of `comfy_kitchen`'s `sol_attn` branch | nothing beyond Triton |
 | speed | upstream reports **1.4x over Triton at the same tau, end to end** | baseline |
 | accuracy vs the algorithm's reference | 0.999919 | 0.999885 (int8), 0.999995 (bf16) |
@@ -201,34 +203,34 @@ silent fallback.
 Video tokens are `latent_t * (w/32) * (h/32)`, with
 `latent_t = ((n - 5) // 17) * 5 + 2`:
 
-| canvas | 73 frames | 124 | 250 | 300 | **345** | 362 |
+| canvas | 73 frames | 124 | 250 | 300 | 345 | **362** |
 |---|---|---|---|---|---|---|
 | 1344x768 (1008/frame) | 22,176 | 37,296 | 72,576 | 87,696 | **102,816** | 107,856 |
 | 1024x768 (768/frame) | 16,896 | 28,416 | 55,296 | 66,816 | **78,336** | 82,176 |
 | 832x768 (624/frame) | 13,728 | 23,088 | 44,928 | 54,288 | **63,648** | 66,768 |
 
-**345 is the column to read.** It is `LONG_LENGTH`, and all 34 shipped API
-graphs carry it — verified by reading their `length` widgets, not assumed.
-1344x768 is the t2v and image-reference canvas; 1024x768 is what every
-video-reference arm ships (`REF_VIDEO_CANVAS`).
+**362 is the column to read.** It is `LONG_LENGTH` as of 2026-08-16, and all
+shipped API graphs carry it — verified by reading their `length` widgets, not
+assumed. 1344x768 is the t2v and image-reference canvas; 1024x768 is what
+every video-reference arm ships (`REF_VIDEO_CANVAS`).
 
-**362 is not a legal length.** The column is kept only so old numbers can be
-read, and it is the reason to distrust them. `h3_rules.py` applies the
-reference's 15.0 s ceiling *after* the frame-count snap, so 362 is 15.083 s
-and refused, and 345 is the largest count on the 17n+5 grid. A 362-frame
-render still succeeds and nothing says the model is out of distribution,
-which is how Run 1 of the 2026-08-14 bench came to be taken there.
-`bench_e2e_h3.py` now warns (`34b42b3`).
+**The 345 column is history, and it is why some numbers here do not compare.**
+345 was the default between 2026-08-10 and 2026-08-16, on the argument that
+diffusers would also emit it. Measurements taken in that window are at 345;
+everything before and after is at 362. The 5% length difference should not
+move a ratio, but it was never re-checked in either direction. 345 remains the
+answer to "would diffusers emit this" — `h3_rules.reference_would_emit()` —
+and nothing more.
 
-Upstream's ~100k model ceiling is the 1344x768 / 345-frame corner. The floor
+Upstream's ~100k model ceiling is the 1344x768 / 362-frame corner. The floor
 for seeing anything is ~60k tokens; `bench_e2e_h3.py` warns below it.
 **A run under the floor produces a null result that reads as "this knob does
 nothing".**
 
 Note this is a *token* floor, not a frame floor — 250 frames is 72,576 tokens
 at 1344x768 but only 44,928 at 832x768, on opposite sides of the line. Two
-shipped graphs stay under it even at 345: `h3_probe_square_canvas` (768x768,
-58,752) and `h3_probe_turbo_home_canvas` (960x544, 52,020). Neither enables
+shipped graphs stay under it even at 362: `h3_probe_square_canvas` (768x768,
+58,752 at 345) and `h3_probe_turbo_home_canvas` (960x544, 52,020 at 345). Neither enables
 Sol-Attn today, and enabling it on either would measure nothing.
 
 ---
@@ -359,46 +361,60 @@ being removed — passing a key the node no longer declares is an error.
 
 `SolAttnPatch`, from [ComfyUI-SolAttn_triton](https://github.com/kijai/ComfyUI-SolAttn_triton).
 
-### Its status, stated once, because "is this a distraction" keeps getting asked
+### Its status: DELETED 2026-08-16, and what that cost
 
-**Split runtime from tooling and the answer stops being ambiguous.** Audited
-2026-08-16 by reading the code, not this page.
+**The pack is gone from this tree.** Not moved — deleted, commit `6872dfd`.
+Recoverable from `github.com/kijai/ComfyUI-SolAttn_triton` at `842c4ea`.
+`SolAttnPatch` and `SolAttnBlockProbe` are absent from a live `/object_info`;
+verified after a restart.
 
-**At runtime it is dead, and that is deliberate.** `SolAttnMiniMax` (CUDA) is
-what every graph wires and what the owner runs in everything. **Zero shipped
-graphs reference `SolAttnPatch` or `SolAttnBlockProbe`** — verified by grep over
-`workflows/*.json`, and `check_sol_kernel.py`'s `no_triton_graphs` case fails
-the build if one ever drifts back. Nothing you render touches this pack.
+**This section argued for keeping it until an hour before the deletion, and
+that argument is left here rather than removed**, because one leg of it was
+resolved and the other was accepted as a cost. Deleting the argument would hide
+which.
 
-**As tooling it is live, in two places, and uninstalling it breaks both:**
+**The runtime case was never in doubt.** `SolAttnMiniMax` (CUDA) is what every
+graph wires and what the owner runs in everything. Zero shipped graphs ever
+referenced the Triton nodes, and `check_sol_kernel.py`'s `no_triton_graphs`
+case fails the build if one drifts back.
 
-1. **`bench/check_solattn_correctness.py` hard-requires it.**  Not "loses a
-   cross-check" — the script calls `load_triton_kernels()` up front and
-   `return 2` on failure, *before* the CUDA arm (its step 6) is ever reached.
-   So removing the pack turns **the only independent correctness check on the
-   CUDA Sol kernel** into a permanent skip. And exit 2 in this repo "reads
-   exactly like a check that passed", which is the precise failure this pack's
-   absence would produce. `docs/checks.md` lists its needs as "CUDA, Triton, and
-   a fork build of comfy_kitchen".
-2. **`SolAttnBlockProbe` has no CUDA equivalent.** It computes every attention
-   call both sparse and dense and logs per-block relative error worst-first —
-   the instrument for choosing a `dense_blocks` list. That is not hypothetical:
-   `SOL_ARTIFACT_INSURANCE = dict(tau=1.3, dense_blocks="33-35,39-42")` sits in
-   `h3_config.py` deliberately unwired, **pending a probe run that has never
-   happened**, and `dense_blocks` is the stated fix for the object-dissolve
-   artifact under Quality.
+**Dependency 1 — RESOLVED, and it had to be before deletion was safe.**
+`bench/check_solattn_correctness.py` used to hard-require the pack: it loaded
+the Triton kernels up front and returned 2 on failure, *before* its CUDA arm
+was reached. So deleting the pack would have turned the only independent
+correctness check on the CUDA kernel into a permanent skip — and exit 2 here
+reads exactly like a check that passed. That coupling was an accident of
+control flow, not of method: the CUDA arm never needed Triton. The check now
+grades CUDA only, its red control was shown red against a copy, and it runs
+green with the pack absent.
 
-**Third role, and this one really is only historical:** `bench_e2e_h3.py
---sol-backend triton` reproduces pre-2026-08-14 numbers. If that were the only
-role, the pack would be a distraction.
+**Dependency 2 — NOT resolved. This is a real cost and it is open.**
+`SolAttnBlockProbe` computed every attention call both sparse and dense and
+logged per-block relative error worst-first. It was the instrument for choosing
+a `dense_blocks` list, it had **no CUDA equivalent**, and it is now gone from
+the tree. Consequences, stated plainly so nobody plans against a tool that is
+not here:
 
-**Unverified, and it matters to whoever runs the probe:** whether
-`SolAttnBlockProbe` works downstream of the *CUDA* node. It wraps
-`optimized_attention_override`, and the CUDA node also object-patches the 50 DiT
-forwards, so the probe may see none of the real calls — the same shape as the
-`ModelAttentionBackend` trap under Ordering. Assume it pairs with the Triton
-patch node until someone checks. The resulting block list transfers either way:
-`dense_blocks` names model blocks 0-49, not anything kernel-specific.
+- `SOL_ARTIFACT_INSURANCE = dict(tau=1.3, dense_blocks="33-35,39-42")` in
+  `h3_config.py` is a **guess**, sitting unwired pending a probe run — and that
+  run is now blocked on an instrument that does not exist in this tree.
+- `dense_blocks` is the stated fix for the object-dissolve artifact under
+  Quality. There is currently no way to choose the list from measurement.
+- The replacement is scaffolded and **not implemented**: `sol_block_probe.py`
+  in this repo, all stubs, port target `842c4ea:__init__.py:323-342`. Until it
+  lands, "run the probe" is not an available action.
+
+**Still unverified, and it decides whether the port is even possible:** whether
+a probe wrapping `optimized_attention_override` sees the CUDA node's DiT calls
+at all. The CUDA node object-patches the 50 DiT forwards; reading
+`_compose_module_patch`, it calls `stock()` inside the sigma window, which
+should reach the override. That is an inference, and the Ordering section below
+documents two nodes that look like they compose and do not. One render settles
+it, and it is the first thing the port needs.
+
+**Third role, genuinely only historical:** `--sol-backend triton` reproduced
+pre-2026-08-14 numbers and now refuses at argparse. Every number it could have
+reproduced already carries this page's "do not rely on" caveats.
 
 ### Knobs
 
@@ -407,7 +423,7 @@ Its knob set differs: it has `int8_qk`, `int8_pv` and `use_tma`, and lacks
 and `SOL_BASELINE_124F` in `h3_config.py` are both written in this vocabulary.
 
 **`int8_qk` selects a different kernel, it does not toggle a dtype.** Read from
-`coderef/ComfyUI-SolAttn_triton/__init__.py:214`: `kernel = _sol_attn_int8_kernel if
+`kijai/ComfyUI-SolAttn_triton@842c4ea:__init__.py:214`: `kernel = _sol_attn_int8_kernel if
 int8_qk else _sol_attn_kernel`, logged as `int8` or `bf16` (`:222`). So a
 bf16-arm against an int8-arm varies the PV dtype, the QK dtype **and** the
 implementation at once, and cannot price any one of them. `int8_pv` is passed

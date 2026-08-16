@@ -4,6 +4,108 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.23.0
+
+### Removed
+
+- **The Sol-Attn Triton pack is deleted**, not moved. `coderef/ComfyUI-SolAttn_triton/`
+  is gone; `SolAttnPatch` and `SolAttnBlockProbe` are absent from a live
+  `/object_info` after a restart. Recoverable from
+  `github.com/kijai/ComfyUI-SolAttn_triton` at `842c4ea`, so this is a lost
+  *tool*, not lost work. **This supersedes 0.21.0**, which argued for keeping
+  it and was written about an hour earlier; that entry is annotated rather than
+  rewritten.
+
+  **Dependency 1 resolved before deletion, which is what made it safe.**
+  `bench/check_solattn_correctness.py` grades the CUDA kernel only. The old
+  coupling -- load Triton first, `return 2` on failure, before the CUDA arm --
+  was an accident of control flow, not of method. Red control shown red against
+  a copy; green with the pack absent.
+
+  **Dependency 2 NOT resolved, and it is a real cost.** `SolAttnBlockProbe` had
+  no CUDA equivalent and is now gone from the tree. So
+  `SOL_ARTIFACT_INSURANCE = dict(tau=1.3, dense_blocks="33-35,39-42")` is a
+  guess whose validating probe run is blocked on an instrument that no longer
+  exists here, and `dense_blocks` -- the stated fix for the object-dissolve
+  artifact -- currently cannot be chosen from measurement. `sol_block_probe.py`
+  scaffolds the replacement and **implements none of it**. Caught by the peer
+  session reading 0.21.0 against the tree; the two documents disagreed for
+  about an hour and both told a reader to look in a directory that was not
+  there.
+
+### Fixed
+
+- **`docs/SOLATTN.md` said the Triton pack was "kept, not retired" and pointed
+  at `coderef/`** in three places -- the header, the backend table's `pack`
+  row, and a source citation. All three now name the deletion and cite upstream
+  at `842c4ea`. The "Its status" section is rewritten around what the deletion
+  cost rather than around why it should not happen.
+- **`~1,700` blocks at 362 frames was labelled as production scale** in
+  `bench/analyze_sol_error.py` and `check_solattn_correctness.py`'s output. It
+  is `1,626 x 362/345` rounded -- an arithmetic rescale of a measurement,
+  printed where a measurement goes. Now marked DERIVED with the derivation
+  inline, and the one real measurement named with the length it was taken at.
+  Also caught by the peer session.
+
+## 0.22.0
+
+### Changed
+
+- **The max length is 362 frames (15.083s), and every "345 is the largest
+  legal count" claim is withdrawn.** Owner decision, 2026-08-16. 345 is the
+  largest count the *reference pipeline* will emit -- diffusers' `max_duration`
+  is a hard-coded 15.0s applied after the 17n+5 snap -- which is a fact about
+  diffusers and was never a limit on the model. This repo presented it as
+  legality for a week, called 362 "illegal / out of distribution" on
+  2026-08-14, and withdrew a whole bench run over it.
+
+  `h3_rules.MAX_LENGTH = 362` is now the ceiling and `MAX_DURATION` derives
+  from it. Frames first, seconds derived: a seconds-first ceiling of 15.0
+  excludes its own maximum by 0.083s, which is exactly how 345 became the
+  answer. `duration_in_range()` is the model's window; the new
+  `reference_would_emit()` is the separate portability question, and callers
+  that care about diffusers must now ask for it by name.
+
+- **`LONG_LENGTH` is 362**, reverting the 2026-08-10 move to 345. All 73
+  graphs regenerated against a live `/object_info`; no graph carries 345 as a
+  length any more. Measurements taken between 2026-08-10 and 2026-08-16 were
+  taken at 345 and now sit one grid step below the shipped default; everything
+  older is back on the length it was measured at. The 5% difference should not
+  move a ratio, but that was not re-checked in either direction.
+
+- **What 362 rests on, recorded rather than implied.** One upstream statement
+  from 2026-08-14 (`6e85e48`) with no artifact attached, plus LightX2V shipping
+  a 362-frame config. MiniMax's own README gives a rounded "4-15 seconds" and
+  the official checkpoint configs state no frame limit at all, so the primary
+  source neither confirms nor refutes it. A decision taken on thin evidence and
+  labelled as one; not a measurement.
+
+### Removed
+
+- **`REF_VIDEO_LENGTH` is deleted and must not be reintroduced.** A safe length
+  for a reference arm is not a constant: it depends on how many references are
+  wired, their kinds and durations, the canvas, and whether they are upscaled,
+  so one number is only right for the configuration it was measured on and
+  silently wrong everywhere else. Benches and tests now pick the duration the
+  test calls for. `REF_VIDEO_BUDGET` takes `LONG_LENGTH`.
+
+  The measurement it came from is kept as a warning, because the ceiling is
+  real: at 345 frames, 1024x768, references not upscaled, the arm peaked at
+  **22,735 MiB of 24,564** over 34.3 minutes. That is 1,829 MiB of headroom,
+  and 362 is ~5% more tokens -- **expect these arms to sit at or over the
+  edge.** Read preflight first, and if one OOMs, shorten that run rather than
+  reaching for a new constant.
+
+### Fixed
+
+- `bench/check_keyframe_canvas.py` pins the flip: 346 and 362 are accepted
+  where they were refused, and 363 (which snaps to 379) is refused. Runs green.
+- `docs/evidence.md` asserted "**345 legal / 362 illegal**" under `## These
+  hold` -- the section reserved for claims a second reader confirmed -- eleven
+  lines below the correction withdrawing exactly that claim. The 2026-08-14
+  commit said it had fixed every consumer; it added the correction and left the
+  bullet. Removed.
+
 ## 0.21.0
 
 ### Changed
@@ -14,6 +116,11 @@ artifact.
   `SolAttnMiniMax` (CUDA) is what every graph wires and what the owner runs in
   everything; no graph has referenced the Triton node since 2026-08-14 and
   `check_sol_kernel.py`'s `no_triton_graphs` case enforces it.
+
+  **SUPERSEDED THE SAME DAY by 0.23.0: the pack was deleted, not kept.**
+  The paragraph below is left as written because one of its two legs was
+  resolved and the other was accepted as a cost, and deleting it would hide
+  which. Read 0.23.0 before acting on any of it.
 
   **Moved, not deleted, and the distinction is the finding.** Audited before
   moving: at *runtime* the pack is dead, but as *tooling* it has two live
