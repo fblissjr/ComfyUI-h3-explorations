@@ -152,6 +152,32 @@ the sink is a few hundred rows and the signal is too thin to trust. Re-enable
 another with `sol_on=True` in its `GRAPHS` entry, not by hand-editing a saved
 graph.
 
+**There are two Sol-Attn implementations and only one of them runs.**
+`SolAttnMiniMax` (CUDA, `custom_nodes/ComfyUI-SolAttn-cuda/` driving
+`comfy_kitchen.sol_attn`) is what every graph wires and what the owner runs in
+everything. The Triton pack was **moved out of `custom_nodes/` into
+`coderef/ComfyUI-SolAttn_triton/` on 2026-08-16**, so ComfyUI no longer
+registers `SolAttnPatch` or `SolAttnBlockProbe` and neither can be wired by
+accident.
+
+**It was moved, not deleted, and it is not only a historical benchmark.** Two
+live tooling dependencies survive the move, and both would break if the
+directory went away:
+
+- `bench/check_solattn_correctness.py` **hard-requires it** -- it loads the
+  Triton kernels first and returns 2 on failure, *before* reaching its CUDA
+  arm. Delete the pack and the only independent correctness check on the CUDA
+  kernel becomes a permanent skip, which in this repo reads exactly like a
+  check that passed.
+- `SolAttnBlockProbe` has **no CUDA equivalent** and is the instrument for
+  choosing `dense_blocks`. `SOL_ARTIFACT_INSURANCE` in `h3_config.py` sits
+  deliberately unwired pending a probe run nobody has done.
+
+Reproducing pre-2026-08-14 numbers via `bench_e2e_h3.py --sol-backend triton`
+is the third role and *is* purely historical. `docs/SOLATTN.md`, "The Triton
+node", is the full statement. To run the probe, symlink the pack back into
+`custom_nodes/` for that session.
+
 **Reference-heavy is where Sol has the LEAST room, not the most**, which is
 the opposite of what this repo assumed for weeks. Reference rows are pinned
 exact, so they raise the token count without adding anything Sol can

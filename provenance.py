@@ -61,15 +61,30 @@ from comfy_api.latest import io
 
 logger = logging.getLogger(__name__)
 
-STAMP_SCHEMA_VERSION = 1
+STAMP_SCHEMA_VERSION = 2
 
 # Every Sol setting that exists only inside the override closure. Anything here
 # that introspection cannot reach becomes an explicit "not detected" IN THE
 # RECORD -- a reader diffing two sidecars never sees a log line, and a silently
 # absent key is indistinguishable from a setting that was never on.
+# Corrected 2026-08-16 against `vendor/sol_attn_minimax.py:497-501`, the CUDA
+# node's real `make_override` signature. This list was written in the TRITON
+# vocabulary and never updated when the graphs migrated on 2026-08-14, so it was
+# wrong in both directions at once: it asked for `int8_qk`, `use_tma` and
+# `int8_pv`, which do not exist on the CUDA node and so recorded "not detected"
+# on every render forever, and it omitted `routed_cap_percent`, `centroid_tail`
+# and `reuse_qkv_memory`, which do run and were therefore absent from the record
+# entirely. `centroid_tail` is the one that stings -- it has a live A/B with a
+# deadline on it (upstream may remove the toggle) and no stamped render says
+# which way it was set.
+#
+# The failure mode is the one this file's own docstring warns about: three
+# permanently-absent keys read as introspection failure, and a reader diffing
+# two sidecars cannot tell that from a setting that was never on.
 SOL_CLOSURE_KEYS = (
-    "tau", "min_tokens", "sigma_start", "sigma_end", "verbose", "int8_qk",
-    "sink_conditioning", "use_tma", "dense_blocks", "tau_profile", "int8_pv",
+    "tau", "min_tokens", "sigma_start", "sigma_end", "verbose",
+    "sink_conditioning", "dense_blocks", "tau_profile",
+    "routed_cap_percent", "centroid_tail", "reuse_qkv_memory",
 )
 
 NOT_DETECTED = "not detected"
@@ -190,15 +205,22 @@ class MiniMaxH3ProvenanceStamp(io.ComfyNode):
         sol = _sol_state(to, sigmas)
 
         here = Path(__file__).resolve().parent
-        packs = here.parent
         record = {
             "stamp_schema_version": STAMP_SCHEMA_VERSION,
             "utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "note": note,
             "sol": sol,
+            # `sol_attn` was the TRITON pack's git HEAD until 2026-08-16, which
+            # stamped the wrong thing: no graph has wired the Triton node since
+            # 2026-08-14, so every record named a pack that did not run while
+            # saying nothing about the kernel that did. The CUDA path's identity
+            # is the comfy_kitchen build, and that is the one worth having --
+            # the fork build declares a version identical to the stock PyPI
+            # wheel, so without the local tag nothing distinguishes them.
+            # Schema bumped to 2 for the key change.
             "builds": {
                 "h3_explorations": _git_head(here),
-                "sol_attn": _git_head(packs / "ComfyUI-SolAttn_triton"),
+                "sol_attn_cuda": cls._comfy_kitchen_version(),
                 "comfyui": _git_head(Path(folder_paths.base_path)),
                 "sageattention": cls._sage_version(),
             },
@@ -241,6 +263,29 @@ class MiniMaxH3ProvenanceStamp(io.ComfyNode):
             path.name, sol["state"], sol.get("n_sparse", "n/a"),
         )
         return io.NodeOutput(latent)
+
+    @staticmethod
+    def _comfy_kitchen_version():
+        """The CUDA Sol kernel's identity: the installed `comfy_kitchen` build.
+
+        This is the only field that can tell the fork build apart from the
+        stock wheel. Both declare `0.2.31`, so the local tag
+        (`0.2.31+sol.c04ef20`) is the whole signal -- see
+        `bench/check_sol_kernel.py`. Reports whether `sol_attn` is actually
+        present too, because a stock wheel swapped in by a `--force-reinstall`
+        makes every Sol call fall back to dense and renders successfully.
+        """
+        try:
+            import comfy_kitchen
+            try:
+                from importlib.metadata import version
+                ver = version("comfy_kitchen")
+            except Exception:
+                ver = getattr(comfy_kitchen, "__version__", NOT_DETECTED)
+            has_sol = hasattr(comfy_kitchen, "sol_attn")
+            return f"{ver}{'' if has_sol else ' (NO sol_attn)'}"
+        except Exception:
+            return NOT_DETECTED
 
     @staticmethod
     def _sage_version():

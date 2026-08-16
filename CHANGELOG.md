@@ -4,6 +4,60 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.21.0
+
+### Changed
+
+- **The Sol-Attn Triton pack moved out of `custom_nodes/` into
+  `coderef/ComfyUI-SolAttn_triton/`.** ComfyUI no longer registers
+  `SolAttnPatch` or `SolAttnBlockProbe`, so neither can be wired by accident.
+  `SolAttnMiniMax` (CUDA) is what every graph wires and what the owner runs in
+  everything; no graph has referenced the Triton node since 2026-08-14 and
+  `check_sol_kernel.py`'s `no_triton_graphs` case enforces it.
+
+  **Moved, not deleted, and the distinction is the finding.** Audited before
+  moving: at *runtime* the pack is dead, but as *tooling* it has two live
+  dependencies. `bench/check_solattn_correctness.py` **hard-requires** it --
+  it loads the Triton kernels first and returns 2 on failure, before its CUDA
+  arm is reached, so deleting the pack would turn the only independent
+  correctness check on the CUDA kernel into a permanent skip. And
+  `SolAttnBlockProbe` has no CUDA equivalent; it is the instrument for choosing
+  `dense_blocks`, and `SOL_ARTIFACT_INSURANCE` sits unwired pending a probe run.
+  Only the third role -- `--sol-backend triton` for pre-2026-08-14 numbers --
+  is purely historical.
+
+### Fixed
+
+- **`bench/check_solattn_correctness.py` now searches both locations** for the
+  pack, `coderef/` first so a stale `custom_nodes/` copy cannot shadow the
+  maintained one, and raises a named error pointing at `docs/SOLATTN.md` rather
+  than degrading to a silent exit 2.
+- **`provenance.py` stamped the wrong Sol build, and omitted three knobs that
+  actually run.** `builds.sol_attn` recorded the *Triton* pack's git HEAD -- a
+  pack no graph has wired since 2026-08-14 -- while saying nothing about the
+  kernel that did run. It is now `builds.sol_attn_cuda`, the installed
+  `comfy_kitchen` version plus whether `sol_attn` is present at all, which is
+  the only field that can tell the fork build from the stock wheel (both
+  declare `0.2.31`). Separately, `SOL_CLOSURE_KEYS` was still written in the
+  Triton vocabulary: it asked for `int8_qk`, `use_tma` and `int8_pv`, which do
+  not exist on the CUDA node and so recorded "not detected" on every render
+  forever, and it **omitted `routed_cap_percent`, `centroid_tail` and
+  `reuse_qkv_memory`**, which do run. `centroid_tail` is the one that stings --
+  it has a live A/B with a deadline and no stamped render says how it was set.
+  Corrected against `vendor/sol_attn_minimax.py:497-501`.
+  `STAMP_SCHEMA_VERSION` 1 -> 2.
+
+### Notes
+
+- **A stale external write reverted `CHANGELOG.md` on disk** after `01db3c9`,
+  dropping both this session's 0.19.0 "Retracted" section and the peer
+  session's 0.20.0 entry, and reinstating a withdrawn figure.
+  `check_retraction_consumers.py` caught it -- the phrase reappearing in a
+  file not on its allowlist is exactly what that check is for. Recovered with
+  `git checkout HEAD -- CHANGELOG.md` after confirming the working copy
+  contained no new content. Same shape as the incident `docs/evidence.md`
+  already records for the device poller.
+
 ## 0.20.0
 
 ### Added

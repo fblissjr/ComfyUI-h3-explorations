@@ -12,8 +12,8 @@ sibling node packs, which live beside this repo under ComfyUI's `custom_nodes/`.
 | file | what it is |
 |---|---|
 | `vendor/sol_attn_minimax.py` | The CUDA Sol-Attn node, kept byte-identical to upstream. All the Morton machinery: `morton_perm` (`:150-188`), the block-alignment rotation `_perm_for` (`:205-224`), the video-span resolver `_video_span` (`:227-245`), and the install plus hooks `install_h3_morton` (`:276-396`). The node's own `morton` and `morton_curve` inputs and their tooltips are at `:746-753`. |
-| `ComfyUI-SolAttn_triton/_morton.py` | The Triton pack's Morton, **for Wan**. Its docstring (`:1-11`) carries the only stated payoff anywhere in either pack: Z-ordering "lets the same quality be reached at higher sparsity". That sentence appears exactly once in the pack, and it is in the Wan file. |
-| `ComfyUI-SolAttn_triton/_morton_h3.py` | The H3 variant, reordering only the video span rather than the whole packed sequence. **Makes no quality or sparsity claim**; its docstring is purely mechanical. The CUDA node inlines from both files, and contains the word "sparsity" zero times. |
+| `coderef/ComfyUI-SolAttn_triton/_morton.py` | The Triton pack's Morton, **for Wan**. Its docstring (`:1-11`) carries the only stated payoff anywhere in either pack: Z-ordering "lets the same quality be reached at higher sparsity". That sentence appears exactly once in the pack, and it is in the Wan file. |
+| `coderef/ComfyUI-SolAttn_triton/_morton_h3.py` | The H3 variant, reordering only the video span rather than the whole packed sequence. **Makes no quality or sparsity claim**; its docstring is purely mechanical. The CUDA node inlines from both files, and contains the word "sparsity" zero times. |
 | `ComfyUI-SolAttn-cuda/` | A two-line loader shim over `vendor/sol_attn_minimax.py`, plus a README on why the node id is provisional and why it is not vendored into this repo. |
 
 ### What we built to look at it

@@ -782,7 +782,7 @@ the Triton numbers "already price" a 16-bit PV. They do not, and the reason is
 the failure shape the 2026-08-15 postmortem names three times: a measurement
 stated at a scope wider than it was taken at.
 
-What is verified, read from `ComfyUI-SolAttn_triton/__init__.py` rather than
+What is verified, read from `coderef/ComfyUI-SolAttn_triton/__init__.py` rather than
 from our own bench comment:
 
 - The node dispatches **two different kernels**, not one kernel with a dtype

@@ -94,7 +94,29 @@ sys.path.insert(0, str(HERE))
 
 from _sol_attn_reference import sol_attn as reference  # noqa: E402
 
-SOLATTN_DIR = HERE.parents[1] / "ComfyUI-SolAttn_triton"
+# Moved out of `custom_nodes/` into `coderef/` on 2026-08-16 so ComfyUI stops
+# registering its two nodes -- the owner runs `SolAttnMiniMax` (CUDA) in
+# everything and no graph has wired the Triton node since 2026-08-14. The pack
+# is still a live dependency of THIS script, which is the point of searching
+# both locations rather than just repointing: a checkout that has not moved yet
+# keeps working, and one that has does not silently drop the CUDA arm.
+#
+# Order matters. `coderef/` first, so that after the move a stale copy left in
+# `custom_nodes/` cannot shadow the one being maintained.
+_TRITON_CANDIDATES = (
+    HERE.parents[0] / "coderef" / "ComfyUI-SolAttn_triton",   # current home
+    HERE.parents[1] / "ComfyUI-SolAttn_triton",               # pre-2026-08-16
+)
+
+
+def _triton_dir():
+    for path in _TRITON_CANDIDATES:
+        if (path / "_int8_fwd.py").is_file():
+            return path
+    return None
+
+
+SOLATTN_DIR = _triton_dir()
 
 
 def load_triton_kernels():
@@ -110,6 +132,13 @@ def load_triton_kernels():
     that file registers ComfyUI nodes and pulls in comfy_api. We want the
     kernels, not the side effects.
     """
+    if SOLATTN_DIR is None:
+        raise FileNotFoundError(
+            "the Sol-Attn Triton pack was not found. Looked in:\n  "
+            + "\n  ".join(str(p) for p in _TRITON_CANDIDATES)
+            + "\nIt is tooling-only since 2026-08-16 and no longer lives in "
+              "custom_nodes/, but this check still needs it -- see "
+              "docs/SOLATTN.md, 'The Triton node'.")
     name = "_solattn_triton_pkg"
     if name not in sys.modules:
         pkg = types.ModuleType(name)

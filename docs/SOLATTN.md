@@ -7,10 +7,13 @@ sequence still contributes to the softmax denominator.
 
 **Two implementations exist and this page covers both.** As of 2026-08-14 the
 CUDA one is what every shipped graph wires and what this repo measures against.
-The Triton one is what every number older than that date was taken on, and it
-stays installed for that reason. They are not interchangeable and they do not
-share a knob vocabulary — see `SOL_RECOMMENDED_CUDA` in `h3_config.py` for what
-the migration did and did not carry over.
+The Triton one is what every number older than that date was taken on. It was
+**moved out of `custom_nodes/` into `coderef/` on 2026-08-16**, so it no longer
+registers nodes and cannot be wired by accident — but it is kept, not retired,
+and two live tooling dependencies still need the directory. See "The Triton
+node". They are not interchangeable and they do not share a knob vocabulary —
+see `SOL_RECOMMENDED_CUDA` in `h3_config.py` for what the migration did and did
+not carry over.
 
 Everything here is single-machine (RTX 4090, sm_89), single-workload. The sage
 baseline is [SageAttention-ada](https://github.com/fblissjr/SageAttention-ada),
@@ -113,7 +116,7 @@ attention at production sequence length, on real activations.
 | | CUDA | Triton |
 |---|---|---|
 | node id | `SolAttnMiniMax` | `SolAttnPatch` |
-| pack | `custom_nodes/ComfyUI-SolAttn-cuda/` | `custom_nodes/ComfyUI-SolAttn_triton/` |
+| pack | `custom_nodes/ComfyUI-SolAttn-cuda/` | `coderef/ComfyUI-SolAttn_triton/` (moved out of `custom_nodes/` 2026-08-16; not registered) |
 | needs | a source build of `comfy_kitchen`'s `sol_attn` branch | nothing beyond Triton |
 | speed | upstream reports **1.4x over Triton at the same tau, end to end** | baseline |
 | accuracy vs the algorithm's reference | 0.999919 | 0.999885 (int8), 0.999995 (bf16) |
@@ -121,10 +124,13 @@ attention at production sequence length, on real activations.
 | status here | **what every shipped graph wires, and what new work measures** | kept for reproducing pre-2026-08-14 numbers |
 
 **Use CUDA.** The backends are arithmetically equivalent (see below), so there
-is no accuracy argument for Triton, and CUDA is faster. Triton stays installed
-because pre-2026-08-14 numbers were taken on it and because
-`bench/check_solattn_correctness.py` grades the two against one shared oracle —
-a cross-check that only exists while both are present.
+is no accuracy argument for Triton, and CUDA is faster.
+
+**But do not uninstall Triton, and the reason is not sentimental.** It carries
+two live dependencies and one historical one; only the third is a benchmark
+concern. See "The Triton node" below for the full statement — the short version
+is that `bench/check_solattn_correctness.py` **hard-requires** it and
+`SolAttnBlockProbe` has no CUDA equivalent.
 
 ### 2. Install the CUDA kernel
 
@@ -352,17 +358,62 @@ being removed — passing a key the node no longer declares is an error.
 ## The Triton node
 
 `SolAttnPatch`, from [ComfyUI-SolAttn_triton](https://github.com/kijai/ComfyUI-SolAttn_triton).
-Shipped graphs wired this until 2026-08-14; they now wire the CUDA node. It
-stays installed for reproducing older numbers and for `SolAttnBlockProbe`.
+
+### Its status, stated once, because "is this a distraction" keeps getting asked
+
+**Split runtime from tooling and the answer stops being ambiguous.** Audited
+2026-08-16 by reading the code, not this page.
+
+**At runtime it is dead, and that is deliberate.** `SolAttnMiniMax` (CUDA) is
+what every graph wires and what the owner runs in everything. **Zero shipped
+graphs reference `SolAttnPatch` or `SolAttnBlockProbe`** — verified by grep over
+`workflows/*.json`, and `check_sol_kernel.py`'s `no_triton_graphs` case fails
+the build if one ever drifts back. Nothing you render touches this pack.
+
+**As tooling it is live, in two places, and uninstalling it breaks both:**
+
+1. **`bench/check_solattn_correctness.py` hard-requires it.**  Not "loses a
+   cross-check" — the script calls `load_triton_kernels()` up front and
+   `return 2` on failure, *before* the CUDA arm (its step 6) is ever reached.
+   So removing the pack turns **the only independent correctness check on the
+   CUDA Sol kernel** into a permanent skip. And exit 2 in this repo "reads
+   exactly like a check that passed", which is the precise failure this pack's
+   absence would produce. `docs/checks.md` lists its needs as "CUDA, Triton, and
+   a fork build of comfy_kitchen".
+2. **`SolAttnBlockProbe` has no CUDA equivalent.** It computes every attention
+   call both sparse and dense and logs per-block relative error worst-first —
+   the instrument for choosing a `dense_blocks` list. That is not hypothetical:
+   `SOL_ARTIFACT_INSURANCE = dict(tau=1.3, dense_blocks="33-35,39-42")` sits in
+   `h3_config.py` deliberately unwired, **pending a probe run that has never
+   happened**, and `dense_blocks` is the stated fix for the object-dissolve
+   artifact under Quality.
+
+**Third role, and this one really is only historical:** `bench_e2e_h3.py
+--sol-backend triton` reproduces pre-2026-08-14 numbers. If that were the only
+role, the pack would be a distraction.
+
+**Unverified, and it matters to whoever runs the probe:** whether
+`SolAttnBlockProbe` works downstream of the *CUDA* node. It wraps
+`optimized_attention_override`, and the CUDA node also object-patches the 50 DiT
+forwards, so the probe may see none of the real calls — the same shape as the
+`ModelAttentionBackend` trap under Ordering. Assume it pairs with the Triton
+patch node until someone checks. The resulting block list transfers either way:
+`dense_blocks` names model blocks 0-49, not anything kernel-specific.
+
+### Knobs
 
 Its knob set differs: it has `int8_qk`, `int8_pv` and `use_tma`, and lacks
 `centroid_tail`, `routed_cap_percent` and `reuse_qkv_memory`. `SOL_RECOMMENDED`
 and `SOL_BASELINE_124F` in `h3_config.py` are both written in this vocabulary.
 
-It also carries `SolAttnBlockProbe`, which computes every attention call both
-sparse and dense and logs per-block relative error worst-first. That is the
-instrument for choosing a `dense_blocks` list, and it has no CUDA equivalent —
-the one live reason to reach for Triton.
+**`int8_qk` selects a different kernel, it does not toggle a dtype.** Read from
+`coderef/ComfyUI-SolAttn_triton/__init__.py:214`: `kernel = _sol_attn_int8_kernel if
+int8_qk else _sol_attn_kernel`, logged as `int8` or `bf16` (`:222`). So a
+bf16-arm against an int8-arm varies the PV dtype, the QK dtype **and** the
+implementation at once, and cannot price any one of them. `int8_pv` is passed
+only when `int8_qk` is on (`:213`) and **defaults to `True` on the node**
+(`:468`) — `SOL_BASELINE_124F` pins it `False`, which is the only reason the
+bench's `sage+sol+int8qk` arm is int8-QK with bf16-PV rather than full int8.
 
 ### The frontier, at 362 frames
 
