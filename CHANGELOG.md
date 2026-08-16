@@ -4,6 +4,46 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.20.0
+
+### Added
+
+- **`bench/check_lora_alpha.py`**, covering a failure this repo could not have
+  seen: a LoRA whose scale ComfyUI cannot read. ComfyUI takes `alpha` only from
+  a `"<module>.alpha"` tensor (`comfy/lora.py:41-45`) and falls back to 1.0
+  (`comfy/weight_adapter/lora.py:248-251`); it never reads the file's
+  `__metadata__`. diffusers' #14408 (2026-08-14) documents a published MiniMax-H3
+  turbo LoRA that records alpha 8 against rank 128 in metadata alone, which such
+  a loader applies **16x too strong**, silently, on a graph that validates and
+  renders. **The first check here whose subject is a third-party binary** rather
+  than our graphs, our nodes, or a dependency's API. Also asserts every `*_LORA`
+  in `h3_config.py` resolves on disk -- on the morning it was written `REF_LORA`
+  did not, so the ref-LoRA graph could not run and nothing said so.
+
+  The exemption carried the work: three kijai `_resized_avg_` conversions in
+  this install carry a metadata `alpha` and are **correct**, because they also
+  declare `baked_scale` and fold the scale into `lora_B`. A rule keyed on the
+  naive shape would fail three good files on every run. A declared bake outranks
+  a declared alpha, and that precedence is asserted by a control rather than
+  trusted. Both controls are synthetic and run every invocation, because every
+  real file here is clean and an all-clean corpus cannot distinguish a working
+  check from an inert one. It also pins its own premise by reading
+  `comfy/lora.py`, so it goes red rather than quiet the day that loader grows a
+  metadata channel.
+
+  Shown red 2026-08-16, five mutations, all against copies: a dangling
+  `REF_LORA`; the unsafe branch deleted; the exemption widened by presence; the
+  exemption removed (three correct files misclassified); and a fake ComfyUI that
+  reads `__metadata__`. A sixth mutation moved no verdict and is recorded in-file
+  as proving nothing -- **the mutation that disproved a sentence in the
+  docstring**, which claimed `control:baked` defends against a widened exemption.
+  Measurement says `control:unsafe` does, and `control:baked` defends the
+  opposite direction.
+
+### Changed
+
+- **`docs/checks.md`** indexes the new check and its count moves 18 -> 19.
+
 ## 0.19.0
 
 ### Added
