@@ -191,6 +191,12 @@ by 4. Height in tokens is `h/32`, so the rule lands on **height divisible by
 | 672 | 21 | 1 | 3 | 1.86 - 2.45 |
 | 736 | 23 | 3 | 3 | 1.90 - 2.39 |
 
+**Moving to `3d` widened the canvas choice by 9x; it did not remove it.** This
+gets read backwards, so state it as counts: `2d_frame` is clean on **3 of the
+48** landscape canvases, `3d` on **27 of 48** (20 at height 768, 4 at 640, 3 at
+512). The strict rule belongs to the curve we stopped shipping. Resolution is
+still a lever on `3d`, just a much looser one.
+
 **Width barely matters on `3d`.** At height 768 the twenty canvases span 24 to
 43 tokens wide and all land between 1.62 and 1.80. The odd-token heights are
 where it degrades, worst case 2.55 at 1888x544 and 1952x544 with fill dropping
