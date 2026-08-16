@@ -399,12 +399,19 @@ the effect feel confirmed. What the tail result licenses is narrower, and it
 is enough: **if** Morton produces a visible difference on this canvas, these
 are the blocks to look at first.
 
-### The rotation for reference rows is correct
+### Morton still works with references
 
-Block geometry is invariant to `video_start` once `_perm_for` rotates the
-permutation, verified at seven offsets from 0 to 20,000. Without the rotation,
-1024x768 with references falls from fill 1.00 to 0.42, which is worse than the
-ragged canvas.
+References change what row the video span starts on, and the kernel counts its
+64-row blocks from row 0 of the whole sequence. So once references are present
+the tiles stop lining up with the blocks, and every tile would be split in
+half. `_perm_for` rotates the permutation by that offset to realign them.
+
+Measured at seven `video_start` offsets from 0 to 20,000: at 1024x768 every
+block came out a solid 8x8 square at every offset, radius 3.24 and fill 1.00.
+Remove the rotation and the blocks scatter, fill 0.42 on that same canvas,
+which is more scattered than raster order manages and more scattered than the
+ragged 1344x768 canvas gets with the rotation in place. So reference load does
+not degrade Morton, and the rotation is why.
 
 This nearly went into this document as the opposite finding. Grouping tokens
 by their index within the video span rather than by their absolute row
