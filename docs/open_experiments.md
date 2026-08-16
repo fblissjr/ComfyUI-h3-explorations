@@ -599,8 +599,12 @@ plausible mechanism for a quality change there is. If it helps, the 1.16x is
 buying something and the default trades an unmeasured gain for a measured one.
 
 **Arms:** `shipped` (tau 1.3, morton off), `shipped[tau=1.0]`,
-`shipped[morton=1]`, `shipped[tau=1.0,morton=1]`. The ad-hoc arm syntax in
-`bench_e2e_h3.py` already supports all four; no harness work.
+`shipped+morton2d`, `shipped+morton3d`, `shipped+hilbert`, and
+`shipped+reorder_only` for the cost-in-isolation control. All are named arms in
+`bench_e2e_h3.py` as of 2026-08-16; the ad-hoc syntax covers any tau crossing.
+Note that a fair Morton test raises `tau` rather than holding it, since the one
+stated payoff is "the same quality at higher sparsity" — an arm at fixed tau
+measures the cost and none of the benefit.
 
 **Cost:** 4 arms at 345 frames. Time is the cheap half.
 
