@@ -147,7 +147,7 @@ the opposite of what this repo assumed for weeks. Reference rows are pinned
 exact, so they raise the token count without adding anything Sol can
 sparsify. Treat the refs probe as a mechanism check, not a speed one.
 
-## Three traps that have each bitten more than once
+## Four traps that have each bitten more than once
 
 **`import nodes` resolves to ours.** This repo has a `nodes.py`, and
 `workflows/build_workflows.py` inserts the repo root at `sys.path[0]`, so a later bare
@@ -155,6 +155,21 @@ sparsify. Treat the refs probe as a mechanism check, not a speed one.
 Any script importing both must get ComfyUI's root ahead of the repo, or import
 `nodes` first so `sys.modules` is already populated. Cost three separate
 debugging rounds.
+
+**A running ComfyUI holds TWO copies of every `comfy_extras` module, and
+patching the wrong one looks exactly like success.** `load_custom_node`
+registers each file under a **file-path** module name (`nodes.py`:
+`sys_module_name = os.path.splitext(module_path)[0]`), and `comfy_extras/` has
+no `__init__.py`, so it is a PEP 420 namespace package. A dotted
+`import comfy_extras.nodes_minimax_h3` -- which `resolution.py`, `preflight.py`
+and `build_workflows.py` all do -- therefore builds a **second, independent
+module object** with its own copy of every module-level function. On
+2026-08-15 `single_frame.py` patched only the dotted copy: it logged success,
+an in-process check agreed, and the server went on serving and executing the
+unpatched one. **Resolve by identity, not by name** -- start from
+`nodes.NODE_CLASS_MAPPINGS`, then collect every `sys.modules` entry whose
+`__file__` matches. And verify against the live `/object_info`, which is the
+only surface that can tell a patched module from a patched copy of one.
 
 **DynamicCombo members are dotted in the API form.** `shape.wide_resolution`,
 not `wide_resolution`. ComfyUI's executor rejects the flat spelling with

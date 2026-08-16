@@ -62,6 +62,24 @@ FRAME_REMAINDER = 5
 
 CANVAS_MULTIPLE = 32
 
+# One frame is the single length that is not a video, and it is the only
+# exception to the 17n+5 grid. It exists because H3 is a capable single-image
+# edit model at exactly one frame; see `single_frame.py`, which lifts core's
+# floor to reach it, and note that ComfyUI's own VAE already carries a `t == 1`
+# branch (`comfy/ldm/minimax/vae.py`) -- this is a mode the stack anticipated,
+# not one bolted on here.
+#
+# **Every duration rule below is about VIDEO and none of them applies to it.**
+# A single frame is 0.042s, so a naive reading of the 5-15s window calls it
+# illegal, which is how a correct render ends up with a warning printed over
+# it. Ask `is_single_frame()` before asking anything about duration.
+SINGLE_FRAME = 1
+
+
+def is_single_frame(length):
+    """True for the one length that is an image rather than a clip."""
+    return int(length) <= SINGLE_FRAME
+
 
 def aspect_in_range(width, height):
     return MIN_ASPECT_RATIO <= (width / height) <= MAX_ASPECT_RATIO
@@ -82,6 +100,13 @@ def snap_length(length):
     someone else already paid for.
     """
     length = int(length)
+    # Matches core exactly, which is the whole contract of this function:
+    # `temporal_shape` clamps with `max(1, length)` and `align_frame_count`
+    # returns 1 unchanged, so anything at or below 1 is one frame and not a
+    # 5-frame clip. Before the single-frame path existed core clamped at 5 and
+    # so did this; the two moved together, deliberately.
+    if length <= SINGLE_FRAME:
+        return SINGLE_FRAME
     if length < FRAME_REMAINDER:
         return FRAME_REMAINDER
     while length % FRAME_FACTOR != FRAME_REMAINDER:
@@ -100,6 +125,11 @@ def duration_in_range(length):
     reference checks in and the order that catches the 346 -> 362 case. A
     caller who checks the request rather than the result gets a pass on a
     length the model will not run.
+
+    **False at length=1 means "not a video", not "illegal".** One frame is
+    0.042s and falls outside the window trivially. Callers that refuse or warn
+    on a False must ask `is_single_frame()` first, or they report a correct
+    single-image render as a problem -- which is worse than not checking.
     """
     return MIN_DURATION <= duration_of(snap_length(length)) <= MAX_DURATION
 
@@ -117,6 +147,11 @@ def min_legal_length():
 def describe_length(length):
     """One line for a log or an error, showing the snap when there is one."""
     snapped = snap_length(length)
+    if is_single_frame(snapped):
+        # Never "1 frames (0.042s at 24fps)". That reads as a broken video and
+        # sends the reader looking for the bug, when it is the mode they asked
+        # for. Say what it is.
+        return "1 frame (single image, not a clip)"
     if snapped == length:
         return f"{length} frames ({duration_of(snapped):.3f}s at {FPS}fps)"
     return (f"{length} -> {snapped} frames "

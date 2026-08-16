@@ -1,6 +1,6 @@
 # Open experiments
 
-Last updated: 2026-08-14
+Last updated: 2026-08-15
 
 > **Several of these are now scheduled rather than parked.** The working plan
 > and the render scenes that would settle the quality-blocked ones live in
@@ -614,6 +614,58 @@ no output-quality tooling for any modality. **Run the speed half now and do not
 pretend the quality half was answered by it.** Recording the timing alone would
 produce exactly the reading this repo keeps having to retract — "1.0 costs N
 seconds" filed as if the tradeoff had been priced.
+
+---
+
+## 16. The single-frame path: four questions the first render did not answer
+
+Added 2026-08-15, when `length=1` became reachable and
+`workflows/h3_image_edit.json` shipped. The path works end to end and the VAE
+question is settled with ground truth (37.27 dB against 22.04 dB on a `T=1`
+round trip, in `CHANGELOG.md`). These four are not.
+
+**16a. Does the latent-slice fallback work, and what does it cost?** The
+no-shim workaround everyone uses is: render 5 frames, decode all five, keep
+image 0. Nobody appears to have tried the other one -- render 5 frames, slice
+the LATENT to `T=1`, then decode that single temporal step with the image VAE.
+The reported grid artifact comes from handing a 2-step latent to a decoder
+trained on 1, so slicing first should avoid it entirely while still paying 2x
+the video rows. **Why it matters:** if it works it is a shim-free path, and it
+also separates "the artifact is a decode-side effect of multi-frame latents"
+from "the DiT's extra temporal context changes the image". **Blocker:** needs a
+node to slice a nested AV latent temporally, and this repo has deliberately not
+spent a permanent `node_id` on a temporary problem. Cheap to answer with a
+throwaway script before deciding.
+
+**16b. Is the image VAE's softness ever the wrong trade on GENERATED latents?**
+The 15.2 dB result is a *reconstruction* measurement -- encode a real image,
+decode it, compare. That is the right test for a decoder and it is decisive
+there. It is not the same question as which decoder produces the better image
+from a latent the DiT invented, where there is no ground truth. On the one
+generated sample compared, variance-of-Laplacian preferred the video VAE
+(163 against 118) and a 1:1 crop showed why the metric was wrong: the video VAE
+was adding local contrast and a colour shift, not detail. **That is n=1 with a
+metric that misled once already**, which is exactly the shape of the h264
+noise-floor mistake in `h3_config.py`. **Blocker:** owner judgment on a handful
+of paired renders; there is no automatic instrument for this (see #14).
+
+**16c. fl2va at one frame is unmeasured, and we refuse it rather than know.**
+`MiniMaxH3ImageToVideo` pins a `last_frame` keyframe at `frame_count - 1`,
+which in a one-frame video is frame 0 -- on top of `first_frame`.
+`keyframe_canvas.py` therefore refuses `length=1` outright and the shipped
+image path is ref2v. Whether fl2va with only a `first_frame` does something
+useful at one frame (a true img2img) is unknown. **Why it matters:** it is a
+different edit modality from reference conditioning, and the refusal is a
+guess wearing an error message. **Blocker:** one render, plus deciding what a
+`last_frame` should mean at one frame.
+
+**16d. In-family 768x1152 against the community's 1024x1536.** The shipped
+graph uses the in-family canvas; the write-up it follows renders 1.57 MP, 52%
+over H3's area cap. At one frame the canvas costs almost nothing (the video
+segment is 9% of the sequence), so the usual reason to stay small does not
+apply here -- which makes this the cheapest quality question on the list and
+the one most likely to change a shipped default. **Blocker:** owner judgment on
+paired renders.
 
 ---
 

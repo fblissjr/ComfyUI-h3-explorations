@@ -98,7 +98,17 @@ GUIDE_NODE = "MiniMaxH3AddGuide"
 #
 # Every run prints what it waived. An exemption nobody sees is an exemption
 # that grows.
-_STRUCTURE_PROBES = {"h3_probe_prompt_concise_api"}
+#
+# h3_image_edit is waived for a different reason, and a stronger one: the
+# guide it is being graded against is the official *video* prompt guide. Two
+# of its six required sections are `overall_soundscape` and
+# `non_diegetic_music`, and `detailed_description` is specified as `[Shot 1]`
+# with camera movement and shot timing. That graph renders ONE FRAME with no
+# audio decoder at all, so conforming would mean writing a soundscape for a
+# still image -- filling in sections to satisfy a checker, which is worse than
+# not conforming. The waiver is the same narrow two cases; label agreement,
+# marker sets and dialogue placement still apply to it in full.
+_STRUCTURE_PROBES = {"h3_probe_prompt_concise_api", "h3_image_edit_api"}
 
 # A markdown row of the form `| `value` | prose |`, which is how every table
 # in the guide names its vocabulary.

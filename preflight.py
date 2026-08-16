@@ -152,8 +152,14 @@ class MiniMaxH3Preflight(io.ComfyNode):
                 break
         derived = frames is None
         if derived and latent_t:
-            # inverse of video_latent_t: latent_t = ((n - 5) // 17) * 5 + 2
-            frames = ((latent_t - 2) // 5) * 17 + 5 if latent_t > 2 else 5
+            # inverse of video_latent_t: latent_t = ((n - 5) // 17) * 5 + 2,
+            # with one temporal step meaning one frame rather than five. That
+            # case became reachable when this pack lifted core's 5-frame floor
+            # (single_frame.py); before it, `latent_t == 1` could not happen and
+            # the else-branch's 5 was right for every latent that existed. It is
+            # wrong for exactly one, and it is the one the image-edit path uses.
+            frames = (1 if latent_t == 1 else
+                      ((latent_t - 2) // 5) * 17 + 5 if latent_t > 2 else 5)
 
         label = {"text": "text", "cond": "keyframes", "ref_img": "references",
                  "ref_audio": "audio refs", "audio": "audio", "video": "video"}

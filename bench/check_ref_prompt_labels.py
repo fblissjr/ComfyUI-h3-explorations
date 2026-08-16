@@ -209,6 +209,19 @@ def main():
                                 # covers it unchanged -- no exemption needed
                                 # here, only in the conformance check.
                                 legal.add(bw._concise_swap_prompt())
+                                # The single-image edit prompt. A second
+                                # generator function rather than a mode of
+                                # `_ref_prompt`, because the guide format it
+                                # produces is a VIDEO format -- soundscape,
+                                # shot timing, camera movement -- and none of
+                                # those sections mean anything on one still
+                                # frame. Listed here so the drift guard covers
+                                # it exactly like every other prompt: what is
+                                # waived for this graph is the guide's
+                                # STRUCTURE (in check_prompt_guide_conformance),
+                                # never the requirement that the shipped text
+                                # came from the generator.
+                                legal.add(bw._image_edit_prompt())
                                 legal.add(bw._ref_prompt(
                                     images=imgs, video=vid, video_audio=vaud,
                                     audio=aud, video_role=vrole, audio_role=arole))

@@ -36,14 +36,14 @@ logger = logging.getLogger(__name__)
 # in the reference it comes from.
 try:
     from .h3_rules import (aspect_in_range, describe_aspect_range,
-                           describe_length, duration_in_range,
+                           describe_length, duration_in_range, is_single_frame,
                            max_legal_length, min_legal_length, snap_length)
 except ImportError:
     # ComfyUI loads this as a package; the bench scripts import it as a
     # top-level module with the repo root on sys.path. Both are legitimate
     # and the relative form only works for the first.
     from h3_rules import (aspect_in_range, describe_aspect_range,  # type: ignore[no-redef]
-                          describe_length, duration_in_range,
+                          describe_length, duration_in_range, is_single_frame,
                           max_legal_length, min_legal_length, snap_length)
 
 
@@ -217,6 +217,23 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
         # the request instead passes 346 and then renders 362.
         if length:
             snapped = snap_length(length)
+            # Single frame is refused HERE and allowed on the reference path,
+            # and that asymmetry is deliberate rather than an oversight. This
+            # node feeds MiniMaxH3ImageToVideo, which pins a `last_frame` at
+            # `frame_count - 1` -- frame 0 in a one-frame video, i.e. on top of
+            # `first_frame`. Nobody has established what fl2va does at one
+            # frame, so the shipped single-image path is ref2v. If that gets
+            # measured, this branch is the thing to delete.
+            if is_single_frame(snapped):
+                raise RuntimeError(
+                    "length=1 (single-frame image mode) is not supported on "
+                    "the keyframe path. MiniMaxH3ImageToVideo anchors a "
+                    "last_frame at the final frame, which in a one-frame video "
+                    "is the first frame, and fl2va at one frame is unmeasured. "
+                    "Use MiniMaxH3ReferenceToVideo with reference images for "
+                    "single-image edits -- that is the path this repo ships "
+                    "and renders."
+                )
             if not duration_in_range(length):
                 raise RuntimeError(
                     f"MiniMax H3 generates 5 to 15 seconds at 24fps; "

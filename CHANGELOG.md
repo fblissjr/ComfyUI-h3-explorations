@@ -4,6 +4,96 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.16.0
+
+### Added
+
+- **`single_frame.py` -- H3 as a single-image edit model, by lifting ComfyUI's
+  5-frame floor in memory.** ComfyUI's H3 nodes floor `length` at 5 and
+  `temporal_shape` clamps with `max(5, length)`, so one frame is unreachable;
+  H3 is a capable reference-driven image editor at exactly one frame. This is
+  **a temporary patch to somebody else's module and is meant to be deleted**
+  when ComfyUI ships the same change (Comfy-Org/ComfyUI#15644). It logs a
+  multi-line banner saying so at every startup, retires itself automatically
+  the moment upstream reports a floor of 1, and can be disabled outright with
+  `H3_EXPLORATIONS_NO_SINGLE_FRAME=1`.
+
+  **Only `length=1` changes, and that is verified at load rather than argued.**
+  The two grid functions delegate to upstream's own body for every count above
+  1, and the one function that must be rewritten (`temporal_shape`, because the
+  clamp is inside it) is compared against the original across the node's entire
+  declared range before anything is installed. A single disagreement anywhere
+  and nothing is patched. The interesting region is 2-4: those were never
+  reachable as themselves because the clamp rewrote them to 5, and they still
+  snap to 5.
+
+  Targets are resolved through `NODE_CLASS_MAPPINGS` and by file identity, not
+  by module name, because there are normally **two** copies of the module in a
+  running ComfyUI: `load_custom_node` registers `comfy_extras` files under a
+  file-path module name, `comfy_extras/` has no `__init__.py`, and a dotted
+  `import comfy_extras.nodes_minimax_h3` (which `resolution.py` and
+  `preflight.py` both do) builds a second, independent one. Patching only the
+  dotted copy left the server serving and executing an unpatched floor of 5
+  while the shim logged success -- found by asking the live `/object_info`,
+  invisible to an in-process check.
+
+- **`workflows/h3_image_edit.json`** (and its API form) -- one reference image
+  plus text to ONE edited image. ref2va, `length=1`, the single-image H3 VAE,
+  `SaveImage`, and no audio decoder. Carries a note explaining what it rests
+  on, and where it deliberately departs from the community workflow it follows
+  (in-family 768x1152 rather than 1024x1536, sage fp16 rather than Comfy
+  Kitchen attention, base checkpoint rather than a hybrid plus two LoRAs).
+
+- **`bench/check_single_frame.py`** -- 11 cases over the shim, including a
+  CONTROL that hands `apply()` a deliberately wrong implementation and asserts
+  it refuses, and the first LIVE case in `bench/`: it asks the running server
+  what floor it reports. Shown red two ways on 2026-08-15.
+
+- **`h3_rules.is_single_frame()` and `SINGLE_FRAME`** -- one frame is the only
+  exception to the 17n+5 grid, and none of the duration rules apply to it.
+
+### Changed
+
+- **`h3_rules.snap_length()` returns 1 for a length of 1**, matching core's
+  post-shim `align_frame_count`. It clamped to 5 before, exactly as core did;
+  the two moved together deliberately.
+- **`MiniMaxH3Resolution` accepts `length=1`** (`min` 5 -> 1) and reports it as
+  single-frame mode rather than warning that 0.042s is outside the 5-15s
+  window. A check going red on correct state is worse than no check.
+- **`MiniMaxH3Preflight` reports 1 frame at `latent_t == 1`.** It derived
+  frames from the latent and returned 5 for anything below 3 temporal steps,
+  which was right for every latent that could exist before this release and is
+  wrong for the one the image path uses.
+- **`MiniMaxH3KeyframeCanvas` refuses `length=1` explicitly**, naming the
+  reason: `MiniMaxH3ImageToVideo` pins a `last_frame` at `frame_count - 1`,
+  which in a one-frame video is frame 0, and fl2va at one frame is unmeasured.
+  It refused before too, with a misleading message about seconds.
+
+### Measured
+
+- **The single-image VAE is worth 15.2 dB, and its encoder is byte-identical
+  to the stock one.** Of 562 tensors, 121 match the Comfy-Org video VAE
+  exactly -- all 116 encoder tensors, `quant_conv`, and the latent statistics
+  -- while the 441 that differ are 439 decoder tensors plus both
+  `post_quant_conv`. So the latent space is untouched and swapping VAEs is a
+  pure decoder swap. Round-tripping a source image at `T=1`, where ground truth
+  exists: **37.27 dB / SSIM 0.947** for the image VAE against **22.04 dB /
+  0.821** for the stock video VAE fp16. Core decodes `T=1` with either -- the
+  video VAE does not fail, it returns a harsher, colour-shifted image, which is
+  the trap.
+- **The reported grid artifact reproduces and is now quantified.** Decoding a
+  5-frame latent with the image VAE and keeping frame 0 leaves gradient energy
+  aligned to the patch grid at 1.46x (16px) and 1.50x (32px) the off-grid
+  average, against 1.03-1.22x for every other combination tried.
+- **At one frame the canvas stops being the cost lever.** Preflight on the
+  shipped image graph: 9,240 rows total, of which text is 4,276 (46.3%),
+  references 4,096 (44.3%) and video only 864 (9.4%). Changing aspect ratio
+  moves 3% or less, where in a 124-frame render it is the largest single lever.
+- **Core has anticipated single-frame decode all along.**
+  `comfy/ldm/minimax/vae.py` branches on `z.shape[2] == 1` and returns the LAST
+  of the 4 frames one latent decodes to, which is exactly the
+  `h3_t1_output_slice: 3` the image VAE's metadata declares.
+
 ## 0.15.0
 
 ### Changed

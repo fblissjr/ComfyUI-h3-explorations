@@ -520,6 +520,38 @@ TURBO_PACK_LOW_VRAM = False
 #
 # If this is ever wanted back, bring it back with a check that reads it.
 
+# The single-image edit path. Everything in this block exists only for
+# `length=1`, and every one of these values is wrong for a video.
+#
+# **The VAE is not optional and not interchangeable.** It is the same H3 VAE
+# with a decoder fine-tuned to reconstruct one image from a single temporal
+# latent. Verified from the safetensors rather than from its README, 2026-08-15:
+# of 562 tensors, 121 are byte-identical to Comfy-Org's video VAE -- all 116
+# encoder tensors, `quant_conv`, and `latents_mean`/`latents_std` -- and the 441
+# that differ are 439 decoder tensors plus both `post_quant_conv`. So the
+# ENCODER IS FROZEN and the latent space is untouched: a seed produces the same
+# latent either way and swapping VAEs is a pure decoder swap. Its metadata
+# declares `h3_t1_output_slice: 3`, which is exactly what ComfyUI's own
+# `decode()` already does at `z.shape[2] == 1` (`_adaptive_decode(z)[:, :, -1:]`
+# of `vae_ratio_t == 4` frames), so the convention matches core and there is no
+# off-by-one to chase.
+#
+# **Never wire it into a video graph.** Its own README: the image-specialised
+# decoder materially regresses multi-frame reconstruction and can introduce
+# patch-grid ghosting and cross-frame mixing. It is a one-frame decoder.
+#
+# Source: huggingface.co/Mamad8/MiniMax-H3-Image-VAE (experimental, step 1597).
+IMAGE_VAE = "minimax_h3_t1_image_vae_step1597.safetensors"
+
+# 2:3 portrait, and INSIDE the trained family -- `adapt_canvas(2, 3)` returns
+# exactly this. Worth stating because the community workflow this path follows
+# renders 1024x1536 (1.57 MP), which is 52% over H3's 768*1344 area cap and
+# outside the family; it works, and it costs 1.78x the attention per frame for
+# a canvas the checkpoint never trained on. Ours is the conservative default,
+# not a claim that the bigger one is wrong -- the Resolution node's `custom`
+# option reaches it and says which side of the family you are on.
+IMAGE_EDIT_CANVAS = dict(width=768, height=1152)
+
 CANVAS = dict(width=1344, height=768)
 FPS = 24.0
 

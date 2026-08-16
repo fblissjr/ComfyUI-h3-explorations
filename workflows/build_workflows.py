@@ -51,6 +51,7 @@ _OUR_NODES = {
 # used to live here in duplicate with the bench. Single source is
 # h3_config.py -- see its docstring for why that matters.
 from h3_config import (  # noqa: E402
+    IMAGE_VAE, IMAGE_EDIT_CANVAS,
     CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS, REF_LORA, REF_LORA_STRENGTH,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
@@ -199,7 +200,7 @@ N/A"""
 sys.path.insert(0, str(HERE.parent))
 from h3_rules import (  # noqa: E402
     aspect_in_range, describe_aspect_range, describe_length,
-    duration_in_range, max_legal_length, min_legal_length,
+    duration_in_range, is_single_frame, max_legal_length, min_legal_length,
 )
 
 
@@ -293,7 +294,11 @@ def _check_geometry(length, canvas):
     make loud, so the generator now holds the rule rather than a comment.
     """
     cv = dict(CANVAS, **canvas)
-    if not duration_in_range(length):
+    # length=1 is the single-image edit mode, not a very short video, so the
+    # duration window does not apply and refusing it here would block the one
+    # graph that wants it. The aspect rule below still applies -- that one is
+    # about the canvas, which a single frame has exactly like a clip does.
+    if not is_single_frame(length) and not duration_in_range(length):
         raise SystemExit(
             f"length {describe_length(length)} is outside MiniMax H3's 5-15s "
             f"window; legal counts are {min_legal_length()}-{max_legal_length()} "
@@ -356,6 +361,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               ref_audio: bool = False,
               split_at: int | None = None,
               split_base_last: bool = True,
+              single_frame: bool = False,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -369,6 +375,15 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     """
     if task not in ("t2v", "i2v", "r2v"):
         raise ValueError(task)
+    # `single_frame` is a property of the LENGTH, so the two are not allowed to
+    # disagree. Passing one without the other produced a graph that loaded the
+    # image VAE and rendered five frames, or rendered one frame and decoded it
+    # with the video decoder -- both silent, both wrong.
+    if single_frame != is_single_frame(length):
+        raise SystemExit(
+            f"single_frame={single_frame} with length={length}: the "
+            f"single-image path is length=1 and nothing else. Set both or "
+            f"neither.")
     _check_geometry(length, canvas)
     ref = task == "r2v"
     cv = dict(CANVAS, **canvas)
@@ -382,7 +397,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         "2": {"class_type": "CLIPLoader",
               "inputs": {"clip_name": MODELS["clip"], "type": "minimax",
                          "device": "default"}},
-        "3": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["video_vae"]}},
+        # The image VAE ONLY on the single-frame path. See h3_config: same
+        # frozen encoder, decoder retrained for one temporal latent, and its
+        # own README says it regresses multi-frame reconstruction -- so this
+        # swap must never be reachable from a graph that renders a clip.
+        "3": {"class_type": "VAELoader",
+              "inputs": {"vae_name": IMAGE_VAE if single_frame
+                         else MODELS["video_vae"]}},
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": MODELS["audio_vae"]}},
         "6": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
         # The turbo pack ships its own SAMPLER source rather than a name for
@@ -425,6 +446,22 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                           "trim_to_audio": False,
                           "pingpong": False, "save_output": True}},
     }
+
+    if single_frame:
+        # One frame out, so the video muxer has nothing to do and the audio
+        # decoder has 0.04s of nothing to decode -- `temporal_shape(1)` gives
+        # 2 audio latent steps because the streams share a clock, not because
+        # there is a soundtrack. Node 12 is REMOVED rather than left dangling:
+        # an unconsumed output never executes, so leaving it would be dead
+        # weight in the graph that reads as an intentional wiring.
+        #
+        # The audio VAE loader (node 4) stays. MiniMaxH3ReferenceToVideo takes
+        # `audio_vae` as a REQUIRED input and the prompt is rejected without
+        # it, whether or not any audio is anchored.
+        del g["12"]
+        g["13"] = {"class_type": "SaveImage",
+                   "inputs": {"images": ["11", 0],
+                              "filename_prefix": out_prefix or "Image/h3_image_edit"}}
 
     # Resolution decides the geometry for every task except i2v, where the
     # keyframe decides it and MiniMaxH3KeyframeCanvas is the node that does.
@@ -1448,6 +1485,169 @@ def _ref_prompt(*, images=True, video=False, video_audio=False, audio=False,
     ])
 
 
+_NOTE_IMAGE_EDIT = """\
+## One frame. This graph is an image editor, and it rests on a patch
+
+H3 renders a single frame if you ask it for one, and at one frame it behaves
+like a capable reference-driven image editor. **ComfyUI does not let you ask.**
+Its H3 nodes floor `length` at 5 -- the only video family in `comfy_extras`
+that floors above 1 (Wan uses `min=1` at all 16 of its length inputs, Hunyuan
+at 3, Cosmos at 3). This pack lifts that floor in memory at load
+(`single_frame.py`), which means:
+
+**If this pack is missing or its shim is disabled, this graph fails to
+validate.** ComfyUI rejects `length=1` before anything runs. That is the
+intended failure -- it names the thing that has to change instead of quietly
+rendering five frames. Upstream tracking: Comfy-Org/ComfyUI#15644.
+
+### What is different from every other graph here
+
+| | this graph | the video graphs |
+|---|---|---|
+| length | **1** | 124-345 |
+| VAE | **single-image H3 VAE** | `minimax_h3_video_vae_int8_convrot` |
+| audio | no decoder at all | decoded and muxed |
+| output | `SaveImage` | `VHS_VideoCombine` |
+
+**The VAE is the half that is easy to get wrong.** It is the same checkpoint
+with a decoder retrained to reconstruct one image from a single temporal
+latent -- verified from the safetensors, not its README: 121 of 562 tensors are
+byte-identical to the stock video VAE, being all 116 encoder tensors,
+`quant_conv` and the latent statistics, while the 441 that differ are the
+decoder plus `post_quant_conv`. **The encoder is frozen, so the latent space is
+identical and this is purely a decoder swap.** Its own README warns it
+regresses multi-frame reconstruction, with patch-grid ghosting and cross-frame
+mixing. Never put it in a video graph.
+
+**Measured here 2026-08-15, with ground truth, because "you need the special
+VAE" was worth checking rather than repeating.** Round-tripping this graph's
+own reference image (encode then decode at T=1, so the source IS the target):
+
+| decoder | PSNR | SSIM | mean abs error |
+|---|---|---|---|
+| single-image VAE | **37.27 dB** | 0.947 | 1.95/255 |
+| stock video VAE fp16 | 22.04 dB | 0.821 | 14.72/255 |
+
+15.2 dB. So the swap is not a preference. **Core decodes T=1 with either** --
+the video VAE does not fail, it just returns a harsher, colour-shifted image,
+which is the trap: it looks like a working render.
+
+And the artifact the community reported is real and reproduces: decoding a
+5-frame latent with this VAE and keeping frame 0 leaves gradient energy
+aligned to the patch grid at 1.46x (16px) and 1.50x (32px) the off-grid
+average, against 1.03-1.22x for every other combination tried.
+
+Core was already ready for this: `comfy/ldm/minimax/vae.py` has an explicit
+`t == 1` branch, and it keeps the LAST of the 4 frames one latent decodes to --
+which is exactly the `h3_t1_output_slice: 3` the VAE's metadata declares. The
+node floor was the only thing in the way.
+
+### Without the shim, the fallback is worse and it is not the same thing
+
+Render `length=5` with the stock video VAE and keep frame 0. It works, and the
+community reports it comes out soft. Note what that fallback actually is: the
+DiT denoises 2 latent temporal steps instead of 1, so it costs about twice the
+video rows, and the decode is a video decode you then throw 4 frames of away.
+
+### Where this graph deliberately differs from the community workflow
+
+It follows the r/StableDiffusion single-image-edit write-up (2026-08-14), and
+departs from it in four places, each on purpose:
+
+- **Canvas 768x1152, not 1024x1536.** Theirs is 1.57 MP, which is 52% over
+  H3's 768*1344 area cap and outside the trained family. Ours is the in-family
+  2:3. Theirs is not wrong -- it renders, and bigger may well look better --
+  but it is a different question, and `MiniMaxH3Resolution`'s `custom` option
+  reaches it and says which side of the family you are on.
+- **sage fp16, not Comfy Kitchen attention.** Theirs carried CK over from a
+  video workflow; the author re-ran without it and reported quality slightly
+  improved and speed unchanged.
+- **Base ref2va, no turbo LoRA.** Theirs stacks a hybrid fl2va/ref2va
+  checkpoint plus a turbo LoRA plus a detail LoRA. Each is plausible and each
+  is a variable; this is the baseline they should be measured against.
+- **One reference, not several.** The question an edit model has to answer is
+  whether identity survives the change.
+
+### The cost lever here is NOT the canvas
+
+At one frame the video segment is a single latent step, so the shape of the
+sequence is nothing like a video render. Measured by Preflight on this graph:
+
+```
+sequence length 9,240      text        4,276   46.3%
+768x1152, trained family   references  4,096   44.3%
+864 video tokens/frame     video         864    9.4%
+                           audio           4    0.0%
+```
+
+**The video is 9% of it.** Changing the canvas moves almost nothing -- 1:1
+saves 3%, 16:9 costs 2% -- where in a 124-frame render the canvas is the
+single largest lever. What costs here is the prompt and the references, both
+of which ride every sampling step. `ref_image_size` is `max` (2048 short edge)
+for identity fidelity, and on a single frame that one choice is roughly 4.7x
+the entire video segment. Read the Preflight report before reaching for the
+resolution dropdown.
+
+For scale: the whole sequence is 9,240 rows against ~82,686 for the 124-frame
+reference graph, which is why this renders in seconds."""
+
+
+def _image_edit_prompt() -> str:
+    """The single-image edit prompt, and deliberately NOT in the guide format.
+
+    Every other prompt here follows MiniMax's official prompt guide, and this
+    one cannot: that guide is a *video* prompt guide. Its six sections include
+    `overall_soundscape` and `non_diegetic_music`, and its `detailed_description`
+    is written as `[Shot 1]` with camera movement and shot timing. On a single
+    still frame all of that describes something that does not exist, and asking
+    for a truck-right at 24 fps on a one-frame render is an instruction the
+    model can only be confused by.
+
+    So this follows the form the community's working image-edit prompts take --
+    a plain instruction naming `<Picture 1>` and stating what is preserved
+    against what changes -- rather than inventing a still-image dialect of a
+    video spec. `bench/check_prompt_guide_conformance.py` waives the structural
+    cases for this graph by name and keeps every other rule; label agreement in
+    `check_ref_prompt_labels.py` is NOT waived, because naming a reference the
+    graph does not wire is wrong in any format.
+
+    **The scene has to be one the reference does not already satisfy**, and the
+    first version of this shipped one that did. It asked to age the subject to
+    60; the placeholder reference (`1-man.png`) is a man well past 70, so the
+    instruction had nothing to do and the render was a re-rendering of the
+    input. It looked like a working edit and demonstrated only that the
+    pipeline runs. A no-op prompt is an unfalsifiable test: it cannot fail.
+
+    So the scene is a camera move, which this reference cannot already be. It
+    is also the capability worth showing: rotating the camera while keeping the
+    room and the person consistent is what image edit models are worst at and
+    what a video model is structurally good at, and it is gradeable at a glance
+    -- either the head turned and stayed the same man, or it did not.
+
+    One reference image on purpose. The interesting failure of an edit model is
+    whether identity survives a change, and a second reference adds a second
+    variable while costing reference rows on every sampling step.
+    """
+    return (
+        "Task: reference-guided single-image edit. Re-photograph the same man "
+        "from <Picture 1> from a different camera position.\n"
+        "Move the camera about 45 degrees to his left and slightly down, so he "
+        "is seen in a three-quarter view rather than facing the lens. He turns "
+        "his head to follow the camera and looks directly into it. His "
+        "shoulders stay squared to his original facing, so the turn reads in "
+        "the neck and head, not the torso.\n"
+        "Keep him unmistakably the same person: the same facial structure, "
+        "eyes, nose, mouth, ears, skin tone and texture, the same white hair "
+        "and hairline, and the same age.\n"
+        "Keep the same dark suit, white shirt and navy tie, the same plain "
+        "brown studio background, and the same soft directional key light "
+        "falling from the same side.\n"
+        "The newly visible side of his face and head is consistent with the "
+        "original view. One realistic portrait photograph in the same "
+        "photographic style as <Picture 1>."
+    )
+
+
 _NOTE_TURBO_PACK = """\
 ## A different turbo LoRA, and a different loader on purpose
 
@@ -2112,6 +2312,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              ref_audio: bool = False,
              split_at: int | None = None,
              split_base_last: bool = True,
+             single_frame: bool = False,
              variant_note: str | None = None,
              length: int = LENGTH, seed: int = SEED, preview: bool = False,
              sol: dict | None = None, sol_enabled: bool = True,
@@ -2132,9 +2333,14 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     clip = g.add("CLIPLoader", (-1500, 140), size=(560, 110),
                  widgets=[MODELS["clip"], "minimax", "default"],
                  outputs=[_out("CLIP", "CLIP")])
+    # Single-frame swaps the decoder, and the node TITLE carries the warning:
+    # it is the only thing visible when someone copies this node into a video
+    # graph, which is the mistake worth making hard to make.
     vvae = g.add("VAELoader", (-1500, 300), size=(560, 70),
-                 widgets=[MODELS["video_vae"]], outputs=[_out("VAE", "VAE")],
-                 title="Load VAE (video)")
+                 widgets=[IMAGE_VAE if single_frame else MODELS["video_vae"]],
+                 outputs=[_out("VAE", "VAE")],
+                 title=("Load VAE (SINGLE IMAGE ONLY -- do not use for video)"
+                        if single_frame else "Load VAE (video)"))
     avae = g.add("VAELoader", (-1500, 410), size=(560, 70),
                  widgets=[MODELS["audio_vae"]], outputs=[_out("VAE", "VAE")],
                  title="Load VAE (audio)")
@@ -2410,25 +2616,34 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     vdec = g.add("VAEDecode", (780, 0), size=(260, 60),
                  inputs=[_in("samples", "LATENT"), _in("vae", "VAE")],
                  outputs=[_out("IMAGE", "IMAGE")])
-    adec = g.add("VAEDecodeAudio", (780, 110), size=(260, 60),
-                 inputs=[_in("samples", "LATENT"), _in("vae", "VAE")],
-                 outputs=[_out("AUDIO", "AUDIO")])
+    # No audio decoder on the single-frame path: one frame's share of the
+    # audio stream is 0.04s of nothing. Omitted rather than bypassed, so the
+    # graph does not carry a node whose presence implies a soundtrack.
+    adec = (None if single_frame else
+            g.add("VAEDecodeAudio", (780, 110), size=(260, 60),
+                  inputs=[_in("samples", "LATENT"), _in("vae", "VAE")],
+                  outputs=[_out("AUDIO", "AUDIO")]))
     # One node for mux + save. Its widgets_values is a *dict*, not the
     # positional list every other node uses -- VHS adds format-dependent
     # widgets (pix_fmt, crf, ...) after `format`, so position cannot address
     # them. Shape copied from a frontend-written graph rather than guessed.
-    save = g.add("VHS_VideoCombine", (1080, 0), size=(600, 520),
-                 widgets={"frame_rate": FPS, "loop_count": 0,
-                          "filename_prefix": out_prefix or f"Video/h3_{task}",
-                          "format": VIDEO_FORMAT, "pix_fmt": "yuv420p",
-                          "crf": 19, "save_metadata": True,
-                          "trim_to_audio": False,
-                          "pingpong": False, "save_output": True},
-                 inputs=[_in("images", "IMAGE"),
-                         _in("audio", "AUDIO", optional=True),
-                         _in("meta_batch", "VHS_BatchManager", optional=True),
-                         _in("vae", "VAE", optional=True)],
-                 outputs=[_out("Filenames", "VHS_FILENAMES")])
+    save = (g.add("SaveImage", (1080, 0), size=(500, 560),
+                  widgets=[out_prefix or "Image/h3_image_edit"],
+                  inputs=[_in("images", "IMAGE")],
+                  title="Save the edited image")
+            if single_frame else
+            g.add("VHS_VideoCombine", (1080, 0), size=(600, 520),
+                  widgets={"frame_rate": FPS, "loop_count": 0,
+                           "filename_prefix": out_prefix or f"Video/h3_{task}",
+                           "format": VIDEO_FORMAT, "pix_fmt": "yuv420p",
+                           "crf": 19, "save_metadata": True,
+                           "trim_to_audio": False,
+                           "pingpong": False, "save_output": True},
+                  inputs=[_in("images", "IMAGE"),
+                          _in("audio", "AUDIO", optional=True),
+                          _in("meta_batch", "VHS_BatchManager", optional=True),
+                          _in("vae", "VAE", optional=True)],
+                  outputs=[_out("Filenames", "VHS_FILENAMES")]))
 
     # See the matching note in build_api: last in the chain, asserting the
     # composition rather than any single node's intent.
@@ -2568,12 +2783,19 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                       title="Denoising trajectory")
         g.link(frames, 0, strip, "images", "IMAGE")
 
+    # Link ORDER is preserved exactly as it was before the single-frame path
+    # existed, including the two audio links sitting between the video decode
+    # and the save. Link ids are assigned in call order, so reordering these
+    # renumbers every link in all 24 UI graphs -- a 50-file diff that says
+    # nothing, over a working tree other sessions are also editing.
     g.link(latent_src, latent_slot, vdec, "samples", "LATENT")
     g.link(vvae, 0, vdec, "vae", "VAE")
-    g.link(latent_src, latent_slot, adec, "samples", "LATENT")
-    g.link(avae, 0, adec, "vae", "VAE")
+    if adec is not None:
+        g.link(latent_src, latent_slot, adec, "samples", "LATENT")
+        g.link(avae, 0, adec, "vae", "VAE")
     g.link(vdec, 0, save, "images", "IMAGE")
-    g.link(adec, 0, save, "audio", "AUDIO")
+    if adec is not None:
+        g.link(adec, 0, save, "audio", "AUDIO")
 
     # Guidance in the graph rather than in a doc nobody opens next to it.
     # MarkdownNote is in _UI_ONLY, so these never reach the API form and
@@ -3420,6 +3642,17 @@ def main():
                   "to accumulate. Unmeasured: nobody has run Sol on a keyframe "
                   "graph at all.")),
          "first frame + text, with Sol-Attn ON"),
+
+        # The single-image edit path, and the only graph here that is not a
+        # video. It is last because it is the newest and because appending is
+        # the habit that keeps saved graphs working; nothing about it belongs
+        # in the middle of the video arms.
+        ("h3_image_edit.json", "r2i", "r2v", _image_edit_prompt(),
+         dict(single_frame=True, length=1, ref_image_count=1,
+              **IMAGE_EDIT_CANVAS, out_prefix="Image/h3_image_edit",
+              variant_note=_NOTE_IMAGE_EDIT),
+         "one reference image + text -> ONE edited image (needs this pack's "
+         "single-frame shim)"),
 
         ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
          dict(head_chunks=4, out_prefix="Video/h3_probe_chunk4",

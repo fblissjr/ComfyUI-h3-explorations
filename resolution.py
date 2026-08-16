@@ -41,11 +41,11 @@ from comfy_api.latest import io
 try:
     from .h3_rules import (aspect_in_range, describe_aspect_range,
                            describe_length, duration_in_range, duration_of,
-                           snap_length)
+                           is_single_frame, snap_length)
 except ImportError:  # pragma: no cover
     from h3_rules import (aspect_in_range, describe_aspect_range,  # type: ignore[no-redef]
                           describe_length, duration_in_range, duration_of,
-                          snap_length)
+                          is_single_frame, snap_length)
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +120,39 @@ def _resolutions():
     return _RESOLUTIONS
 
 
+def _core_supports_single_frame():
+    """Whether the H3 nodes that will EXECUTE answer length=1 with one frame.
+
+    Asked of the module those nodes actually live in, found through ComfyUI's
+    own registry, because a running ComfyUI holds two copies of every
+    `comfy_extras` module (see CLAUDE.md) and the copy this file imports is not
+    always the copy that runs.
+
+    Deliberately a behaviour probe on CORE, not a question about this pack's
+    `single_frame.py`. The property that matters is "does the stack support one
+    frame", which is equally true of our shim, of an upstream fix, and of a
+    hand-patched file -- and this keeps the node free of a dependency on a
+    module whose whole purpose is to be deleted.
+    """
+    import sys
+
+    mapping = getattr(sys.modules.get("nodes"), "NODE_CLASS_MAPPINGS", None) or {}
+    mods = []
+    for name in ("MiniMaxH3ReferenceToVideo", "MiniMaxH3ImageToVideo",
+                 "EmptyMiniMaxH3LatentAV"):
+        cls = mapping.get(name)
+        mod = sys.modules.get(getattr(cls, "__module__", "") or "") if cls else None
+        if mod is not None and mod not in mods:
+            mods.append(mod)
+    if not mods:  # not running under ComfyUI; fall back to whatever we can import
+        from comfy_extras.nodes_minimax_h3 import temporal_shape
+        return temporal_shape(1)[0] == 1
+    try:
+        return all(m.temporal_shape(1)[0] == 1 for m in mods)
+    except Exception:
+        return False
+
+
 class MiniMaxH3Resolution(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -164,14 +197,24 @@ class MiniMaxH3Resolution(io.ComfyNode):
                         "portrait mirrors (identical cost, since tokens go as "
                         "(h//32)*(w//32) and that is symmetric), or custom."
                     )),
+                # min=1, not 5, and only because this pack lifts core's floor
+                # to match (single_frame.py). If that shim is ever disabled,
+                # core rejects a length of 1 at prompt validation and this
+                # widget's floor becomes a promise the graph cannot keep --
+                # which is the right failure, since it names the node that has
+                # to change rather than silently rendering five frames.
                 io.Int.Input(
-                    "length", default=124, min=5, max=3600, step=1, tooltip=(
+                    "length", default=124, min=1, max=3600, step=1, tooltip=(
                         "Frame count at 24 fps, rounded UP to the video VAE's "
                         "17n+5 temporal grid. 200 gives 209, 300 gives 311. The "
                         "reference generates 5-15s and applies that ceiling "
                         "after the rounding, so 345 (14.375s) is the largest "
                         "legal count and 346 rounds to 362 (15.083s), which is "
-                        "over. This node warns rather than refusing."
+                        "over. This node warns rather than refusing. "
+                        "1 is the single exception to the grid: it renders ONE "
+                        "frame for the single-image edit path, needs the "
+                        "single-image H3 VAE to decode, and none of the "
+                        "duration rules above apply to it."
                     )),
             ],
             outputs=[
@@ -222,7 +265,36 @@ class MiniMaxH3Resolution(io.ComfyNode):
         snapped = snap_length(length)
         if snapped != length:
             notes.append(f"length {length} -> {snapped} on the 17n+5 grid")
-        if not duration_in_range(snapped):
+        # A single frame is not a short video, and the duration window does not
+        # apply to it. Asking `duration_in_range` first would print a warning
+        # over a render that is exactly what was asked for -- a check going red
+        # on correct state, which trains you to ignore the check.
+        if is_single_frame(snapped):
+            # REFUSE rather than degrade. ComfyUI validates `min` only on
+            # LITERAL widget values, so a length of 1 arriving over a link --
+            # which is exactly how the shipped image graph wires it, from this
+            # node -- reaches core unvalidated. Measured 2026-08-15 with the
+            # shim disabled: the graph was accepted and rendered FIVE frames
+            # through the single-image VAE, silently, which is the artifact
+            # case. The README claimed the opposite until this was tested.
+            if not _core_supports_single_frame():
+                raise RuntimeError(
+                    "length=1 needs a ComfyUI whose H3 nodes accept a single "
+                    "frame, and this one floors them at 5. Without that, "
+                    "core clamps 1 up to 5 and the graph renders a 5-frame "
+                    "clip -- through a VAE meant for one frame, which is the "
+                    "grid-artifact case -- with nothing said. Either leave "
+                    "this pack's single_frame shim enabled (it is on unless "
+                    "H3_EXPLORATIONS_NO_SINGLE_FRAME is set), or use a "
+                    "length of at least 5 and the video VAE."
+                )
+            notes.append(
+                "single-frame mode: one image, not a clip. Decode with the "
+                "single-image H3 VAE (the stock video VAE is the wrong decoder "
+                "here), and leave the audio decoder out -- the audio stream is "
+                "0.04s of nothing. Needs this pack's single_frame shim, or a "
+                "ComfyUI that has taken the same change upstream.")
+        elif not duration_in_range(snapped):
             notes.append(
                 f"WARNING {describe_length(snapped)} is outside the reference's "
                 f"5-15s window, which is the REFERENCE pipeline's ceiling "
@@ -249,8 +321,10 @@ class MiniMaxH3Resolution(io.ComfyNode):
         summary = "\n".join([
             f"{width}x{height}  {Fraction(width, height).limit_denominator(24)}"
             f"  {'trained family' if in_family else 'outside trained family'}",
-            f"{snapped} frames ({duration_of(snapped):.2f}s)  "
-            f"{latent_frames} latent frames",
+            (f"{describe_length(snapped)}  {latent_frames} latent frame"
+             if is_single_frame(snapped) else
+             f"{snapped} frames ({duration_of(snapped):.2f}s)  "
+             f"{latent_frames} latent frames"),
             f"{tokens_per_frame} video tokens/frame  {video_tokens:,} video tokens",
             f"attention {cost:.2f}x a 16:9 render at this length",
             *notes,
