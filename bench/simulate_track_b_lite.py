@@ -1,18 +1,66 @@
 """Priority 3d: Track B-Lite Eager FP16-PV Simulation.
 
-Simulates selective 16-bit PV accumulation on specific heads vs INT8 PV baseline:
-- Block 49: Heads 2 & 3 (Quantization-dominated) + Head 4 (Null Control: Sparsity-dominated)
-- Block 0: Heads 0 & 1 (Entry-layer Quantization-sensitive)
+Compares INT8 PV accumulation against unquantized PV on specific heads:
+- Block 49: Heads 2 & 3 (quantization-dominated) + Head 4 (sparsity-dominated)
+- Block 0: Heads 0 & 1 (entry-layer, quantization-sensitive)
 
-Computes exact numerical recovery against Dense FP16 reference.
+## READ THIS BEFORE QUOTING A "RECOVERY %"
+
+**The `fp16_pv=True` arm is not an FP16 PV matmul.** `int8_quant_pv_head` returns
+`eager_sol_reference_head(...)` outright when that flag is set -- an arm with no
+quantization anywhere, not one with the PV product widened. The two arms are
+otherwise identical in routing, so the difference between them really is
+attributable to PV quantization alone, which makes this a legitimate UPPER BOUND
+on what a perfect PV matmul could recover. It is not a measurement of one.
+
+Two consequences that were reported as findings and are not:
+
+1. The "FP16 PV error" this prints IS the sparsity error, by construction. It is
+   the same quantity `bench/analyze_sol_error.py` calls `sparsity_l2`, and on the
+   2026-08-17 captures the two agreed to six digits. So "the residual converges
+   to the theoretical sparsity floor" is a restatement of the arm's definition,
+   not a result -- the residual IS the floor, and there is nothing for it to
+   converge to.
+2. `recovery = (err_int8 - err_fp16) / err_int8` therefore reduces to
+   `1 - sparsity/total`, which is fully determined by the quant/sparsity ratio
+   that `analyze_sol_error.py` already prints. This file adds no information
+   beyond that ratio. A head showing "-94% recovery" is a head whose error is 94%
+   quantization; those are one fact, not two.
+
+A real FP16 PV matmul carries fp16 rounding error, so its true recovery would be
+LESS than what this prints. Treat every figure here as optimistic.
+
+## Current state
+
+This file REFUSES TO RUN. Its `eager_sol_reference_head` disagrees with the
+vendored `bench/_sol_attn_reference.py` by rel_l2 0.97, and `calibrate_against_oracle`
+below exits rather than printing figures measured against a function that is not
+the algorithm it names. The three known divergences are listed in that refusal
+message. Fix them, or delete this file and drive the study from the oracle.
+
+## How to make it worth keeping
+
+- Fix the reimplementation until the calibration gate passes. Until then nothing
+  here can be quoted, which is the correct state.
+- Then make the `fp16_pv` arm actually quantize QK and widen only PV, so it
+  measures what it names and stops being an upper bound.
+- Or delete the arm and state the bound analytically from `analyze_sol_error.py`'s
+  ratio column, which is where it comes from anyway. That is less code and the
+  same information, and it would have prevented the misreading above.
 """
 
 import argparse
-import math
 import os
 import sys
 from pathlib import Path
 import torch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Shared rather than reimplemented. `find_one` rejects an ambiguous match instead
+# of taking `list(glob(...))[0]`, which returned `os.scandir` order over a pattern
+# that matches every sequence length in a directory -- so a directory holding two
+# runs picked whichever file the filesystem happened to yield first.
+from verify_multistep_capture import find_one  # noqa: E402
 
 BLOCK = 64
 _LOG2E = 1.4426950408889634
@@ -115,7 +163,12 @@ def eager_sol_reference_head(q_h: torch.Tensor, k_h: torch.Tensor, v_h: torch.Te
     return torch.cat(out_chunks, dim=2)
 
 def int8_quant_pv_head(q_h: torch.Tensor, k_h: torch.Tensor, v_h: torch.Tensor, tau: float = 1.3, fp16_pv: bool = False) -> torch.Tensor:
-    # If fp16_pv is True, P @ V is evaluated in FP32/FP16 instead of INT8 quantization
+    # `fp16_pv=True` does NOT widen the PV product inside this function -- it
+    # hands the whole call to the unquantized reference. Since the two share
+    # routing exactly, the delta is still attributable to PV quantization, so
+    # this is a valid upper bound. But the value it returns is the SPARSITY
+    # ERROR, not an FP16-PV error, and every "recovery %" computed from it is
+    # `1 - sparsity/total`. See the module docstring before quoting any of it.
     if fp16_pv:
         return eager_sol_reference_head(q_h, k_h, v_h, tau=tau)
     
@@ -300,7 +353,7 @@ def main():
           f"(rel_l2 {drift:.4f})\n")
 
     # 1. Block 49 Analysis
-    f49 = list(cdir.glob(f"*_b49_s{args.step}.pt"))[0]
+    f49 = find_one(cdir, 49, args.step)
     t49 = torch.load(f49, map_location="cpu")
     q49, k49, v49 = t49["q"], t49["k"], t49["v"]
 
@@ -325,7 +378,7 @@ def main():
         print(f"    Error Reduction / Recovery:   {recovery:.2f}% ({err_int8:.6f} -> {err_fp16:.6f})")
 
     # 2. Block 0 Analysis
-    f0 = list(cdir.glob(f"*_b0_s{args.step}.pt"))[0]
+    f0 = find_one(cdir, 0, args.step)
     t0 = torch.load(f0, map_location="cpu")
     q0, k0, v0 = t0["q"], t0["k"], t0["v"]
 

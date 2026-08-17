@@ -1,8 +1,12 @@
-# Activation Capture Manifest Schema (v1.1.0)
+# Activation Capture Manifest Schema
+
+**The accepted version set is `bench/check_capture_manifest.py::SCHEMA_VERSIONS`, and what a new manifest is stamped with is `bench/generate_capture_manifest.py`.** This document describes the shape; those two own the number. A version written into prose here drifted against the code once already, which is why the constant exists.
 
 Every activation capture directory under `$H3_CAPTURE_ROOT/` must contain a complete, auditable `manifest.json` alongside the `.pt` tensor files.
 
-The manifest guarantees that any captured tensor is 100% traceable to the exact prompt, reference images, model checkpoints, canvas geometry, sampling parameters, and per-head error decomposition analysis.
+The manifest makes a captured tensor traceable to the prompt, reference images and their checksums, model checkpoints and their quantizations, canvas geometry, sampling parameters, token accounting, and the host substrate that produced it.
+
+**It records nothing about error decomposition, per-head or otherwise.** That is a property of the analysis run over a capture, not of the capture, and it is not recoverable from this file. If you need to know which heads were measured or how, that lives in the analysis invocation -- see `bench/analyze_sol_error.py`, whose `--heads` default measures a subset.
 
 ---
 

@@ -352,21 +352,66 @@ minutes of card time, and it is the actual answer to whether the LoRA is safe
 as canonical. Today's run says equivalent on identity and leaves scene
 coherence on one pair.
 
-1. **Capture a reference-heavy render.** One render, no code change. Every
-   measurement downstream is single-workload without it.
-2. **Decompose Sol's error** on both captures (`bench/analyze_sol_error.py`,
-   scaffolded, not implemented). Splits total error into sparsity against
-   quantization. If quantization is small, the 16-bit PV question closes
-   without a kernel being written. This is the gate that can end a whole line
-   of work, so it runs before anything expensive.
+1. **Capture a reference-heavy render. Done 2026-08-17.** Two captures exist
+   under `$H3_CAPTURE_ROOT/`: one single-step at seven blocks, one multi-step at
+   four blocks across steps 3/8/14, both at 362 frames 1024x768 with three
+   references and `S = 98498`. Taken with Sol bypassed, so the tensors are the
+   true attention inputs rather than the output of the algorithm under test.
+   Only the single-step directory carries a `manifest.json`; the multi-step one
+   predates the manifest tooling and has no provenance record.
+2. **Decompose Sol's error** (`bench/analyze_sol_error.py`). **Implemented and
+   run 2026-08-17.** Splits total error into sparsity against quantization by
+   measuring an exact fp32 Sol reference against dense and against the CUDA
+   kernel. The headline answer: **quantization is not negligible** -- the
+   quant/sparsity ratio runs from about 15% to about 62% at block level, against
+   the 5% threshold this script uses to retire the 16-bit PV question. So 17
+   does **not** close, and a 16-bit PV stays on the table.
+
+   **Do not quote its per-head numbers yet.** Three defects bound them, all
+   named in the file's own module docstring: `quant_l2` is normalised by a
+   different denominator than the other two errors, so the `rho` column is not
+   a valid cosine; `--heads` defaults to 8 of 56, so every row labelled by block
+   is a first-eight-heads figure; and the eager Sol reference has no calibration
+   gate against `bench/_sol_attn_reference.py`, so nothing yet proves it is Sol.
+   The block-level ratios and the finding that error is wildly non-uniform
+   across heads survive all three.
 3. **Port the block probe** (`sol_block_probe.py`, scaffolded, not
-   implemented). Produces routed density and says which transformer blocks the
-   sparsity is hurting. Unblocks `dense_blocks`, which is currently a guess.
-4. **Profile the Sol stages** (`bench/profile_sol_stages.py`, scaffolded).
-   Needs the card alone.
+   implemented -- every entry point still raises). Produces routed density and
+   says which transformer blocks the sparsity is hurting. Unblocks
+   `dense_blocks`, which is currently a guess. Partly overtaken: item 2 already
+   shows the per-block spread, so this is now about routed density specifically.
+4. **Profile the Sol stages** (`bench/profile_sol_stages.py`, scaffolded, not
+   implemented). Needs the card alone.
 5. **Paired render**, fl2va+LoRA@1.0 against ref2va, same seed. The only thing
    that can close the reconstruction question.
 6. **Watch a clip end to end.** Nothing above substitutes for it.
+
+### What would make the error-decomposition line worth continuing
+
+The captures are the expensive part and they are already on disk, so everything
+below runs against tensors that exist. Roughly a day's work, of which under an
+hour is card time.
+
+- **Calibrate the eager reference against the oracle, before anything else.**
+  `bench/analyze_sol_error.py` has no gate proving its eager Sol is Sol.
+  `bench/simulate_track_b_lite.py` has one and currently refuses at rel_l2 0.97.
+  Until this passes, the decomposition numbers are reproducible but unvalidated,
+  and those are not the same claim. Nothing else on this list matters first.
+- **Run the `--control` arm that already exists.** `tau=-1e9` measures the floor
+  of the apparatus itself. One head reports a relative L2 above 1.0 -- worse than
+  emitting zeros -- and this arm is what separates "that head is genuinely
+  broken" from "this instrument is". It has never been run.
+- **Measure all the heads.** The default measures a prefix of 8 of 56, so the
+  identity of the worst head is not established, only that heads differ wildly.
+  The full matrix is about half an hour unattended; cost was never the reason.
+- **Emit JSON next to the printed table.** Every consumer so far has re-typed
+  numbers out of terminal scrollback, which is how a transcription becomes a
+  finding.
+
+The finding that survives all of the above, and the one worth building on: error
+is not uniform across heads, by more than an order of magnitude within a single
+block. If that holds at 56 heads, `dense_blocks` is the wrong granularity and a
+per-head escape is the thing to design.
 
 ### Two decisions that need no card, added 2026-08-16
 

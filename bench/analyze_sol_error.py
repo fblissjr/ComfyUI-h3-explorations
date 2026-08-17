@@ -9,6 +9,80 @@ decomposing total error on real production captures:
 
 If Quantization Error / Sparsity Error < 0.05, quantization error is negligible
 against algorithmic sparsity error, and Track B (16-bit PV) is retired.
+
+## What this has established
+
+Run on the 2026-08-17 reference-heavy captures, the ratio came back between
+roughly 15% and 62% at block level -- far above 0.05. Quantization is a real
+share of total error, so Track B is NOT retired on this evidence.
+
+The more useful result is the spread, not the average: within one block at one
+step, per-head ratios range from about 24% to about 1695%, and one head's
+sparsity error exceeds 1.0 while its neighbours sit near 0.1. A relative L2 of
+1.0 is what you get from emitting zeros, so that head's Sol output is further
+from dense attention than nothing would be. That heterogeneity is the finding
+that should drive `dense_blocks` and any per-head escape work, and it is robust
+to every defect listed below because it is about spread rather than absolute
+magnitude.
+
+## What is wrong with it, and still worth keeping
+
+Three defects, none of which invalidate the block-level ratio (a ratio of two
+quantities computed the same way over the same subset), all of which bound what
+the per-head columns can carry.
+
+1. `rho` IS NOT A COSINE. `quant_l2` is normalised by ||out_eager|| while
+   `sparsity_l2` and `total_l2` are normalised by ||out_dense||, because
+   `rel_l2_error` divides by its second argument. The identity
+       ||e_t||^2 = ||e_s||^2 + ||e_q||^2 + 2||e_s||||e_q||rho
+   requires all three in the same units. Writing r = ||out_eager||/||out_dense||,
+   what is actually computed is
+       rho_calc = [||e_t||^2 - ||e_s||^2 - ||e_q||^2/r^2] / (2||e_s||||e_q||/r)
+   which equals the true correlation only at r = 1. The numerator is a heavily
+   cancelling difference -- for block 49 step 14 it is 2.06e-4 from terms of size
+   4e-3, a 20x cancellation -- so a few percent of r-drift moves rho by tens of
+   percent. Small |rho| values are therefore not resolved, and the sign of a
+   near-zero rho is not trustworthy. Large ones (|rho| ~ 0.45) survive.
+   FIX: normalise `quant_l2` by `out_dense`. One line, marked below.
+
+2. `--heads` DEFAULTS TO A SUBSET, AND IT IS NOT A SAMPLE. `decompose_single`
+   slices `q[:, :head_subset]` -- the FIRST n heads of 56, not n drawn from 56.
+   Every aggregate row this prints is therefore a first-n-heads figure even
+   though it is labelled by block, and any claim of the form "head X is the
+   worst" surveys only the measured prefix. The banner now prints the subset so
+   a log cannot be misread, but the default is still a prefix.
+
+3. NOTHING PROVES THE EAGER REFERENCE IS SOL. `eager_sol_reference` is a
+   reimplementation, and it has no calibration gate against the vendored
+   `bench/_sol_attn_reference.py`. Its sibling `bench/simulate_track_b_lite.py`
+   has exactly that gate and currently REFUSES to report, at rel_l2 0.97,
+   because its own reimplementation drifted. This file's version does not share
+   the three divergences named in that refusal -- it routes per-query-block on
+   `colmean > thr` like the oracle, it corrects the ragged final block through
+   `lengths[-1]`, and it has no online-softmax recurrence at all -- so it is
+   likely in better shape. "Likely" is not a gate. Until one exists, every
+   number here is reproducible but unvalidated, and those are different things.
+
+## How to make it more useful
+
+- ADD THE CALIBRATION GATE FIRST. Copy `calibrate_against_oracle` from
+  `bench/simulate_track_b_lite.py`. It is ~30 lines and it is the difference
+  between "these numbers reproduce" and "these numbers are about Sol". Nothing
+  else on this list matters until it passes.
+- RUN `--control`. The `tau=-1e9` dense-limit arm measures the floor of this
+  apparatus. Given that a head reported relative L2 above 1.0, that arm is what
+  distinguishes "this head is genuinely broken" from "this instrument is". It
+  already exists and has never been run.
+- The whole 12-row matrix at all 56 heads costs about half an hour of GPU
+  (measured: 16.4 s per block/step at 8 heads, and the per-head work is a plain
+  loop). Cost is not the reason to measure a prefix.
+- Emit JSON alongside the printed table. Every consumer so far has re-typed
+  numbers out of a terminal scrollback, which is how a transcription error
+  becomes a finding.
+- Report per-head magnitudes next to per-head ratios everywhere. A ratio of
+  1695% means "this head is nearly perfect and the residue is quantization"
+  when its sparsity error is 0.0015. Without the magnitude it reads as alarm.
+  The `note` tags below exist for this and should not be dropped.
 """
 
 from __future__ import annotations
@@ -250,17 +324,61 @@ def cuda_sol_kernel(
 
 
 def cosine_sim(a: torch.Tensor, b: torch.Tensor) -> float:
-    a_f = a.float().flatten()
-    b_f = b.float().flatten()
-    return float((a_f @ b_f) / (a_f.norm() * b_f.norm() + 1e-12))
+    """Cosine similarity accumulated in float64, chunked.
+
+    In fp32 at production tensor size this returns values ABOVE 1.0 -- 1.047609
+    was printed on a real run -- which Cauchy-Schwarz forbids, so it was pure
+    accumulation error over ~1e8 terms. Measured 2026-08-17 on a synthetic case
+    at 100,861,952 elements: fp32 gives 1.021457 where float64 gives 0.998752,
+    a +2.27% error that crosses the bound.
+
+    `rel_l2_error` is NOT affected to the same degree (+0.053% on the same
+    control) because the two norms' errors largely cancel in the ratio. That is
+    why the tables reproduce while this did not. It also means the reported
+    figures are supported to about three significant figures, not six.
+
+    Chunked rather than a whole-tensor `.double()`, which would allocate ~800 MB
+    per operand at this size.
+    """
+    a_f, b_f = a.flatten(), b.flatten()
+    chunk = 1 << 24
+    dot = sq_a = sq_b = 0.0
+    for start in range(0, a_f.numel(), chunk):
+        x = a_f[start : start + chunk].double()
+        y = b_f[start : start + chunk].double()
+        dot += float(x @ y)
+        sq_a += float(x @ x)
+        sq_b += float(y @ y)
+    return dot / ((sq_a ** 0.5) * (sq_b ** 0.5) + 1e-12)
 
 
 def rel_l2_error(pred: torch.Tensor, target: torch.Tensor) -> float:
+    """||pred - target|| / ||target||.
+
+    Note the denominator is the SECOND argument. Passing a different target per
+    call therefore changes units per call, which is what broke `rho` -- use
+    `rel_l2_against` when several errors must be comparable.
+    """
     pred_f = pred.float()
     target_f = target.float()
     diff_norm = (pred_f - target_f).norm().item()
     target_norm = target_f.norm().item()
     return diff_norm / (target_norm + 1e-12)
+
+
+def rel_l2_against(pred: torch.Tensor, target: torch.Tensor, denom_norm: float) -> float:
+    """||pred - target|| / denom_norm, for errors that must share one denominator.
+
+    The quadrature identity the `rho` below rests on,
+
+        ||e_t||^2 = ||e_s||^2 + ||e_q||^2 + 2||e_s|| ||e_q|| rho
+
+    only holds when all three magnitudes are in the same units. Until 2026-08-17
+    the quantization term was normalised by ||out_eager|| while the other two
+    used ||out_dense||, so it never held, and the residual that got attributed
+    to vector alignment was partly just the denominator mismatch.
+    """
+    return (pred.float() - target.float()).norm().item() / (denom_norm + 1e-12)
 
 
 def decompose_single(
@@ -270,7 +388,14 @@ def decompose_single(
     tau: float = 1.3,
     head_subset: int = 0,
 ) -> dict:
-    """Run full 3-way decomposition on (q, k, v)."""
+    """Run full 3-way decomposition on (q, k, v).
+
+    `head_subset` takes a PREFIX, not a sample: `q[:, :n]` is heads 0..n-1 of
+    however many the capture has. Every aggregate this returns is therefore a
+    figure over that prefix, even where a caller labels it by block. `heads_total`
+    is returned so no printed row can be read as covering the whole block.
+    """
+    heads_total = q.shape[1]
     if head_subset > 0 and head_subset < q.shape[1]:
         q = q[:, :head_subset, :, :]
         k = k[:, :head_subset, :, :]
@@ -280,10 +405,11 @@ def decompose_single(
     out_eager = eager_sol_reference(q, k, v, tau=tau)
     out_cuda = cuda_sol_kernel(q, k, v, tau=tau)
 
-    # Errors relative to target
-    sparsity_l2 = rel_l2_error(out_eager, out_dense)
-    quant_l2 = rel_l2_error(out_cuda, out_eager)
-    total_l2 = rel_l2_error(out_cuda, out_dense)
+    # ONE denominator, ||out_dense||, for all three. See `rel_l2_against`.
+    dense_norm = out_dense.float().norm().item()
+    sparsity_l2 = rel_l2_against(out_eager, out_dense, dense_norm)
+    quant_l2 = rel_l2_against(out_cuda, out_eager, dense_norm)
+    total_l2 = rel_l2_against(out_cuda, out_dense, dense_norm)
 
     sparsity_cos = cosine_sim(out_eager, out_dense)
     quant_cos = cosine_sim(out_cuda, out_eager)
@@ -298,9 +424,11 @@ def decompose_single(
 
     # Per-head error breakdown
     num_heads = q.shape[1]
-    per_head_sparsity = [rel_l2_error(out_eager[:, i : i + 1], out_dense[:, i : i + 1]) for i in range(num_heads)]
-    per_head_quant = [rel_l2_error(out_cuda[:, i : i + 1], out_eager[:, i : i + 1]) for i in range(num_heads)]
-    per_head_total = [rel_l2_error(out_cuda[:, i : i + 1], out_dense[:, i : i + 1]) for i in range(num_heads)]
+    # Per head, the same rule: one denominator per head, that head's dense norm.
+    per_head_dense = [out_dense[:, i : i + 1].float().norm().item() for i in range(num_heads)]
+    per_head_sparsity = [rel_l2_against(out_eager[:, i : i + 1], out_dense[:, i : i + 1], per_head_dense[i]) for i in range(num_heads)]
+    per_head_quant = [rel_l2_against(out_cuda[:, i : i + 1], out_eager[:, i : i + 1], per_head_dense[i]) for i in range(num_heads)]
+    per_head_total = [rel_l2_against(out_cuda[:, i : i + 1], out_dense[:, i : i + 1], per_head_dense[i]) for i in range(num_heads)]
     per_head_ratios = [per_head_quant[i] / (per_head_sparsity[i] + 1e-12) for i in range(num_heads)]
     per_head_rho = []
     for i in range(num_heads):
@@ -322,6 +450,7 @@ def decompose_single(
         "total_cos": total_cos,
         "ratio": ratio,
         "heads_measured": num_heads,
+        "heads_total": heads_total,
         "seq_len": q.shape[2],
         "per_head_sparsity": per_head_sparsity,
         "per_head_quant": per_head_quant,
@@ -398,12 +527,11 @@ def main():
         res["step"] = step_val
         results.append(res)
 
-        min_head_quant = min(res["per_head_quant"])
-        max_head_quant = max(res["per_head_quant"])
-        min_head_ratio = min(res["per_head_ratios"])
-        max_head_ratio = max(res["per_head_ratios"])
-
-        print(f"  Seq Length: {res['seq_len']} tokens across {res['heads_measured']} heads")
+        measured, total = res["heads_measured"], res["heads_total"]
+        scope = ("ALL heads" if measured == total
+                 else f"heads 0-{measured - 1} of {total} -- A PREFIX, NOT A SAMPLE; "
+                      f"the rows below describe this prefix, not the block")
+        print(f"  Seq Length: {res['seq_len']} tokens | {measured}/{total} heads ({scope})")
         print(f"  Sparsity Error (L2 rel):     {res['sparsity_l2']:.6f}  (Cos: {res['sparsity_cos']:.6f})")
         print(f"  Quantization Error (L2 rel): {res['quant_l2']:.6f}  (Cos: {res['quant_cos']:.6f})")
         print(f"  Total Error (L2 rel):        {res['total_l2']:.6f}  (Cos: {res['total_cos']:.6f})")

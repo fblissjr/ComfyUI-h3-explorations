@@ -1126,10 +1126,11 @@ tie-breaker between two numbers; it is the only way to get a second one.**
 
 ### Three gates, all cheap, before any CUDA is written
 
-**All three are SCAFFOLDED and none are implemented** as of 2026-08-16 -- every
-entry point raises. The scaffolds exist to fix the metric, the control and the
-sampling before the measurement, because in each case a wrong design produces a
-plausible number rather than an error.
+**17b and 17c are done; 17a is still scaffolded and its entry points raise.**
+The scaffolds exist to fix the metric, the control and the sampling before the
+measurement, because in each case a wrong design produces a plausible number
+rather than an error -- which is exactly what 17b then demonstrated, by shipping
+three of them past its own first run. See each item below for current state.
 
 **17a. Profile the CUDA exact kernel per stage.**
 `bench/profile_sol_stages.py`. One `ncu` run settles MMA-bound against
@@ -1153,7 +1154,23 @@ already says why they do not count: at T=512 on `torch.randn` it prints DOUBLY
 PESSIMISTIC, DO NOT QUOTE, because a near-uniform softmax leaves a block router
 nothing to find and 8 blocks is a different regime rather than a small version
 of production. 17b is that same decomposition somewhere the premise holds.
-*Blocker: none.*
+
+**Done 2026-08-17, and it does not close 17.** On the reference-heavy captures
+the quant/sparsity ratio runs roughly 15% to 62% at block level, against the 5%
+threshold the script uses to retire the question. Quantization is a measurable
+share of total error, so a 16-bit PV is not ruled out on these numbers.
+
+Two things this gate got wrong about itself, both now stated in
+`bench/analyze_sol_error.py`'s module docstring rather than only here. Its `rho`
+column is not a valid cosine, because `quant_l2` is normalised by `‖out_eager‖`
+while the other two use `‖out_dense‖`. And it measures the first 8 of 56 heads
+by default, so any row named for a block is a first-eight-heads figure. The
+block-level ratio above survives both, because it is a ratio of two quantities
+computed the same way over the same subset. **What it still lacks is a
+calibration gate** against `bench/_sol_attn_reference.py` -- its sibling
+`bench/simulate_track_b_lite.py` has one and currently refuses to report at
+rel_l2 0.97, and nothing yet proves this file's eager Sol is in better shape.
+*Blocker: none. Next action is the calibration gate, not another run.*
 
 **17c. Capture a reference-heavy render.** NEW, and it gates the value of the
 other two. Every Sol measurement in this repo -- and the existing captures at
@@ -1164,7 +1181,16 @@ Sol has the **least** room: every existing ratio is an optimistic bound for the
 real workload, and a bigger pinned region makes a 16-bit PV *more* expensive,
 not less. `h3_capture.py` is env-driven and graph-agnostic, so this is one
 render with `H3_CAPTURE` set against `h3_probe_sol_on_refs_api.json` -- no code
-change. Run 17b on both captures and report both. *Blocker: none.*
+change. Run 17b on both captures and report both.
+
+**Done 2026-08-17**, on `h3_probe_capture_ref3_api.json` rather than
+`h3_probe_sol_on_refs_api.json`: 362 frames at 1024x768 with three references,
+`S = 98498`, captured at seven blocks single-step and at four blocks across
+steps 3/8/14. The prediction above held -- reference-heavy is not a smaller
+version of t2v, and the multi-step arm additionally showed the ratio moving
+along the trajectory, which a single-step capture cannot see. *Blocker: none.
+Outstanding: the multi-step directory has no `manifest.json`, because it was
+written before the manifest tooling existed.*
 
 ### The port itself, if the gates pass
 

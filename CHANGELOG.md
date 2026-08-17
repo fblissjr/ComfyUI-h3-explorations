@@ -4,6 +4,83 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.35.0
+
+### Fixed
+
+- **`bench/analyze_sol_error.py`: the three errors now share one denominator.**
+  `quant_l2` was normalised by `‖out_eager‖` while `sparsity_l2` and `total_l2`
+  used `‖out_dense‖`, because `rel_l2_error` divides by its second argument. The
+  quadrature identity the `rho` column rests on requires all three in the same
+  units, so it never held, and part of what was reported as vector alignment was
+  the denominator mismatch. Block-level ratios barely move (62.21% to 62.34% on
+  one row); near-zero per-head `rho` moves a lot, which is the point — one head
+  went from `-0.0022` to `-0.0009`. Added `rel_l2_against` so the sharing is
+  explicit rather than incidental.
+
+- **`bench/analyze_sol_error.py`: `cosine_sim` returned values above 1.0.**
+  It printed `1.047609` on a real run, which Cauchy-Schwarz forbids, so it was
+  accumulation error over ~1e8 fp32 terms. Now accumulated in float64 in chunks.
+  Verified against a synthetic control at the same element count: fp32 gives
+  `1.021457` where float64 gives `0.998752`. `rel_l2` is not affected to the
+  same degree (+0.053%) because the two norms' errors cancel in the ratio, which
+  is why the tables reproduced while this did not — and why the figures support
+  about three significant figures rather than the six printed.
+
+- **`bench/analyze_sol_error.py`: `--heads` takes a prefix, and now says so.**
+  `q[:, :n]` is heads 0..n-1 of 56, not a sample of 56, so every aggregate row
+  was a first-n-heads figure while being labelled by block. The banner now
+  prints `n/total` and names it a prefix.
+
+- **`bench/check_capture_manifest.py` enumerates captures, not manifests.**
+  Globbing `*/manifest.json` and validating the hits could only fail on a
+  malformed manifest, never on a capture nobody recorded — the case it exists
+  for. It reported ok on a collection where one of two capture directories held
+  twelve tensors and no provenance at all. It now walks directories containing
+  `qkv_*.pt` and fails on any without a manifest, naming them.
+
+- **`bench/run_capture.py` no longer exits 0 on a failed render.** It returned 0
+  as soon as `prompt_id` appeared in `/history`, reading `status_str` only to
+  print it — but a render that errored appears in history like any other. It
+  also polled in an unbounded `while True` with a bare `except Exception: pass`,
+  so an unreachable server was indistinguishable from a slow one. Now: 0
+  success, 1 submit failure or repeated poll failure, 2 non-success status, 3
+  timeout, with a `--timeout` ceiling.
+
+- **`bench/simulate_track_b_lite.py` shares `find_one` instead of `glob(...)[0]`.**
+  The hazard was already documented in `bench/verify_multistep_capture.py`,
+  which replaced the same pattern; both files landed in one commit and only one
+  got the fix.
+
+### Changed
+
+- **`bench/simulate_track_b_lite.py` states what its `fp16_pv` arm is.** The
+  flag returns the unquantized eager reference rather than widening the PV
+  product, so the value it reports is the sparsity error and its "recovery %"
+  reduces to `1 - sparsity/total`. That makes it a valid upper bound on what a
+  perfect PV matmul could recover, and not a measurement of one — the module
+  docstring now says so before any figure is quoted.
+
+- **`docs/roadmap.md`, `docs/open_experiments.md`:** gate 17b
+  (`bench/analyze_sol_error.py`) and 17c (the reference-heavy capture) are done
+  and described as done; both were still listed as scaffolded with every entry
+  point raising. 17a and `sol_block_probe.py` genuinely are still scaffolded and
+  stay that way. The headline result is recorded: the quant/sparsity ratio runs
+  roughly 15% to 62% against a 5% retirement threshold, so the 16-bit PV
+  question does not close.
+
+- **`docs/capture_manifest_schema.md`:** removed the claim that the manifest
+  makes a tensor traceable to "per-head error decomposition analysis". No such
+  property exists in the schema; that is a property of an analysis run over a
+  capture. The document also no longer names a schema version in prose —
+  `bench/check_capture_manifest.py::SCHEMA_VERSIONS` owns the accepted set, and
+  a version written into prose had drifted against the code once already.
+
+- **`CLAUDE.md`, `docs/checks.md`:** the manifest schema row points at the code
+  constant rather than naming a version, and the `check_capture_manifest.py` row
+  records its red harness (which existed) and its blind spot (which did not stop
+  it reporting ok).
+
 ## 0.34.0
 
 ### Added

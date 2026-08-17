@@ -7,9 +7,7 @@ and tensor checksum integrity per docs/capture_manifest_schema.md.
 
 from __future__ import annotations
 
-import glob
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -236,20 +234,41 @@ def main():
         print("  skip  no capture collection: set H3_CAPTURE_ROOT")
         return 0
 
-    manifests = list(capture_base.glob("*/manifest.json"))
-    if not manifests:
-        print("  skip  no capture manifests found to validate")
+    # Enumerate CAPTURES, not manifests. Globbing `*/manifest.json` and
+    # validating the hits could only ever fail on a malformed manifest, never on
+    # a capture nobody recorded -- which is the case this check exists for. It
+    # reported ok on a collection where one of two capture directories had no
+    # manifest at all, holding twelve multi-GiB tensors and no provenance.
+    # Ask what the input would have to look like for a check to fail; if the
+    # answer does not include the failure it was written for, it is the wrong
+    # enumeration.
+    captures = sorted(d for d in capture_base.iterdir()
+                      if d.is_dir() and any(d.glob("qkv_*.pt")))
+    if not captures:
+        print("  skip  no capture directories found to validate")
         return 0
 
-    passed = 0
+    unmanifested = [d for d in captures if not (d / "manifest.json").is_file()]
+    if unmanifested:
+        names = "\n".join(f"    {d.name}  ({len(list(d.glob('qkv_*.pt')))} tensors)"
+                          for d in unmanifested)
+        print(f"  FAIL  {len(unmanifested)} of {len(captures)} capture "
+              f"director(ies) have no manifest.json:\n{names}\n"
+              f"    A capture with no provenance grades a later comparison "
+              f"against a substrate nobody can recover.\n"
+              f"    Write one with bench/generate_capture_manifest.py.",
+              file=sys.stderr)
+        return 1
+
     seen: set[str] = set()
-    for m in manifests:
+    for d in captures:
+        m = d / "manifest.json"
         check_manifest(m)
         seen.add(json.loads(m.read_text())["schema_version"])
-        passed += 1
 
     versions = ", ".join(f"v{v}" for v in sorted(seen))
-    print(f"  ok    validated {passed} capture manifest(s) against {versions} (all invariants hold)")
+    print(f"  ok    validated {len(captures)} capture(s) against {versions} "
+          f"(every capture carries a manifest, and all invariants hold)")
     return 0
 
 
