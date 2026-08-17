@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "58c9f7f9-2f3c-537c-8fd6-d4241104f067",
+  "id": "3e51cb34-2482-5d85-aa9b-a0a77ab55996",
   "revision": 0,
   "last_node_id": 28,
   "last_link_id": 33,
@@ -274,7 +274,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "model",
@@ -314,7 +314,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn (bypassed)"
+      "title": "Patch Sol-Attn"
     },
     {
       "id": 9,
@@ -551,7 +551,7 @@
         "Node name for S&R": "MiniMaxH3ReferenceToVideo"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.\n<Subject 2> is a bright red waxed-cotton jacket that replaces the garment <Subject 1> wears in <Video 1>.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video for the target video edit.\n\nsummary:\n[video editing + audio reuse] The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment changes.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the red jacket replaces the original garment on <Subject 1>.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] The shot reproduces <Video 1> frame for frame in framing, camera movement, and timing. <Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2>, whose waxed cotton catches the light differently as they turn.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+        "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.\n<Subject 2> is a bright red waxed-cotton jacket that replaces the garment <Subject 1> wears in <Video 1>.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video for the target video edit.\n\nsummary:\n[video editing + audio reuse] The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment changes.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the red jacket replaces the original garment on <Subject 1>.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] The shot reproduces <Video 1> frame for frame in framing, camera movement, and timing. <Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2>, whose waxed cotton catches the light differently as they turn.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
         1024,
         768,
         362,

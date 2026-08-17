@@ -4,6 +4,233 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.34.0
+
+### Added
+
+- **`docs/hardware.md`** — the box every number here was measured on: what
+  bounds this workload, what has been ruled out as a bottleneck, and which host
+  settings silently invalidate a timing comparison.
+
+  **The finding that motivated it: a GPU board power limit moves render times
+  and is invisible to everything this repo inspects.** Not in a workflow JSON,
+  not in the capture manifest, not in a ComfyUI log line, and it persists across
+  reboots once a systemd unit exists for it. A run at a changed limit yields an
+  ordinary-looking s/it that is not comparable to anything on
+  `docs/bench_plan.md`, and no check would notice. The limit on this box was
+  changed away from stock on 2026-08-17, after every timing in `bench_plan.md`
+  and `SOLATTN.md` had been recorded — those stay correct at stock, but
+  reproducing one now requires resetting first.
+
+  Recorded as an **uncontrolled requirement**, not as coverage: the requirement
+  is "compare timings only at equal power state" and the control is a script
+  somebody has to choose to run.
+
+  **Corrected same day.** The doc and the `checks.md` row first said the power
+  limit appears in no capture manifest. It does — `provenance.gpu_power_limit_watts`
+  already existed and the one manifest on disk populates it. The claim was
+  inferred from the schema's `required` list without reading its properties, and
+  a peer session refuted it. The gap is real but differently shaped per
+  artifact: for captures a field exists and nothing asserts it, for render
+  stamps no power field exists at all, and bench runs persist nothing. Only the
+  middle case is fixed by adding a field.
+
+  The doc deliberately carries no values. Cross-linked from `CLAUDE.md`'s
+  reference table, `docs/comfy_notes.md`, `docs/bench_plan.md`'s ground rules,
+  and `docs/evidence.md`'s Environment section, which owns the software half of
+  state-not-in-git while this owns the host half.
+
+- **`bench/hwinfo.py`** — prints host, GPU, power state and PCIe topology.
+  Not a check; it asserts nothing. It exists so `docs/hardware.md` can describe
+  the machine's shape while the drifting values live in output, per the number
+  rule. Flags a non-stock power limit and any PCIe device linked below its
+  capability. Standard library only, so it runs on a bare interpreter rather
+  than `uv run`, which would build a second venv and write the `uv.lock` that
+  `docs/comfy_notes.md` says must not exist here.
+
+- **`bench/red/`** — the home and the shared spine for red harnesses, the
+  programs that prove a check can fail. `harness.py` carries four primitives
+  (`subject`, `fixture`, `baseline`, `case`) and one rule.
+
+  **The rule is derived, not authored.** A case declares a KIND rather than an
+  expected verdict: `MUTATION` requires the verdict to differ from the unmutated
+  baseline, `NEAR_MISS` requires it to match. One rule covers every case that
+  will ever be added, which is what stops a harness suite collapsing into tests
+  for tests — an authored expectation is itself a claim needing verification,
+  and each new case adds another. It doubles as the needle check: a mutation
+  that never reached its subject leaves the verdict unchanged, which is exactly
+  what `MUTATION` already asserts. An exception is `ERROR`, never "differed".
+
+  `fixture()` exits 2 when a required capture is absent, so "did not run" stays
+  distinguishable from "passed" — the pattern `check_distill_settings.py` set.
+
+- **`bench/red/spine_control.py`** — the control on the spine itself. Shared
+  harness infrastructure fails silently across every harness at once, which is
+  the defect the directory exists to remove, one level up. Two fixtures run as
+  subprocesses: `_fixture_inert.py`, whose mutation does not mutate, must exit
+  1; `_fixture_healthy.py` must exit 0. Red for the right reason and green for
+  the right reason, both structural rather than authored per case.
+
+- **`docs/drift_frontier.md`** — the tracking file for the doc-drift and
+  control-calibration work, one entry per open decision with its dependencies,
+  recommendation and status. Annotate-don't-rewrite, so a resolved entry keeps
+  the reasoning that produced it.
+
+- **`docs/check_postmortems.md`** — the per-defect narrative and frozen run logs
+  moved out of `docs/checks.md`, which had grown to the point where the index it
+  promises was a small fraction of it.
+
+### Fixed
+
+- **Every red harness in the repo exited 0 unconditionally.** All three computed
+  an expected-outcome mismatch, printed it, and returned success whether every
+  case came back red or every case came back green; one had no comparison at
+  all. They are the cited evidence for rows of `docs/checks.md`, so those rows
+  cited programs that could not fail. Ported onto the spine, which supplies the
+  exit code they were missing.
+
+- **Two requirement rows claimed "enforced by nothing" against controls that
+  exist.** The `node_id` rule is enforced by `bench/check_node_ids.py` against a
+  committed manifest, and the connected-block figures by
+  `bench/analyze_canvas_geometry.py`'s `connected_frac`, which has been shown
+  red. Both cells had been transcribed from narrative prose rather than derived
+  from `bench/`, which is the failure the table exists to find. A third row had
+  been stale since the control landed.
+
+- **`scripts/experimental/` hardcoded an absolute path to this checkout**, in
+  every file that resolved the repo root, and one that resolved ComfyUI's. They
+  were the only such paths in the tree and they were committed. Now
+  `Path(__file__).resolve().parents[3]`, verified by running the harnesses from
+  outside the repo — they had worked *because* of the hardcoding, not despite
+  it. The routing harness reads its capture location from an environment
+  variable rather than a home-directory literal.
+
+- **Docstrings across `bench/` attributed rules to `CLAUDE.md` that had moved.**
+  The `node_id` rule and the `import nodes` trap now live in
+  `docs/comfy_notes.md`; the GPU-contention warning in `docs/checks.md`. The
+  Sol-Attn default is stated from the graphs rather than cited to a document
+  that never carried it. Rechecked wrap-tolerantly, since single-line `grep`
+  over hard-wrapped prose returns false negatives on exactly this question.
+
+- **`docs/open_experiments.md` cited a script by an absolute path** that
+  resolved nowhere, breaking `check_doc_links.py`. The file exists; the citation
+  carried a leading slash.
+
+### Changed
+
+- **`docs/checks.md` split.** Keeps the index, the standard, the run
+  instructions, the deliberately-not-checked list, a new uncontrolled-requirement
+  table, and one-line gaps. The standard is now scoped: red-first calibration
+  applies to mechanically specified behaviour, and explicitly not to a check
+  whose expected value is the measurement itself, where demanding it invents a
+  threshold rather than testing one. Gap items point at the columns instead of
+  quoting tallies that had drifted from them.
+
+- **`CLAUDE.md`'s index restructured** into read-first, reference, and code
+  sections. The three deep dives no longer have top-level rows: the file says
+  they are reached through their parents and must not be quoted against them,
+  which the flat list contradicted by presenting them as peers. Their warnings
+  moved into the parent row.
+
+## 0.33.0
+
+### Added
+
+- **`bench/analyze_canvas_geometry.py`** — the source for every table in
+  `docs/h3_input_impacts.md`, which previously carried them hand-transcribed
+  with nothing behind them. That is the drift CLAUDE.md's guiding principle
+  names, and it bit within a day: see Fixed below.
+
+  `analyze_morton.py` answers "what does this permutation do" on one canvas;
+  this answers the comparative question across all of them. `--markdown` emits
+  the doc's tables ready to paste, `--lengths WxH` sweeps the length axis.
+
+  **The canvas set is enumerated from `adapt_canvas`, not listed.** A
+  hand-maintained list would agree with `docs/h3_resolutions.md` forever and
+  stop agreeing with the code the first time the area cap or the rounding
+  moved.
+
+  **Two controls run before it prints anything, and both have been shown red.**
+  The vendored `morton_perm` against `analyze_morton`'s independent
+  implementation, borrowed rather than rewritten. And its connectivity figures
+  against `docs/morton.md`'s published four worst canvases — those came from a
+  different implementation, so agreement is confirmation rather than tautology.
+  Mutating `connected_frac` from 6-neighbour to 26-neighbour adjacency moves
+  1952x544 from 51.5% to 90.0% and the control fails with all four rows named.
+  The mutation script asserts its target string is present first, because a
+  `.replace()` that matches nothing prints exactly what a broken check prints.
+
+### Fixed
+
+- **`docs/h3_input_impacts.md`'s length table said "all lengths on the grid"
+  and listed ten of fifteen.** 141, 158, 175, 192 and 226 were missing, and one
+  of them matters: 175 frames is a third `latent_t % 4 == 0` length the page
+  did not mention. Found by running the committed script against the page it
+  was written from, one day after the page was written by hand.
+- **The same section credited alignment with the wrong effect.** It said
+  aligned lengths reach 100% connected; 328 and 345 reach it too. What
+  alignment actually buys is radius, 1.581 against 1.598-1.645. The column that
+  tracks `% 4` cleanly is radius, and the case to avoid is `% 4 == 3` (158,
+  226, 294, and the shipped 362), which is where fill and connectivity dip.
+
+## 0.32.0
+
+### Added
+
+- **`docs/h3_input_impacts.md`** — the page for choosing a canvas and a frame
+  count *together*. Three docs already own the pieces and none of them owns the
+  interaction, so the question "what should I actually type" had no home.
+
+  It leads with **block maps** rather than statistics. `analyze_morton.py`
+  already prints them and nothing in `docs/` had ever shown one, so every
+  discussion of block geometry was conducted in radius and fill numbers whose
+  meaning a reader had to take on faith. One frame of raster order next to one
+  frame of Morton `3d` explains the entire setting in two pictures.
+
+  **New measurements it owns**, none of which exist elsewhere: the per-canvas
+  ranking of Morton `3d` over all 48 legal canvases, the
+  `h/32 % 4` by `w/32 % 4` grouping behind it, and the `latent_t % 4` length
+  effect. The six canvases with both token axes divisible by 4 (768x768,
+  896x768, 1024x768, 1152x768, 1280x768, 1664x640, plus portrait mirrors) score
+  radius 1.61 with zero spread; at 243 or 311 frames they reach 100% connected.
+
+  **Cross-checked before it was written down.** The independently implemented
+  connectivity pass reproduces `docs/morton.md`'s four worst canvases to the
+  decimal (51.5 / 52.5 / 52.7 / 53.7) and its 124-frame floor to 0.1 points,
+  which is why the new numbers beside them are trustworthy.
+
+  **One claim was refuted on the way and did not survive into the doc.** The
+  hypothesis that `latent_t % 4` also explains `morton.md`'s observation that
+  `3d`'s floor degrades with length is wrong: at 243 frames, which is perfectly
+  aligned, the floor is 46.1%, worse than 362's 51.5%. Two independent effects,
+  and only the top of the range is modular. `morton.md` was right and the page
+  says so.
+
+  **It also states that there is no 100,000-token budget**, because the
+  question keeps being asked. 99,864 is a Triton int32 offset crossing that
+  `preflight.py` already records as fixed in every sage build able to run this
+  node, and every shipped graph is past it. Three files call it "the model's
+  ~100k ceiling", which reads as a property of the checkpoint; no independent
+  upstream claim of one was found in `docs/sol_upstream.md` or the Sol-Engine
+  tree.
+
+### Changed
+
+- **`docs/h3_resolutions.md`** gained a **Token grid** column beside the
+  existing VAE latent, and a paragraph naming the difference. Two grids were
+  both called "latent" — `W/16 x H/16` here, `W/32 x H/32` in `morton.md` and
+  in every Sol-Attn discussion — and tokens per frame is the product of the
+  second. Also a full on-grid length table with video tokens and attention cost
+  per frame count, since length is the second-largest cost lever and the page
+  previously showed only the rounding rule.
+- **`docs/SOLATTN.md`** and **`docs/morton.md`** link the new page; SOLATTN's
+  "two deep dives" table is now three.
+- **`docs/morton.md`** records that its "pick any width" rule is first-order
+  correct but not the whole structure, with the `w/32 % 4` finding and a
+  pointer to the page that owns it. Written the same hour as the finding
+  specifically so the two pages do not spend a day disagreeing, which is the
+  failure mode that produced that page's own ownership rule.
+
 ## 0.31.0
 
 ### Added

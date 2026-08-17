@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "9e0ca91f-fdb5-51bd-9032-a69196d01bc9",
+  "id": "c4d4734d-5390-5ce5-8cde-2d99200b6201",
   "revision": 0,
   "last_node_id": 28,
   "last_link_id": 32,
@@ -274,7 +274,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "model",
@@ -314,7 +314,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn (bypassed)"
+      "title": "Patch Sol-Attn"
     },
     {
       "id": 9,
@@ -551,7 +551,7 @@
         "Node name for S&R": "MiniMaxH3ReferenceToVideo"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.\n<Video 1> is the source video whose camera movement the target video follows.\n\nsummary:\n[reference generation] The target video places <Subject 1> in a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.\n<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nSteady interior room tone continues throughout, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+        "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.\n<Video 1> is the source video whose camera movement the target video follows.\n\nsummary:\n[reference generation] The target video places <Subject 1> in a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.\n<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot frames <Subject 1>, who enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nNatural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music:\nN/A",
         1024,
         768,
         362,

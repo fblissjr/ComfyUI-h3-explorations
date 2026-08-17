@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "5d2755ce-b8ff-549a-8248-866322805af9",
+  "id": "043debb3-402e-577f-a84b-94ce7a3c742b",
   "revision": 0,
   "last_node_id": 32,
   "last_link_id": 37,
@@ -274,7 +274,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "model",
@@ -314,7 +314,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn (bypassed)"
+      "title": "Patch Sol-Attn"
     },
     {
       "id": 9,
@@ -551,7 +551,7 @@
         "Node name for S&R": "MiniMaxH3ReferenceToVideo"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose setting, palette, and lighting are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement the target video follows.\n\nsummary:\n[reference generation + audio reuse] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+        "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement the target video follows.\n\nsummary:\n[reference generation + audio reuse] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
         1024,
         768,
         362,

@@ -8,13 +8,14 @@ sequence still contributes to the softmax denominator.
 ## Start here: this page, and the two it links to
 
 **This is the Sol-Attn entry point and the authority.** It owns the knobs, the
-sink, the ordering rules, and every Sol-Attn number measured on this box. Two
+sink, the ordering rules, and every Sol-Attn number measured on this box. Three
 deep dives hang off it, each owning a topic this page deliberately does not:
 
 | page | owns | do not |
 |---|---|---|
 | [`docs/morton.md`](morton.md) | token order: block geometry, the curves, the capture analysis, the six-arm ordering sweep, the assumption chain | quote it against this page's config values |
 | [`docs/sol_upstream.md`](sol_upstream.md) | what upstream says: the paper, Sol-Engine's per-profile H3 recipes, the other ComfyUI packs | read any number there as comparable to ours |
+| [`docs/h3_input_impacts.md`](h3_input_impacts.md) | how canvas, frame count and Sol settings interact: the per-canvas Morton `3d` ranking over all 48 legal canvases, the `latent_t % 4` length effect, the token floor crossed with both axes, and block maps | read its geometry tables as a quality ranking |
 
 The rule that keeps them from drifting, after `docs/SOLATTN.md` and
 `docs/morton.md` spent a day asserting opposite Morton figures: **a number is
@@ -73,6 +74,31 @@ row below and `docs/evidence.md`), and **the Triton backend was deleted**, so
 the Triton numbers here are now unreproducible without recovering the pack
 from upstream. A large share of what this page says is
 labelled rather than deleted. Read this list first.
+
+### "int8" on this page means three different things
+
+Added 2026-08-17, because a row below gives "stacked on int8" as a retraction
+reason and does not say which one it means.
+
+| when a claim says int8 | it may mean | how to tell |
+|---|---|---|
+| **the attention kernel** | the CUDA Sol kernel, which routes in INT8 unconditionally | `cuda-int8` in the log |
+| **the DiT and CLIP weights** | the shipped checkpoints, which `workflows/h3_config.py` names `pruned_int8_convrot` | nothing in a log. The loader prints `dtype: torch.float16` for both builds and cannot distinguish int8 storage from a dequantized fallback |
+| **the VAE decoder** | a separate `int8_convrot` build | resident allocation, not a log line |
+
+**The Morton retraction below means the attention kernel** — that reading comes
+from its Triton and `tau` context, not from the row, which is why this table
+exists.
+
+And a standing condition on everything here, not a footnote: the weights are
+**pruned, convrot-rotated and int8**, three separate properties, and
+`fp8_scaled` and `w4a8_mixed` builds of the same models sit on disk beside them.
+`convrot` applies a rotation (`docs/roadmap.md`, established while grading the
+ref LoRA), so anything on this page that reasons about q/k geometry — centroid
+similarity, block locality, what a token ordering buys — is reasoning about a
+rotated, pruned, quantized space. Whether that reaches the ordering is unmeasured
+and filed as an open experiment; nothing here should be read as though it were
+settled either way.
 
 ### Do not rely on
 
@@ -891,7 +917,7 @@ activations, and that nobody has measured int8-V. **Not** "Sol throws away the
 accuracy we pay 1.58x for" -- that sentence was built on the withdrawn figures.
 
 The captures that would settle it exist
-(`~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/`) and no kernel has been
+(`$H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/`) and no kernel has been
 graded against them. Until that runs, this repo has no accuracy figure to quote
 and should not acquire one by inference.
 

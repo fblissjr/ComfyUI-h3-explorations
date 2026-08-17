@@ -23,8 +23,10 @@ on {kernel}"`. So the one line that is supposed to appear on *every* run
 could not be found on any run, and nobody noticed because the default path
 (no `--log`) returns 0 with a disclaimer and never evaluates it.
 
-**And the two Sol lines were asserted unconditionally.** Sol-Attn ships OFF
-(CLAUDE.md): every UI graph bypasses it and every API graph omits it. This
+**And the two Sol lines were asserted unconditionally.** Sol-Attn ships OFF --
+derived from the graphs, not from a doc: every UI graph carries the node at
+`mode=4` (bypass) and every API graph omits it. `docs/SOLATTN.md` is the
+authority for Sol's knobs. This
 smoke renders `h3_text_to_video_api.json`, so those lines are *correctly*
 absent, and asserting them made a fully compliant run report failure. That is
 the third-case trap CLAUDE.md names -- when something gains an "off" state,

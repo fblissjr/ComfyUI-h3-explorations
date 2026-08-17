@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Guard the one rule that matters, against a baseline the schema cannot move.
 
-CLAUDE.md opens with it: **never rename a node's `node_id=`, and never insert
-an input or output anywhere but the end.** Saved graphs store `type` as that
+`docs/comfy_notes.md` states it: **never rename a node's `node_id=`, and never
+insert an input or output anywhere but the end.** (It lived in `CLAUDE.md` until
+`ce41e3f`, 2026-08-17, which moved it there.) Saved graphs store `type` as that
 string and match `widgets_values` by index, so a rename or an insertion breaks
 every graph built before it -- this repo's `workflows/*.json` and, the part no
 check can see, the owner's live graphs outside it.
@@ -15,7 +16,7 @@ check can see, the owner's live graphs outside it.
 regenerates all 89 graphs from the schema. So renaming a `node_id` and
 regenerating leaves every artifact internally consistent, every fast check
 green, and only the owner's external graphs broken -- silently, which is the
-exact failure mode CLAUDE.md describes.
+exact failure mode `docs/comfy_notes.md` describes.
 
 A control whose input is derived from the thing it is checking cannot fail.
 That is the same family as `verify_adjacency` running on the one input where a
@@ -32,7 +33,7 @@ point: a diff to this file in a pull request is the review prompt.
 
 **If this check goes red, the default answer is to revert the rename, not to
 update the manifest.** Update it only when adding a node, or appending an input
-or output at the END, which are the two changes CLAUDE.md permits.
+or output at the END, which are the two changes `docs/comfy_notes.md` permits.
 
 ## Running it
 
@@ -61,7 +62,7 @@ def collect():
     would agree with any rename.
     """
     # ComfyUI's root goes on FIRST and this repo's root goes on NOT AT ALL.
-    # CLAUDE.md: a bare `import nodes` resolves to OURS, and a later
+    # `docs/comfy_notes.md`: a bare `import nodes` resolves to OURS, and a later
     # `import nodes` inside comfy_extras then finds this pack and dies on a
     # relative import. So load `nodes.py` as a member of a synthetic package
     # instead, which also gives its `from .assert_chain import ...` a parent to

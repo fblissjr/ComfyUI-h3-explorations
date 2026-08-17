@@ -87,7 +87,7 @@ COMFY = REPO.parent.parent
 
 # ComfyUI's root FIRST. This repo has a `nodes.py` and a bare `import nodes`
 # anywhere downstream finds ours and dies on a relative import -- three
-# separate debugging rounds' worth, per CLAUDE.md.
+# separate debugging rounds' worth, per `docs/comfy_notes.md`.
 for p in (str(COMFY), str(REPO / "workflows")):
     if p not in sys.path:
         sys.path.insert(0, p)

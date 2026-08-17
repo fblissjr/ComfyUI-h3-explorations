@@ -241,21 +241,21 @@ non_diegetic_music: N/A"""
 
 R2V_PROMPT = """subject_definitions:
 <Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
-<Subject 2> is the environment in <Picture 2>, whose setting, palette, and lighting are carried into the target video.
+<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
 
 summary:
 [reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.
 
 retention_analysis:
 <Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
-<Subject 2> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
 
 detailed_description:
-The target video is in a cinematic live-action style with soft directional lighting.
-[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed as <Subject 1> turns toward the light and looks off-screen.
+The target video is in a cinematic live-action style with realistic natural textures, depth of field, and continuous motion throughout the ten-second sequence.
+[Shot 1] The shot opens on a wide-angle establishing perspective of <Subject 2>, framing the scene with organic spatial depth and clean perspective lines under the ambient light of the environment. From 0.0s to 2.5s, <Subject 1> enters steadily into frame from camera-left, stepping forward in full view while preserving the complete identity, form, and wardrobe specified by <Picture 1>. From 2.5s to 6.0s, the camera executes a controlled, slow-speed lateral truck to the right on a smooth dolly axis, tracking parallel to <Subject 1> as they reach the center of the frame and pause in a natural resting posture. During this middle interval, the lens maintains sharp optical focus on <Subject 1> while <Subject 2> recedes with gentle focal roll-off and accurate geometric parallax across the background layer. From 6.0s to 8.5s, <Subject 1> turns subtly toward the primary ambient light source of the environment, glancing slightly off-camera with a measured, contemplative expression, allowing their profile and form to be clearly visible without abrupt shifts in posture. From 8.5s to 10.0s, the camera holds steady on a balanced medium shot framing <Subject 1> against <Subject 2>, preserving subject presence, lighting equilibrium, and environmental continuity until the final frame without any camera cuts or sudden movements.
 
 overall_soundscape:
-Steady interior room tone continues throughout, with soft footsteps and fabric movement as <Subject 1> crosses the frame.
+Natural ambient atmosphere continues throughout the shot.
 
 non_diegetic_music:
 N/A"""
@@ -1339,12 +1339,12 @@ _IMAGE_ROLE_PROSE = {
         "<Subject {i}> is the main character in <Picture {i}>, whose face, hair, and clothing are carried into the target video.",
         "<Subject {i}> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.",
     ),
-    # Scoped to setting/palette/lighting and deliberately NOT to occupants: an
-    # environment plate may contain people, and a broader line puts them in
-    # competition with <Subject 1>'s identity.
+    # Scoped to setting and deliberately NOT to occupants: an environment
+    # plate may contain people, and a broader line puts them in competition
+    # with <Subject 1>'s identity.
     "environment": (
-        "<Subject {i}> is the environment in <Picture {i}>, whose setting, palette, and lighting are carried into the target video.",
-        "<Subject {i}> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.",
+        "<Subject {i}> is the environment in <Picture {i}>, which provides the setting for the target video.",
+        "<Subject {i}> (appears in [Shot 1]): fully_preserved - the visual setting is retained.",
     ),
     "garment": (
         "<Subject {i}> is the garment shown in <Picture {i}>, which <Subject 1> wears in the target video.",
@@ -1512,14 +1512,14 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
         retention.append(
             "<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 1> replaces the original on <Subject 1>.")
         retention.append(
-            "<Subject 3> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting come from <Picture 2>.")
+            "<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting comes from <Picture 2>.")
     elif images:
         if video and video_role == "motion":
             # 2.1: one subject, two assets, each named for what it provides.
             defs.append(
                 "<Subject 1> is the person whose appearance comes from <Picture 1> and whose walking motion comes from <Video 1>.")
             defs.append(
-                "<Subject 2> is the environment in <Picture 2>, whose setting, palette, and lighting are carried into the target video.")
+                "<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.")
             # 4.1: attribute_transfer means "referenced characteristics are
             # transferred to a DIFFERENT identifiable target subject", so it
             # belongs on the source giving the trait away -- <Video 1> below.
@@ -1528,7 +1528,7 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
             retention.append(
                 "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Picture 1>.")
             retention.append(
-                "<Subject 2> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.")
+                "<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.")
         else:
             # One line per wired socket, in socket order, from the role the
             # graph declared. `images=True` resolves to
@@ -1684,11 +1684,9 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
             f"referenced from <Audio {audio_n}>, "
             "<d>[English] I thought you would have gone by now.</d>")
 
-    soundscape = ("Steady interior room tone continues throughout, with soft footsteps and "
-                  "fabric movement as the subject crosses the frame.")
+    soundscape = "Natural ambient atmosphere continues throughout the shot."
     if video_audio:
-        soundscape = ("The ambience of <Audio 1> continues under the shot, with soft footsteps "
-                      "and fabric movement as the subject crosses the frame.")
+        soundscape = "The ambience of <Audio 1> continues under the shot."
     if audio and audio_role == "voice":
         soundscape += (f" The vocal timbre of <Audio {audio_n}> is referenced for the "
                        "speaking voice, and its signal is not copied.")
@@ -1733,7 +1731,7 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
         "summary:", f"[{' + '.join(types)}] " + summary + ".", "",
         "retention_analysis:", *retention, "",
         "detailed_description:",
-        "The target video is in a cinematic live-action style with soft directional lighting.",
+        "The target video is in a cinematic live-action style.",
         "[Shot 1] " + " ".join(shot), "",
         "overall_soundscape:", soundscape, "",
         "non_diegetic_music:", music,
@@ -3042,21 +3040,17 @@ zero-strength route skips it. So part of any 1.0-against-0.0 difference is
 that round trip, not the delta. To see the round trip on its own, render
 **0.01** -- visually nil, but it does not short-circuit.
 
-## One caveat if you re-enable Sol-Attn
+## Sol-Attn enabled by default
 
-Sol-Attn is **bypassed** here, same as its twin and same as every shipped
-graph -- it is opt-in, and the two `h3_probe_sol_on*` graphs are the only ones
-that turn it on. This paragraph is about what happens if you enable it in both
-to compare with it running.
-
+Sol-Attn is **enabled** here by default, matching every shipped video workflow.
 Its window is a *percent* band that resolves against the model's own sigma
 curve, and the LoRA changes the model -- so the two graphs can end up running a
 different number of sparse steps. That is a second difference on top of the
 LoRA, and it is not visible anywhere in the UI.
 
 It does not matter for "does this look right". It does matter if you are
-judging a subtle quality difference. Leave `SolAttnMiniMax` bypassed in **both** graphs
-to remove it.
+judging a subtle quality difference. If you want to compare without sparsity,
+set `SolAttnMiniMax` to bypassed (Ctrl-B) in **both** graphs.
 """
 
 
@@ -4170,7 +4164,19 @@ def main():
         # REF_VIDEO_BUDGET, so they move with the other reference arms.
         ("h3_probe_capture_ref3.json", "probe-capture-ref3", "r2v",
          _ref_prompt(images=("character", "garment", "environment")),
+         # sol_on=False, and this is the ONE graph that earns the exception to
+         # the Sol-on-by-default rule: `h3_capture.py` records the activations a
+         # dense baseline is measured from, and a Sol arm gives sage only a
+         # subset of the sampler's steps, so a capture taken through Sol is a
+         # different trajectory than the one the analysis assumes.
+         #
+         # It was previously done by hand-editing the emitted `_api.json` to
+         # route past the Sol node, which CLAUDE.md forbids and which the next
+         # regeneration silently reverted -- putting Sol back into the capture
+         # chain with nothing going red. Declaring it here survives regeneration
+         # and fixes the UI twin in the same move.
          dict(**REF_VIDEO_BUDGET, ref_images=CAPTURE_REF_IMAGES,
+              sol_on=False,
               out_prefix="Video/h3_probe_capture_ref3"),
          "3 references spanning 0.78-4.23 MP; the h3_capture.py target"),
 
@@ -4604,24 +4610,18 @@ def main():
                 f"Run --list-prompts to see them.")
         return 0
 
-    # SOL IS OPT-IN, NOT THE DEFAULT, as of 2026-08-13. The owner's standing
-    # direction: sage is always on and must compose with anything downstream;
-    # Sol-Attn is an optional thing to put on, more often off, because its
-    # influence on the final result has never been weighed against what its
-    # speed buys.
-    #
-    # UI keeps the node and BYPASSES it (mode 4) so enabling it is one click
-    # and the pinned sage-then-Sol order stays visible; the API form omits it
-    # entirely, so a measured graph is sage-only with nothing to reason about.
-    # `_ui_settings` skips bypassed nodes, which is why the two forms still
-    # cross-check as the same configuration.
-    #
-    # A graph opts back in with `sol_on=True` in its extra dict.
+    # SOL IS ALWAYS ON BY DEFAULT in every video workflow (except image workflows).
+    # The owner's standing direction (2026-08-17): Sol-Attn is always default set to ON
+    # on every workflow we use (except pure image single-frame workflows).
+    # If a specific test needs to bypass it, it can be bypassed explicitly with sol_on=False,
+    # but the canonical shipped default across all video workflows is ON.
     for fname, label, task, prompt, extra, note in GRAPHS:
-        sol_on = bool(extra.get("sol_on", False))
+        is_image = bool(extra.get("single_frame", False))
+        sol_on = False if is_image else bool(extra.get("sol_on", True))
         rest = {k: v for k, v in extra.items() if k != "sol_on"}
         wf = build_ui(task, sage=True, preview=True,
-                      sol=SOL_RECOMMENDED_CUDA, sol_enabled=sol_on, prompt=prompt,
+                      sol=SOL_RECOMMENDED_CUDA if not is_image else None,
+                      sol_enabled=sol_on, prompt=prompt,
                       title=f"h3-{label}-sage" + ("-sol" if sol_on else ""),
                       **{"length": LONG_LENGTH, **rest})
         p = _graph_dir(out, extra) / fname
@@ -4634,12 +4634,12 @@ def main():
     # without a browser. Same builder inputs, so they cannot describe a
     # different configuration than the set above.
     for fname, label, task, prompt, extra, _note in GRAPHS:
-        # variant_note is guidance drawn on the canvas; the API form has no
-        # node that carries it and _UI_ONLY would flag it as a desync.
+        is_image = bool(extra.get("single_frame", False))
+        sol_on = False if is_image else bool(extra.get("sol_on", True))
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("variant_note", "sol_on")}
         wf = build_api(task, sage=True, prompt=prompt,
-                       sol=SOL_RECOMMENDED_CUDA if extra.get("sol_on") else None,
+                       sol=SOL_RECOMMENDED_CUDA if sol_on else None,
                        **{"length": LONG_LENGTH, **api_extra})
         p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")
         p.parent.mkdir(parents=True, exist_ok=True)

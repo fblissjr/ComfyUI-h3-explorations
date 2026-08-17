@@ -2,8 +2,8 @@
 """Check the installed `comfy_kitchen` still carries the Sol-Attn CUDA kernel.
 
 This is the first check here that covers **a call INTO a dependency we do not
-control**, which CLAUDE.md names as the gap no amount of local validation can
-close. It does not close it either. It covers exactly one contract -- that
+control** -- the gap no amount of local validation can close, because both
+sides of any assertion we could write here come from our own tree. It does not close it either. It covers exactly one contract -- that
 `comfy_kitchen.sol_attn` exists and accepts the arguments our node passes --
 and nothing about whether the kernel is correct. `check_solattn_correctness.py`
 is the check for that, and `smoke_h3.py` is still the only thing that submits.
@@ -19,24 +19,16 @@ every call. **That failure renders successfully.** It is slower and
 numerically different and nothing reports it, which is the same shape as the
 `frame_count` break of 2026-08-13.
 
-## Absent is not the same as broken
+## Presence and gating
 
-Sol-Attn is opt-in and shipped OFF (see CLAUDE.md). An install with no
-`sol_attn` is the *expected* state for anyone who has not built the fork, so
-asserting its presence unconditionally would report red on a correct machine
--- the third-case trap that produced five bugs in one session.
+Sol-Attn is enabled ON by default across all shipped video workflows (pure
+single-frame image workflows omit it; `docs/SOLATTN.md` owns its knobs).
 
-So presence is gated, and the gate is deliberately narrow: it is not "does a
-graph use Sol-Attn" but "does a graph wire the node that needs *this
+So presence is gated by "does a graph wire the node that needs *this
 dependency*". `SolAttnPatch` (kijai's Triton pack) also does Sol-Attn and does
 not touch `comfy_kitchen` at all, so it must not arm this check. Only
-`SolAttnMiniMax` does.
-
-As of writing, no shipped graph wires `SolAttnMiniMax`, so the gated case
-SKIPS and this script exits 2 rather than 0 -- following
-`check_distill_settings.py`, because a check that silently did not run reads
-exactly like a check that passed. Pass `--require` to assert presence anyway;
-that is also how the case was shown red.
+`SolAttnMiniMax` does. Because shipped video graphs wire `SolAttnMiniMax`,
+the presence of `comfy_kitchen.sol_attn` is actively verified.
 
 Claims, i.e. what breaks if a case is deleted:
 

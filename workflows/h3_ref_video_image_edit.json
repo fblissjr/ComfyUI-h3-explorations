@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "478140db-b018-5d0a-a905-ef087bd3a3fc",
+  "id": "58aa5663-6bd4-5f4a-9e1b-986ed79dbba0",
   "revision": 0,
   "last_node_id": 32,
   "last_link_id": 37,
@@ -274,7 +274,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "model",
@@ -314,7 +314,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn (bypassed)"
+      "title": "Patch Sol-Attn"
     },
     {
       "id": 9,
@@ -551,7 +551,7 @@
         "Node name for S&R": "MiniMaxH3ReferenceToVideo"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.\n<Subject 2> is the garment shown in <Picture 1>, which replaces the one <Subject 1> wears in <Video 1>.\n<Subject 3> is the environment in <Picture 2>, which replaces the background of <Video 1> while the camera move is kept.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video for the target video edit.\n\nsummary:\n[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment and the background change.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 1> replaces the original on <Subject 1>.\n<Subject 3> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting come from <Picture 2>.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] The shot reproduces <Video 1> frame for frame in framing, camera movement, and timing. <Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2> and moves through <Subject 3> instead of the original background.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+        "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, build, and position in frame are kept in the target video.\n<Subject 2> is the garment shown in <Picture 1>, which replaces the one <Subject 1> wears in <Video 1>.\n<Subject 3> is the environment in <Picture 2>, which replaces the background of <Video 1> while the camera move is kept.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video for the target video edit.\n\nsummary:\n[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, keeping its framing and motion while replacing what the retention analysis names.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): partially_preserved - face, build, posture, and motion are retained from <Video 1>; the garment and the background change.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 1> replaces the original on <Subject 1>.\n<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting comes from <Picture 2>.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (source video for the edit): partially_preserved - framing, camera movement, and shot timing are kept; only what is named above changes.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] The shot reproduces <Video 1> frame for frame in framing, camera movement, and timing. <Subject 1> keeps their face, build, posture, and every step of their motion, but now wears <Subject 2> and moves through <Subject 3> instead of the original background.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
         1024,
         768,
         362,

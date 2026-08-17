@@ -50,9 +50,19 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+
+# `substrate.py` owns the shared readers. Both spellings are needed and neither
+# is redundant: ComfyUI loads this file as a package member, where the relative
+# import is the correct one, while `bench/check_provenance_stamp.py` loads it by
+# path under a bare module name with no parent package, where a relative import
+# raises and would have turned that check into a silent exit 2. Both paths are
+# exercised -- the check runs green, and the node loads in a live ComfyUI.
+try:
+    from .substrate import git_head as substrate_git_head
+except ImportError:  # loaded by path, not as a package member
+    from substrate import git_head as substrate_git_head
 
 import torch
 
@@ -91,17 +101,23 @@ NOT_DETECTED = "not detected"
 
 
 def _git_head(path: Path) -> str:
-    try:
-        out = subprocess.run(["git", "-C", str(path), "rev-parse", "--short", "HEAD"],
-                             capture_output=True, text=True, timeout=5)
-        if out.returncode != 0:
-            return NOT_DETECTED
-        head = out.stdout.strip()
-        dirty = subprocess.run(["git", "-C", str(path), "status", "--porcelain"],
-                               capture_output=True, text=True, timeout=5)
-        return head + ("-dirty" if dirty.stdout.strip() else "")
-    except Exception:
-        return NOT_DETECTED
+    """Adapter over `substrate.git_head`, which is the one implementation.
+
+    This file had its own copy until 2026-08-17, identical in behaviour and
+    differing only in its failure sentinel. `substrate.py` is the shared reader
+    because it depends on nothing outside the standard library, where this
+    module needs `folder_paths` and drags in `comfy_api` -- so `bench/` can
+    reach that one and could never have reached this one.
+
+    **The adapter is the point, not overhead.** `substrate.git_head` returns
+    `None` on failure and this returns `NOT_DETECTED`, and that string is part
+    of the stamp's recorded output. Translating here keeps one implementation of
+    the git reading while leaving every stamp byte-for-byte what it was, so
+    `STAMP_SCHEMA_VERSION` does not move for a refactor. When the stamp adopts
+    the substrate block wholesale, this adapter and the sentinel go together, and
+    that IS a schema change.
+    """
+    return substrate_git_head(path) or NOT_DETECTED
 
 
 def _jsonable(value):

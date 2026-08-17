@@ -98,7 +98,7 @@ sibling node packs, which live beside this repo under ComfyUI's `custom_nodes/`.
 |---|---|
 | `bench/analyze_morton.py` | Every number and ASCII map on this page. No GPU, no model, about a second. Imports the shipped `morton_perm` and cross-checks it against an independently written implementation (`:115-140`) before printing. **`block_ids` (`:152-166`) is the one to read if you touch this**: grouping by `j // 64` instead of `(video_start + j) // 64` measures a partition no reference graph has, and that mistake reverses the conclusion about `_perm_for`. |
 | `bench/gen_morton_figures.py` | The SVG block maps for the shareable version of this page. Same permutation, drawn instead of printed; captions derived from the geometry rather than typed. |
-| `h3_capture.py` | Captures real q/k/v from a live forward. **First run 2026-08-16**, after sitting unrun since it was written; it produced the activation measurement below that settled link 5. Captures are durable at `~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/`. Arm it with `H3_CAPTURE` in the environment **before** ComfyUI starts -- it is read at module import, so there is no way to arm it on a running server. |
+| `h3_capture.py` | Captures real q/k/v from a live forward. **First run 2026-08-16**, after sitting unrun since it was written; it produced the activation measurement below that settled link 5. Captures are durable at `$H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/`. Arm it with `H3_CAPTURE` in the environment **before** ComfyUI starts -- it is read at module import, so there is no way to arm it on a running server. |
 | `bench/analyze_capture.py` | Grades a capture: per-block centroid fidelity and mass concentration, under raster and each curve. Deliberately does **not** reimplement the router -- replicating the threshold formula from `sol_attn_preprocess.cu` would put a fidelity risk between the measurement and the claim, and neither test needs it. |
 
 ### Where the settings live
@@ -278,6 +278,17 @@ So, as rules of thumb:
 - **`2d_frame`: both dimensions divisible by 256**, which is 768x768,
   1024x768, 1280x768 and the portrait 768x1024. Everything else is ragged, and
   ragged is the common case rather than the exception.
+
+**"Pick any width" is the right first-order rule and it is not the whole
+structure**, recorded 2026-08-17 so the two pages do not drift. The height-768
+band above spans 1.62 to 1.80, and that spread is not noise: it is
+`w/32 % 4`. The six canvases with **both** token axes divisible by 4 land at
+1.61 with no spread at all, while the other fourteen at that height range 86.6%
+to 99.0% connected. Height remains roughly four times the lever width is, so
+the bullet stands as written. The per-canvas ranking, the grouping, and a third
+axis this page does not test (`latent_t % 4`, which is what separates 311 and
+243 frames from the rest) are in
+[`h3_input_impacts.md`](h3_input_impacts.md), which owns them.
 
 ### Which rule applies to you depends on where your graph came from
 

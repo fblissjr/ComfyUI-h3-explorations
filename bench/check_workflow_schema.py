@@ -42,7 +42,19 @@ below -- widget-backed input slots, and dynamic slots.
     python bench/check_workflow_schema.py workflows/*.json
     python bench/check_workflow_schema.py --url http://127.0.0.1:8188 wf.json
 
-Exits non-zero if any file has problems, so it works in a pre-commit hook.
+Exit codes, and the distinction is the point:
+
+    0   UI graphs were checked and they agree with the server's schema
+    1   a graph DISAGREES -- a real finding, the thing this exists to catch
+    2   this check DID NOT RUN, and nothing was validated
+
+Two conditions produce 2: no reachable `/object_info` (no `--object-info`, no
+live ComfyUI), and no UI graph among the paths given. Both used to be
+indistinguishable from a verdict -- the first exited 1 like a genuine schema
+violation, the second exited 0 after validating nothing. A check that says
+"pass" when it looked at nothing, or "fail" when it could not look, teaches you
+to disbelieve it either way. Same convention as `check_single_frame.py` and
+`check_distill_settings.py`.
 """
 
 from __future__ import annotations
@@ -381,15 +393,23 @@ def main():
             with urllib.request.urlopen(f"{args.url}/object_info", timeout=30) as r:
                 object_info = json.load(r)
         except Exception as exc:
-            sys.exit(f"could not read {args.url}/object_info ({exc}). Start ComfyUI, "
-                     f"or pass --object-info with a saved copy.")
+            print(f"SKIP  no /object_info at {args.url} "
+                  f"({type(exc).__name__}: {exc})")
+            print("Exit 2, not 1: this check DID NOT RUN. It needs a live ComfyUI, "
+                  "or --object-info\nwith a saved copy. Nothing was validated, which "
+                  "is not the same as nothing being wrong.")
+            return 2
 
     failed = 0
+    checked = 0
+    skipped_api = 0
     for path in args.workflows:
         wf = json.load(open(path))
         if "nodes" not in wf:
+            skipped_api += 1
             print(f"{path}: API format (no node list) -- skipped, this checks UI graphs")
             continue
+        checked += 1
         problems = check(wf, object_info)
         if problems:
             failed += 1
@@ -398,7 +418,26 @@ def main():
                 print("  -", p)
         else:
             print(f"{path}: ok")
-    return 1 if failed else 0
+
+    # A run that validated nothing is not a pass. Every argument being an API
+    # graph, or a glob matching none, both land here -- and both used to print
+    # a tidy list of "skipped" lines and exit 0, which reads as green. This is
+    # the emptiest-input case CLAUDE.md says to ask about: what would the input
+    # have to look like for this to fail? Previously, nothing.
+    if checked == 0:
+        print(f"SKIP  no UI graph was checked ({skipped_api} API graph(s) skipped, "
+              f"{len(args.workflows)} path(s) given)")
+        print("Exit 2, not 0: this check DID NOT RUN. It reads UI graphs -- the ones "
+              "with a\n`nodes` list -- and none were passed. Green here would mean "
+              "'validated nothing'.")
+        return 2
+
+    if failed:
+        print(f"FAIL  {failed} of {checked} UI graph(s) disagree with the server's "
+              f"schema")
+        return 1
+    print(f"ok    {checked} UI graph(s) match /object_info")
+    return 0
 
 
 if __name__ == "__main__":

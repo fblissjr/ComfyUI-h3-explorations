@@ -158,7 +158,7 @@
         "4",
         0
       ],
-      "prompt": "subject_definitions:\n<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.\n<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.\n\nsummary:\n[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, replacing its original character with <Subject 1> from <Picture 1> while preserving the camera movement, environment, and audio.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.\n<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.\n<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] The scene maintains the exact environmental details, lighting, and composition of <Video 1>. Within this space, <Subject 1> performs the exact movements and actions of the original character from <Video 1>, executing every gesture, step, and head turn frame for frame, while the face, hair, and build stay those defined by <Picture 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+      "prompt": "subject_definitions:\n<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.\n<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.\n\nsummary:\n[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, replacing its original character with <Subject 1> from <Picture 1> while preserving the camera movement, environment, and audio.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.\n<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.\n<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] The scene maintains the exact environmental details, lighting, and composition of <Video 1>. Within this space, <Subject 1> performs the exact movements and actions of the original character from <Video 1>, executing every gesture, step, and head turn frame for frame, while the face, hair, and build stay those defined by <Picture 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
       "width": [
         "27",
         0
@@ -252,11 +252,32 @@
       "head_chunks": 1
     }
   },
+  "21": {
+    "class_type": "SolAttnMiniMax",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "tau": 1.3,
+      "start_percent": 0.2,
+      "end_percent": 0.9,
+      "min_tokens": 4096,
+      "sink_conditioning": "exact_kv_and_rows",
+      "morton": false,
+      "morton_curve": "3d",
+      "centroid_tail": true,
+      "routed_cap_percent": 0,
+      "reuse_qkv_memory": false,
+      "verbose": false,
+      "dense_blocks": ""
+    }
+  },
   "23": {
     "class_type": "SageChainAssert",
     "inputs": {
       "model": [
-        "20",
+        "21",
         0
       ],
       "require_override": true,

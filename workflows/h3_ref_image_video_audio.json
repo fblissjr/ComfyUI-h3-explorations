@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "b77bb988-cb88-5b18-968c-34fc35fb8509",
+  "id": "ba24b585-d2ca-5e0d-96a3-62de58521fd3",
   "revision": 0,
   "last_node_id": 33,
   "last_link_id": 38,
@@ -274,7 +274,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "model",
@@ -314,7 +314,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn (bypassed)"
+      "title": "Patch Sol-Attn"
     },
     {
       "id": 9,
@@ -551,7 +551,7 @@
         "Node name for S&R": "MiniMaxH3ReferenceToVideo"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, whose setting, palette, and lighting are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement the target video follows.\n<Audio 2> is a standalone music reference whose tempo and instrumentation the target video's score follows.\n\nsummary:\n[reference generation + audio reuse + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, scored after <Audio 2>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - setting, palette, and lighting are retained.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.\n<Audio 2>: reference - only tempo and instrumentation are referenced, the signal is not copied.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nA slow instrumental score follows the tempo and instrumentation of <Audio 2>.",
+        "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement the target video follows.\n<Audio 2> is a standalone music reference whose tempo and instrumentation the target video's score follows.\n\nsummary:\n[reference generation + audio reuse + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, scored after <Audio 2>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.\n<Audio 2>: reference - only tempo and instrumentation are referenced, the signal is not copied.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nA slow instrumental score follows the tempo and instrumentation of <Audio 2>.",
         1024,
         768,
         362,

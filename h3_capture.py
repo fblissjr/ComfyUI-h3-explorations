@@ -12,12 +12,21 @@ this script produced.
 change: this must not be reachable by opening a workflow, because a capture at
 H3's real length writes gigabytes per call.
 
-    H3_CAPTURE="dir=/path,blocks=0:24:49,steps=3:11" ~/ComfyUI/start.sh
+    H3_CAPTURE="dir=/path,blocks=0:24:49,steps=3:11" <comfy>/start.sh
 
   dir     where to write. Required.
   blocks  colon-separated block indices, in first-seen call order. Default 0.
   steps   colon-separated step indices, 0-based. Default 1 -- NOT 0, whose
           activation statistics are not representative of the trajectory.
+  cycle   sampler steps per render, so a second render in the same server
+          process is recognised as a new one. **Declare it or omit it; it is
+          never inferred**, because the step count varies per graph (16 base,
+          8 and 4 turbo) and Sol-Attn narrows what sage sees to its sigma
+          window. Omitted means no boundary is detected: the counter keeps
+          rising and a second render captures nothing, which `summary()` says.
+
+Filenames from the second render onward carry `_r{n}`. The first render's names
+are unchanged, so existing captures and every glob over them still match.
 
 Writes `qkv_L{length}_S{seq}_b{block}_s{step}.pt`, each a
 `{"q","k","v"}` dict of bf16 `[B, H, S, D]`. Block and step are recoverable
@@ -65,31 +74,45 @@ enabled = bool(_SPEC)
 _lock = threading.Lock()
 _block_of: dict[int, int] = {}      # id(module) -> index, in first-seen order
 _calls: dict[int, int] = {}         # block index -> times seen (i.e. step)
-_written: set[tuple[int, int]] = set()
+_written: set[tuple[int, int, int]] = set()   # (render, block, step) already saved
+_render = 0                         # render index within this server process
 _config: dict = {}
 
 
 def _parse(spec):
-    out = {"dir": None, "blocks": {0}, "steps": {1}}
+    out = {"dir": None, "blocks": {0}, "steps": {1}, "cycle": None}
     for part in spec.split(","):
         key, _, val = part.partition("=")
         key, val = key.strip(), val.strip()
         if key == "dir":
-            out["dir"] = val
+            out["dir"] = os.path.expanduser(val)
+        elif key == "cycle" and val:
+            out["cycle"] = int(val)
         elif key in ("blocks", "steps") and val:
             out[key] = {int(x) for x in re.split(r"[:;]", val) if x.strip()}
     return out
 
 
-if enabled:
-    _config = _parse(_SPEC)
-    if not _config["dir"]:
-        enabled = False
-        print("[h3_capture] H3_CAPTURE set but no dir=; capture disabled")
-    else:
-        os.makedirs(_config["dir"], exist_ok=True)
-        print(f"[h3_capture] ARMED: dir={_config['dir']} "
-              f"blocks={sorted(_config['blocks'])} steps={sorted(_config['steps'])}")
+def _sync_spec():
+    global _SPEC, enabled, _config
+    spec = os.environ.get("H3_CAPTURE", "")
+    if not _config or spec != _SPEC:
+        _SPEC = spec
+        enabled = bool(_SPEC)
+        if enabled:
+            _config = _parse(_SPEC)
+            if not _config["dir"]:
+                enabled = False
+                print("[h3_capture] H3_CAPTURE set but no dir=; capture disabled")
+            else:
+                os.makedirs(_config["dir"], exist_ok=True)
+                print(f"[h3_capture] ARMED: dir={_config['dir']} "
+                      f"blocks={sorted(_config['blocks'])} steps={sorted(_config['steps'])}")
+        else:
+            _config = {}
+
+
+_sync_spec()
 
 
 def maybe_capture(module, q, k, v, length_hint=None):
@@ -104,6 +127,8 @@ def maybe_capture(module, q, k, v, length_hint=None):
     order every step, so first-seen order IS the block order; the step is then
     just how many times that block has been seen.
     """
+    global _render
+    _sync_spec()
     if not enabled:
         return
     import torch
@@ -113,13 +138,38 @@ def maybe_capture(module, q, k, v, length_hint=None):
         if key not in _block_of:
             _block_of[key] = len(_block_of)
         block = _block_of[key]
+
+        # Render boundary. `cycle` is DECLARED, never guessed, and the default
+        # is no reset at all.
+        #
+        # It was hardcoded to 16 until 2026-08-17 -- a second copy of
+        # `h3_config.SAMPLING["steps"]`, and wrong for everything else this repo
+        # ships. At 20 steps it fired MID-render, so real steps 16-19 were
+        # recorded as 0-3 and a file named `_s3` ended up holding step 19: a
+        # corrupted capture whose filename lied. Below 16 it never fired
+        # (`TURBO_STEPS` is 8, `TURBO_768P_STEPS` is 4), so a second render in
+        # the same server process kept counting upward and captured nothing.
+        #
+        # Nothing here can infer it: the step count varies per graph, and with
+        # Sol-Attn on, sage sees only the steps inside its sigma window rather
+        # than all of them. A guess is guaranteed wrong for somebody, so
+        # `cycle=` in `H3_CAPTURE` is how it gets stated.
+        if _config.get("cycle") and block == 0 and _calls.get(0, 0) >= _config["cycle"]:
+            _render += 1
+            _calls.clear()
+
         step = _calls.get(block, 0)
         _calls[block] = step + 1
         if block not in _config["blocks"] or step not in _config["steps"]:
             return
-        if (block, step) in _written:
+        # Keyed by render, and `_written` is never cleared. Clearing it let a
+        # second render silently overwrite the first render's files -- multiple
+        # GiB destroyed with no prompt, and any manifest checksum already
+        # computed for them going stale with nothing noticing.
+        if (_render, block, step) in _written:
             return
-        _written.add((block, step))
+        _written.add((_render, block, step))
+        render = _render
 
     # [1, S, H, D] -> [B, H, S, D]. contiguous() because the consumer slices
     # heads and expects them to be the outer stride.
@@ -136,8 +186,13 @@ def maybe_capture(module, q, k, v, length_hint=None):
     # order, which is why they are all 124f.
     qh, kh, vh = (t.cpu().transpose(1, 2).contiguous() for t in (q, k, v))
     seq = qh.shape[2]
+    # `_r{n}` appears only from the SECOND render onward, so first-render
+    # filenames are unchanged and every existing glob and capture directory
+    # keeps matching. Without it a second render collides with the first on
+    # every name.
+    suffix = f"_r{render}" if render else ""
     name = (f"qkv_L{length_hint if length_hint is not None else 'na'}"
-            f"_S{seq}_b{block}_s{step}.pt")
+            f"_S{seq}_b{block}_s{step}{suffix}.pt")
     path = os.path.join(_config["dir"], name)
     torch.save({"q": qh, "k": kh, "v": vh}, path)
     size = os.path.getsize(path) / 2**30
@@ -155,5 +210,14 @@ def summary():
                 "0.2/0.9, which are steps 0-3 and 15. So Sol does NOT explain "
                 "zero files; it explains a skewed sample. Check the block and "
                 "step selectors first, then bypass Sol and re-run.")
-    return (f"[h3_capture] {len(_block_of)} blocks seen, "
-            f"{max(_calls.values())} steps, {len(_written)} files written")
+    # `max()` on an empty dict raises, and `_calls` can now legitimately be
+    # empty between renders. Read under the lock for the same reason.
+    with _lock:
+        blocks, steps, files = len(_block_of), max(_calls.values(), default=0), len(_written)
+        renders = _render + 1
+    declared = _config.get("cycle")
+    note = "" if declared else (
+        "  (no cycle= declared, so a second render in this process continues "
+        "counting and will not capture)")
+    return (f"[h3_capture] {blocks} blocks seen, {steps} steps, "
+            f"{files} files written across {renders} render(s){note}")

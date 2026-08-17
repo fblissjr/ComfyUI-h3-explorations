@@ -27,7 +27,11 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$REPO/coderef/comfy-kitchen-sol"
 PATCH="$REPO/vendor/patches/001-local-version-tag.patch"
 ARCH="${1:-89}"
-PY="<HOME>/ComfyUI/.venv/bin/python"
+# Derived from this checkout, not typed: the repo sits at
+# <comfy>/custom_nodes/<pack>, so the venv is two levels up. Override with
+# PY=... for any other layout.
+PY="${PY:-$REPO/../../.venv/bin/python}"
+[ -x "$PY" ] || { echo "no interpreter at $PY -- set PY=/path/to/python"; exit 1; }
 
 [ -d "$SRC" ] || { echo "no checkout at $SRC"; exit 1; }
 cd "$SRC"

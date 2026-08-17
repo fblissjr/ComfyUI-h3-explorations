@@ -38,8 +38,8 @@ The pipeline is four kernels (`ops/sol_attn.cu:19-24`): `preprocess`,
 
 **`ncu` serializes kernels and needs the card to itself.** A concurrent render
 both wrecks the numbers and is wrecked by them. Free the GPU first (`POST
-/free` with `unload_models`, or stop ComfyUI), and note that CLAUDE.md already
-warns the CUDA checks OOM against a live render and read as regressions.
+/free` with `unload_models`, or stop ComfyUI), and note that `docs/checks.md`
+already warns the CUDA checks OOM against a live render and read as regressions.
 
 **Sol runs only inside the sigma window.** At the shipped `0.2 / 0.9`, 16
 steps, `shift_video=12.0`, that is 11 of 16 steps sparse -- so a profile that

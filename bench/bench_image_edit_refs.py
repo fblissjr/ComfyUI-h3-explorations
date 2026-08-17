@@ -59,6 +59,10 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _paths  # noqa: E402
+
+
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "workflows" / "image" / "h3_image_edit_api.json"
 
@@ -252,7 +256,9 @@ def rows_for(width, height, refs, sizing, upscale):
 
     from PIL import Image  # only needed for the projection
 
-    inp = Path("/mnt/hub/ai/img/input")
+    inp = _paths.comfy_input()
+    if inp is None:
+        raise SystemExit(_paths.describe("ComfyUI input", "H3_COMFY_INPUT"))
     ref_rows = 0
     for name in refs:
         try:

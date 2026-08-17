@@ -47,7 +47,7 @@ Read the capture's own length before quoting a number from it.
 
 ## Running it
 
-    python bench/analyze_routing.py ~/Storage/h3_captures/<dir>/qkv_*_b24_s1.pt \\
+    python bench/analyze_routing.py $H3_CAPTURE_ROOT/<dir>/qkv_*_b24_s1.pt \\
         --canvas 1344x768 --length 124
 
 No GPU, no model, no server. Needs the capture and `coderef/comfy-kitchen-sol`

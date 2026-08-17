@@ -32,6 +32,20 @@ delta against.
 - Free the GPU (`POST /free` with `unload_models`) before any CUDA check, or it
   OOMs and looks like a regression.
 - Record the kernel build. `check_sol_kernel.py` prints it; paste it in.
+- **Record the host power state.** `bench/hwinfo.py` prints it and flags a
+  non-stock GPU power limit. Every timing on this page was taken at the card's
+  stock limit; a limit changed between runs moves s/it, so an arm taken under
+  one is not comparable to an arm taken under another. **A bench run persists
+  nothing** — no manifest, no sidecar, results live in memory and go to stdout —
+  so unlike a capture, which does record `provenance.gpu_power_limit_watts`,
+  there is no artifact to read the substrate back off afterwards. Paste it in
+  with the kernel build. `docs/hardware.md` is the long form. Nothing enforces
+  this; the script has to be run.
+
+  Timings recorded before this rule carry no substrate record and cannot be
+  backfilled. They are not retracted — they were taken at stock — but the weights
+  and power state behind them are unrecoverable, so treat a cross-run comparison
+  against them as unverified rather than as measured.
 
 A render at 362 frames / 16 steps is roughly 10 minutes, so budget
 `(arms x 2 + 1) x 10` minutes.

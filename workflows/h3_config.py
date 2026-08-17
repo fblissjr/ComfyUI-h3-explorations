@@ -424,7 +424,7 @@ SOL_CUDA_DEFAULTS = dict(
 #   **The decision does not change and never depended on the withdrawn leg.**
 #
 #   **The captures now exist** -- blocks 0/24/49 of a dense 124-frame 1344x768
-#   render, in ~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/. They were
+#   render, in $H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/. They were
 #   made for a different question and **no sage kernel has been graded against
 #   them**. That is the run that would let this repo state an accuracy figure
 #   of its own; until it happens there is no number to quote.

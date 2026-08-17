@@ -6,114 +6,40 @@ needs to run, and whether it has earned trust.
 There is no test suite and no runner. Each script is standalone, prints its own
 `ok` / `FAIL` lines, and returns a non-zero exit code on failure.
 
-**Last full run: 2026-08-16**, same box, ComfyUI restarted, live server, GPU
-freed first. All `check_*.py` pass, including the five CUDA ones that had been
-owed since 2026-08-14 (`check_correctness`, `check_clone_v_wiring`,
-`check_short_edge_override`, `check_sol_kernel`, `check_solattn_correctness`)
-and `check_single_frame`. `smoke_h3.py` passes on `h3_probe_sol_on_api.json`
-(exit 0, all three composition lines).
+**Per-check narrative and the run logs live in
+[`docs/check_postmortems.md`](check_postmortems.md)**, not here. This file is
+the index and the standard. It carries no run history and no counts in prose:
+the table below is the authority for what exists, and a count typed into a
+sentence here has been wrong every time it was tried.
 
-That run mattered rather than being routine: the config had moved twice the
-same day -- `LONG_LENGTH` 345 -> 362, and 32 graphs onto fl2va + the ref LoRA
--- so every one of those checks had been guarding a configuration that no
-longer existed. It also caught a real collision: `check_lora_alpha.py` went red
-because a new boolean named `REF_VIA_LORA` matched its `endswith("_LORA")`
-filename filter and crashed it with a bare `TypeError`. Renamed to
-`REF_LORA_ENABLED`; the check was doing its job.
-**Partial run 2026-08-15**, when the single-frame path landed. `check_single_frame`
-**does touch CUDA** despite living with the fast checks -- importing the H3
-node module pulls in `nodes` -> `comfy.model_management`, which initialises the
-device at import -- so free the GPU before it like the others. These pass
-(`check_single_frame`, `check_keyframe_canvas`,
-`check_schema_defaults`, `check_generator_constants`, `check_reference_fit`,
-`check_ref_prompt_labels`, `check_prompt_guide_conformance`,
-`check_workflow_schema`), the generator validated 73 graphs against a live
-`/object_info`, and `smoke_h3.py` rendered the new image graph. **The CUDA
-checks were NOT re-run that day** -- a render was resident and they OOM against
-a busy GPU, which is indistinguishable from a regression. They are owed.
-
-There are now **22 `check_*.py`** and **89 graphs** (70 in `workflows/`, 16 in
-`workflows/image/`, 3 bench-stamped), all wiring the CUDA
-Sol-Attn node. Counted 2026-08-16 with `ls bench/check_*.py | wc -l` rather
-than incremented — this sentence has been wrong four times by being adjusted
-from memory instead of measured.
-
-**Plus one thing in this index that is not a `check_*.py` and is deliberately
-excluded from that count**: `bench/preflight_graph.py`, listed last. It grades
-and prices rather than gating, it is run by a person before a render rather
-than by the suite, and its filename does not match the glob the count is taken
-from. Counting it there would make a load-bearing sentence wrong for the fourth
-time; leaving it out of the index entirely would hide a tool that has a red
-control and defends real ground.
-
-**Partial run 2026-08-16**, when the image graphs moved into
-`workflows/image/` and their prompts were rewritten. Pass:
-`check_ref_prompt_labels`, `check_prompt_guide_conformance`,
-`check_workflow_schema`, `check_single_frame`, `check_distill_settings`,
-`check_sol_kernel`, `check_generator_constants`, `check_schema_defaults`,
-`check_reference_fit`, `check_retraction_consumers`,
-`check_bench_matches_shipped`; the generator validated all 87 against a live
-`/object_info`. Later the same day all 20 `check_*.py` were run together and
-all pass.
-
-**Third partial run 2026-08-16**, when the Sol-Attn docs were reorganised and
-`check_doc_links.py` was added as the 21st. **16 of 21 run, all pass**:
-`check_doc_links`, `check_retraction_consumers`, `check_generator_constants`,
-`check_schema_defaults`, `check_reference_fit`, `check_keyframe_canvas`,
-`check_distill_settings`, `check_lora_alpha`, `check_bench_matches_shipped`,
-`check_provenance_stamp`, `check_override_routing`, `check_lowvram_handoff`,
-`check_ref_prompt_labels`, `check_prompt_guide_conformance`,
-`check_single_frame`, `check_sol_kernel`. **Five were NOT run and are owed**:
-the four CUDA ones (`check_correctness`, `check_clone_v_wiring`,
-`check_short_edge_override`, `check_solattn_correctness`) because a peer
-session held the card, and `check_workflow_schema` because it needs a live
-`/object_info`. That change touched no graph, no node and no schema, so the
-five cover nothing it could have broken -- but "did not apply" and "did not run"
-are different states and this file does not conflate them.
-
-**Ten single-frame renders were submitted** to price `allow_upscale` and
-`steps` (`open_experiments` #16e, #16g), which means three of the eight image
-graphs -- `h3_image_edit`, `h3_image_style`, `h3_image_multiperson` -- have now
-executed end to end rather than merely validating. **`smoke_h3.py` was still
-not run**, and the other five image graphs remain unsubmitted, so for those a
-green validator is still an unverified graph. `check_correctness.py`, `check_clone_v_wiring.py` and
-`check_short_edge_override.py` were re-run too -- owed since the
-`mode="fp16 (most accurate)"` flip, and owed again because `comfy_kitchen` is
-now built from source rather than the pinned wheel. All pass. Free the GPU
-(`POST /free` with `unload_models`) before the CUDA ones or they OOM and look
-like regressions.
-
-Three things this run found that no previous run could have:
-
-- **`check_override_routing.py` and `check_lowvram_handoff.py` had been dead
-  since 2026-08-13.** `456654d` added `from . import h3_trace` to
-  `attention.py`; both checks import `attention` top-level, where a relative
-  import raises. They died at import, nobody ran them, and the breakage was
-  invisible for a day. `attention.py` now supports both load forms.
-- **`smoke_h3.py` was broken in two directions at once** -- see its own
-  docstring. One needle could never match; two assertions could never pass on
-  a compliant graph.
-- **`check_solattn_correctness.py` was grading Triton cross-mode** after the
-  oracle was re-vendored, and passed anyway. See the note below.
-- **`bench_e2e_h3.py` had been benching a sage config nobody ships**, since
-  2026-08-13. See the note below; it is now covered by
-  `check_bench_matches_shipped.py`.
-
-The counts in this header have been wrong twice now -- once claiming twelve
-checks and 24 UI graphs, once claiming 62 graphs after the total moved to 65. A
-header that states a scope it no longer has is the same defect this file exists
-to catch, one level up, and it keeps recurring because nothing checks it.
+**One entry is not a `check_*.py`**: `bench/preflight_graph.py`, listed last.
+It grades and prices rather than gating, and a person runs it before a render
+rather than the suite running it. Listing it is deliberate -- it has a red
+control and defends real ground -- and it is why "every check" and "every row"
+are not the same set.
 
 ## The standard
 
-From `CLAUDE.md`, and it is the reason the last column exists:
+A check over **mechanically specified** behaviour -- a graph's JSON, a schema
+default, a `node_id`, a label rule, a row count -- is not trusted until it has
+been shown to go red for the right reason: break the thing it guards, watch it
+fail, put it back. This is not theoretical. Three checks written on 2026-08-10
+passed for the wrong reason on first writing, and one reported zero failures
+with the bug reintroduced. There the correct answer is known before the check
+exists, so a control can be built.
 
-> A check here is not trusted until it has been shown to go red for the right
-> reason -- break the thing it guards, watch it fail, put it back.
+**It does not extend to a check whose expected value is the measurement.**
+`check_correctness.py` asserts a mean relative error against the stock forward;
+nobody knew that number before running it, and demanding a red-first control
+there invents a threshold instead of testing one. On that class of check a
+`not recorded` cell is a description, not a debt -- and treating it as a debt
+is what made this standard cost more than it caught.
 
-This is not theoretical. Three checks written on 2026-08-10 passed for the
-wrong reason on first writing, and one reported zero failures with the bug
-reintroduced. **An empty "shown red" cell is a finding, not a formatting gap.**
+What `CLAUDE.md` asks of every check regardless: one whose input already
+satisfies the expected outcome cannot fail, and one reporting red while the
+state is correct is worse than no check. The `shown red` column records which
+checks have a construction; **the tallies live in the table, not in this
+prose.**
 
 ## Running them
 
@@ -134,6 +60,12 @@ a bare `ModuleNotFoundError: No module named 'comfy_api'` without it. Every
 other check runs from anywhere: those that import comfy bootstrap `sys.path`
 themselves, and the rest never import it. That inconsistency is a real
 papercut and is listed under Gaps.
+
+**Run `smoke_h3.py` after any change to the generator.** It is the only check
+that submits, and the class of bug it catches -- a graph every validator passes
+and the server refuses -- is invisible to everything else here. Free the GPU
+(`POST /free` with `unload_models`) before the CUDA checks or they OOM and the
+failure looks like a regression.
 
 ## The index
 
@@ -161,97 +93,16 @@ papercut and is listed under Gaps.
 | `check_reference_fit.py` | reference image sizing against both upstream rules, and that the stock resize becomes a no-op after our node | `PYTHONPATH` self-bootstrapped | yes | not recorded |
 | `check_short_edge_override.py` | the reference short-edge override applies once and never leaks | `PYTHONPATH` | no | **yes**, documented in-file |
 | `check_generator_constants.py` | the workflow generator reads upstream constants rather than repeating them | `PYTHONPATH` self-bootstrapped | no | not recorded |
-| `check_workflow_schema.py` | saved UI graphs against a live ComfyUI `/object_info`, type-checking widget values positionally. Takes paths from the CLI, so it is the one walker that cannot read `GRAPH_DIRS` -- pass `workflows/*.json workflows/image/*.json`. Exempts `LoadImage` values carrying a subfolder from the combo-membership test (2026-08-16): that combo comes from a non-recursive `os.listdir`, while the node's own `VALIDATE_INPUTS` checks the filesystem, so this file was rejecting graphs the server renders | **live ComfyUI**, or `--object-info` cache | no | not recorded |
+| `check_workflow_schema.py` | saved UI graphs against a live ComfyUI `/object_info`, type-checking widget values positionally. Takes paths from the CLI, so it is the one walker that cannot read `GRAPH_DIRS` -- pass `workflows/*.json workflows/image/*.json`. Exempts `LoadImage` values carrying a subfolder from the combo-membership test (2026-08-16): that combo comes from a non-recursive `os.listdir`, while the node's own `VALIDATE_INPUTS` checks the filesystem, so this file was rejecting graphs the server renders. **Three verdicts, distinguishable since 2026-08-17** -- 0 checked and agree, 1 a graph disagrees, 2 did not run. Both of the did-not-run cases previously read as verdicts: an unreachable `/object_info` exited 1, identical to a real schema violation, and a run whose paths were all API graphs exited 0 after validating nothing. A check that says pass when it looked at nothing, or fail when it could not look, teaches you to disbelieve it in both directions | **live ComfyUI**, or `--object-info` cache | no | **yes**, 2026-08-17: exit 1 shown on a link mutation (origin node repointed to a missing id, reported as `link 1: source node 999999 is missing`), and both exit-2 paths shown against a stopped server and an API-only path list. The exit-0 arm is the 43 shipped UI graphs |
+| `check_doc_inventory.py` | that this index answers "what does this repo check" truthfully, in both directions: every `bench/check_*.py` on disk has a row, and every `.py` a row names exists. Earned its place under the no-new-check rule with two instances hours apart from different authors -- `check_graph_discovery.py` and `check_capture_manifest.py` were each on disk with no row, and neither was caught, because `check_doc_links.py` verifies that citations *resolve* and says nothing about whether an existing file is cited at all. **Not the check that was refuted on 2026-08-17**: that one tried to detect whether a requirement was *enforced*, which is semantic and could not go green on a correct table; this differences two directory listings and has no judgment in it. Rows that are not `check_*.py` are deliberately unasserted in the disk-to-index direction, since `preflight_graph.py`, `smoke_h3.py` and `count_packed_rows.py` are listed on purpose. It caught itself on its first run | - | no | **yes**, `bench/red/show_red_check_doc_inventory.py::build` |
+| `check_capture_manifest.py` | that every activation capture carries a conforming `manifest.json`: the required keys at every nesting level, the token arithmetic invariants, and the tensor checksums, against `docs/capture_manifest_schema.md`. Exists because a capture whose provenance is wrong is worse than one with none -- it grades a later comparison against a substrate nobody can recover. **That gap is closed as of 2026-08-17**, and this row described it as open for part of the same day: `weight_quantization` and `gpu_power_limit_watts` are now required and asserted, the first as a projection of the `unet` filename. `vae_quantization` is deliberately NOT required -- the shipped graphs carry a video VAE and an audio VAE at different quantizations, so one field cannot describe both, and it is pinned to the video VAE. Reports the schema versions it actually validated; until 2026-08-17 it printed a hardcoded `v1.0.0` while validating `1.1.0` data | the capture directory, else it skips | no | not recorded |
+| `check_graph_discovery.py` | that no check finds graphs by globbing -- discovery goes through `graph_paths()`, so `workflows/*.json` cannot silently pass green over a subset that omits `workflows/image/`. Parses each check with `ast`. Audits 22 and exempts `check_ref_prompt_labels.py`, whose subject *is* discovery coverage: routing it through `graph_paths()` would make it derive its expectation from the thing it checks. **Locked in while the convention still held** (`226c53c`), which is when nothing would have noticed it breaking | - | no | **yes**, `bench/red/show_red_check_graph_discovery.py::build`: four reds (bare glob, `rglob`, `iterdir`, non-literal pattern) and five greens including the regex trap -- the same glob inside a comment and inside a docstring must NOT trip it |
 | `preflight_graph.py` | **not a gate -- a report, run by hand before you queue.** Grades a prompt against the guide's mechanical rules (ordinals derived from sockets, every defined label cited in `detailed_description`, one retention line per label, markers never crossing the visual/audio sets, no `(Sx)` in `retention_analysis`, `<d>` placement and language tag, cut times inside the clip) and prices the packed sequence statically. Takes paths, never globs, so hand-built graphs are gradeable -- which is why it exists: the two prompt checks only ever saw `workflows/*_api.json`. **Reports, never refuses**, because a tool that blocks you in your own repo gets disabled. Names what it cannot count: a video reference is a floor, not a budget. Imports `wired_labels`, `_audio_sections_optional` and `_STRUCTURE_PROBES` rather than restating them -- the first run without the last two reported FAIL on 7 of 8 image graphs for sections that structurally cannot apply | reference images on disk; no CUDA, no model, no server | no | **yes**, 6 mutations 2026-08-16: wrong ordinal (both directions), `(Sx)` in retention, visual marker on an audio label, audio marker on a visual label, a timestamp on `[Shot 1]`, `<d>` with no language tag. A 7th appeared green and was **my mutation failing to apply** -- the source said `partially_copy` where the patch expected `reference`, so nothing changed and the check "passed" having tested nothing. Caught only by diffing the mutant against the source; recorded because it is the trap this file exists for |
 | `smoke_h3.py` | the H3 chain composes and runs, after any node-pack update. **The only thing here that actually POSTs a prompt**, and on 2026-08-13 it was the only reason anyone discovered every API graph was unsubmittable -- `validate_api` was asserting the wrong shape, so no static check could have found it | live ComfyUI, GPU, model | no | n/a, it is a smoke test |
 
 "claims block" means the file carries a `Claims, i.e. what breaks if a case is
 deleted:` header enumerating what each case defends. Eight of fifteen do.
 
-### Citations that cannot resolve, for `check_doc_links.py`
-
-The ledger that check reads, kept here rather than in the script for the same
-reason `retraction-consumers` lives in `docs/evidence.md`: the enumeration
-belongs beside the prose it governs, and nothing gets a second copy.
-
-An entry asserts that someone looked and the target is *deliberately* gone. It
-is not a way to silence a broken link.
-
-```doc-link-absent
-PATH: _morton.py
-WHY: the Triton pack's Wan Morton file, deleted with the pack on 2026-08-16
-     (commit 6872dfd). docs/morton.md quotes its docstring as the only stated
-     payoff for reordering anywhere in either pack, so the citation has to
-     stay. Recover from github.com/kijai/ComfyUI-SolAttn_triton at 842c4ea.
-
-PATH: _morton_h3.py
-WHY: same pack, same deletion. Cited for the opposite reason -- it is the H3
-     variant and makes NO quality or sparsity claim, which is the whole point
-     of the comparison it appears in.
-```
-
-### A note on `check_lowvram_handoff.py`
-
-Its name undersells it, and the name is why it looks droppable. KJNodes'
-`MiniMaxLowVRAMAttention` does three things, and we already own one of them:
-
-| what their node does | ours? |
-|---|---|
-| head chunking via `minimax_head_chunks` | yes, already our widget |
-| block-level `h` release (the `[x]` hand-off) | no, the only additive piece |
-| `sol_take_forward` so Sol-Attn keeps the low-VRAM path | no |
-
-The division is currently clean and deliberate on their side: their
-**attention** patch yields to ours (`if attn_key in m.object_patches:
-continue`), while their **block** patch is unconditional and unguarded. If we
-ever write our own block-level release, both packs would write
-`diffusion_model.blocks.{idx}.forward` with no marker convention and
-last-node-wins silently -- the collision class `reference_fit.py`'s
-`_WRAP_MARKER` exists to prevent. **Decided 2026-08-13: keep the split, do not
-reimplement.** The interop cases stay because that boundary has already
-produced one real bug (the `clone_v` regression at `head_chunks=4`).
-
-### A note on `check_solattn_correctness.py`: updating an oracle changes the check
-
-Re-vendoring `bench/_sol_attn_reference.py` on 2026-08-14 (`ad9a4a8` ->
-`c04ef20`) added `centroid_tail`, defaulting **True**. The Triton kernel has
-no such parameter and runs the per-row mode. So the moment the oracle was
-updated, every Triton case was grading the kernel against a different
-algorithm than the one it implements -- and **all of them still passed**,
-because the two modes differ by cos 0.9988 and the bar is 0.998. The bar was
-looser than a whole-branch change to the algorithm.
-
-Three things worth keeping from that:
-
-- **Nobody edited a case, and the cases broke.** The defect entered through a
-  dependency the check trusts. A check is only as pinned as its oracle, and
-  the oracle here is deliberately something we do not control.
-- **It passed, which is the bad outcome.** Had it gone red the re-vendor would
-  have been examined immediately. Passing is what let it sit.
-- The fix was not to tighten the bar but to **measure which mode each kernel
-  is on** and grade it against that. The mode is now printed on every run,
-  for both kernels, because the source does not document it and reading the
-  kernel to decide would be an inference where a measurement was available.
-
-The general form: when an oracle gains an option, every assertion against it
-inherits a new case, exactly as CLAUDE.md says an "off"/"absent" state does.
-
-### A note on the bench: an error that flatters nothing gets missed longest
-
-`bench_e2e_h3.py` hardcoded `"mode": "auto"` on its sage node. The
-`mode="fp16 (most accurate)"` flip on 2026-08-13 changed `h3_config.py` and
-every shipped graph and did not change the bench, so from that day every e2e
-arm was compared against a baseline nobody runs.
-
-The instructive part is why it survived. `auto` resolves to `fp8_cuda++`, the
-**fastest** kernel. A fast baseline makes every competing arm look *worse*, so
-the bug produced conservative numbers. Nothing looked too good to be true,
-which is the signal people actually check for. **A bug that overstates gets
-caught; one that understates does not.**
-
-`check_generator_constants.py` already enforced "read the shared constant,
-don't repeat it" -- for the generator. The bench was never in scope, and the
-bench is where the numbers come from.
 
 ## What is deliberately not checked
 
@@ -287,334 +138,72 @@ Two things there have no code check and cannot get one until the graphs exist:
   `docs/h3_ref2v_distillation.md` works out why it resists distillation, what
   to expect, and what failure to look for.
 
+
+### Citations that cannot resolve, for `check_doc_links.py`
+
+The ledger that check reads, kept here rather than in the script for the same
+reason `retraction-consumers` lives in `docs/evidence.md`: the enumeration
+belongs beside the prose it governs, and nothing gets a second copy.
+
+An entry asserts that someone looked and the target is *deliberately* gone. It
+is not a way to silence a broken link.
+
+```doc-link-absent
+PATH: _morton.py
+WHY: the Triton pack's Wan Morton file, deleted with the pack on 2026-08-16
+     (commit 6872dfd). docs/morton.md quotes its docstring as the only stated
+     payoff for reordering anywhere in either pack, so the citation has to
+     stay. Recover from github.com/kijai/ComfyUI-SolAttn_triton at 842c4ea.
+
+PATH: _morton_h3.py
+WHY: same pack, same deletion. Cited for the opposite reason -- it is the H3
+     variant and makes NO quality or sparsity claim, which is the whole point
+     of the comparison it appears in.
+```
+
+
+## Uncontrolled requirements
+
+The standing audit. For each imperative a person could violate in code, the
+question is *what assertion goes red if someone ignores this?* `CLAUDE.md` is
+swept; a full sweep of `docs/` is not done.
+
+| requirement | enforced by |
+|---|---|
+| a constant ending in `_LORA` names a LoRA file | **`check_lora_alpha.py`.** Selects by suffix, resolves on disk, and **went red for real** on 2026-08-16 when a bool named `REF_VIA_LORA` matched. The positive control for this table |
+| every check that walks graphs goes through `graph_paths()` | **`check_graph_discovery.py`.** Parses every check with `ast` and fails any that enumerates graph files directly. Exempts `check_ref_prompt_labels.py`, whose subject *is* discovery coverage. Was "nothing, satisfied by convention" until `226c53c` |
+| **never rename a node's `node_id=`** | **`check_node_ids.py`, against `bench/node_id_manifest.json`** -- a committed baseline the schema cannot regenerate, which is what makes it a control rather than a tautology. Landed `1fe598b`. Red harness: `bench/red/show_red_check_node_ids.py::build`. This row read "nothing, and structurally unenforceable" until 2026-08-17, describing the state before that commit |
+| anything patching another pack does it at `execute()` time and counts | **nothing.** Written 2026-08-16, same day, by the session that found the hazard |
+| the ref2va checkpoint stays in `MODELS` | **nothing** found |
+| conditioning rows stay in the block population (`open_experiments` #18) | **`analyze_routing.py`'s `run_controls`**, which prints that `kcvar` spans every block centroid, conditioning included. Was enforced by nothing; a mutant computing `kcvar` over video blocks only passed every control the script had. Red harness: `bench/red/show_red_analyze_routing.py::build`, which until 2026-08-17 had no expected-outcome comparison at all and so could not fail. **It needs a capture and exits 2 without one**, so it is a documented run rather than a guard anyone can execute |
+| the connected-block figures in `sol_curves.py`, `docs/morton.md` and the node tooltip | **`analyze_canvas_geometry.py`'s `connected_frac`**, shown red by mutating it to 26-neighbour adjacency. It reproduces `docs/morton.md`'s published figures using a different implementation, so agreement is confirmation rather than a tautology. This row read "nothing, and no instrument exists" for one hour on 2026-08-17 -- transcribed from `docs/check_postmortems.md` instead of derived, which is the defect this table exists to find |
+| the shared substrate readers have exactly one definition | **nothing, and it is half true.** `git_head` collapsed 2026-08-17: `provenance.py` imports it from `substrate.py` behind an adapter that preserves the stamp's `"not detected"` sentinel, so one implementation now does the reading and no stamp byte moved. Verified against both consumers, which load the file differently -- ComfyUI as a package member (node registers), and `check_provenance_stamp.py` by path under a bare module name (exit 0). That second one is why `provenance.py` carries a try/except ImportError pair: a plain relative import raises there, and the check catches its own import failure and returns 2, so it would have gone from green to silently skipped rather than red. **Still duplicated:** `_comfy_kitchen_version` and `_sage_version` do the same reads as `substrate._package` in a different shape -- logic, not a name, so nothing would flag it. That half is blocked on the schema rather than on effort: those strings are part of the stamp's format, so reshaping them must bump `STAMP_SCHEMA_VERSION` deliberately |
+| timings are compared only at equal host GPU power state ([`docs/hardware.md`](hardware.md)) | **nothing, and the shape differs per artifact.** Captures: `provenance.gpu_power_limit_watts` **exists** in [`docs/capture_manifest_schema.md`](capture_manifest_schema.md) and the one manifest on disk populates it -- and as of 2026-08-17 it is required and asserted, so a manifest omitting it fails. **This row said `check_capture_manifest.py` inspects it nowhere; that was true when written and was fixed hours later in the same session.** What remains uncontrolled is the other two artifacts. Renders: the stamp has no power, driver or GPU field at all. Bench runs: persist nothing, and are the class whose numbers move most with power state. `bench/hwinfo.py` prints the limit and flags a non-stock one, but it is a report a person chooses to run, not a guard, and no check can see the power state of a run whose number is already written down. **This row asserted "the manifest has no field for host power state" when it was written on 2026-08-17; that was inferred from the `required` list without reading the properties, and a peer session refuted it the same day.** Corrected rather than deleted, because the correction is the point: the field existing and being unasserted is a different defect from the field being absent, and only the second one is fixed by adding a field |
+
 ## Gaps
 
-Ordered by how much they undermine the standard above.
+One line each. The narrative behind items marked *(pm)* is in
+[`docs/check_postmortems.md`](check_postmortems.md).
 
-1. **Ten of fourteen have no record of having been shown red.** Only
-   `check_short_edge_override.py`, `check_distill_settings.py`,
-   `check_schema_defaults.py` and `check_ref_prompt_labels.py` document their
-   own calibration. For the rest, the repo's central trust standard is
-   unverifiable from the artifacts. This does not mean they are wrong -- it
-   means nobody can tell.
-
-2. **Seven of fourteen have no claims block**, so "what breaks if this case is
-   deleted" is not recoverable without reading the assertions and inferring
-   backwards. The seven that have one are the model to copy.
-
-3. **No runner.** Every script prints its own ad-hoc `ok` / `FAIL`, with no
-   shared harness and no case registry. There is no way to run everything and
-   get one report, and no reliable way to count cases.
-
-4. **The `PYTHONPATH` split is invisible until it fails.** Three scripts
-   require it and give a bare import error; six do not. Either all of them
-   should bootstrap `sys.path`, or none should.
-
-0. **Run `smoke_h3.py` after any change to the generator.** It is the only
-   check that submits, and the class of bug it found -- a graph the validators
-   pass and the server refuses -- is invisible to everything else here.
-
-6. **`sol_curves.verify_adjacency` was, until 2026-08-16, a check whose input
-   could not fail** -- the clearest instance in this repo of the standard above
-   being violated in code rather than in prose. It counts non-adjacent steps
-   along the Hilbert curve, and its only call site
-   (`bench/analyze_capture.py`) passed `side=64`. On a power-of-two square,
-   adjacency is Hilbert's *defining property*: zero is what every correct
-   implementation returns, so the assertion could only ever go red on a
-   corrupted `hilbert_d`, never on the ordering being scored. Meanwhile the
-   ordering actually applied is a 24x42 rectangle clipped out of that square,
-   which splices the curve in **6 places of 1007**. So the repo asserted "a
-   Hilbert curve never jumps" in `sol_curves.py`, in `docs/morton.md` and in
-   the node's UI tooltip, and held a green check that was structurally incapable
-   of contradicting it.
-
-   Fixed by giving `verify_adjacency` `height`/`width` parameters and calling
-   both forms: the square stays a **gate** (non-zero means `hilbert_d` is
-   broken), the rectangle is **reported, never gated** -- a non-zero result
-   there is expected, and no threshold that would make it pass/fail has been
-   established. Asking "what would the input have to look like for this to
-   fail?" is the question that finds this class, and it is worth asking of every
-   row in the index above.
-
-   **A control cannot see a branch its input never reaches, and a
-   before/after snapshot is exactly that shape.** Third instance of the family,
-   2026-08-16. When `_ref_prompt` gained per-socket roles, the control was a
-   byte-identity snapshot: all 43 prompts captured *before* the change, 0 of 43
-   different after, 0 of 87 regenerated graphs changed. That is a real control
-   and it proved what it claimed — the additive constraint held **for the path
-   that already had graphs**. It could not have caught anything on the new
-   path, because no graph exercised the new path until one existed. Two defects
-   were sitting there and both surfaced within ninety seconds of the first
-   three-role graph being built:
-
-   - the generator defined a garment subject, gave it `attribute_transfer`, and
-     never cited it in `detailed_description`;
-   - `check_ref_prompt_labels.py` enumerated `images` as `(True, False)`, which
-     cannot express a role tuple, so the first honest three-role graph was
-     reported as a hand-edit. Its own comment said a hardcoded copy "stops
-     covering the generator the moment a role is added" — it was right about
-     the risk and still missed it, because **what changed was the *shape* of
-     the argument rather than one of its values, and an enumeration written
-     over old values is blind to a new form.**
-
-   Same family as `verify_adjacency` (input cannot fail) and the identity
-   control that compared `arange` against `arange` (input is the expected
-   answer), one level up: **the input never reaches the code under test.** The
-   question that finds all three is the same one — *what would the input have
-   to be for this to fail?* — and for a regression snapshot the answer is
-   "something that did not exist when the snapshot was taken."
-
-   The fix generalises too, and it is cheap: **when adding a code path, add the
-   first caller in the same change and let the existing checks judge it.** A
-   new branch with no caller is unobserved by construction, however green the
-   suite is.
-
-7. **The uncontrolled-requirement audit, first pass, 2026-08-16.** Swept
-   `CLAUDE.md`'s imperatives for the ones a person could violate in code, and
-   asked of each: *what assertion goes red if someone ignores this?* Full sweep
-   of `docs/` is 192 candidates and is not done; `CLAUDE.md` is the
-   highest-density source of load-bearing invariants and is.
-
-   | requirement | enforced by |
-   |---|---|
-   | a constant ending in `_LORA` names a LoRA file | **`check_lora_alpha.py`.** Selects by suffix, resolves on disk, and **went red for real** on 2026-08-16 when a bool named `REF_VIA_LORA` matched. The positive control for this table |
-   | every check that walks graphs goes through `graph_paths()` | **nothing** — but *currently held*. Audited all 12 graph-touching checks: 5 use it, 4 name specific files, 2 read docs rather than graphs, and `check_workflow_schema.py` takes CLI paths, which `CLAUDE.md` documents as the one exemption. Satisfied by convention |
-   | **never rename a node's `node_id=`** | **nothing, and it is structurally unenforceable as the repo stands.** See below |
-   | anything patching another pack does it at `execute()` time and counts | **nothing.** Written 2026-08-16, same day, by the session that found the hazard |
-   | the ref2va checkpoint stays in `MODELS` | **nothing** found |
-
-   **The `node_id` result is the one worth acting on, and it is finding 2.1's
-   shape again.** `CLAUDE.md` opens with "The one rule that matters: saved
-   graphs address everything by position", and a rename breaks every saved
-   graph silently. But this repo's graphs are *generated from the schema*: a
-   rename regenerates all 89 consistently, every check stays green, and the
-   only artifacts that break are the owner's live graphs outside the repo —
-   which no check can see. Verified there is no recorded baseline of `node_id`
-   strings anywhere outside the generated graphs themselves; the only other
-   occurrences are Python *class* names, which `CLAUDE.md` says are safe to
-   rename.
-
-   So the checks' inputs are regenerated from the same source as the violation.
-   **A control whose input is derived from the thing it is checking cannot
-   fail** — the fourth phrasing of the same defect, and this time it guards the
-   rule the repo names as its most important. The fix is a committed manifest
-   of `node_id` strings that a check diffs against; cheap, and it converts a
-   silent external breakage into a red line.
-
-   **A written requirement is not a control, and this repo produced a clean
-   instance the same day.** `docs/open_experiments.md` #18 requires that
-   conditioning rows stay in the block population, because `kcvar` is a variance
-   over every centroid the kernel pools. When `bench/analyze_routing.py` was
-   built against that requirement, a mutant computing `kcvar` over the video
-   blocks only **passed every control the script had**. The requirement was
-   stated, agreed by two readers, implemented correctly — and enforced by
-   nothing, so an implementation that violated it would have shipped green. It
-   now has an explicit control asserting the population is the full pooled set
-   and that the block count equals `sequence // 64`.
-
-   The generalisation is worth more than the instance: **every "must" written
-   into a spec is a candidate control, and the ones most likely to lack one are
-   the requirements everybody agrees with**, because agreement feels like
-   coverage. When adding a requirement to a doc, ask in the same breath which
-   assertion would go red if someone ignored it.
-
-   **The connectivity numbers have the opposite problem: no instrument at all.**
-   The 60%/90% connected-block figures in `sol_curves.py`, `docs/morton.md` and
-   the node tooltip are not computed by anything in `bench/` --
-   `analyze_morton.py` reports radius, fill and neighbour retention, and has no
-   notion of connectivity. They reproduce exactly when re-derived, so this is a
-   missing instrument rather than a bad number, but it is the only load-bearing
-   figure in the Morton work that no committed script can regenerate.
-
-5. **`check_workflow_schema.py` and `smoke_h3.py` cannot run unattended.**
-   Both need a live ComfyUI, and `smoke_h3.py` needs the models loaded too, so
-   both are absent from any headless pass -- and a check that is silently
-   skipped reads the same as a check that passed.
+1. **The `shown red` column is the record -- read it, not a count.** Where a
+   check guards mechanically specified behaviour and its cell reads
+   `not recorded`, that is a real debt. Where the expected value *was* the
+   measurement, see The standard.
+2. **The `claims block` column, likewise.** Where it reads `no`, "what breaks
+   if this case is deleted" needs reading the assertions and inferring
+   backwards.
+3. **No runner.** Every script prints its own `ok` / `FAIL` with no shared
+   harness and no case registry, so there is no one-report run and no reliable
+   case count.
+4. **The `PYTHONPATH` split is invisible until it fails.** The scripts that
+   need it are named under Running them; the rest run from anywhere. Either all
+   should bootstrap `sys.path` or none should.
+5. **`check_workflow_schema.py` and `smoke_h3.py` cannot run unattended** --
+   both need a live ComfyUI, `smoke_h3.py` needs models loaded, and a silently
+   skipped check reads the same as a passing one.
    `check_distill_settings.py` is the only one that answers this properly, by
-   exiting 2 rather than 0 when one of its controls did not run. That pattern
-   is worth copying.
-
----
-
-## Write the evidence kind inside the claim, not beside it
-
-Not about a check, but about how a claim in this repo stops being true.
-
-On 2026-08-13 an upstream finding arrived explicitly labelled unverified — a
-read of somebody's source, not a build and not a measurement. It was written
-into `attention.py` as "on inspection, is not", with the label dropped. Nobody
-asserted anything false at any point. Each hop repeated the previous hop's
-confidence and left the caveat behind, because a trailing "(unverified)" reads
-as the sender hedging rather than as part of the claim, and hedges are what
-get trimmed when text is copied.
-
-The wording that survives a copy-paste states what kind of evidence it is
-*inside* the sentence:
-
-> **Reported, not verified:** the sm89 kernel appears already stride-aware on
-> its output … That is a source read from upstream, **not a build and not a
-> measurement**.
-
-against the version that does not:
-
-> …which reads as out of reach and, on inspection, is not. The sm89 kernel is
-> already stride-aware on its output.
-
-Both are honest when written. Only one is still honest after somebody quotes
-half of it. This matters here more than in most repos because measured
-numbers, upstream source reads and analytical estimates sit in the same
-paragraphs, and six months later they are indistinguishable by tone.
-
-### `SageChainAssert`'s call-time case cannot see sage
-
-Found 2026-08-13 by removing Sol-Attn from a graph and watching the assert
-fail for a reason unrelated to what changed.
-
-`_exercise` pushes one tensor through the composed attention and requires a
-routing counter to move. The counter it reads is resolved by scanning loaded
-modules for a callable named **`sol_attn_stats`** (`assert_chain.py`)
-— Sol-Attn's counters. `attention.py` exposes no counter of its own; the only
-state it publishes is `reset_fallback_state`.
-
-So on a sage-only graph the probe runs, sage routes it, nothing named
-`sol_attn_stats` moves, and the node reports "the composed path was not
-taken". Sage is fine. The instrument cannot observe it.
-
-**Confirmed from the log, not only from the source.** The arm that passes
-prints `[h3] chain assert, call-time: routed as sparse=1` — `sparse` is
-Sol-Attn's counter name. The arm that fails prints the sage patch line
-(`50 attention modules patched`) and no `[sol_attn]` lines at all, then
-fails. Both halves of the diagnosis are visible in one run.
-
-The inverse is the part that matters for graphs we actually ship: when the
-assert passes at call time, **what it confirmed is that Sol-Attn routed the
-probe**. It says nothing at call time about sage, which is the node it is
-named for. And because Sol-Attn's module is imported process-wide whenever the
-pack is installed, `sol_attn_stats` resolves even in graphs that do not use
-it — so the check cannot distinguish "Sol is not in this graph" from "the
-composed path was not taken".
-
-This is the same check that, per the note at `assert_chain.py`, "ran
-registration-only from the day it was written until 2026-08-11, and said so in
-a line nobody read, under a final `chain assert ok`". The 2026-08-11 fix
-closed the registration-only gap and wired the new case to the wrong module's
-counters.
-
-**Consequences, in order:**
-
-1. The sage-only configuration is not merely unmeasured (open experiment 9),
-   it is currently **unrunnable** with the shipped assert in the graph.
-2. Every "routed as …" line in this repo's logs is a statement about Sol.
-3. The fix is **not** a counter of our own, which was the first plan. The
-   sage fork already exports `get_last_dispatched_kernel()` and
-   `KNOWN_KERNEL_NAMES` as public API, set on every sage call including the
-   sm89 fp8++ path. That proves routing *and* identity in one read, so the
-   assert can require "landed on fp8_cuda++" rather than "something moved" —
-   the claim this node's name has always implied and never made.
-
-   **Two preconditions, both of which would otherwise reproduce today's false
-   negative.** The value is `threading.local`, so the probe and the read must
-   happen on the same thread: fine while `SageChainAssert` runs as a graph
-   node, *not* fine if anyone moves it to an HTTP-side check, where it would
-   return `None` and read as "sage did not route". And it is last-dispatch,
-   not a count, so it must be read immediately after the probe.
-
-   It also needs a reset to be sound. Without one the check reduces to a
-   before/after comparison that is conclusive in one direction only: a change
-   proves routing, but an unchanged value does not disprove it, since the
-   probe may route to the same kernel a previous call already recorded and the
-   thread-local persists across prompts on one worker. That failure mode is a
-   **false negative on graphs that route consistently** — the same defect being
-   fixed, wearing a better API. `_reset_dispatch_for_test` exists but is
-   explicitly not public; upstream is promoting it through their downstream
-   symbol process so it acquires a removal checklist. The repair waits for
-   that rather than importing an underscore symbol.
-
-**FIXED and verified 2026-08-13**, without needing the reset and without any
-   new contract surface. The probe now fires on a **fresh thread**: the
-   dispatch value lives on a `threading.local`, so a thread that has never made
-   a sage call returns `None` by construction. The thread-locality that was the
-   hazard becomes the mechanism.
-
-   Two things the verification itself turned up:
-
-   * **The off-thread probe does traverse the composed forward** — the open
-     question when this was designed. Confirmed by the log: at 4608 tokens it
-     produced `[sol_attn] sparse (1, 4608, 56, 128)`.
-   * **That first attempt still failed, and correctly.** At 4608 the sparse
-     patch *takes* the call and runs its own kernel, so sage never runs and the
-     new check truthfully said so. The right probe size **inverted** when the
-     instrument changed: the old counter check needed a probe large enough for
-     the sparse kernel to fire, the new one needs a probe small enough for the
-     sparse patch to decline, so the call falls through to sage. That is the
-     composition claim this node is named for — *sage handles what the sparse
-     patch does not* — and it had never been the thing being tested.
-
-   The probe now reads the gate's own `min_tokens` from `transformer_options`
-   and sizes to half of it, so lowering that threshold in a graph cannot
-   silently push the probe back above it.
-
-   **One probe was still not enough, and the reason is the same shape again.**
-   The sparse gate *falls through* to our patch whenever it declines
-   (`take = gate is not None and ...` then `return patched_forward(...)`), so a
-   call reaching sage is consistent with two different worlds: composed and
-   healthy with the gate declining, or composition dead with the gate never
-   engaging. A small probe reports green in both — evidence that cannot
-   separate "working as designed" from "the mechanism is absent", which is
-   precisely the counter bug it replaced.
-
-   It now fires a **pair**, pinning the gate from both sides:
-
-   | probe | requirement | proves |
-   |---|---|---|
-   | below `min_tokens` | must reach sage | the fall-through works |
-   | above `min_tokens` | must **not** reach sage | the gate is live and taking |
-
-   The second assertion is sound *only* because of the fresh thread. `None`
-   normally means "cannot tell"; on a thread that has made exactly one call it
-   cannot mean anything else, so `None` after a large probe is positive
-   evidence sage did not route it. The mechanism adopted for the baseline
-   turned out to license the negative too.
-
-   It also refuses to default a missing `sol_compose`. An absent key *is* the
-   dead-composition case, so substituting 4096 would size a probe against a
-   gate that is not there and call it green. Present → sparse expected; absent
-   → sage-only, and the message says which was verified.
-
-   Verified live, both configurations, and they are now distinguishable:
-
-   ```
-   composed:  sage routed a 2048-token probe on fp8_cuda++ and correctly did
-              NOT get the 4608-token one, so the sparse gate at 4096 is live
-              and sage is taking what it declines
-   sage-only: sage routed a 2048-token probe on fp8_cuda++; no sparse patch
-              published `sol_compose`, so this graph is sage-only
-   ```
-
-### The same defect pointed inward
-
-Within an hour of writing the rule above, the same failure recurred in the
-other direction. A number had been flagged — correctly, and by me — as
-config-dependent and needing re-derivation per config. Two messages later it
-was used as a known input to a solve, and the result pre-registered as a
-prediction.
-
-Nothing careless happened in between. **A caveat accepted about someone else's
-number does not attach to your own later use of that number**, and no normal
-process makes it attach: the caveat is filed as a fact about the old claim,
-while the new claim is being built somewhere else. That makes it structural
-rather than a lapse in attention, which is why "be more careful" does not fix
-it any more than it fixes caveat decay.
-
-The counter that seems to work: **when a caveated number becomes an INPUT,
-re-read the caveat as a precondition of the new claim, not as history attached
-to the old one.** If the caveat says "re-derive per config", then a solve
-using it is blocked until that derivation exists — the same way a missing
-argument blocks a call.
-
-Worth pairing with a second habit from the same incident: check that the
-quantity you are about to measure is the one that enters the model. That solve
-was reformulated from a step count to a wall-clock share, and the instrument
-already planned would have returned a precise value for the abandoned
-variable — a real measurement of the wrong thing, which is harder to notice
-than no measurement at all.
+   exiting 2 rather than 0 when a control did not run. Worth copying.
+6. **Controls whose input could not fail** -- four instances, one defect.
+   `sol_curves.verify_adjacency` was the clearest, fixed 2026-08-16. *(pm)*
+7. **The uncontrolled-requirement audit is one pass deep.** The table above
+   covers `CLAUDE.md` only; `docs/` is unswept. *(pm)*

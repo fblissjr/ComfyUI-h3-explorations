@@ -60,7 +60,7 @@ activations and the partition, so neither needs the kernel.
 Capture first. This needs a ComfyUI restart, because `h3_capture.py` reads its
 environment at import:
 
-    H3_CAPTURE="dir=/some/scratch,blocks=0,steps=1" ~/ComfyUI/start.sh
+    H3_CAPTURE="dir=/some/scratch,blocks=0,steps=1" <comfy>/start.sh
 
 Render with Sol-Attn bypassed so sage takes every call, then:
 

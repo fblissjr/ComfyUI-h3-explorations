@@ -93,7 +93,7 @@ def main():
     # load-bearing: `comfy_extras.nodes_minimax_h3` does a bare `import nodes`,
     # and this repo has a `nodes.py` of its own that dies on a relative import
     # when found first. Inserting the repo root second puts ComfyUI first. This
-    # is the trap in CLAUDE.md and it bit this file on its first run.
+    # is the trap in `docs/comfy_notes.md` and it bit this file on its first run.
     here = Path(__file__).resolve()
     sys.path.insert(0, str(here.parents[1]))     # repo, for reference_fit
     sys.path.insert(0, str(here.parents[3]))     # ComfyUI, ahead of it

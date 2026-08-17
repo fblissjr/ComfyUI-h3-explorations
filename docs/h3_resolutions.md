@@ -1,36 +1,52 @@
 # MiniMax H3: every legal resolution, and why the set is what it is
 
-Last updated: 2026-08-16.
+Last updated: 2026-08-17.
 
 Every number here comes from running `comfy_extras/nodes_minimax_h3.py` and
 `comfy/ldm/minimax/model.py`, not from reading them.
+
+**This page is the reference: what is legal and what it costs.** For how canvas,
+frame count and Sol-Attn settings interact -- what a 64-token block actually
+looks like on each canvas, which shapes give Sol's router tight blocks, and
+which frame counts line up with them -- see
+[`h3_input_impacts.md`](h3_input_impacts.md).
 
 ## What to type
 
 Ask for an aspect ratio. These are the fourteen you are most likely to want,
 with what `adapt_canvas()` returns for each.
 
-| Ask for | Resolution | Latent | Video tokens/frame | Attention |
-|---|---|---|---|---|
-| 21:9 | 1536x672 | 96x42 | 1008 | 1.00x |
-| 2:1 | 1440x704 | 90x44 | 990 | 0.96x |
-| 16:9 | 1344x768 | 84x48 | 1008 | 1.00x |
-| 5:3 | 1280x768 | 80x48 | 960 | 0.91x |
-| 3:2 | 1152x768 | 72x48 | 864 | 0.73x |
-| 4:3 | 1024x768 | 64x48 | 768 | 0.58x |
-| 5:4 | 960x768 | 60x48 | 720 | 0.51x |
-| 1:1 | 768x768 | 48x48 | 576 | 0.33x |
-| 4:5 | 768x960 | 48x60 | 720 | 0.51x |
-| 3:4 | 768x1024 | 48x64 | 768 | 0.58x |
-| 2:3 | 768x1152 | 48x72 | 864 | 0.73x |
-| 9:16 | 768x1344 | 48x84 | 1008 | 1.00x |
-| 1:2 | 704x1440 | 44x90 | 990 | 0.96x |
-| 9:21 | 672x1536 | 42x96 | 1008 | 1.00x |
+| Ask for | Resolution | VAE latent | Token grid | Video tokens/frame | Attention |
+|---|---|---|---|---|---|
+| 21:9 | 1536x672 | 96x42 | 48x21 | 1008 | 1.00x |
+| 2:1 | 1440x704 | 90x44 | 45x22 | 990 | 0.96x |
+| 16:9 | 1344x768 | 84x48 | 42x24 | 1008 | 1.00x |
+| 5:3 | 1280x768 | 80x48 | 40x24 | 960 | 0.91x |
+| 3:2 | 1152x768 | 72x48 | 36x24 | 864 | 0.73x |
+| 4:3 | 1024x768 | 64x48 | 32x24 | 768 | 0.58x |
+| 5:4 | 960x768 | 60x48 | 30x24 | 720 | 0.51x |
+| 1:1 | 768x768 | 48x48 | 24x24 | 576 | 0.33x |
+| 4:5 | 768x960 | 48x60 | 24x30 | 720 | 0.51x |
+| 3:4 | 768x1024 | 48x64 | 24x32 | 768 | 0.58x |
+| 2:3 | 768x1152 | 48x72 | 24x36 | 864 | 0.73x |
+| 9:16 | 768x1344 | 48x84 | 24x42 | 1008 | 1.00x |
+| 1:2 | 704x1440 | 44x90 | 22x45 | 990 | 0.96x |
+| 9:21 | 672x1536 | 42x96 | 21x48 | 1008 | 1.00x |
 
 Attention is quoted against 1:1 at the same frame count, and it goes as the
 square of the token count, because attention is O(S^2) and video tokens
 dominate S. 1:1 costs a third of 16:9. That is the largest single lever in
 this repo, larger than any kernel or sparsity setting.
+
+**Two grids, both called "latent", and confusing them is a recurring mistake.**
+The VAE latent is `W/16 x H/16` and is what the VAE emits. The token grid is
+`W/32 x H/32`, half of it on each axis after the DiT's 2x2 patchify, and is
+what attention and Sol-Attn actually see. Tokens per frame is the product of
+the **token** grid, not of the VAE latent. The table above carries both as of
+2026-08-17; the complete set below lists the VAE latent only, so halve each
+axis to get its token grid. [`morton.md`](morton.md) and
+[`h3_input_impacts.md`](h3_input_impacts.md) are in token-grid units
+throughout.
 
 ## Picking one: `CANVAS_TIER`
 
@@ -194,6 +210,28 @@ temporal chunking, not from the DiT.
 | 300 | 311 | 12.958s | 92 |
 | 345 | 345 | 14.375s | 102 |
 | 346 | 362 | 15.083s | 107 |
+
+Latent frames are `5n + 2` for a frame count of `17n + 5`, so they do not
+track duration linearly and are the number that prices the sequence. Every
+on-grid count in the usable range, with what each costs at 1344x768:
+
+| Frames | Latent frames | Duration | Video tokens | Attention vs 362 |
+|---|---|---|---|---|
+| 124 | 37 | 5.167s | 37,296 | 0.12x |
+| 209 | 62 | 8.708s | 62,496 | 0.34x |
+| 243 | 72 | 10.125s | 72,576 | 0.45x |
+| 260 | 77 | 10.833s | 77,616 | 0.52x |
+| 277 | 82 | 11.542s | 82,656 | 0.59x |
+| 294 | 87 | 12.250s | 87,696 | 0.66x |
+| 311 | 92 | 12.958s | 92,736 | 0.74x |
+| 328 | 97 | 13.667s | 97,776 | 0.82x |
+| 345 | 102 | 14.375s | 102,816 | 0.91x |
+| 362 | 107 | 15.083s | 107,856 | 1.00x |
+
+Length is the second-largest cost lever after canvas, and for the same reason:
+attention goes as the square of the sequence. Which of these to pick, and how
+the choice interacts with Sol-Attn's token floor and with Morton block
+alignment, is in [`h3_input_impacts.md`](h3_input_impacts.md).
 
 **362 is the ceiling** -- 15.083s, the longest length H3 was trained on, and
 the shipped `LONG_LENGTH`. Ask for 363 and you get 379, which is over, and

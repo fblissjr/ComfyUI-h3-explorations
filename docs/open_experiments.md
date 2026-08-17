@@ -918,7 +918,7 @@ sparsity levels, without knowing the size or the sign of the second.
 
 **Blocker: none. This is the cheapest unrun item in the repo and it has been
 open longest.** The captures are on disk
-(`~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/`, blocks 0/24/49). No
+(`$H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/`, blocks 0/24/49). No
 render, no GPU, no server. It belongs in `bench/analyze_routing.py`.
 
 **Method, and one constraint that is not optional.** Score with upstream's eager
@@ -945,7 +945,7 @@ the slice is a different partition from the one the kernel sees.
 > **A caveat stood here on 2026-08-16 saying the prototype had dropped the
 > conditioning rows, and it was wrong.** Withdrawn the same day after reading
 > the script rather than the report of it:
-> `internal/scripts/sol_curve_2026-08-16/probe_routed_density.py:41` sets
+> `scripts/experimental/sol_curve_2026-08-16/probe_routed_density.py:41` sets
 > `n = S // BLOCK` over the full 37,826-row sequence, and `kc`, `kmean` and
 > `kc_var` are all computed over that population. The threshold is already
 > derived the way the kernel derives it, and no reported number moves for this
@@ -958,7 +958,7 @@ the slice is a different partition from the one the kernel sees.
 **The real defect in the prototype, and it is a labelling one.** Its docstring
 claims diagonal, neighbour *and sink* blocks are excluded from numerator and
 denominator. The code masks only `|i-j| <= 1`
-(`internal/scripts/sol_curve_2026-08-16/probe_routed_density.py:47`); there is no sink mask
+(`scripts/experimental/sol_curve_2026-08-16/probe_routed_density.py:47`); there is no sink mask
 anywhere. Sink pairs sit in the denominator and are judged by the threshold
 like any other pair, when the kernel forces them exact regardless.
 
@@ -1157,7 +1157,7 @@ of production. 17b is that same decomposition somewhere the premise holds.
 
 **17c. Capture a reference-heavy render.** NEW, and it gates the value of the
 other two. Every Sol measurement in this repo -- and the existing captures at
-`~/Storage/h3_captures/2026-08-15_dense_124f_1344x768/` -- is t2v on fl2va with
+`$H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/` -- is t2v on fl2va with
 zero references, while the work actually being done is reference-heavy.
 Reference rows are pinned by `sink_conditioning`, so reference-heavy is where
 Sol has the **least** room: every existing ratio is an optimistic bound for the
@@ -1231,3 +1231,62 @@ most of the blocks.
   scoped to per-call claims.
 - **Does chunking fragment the allocator** — no. `allocated` and `reserved`
   track within 8 MiB on all three arms.
+
+## 19. Does convrot's rotation reach Sol's routing or Morton's ordering?
+
+**Tests:** whether the shipped weights' quantization changes the geometric
+premise both Sol-Attn and the token orderings rest on. Sol reorders and routes at
+a 64-token block, an 8x8 tile in 2d and 4x4x4 in 3d, and the ordering's whole
+argument is that tokens adjacent in that tile carry similar q/k, so grouping them
+yields a tight centroid and the block becomes skippable at a given `tau`.
+
+**Three properties of the shipped checkpoints attack that premise
+independently**, and none has been tested against the ordering:
+
+- **int8** adds quantization noise to q/k, inflating within-block variance
+  whatever the ordering, so the locality signal competes with noise the ordering
+  cannot reduce.
+- **convrot** applies a rotation — established in `docs/roadmap.md` while grading
+  the ref LoRA, where differencing two independently rotated checkpoints was
+  shown to yield the wrong quantity rather than a noisy one. So "similar in
+  value" is judged in a rotated basis, and whether spatial adjacency still maps
+  to proximity there is stated nowhere.
+- **pruned** means the distribution being exploited is the pruned model's. A
+  locality result need not transfer to unpruned weights, and pruning may itself
+  have removed the structure that carried spatial coherence.
+
+**Evidence kind: inferences from source reads, not measurements.** Together they
+are a mechanism that would explain the retracted Morton speed claim, which
+`docs/SOLATTN.md` records as not surviving an int8 path. That does not make them
+true.
+
+**Method, and the control is already on hand.** `fp8_scaled` exists as a matched
+build of **both** models, so `int8_convrot` against `fp8_scaled` within one model
+role is a one-variable comparison — the quantization moves and the role does not.
+Compare the routed density and the centroid variance the router reads, not
+wall-clock. A `w4a8_mixed` fl2va build gives a third point if the first two
+separate. No new render is needed if the captures record which build produced
+them.
+
+**Blocker: provenance, and narrower than first written.** Corrected 2026-08-17
+the same day, after a peer session checked the schema rather than reading my
+summary of it.
+
+- **For captures, the build is recoverable.** `models` in
+  `docs/capture_manifest_schema.md` requires `unet`, `clip` and `video_vae`, and
+  those filenames are self-describing: `_int8_convrot`, `_fp8_scaled` and
+  `_w4a8_mixed` are distinguishable by name. So any conforming manifest already
+  says which build ran. The first version of this entry claimed the opposite.
+- **What is actually broken is the assertion.** `weight_quantization` and
+  `vae_quantization` exist as properties and appear in **no** `required` list, and
+  `bench/check_capture_manifest.py` never inspects either. A manifest can omit
+  both and pass green. That is the tight piece of work: make them required, then
+  assert them.
+- **For bench runs there is no manifest at all**, so a timing carries no record
+  of the weights it was measured on. That is the real hole, and it is the same
+  shape as the host power-limit gap `docs/evidence.md` now records: the substrate
+  is knowable at run time and nothing writes it down.
+
+Settle the bench-run half before comparing anything whose evidence is a timing.
+The centroid and density comparison this item actually calls for reads captures,
+so it is not blocked on that.

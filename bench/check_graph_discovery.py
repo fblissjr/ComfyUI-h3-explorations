@@ -25,8 +25,8 @@ sees real calls; comments and docstrings are invisible to it by construction.
 ## Exemptions
 
 There are none, and that is deliberate. `bench/check_workflow_schema.py` is the
-documented exception to the *convention* -- CLAUDE.md notes it takes paths from
-the CLI, "the one place a directory has to be typed" -- but it does not glob, so
+documented exception to the *convention* -- `docs/comfy_notes.md` notes it takes
+paths from the CLI, "the one place a directory has to be typed" -- but it does not glob, so
 it needs no exemption here.
 
 **If you are about to add one, write down why in `EXEMPT` and make it specific

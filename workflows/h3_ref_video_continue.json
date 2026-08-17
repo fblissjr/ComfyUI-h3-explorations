@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "5ccada34-66e7-5b22-99a5-3ad6cad4d0b9",
+  "id": "40a87dfb-d8b3-54ef-a2a2-9fbc79f94bc6",
   "revision": 0,
   "last_node_id": 28,
   "last_link_id": 33,
@@ -274,7 +274,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "model",
@@ -314,7 +314,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn (bypassed)"
+      "title": "Patch Sol-Attn"
     },
     {
       "id": 9,
@@ -551,7 +551,7 @@
         "Node name for S&R": "MiniMaxH3ReferenceToVideo"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video the target video continues from, beginning at its final frame.\n\nsummary:\n[video continuation + audio reuse] The target video continues <Video 1> from its final frame, without a cut.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.\n\ndetailed_description:\nThe target video is in a cinematic live-action style with soft directional lighting.\n[Shot 1] The shot begins exactly where <Video 1> ends, on the same framing and lighting, and carries the motion forward without a cut. <Subject 1> continues walking out of frame to the right as the camera holds.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot, with soft footsteps and fabric movement as the subject crosses the frame.\n\nnon_diegetic_music:\nN/A",
+        "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video the target video continues from, beginning at its final frame.\n\nsummary:\n[video continuation + audio reuse] The target video continues <Video 1> from its final frame, without a cut.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] The shot begins exactly where <Video 1> ends, on the same framing and lighting, and carries the motion forward without a cut. <Subject 1> continues walking out of frame to the right as the camera holds.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
         1024,
         768,
         362,

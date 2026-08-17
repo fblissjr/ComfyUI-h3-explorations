@@ -342,6 +342,34 @@ def main():
             "these graphs carry a prompt `_ref_prompt` cannot produce, so a "
             "hand-edit has diverged from the generator: " + ", ".join(bad))
 
+    def no_attribute_assertions_in_environment_templates():
+        """Environment templates must be purely subtractive.
+
+        Asserting specific attributes ('architecture', 'palette, and lighting',
+        'chalet', 'timber', 'veranda', 'steady interior room tone') in generic
+        environment definitions causes the DiT cross-attention to hallucinate
+        structures on natural landscapes (e.g., building a house on an alpine lake).
+        """
+        bad = []
+        forbidden_phrases = [
+            "architecture", "palette, and lighting", "palette and lighting",
+            "timber", "chalet", "veranda", "steady interior room tone",
+            "soft directional lighting", "ambient daylight", "harsh sunlight",
+            "interior room tone",
+        ]
+        for name, inputs in graphs:
+            prompt = inputs.get("prompt", "")
+            if not isinstance(prompt, str) or "subject_definitions:" not in prompt:
+                continue
+            for line in prompt.splitlines():
+                if "environment in <Picture" in line or "environment shown in <Picture" in line:
+                    for phrase in forbidden_phrases:
+                        if phrase in line.lower():
+                            bad.append(f"{name}: environment definition asserts attribute {phrase!r}: {line!r}")
+                if "steady interior" in line.lower():
+                    bad.append(f"{name}: soundscape asserts interior room tone: {line!r}")
+        assert not bad, "\n         ".join(bad)
+
     check("every ref graph seen", every_ref_graph_seen)
     check("no graph directory is invisible to discovery",
           no_graph_directory_is_invisible)
@@ -351,6 +379,8 @@ def main():
     check("no undefined subject labels", subjects_resolve)
     check("every defined subject is cited where it acts",
           subjects_cited_where_they_act)
+    check("no attribute assertions in environment templates",
+          no_attribute_assertions_in_environment_templates)
 
     print(f"\n{len(failures)} failure(s)" if failures else
           "\nall ok -- every ref prompt names exactly what its graph wires")

@@ -46,9 +46,8 @@ What each case claims, i.e. what breaks if it is deleted:
 
   absent_is_not_broken
       No override installed must record `state="absent"`, not `"broken"` and
-      not an exception. Sol-Attn is opt-in and shipped OFF, so "correctly
-      absent" is the common case -- the third-case trap CLAUDE.md names, which
-      produced five bugs in one session.
+      not an exception. If a graph is run without an override or with Sol bypassed,
+      "correctly absent" is handled cleanly.
 
   version_bump_has_no_consumer
       Records, and re-checks, that NOTHING reads `stamp_schema_version`.
@@ -76,8 +75,8 @@ REPO = Path(__file__).resolve().parent.parent
 COMFY = REPO.parent.parent
 
 # ComfyUI's root goes FIRST. This repo has its own `nodes.py`, and a bare
-# `import nodes` from inside comfy must find ComfyUI's -- the trap CLAUDE.md
-# records as costing three separate debugging rounds.
+# `import nodes` from inside comfy must find ComfyUI's -- the trap
+# `docs/comfy_notes.md` records as costing three separate debugging rounds.
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(COMFY))
 

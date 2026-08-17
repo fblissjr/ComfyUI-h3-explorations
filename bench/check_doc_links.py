@@ -206,8 +206,9 @@ def resolve(cited):
 
     `COMFY.parent` is a root so that a citation into ComfyUI's own tree can be
     written `ComfyUI/nodes.py` and mean it. That is not decoration: `nodes.py`
-    exists in BOTH roots, and CLAUDE.md's `nodes.py:2245-2250` -- in the
-    section warning that `import nodes` resolves to ours -- silently resolved
+    exists in BOTH roots, and a `nodes.py:2245-2250` citation once carried in
+    `CLAUDE.md` -- in the very section warning that `import nodes` resolves to
+    ours -- silently resolved
     to our 194-line file instead of ComfyUI's 2595-line one. Found by
     `ambiguous_roots` on this check's first run.
     """

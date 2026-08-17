@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "a7a2d658-121a-5fcf-a2d6-68ad014fa337",
+  "id": "26836003-ec80-5e15-ac3e-fce80e582ae5",
   "revision": 0,
   "last_node_id": 35,
   "last_link_id": 42,
@@ -274,7 +274,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "model",
@@ -314,7 +314,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn (bypassed)"
+      "title": "Patch Sol-Attn"
     },
     {
       "id": 9,
@@ -996,7 +996,7 @@
       ],
       "flags": {},
       "order": 16,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "model",
@@ -1036,7 +1036,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn (stage 2, bypassed)"
+      "title": "Patch Sol-Attn (stage 2)"
     },
     {
       "id": 24,

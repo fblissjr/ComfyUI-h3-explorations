@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "81a755cd-fb17-5380-9733-0d57e7d4de61",
+  "id": "028693b2-978f-57c1-adff-a7d099b806e7",
   "revision": 0,
   "last_node_id": 27,
   "last_link_id": 30,
@@ -273,7 +273,7 @@
       ],
       "flags": {},
       "order": 7,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "model",
@@ -313,7 +313,7 @@
         false,
         ""
       ],
-      "title": "Patch Sol-Attn (bypassed)"
+      "title": "Patch Sol-Attn"
     },
     {
       "id": 9,
