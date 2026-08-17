@@ -365,6 +365,38 @@ Ordered by how much they undermine the standard above.
    new branch with no caller is unobserved by construction, however green the
    suite is.
 
+7. **The uncontrolled-requirement audit, first pass, 2026-08-16.** Swept
+   `CLAUDE.md`'s imperatives for the ones a person could violate in code, and
+   asked of each: *what assertion goes red if someone ignores this?* Full sweep
+   of `docs/` is 192 candidates and is not done; `CLAUDE.md` is the
+   highest-density source of load-bearing invariants and is.
+
+   | requirement | enforced by |
+   |---|---|
+   | a constant ending in `_LORA` names a LoRA file | **`check_lora_alpha.py`.** Selects by suffix, resolves on disk, and **went red for real** on 2026-08-16 when a bool named `REF_VIA_LORA` matched. The positive control for this table |
+   | every check that walks graphs goes through `graph_paths()` | **nothing** — but *currently held*. Audited all 12 graph-touching checks: 5 use it, 4 name specific files, 2 read docs rather than graphs, and `check_workflow_schema.py` takes CLI paths, which `CLAUDE.md` documents as the one exemption. Satisfied by convention |
+   | **never rename a node's `node_id=`** | **nothing, and it is structurally unenforceable as the repo stands.** See below |
+   | anything patching another pack does it at `execute()` time and counts | **nothing.** Written 2026-08-16, same day, by the session that found the hazard |
+   | the ref2va checkpoint stays in `MODELS` | **nothing** found |
+
+   **The `node_id` result is the one worth acting on, and it is finding 2.1's
+   shape again.** `CLAUDE.md` opens with "The one rule that matters: saved
+   graphs address everything by position", and a rename breaks every saved
+   graph silently. But this repo's graphs are *generated from the schema*: a
+   rename regenerates all 89 consistently, every check stays green, and the
+   only artifacts that break are the owner's live graphs outside the repo —
+   which no check can see. Verified there is no recorded baseline of `node_id`
+   strings anywhere outside the generated graphs themselves; the only other
+   occurrences are Python *class* names, which `CLAUDE.md` says are safe to
+   rename.
+
+   So the checks' inputs are regenerated from the same source as the violation.
+   **A control whose input is derived from the thing it is checking cannot
+   fail** — the fourth phrasing of the same defect, and this time it guards the
+   rule the repo names as its most important. The fix is a committed manifest
+   of `node_id` strings that a check diffs against; cheap, and it converts a
+   silent external breakage into a red line.
+
    **A written requirement is not a control, and this repo produced a clean
    instance the same day.** `docs/open_experiments.md` #18 requires that
    conditioning rows stay in the block population, because `kcvar` is a variance

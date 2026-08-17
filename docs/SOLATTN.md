@@ -504,6 +504,44 @@ only when `int8_qk` is on (`:213`) and **defaults to `True` on the node**
 (`:468`) — `SOL_BASELINE_124F` pins it `False`, which is the only reason the
 bench's `sage+sol+int8qk` arm is int8-QK with bf16-PV rather than full int8.
 
+### Where the exact work actually goes, by depth
+
+**Measured 2026-08-16** on the 362-frame 1024x768 three-reference capture,
+`tau` 1.3, 4 of 56 heads, via `bench/analyze_routing.py`. This is the most
+directly actionable table on this page, because unlike the ordering work it
+concerns knobs that ship **on**.
+
+| block | diagonal | sink | routed | total exact | `tau` can address |
+|---|---|---|---|---|---|
+| 0 | 0.2% | 16.6% | 29.8% | **46.6%** | 64% |
+| 8 | 0.2% | 16.6% | 12.3% | 29.1% | 42% |
+| 24 | 0.2% | 16.6% | 11.3% | 28.1% | 40% |
+| 49 | 0.2% | 16.6% | 10.9% | 27.7% | 39% |
+
+Two consequences, both live:
+
+- **The sink is a floor `tau` cannot reach.** 16.6% of all (query block, key
+  block) pairs at every depth — 256 sink blocks of 1,539, exactly the
+  conditioning share of the sequence. On reference-heavy work only ~39-42% of
+  the exact work is `tau`-addressable at depth. Turning `tau` up past the point
+  where quality goes has a hard ceiling on what it can buy, and that ceiling is
+  set by reference load rather than by the knob.
+- **Block 0 is a 1.7x outlier.** It routes 29.8% against ~11% everywhere
+  deeper, which is the same shape as `analyze_capture.py`'s finding that early
+  attention is near-uniform and leaves a block-sparse router little to exploit.
+  `dense_blocks="0"` would cost roughly 1% of total compute **by arithmetic**
+  and remove the depth where sparsity is least effective anyway.
+
+**`dense_blocks` and `tau_profile` both ship empty** (`SOL_RECOMMENDED_CUDA`),
+so this is unexploited headroom on the shipped path. The `dense_blocks="0"`
+figure is derived, not measured end-to-end; it needs a paired render before it
+becomes a recommendation.
+
+**Provenance, stated because it is load-bearing and not yet independently
+confirmed:** the sink share is derived from `video_start` rather than counted
+out of a `PackedLayout`. The row-counter in `docs/open_experiments.md` #18 is
+what confirms or kills the 16.6%.
+
 ### The frontier, at 362 frames
 
 Above the token floor, so these hold. Sampler time, same seed, warmup

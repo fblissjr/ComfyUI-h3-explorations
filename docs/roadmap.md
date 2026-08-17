@@ -291,6 +291,43 @@ env-driven and needs no code change.
 
 ---
 
+## CLOSED 2026-08-16: token ordering as a quality question
+
+**Stop working on which curve to use. This is a decision, not a pause**, and it
+is recorded here so the next session does not reopen it by finding an
+interesting geometry result.
+
+The reason is not that ordering was disproven. It is that **a controlled
+ordering A/B cannot be built with the knobs that ship:**
+
+- Holding `tau` fixed does not hold the operating point fixed -- block
+  membership sets `kcvar`, so the curve moves the routing threshold. Measured:
+  up to 1.23x difference in routed density between curves.
+- Holding *density* fixed would need a per-`(block, sigma)` `tau`. The
+  correction is a joint function of both and is not separable -- the sigma
+  spread is 0.022 at block 24 and 0.136 at block 49 -- while `tau_profile` is
+  keyed per transformer block and has no sigma axis at all.
+- So the only runnable comparison is **matched wall clock**, which answers "at
+  the speed I am paying, is this better" and is not a mechanism experiment.
+
+Add the priors: the permutation is free, the whole activation spread across
+every ordering ever measured here is 0.3-4%, geometry does not rank orderings,
+link 6 is untouched, and `SOL_RECOMMENDED_CUDA` ships `morton=False` inside a
+Sol-Attn that ships off. Two sessions spent a day on a knob nobody runs.
+
+**What is still worth doing** is in `docs/open_experiments.md` and below: the
+density-vs-wall-clock consistency check, and depth-based sparsity
+(`dense_blocks` / `tau_profile`, both shipping empty) which is a lever on a
+knob that ships **on**. The 1440x736 and 1952x544 captures that would have
+settled the `3d` pin are **not** to be run -- that pin governs a knob that is
+off, and the question is only interesting if this section is reopened.
+
+**What would reopen it:** a matched-wall-clock render pair showing a visible
+difference, or upstream giving `tau_profile` a sigma axis. Nothing else.
+
+Full reasoning and the measurements behind each clause: `docs/morton.md`, and
+`internal/postmortems/2026-08-16_session_sol-ordering-and-blind-controls.md`.
+
 ## Next, in order
 
 **0. Fix `_ref_prompt()` before running anything else on references.** New top
