@@ -704,10 +704,40 @@ swing is **0.5 points** (35.1% to 35.6%), which is smaller than `start_percent`
 knob still does what it is for — it keeps the generated audio's queries exact —
 but it is a quality knob with a rounding-error price, not a speed lever.
 
-**The v1 path still exists and is reachable.** `_sink_blocks` falls back to
-`sink_q = sink_blocks` when the layout published no audio span
-(`vendor/sol_attn_minimax.py:489-491`). Any graph that reaches that branch is
-priced by the v1 column, so the old numbers are stale rather than dead.
+**The v1 path is unreachable on this box. Checked 2026-08-16, having been
+guessed at first.** `_sink_blocks` falls back to `sink_q = sink_blocks` when the
+layout published no audio span (`vendor/sol_attn_minimax.py:489-491`), and this
+page previously said the old column was therefore "stale rather than dead".
+That was an inference from reading the fallback, not a check of whether
+anything reaches it.
+
+It does not. `PackedLayout` appends the target-audio segment
+**unconditionally** — `comfy/ldm/minimax/model.py:390-391`, whose own comment
+reads "target audio then target video, always the last two segments" — so
+`next(kind == "audio")` always finds one and `audio` is never `None`. Verified
+by construction across every shape a shipped graph can take, including
+`audio_t=0`, which still yields an `audio` segment of zero rows rather than no
+segment:
+
+    t2v 362f            audio_t=603   audio segment present, 1,206 rows
+    t2v 124f            audio_t=207   audio segment present,   414 rows
+    audio_t forced 0    audio_t=0     audio segment present,     0 rows
+
+So **the v1 column prices nothing that runs here** and the table above is the
+whole story for every shipped graph. Two things follow, and the second is why
+the fallback should stay:
+
+- The degenerate case is not v1. At `audio_t=0` the audio segment is empty, so
+  `sink_q` spans at most one block — `exact_kv_and_rows` collapses onto
+  `exact_kv` rather than reverting to the old behaviour. No shipped graph hits
+  even this; every one generates audio.
+- **The fallback is a guard against an upstream contract change, not dead
+  code.** It fires exactly if `PackedLayout` stops appending audio
+  unconditionally — which is the class of breakage that hit this repo on
+  2026-08-13, when upstream dropped `frame_count` from the same class and every
+  graph failed at the Preflight node. Nothing in `bench/` can catch that in
+  advance; the fallback is what turns it into degraded pricing instead of a
+  crash.
 
 ### The sink conflates two things worth separating
 

@@ -29,7 +29,7 @@ entry point. What upstream claims lives in
 > - It is **`2d_frame`'s worst canvas**, which is the whole reason this page
 >   exists. So the shipped curve is being judged where it is weakest, and the
 >   alternatives where they flatter best. `3d` scores 97.9% connected here and
->   67.2% at 1440x736; a page measured at the second number would tell a
+>   51.5% at 1952x544; a page measured at the second number would tell a
 >   different story about which curve to pin.
 >
 > **Aspect ratio, not resolution, is the lever.** The cost is
@@ -57,12 +57,22 @@ entry point. What upstream claims lives in
 > - **The conditioning share.** 530 rows is 1.4% of this sequence and about
 >   0.5% at 362 frames, so the sink's weight in every block statistic differs.
 >
-> What does transfer:
+> What does transfer, **and only for the per-frame curves**:
 >
-> - **The geometry.** Measured both ways: latent_t 37 against 107 at 1344x768
->   moves connectivity by 0.3 points (86.1% to 85.8%) and radius by 0.04. Block
->   shape is a per-frame property and the frame count barely touches it, so the
->   canvas sweeps above stand at any length.
+> - **`2d_frame`, `hilbert` and serpentine geometry.** latent_t 37 against 107
+>   moves them by under half a point at every canvas checked. Block shape is a
+>   per-frame property for these, and the frame count does not touch it.
+> - **`3d` geometry does NOT transfer, and an earlier version of this box said
+>   it did.** Corrected 2026-08-16. `3d` interleaves t with h and w, so its
+>   blocks span four latent frames by construction and the frame count is one
+>   of its inputs. At 1440x736 it reads **67.2% at latent_t 37 and 53.7% at
+>   107** — a 13.5-point move on the axis that was claimed not to matter.
+>
+>   The claim was checked, at 1344x768, where `3d` moves 97.9% to 98.4% and the
+>   test passes. So it was verified on the one canvas where the effect does not
+>   show, then generalised to a curve family it was never measured on. That is
+>   the same selection-effect shape as the `3d` pin two sections down, made by
+>   the same person on the same day.
 >
 > Centroid fidelity and mass concentration sit in between and nobody has
 > measured which side they fall on. Treat them as untested at length rather than
@@ -988,14 +998,21 @@ shipped.**
 
 *It is not universal.* Swept over **all 48 legal landscape/square canvases**
 (portrait mirrors are identical -- tokens per frame is `(W/32)x(H/32)`, which is
-symmetric), at latent_t 37 and `video_start` 530, all blocks:
+symmetric), `video_start` 530, all blocks, **at latent_t 107 (362 frames, the
+shipped length)**:
 
 | | min | mean | max |
 |---|---|---|---|
-| `hilbert` (shipped) | 77.1% | 85.9% | 100% |
+| `hilbert` (shipped) | 77.1% | 85.8% | 100% |
 | + per-frame rotation | **74.3%** | 90.5% | 100% |
-| + serpentine | 83.9% | **92.4%** | 100% |
-| `3d` | 67.2% | 89.4% | 100% |
+| + serpentine | 83.8% | **92.4%** | 100% |
+| `3d` | **51.5%** | 87.1% | 100% |
+
+**Quote this table at the shipped length, not the capture's.** The per-frame
+rows are the same to within half a point at latent_t 37, but `3d`'s floor is
+67.2% there and 51.5% here — it mixes frames, so frame count is one of its
+inputs. The first version of this table was taken at the capture's 124 frames
+and understated `3d`'s spread by 15 points.
 
 - **Serpentine is never worse than plain `hilbert`. 0 of 48.**
 - **Rotation is worse on 5 of 48**: 1536x672, 1440x736, 1408x736, 1376x736,
@@ -1019,18 +1036,59 @@ has the premise backwards; that argument has been made once and it is wrong.
 
 Also visible only once the sweep covers legal canvases: **`3d` is the most
 canvas-sensitive ordering of the four, not the most robust.** Its floor is
-67.2%, below plain `hilbert`'s, and its five worst are all legal shipped-set
-canvases: 1440x736 (67.2%), 1376x736 (69.4%), 1568x672 (69.7%), 1504x672
-(70.1%), 1952x544 (70.9%). It reaches 97.9% at 1344x768, which is the canvas
+51.5% at the shipped length, well below plain `hilbert`'s 77.1%, and it is
+worse than plain `hilbert` on **14 of the 48**. Its four worst are all legal
+shipped-set canvases: 1952x544 (51.5%), 1888x544 (52.5%), 1568x672 (52.7%),
+1440x736 (53.7%). It reaches 97.9% at 1344x768, which is the canvas
 this page happens to measure on, and that single number is where its reputation
 here comes from.
 
 So the canvas rule this page narrowed to a `2d_frame`-only rule is not quite
-that either. `SOL_RECOMMENDED_CUDA` pins `3d`, which changes nothing while
-`morton=False` -- but the pin rests on centroid fidelity measured at one canvas,
-and the geometry says `3d`'s behaviour varies more across canvases than anything
-else on offer. Geometry only: no activation measurement exists at any canvas
-except 1344x768.
+that either.
+
+### The `3d` pin was selected at `3d`'s best canvas
+
+**Open question, raised 2026-08-16, and the most consequential thing on this
+page that nobody can currently settle.** `SOL_RECOMMENDED_CUDA` pins
+`morton_curve="3d"` on centroid fidelity measured at 1344x768 — where `3d` is
+97.9% connected, the best of the four. The 48-canvas sweep says that is `3d`'s
+best canvas and that it is the most variable ordering in the legal set. **A
+default chosen where a curve looks best, deployed across a set where it is the
+least predictable.**
+
+Two readings, and nothing distinguishes them today:
+
+- **(a) The activation advantage is canvas-independent.** Geometry and
+  activations have already been shown to rank orderings differently (see
+  "Geometry does not rank orderings"), so a curve can be geometrically variable
+  and still summarise well everywhere. Under this reading the pin is correct and
+  the sweep is a curiosity.
+- **(b) The advantage tracks the geometry.** Then the pin is right for 1344x768
+  and wrong for much of the legal set, and the ordering axis needs a
+  canvas-dependent default rather than a fourth curve.
+
+**(a) is not the safe assumption merely because it keeps the pin.** The evidence
+for geometry-activation decoupling is 0.002-0.007 differences between arms *at
+one canvas*; it says geometry does not rank orderings at a fixed canvas, which
+is a different claim from "activations are canvas-invariant". Nothing here
+supports the second.
+
+**What separates them, and it is cheap.** Run `bench/analyze_capture.py`'s
+centroid-fidelity arm on a capture taken at a *second* canvas and compare `3d`'s
+margin over `hilbert` and `2d_frame` against the 1344x768 margins. If the margin
+survives, (a). If it collapses where the geometry collapses, (b).
+
+One caution on the obvious candidate. The 2026-08-17 reference capture is at
+1024x768, whose 768 tokens per frame **is** divisible by 64 — one of only 3 such
+canvases in the legal set, against 1344x768's 1008 which is not. So it moves
+canvas *and* phase-alignment together, and a difference could be either. It
+still beats one canvas and it costs nothing extra to score, but it is not the
+clean two-point line this question wants; a ragged second canvas would be
+better.
+
+Until then: geometry only, and **no activation measurement exists at any canvas
+except 1344x768.** Nothing is at risk while `morton=False` ships — the exposure
+is the next person who turns it on.
 
 **Still link 5.** Whether 90% connected beats 60% connected in the output is
 unmeasured, exactly as with everything else on this page.
@@ -1110,7 +1168,7 @@ region or three -- and they are not a basis for choosing between orderings.
 Choose on the capture.
 
 **A second leg, from the legal-canvas sweep above:** geometric rankings are not
-even stable across canvases. `3d` runs 67.2% to 98.7% connected over the legal
+even stable across canvases. `3d` runs 51.5% to 100% connected over the legal
 set and swaps places with every other ordering along the way. So tuning against
 radius or connectivity does not just optimise the wrong thing -- it picks a
 different winner at each resolution.
