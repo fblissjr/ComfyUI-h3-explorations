@@ -1,0 +1,110 @@
+{
+  "MiniMaxH3KeyframeCanvas": {
+    "inputs": [
+      "first_frame",
+      "mode",
+      "width",
+      "height",
+      "last_frame",
+      "length"
+    ],
+    "node_id": "MiniMaxH3KeyframeCanvas",
+    "outputs": [
+      "width",
+      "height",
+      "first_frame",
+      "last_frame",
+      "attn_cost_vs_1to1",
+      "length"
+    ]
+  },
+  "MiniMaxH3Preflight": {
+    "inputs": [
+      "conditioning",
+      "samples"
+    ],
+    "node_id": "MiniMaxH3Preflight",
+    "outputs": [
+      "conditioning",
+      "samples",
+      "sequence_length",
+      "report"
+    ]
+  },
+  "MiniMaxH3ProvenanceStamp": {
+    "inputs": [
+      "latent",
+      "model",
+      "sigmas",
+      "note"
+    ],
+    "node_id": "MiniMaxH3ProvenanceStamp",
+    "outputs": [
+      "latent"
+    ]
+  },
+  "MiniMaxH3ReferenceFit": {
+    "inputs": [
+      "image",
+      "allow_upscale",
+      "short_edge",
+      "lift_downstream_clamp"
+    ],
+    "node_id": "MiniMaxH3ReferenceFit",
+    "outputs": [
+      "image",
+      "latent_rows"
+    ]
+  },
+  "MiniMaxH3Resolution": {
+    "inputs": [
+      "shape",
+      "length"
+    ],
+    "node_id": "MiniMaxH3Resolution",
+    "outputs": [
+      "width",
+      "height",
+      "length",
+      "video_tokens",
+      "tokens_per_frame",
+      "attn_cost_vs_16_9",
+      "summary"
+    ]
+  },
+  "MiniMaxH3SageAttention": {
+    "inputs": [
+      "model",
+      "mode",
+      "patch_token_refiner",
+      "head_chunks"
+    ],
+    "node_id": "MiniMaxH3SageAttention",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3SolAttnCurve": {
+    "inputs": [
+      "model",
+      "curve"
+    ],
+    "node_id": "MiniMaxH3SolAttnCurve",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "SageChainAssert": {
+    "inputs": [
+      "model",
+      "require_override",
+      "require_forward_patch",
+      "exercise",
+      "warn_only"
+    ],
+    "node_id": "SageChainAssert",
+    "outputs": [
+      "model"
+    ]
+  }
+}

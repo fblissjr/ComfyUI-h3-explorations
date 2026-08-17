@@ -46,6 +46,43 @@ artifact.
   `check_prompt_guide_conformance`, `check_generator_constants` and
   `check_workflow_schema` pass, and `smoke_h3.py` rendered.
 
+## 0.30.0
+
+### Added
+
+- **`bench/check_node_ids.py` and `bench/node_id_manifest.json`** — the first
+  guard on the rule CLAUDE.md opens with, checked against a baseline the schema
+  cannot move.
+
+  Nothing enforced it before, and not by omission. **Every existing guard
+  derives its expectation from the thing it is checking**:
+  `check_workflow_schema.py` validates saved graphs against a live
+  `/object_info`, and `build_workflows.py` regenerates all 89 graphs — both
+  downstream of the schema. So renaming a `node_id` and regenerating leaves
+  every artifact internally consistent and every fast check green, while the
+  only broken artifacts are the owner's live graphs outside the repo, which no
+  check can see. That is the failure mode CLAUDE.md describes, and it was
+  unguarded.
+
+  A control whose input is derived from the thing it is checking cannot fail —
+  the fourth phrasing of the family in `docs/checks.md`, and this time on the
+  repo's stated most important rule. The fix is the only thing that fixes that
+  family: a committed, independent baseline that a schema change cannot
+  rewrite. The manifest records `node_id` plus ordered input and output names,
+  which is the whole of what a saved graph addresses positionally.
+
+  **If it goes red the default is to revert, not to `--write`.** `--write` is
+  for the two changes CLAUDE.md permits: a new node, or an input/output
+  appended at the END.
+
+  Seven branches, each shown red for the right reason, harness in `internal/`:
+  rename, reorder, mid-insert (the 2026-08-10 `head_chunks` bug), output
+  reorder, node disappearance, permitted append, and new node. `collect()` was
+  then verified independently — the schema objects and a source grep for
+  `node_id="..."` return the same 8 strings — because the mutation harness
+  exercises `compare()` and would not have caught a collector that returned the
+  manifest back to itself.
+
 ## 0.29.0
 
 ### Added
