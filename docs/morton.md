@@ -627,6 +627,29 @@ in either direction -- including the corrected one. And `3d` has the best
 centroid fidelity at that depth (0.9434), so the ordering with the most coherent
 blocks is the one that routes fewest. Coherence does not predict density.
 
+> **The instance is capture-specific; the conclusion got stronger. Measured
+> 2026-08-16 on the 362-frame 1024x768 three-reference capture.** "3d below 1.0
+> at block 49" does **not** reproduce there. What happens instead is worse for
+> any simple story: `3d` at block 49 runs 0.994x, 1.029x, 1.130x across steps
+> 3 / 8 / 14, **crossing 1.0 within a single depth as a function of sigma**,
+> and the sign flip has relocated to block 0, where every curve routes fewer at
+> early steps and crosses above 1.0 by step 14.
+>
+> So quote the block-49 row against the 124-frame t2v capture it came from, and
+> nothing else. **The sign is a joint function of depth and sigma, of neither
+> alone, and of block coherence not at all.**
+>
+> **This is what makes a controlled ordering A/B unbuildable**, which is the
+> load-bearing consequence. Holding routed density fixed across an ordering
+> change needs a per-`(block, sigma)` `tau`; `tau_profile` is keyed per
+> transformer block and has no sigma axis, and a per-block scalar cannot carry
+> a term that moves 0.136 across the schedule at block 49 while moving 0.022 at
+> block 24. A tau-matched pair varies two things; a density-matched pair needs
+> a knob that does not exist. The only runnable comparison is **matched wall
+> clock** -- set the morton arm's `tau` so both arms cost the same and judge
+> quality, which is the arm proposed further down this page. It answers a real
+> question and it is not a mechanism experiment; do not report it as one.
+
 **Two densities, and they answer different questions.** The table above is
 ordering effect. `analyze_routing.py` also emits kernel density, which counts
 the forced-exact pairs the kernel routes regardless, and that is the number for
