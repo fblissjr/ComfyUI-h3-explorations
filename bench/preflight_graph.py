@@ -409,7 +409,53 @@ def price(node: dict, graph: dict) -> list[str]:
     twin = ref_total + 100 if ref_total else 0
     lines.append(f"  text      {tt:>8,}  prompt tokens ({kind})"
                  + (f" + ~{twin:,} vision blocks" if twin else ""))
-    total = video + ref_total + tt + twin
+
+    # Target audio, omitted entirely until 2026-08-16 and worth 1,206 rows at
+    # 362 frames. `PackedLayout` appends it unconditionally between the
+    # references and the video -- "target audio then target video, always the
+    # last two segments" (`comfy/ldm/minimax/model.py:390-391`) -- so every
+    # graph carries it whether or not a soundtrack is wired.
+    #
+    # Measured against the real layout via `bench/count_packed_rows.py`: this
+    # file reported 97,394 for h3_probe_capture_ref3 where the sequence is
+    # 98,524. The 1,130 gap is this segment (-1,206) net of the vision-block
+    # estimate running 76 high. **The omission ran in the under-pricing
+    # direction**, which is the one that matters for a tool whose output is
+    # read as headroom before an OOM-prone render.
+    # `snapped` is the resolved frame count, the same one the video line
+    # prints. Deriving audio from it rather than from the raw `length` input
+    # matters: `length` is often a link, and the snap to the 17k+5 grid is what
+    # the model actually runs.
+    # Imported when ComfyUI is reachable, and NOT restated when it is not.
+    # This file's whole premise is that it runs with no CUDA, no model and no
+    # server, so ComfyUI's root is not on its path by default -- the import is
+    # attempted with the root added, and a failure downgrades the total rather
+    # than inventing a rule. `latent_t` above is restated inline and carries a
+    # comment defending it; a second inlined rule is a second thing to drift.
+    audio_rows = 0
+    try:
+        # insert(0), not append: `comfy_extras.nodes_minimax_h3` does a bare
+        # `import nodes`, and this repo's own `nodes.py` is already on the path
+        # at position 0 (line 73). Appending leaves ours winning and the import
+        # dies on a relative import -- which is exactly what happened on the
+        # first attempt here. Safe to put ComfyUI first: every module this file
+        # imports from the repo is already bound by now.
+        _comfy = Path.home() / "ComfyUI"
+        if sys.path[0] != str(_comfy):
+            sys.path.insert(0, str(_comfy))
+        from comfy_extras.nodes_minimax_h3 import temporal_shape
+        audio_rows = temporal_shape(snapped)[2] * 2
+    except Exception:
+        lines.append("  NOT COUNTED: target audio rows -- ComfyUI is not "
+                     "importable from here, so `temporal_shape` could not be "
+                     "read. That segment is ~1,206 rows at 362 frames and is "
+                     "always present, so the total below is short by about "
+                     "that much.")
+    if audio_rows:
+        lines.append(f"  audio     {audio_rows:>8,}  target audio rows "
+                     f"(always present, soundtrack or not)")
+
+    total = video + ref_total + tt + twin + audio_rows
     lines.append(f"  TOTAL    ~{total:>8,}  packed sequence")
     lines.append("")
     lines.append("  recorded peaks on this box, for judgement not prediction:")

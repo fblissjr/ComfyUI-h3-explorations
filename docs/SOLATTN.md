@@ -537,10 +537,27 @@ so this is unexploited headroom on the shipped path. The `dense_blocks="0"`
 figure is derived, not measured end-to-end; it needs a paired render before it
 becomes a recommendation.
 
-**Provenance, stated because it is load-bearing and not yet independently
-confirmed:** the sink share is derived from `video_start` rather than counted
-out of a `PackedLayout`. The row-counter in `docs/open_experiments.md` #18 is
-what confirms or kills the 16.6%.
+**The 16.6% is confirmed, by a second path.** It was derived from `video_start`
+when first reported; `bench/count_packed_rows.py` now builds the real
+`PackedLayout` and reads the segments off it, which reproduces the whole
+sequence exactly — 98,524 rows, zero residual — and gives **256 sink blocks of
+1,539, 16.6%**. Two independent routes to the same number, one of them the
+object the model itself constructs.
+
+The segment breakdown, since nothing else in this repo has ever printed it:
+
+| segment | rows | span |
+|---|---|---|
+| text | 7,737 | [0..7,737) |
+| ref_img | 777 | [7,737..8,514) |
+| ref_img | 2,500 | [8,514..11,014) |
+| ref_img | 4,128 | [11,014..15,142) |
+| audio | 1,206 | [15,142..16,348) |
+| video | 82,176 | [16,348..98,524) |
+
+`text` is the one number not counted here — it needs the text encoder, so it is
+recovered as the residual against the capture's real sequence length and marked
+as such by the tool rather than guessed.
 
 ### The frontier, at 362 frames
 
