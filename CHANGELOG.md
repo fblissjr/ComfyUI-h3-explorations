@@ -4,6 +4,40 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.31.0
+
+### Added
+
+- **`bench/check_graph_discovery.py`** — guards CLAUDE.md's `graph_paths()`
+  rule, which every graph-walking check satisfies today and nothing enforced.
+  A bare `workflows/*.json` glob misses `workflows/image/`, so a check written
+  next month could pass green over a subset and look identical to one that
+  covered everything.
+
+  **It parses rather than greps, and that is load-bearing.**
+  `check_ref_prompt_labels.py:66` contains `WORKFLOWS.glob("*.json")` inside a
+  comment explaining not to do it; a regex flags that line, and the natural
+  "fix" is to reword the comment — teaching the opposite of the rule. The AST
+  cannot see comments or docstrings, both verified green in the harness.
+
+  **First run found two sites and both were false positives**, which is the
+  more useful result. `check_single_frame.py:163` enumerates `/proc`, not
+  graphs — the rule now requires a graph-shaped receiver. And
+  `check_ref_prompt_labels.py:151` walks the tree deliberately: its subject is
+  discovery *coverage*, so routing it through `graph_paths()` would make it
+  derive its expectation from the thing it checks. It is the one exemption, and
+  `EXEMPT` records the mechanism plus the cost (the rest of that file is
+  unaudited).
+
+  Nine harness cases, four red and five green, in `internal/`. The green ones
+  carry the weight: a check that fires on a comment, on `/proc`, or on
+  `rglob("*.py")` gets ignored, and an ignored check is worse than none.
+
+  Unlike the `node_id` harness, this one exercises the **collector**
+  (`enumeration_sites`) on synthetic sources rather than feeding the comparator
+  a mutated baseline — that gap is what let a self-referential collector slip
+  through the previous check's seven mutations.
+
 ## 0.30.0
 
 ### Added
