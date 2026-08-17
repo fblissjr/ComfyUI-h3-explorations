@@ -734,11 +734,32 @@ those row counts; `S` = sink rows, `T = S + V`, exact work is `T*S` for
 > the doc's own `2p - p²` reproduces all five published figures to within
 > rounding. Only then was the v2 formula applied.
 >
-> **Still derived, not measured.** `A` is measured and the formulae are read
-> from source, but each row's `S` is recovered from the published `exact_kv`
-> percentage rather than counted out of a `PackedLayout`. `docs/evidence.md`
-> asks for "v1-vs-v2, measured not derived"; this is half of it. Counting real
-> `S` per configuration finishes it.
+> **`S` is not reconstructible, and the conclusion does not need it.**
+> Attempted 2026-08-16. `A` is measured, the formulae are read from source, and
+> `bench/count_packed_rows.py` now makes video and target audio exact — but
+> recomputing `S/T` from those plus `docs/h3_references.md`'s measured
+> reference costs reproduces the published `exact_kv` column on only **2 of 5**
+> rows (1.4% against 1.5%, 29.5% against 29.6%) and misses the video-reference
+> rows badly (49.4% against 35.1% at 345 frames). The gap is the text estimate
+> at heavy reference load, which needs the encoder. So the `exact_kv` column
+> cannot be promoted to measured by arithmetic; that would take a render per
+> configuration.
+>
+> **What makes this survivable is that the finding is insensitive to `p`.** The
+> v1 swing is `p - p²` and the v2 swing is `(A/V)(1-p)²` with `A/V` = 0.0112,
+> so across the whole plausible range:
+>
+> | `p` | v1 swing | v2 swing |
+> |---|---|---|
+> | 17.1% | 14.2 pts | 0.77 pts |
+> | 35.1% | 22.8 pts | 0.47 pts |
+> | 49.4% | 25.0 pts | 0.29 pts |
+>
+> **The v2 swing stays under a point wherever `p` actually lands, and shrinks
+> as `p` grows** — so if the published column understates `p`, as the
+> recomputation suggests, `sink_conditioning` matters *less* than stated here,
+> not more. "Not the dominant knob at reference load" holds on any reading.
+> Quote the swing; treat the absolute levels as the derived figures they are.
 
 **The mechanism, which is the part worth carrying:** v1 and v2 diverge in
 proportion to **how much of the sink is references rather than target audio.**
