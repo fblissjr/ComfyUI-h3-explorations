@@ -1472,7 +1472,6 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
     takes fully_copy / partially_copy / reference / weak_reference (4.2).
     """
     image_roles = _image_roles(images)
-    image_count = len(image_roles)
     defs, retention, shot = [], [], []
     audio_n = 0
     subject_from_video = video and not images

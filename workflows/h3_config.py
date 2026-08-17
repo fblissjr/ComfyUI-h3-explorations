@@ -372,6 +372,23 @@ SOL_RECOMMENDED_CUDA = dict(
     # groups temporally distant tokens -- which is mechanically correct and
     # which the measurement does not refute; it just does not win. See
     # docs/morton.md.
+    #
+    # **OPEN, raised 2026-08-16: this pin was selected at `3d`'s best canvas.**
+    # Every number above is 1344x768, where `3d` is 97.9% connected. Swept over
+    # all 48 legal canvases at the SHIPPED length it is the MOST
+    # canvas-variable of the four orderings -- floor 51.5%, well below plain
+    # `hilbert`'s 77.1%, worse than plain `hilbert` on 14 of the 48, and its
+    # four worst are all in the shipped set (1952x544, 1888x544, 1568x672,
+    # 1440x736). Length matters here and only for this curve: `3d` mixes
+    # frames, so its floor is 67.2% at 124 frames and 51.5% at 362.
+    # So the default was chosen where this curve looks
+    # best and would be deployed across a set where it is the least
+    # predictable. That is geometry; whether the ACTIVATION advantage is
+    # canvas-contingent too is unmeasured, and the two possibilities point
+    # opposite ways. Do not read this as "the pin is wrong" -- read it as a
+    # pin resting on one canvas. `docs/morton.md` has both readings and names
+    # the experiment that separates them. Nothing is at risk while
+    # `morton=False`; the exposure is the next person who turns it on.
     morton_curve="3d", centroid_tail=True, routed_cap_percent=0,
     reuse_qkv_memory=False, verbose=False, dense_blocks="",
 )
@@ -912,6 +929,36 @@ SPLIT_AT = 2
 REF_VIDEO_CANVAS = dict(width=1024, height=768)
 REF_VIDEO_BUDGET = dict(length=LONG_LENGTH, **REF_VIDEO_CANVAS,
                         ref_upscale=False)
+
+
+# The three references `h3_probe_capture_ref3` wires, in socket order:
+# character, garment, environment. Chosen for the MEASUREMENT rather than the
+# picture, from `internal/reference_library.md`, which records every row cost
+# below.
+#
+#   777 rows  0.56 ar  0.78 MP   the only asset that cannot fill a 2048 short
+#                                edge from real pixels -- the undersized case
+# 2,500 rows  1.00 ar  2.56 MP   legible text and a logo; the library calls it
+#                                the probe for whether sparse attention drops
+#                                high-frequency detail, which is the failure
+#                                mode a routing study is about
+# 4,128 rows  1.79 ar  4.23 MP   the size ladder's top end
+#
+# 5.3x span in DiT rows and aspects 0.56 / 1.00 / 1.79, deliberately, because
+# a capture that varies neither cannot say whether reference load or reference
+# SHAPE moves the router.
+#
+# **The environment reference contains two people.** The generated prompt scopes
+# it to "setting, palette, and lighting", which steers away from them; widening
+# that line makes this asset the wrong choice rather than a merely awkward one.
+#
+# `product_soccer_jersey` carries real brand marks. Internal capture artifact
+# only -- see the flags section of `internal/reference_library.md`.
+CAPTURE_REF_IMAGES = (
+    "h3_refs/subject_performer_stage_662x1177.png",
+    "h3_refs/product_soccer_jersey_1600x1600.png",
+    "h3_refs/scene_loft_couch_duo_2752x1536.png",
+)
 
 
 # ---------------------------------------------------------------------------
