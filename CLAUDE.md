@@ -23,17 +23,26 @@ grouping is the instinct that breaks this. (Cost a real bug on 2026-08-10:
 
 `bench/check_workflow_schema.py` catches **the ordering rule**, positionally.
 
-**Nothing catches the rename rule, and as the repo stands nothing can.**
-Corrected 2026-08-16 — the line above used to read "catches it", sitting under
-both paragraphs, which implied a guard the headline rule does not have. Graphs
-here are *generated from the schema*, so a rename regenerates all 89
-consistently and every check stays green; the only artifacts that break are the
-owner's live graphs outside this repo, which no check can see. There is no
-recorded baseline of `node_id` strings anywhere outside the generated graphs.
+**`bench/check_node_ids.py` catches the rename rule**, against
+`bench/node_id_manifest.json` — a committed baseline that is *not* regenerated
+from the schema, which is the whole point. It covers the positional contract
+too: ordered input and output names, so the "append only" half above is guarded
+by the same file. Added 2026-08-16; before that nothing guarded either.
 
-So this rule is held by **reading it, and nothing else**. If that ever needs to
-stop being true, the fix is a committed manifest of `node_id` strings for a
-check to diff against.
+**Why nothing else can, and it is worth knowing.** Every graph here is
+generated from the schema, so a rename regenerates all 91 tracked graphs
+consistently: `check_workflow_schema.py` passes, the generator revalidates
+against a live `/object_info` and passes, the smoke renders. Everything is
+green and the artifacts that actually break — the owner's live graphs outside
+this repo — are invisible to all of it. **A control whose input is regenerated
+from the thing it is checking cannot fail**, which is why the guard had to be a
+hand-maintained file.
+
+Two partial catches exist and neither rescues the rule: `bench/bench_e2e_h3.py`
+hardcodes **2 of the 8** `node_id` strings, so a rename of those two fails at
+submit time (GPU, server, runtime — not the fast suite); and a rename shows as
+~91 files changing their `type` field in `git diff`, which is human-visible and
+machine-checked by nothing.
 
 ## What is where
 
