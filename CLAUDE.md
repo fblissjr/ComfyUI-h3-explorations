@@ -21,7 +21,19 @@ grouping is the instinct that breaks this. (Cost a real bug on 2026-08-10:
 `head_chunks` inserted after `mode` landed an old graph's
 `patch_token_refiner=False` on an INT with `min=1`.)
 
-`bench/check_workflow_schema.py` catches it, positionally.
+`bench/check_workflow_schema.py` catches **the ordering rule**, positionally.
+
+**Nothing catches the rename rule, and as the repo stands nothing can.**
+Corrected 2026-08-16 — the line above used to read "catches it", sitting under
+both paragraphs, which implied a guard the headline rule does not have. Graphs
+here are *generated from the schema*, so a rename regenerates all 89
+consistently and every check stays green; the only artifacts that break are the
+owner's live graphs outside this repo, which no check can see. There is no
+recorded baseline of `node_id` strings anywhere outside the generated graphs.
+
+So this rule is held by **reading it, and nothing else**. If that ever needs to
+stop being true, the fix is a committed manifest of `node_id` strings for a
+check to diff against.
 
 ## What is where
 
@@ -234,6 +246,31 @@ a bool named `REF_VIA_LORA` crashed it with a bare `TypeError`.
 - **A check whose input already satisfies the expected outcome cannot fail**,
   and it is most convincing when it is emptiest. Ask what the input would have
   to look like for it to fail.
+
+  **This bullet was already here on 2026-08-16, and the class occurred five
+  times that day anyway** — by two workers, the fifth after it had been written
+  up in `docs/checks.md`. The abstract form does not fire; the shapes do. Match
+  against these:
+
+  | shape | instance |
+  |---|---|
+  | the property is **definitional** for that input | `verify_adjacency(64)` — a Hilbert curve cannot jump on a power-of-two square |
+  | the baseline **is** the subject | an identity control comparing `torch.arange` against `orders["raster"]`, which is `torch.arange` |
+  | the input **predates** the branch | a before/after prompt snapshot cannot reach the code path the same change added |
+  | the sample sits where the effect is **flattest** | length-invariance checked at 1344x768 (`3d` moves 0.5pt) and sigma-dependence at block 24 (spread 0.022 against 0.136 at block 49) |
+  | the input is **regenerated from the same source** as the violation | renaming a `node_id` regenerates every graph here consistently; only graphs outside the repo break |
+
+  The last is the one to fear, because everything stays green *and* the damage
+  is invisible from inside. **When a check reads generated artifacts, ask what
+  generates them.**
+
+- **A requirement is not a control. When you write a "must" into a doc, name
+  the assertion that goes red if it is ignored — or write "enforced by
+  nothing".** `docs/open_experiments.md` #18 required conditioning rows to stay
+  in the block population; a violating implementation passed every control the
+  script had, and only a deliberate mutation found it. The requirements most
+  likely to lack a control are the ones everybody agrees with, because
+  agreement feels like coverage. `docs/checks.md` gap 7 is the standing audit.
 - **Prefer a control the check compares against** — a frontend-written graph,
   the pre-fix code, an independent implementation — over asserting against
   numbers the test computed itself.
