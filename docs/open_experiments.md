@@ -1155,22 +1155,36 @@ PESSIMISTIC, DO NOT QUOTE, because a near-uniform softmax leaves a block router
 nothing to find and 8 blocks is a different regime rather than a small version
 of production. 17b is that same decomposition somewhere the premise holds.
 
-**Done 2026-08-17, and it does not close 17.** On the reference-heavy captures
-the quant/sparsity ratio runs roughly 15% to 62% at block level, against the 5%
-threshold the script uses to retire the question. Quantization is a measurable
-share of total error, so a 16-bit PV is not ruled out on these numbers.
+**Done 2026-08-17, and it does not close 17.** Across all twelve rows the
+quant/sparsity ratio runs 14.43% to 62.20%, against the 5% threshold the script
+uses to retire the question. Quantization is a measurable share of total error,
+so a 16-bit PV is not ruled out on these numbers. Block 49 climbs monotonically
+across the trajectory (49.42%, 55.56%, 62.20%).
 
-Two things this gate got wrong about itself, both now stated in
-`bench/analyze_sol_error.py`'s module docstring rather than only here. Its `rho`
-column is not a valid cosine, because `quant_l2` is normalised by `‖out_eager‖`
-while the other two use `‖out_dense‖`. And it measures the first 8 of 56 heads
-by default, so any row named for a block is a first-eight-heads figure. The
-block-level ratio above survives both, because it is a ratio of two quantities
-computed the same way over the same subset. **What it still lacks is a
-calibration gate** against `bench/_sol_attn_reference.py` -- its sibling
-`bench/simulate_track_b_lite.py` has one and currently refuses to report at
-rel_l2 0.97, and nothing yet proves this file's eager Sol is in better shape.
-*Blocker: none. Next action is the calibration gate, not another run.*
+**Three things this gate got wrong about itself**, all now stated in
+`bench/analyze_sol_error.py`'s module docstring rather than only here.
+
+Its `rho` column was not a valid cosine, because `quant_l2` was normalised by
+`‖out_eager‖` while the other two used `‖out_dense‖`. Its `cosine_sim` returned
+values above 1.0 at production tensor size. And **its eager Sol diverged from
+the vendored oracle**: `colmean` was normalised on the key-block axis rather
+than the query-block axis, which is identical at every block-aligned length and
+wrong at every ragged one -- rel_l2 0.166 against the oracle at t=1000, where
+production S = 98498 = 1539*64 + 2 is ragged.
+
+All three are fixed and a calibration gate now runs before any capture is read.
+The twelve rows above are post-fix; the correction moved each by under 1.2
+points and changed no conclusion, because the mis-normalised row and column are
+two entries out of 1540 at production scale.
+
+The instructive part is how it survived a day. The sibling gate in
+`bench/simulate_track_b_lite.py` tests at t=320 = 5*64, block-aligned, so it
+could never have caught a ragged-block divergence -- while naming ragged-block
+handling as a known failure mode in its own refusal text. A control whose
+fixture cannot express the defect is not a control for it.
+
+*Blocker: none. Next action is chunking the oracle, so the gate can run at
+production S instead of inferring from t <= 2001.*
 
 **17c. Capture a reference-heavy render.** NEW, and it gates the value of the
 other two. Every Sol measurement in this repo -- and the existing captures at

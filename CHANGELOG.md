@@ -8,6 +8,40 @@ artifact.
 
 ### Fixed
 
+- **`bench/analyze_sol_error.py`: the eager Sol reference diverged from the
+  vendored oracle, and now has a gate that says so.** `colmean` was normalised
+  on the key-block axis (`lengths.view(1, 1, 1, n)`) where
+  `bench/_sol_attn_reference.py:172` uses the query-block axis
+  (`lengths.view(1, 1, n, 1)`). Every interior block is `BLOCK` long so the two
+  agree everywhere except the ragged final block — which makes it invisible at
+  any block-aligned length and wrong at every ragged one. Measured against the
+  oracle: rel_l2 0.013 at t=330, 0.091 at t=514, 0.166 at t=1000, against 0.0004
+  after the fix. Production S is 98498 = 1539*64 + 2, i.e. ragged.
+
+  `calibrate_against_oracle` now runs before any capture is read and refuses to
+  report on disagreement, and its default lengths deliberately mix aligned and
+  ragged. The sibling gate in `bench/simulate_track_b_lite.py` tests at t=320 =
+  5*64 only, so it could not have caught this class while naming ragged-block
+  handling as a known failure mode in its own refusal text. Verified both ways:
+  the gate passes at 0.0004 on the fixed code and goes red at 0.0912 with exit 1
+  when the defect is reintroduced.
+
+  **All twelve decomposition rows were re-measured after the fix.** The
+  correction moved each by under 1.2 points and changed no conclusion, because
+  the mis-normalised row and column are two entries out of 1540 at production
+  scale. Post-fix, the quant/sparsity ratio runs 14.43% to 62.20% across blocks
+  0, 24, 40 and 49, with block 49 climbing monotonically (49.42%, 55.56%,
+  62.20%).
+
+- **`bench/red/show_red_check_capture_manifest.py` covers the enumeration
+  branch.** Its eight existing cases all call `check_manifest` on one file, so
+  none of them could reach the code deciding *which* directories are captures —
+  the part that was blind. Four cases added driving `main()` against synthetic
+  collections: a capture with tensors and no manifest must go red, and three
+  near-misses pin the false reds that the fix could have introduced (a fully
+  manifested collection, a non-capture directory sitting beside a capture, and
+  an empty collection, which must skip rather than fail).
+
 - **`bench/analyze_sol_error.py`: the three errors now share one denominator.**
   `quant_l2` was normalised by `‖out_eager‖` while `sparsity_l2` and `total_l2`
   used `‖out_dense‖`, because `rel_l2_error` divides by its second argument. The

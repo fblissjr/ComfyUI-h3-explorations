@@ -12,9 +12,18 @@ against algorithmic sparsity error, and Track B (16-bit PV) is retired.
 
 ## What this has established
 
-Run on the 2026-08-17 reference-heavy captures, the ratio came back between
-roughly 15% and 62% at block level -- far above 0.05. Quantization is a real
-share of total error, so Track B is NOT retired on this evidence.
+Run on the 2026-08-17 reference-heavy captures, all twelve rows (blocks 0, 24,
+40, 49 across steps 3, 8, 14), first 8 heads, after the calibration gate below
+passed:
+
+    block 49:  49.42% -> 55.56% -> 62.20%     (climbs toward convergence)
+    block 0:   35.72% -> 34.20% -> 21.31%
+    block 40:  15.21% -> 18.21% -> 19.52%
+    block 24:  14.43% -> 14.91% -> 18.20%
+
+Every row is far above the 0.05 retirement threshold, so quantization is a real
+share of total error and Track B is NOT retired on this evidence. Block 49's
+monotone climb is the clearest trajectory signal in the set.
 
 The more useful result is the spread, not the average: within one block at one
 step, per-head ratios range from about 24% to about 1695%, and one head's
@@ -52,23 +61,39 @@ the per-head columns can carry.
    worst" surveys only the measured prefix. The banner now prints the subset so
    a log cannot be misread, but the default is still a prefix.
 
-3. NOTHING PROVES THE EAGER REFERENCE IS SOL. `eager_sol_reference` is a
-   reimplementation, and it has no calibration gate against the vendored
-   `bench/_sol_attn_reference.py`. Its sibling `bench/simulate_track_b_lite.py`
-   has exactly that gate and currently REFUSES to report, at rel_l2 0.97,
-   because its own reimplementation drifted. This file's version does not share
-   the three divergences named in that refusal -- it routes per-query-block on
-   `colmean > thr` like the oracle, it corrects the ragged final block through
-   `lengths[-1]`, and it has no online-softmax recurrence at all -- so it is
-   likely in better shape. "Likely" is not a gate. Until one exists, every
-   number here is reproducible but unvalidated, and those are different things.
+3. THE EAGER REFERENCE DIVERGED FROM SOL, AND NOTHING CAUGHT IT FOR A DAY.
+   `eager_sol_reference` is a reimplementation. It had no calibration gate until
+   2026-08-17, and when one was finally written it went RED: `colmean` was
+   normalised on the key-block axis instead of the query-block axis, giving
+   rel_l2 0.166 against the oracle at t=1000. Fixed, and `calibrate_against_oracle`
+   below now runs before any capture is read.
+
+   **Every decomposition figure produced before that fix was measured against a
+   function that was not Sol.** They reproduced exactly on re-run, which is what
+   made them look trustworthy -- reproducible and correct are different claims,
+   and only the first was ever established.
+
+   Two things about the shape of this defect are worth keeping:
+
+   - It is invisible at every block-aligned length. Interior blocks are all
+     BLOCK long, so both axes agree; only the ragged final block differs. The
+     sibling gate in `simulate_track_b_lite.py` tests at t=320 = 5*64 and would
+     have passed this bug forever, while naming ragged-block handling as a known
+     failure mode in its own refusal text. A control whose fixture cannot express
+     the defect is not a control for it.
+   - It was reasoned about correctly and still concluded wrongly. Reading the two
+     implementations side by side produced "this one has none of the sibling's
+     three divergences, so the gate will probably pass". True as far as it went,
+     and it missed a fourth divergence that no one had named yet. Enumerating
+     known failure modes is not the same as running the comparison.
 
 ## How to make it more useful
 
-- ADD THE CALIBRATION GATE FIRST. Copy `calibrate_against_oracle` from
-  `bench/simulate_track_b_lite.py`. It is ~30 lines and it is the difference
-  between "these numbers reproduce" and "these numbers are about Sol". Nothing
-  else on this list matters until it passes.
+- CHUNK THE ORACLE. `calibrate_against_oracle` can only run at small t, because
+  `_sol_attn_reference.sol_attn` materialises the full t-by-t score matrix and
+  98498^2 in fp32 is tens of terabytes. So the gate establishes agreement at
+  t <= 2001 and INFERS it at production S. That inference is exactly the kind
+  that just failed once here. A chunked oracle would make this a real gate.
 - RUN `--control`. The `tau=-1e9` dense-limit arm measures the floor of this
   apparatus. Given that a head reported relative L2 above 1.0, that arm is what
   distinguishes "this head is genuinely broken" from "this instrument is". It
@@ -102,6 +127,53 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from _sol_attn_reference import BLOCK, _LOG2E, _pool  # noqa: E402
+
+
+def calibrate_against_oracle(tau: float = 1.3, lengths: tuple[int, ...] = (320, 330, 514, 2001)) -> tuple[float, int]:
+    """This file's eager Sol must agree with the vendored oracle, or it reports nothing.
+
+    `bench/_sol_attn_reference.py` is the vendored upstream implementation. If it
+    and this file disagree, that is the finding, not a nuisance to tune away.
+
+    ## Why the lengths matter more than the tolerance
+
+    The sibling gate in `bench/simulate_track_b_lite.py` tests at t=320 only.
+    320 is 5*64, exactly block-aligned, so it has no ragged final block -- and a
+    ragged-block divergence is precisely one of the three failures that gate's
+    own refusal message names. A test case that cannot exercise the bug class it
+    warns about is not a control for it. That blind spot hid a real defect in
+    THIS file: the `colmean` mean was normalised on the key-block axis instead
+    of the query-block axis, which is identical at every aligned length and
+    wrong at every ragged one (rel_l2 0.166 at t=1000, 0.0004 after the fix).
+
+    So the default set here deliberately mixes aligned and ragged lengths, and
+    production is ragged: S = 98498 = 1539*64 + 2.
+
+    ## What this gate cannot do
+
+    The oracle materialises the full t-by-t score matrix, so it cannot be run at
+    production S at all -- 98498^2 in fp32 is tens of terabytes. This agrees with
+    the oracle at small t and infers, it does not verify, that the agreement
+    holds at S = 98498. Chunking the oracle would close that gap and is the one
+    change that would make this a real production gate.
+
+    Returns (worst rel_l2, the length that produced it).
+    """
+    sys.path.insert(0, str(HERE))
+    import _sol_attn_reference as _oracle
+
+    worst, worst_t = 0.0, 0
+    for t_len in lengths:
+        torch.manual_seed(0)
+        q, k, v = (torch.randn(1, t_len, 1, 64) for _ in range(3))
+        qh, kh, vh = (x.permute(0, 2, 1, 3).contiguous() for x in (q, k, v))
+        ora = _oracle.sol_attn(q, k, v, tau=tau, centroid_tail=True)
+        ora = ora.permute(0, 2, 1, 3).float()
+        mine = eager_sol_reference(qh, kh, vh, tau=tau).float()
+        drift = rel_l2_error(mine, ora)
+        if drift > worst:
+            worst, worst_t = drift, t_len
+    return worst, worst_t
 
 
 def load_cuda_kernel():
@@ -251,7 +323,20 @@ def eager_sol_reference(
             colmean_chunk = torch.zeros(b, 1, num_qblks, n, device=device, dtype=torch.float32)
             rel_qblk = (qblk_chunk - qblk_min).view(1, 1, q_len, 1).expand(b, 1, q_len, n)
             colmean_chunk.scatter_add_(2, rel_qblk, s_blk)
-            colmean_chunk = colmean_chunk / lengths.view(1, 1, 1, n)
+            # `colmean` is a mean over the QUERY BLOCK, so it divides by the
+            # number of queries in that block -- `lengths` indexed on the
+            # query-block axis, matching `_sol_attn_reference.py:172`
+            # (`lengths.view(1, 1, n, 1)`).
+            #
+            # This read `lengths.view(1, 1, 1, n)` until 2026-08-17, indexing the
+            # KEY-block axis instead. Every interior block is BLOCK long so the
+            # two agree everywhere except the ragged final block, which is why it
+            # survived: the divergence is confined to one key-block column and
+            # one query-block row, and it is invisible at any block-aligned
+            # length. Measured against the oracle, the wrong axis gives rel_l2
+            # 0.013 at t=330, 0.091 at t=514 and 0.166 at t=1000, against 0.0004
+            # for this version. Production S is 98498 = 1539*64 + 2, i.e. ragged.
+            colmean_chunk = colmean_chunk / lengths[qblk_min:qblk_max + 1].view(1, 1, num_qblks, 1)
 
             thr_chunk = thr[:, qblk_min:qblk_max + 1, :].permute(0, 2, 1).unsqueeze(-1)
             exact_chunk = colmean_chunk > thr_chunk
@@ -468,7 +553,32 @@ def main():
     parser.add_argument("--tau", type=float, default=1.3)
     parser.add_argument("--heads", type=int, default=8, help="Number of heads to measure (0 = all 56)")
     parser.add_argument("--control", action="store_true", help="Run control cases (dense limit vs high tau)")
+    parser.add_argument("--tol", type=float, default=0.02,
+                        help="max rel_l2 between this file's eager Sol and the "
+                             "vendored oracle before it refuses to report")
     args = parser.parse_args()
+
+    # Calibration gate, before any capture is read so the failure is cheap.
+    # Every sparsity and total figure below is measured against this file's eager
+    # Sol; if that is not Sol, they describe a function nobody named.
+    drift, drift_t = calibrate_against_oracle(tau=args.tau)
+    if drift > args.tol:
+        sys.exit(
+            f"\nREFUSING TO REPORT: this file's eager Sol disagrees with the "
+            f"vendored oracle\n(`bench/_sol_attn_reference.py`) by rel_l2 "
+            f"{drift:.4f} at t={drift_t}, tolerance {args.tol}.\n\n"
+            f"Sparsity error is defined as eager-vs-dense and total error as "
+            f"cuda-vs-dense, so both\nwould be numbers about a function that is "
+            f"not the algorithm they name, and the\nquant/sparsity ratio built "
+            f"from them would inherit it.\n\n"
+            f"Check the ragged final block first: the lengths this gate uses are "
+            f"a deliberate mix\nof block-aligned and ragged, because a divergence "
+            f"confined to the ragged block is\ninvisible at any aligned length "
+            f"and production S is ragged (98498 = 1539*64 + 2).\n\n"
+            f"Fix the reimplementation until this gate passes. Do NOT raise "
+            f"--tol to make it go away.")
+    print(f"  calibration ok: eager Sol agrees with the vendored oracle "
+          f"(worst rel_l2 {drift:.4f} across aligned and ragged lengths)\n")
 
     capture_dir = Path(os.path.expanduser(args.capture))
     if not capture_dir.is_dir():

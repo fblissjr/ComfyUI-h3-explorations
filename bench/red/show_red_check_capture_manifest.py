@@ -20,6 +20,7 @@ so each case converts an `AssertionError` into an error list -- the spine reads 
 non-empty list as red.
 """
 import json
+import os
 import tempfile
 from pathlib import Path
 
@@ -94,6 +95,68 @@ def setnull(block: str, key: str):
     return m
 
 
+def enumeration_verdict(layout):
+    """Run the checker's `main()` against a synthetic collection, return its exit code.
+
+    The cases above all call `check_manifest` on one file, which cannot reach the
+    part of the checker that decides WHICH directories are captures. That gap is
+    not hypothetical: until 2026-08-17 `main()` globbed `*/manifest.json`, so a
+    directory holding tensors and no manifest was never enumerated and the run
+    reported ok. Every case above passed throughout, because none of them is
+    about enumeration.
+
+    So these drive `main()` with `H3_CAPTURE_ROOT` pointed at a scratch
+    collection. `layout` builds it and returns the root. Captures are symlinked,
+    never copied -- the real ones are tens of GiB and nothing here should write
+    into one.
+    """
+    def run():
+        root = layout()
+        prev = os.environ.get("H3_CAPTURE_ROOT")
+        os.environ["H3_CAPTURE_ROOT"] = str(root)
+        try:
+            # `main()` prints; the spine reads only the returned code. A non-zero
+            # code is red, matching the error-list convention of the cases above.
+            return C.main()
+        except AssertionError as exc:
+            return [str(exc)]
+        finally:
+            if prev is None:
+                os.environ.pop("H3_CAPTURE_ROOT", None)
+            else:
+                os.environ["H3_CAPTURE_ROOT"] = prev
+    return run
+
+
+def _collection(name: str, *, with_real: bool, orphan_tensors: int = 0,
+                empty_dir: bool = False) -> Path:
+    """Build a scratch capture collection and return its root."""
+    root = TMP / name
+    root.mkdir(parents=True, exist_ok=True)
+    if with_real:
+        assert REAL is not None
+        link = root / "real_capture"
+        if not link.exists():
+            link.symlink_to(REAL.parent, target_is_directory=True)
+    if orphan_tensors:
+        # A capture directory with tensors and NO manifest -- the case the old
+        # enumeration could not see.
+        orphan = root / "unmanifested_capture"
+        orphan.mkdir(exist_ok=True)
+        assert REAL is not None
+        srcs = sorted(REAL.parent.glob("qkv_*.pt"))[:orphan_tensors]
+        for src in srcs:
+            dst = orphan / src.name
+            if not dst.exists():
+                dst.symlink_to(src)
+    if empty_dir:
+        # A directory that is not a capture at all. It must NOT be treated as
+        # one, or every stray folder beside a capture becomes a failure.
+        (root / "notes_not_a_capture").mkdir(exist_ok=True)
+        (root / "notes_not_a_capture" / "readme.txt").write_text("not a capture")
+    return root
+
+
 def build():
     h = Harness(subject="bench/check_capture_manifest.py")
     h.fixture(REAL or "/nonexistent",
@@ -124,6 +187,26 @@ def build():
            verdict(setnull("provenance", "gpu_power_limit_watts")))
 
     h.case("restored: the unmutated manifest", NEAR_MISS, verdict())
+
+    # Enumeration. These drive `main()`, not `check_manifest`, because the
+    # question "is this directory a capture at all" is decided before any
+    # manifest is opened -- and that is where the checker was blind.
+    h.case("M5 a capture directory with tensors and no manifest", MUTATION,
+           enumeration_verdict(lambda: _collection(
+               "coll_orphan", with_real=True, orphan_tensors=2)))
+    h.case("G4 every capture carries a manifest", NEAR_MISS,
+           enumeration_verdict(lambda: _collection(
+               "coll_good", with_real=True)))
+    # If this goes red, the checker treats any folder beside a capture as a
+    # capture, and the fix for the blind spot has overshot into a false red.
+    h.case("G5 a non-capture directory beside a capture is not flagged", NEAR_MISS,
+           enumeration_verdict(lambda: _collection(
+               "coll_stray", with_real=True, empty_dir=True)))
+    # An empty collection must skip, not fail. "No captures yet" is not a defect,
+    # and a red here would fire on every clone that has never run a capture.
+    h.case("G6 a collection with no captures skips", NEAR_MISS,
+           enumeration_verdict(lambda: _collection(
+               "coll_empty", with_real=False, empty_dir=True)))
     return h
 
 

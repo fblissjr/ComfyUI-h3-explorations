@@ -16,11 +16,17 @@ on what a perfect PV matmul could recover. It is not a measurement of one.
 Two consequences that were reported as findings and are not:
 
 1. The "FP16 PV error" this prints IS the sparsity error, by construction. It is
-   the same quantity `bench/analyze_sol_error.py` calls `sparsity_l2`, and on the
-   2026-08-17 captures the two agreed to six digits. So "the residual converges
-   to the theoretical sparsity floor" is a restatement of the arm's definition,
-   not a result -- the residual IS the floor, and there is nothing for it to
-   converge to.
+   the same quantity `bench/analyze_sol_error.py` calls `sparsity_l2`. So "the
+   residual converges to the theoretical sparsity floor" is a restatement of the
+   arm's definition, not a result -- the residual IS the floor, and there is
+   nothing for it to converge to.
+
+   Stated as a code fact, because that is what it is. It was corroborated
+   numerically on 2026-08-17 by matching the figures in a report that claimed
+   this file as their source against `analyze_sol_error.py`'s sparsity column,
+   which agreed to six digits -- but this file REFUSES to run (see below), so
+   its own output was never observed, and that corroboration is about the
+   report's numbers, not about a run of this code.
 2. `recovery = (err_int8 - err_fp16) / err_int8` therefore reduces to
    `1 - sparsity/total`, which is fully determined by the quant/sparsity ratio
    that `analyze_sol_error.py` already prints. This file adds no information

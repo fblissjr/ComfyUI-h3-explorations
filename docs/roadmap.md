@@ -362,19 +362,24 @@ coherence on one pair.
 2. **Decompose Sol's error** (`bench/analyze_sol_error.py`). **Implemented and
    run 2026-08-17.** Splits total error into sparsity against quantization by
    measuring an exact fp32 Sol reference against dense and against the CUDA
-   kernel. The headline answer: **quantization is not negligible** -- the
-   quant/sparsity ratio runs from about 15% to about 62% at block level, against
-   the 5% threshold this script uses to retire the 16-bit PV question. So 17
-   does **not** close, and a 16-bit PV stays on the table.
+   kernel. The headline answer: **quantization is not negligible** -- across all
+   twelve rows the quant/sparsity ratio runs 14.43% to 62.20%, against the 5%
+   threshold this script uses to retire the 16-bit PV question. So 17 does
+   **not** close, and a 16-bit PV stays on the table. Block 49 climbs
+   monotonically toward convergence (49.42%, 55.56%, 62.20%), which is the
+   clearest trajectory signal in the set.
 
-   **Do not quote its per-head numbers yet.** Three defects bound them, all
-   named in the file's own module docstring: `quant_l2` is normalised by a
-   different denominator than the other two errors, so the `rho` column is not
-   a valid cosine; `--heads` defaults to 8 of 56, so every row labelled by block
-   is a first-eight-heads figure; and the eager Sol reference has no calibration
-   gate against `bench/_sol_attn_reference.py`, so nothing yet proves it is Sol.
-   The block-level ratios and the finding that error is wildly non-uniform
-   across heads survive all three.
+   All twelve rows were re-measured after the eager reference was found to
+   diverge from the vendored oracle and fixed; the numbers above are the
+   post-fix ones, and a calibration gate now runs before any capture is read.
+   The correction moved every row by under 1.2 points and changed no conclusion.
+
+   **Two limits still bound the per-head columns**, both stated in the file's
+   own module docstring. `--heads` defaults to 8 of 56, so any row named for a
+   block is a first-eight-heads figure. And the calibration gate can only run at
+   small t, because the oracle materialises the full t-by-t score matrix -- so
+   agreement at production S is inferred, not verified. Chunking the oracle is
+   the one change that would close that.
 3. **Port the block probe** (`sol_block_probe.py`, scaffolded, not
    implemented -- every entry point still raises). Produces routed density and
    says which transformer blocks the sparsity is hurting. Unblocks
@@ -392,11 +397,12 @@ The captures are the expensive part and they are already on disk, so everything
 below runs against tensors that exist. Roughly a day's work, of which under an
 hour is card time.
 
-- **Calibrate the eager reference against the oracle, before anything else.**
-  `bench/analyze_sol_error.py` has no gate proving its eager Sol is Sol.
-  `bench/simulate_track_b_lite.py` has one and currently refuses at rel_l2 0.97.
-  Until this passes, the decomposition numbers are reproducible but unvalidated,
-  and those are not the same claim. Nothing else on this list matters first.
+- **Chunk the oracle.** `bench/analyze_sol_error.py` now has a calibration gate
+  and it passes, but only at t <= 2001: `_sol_attn_reference.sol_attn`
+  materialises the full t-by-t score matrix, and 98498^2 in fp32 is tens of
+  terabytes. So agreement at production S is inferred rather than measured, and
+  an inference of exactly that shape is what hid the ragged-block divergence the
+  gate was written to catch. This is the highest-value remaining change.
 - **Run the `--control` arm that already exists.** `tau=-1e9` measures the floor
   of the apparatus itself. One head reports a relative L2 above 1.0 -- worse than
   emitting zeros -- and this arm is what separates "that head is genuinely
