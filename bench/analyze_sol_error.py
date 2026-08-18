@@ -34,44 +34,57 @@ that should drive `dense_blocks` and any per-head escape work, and it is robust
 to every defect listed below because it is about spread rather than absolute
 magnitude.
 
-## What is wrong with it, and still worth keeping
+## What still bounds these numbers
 
-Three defects, none of which invalidate the block-level ratio (a ratio of two
-quantities computed the same way over the same subset), all of which bound what
-the per-head columns can carry.
+Two live limits. Both are properties of the design, not bugs waiting to be
+fixed, and both change what a row can be quoted for.
 
-1. `rho` IS NOT A COSINE. `quant_l2` is normalised by ||out_eager|| while
-   `sparsity_l2` and `total_l2` are normalised by ||out_dense||, because
-   `rel_l2_error` divides by its second argument. The identity
-       ||e_t||^2 = ||e_s||^2 + ||e_q||^2 + 2||e_s||||e_q||rho
-   requires all three in the same units. Writing r = ||out_eager||/||out_dense||,
-   what is actually computed is
-       rho_calc = [||e_t||^2 - ||e_s||^2 - ||e_q||^2/r^2] / (2||e_s||||e_q||/r)
-   which equals the true correlation only at r = 1. The numerator is a heavily
-   cancelling difference -- for block 49 step 14 it is 2.06e-4 from terms of size
-   4e-3, a 20x cancellation -- so a few percent of r-drift moves rho by tens of
-   percent. Small |rho| values are therefore not resolved, and the sign of a
-   near-zero rho is not trustworthy. Large ones (|rho| ~ 0.45) survive.
-   FIX: normalise `quant_l2` by `out_dense`. One line, marked below.
-
-2. `--heads` DEFAULTS TO A SUBSET, AND IT IS NOT A SAMPLE. `decompose_single`
+1. `--heads` DEFAULTS TO A SUBSET, AND IT IS NOT A SAMPLE. `decompose_single`
    slices `q[:, :head_subset]` -- the FIRST n heads of 56, not n drawn from 56.
    Every aggregate row this prints is therefore a first-n-heads figure even
    though it is labelled by block, and any claim of the form "head X is the
-   worst" surveys only the measured prefix. The banner now prints the subset so
-   a log cannot be misread, but the default is still a prefix.
+   worst" surveys only the measured prefix. The banner prints the subset so a
+   log cannot be misread, but the default is still a prefix.
 
-3. THE EAGER REFERENCE DIVERGED FROM SOL, AND NOTHING CAUGHT IT FOR A DAY.
-   `eager_sol_reference` is a reimplementation. It had no calibration gate until
-   2026-08-17, and when one was finally written it went RED: `colmean` was
-   normalised on the key-block axis instead of the query-block axis, giving
-   rel_l2 0.166 against the oracle at t=1000. Fixed, and `calibrate_against_oracle`
-   below now runs before any capture is read.
+2. THE CALIBRATION GATE CANNOT RUN AT PRODUCTION S. `_sol_attn_reference.sol_attn`
+   materialises the full t-by-t score matrix, so the gate below establishes
+   agreement at t <= 2001 and INFERS it at S = 98498. An inference of exactly
+   that shape is what hid the defect described in the next section, so treat it
+   as the weakest link here. Chunking the oracle would close it.
+
+## What was wrong with it, and how it was found
+
+Three defects, all fixed on 2026-08-17, recorded because the way each survived
+is more reusable than the fix.
+
+1. `rho` WAS NOT A COSINE. `quant_l2` was normalised by ||out_eager|| while
+   `sparsity_l2` and `total_l2` used ||out_dense||, because `rel_l2_error`
+   divides by its second argument. The identity
+       ||e_t||^2 = ||e_s||^2 + ||e_q||^2 + 2||e_s||||e_q||rho
+   requires all three in the same units. The numerator is a heavily cancelling
+   difference -- for block 49 step 14 it is 2.06e-4 from terms of size 4e-3, a
+   20x cancellation -- so a few percent of denominator drift moved rho by tens
+   of percent. Small |rho| values were not resolved and the sign of a near-zero
+   rho was not trustworthy. `rel_l2_against` now makes the shared denominator
+   explicit rather than incidental.
+
+2. `cosine_sim` RETURNED VALUES ABOVE 1.0, which Cauchy-Schwarz forbids. It
+   printed 1.047609 on a real run. Accumulated in float64 in chunks now; see
+   that function for the control that measured it.
+
+3. THE EAGER REFERENCE DIVERGED FROM SOL, AND NOTHING WAS ASKING.
+   `eager_sol_reference` is a reimplementation and it had no calibration gate at
+   all. When one was written it went RED immediately: `colmean` was normalised
+   on the key-block axis instead of the query-block axis, giving rel_l2 0.166
+   against the oracle at t=1000.
 
    **Every decomposition figure produced before that fix was measured against a
    function that was not Sol.** They reproduced exactly on re-run, which is what
    made them look trustworthy -- reproducible and correct are different claims,
-   and only the first was ever established.
+   and only the first was ever established. Re-measured post-fix, all twelve
+   rows moved by under 1.2 points and no conclusion changed, because the
+   mis-normalised row and column are two entries out of 1540 at production
+   scale. That outcome was not knowable in advance.
 
    Two things about the shape of this defect are worth keeping:
 

@@ -47,10 +47,12 @@ artifact.
   used `‖out_dense‖`, because `rel_l2_error` divides by its second argument. The
   quadrature identity the `rho` column rests on requires all three in the same
   units, so it never held, and part of what was reported as vector alignment was
-  the denominator mismatch. Block-level ratios barely move (62.21% to 62.34% on
-  one row); near-zero per-head `rho` moves a lot, which is the point — one head
-  went from `-0.0022` to `-0.0009`. Added `rel_l2_against` so the sharing is
-  explicit rather than incidental.
+  the denominator mismatch. Block-level ratios barely move; near-zero per-head
+  `rho` moves a lot, which is the point — block 49 step 14 head 2 sits at
+  `-0.0008` against `-0.0022` before, a sign that was never resolved to begin
+  with. Added `rel_l2_against` so the sharing is explicit rather than
+  incidental. (Figures here are from the fully corrected run, i.e. after the
+  eager-reference fix below; the two landed the same day.)
 
 - **`bench/analyze_sol_error.py`: `cosine_sim` returned values above 1.0.**
   It printed `1.047609` on a real run, which Cauchy-Schwarz forbids, so it was
