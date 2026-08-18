@@ -8,6 +8,18 @@ artifact.
 
 ### Changed
 
+- **`CLAUDE.md` gains the rule that an A/B whose variable is smaller than the
+  harness's own noise measures the noise.** The shipped sampler re-noises every
+  step, so two arms at one seed draw the same noise and look paired while a
+  kernel-sized perturbation is amplified into a different clip — demonstrated
+  2026-08-18 by a pair differing only in sage `mode` that came back with
+  different wardrobe and set dressing. `workflows/h3_config.py` had already
+  written the mechanism down and it was read as a caveat rather than a
+  constraint. The rule names which comparisons are void (numeric perturbations),
+  which are merely weakened (weight-level differences), and the separate seed
+  trap in the 2026-08-15 ordering arms.
+
+
 - **`REF_LORA_ENABLED` flipped to `False`: reference graphs load the ref2va
   checkpoint directly, with no ref LoRA.** Owner decision 2026-08-18, to take
   a moving part out of the model path ahead of the bandwidth/sparsity

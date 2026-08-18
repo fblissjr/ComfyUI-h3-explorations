@@ -109,6 +109,28 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
   harnesses were rewritten and the pre-port copies left in place, still runnable
   and still returning success unconditionally, with `docs/checks.md` still citing
   them — so the fix shipped and the defect stayed.
+- **An A/B whose variable is smaller than the harness's own noise measures the
+  noise.** The shipped sampler is `er_sde`, which adds fresh noise every step.
+  Two arms at one seed draw the *same* noise, so this looks paired — but a
+  perturbation the size of a kernel-precision change gets amplified into a
+  different clip. Demonstrated 2026-08-18: a pair differing **only** in sage
+  `mode` came back with different wardrobe and different set dressing.
+  `workflows/h3_config.py` had already written the mechanism down —
+  "a knob that perturbs attention numerics will read as more 'reseeded' than it
+  did under a deterministic ODE" — and it was read as a caveat rather than a
+  constraint.
+  - **So: any A/B whose variable is a numeric perturbation** — sage mode, `tau`,
+    `morton`, `min_tokens`, `centroid_tail` — **must run on a deterministic
+    sampler.** `res_multistep` is one, and is what the 2026-08-13 fp16 decision
+    correctly used. `SamplerER_SDE` exposes `solver_type="ODE"`, which zeroes the
+    noise; the graphs wire plain `KSamplerSelect` and do not reach it, so today
+    the sampler has to be swapped by hand.
+  - **A weight-level difference** — LoRA against checkpoint — diverges on any
+    sampler, so those comparisons are weakened rather than void. The question
+    they answer is "does each arm satisfy the brief", never "are these the same
+    clip". Do not read them as pixel comparisons.
+  - **Check the seed before trusting any pair.** The 2026-08-15 ordering arms
+    carry a different seed per clip and were never paired at all.
 
 ## Reference implementations
 
