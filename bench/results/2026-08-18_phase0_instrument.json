@@ -1,0 +1,43 @@
+{
+ "measured": "2026-08-18",
+ "produced_by": "nvidia-smi dmon -s pucmt -d 1 (raw log beside this file: 2026-08-18_phase0_dmon.log)",
+ "what": "phase-resolved GPU telemetry of one all-refs render at stock 450 W",
+ "graph": "h3_probe_sol_on_all_refs_api.json (ref2va direct, Sol on, 1024x768 x 362f, er_sde 16 steps)",
+ "render": {
+  "submitted": "11:27:51",
+  "exec_seconds": 1618.6,
+  "prompt_id": "11dc7092-7221-495f-8a4e-85198660c63c"
+ },
+ "phases": {
+  "sampling": {
+   "seconds": 1411,
+   "share_pct": 87,
+   "power_w_mean": 446,
+   "power_w_p50": 448,
+   "sm_pct": 100,
+   "mem_interface_pct": {
+    "mean": 21,
+    "p50": 1,
+    "p95": 100
+   },
+   "pclk_mhz_p50": 2355,
+   "pclk_mhz_max_rated": 3105,
+   "pcie_rx_mb_s": 20,
+   "fb_mib": 22750
+  },
+  "staging_pcie": {
+   "seconds": 103,
+   "pcie_rx_mb_s": 10986,
+   "note": "load only; gen4 x8 link"
+  },
+  "other": {
+   "seconds": 47
+  }
+ },
+ "conclusions": [
+  "power pegged at the 450 W limit with core clocks pulled ~24% under max: compute/power-bound during sampling",
+  "PCIe ~nil during sampling at this config: contradicts docs/hardware.md's continuous-streaming claim HERE (1024x768; heavier configs untested)",
+  "memory interface bimodal (p50 1%, p95 100%): attention phases compute-bound, GEMM phases DRAM-saturated",
+  "every timing taken at 330 W (2026-08-17..18 morning) was power-throttled"
+ ]
+}
