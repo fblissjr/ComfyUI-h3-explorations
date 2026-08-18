@@ -168,11 +168,16 @@ PLACEHOLDER_IMAGE_B = "2-mountain_landscape.png"
 # so a renumbering would silently point a bench at the wrong node. Slot 3 takes
 # 34/35 because 26-33 and 40-43 are already spoken for in this graph.
 #
-# Three is the ceiling and it is not arbitrary: the UI builder declares
-# `ref_image_0..2` on the conditioning node, and that socket list is
-# positional in every saved graph. Growing it means APPENDING a fourth, never
-# inserting one.
-_REF_IMAGE_NODES = (("15", "24"), ("16", "25"), ("34", "35"))
+# The UI builder declares `ref_image_0..2` on the conditioning node for
+# graphs wiring three or fewer, and that socket list is positional in every
+# saved graph -- growing it means APPENDING, never inserting, which is what
+# slots 4-6 do (added 2026-08-18 for the workload-grid count ladder; a graph
+# wiring more than three references grows the socket list to its count, so
+# every shipped <=3-reference graph keeps its exact socket list and byte
+# layout). Slots 4-6 take 36-39 and 45-46: 26-33 and 40-43 are spoken for
+# (reference loaders, split path, plain chain) and 44 is the cache node.
+_REF_IMAGE_NODES = (("15", "24"), ("16", "25"), ("34", "35"),
+                    ("36", "37"), ("38", "39"), ("45", "46"))
 
 
 def _graph_dir(out, extra: dict):
@@ -749,11 +754,12 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # it, not part of it. On a reused step nothing downstream of the
         # wrapper runs -- sage and Sol included -- which is the mechanism, not
         # a conflict. See CACHE_NODE in h3_config.py for why this arm exists
-        # and its er_sde caveat. Node id 40: 28-33 are taken by the reference
-        # loaders and the split path.
-        g["40"] = {"class_type": CACHE_NODE_CLASS,
+        # and its er_sde caveat. Node id 44: 28-33 are the reference loaders
+        # and split path, 34-39 the reference image slots, 40-43 the plain
+        # chain `split_at` builds.
+        g["44"] = {"class_type": CACHE_NODE_CLASS,
                    "inputs": {"model": model_src, **cache}}
-        model_src = ["40", 0]
+        model_src = ["44", 0]
 
     # Reports what the assembled conditioning actually costs, before the
     # sampler runs. Pass-through, so it cannot change the render.
@@ -3303,11 +3309,16 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
 
     img_a = img_b = None
     if ref:
+        slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
+        # Three image sockets minimum, matching every saved graph to date;
+        # a graph wiring more grows the list to its own count. Autogrow
+        # sockets are matched by NAME in saved graphs, so a longer list in a
+        # new graph does not disturb the three-socket layout of existing ones.
+        n_img_sockets = max(3, len(slots))
         cond_inputs = [
             _in("clip", "CLIP"), _in("vae", "VAE"), _in("audio_vae", "VAE"),
-            _in("ref_images.ref_image_0", "IMAGE", optional=True, label="ref_image_0"),
-            _in("ref_images.ref_image_1", "IMAGE", optional=True, label="ref_image_1"),
-            _in("ref_images.ref_image_2", "IMAGE", optional=True, label="ref_image_2"),
+            *[_in(f"ref_images.ref_image_{i}", "IMAGE", optional=True,
+                  label=f"ref_image_{i}") for i in range(n_img_sockets)],
             _in("ref_videos.ref_video_0", "IMAGE", optional=True, label="ref_video_0"),
             _in("ref_video_audios.ref_video_audio_0", "AUDIO", optional=True,
                 label="ref_video_audio_0"),
@@ -3319,7 +3330,6 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                          _in("width", "INT", widget=True), _in("height", "INT", widget=True),
                          _in("length", "INT", widget=True)],
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
-        slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
         if len(slots) > 2 and ref_video:
             # The third loader would land on the reference-video node's own
             # row. No graph asks for both, and this is here so that stays true

@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+"""Time shipped graph files as bench arms, with widget patches, to JSONL.
+
+`bench_e2e_h3.py` builds its own graph, which is right for the attention
+matrix it serves but means every new arm needs runner code. This runner is
+the complement: it submits GRAPH FILES -- the exact JSON the repo ships and
+the UI runs -- so an arm is a file plus zero or more widget patches, and a
+new experiment is a command line rather than a code change.
+
+What it records per render, one JSON object per line:
+
+  - sampler seconds (`SamplerCustomAdvanced`, found by class not by id),
+    decode seconds (`VAEDecode`), total submit-to-finish seconds, and the
+    full per-node timing map, all from the websocket node-transition feed
+    `bench_e2e_h3.run_once` already implements;
+  - the arm label, graph path, applied patches, and seed, so the row is
+    re-runnable from itself;
+  - the substrate (GPU, driver, power limit vs stock, torch, git commit),
+    read live at each render via `make_attention_defaults_json.substrate` --
+    docs/hardware.md records that a power limit changes render times and
+    appears in no workflow JSON, and that bench runs historically persisted
+    nothing about their own conditions. This runner exists partly to end
+    that: a timing row without its substrate cannot be compared later.
+
+Arms alternate (A B A B ...) by default, same reasoning as bench_e2e_h3:
+drift in clocks, thermals and allocator state is shared rather than
+attributed to whichever arm ran second. The first render of the session
+pays model load and autotune; use `--warmup` to run one discarded render
+first (any arm), or accept that run 0 of the first arm is hot-start dirty
+and drop it at analysis time -- the row records `"warmup": true` either way.
+
+Usage:
+
+  bench/run_graph_arms.py \
+      --arm control=workflows/h3_probe_sol_on_all_refs_api.json \
+      --arm cache=workflows/h3_probe_cache_easy_api.json \
+      --runs 2 --seed 730451892 \
+      --out bench/results/2026-08-18_cache_arms.jsonl
+
+  # widget patch: arm label, node CLASS or id, input name, JSON value
+  bench/run_graph_arms.py \
+      --arm t03=workflows/h3_probe_cache_easy_api.json \
+      --set t03:EasyCache.reuse_threshold=0.3 \
+      ...
+
+Needs a running ComfyUI. Runs are queued one at a time; the runner waits
+for each to finish before submitting the next, so it can share a server
+with nothing and nobody.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import sys
+import time
+import uuid
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE / "results"))
+
+from bench_e2e_h3 import run_once  # noqa: E402
+from make_attention_defaults_json import substrate  # noqa: E402
+
+
+def _parse_value(s: str):
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        return s  # bare string widget value
+
+
+def _find_nodes(graph: dict, key: str) -> list[str]:
+    """Node ids matching `key` as an exact id or a class_type."""
+    if key in graph:
+        return [key]
+    return [nid for nid, n in graph.items() if n.get("class_type") == key]
+
+
+def apply_patch(graph: dict, node_key: str, field: str, value) -> list[str]:
+    nids = _find_nodes(graph, node_key)
+    if not nids:
+        raise SystemExit(f"patch target {node_key!r} matches no node")
+    for nid in nids:
+        inputs = graph[nid]["inputs"]
+        if field not in inputs:
+            raise SystemExit(
+                f"node {nid} ({graph[nid]['class_type']}) has no input "
+                f"{field!r}; it has {sorted(inputs)}")
+        if isinstance(inputs[field], list):
+            raise SystemExit(
+                f"{node_key}.{field} is a link, not a widget; refusing")
+        inputs[field] = value
+    return nids
+
+
+def _class_seconds(graph: dict, per_node: dict, class_type: str) -> float | None:
+    nids = [nid for nid, n in graph.items()
+            if n.get("class_type") == class_type]
+    vals = [per_node[n] for n in nids if n in per_node]
+    return sum(vals) if vals else None
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--arm", action="append", required=True,
+                    metavar="LABEL=GRAPH.json",
+                    help="an arm: label=path to an API-format graph")
+    ap.add_argument("--set", action="append", default=[], dest="patches",
+                    metavar="LABEL:NODE.FIELD=VALUE",
+                    help="widget patch for one arm; NODE is an id or a "
+                         "class_type (patches every match); VALUE is JSON "
+                         "or a bare string")
+    ap.add_argument("--runs", type=int, default=1,
+                    help="renders per arm (default 1)")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="set every RandomNoise node to this seed; without "
+                         "it, arms keep whatever the graph ships")
+    ap.add_argument("--warmup", metavar="LABEL", default=None,
+                    help="run this arm once first and mark the row warmup")
+    ap.add_argument("--no-alternate", action="store_true",
+                    help="run each arm's runs as a block instead of A B A B")
+    ap.add_argument("--host", default="127.0.0.1:8188")
+    ap.add_argument("--timeout", type=float, default=3600.0,
+                    help="per-render timeout seconds (default 3600)")
+    ap.add_argument("--out", required=True,
+                    help="JSONL output path, appended to")
+    args = ap.parse_args()
+
+    arms: dict[str, dict] = {}
+    order: list[str] = []
+    for spec in args.arm:
+        label, _, path = spec.partition("=")
+        if not path:
+            raise SystemExit(f"--arm wants LABEL=PATH, got {spec!r}")
+        graph = json.loads(Path(path).read_text())
+        arms[label] = {"path": path, "graph": graph, "patches": []}
+        order.append(label)
+
+    for spec in args.patches:
+        label, _, rest = spec.partition(":")
+        target, _, raw = rest.partition("=")
+        node_key, _, field = target.rpartition(".")
+        if label not in arms or not node_key or not raw:
+            raise SystemExit(f"--set wants LABEL:NODE.FIELD=VALUE, got {spec!r}")
+        value = _parse_value(raw)
+        nids = apply_patch(arms[label]["graph"], node_key, field, value)
+        arms[label]["patches"].append(
+            {"nodes": nids, "field": f"{node_key}.{field}", "value": value})
+
+    for label, arm in arms.items():
+        if args.seed is not None:
+            for nid in _find_nodes(arm["graph"], "RandomNoise"):
+                arm["graph"][nid]["inputs"]["noise_seed"] = args.seed
+                # A fixed bench seed must not be re-randomized by the server.
+                if "control_after_generate" in arm["graph"][nid]["inputs"]:
+                    arm["graph"][nid]["inputs"]["control_after_generate"] = "fixed"
+        # Distinct output prefix per arm, so renders land findably and no
+        # arm overwrites another's clip.
+        for nid in _find_nodes(arm["graph"], "VHS_VideoCombine"):
+            w = arm["graph"][nid]["inputs"]
+            if isinstance(w.get("filename_prefix"), str):
+                w["filename_prefix"] += f"_{label}"
+
+    schedule: list[tuple[str, bool]] = []          # (label, warmup)
+    if args.warmup:
+        if args.warmup not in arms:
+            raise SystemExit(f"--warmup {args.warmup!r} is not an arm label")
+        schedule.append((args.warmup, True))
+    if args.no_alternate:
+        for label in order:
+            schedule += [(label, False)] * args.runs
+    else:
+        for i in range(args.runs):
+            schedule += [(label, False) for label in order]
+
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    for i, (label, warmup) in enumerate(schedule):
+        arm = arms[label]
+        client_id = str(uuid.uuid4())
+        print(f"[{i + 1}/{len(schedule)}] {label}"
+              f"{' (warmup, discard)' if warmup else ''} ...", flush=True)
+        t0 = time.time()
+        total_s, per_node, err = asyncio.run(
+            run_once(args.host, arm["graph"], client_id, args.timeout))
+        row = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "label": label,
+            "graph": arm["path"],
+            "patches": arm["patches"],
+            "seed": args.seed,
+            "warmup": warmup,
+            "total_s": total_s,
+            "sampler_s": _class_seconds(arm["graph"], per_node,
+                                        "SamplerCustomAdvanced"),
+            "decode_s": _class_seconds(arm["graph"], per_node, "VAEDecode"),
+            "per_node_s": {k: round(v, 3) for k, v in per_node.items()},
+            "error": err,
+            "wall_s": round(time.time() - t0, 1),
+            "substrate": substrate(),
+        }
+        with out.open("a") as f:
+            f.write(json.dumps(row) + "\n")
+        status = (f"ERROR: {err}" if err else
+                  f"total {total_s:.1f}s sampler {row['sampler_s'] or 0:.1f}s "
+                  f"decode {row['decode_s'] or 0:.1f}s")
+        print(f"    {status}", flush=True)
+        if err:
+            # A failed arm invalidates the pairing; stop rather than time
+            # the survivor against nothing.
+            return 1
+    print(f"rows appended to {out}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

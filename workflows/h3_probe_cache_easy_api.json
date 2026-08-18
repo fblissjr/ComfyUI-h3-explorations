@@ -42,7 +42,7 @@
     "class_type": "BasicScheduler",
     "inputs": {
       "model": [
-        "40",
+        "44",
         0
       ],
       "scheduler": "simple",
@@ -54,7 +54,7 @@
     "class_type": "BasicGuider",
     "inputs": {
       "model": [
-        "40",
+        "44",
         0
       ],
       "conditioning": [
@@ -308,7 +308,7 @@
       "warn_only": false
     }
   },
-  "40": {
+  "44": {
     "class_type": "EasyCache",
     "inputs": {
       "model": [
