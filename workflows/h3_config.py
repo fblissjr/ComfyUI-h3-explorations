@@ -500,6 +500,19 @@ SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 # judgement is a numeric-perturbation A/B, which must run on a deterministic
 # sampler. Keep the key order matching the node's declared inputs: UI graphs
 # map widget values positionally.
+#
+# Measured 2026-08-18 (bench/results/2026-08-18_cache_arms.jsonl, all-refs
+# workload, 362f 1024x768, Sol on, 450 W stock): on er_sde at this 0.2
+# threshold the cache skips NOTHING (change rates 0.20-0.30, all just above
+# threshold) and costs nothing -- sampler 1489 s vs control 1491 s, output
+# pixel-identical. At 0.3 on er_sde it skips ~4 steps for 1.31x. On
+# res_multistep at 0.2 it skips 7 of 16 for **1.74x on the sampler**, the
+# largest single-lever ratio measured on this box, stacked on Sol. The
+# er_sde null was the predicted sampler artifact. Quality of the 1.74x arm
+# vs its seed-matched control: PSNR 27 dB, jitter unchanged, patch-boundary
+# +3%, sharpness proxy +17% -- ranked by bench/quality_metrics.py, judged by
+# nobody yet. Whether to change the shipped sampler or threshold is an
+# owner decision gated on watching that pair.
 CACHE_NODE_CLASS = "EasyCache"
 CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
                   verbose=True)
