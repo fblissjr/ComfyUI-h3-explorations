@@ -4,6 +4,22 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.37.0
+
+### Changed
+
+- **`REF_LORA_ENABLED` flipped to `False`: reference graphs load the ref2va
+  checkpoint directly, with no ref LoRA.** Owner decision 2026-08-18, to take
+  a moving part out of the model path ahead of the bandwidth/sparsity
+  experiments — the LoRA is a dequantize/add/requantize round trip at load
+  whose output-equivalence to ref2va was never verified by a paired render.
+  Every graph regenerated; the diff in the reference graphs is the
+  `UNETLoader` name and the removed `LoraLoaderModelOnly`, nothing else. The
+  named ref-LoRA A/B pair (`h3_image_ref_plus_text_to_video_ref_lora*`) keeps
+  the LoRA on purpose; the turbo probes keep their own turbo LoRAs. Reasoning
+  and the flip-back condition sit with the switch in
+  `workflows/h3_config.py`::`REF_LORA_ENABLED`.
+
 ## 0.36.0
 
 ### Changed

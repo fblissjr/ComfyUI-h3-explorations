@@ -871,17 +871,27 @@ REF_LORA_STRENGTH = 1.0
 # disk, so a bool called REF_VIA_LORA crashed it with a bare TypeError on
 # 2026-08-16. `*_LORA` means "a LoRA filename" in this file; a flag about one
 # has to be spelled differently.
-REF_LORA_ENABLED = True
-
-# **The ref2va checkpoint is still required and must not be deleted from
-# MODELS.** The builder has ONE LoRA slot, so a reference graph that already
-# spends it -- the three turbo probes -- cannot also carry the ref delta and
-# keeps the checkpoint. Verified after the 2026-08-16 regeneration: 18 graphs
-# on the LoRA path, 3 on the checkpoint, and the 3 are exactly the turbo ones.
 #
-# So "reference conditioning" and "turbo distillation" do not currently stack.
-# That is a builder limitation, not a model one; stacking would need a second
-# LoraLoaderModelOnly in the chain, which nobody has tried.
+# REVERSED to False on 2026-08-18, owner decision. The knob-and-one-base
+# argument above still holds; it lost to a simpler one: the upcoming
+# bandwidth/sparsity experiments want the fewest moving parts in the model
+# path, and the LoRA is a moving part -- a dequantize/add/requantize round
+# trip at load whose output-equivalence to ref2va was never verified (the
+# paired render the block above calls for never ran). Reference graphs load
+# the ref2va checkpoint directly. Flip back to True to restore the LoRA path;
+# nothing else changed.
+REF_LORA_ENABLED = False
+
+# With the switch False every reference graph is on the checkpoint and the
+# LoRA slot is free again. The paragraph below described the True state and is
+# kept for whoever flips it back: the builder has ONE LoRA slot, so a
+# reference graph that already spends it -- the three turbo probes -- cannot
+# also carry the ref delta and keeps the checkpoint. Verified after the
+# 2026-08-16 regeneration: 18 graphs on the LoRA path, 3 on the checkpoint,
+# and the 3 are exactly the turbo ones. So under True, "reference
+# conditioning" and "turbo distillation" do not stack -- a builder limitation,
+# not a model one; stacking would need a second LoraLoaderModelOnly in the
+# chain, which nobody has tried.
 
 
 def ref_base_and_lora():
