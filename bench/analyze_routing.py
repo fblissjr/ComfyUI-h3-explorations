@@ -50,10 +50,10 @@ Read the capture's own length before quoting a number from it.
     python bench/analyze_routing.py $H3_CAPTURE_ROOT/<dir>/qkv_*_b24_s1.pt \\
         --canvas 1344x768 --length 124
 
-No GPU, no model, no server. Needs the capture and `coderef/comfy-kitchen-sol`
-for the eager reference; it refuses rather than falling back if that is absent,
-because a locally reimplemented pooling is the thing this script exists to
-avoid.
+No GPU, no model, no server. Needs the capture, and an installed `comfy_kitchen`
+carrying `sol_attn` for the eager reference; it refuses rather than falling back
+if that import fails, because a locally reimplemented pooling is the thing this
+script exists to avoid. It does NOT need the `coderef/` source clone.
 """
 
 from __future__ import annotations
@@ -71,19 +71,35 @@ LOG2E = 1.4426950408889634
 
 
 def load_eager():
-    """Upstream's eager Sol-Attn, imported as a package for its relative imports.
+    """Upstream's eager Sol-Attn `_pool`, from the installed package.
 
     Imported rather than reimplemented: it is upstream's statement of what the
     algorithm IS, so `_pool` here is not this script's idea of pooling.
+
+    Taken from the INSTALLED `comfy_kitchen`, not from `coderef/`. This used to
+    require the `coderef/comfy-kitchen-sol` clone on disk and prepend it to
+    `sys.path` before importing, which had two costs and no benefit: it made the
+    script unrunnable on a box that has the built wheel but not the source
+    checkout -- which is what kept `bench/red/show_red_analyze_routing.py`
+    permanently skipped -- and prepending a source tree to `sys.path` shadows the
+    installed package for the rest of the process, so anything reaching for the
+    compiled CUDA op afterwards would have found the un-built copy.
+
+    The installed build is that branch: the capture manifests record
+    `comfy_kitchen_version: 0.2.31+sol.c04ef20`, and its `_pool`, `sol_attn` and
+    `_normalize_key_bias` are structurally identical to the vendored
+    `bench/_sol_attn_reference.py` (compared by AST, 2026-08-17). The clone is
+    still needed for the CUDA sources, which ship in no wheel -- `docs/morton.md`
+    and `docs/sol_upstream.md` cite `.cu` files by path.
     """
-    root = REPO / "coderef" / "comfy-kitchen-sol"
-    if not root.exists():
+    try:
+        from comfy_kitchen.backends.eager.sol_attn import _pool
+    except ImportError as exc:
         raise SystemExit(
-            f"{root} is missing. It is a gitignored symlink to the sister "
-            "checkout; see coderef/ in CLAUDE.md. This script will not "
-            "substitute its own pooling for upstream's.")
-    sys.path.insert(0, str(root))
-    from comfy_kitchen.backends.eager.sol_attn import _pool  # noqa: E402
+            f"cannot import upstream's eager Sol-Attn ({exc}). This needs the "
+            "comfy-kitchen build that carries `sol_attn`; stock comfy-kitchen "
+            "does not. This script will not substitute its own pooling for "
+            "upstream's.")
     return _pool
 
 

@@ -916,10 +916,12 @@ is consistent with the expected mechanism and is not a sweep.
 Morton and Hilbert A/B this repo has run compared two orderings *and* two
 sparsity levels, without knowing the size or the sign of the second.
 
-**Blocker: none. This is the cheapest unrun item in the repo and it has been
-open longest.** The captures are on disk
-(`$H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/`, blocks 0/24/49). No
-render, no GPU, no server. It belongs in `bench/analyze_routing.py`.
+**Blocker: a capture at a known video geometry.** No render, no GPU, no server
+once one exists, and it belongs in `bench/analyze_routing.py`, which now runs
+without the `coderef/` clone. The `2026-08-15_dense_124f_1344x768` capture this
+item was written against is **no longer on disk**; what is there is the
+2026-08-17 reference-heavy pair at 362 frames 1024x768, whose video span differs,
+so the geometry has to be re-derived rather than reused.
 
 **Method, and one constraint that is not optional.** Score with upstream's eager
 reference (`coderef/comfy-kitchen-sol/comfy_kitchen/backends/eager/sol_attn.py`,
@@ -1187,9 +1189,10 @@ fixture cannot express the defect is not a control for it.
 production S instead of inferring from t <= 2001.*
 
 **17c. Capture a reference-heavy render.** NEW, and it gates the value of the
-other two. Every Sol measurement in this repo -- and the existing captures at
-`$H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/` -- is t2v on fl2va with
-zero references, while the work actually being done is reference-heavy.
+other two. Every Sol measurement in this repo -- including the
+`2026-08-15_dense_124f_1344x768` capture this was written against, which has
+since been removed -- was t2v on fl2va with zero references, while the work
+actually being done is reference-heavy.
 Reference rows are pinned by `sink_conditioning`, so reference-heavy is where
 Sol has the **least** room: every existing ratio is an optimistic bound for the
 real workload, and a bigger pinned region makes a 16-bit PV *more* expensive,

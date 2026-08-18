@@ -423,10 +423,10 @@ SOL_CUDA_DEFAULTS = dict(
 #
 #   **The decision does not change and never depended on the withdrawn leg.**
 #
-#   **The captures now exist** -- blocks 0/24/49 of a dense 124-frame 1344x768
-#   render, in $H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/. They were
-#   made for a different question and **no sage kernel has been graded against
-#   them**. That is the run that would let this repo state an accuracy figure
+#   **Captures exist, but not the one this comment named.** The dense 124-frame
+#   1344x768 render at blocks 0/24/49 is no longer on disk; what is there is the
+#   2026-08-17 reference-heavy pair at 362 frames 1024x768. Both were made for a
+#   different question and **no sage kernel has been graded against either**. That is the run that would let this repo state an accuracy figure
 #   of its own; until it happens there is no number to quote.
 #
 # The cost is real and accepted: this is the one mode with no

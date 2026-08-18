@@ -11,7 +11,7 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
   - **Generating a decorative number is not a lesser fix than deleting it.** It makes the claim permanently true and permanently useless, and still charges every reader a reconciliation against what they can see. Delete first; generate only what passed the test.
   - Auditing prose already written rather than prose being written: `claim-audit`.
 - DO NOT write meaningless tests - if something can't be tested or be a simple red/green, then find another way to make sure you're measuring and testing what you think you are
-- **Sol-Attn is ALWAYS ON by default in every video workflow (except pure image single-frame workflows).** Bypassing is reserved for explicit testing / comparative experiments.
+- **Sol-Attn is ALWAYS ON by default in every shipped video workflow.** Bypassing is reserved for explicit testing / comparative experiments. Three kinds of graph legitimately do not wire it, and all of them wire `MiniMaxH3SageAttention` instead: `workflows/image/` (single-frame, Sol does not apply), `workflows/bench/*_stamped_api.json` (dense baselines — the thing Sol is measured against), and `workflows/h3_probe_capture_ref3_api.json` (activation capture, which must record the true attention inputs rather than Sol's output). **Enforced by nothing** — `check_sol_kernel.py` asserts the kernel dependency is installed and `check_bench_matches_shipped.py` asserts the bench harness matches the shipped graph, but no check asserts a shipped video graph wires Sol at all. Adding one means first encoding those three exceptions, which is why it does not exist yet.
 
 ## What is where
 
@@ -114,4 +114,15 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
 
 `coderef/` (gitignored) symlinks the sister checkouts — diffusers,
 DiffSynth-Studio, comfy-kitchen, sage-fork, triton, LightX2V, Minimax-H3-Turbo
-— plus real clones of MiniMax-H3, Sana, MiniMax-Music3 and h3-turbo-eval.
+— plus real clones of MiniMax-H3, Sana, MiniMax-Music3, h3-turbo-eval and
+**`comfy-kitchen-sol`**, which is the one most cited here: `docs/morton.md` and
+`docs/sol_upstream.md` quote its `.cu` files by path, and those ship in no wheel.
+
+**Do not import Python from it.** The built branch is installed
+(`comfy_kitchen_version: 0.2.31+sol.c04ef20`), so
+`from comfy_kitchen.backends.eager.sol_attn import _pool` works without the
+clone, and its `sol_attn`, `_pool` and `_normalize_key_bias` are structurally
+identical to the vendored `bench/_sol_attn_reference.py`. Requiring the clone
+and prepending it to `sys.path` is how `bench/analyze_routing.py` made itself
+unrunnable on a box with the wheel and no checkout, which kept its red harness
+skipped and inert. Use the clone for sources you cannot import; import the rest.

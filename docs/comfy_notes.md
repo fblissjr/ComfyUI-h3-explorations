@@ -63,8 +63,9 @@ so when the power limit is not stock.
 The decision rests on the owner's perceptual verdict on video at one seed, and
 on nothing else: every fp8-vs-fp16 accuracy ratio was withdrawn 2026-08-16 as
 untrusted. **Do not reintroduce a ratio to defend it** — see `docs/evidence.md`.
-Captured activations to measure it properly already exist at
-`$H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/`.
+Captured activations to measure it properly exist under `$H3_CAPTURE_ROOT/`, but
+not the `2026-08-15_dense_124f_1344x768` one this used to name -- that is gone.
+The 2026-08-17 reference-heavy pair is what is on disk.
 
 **Sol-Attn Triton is retired**, deleted 2026-08-16 (`6872dfd`). Recover from
 `github.com/kijai/ComfyUI-SolAttn_triton` at `842c4ea` if an old number needs

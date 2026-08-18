@@ -916,9 +916,10 @@ sage's fp8 arm, that nobody has measured what that class costs on real H3
 activations, and that nobody has measured int8-V. **Not** "Sol throws away the
 accuracy we pay 1.58x for" -- that sentence was built on the withdrawn figures.
 
-The captures that would settle it exist
-(`$H3_CAPTURE_ROOT/2026-08-15_dense_124f_1344x768/`) and no kernel has been
-graded against them. Until that runs, this repo has no accuracy figure to quote
+The `2026-08-15_dense_124f_1344x768` capture this pointed at is **no longer on
+disk**. What is there is the 2026-08-17 reference-heavy pair at 362 frames
+1024x768, captured Sol-bypassed on Sage fp16 -- real q/k/v, a different geometry,
+and carrying references. No kernel has been graded against either. Until that runs, this repo has no accuracy figure to quote
 and should not acquire one by inference.
 
 ### The artifact stills cannot show

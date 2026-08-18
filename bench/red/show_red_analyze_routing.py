@@ -27,9 +27,9 @@ AR = subject("bench/analyze_routing.py")
 CAP = os.environ.get("H3_CAPTURE", "")
 _H = Harness(subject="bench/analyze_routing.py", verdict=lambda ok: not ok)
 _H.fixture(CAP or "/nonexistent",
-           "set H3_CAPTURE to a qkv capture .pt. This harness also needs "
-           "coderef/comfy-kitchen-sol for the eager reference, so it is a "
-           "documented run rather than a guard anyone can execute.")
+           "set H3_CAPTURE to a qkv capture .pt. The eager reference comes from "
+           "the installed comfy_kitchen, so a capture is the only thing this "
+           "needs that a clone does not already have.")
 
 pool = AR.load_eager()
 ac = AR.load_capture_tools()
