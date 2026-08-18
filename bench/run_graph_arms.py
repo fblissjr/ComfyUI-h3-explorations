@@ -121,6 +121,15 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=None,
                     help="set every RandomNoise node to this seed; without "
                          "it, arms keep whatever the graph ships")
+    ap.add_argument("--hold-seed", action="store_true",
+                    help="use the same seed for every repeat run of an arm. "
+                         "Default is seed+run_index, because ComfyUI's "
+                         "node-output cache returns a cached sampler result "
+                         "for a byte-identical resubmission -- a 'timing' of "
+                         "0.0s. Measured 2026-08-18: an identical control "
+                         "arm came back in 3.0s total, sampler 0.0s. Hold "
+                         "the seed only when a cache hit is the thing under "
+                         "test")
     ap.add_argument("--warmup", metavar="LABEL", default=None,
                     help="run this arm once first and mark the row warmup")
     ap.add_argument("--no-alternate", action="store_true",
@@ -154,12 +163,6 @@ def main() -> int:
             {"nodes": nids, "field": f"{node_key}.{field}", "value": value})
 
     for label, arm in arms.items():
-        if args.seed is not None:
-            for nid in _find_nodes(arm["graph"], "RandomNoise"):
-                arm["graph"][nid]["inputs"]["noise_seed"] = args.seed
-                # A fixed bench seed must not be re-randomized by the server.
-                if "control_after_generate" in arm["graph"][nid]["inputs"]:
-                    arm["graph"][nid]["inputs"]["control_after_generate"] = "fixed"
         # Distinct output prefix per arm, so renders land findably and no
         # arm overwrites another's clip.
         for nid in _find_nodes(arm["graph"], "VHS_VideoCombine"):
@@ -182,8 +185,20 @@ def main() -> int:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
 
+    run_index: dict[str, int] = {}
     for i, (label, warmup) in enumerate(schedule):
         arm = arms[label]
+        seed_used = None
+        if args.seed is not None:
+            # See --hold-seed: repeats bump the seed so the node-output
+            # cache cannot hand back a 0.0s "render".
+            seed_used = args.seed + (0 if args.hold_seed
+                                     else run_index.get(label, 0))
+            for nid in _find_nodes(arm["graph"], "RandomNoise"):
+                arm["graph"][nid]["inputs"]["noise_seed"] = seed_used
+                if "control_after_generate" in arm["graph"][nid]["inputs"]:
+                    arm["graph"][nid]["inputs"]["control_after_generate"] = "fixed"
+        run_index[label] = run_index.get(label, 0) + 1
         client_id = str(uuid.uuid4())
         print(f"[{i + 1}/{len(schedule)}] {label}"
               f"{' (warmup, discard)' if warmup else ''} ...", flush=True)
@@ -195,7 +210,7 @@ def main() -> int:
             "label": label,
             "graph": arm["path"],
             "patches": arm["patches"],
-            "seed": args.seed,
+            "seed": seed_used,
             "warmup": warmup,
             "total_s": total_s,
             "sampler_s": _class_seconds(arm["graph"], per_node,
@@ -206,6 +221,11 @@ def main() -> int:
             "wall_s": round(time.time() - t0, 1),
             "substrate": substrate(),
         }
+        # A sampler that "ran" in under a second did not run: the server's
+        # node-output cache returned a stored result. The row is kept (it is
+        # evidence about the harness), but no one should average it.
+        row["suspect_cache_hit"] = (not err and
+                                    (row["sampler_s"] or 0.0) < 1.0)
         with out.open("a") as f:
             f.write(json.dumps(row) + "\n")
         status = (f"ERROR: {err}" if err else
