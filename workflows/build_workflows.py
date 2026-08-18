@@ -56,6 +56,7 @@ from h3_config import (  # noqa: E402
     CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS, REF_LORA, REF_LORA_STRENGTH,
     ref_base_and_lora,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
+    CACHE_NODE, CACHE_NODE_CLASS,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
     TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
@@ -446,6 +447,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               split_at: int | None = None,
               split_base_last: bool = True,
               single_frame: bool = False,
+              cache: dict | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -740,6 +742,18 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                           "require_forward_patch": sage, "exercise": sage,
                           "warn_only": not sage}}
     model_src = ["23", 0]
+
+    if cache is not None:
+        # Step caching, AFTER the assert: the assert grades the attention
+        # composition, and the cache is a forward-skipping wrapper on top of
+        # it, not part of it. On a reused step nothing downstream of the
+        # wrapper runs -- sage and Sol included -- which is the mechanism, not
+        # a conflict. See CACHE_NODE in h3_config.py for why this arm exists
+        # and its er_sde caveat. Node id 40: 28-33 are taken by the reference
+        # loaders and the split path.
+        g["40"] = {"class_type": CACHE_NODE_CLASS,
+                   "inputs": {"model": model_src, **cache}}
+        model_src = ["40", 0]
 
     # Reports what the assembled conditioning actually costs, before the
     # sampler runs. Pass-through, so it cannot change the render.
@@ -3112,6 +3126,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              split_at: int | None = None,
              split_base_last: bool = True,
              single_frame: bool = False,
+             cache: dict | None = None,
              variant_note: str | None = None,
              length: int = LENGTH, seed: int = SEED, preview: bool = False,
              sol: dict | None = None, sol_enabled: bool = True,
@@ -3477,6 +3492,21 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                         title="Assert the attention chain composed")
     g.link(model_src, 0, assert_node, "model", "MODEL")
     model_src = assert_node
+
+    if cache is not None:
+        # Mirrors the build_api insertion: after the assert, because the cache
+        # is a forward-skipping wrapper over the finished attention chain, not
+        # a member of it. Widget order is the node's declared input order.
+        cache_node = g.add(CACHE_NODE_CLASS, (-480, 200), size=(360, 150),
+                           widgets=[cache["reuse_threshold"],
+                                    cache["start_percent"],
+                                    cache["end_percent"],
+                                    cache["verbose"]],
+                           inputs=[_in("model", "MODEL")],
+                           outputs=[_out("MODEL", "MODEL")],
+                           title="EasyCache: reuse near-identical steps")
+        g.link(model_src, 0, cache_node, "model", "MODEL")
+        model_src = cache_node
 
     # The second model path for a two-stage split: same UNETLoader, same
     # shift, no LoRA. Built here rather than lower down because the stage-1
@@ -4535,6 +4565,33 @@ def main():
                   "token than a text-only one while still being the case worth "
                   "getting right.")),
          "every reference type at once, with Sol-Attn ON"),
+
+        # The step-caching arm. Same references, same Sol config, same budget
+        # as h3_probe_sol_on_all_refs -- that graph IS the control; this one
+        # adds only the EasyCache node, so a timing pair between the two
+        # varies exactly one thing. Threshold sweeps patch the widget at
+        # submit time rather than multiplying graphs.
+        ("h3_probe_cache_easy.json", "r2v-all-cache", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True, audio=True),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_audio=True, sol_on=True,
+              cache=CACHE_NODE,
+              out_prefix="Video/h3_probe_cache_easy",
+              variant_note=_probe_note(
+                  "whether TeaCache-family step reuse pays on H3 at 16 steps",
+                  "h3_probe_sol_on_all_refs.json",
+                  "identical except the EasyCache node between the attention "
+                  "chain and the sampler, at CACHE_NODE defaults.",
+                  "the EasyCache verbose lines in the server log -- how many "
+                  "of the 16 steps were reused. A run without that count is "
+                  "uninterpretable. Then the video, against the twin's.",
+                  "NVLabs' 4090 H3 runtime attributes 3.18x of its speedup "
+                  "to caching at 50 steps; at 16 steps with the first ~15% "
+                  "and last ~5% forced dense, at most 12 forwards are "
+                  "skippable, so expect far less. On er_sde the per-step "
+                  "re-noising inflates input deltas, so a zero-reuse result "
+                  "here is a sampler artifact until re-run on a "
+                  "deterministic sampler.")),
+         "the all-refs Sol arm plus EasyCache step reuse"),
 
         # Sol-Attn ON with an input image rather than references. Keyframe
         # `cond` rows land in the sink too, so this is the third sink shape:

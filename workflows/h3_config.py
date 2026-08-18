@@ -469,6 +469,41 @@ SOL_CUDA_DEFAULTS = dict(
 # node declares its inputs: the UI graph maps widget values positionally.
 SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 
+# Step caching, on ComfyUI core's EasyCache node (comfy_extras/
+# nodes_easycache.py). Added 2026-08-18. The node thresholds the relative
+# change of the model's input between adjacent steps and, under threshold,
+# skips the whole transformer forward and reuses a cached residual -- on a
+# cached step neither sage nor Sol runs, so this composes with the attention
+# chain by bypassing it rather than by negotiating with it.
+#
+# Why it is worth a probe arm at all: NVLabs' MiniMax-H3 RTX 4090 runtime
+# (Sana repo, sol-engine branch, PR #466, read 2026-08-18) attributes 3.18x of
+# its 4.44x end-to-end speedup to TeaCache-family step caching and only 1.22x
+# to Sol-Attn -- measured at 50 steps against a same-card dense baseline, one
+# warm sample, no quality metric. At this repo's 16 steps the ceiling is far
+# lower: with the first ~15% and last ~5% of steps forced dense by
+# start/end_percent below, at most 12 of 16 forwards are even skippable.
+#
+# EasyCache handles H3's [video, audio] dual latent: it slices per-stream on
+# latent channels, and MiniMaxH3AV declares latent_channels=32 precisely so
+# such slices keep both streams whole (comfy/latent_formats.py). That is a
+# source read, not an H3 test -- the probe arm is the test.
+#
+# `verbose=True` because the node's hit/miss log lines in the server log are
+# the only record of how many steps a run actually reused; a timing without
+# that count is uninterpretable.
+#
+# Two standing cautions, both from CLAUDE.md rules: the shipped sampler
+# `er_sde` re-noises every step, which inflates adjacent-step input deltas
+# and can suppress reuse -- a null result on er_sde is a sampler artifact
+# until reproduced on a deterministic sampler; and any cache-on/off quality
+# judgement is a numeric-perturbation A/B, which must run on a deterministic
+# sampler. Keep the key order matching the node's declared inputs: UI graphs
+# map widget values positionally.
+CACHE_NODE_CLASS = "EasyCache"
+CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
+                  verbose=True)
+
 # Flow shifts, on `MiniMaxH3SigmaShift` (display name ModelSamplingMiniMaxH3).
 # 12/3 are the base checkpoint's training shifts and the node's own defaults,
 # so these values change nothing on their own. The node is in the graph so the
