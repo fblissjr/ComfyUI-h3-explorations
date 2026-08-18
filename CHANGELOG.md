@@ -26,6 +26,18 @@ artifact.
   16-step ceiling arithmetic, and the er_sde reuse caveat are documented at
   the constant.
 
+### Fixed
+
+- **`bench/run_graph_arms.py` behavior changes from the 2026-08-18 code
+  review** (89b91f3): `--runs` above 1 without `--seed` is refused instead
+  of silently producing node-output-cache hits; the warmup renders at
+  seed−1 and no longer consumes a run index (it desynchronized seed-matched
+  pairs); `sampler_untimed` is reported separately from
+  `suspect_cache_hit`; submission-path failures write an error row; every
+  writer with a `filename_prefix` is disambiguated per arm; rows carry a
+  repo-portable graph name plus content hash. `substrate()` reads package
+  versions from dist metadata and anchors git queries to this repo.
+
 ### Changed
 
 - **`CLAUDE.md` gains the rule that a rendered clip cannot A/B a numerical
