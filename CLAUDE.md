@@ -109,28 +109,39 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
   harnesses were rewritten and the pre-port copies left in place, still runnable
   and still returning success unconditionally, with `docs/checks.md` still citing
   them — so the fix shipped and the defect stayed.
-- **An A/B whose variable is smaller than the harness's own noise measures the
-  noise.** The shipped sampler is `er_sde`, which adds fresh noise every step.
-  Two arms at one seed draw the *same* noise, so this looks paired — but a
-  perturbation the size of a kernel-precision change gets amplified into a
-  different clip. Demonstrated 2026-08-18: a pair differing **only** in sage
-  `mode` came back with different wardrobe and different set dressing.
-  `workflows/h3_config.py` had already written the mechanism down —
-  "a knob that perturbs attention numerics will read as more 'reseeded' than it
-  did under a deterministic ODE" — and it was read as a caveat rather than a
-  constraint.
-  - **So: any A/B whose variable is a numeric perturbation** — sage mode, `tau`,
-    `morton`, `min_tokens`, `centroid_tail` — **must run on a deterministic
-    sampler.** `res_multistep` is one, and is what the 2026-08-13 fp16 decision
-    correctly used. `SamplerER_SDE` exposes `solver_type="ODE"`, which zeroes the
-    noise; the graphs wire plain `KSamplerSelect` and do not reach it, so today
-    the sampler has to be swapped by hand.
-  - **A weight-level difference** — LoRA against checkpoint — diverges on any
-    sampler, so those comparisons are weakened rather than void. The question
-    they answer is "does each arm satisfy the brief", never "are these the same
-    clip". Do not read them as pixel comparisons.
-  - **Check the seed before trusting any pair.** The 2026-08-15 ordering arms
-    carry a different seed per clip and were never paired at all.
+- **A rendered clip cannot A/B a numerical change.** The sampling trajectory
+  diverges completely from any perturbation, on **any** sampler. Measured
+  2026-08-18: two arms differing only in sage `mode` diverge at **frame 0**, at
+  the same PSNR as two unrelated clips, under `er_sde` and under the
+  deterministic `res_multistep` alike. The output of the changed arm is a
+  *different sample*, not a degraded version of the same one, so "which clip
+  looks better" is a draw from a distribution and answers nothing about the
+  knob.
+  - **This was got wrong once, the same day, in this file.** The first version
+    of this rule blamed `er_sde`'s injected noise and prescribed a deterministic
+    sampler. That was built, run, and refuted within the hour — the
+    deterministic pair diverged no less. Keep the refutation: the tempting fix
+    does not work, and the plausible mechanism was not the mechanism.
+  - **So compare knobs at the call, not at the output.**
+    `bench/grade_sage_on_capture.py` grades a kernel against an exact reference
+    on captured activations, which is controlled by construction. That is
+    currently the only controlled comparison this repo can make about a
+    numerical knob.
+  - **A perceptual claim about a numerical knob needs a distribution, not a
+    pair** — many seeds per arm judged blind in aggregate. One clip per arm
+    cannot support it however carefully it is stacked, and
+    `docs/eval_comparison.md`'s blind tooling does not change that; it controls
+    who knows which arm, not whether the arms are comparable.
+  - **This retro-applies.** The 2026-08-13 A/B that chose
+    `fp16 (most accurate)` was one clip per arm, so it compared two samples.
+    Sound as a preference between two outputs; never controlled evidence about
+    the kernel. Ranked against it, the call-level measurement is the stronger
+    claim, which is the opposite of how the two were weighted at the time.
+  - **A weight-level difference** — LoRA against checkpoint — diverges for the
+    same reason and was always answering "does each arm satisfy the brief".
+    Read those as briefs met, never as clips matched.
+  - **Check the seed before trusting any pair at all.** The 2026-08-15 ordering
+    arms carry a different seed per clip and were never paired to begin with.
 
 ## Reference implementations
 

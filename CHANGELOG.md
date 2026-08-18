@@ -8,16 +8,20 @@ artifact.
 
 ### Changed
 
-- **`CLAUDE.md` gains the rule that an A/B whose variable is smaller than the
-  harness's own noise measures the noise.** The shipped sampler re-noises every
-  step, so two arms at one seed draw the same noise and look paired while a
-  kernel-sized perturbation is amplified into a different clip — demonstrated
-  2026-08-18 by a pair differing only in sage `mode` that came back with
-  different wardrobe and set dressing. `workflows/h3_config.py` had already
-  written the mechanism down and it was read as a caveat rather than a
-  constraint. The rule names which comparisons are void (numeric perturbations),
-  which are merely weakened (weight-level differences), and the separate seed
-  trap in the 2026-08-15 ordering arms.
+- **`CLAUDE.md` gains the rule that a rendered clip cannot A/B a numerical
+  change.** The shipped sampler re-noises every
+  The sampling trajectory diverges completely from any perturbation, on
+  **any** sampler: two arms differing only in sage `mode` diverge at frame 0, at
+  the same PSNR as two unrelated clips, under `er_sde` and under deterministic
+  `res_multistep` alike. The changed arm is a different *sample*, not a degraded
+  version of the same one. The rule keeps its own refuted first draft — which
+  blamed the stochastic sampler and prescribed a deterministic one, built and
+  disproved within the hour — because the tempting fix not working is the
+  transferable part. Consequences: compare knobs at the call
+  (`bench/grade_sage_on_capture.py`), not at the output; a perceptual claim
+  about a numerical knob needs a distribution rather than a pair; and this
+  retro-applies to the 2026-08-13 A/B that chose fp16, which was one clip per
+  arm.
 
 
 - **`REF_LORA_ENABLED` flipped to `False`: reference graphs load the ref2va
