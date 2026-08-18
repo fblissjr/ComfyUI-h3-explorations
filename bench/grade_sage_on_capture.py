@@ -84,20 +84,32 @@ def sample_rows(seq_len, n_rows, strata=8, device="cuda"):
     return torch.tensor(sorted(set(idx))[:n_rows], device=device, dtype=torch.long)
 
 
-def reference_rows(q, k, v, rows, head_chunk=8):
-    """Exact fp32 attention for `rows`, against every key. Layout [B,H,S,D].
+def reference_rows(q, k, v, rows, head_chunk=8, dtype=torch.float64):
+    """Attention for `rows` against every key, in `dtype`. Layout [B,H,S,D].
+
+    **float64, not fp32, and that is the whole point.** An fp32 reference and
+    fp32 SDPA sit the SAME distance from a float64 arbiter -- measured here
+    2026-08-18 at 4.18e-04 each on random input -- while differing from each
+    other by 5.09e-04. So two fp32 paths disagree by more than either one's
+    actual error, purely from accumulation order, and an fp32 reference cannot
+    resolve a kernel difference smaller than that. Attention output is an
+    average over the whole key set, so cancellation amplifies relative error;
+    this is not a shape where fp32 is "obviously fine".
+
+    float64 is affordable because only sampled rows are scored: the score
+    matrix is [head_chunk, rows, S], not [H, S, S].
 
     Chunked over heads for memory only; the maths is unchunked per head.
     """
     b, h, s, d = q.shape
     assert b == 1, "capture is single-batch"
     scale = 1.0 / math.sqrt(d)
-    out = torch.empty((1, h, rows.numel(), d), dtype=torch.float32, device=q.device)
+    out = torch.empty((1, h, rows.numel(), d), dtype=dtype, device=q.device)
     for h0 in range(0, h, head_chunk):
         h1 = min(h, h0 + head_chunk)
-        qs = q[0, h0:h1].index_select(1, rows).float()      # [hc, n, d]
-        ks = k[0, h0:h1].float()                            # [hc, S, d]
-        vs = v[0, h0:h1].float()
+        qs = q[0, h0:h1].index_select(1, rows).to(dtype)    # [hc, n, d]
+        ks = k[0, h0:h1].to(dtype)                          # [hc, S, d]
+        vs = v[0, h0:h1].to(dtype)
         scores = torch.bmm(qs, ks.transpose(1, 2)) * scale  # [hc, n, S]
         probs = torch.softmax(scores, dim=-1)
         out[0, h0:h1] = torch.bmm(probs, vs)
@@ -107,7 +119,8 @@ def reference_rows(q, k, v, rows, head_chunk=8):
 
 def _err(got, ref):
     """Relative L2 per row, and cosine. Both over the head_dim axis."""
-    got = got.float()
+    ref = ref.double()
+    got = got.double()
     num = torch.linalg.vector_norm(got - ref, dim=-1)
     den = torch.linalg.vector_norm(ref, dim=-1).clamp_min(1e-12)
     rel = (num / den)
@@ -121,17 +134,23 @@ def _err(got, ref):
 
 
 def self_test(device="cuda"):
-    """Refuse to report unless the hand-rolled reference matches torch's."""
+    """Refuse to report unless the float64 reference tracks torch's own attention,
+    AND a deliberately wrong reference is shown to FAIL the same comparison.
+
+    The second half is the part that makes this a control rather than a
+    formality. `CLAUDE.md`: a check whose input already satisfies the expected
+    outcome cannot fail. Agreement alone would pass just as happily if the
+    threshold were loose enough to admit anything, so the negative arm perturbs
+    the softmax scale -- the single most likely thing to get wrong in a
+    hand-rolled attention -- and requires that it be caught.
+    """
     torch.manual_seed(0)
     b, h, s, d = 1, 4, 2048, 128
     q = torch.randn(b, h, s, d, device=device, dtype=torch.float32)
     k = torch.randn(b, h, s, d, device=device, dtype=torch.float32)
     v = torch.randn(b, h, s, d, device=device, dtype=torch.float32)
     rows = sample_rows(s, 128, device=device)
-    mine = reference_rows(q, k, v, rows)
-    # The math backend is the one that is plain fp32 matmul+softmax; flash and
-    # mem-efficient would be comparing our reference against another
-    # approximation. API moved in torch 2.x, so try the current spelling first.
+
     try:
         from torch.nn.attention import SDPBackend, sdpa_kernel
         ctx = sdpa_kernel(SDPBackend.MATH)
@@ -139,14 +158,29 @@ def self_test(device="cuda"):
         ctx = torch.backends.cuda.sdp_kernel(
             enable_flash=False, enable_mem_efficient=False, enable_math=True)
     with ctx:
-        full = torch.nn.functional.scaled_dot_product_attention(q, k, v)
-    theirs = full.index_select(2, rows)
-    e = _err(mine, theirs)
-    ok = e["rel_l2_mean"] < 1e-5 and e["cos_min"] > 1 - 1e-6
-    print(f"  self-test vs torch SDPA (math backend, fp32): "
-          f"rel_l2_mean {e['rel_l2_mean']:.3e}  cos_min {e['cos_min']:.9f}")
-    print(f"  {'ok' if ok else 'FAIL'}: the reference {'agrees' if ok else 'DISAGREES'} "
-          f"with torch's own attention")
+        theirs = torch.nn.functional.scaled_dot_product_attention(q, k, v)
+    theirs = theirs.index_select(2, rows)
+
+    exact = reference_rows(q, k, v, rows)                    # float64
+    agree = _err(theirs, exact)["rel_l2_mean"]
+
+    # Negative arm: same code path, scale wrong by 1%. If this passes, the
+    # tolerance is not discriminating and no result below is trustworthy.
+    d_wrong = d
+    saved = math.sqrt
+    try:
+        math.sqrt = lambda x, _s=saved: _s(x) * 1.01     # perturb 1/sqrt(d)
+        wrong = reference_rows(q, k, v, rows)
+    finally:
+        math.sqrt = saved
+    disagree = _err(theirs, wrong)["rel_l2_mean"]
+
+    TOL = 2e-3          # fp32 SDPA against an exact reference, at this shape
+    ok = agree < TOL and disagree > TOL
+    print(f"  torch fp32 SDPA vs our float64 reference : {agree:.3e}   (tolerance {TOL:.0e})")
+    print(f"  same, with the softmax scale 1% wrong    : {disagree:.3e}   (must exceed it)")
+    print(f"  {'ok' if ok else 'FAIL'}: the reference tracks torch "
+          f"{'and the check can fail' if ok else '-- or the negative arm did not fail'}")
     return ok
 
 
@@ -161,7 +195,7 @@ def grade(path, n_rows, device="cuda"):
 
     q = q_c.to(device); k = k_c.to(device); v = v_c.to(device)
     rows = sample_rows(s, n_rows, device=device)
-    print(f"  scoring {rows.numel()} query rows against all {s} keys, fp32 reference")
+    print(f"  scoring {rows.numel()} query rows against all {s} keys, float64 reference")
     ref = reference_rows(q, k, v, rows)
 
     results = {}

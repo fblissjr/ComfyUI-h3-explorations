@@ -36,12 +36,24 @@ artifact.
   (`mode=4`) is how the shipped graphs disable Sol deliberately and is reported
   without complaint. No node can catch this — an orphaned node is never
   executed, so there is no runtime moment at which to raise.
-- **`bench/grade_sage_on_capture.py`**, which grades each sage mode against a
-  real captured activation instead of `torch.randn`. This is the run
-  `h3_capture.py`'s own docstring records as never having happened, and the one
-  `docs/evidence.md` names as what would restore an accuracy figure. It refuses
-  to report unless its hand-rolled fp32 reference first agrees with torch's own
-  attention. **Written and self-tested, not yet run against a capture.**
+- **`bench/grade_sage_on_capture.py`, and it has been run.** It grades each sage
+  mode against a real captured activation instead of `torch.randn` — the run
+  `h3_capture.py`'s own docstring recorded as never having happened, and the one
+  `docs/evidence.md` named as what would restore an accuracy figure. Result:
+  `bench/results/2026-08-18_sage_accuracy_on_capture.json`, and the
+  corresponding row in `docs/evidence.md` moves from withdrawn to restored.
+  The measured advantage is smaller than the withdrawn synthetic figure — the
+  direction the withdrawal predicted — and it decays with depth while the
+  absolute error grows, so fp16 helps least where the kernel is worst.
+  It remains kernel fidelity, not perceptual quality.
+
+  The reference is **float64, not fp32**, because fp32 could not do the job: an
+  fp32 reference and torch's fp32 SDPA sit the same distance from float64 while
+  differing from each other by more than that, so two fp32 paths disagree by
+  more than either one's error. Attention averages over the whole key set, so
+  cancellation amplifies relative error. The control also gained a negative arm
+  — a 1% wrong softmax scale must be caught — after the first version could
+  only ever confirm.
 
 ## 0.35.0
 
