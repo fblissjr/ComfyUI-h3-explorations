@@ -13,9 +13,10 @@ Sol at SOL_RECOMMENDED_CUDA, ref2va, 16 steps, er_sde):
 Graphs are written to the output directory as ad-hoc arms rather than into
 `workflows/` -- they are one experiment's inputs, not shipped graphs, and
 `build_api` is the same builder the shipped set uses, so they cannot drift
-from it. The manifest JSON beside them records every arm's builder inputs
-and its statically-priced sequence length, so a timing row can be joined to
-its token count without a render.
+from it. The manifest JSON beside them records every arm's builder inputs.
+Static token pricing is NOT computed here: run `bench/preflight_graph.py`
+on each emitted graph (the 2026-08-18 run saved those as *_preflight.txt
+sidecars next to the graphs) and join timing rows to arms by label.
 
 Reference assets come from `internal/reference_library.md`'s count-ladder
 set: the six 1024x1024 assets (three faces, three styles), which move count

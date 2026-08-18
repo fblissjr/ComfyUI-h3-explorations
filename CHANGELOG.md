@@ -29,8 +29,7 @@ artifact.
 ### Changed
 
 - **`CLAUDE.md` gains the rule that a rendered clip cannot A/B a numerical
-  change.** The shipped sampler re-noises every
-  The sampling trajectory diverges completely from any perturbation, on
+  change.** The sampling trajectory diverges completely from any perturbation, on
   **any** sampler: two arms differing only in sage `mode` diverge at frame 0, at
   the same PSNR as two unrelated clips, under `er_sde` and under deterministic
   `res_multistep` alike. The changed arm is a different *sample*, not a degraded

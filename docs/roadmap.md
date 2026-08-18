@@ -129,7 +129,7 @@ All in `workflows/h3_config.py`, all single switches, all regenerate with
 |---|---|---|---|
 | `CANVAS_TIER` | `full` | full / near / fast / draft | 1.00 / 0.91 / 0.73 / 0.58 attention |
 | length | 362 | 17n+5 grid | linear in tokens |
-| `REF_LORA_ENABLED` | `True` | True / False | LoRA path vs ref2va checkpoint |
+| `REF_LORA_ENABLED` | `False` since 2026-08-18 | True / False | LoRA path vs ref2va checkpoint |
 | `REF_LORA_STRENGTH` | 1.0 | 0.0-1.0 | model interpolation |
 | `SOL_CUDA_DEFAULTS` | Sol off in graphs | tau, window, sinks | see `docs/SOLATTN.md` |
 
@@ -255,7 +255,10 @@ owner and independently by Gemini, both without knowing which arm was which.
 
 **Do not treat this as settling the question.** One pair, one seed, and a
 prompt defective in three ways -- one of which demonstrably drove both outputs.
-`REF_LORA_ENABLED` stays `True`; nothing here argues for flipping it.
+(`REF_LORA_ENABLED` was subsequently flipped to `False` on 2026-08-18 by owner
+decision -- for fewer moving parts in the model path, not because this
+comparison settled anything. The reasoning lives at the switch in
+`workflows/h3_config.py`.)
 
 **Attention is not very sparse on this workload.** MEASURED on captured
 activations: at its most concentrated a query still needs 178 key blocks of

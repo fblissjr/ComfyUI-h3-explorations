@@ -12,20 +12,23 @@ Findings from the 2026-08-18 run (bench/results/2026-08-18_dit_internals.json,
 which this script reproduces):
 
   - **AdaLN is replaced, not adjusted, in EVERY block**: weight rel-delta
-    1.84-1.92 with NEGATIVE cosine (-0.71..-0.80) at every depth, and
-    `final_layer.adaln_proj` likewise (rel 1.90). The reference-conditioning
-    mechanism lives in the modulation pathway, which is also why the
-    extracted ref LoRA carries full-rank adaln diffs and why the HF hybrids
-    are adaln swaps.
+    1.84-1.92 with NEGATIVE cosine (-0.70..-0.81 across blocks) at every
+    depth, and `final_layer.adaln_proj` likewise (rel 1.90). The
+    reference-conditioning mechanism lives in the modulation pathway, which
+    is also why the extracted ref LoRA carries full-rank adaln diffs and why
+    the HF hybrids are adaln swaps.
   - **AdaLN delta energy is FLAT across depth** (~2% per block; blocks 0-14
     hold 8.9%). The hybrids' suffix cutoffs are therefore a linear dial on
     "how much ref2va modulation" -- b15-49 carries 91.1% of the delta
     energy, b20 88.4%, b25 85.5%, b30 81.3% -- not a targeting of blocks
     that matter more. None of them swap `final_layer.adaln_proj` or blocks
     0-14, and none carry the linear deltas below.
-  - **The int8 linears differ ~3.1-3.3% relative, uniformly** (cosine
-    0.9994-0.9998 at every block); the output heads differ more
-    (video_out 5.0%, audio_out 7.9%); condition/patch projections ~2.2-2.4%.
+  - **The int8 linears differ ~3.2% relative on average** (per-tensor range
+    2.0-3.8%, cosine at or above 0.9993 at every block); the output heads
+    differ more (video_out 5.0%, audio_out 7.9%); condition/patch
+    projections ~2.2-2.4%. All rel-deltas here are ||ref2va - fl2va|| over
+    ||ref2va|| -- the ref2va norm is the denominator, which matters for the
+    ~1.9 AdaLN figures.
   - **Quantization stress is identical** between the two checkpoints
     (qkv per-channel scale mean/max match to 4 decimals per block), so
     neither partition is the harder int8 target.

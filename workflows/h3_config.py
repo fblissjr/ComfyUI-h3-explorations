@@ -509,10 +509,18 @@ SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 # res_multistep at 0.2 it skips 7 of 16 for **1.74x on the sampler**, the
 # largest single-lever ratio measured on this box, stacked on Sol. The
 # er_sde null was the predicted sampler artifact. Quality of the 1.74x arm
-# vs its seed-matched control: PSNR 27 dB, jitter unchanged, patch-boundary
-# +3%, sharpness proxy +17% -- ranked by bench/quality_metrics.py, judged by
+# vs its seed-matched control -- committed records, not prose:
+# bench/results/2026-08-18_cache_rm_quality.json (res_multistep pair) and
+# bench/results/2026-08-18_euler_quality.json (euler pair, the better
+# behaved of the two) -- ranked by bench/quality_metrics.py, judged by
 # nobody yet. Whether to change the shipped sampler or threshold is an
-# owner decision gated on watching that pair.
+# owner decision gated on watching those pairs.
+#
+# Uncontrolled edge, disclosed: MiniMaxH3ProvenanceStamp records the Sol
+# keys and versions and knows nothing about this node, so a stamped render
+# with cached steps carries a provenance record indistinguishable from a
+# dense one. No shipped graph wires both today; a bench patching the cache
+# into a stamped graph would. Enforced by nothing.
 CACHE_NODE_CLASS = "EasyCache"
 CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
                   verbose=True)

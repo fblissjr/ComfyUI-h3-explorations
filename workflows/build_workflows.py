@@ -478,10 +478,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             "because a single frame's audio is 0.04s of nothing.")
     _check_geometry(length, canvas)
     ref = task == "r2v"
-    # Reference graphs take the base+LoRA route by default (h3_config's
-    # REF_VIA_LORA). An explicit `unet` or `lora` still wins, which is what
-    # keeps the turbo-pack and split graphs -- and any deliberate ref2va
-    # control -- working unchanged.
+    # Reference graphs load whatever `ref_base_and_lora()` says --
+    # `REF_LORA_ENABLED` in h3_config.py owns that switch (False since
+    # 2026-08-18: ref2va directly, no LoRA). An explicit `unet` or `lora`
+    # still wins, which is what keeps the turbo-pack and split graphs -- and
+    # the deliberate fl2va+LoRA arm -- working unchanged.
     if ref and unet is None and lora is None:
         unet, lora = ref_base_and_lora()
     cv = dict(CANVAS, **canvas)

@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import sys
 import time
@@ -143,12 +144,24 @@ def main() -> int:
 
     arms: dict[str, dict] = {}
     order: list[str] = []
+    repo = Path(__file__).resolve().parents[1]
     for spec in args.arm:
         label, _, path = spec.partition("=")
         if not path:
             raise SystemExit(f"--arm wants LABEL=PATH, got {spec!r}")
-        graph = json.loads(Path(path).read_text())
-        arms[label] = {"path": path, "graph": graph, "patches": []}
+        raw = Path(path).read_bytes()
+        graph = json.loads(raw)
+        # Rows are committed records: a graph outside the repo is recorded
+        # by basename only (an absolute scratch path leaks the machine's
+        # layout into tracked content and points at files that will not
+        # exist later), and every row carries the graph's content hash so
+        # it stays identifiable either way.
+        try:
+            rec = str(Path(path).resolve().relative_to(repo))
+        except ValueError:
+            rec = Path(path).name
+        arms[label] = {"path": rec, "graph": graph, "patches": [],
+                       "sha": hashlib.sha256(raw).hexdigest()[:16]}
         order.append(label)
 
     for spec in args.patches:
@@ -162,11 +175,19 @@ def main() -> int:
         arms[label]["patches"].append(
             {"nodes": nids, "field": f"{node_key}.{field}", "value": value})
 
+    if args.seed is None and args.runs > 1:
+        raise SystemExit(
+            "--runs > 1 needs --seed: without one, repeat runs are "
+            "byte-identical resubmissions and the server's node-output "
+            "cache returns stored results as 0.0s 'renders'")
+
     for label, arm in arms.items():
         # Distinct output prefix per arm, so renders land findably and no
-        # arm overwrites another's clip.
-        for nid in _find_nodes(arm["graph"], "VHS_VideoCombine"):
-            w = arm["graph"][nid]["inputs"]
+        # arm overwrites another's clip. Any writer with a string
+        # filename_prefix -- VHS_VideoCombine, SaveImage, whatever else --
+        # not just the video muxer.
+        for node in arm["graph"].values():
+            w = node.get("inputs", {})
             if isinstance(w.get("filename_prefix"), str):
                 w["filename_prefix"] += f"_{label}"
 
@@ -191,24 +212,40 @@ def main() -> int:
         seed_used = None
         if args.seed is not None:
             # See --hold-seed: repeats bump the seed so the node-output
-            # cache cannot hand back a 0.0s "render".
-            seed_used = args.seed + (0 if args.hold_seed
-                                     else run_index.get(label, 0))
+            # cache cannot hand back a 0.0s "render". The warmup gets its
+            # own seed (seed-1) and does NOT consume a run index -- letting
+            # it consume one desynchronized seeds across arms (the warmup
+            # arm's real runs at seed+1.. while the others sat at seed+0..),
+            # which broke the seed-matched pairing this tool exists for.
+            if warmup:
+                seed_used = args.seed - 1
+            else:
+                seed_used = args.seed + (0 if args.hold_seed
+                                         else run_index.get(label, 0))
             for nid in _find_nodes(arm["graph"], "RandomNoise"):
                 arm["graph"][nid]["inputs"]["noise_seed"] = seed_used
                 if "control_after_generate" in arm["graph"][nid]["inputs"]:
                     arm["graph"][nid]["inputs"]["control_after_generate"] = "fixed"
-        run_index[label] = run_index.get(label, 0) + 1
+        if not warmup:
+            run_index[label] = run_index.get(label, 0) + 1
         client_id = str(uuid.uuid4())
         print(f"[{i + 1}/{len(schedule)}] {label}"
               f"{' (warmup, discard)' if warmup else ''} ...", flush=True)
         t0 = time.time()
-        total_s, per_node, err = asyncio.run(
-            run_once(args.host, arm["graph"], client_id, args.timeout))
+        try:
+            total_s, per_node, err = asyncio.run(
+                run_once(args.host, arm["graph"], client_id, args.timeout))
+        except Exception as exc:
+            # A submission-path failure (HTTP 400 on validation, server
+            # down) must leave a row saying the arm was attempted, same as
+            # an execution error -- a schedule that dies with a traceback
+            # and no row is evidence that evaporated.
+            total_s, per_node, err = None, {}, f"submit/transport: {exc}"
         row = {
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "label": label,
             "graph": arm["path"],
+            "graph_sha256": arm["sha"],
             "patches": arm["patches"],
             "seed": seed_used,
             "warmup": warmup,
@@ -223,9 +260,15 @@ def main() -> int:
         }
         # A sampler that "ran" in under a second did not run: the server's
         # node-output cache returned a stored result. The row is kept (it is
-        # evidence about the harness), but no one should average it.
-        row["suspect_cache_hit"] = (not err and
-                                    (row["sampler_s"] or 0.0) < 1.0)
+        # evidence about the harness), but no one should average it. A
+        # sampler_s of None is a DIFFERENT condition -- no
+        # SamplerCustomAdvanced node was timed (a graph with another sampler
+        # class, or the run never reached it) -- and flagging it as a cache
+        # hit would mark every honest render of such a graph suspect, the
+        # red-while-correct failure that trains readers to ignore the flag.
+        row["sampler_untimed"] = (not err and row["sampler_s"] is None)
+        row["suspect_cache_hit"] = (not err and row["sampler_s"] is not None
+                                    and row["sampler_s"] < 1.0)
         with out.open("a") as f:
             f.write(json.dumps(row) + "\n")
         status = (f"ERROR: {err}" if err else

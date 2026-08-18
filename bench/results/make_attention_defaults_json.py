@@ -67,11 +67,25 @@ def substrate():
         out.update(gpu=parts[0], driver=parts[1], power_limit=parts[2],
                    power_default_limit=parts[3], memory_total=parts[4])
     out["power_limit_is_stock"] = out.get("power_limit") == out.get("power_default_limit")
+    # In-process, metadata first: `comfy_kitchen` has no `__version__`
+    # attribute (its version lives in dist metadata), which is how the
+    # 2026-08-18 workload-grid rows recorded "?" for exactly the packages a
+    # substrate row exists to pin.
     for mod in ("torch", "comfy_kitchen", "sageattention"):
-        out[mod] = sh(sys.executable, "-c",
-                      f"import {mod};print(getattr({mod},'__version__','?'))")
-    out["git_commit"] = sh("git", "rev-parse", "HEAD")
-    out["git_dirty"] = bool(sh("git", "status", "--porcelain"))
+        try:
+            import importlib.metadata as _md
+            out[mod] = _md.version(mod)
+        except Exception:
+            try:
+                out[mod] = getattr(__import__(mod), "__version__", "?")
+            except Exception as exc:
+                out[mod] = f"unavailable: {exc}"
+    # Anchored to THIS repo, not the caller's cwd: invoked from the ComfyUI
+    # checkout the bare form records that repo's commit and dirty state as
+    # this one's.
+    repo = str(Path(__file__).resolve().parents[2])
+    out["git_commit"] = sh("git", "-C", repo, "rev-parse", "HEAD")
+    out["git_dirty"] = bool(sh("git", "-C", repo, "status", "--porcelain"))
     return out
 
 
