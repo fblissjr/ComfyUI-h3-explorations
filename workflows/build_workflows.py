@@ -4603,6 +4603,50 @@ def main():
                   "deterministic sampler.")),
          "the all-refs Sol arm plus EasyCache step reuse"),
 
+        # The euler pair, owner-requested 2026-08-18. Same workload as the
+        # two graphs above with only the sampler changed: euler is
+        # deterministic, so it is the arm where step caching works at the
+        # stock threshold (measured the same day on res_multistep: 7 of 16
+        # steps reused, 1.74x on the sampler, where the shipped er_sde
+        # reused nothing at 0.2 -- bench/results/2026-08-18_cache_arms.jsonl)
+        # and where a cache-on/off pair is a valid numeric A/B under the
+        # CLAUDE.md deterministic-sampler rule. Two graphs, not one, so the
+        # pair varies exactly the cache node.
+        ("h3_probe_euler.json", "r2v-all-euler", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True, audio=True),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_audio=True, sol_on=True,
+              sampler_name="euler",
+              out_prefix="Video/h3_probe_euler",
+              variant_note=_probe_note(
+                  "what the all-refs workload looks like on a deterministic "
+                  "sampler from the euler family",
+                  "h3_probe_sol_on_all_refs.json",
+                  "identical except KSamplerSelect: euler instead of er_sde.",
+                  "the clip, against the er_sde twin's -- sampler swaps "
+                  "cannot be pixel-compared, so the question is whether the "
+                  "brief survives, not whether frames match.",
+                  "same per-step cost (sampler choice measured speed-neutral "
+                  "2026-08-18); any difference is look, not wall time.")),
+         "the all-refs workload on euler -- the deterministic-sampler arm"),
+
+        ("h3_probe_euler_cache.json", "r2v-all-euler-cache", "r2v",
+         _ref_prompt(images=True, video=True, video_audio=True, audio=True),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_audio=True, sol_on=True,
+              sampler_name="euler", cache=CACHE_NODE,
+              out_prefix="Video/h3_probe_euler_cache",
+              variant_note=_probe_note(
+                  "whether euler gets the deterministic-sampler cache payoff",
+                  "h3_probe_euler.json",
+                  "identical except the EasyCache node at CACHE_NODE "
+                  "defaults.",
+                  "the EasyCache verbose skip count in the server log, then "
+                  "the clip against the twin's -- this pair IS seed-pairable "
+                  "(same sampler, deterministic).",
+                  "if euler behaves like res_multistep, roughly 7 of 16 "
+                  "steps reused; a lower count is a finding about euler's "
+                  "trajectory, not a harness failure.")),
+         "the euler arm plus EasyCache -- the cache-payoff twin"),
+
         # Sol-Attn ON with an input image rather than references. Keyframe
         # `cond` rows land in the sink too, so this is the third sink shape:
         # text-only, reference-heavy, and keyframe.

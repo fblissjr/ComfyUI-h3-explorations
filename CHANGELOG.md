@@ -6,6 +6,26 @@ artifact.
 
 ## 0.37.0
 
+### Added
+
+- **The euler probe pair: `h3_probe_euler` and `h3_probe_euler_cache`.**
+  Owner-requested 2026-08-18: the all-refs workload with only the sampler
+  changed to euler — the deterministic arm where step caching works at the
+  stock threshold and where cache-on/off is a valid numeric A/B under the
+  deterministic-sampler rule. Two graphs so the pair varies exactly the
+  cache node; rationale and the measured er_sde/res_multistep context at
+  the entries in `workflows/build_workflows.py`.
+
+- **A step-caching probe arm: `h3_probe_cache_easy`, paired against
+  `h3_probe_sol_on_all_refs`.** ComfyUI core's EasyCache as a builder option
+  (`CACHE_NODE` / `CACHE_NODE_CLASS` in `workflows/h3_config.py`), inserted
+  after `SageChainAssert` in both graph formats so the assert still grades the
+  attention chain and the cache skips over it whole. The twin graph is the
+  control; the pair varies exactly one node. Motivation (NVLabs' 4090 H3
+  runtime attributes 3.18x of its 4.44x to step caching at 50 steps), the
+  16-step ceiling arithmetic, and the er_sde reuse caveat are documented at
+  the constant.
+
 ### Changed
 
 - **`CLAUDE.md` gains the rule that a rendered clip cannot A/B a numerical
