@@ -1,5 +1,17 @@
 # Why ref2v resists step distillation
 
+> **Overtaken in part, 2026-08-18.** The premise sentence below — no ref2v
+> distill exists — is no longer true: lightx2v released a dedicated
+> ref2v-trained turbo, and it is on disk here as
+> `minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors` (header read
+> 2026-08-18: PEFT rank 128, alpha 8.0, training_scale 0.0625, base
+> `minimax_h3_fl2va_bf16`, attn+mlp of all 50 blocks plus the token refiner).
+> That empirically retires reason 3 (the trainer had no ref2v path — it does
+> now, or was extended). Reasons 1 and 2 stand as written: they explain why an
+> *fl2v* turbo cannot transfer to ref2v, which the dedicated checkpoint does
+> not contradict. Untested here in any way; owner decision 2026-08-18 is that
+> turbo/distilled arms are out of scope for now.
+
 lightx2v has shipped three FL2VA turbo LoRAs for MiniMax H3 and none for
 ref2v. Their roadmap lists "Develop distillation based on Ref2V" as future
 work. This document is the answer to *why*, worked out from the code rather
