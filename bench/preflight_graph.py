@@ -465,6 +465,127 @@ def price(node: dict, graph: dict) -> list[str]:
     return lines
 
 
+# --- attention chain ------------------------------------------------------
+#
+# This is the ONE section that runs on a UI-format graph too, and the reason is
+# the defect it was written for. On 2026-08-18 a hand-built r2v graph carried an
+# ACTIVE `SolAttnMiniMax` whose MODEL output went nowhere: `SageChainAssert`
+# took its model straight from the sage node, so ComfyUI -- which seeds
+# execution from output nodes and walks backwards -- never ran the Sol node at
+# all. The render was dense and looked entirely normal. Measured against the
+# same graph with the chain closed, the orphan cost 1.54x on the sampler.
+#
+# Nothing could have caught it. Every graph-walking check goes through
+# `graph_paths()`, which covers `workflows/` and `workflows/image/`; the graph
+# lived outside both. And no *node* can see it either: an orphaned node is
+# never executed, so there is no runtime moment at which to complain. It is a
+# graph-topology defect and a static reader is the only thing that can see it.
+#
+# The discriminator is `mode`, not presence. Disabling Sol deliberately is done
+# by bypassing it (`mode=4`), which is what `build_workflows.py` emits for the
+# capture probe and what the UI writes when you press Ctrl-B. An ACTIVE node
+# wired to nothing is not a decision anyone makes on purpose, so that is the
+# only state reported as a defect. Muted and bypassed are reported as-is.
+ATTN_NODES = ("MiniMaxH3SageAttention", "SolAttnMiniMax")
+_OUTPUT_TYPES = {"VHS_VideoCombine", "SaveImage", "PreviewImage", "SaveAudio",
+                 "SaveAnimatedWEBP", "SaveWEBM", "SaveVideo", "PreviewAny"}
+
+
+def _reachable_from_outputs(graph):
+    """Node ids that feed an output node, for either graph format.
+
+    Reachability, not presence. `docs/evidence.md` records a capture whose
+    provenance field reported Sol-free by asking whether the node existed; the
+    node existed and was orphaned, so the field read the situation backwards.
+    """
+    if isinstance(graph.get("nodes"), list):
+        nodes = {n["id"]: n for n in graph["nodes"]}
+        edges = {}
+        for link in graph.get("links", []):
+            if isinstance(link, list) and len(link) >= 5:
+                edges.setdefault(link[3], set()).add(link[1])
+        seeds = [i for i, n in nodes.items() if n.get("type") in _OUTPUT_TYPES]
+    else:
+        nodes = {i: n for i, n in graph.items() if isinstance(n, dict)}
+        edges = {}
+        for i, n in nodes.items():
+            for val in (n.get("inputs") or {}).values():
+                if isinstance(val, list) and len(val) == 2:
+                    edges.setdefault(i, set()).add(str(val[0]))
+        seeds = [i for i, n in nodes.items()
+                 if n.get("class_type") in _OUTPUT_TYPES]
+    seen, stack = set(), list(seeds)
+    while stack:
+        cur = stack.pop()
+        if cur in seen:
+            continue
+        seen.add(cur)
+        stack.extend(edges.get(cur, ()))
+    return seen
+
+
+def attention_chain(graph):
+    """`[(node_type, state, detail)]` for each attention node in the graph.
+
+    States: `live`, `orphaned`, `bypassed`, `muted`, `absent`.
+    """
+    live_ids = _reachable_from_outputs(graph)
+    is_ui = isinstance(graph.get("nodes"), list)
+    if is_ui:
+        found = {}
+        for n in graph["nodes"]:
+            found.setdefault(n.get("type"), []).append(n)
+    else:
+        found = {}
+        for i, n in graph.items():
+            if isinstance(n, dict):
+                found.setdefault(n.get("class_type"), []).append((i, n))
+
+    out = []
+    for want in ATTN_NODES:
+        got = found.get(want, [])
+        if not got:
+            out.append((want, "absent", ""))
+            continue
+        for item in got:
+            if is_ui:
+                nid, mode = item["id"], item.get("mode", 0)
+                if mode == 4:
+                    out.append((want, "bypassed", f"node {nid}, mode=4"))
+                elif mode == 2:
+                    out.append((want, "muted", f"node {nid}, mode=2"))
+                elif nid in live_ids:
+                    out.append((want, "live", f"node {nid}"))
+                else:
+                    out.append((want, "orphaned", f"node {nid}"))
+            else:
+                nid, _node = item
+                out.append((want, "live" if nid in live_ids else "orphaned",
+                            f"node {nid}"))
+    return out
+
+
+def report_attention_chain(graph):
+    lines = ["  attention chain:"]
+    defect = False
+    for name, state, detail in attention_chain(graph):
+        suffix = f"  ({detail})" if detail else ""
+        if state == "orphaned":
+            defect = True
+            lines.append(
+                f"    DEFECT  {name} is ACTIVE but nothing consumes its "
+                f"MODEL output{suffix}. ComfyUI walks backwards from the "
+                f"output nodes, so this node never executes and its patch "
+                f"never reaches the sampler. To disable it on purpose, "
+                f"bypass it (Ctrl-B) instead -- that is what the shipped "
+                f"graphs do.")
+        else:
+            lines.append(f"    {state:<9}{name}{suffix}")
+    if not defect:
+        pass
+    return lines
+
+
 def main() -> int:
     paths = [Path(p) for p in sys.argv[1:]]
     if not paths:
@@ -478,9 +599,13 @@ def main() -> int:
         except Exception as exc:
             print(f"  cannot read: {exc}")
             return 1
+        for line in report_attention_chain(graph):
+            print(line)
+        print("")
         if isinstance(graph.get("nodes"), list):
-            print("  UI-format graph; this reads the API form "
-                  "(links are resolved there). Skipped.")
+            print("  UI-format graph; the PRICING half reads the API form "
+                  "(links are resolved there). Skipped. The attention chain "
+                  "above was read from the UI form and is complete.")
             continue
         refs = {nid: n for nid, n in graph.items()
                 if n.get("class_type") == REF_NODE}

@@ -1,0 +1,155 @@
+{
+  "measurement": "sage kernel mode x Sol-Attn reachability, end to end",
+  "date": "2026-08-18",
+  "why": "`docs/evidence.md` withdrew every fp8-vs-fp16 accuracy ratio on 2026-08-16, leaving the shipped `fp16 (most accurate)` default resting only on a perceptual verdict taken 2026-08-13 at 124 frames with Sol ABSENT -- one day before Sol-Attn landed. This run measures the cost side in the configuration actually shipped.",
+  "method": "One variable per arm, same graph, same seed, same sequence. Sampler seconds are read from the progress line, so model load and VAE decode are excluded. One run per arm.",
+  "held_fixed": {
+    "graph": "workflows/h3_probe_capture_ref3_api.json, length set to 260",
+    "canvas": "1024x768",
+    "frames": 260,
+    "latent_frames": 77,
+    "packed_sequence_length": 75118,
+    "steps": 16,
+    "sampler": "er_sde",
+    "scheduler": "simple",
+    "sigma_shift": [
+      12.0,
+      3.0
+    ],
+    "seed": 730451892,
+    "references": 3,
+    "ref_image_size": "max",
+    "model": "minimax_h3_fl2va_pruned_int8_convrot + ref LoRA @1.0 (except arm E)"
+  },
+  "substrate": {
+    "raw": "NVIDIA GeForce RTX 4090, 610.57.04, 330.00 W, 450.00 W, 24564 MiB, P8",
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "driver": "610.57.04",
+    "power_limit": "330.00 W",
+    "power_default_limit": "450.00 W",
+    "memory_total": "24564 MiB",
+    "power_limit_is_stock": false,
+    "torch": "2.13.0+cu132",
+    "comfy_kitchen": "?",
+    "sageattention": "?",
+    "git_commit": "a28674e261744615b394458755d5e11f3917f00c",
+    "git_dirty": true
+  },
+  "arms": [
+    {
+      "id": "A_sol_fp16",
+      "sage_mode": "fp16 (most accurate)",
+      "sol_reachable": true,
+      "sampler_seconds": 441,
+      "seconds_per_step": 27.56,
+      "sol_composed_in_log": true,
+      "note": "the shipped configuration before this run",
+      "prompt_id": "ddd6bf1a-53fb-4e9b-88e7-ac03e2204e76"
+    },
+    {
+      "id": "B_nosol_fp16",
+      "sage_mode": "fp16 (most accurate)",
+      "sol_reachable": false,
+      "sampler_seconds": 694,
+      "seconds_per_step": 43.38,
+      "sol_composed_in_log": false,
+      "note": "shipped sage, Sol not reachable",
+      "prompt_id": "3c2100df-251e-46e9-9a2b-faaf773c46c3"
+    },
+    {
+      "id": "C_sol_auto",
+      "sage_mode": "auto",
+      "sol_reachable": true,
+      "sampler_seconds": 374,
+      "seconds_per_step": 23.38,
+      "sol_composed_in_log": true,
+      "note": "auto resolves to fp8_cuda++ on sm89",
+      "prompt_id": "147b9824-a2a8-4e83-92ee-2633b3d9f699"
+    },
+    {
+      "id": "D_nosol_auto",
+      "sage_mode": "auto",
+      "sol_reachable": false,
+      "sampler_seconds": 478,
+      "seconds_per_step": 29.88,
+      "sol_composed_in_log": false,
+      "note": "the 2026-08-10 configuration, before either change",
+      "prompt_id": "0bee1639-6d5a-444a-946e-1e03ae71d25c"
+    },
+    {
+      "id": "E_ref2va_nolora",
+      "sage_mode": "fp16 (most accurate)",
+      "sol_reachable": true,
+      "sampler_seconds": 434,
+      "seconds_per_step": 27.12,
+      "sol_composed_in_log": true,
+      "note": "ref2va checkpoint direct, no ref LoRA; isolates the LoRA's 320 attached patches",
+      "prompt_id": "b04d121b-8d82-4ca6-a0f8-fae17b3d46c6"
+    },
+    {
+      "id": "F_userlive",
+      "sage_mode": "BYPASSED",
+      "sol_reachable": true,
+      "sampler_seconds": 543,
+      "seconds_per_step": 33.94,
+      "sol_composed_in_log": false,
+      "note": "the owner's live UI graph: sage node bypassed, Sol min_tokens 11776, morton on",
+      "prompt_id": "bdf92209-2d22-4100-8b22-7e11ddfd878d"
+    }
+  ],
+  "derived": {
+    "sol_worth_at_fp16": {
+      "value": 1.574,
+      "from": "B_nosol_fp16=694s / A_sol_fp16=441s",
+      "means": "what an unreachable Sol node costs, at the shipped sage mode"
+    },
+    "sol_worth_at_auto": {
+      "value": 1.278,
+      "from": "D_nosol_auto=478s / C_sol_auto=374s",
+      "means": "the same, at sage auto"
+    },
+    "fp16_cost_with_sol": {
+      "value": 1.179,
+      "from": "A_sol_fp16=441s / C_sol_auto=374s",
+      "means": "what fp16 costs in the SHIPPED config, where Sol takes 11 of 16 steps"
+    },
+    "fp16_cost_dense": {
+      "value": 1.452,
+      "from": "B_nosol_fp16=694s / D_nosol_auto=478s",
+      "means": "what fp16 costs when sage runs all 16 steps"
+    },
+    "ref_lora_cost": {
+      "value": 1.016,
+      "from": "A_sol_fp16=441s / E_ref2va_nolora=434s",
+      "means": "fl2va + ref LoRA against the ref2va checkpoint direct"
+    },
+    "worst_over_best": {
+      "value": 1.856,
+      "from": "B_nosol_fp16=694s / C_sol_auto=374s",
+      "means": "the full spread across the 2x2"
+    },
+    "per_step": {
+      "by_sage_mode": {
+        "fp16": {
+          "dense_step_seconds": 43.4,
+          "sparse_step_seconds": 20.4,
+          "dense_over_sparse": 2.13
+        },
+        "auto": {
+          "dense_step_seconds": 29.9,
+          "sparse_step_seconds": 20.4,
+          "dense_over_sparse": 1.46
+        }
+      },
+      "window": "start_percent 0.2 / end_percent 0.9 with scheduler `simple` at 16 steps gives Sol 11 sparse and 5 dense",
+      "reading": "the sparse-step cost is the same in both sage modes -- Sol's kernel does not depend on the sage mode -- so the entire fp16 difference is carried by the 5 dense steps"
+    }
+  },
+  "caveats": [
+    "One run per arm. This bench's run-to-run spread was measured at 0.1-0.12% on a previous occasion, but that was a different harness.",
+    "Ratios were measured at packed sequence 75,118. Sol's advantage grows with sequence length, so the Sol ratios understate at 362 frames.",
+    "The board power limit was 330 W against a stock 450 W for this whole run. Every arm shares it, so the RATIOS hold; the absolute seconds are not comparable to any number recorded before 2026-08-17 15:39.",
+    "Sampler seconds only. Total wall clock adds model load, text encoding and VAE decode, which no arm varied.",
+    "This measures COST. It says nothing about output quality; the paired clips rendered at the same seed are the evidence for that question."
+  ]
+}

@@ -255,7 +255,7 @@
         "Node name for S&R": "MiniMaxH3SageAttention"
       },
       "widgets_values": [
-        "fp16 (most accurate)",
+        "auto",
         false,
         1
       ]

@@ -249,7 +249,7 @@
         "19",
         0
       ],
-      "mode": "fp16 (most accurate)",
+      "mode": "auto",
       "patch_token_refiner": false,
       "head_chunks": 1
     }
