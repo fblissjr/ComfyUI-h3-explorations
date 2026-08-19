@@ -377,12 +377,16 @@ coherence on one pair.
    post-fix ones, and a calibration gate now runs before any capture is read.
    The correction moved every row by under 1.2 points and changed no conclusion.
 
-   **Two limits still bound the per-head columns**, both stated in the file's
-   own module docstring. `--heads` defaults to 8 of 56, so any row named for a
-   block is a first-eight-heads figure. And the calibration gate can only run at
-   small t, because the oracle materialises the full t-by-t score matrix -- so
-   agreement at production S is inferred, not verified. Chunking the oracle is
-   the one change that would close that.
+   **Re-run at every head on 2026-08-19**, on the first capture taken after the
+   ref2va-direct switch: `bench/results/2026-08-19_sol_error_per_head.json`. The
+   ratio band widens to 16.5%-87.2% and block 49 separates from every other
+   block rather than merely climbing. The eight-head limit below is discharged;
+   the oracle limit is not.
+
+   **One limit still bounds the per-head columns.** The calibration gate can
+   only run at small t, because the oracle materialises the full t-by-t score
+   matrix -- so agreement at production S is inferred, not verified. Chunking
+   the oracle is the one change that would close that.
 3. **Port the block probe** (`sol_block_probe.py`, scaffolded, not
    implemented -- every entry point still raises). Produces routed density and
    says which transformer blocks the sparsity is hurting. Unblocks
@@ -406,21 +410,37 @@ hour is card time.
   terabytes. So agreement at production S is inferred rather than measured, and
   an inference of exactly that shape is what hid the ragged-block divergence the
   gate was written to catch. This is the highest-value remaining change.
-- **Run the `--control` arm that already exists.** `tau=-1e9` measures the floor
-  of the apparatus itself. One head reports a relative L2 above 1.0 -- worse than
-  emitting zeros -- and this arm is what separates "that head is genuinely
-  broken" from "this instrument is". It has never been run.
-- **Measure all the heads.** The default measures a prefix of 8 of 56, so the
-  identity of the worst head is not established, only that heads differ wildly.
-  The full matrix is about half an hour unattended; cost was never the reason.
-- **Emit JSON next to the printed table.** Every consumer so far has re-typed
-  numbers out of terminal scrollback, which is how a transcription becomes a
-  finding.
+- ~~**Run the `--control` arm that already exists.**~~ Done 2026-08-19, first
+  time since it was written: `bench/results/2026-08-19_sol_error_control.json`.
+  At the dense limit the apparatus reports per-head sparsity error 3.1e-05 to
+  1.3e-04 with no head above 1e-3, so it has no floor of its own on that side
+  and a head reporting large error is that head. The >1.0 reading is reproduced
+  at the *sparse* limit instead, where it is the expected regime -- a relative
+  L2 of 1.0 is what emitting zeros gives.
+- ~~**Measure all the heads.**~~ Done 2026-08-19, same day as the control.
+- ~~**Emit JSON next to the printed table.**~~ Done 2026-08-19: `--json`.
+- **Chunk the oracle** remains the one open item above, and is now the only one.
 
-The finding that survives all of the above, and the one worth building on: error
-is not uniform across heads, by more than an order of magnitude within a single
-block. If that holds at 56 heads, `dense_blocks` is the wrong granularity and a
-per-head escape is the thing to design.
+**The per-head escape was designed, priced, and does not pay.** This section
+used to end by predicting that if error non-uniformity held at 56 heads,
+`dense_blocks` would be the wrong granularity and a per-head escape would be the
+thing to design. The premise held -- per-head sparsity error spans 4.2x to
+140.7x inside one block and step. The conclusion did not survive being priced.
+
+`bench/price_head_arms.py` puts every per-head arm and the global tau on one
+currency, routed density spent per fraction of error removed
+(`bench/results/2026-08-19_head_granularity_arms.json`). A per-head dense escape
+list ties the global tau at three heads and loses at five and eight, because
+per-head error is only about 2.6x concentrated: the worst 5 of 56 heads carry
+23.2% of summed error against 8.9% for uniform. A per-head *tau* could not be
+priced at all -- tau moves a head's error by a median factor of 1.27 where heads
+differ from each other by a median factor of 19, so equalising error puts most
+heads outside any measured interval.
+
+So the per-head axis joins per-block and per-step: real structure, nothing to
+exploit at this granularity. **Anything proposing per-head work has to answer
+this table first.** What it does not rule out is a mechanism that changes a
+head's error rather than its threshold, which is a different kind of change.
 
 ### Two decisions that need no card, added 2026-08-16
 
