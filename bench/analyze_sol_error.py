@@ -126,6 +126,7 @@ is more reusable than the fix.
 from __future__ import annotations
 
 import argparse
+import json
 import glob
 import importlib
 import math
@@ -566,6 +567,13 @@ def main():
     parser.add_argument("--tau", type=float, default=1.3)
     parser.add_argument("--heads", type=int, default=8, help="Number of heads to measure (0 = all 56)")
     parser.add_argument("--control", action="store_true", help="Run control cases (dense limit vs high tau)")
+    parser.add_argument("--json", dest="json_out", default=None,
+                        help="write the rows to this path as a record. Added "
+                             "2026-08-19 because this module's own docstring "
+                             "asked for it: every consumer so far re-typed "
+                             "numbers out of terminal scrollback, and one of "
+                             "yesterday's review findings was a record built "
+                             "that way.")
     parser.add_argument("--tol", type=float, default=0.02,
                         help="max rel_l2 between this file's eager Sol and the "
                              "vendored oracle before it refuses to report")
@@ -593,6 +601,7 @@ def main():
     print(f"  calibration ok: eager Sol agrees with the vendored oracle "
           f"(worst rel_l2 {drift:.4f} across aligned and ragged lengths)\n")
 
+    controls = []
     capture_dir = Path(os.path.expanduser(args.capture))
     if not capture_dir.is_dir():
         print(f"Error: capture directory not found: {capture_dir}", file=sys.stderr)
@@ -642,6 +651,11 @@ def main():
             print("  [CONTROL] Running at Tau = 26.0 (High Sparsity Limit)...")
             res_high = decompose_single(q, k, v, tau=26.0, head_subset=args.heads)
             print(f"    Sparsity L2: {res_high['sparsity_l2']:.6e} | Quant L2: {res_high['quant_l2']:.6e} | Total L2: {res_high['total_l2']:.6e}")
+            for arm, r in (("dense_limit_tau_-1e9", res_dense),
+                           ("sparse_limit_tau_26", res_high)):
+                r = dict(r)
+                r.update({"arm": arm, "block": block_val, "step": step_val})
+                controls.append(r)
             continue
 
         res = decompose_single(q, k, v, tau=args.tau, head_subset=args.heads)
@@ -676,6 +690,26 @@ def main():
             rho_h = res['per_head_rho'][h_idx]
             print(f"    Head {h_idx}: Sparsity = {s_val:.6f} | Quant = {q_val:.6f} | Total = {t_val:.6f} | Ratio = {r_val:6.2f}% | rho = {rho_h:+.4f}{note}")
         print("-" * 80)
+
+    if args.json_out:
+        # The capture store lives outside the repo and records are tracked
+        # content, so the store's path is a leak and its name is the part worth
+        # keeping anyway.
+        record = {
+            "measured": "2026-08-19",
+            "produced_by": "bench/analyze_sol_error.py",
+            "what": "Sol error decomposed into sparsity and INT8 quantization, per head",
+            "capture": capture_dir.name,
+            "tau": args.tau,
+            "heads_requested": args.heads,
+            "calibration_rel_l2_vs_oracle": drift,
+            "calibration_length": drift_t,
+            "controls": controls,
+            "rows": results,
+        }
+        out = Path(args.json_out)
+        out.write_text(json.dumps(record, indent=1) + "\n")
+        print(f"wrote {out}")
 
     if not results:
         return 0

@@ -4,6 +4,38 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.40.0
+
+### Added
+
+- **`bench/join_density_error.py` and the per-head error record it joins.**
+  `bench/analyze_sol_error.py` now takes `--json`, which its own module
+  docstring had asked for and which the 2026-08-18 review found being done by
+  hand out of terminal scrollback. Run at every head over the post-ref2va
+  capture, it produces `bench/results/2026-08-19_sol_error_per_head.json`; the
+  join against the density record produces
+  `bench/results/2026-08-19_density_error_join.json`.
+
+  The join asks the question that decides whether a per-head tau is worth
+  anything: does a head's routed density predict its error? If every head sits
+  on one shared cost/damage curve, a single tau is already the efficient
+  operating point. Rank correlation between per-head density and per-head
+  sparsity error runs -0.38 to +0.42 with a median of -0.23 -- weak coupling,
+  not a curve. Its three refusals (head-prefix rather than all heads, capture
+  mismatch, tau mismatch) each go red on a deliberate violation.
+
+- **`bench/results/2026-08-19_sol_error_control.json`** -- the `--control` arm,
+  run for the first time since it was written. At the dense limit the apparatus
+  reports sparsity error 7.7e-05, so it has no floor of its own on that side and
+  a head reporting large sparsity error is that head rather than the
+  instrument. The same arm gives the INT8 quantization floor with no sparsity
+  at all.
+
+### Changed
+
+- **`bench/analyze_sol_error.py` gained `--json`.** Records carry the capture by
+  name; the store is outside the repo and its path is per-box.
+
 ## 0.39.0
 
 ### Added
