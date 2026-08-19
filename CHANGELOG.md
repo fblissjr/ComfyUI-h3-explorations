@@ -4,6 +4,35 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.41.0
+
+### Added
+
+- **`bench/price_head_arms.py`, and the answer it returns: the per-head axis is
+  empty.** Density and error per head established that a head's spend does not
+  predict its damage. This prices what that is worth by putting every per-head
+  arm and the global tau on one currency -- routed density spent per fraction of
+  error removed. Records: `bench/results/2026-08-19_sol_error_per_head_tau1.0.json`
+  (the second operating point) and
+  `bench/results/2026-08-19_head_granularity_arms.json`.
+
+  Nothing beats moving tau. A per-head dense escape list ties the global tau at
+  three heads and loses at five and eight, because per-head error is only about
+  2.6x concentrated -- the worst 5 of 56 heads carry 23.2% of summed error
+  against 8.9% for uniform.
+
+  A per-head **tau** is deliberately not among the arms, and that is a result
+  rather than an omission. Pricing one needs each head's error as a function of
+  tau; every attempt to equalise error from two operating points put 45 to 52 of
+  56 heads outside the measured interval, because a tau move changes one head's
+  error by a median factor of 1.27 where heads differ from each other by a
+  median factor of 19. The estimate would have been extrapolation reported as
+  measurement.
+
+  Its four refusals -- capture mismatch, a measured head prefix, two error
+  records at one tau, a control record with no dense-limit arm -- each go red on
+  a deliberate violation.
+
 ## 0.40.0
 
 ### Added

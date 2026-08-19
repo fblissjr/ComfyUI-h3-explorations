@@ -1,0 +1,263 @@
+{
+ "measured": "2026-08-19",
+ "produced_by": "bench/price_head_arms.py",
+ "what": "per-head granularity arms priced against the global tau, one currency",
+ "capture": "2026-08-18_ref3_362f_1024x768_ref2va",
+ "operating_tau": 1.3,
+ "comparison_tau": 1.0,
+ "dense_limit_floor_used": 6.401795974670109e-05,
+ "dense_limit_floor_source": "the --control record's dense_limit arm, measured at one cell and applied at all of them",
+ "heads": 56,
+ "cells": [
+  {
+   "block": 0,
+   "step": 3
+  },
+  {
+   "block": 0,
+   "step": 11
+  },
+  {
+   "block": 8,
+   "step": 3
+  },
+  {
+   "block": 8,
+   "step": 11
+  },
+  {
+   "block": 16,
+   "step": 3
+  },
+  {
+   "block": 16,
+   "step": 11
+  },
+  {
+   "block": 24,
+   "step": 3
+  },
+  {
+   "block": 24,
+   "step": 11
+  },
+  {
+   "block": 32,
+   "step": 3
+  },
+  {
+   "block": 32,
+   "step": 11
+  },
+  {
+   "block": 40,
+   "step": 3
+  },
+  {
+   "block": 40,
+   "step": 11
+  },
+  {
+   "block": 49,
+   "step": 3
+  },
+  {
+   "block": 49,
+   "step": 11
+  }
+ ],
+ "inputs": [
+  "2026-08-19_routing_density_per_head.json",
+  "2026-08-19_sol_error_per_head.json",
+  "2026-08-19_sol_error_per_head_tau1.0.json",
+  "2026-08-19_sol_error_control.json"
+ ],
+ "argv": [
+  "--density",
+  "bench/results/2026-08-19_routing_density_per_head.json",
+  "--error",
+  "bench/results/2026-08-19_sol_error_per_head.json",
+  "--error-alt",
+  "bench/results/2026-08-19_sol_error_per_head_tau1.0.json",
+  "--control",
+  "bench/results/2026-08-19_sol_error_control.json",
+  "--out",
+  "bench/results/2026-08-19_head_granularity_arms.json"
+ ],
+ "tau_leverage": [
+  {
+   "block": 0,
+   "step": 3,
+   "error_response_median_x": 1.2451,
+   "error_response_min_x": 1.0428,
+   "error_response_max_x": 1.7631,
+   "between_head_spread_x": 28.2
+  },
+  {
+   "block": 0,
+   "step": 11,
+   "error_response_median_x": 1.2771,
+   "error_response_min_x": 1.0417,
+   "error_response_max_x": 2.231,
+   "between_head_spread_x": 46.02
+  },
+  {
+   "block": 8,
+   "step": 3,
+   "error_response_median_x": 1.3107,
+   "error_response_min_x": 1.0179,
+   "error_response_max_x": 1.6055,
+   "between_head_spread_x": 18.1
+  },
+  {
+   "block": 8,
+   "step": 11,
+   "error_response_median_x": 1.3409,
+   "error_response_min_x": 1.0147,
+   "error_response_max_x": 1.6786,
+   "between_head_spread_x": 19.83
+  },
+  {
+   "block": 16,
+   "step": 3,
+   "error_response_median_x": 1.3297,
+   "error_response_min_x": 1.0505,
+   "error_response_max_x": 1.5071,
+   "between_head_spread_x": 18.02
+  },
+  {
+   "block": 16,
+   "step": 11,
+   "error_response_median_x": 1.3211,
+   "error_response_min_x": 1.0738,
+   "error_response_max_x": 1.5394,
+   "between_head_spread_x": 17.91
+  },
+  {
+   "block": 24,
+   "step": 3,
+   "error_response_median_x": 1.2646,
+   "error_response_min_x": 1.177,
+   "error_response_max_x": 1.5345,
+   "between_head_spread_x": 34.32
+  },
+  {
+   "block": 24,
+   "step": 11,
+   "error_response_median_x": 1.2668,
+   "error_response_min_x": 1.156,
+   "error_response_max_x": 1.5459,
+   "between_head_spread_x": 38.66
+  },
+  {
+   "block": 32,
+   "step": 3,
+   "error_response_median_x": 1.1862,
+   "error_response_min_x": 1.1198,
+   "error_response_max_x": 1.3014,
+   "between_head_spread_x": 8.57
+  },
+  {
+   "block": 32,
+   "step": 11,
+   "error_response_median_x": 1.2011,
+   "error_response_min_x": 1.0603,
+   "error_response_max_x": 1.3733,
+   "between_head_spread_x": 10.89
+  },
+  {
+   "block": 40,
+   "step": 3,
+   "error_response_median_x": 1.1854,
+   "error_response_min_x": 1.092,
+   "error_response_max_x": 1.4257,
+   "between_head_spread_x": 4.19
+  },
+  {
+   "block": 40,
+   "step": 11,
+   "error_response_median_x": 1.2094,
+   "error_response_min_x": 1.0671,
+   "error_response_max_x": 1.8005,
+   "between_head_spread_x": 7.21
+  },
+  {
+   "block": 49,
+   "step": 3,
+   "error_response_median_x": 1.2909,
+   "error_response_min_x": 1.0085,
+   "error_response_max_x": 1.9005,
+   "between_head_spread_x": 66.21
+  },
+  {
+   "block": 49,
+   "step": 11,
+   "error_response_median_x": 1.2899,
+   "error_response_min_x": 1.0064,
+   "error_response_max_x": 1.9329,
+   "between_head_spread_x": 140.73
+  }
+ ],
+ "arms": [
+  {
+   "arm": "global tau 1.3 (shipped)",
+   "mean_kernel_density_pct": 28.9333,
+   "mean_per_head_sparsity_error": 0.172651,
+   "density_per_unit_error_cut": null
+  },
+  {
+   "arm": "global tau 1.0",
+   "mean_kernel_density_pct": 34.1723,
+   "mean_per_head_sparsity_error": 0.140111,
+   "density_per_unit_error_cut": 0.9607
+  },
+  {
+   "arm": "tau 1.3 + top-3 heads dense",
+   "mean_kernel_density_pct": 32.8714,
+   "mean_per_head_sparsity_error": 0.148052,
+   "dense_heads_per_cell": 3,
+   "density_per_unit_error_cut": 0.9553
+  },
+  {
+   "arm": "tau 1.3 + top-5 heads dense",
+   "mean_kernel_density_pct": 35.4813,
+   "mean_per_head_sparsity_error": 0.135625,
+   "dense_heads_per_cell": 5,
+   "density_per_unit_error_cut": 1.0553
+  },
+  {
+   "arm": "tau 1.3 + top-8 heads dense",
+   "mean_kernel_density_pct": 39.4174,
+   "mean_per_head_sparsity_error": 0.119591,
+   "dense_heads_per_cell": 8,
+   "density_per_unit_error_cut": 1.1791
+  }
+ ],
+ "error_concentration": [
+  {
+   "k": 1,
+   "share_pct": 6.1,
+   "uniform_pct": 1.79
+  },
+  {
+   "k": 3,
+   "share_pct": 15.64,
+   "uniform_pct": 5.36
+  },
+  {
+   "k": 5,
+   "share_pct": 23.21,
+   "uniform_pct": 8.93
+  },
+  {
+   "k": 8,
+   "share_pct": 32.8,
+   "uniform_pct": 14.29
+  },
+  {
+   "k": 12,
+   "share_pct": 43.67,
+   "uniform_pct": 21.43
+  }
+ ]
+}
