@@ -75,7 +75,19 @@ echo "== package: $(grep -m1 '^version' "$PKG/pyproject.toml")"
 nvidia-smi --query-gpu=name,compute_cap,driver_version --format=csv,noheader | sed 's/^/== gpu: /'
 "$PY" -c "import torch; print(f'== torch: {torch.__version__} (cuda {torch.version.cuda})')"
 
-# Sana's tree has no ignore rule for either of these, so a build that left them
+# Refuse a dirty checkout before building anything. Without this the provenance
+# line above lies exactly when it matters: a wheel built from unrecorded local
+# changes gets installed under the banner of a commit that is not what was
+# built, and the mismatch is only visible afterwards, if at all.
+if [ -n "$(git -C "$SRC" status --porcelain)" ]; then
+    echo "ERROR: $SRC has local changes or untracked files. This script builds"
+    echo "from it and reports the commit it built, so it needs a clean tree for"
+    echo "that report to be true. Resolve them first:"
+    git -C "$SRC" status --short
+    exit 1
+fi
+
+# Sana's tree has no ignore rule for any of these, so a build that left them
 # behind would show up as untracked files in someone else's repo.
 cleanup() { rm -rf "$PKG/dist" "$PKG/build" "$PKG"/*.egg-info; }
 trap cleanup EXIT

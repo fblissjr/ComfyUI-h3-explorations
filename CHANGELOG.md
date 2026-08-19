@@ -27,7 +27,10 @@ artifact.
   Like `vendor/rebuild_kernel.sh`, it leaves the upstream checkout exactly as it
   found it -- build leftovers cleaned on every exit path including a failed
   build, and a wheel rather than an editable install, so a routine
-  `update-coderef.sh` pull cannot swap the kernel under a measurement.
+  `update-coderef.sh` pull cannot swap the kernel under a measurement. It also
+  refuses a dirty checkout before building, because otherwise the commit it
+  reports having built is not the code it built, and the mismatch surfaces only
+  after the wheel is installed.
 
 ### Changed
 
