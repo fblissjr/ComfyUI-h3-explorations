@@ -4,6 +4,35 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.42.0
+
+### Changed
+
+- **Chunking the calibration oracle is refuted, not done.** It was the
+  highest-value remaining item on the error-decomposition line in
+  `docs/roadmap.md` and the one open limit named in
+  `bench/analyze_sol_error.py`'s own docstrings. `bench/probe_oracle_gate_scaling.py`
+  and `bench/results/2026-08-19_oracle_gate_scaling.json` priced it and found
+  two things.
+
+  The gate was never limited to t <= 2001. The oracle refuses on a score-matrix
+  budget rather than a length and runs to about 384 blocks untouched, so the
+  ceiling everyone read as a limit was a chosen constant.
+
+  Run there, the gate goes red for something that is not a defect: agreement
+  holds to ~3e-04 out to 192 blocks and jumps to ~1e-02 at 256, and the jump is
+  a handful of whole query blocks whose routing decision lands on opposite sides
+  of the threshold in two float32 reduction orders. Reseed the input and
+  different blocks flip. Chunked to production's 1539 blocks, flips are certain
+  and the gate would be red while both implementations are correct, with the
+  only relief being the tolerance its own refusal text forbids raising.
+
+  What would close the gap is a different instrument rather than a longer one:
+  compare the routing masks, which at production S is a 1539x1539 boolean per
+  head needing no chunking, and which can report a flipped block's margin where
+  output relative L2 cannot. Recorded at both docstrings and the roadmap entry
+  that argued for chunking.
+
 ## 0.41.0
 
 ### Added

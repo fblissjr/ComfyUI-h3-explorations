@@ -102,15 +102,27 @@ is more reusable than the fix.
 
 ## How to make it more useful
 
-- CHUNK THE ORACLE. `calibrate_against_oracle` can only run at small t, because
-  `_sol_attn_reference.sol_attn` materialises the full t-by-t score matrix and
-  98498^2 in fp32 is tens of terabytes. So the gate establishes agreement at
-  t <= 2001 and INFERS it at production S. That inference is exactly the kind
-  that just failed once here. A chunked oracle would make this a real gate.
-- RUN `--control`. The `tau=-1e9` dense-limit arm measures the floor of this
-  apparatus. Given that a head reported relative L2 above 1.0, that arm is what
-  distinguishes "this head is genuinely broken" from "this instrument is". It
-  already exists and has never been run.
+- DO NOT CHUNK THE ORACLE. This entry used to say the opposite, and the
+  correction is the useful part. The gate establishes agreement at t <= 2001 and
+  INFERS it at production S, which is a real gap -- but chunking is the wrong way
+  to close it, and the oracle was never the reason the gate stops at 2001.
+  `bench/probe_oracle_gate_scaling.py` measured both halves on 2026-08-19: the
+  oracle refuses on a score-matrix budget rather than a length and runs to about
+  384 blocks untouched, and run there the gate goes red for a handful of whole
+  query blocks whose routing decision falls on opposite sides of the threshold
+  in two float32 reduction orders. Their identity reseeds with the input, which
+  is a tie broken differently and not two algorithms disagreeing. Chunked to
+  1539 blocks, flips become certain and the gate is red while both sides are
+  correct -- with the only available relief being the `--tol` its own refusal
+  text forbids raising. The instrument that would close the gap compares the two
+  routing MASKS at production S, which is a 1539x1539 boolean needing no
+  chunking, and can report each flipped block's margin where output relative L2
+  cannot.
+- ~~RUN `--control`.~~ Done 2026-08-19, first time since it was written. Per-head
+  dense-limit floors run 3.1e-05 to 1.3e-04 with no head above 1e-3, so the
+  apparatus has no floor of its own on the sparsity side. The >1.0 reading
+  reproduces at the SPARSE limit instead, where a relative L2 of 1.0 is what
+  emitting zeros gives, so it was the regime and not a broken head.
 - The whole 12-row matrix at all 56 heads costs about half an hour of GPU
   (measured: 16.4 s per block/step at 8 heads, and the per-head work is a plain
   loop). Cost is not the reason to measure a prefix.
@@ -163,13 +175,28 @@ def calibrate_against_oracle(tau: float = 1.3, lengths: tuple[int, ...] = (320, 
     So the default set here deliberately mixes aligned and ragged lengths, and
     production is ragged: S = 98498 = 1539*64 + 2.
 
-    ## What this gate cannot do
+    ## What this gate cannot do, and what will not fix it
 
-    The oracle materialises the full t-by-t score matrix, so it cannot be run at
-    production S at all -- 98498^2 in fp32 is tens of terabytes. This agrees with
-    the oracle at small t and infers, it does not verify, that the agreement
-    holds at S = 98498. Chunking the oracle would close that gap and is the one
-    change that would make this a real production gate.
+    Length is one of four axes this infers across. It runs at head dimension 64
+    with a single head on `torch.randn`; production is head dimension 128, 56
+    heads, real activations, and S = 98498.
+
+    On the length axis specifically: the oracle cannot reach production S, and
+    **chunking it would make this gate worse rather than real.** Measured
+    2026-08-19 by `bench/probe_oracle_gate_scaling.py`. Agreement holds to
+    ~3e-04 out to 192 blocks and jumps to ~1e-02 at 256, and the jump is a
+    handful of whole query blocks -- always an exact multiple of 64 rows -- whose
+    routing decision lands on opposite sides of the threshold in two float32
+    reduction orders. Reseed the input and different blocks flip, which is a tie
+    broken differently rather than a disagreement. At 1539 blocks flips are
+    certain, so a chunked gate reports red while both implementations are
+    correct, and the only relief on offer is the tolerance this function refuses
+    to have raised.
+
+    The gap is real; the instrument is wrong for it. Comparing the two routing
+    masks rather than the two outputs runs at production S with no chunking at
+    all -- 1539x1539 booleans -- and separates a tie flip from a real divergence
+    by reporting each flipped block's margin.
 
     Returns (worst rel_l2, the length that produced it).
     """

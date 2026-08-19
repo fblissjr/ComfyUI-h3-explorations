@@ -404,12 +404,36 @@ The captures are the expensive part and they are already on disk, so everything
 below runs against tensors that exist. Roughly a day's work, of which under an
 hour is card time.
 
-- **Chunk the oracle.** `bench/analyze_sol_error.py` now has a calibration gate
-  and it passes, but only at t <= 2001: `_sol_attn_reference.sol_attn`
-  materialises the full t-by-t score matrix, and 98498^2 in fp32 is tens of
-  terabytes. So agreement at production S is inferred rather than measured, and
-  an inference of exactly that shape is what hid the ragged-block divergence the
-  gate was written to catch. This is the highest-value remaining change.
+- ~~**Chunk the oracle.**~~ **Refuted 2026-08-19, and the refutation is the
+  useful part.** This was the highest-value remaining change here. The gap it
+  named is real -- `bench/analyze_sol_error.py`'s calibration gate agrees with
+  the oracle at t <= 2001 and infers agreement at production S -- but chunking
+  closes it the wrong way, and the oracle was never why the gate stops at 2001.
+
+  `bench/probe_oracle_gate_scaling.py` and
+  `bench/results/2026-08-19_oracle_gate_scaling.json`: the oracle refuses on a
+  score-matrix budget rather than a length and runs to about 384 blocks
+  untouched, twelve times the length the gate uses. Run there it goes red -- and
+  not for a defect. Agreement holds to ~3e-04 out to 192 blocks and jumps to
+  ~1e-02 at 256, and the jump is a handful of whole query blocks, always an
+  exact multiple of 64 rows, whose routing decision lands on opposite sides of
+  the threshold in two float32 reduction orders. Reseed the input and different
+  blocks flip. That is a tie broken differently, not two algorithms disagreeing.
+
+  Chunked to production's 1539 blocks, flips become a certainty and the gate
+  reports red while both implementations are correct, with the only relief on
+  offer being the `--tol` the gate's own refusal text forbids raising. That is
+  this repo's worst category of check, bought at the cost of rewriting the
+  oracle into the shape of the thing it exists to check independently.
+
+  **What to build instead, if this line is resumed:** compare the two routing
+  MASKS rather than the two outputs. At production S that is a 1539x1539 boolean
+  per head, needs no chunking, and separates a tie flip from a real divergence
+  by reporting each flipped block's margin -- which output relative L2 cannot do
+  at any length. And note that length was never the only axis inferred across:
+  the gate runs at head dimension 64 with one head on `torch.randn` against
+  production's 128, 56 and real activations, so closing length alone would have
+  made it feel like a production gate without being one.
 - ~~**Run the `--control` arm that already exists.**~~ Done 2026-08-19, first
   time since it was written: `bench/results/2026-08-19_sol_error_control.json`.
   At the dense limit the apparatus reports per-head sparsity error 3.1e-05 to
@@ -419,7 +443,9 @@ hour is card time.
   L2 of 1.0 is what emitting zeros gives.
 - ~~**Measure all the heads.**~~ Done 2026-08-19, same day as the control.
 - ~~**Emit JSON next to the printed table.**~~ Done 2026-08-19: `--json`.
-- **Chunk the oracle** remains the one open item above, and is now the only one.
+- **Chunking the oracle** was the one open item above. It is now refuted rather
+  than done; see the entry above for what to build instead. Nothing on this list
+  is open.
 
 **The per-head escape was designed, priced, and does not pay.** This section
 used to end by predicting that if error non-uniformity held at 56 heads,

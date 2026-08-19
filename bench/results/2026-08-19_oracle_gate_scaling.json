@@ -1,0 +1,165 @@
+{
+ "measured": "2026-08-19",
+ "produced_by": "bench/probe_oracle_gate_scaling.py",
+ "what": "how analyze_sol_error's calibration gate behaves beyond the length it runs at",
+ "tau": 1.3,
+ "head_dim": 64,
+ "axes_not_closed": [
+  "head dim 128",
+  "56 heads",
+  "real activations",
+  "production S = 98498"
+ ],
+ "argv": [
+  "--out",
+  "bench/results/2026-08-19_oracle_gate_scaling.json"
+ ],
+ "oracle_refusal": {
+  "t": 32770,
+  "message": "sol_attn: the eager reference is O(T^2) and would need 4.0 GiB for the score tensor at (B=1, H=1, T=32770). It was selec"
+ },
+ "scaling": [
+  {
+   "t": 2001,
+   "blocks": 32,
+   "ragged_tail": 17,
+   "seed": 0,
+   "rel_l2": 0.00021793,
+   "flipped_query_blocks": [],
+   "rows_above_1pct": 0,
+   "rows_equal_blocks_times_64": true
+  },
+  {
+   "t": 4098,
+   "blocks": 65,
+   "ragged_tail": 2,
+   "seed": 0,
+   "rel_l2": 0.0003233,
+   "flipped_query_blocks": [],
+   "rows_above_1pct": 0,
+   "rows_equal_blocks_times_64": true
+  },
+  {
+   "t": 8194,
+   "blocks": 129,
+   "ragged_tail": 2,
+   "seed": 0,
+   "rel_l2": 0.0003052,
+   "flipped_query_blocks": [],
+   "rows_above_1pct": 0,
+   "rows_equal_blocks_times_64": true
+  },
+  {
+   "t": 12290,
+   "blocks": 193,
+   "ragged_tail": 2,
+   "seed": 0,
+   "rel_l2": 0.00027733,
+   "flipped_query_blocks": [],
+   "rows_above_1pct": 0,
+   "rows_equal_blocks_times_64": true
+  },
+  {
+   "t": 16386,
+   "blocks": 257,
+   "ragged_tail": 2,
+   "seed": 0,
+   "rel_l2": 0.0114491,
+   "flipped_query_blocks": [
+    201,
+    212
+   ],
+   "rows_above_1pct": 128,
+   "rows_equal_blocks_times_64": true
+  },
+  {
+   "t": 20482,
+   "blocks": 321,
+   "ragged_tail": 2,
+   "seed": 0,
+   "rel_l2": 0.01323546,
+   "flipped_query_blocks": [
+    102,
+    157,
+    185,
+    236,
+    248
+   ],
+   "rows_above_1pct": 320,
+   "rows_equal_blocks_times_64": true
+  },
+  {
+   "t": 24578,
+   "blocks": 385,
+   "ragged_tail": 2,
+   "seed": 0,
+   "rel_l2": 0.00772616,
+   "flipped_query_blocks": [
+    34,
+    319,
+    335
+   ],
+   "rows_above_1pct": 192,
+   "rows_equal_blocks_times_64": true
+  }
+ ],
+ "flip_signature": [
+  {
+   "t": 16386,
+   "blocks": 257,
+   "ragged_tail": 2,
+   "seed": 0,
+   "rel_l2": 0.0114491,
+   "flipped_query_blocks": [
+    201,
+    212
+   ],
+   "rows_above_1pct": 128,
+   "rows_equal_blocks_times_64": true
+  },
+  {
+   "t": 16386,
+   "blocks": 257,
+   "ragged_tail": 2,
+   "seed": 1,
+   "rel_l2": 0.01292533,
+   "flipped_query_blocks": [
+    24,
+    111,
+    250
+   ],
+   "rows_above_1pct": 192,
+   "rows_equal_blocks_times_64": true
+  },
+  {
+   "t": 16386,
+   "blocks": 257,
+   "ragged_tail": 2,
+   "seed": 2,
+   "rel_l2": 0.00871339,
+   "flipped_query_blocks": [
+    185,
+    189
+   ],
+   "rows_above_1pct": 128,
+   "rows_equal_blocks_times_64": true
+  },
+  {
+   "t": 16386,
+   "blocks": 257,
+   "ragged_tail": 2,
+   "seed": 3,
+   "rel_l2": 0.01462307,
+   "flipped_query_blocks": [
+    23,
+    132,
+    219,
+    234
+   ],
+   "rows_above_1pct": 256,
+   "rows_equal_blocks_times_64": true
+  }
+ ],
+ "divergence_is_whole_query_blocks": true,
+ "flipped_blocks_identical_across_seeds": false
+}
