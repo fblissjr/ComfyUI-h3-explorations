@@ -4,6 +4,32 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.39.0
+
+### Added
+
+- **`bench/sweep_routing_density.py` -- routed density with the head axis kept.**
+  `bench/analyze_routing.py` averages over its sampled heads by construction, so
+  the axis yesterday's density record named as "the remaining structure" was the
+  one axis it could not report. This sweeps the same grid per head and emits a
+  record rather than a table to re-type. The routing arithmetic is imported from
+  that module, not restated, and the aggregate it prints reproduces that tool's
+  raster row exactly on the same capture, head set and tau -- which is the check
+  that the reuse is real.
+
+  It answers the question a spread alone cannot. A per-head density spread inside
+  one cell is the router already responding to per-head content; what would make
+  a per-head tau exploitable is whether the spread **persists**. So the record
+  carries rank correlations of the per-head ordering, split into same-transformer-
+  block-across-steps and across-blocks-at-one-step, because those two answer
+  differently.
+
+- **`bench/results/2026-08-19_routing_density_per_head.json`** -- every head, all
+  seven captured blocks, both captured steps, tau 1.0 and 1.3, on the first
+  capture taken after the ref2va-direct switch. Supersedes nothing: the
+  2026-08-18 record measured a different capture on a different config and
+  remains what it says it is.
+
 ## 0.38.0
 
 ### Added
