@@ -1,6 +1,6 @@
 # Roadmap: what we are trying to find out, and what would count as finding it
 
-Last updated: 2026-08-16.
+Last updated: 2026-08-19.
 
 ## What this is, and who it is for
 
@@ -445,17 +445,22 @@ choosing **our own** list. Copying a list four hardware profiles already
 validated needs no instrument, and conflating the two is why this sat as
 `SOL_ARTIFACT_INSURANCE`, unwired, for weeks.
 
-**Decide whether to build the NVLabs sm89 kernel and compare.** PR #464
-(2026-08-15) added an official BF16 SM89 CuTe Sol-Attn kernel, so there are now
-two independent 4090 implementations: comfy-kitchen's, which we build and run,
-and NVLabs' own. Which is faster or more accurate on this card is unmeasured,
-and it is the only external cross-check available to us since the Triton pack
-was deleted.
+**Compare the NVLabs sm89 kernel against comfy-kitchen's.** PR #464 (2026-08-15)
+added an official BF16 SM89 CuTe Sol-Attn kernel, so there are now two
+independent 4090 implementations: comfy-kitchen's, which we build and run, and
+NVLabs' own. Which is faster or more accurate on this card is unmeasured, and it
+is the only external cross-check available to us since the Triton pack was
+deleted.
 
-Cost: one Python dependency (`cutlass.cute`; torch 2.13, CUDA 13.2 and Triton
-3.7.1 already clear their floors) plus a seam, because their public API has no
-`sink_q` and `exact_kv_and_rows`'s query half would have to be done outside the
-kernel. Full accounting in [`docs/sol_upstream.md`](sol_upstream.md).
+The dependency half of the cost is spent. `vendor/build_sana_sol_sm89.sh`
+installs their kernel into the ComfyUI venv and proves the CuTe path -- not the
+Triton fallback -- is what runs; both implementations are now importable in one
+process, which is what a head-to-head needs.
+
+What is left is the seam, and it is the harder half: their public API has no
+`sink_q`, so `exact_kv_and_rows`'s query half has to be done outside the kernel.
+Nothing in this repo calls their kernel yet. Full accounting in
+[`docs/sol_upstream.md`](sol_upstream.md).
 
 **Scaffolded means every entry point raises.** Three files exist to fix the
 design decisions -- metric choice, the control each one needs, the permanent

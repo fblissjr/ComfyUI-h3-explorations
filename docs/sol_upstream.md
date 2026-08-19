@@ -1,6 +1,6 @@
 # What upstream says: the paper, Sol-Engine, and the other packs
 
-Last updated: 2026-08-16. Renamed from `sol_engine_reference.md` the same day,
+Last updated: 2026-08-19. Renamed from `sol_engine_reference.md` the same day,
 when the paper was added and the scope widened past one vendor's framework.
 
 **This page states what other people do and claim. It asserts none of our
@@ -181,7 +181,7 @@ ability to choose **our own** list from measurement. Copying a validated `0-1`
 needs no instrument. The cost estimate and the decision live in
 [`docs/roadmap.md`](roadmap.md).
 
-### The SM89 CuTe kernel -- one dependency and one seam
+### The SM89 CuTe kernel -- built here, and the seam is still open
 
 PR #464, merged 2026-08-15: "a general BF16 SM89 CuTe DSL Sol-Attn forward
 kernel using M64/N64 tiles, cp.async, and warp MMA". That is the 4090, and it
@@ -192,29 +192,41 @@ The code is already in our tree at
 `coderef/Sana/techniques/sparse_backends/sol_attn/sm89/`, with dispatch at
 `coderef/Sana/techniques/sparse_backends/sol_attn/interface.py:11` (`(8, 9): "cute_sm89"`).
 
-Their stated requirements against this box, checked 2026-08-16:
+**It is installed and it runs.** `vendor/build_sana_sol_sm89.sh` installs the
+runtime, builds the `sol-attn` wheel out of the checkout, and then compiles and
+exercises the kernel on this card; run it for the versions and the deviations,
+which are printed rather than written down here.
 
-| requirement | here | |
-|---|---|---|
-| PyTorch >= 2.10 | 2.13.0+cu132 | ok |
-| CUDA >= 12.8 | 13.2 | ok |
-| Triton >= 3.6 | 3.7.1 | ok |
-| `cuda-python` | present | ok |
-| CuTe DSL / CUTLASS Python | **absent** | the only unmet one |
+Two things that section of their docs will not tell you.
 
-Their docs warn that a DSL version mismatch **fails at compile time rather than
-falling back**, "so that a dense run is never reported as a sparse one" -- the
-same failure discipline `check_sol_kernel.py` exists to enforce here.
+**Their requirements list is incomplete.** It names PyTorch, CUDA, Triton,
+`cuda-python` and the CuTe DSL, and every one of those cleared on this box on
+2026-08-16 except the DSL. Installing the DSL is not sufficient: `apache-tvm-ffi`
+is named in no Sol-Attn requirements list and is not a dependency of the DSL
+wheel either, yet `sol_attn/common/runtime.py` passes `enable_tvm_ffi=True` on
+every tensor and `_compile_sm89` compiles with `--enable-tvm-ffi`, so the first
+SM89 call dies on `ModuleNotFoundError: No module named 'tvm_ffi'`. Found by
+running it, 2026-08-19.
 
-The second blocker is API surface. Their public entry point
-(`coderef/Sana/techniques/sparse_backends/sol_attn/interface.py:397-408`) is
+**Their compile-time failure discipline does not cover the import.** Their docs
+warn that a DSL *version* mismatch fails at compile time rather than falling
+back, "so that a dense run is never reported as a sparse one" -- the same
+discipline `check_sol_kernel.py` enforces here. But an *absent* DSL is a
+different path: `_backend_for_arch` catches the `ImportError` and silently
+returns `"triton"`. That is why the build script asserts
+`get_sol_attn_backend() == "cute_sm89"` before it measures anything.
+
+The blocker that remains is API surface. Their public entry point
+(`coderef/Sana/techniques/sparse_backends/sol_attn/interface.py:395-406`) is
 `sol_attn(q, k, v, *, scale, tau, thresh_type, kv_splits, sink_tokens, sink_start)`.
 There is **no `sink_q`**, no `dense_blocks`, no `centroid_tail`, no
 `max_blocks`, no `key_bias`. Our `exact_kv_and_rows` is comfy-kitchen's
 invention; its query half would have to be done at the integration layer, which
 is what their docs mean by "valid text-query rows still use dense attention".
 
-So a head-to-head is "install one package, write a seam", not blocked.
+So a head-to-head is now just the seam. The package half is done; what remains
+is that `exact_kv_and_rows`'s query half has no home in their API, and nothing
+in this repo calls their kernel yet.
 
 ### Token pruning and NVFP4 -- one is hardware, one is plumbing
 

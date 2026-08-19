@@ -4,6 +4,43 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.38.0
+
+### Added
+
+- **`vendor/build_sana_sol_sm89.sh` -- NVLabs' own SM89 Sol-Attn kernel, built
+  and proven on this card.** Installs the CuTe DSL runtime and the `sol-attn`
+  wheel built out of `coderef/Sana`, then compiles and exercises the kernel.
+  There is no build artifact to keep: the SM89 backend is CuTe DSL Python that
+  `cute.compile()` JITs on the first eligible call, so the verify step *is* the
+  compile, and a later ComfyUI process still pays its own.
+
+  The verify does not take the run's word for it. `_backend_for_arch` returns
+  `"triton"` whenever `cutlass.cute` fails to import, silently and by design, so
+  sane-looking numbers are not evidence the CuTe kernel ran -- the script
+  asserts the selected backend first, then grades the output against two
+  controls, upstream's own Triton implementation and dense SDPA. Neither ratio
+  test catches a uniformly mis-scaled output; a deliberate 5% gain error passed
+  both, which is why a third assertion on the output norm exists. All three
+  arms of that violation test go red, and the clean run goes green.
+
+  Like `vendor/rebuild_kernel.sh`, it leaves the upstream checkout exactly as it
+  found it -- build leftovers cleaned on every exit path including a failed
+  build, and a wheel rather than an editable install, so a routine
+  `update-coderef.sh` pull cannot swap the kernel under a measurement.
+
+### Changed
+
+- **`docs/sol_upstream.md` and `docs/roadmap.md` no longer describe the sm89
+  kernel as an unspent dependency.** Both argued for a decision that has now
+  been made, and the roadmap item narrows to the half that is still open: their
+  API has no `sink_q`, nothing here calls their kernel yet. Two corrections to
+  what those files recorded about upstream -- their requirements list omits
+  `apache-tvm-ffi`, without which the first SM89 call raises
+  `ModuleNotFoundError`, and their stated compile-time failure discipline covers
+  a DSL version mismatch but not an absent DSL, which falls back to Triton in
+  silence.
+
 ## 0.37.0
 
 ### Added
