@@ -54,6 +54,13 @@ two ways -- same transformer block across sampling steps, and across transformer
 blocks at one step -- because those two answered differently on first run and
 only one of them supports a static per-head table.
 
+**The step axis is as wide as the capture, which is narrow.** A capture holds
+the steps it was taken at, so "across sampling steps" is a correlation over
+those pairs and nothing more -- two steps gives one pair per block. Read the
+`pairs` count in the record before saying a result holds along the trajectory;
+what it supports until a denser capture exists is that it holds *between the
+captured steps*.
+
 **The head set is the tool's, not a fresh sample.** Head order comes from
 `torch.randperm` under `manual_seed(0)`, the same construction
 `analyze_routing.py` uses, so `--heads 8` here is the same eight heads it
@@ -194,9 +201,12 @@ def persistence(rows, tau):
         return {"pairs": len(v), "min": v[0], "median": v[len(v) // 2], "max": v[-1]}
 
     means = {h: round(sum(c[h] for c in cell.values()) / len(cell), 4) for h in heads}
+    scope = (f"steps compared: {steps}; blocks compared: {blocks}. The "
+             f"across-steps figure is over the captured steps only.")
     ordered = sorted(heads, key=lambda h: means[h])
     return {
         "tau": tau,
+        "scope": scope,
         "same_block_across_steps": band(across_steps),
         "across_blocks_same_step": band(across_blocks),
         "per_head_mean_kernel_density_pct": means,

@@ -456,6 +456,7 @@
  "persistence": [
   {
    "tau": 1.0,
+   "scope": "steps compared: [3, 11]; blocks compared: [0, 8, 16, 24, 32, 40, 49]. The across-steps figure is over the captured steps only.",
    "same_block_across_steps": {
     "pairs": 7,
     "min": 0.6344,
@@ -944,6 +945,7 @@
   },
   {
    "tau": 1.3,
+   "scope": "steps compared: [3, 11]; blocks compared: [0, 8, 16, 24, 32, 40, 49]. The across-steps figure is over the captured steps only.",
    "same_block_across_steps": {
     "pairs": 7,
     "min": 0.5987,

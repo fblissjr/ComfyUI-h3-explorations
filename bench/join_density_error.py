@@ -13,8 +13,11 @@ tuning moves along the curve rather than toward it.
 So this reports, per (transformer block, sampling step):
 
 - the rank correlation between per-head density and per-head sparsity error.
-  Strongly negative is the expected shape and the boring one -- denser routing,
-  less damage.
+  Strongly negative would mean density and error trace one shared curve, so a
+  head's damage is inferable from its spend. It is not the efficient value and
+  this does not report distance from one: heads differ in how compressible their
+  attention is, and a genuinely diffuse head can rightly carry both high density
+  and high error.
 - the residual spread: heads whose error is far from what their density
   predicts. Those are the heads a per-head tau would move, and their count and
   size is the size of the prize.
@@ -158,8 +161,13 @@ def main():
     rs = [c["rho_density_vs_sparsity_error"] for c in cells]
     print(f"\nrho(density, sparsity error) across {len(cells)} cells: "
           f"{min(rs):+.3f} .. {st.median(rs):+.3f} .. {max(rs):+.3f}")
-    print("A rho near -1 means one shared cost/damage curve and a single tau is\n"
-          "already the operating point. Slack in it is where a per-head tau lives.")
+    print("Read the sign, not a target. Strongly negative would mean density and\n"
+          "error trace one shared curve, so a head's error is inferable from its\n"
+          "spend; weak coupling means it is not, and a per-head schedule has to\n"
+          "come from an error measurement. It does NOT follow that -1 is the\n"
+          "efficient value: heads differ in how compressible their attention is,\n"
+          "and a genuinely diffuse head can rightly carry both high density and\n"
+          "high error. This bounds what can be inferred, not what is optimal.")
 
     record = {
         "measured": "2026-08-19",
