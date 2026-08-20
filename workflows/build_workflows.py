@@ -463,6 +463,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               split_base_last: bool = True,
               single_frame: bool = False,
               cache: dict | None = None,
+              sla_router: float | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -729,6 +730,19 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                "inputs": {"model": model_src,
                           **(shift if shift is not None else SIGMA_SHIFT)}}
     model_src = ["19", 0]
+    if sla_router is not None:
+        # The SLA top-k router in place of the sage+Sol chain: a comparative
+        # arm (the attention the Turbo-SLA LoRA was distilled under), never a
+        # default. Callers pass sage=False and sol=None with it; the assert
+        # below then runs warn-only, which is right -- the router takes the
+        # call and there is no sage for the chain assert to find. Node id 45:
+        # 40-44 are the split chain and the cache.
+        if sage or sol is not None:
+            raise SystemExit("sla_router is an alternative to the sage+Sol chain; "
+                             "pass sage=False and sol=None with it")
+        g["45"] = {"class_type": "MiniMaxH3SLARouter",
+                   "inputs": {"model": model_src, "sparsity_ratio": sla_router}}
+        model_src = ["45", 0]
     if sage:
         g["20"] = {"class_type": "MiniMaxH3SageAttention",
                    "inputs": {"model": model_src, **dict(
@@ -3229,6 +3243,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              canvas_mode: str = "match_keyframe", stamp: bool = False,
              unet: str | None = None, lora: tuple[str, float] | None = None,
              out_prefix: str | None = None, title: str | None = None,
+             sla_router: float | None = None,
              **canvas) -> dict:
     ref = task == "r2v"
     # The same consistency guard `build_api` carries, and it has to be here
@@ -3307,6 +3322,16 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     model_src = sigma_node
 
     sage_node = None
+    if sla_router is not None:
+        if sage or sol is not None:
+            raise SystemExit("sla_router is an alternative to the sage+Sol chain; "
+                             "pass sage=False and sol=None with it")
+        router_node = g.add("MiniMaxH3SLARouter", (-880, -140), size=(360, 90),
+                            widgets=[sla_router],
+                            inputs=[_in("model", "MODEL")], outputs=[_out("MODEL", "MODEL")],
+                            title="SLA top-k router (comparative arm)")
+        g.link(model_src, 0, router_node, "model", "MODEL")
+        model_src = router_node
     if sage:
         sage_node = g.add("MiniMaxH3SageAttention", (-880, 0), size=(360, 110),
                           widgets=[SAGE_NODE["mode"],
@@ -4290,6 +4315,61 @@ def main():
                   "bypassed, which nothing here has rendered either.")),
          "the 768p v1.0 turbo graph with lightx2v's SLA-distilled LoRA swapped in"),
 
+        # The same SLA arm under the router it was distilled with, and under
+        # no sparse attention at all. With the probe above (Sol) these are the
+        # three attention regimes; bench arms patch the v1.1 file onto all
+        # three for the never-SLA-trained control. Everything but the
+        # attention chain is the SLA probe's.
+        ("h3_probe_turbo_768p_sla_router.json", "t2v-turbo768-sla-router", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(TURBO_SLA_LORA, TURBO_LORA_STRENGTH),
+              steps=TURBO_SLA_STEPS, shift=TURBO_SLA_SHIFT,
+              sla_router=0.85,
+              out_prefix="Video/h3_probe_turbo_768p_sla_router",
+              variant_note=_probe_note(
+                  "whether the SLA LoRA behaves differently under the "
+                  "attention it was distilled with",
+                  "h3_probe_turbo_768p_sla.json",
+                  "the attention chain: `MiniMaxH3SLARouter` at sparsity 0.85 "
+                  "(LightX2V's sparse top-k block router on its Triton kernel, "
+                  "vendored at `vendor/sla_sparse_triton.py`, gated on captured "
+                  "activations in `bench/results/2026-08-20_sla_router_gate.json`) "
+                  "instead of sage + Sol-Attn. No sage node, no Sol node; the "
+                  "chain assert runs warn-only. Same LoRA, steps, shift, seed, "
+                  "prompt. Two named gaps from the release's own path: 64/64 "
+                  "blocks against its 128/64, and bf16 Triton against "
+                  "SpargeAttn's sage2 operator.",
+                  "Whether it renders a coherent clip, and what the sampler "
+                  "costs against the Sol twin -- the router keeps 15% of key "
+                  "blocks where Sol at tau 1.0 keeps more, so this is also the "
+                  "speed question. Quality is briefs met, one seed.",
+                  "Unknown. On the base model's activations the router's error "
+                  "at 0.85 was comparable to Sol's at tau 1.0-1.3 on ordinary "
+                  "heads and better on the loudest (the gate record); the "
+                  "student was trained to survive this cut, so its own "
+                  "activations may do better still. The captures under the "
+                  "LoRA are what settle that.")),
+         "the SLA LoRA under the sparse top-k router it was distilled with"),
+
+        ("h3_probe_turbo_768p_sla_dense.json", "t2v-turbo768-sla-dense", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(TURBO_SLA_LORA, TURBO_LORA_STRENGTH),
+              steps=TURBO_SLA_STEPS, shift=TURBO_SLA_SHIFT,
+              sol_on=False,
+              out_prefix="Video/h3_probe_turbo_768p_sla_dense",
+              variant_note=_probe_note(
+                  "whether the SLA LoRA needs sparse attention at all",
+                  "h3_probe_turbo_768p_sla.json",
+                  "Sol-Attn absent: sage only, the repo's dense-baseline "
+                  "convention (`workflows/bench/*_stamped_api.json`). Every "
+                  "block the student learned to do without is back.",
+                  "Coherence and sampler cost against the Sol and router twins.",
+                  "Unknown; the SLA paper's claim is about the fine-tuned "
+                  "model under its sparse router, not under dense attention. "
+                  "Not a discharge of `docs/open_experiments.md` #9, which is "
+                  "stock torch attention with no sage either.")),
+         "the SLA LoRA with Sol-Attn absent: sage only"),
+
         # First graph in this repo to wire a reference VIDEO. Everything about
         # that path was read off source until 2026-08-13 and never executed.
         # The reference-combination matrix. Five arms, one per shape of
@@ -4919,12 +4999,17 @@ def main():
     # but the canonical shipped default across all video workflows is ON.
     for fname, label, task, prompt, extra, note in GRAPHS:
         is_image = bool(extra.get("single_frame", False))
-        sol_on = False if is_image else bool(extra.get("sol_on", True))
+        # An SLA-router arm replaces the sage+Sol chain outright: no sage
+        # node, no Sol node, and the chain assert warn-only. One graph kind,
+        # exempted by mechanism in check_attention_defaults.
+        router = extra.get("sla_router") is not None
+        sol_on = False if (is_image or router) else bool(extra.get("sol_on", True))
         rest = {k: v for k, v in extra.items() if k != "sol_on"}
-        wf = build_ui(task, sage=True, preview=True,
-                      sol=SOL_RECOMMENDED_CUDA if not is_image else None,
+        wf = build_ui(task, sage=not router, preview=True,
+                      sol=SOL_RECOMMENDED_CUDA if not (is_image or router) else None,
                       sol_enabled=sol_on, prompt=prompt,
-                      title=f"h3-{label}-sage" + ("-sol" if sol_on else ""),
+                      title=f"h3-{label}-" + ("sla-router" if router else
+                                              "sage" + ("-sol" if sol_on else "")),
                       **{"length": LONG_LENGTH, **rest})
         p = _graph_dir(out, extra) / fname
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -4937,10 +5022,11 @@ def main():
     # different configuration than the set above.
     for fname, label, task, prompt, extra, _note in GRAPHS:
         is_image = bool(extra.get("single_frame", False))
-        sol_on = False if is_image else bool(extra.get("sol_on", True))
+        router = extra.get("sla_router") is not None
+        sol_on = False if (is_image or router) else bool(extra.get("sol_on", True))
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("variant_note", "sol_on")}
-        wf = build_api(task, sage=True, prompt=prompt,
+        wf = build_api(task, sage=not router, prompt=prompt,
                        sol=SOL_RECOMMENDED_CUDA if sol_on else None,
                        **{"length": LONG_LENGTH, **api_extra})
         p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")
