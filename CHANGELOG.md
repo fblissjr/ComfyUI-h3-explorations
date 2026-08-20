@@ -18,6 +18,10 @@ artifact.
   ref2va-specific pruning-loss hypothesis is refuted. `docs/evidence.md`
   carries the summary; the script's own self-test refuses to measure if its
   two deliberate violations are not caught.
+- **`docs/open_experiments.md` #22**, the sensitivity half of the pruning
+  question: a fixed-input first-step forward, pruned against unpruned on both
+  checkpoints, with the determinism floor and the fp8 builds as controls and
+  the decision rule pre-registered. Designed, not run.
 
 ## 0.44.0
 

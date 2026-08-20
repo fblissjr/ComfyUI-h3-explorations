@@ -1440,3 +1440,105 @@ summary of it.
 Settle the bench-run half before comparing anything whose evidence is a timing.
 The centroid and density comparison this item actually calls for reads captures,
 so it is not blocked on that.
+
+## 22. Pruning sensitivity: does the same AdaLN residual move ref2va's output more than fl2va's?
+
+**Tests:** whether the rank-8 AdaLN pruning, which perturbs the modulation
+output identically on both checkpoints
+([`bench/results/2026-08-20_adaln_pruning_residual.json`](../bench/results/2026-08-20_adaln_pruning_residual.json):
+same size, same per-parameter and per-timestep shape, ratio 0.97-1.01),
+moves the *network output* by a different amount on ref2va than on fl2va.
+That record measured the perturbation; this measures the sensitivity to it.
+Designed 2026-08-20 evening at the owner's request, not run.
+
+**Why it is not already answered.** A perturbation of equal size can matter
+more to one set of weights than another. There is a structural reason to
+suspect ref2va: the residual grows with t and is largest at the 0.999
+condition timestep, reference rows sit at 0.999 on every step, and the ref2va
+task rides on those rows. Against it stands a magnitude argument: on the bf16
+final layer the truncation is a 2e-4 perturbation, the int8 linears both
+builds carry are tens of times larger on the same activations, and the pruned
+AdaLN is closer to bf16 than the unpruned int8 AdaLN is. An argument is not a
+measurement.
+
+**Decision it changes.** `docs/evidence.md`'s "pruning closed" paragraph, and
+whether reference work should prefer the unpruned `int8_convrot` ref2va file
+(34 GB, offloaded on this card, slower) over the pruned one in
+`internal/recipes/`. A perceptual consequence, if the numbers say there could
+be one, would then need its own blind session under `docs/eval_comparison.md`
+section 3; this entry never claims one.
+
+**Method: a fixed-input forward, not a render.** The first sampler step of any
+graph is a controlled comparison between two checkpoints: the latent is the
+seed's noise, the conditioning is identical, and the forward is deterministic,
+so the different-sample rule in `CLAUDE.md` does not apply. Two arms that
+differ only in `unet_name`, pruned against unpruned, compared at that step.
+
+- **Graphs:** the two capture graphs, `workflows/h3_probe_capture_ref3_api.json`
+  (ref2va, three image references) and its twin
+  `workflows/h3_probe_capture_ref3_fl2va_api.json` (fl2va), because they wire
+  sage without Sol and so record the true attention inputs; plus
+  `workflows/bench/h3_text_to_video_stamped_api.json` for the no-reference
+  input. The unpruned arms patch `--set LABEL:UNETLoader.unet_name=minimax_h3_{fl2va,ref2va}_int8_convrot.safetensors`
+  (the files are on disk since 2026-08-20; `comfy/model_detection.py` handles
+  the time-embedder layout, and the int8 AdaLN carries its own `comfy_quant`
+  marker at group 64, so no code change is expected). All arms patch
+  `BasicScheduler.steps=1`: the first sigma is the schedule's maximum
+  whatever the step count, so the forward is the same one a 16-step render
+  would make first, and nothing after it is needed.
+- **Canvas:** 768x768, the cheapest legal canvas (`docs/h3_resolutions.md`,
+  0.33x attention), at 124 frames, the bottom of the trained range. The owner
+  has not yet confirmed the canvas; the standing rule is to ask before the
+  card is touched. The references keep the capture graphs' fit (2048 short
+  edge, no upscale), so the reference rows are the ones the hypothesis is
+  about. Sol's 60k-token floor is irrelevant here because Sol is off in these
+  graphs by design.
+- **Instrument:** `H3_CAPTURE="dir=...,blocks=0:12:24:36:49,steps=0,cycle=1"`
+  at server start (step 0 is the fixed-input forward; the module's default of
+  step 1 exists for trajectory statistics, which this is not), giving q/k/v
+  at five depths per arm. Plus one addition to `h3_capture.py`: an optional
+  `final=1` key that writes the final layer's output (the velocity) at the
+  captured steps, the one number that is "the network output". Its
+  deliberate violation: a run with `final=1` on a graph where the tap is
+  bypassed must write nothing, and a written tensor must reproduce the
+  sampler's first-step update to bf16 precision. If the tap is not built,
+  the fallback is the decoded one-step frames, a monotone but nonlinear
+  proxy, and the entry must say so.
+- **Arms:** {t2v, ref3} x {fl2va, ref2va} x {pruned, unpruned}, eight
+  forwards; one **repeat** of a pruned arm with a changed output prefix
+  (defeats the node cache, which returns a cached result for a byte-identical
+  resubmission) to measure the determinism floor; and two **scale
+  references**: the `fp8_scaled` build of each checkpoint on the ref3 input,
+  so "pruned vs unpruned" can be read against "int8 vs fp8", a quantisation-
+  size difference the repo already lives with. Eleven forwards; each is
+  seconds of compute, and the unpruned arms cost a model load from `Storage`
+  each switch, so the whole thing is under an hour including the two server
+  restarts (capture armed, then plain). Seed 730451892 throughout. Matched
+  seeds across arms are what make the input identical.
+- **Grader:** a new `bench/grade_pruning_sensitivity.py`, reading the
+  captures by filename: per arm pair, relative L2 and cosine of q, k, v per
+  block and per head, and of the velocity; records to
+  `bench/results/<date>_pruning_sensitivity.json` with filenames only.
+
+**Pre-registered prediction and decision rule.** Let `S(ckpt, input)` be the
+relative L2 between the pruned and unpruned velocity on the same input, and
+`floor` the repeat arm's own relative L2.
+
+- Prediction from the magnitude argument: `S` under 1% on both checkpoints,
+  and well under the int8-vs-fp8 reference on the same input.
+- The hypothesis **survives** if `S(ref2va, ref3) / S(fl2va, ref3) >= 2` with
+  both values at least 10x `floor`, and the per-depth profile shows the gap
+  opening at or after the blocks where the reference rows carry the
+  modulation residual rather than uniformly from block 0.
+- It is **refuted** if the ratio sits in [0.5, 2] with both values above the
+  floor, or if both values sit within 10x of the floor (then the pruning is
+  invisible at the output on both, and the ratio is noise over noise).
+- Any other outcome, including `S` above the int8-vs-fp8 reference on either
+  checkpoint, is a finding about the pruning itself and reopens the
+  `docs/evidence.md` paragraph regardless of the ratio.
+
+**Blocker:** none technical. The unpruned file has never been loaded through
+ComfyUI on this card; the first action is a one-step render with it alone,
+output read end to end (a 34 GB file on a 24 GB card goes through partial
+offload, and that path is the untested one). Then the canvas question to the
+owner, then the tap, then the arms.
