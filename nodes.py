@@ -239,7 +239,10 @@ class MiniMaxH3SLARouter(io.ComfyNode):
             kh = k.transpose(1, 2).contiguous()
             vh = v.transpose(1, 2).contiguous()
             out, _lut, _topk = sla_sparse_attention(qh, kh, vh, sparsity_ratio=sparsity_ratio)
-            return out.transpose(1, 2)
+            # NHD and contiguous: the forward `.view`s the output into
+            # [s, H*D], which a transposed view cannot satisfy -- the first
+            # render through this node failed on exactly that (2026-08-20).
+            return out.transpose(1, 2).contiguous()
 
         forward = make_minimax_attn_forward(kernel_fn, {"sparsity_ratio": float(sparsity_ratio)},
                                             head_chunks=1, clone_v=False)
