@@ -53,11 +53,20 @@ LoRA) captures at step 3:
     whose Q and K live almost entirely in two or three very loud channels
     is the worst case for a per-block INT8 quantiser, which is the shape of
     the 2026-08-19 anomaly.
-  - Missing control: no capture exists on clean fl2va. The fl2va arm here
-    carries the rank-256 ref LoRA, which adapts attention and MLP linears.
-    The inference survives because the gains are untouched by it and match
-    across checkpoints, but "fl2va without a LoRA looks the same" is the
-    one claim here that has not been observed.
+  - The control, run the same day once the card freed
+    (`bench/results/2026-08-20_head_magnitudes_fl2va.json`, capture
+    `2026-08-20_ref3_362f_1024x768_fl2va`: fl2va, no LoRA, same graph as the
+    ref2va capture with only the unet swapped): block 49 shows the same four
+    K channels at the same shares, the same per-head K rms spread, and
+    blocks 24 and 40 flat. The per-head INT8 error from
+    `bench/results/2026-08-20_sol_error_per_head_fl2va.json` ranks the heads
+    the same way as ref2va's (Spearman ~0.95 at every captured block, the
+    same six worst heads at block 49), at quant 0.124 against ref2va's
+    0.134. So "fl2va without a LoRA looks the same" is observed, not
+    inferred. The one thing that did move: fl2va's SPARSITY error is higher
+    than ref2va's at every block on this reference-heavy input (0.19-0.33
+    against 0.15-0.27) -- one capture each, and fl2va was not trained on
+    reference rows, so that is a lead and not a finding.
 
 Reads the capture tensors on CPU with mmap; no CUDA, no ComfyUI. The
 capture paths are recorded as `$H3_CAPTURE_ROOT/<dir>`, not literally.

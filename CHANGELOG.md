@@ -8,6 +8,27 @@ artifact.
 
 ### Changed
 
+- **The block-49 control is run, and the SLA probe renders.** With the card
+  free: `h3_probe_capture_ref3_fl2va.json` (the capture graph with the unet
+  swapped to fl2va and no LoRA, Sol off, exempted in
+  `bench/check_attention_defaults.py`) produced the capture
+  `2026-08-20_ref3_362f_1024x768_fl2va`, manifested. On it,
+  `bench/analyze_sol_error.py` at blocks 49/40/24, step 3, all heads
+  (`bench/results/2026-08-20_sol_error_per_head_fl2va.json`) finds block 49's
+  INT8 error at 0.124 against ref2va's 0.134 and the per-head error ranking
+  the heads the same way as ref2va's at Spearman ~0.95 with the same six
+  worst heads; `bench/analyze_head_magnitudes.py`
+  (`bench/results/2026-08-20_head_magnitudes_fl2va.json`) finds the same four
+  K channels at the same shares and the same per-head K spread. The claim
+  below, "present in both checkpoints", is now observed on clean fl2va
+  rather than inferred from matching gains. One lead, not a finding:
+  fl2va's sparsity error runs higher than ref2va's at every captured block
+  on this reference-heavy input, one capture each.
+
+  `bench/results/2026-08-20_sla_arms.jsonl`: the 768p v1.0 graph and its SLA
+  probe, one render each, 133.6 s and 133.5 s sampler, both on-brief at 2, 7
+  and 12 s. The SLA LoRA runs under Sol-Attn; nothing finer is claimed.
+
 - **"AdaLN is replaced in every block" is withdrawn; the two checkpoints'
   modulation differs by a few percent, like everything else.** The
   2026-08-18 checkpoint-internals record compared `adaln_proj.linear.weight`

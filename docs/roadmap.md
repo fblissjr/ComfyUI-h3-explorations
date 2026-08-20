@@ -402,7 +402,13 @@ coherence on one pair.
    > `attn.k_norm.weight` peaks at ~37 and ~31 against an rms of ~5, identical
    > in fl2va and ref2va to ~0.3%. A weights property of the release, present
    > in both checkpoints, and **not** a fl2va-vs-ref2va differentiator.
-   > `bench/results/2026-08-20_head_magnitudes.json`.
+   > `bench/results/2026-08-20_head_magnitudes.json`. **Closed the same day
+   > with the control:** a clean-fl2va capture (no LoRA, otherwise the
+   > ref2va capture's graph) shows the same channels, the same head spread,
+   > and per-head INT8 error ranking the heads identically to ref2va's
+   > (Spearman ~0.95; quant 0.124 against 0.134 at block 49).
+   > `bench/results/2026-08-20_sol_error_per_head_fl2va.json`,
+   > `bench/results/2026-08-20_head_magnitudes_fl2va.json`.
 
    All twelve rows were re-measured after the eager reference was found to
    diverge from the vendored oracle and fixed; the numbers above are the
