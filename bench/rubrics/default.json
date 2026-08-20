@@ -1,0 +1,22 @@
+[
+ {
+  "id": "note",
+  "label": "What you notice",
+  "type": "text",
+  "primary": true,
+  "help": "Free text. Anything worth recording about this clip on its own; the comparison itself belongs on the pairs tab."
+ },
+ {
+  "id": "tags",
+  "label": "Quick tags",
+  "type": "tags",
+  "options": ["good", "not good", "off", "same", "can't tell"],
+  "help": "Click any that apply. Nothing is required."
+ },
+ {
+  "id": "flag",
+  "label": "Reject outright",
+  "type": "flag",
+  "help": "Garbage, NaN-like noise, audio missing or desynced, hard cut artifacts. Leave off if none."
+ }
+]

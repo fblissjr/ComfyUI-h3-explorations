@@ -82,3 +82,65 @@ any comparison that is meant to be quoted:
 For a single pair outside a session -- two clips that already exist -- the
 `--blind --keyfile` form in section 2 is still right, with `-o` set to a
 neutral name, since the default output name carries both input stems.
+
+### Scoring: the page and the joiner
+
+Step 3's "sheet written in advance" is now a page written into the batch. The
+rule it encoded is unchanged -- questions fixed before the first clip plays,
+one pass in the shuffled order, key opened only afterwards -- but a markdown
+table loses a row the moment the judge scrolls, so `bench/blind_batch.py`
+writes `score.html` beside the clips instead.
+
+`bench/blind_score_app.py` generates that page. It is self-contained -- inline
+CSS and JS, no external request, relative video sources -- so it works opened
+as a local file from the share. It reads the batch's MANIFEST, the rubric file
+and the brief file, and **nothing else**: not the sealed key, and not the
+JSONL, whose rows carry the arm label in a field.
+
+- **Pairs are the primary view** and the page opens on them. A pair asks what
+  differs between the two halves and which way it goes, as free text, plus
+  quick tags clicked per half and one coarse verdict. There is no numeric
+  scale on a pair: a stack shows two different samples, and the thing a judge
+  can report about them is the difference, not a rating of each.
+- Singles are secondary. They carry the audio, which the stacks do not, and
+  anything wrong with one clip on its own.
+- The rubric is a JSON file -- `bench/rubrics/default.json`, or
+  `bench/rubrics/scales.json` for the 1-5 form. `--brief-file` puts the
+  session's brief at the top of the page, collapsed.
+- Answers are held in the browser per session, so a reload loses nothing.
+  "Export scores" writes `scores_<session>.json` and prints the same JSON into
+  a textarea, because a page opened as a local file cannot always start a
+  download.
+
+**`--pairs` repeats.** A session with more than two arms is judged as one
+reference arm against each of the others at matched seeds, one `--pairs` per
+contest. `pair_NN` numbering runs continuously across contests so the judge
+cannot read the contest off a filename, and the same two arms twice is refused
+in either order.
+
+`bench/score_session.py` is the only place the key is opened, and it opens it
+only once the scores exist. It joins the export with
+`internal/blind_keys/<session>.json` into
+`bench/results/<date>_<session>_verdict.json`: per contest, the verdict tally
+resolved through the key, so "Clip 1 better" becomes whichever arm actually sat
+in slot 1, with `same` and `can't tell` counted apart; per arm, the tag counts,
+the notes and the flags; per clip, its row, seed and graph. It refuses a scores
+file that does not cover the batch, naming what is missing, unless `--partial`;
+refuses a key whose session name is not the scores' session; and refuses to
+write an absolute path into the record.
+
+A contest tally is a preference over distributions, not a per-pair verdict, and
+the record carries that reading in its own field. Blinding controls who knows
+which arm; it does not make two samples comparable.
+
+```bash
+H3_COMFY_OUTPUT=<share> uv run python bench/blind_batch.py \
+    --jsonl bench/results/<date>_<session>.jsonl \
+    --session <session> --shuffle-seed <n> \
+    --pairs ref,other --pairs ref,another \
+    --brief-file <brief.txt>
+
+# open <share>/Video/blind/<session>/score.html, score every item, Export scores
+
+uv run python bench/score_session.py --scores scores_<session>.json
+```

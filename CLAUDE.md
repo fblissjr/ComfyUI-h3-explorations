@@ -19,7 +19,7 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
 
 | file | what it answers |
 |---|---|
-| [`docs/roadmap.md`](docs/roadmap.md) | what we are trying to find out next, and what would count as finding it. **Start here** if the question is what to work on. |
+| [`docs/roadmap.md`](docs/roadmap.md) | what we are trying to find out next, and what would count as finding it. **Start here** if the question is what to work on. Designing a new probe or prompt: the `h3-experiment` skill in `.claude/skills/` routes to the files that own each step (this one first), and restates none of them. |
 | [`docs/evidence.md`](docs/evidence.md) | what is measured, what is retracted, and what must not be relied on. **Start here** if you are about to state a number. |
 | [`docs/checks.md`](docs/checks.md) | the index of every check, the standard it is held to, and the standing uncontrolled-requirement audit. **Start here** if you are about to change behaviour or add a check. |
 
@@ -36,7 +36,7 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
 | [`docs/h3_resolutions.md`](docs/h3_resolutions.md) | every legal canvas and what each costs -- it owns the count, do not restate it here. `h3_input_impacts.md` is its deep dive |
 | [`docs/h3_geometry_and_nodes.md`](docs/h3_geometry_and_nodes.md) | the frame grid, the token maths, and which node to use |
 | [`docs/h3_ref2v_distillation.md`](docs/h3_ref2v_distillation.md) | why ref2v resists step distillation |
-| [`docs/eval_comparison.md`](docs/eval_comparison.md) | paired evaluation and stacking: layout rules (vertical for widescreen, horizontal for portrait), labels, and blind evals |
+| [`docs/eval_comparison.md`](docs/eval_comparison.md) | **the A/B process, and the authority for it**: how a rendered comparison is rendered (matched seeds), blinded, scored before unblinding, and recorded as a distribution. Every comparison that will be quoted goes through its section 3; the `h3-ab-session` skill in `.claude/skills/` only routes there. Also the stacking layout rules |
 | [`docs/capture_manifest_schema.md`](docs/capture_manifest_schema.md) | activation capture manifest schema: generation parameters, prompt, reference metadata, token accounting, and tensor checksums. **Do not name a version here** -- the accepted set is `bench/check_capture_manifest.py::SCHEMA_VERSIONS` and what new manifests are stamped with is `bench/generate_capture_manifest.py`. A version written into prose drifted once already, which is why that constant exists |
 | [`docs/bench_plan.md`](docs/bench_plan.md) | pre-registered predictions and the runs that scored them |
 | [`docs/check_postmortems.md`](docs/check_postmortems.md) | **history, not operative — skip it** unless you are investigating one specific check or about to write a control. Per-defect narrative and frozen run logs; every count in it is stale by design |
@@ -51,6 +51,7 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
 | `bench/check_*.py` | fast, mostly CUDA-free guards |
 | [`bench/preflight_graph.py`](bench/preflight_graph.py) | **run this before you queue a reference render.** Grades the prompt against the guide's mechanical rules and prices the packed sequence, statically, on any graph path including hand-built ones. Reports, never refuses |
 | `bench/bench_*.py`, `bench/smoke_h3.py` | need a GPU and a live server |
+| `bench/run_graph_arms.py` -> `bench/blind_batch.py` -> `score.html` -> `bench/score_session.py` | **the bench path for anything judged by a person.** Arms rendered with matched seeds and recorded substrate; clips blinded with a sealed key in `internal/blind_keys/`; scored in the generated app; the key opened only by the joiner, which writes the verdict record. A comparison that skipped any of these is two samples, not a result (the different-sample rule below). `docs/eval_comparison.md` section 3 is the process; do not restate it here |
 | `internal/` | gitignored: prompt research, session logs, upstream surveys, postmortems. Not shipped. |
 | `internal/postmortems/` | **start with the newest and work back** rather than re-deriving what is open |
 | `internal/h3_resolution_explainer.html` | gitignored, so no link: the interactive canvas-cost companion to `h3_resolutions.md`. **A teaching surface, not a source** — every number it shows is owned by that doc, and it is the copy that goes stale silently because nothing checks it |

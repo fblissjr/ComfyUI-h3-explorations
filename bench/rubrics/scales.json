@@ -1,0 +1,30 @@
+[
+ {
+  "id": "brief",
+  "label": "Brief",
+  "type": "scale",
+  "min": 1,
+  "max": 5,
+  "help": "5 = all of the brief's shots and its subject as written; 3 = the subject and scene right, shot structure partly lost; 1 = wrong subject or scene."
+ },
+ {
+  "id": "motion",
+  "label": "Motion",
+  "type": "scale",
+  "min": 1,
+  "max": 5,
+  "help": "5 = coherent motion and stable identity throughout; 3 = visible but tolerable warping or popping; 1 = breakdown (dissolving object, smeared frames, frozen stretch)."
+ },
+ {
+  "id": "flag",
+  "label": "Reject outright",
+  "type": "flag",
+  "help": "Garbage, NaN-like noise, audio missing or desynced, hard cut artifacts. Leave off if none."
+ },
+ {
+  "id": "note",
+  "label": "Note",
+  "type": "text",
+  "help": "Free text, short."
+ }
+]

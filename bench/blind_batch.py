@@ -18,6 +18,10 @@ and nothing else, and writes the KEY -- clip -> (label, seed, source file) --
 to `internal/blind_keys/<session>.json`, which is gitignored. The judge opens
 the batch directory; nobody opens the key until the scores are written.
 
+Last, it calls `bench/blind_score_app.py` to write `score.html` beside the
+clips: that page reads the MANIFEST and nothing else, and is what the judge
+scores in. `--brief-file` puts the session's brief at the top of it.
+
 ## How a row finds its clip
 
 `run_graph_arms` appends `_<label>` to every `filename_prefix`, so the arm is
@@ -43,7 +47,7 @@ Only `<prefix>_NNNNN.mp4` is taken; the share also holds `-audio.mp4` and
 `error`, or a clip that cannot be found. A batch with any of those is refused
 whole: a missing clip shifts every neutral number after it.
 
-## Pairs, for two-arm sessions
+## Pairs
 
 `--pairs A,B` additionally stacks the i-th judged clip of arm A with the i-th
 of arm B (matched by run index, which `run_graph_arms` seeds identically
@@ -56,6 +60,17 @@ would be a bias anyway -- so the singles stay in the batch for the audio
 half of the brief. A pair is a presentation of two different samples, never a
 matched comparison (CLAUDE.md, the different-sample rule); the judgement is
 still the aggregate over pairs.
+
+**`--pairs` repeats.** A session with more than two arms is judged as one
+reference arm against each of the others at matched seeds, so give one
+`--pairs` per contest:
+
+    --pairs v11,v10 --pairs v11,sla --pairs v11,v11_vendor
+
+`pair_NN` numbering runs continuously across all of them and the manifest
+still carries row indices only. **The same two arms twice is refused, in
+either order** -- `A,B` and `B,A` are the same contest, and stacking it twice
+would double-count it in the tally while telling the judge nothing new.
 
 The output root comes from `H3_COMFY_OUTPUT` (or `bench/_paths.comfy_output()`
 when run where `folder_paths` resolves); the share's path is typed in the
@@ -81,10 +96,13 @@ import time
 import urllib.request
 from pathlib import Path
 
+_SUMMARY = (__doc__ or "").split("\n")[0]
+
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 from _paths import comfy_output  # noqa: E402
+from blind_score_app import load_rubric, write_score_app  # noqa: E402
 from stack_eval_clips import build_stacked_video  # noqa: E402
 
 KEY_DIR = REPO / "internal" / "blind_keys"
@@ -120,21 +138,32 @@ def prefix_of(graph_path: Path, label: str) -> str | None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap = argparse.ArgumentParser(description=_SUMMARY)
     ap.add_argument("--jsonl", required=True)
     ap.add_argument("--session", required=True, help="batch name; also the key file's name")
     ap.add_argument("--shuffle-seed", type=int, required=True)
     ap.add_argument("--host", default="127.0.0.1:8188")
     ap.add_argument("--output-root", default=None,
                     help="ComfyUI output directory; default H3_COMFY_OUTPUT or folder_paths")
-    ap.add_argument("--pairs", default=None, metavar="A,B",
-                    help="also emit blinded stacked pairs of these two arm labels, matched by run index")
+    ap.add_argument("--pairs", action="append", default=None, metavar="A,B",
+                    help="also emit blinded stacked pairs of these two arm labels, matched by "
+                         "run index; repeat for a session with more than two arms")
+    ap.add_argument("--brief-file", default=None,
+                    help="text file holding the brief every clip was asked to render; "
+                         "shown at the top of the scoring page")
     args = ap.parse_args()
-    pair_labels = None
-    if args.pairs:
-        pair_labels = [x.strip() for x in args.pairs.split(",")]
-        if len(pair_labels) != 2 or pair_labels[0] == pair_labels[1]:
-            sys.exit("refuse: --pairs needs two distinct arm labels")
+    contests, seen_contests = [], set()
+    for spec in (args.pairs or []):
+        labels = [x.strip() for x in spec.split(",")]
+        if len(labels) != 2 or labels[0] == labels[1] or not all(labels):
+            sys.exit(f"refuse: --pairs {spec!r} needs two distinct arm labels")
+        # A,B and B,A are the same contest; the per-pair slot order is drawn
+        # anyway, so stacking it twice only double-counts it in the tally.
+        unordered = frozenset(labels)
+        if unordered in seen_contests:
+            sys.exit(f"refuse: --pairs {spec!r} repeats a contest already asked for")
+        seen_contests.add(unordered)
+        contests.append(labels)
 
     root = Path(args.output_root) if args.output_root else comfy_output()
     if root is None or not root.is_dir():
@@ -148,6 +177,17 @@ def main() -> int:
     bad += [(i, f"error: {r['error']}") for i, r in rows_idx if r.get("error")]
     if bad:
         sys.exit(f"refuse: rows that must not be judged: {bad}")
+    # Price every contest before anything is copied: a refusal after mkdir
+    # leaves a half-batch that the next run then refuses as already existing.
+    for a, b in contests:
+        na = sum(1 for _, r in rows_idx if r["label"] == a)
+        nb = sum(1 for _, r in rows_idx if r["label"] == b)
+        if not na or not nb:
+            sys.exit(f"refuse: --pairs {a},{b}: an arm has no judged rows "
+                     f"({a}: {na}, {b}: {nb})")
+        if na != nb:
+            sys.exit(f"refuse: --pairs {a},{b}: {na} against {nb} judged rows; "
+                     "pairs match by run index and the arms are uneven")
 
     # Resolve every row's clip before copying anything. A row's `ts` is
     # written when the render FINISHES, so its clip's mtime precedes `ts` by up
@@ -216,16 +256,14 @@ def main() -> int:
         key[name] = {"row": i, "label": r["label"], "seed": r["seed"],
                      "source": str(located[i].relative_to(root)), "graph": r["graph"]}
     pairs_manifest = []
-    if pair_labels:
-        a, b = pair_labels
+    n = 0
+    for a, b in contests:
         ra = [i for i, r in rows_idx if r["label"] == a]
         rb = [i for i, r in rows_idx if r["label"] == b]
-        if not ra or not rb:
-            sys.exit(f"refuse: --pairs {a},{b}: an arm has no judged rows")
-        if len(ra) != len(rb):
-            sys.exit(f"refuse: --pairs {a},{b}: {len(ra)} against {len(rb)} judged rows; "
-                     "pairs match by run index and the arms are uneven")
-        for n, (ia, ib) in enumerate(zip(ra, rb), 1):
+        # Numbering runs continuously across contests so the judge sees one
+        # sequence and cannot read the contest off the filename.
+        for ia, ib in zip(ra, rb):
+            n += 1
             first, second = ((ia, a), (ib, b)) if rng.random() < 0.5 else ((ib, b), (ia, a))
             name = f"pair_{n:02d}.mp4"
             # The stacker prints its input filenames, which carry the arm
@@ -247,6 +285,19 @@ def main() -> int:
                                     "jsonl": args.jsonl, "key": key}, indent=1))
     print(f"{len(order)} clips" + (f" and {len(pairs_manifest)} stacked pairs" if pairs_manifest else "") + f" -> {batch}")
     print(f"key sealed at internal/blind_keys/{args.session}.json -- DO NOT OPEN BEFORE SCORING")
+    # The scoring page reads the MANIFEST and nothing else; it must never see
+    # the key or the JSONL, both of which carry arm labels.
+    #
+    # The batch and the key are already correct and on disk by here, so a
+    # failure writing the page is a warning, not a failure of the batch:
+    # raising would leave a sealed key that the next run then refuses.
+    try:
+        brief = Path(args.brief_file).read_text() if args.brief_file else None
+        app = write_score_app(batch, load_rubric(), brief)
+        print(f"open {app.name} in that directory to score")
+    except Exception as exc:
+        print(f"warning: the batch is complete but score.html was not written: {exc}")
+        print("re-run bench/blind_score_app.py --batch <batch> to write it")
     return 0
 
 
