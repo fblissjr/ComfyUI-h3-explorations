@@ -2,7 +2,7 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
       "weight_dtype": "default"
     }
   },
@@ -35,7 +35,7 @@
   "7": {
     "class_type": "KSamplerSelect",
     "inputs": {
-      "sampler_name": "er_sde"
+      "sampler_name": "euler"
     }
   },
   "8": {
@@ -45,8 +45,8 @@
         "23",
         0
       ],
-      "scheduler": "simple",
-      "steps": 16,
+      "scheduler": "beta",
+      "steps": 4,
       "denoise": 1.0
     }
   },
@@ -127,7 +127,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_probe_prompt_concise",
+      "filename_prefix": "Video/h3_probe_turbo_768p_owner",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -140,13 +140,13 @@
   "27": {
     "class_type": "MiniMaxH3Resolution",
     "inputs": {
-      "shape": "standard",
-      "shape.standard_resolution": "1024x768  4/3  768 tok/frame  0.58x",
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
       "length": 362
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ImageToVideo",
     "inputs": {
       "clip": [
         "2",
@@ -156,11 +156,7 @@
         "3",
         0
       ],
-      "audio_vae": [
-        "4",
-        0
-      ],
-      "prompt": "The character from <Picture 1> replaces the person in <Video 1>, keeping the face, hair, build, and clothing of <Picture 1> while following the original person's movements, gestures, timing, and the camera path of <Video 1> exactly. The setting, lighting, framing, and colour of <Video 1> are unchanged. <Audio 1> is reused as the target video's complete final audio track.",
+      "prompt": "integrated_multimodal_description:\n[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium shot frames a courier in a soaked red jacket standing over a bicycle at a city crosswalk in heavy evening rain, wet asphalt throwing back the signal lights, a brick facade with iron railings filling the background. The camera tracks right at medium amplitude and moderate speed as she snaps her helmet strap and pushes off.\n[Shot 2] At 00:04.000, the shot cuts to a low tracking shot running alongside the bicycle as it crosses the junction, spray coming off the tyres, painted lane markings streaming past underneath.\n[Shot 3] At 00:08.000, the camera whip pans up to a wide shot of the street as she cuts between two parked cars, pigeons scattering off the railings, neon shopfront signs reflected in the puddles.\n[Shot 4] At 00:11.500, the shot changes to a close shot of her face under the helmet, rain streaking across the lens, as she glances back over her shoulder and then forward again, breathing hard.\n\noverall_soundscape:\nSteady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.\n\nnon_diegetic_music:\nN/A",
       "width": [
         "27",
         0
@@ -172,61 +168,28 @@
       "length": [
         "27",
         2
-      ],
-      "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ],
-      "ref_videos.ref_video_0": [
-        "28",
-        0
-      ],
-      "ref_video_audios.ref_video_audio_0": [
-        "28",
-        2
       ]
     }
   },
-  "15": {
-    "class_type": "LoadImage",
+  "18": {
+    "class_type": "LoraLoaderModelOnly",
     "inputs": {
-      "image": "1-man.png"
-    }
-  },
-  "24": {
-    "class_type": "MiniMaxH3ReferenceFit",
-    "inputs": {
-      "image": [
-        "15",
+      "model": [
+        "1",
         0
       ],
-      "allow_upscale": false,
-      "short_edge": 2048,
-      "lift_downstream_clamp": false
-    }
-  },
-  "28": {
-    "class_type": "VHS_LoadVideo",
-    "inputs": {
-      "video": "20260601_172336_00001-audio.mp4",
-      "force_rate": 24.0,
-      "custom_width": 0,
-      "custom_height": 0,
-      "frame_load_cap": 0,
-      "skip_first_frames": 0,
-      "select_every_nth": 1,
-      "format": "AnimateDiff"
+      "lora_name": "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
+      "strength_model": 0.75
     }
   },
   "19": {
     "class_type": "MiniMaxH3SigmaShift",
     "inputs": {
       "model": [
-        "1",
+        "18",
         0
       ],
-      "shift_video": 12.0,
+      "shift_video": 6.0,
       "shift_audio": 3.0
     }
   },

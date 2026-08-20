@@ -1,6 +1,6 @@
 # Open experiments
 
-Last updated: 2026-08-16
+Last updated: 2026-08-20
 
 > **Several of these are now scheduled rather than parked.** The working plan
 > and the render scenes that would settle the quality-blocked ones live in
@@ -151,6 +151,13 @@ recommendation.
 ---
 
 ## 6. Revalidate 16 steps
+
+> **Reframed 2026-08-20.** Under the distilled regime the owner is moving to
+> (4-6 step lightx2v students on fl2va; `docs/roadmap.md`, "The regime
+> question"), the step count is set by the LoRA's vendor row and graded by
+> `bench/check_distill_settings.py`, so this entry's question becomes "which
+> LoRA row is canonical", which that section tracks. 16 stays the base-model
+> number and this entry stays as written for the base path.
 
 **Tests:** whether 16 is still the right step count.
 
@@ -391,6 +398,12 @@ changes, not just the measurement.
 
 ## 9. A clean run with no speed-ups at all
 
+> **More important under distillation, 2026-08-20, and still not run.** Every
+> distilled arm stacks a LoRA on sage on Sol, so a disappointing 4-step result
+> has three candidate causes. Note what does NOT discharge this entry: the
+> "dense" arm in the SLA-router regime set (`docs/roadmap.md`) is sage on with
+> Sol off, the repo's baseline convention, not stock torch attention.
+
 **Tests:** whether the stack costs prompt adherence and reference fidelity,
 not just time.
 
@@ -560,6 +573,13 @@ first task, not a thing to guess at.
 
 **Decision it changes:** whether #1, #6, #9 and #12 stay blocked on a person.
 
+**The cheaper route, 2026-08-20:** at ~3 minutes a 4-step render, the standard
+CLAUDE.md sets for a perceptual claim -- many seeds per arm, judged blind in
+aggregate -- costs under an hour for 8 seeds x 3 arms, which no base-model
+session could afford. That does not build the instrument; it makes the
+owner's judgment affordable enough to drain the queue without one.
+`bench/blind_batch.py` is the batching layer.
+
 **Blocker: none, and that is the point.** Every other entry blocked on owner
 judgment has been listed that way since 2026-08-13 without anyone asking what
 would make the judgment cheaper. A screen that can go red is worth more than
@@ -618,6 +638,12 @@ measures the cost and none of the benefit.
 **Cost:** 4 arms at 345 frames. Time is the cheap half.
 
 **Decision it changes:** `SOL_RECOMMENDED_CUDA`'s two most-quoted values.
+
+> **2026-08-20: the default moves to tau 1.0 by owner decision, and 1.3 has to
+> earn its way back.** 1.3 stays only if it shows no difference from 1.0 on the
+> distilled LoRAs while buying meaningful speed. The speed half is a
+> `--set SolAttnMiniMax.tau=1.3` patch arm in the day's regime set; the quality
+> half is an 8-seed blind session, not yet run.
 
 **Blocker: the same one as #1, #6, #9 and #12 — an instrument.** Speed will
 answer itself in one run. The quality half is a gradual degradation with no
@@ -916,6 +942,12 @@ is consistent with the expected mechanism and is not a sweep.
 Morton and Hilbert A/B this repo has run compared two orderings *and* two
 sparsity levels, without knowing the size or the sign of the second.
 
+> **Substantially done 2026-08-19.** `bench/sweep_routing_density.py` measures
+> routed density per block, step and head at production S on the 2026-08-18
+> capture (`bench/results/2026-08-19_routing_density_per_head.json`), with the
+> curve as an argument; the per-block and per-step axes came out flat. What
+> remains of this entry is the curve comparison at fixed tau specifically.
+
 **Blocker: a capture at a known video geometry.** No render, no GPU, no server
 once one exists, and it belongs in `bench/analyze_routing.py`, which now runs
 without the `coderef/` clone. The `2026-08-15_dense_124f_1344x768` capture this
@@ -1185,8 +1217,21 @@ could never have caught a ragged-block divergence -- while naming ragged-block
 handling as a known failure mode in its own refusal text. A control whose
 fixture cannot express the defect is not a control for it.
 
-*Blocker: none. Next action is chunking the oracle, so the gate can run at
-production S instead of inferring from t <= 2001.*
+*Blocker: none.* ~~Next action is chunking the oracle, so the gate can run at
+production S instead of inferring from t <= 2001.~~ **Refuted 2026-08-19**
+(`docs/roadmap.md`, the error-decomposition section): chunked to production
+length the gate goes red on tie flips while both implementations are correct.
+
+**The next action instead, 2026-08-20:** split the quantization error into
+its INT8 QK half and its INT8 PV half. `bench/analyze_head_magnitudes.py`
+found per-head quant error tracks Q and K magnitude (Spearman ~0.4-0.5) and not
+V (~0), on both checkpoints; a 16-bit PV changes the V side. If that holds
+under a proper split, 17 targets the wrong operand. **`bench/simulate_track_b_lite.py`
+cannot do this split**, and its own docstring says why: its "fp16 PV" arm is
+the unquantized reference, so it adds nothing beyond the quant/sparsity ratio
+-- and it refuses to run. The split needs the kernel's quantization scheme
+mirrored in the eager reference, which is a plausible-number trap; scoped
+here, not built.
 
 **17c. Capture a reference-heavy render.** NEW, and it gates the value of the
 other two. Every Sol measurement in this repo -- including the
@@ -1274,6 +1319,53 @@ most of the blocks.
   scoped to per-call claims.
 - **Does chunking fragment the allocator** — no. `allocated` and `reserved`
   track within 8 MiB on all three arms.
+
+## 20. The SLA LoRA under its training router
+
+**Tests:** whether lightx2v's Turbo-SLA LoRA behaves differently under the
+attention it was distilled with than under Sol-Attn or dense attention, and
+whether a student trained to survive a top-k block cut produces attention that
+is more block-sparse under Sol's router than a student that was not.
+
+**What is reproducible, read 2026-08-20 from `coderef/LightX2V` and
+`coderef/SLA` (source reads, not builds).** LightX2V's "SLA" is SLA v1's
+sparse top-k branch only: mean-pooled q.(k - mean k) block scores, a hard
+`topk` at `1 - sparsity_ratio`, no linear branch, no `proj_l`. The LoRA file
+carries no extra weights (624 tensors, attn+mlp only; byte accounting against
+the upstream PEFT file closes). The Triton kernel has no arch gate. So the
+LoRA's training attention is runnable here. Two named gaps: the release ran
+128/64 blocks through SageSLA's `sage2` operator (needs a SpargeAttn build;
+the Triton path is 64/64), and LightX2V's inference config leaves the token
+refiner on the router while ours patches it only on request.
+
+**Arms:** the SLA LoRA under {router, Sol at the shipped tau, sage-only
+dense}; the v1.1 768p LoRA under the same three as the never-SLA-trained
+control. Plus two 4-step captures (v1.1, SLA) read by
+`bench/sweep_routing_density.py` and `bench/analyze_sol_error.py`.
+
+**Decision it changes:** whether SLA + Sol is the speed lever, and whether the
+SLA probe graph should ship with the router rather than Sol.
+
+**Blocker: none.** A correctness gate on captured activations comes before
+any render through the kernel; `docs/roadmap.md` carries the day's plan.
+
+## 21. The power-limit pair
+
+**Tests:** what the 330 W board limit costs against the stock 450 W on one
+graph and seed, which `docs/hardware.md` names as one of two things that would
+settle whether sampling is core-clock-bound here.
+
+**History:** a forward item three times (2026-08-17, twice on 2026-08-18),
+blocked on sudo every time; never run, controlled or accidental. The card
+was at 330 W on the morning of 2026-08-20 with no unit currently setting it.
+
+**Decision it changes:** whether any timing taken at 330 W can be compared to
+the 450 W records, and the bandwidth-bound reading in `docs/hardware.md`. The
+rule written on 2026-08-17: a delta under ~2% supports bandwidth-bound; a
+delta near the clock delta supports L2-bound.
+
+**Blocker: one `sudo nvidia-smi -pl 450` from the owner.** Run 2026-08-20;
+record `bench/results/2026-08-20_power_limit_pair.jsonl`.
 
 ## 19. Does convrot's rotation reach Sol's routing or Morton's ordering?
 

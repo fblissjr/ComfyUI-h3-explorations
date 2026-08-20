@@ -40,7 +40,7 @@ and the three cases are not the same defect:
 |---|---|---|
 | capture manifest | `provenance.gpu_power_limit_watts` **exists**, and the one manifest on disk populates it | and as of 2026-08-17 it is required and asserted, so a manifest that omits it fails. It is also **read** now rather than typed in -- the generator wrote a literal `450.0` until the same day |
 | render stamp | **no power, driver or GPU field at all** | a stamped render cannot be placed on a power state even in principle |
-| bench run | **nothing is persisted** | the class whose numbers move most with power state keeps no record of its own conditions |
+| bench run | **persisted per row since 2026-08-18** by `bench/run_graph_arms.py` (`substrate.power_limit`, `power_limit_is_stock`, driver, package versions, git commit); `bench/bench_e2e_h3.py` still persists nothing | the runner that carries the day's timings now records its own conditions; the older harness does not |
 
 So the fix is not one fix. For captures it is an assertion on a field that is
 already there; for stamps it is a field that does not exist; for bench runs it
@@ -81,9 +81,16 @@ separated on this box. What follows is the reasoning frame, not a verdict.
 Measured 2026-08-17: the DiT, text encoder and VAE of a reference render exceed
 this card's memory together, and the DiT alone exceeds what stays resident once
 activations for a full-length packed sequence are accounted for. So ComfyUI
-streams blocks rather than holding everything resident, and PCIe carries
-continuous traffic through the whole sampling loop. `hwinfo.py` prints the
-resident figure; `nvidia-smi dmon -s pumt` shows the traffic.
+streams blocks rather than holding everything resident. **This paragraph used
+to conclude that PCIe therefore carries continuous traffic through the whole
+sampling loop. Measured 2026-08-18 and it does not, at the one configuration
+measured:** `bench/results/2026-08-18_phase0_instrument.json` recorded ~20 MB/s
+of PCIe receive during sampling at 1024x768 with three references, with power
+pegged at the 450 W limit and core clocks pulled ~24% under their maximum.
+Sampling at that configuration is compute/power-bound, not host-bound; the
+streaming happens between phases. Heavier configurations are untested.
+`hwinfo.py` prints the resident figure; `nvidia-smi dmon -s pumt` shows the
+traffic.
 
 Anything reasoning from "the model is resident, so the sampling loop touches no
 host interface" is wrong here, and that assumption is easy to make because it

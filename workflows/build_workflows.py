@@ -60,6 +60,7 @@ from h3_config import (  # noqa: E402
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
     TURBO_SLA_LORA, TURBO_SLA_SHIFT, TURBO_SLA_STEPS,
+    TURBO_OWNER_STRENGTH, TURBO_OWNER_SCHEDULER,
     TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
     CAPTURE_REF_IMAGES,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
@@ -103,14 +104,22 @@ def _sol_widgets(sol):
 # not one continuous beat -- the guide wants numbered shots with explicit cut
 # times past a few seconds, and a 15s request against a 6s prompt leaves the
 # model twelve seconds it was never told about.
-LONG_T2V_PROMPT = """integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium shot frames a courier in a soaked red jacket standing over a bicycle at a city crosswalk in heavy evening rain, wet asphalt throwing back the signal lights, a brick facade with iron railings filling the background. The camera tracks right at medium amplitude and moderate speed as she snaps her helmet strap and pushes off.
+# Laid out per the owner's v6 t2v conditioning format (2026-08-20): each
+# field name alone on its line, content on the next, one empty line between
+# fields, `N/A` for an empty field. Content unchanged from the 2026-08-13
+# prompt; only the form moved, and every t2v graph's prompt string moved with
+# it, which the different-sample rule makes a non-event for comparisons.
+LONG_T2V_PROMPT = """integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium shot frames a courier in a soaked red jacket standing over a bicycle at a city crosswalk in heavy evening rain, wet asphalt throwing back the signal lights, a brick facade with iron railings filling the background. The camera tracks right at medium amplitude and moderate speed as she snaps her helmet strap and pushes off.
 [Shot 2] At 00:04.000, the shot cuts to a low tracking shot running alongside the bicycle as it crosses the junction, spray coming off the tyres, painted lane markings streaming past underneath.
 [Shot 3] At 00:08.000, the camera whip pans up to a wide shot of the street as she cuts between two parked cars, pigeons scattering off the railings, neon shopfront signs reflected in the puddles.
 [Shot 4] At 00:11.500, the shot changes to a close shot of her face under the helmet, rain streaking across the lens, as she glances back over her shoulder and then forward again, breathing hard.
 
-overall_soundscape: steady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.
+overall_soundscape:
+Steady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.
 
-non_diegetic_music: none."""
+non_diegetic_music:
+N/A"""
 
 # h264-mp4 rather than h265 or an nvenc variant: software x264 at crf 19 is
 # the most portable mp4 there is, and the nvenc paths trade quality per bit
@@ -2915,6 +2924,38 @@ schedule whose final jump is already the largest one it takes.
 """
 
 
+_NOTE_TURBO_OWNER = f"""\
+## The owner's recipe, not the vendor's row
+
+This is `h3_text_to_video_turbo_4step_768p.json` with **three** things moved,
+all at once, to the settings the owner arrived at in their own t2v trials on
+2026-08-20: sampler `er_sde` -> `{TURBO_SAMPLER}`, scheduler `simple` ->
+`{TURBO_OWNER_SCHEDULER}`, LoRA strength 1.0 -> {TURBO_OWNER_STRENGTH:g}.
+Because three knobs move, a difference against the vendor graph is not
+attributable to any one of them; this graph is a recipe, and it is judged as a
+recipe against the vendor-recipe arm in the same blind session.
+
+Two costs the recipe carries, stated up front:
+
+- **Strength below 1.0 at 4 steps under-distills.** The student was fitted at
+  1.0 on a 4-step schedule; 0.75 interpolates toward a base model that needs
+  16 steps. `docs/h3_ref2v_distillation.md` recommends strength sweeps on the
+  8-step LoRA at 6-8 steps for exactly this reason.
+- **`beta` halves Sol-Attn's sparse steps here.** Sol's window is a sigma band
+  (0.96 down to 0.40 at shift 6 with the shipped 0.2/0.9). Under `simple` 3 of
+  4 steps land inside it; under `beta` only 2 of 4, because beta's second
+  sigma is 0.966, just above the ceiling. At 6 steps it is 4/6 against 3/6.
+  So this recipe runs more of the trajectory dense than the vendor row does,
+  which is a speed cost and, for a Sol-quality question, a confound.
+
+Bench arms patch the LoRA file onto this graph (`run_graph_arms.py --set
+LABEL:LoraLoaderModelOnly.lora_name=...`) rather than shipping a row per
+file, because only the v1.0 768p file has a vendor-attested shift/steps row
+that `bench/check_distill_settings.py` can grade; v1.1 was uploaded the same
+day with no documentation and is deliberately not a graph.
+"""
+
+
 _NOTE_REF2V_TURBO = f"""\
 ## Deliberately out of distribution
 
@@ -4041,6 +4082,11 @@ def cross_check(written):
             (SOL_NODE, list(SOL_WIDGET_ORDER)),
             ("UNETLoader", ["unet_name"]),
             ("LoraLoaderModelOnly", ["lora_name", "strength_model"]),
+            # The scheduler and step count joined on 2026-08-20, when a
+            # scheduler other than `simple` first shipped in a graph. Nothing
+            # else in the repo reads the scheduler, and a graph sampling the
+            # wrong grid renders cleanly.
+            ("BasicScheduler", ["scheduler", "steps"]),
             # The shifts are here for the same reason as the checkpoint: they
             # are a free builder value that the two formats can now disagree
             # about, and a graph sampling off the wrong schedule renders
@@ -4156,6 +4202,18 @@ def main():
               variant_note=_NOTE_TURBO_768P,
               out_prefix="Video/h3_t2v_turbo_4step_768p"),
          "text -> video + audio, via the 4-step 768p turbo LoRA at shift 6"),
+
+        # The owner's working recipe on the same LoRA, as a graph with a sha
+        # so bench arms can patch the LoRA file onto it. Three knobs differ
+        # from the row above; see TURBO_OWNER_STRENGTH in h3_config.
+        ("h3_probe_turbo_768p_owner.json", "t2v-turbo768-owner", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(TURBO_768P_LORA, TURBO_OWNER_STRENGTH),
+              steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
+              sampler_name=TURBO_SAMPLER, scheduler_name=TURBO_OWNER_SCHEDULER,
+              out_prefix="Video/h3_probe_turbo_768p_owner",
+              variant_note=_NOTE_TURBO_OWNER),
+         "the 768p turbo LoRA at the owner's recipe: euler, beta, 4 steps, strength 0.75"),
 
         # The SLA release on the same row. A probe rather than a shipped
         # variant because nothing is known about how a LoRA distilled under

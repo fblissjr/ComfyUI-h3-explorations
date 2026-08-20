@@ -1,6 +1,6 @@
 # Roadmap: what we are trying to find out, and what would count as finding it
 
-Last updated: 2026-08-19.
+Last updated: 2026-08-20.
 
 ## What this is, and who it is for
 
@@ -35,9 +35,14 @@ Hard, and not worth arguing with.
 **One 4090, 24,564 MiB, shared with actual use.** The heaviest shipped config
 peaks at 21,186 MiB. Nothing runs beside a render. `ncu` needs the card alone.
 
-**Renders are the expensive thing.** Roughly 12 minutes at full length, so a
-five-point sweep at two runs is about two hours. This is the binding
-constraint on every quality question.
+**Renders are the expensive thing, and there are now two regimes.** The base
+model at 16 steps is roughly 12 minutes at full length, so a five-point sweep
+at two runs is about two hours. A 4-step lightx2v student at the same canvas
+and length was 169 s end to end on 2026-08-20
+(`bench/results/2026-08-20_sla_arms.jsonl`, at a 330 W power limit), which is
+what makes the distribution standard below affordable. This is the binding
+constraint on every quality question, and which regime you are in decides
+what a day can hold.
 
 **Length: 362 is the ceiling** (`h3_rules.MAX_LENGTH`, the longest H3 was
 trained on). Frame counts snap to a 17n+5 grid. The old "345 is the maximum"
@@ -131,7 +136,9 @@ All in `workflows/h3_config.py`, all single switches, all regenerate with
 | length | 362 | 17n+5 grid | linear in tokens |
 | `REF_LORA_ENABLED` | `False` since 2026-08-18 | True / False | LoRA path vs ref2va checkpoint |
 | `REF_LORA_STRENGTH` | 1.0 | 0.0-1.0 | model interpolation |
-| `SOL_CUDA_DEFAULTS` | Sol off in graphs | tau, window, sinks | see `docs/SOLATTN.md` |
+| `SOL_RECOMMENDED_CUDA` / `SOL_CUDA_DEFAULTS` | Sol **on** in every video graph since 2026-08-14; `tau` 1.0 from 2026-08-20 by owner decision | tau, window, sinks | see `docs/SOLATTN.md`; 1.3 returns only if it shows no difference from 1.0 on the distilled LoRAs while buying meaningful speed |
+| `TURBO_LORA` / `TURBO_768P_*` / `TURBO_SLA_*` | none shipped by default; probe graphs | the lightx2v rows `bench/check_distill_settings.py` attests | 4-8 steps against 16 |
+| `CACHE_NODE` | probe graphs only, **not canonical** (owner decision 2026-08-20) | EasyCache threshold/window | 1.56-1.74x on deterministic samplers at 16 steps; a 16-step lever with nothing to skip at 4 |
 
 **Iterate at `fast` (1152x768) and 243 frames; confirm at `full` and 362.**
 `fast` is exact 3:2, 27% off attention, and only 0.25 of ratio from the
@@ -298,21 +305,51 @@ half rate on sm_89, as upstream claims for sm_120.
 |---|---|---|
 | Does fl2va+LoRA render the same as ref2va? | the LoRA is canonical on 18 graphs | **Rendered and judged 2026-08-16 -- partially answered, see below. Identity: equivalent. Scene coherence: ref2va ahead in one pair. Re-run owed on a sound prompt.** |
 | Is the Sol exact kernel MMA-bound or staging-bound? | decides whether a 16-bit PV costs 2.5x or much less | an idle card, `ncu` |
-| Sparsity error against quantization error, on real activations | if quantization is small, a 16-bit PV buys nothing | none but card time |
-| Routed density at production length | nobody knows how much of Sol's work the exact branch is | the block probe, which does not exist yet |
+| Sparsity error against quantization error, on real activations | if quantization is small, a 16-bit PV buys nothing | **Done 2026-08-17/19**, item 2 below; quantization is not small, and on 2026-08-20 it was found to track Q/K magnitude rather than V (`docs/open_experiments.md` #17b) |
+| Routed density at production length | nobody knows how much of Sol's work the exact branch is | **Done 2026-08-19**, `bench/sweep_routing_density.py`; flat per block and per step, structured per head, priced empty |
 | `start_percent` / `end_percent` at any length | zero measurements ever | card time |
-| Anything on the reference-heavy workload | every Sol number is t2v on fl2va | one capture + reruns |
+| Anything on the reference-heavy workload | every Sol number is t2v on fl2va | **Closed 2026-08-17**: four reference-heavy captures now exist (2026-08-17 fl2va+ref LoRA, its multistep sibling, 2026-08-18 ref2va, 2026-08-20 clean fl2va), and every error number since is on them |
+| What the 330 W power limit costs | decides whether 330 W timings compare to the 450 W records, and the bandwidth-bound reading in `docs/hardware.md` | one `sudo`; run 2026-08-20, `bench/results/2026-08-20_power_limit_pair.jsonl` -- verdict below when written |
 
-**The input gap deserves its own line.** Every Sol-Attn measurement in this
-repo is t2v on the fl2va model with zero references, and the captured
-activations are the same shape. But the work being done is reference-heavy.
-Reference rows are pinned exact by `sink_conditioning`, so reference-heavy is
-where Sol has the **least** room -- meaning every existing ratio is an
-optimistic bound for the real workload. Closing this is one capture against
-`h3_probe_sol_on_refs_api.json` with `H3_CAPTURE` set; `h3_capture.py` is
-env-driven and needs no code change.
+**Power, stated once.** No 330-vs-450 W pair was ever run before 2026-08-20; it
+was a forward item three times and blocked on sudo each time. The 18th's
+records are at 450 W, the 2026-08-20 morning's at 330 W, and ratios within a
+day hold while absolute seconds across that boundary do not. The decision rule
+written on 2026-08-17: a delta under ~2% supports the bandwidth-bound reading;
+a delta near the clock delta supports L2-bound.
 
 ---
+
+## The regime question (opened 2026-08-20)
+
+Every speed, caching, Sol-window and capture fact in this file was measured on
+the base model at 16 steps. The lightx2v 4-step students change the economics
+by about 4x and the owner is moving fl2va-base work onto them. What that does
+to the existing record, in three groups:
+
+- **Survives unchanged:** canvas cost and token maths; the rotary-clock facts;
+  fl2va vs ref2va differing by a few percent everywhere; the block-49
+  loud-channel structure (it lives in `k_norm` gains the LoRAs do not touch);
+  the different-sample rule, which gets stronger at 4 steps; every provenance
+  and check rule.
+- **Adjusts:** Sol's sigma window selects steps by sigma, so the "5 of 16"
+  sage fraction becomes a different fraction at 4-6 steps (arithmetic from the
+  shift-6 grid, not measured); the captures are at steps 3 and 11 of 16 and a
+  student visits different states, so Sol's per-call error on the distilled
+  trajectory is unmeasured until the 2026-08-20 captures are read; the
+  step count and shift are set by the LoRA's vendor row and graded by
+  `bench/check_distill_settings.py`.
+- **Dies:** step caching. The 1.74x was 7 of 16 steps skipped on a
+  deterministic sampler; at 4 steps there is nothing to skip. `CACHE_NODE`
+  stays a probe and is not canonical (owner decision 2026-08-20), which closes
+  the "record a verdict beside `CACHE_NODE`" forward item of the 2026-08-18
+  and 2026-08-19 postmortems.
+
+The day's plan and verdicts land here as they are measured (power pair; LoRA
+file session; reference transfer on fl2va, the HF b30-49 hybrid, a locally
+built all-adaln hybrid and ref2va; the SLA LoRA under its training router;
+captures on the distilled trajectory). Scope for the first pass is t2v and
+1-3 reference images; no video or audio references.
 
 ## CLOSED 2026-08-16: token ordering as a quality question
 
@@ -352,6 +389,15 @@ Full reasoning and the measurements behind each clause: `docs/morton.md`, and
 `internal/postmortems/2026-08-16_session_sol-ordering-and-blind-controls.md`.
 
 ## Next, in order
+
+> **Status of this list as of 2026-08-20.** Items 0 and 0b were done on
+> 2026-08-17 (`docs/evidence.md`: the `_ref_prompt()` refactor is guarded by
+> `bench/check_ref_prompt_labels.py` and the blind re-renders were run); 1 was
+> done the same day; 3 is overtaken by `bench/sweep_routing_density.py`
+> (2026-08-19); 5 was done on 2026-08-16. Only 4 (`ncu`) is still open, and the
+> 2026-08-20 finding that quant error tracks Q/K rather than V competes with it
+> for the same question. The list is kept as history; **"The regime question"
+> below is the forward plan.**
 
 **0. Fix `_ref_prompt()` before running anything else on references.** New top
 priority as of 2026-08-16, and it displaces the Sol work because it is cheaper
@@ -523,6 +569,10 @@ pair was 860.8 s against 454.0 s across 50 blocks, so **assuming uniform
 per-block cost** two blocks is about 16 s of 454, or 3.6%. That assumption is
 the weak part and it is cheap to check with one arm.
 
+> **Rendered 2026-08-18** as the NVLabs recipe transplant:
+> `bench/results/2026-08-18_erode_recipe_arms.jsonl`, about +2% on the sampler
+> at 16 steps on the all-refs workload. Not re-priced at 4 steps.
+
 What this does **not** need is the block probe at item 3. That instrument
 answers "which blocks does sparsity hurt *here*", which is the question for
 choosing **our own** list. Copying a list four hardware profiles already
@@ -571,3 +621,9 @@ node id -- before implementation, so those get argued once.
 - **Three arms agreeing is not a control.** A fourth arm that isolates the
   variable is. A 3.7 GB "saving" survived until the dense control showed the
   opposite sign.
+- **A deterministic arm re-run at a held seed is a node-cache hit**, and two
+  arms that share a graph file need disjoint seed bases. ComfyUI returns the
+  cached output for a byte-identical resubmission in 0.0 s, which reads as a
+  fast render. `bench/run_graph_arms.py` refuses `--runs > 1` without `--seed`
+  and flags `suspect_cache_hit` for this reason; a power-limit pair on one
+  graph nearly shipped as two cache hits on 2026-08-20.

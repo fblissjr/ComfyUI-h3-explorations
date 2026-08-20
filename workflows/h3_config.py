@@ -176,6 +176,19 @@ SAMPLING = dict(sampler="er_sde", scheduler="simple", steps=16, denoise=1.0)
 #                     (`sage+sol[tau=1.0]`, the syntax already exists), not
 #                     an edit. Do not "fix" this to 1.0 on the strength of
 #                     this paragraph.
+#
+#                     **Moved to 1.0 on 2026-08-20 by owner decision**, in
+#                     SOL_RECOMMENDED_CUDA below (this Triton-era dict keeps
+#                     1.3 as the record of what was measured). The decision is
+#                     the owner's, not a measurement: with the 4-step
+#                     distilled LoRAs as the working regime, 1.3 has to earn
+#                     its way back by showing no difference from 1.0 across
+#                     many seeds judged blind while buying meaningful speed.
+#                     The speed half is a `--set SolAttnMiniMax.tau=1.3` bench
+#                     patch; the quality half is an 8-seed blind session, not
+#                     yet run. Reversal condition, stated: that session finds
+#                     the two indistinguishable AND the patch arm's sampler
+#                     time is materially lower.
 #   dense_blocks ""   Was 33-35,39-42, the two highest-error regions on the
 #                     author's per-block sensitivity profile. Dropped: it
 #                     does not fix the artifact tau does, and costs 39.2 s.
@@ -360,7 +373,10 @@ SOL_BASELINE_124F = dict(
 #                     FFN's. Left off only because it is a separate question
 #                     from the migration. Cheap win when someone measures it.
 SOL_RECOMMENDED_CUDA = dict(
-    tau=1.3, start_percent=0.2, end_percent=0.9, min_tokens=4096,
+    # 1.0 since 2026-08-20, owner decision; see the tau note above for the
+    # reversal condition. 1.3 was the value every Sol number before that date
+    # was measured at.
+    tau=1.0, start_percent=0.2, end_percent=0.9, min_tokens=4096,
     sink_conditioning="exact_kv_and_rows", morton=False,
     # `3d`, not `2d_frame`, since 2026-08-16. This changes NOTHING today
     # because morton is off; it changes which curve you get if you turn it on.
@@ -516,6 +532,10 @@ SAGE_NODE = dict(mode="auto", patch_token_refiner=False, head_chunks=1)
 # nobody yet. Whether to change the shipped sampler or threshold is an
 # owner decision gated on watching those pairs.
 #
+# VERDICT 2026-08-20, owner decision: NOT canonical. Barely tested, and a
+# 16-step lever -- the 1.74x is 7 of 16 steps skipped, and the distilled
+# 4-step students the owner is moving to have nothing to skip. Stays a probe.
+#
 # Uncontrolled edge, disclosed: MiniMaxH3ProvenanceStamp records the Sol
 # keys and versions and knows nothing about this node, so a stamped render
 # with cached steps carries a provenance record indistinguishable from a
@@ -625,6 +645,31 @@ TURBO_768P_SHIFT = dict(shift_video=6.0, shift_audio=3.0)
 TURBO_SLA_LORA = "h3/lightx2v_Minimax-h3-Turbo-SLA/minimax_h3_fl2v_turbo_4step_v0.1_768p_sla_comfyui_bf16.safetensors"
 TURBO_SLA_STEPS = 4
 TURBO_SLA_SHIFT = dict(shift_video=6.0, shift_audio=3.0)
+
+# The owner's working recipe for the 768p students as of 2026-08-20, from
+# their own t2v trials: euler, `beta`, 4 steps, strength 0.75. Shipped as
+# `h3_probe_turbo_768p_owner.json` so it is a graph with a sha rather than a
+# memory of widget values, and so bench arms can patch the LoRA file onto
+# it. Three things differ from the vendor row the 768p graph ships
+# (er_sde -> euler, simple -> beta, 1.0 -> 0.75), and two of them carry a
+# known cost that the note on the graph states:
+#
+#   - strength below 1.0 at 4 steps under-distills a schedule that only
+#     works distilled (docs/h3_ref2v_distillation.md's "below ~0.5 you pay 8
+#     steps for a model that needs 16" applies harder at 4);
+#   - `beta` halves Sol's sparse steps at 4 steps and shift 6. Arithmetic
+#     from the shift-6 sigma grid and the 0.2/0.9 window (sigma 0.96 down to
+#     0.40): `simple` puts 3 of 4 steps inside the window, `beta` puts 2 of
+#     4, because beta's second sigma is 0.966, just above the ceiling. At 6
+#     steps it is 4/6 against 3/6. The 16-step figure in the SAMPLING note
+#     above (11/5 against 9/7) does not transfer.
+#
+# Whether the recipe is better is the owner's preference over a blind
+# distribution, not a measurement here; the vendor-recipe arm in the same
+# session is what it is judged against. Not the scheduler of SAMPLING and
+# not a new default.
+TURBO_OWNER_STRENGTH = 0.75
+TURBO_OWNER_SCHEDULER = "beta"
 
 # Where the 8-step v1.0 was actually distilled: 544p, mixed aspect. This is
 # *below* H3's own canvas rule (768 short edge), so `adapt_canvas` never
