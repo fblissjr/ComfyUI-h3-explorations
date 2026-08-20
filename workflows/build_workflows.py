@@ -59,6 +59,7 @@ from h3_config import (  # noqa: E402
     CACHE_NODE, CACHE_NODE_CLASS,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
+    TURBO_SLA_LORA, TURBO_SLA_SHIFT, TURBO_SLA_STEPS,
     TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
     CAPTURE_REF_IMAGES,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
@@ -2877,7 +2878,7 @@ the bottom 63% of the range**. Krea 2's sweet spot of k=2-3 was still at sigma
 
 
 _NOTE_TURBO_768P = f"""\
-## The one turbo LoRA whose shift is not 12/3
+## The turbo LoRAs whose shift is not 12/3
 
 This graph loads the **4-step v1.0 768p** LoRA at {TURBO_768P_STEPS} steps,
 video shift **{TURBO_768P_SHIFT["shift_video"]:g}** and audio shift
@@ -2888,6 +2889,11 @@ video shift **{TURBO_768P_SHIFT["shift_video"]:g}** and audio shift
 | 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |
 | 8-step v1.0 | 544p, mixed aspect | 12 / 3 | 8 or 4 |
 | 4-step v1.0 768p (this graph) | **1344x768** | **6** / 3 | 4 |
+| ref2v 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |
+| 4-step v0.1 768p **SLA** | **1344x768** | **6** / 3 | 4 |
+
+The SLA one shares this graph's row and is its own probe,
+`h3_probe_turbo_768p_sla.json`: same graph, only the LoRA file swapped.
 
 **A turbo LoRA inherits the sampler's shift. It does not carry its own.** So
 loading this one into a graph whose ModelSamplingMiniMaxH3 still reads 12/3
@@ -2965,10 +2971,12 @@ This graph loads the **8-step v1.0** LoRA at {TURBO_STEPS} steps, shift
 | 4-step v0.1 | 544p, **mixed aspect** | 12 / 3 | 4 |
 | 8-step v1.0 (this graph) | 544p, **mixed aspect** | 12 / 3 | 8 or 4 |
 | 4-step v1.0 768p | **1344x768** | **6** / 3 | 4 |
+| ref2v 4-step v0.1 | 544p, **mixed aspect** | 12 / 3 | 4 |
+| 4-step v0.1 768p SLA | **1344x768** | **6** / 3 | 4 |
 
 **Two things move with the LoRA, and only one of them is the shift.** Steps
 always move: 16 is a base-model number. The shift moves only for the 768p
-one, which was distilled at video shift 6. The other two were distilled at
+ones, which were distilled at video shift 6. The 544p ones were distilled at
 12/3, which is already the default, so for them the shift node stays put.
 Changing one without the other is not a partial fix.
 
@@ -4133,8 +4141,8 @@ def main():
               out_prefix="Video/h3_t2v_turbo_8step"),
          "text -> video + audio, via the 8-step turbo LoRA"),
 
-        # The 4-step 768p LoRA: the only released turbo whose shift is not
-        # 12/3. It exists as a shipped graph rather than as a note because
+        # The 4-step 768p LoRA: one of the two released turbos whose shift
+        # is not 12/3. It exists as a shipped graph rather than as a note because
         # "change the shift when you change the LoRA" is the instruction
         # everyone drops, and a graph that already has it right is worth more
         # than a paragraph saying to do it. Its training canvas IS the default
@@ -4146,6 +4154,43 @@ def main():
               variant_note=_NOTE_TURBO_768P,
               out_prefix="Video/h3_t2v_turbo_4step_768p"),
          "text -> video + audio, via the 4-step 768p turbo LoRA at shift 6"),
+
+        # The SLA release on the same row. A probe rather than a shipped
+        # variant because nothing is known about how a LoRA distilled under
+        # a top-k block router behaves under Sol's threshold router, and the
+        # first render is the first datum. See h3_config.TURBO_SLA_LORA.
+        ("h3_probe_turbo_768p_sla.json", "t2v-turbo768-sla", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(TURBO_SLA_LORA, TURBO_LORA_STRENGTH),
+              steps=TURBO_SLA_STEPS, shift=TURBO_SLA_SHIFT,
+              out_prefix="Video/h3_probe_turbo_768p_sla",
+              variant_note=_probe_note(
+                  "whether a LoRA distilled under sparse attention survives a "
+                  "different sparse attention",
+                  "h3_text_to_video_turbo_4step_768p.json",
+                  "the LoRA file: lightx2v's Turbo-SLA 4-step v0.1 768p instead "
+                  "of the Turbo 4-step v1.0 768p. Same shift (6/3), same steps, "
+                  "same rank, alpha, base and tensor keys -- the file differs in "
+                  "what the student saw during distillation. The SLA student's "
+                  "attention ran a top-k block router that keeps 15% of key "
+                  "blocks per query block (reported from the model card and "
+                  "LightX2V's config for it; the training code is not in any "
+                  "checkout here). This graph runs it under Sol-Attn, a "
+                  "threshold router with a dense fallback, because that is "
+                  "the repo default and the only sparse kernel on this box.",
+                  "Whether it renders a coherent clip at all, first. Then the "
+                  "same things as any turbo arm: motion, texture, audio. There "
+                  "is no kernel here that reproduces the router it was trained "
+                  "under, so this is not a test of SLA -- it is a test of "
+                  "whether SLA's LoRA transfers to a router it never saw.",
+                  "Unknown in both directions. The SLA paper's claim is that a "
+                  "fine-tuned model under its sparse router matches the dense "
+                  "original; it says nothing about that model under another "
+                  "router or under dense attention. If this arm degrades "
+                  "relative to its twin, the candidate cause is the router "
+                  "mismatch and the control is the same pair with Sol "
+                  "bypassed, which nothing here has rendered either.")),
+         "the 768p v1.0 turbo graph with lightx2v's SLA-distilled LoRA swapped in"),
 
         # First graph in this repo to wire a reference VIDEO. Everything about
         # that path was read off source until 2026-08-13 and never executed.

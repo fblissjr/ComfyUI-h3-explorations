@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Check every turbo LoRA is loaded at the shift and step count it was distilled at.
 
-The three FL2VA turbo LoRAs do not share a schedule. Two were distilled at
-video shift 12, one at 6:
+The lightx2v turbo LoRAs do not share a schedule. The 544p ones were
+distilled at video shift 12, the 768p ones at 6:
 
     FL2VA Turbo 4-step v0.1     544p mixed aspect   12 / 3   4 steps
     FL2VA Turbo 8-step v1.0     544p mixed aspect   12 / 3   8 or 4 steps
     FL2VA Turbo 4-step v1.0     768p (1344x768)      6 / 3   4 steps
+    Ref2VA Turbo 4-step v0.1    544p mixed aspect   12 / 3   4 steps
+    FL2VA Turbo 4-step v0.1 SLA 768p (1344x768)      6 / 3   4 steps
 
 A turbo LoRA inherits the sampler's shift; it does not carry its own. So
 loading the 768p one into a graph whose `MiniMaxH3SigmaShift` still reads
@@ -22,7 +24,14 @@ Claims, i.e. what breaks if a case is deleted:
                         is the trap `check_reference_fit.py` learned the hard
                         way. Absent coderef/ this SKIPS and the script exits
                         2, not 0, because a control that is quietly not run
-                        reads as a pass to anything keying on the exit code
+                        reads as a pass to anything keying on the exit code.
+                        The SLA row is not in that README (it shipped as a
+                        separate HF repo), so it is graded against the
+                        LightX2V inference config that loads it: shifts read
+                        directly, steps as `infer_steps - 1`. That N+1
+                        convention is itself checked, not assumed -- every
+                        row present in BOTH sources must satisfy it, or the
+                        case fails before the SLA row is read
   config is consistent   h3_config.py's TURBO_LORA / TURBO_STEPS /
                         TURBO_SHIFT triple is one of the legal rows. This is
                         what the generator writes into every graph, so it is
@@ -90,7 +99,16 @@ LEGAL: dict[str, Row] = {
     "turbo_4step_v0.1": Row(12.0, 3.0, frozenset({4})),
     "turbo_8step_v1.0": Row(12.0, 3.0, frozenset({8, 4})),
     "turbo_4step_v1.0_768p": Row(6.0, 3.0, frozenset({4})),
+    # The SLA release. Parses to this key because its filename is
+    # `..._4step_v0.1_768p_sla_...`; the `_768p` keeps it off the 544p v0.1
+    # row, which is the prefix trap below working as intended. Not in the
+    # Turbo README -- graded against LIGHTX2V_CONFIGS instead.
+    "turbo_4step_v0.1_768p": Row(6.0, 3.0, frozenset({4})),
 }
+
+# LightX2V's inference configs, each of which names the LoRA it loads and
+# the shifts it runs at. The second vendor source, for rows the README lacks.
+LIGHTX2V_CONFIGS = REPO / "coderef" / "LightX2V" / "configs" / "minimax_h3" / "dmd"
 
 # The base checkpoint's own training shifts. Every graph that loads no turbo
 # LoRA must sit here, which is what makes "every shipped graph" true rather
@@ -231,6 +249,34 @@ def parse_vendor_table(text):
     return rows
 
 
+def parse_lightx2v_configs(config_dir: Path):
+    """(shift_video, shift_audio, steps) per LEGAL key, from LightX2V's configs.
+
+    Each config's `lora_configs[].path` names the LoRA file, which `classify`
+    keys the same way it keys a graph's. Shifts are `video_flow_shift` /
+    `audio_flow_shift`. Steps are `infer_steps - 1`: LightX2V runs an N-step
+    DMD LoRA at N+1 evaluations (`h3_step_update: training_euler`), and the
+    caller verifies that convention against the README rather than trusting
+    this docstring.
+    """
+    rows: dict[str, set] = {}
+    for path in sorted(config_dir.glob("*.json")):
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        for lora in doc.get("lora_configs", []):
+            key = classify(lora.get("path", ""))
+            if key is None:
+                continue
+            sv, sa = float(doc["video_flow_shift"]), float(doc["audio_flow_shift"])
+            rows.setdefault(key, set()).add((sv, sa, int(doc["infer_steps"]) - 1))
+    out = {}
+    for key, found in rows.items():
+        assert len(found) == 1, (
+            f"LightX2V's configs disagree with each other about {key}: {sorted(found)}")
+        sv, sa, steps = next(iter(found))
+        out[key] = (sv, sa, frozenset({steps}))
+    return out
+
+
 def main():
     failures, skipped = [], []
 
@@ -259,8 +305,40 @@ def main():
             assert steps == want.steps, (
                 f"{key}: vendor recommends steps {sorted(steps)}, our table "
                 f"says {sorted(want.steps)}")
-        missing = set(LEGAL) - set(rows)
-        assert not missing, f"vendor README has no row for {sorted(missing)}"
+
+        # The second source. Its step convention is graded on every row the
+        # two sources share before any README-less row is believed: a config
+        # whose `infer_steps - 1` did not reproduce the README's count would
+        # mean the convention is wrong, and the SLA row would inherit a
+        # wrong step count from a docstring.
+        cfg_rows = parse_lightx2v_configs(LIGHTX2V_CONFIGS)
+        shared = set(rows) & set(cfg_rows)
+        assert shared, (
+            "no LoRA appears in both the Turbo README and LightX2V's configs; "
+            "the N+1 step convention cannot be verified, so the config-only "
+            "rows cannot be graded")
+        for key in shared:
+            sv, sa, steps = cfg_rows[key]
+            assert (sv, sa) == rows[key][:2], (
+                f"{key}: LightX2V config shift {sv}/{sa} disagrees with the "
+                f"README's {rows[key][0]}/{rows[key][1]}")
+            assert steps <= rows[key][2], (
+                f"{key}: LightX2V runs {sorted(steps)[0] + 1} evaluations, "
+                f"which is not one more than any README count "
+                f"{sorted(rows[key][2])}; the N+1 convention does not hold")
+        for key in set(cfg_rows) - set(rows):
+            sv, sa, steps = cfg_rows[key]
+            want = LEGAL[key]
+            assert (sv, sa) == (want.shift_video, want.shift_audio), (
+                f"{key}: LightX2V config says shift {sv}/{sa}, our table says "
+                f"{want.shift_video}/{want.shift_audio}")
+            assert steps == want.steps, (
+                f"{key}: LightX2V config implies steps {sorted(steps)}, our "
+                f"table says {sorted(want.steps)}")
+        missing = set(LEGAL) - set(rows) - set(cfg_rows)
+        assert not missing, (
+            f"neither the vendor README nor LightX2V's configs have a row for "
+            f"{sorted(missing)}")
 
     if not VENDOR_README.exists():
         skipped.append("vendor table agrees")
@@ -282,6 +360,9 @@ def main():
         if hasattr(h3_config, "TURBO_768P_LORA"):
             triples.append(("TURBO_768P", h3_config.TURBO_768P_LORA,
                             h3_config.TURBO_768P_STEPS, h3_config.TURBO_768P_SHIFT))
+        if hasattr(h3_config, "TURBO_SLA_LORA"):
+            triples.append(("TURBO_SLA", h3_config.TURBO_SLA_LORA,
+                            h3_config.TURBO_SLA_STEPS, h3_config.TURBO_SLA_SHIFT))
 
         # Catch a triple being added to the config without being added here.
         declared = {n for n in dir(h3_config)
@@ -302,7 +383,8 @@ def main():
             assert h3_config.TURBO_PACK_STRENGTH == 1.0, (
                 "the pack tunes for strength 1.0 across its whole step range")
 
-        graded = {"TURBO_LORA", "TURBO_768P_LORA", "TURBO_PACK_LORA"} & declared
+        graded = {"TURBO_LORA", "TURBO_768P_LORA", "TURBO_SLA_LORA",
+                  "TURBO_PACK_LORA"} & declared
         assert declared == graded, (
             f"h3_config declares turbo LoRA constants this check does not "
             f"grade: {sorted(declared - graded)}")
@@ -423,6 +505,20 @@ def main():
                       "file exists to catch")
         assert classify("h3/minimax_h3_fl2v_turbo_4step_v9.9.safetensors") is None, (
             "an unknown version of a known step count was classified")
+        # The SLA file: `_768p` must land it on its own 6/3 row and not on
+        # the 544p v0.1 row whose name is a prefix of it. Same trap as above,
+        # now with a real file on disk on each side of it.
+        assert classify("h3/lightx2v_Minimax-h3-Turbo-SLA/"
+                        "minimax_h3_fl2v_turbo_4step_v0.1_768p_sla_comfyui_bf16.safetensors") \
+            == "turbo_4step_v0.1_768p", "the SLA file must resolve to its own 768p row"
+        assert classify("h3/lightx2v_Minimax-h3-Turbo/"
+                        "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors") \
+            == "turbo_4step_v0.1", "the 544p v0.1 family must not be pulled onto the 768p row"
+        # The v1.1 768p upload has no vendor row anywhere yet. It must fail
+        # to classify until one exists, not inherit v1.0's.
+        assert classify("h3/lightx2v_Minimax-h3-Turbo/"
+                        "minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors") is None, (
+            "v1.1 768p has no vendor row; classifying it hands it a shift nobody attested")
 
     check("an unknown turbo checkpoint is not classified", unknown_lora_is_caught)
 

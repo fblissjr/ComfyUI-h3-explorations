@@ -177,7 +177,7 @@
         "Node name for S&R": "LoraLoaderModelOnly"
       },
       "widgets_values": [
-        "h3/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
+        "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
         1.0
       ],
       "title": "Load LoRA (ref delta, strength 1.0)"
@@ -1121,7 +1121,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## The one turbo LoRA whose shift is not 12/3\n\nThis graph loads the **4-step v1.0 768p** LoRA at 4 steps,\nvideo shift **6** and audio shift\n3.\n\n| LoRA | trained at | shift (v/a) | steps |\n|---|---|---|---|\n| 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |\n| 8-step v1.0 | 544p, mixed aspect | 12 / 3 | 8 or 4 |\n| 4-step v1.0 768p (this graph) | **1344x768** | **6** / 3 | 4 |\n\n**A turbo LoRA inherits the sampler's shift. It does not carry its own.** So\nloading this one into a graph whose ModelSamplingMiniMaxH3 still reads 12/3\nsamples it off a schedule it never saw, and **nothing errors** -- the render\ncompletes and looks plausibly wrong. That is the whole reason this ships as\nits own graph instead of a sentence telling you to change two widgets.\n\n`bench/check_distill_settings.py` enforces the pairing across every shipped\ngraph and grades the table above against the vendor's own README.\n\n**This is the one turbo LoRA that is already home on this canvas.** It was\ndistilled at 1344x768, which is what this graph renders. The 8-step was\ndistilled at 544p, so `h3_text_to_video_turbo.json` is the graph with a\nresolution tension and this one is not.\n\nThe trade is steps: 4 here against the 8-step's 8. Fewer evaluations on a\nschedule whose final jump is already the largest one it takes.\n"
+        "## The turbo LoRAs whose shift is not 12/3\n\nThis graph loads the **4-step v1.0 768p** LoRA at 4 steps,\nvideo shift **6** and audio shift\n3.\n\n| LoRA | trained at | shift (v/a) | steps |\n|---|---|---|---|\n| 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |\n| 8-step v1.0 | 544p, mixed aspect | 12 / 3 | 8 or 4 |\n| 4-step v1.0 768p (this graph) | **1344x768** | **6** / 3 | 4 |\n| ref2v 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |\n| 4-step v0.1 768p **SLA** | **1344x768** | **6** / 3 | 4 |\n\nThe SLA one shares this graph's row and is its own probe,\n`h3_probe_turbo_768p_sla.json`: same graph, only the LoRA file swapped.\n\n**A turbo LoRA inherits the sampler's shift. It does not carry its own.** So\nloading this one into a graph whose ModelSamplingMiniMaxH3 still reads 12/3\nsamples it off a schedule it never saw, and **nothing errors** -- the render\ncompletes and looks plausibly wrong. That is the whole reason this ships as\nits own graph instead of a sentence telling you to change two widgets.\n\n`bench/check_distill_settings.py` enforces the pairing across every shipped\ngraph and grades the table above against the vendor's own README.\n\n**This is the one turbo LoRA that is already home on this canvas.** It was\ndistilled at 1344x768, which is what this graph renders. The 8-step was\ndistilled at 544p, so `h3_text_to_video_turbo.json` is the graph with a\nresolution tension and this one is not.\n\nThe trade is steps: 4 here against the 8-step's 8. Fewer evaluations on a\nschedule whose final jump is already the largest one it takes.\n"
       ],
       "title": "What this graph is probing"
     }

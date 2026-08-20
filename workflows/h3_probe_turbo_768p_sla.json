@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "028693b2-978f-57c1-adff-a7d099b806e7",
+  "id": "0d73e9c7-0a6e-59e1-a2e2-4921a7ad46ac",
   "revision": 0,
   "last_node_id": 27,
   "last_link_id": 30,
@@ -177,7 +177,7 @@
         "Node name for S&R": "LoraLoaderModelOnly"
       },
       "widgets_values": [
-        "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+        "h3/lightx2v_Minimax-h3-Turbo-SLA/minimax_h3_fl2v_turbo_4step_v0.1_768p_sla_comfyui_bf16.safetensors",
         1.0
       ],
       "title": "Load LoRA (ref delta, strength 1.0)"
@@ -216,10 +216,10 @@
         "Node name for S&R": "MiniMaxH3SigmaShift"
       },
       "widgets_values": [
-        12.0,
+        6.0,
         3.0
       ],
-      "title": "Sigma shift (video 12, audio 3)"
+      "title": "Sigma shift (video 6, audio 3)"
     },
     {
       "id": 7,
@@ -619,7 +619,7 @@
       },
       "widgets_values": [
         "simple",
-        8,
+        4,
         1.0
       ]
     },
@@ -853,7 +853,7 @@
       "widgets_values": {
         "frame_rate": 24.0,
         "loop_count": 0,
-        "filename_prefix": "Video/h3_t2v_turbo_8step",
+        "filename_prefix": "Video/h3_probe_turbo_768p_sla",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 19,
@@ -1121,7 +1121,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Turbo LoRA: what the training resolution means\n\nThis graph loads the **8-step v1.0** LoRA at 8 steps, shift\n12/3.\n\n| LoRA | trained at | shift (v/a) | steps |\n|---|---|---|---|\n| 4-step v0.1 | 544p, **mixed aspect** | 12 / 3 | 4 |\n| 8-step v1.0 (this graph) | 544p, **mixed aspect** | 12 / 3 | 8 or 4 |\n| 4-step v1.0 768p | **1344x768** | **6** / 3 | 4 |\n| ref2v 4-step v0.1 | 544p, **mixed aspect** | 12 / 3 | 4 |\n| 4-step v0.1 768p SLA | **1344x768** | **6** / 3 | 4 |\n\n**Two things move with the LoRA, and only one of them is the shift.** Steps\nalways move: 16 is a base-model number. The shift moves only for the 768p\nones, which were distilled at video shift 6. The 544p ones were distilled at\n12/3, which is already the default, so for them the shift node stays put.\nChanging one without the other is not a partial fix.\n\n## The resolution question\n\nA step-distillation LoRA learns to take bigger jumps along the schedule *at\nthe token count it saw*. 544p and 768p are roughly a factor of two apart in\ntokens, so a 544p LoRA rendering at 1344x768 is working at about twice the\nsequence length it was distilled on.\n\n**You cannot satisfy both distributions at once, and that is the real\nchoice here.** MiniMax H3's own canvas rule is a 768 short edge with a\n1344x768 area cap: that is what `adapt_canvas` enforces and what the\nreference generates. 544p is below it. So:\n\n- Render at **1344x768** and the base model is in its trained canvas while\n  the 544p LoRA is off its distillation resolution.\n- Render at **544p** and the LoRA is home while the base model is outside\n  the canvas family it was trained on. Nothing stops you: the width and\n  height on the conditioning node are plain ints at 32-px steps, so 544p is\n  typeable. `MiniMaxH3KeyframeCanvas` is the node that refuses, which is why\n  this graph is t2v.\n\n**Which one costs less is not measured here.** Do not assume the LoRA's\nresolution wins just because the LoRA is the thing you added.\n\n**The 4-step v1.0 768p is the only one with no resolution gap at this\ncanvas** -- it was distilled at exactly 1344x768. The trade is aspect: it saw\nthat one shape, where **both** 544p LoRAs (v0.1 and the 8-step v1.0 this\ngraph loads) saw mixed aspect ratios. So render 1:1 or 9:16 and the 768p LoRA\nbecomes the off-distribution one while this graph's LoRA is at home on shape\nand away on resolution. Neither is free; they are away in different\ndirections. `h3_text_to_video_turbo_4step_768p.json` is the sibling to\ncompare against.\n\nSpecs from `coderef/Minimax-H3-Turbo`, README model table.\n"
+        "## Probe: whether a LoRA distilled under sparse attention survives a different sparse attention\n\n**Run this against `h3_text_to_video_turbo_4step_768p.json`.** Same seed (730451892), same prompt, same canvas, same\neverything except one setting. That is the whole design: if the seed moved\nbetween the two, the difference you are looking for would be underneath the\ndifference you are not.\n\n**What differs:** the LoRA file: lightx2v's Turbo-SLA 4-step v0.1 768p instead of the Turbo 4-step v1.0 768p. Same shift (6/3), same steps, same rank, alpha, base and tensor keys -- the file differs in what the student saw during distillation. The SLA student's attention ran a top-k block router that keeps 15% of key blocks per query block (reported from the model card and LightX2V's config for it; the training code is not in any checkout here). This graph runs it under Sol-Attn, a threshold router with a dense fallback, because that is the repo default and the only sparse kernel on this box.\n\n**What to compare:** Whether it renders a coherent clip at all, first. Then the same things as any turbo arm: motion, texture, audio. There is no kernel here that reproduces the router it was trained under, so this is not a test of SLA -- it is a test of whether SLA's LoRA transfers to a router it never saw.\n\n**What to expect:** Unknown in both directions. The SLA paper's claim is that a fine-tuned model under its sparse router matches the dense original; it says nothing about that model under another router or under dense attention. If this arm degrades relative to its twin, the candidate cause is the router mismatch and the control is the same pair with Sol bypassed, which nothing here has rendered either.\n\nThis is a probe, not a render config. If you like what one side does, change\nthe setting in the shipped graph rather than rendering from this file.\n"
       ],
       "title": "What this graph is probing"
     }

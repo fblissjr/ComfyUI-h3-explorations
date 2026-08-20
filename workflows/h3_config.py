@@ -534,20 +534,38 @@ CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
 #   FL2VA Turbo 4-step v0.1     544p mixed aspect   12 / 3   4 steps
 #   FL2VA Turbo 8-step v1.0     544p                12 / 3   8 or 4 steps
 #   FL2VA Turbo 4-step v1.0     768p (1344x768)      6 / 3   4 steps
+#   Ref2VA Turbo 4-step v0.1    544p mixed aspect   12 / 3   4 steps
+#   FL2VA Turbo 4-step v0.1 SLA 768p (1344x768)      6 / 3   4 steps
 #
-# The 768p one is the trap, and it is the one that matches CANVAS below. Its
-# video shift is 6, half the default, so loading that LoRA into a graph that
+# The 768p ones are the trap, and they are the ones that match CANVAS below.
+# Their video shift is 6, half the default, so loading one into a graph that
 # leaves this at 12 samples it off a schedule it was never distilled for. A
 # graph with no shift node at all gives you no place to notice.
 #
 # Steps move with the LoRA too: SAMPLING["steps"] = 16 is a base-model number
 # and the whole point of these LoRAs is 4 or 8. Changing shift without
 # changing steps, or the reverse, is not a partial improvement.
-# Source: coderef/Minimax-H3-Turbo README, model specs table.
+# Source: coderef/Minimax-H3-Turbo README, model specs table, for the first
+# four. The SLA row is from a different vendor repo (lightx2v's
+# Minimax-h3-Turbo-SLA card) and its LightX2V inference config; see
+# TURBO_SLA_LORA below for how `bench/check_distill_settings.py` grades it.
+#
+# A sixth file, `minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16`, is on
+# disk as of 2026-08-20 and is deliberately NOT a constant here: it was
+# uploaded hours before with no README row, so nothing attests its shift, and
+# the check above exists to refuse exactly that. Its filename puts it in the
+# 768p family, which is a guess until the vendor says so.
 SIGMA_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
-# The turbo graph. This is the 8-step v1.0, which is the one present locally;
-# the other two are listed in the note the graph carries.
+# The turbo graph. This is the 8-step v1.0; the others are listed in the
+# note the graph carries.
+#
+# Path: the lightx2v releases are foldered by HF repo under `h3/` since
+# 2026-08-20 (`lightx2v_Minimax-h3-Turbo/` and `lightx2v_Minimax-h3-Turbo-SLA/`),
+# because the SLA release shipped as a separate repo with a filename the
+# first one could have collided with. ComfyUI's loader walks the folder
+# recursively and follows symlinked directories (`folder_paths.recursive_search`
+# passes `followlinks=True`), so the sub-folder and the symlink both resolve.
 #
 # Its shift is 12/3, the same as base, so the shift node does not move for
 # this LoRA. Only the steps do: 8 instead of 16. That is worth stating plainly
@@ -556,20 +574,57 @@ SIGMA_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 #
 # Strength 1.0 is the reference's own default (`--lora-scale` defaults to 1.0
 # in Minimax-H3-Turbo's inference script). Not swept here.
-TURBO_LORA = "h3/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
+TURBO_LORA = "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
 TURBO_LORA_STRENGTH = 1.0
 TURBO_STEPS = 8
 TURBO_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
-# The other released turbo LoRA, and the only one whose shift is not 12/3.
-# Constants rather than values typed into a graph because the filename, the
-# shift and the step count have to move together -- `bench/check_distill_settings.py`
-# grades this triple against the vendor's own README and fails if any of the
-# three drifts. Distilled at 1344x768, which is `CANVAS`, so unlike the 8-step
-# it is already at home on the default canvas.
-TURBO_768P_LORA = "h3/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors"
+# The other released turbo LoRA, and one of the two whose shift is not 12/3
+# (the SLA one below is the other). Constants rather than values typed into a
+# graph because the filename, the shift and the step count have to move
+# together -- `bench/check_distill_settings.py` grades this triple against the
+# vendor's own README and fails if any of the three drifts. Distilled at
+# 1344x768, which is `CANVAS`, so unlike the 8-step it is already at home on
+# the default canvas.
+TURBO_768P_LORA = "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors"
 TURBO_768P_STEPS = 4
 TURBO_768P_SHIFT = dict(shift_video=6.0, shift_audio=3.0)
+
+# The SLA release (lightx2v/Minimax-h3-Turbo-SLA, 2026-08-20). Same tensor
+# keys, rank, alpha and base as the 768p v1.0 above -- header read
+# 2026-08-20: 624 tensors, attn+mlp of all 50 blocks plus the refiner, rank
+# 128, alpha 128, `base_model: minimax_h3_fl2va_bf16` -- so it loads through
+# the stock loader exactly as that one does. What differs is how it was
+# trained, and that is the whole point of wiring it.
+#
+# SLA is "sparse-linear attention": the student was distilled with its
+# attention running a top-k block router -- the card says an 85% sparsity
+# ratio, and LightX2V's config for it sets `dynamic_sparse_attn` with
+# `sparsity_ratio 0.85` and `operator sage2`, whose router keeps the top 15%
+# of 64/128-token key blocks per query block by mean-pooled q.(k - mean k)
+# score (`coderef/LightX2V/.../attn/utils/sla_util.py::get_block_map`; a
+# source read, not a build, and the training code is not in that checkout).
+# So this LoRA was fitted to produce attention that survives a fixed-budget
+# block cut. Three regimes follow, and nothing on this box measures any of
+# them:
+#   - under SLA's own router: what it was trained for; no kernel here runs it
+#   - under Sol-Attn (how every shipped video graph runs it): a different
+#     router -- threshold on pooled scores with a dense fallback, not a fixed
+#     top-k -- so the LoRA's sparsity is not Sol's sparsity
+#   - under dense attention: every block it learned to do without is back
+# The probe graph `h3_probe_turbo_768p_sla.json` is the 768p v1.0 graph with
+# only this file swapped, Sol on per the repo default, so the first render
+# answers "does it work at all under Sol" and nothing finer.
+#
+# Shift 6/3 and 4 steps are the 768p v1.0's row, and that is not a guess:
+# LightX2V's SLA config carries `video_flow_shift 6.0 / audio_flow_shift 3.0`,
+# and its `infer_steps 5` is their N+1 convention (`h3_step_update:
+# training_euler`), the same 5 their 768p v1.0 configs carry for a LoRA the
+# README lists at 4. `bench/check_distill_settings.py` grades this triple
+# against that config rather than the Turbo README, which has no SLA row.
+TURBO_SLA_LORA = "h3/lightx2v_Minimax-h3-Turbo-SLA/minimax_h3_fl2v_turbo_4step_v0.1_768p_sla_comfyui_bf16.safetensors"
+TURBO_SLA_STEPS = 4
+TURBO_SLA_SHIFT = dict(shift_video=6.0, shift_audio=3.0)
 
 # Where the 8-step v1.0 was actually distilled: 544p, mixed aspect. This is
 # *below* H3's own canvas rule (768 short edge), so `adapt_canvas` never
@@ -595,8 +650,14 @@ TURBO_SAMPLER = "euler"
 # all `qkv_proj` / `out_proj` / `fc1` / `fc2`. This one touches 259 -- the same
 # 208 plus **51 `adaln_proj.linear`**, at a separate rank 16 against 64 for
 # everything else. Those 51 are the 50 per-block `adaln_proj` and
-# `final_layer.adaln_proj`, which is exactly where fl2va and ref2va diverge
-# most: that last one has a relative delta of 1.92, i.e. is rewritten.
+# `final_layer.adaln_proj`. (An earlier version of this comment said that is
+# "exactly where fl2va and ref2va diverge most", citing a relative delta of
+# 1.92 on `final_layer.adaln_proj`. Withdrawn 2026-08-20: that figure compared
+# the curve-form coefficient matrices directly, and the two checkpoints'
+# `adaln_t_table` bases carry opposite signs on half their columns, so the
+# coefficients are not comparable. At the modulation output the two
+# checkpoints differ by a few percent there, the same order as the linears.
+# `bench/analyze_checkpoint_delta.py` and `docs/evidence.md` carry it.)
 #
 # It needs `ComfyUI-MiniMax-H3-Turbo`'s own two nodes rather than the stock
 # loader, for TWO independent reasons. Both measured 2026-08-16 from the

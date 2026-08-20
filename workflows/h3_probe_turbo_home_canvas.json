@@ -177,7 +177,7 @@
         "Node name for S&R": "LoraLoaderModelOnly"
       },
       "widgets_values": [
-        "h3/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+        "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
         1.0
       ],
       "title": "Load LoRA (ref delta, strength 1.0)"
