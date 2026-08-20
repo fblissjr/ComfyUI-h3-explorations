@@ -420,9 +420,11 @@ def _infer_rank(filename):
 
 
 def infer_quantization(filename):
-    for tag in ("int8_convrot", "fp8_scaled", "w4a8_mixed", "bf16", "fp16", "fp32"):
+    # `-int8` last and with its hyphen: the hybrid checkpoints end `-int8` with
+    # no rotation tag, and the bare substring would shadow `int8_convrot`.
+    for tag in ("int8_convrot", "fp8_scaled", "w4a8_mixed", "bf16", "fp16", "fp32", "-int8"):
         if tag in filename:
-            return tag
+            return tag.lstrip("-")
     return None
 
 

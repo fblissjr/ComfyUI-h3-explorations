@@ -232,9 +232,11 @@ def main() -> int:
         print(f"[{i + 1}/{len(schedule)}] {label}"
               f"{' (warmup, discard)' if warmup else ''} ...", flush=True)
         t0 = time.time()
+        prompt_id = None
         try:
-            total_s, per_node, err = asyncio.run(
-                run_once(args.host, arm["graph"], client_id, args.timeout))
+            total_s, per_node, err, prompt_id = asyncio.run(
+                run_once(args.host, arm["graph"], client_id, args.timeout,
+                         return_prompt_id=True))
         except Exception as exc:
             # A submission-path failure (HTTP 400 on validation, server
             # down) must leave a row saying the arm was attempted, same as
@@ -248,6 +250,7 @@ def main() -> int:
             "graph_sha256": arm["sha"],
             "patches": arm["patches"],
             "seed": seed_used,
+            "prompt_id": prompt_id,
             "warmup": warmup,
             "total_s": total_s,
             "sampler_s": _class_seconds(arm["graph"], per_node,

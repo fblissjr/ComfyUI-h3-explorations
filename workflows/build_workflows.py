@@ -2924,6 +2924,44 @@ schedule whose final jump is already the largest one it takes.
 """
 
 
+def _note_ref_transfer(checkpoint: str, what: str) -> str:
+    return f"""\
+## Does an fl2v distill transfer to reference work, and on which weights
+
+This is `h3_probe_capture_ref3.json`'s request -- three reference images
+(character, garment, environment), one continuous shot, 1024x768 x 362 -- run
+on **{checkpoint}** with the 4-step 768p turbo LoRA at the vendor's row
+(euler, `simple`, 4 steps, shift 6/3, strength 1.0). {what}
+
+Four graphs share everything but the checkpoint: `fl2va`, the HF hybrid
+`b30-49` (fl2va with ref2va's adaln in blocks 30-49), a locally built hybrid
+with ref2va's adaln in **all** blocks and the final layer
+(`bench/build_hybrid.py`, which first reproduces the HF file byte-for-byte),
+and `ref2va` itself.
+
+**The prediction, written before the render.** The lightx2v fl2v LoRAs were
+fitted against fl2va's attention and MLP weights. Both hybrids keep those
+weights; ref2va's differ from them by about 3% relative
+(`bench/results/2026-08-20_dit_internals.json`). If the LoRA's reference
+handling holds on the hybrids and breaks on ref2va, that difference is the
+mechanism. The all-adaln hybrid adds a second question: if it transfers as
+well as ref2va does, the "adaln is the reference pathway" reading holds
+functionally; if it does not, the linears matter.
+
+**How to read it: briefs met, never clips matched.** Does the reference
+identity survive at all, per checkpoint. Single seed first; a distribution if
+the single seed separates the arms. Bench arms patch the LoRA file
+(`--set LABEL:LoraLoaderModelOnly.lora_name=...`) to run the v1.1 and SLA
+releases on the same four graphs.
+
+**Two confounds carried on purpose.** The canvas is the capture graph's
+1024x768, the configuration known to fit three references at full length and
+the one the activation captures were taken at; the LoRA's one trained shape is
+1344x768. And fl2va-family weights never saw reference rows, so a failure on
+the `fl2va` arm is informative rather than a bug.
+"""
+
+
 _NOTE_TURBO_OWNER = f"""\
 ## The owner's recipe, not the vendor's row
 
@@ -4325,6 +4363,36 @@ def main():
               sol_on=False,
               out_prefix="Video/h3_probe_capture_ref3"),
          "3 references spanning 0.78-4.23 MP; the h3_capture.py target"),
+
+        # Reference transfer of the fl2v distill, four checkpoints, one
+        # variable. The LoRA file is patched at run time; see the note.
+        *[
+            (f"h3_probe_ref_turbo768p_{tag}.json", f"r2v-turbo768-{tag}", "r2v",
+             _ref_prompt(images=("character", "garment", "environment")),
+             dict(**REF_VIDEO_BUDGET, ref_images=CAPTURE_REF_IMAGES,
+                  unet=MODELS[key],
+                  lora=(TURBO_768P_LORA, TURBO_LORA_STRENGTH),
+                  steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
+                  sampler_name=TURBO_SAMPLER,
+                  out_prefix=f"Video/h3_probe_ref_turbo768p_{tag}",
+                  variant_note=_note_ref_transfer(label, what)),
+             f"the capture request on {label} with the 4-step 768p turbo LoRA")
+            for tag, key, label, what in (
+                ("fl2va", "unet_fl2va", "fl2va",
+                 "The checkpoint the LoRA was distilled on, and one that never "
+                 "saw a reference row."),
+                ("hybrid_b30", "unet_hybrid_b30", "the HF hybrid b30-49",
+                 "fl2va's linears with ref2va's modulation in the last twenty "
+                 "blocks."),
+                ("hybrid_adaln_all", "unet_hybrid_adaln_all",
+                 "the locally built all-adaln hybrid",
+                 "fl2va's linears with ref2va's modulation in every block and "
+                 "the final layer -- the adaln-only hypothesis as a file."),
+                ("ref2va", "unet_ref2va", "ref2va",
+                 "The checkpoint the task belongs to, with linears the LoRA "
+                 "was not fitted against."),
+            )
+        ],
 
         # The same capture on the fl2va checkpoint with no LoRA: the control
         # the block-49 attribution was missing. The 2026-08-17 capture was

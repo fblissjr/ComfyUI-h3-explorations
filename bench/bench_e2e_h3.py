@@ -698,15 +698,20 @@ async def _poll_vram(host, stop, out, period=0.5):
                 pass
 
 
-async def run_once(host, prompt, client_id, timeout_s, vram=None):
-    """Submit and follow the websocket. Returns (total_s, per_node_s, error)."""
+async def run_once(host, prompt, client_id, timeout_s, vram=None,
+                   return_prompt_id=False):
+    """Submit and follow the websocket. Returns (total_s, per_node_s, error),
+    or with `return_prompt_id` a fourth element, the server's prompt_id --
+    the only handle that names a run's output files (`GET /history/<id>`),
+    which a blinded batch needs and a filename counter cannot give."""
     import aiohttp
 
     stop = asyncio.Event()
     poller = (asyncio.create_task(_poll_vram(host, stop, vram))
               if vram is not None else None)
     try:
-        return await _run_once_inner(host, prompt, client_id, timeout_s)
+        result = await _run_once_inner(host, prompt, client_id, timeout_s)
+        return result if return_prompt_id else result[:3]
     finally:
         stop.set()
         if poller is not None:
@@ -724,17 +729,19 @@ async def _run_once_inner(host, prompt, client_id, timeout_s):
             resp = http_post(f"http://{host}/prompt",
                              {"prompt": prompt, "client_id": client_id})
             prompt_id = resp["prompt_id"]
+            # Every return below carries prompt_id as a fourth element;
+            # `run_once` trims it for callers that did not ask.
 
             per_node, current, t_node = {}, None, None
             deadline = time.perf_counter() + timeout_s
             while True:
                 remaining = deadline - time.perf_counter()
                 if remaining <= 0:
-                    return None, per_node, f"timed out after {timeout_s:.0f}s"
+                    return None, per_node, f"timed out after {timeout_s:.0f}s", prompt_id
                 try:
                     msg = await asyncio.wait_for(ws.receive(), timeout=remaining)
                 except asyncio.TimeoutError:
-                    return None, per_node, f"timed out after {timeout_s:.0f}s"
+                    return None, per_node, f"timed out after {timeout_s:.0f}s", prompt_id
                 if msg.type != aiohttp.WSMsgType.TEXT:
                     continue
                 data = json.loads(msg.data)
@@ -748,12 +755,12 @@ async def _run_once_inner(host, prompt, client_id, timeout_s):
                         per_node[current] = per_node.get(current, 0.0) + (now - t_node)
                     node = d.get("node")
                     if node is None:                      # run finished
-                        return now - t_submit, per_node, None
+                        return now - t_submit, per_node, None, prompt_id
                     current, t_node = node, now
                 elif mtype == "execution_error":
-                    return None, per_node, d.get("exception_message", "execution error")
+                    return None, per_node, d.get("exception_message", "execution error"), prompt_id
                 elif mtype == "execution_interrupted":
-                    return None, per_node, "interrupted"
+                    return None, per_node, "interrupted", prompt_id
 
 
 def main():

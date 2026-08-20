@@ -38,6 +38,16 @@ REF_LORA = "h3/minimax_h3_ref_lora_rank_256_bf16.safetensors"
 MODELS = dict(
     unet_fl2va="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
     unet_ref2va="minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+    # Two fl2va/ref2va hybrids, both int8_convrot, both fl2va everywhere
+    # except the adaln projections named in their filenames. `b30` is the HF
+    # release (blocks 30-49, final layer left on fl2va); `adaln_all` is built
+    # here by `bench/build_hybrid.py` (all 50 blocks plus final_layer), which
+    # first reproduces the HF file byte-for-byte as its control. They exist
+    # to ask whether an fl2v distill LoRA transfers to reference work better on
+    # fl2va's linears than on ref2va's; `docs/roadmap.md`, the regime section.
+    # The filenames end `-int8`, not `_int8_convrot`; `substrate.py` tags them.
+    unet_hybrid_b30="minimax_h3_hybrid_fl2va_ref2va_b30-49-int8.safetensors",
+    unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
     clip="qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
     # int8_convrot decoder (Comfy-Org/ComfyUI#15334 merged 2026-08-06, loader
     # branch at comfy/sd.py). 2666.2 MiB resident against fp16's 4966.5 --
