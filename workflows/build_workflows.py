@@ -4266,6 +4266,33 @@ def main():
               out_prefix="Video/h3_t2v_turbo_4step_768p"),
          "text -> video + audio, via the 4-step 768p turbo LoRA at shift 6"),
 
+        # The recipe the 2026-08-20 blind session supports: the vendor row with
+        # the vendor's sampler. Differs from h3_text_to_video_turbo_4step_768p
+        # in one widget (er_sde -> euler); differs from the owner graph below in
+        # scheduler and strength, which the session found indistinguishable at
+        # 20% more sampler time. Ships v1.0 because only v1.0 has an attested
+        # row; internal/recipes/2026-08-20_t2v_distilled_recipe.md says when to
+        # swap the LoRA widget to v1.1.
+        ("h3_text_to_video_turbo_768p_euler.json", "t2v-turbo768-euler", "t2v",
+         LONG_T2V_PROMPT,
+         dict(lora=(TURBO_768P_LORA, TURBO_LORA_STRENGTH),
+              steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
+              sampler_name=TURBO_SAMPLER,
+              out_prefix="Video/h3_t2v_turbo_768p_euler",
+              variant_note=_probe_note(
+                  "the recipe the blind session supports",
+                  "h3_text_to_video_turbo_4step_768p.json",
+                  f"the sampler: `{TURBO_SAMPLER}` instead of "
+                  f"`{SAMPLING['sampler']}`, the vendor's own choice for its "
+                  "distilled LoRAs. Everything else is the vendor row: 4 steps, "
+                  "shift 6/3, `simple`, strength 1.0, Sol on at the shipped tau.",
+                  "Nothing in particular; this is a working graph, not an "
+                  "experiment. It exists so the recipe has a sha.",
+                  "The same clip family as its twin. On 2026-08-20 the owner "
+                  "could not tell this recipe from euler/beta/0.75 across 8 "
+                  "seeds, and it is 20% faster on the card.")),
+         "text -> video + audio: the 768p turbo LoRA at the vendor row with euler"),
+
         # The owner's working recipe on the same LoRA, as a graph with a sha
         # so bench arms can patch the LoRA file onto it. Three knobs differ
         # from the row above; see TURBO_OWNER_STRENGTH in h3_config.
