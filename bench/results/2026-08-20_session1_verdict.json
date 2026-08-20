@@ -1,0 +1,1351 @@
+{
+ "measured": "2026-08-20",
+ "session": "session1",
+ "produced_by": "bench/score_session.py joining scores_session1.json with internal/blind_keys/session1.json",
+ "scored_at": "2026-08-20T20:24:05Z",
+ "jsonl": "bench/results/2026-08-20_session1_lora_file.jsonl",
+ "shuffle_seed": 7,
+ "partial": true,
+ "not_covered": [
+  "clip_01.mp4: not scored",
+  "clip_02.mp4: not scored",
+  "clip_03.mp4: not scored",
+  "clip_04.mp4: not scored",
+  "clip_05.mp4: not scored",
+  "clip_06.mp4: not scored",
+  "clip_07.mp4: not scored",
+  "clip_08.mp4: not scored",
+  "clip_09.mp4: not scored",
+  "clip_10.mp4: not scored",
+  "clip_11.mp4: not scored",
+  "clip_12.mp4: not scored",
+  "clip_13.mp4: not scored",
+  "clip_14.mp4: not scored",
+  "clip_15.mp4: not scored",
+  "clip_16.mp4: not scored",
+  "clip_17.mp4: not scored",
+  "clip_18.mp4: not scored",
+  "clip_19.mp4: not scored",
+  "clip_20.mp4: not scored",
+  "clip_21.mp4: not scored",
+  "clip_22.mp4: not scored",
+  "clip_23.mp4: not scored",
+  "clip_24.mp4: not scored",
+  "clip_25.mp4: not scored",
+  "clip_26.mp4: not scored",
+  "clip_27.mp4: not scored",
+  "clip_28.mp4: not scored",
+  "clip_29.mp4: not scored",
+  "clip_30.mp4: not scored",
+  "clip_31.mp4: not scored",
+  "clip_32.mp4: not scored"
+ ],
+ "rubric": [
+  {
+   "id": "note",
+   "label": "What you notice",
+   "type": "text",
+   "primary": true,
+   "help": "Free text. Anything worth recording about this clip on its own; the comparison itself belongs on the pairs tab."
+  },
+  {
+   "id": "tags",
+   "label": "Quick tags",
+   "type": "tags",
+   "options": [
+    "good",
+    "not good",
+    "off",
+    "same",
+    "can't tell"
+   ],
+   "help": "Click any that apply. Nothing is required."
+  },
+  {
+   "id": "flag",
+   "label": "Reject outright",
+   "type": "flag",
+   "help": "Garbage, NaN-like noise, audio missing or desynced, hard cut artifacts. Leave off if none."
+  }
+ ],
+ "pair_rubric": [
+  {
+   "id": "differs",
+   "label": "What differs, and which way",
+   "type": "text",
+   "primary": true,
+   "help": "The field that matters. Plain sentences: what you notice between the two halves, and which way it goes."
+  },
+  {
+   "id": "tags",
+   "label": "Quick tags",
+   "type": "tags",
+   "sides": true,
+   "options": [
+    "good",
+    "not good",
+    "off",
+    "same",
+    "can't tell"
+   ],
+   "help": "Click any that apply, per half. Nothing here is required."
+  },
+  {
+   "id": "verdict",
+   "label": "Verdict",
+   "type": "choice",
+   "options": [
+    "Clip 1 better",
+    "Clip 2 better",
+    "same",
+    "can't tell"
+   ],
+   "help": "Coarse on purpose. 'same' and \"can't tell\" are real answers and the tally counts them apart."
+  }
+ ],
+ "pairs": {
+  "n_total": 24,
+  "n_scored": 24,
+  "contests": {
+   "v10 vs v11": {
+    "arms": [
+     "v10",
+     "v11"
+    ],
+    "n_pairs": 8,
+    "n_scored": 8,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "v10": 4,
+     "v11": 2,
+     "same": 1,
+     "can't tell": 1
+    },
+    "tags_by_arm": {
+     "v10": {
+      "good": 6,
+      "not good": 1,
+      "same": 1,
+      "off": 1
+     },
+     "v11": {
+      "off": 3,
+      "can't tell": 3,
+      "good": 2,
+      "same": 1,
+      "not good": 2
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_01.mp4",
+      "question": "differs",
+      "text": "better lighting and framing in clip 2. clip 1 birds dont look great. much better in clip 2.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "v10",
+      "clip_2_seed": 730451892
+     },
+     {
+      "pair": "pair_02.mp4",
+      "question": "differs",
+      "text": "clip 2 light turns green at the start. motion is off in clip 2 - looks like shes not moving near the end. clip 2 shes not pedaling but wheels are moving too fast for that",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451893,
+      "clip_2_arm": "v10",
+      "clip_2_seed": 730451893
+     },
+     {
+      "pair": "pair_03.mp4",
+      "question": "differs",
+      "text": "clip 2 has a person walking away at the start. otherwise both look about the same - just slightly different scenes in very subtle ways. lighting and reflections slightly better in 1 i guess.",
+      "clip_1_arm": "v10",
+      "clip_1_seed": 730451894,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451894
+     },
+     {
+      "pair": "pair_04.mp4",
+      "question": "differs",
+      "text": "framing and lighting better in clip 2 but near the end the background has no motion so it looks like she isnt moving. clip 1 is fine with that.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451895,
+      "clip_2_arm": "v10",
+      "clip_2_seed": 730451895
+     },
+     {
+      "pair": "pair_05.mp4",
+      "question": "differs",
+      "text": "pigeons on the fence at start in clip 2. the intersection in clip 1 is messed up. lighting is better in clip 2.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451896,
+      "clip_2_arm": "v10",
+      "clip_2_seed": 730451896
+     },
+     {
+      "pair": "pair_07.mp4",
+      "question": "differs",
+      "text": "framing better in clip 1. better lighting in clip 1. clip 1 just SLIGHTLY better.",
+      "clip_1_arm": "v10",
+      "clip_1_seed": 730451898,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451898
+     },
+     {
+      "pair": "pair_08.mp4",
+      "question": "differs",
+      "text": "clip 2 has 2 bags on the bike. almost looks like a man in clip 2 at the start. reflections and lighting better in clip 1.",
+      "clip_1_arm": "v10",
+      "clip_1_seed": 730451899,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451899
+     }
+    ]
+   },
+   "sla vs v11": {
+    "arms": [
+     "sla",
+     "v11"
+    ],
+    "n_pairs": 8,
+    "n_scored": 8,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "sla": 0,
+     "v11": 1,
+     "same": 3,
+     "can't tell": 4
+    },
+    "tags_by_arm": {
+     "sla": {
+      "good": 5,
+      "can't tell": 7,
+      "same": 4,
+      "off": 1
+     },
+     "v11": {
+      "good": 6,
+      "can't tell": 7,
+      "same": 4,
+      "off": 1
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_09.mp4",
+      "question": "differs",
+      "text": "they look in opposite directions in each clip. clip 1 the person looks to their left at around the 13s mark, clip 2 its to their right. otherwise mostly the same just slightly different.",
+      "clip_1_arm": "sla",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451892
+     },
+     {
+      "pair": "pair_10.mp4",
+      "question": "differs",
+      "text": "both look almost the same.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451893,
+      "clip_2_arm": "sla",
+      "clip_2_seed": 730451893
+     },
+     {
+      "pair": "pair_11.mp4",
+      "question": "differs",
+      "text": "bag is yellow not red in clip 1 on the back of the bike. reflections and lighting slightly better in 1 but barely.",
+      "clip_1_arm": "sla",
+      "clip_1_seed": 730451894,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451894
+     },
+     {
+      "pair": "pair_12.mp4",
+      "question": "differs",
+      "text": "motion and lighting slightly more natural in clip 1.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451895,
+      "clip_2_arm": "sla",
+      "clip_2_seed": 730451895
+     },
+     {
+      "pair": "pair_13.mp4",
+      "question": "differs",
+      "text": "illegible text logo on helmet at end in clip 2. otherwise just slightly differnet but otherwise moistly the same scene.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451896,
+      "clip_2_arm": "sla",
+      "clip_2_seed": 730451896
+     },
+     {
+      "pair": "pair_14.mp4",
+      "question": "differs",
+      "text": "both have two bags stacked.",
+      "clip_1_arm": "sla",
+      "clip_1_seed": 730451897,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451897
+     },
+     {
+      "pair": "pair_16.mp4",
+      "question": "differs",
+      "text": "two bags in clip 2. in clip 1 not pedaling but  still going fast.",
+      "clip_1_arm": "sla",
+      "clip_1_seed": 730451899,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451899
+     }
+    ]
+   },
+   "v11 vs v11_vendor": {
+    "arms": [
+     "v11",
+     "v11_vendor"
+    ],
+    "n_pairs": 8,
+    "n_scored": 8,
+    "reading": "a preference over distributions, not a per-pair verdict: each stack presents two different samples",
+    "tally": {
+     "v11": 0,
+     "v11_vendor": 1,
+     "same": 2,
+     "can't tell": 5
+    },
+    "tags_by_arm": {
+     "v11": {
+      "off": 1,
+      "not good": 1,
+      "good": 6,
+      "same": 4,
+      "can't tell": 2
+     },
+     "v11_vendor": {
+      "good": 7,
+      "same": 4,
+      "can't tell": 2
+     }
+    },
+    "notes": [
+     {
+      "pair": "pair_17.mp4",
+      "question": "differs",
+      "text": "no backpack on her in clip 1. car is stopped in the middle of the intersectuon in clip 1.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451892,
+      "clip_2_arm": "v11_vendor",
+      "clip_2_seed": 730451892
+     },
+     {
+      "pair": "pair_18.mp4",
+      "question": "differs",
+      "text": "no backpack in clip 2. otherwise seems same.",
+      "clip_1_arm": "v11_vendor",
+      "clip_1_seed": 730451893,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451893
+     },
+     {
+      "pair": "pair_19.mp4",
+      "question": "differs",
+      "text": "backpack orange in clip 1 and red in clip 2. windshield wipers moving on cars on clip 1.",
+      "clip_1_arm": "v11_vendor",
+      "clip_1_seed": 730451894,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451894
+     },
+     {
+      "pair": "pair_21.mp4",
+      "question": "differs",
+      "text": "no backpack in clip 2.",
+      "clip_1_arm": "v11_vendor",
+      "clip_1_seed": 730451896,
+      "clip_2_arm": "v11",
+      "clip_2_seed": 730451896
+     },
+     {
+      "pair": "pair_22.mp4",
+      "question": "differs",
+      "text": "backpack and bag pack both have a white X stripe in clip 2.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451897,
+      "clip_2_arm": "v11_vendor",
+      "clip_2_seed": 730451897
+     },
+     {
+      "pair": "pair_23.mp4",
+      "question": "differs",
+      "text": "backpack and bike storage both slightly more orange in clip 2.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451898,
+      "clip_2_arm": "v11_vendor",
+      "clip_2_seed": 730451898
+     },
+     {
+      "pair": "pair_24.mp4",
+      "question": "differs",
+      "text": "backpack and bike storage bag in clip 2 both orange. red in clip 1.",
+      "clip_1_arm": "v11",
+      "clip_1_seed": 730451899,
+      "clip_2_arm": "v11_vendor",
+      "clip_2_seed": 730451899
+     }
+    ]
+   }
+  },
+  "by_pair": [
+   {
+    "pair": "pair_01.mp4",
+    "contest": "v10 vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 2,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "v10",
+     "row": 1,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "better lighting and framing in clip 2. clip 1 birds dont look great. much better in clip 2."
+    },
+    "tags": {
+     "v10": [
+      "good"
+     ],
+     "v11": [
+      "off"
+     ]
+    },
+    "verdict": "Clip 2 better",
+    "preferred_arm": "v10"
+   },
+   {
+    "pair": "pair_02.mp4",
+    "contest": "v10 vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 6,
+     "seed": 730451893
+    },
+    "clip_2": {
+     "label": "v10",
+     "row": 5,
+     "seed": 730451893
+    },
+    "text": {
+     "differs": "clip 2 light turns green at the start. motion is off in clip 2 - looks like shes not moving near the end. clip 2 shes not pedaling but wheels are moving too fast for that"
+    },
+    "tags": {
+     "v10": [
+      "not good"
+     ],
+     "v11": [
+      "can't tell"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "v11"
+   },
+   {
+    "pair": "pair_03.mp4",
+    "contest": "v10 vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v10",
+     "row": 9,
+     "seed": 730451894
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 10,
+     "seed": 730451894
+    },
+    "text": {
+     "differs": "clip 2 has a person walking away at the start. otherwise both look about the same - just slightly different scenes in very subtle ways. lighting and reflections slightly better in 1 i guess."
+    },
+    "tags": {
+     "v10": [
+      "good",
+      "same"
+     ],
+     "v11": [
+      "good",
+      "same"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_04.mp4",
+    "contest": "v10 vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 14,
+     "seed": 730451895
+    },
+    "clip_2": {
+     "label": "v10",
+     "row": 13,
+     "seed": 730451895
+    },
+    "text": {
+     "differs": "framing and lighting better in clip 2 but near the end the background has no motion so it looks like she isnt moving. clip 1 is fine with that."
+    },
+    "tags": {
+     "v10": [
+      "off"
+     ],
+     "v11": [
+      "can't tell"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "v11"
+   },
+   {
+    "pair": "pair_05.mp4",
+    "contest": "v10 vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 18,
+     "seed": 730451896
+    },
+    "clip_2": {
+     "label": "v10",
+     "row": 17,
+     "seed": 730451896
+    },
+    "text": {
+     "differs": "pigeons on the fence at start in clip 2. the intersection in clip 1 is messed up. lighting is better in clip 2."
+    },
+    "tags": {
+     "v11": [
+      "off",
+      "not good"
+     ],
+     "v10": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 2 better",
+    "preferred_arm": "v10"
+   },
+   {
+    "pair": "pair_06.mp4",
+    "contest": "v10 vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v10",
+     "row": 21,
+     "seed": 730451897
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 22,
+     "seed": 730451897
+    },
+    "tags": {
+     "v10": [
+      "good"
+     ],
+     "v11": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_07.mp4",
+    "contest": "v10 vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v10",
+     "row": 25,
+     "seed": 730451898
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 26,
+     "seed": 730451898
+    },
+    "text": {
+     "differs": "framing better in clip 1. better lighting in clip 1. clip 1 just SLIGHTLY better."
+    },
+    "tags": {
+     "v10": [
+      "good"
+     ],
+     "v11": [
+      "can't tell"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "v10"
+   },
+   {
+    "pair": "pair_08.mp4",
+    "contest": "v10 vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v10",
+     "row": 29,
+     "seed": 730451899
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 30,
+     "seed": 730451899
+    },
+    "text": {
+     "differs": "clip 2 has 2 bags on the bike. almost looks like a man in clip 2 at the start. reflections and lighting better in clip 1."
+    },
+    "tags": {
+     "v10": [
+      "good"
+     ],
+     "v11": [
+      "not good",
+      "off"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "v10"
+   },
+   {
+    "pair": "pair_09.mp4",
+    "contest": "sla vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "sla",
+     "row": 3,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 2,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "they look in opposite directions in each clip. clip 1 the person looks to their left at around the 13s mark, clip 2 its to their right. otherwise mostly the same just slightly different."
+    },
+    "tags": {
+     "sla": [
+      "good",
+      "can't tell"
+     ],
+     "v11": [
+      "good",
+      "can't tell"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_10.mp4",
+    "contest": "sla vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 6,
+     "seed": 730451893
+    },
+    "clip_2": {
+     "label": "sla",
+     "row": 7,
+     "seed": 730451893
+    },
+    "text": {
+     "differs": "both look almost the same."
+    },
+    "tags": {
+     "v11": [
+      "can't tell",
+      "same",
+      "good"
+     ],
+     "sla": [
+      "can't tell",
+      "same",
+      "good"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_11.mp4",
+    "contest": "sla vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "sla",
+     "row": 11,
+     "seed": 730451894
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 10,
+     "seed": 730451894
+    },
+    "text": {
+     "differs": "bag is yellow not red in clip 1 on the back of the bike. reflections and lighting slightly better in 1 but barely."
+    },
+    "tags": {
+     "sla": [
+      "good"
+     ],
+     "v11": [
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_12.mp4",
+    "contest": "sla vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 14,
+     "seed": 730451895
+    },
+    "clip_2": {
+     "label": "sla",
+     "row": 15,
+     "seed": 730451895
+    },
+    "text": {
+     "differs": "motion and lighting slightly more natural in clip 1."
+    },
+    "tags": {
+     "v11": [
+      "good",
+      "can't tell"
+     ],
+     "sla": [
+      "can't tell"
+     ]
+    },
+    "verdict": "Clip 1 better",
+    "preferred_arm": "v11"
+   },
+   {
+    "pair": "pair_13.mp4",
+    "contest": "sla vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 18,
+     "seed": 730451896
+    },
+    "clip_2": {
+     "label": "sla",
+     "row": 19,
+     "seed": 730451896
+    },
+    "text": {
+     "differs": "illegible text logo on helmet at end in clip 2. otherwise just slightly differnet but otherwise moistly the same scene."
+    },
+    "tags": {
+     "v11": [
+      "good",
+      "same",
+      "can't tell"
+     ],
+     "sla": [
+      "good",
+      "same",
+      "can't tell"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_14.mp4",
+    "contest": "sla vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "sla",
+     "row": 23,
+     "seed": 730451897
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 22,
+     "seed": 730451897
+    },
+    "text": {
+     "differs": "both have two bags stacked."
+    },
+    "tags": {
+     "sla": [
+      "can't tell",
+      "same"
+     ],
+     "v11": [
+      "can't tell",
+      "same"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_15.mp4",
+    "contest": "sla vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "sla",
+     "row": 27,
+     "seed": 730451898
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 26,
+     "seed": 730451898
+    },
+    "tags": {
+     "sla": [
+      "can't tell",
+      "same",
+      "good"
+     ],
+     "v11": [
+      "same",
+      "can't tell",
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_16.mp4",
+    "contest": "sla vs v11",
+    "scored": true,
+    "clip_1": {
+     "label": "sla",
+     "row": 31,
+     "seed": 730451899
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 30,
+     "seed": 730451899
+    },
+    "text": {
+     "differs": "two bags in clip 2. in clip 1 not pedaling but  still going fast."
+    },
+    "tags": {
+     "sla": [
+      "off",
+      "can't tell"
+     ],
+     "v11": [
+      "off",
+      "can't tell"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_17.mp4",
+    "contest": "v11 vs v11_vendor",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 2,
+     "seed": 730451892
+    },
+    "clip_2": {
+     "label": "v11_vendor",
+     "row": 4,
+     "seed": 730451892
+    },
+    "text": {
+     "differs": "no backpack on her in clip 1. car is stopped in the middle of the intersectuon in clip 1."
+    },
+    "tags": {
+     "v11": [
+      "off",
+      "not good"
+     ],
+     "v11_vendor": [
+      "good"
+     ]
+    },
+    "verdict": "Clip 2 better",
+    "preferred_arm": "v11_vendor"
+   },
+   {
+    "pair": "pair_18.mp4",
+    "contest": "v11 vs v11_vendor",
+    "scored": true,
+    "clip_1": {
+     "label": "v11_vendor",
+     "row": 8,
+     "seed": 730451893
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 6,
+     "seed": 730451893
+    },
+    "text": {
+     "differs": "no backpack in clip 2. otherwise seems same."
+    },
+    "tags": {
+     "v11_vendor": [
+      "good"
+     ],
+     "v11": [
+      "good"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_19.mp4",
+    "contest": "v11 vs v11_vendor",
+    "scored": true,
+    "clip_1": {
+     "label": "v11_vendor",
+     "row": 12,
+     "seed": 730451894
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 10,
+     "seed": 730451894
+    },
+    "text": {
+     "differs": "backpack orange in clip 1 and red in clip 2. windshield wipers moving on cars on clip 1."
+    },
+    "tags": {
+     "v11_vendor": [
+      "good"
+     ],
+     "v11": [
+      "good"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_20.mp4",
+    "contest": "v11 vs v11_vendor",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 14,
+     "seed": 730451895
+    },
+    "clip_2": {
+     "label": "v11_vendor",
+     "row": 16,
+     "seed": 730451895
+    },
+    "tags": {
+     "v11": [
+      "same",
+      "good"
+     ],
+     "v11_vendor": [
+      "same",
+      "good"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_21.mp4",
+    "contest": "v11 vs v11_vendor",
+    "scored": true,
+    "clip_1": {
+     "label": "v11_vendor",
+     "row": 20,
+     "seed": 730451896
+    },
+    "clip_2": {
+     "label": "v11",
+     "row": 18,
+     "seed": 730451896
+    },
+    "text": {
+     "differs": "no backpack in clip 2."
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_22.mp4",
+    "contest": "v11 vs v11_vendor",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 22,
+     "seed": 730451897
+    },
+    "clip_2": {
+     "label": "v11_vendor",
+     "row": 24,
+     "seed": 730451897
+    },
+    "text": {
+     "differs": "backpack and bag pack both have a white X stripe in clip 2."
+    },
+    "tags": {
+     "v11": [
+      "good",
+      "same",
+      "can't tell"
+     ],
+     "v11_vendor": [
+      "good",
+      "same",
+      "can't tell"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_23.mp4",
+    "contest": "v11 vs v11_vendor",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 26,
+     "seed": 730451898
+    },
+    "clip_2": {
+     "label": "v11_vendor",
+     "row": 28,
+     "seed": 730451898
+    },
+    "text": {
+     "differs": "backpack and bike storage both slightly more orange in clip 2."
+    },
+    "tags": {
+     "v11": [
+      "good",
+      "same",
+      "can't tell"
+     ],
+     "v11_vendor": [
+      "good",
+      "can't tell",
+      "same"
+     ]
+    },
+    "verdict": "can't tell",
+    "preferred_arm": null
+   },
+   {
+    "pair": "pair_24.mp4",
+    "contest": "v11 vs v11_vendor",
+    "scored": true,
+    "clip_1": {
+     "label": "v11",
+     "row": 30,
+     "seed": 730451899
+    },
+    "clip_2": {
+     "label": "v11_vendor",
+     "row": 32,
+     "seed": 730451899
+    },
+    "text": {
+     "differs": "backpack and bike storage bag in clip 2 both orange. red in clip 1."
+    },
+    "tags": {
+     "v11": [
+      "good",
+      "same"
+     ],
+     "v11_vendor": [
+      "good",
+      "same"
+     ]
+    },
+    "verdict": "same",
+    "preferred_arm": null
+   }
+  ]
+ },
+ "clips": {
+  "n_total": 32,
+  "n_scored": 0,
+  "arms": {},
+  "by_clip": [
+   {
+    "clip": "clip_01.mp4",
+    "row": 29,
+    "seed": 730451899,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v10",
+    "scored": false
+   },
+   {
+    "clip": "clip_02.mp4",
+    "row": 10,
+    "seed": 730451894,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11",
+    "scored": false
+   },
+   {
+    "clip": "clip_03.mp4",
+    "row": 20,
+    "seed": 730451896,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11_vendor",
+    "scored": false
+   },
+   {
+    "clip": "clip_04.mp4",
+    "row": 11,
+    "seed": 730451894,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "sla",
+    "scored": false
+   },
+   {
+    "clip": "clip_05.mp4",
+    "row": 30,
+    "seed": 730451899,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11",
+    "scored": false
+   },
+   {
+    "clip": "clip_06.mp4",
+    "row": 6,
+    "seed": 730451893,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11",
+    "scored": false
+   },
+   {
+    "clip": "clip_07.mp4",
+    "row": 8,
+    "seed": 730451893,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11_vendor",
+    "scored": false
+   },
+   {
+    "clip": "clip_08.mp4",
+    "row": 23,
+    "seed": 730451897,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "sla",
+    "scored": false
+   },
+   {
+    "clip": "clip_09.mp4",
+    "row": 1,
+    "seed": 730451892,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v10",
+    "scored": false
+   },
+   {
+    "clip": "clip_10.mp4",
+    "row": 15,
+    "seed": 730451895,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "sla",
+    "scored": false
+   },
+   {
+    "clip": "clip_11.mp4",
+    "row": 9,
+    "seed": 730451894,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v10",
+    "scored": false
+   },
+   {
+    "clip": "clip_12.mp4",
+    "row": 16,
+    "seed": 730451895,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11_vendor",
+    "scored": false
+   },
+   {
+    "clip": "clip_13.mp4",
+    "row": 24,
+    "seed": 730451897,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11_vendor",
+    "scored": false
+   },
+   {
+    "clip": "clip_14.mp4",
+    "row": 25,
+    "seed": 730451898,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v10",
+    "scored": false
+   },
+   {
+    "clip": "clip_15.mp4",
+    "row": 22,
+    "seed": 730451897,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11",
+    "scored": false
+   },
+   {
+    "clip": "clip_16.mp4",
+    "row": 14,
+    "seed": 730451895,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11",
+    "scored": false
+   },
+   {
+    "clip": "clip_17.mp4",
+    "row": 26,
+    "seed": 730451898,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11",
+    "scored": false
+   },
+   {
+    "clip": "clip_18.mp4",
+    "row": 28,
+    "seed": 730451898,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11_vendor",
+    "scored": false
+   },
+   {
+    "clip": "clip_19.mp4",
+    "row": 7,
+    "seed": 730451893,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "sla",
+    "scored": false
+   },
+   {
+    "clip": "clip_20.mp4",
+    "row": 17,
+    "seed": 730451896,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v10",
+    "scored": false
+   },
+   {
+    "clip": "clip_21.mp4",
+    "row": 27,
+    "seed": 730451898,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "sla",
+    "scored": false
+   },
+   {
+    "clip": "clip_22.mp4",
+    "row": 19,
+    "seed": 730451896,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "sla",
+    "scored": false
+   },
+   {
+    "clip": "clip_23.mp4",
+    "row": 12,
+    "seed": 730451894,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11_vendor",
+    "scored": false
+   },
+   {
+    "clip": "clip_24.mp4",
+    "row": 4,
+    "seed": 730451892,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11_vendor",
+    "scored": false
+   },
+   {
+    "clip": "clip_25.mp4",
+    "row": 18,
+    "seed": 730451896,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11",
+    "scored": false
+   },
+   {
+    "clip": "clip_26.mp4",
+    "row": 3,
+    "seed": 730451892,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "sla",
+    "scored": false
+   },
+   {
+    "clip": "clip_27.mp4",
+    "row": 2,
+    "seed": 730451892,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11",
+    "scored": false
+   },
+   {
+    "clip": "clip_28.mp4",
+    "row": 32,
+    "seed": 730451899,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v11_vendor",
+    "scored": false
+   },
+   {
+    "clip": "clip_29.mp4",
+    "row": 13,
+    "seed": 730451895,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v10",
+    "scored": false
+   },
+   {
+    "clip": "clip_30.mp4",
+    "row": 5,
+    "seed": 730451893,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v10",
+    "scored": false
+   },
+   {
+    "clip": "clip_31.mp4",
+    "row": 31,
+    "seed": 730451899,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "sla",
+    "scored": false
+   },
+   {
+    "clip": "clip_32.mp4",
+    "row": 21,
+    "seed": 730451897,
+    "graph": "workflows/h3_probe_turbo_768p_owner_api.json",
+    "arm": "v10",
+    "scored": false
+   }
+  ]
+ }
+}
