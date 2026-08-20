@@ -69,6 +69,18 @@ artifact.
   `h3_probe_turbo_768p_sla_router` and `_sla_dense` complete the three-regime
   set with the existing Sol probe, exempted from the Sol-on rule by mechanism.
 
+- **A figure library and a postmortem renderer.** `bench/gen_figures.py`
+  generalises `gen_morton_figures.py`'s inline-SVG drawing (derived captions,
+  theme-following colours) into signed bars, lines, scatter with identity,
+  slope, grouped log bars and a swimlane, plus the five figures of the
+  2026-08-20 session postmortem, each naming the record and field it draws
+  from. `bench/render_postmortem_html.py` turns a postmortem's markdown into
+  the plugin's self-contained page with those figures spliced beside the
+  findings they illustrate; `gen_morton_figures.py` is a shim whose output is
+  byte-identical to before. Built by a subagent; the checker was shown red on
+  a removed citation, a renamed section, an injected script and an external
+  link before the real page passed.
+
 ### Records
 
 - `bench/results/2026-08-20_power_limit_pair.jsonl` and `_verdict.json` -- the
