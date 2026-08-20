@@ -142,7 +142,9 @@ model:
   `"transformer_ref" if task == "ref2av" else "transformer"` and builds a
   separate pipeline for it.
 - ComfyUI ships two distinct files, `minimax_h3_fl2va_pruned_*` and
-  `minimax_h3_ref2va_pruned_*`.
+  `minimax_h3_ref2va_pruned_*`. Their weights differ everywhere, down to the
+  timestep embedder (10.6% relative on `e(t)`, measured 2026-08-20 on the
+  unpruned files, `bench/results/2026-08-20_adaln_pruning_residual.json`).
 - The 8-step turbo LoRA's own metadata names its base:
   `base_model: Comfy-Org/MiniMax-H3 minimax_h3_fl2va_bf16.safetensors`.
 

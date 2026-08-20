@@ -4,6 +4,21 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.45.0
+
+### Added
+
+- **`bench/analyze_adaln_pruning.py` and its record
+  `bench/results/2026-08-20_adaln_pruning_residual.json`**: what the Comfy-Org
+  "pruned" checkpoints remove and what it costs, measured against the unpruned
+  `int8_convrot` files. The pruning is the rank-8 SVD of the mean-centred
+  time-embedding curve folded into each block's AdaLN, every other tensor
+  byte-identical; it costs ~0.02% of the modulation on the bf16 final layer
+  and 0.1-0.2% per int8 block, identically for fl2va and ref2va. The
+  ref2va-specific pruning-loss hypothesis is refuted. `docs/evidence.md`
+  carries the summary; the script's own self-test refuses to measure if its
+  two deliberate violations are not caught.
+
 ## 0.44.0
 
 ### Changed

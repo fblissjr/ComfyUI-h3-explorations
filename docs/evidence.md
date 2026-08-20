@@ -277,6 +277,29 @@ on weights that are **pruned, convrot-rotated and int8** — three separate
 properties, not one. `fp8_scaled` and `w4a8_mixed` builds of the same models sit
 on disk beside them.
 
+**What "pruned" is, and what it costs -- measured 2026-08-20 against the
+unpruned `int8_convrot` files** ([`bench/results/2026-08-20_adaln_pruning_residual.json`](../bench/results/2026-08-20_adaln_pruning_residual.json),
+`bench/analyze_adaln_pruning.py`). The unpruned DiT carries a timestep MLP and
+a full-width AdaLN projection per block (`[96768, 2688]`; the projections are
+41% of the DiT's parameters). The pruned file replaces them with the rank-8
+SVD of the mean-centred `silu(e(t))` curve: `adaln_t_table` is `U @ Sigma`
+(its column norms equal the singular values to four digits, and the fit residual
+equals the SVD residual) and the curve's mean is folded into each block's bias.
+Every other tensor is byte-identical between the pruned and unpruned file of
+the same checkpoint, so the pruned build is the unpruned build with the AdaLN
+swapped and nothing else. At the modulation output the swap costs 0.1-0.2%
+of the whole output per block and 0.06-0.35% at the timesteps a render
+evaluates; on the final layer, which the unpruned file stores in bf16, the
+residual is ~0.02%, so most of the per-block figure is int8 error on the
+*unpruned* side, and the rank-8 truncation itself is ~0.02%. **fl2va and ref2va
+lose the same**: the per-block residual ratio ref2va/fl2va runs 0.97-1.01. The
+hypothesis that ref2va compresses worse under its own factorisation, the one
+ref2va-specific mechanism this repo had found with a concrete test, is refuted.
+Side fact from the same record: the time embedder itself differs between the
+two checkpoints (10.6% relative, cosine 0.994), so the fine-tune moved `e(t)`,
+not only the projections. Still unmeasured: the int8 error of the linears
+against the bf16 release, which needs the bf16 files.
+
 This is not only bookkeeping. `convrot` applies a rotation (`docs/roadmap.md`,
 established while grading the ref LoRA), so any claim reasoning about q/k geometry
 — centroid similarity, block locality, what a token ordering buys — is reasoning
