@@ -1,5 +1,5 @@
 {
- "measured": "2026-08-19",
+ "measured": "2026-08-20",
  "produced_by": "bench/analyze_sol_error.py",
  "what": "Sol error decomposed into sparsity and INT8 quantization, per head",
  "capture": "2026-08-20_ref3_362f_1024x768_fl2va",
@@ -930,5 +930,6 @@
    "block": 49,
    "step": 3
   }
- ]
+ ],
+ "measured_note": "corrected 2026-08-20: the producing script stamped a literal 2026-08-19; the capture and the run are 2026-08-20"
 }

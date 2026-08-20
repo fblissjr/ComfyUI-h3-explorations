@@ -138,6 +138,7 @@ is more reusable than the fix.
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import json
 import glob
 import importlib
@@ -723,7 +724,10 @@ def main():
         # content, so the store's path is a leak and its name is the part worth
         # keeping anyway.
         record = {
-            "measured": "2026-08-19",
+            # Stamped at run time. This was the literal "2026-08-19" until
+            # 2026-08-20, when a record taken on a 2026-08-20 capture carried
+            # the wrong day and a second reader noticed.
+            "measured": date.today().isoformat(),
             "produced_by": "bench/analyze_sol_error.py",
             "what": "Sol error decomposed into sparsity and INT8 quantization, per head",
             "capture": capture_dir.name,
