@@ -361,6 +361,31 @@ built all-adaln hybrid and ref2va; the SLA LoRA under its training router;
 captures on the distilled trajectory). Scope for the first pass is t2v and
 1-3 reference images; no video or audio references.
 
+**Verdicts, 2026-08-20, as they landed:**
+
+- *Power*: the 330 W cap costs 5.8% against a 12.5% clock delta on the 4-step
+  workload (above). 450 W stays.
+- *Distilled-trajectory captures*: Sol's error and routed density are the same
+  on the SLA student's activations as on v1.1's, within a few percent and
+  half a point respectively (`docs/open_experiments.md` #20). SLA changes
+  nothing Sol can see at the call.
+- *Reference transfer, single seed, briefs met*: with the v1.1 LoRA patched
+  in, the three reference images (performer, jersey, loft) survive on **all
+  four** checkpoints -- fl2va, HF b30-49, the local all-adaln hybrid, and
+  ref2va -- at the same seed (`bench/results/2026-08-20_ref_transfer_single.jsonl`;
+  stills at 7 s). The predicted failure on ref2va did not appear, so the
+  community claim that an fl2v distill cannot blend references on ref2va is
+  not reproduced at one seed with v1.1. Observed beside it: fl2va and b30-49
+  render near-identical compositions (curtain backdrop), while the all-adaln
+  hybrid and ref2va both move to a wood-panel wall with artwork -- the
+  modulation swap changes the sample's composition where the linears do not.
+  ref2va also ran fastest on this request (sampler 108 s against 124-125 s
+  for the three fl2va-linear arms), consistent with its lower Sol sparsity
+  error on reference-heavy input earlier today. One seed; a distribution is
+  the next step if the question matters.
+- *Session 1 (LoRA file) and the SLA regime set*: pending the owner's blind
+  scores and the regime renders at the time of writing.
+
 ## CLOSED 2026-08-16: token ordering as a quality question
 
 **Stop working on which curve to use. This is a decision, not a pause**, and it

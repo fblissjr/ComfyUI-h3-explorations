@@ -1349,6 +1349,18 @@ SLA probe graph should ship with the router rather than Sol.
 **Blocker: none.** A correctness gate on captured activations comes before
 any render through the kernel; `docs/roadmap.md` carries the day's plan.
 
+**Measured 2026-08-20, the capture half.** Two 4-step t2v captures on the
+fl2va base, one under the v1.1 LoRA and one under the SLA LoRA
+(`2026-08-20_t2v_362f_1344x768_{v11,sla}`, Sol absent, blocks 0/24/49, steps 1
+and 2). Sol's per-head error at tau 1.0 agrees between them within a few
+percent at every cell (`bench/results/2026-08-20_sol_error_per_head_{v11,sla}.json`),
+and Sol's routed density under its own router agrees within half a point at
+every block, step and tau (`bench/results/2026-08-20_routing_density_{v11,sla}.json`:
+block 0 about 22% at tau 1.0 and 16% at 1.3 on both; block 49 about 19% and
+13% on both). **The SLA distillation did not make the activations Sol sees
+sparser or easier.** What it changed is what the router renders, which is the
+regime set's question, not the captures'.
+
 ## 21. The power-limit pair
 
 **Tests:** what the 330 W board limit costs against the stock 450 W on one
