@@ -842,6 +842,7 @@ def _vendor():
     sys.path.insert(0, str(REPO.parent.parent))
     spec = importlib.util.spec_from_file_location(
         "_v", REPO / "vendor" / "sol_attn_minimax.py")
+    assert spec is not None and spec.loader is not None, "module spec unresolved"
     v = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(v)
     return v
@@ -1006,7 +1007,7 @@ code { font-family:ui-monospace,Menlo,monospace; font-size:.9em; }
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     m = sub.add_parser("morton", help="write fig1.svg / fig2.svg")
     m.add_argument("--out", default=".", help="directory to write into")

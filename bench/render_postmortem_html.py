@@ -310,7 +310,7 @@ def render(md_path: Path, figures: list[Figure]) -> str:
     title, sections = parse_body(body)
 
     unplaced = {f.fid: f for f in figures if f.anchor}
-    placed: dict[int, dict[int, list[Figure]]] = {}
+    placed: dict[tuple[int, int], dict[int, list[Figure]]] = {}
     for si, (_, blocks) in enumerate(sections):
         for bi, (kind, payload) in enumerate(blocks):
             if kind not in ("ul", "ol"):
@@ -369,7 +369,7 @@ def render(md_path: Path, figures: list[Figure]) -> str:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     ap.add_argument("markdown", help="the postmortem .md")
     ap.add_argument("--out", default=None,
                     help="output path (default: the .md with .html)")
