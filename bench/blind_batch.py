@@ -43,6 +43,20 @@ Only `<prefix>_NNNNN.mp4` is taken; the share also holds `-audio.mp4` and
 `error`, or a clip that cannot be found. A batch with any of those is refused
 whole: a missing clip shifts every neutral number after it.
 
+## Pairs, for two-arm sessions
+
+`--pairs A,B` additionally stacks the i-th judged clip of arm A with the i-th
+of arm B (matched by run index, which `run_graph_arms` seeds identically
+across arms unless the seed bases were set apart on purpose) into
+`pair_NN.mp4`, top/bottom or side-by-side per `bench/stack_eval_clips.py`'s
+layout rule, labelled "Clip 1" / "Clip 2" with the order drawn per pair from
+the same seeded RNG. The key records which arm sat where. Stacks carry no
+audio -- `build_stacked_video` maps video only, and one track for two arms
+would be a bias anyway -- so the singles stay in the batch for the audio
+half of the brief. A pair is a presentation of two different samples, never a
+matched comparison (CLAUDE.md, the different-sample rule); the judgement is
+still the aggregate over pairs.
+
 The output root comes from `H3_COMFY_OUTPUT` (or `bench/_paths.comfy_output()`
 when run where `folder_paths` resolves); the share's path is typed in the
 shell, never here, and the manifest stores paths relative to the batch
@@ -56,6 +70,8 @@ directory.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import random
@@ -69,6 +85,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 from _paths import comfy_output  # noqa: E402
+from stack_eval_clips import build_stacked_video  # noqa: E402
 
 KEY_DIR = REPO / "internal" / "blind_keys"
 
@@ -110,7 +127,14 @@ def main() -> int:
     ap.add_argument("--host", default="127.0.0.1:8188")
     ap.add_argument("--output-root", default=None,
                     help="ComfyUI output directory; default H3_COMFY_OUTPUT or folder_paths")
+    ap.add_argument("--pairs", default=None, metavar="A,B",
+                    help="also emit blinded stacked pairs of these two arm labels, matched by run index")
     args = ap.parse_args()
+    pair_labels = None
+    if args.pairs:
+        pair_labels = [x.strip() for x in args.pairs.split(",")]
+        if len(pair_labels) != 2 or pair_labels[0] == pair_labels[1]:
+            sys.exit("refuse: --pairs needs two distinct arm labels")
 
     root = Path(args.output_root) if args.output_root else comfy_output()
     if root is None or not root.is_dir():
@@ -180,8 +204,9 @@ def main() -> int:
     if batch.exists():
         sys.exit(f"refuse: {batch} exists")
     batch.mkdir(parents=True)
+    rng = random.Random(args.shuffle_seed)
     order = [i for i, _ in rows_idx]
-    random.Random(args.shuffle_seed).shuffle(order)
+    rng.shuffle(order)
     manifest, key = [], {}
     for n, i in enumerate(order, 1):
         name = f"clip_{n:02d}.mp4"
@@ -190,8 +215,29 @@ def main() -> int:
         r = rows[i]
         key[name] = {"row": i, "label": r["label"], "seed": r["seed"],
                      "source": str(located[i].relative_to(root)), "graph": r["graph"]}
+    pairs_manifest = []
+    if pair_labels:
+        a, b = pair_labels
+        ra = [i for i, r in rows_idx if r["label"] == a]
+        rb = [i for i, r in rows_idx if r["label"] == b]
+        if not ra or not rb:
+            sys.exit(f"refuse: --pairs {a},{b}: an arm has no judged rows")
+        if len(ra) != len(rb):
+            sys.exit(f"refuse: --pairs {a},{b}: {len(ra)} against {len(rb)} judged rows; "
+                     "pairs match by run index and the arms are uneven")
+        for n, (ia, ib) in enumerate(zip(ra, rb), 1):
+            first, second = ((ia, a), (ib, b)) if rng.random() < 0.5 else ((ib, b), (ia, a))
+            name = f"pair_{n:02d}.mp4"
+            # The stacker prints its input filenames, which carry the arm
+            # labels; a blind batch must not put those on the judge's terminal.
+            with contextlib.redirect_stdout(io.StringIO()):
+                build_stacked_video(located[first[0]], located[second[0]], batch / name,
+                                    label1="Clip 1", label2="Clip 2")
+            pairs_manifest.append({"pair": name, "rows": [first[0], second[0]]})
+            key[name] = {"clip_1": {"row": first[0], "label": first[1], "seed": rows[first[0]]["seed"]},
+                         "clip_2": {"row": second[0], "label": second[1], "seed": rows[second[0]]["seed"]}}
     (batch / "MANIFEST.json").write_text(json.dumps(
-        {"session": args.session, "jsonl": args.jsonl, "clips": manifest,
+        {"session": args.session, "jsonl": args.jsonl, "clips": manifest, "pairs": pairs_manifest,
          "note": "row indices only; the key is sealed elsewhere"}, indent=1))
     KEY_DIR.mkdir(parents=True, exist_ok=True)
     key_path = KEY_DIR / f"{args.session}.json"
@@ -199,7 +245,7 @@ def main() -> int:
         sys.exit(f"refuse: {key_path} exists")
     key_path.write_text(json.dumps({"session": args.session, "shuffle_seed": args.shuffle_seed,
                                     "jsonl": args.jsonl, "key": key}, indent=1))
-    print(f"{len(order)} clips -> {batch}")
+    print(f"{len(order)} clips" + (f" and {len(pairs_manifest)} stacked pairs" if pairs_manifest else "") + f" -> {batch}")
     print(f"key sealed at internal/blind_keys/{args.session}.json -- DO NOT OPEN BEFORE SCORING")
     return 0
 
