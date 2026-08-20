@@ -89,6 +89,19 @@ artifact.
   12.5% core-clock delta with power pegged at both limits. Partly
   core-clock-bound on this workload; neither of the 2026-08-17 readings holds
   cleanly.
+- `bench/results/2026-08-20_session1_lora_file.jsonl` and
+  `2026-08-20_session1_verdict.json` -- the first multi-seed blind session
+  through the new path: four arms x 8 seeds, 24 stacked contests judged on
+  free text. v1.1 indistinguishable from SLA and from the vendor recipe; v1.0
+  leans ahead of v1.1 4 to 2 on look, behind on motion in two pairs.
+- `bench/results/2026-08-20_sol_error_per_head_{v11,sla}.json`,
+  `2026-08-20_routing_density_{v11,sla}.json` -- Sol's error and routed
+  density on the two student captures agree within a few percent and half a
+  point; the SLA distillation changes nothing Sol sees at the call.
+- `bench/results/2026-08-20_ref_transfer_single.jsonl` -- v1.1 carries the
+  three reference images on fl2va, HF b30-49, the local all-adaln hybrid and
+  ref2va alike at one seed; the adaln-swapped arms share a composition the
+  fl2va-adaln arms do not.
 - `bench/results/2026-08-20_head_magnitudes_v11.json` and `_sla.json` -- the
   per-head input structure on the two distilled-trajectory captures
   (`2026-08-20_t2v_362f_1344x768_{v11,sla}`, fl2va base, 4 steps, Sol absent):

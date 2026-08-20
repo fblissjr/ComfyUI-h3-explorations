@@ -383,8 +383,22 @@ captures on the distilled trajectory). Scope for the first pass is t2v and
   for the three fl2va-linear arms), consistent with its lower Sol sparsity
   error on reference-heavy input earlier today. One seed; a distribution is
   the next step if the question matters.
-- *Session 1 (LoRA file) and the SLA regime set*: pending the owner's blind
-  scores and the regime renders at the time of writing.
+- *Session 1, LoRA file, 8 matched seeds per contest, judged blind by the
+  owner on free text, tags and a coarse verdict
+  (`bench/results/2026-08-20_session1_verdict.json`; rows in
+  `2026-08-20_session1_lora_file.jsonl`)*: **v1.1 against SLA,
+  indistinguishable** (same 3, can't tell 4, v1.1 once) -- the notes name a
+  bag colour, a helmet logo, a look direction. **v1.1 against the vendor
+  recipe (simple, strength 1.0), indistinguishable** (same 2, can't tell 5,
+  vendor once) while the vendor recipe runs ~20% less sampler time (126 s
+  against 151 s) -- the owner's beta/0.75 recipe has no blind support at this
+  sample. **v1.0 against v1.1, a lean to v1.0, 4 to 2** with one same and one
+  can't tell; the notes put v1.0 ahead on lighting, reflections and framing in
+  most pairs and behind on motion in two (wheels without pedalling, a
+  background that stops while she rides), with v1.1 carrying two scene
+  defects. A preference over distributions, not a decision; a second session
+  at the vendor recipe would separate look from motion.
+- *SLA regime set*: pending at the time of writing.
 
 ## CLOSED 2026-08-16: token ordering as a quality question
 
