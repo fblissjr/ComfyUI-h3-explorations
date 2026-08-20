@@ -1,0 +1,208 @@
+{
+ "measured": "2026-08-20",
+ "produced_by": "bench/grade_sla_router_on_capture.py",
+ "what": "vendored SLA top-k router + Triton forward kernel graded on captured activations against a float64 row reference, with two lut violations and the eager Sol reference on the same rows",
+ "capture": "$H3_CAPTURE_ROOT/2026-08-20_ref3_362f_1024x768_fl2va",
+ "step": 3,
+ "rows": 256,
+ "sparsity_ratio": 0.85,
+ "blocks_mn": [
+  64,
+  64
+ ],
+ "vendor_source_commit": "afcfe8f1",
+ "band_factor": 2.0,
+ "sage_record": "bench/results/2026-08-18_sage_accuracy_on_capture.json",
+ "cells": [
+  {
+   "block": 24,
+   "head": 0,
+   "seq_len": 98498,
+   "arms": {
+    "dense_limit": {
+     "rel_l2_mean": 0.0017046132459621105,
+     "rel_l2_p99": 0.002025348654242187,
+     "cos_mean": 0.9999986379121995,
+     "cos_min": 0.9999980641745532
+    },
+    "router": {
+     "rel_l2_mean": 0.33560714311330875,
+     "rel_l2_p99": 1.1357183670430948,
+     "cos_mean": 0.9446370298241951,
+     "cos_min": 0.6019381938688106
+    },
+    "lut_zeroed": {
+     "rel_l2_mean": 1.2357566388109578,
+     "rel_l2_p99": 2.3591099184031674,
+     "cos_mean": 0.30043377990244646,
+     "cos_min": -0.1460214071640516
+    },
+    "lut_permuted": {
+     "rel_l2_mean": 0.5447650523832783,
+     "rel_l2_p99": 1.4960435643655368,
+     "cos_mean": 0.8415104182062907,
+     "cos_min": 0.033986222870391165
+    },
+    "sol_tau_1": {
+     "rel_l2_mean": 0.2540121217592197,
+     "rel_l2_p99": 0.8893576050640696,
+     "cos_mean": 0.9663194293424641,
+     "cos_min": 0.7128163925371451
+    },
+    "sol_tau_1.3": {
+     "rel_l2_mean": 0.3078065661889075,
+     "rel_l2_p99": 1.001696235365565,
+     "cos_mean": 0.9516184501729947,
+     "cos_min": 0.5915655450394998
+    }
+   },
+   "kernel_seconds": {
+    "dense_limit": 0.473,
+    "router": 0.009
+   },
+   "topk_blocks": {
+    "dense_limit": 1540,
+    "router": 231
+   },
+   "sage_band_rel_l2_mean": {
+    "auto": 0.009309087300165227,
+    "fp8++ (fastest)": 0.009309087300165227,
+    "fp8": 0.0093302630304985,
+    "fp16 (most accurate)": 0.006188066352845483
+   },
+   "verdict": {
+    "dense_limit_within_band": true,
+    "bar": 0.018618174600330453,
+    "lut_zeroed_red": true,
+    "lut_permuted_red": true
+   }
+  },
+  {
+   "block": 49,
+   "head": 47,
+   "seq_len": 98498,
+   "arms": {
+    "dense_limit": {
+     "rel_l2_mean": 0.0005110209860646199,
+     "rel_l2_p99": 0.0018870316941943144,
+     "cos_mean": 0.9999996035043723,
+     "cos_min": 0.9999981834110228
+    },
+    "router": {
+     "rel_l2_mean": 0.05019820972856174,
+     "rel_l2_p99": 1.0658003967267724,
+     "cos_mean": 0.9789886126494822,
+     "cos_min": -0.11619623678337689
+    },
+    "lut_zeroed": {
+     "rel_l2_mean": 1.0156951471393971,
+     "rel_l2_p99": 2.017627212374098,
+     "cos_mean": 0.20424125904290172,
+     "cos_min": -0.3150190693666152
+    },
+    "lut_permuted": {
+     "rel_l2_mean": 1.6378329191624506,
+     "rel_l2_p99": 10.86286092602532,
+     "cos_mean": 0.45089640866890845,
+     "cos_min": -0.2712145308854132
+    },
+    "sol_tau_1": {
+     "rel_l2_mean": 0.12884077862480253,
+     "rel_l2_p99": 1.4580052905992125,
+     "cos_mean": 0.9184183034326785,
+     "cos_min": -0.14188448400367237
+    },
+    "sol_tau_1.3": {
+     "rel_l2_mean": 0.16970734244104302,
+     "rel_l2_p99": 1.4580052905992125,
+     "cos_mean": 0.906835331166562,
+     "cos_min": -0.14188448400367237
+    }
+   },
+   "kernel_seconds": {
+    "dense_limit": 0.065,
+    "router": 0.008
+   },
+   "topk_blocks": {
+    "dense_limit": 1540,
+    "router": 231
+   },
+   "sage_band_rel_l2_mean": {
+    "auto": 0.03244753521333749,
+    "fp8++ (fastest)": 0.03244753521333749,
+    "fp8": 0.03253721907512496,
+    "fp16 (most accurate)": 0.027554337171994202
+   },
+   "verdict": {
+    "dense_limit_within_band": true,
+    "bar": 0.06489507042667499,
+    "lut_zeroed_red": true,
+    "lut_permuted_red": true
+   }
+  },
+  {
+   "block": 49,
+   "head": 8,
+   "seq_len": 98498,
+   "arms": {
+    "dense_limit": {
+     "rel_l2_mean": 0.0017358740948081961,
+     "rel_l2_p99": 0.002105197392264689,
+     "cos_mean": 0.9999986570576787,
+     "cos_min": 0.9999980929550844
+    },
+    "router": {
+     "rel_l2_mean": 0.3932203915566983,
+     "rel_l2_p99": 0.6978198093553188,
+     "cos_mean": 0.9493825743330238,
+     "cos_min": 0.8053792343820829
+    },
+    "lut_zeroed": {
+     "rel_l2_mean": 0.8252647653279886,
+     "rel_l2_p99": 1.2481678631530357,
+     "cos_mean": 0.6032464933172029,
+     "cos_min": -0.05078682787158341
+    },
+    "lut_permuted": {
+     "rel_l2_mean": 0.7752686580005583,
+     "rel_l2_p99": 1.5841054404406651,
+     "cos_mean": 0.8011102194212274,
+     "cos_min": -0.032347334918108435
+    },
+    "sol_tau_1": {
+     "rel_l2_mean": 0.3252829540461468,
+     "rel_l2_p99": 0.6595076618476297,
+     "cos_mean": 0.9573952748280015,
+     "cos_min": 0.813949024594759
+    },
+    "sol_tau_1.3": {
+     "rel_l2_mean": 0.34904435963485925,
+     "rel_l2_p99": 0.6626218791202688,
+     "cos_mean": 0.9521300130825556,
+     "cos_min": 0.8101151412883482
+    }
+   },
+   "kernel_seconds": {
+    "dense_limit": 0.065,
+    "router": 0.008
+   },
+   "topk_blocks": {
+    "dense_limit": 1540,
+    "router": 231
+   },
+   "sage_band_rel_l2_mean": {
+    "auto": 0.03244753521333749,
+    "fp8++ (fastest)": 0.03244753521333749,
+    "fp8": 0.03253721907512496,
+    "fp16 (most accurate)": 0.027554337171994202
+   },
+   "verdict": {
+    "dense_limit_within_band": true,
+    "bar": 0.06489507042667499,
+    "lut_zeroed_red": true,
+    "lut_permuted_red": true
+   }
+  }
+ ],
+ "all_pass": true
+}
