@@ -4,6 +4,77 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.44.0
+
+### Changed
+
+- **Sol `tau` defaults to 1.0, by owner decision (2026-08-20).** Every video
+  graph regenerates at 1.0. The reversal condition sits beside the old note in
+  `workflows/h3_config.py`: 1.3 returns only if an 8-seed blind session finds
+  the two indistinguishable on the distilled LoRAs while the
+  `--set SolAttnMiniMax.tau=1.3` patch arm buys meaningful speed. Every Sol
+  number recorded before this date was measured at 1.3.
+- **The t2v prompt takes the owner's v6 conditioning layout**: field name alone
+  on its line, content below, `N/A` for the empty field. Content unchanged.
+- **`h3_probe_turbo_768p_owner.json`** ships the owner's working recipe for the
+  768p students (euler, `beta`, 4 steps, strength 0.75) as a graph with a sha,
+  so bench arms can patch LoRA files onto it. Its note prices two of the three
+  knobs it moves: strength below 1.0 under-distills a 4-step schedule, and
+  `beta` puts 2 of 4 steps inside Sol's window where `simple` puts 3
+  (arithmetic from the shift-6 sigma grid and the 0.2/0.9 window). `cross_check`
+  now pins `BasicScheduler` scheduler and steps across the two graph forms.
+- **The docs catch up to the distilled regime.** `docs/roadmap.md` gains "The
+  regime question" (what survives, adjusts and dies under 4-6 step
+  distillation; step caching is a 16-step lever and `CACHE_NODE` is closed as
+  not canonical by owner decision), corrects the dials table, closes the
+  not-established rows done since the 17th, states the power question once,
+  and adds the node-cache-at-a-held-seed hazard. `docs/open_experiments.md`
+  reframes #6 and #9, records the tau decision on #15, replaces #17b's
+  refuted next action with the QK-vs-PV split (and why
+  `simulate_track_b_lite.py` cannot do it), marks #18 substantially done, and
+  adds #20 (the SLA LoRA under its training router) and #21 (the power pair).
+  `docs/hardware.md` replaces the continuous-streaming claim with the phase-0
+  measurement.
+- **`bench/build_hybrid.py`** builds an fl2va/ref2va hybrid by copying tensors
+  with the adaln cut as an argument, and its control ran first: `--blocks
+  30-49 --verify-against` the HF b30-49 file matches all 932 tensors
+  byte-for-byte, and two wrong recipes are refused naming the differing
+  tensors. The build that followed -- ref2va's adaln in all 50 blocks plus
+  the final layer, which no HF variant offers -- is `unet_hybrid_adaln_all` in
+  `MODELS` beside the HF `unet_hybrid_b30`. `substrate.py` tags the `-int8`
+  filenames.
+- **Four reference-transfer graphs** `h3_probe_ref_turbo768p_{fl2va,hybrid_b30,
+  hybrid_adaln_all,ref2va}`: the capture graph's three-image request with the
+  4-step 768p turbo LoRA at the vendor row, differing in the checkpoint only.
+  The note states the prediction before the render (the LoRA was fitted
+  against fl2va's linears; the hybrids keep them; ref2va does not).
+- **`bench/blind_batch.py`** turns a `run_graph_arms` JSONL into neutral clips
+  with a sealed key in `internal/blind_keys/`, refusing cache-hit, error and
+  missing-clip rows. Its first self-test caught its own off-by-one (the
+  warmup's clip took a counter slot); fixed and re-verified against the
+  share's mtimes. `run_once` can return the server's `prompt_id` and
+  `run_graph_arms` records it per row.
+- **The SLA router, vendored, gated, and wired.** `vendor/sla_sparse_triton.py`
+  is LightX2V's sparse top-k router and forward kernel (commit afcfe8f1), the
+  attention the Turbo-SLA LoRA was distilled under in the sparse-only form
+  LightX2V ships (no linear branch; none in the LoRA file).
+  `bench/grade_sla_router_on_capture.py` gates it on the clean-fl2va capture
+  against the float64 row reference (`bench/results/2026-08-20_sla_router_gate.json`):
+  at sparsity 0 the kernel lands at rel-L2 0.0005-0.0017, inside the sage band
+  by ~10x; a zeroed lut and a row-permuted lut both go red on every cell. The
+  same run puts the router at 0.85 sparsity comparable to the eager Sol
+  reference at tau 1.0-1.3 on ordinary heads and better on the loudest, while
+  keeping 15% of key blocks -- on base-model activations, which the student
+  was trained to change. `MiniMaxH3SLARouter` is the node;
+  `h3_probe_turbo_768p_sla_router` and `_sla_dense` complete the three-regime
+  set with the existing Sol probe, exempted from the Sol-on rule by mechanism.
+
+### Records
+
+- `bench/results/2026-08-20_power_limit_pair.jsonl` -- the 330 W arm of the
+  power pair (two held-seed-free runs, 134.2 s and 134.0 s sampler); the
+  450 W arm and the verdict land when the limit is raised.
+
 ## 0.43.0
 
 ### Changed
