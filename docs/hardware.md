@@ -123,8 +123,12 @@ footprints. `docs/open_experiments.md` owns the tensor-core issue rates, which
 ### What would settle it
 
 Nsight Compute on a single Sol-Attn kernel, or a paired render at two power
-limits on one graph and seed. Neither has been run. Until one is, treat any
-claim that a core clock change is nearly free on this workload as unmeasured.
+limits on one graph and seed. ~~Neither has been run.~~ **The power pair was
+run on 2026-08-20** (`bench/results/2026-08-20_power_limit_pair_verdict.json`):
+on a 4-step 768p turbo render the 330 W cap costs 5.8% of sampler time against
+a 12.5% core-clock delta, power pegged at both limits. Partly core-clock-bound;
+a core clock change is not free here, and it is not proportional either. The
+`ncu` half is still unrun, and the 16-step all-refs workload is not measured.
 
 ## What is not the bottleneck
 

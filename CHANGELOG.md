@@ -71,9 +71,17 @@ artifact.
 
 ### Records
 
-- `bench/results/2026-08-20_power_limit_pair.jsonl` -- the 330 W arm of the
-  power pair (two held-seed-free runs, 134.2 s and 134.0 s sampler); the
-  450 W arm and the verdict land when the limit is raised.
+- `bench/results/2026-08-20_power_limit_pair.jsonl` and `_verdict.json` -- the
+  first 330-vs-450 W pair ever run here, on the 4-step 768p turbo graph with
+  disjoint seed bases: 134.1 s against 126.8 s sampler, a 5.8% cost against a
+  12.5% core-clock delta with power pegged at both limits. Partly
+  core-clock-bound on this workload; neither of the 2026-08-17 readings holds
+  cleanly.
+- `bench/results/2026-08-20_head_magnitudes_v11.json` and `_sla.json` -- the
+  per-head input structure on the two distilled-trajectory captures
+  (`2026-08-20_t2v_362f_1344x768_{v11,sla}`, fl2va base, 4 steps, Sol absent):
+  block 49's four loud K channels and its 2.7-to-32.6 per-head K rms spread
+  are unchanged under either student, as the untouched `k_norm` gains predict.
 
 ## 0.43.0
 

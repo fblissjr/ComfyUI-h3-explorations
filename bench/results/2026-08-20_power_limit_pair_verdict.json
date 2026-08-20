@@ -1,0 +1,42 @@
+{
+ "measured": "2026-08-20",
+ "produced_by": "bench/run_graph_arms.py rows in 2026-08-20_power_limit_pair.jsonl plus nvidia-smi dmon -s pucm -d 1 sampled alongside each arm, summarised by hand into this sidecar",
+ "what": "the 330 W board limit against stock 450 W on one graph (h3_text_to_video_turbo_4step_768p: fl2va + 768p v1.0 turbo LoRA, 4 steps, 1344x768 x 362, Sol on at tau 1.0), seeds disjoint across arms so the node cache cannot answer",
+ "sampler_s": {
+  "p330": [
+   134.22658807999687,
+   133.95576271301252
+  ],
+  "p450": [
+   126.89024455600884,
+   126.65858683499391
+  ]
+ },
+ "sampler_mean_s": {
+  "p330": 134.1,
+  "p450": 126.8
+ },
+ "within_arm_spread_frac": 0.0021,
+ "cost_of_330W_frac": 0.0577,
+ "telemetry_during_sampling": {
+  "p330": {
+   "samples": 560,
+   "sampling_samples": 477,
+   "pwr_p50": 328.0,
+   "pclk_p50": 2145.0,
+   "pclk_max": 2730.0,
+   "mclk_p50": 10251.0
+  },
+  "p450": {
+   "samples": 490,
+   "sampling_samples": 448,
+   "pwr_p50": 446.0,
+   "pclk_p50": 2452.5,
+   "pclk_max": 2700.0,
+   "mclk_p50": 10251.0
+  }
+ },
+ "core_clock_delta_frac": 0.1254,
+ "decision_rule": "written 2026-08-17: a delta under ~2% supports the bandwidth-bound reading; a delta near the clock delta supports L2-bound",
+ "reading": "between the two: 5.8% cost against a 12.5% core-clock delta, so sampling at this 4-step workload is partly core-clock-bound -- neither reading holds cleanly"
+}

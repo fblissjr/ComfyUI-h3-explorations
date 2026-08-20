@@ -318,6 +318,16 @@ day hold while absolute seconds across that boundary do not. The decision rule
 written on 2026-08-17: a delta under ~2% supports the bandwidth-bound reading;
 a delta near the clock delta supports L2-bound.
 
+**Run 2026-08-20** on the 4-step 768p turbo graph (fl2va + v1.0 LoRA,
+1344x768 x 362, Sol at tau 1.0), two timed runs per limit with disjoint seed
+bases, `bench/results/2026-08-20_power_limit_pair.jsonl` and its verdict
+sidecar `_verdict.json`: sampler 134.1 s at 330 W against 126.8 s at 450 W,
+within-arm spread 0.2%, so the cap costs **5.8%** -- against a **12.5%**
+core-clock delta (p50 2145 against 2452 MHz during sampling, power pegged at
+328 and 446 W). Between the two readings: sampling at this workload is partly
+core-clock-bound, neither cleanly bandwidth- nor L2-bound. Stated for this
+4-step t2v workload; the 16-step all-refs pair remains unrun.
+
 ---
 
 ## The regime question (opened 2026-08-20)

@@ -1364,8 +1364,11 @@ the 450 W records, and the bandwidth-bound reading in `docs/hardware.md`. The
 rule written on 2026-08-17: a delta under ~2% supports bandwidth-bound; a
 delta near the clock delta supports L2-bound.
 
-**Blocker: one `sudo nvidia-smi -pl 450` from the owner.** Run 2026-08-20;
-record `bench/results/2026-08-20_power_limit_pair.jsonl`.
+**Run 2026-08-20**, on the 4-step 768p turbo graph: 5.8% sampler cost at
+330 W against a 12.5% core-clock delta, within-arm spread 0.2%
+(`bench/results/2026-08-20_power_limit_pair.jsonl`, verdict in
+`_verdict.json`). Partly core-clock-bound. Closed for this workload; the
+16-step all-refs pair is the remaining optional arm.
 
 ## 19. Does convrot's rotation reach Sol's routing or Morton's ordering?
 
