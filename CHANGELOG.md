@@ -89,6 +89,10 @@ artifact.
   12.5% core-clock delta with power pegged at both limits. Partly
   core-clock-bound on this workload; neither of the 2026-08-17 readings holds
   cleanly.
+- `bench/results/2026-08-20_sla_regime_arms.jsonl` -- the three attention
+  regimes for the SLA and v1.1 LoRAs at one seed: router 155 s, Sol 126 s,
+  sage-only 201 s of sampler, and Sol at tau 1.3 118 s. The first router row
+  failed on output contiguity and stays in the file.
 - `bench/results/2026-08-20_session1_lora_file.jsonl` and
   `2026-08-20_session1_verdict.json` -- the first multi-seed blind session
   through the new path: four arms x 8 seeds, 24 stacked contests judged on

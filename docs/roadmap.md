@@ -398,7 +398,18 @@ captures on the distilled trajectory). Scope for the first pass is t2v and
   background that stops while she rides), with v1.1 carrying two scene
   defects. A preference over distributions, not a decision; a second session
   at the vendor recipe would separate look from motion.
-- *SLA regime set*: pending at the time of writing.
+- *SLA regime set, one seed, timing is the result
+  (`bench/results/2026-08-20_sla_regime_arms.jsonl`)*: the SLA LoRA under its
+  own router 155 s of sampler, under Sol at tau 1.0 126 s, under sage alone
+  (no sparse attention) 201 s; v1.1 under the same three 155 / 126 / 201 s, and
+  v1.1 under Sol at tau 1.3 118 s. Both router arms render coherent clips (stills
+  at 2, 7, 12 s), so the vendored kernel works end to end -- after one failed
+  render on output contiguity, fixed in 84ba741 and left in the record. The
+  router is slower than Sol here: a 64/64 Triton kernel with three contiguous
+  copies against a tuned CUDA kernel keeping about a fifth of the blocks.
+  Sol at 1.0 is 1.6x over sage-only at 4 steps; 1.3 buys a further 6.4%,
+  quality half unmeasured. SLA under its own router looks like v1.1 under the
+  same router at this seed; nothing here makes the SLA release the one to run.
 
 ## CLOSED 2026-08-16: token ordering as a quality question
 
