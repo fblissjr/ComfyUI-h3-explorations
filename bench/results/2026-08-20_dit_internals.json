@@ -1,30 +1,12 @@
 {
- "retraction_2026-08-20": {
-  "withdrawn_fields": [
-   "per_block[*].adaln.w_rel_delta",
-   "per_block[*].adaln.w_cos",
-   "global['final_layer.adaln_proj.linear.weight']",
-   "hybrid_adaln_delta_energy_fraction",
-   "adaln_delta_energy_by_block"
-  ],
-  "why": "these compare the curve-form coefficient matrices directly; the two checkpoints' adaln_t_table bases carry opposite signs on columns 4-7, so the coefficients are not comparable and the negative cosines and ~1.9 deltas are artifacts of the factorisation",
-  "superseded_by": "bench/results/2026-08-20_dit_internals.json",
-  "still_valid": [
-   "per_block[*].attn.*",
-   "per_block[*].mlp.*",
-   "per_block[*].norms_rel_delta",
-   "per_block[*].adaln.b_rel_delta",
-   "scales",
-   "global (all other tensors)"
-  ]
- },
- "measured": "2026-08-18",
+ "measured": "2026-08-20",
  "produced_by": "bench/analyze_checkpoint_delta.py",
- "what": "fl2va vs ref2va int8_convrot internals: per-block dequantized deltas, adaln replacement, hybrid delta-energy coverage",
+ "what": "fl2va vs ref2va int8_convrot internals: per-block dequantized linear deltas, adaln compared at the modulation output over the time grid, hybrid coverage of the time-varying modulation delta",
  "files": {
   "fl2va": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
   "ref2va": "minimax_h3_ref2va_pruned_int8_convrot.safetensors"
  },
+ "adaln_comparison_level": "modulation output over the adaln_t_table grid; the stored coefficient matrices are basis-dependent and reported only under basis_dependent",
  "per_block": [
   {
    "block": 0,
@@ -45,9 +27,38 @@
     "cos": 0.999359
    },
    "adaln": {
-    "w_rel_delta": 1.88668,
+    "mod_rel_delta": 0.03003,
+    "mod_cos": 0.999669,
+    "mod_t_rel_delta": 0.08457,
+    "mod_t_cos": 0.996454,
+    "mod_t_fraction_ref2va": 0.06339,
+    "mod_t_rel_delta_by_chunk": [
+     0.0477,
+     0.0816,
+     0.0691,
+     0.0908,
+     0.0759,
+     0.0493,
+     0.0735,
+     0.0788,
+     0.1018,
+     0.1,
+     0.0784,
+     0.0948,
+     0.1123,
+     0.0659,
+     0.1089,
+     0.423,
+     0.2101,
+     0.2055
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.02961,
-    "w_cos": -0.791034
+    "basis_dependent": {
+     "w_rel_delta": 1.88668,
+     "w_cos": -0.791034,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00499,
@@ -75,9 +86,38 @@
     "cos": 0.999563
    },
    "adaln": {
-    "w_rel_delta": 1.8664,
+    "mod_rel_delta": 0.03267,
+    "mod_cos": 0.999571,
+    "mod_t_rel_delta": 0.07013,
+    "mod_t_cos": 0.997578,
+    "mod_t_fraction_ref2va": 0.08004,
+    "mod_t_rel_delta_by_chunk": [
+     0.0654,
+     0.0316,
+     0.0526,
+     0.0851,
+     0.0543,
+     0.0709,
+     0.0878,
+     0.0783,
+     0.0794,
+     0.1033,
+     0.0784,
+     0.0895,
+     0.1435,
+     0.0923,
+     0.1774,
+     0.4133,
+     0.197,
+     0.1755
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.03229,
-    "w_cos": -0.753565
+    "basis_dependent": {
+     "w_rel_delta": 1.8664,
+     "w_cos": -0.753565,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00501,
@@ -105,9 +145,38 @@
     "cos": 0.999429
    },
    "adaln": {
-    "w_rel_delta": 1.87259,
+    "mod_rel_delta": 0.03238,
+    "mod_cos": 0.99957,
+    "mod_t_rel_delta": 0.07089,
+    "mod_t_cos": 0.997527,
+    "mod_t_fraction_ref2va": 0.07809,
+    "mod_t_rel_delta_by_chunk": [
+     0.1189,
+     0.0571,
+     0.0558,
+     0.1526,
+     0.0458,
+     0.0608,
+     0.0888,
+     0.076,
+     0.081,
+     0.098,
+     0.078,
+     0.0902,
+     0.1124,
+     0.0469,
+     0.1131,
+     0.2661,
+     0.2205,
+     0.1833
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.032,
-    "w_cos": -0.753661
+    "basis_dependent": {
+     "w_rel_delta": 1.87259,
+     "w_cos": -0.753661,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00473,
@@ -135,9 +204,38 @@
     "cos": 0.999373
    },
    "adaln": {
-    "w_rel_delta": 1.86691,
+    "mod_rel_delta": 0.03216,
+    "mod_cos": 0.999575,
+    "mod_t_rel_delta": 0.07085,
+    "mod_t_cos": 0.997541,
+    "mod_t_fraction_ref2va": 0.07951,
+    "mod_t_rel_delta_by_chunk": [
+     0.1253,
+     0.0573,
+     0.0408,
+     0.1511,
+     0.0419,
+     0.0632,
+     0.087,
+     0.0682,
+     0.0749,
+     0.0991,
+     0.0796,
+     0.0925,
+     0.1079,
+     0.0673,
+     0.1397,
+     0.3209,
+     0.2182,
+     0.1917
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.03177,
-    "w_cos": -0.739867
+    "basis_dependent": {
+     "w_rel_delta": 1.86691,
+     "w_cos": -0.739867,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00481,
@@ -165,9 +263,38 @@
     "cos": 0.999374
    },
    "adaln": {
-    "w_rel_delta": 1.87568,
+    "mod_rel_delta": 0.03597,
+    "mod_cos": 0.99945,
+    "mod_t_rel_delta": 0.08867,
+    "mod_t_cos": 0.996124,
+    "mod_t_fraction_ref2va": 0.06855,
+    "mod_t_rel_delta_by_chunk": [
+     0.1205,
+     0.0746,
+     0.0612,
+     0.1641,
+     0.0508,
+     0.0828,
+     0.0872,
+     0.0783,
+     0.0762,
+     0.0959,
+     0.0798,
+     0.0935,
+     0.1322,
+     0.0739,
+     0.1829,
+     0.3152,
+     0.2263,
+     0.1901
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.03553,
-    "w_cos": -0.765323
+    "basis_dependent": {
+     "w_rel_delta": 1.87568,
+     "w_cos": -0.765323,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00496,
@@ -195,9 +322,38 @@
     "cos": 0.999382
    },
    "adaln": {
-    "w_rel_delta": 1.84675,
+    "mod_rel_delta": 0.03862,
+    "mod_cos": 0.99934,
+    "mod_t_rel_delta": 0.07005,
+    "mod_t_cos": 0.99761,
+    "mod_t_fraction_ref2va": 0.09029,
+    "mod_t_rel_delta_by_chunk": [
+     0.1182,
+     0.07,
+     0.0516,
+     0.1658,
+     0.0616,
+     0.0835,
+     0.0978,
+     0.067,
+     0.0775,
+     0.0954,
+     0.0804,
+     0.0943,
+     0.0733,
+     0.0492,
+     0.0948,
+     0.1215,
+     0.0566,
+     0.0935
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.03825,
-    "w_cos": -0.710716
+    "basis_dependent": {
+     "w_rel_delta": 1.84675,
+     "w_cos": -0.710716,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00487,
@@ -225,9 +381,38 @@
     "cos": 0.999388
    },
    "adaln": {
-    "w_rel_delta": 1.85716,
+    "mod_rel_delta": 0.04084,
+    "mod_cos": 0.999247,
+    "mod_t_rel_delta": 0.0802,
+    "mod_t_cos": 0.996841,
+    "mod_t_fraction_ref2va": 0.0802,
+    "mod_t_rel_delta_by_chunk": [
+     0.1138,
+     0.0665,
+     0.0458,
+     0.16,
+     0.0678,
+     0.0868,
+     0.0799,
+     0.077,
+     0.0756,
+     0.0941,
+     0.0782,
+     0.088,
+     0.0999,
+     0.0819,
+     0.1264,
+     0.109,
+     0.0973,
+     0.1208
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04046,
-    "w_cos": -0.716975
+    "basis_dependent": {
+     "w_rel_delta": 1.85716,
+     "w_cos": -0.716975,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00457,
@@ -255,9 +440,38 @@
     "cos": 0.999401
    },
    "adaln": {
-    "w_rel_delta": 1.85111,
+    "mod_rel_delta": 0.04529,
+    "mod_cos": 0.999059,
+    "mod_t_rel_delta": 0.08616,
+    "mod_t_cos": 0.996323,
+    "mod_t_fraction_ref2va": 0.08218,
+    "mod_t_rel_delta_by_chunk": [
+     0.1165,
+     0.073,
+     0.0569,
+     0.1555,
+     0.0726,
+     0.091,
+     0.0886,
+     0.078,
+     0.0758,
+     0.0937,
+     0.0805,
+     0.0901,
+     0.0914,
+     0.0809,
+     0.1308,
+     0.1047,
+     0.0974,
+     0.121
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04488,
-    "w_cos": -0.712344
+    "basis_dependent": {
+     "w_rel_delta": 1.85111,
+     "w_cos": -0.712344,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00488,
@@ -285,9 +499,38 @@
     "cos": 0.999415
    },
    "adaln": {
-    "w_rel_delta": 1.84529,
+    "mod_rel_delta": 0.0447,
+    "mod_cos": 0.999088,
+    "mod_t_rel_delta": 0.07958,
+    "mod_t_cos": 0.996875,
+    "mod_t_fraction_ref2va": 0.08877,
+    "mod_t_rel_delta_by_chunk": [
+     0.1082,
+     0.0637,
+     0.0404,
+     0.1561,
+     0.0737,
+     0.0883,
+     0.0796,
+     0.0751,
+     0.0751,
+     0.0946,
+     0.0824,
+     0.0823,
+     0.0994,
+     0.0844,
+     0.1306,
+     0.1147,
+     0.0984,
+     0.1256
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04432,
-    "w_cos": -0.70216
+    "basis_dependent": {
+     "w_rel_delta": 1.84529,
+     "w_cos": -0.70216,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00504,
@@ -315,9 +558,38 @@
     "cos": 0.999418
    },
    "adaln": {
-    "w_rel_delta": 1.84889,
+    "mod_rel_delta": 0.04542,
+    "mod_cos": 0.999056,
+    "mod_t_rel_delta": 0.08056,
+    "mod_t_cos": 0.996782,
+    "mod_t_fraction_ref2va": 0.08799,
+    "mod_t_rel_delta_by_chunk": [
+     0.1137,
+     0.0687,
+     0.047,
+     0.1488,
+     0.0696,
+     0.0898,
+     0.0855,
+     0.073,
+     0.0769,
+     0.0938,
+     0.0837,
+     0.0806,
+     0.0909,
+     0.0822,
+     0.1317,
+     0.1087,
+     0.0773,
+     0.1196
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04504,
-    "w_cos": -0.704547
+    "basis_dependent": {
+     "w_rel_delta": 1.84889,
+     "w_cos": -0.704547,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00483,
@@ -345,9 +617,38 @@
     "cos": 0.999426
    },
    "adaln": {
-    "w_rel_delta": 1.84737,
+    "mod_rel_delta": 0.04695,
+    "mod_cos": 0.99898,
+    "mod_t_rel_delta": 0.08722,
+    "mod_t_cos": 0.996223,
+    "mod_t_fraction_ref2va": 0.08459,
+    "mod_t_rel_delta_by_chunk": [
+     0.1165,
+     0.0773,
+     0.0665,
+     0.1514,
+     0.0686,
+     0.0923,
+     0.0821,
+     0.0787,
+     0.0783,
+     0.0939,
+     0.0804,
+     0.078,
+     0.0973,
+     0.0735,
+     0.1155,
+     0.1155,
+     0.0997,
+     0.1261
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04653,
-    "w_cos": -0.704572
+    "basis_dependent": {
+     "w_rel_delta": 1.84737,
+     "w_cos": -0.704572,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00517,
@@ -375,9 +676,38 @@
     "cos": 0.999405
    },
    "adaln": {
-    "w_rel_delta": 1.84327,
+    "mod_rel_delta": 0.04653,
+    "mod_cos": 0.998998,
+    "mod_t_rel_delta": 0.08115,
+    "mod_t_cos": 0.996735,
+    "mod_t_fraction_ref2va": 0.09143,
+    "mod_t_rel_delta_by_chunk": [
+     0.1056,
+     0.0698,
+     0.0504,
+     0.1404,
+     0.0655,
+     0.0853,
+     0.0856,
+     0.0798,
+     0.0783,
+     0.0985,
+     0.0918,
+     0.0764,
+     0.0907,
+     0.0762,
+     0.1213,
+     0.1181,
+     0.0757,
+     0.1065
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04613,
-    "w_cos": -0.697208
+    "basis_dependent": {
+     "w_rel_delta": 1.84327,
+     "w_cos": -0.697208,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.005,
@@ -405,9 +735,38 @@
     "cos": 0.999425
    },
    "adaln": {
-    "w_rel_delta": 1.85752,
+    "mod_rel_delta": 0.04454,
+    "mod_cos": 0.999103,
+    "mod_t_rel_delta": 0.08924,
+    "mod_t_cos": 0.996035,
+    "mod_t_fraction_ref2va": 0.07862,
+    "mod_t_rel_delta_by_chunk": [
+     0.1139,
+     0.0775,
+     0.0706,
+     0.1402,
+     0.072,
+     0.0858,
+     0.0828,
+     0.0797,
+     0.0758,
+     0.0928,
+     0.0916,
+     0.0756,
+     0.0956,
+     0.0846,
+     0.1181,
+     0.1192,
+     0.0979,
+     0.1266
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04412,
-    "w_cos": -0.722057
+    "basis_dependent": {
+     "w_rel_delta": 1.85752,
+     "w_cos": -0.722057,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00514,
@@ -435,9 +794,38 @@
     "cos": 0.99943
    },
    "adaln": {
-    "w_rel_delta": 1.85899,
+    "mod_rel_delta": 0.04536,
+    "mod_cos": 0.999067,
+    "mod_t_rel_delta": 0.09398,
+    "mod_t_cos": 0.995601,
+    "mod_t_fraction_ref2va": 0.07539,
+    "mod_t_rel_delta_by_chunk": [
+     0.118,
+     0.0891,
+     0.0921,
+     0.1428,
+     0.0753,
+     0.0894,
+     0.087,
+     0.0791,
+     0.079,
+     0.088,
+     0.0879,
+     0.0844,
+     0.0907,
+     0.0882,
+     0.1342,
+     0.1222,
+     0.1008,
+     0.128
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04493,
-    "w_cos": -0.72861
+    "basis_dependent": {
+     "w_rel_delta": 1.85899,
+     "w_cos": -0.72861,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00524,
@@ -465,9 +853,38 @@
     "cos": 0.999426
    },
    "adaln": {
-    "w_rel_delta": 1.85896,
+    "mod_rel_delta": 0.04513,
+    "mod_cos": 0.999077,
+    "mod_t_rel_delta": 0.09207,
+    "mod_t_cos": 0.995776,
+    "mod_t_fraction_ref2va": 0.07742,
+    "mod_t_rel_delta_by_chunk": [
+     0.1076,
+     0.0885,
+     0.0796,
+     0.1404,
+     0.0701,
+     0.0891,
+     0.0893,
+     0.0768,
+     0.0783,
+     0.0946,
+     0.0941,
+     0.076,
+     0.0933,
+     0.0834,
+     0.1217,
+     0.1366,
+     0.1039,
+     0.119
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.0447,
-    "w_cos": -0.725823
+    "basis_dependent": {
+     "w_rel_delta": 1.85896,
+     "w_cos": -0.725823,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00502,
@@ -495,9 +912,38 @@
     "cos": 0.999444
    },
    "adaln": {
-    "w_rel_delta": 1.84656,
+    "mod_rel_delta": 0.04504,
+    "mod_cos": 0.99908,
+    "mod_t_rel_delta": 0.0794,
+    "mod_t_cos": 0.996867,
+    "mod_t_fraction_ref2va": 0.09046,
+    "mod_t_rel_delta_by_chunk": [
+     0.114,
+     0.0854,
+     0.094,
+     0.1342,
+     0.067,
+     0.0858,
+     0.0825,
+     0.0788,
+     0.0772,
+     0.0893,
+     0.0898,
+     0.0752,
+     0.0802,
+     0.0568,
+     0.0655,
+     0.13,
+     0.0702,
+     0.0949
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04465,
-    "w_cos": -0.705004
+    "basis_dependent": {
+     "w_rel_delta": 1.84656,
+     "w_cos": -0.705004,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00509,
@@ -525,9 +971,38 @@
     "cos": 0.999445
    },
    "adaln": {
-    "w_rel_delta": 1.84176,
+    "mod_rel_delta": 0.04571,
+    "mod_cos": 0.999046,
+    "mod_t_rel_delta": 0.07565,
+    "mod_t_cos": 0.997167,
+    "mod_t_fraction_ref2va": 0.09671,
+    "mod_t_rel_delta_by_chunk": [
+     0.1152,
+     0.0928,
+     0.1006,
+     0.1327,
+     0.0723,
+     0.0945,
+     0.0883,
+     0.0737,
+     0.0772,
+     0.0901,
+     0.0915,
+     0.0758,
+     0.0835,
+     0.0536,
+     0.0538,
+     0.0988,
+     0.0593,
+     0.0899
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04533,
-    "w_cos": -0.695835
+    "basis_dependent": {
+     "w_rel_delta": 1.84176,
+     "w_cos": -0.695835,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00535,
@@ -555,9 +1030,38 @@
     "cos": 0.999438
    },
    "adaln": {
-    "w_rel_delta": 1.85668,
+    "mod_rel_delta": 0.04422,
+    "mod_cos": 0.999118,
+    "mod_t_rel_delta": 0.08313,
+    "mod_t_cos": 0.996551,
+    "mod_t_fraction_ref2va": 0.08487,
+    "mod_t_rel_delta_by_chunk": [
+     0.114,
+     0.0928,
+     0.102,
+     0.1323,
+     0.0807,
+     0.1041,
+     0.0843,
+     0.0779,
+     0.0771,
+     0.0873,
+     0.0899,
+     0.0753,
+     0.0936,
+     0.0591,
+     0.094,
+     0.1351,
+     0.0664,
+     0.0815
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04381,
-    "w_cos": -0.720422
+    "basis_dependent": {
+     "w_rel_delta": 1.85668,
+     "w_cos": -0.720422,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00519,
@@ -585,9 +1089,38 @@
     "cos": 0.99942
    },
    "adaln": {
-    "w_rel_delta": 1.84181,
+    "mod_rel_delta": 0.04398,
+    "mod_cos": 0.999126,
+    "mod_t_rel_delta": 0.07744,
+    "mod_t_cos": 0.99705,
+    "mod_t_fraction_ref2va": 0.09252,
+    "mod_t_rel_delta_by_chunk": [
+     0.1135,
+     0.0939,
+     0.1039,
+     0.1242,
+     0.0861,
+     0.1078,
+     0.0875,
+     0.0764,
+     0.078,
+     0.0867,
+     0.0955,
+     0.0754,
+     0.0856,
+     0.0638,
+     0.0655,
+     0.1024,
+     0.0498,
+     0.0721
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04358,
-    "w_cos": -0.699798
+    "basis_dependent": {
+     "w_rel_delta": 1.84181,
+     "w_cos": -0.699798,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00509,
@@ -615,9 +1148,38 @@
     "cos": 0.999424
    },
    "adaln": {
-    "w_rel_delta": 1.84488,
+    "mod_rel_delta": 0.04243,
+    "mod_cos": 0.99919,
+    "mod_t_rel_delta": 0.06903,
+    "mod_t_cos": 0.997654,
+    "mod_t_fraction_ref2va": 0.09995,
+    "mod_t_rel_delta_by_chunk": [
+     0.0944,
+     0.0751,
+     0.0938,
+     0.1282,
+     0.0886,
+     0.1184,
+     0.1002,
+     0.0766,
+     0.0781,
+     0.0895,
+     0.0909,
+     0.0752,
+     0.0804,
+     0.0528,
+     0.0502,
+     0.0953,
+     0.0439,
+     0.0681
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04208,
-    "w_cos": -0.705214
+    "basis_dependent": {
+     "w_rel_delta": 1.84488,
+     "w_cos": -0.705214,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00517,
@@ -645,9 +1207,38 @@
     "cos": 0.999443
    },
    "adaln": {
-    "w_rel_delta": 1.8436,
+    "mod_rel_delta": 0.04078,
+    "mod_cos": 0.999262,
+    "mod_t_rel_delta": 0.07042,
+    "mod_t_cos": 0.997571,
+    "mod_t_fraction_ref2va": 0.09424,
+    "mod_t_rel_delta_by_chunk": [
+     0.1211,
+     0.0963,
+     0.1159,
+     0.1342,
+     0.0955,
+     0.1221,
+     0.0783,
+     0.0768,
+     0.0785,
+     0.0883,
+     0.0901,
+     0.0764,
+     0.0839,
+     0.047,
+     0.0498,
+     0.1179,
+     0.0505,
+     0.0699
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04042,
-    "w_cos": -0.704032
+    "basis_dependent": {
+     "w_rel_delta": 1.8436,
+     "w_cos": -0.704032,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00518,
@@ -675,9 +1266,38 @@
     "cos": 0.999426
    },
    "adaln": {
-    "w_rel_delta": 1.85045,
+    "mod_rel_delta": 0.04266,
+    "mod_cos": 0.999177,
+    "mod_t_rel_delta": 0.07757,
+    "mod_t_cos": 0.997031,
+    "mod_t_fraction_ref2va": 0.08896,
+    "mod_t_rel_delta_by_chunk": [
+     0.1173,
+     0.0952,
+     0.1174,
+     0.1335,
+     0.0897,
+     0.1182,
+     0.086,
+     0.0787,
+     0.0788,
+     0.0867,
+     0.0842,
+     0.0772,
+     0.0934,
+     0.0618,
+     0.0615,
+     0.1178,
+     0.0515,
+     0.0704
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04227,
-    "w_cos": -0.710456
+    "basis_dependent": {
+     "w_rel_delta": 1.85045,
+     "w_cos": -0.710456,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00521,
@@ -705,9 +1325,38 @@
     "cos": 0.999419
    },
    "adaln": {
-    "w_rel_delta": 1.85571,
+    "mod_rel_delta": 0.04239,
+    "mod_cos": 0.999194,
+    "mod_t_rel_delta": 0.08256,
+    "mod_t_cos": 0.996622,
+    "mod_t_fraction_ref2va": 0.08346,
+    "mod_t_rel_delta_by_chunk": [
+     0.1151,
+     0.0956,
+     0.1236,
+     0.1327,
+     0.099,
+     0.1198,
+     0.086,
+     0.0807,
+     0.079,
+     0.0863,
+     0.0809,
+     0.0785,
+     0.0945,
+     0.0688,
+     0.0814,
+     0.1154,
+     0.0541,
+     0.0756
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04198,
-    "w_cos": -0.722153
+    "basis_dependent": {
+     "w_rel_delta": 1.85571,
+     "w_cos": -0.722153,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00518,
@@ -735,9 +1384,38 @@
     "cos": 0.999415
    },
    "adaln": {
-    "w_rel_delta": 1.84877,
+    "mod_rel_delta": 0.04171,
+    "mod_cos": 0.999222,
+    "mod_t_rel_delta": 0.07762,
+    "mod_t_cos": 0.997032,
+    "mod_t_fraction_ref2va": 0.08794,
+    "mod_t_rel_delta_by_chunk": [
+     0.11,
+     0.0919,
+     0.131,
+     0.1305,
+     0.0976,
+     0.1212,
+     0.0873,
+     0.0734,
+     0.0759,
+     0.0867,
+     0.0837,
+     0.0804,
+     0.0901,
+     0.0619,
+     0.0583,
+     0.1007,
+     0.0534,
+     0.0702
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.04131,
-    "w_cos": -0.710597
+    "basis_dependent": {
+     "w_rel_delta": 1.84877,
+     "w_cos": -0.710597,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00517,
@@ -765,9 +1443,38 @@
     "cos": 0.999414
    },
    "adaln": {
-    "w_rel_delta": 1.8536,
+    "mod_rel_delta": 0.03879,
+    "mod_cos": 0.999336,
+    "mod_t_rel_delta": 0.07319,
+    "mod_t_cos": 0.997363,
+    "mod_t_fraction_ref2va": 0.08729,
+    "mod_t_rel_delta_by_chunk": [
+     0.1132,
+     0.0964,
+     0.1314,
+     0.1311,
+     0.1024,
+     0.1278,
+     0.0879,
+     0.079,
+     0.0775,
+     0.0846,
+     0.0818,
+     0.0817,
+     0.0886,
+     0.0484,
+     0.0491,
+     0.1016,
+     0.0537,
+     0.0746
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.03841,
-    "w_cos": -0.715086
+    "basis_dependent": {
+     "w_rel_delta": 1.8536,
+     "w_cos": -0.715086,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00515,
@@ -795,9 +1502,38 @@
     "cos": 0.999403
    },
    "adaln": {
-    "w_rel_delta": 1.85379,
+    "mod_rel_delta": 0.03908,
+    "mod_cos": 0.999327,
+    "mod_t_rel_delta": 0.07471,
+    "mod_t_cos": 0.997254,
+    "mod_t_fraction_ref2va": 0.08588,
+    "mod_t_rel_delta_by_chunk": [
+     0.1038,
+     0.0942,
+     0.1339,
+     0.1276,
+     0.0872,
+     0.1194,
+     0.0867,
+     0.072,
+     0.0794,
+     0.0855,
+     0.0793,
+     0.0839,
+     0.0812,
+     0.0576,
+     0.0522,
+     0.0936,
+     0.0523,
+     0.072
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.03869,
-    "w_cos": -0.713345
+    "basis_dependent": {
+     "w_rel_delta": 1.85379,
+     "w_cos": -0.713345,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.005,
@@ -825,9 +1561,38 @@
     "cos": 0.9994
    },
    "adaln": {
-    "w_rel_delta": 1.85274,
+    "mod_rel_delta": 0.03524,
+    "mod_cos": 0.999468,
+    "mod_t_rel_delta": 0.06733,
+    "mod_t_cos": 0.997793,
+    "mod_t_fraction_ref2va": 0.08832,
+    "mod_t_rel_delta_by_chunk": [
+     0.094,
+     0.091,
+     0.1297,
+     0.1118,
+     0.0855,
+     0.1082,
+     0.0907,
+     0.0711,
+     0.0816,
+     0.0846,
+     0.0799,
+     0.088,
+     0.0798,
+     0.0439,
+     0.0424,
+     0.0985,
+     0.0588,
+     0.0725
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.03487,
-    "w_cos": -0.709503
+    "basis_dependent": {
+     "w_rel_delta": 1.85274,
+     "w_cos": -0.709503,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00515,
@@ -855,9 +1620,38 @@
     "cos": 0.999408
    },
    "adaln": {
-    "w_rel_delta": 1.87469,
+    "mod_rel_delta": 0.03183,
+    "mod_cos": 0.999584,
+    "mod_t_rel_delta": 0.07126,
+    "mod_t_cos": 0.997508,
+    "mod_t_fraction_ref2va": 0.07663,
+    "mod_t_rel_delta_by_chunk": [
+     0.0746,
+     0.0642,
+     0.0935,
+     0.1102,
+     0.0828,
+     0.1178,
+     0.0942,
+     0.0691,
+     0.0934,
+     0.089,
+     0.0809,
+     0.0917,
+     0.0803,
+     0.0524,
+     0.0562,
+     0.1026,
+     0.0569,
+     0.0731
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.03145,
-    "w_cos": -0.745834
+    "basis_dependent": {
+     "w_rel_delta": 1.87469,
+     "w_cos": -0.745834,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00487,
@@ -885,9 +1679,38 @@
     "cos": 0.999422
    },
    "adaln": {
-    "w_rel_delta": 1.88243,
+    "mod_rel_delta": 0.02895,
+    "mod_cos": 0.999665,
+    "mod_t_rel_delta": 0.0744,
+    "mod_t_cos": 0.997289,
+    "mod_t_fraction_ref2va": 0.06992,
+    "mod_t_rel_delta_by_chunk": [
+     0.0901,
+     0.0816,
+     0.0939,
+     0.1032,
+     0.077,
+     0.1298,
+     0.0965,
+     0.0689,
+     0.0961,
+     0.0888,
+     0.0799,
+     0.0953,
+     0.0819,
+     0.0584,
+     0.0609,
+     0.0873,
+     0.0519,
+     0.0775
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.02855,
-    "w_cos": -0.757352
+    "basis_dependent": {
+     "w_rel_delta": 1.88243,
+     "w_cos": -0.757352,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00486,
@@ -915,9 +1738,38 @@
     "cos": 0.999425
    },
    "adaln": {
-    "w_rel_delta": 1.89863,
+    "mod_rel_delta": 0.02481,
+    "mod_cos": 0.999778,
+    "mod_t_rel_delta": 0.07242,
+    "mod_t_cos": 0.997433,
+    "mod_t_fraction_ref2va": 0.06239,
+    "mod_t_rel_delta_by_chunk": [
+     0.0839,
+     0.0738,
+     0.1177,
+     0.1142,
+     0.0756,
+     0.1181,
+     0.0991,
+     0.0783,
+     0.0985,
+     0.0985,
+     0.0813,
+     0.0881,
+     0.0747,
+     0.0483,
+     0.0605,
+     0.0891,
+     0.0585,
+     0.0679
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.02444,
-    "w_cos": -0.781419
+    "basis_dependent": {
+     "w_rel_delta": 1.89863,
+     "w_cos": -0.781419,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00467,
@@ -945,9 +1797,38 @@
     "cos": 0.999414
    },
    "adaln": {
-    "w_rel_delta": 1.90906,
+    "mod_rel_delta": 0.02186,
+    "mod_cos": 0.999845,
+    "mod_t_rel_delta": 0.07014,
+    "mod_t_cos": 0.99762,
+    "mod_t_fraction_ref2va": 0.05819,
+    "mod_t_rel_delta_by_chunk": [
+     0.0851,
+     0.0763,
+     0.118,
+     0.12,
+     0.0906,
+     0.1105,
+     0.1085,
+     0.0832,
+     0.0944,
+     0.0977,
+     0.0799,
+     0.0828,
+     0.0784,
+     0.0437,
+     0.0499,
+     0.0915,
+     0.0587,
+     0.0757
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.02151,
-    "w_cos": -0.80297
+    "basis_dependent": {
+     "w_rel_delta": 1.90906,
+     "w_cos": -0.80297,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00465,
@@ -975,9 +1856,38 @@
     "cos": 0.999405
    },
    "adaln": {
-    "w_rel_delta": 1.91086,
+    "mod_rel_delta": 0.02045,
+    "mod_cos": 0.999869,
+    "mod_t_rel_delta": 0.06828,
+    "mod_t_cos": 0.997781,
+    "mod_t_fraction_ref2va": 0.05601,
+    "mod_t_rel_delta_by_chunk": [
+     0.0705,
+     0.0692,
+     0.1048,
+     0.1268,
+     0.0838,
+     0.093,
+     0.1005,
+     0.082,
+     0.0751,
+     0.0969,
+     0.0808,
+     0.079,
+     0.0732,
+     0.0427,
+     0.051,
+     0.0961,
+     0.0719,
+     0.0761
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.02012,
-    "w_cos": -0.796203
+    "basis_dependent": {
+     "w_rel_delta": 1.91086,
+     "w_cos": -0.796203,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00452,
@@ -1005,9 +1915,38 @@
     "cos": 0.999401
    },
    "adaln": {
-    "w_rel_delta": 1.91814,
+    "mod_rel_delta": 0.01848,
+    "mod_cos": 0.999906,
+    "mod_t_rel_delta": 0.06806,
+    "mod_t_cos": 0.997833,
+    "mod_t_fraction_ref2va": 0.05161,
+    "mod_t_rel_delta_by_chunk": [
+     0.0672,
+     0.0672,
+     0.1009,
+     0.1286,
+     0.0907,
+     0.0871,
+     0.1011,
+     0.0952,
+     0.0663,
+     0.0982,
+     0.0765,
+     0.0756,
+     0.0742,
+     0.0396,
+     0.0856,
+     0.1014,
+     0.0787,
+     0.0807
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01816,
-    "w_cos": -0.812128
+    "basis_dependent": {
+     "w_rel_delta": 1.91814,
+     "w_cos": -0.812128,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00451,
@@ -1035,9 +1974,38 @@
     "cos": 0.99939
    },
    "adaln": {
-    "w_rel_delta": 1.92035,
+    "mod_rel_delta": 0.01763,
+    "mod_cos": 0.999918,
+    "mod_t_rel_delta": 0.06665,
+    "mod_t_cos": 0.997932,
+    "mod_t_fraction_ref2va": 0.0501,
+    "mod_t_rel_delta_by_chunk": [
+     0.0709,
+     0.0693,
+     0.0876,
+     0.1384,
+     0.0605,
+     0.0853,
+     0.1004,
+     0.0739,
+     0.0622,
+     0.0983,
+     0.0768,
+     0.0723,
+     0.0857,
+     0.045,
+     0.0617,
+     0.0967,
+     0.0794,
+     0.0707
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01733,
-    "w_cos": -0.806865
+    "basis_dependent": {
+     "w_rel_delta": 1.92035,
+     "w_cos": -0.806865,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00442,
@@ -1065,9 +2033,38 @@
     "cos": 0.999402
    },
    "adaln": {
-    "w_rel_delta": 1.91915,
+    "mod_rel_delta": 0.01667,
+    "mod_cos": 0.999932,
+    "mod_t_rel_delta": 0.06202,
+    "mod_t_cos": 0.998241,
+    "mod_t_fraction_ref2va": 0.05192,
+    "mod_t_rel_delta_by_chunk": [
+     0.0686,
+     0.0655,
+     0.0949,
+     0.115,
+     0.0424,
+     0.08,
+     0.0986,
+     0.0712,
+     0.0571,
+     0.0923,
+     0.0845,
+     0.0797,
+     0.0771,
+     0.0406,
+     0.0618,
+     0.1036,
+     0.0839,
+     0.0755
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01638,
-    "w_cos": -0.803351
+    "basis_dependent": {
+     "w_rel_delta": 1.91915,
+     "w_cos": -0.803351,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00438,
@@ -1095,9 +2092,38 @@
     "cos": 0.999424
    },
    "adaln": {
-    "w_rel_delta": 1.91692,
+    "mod_rel_delta": 0.01643,
+    "mod_cos": 0.999934,
+    "mod_t_rel_delta": 0.06179,
+    "mod_t_cos": 0.998304,
+    "mod_t_fraction_ref2va": 0.05178,
+    "mod_t_rel_delta_by_chunk": [
+     0.0637,
+     0.0606,
+     0.0867,
+     0.0884,
+     0.0469,
+     0.0747,
+     0.1008,
+     0.0757,
+     0.0546,
+     0.0903,
+     0.0973,
+     0.0862,
+     0.0866,
+     0.0437,
+     0.0629,
+     0.0921,
+     0.0763,
+     0.0742
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01614,
-    "w_cos": -0.80069
+    "basis_dependent": {
+     "w_rel_delta": 1.91692,
+     "w_cos": -0.80069,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00441,
@@ -1125,9 +2151,38 @@
     "cos": 0.999444
    },
    "adaln": {
-    "w_rel_delta": 1.90844,
+    "mod_rel_delta": 0.0164,
+    "mod_cos": 0.999936,
+    "mod_t_rel_delta": 0.05754,
+    "mod_t_cos": 0.99855,
+    "mod_t_fraction_ref2va": 0.05619,
+    "mod_t_rel_delta_by_chunk": [
+     0.0635,
+     0.0512,
+     0.0661,
+     0.0646,
+     0.0608,
+     0.0666,
+     0.103,
+     0.0669,
+     0.0508,
+     0.0855,
+     0.0998,
+     0.089,
+     0.0785,
+     0.0417,
+     0.0685,
+     0.0986,
+     0.0729,
+     0.0836
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.0161,
-    "w_cos": -0.785102
+    "basis_dependent": {
+     "w_rel_delta": 1.90844,
+     "w_cos": -0.785102,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00445,
@@ -1155,9 +2210,38 @@
     "cos": 0.999463
    },
    "adaln": {
-    "w_rel_delta": 1.91038,
+    "mod_rel_delta": 0.01627,
+    "mod_cos": 0.999937,
+    "mod_t_rel_delta": 0.05758,
+    "mod_t_cos": 0.998603,
+    "mod_t_fraction_ref2va": 0.05537,
+    "mod_t_rel_delta_by_chunk": [
+     0.0649,
+     0.0518,
+     0.0575,
+     0.0531,
+     0.0625,
+     0.0586,
+     0.1115,
+     0.0615,
+     0.0498,
+     0.0803,
+     0.1044,
+     0.0815,
+     0.095,
+     0.0504,
+     0.0727,
+     0.0923,
+     0.0714,
+     0.0775
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01598,
-    "w_cos": -0.79005
+    "basis_dependent": {
+     "w_rel_delta": 1.91038,
+     "w_cos": -0.79005,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00436,
@@ -1185,9 +2269,38 @@
     "cos": 0.99945
    },
    "adaln": {
-    "w_rel_delta": 1.90284,
+    "mod_rel_delta": 0.01552,
+    "mod_cos": 0.999945,
+    "mod_t_rel_delta": 0.05327,
+    "mod_t_cos": 0.99884,
+    "mod_t_fraction_ref2va": 0.05845,
+    "mod_t_rel_delta_by_chunk": [
+     0.0616,
+     0.041,
+     0.061,
+     0.0596,
+     0.0719,
+     0.0503,
+     0.1023,
+     0.0575,
+     0.047,
+     0.0795,
+     0.1019,
+     0.079,
+     0.0971,
+     0.0499,
+     0.076,
+     0.09,
+     0.074,
+     0.0785
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01523,
-    "w_cos": -0.771794
+    "basis_dependent": {
+     "w_rel_delta": 1.90284,
+     "w_cos": -0.771794,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00425,
@@ -1215,9 +2328,38 @@
     "cos": 0.999456
    },
    "adaln": {
-    "w_rel_delta": 1.91416,
+    "mod_rel_delta": 0.01488,
+    "mod_cos": 0.999951,
+    "mod_t_rel_delta": 0.05448,
+    "mod_t_cos": 0.99883,
+    "mod_t_fraction_ref2va": 0.05492,
+    "mod_t_rel_delta_by_chunk": [
+     0.0656,
+     0.0463,
+     0.0702,
+     0.0684,
+     0.0882,
+     0.0536,
+     0.097,
+     0.0613,
+     0.0448,
+     0.0766,
+     0.085,
+     0.0886,
+     0.0824,
+     0.0494,
+     0.0718,
+     0.0901,
+     0.0768,
+     0.0881
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.0146,
-    "w_cos": -0.784126
+    "basis_dependent": {
+     "w_rel_delta": 1.91416,
+     "w_cos": -0.784126,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.0042,
@@ -1245,9 +2387,38 @@
     "cos": 0.999464
    },
    "adaln": {
-    "w_rel_delta": 1.91624,
+    "mod_rel_delta": 0.01501,
+    "mod_cos": 0.999952,
+    "mod_t_rel_delta": 0.05545,
+    "mod_t_cos": 0.998802,
+    "mod_t_fraction_ref2va": 0.054,
+    "mod_t_rel_delta_by_chunk": [
+     0.0685,
+     0.049,
+     0.0635,
+     0.0664,
+     0.0928,
+     0.0533,
+     0.0986,
+     0.0554,
+     0.0456,
+     0.0753,
+     0.0923,
+     0.0837,
+     0.0899,
+     0.0494,
+     0.0822,
+     0.0886,
+     0.0806,
+     0.0899
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01473,
-    "w_cos": -0.790584
+    "basis_dependent": {
+     "w_rel_delta": 1.91624,
+     "w_cos": -0.790584,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.0042,
@@ -1275,9 +2446,38 @@
     "cos": 0.999477
    },
    "adaln": {
-    "w_rel_delta": 1.92025,
+    "mod_rel_delta": 0.01497,
+    "mod_cos": 0.999953,
+    "mod_t_rel_delta": 0.05675,
+    "mod_t_cos": 0.998725,
+    "mod_t_fraction_ref2va": 0.053,
+    "mod_t_rel_delta_by_chunk": [
+     0.0655,
+     0.0484,
+     0.0618,
+     0.0649,
+     0.0837,
+     0.0532,
+     0.0972,
+     0.0546,
+     0.0454,
+     0.0793,
+     0.0895,
+     0.0849,
+     0.0935,
+     0.0593,
+     0.0893,
+     0.1046,
+     0.0918,
+     0.096
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01468,
-    "w_cos": -0.791895
+    "basis_dependent": {
+     "w_rel_delta": 1.92025,
+     "w_cos": -0.791895,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00411,
@@ -1305,9 +2505,38 @@
     "cos": 0.999517
    },
    "adaln": {
-    "w_rel_delta": 1.91918,
+    "mod_rel_delta": 0.01504,
+    "mod_cos": 0.999953,
+    "mod_t_rel_delta": 0.05794,
+    "mod_t_cos": 0.998673,
+    "mod_t_fraction_ref2va": 0.05332,
+    "mod_t_rel_delta_by_chunk": [
+     0.0684,
+     0.0477,
+     0.0657,
+     0.0545,
+     0.0772,
+     0.0559,
+     0.0944,
+     0.0607,
+     0.0481,
+     0.0825,
+     0.0781,
+     0.0781,
+     0.0954,
+     0.0524,
+     0.0769,
+     0.0841,
+     0.0922,
+     0.1026
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01474,
-    "w_cos": -0.791362
+    "basis_dependent": {
+     "w_rel_delta": 1.91918,
+     "w_cos": -0.791362,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00418,
@@ -1335,9 +2564,38 @@
     "cos": 0.99953
    },
    "adaln": {
-    "w_rel_delta": 1.91638,
+    "mod_rel_delta": 0.01487,
+    "mod_cos": 0.999954,
+    "mod_t_rel_delta": 0.05395,
+    "mod_t_cos": 0.998851,
+    "mod_t_fraction_ref2va": 0.0568,
+    "mod_t_rel_delta_by_chunk": [
+     0.0658,
+     0.038,
+     0.054,
+     0.0468,
+     0.0739,
+     0.0524,
+     0.0978,
+     0.0626,
+     0.0455,
+     0.0721,
+     0.0733,
+     0.0748,
+     0.0995,
+     0.0557,
+     0.079,
+     0.0979,
+     0.0895,
+     0.1117
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01457,
-    "w_cos": -0.779323
+    "basis_dependent": {
+     "w_rel_delta": 1.91638,
+     "w_cos": -0.779323,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00403,
@@ -1365,9 +2623,38 @@
     "cos": 0.999551
    },
    "adaln": {
-    "w_rel_delta": 1.91665,
+    "mod_rel_delta": 0.01465,
+    "mod_cos": 0.99996,
+    "mod_t_rel_delta": 0.05541,
+    "mod_t_cos": 0.998819,
+    "mod_t_fraction_ref2va": 0.05569,
+    "mod_t_rel_delta_by_chunk": [
+     0.0675,
+     0.0475,
+     0.0473,
+     0.0437,
+     0.0604,
+     0.0568,
+     0.0984,
+     0.0558,
+     0.046,
+     0.0735,
+     0.0693,
+     0.0717,
+     0.1032,
+     0.0631,
+     0.0802,
+     0.1005,
+     0.0853,
+     0.1064
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01435,
-    "w_cos": -0.78059
+    "basis_dependent": {
+     "w_rel_delta": 1.91665,
+     "w_cos": -0.78059,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00432,
@@ -1395,9 +2682,38 @@
     "cos": 0.999548
    },
    "adaln": {
-    "w_rel_delta": 1.90988,
+    "mod_rel_delta": 0.01497,
+    "mod_cos": 0.999956,
+    "mod_t_rel_delta": 0.05429,
+    "mod_t_cos": 0.998886,
+    "mod_t_fraction_ref2va": 0.0583,
+    "mod_t_rel_delta_by_chunk": [
+     0.0587,
+     0.0411,
+     0.0448,
+     0.0426,
+     0.059,
+     0.0489,
+     0.096,
+     0.0616,
+     0.0445,
+     0.0626,
+     0.063,
+     0.075,
+     0.1132,
+     0.064,
+     0.0733,
+     0.0819,
+     0.0817,
+     0.1133
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01465,
-    "w_cos": -0.766552
+    "basis_dependent": {
+     "w_rel_delta": 1.90988,
+     "w_cos": -0.766552,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00398,
@@ -1425,9 +2741,38 @@
     "cos": 0.999583
    },
    "adaln": {
-    "w_rel_delta": 1.91079,
+    "mod_rel_delta": 0.01435,
+    "mod_cos": 0.999962,
+    "mod_t_rel_delta": 0.05342,
+    "mod_t_cos": 0.99892,
+    "mod_t_fraction_ref2va": 0.0582,
+    "mod_t_rel_delta_by_chunk": [
+     0.0574,
+     0.0352,
+     0.0454,
+     0.04,
+     0.0586,
+     0.0449,
+     0.0936,
+     0.0523,
+     0.046,
+     0.057,
+     0.0624,
+     0.0676,
+     0.1205,
+     0.0636,
+     0.0655,
+     0.0781,
+     0.0696,
+     0.0969
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01403,
-    "w_cos": -0.754714
+    "basis_dependent": {
+     "w_rel_delta": 1.91079,
+     "w_cos": -0.754714,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00407,
@@ -1455,9 +2800,38 @@
     "cos": 0.999631
    },
    "adaln": {
-    "w_rel_delta": 1.9096,
+    "mod_rel_delta": 0.01395,
+    "mod_cos": 0.999967,
+    "mod_t_rel_delta": 0.05177,
+    "mod_t_cos": 0.998998,
+    "mod_t_fraction_ref2va": 0.05895,
+    "mod_t_rel_delta_by_chunk": [
+     0.0595,
+     0.04,
+     0.0437,
+     0.0404,
+     0.0505,
+     0.0416,
+     0.0778,
+     0.05,
+     0.0458,
+     0.0537,
+     0.0531,
+     0.0626,
+     0.0913,
+     0.0573,
+     0.0646,
+     0.0779,
+     0.0577,
+     0.0726
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.01364,
-    "w_cos": -0.750983
+    "basis_dependent": {
+     "w_rel_delta": 1.9096,
+     "w_cos": -0.750983,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00398,
@@ -1485,9 +2859,38 @@
     "cos": 0.999656
    },
    "adaln": {
-    "w_rel_delta": 1.91467,
+    "mod_rel_delta": 0.01525,
+    "mod_cos": 0.999953,
+    "mod_t_rel_delta": 0.05592,
+    "mod_t_cos": 0.998629,
+    "mod_t_fraction_ref2va": 0.06057,
+    "mod_t_rel_delta_by_chunk": [
+     0.0571,
+     0.0437,
+     0.0509,
+     0.0368,
+     0.0369,
+     0.0355,
+     0.0807,
+     0.0589,
+     0.0524,
+     0.0513,
+     0.0502,
+     0.058,
+     0.1012,
+     0.0593,
+     0.061,
+     0.0933,
+     0.0682,
+     0.0554
+    ],
+    "zero_chunks": [],
     "b_rel_delta": 0.0149,
-    "w_cos": -0.741912
+    "basis_dependent": {
+     "w_rel_delta": 1.91467,
+     "w_cos": -0.741912,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.004,
@@ -1515,9 +2918,43 @@
     "cos": 0.999671
    },
    "adaln": {
-    "w_rel_delta": 1.91638,
+    "mod_rel_delta": 0.01844,
+    "mod_cos": 0.999905,
+    "mod_t_rel_delta": 0.05734,
+    "mod_t_cos": 0.998438,
+    "mod_t_fraction_ref2va": 0.06747,
+    "mod_t_rel_delta_by_chunk": [
+     0.0642,
+     0.0422,
+     0.0528,
+     0.048,
+     0.0221,
+     0.034,
+     0.0965,
+     0.0617,
+     NaN,
+     NaN,
+     NaN,
+     NaN,
+     0.0907,
+     0.0725,
+     0.0516,
+     0.145,
+     0.0689,
+     0.1223
+    ],
+    "zero_chunks": [
+     8,
+     9,
+     10,
+     11
+    ],
     "b_rel_delta": 0.01807,
-    "w_cos": -0.763291
+    "basis_dependent": {
+     "w_rel_delta": 1.91638,
+     "w_cos": -0.763291,
+     "note": "coefficients on two differently-signed bases; not comparable"
+    }
    },
    "norms_rel_delta": {
     "norm1": 0.00483,
@@ -1894,7 +3331,15 @@
   },
   "final_layer.adaln_proj.linear.weight": {
    "rel_delta": 1.90478,
-   "cos": -0.830208
+   "cos": -0.830208,
+   "basis_dependent": true
+  },
+  "final_layer.adaln_proj (modulation)": {
+   "mod_rel_delta": 0.0326,
+   "mod_cos": 0.999571,
+   "mod_t_rel_delta": 0.12425,
+   "mod_t_cos": 0.992791,
+   "mod_t_fraction_ref2va": 0.04434
   },
   "final_layer.video_out.weight": {
    "rel_delta": 0.05031,
@@ -1909,62 +3354,89 @@
    "cos": 0.99985
   }
  },
- "hybrid_adaln_delta_energy_fraction": {
-  "b15-49": 0.9114,
-  "b20-49": 0.8839,
-  "b25-49": 0.8548,
-  "b30-49": 0.8127
+ "adaln_t_table": {
+  "shape": [
+   1025,
+   8
+  ],
+  "rel_delta": 0.01835,
+  "column_cos": [
+   1.0,
+   0.99998,
+   0.99593,
+   0.99597,
+   -0.99967,
+   -0.99971,
+   -0.99066,
+   -0.99071
+  ],
+  "fl_column_norms": [
+   7.0825,
+   2.0938,
+   0.7463,
+   0.4698,
+   0.0468,
+   0.0149,
+   0.004,
+   0.0021
+  ]
  },
- "adaln_delta_energy_by_block": [
-  0.00808,
-  0.00752,
-  0.00768,
-  0.00795,
-  0.00633,
-  0.00592,
-  0.0055,
-  0.00484,
-  0.00509,
-  0.00505,
-  0.00464,
-  0.005,
-  0.00502,
-  0.00493,
-  0.00506,
-  0.00528,
-  0.00527,
-  0.00529,
-  0.00542,
-  0.00619,
-  0.00602,
-  0.00556,
-  0.00557,
-  0.00559,
-  0.00638,
-  0.00625,
-  0.00733,
-  0.008,
-  0.00879,
-  0.01176,
-  0.01505,
-  0.01643,
-  0.02126,
-  0.02354,
-  0.02755,
-  0.02706,
-  0.02754,
-  0.02665,
-  0.03088,
-  0.03227,
-  0.03476,
-  0.03915,
-  0.04184,
-  0.0443,
-  0.04728,
-  0.04646,
-  0.05911,
-  0.0762,
-  0.08115,
-  0.09423
+ "hybrid_adaln_mod_t_delta_energy_fraction": {
+  "b15-49": 0.8303,
+  "b20-49": 0.7743,
+  "b25-49": 0.7159,
+  "b30-49": 0.6523
+ },
+ "adaln_mod_t_delta_energy_by_block": [
+  0.01179,
+  0.01181,
+  0.01252,
+  0.0132,
+  0.01225,
+  0.01157,
+  0.0108,
+  0.01049,
+  0.01076,
+  0.01064,
+  0.01061,
+  0.01097,
+  0.0107,
+  0.01071,
+  0.01088,
+  0.01109,
+  0.01112,
+  0.01083,
+  0.01132,
+  0.01164,
+  0.01178,
+  0.01154,
+  0.01162,
+  0.01168,
+  0.01179,
+  0.01161,
+  0.01222,
+  0.01246,
+  0.013,
+  0.01424,
+  0.01578,
+  0.01599,
+  0.01842,
+  0.01883,
+  0.02078,
+  0.02075,
+  0.02155,
+  0.02093,
+  0.02341,
+  0.02348,
+  0.02537,
+  0.02912,
+  0.03251,
+  0.03394,
+  0.03697,
+  0.03799,
+  0.04704,
+  0.05789,
+  0.06593,
+  0.08567
  ]
 }

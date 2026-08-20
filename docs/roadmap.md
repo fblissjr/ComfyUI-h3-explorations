@@ -158,8 +158,9 @@ of the four shipped tiers hit a common ratio exactly, which the default
 MEASURED by `bench/analyze_ref_lora.py`. Coverage is exact: 474/474 modules,
 zero unmatched either direction. Reconstruction splits on the **int8
 boundary, not on rank** -- 64 non-quantized modules reconstruct at residual
-0.0022 and cosine 1.0000, and those include the 51 rank-8 adaln projections
-which are also the *most rewritten* modules in the model. The 200 int8 modules
+0.0022 and cosine 1.0000, and those include the 51 rank-8 adaln projections.
+(Until 2026-08-20 this sentence added "which are also the *most rewritten*
+modules in the model"; withdrawn, see the hybrid section below.) The 200 int8 modules
 are **not gradeable** from these artifacts: the delta is ~0.36 quantization
 steps RMS and the only available target differences two independently
 quantized checkpoints.
@@ -194,18 +195,37 @@ community framing is "hybrid models"; the reality is narrower:
   strongly anti-correlated between parents (cos -0.71 to -0.83) but the *bias*
   is cos ~0.9995 and dominates. It is a small broad perturbation, only
   ~1.3-2x more targeted at reference rows than at ordinary video rows.
+
+  > **2026-08-20: the anti-correlation is an artifact, not a real feature
+  > the bias happens to mask.** The two checkpoints' `adaln_t_table` bases
+  > agree in sign on columns 0-3 and are sign-flipped on columns 4-7
+  > (per-column cosine +1, +1, +0.996, +0.996, -0.9997, -0.9997, -0.99,
+  > -0.99), and the coefficient columns on the flipped basis columns are
+  > the large-norm ones. Compared at the modulation output, where the
+  > basis is applied, the *time-varying* part of the modulation differs
+  > 5-9% per block with cosine 0.996-0.999, and the whole output 1.4-4.7%
+  > -- the same 1.1-4.7% this bullet measured, now without a mechanism
+  > that was wrong. `bench/results/2026-08-20_dit_internals.json`.
 - **It cannot be a reference-pathway transplant.** `adaln_proj`'s input is an
   8-dim timestep coordinate from the shared `adaln_t_table`; reference rows are
   distinguished only by being pinned at `VISUAL_COND_TIMESTEP`. It carries no
   reference image content.
-- It deliberately leaves `final_layer.adaln_proj` on fl2va -- **the single
-  most-rewritten tensor between the parents** (rel_delta 1.92).
+- It deliberately leaves `final_layer.adaln_proj` on fl2va -- ~~the single
+  most-rewritten tensor between the parents (rel_delta 1.92)~~ **withdrawn
+  2026-08-20**: same coefficient-level artifact as above. At the modulation
+  output the final layer's time-varying part differs ~12%, the largest
+  single adaln item but not "rewritten".
 
-**So it does coarsely, in four fixed steps and skipping the most-changed
-tensor, what the ref LoRA does exactly and continuously across all 51 adaln
-projections plus `final_layer`.** Both routes independently agree that adaln is
-the only thing meaningfully different between the parents. Evidence behind the
-community praise is three comments, no samples, no numbers.
+**So it does coarsely, in four fixed steps, what the ref LoRA does exactly
+and continuously across all 51 adaln projections plus `final_layer`.**
+~~Both routes independently agree that adaln is the only thing meaningfully
+different between the parents.~~ **Withdrawn 2026-08-20.** The int8 linears
+differ ~3.2% relative between the parents and the modulation output 1.4-4.7%;
+nothing at the weight level singles adaln out, and the hybrids keep fl2va's
+linears, which differ from ref2va's by as much as the adaln they swap. The
+2026-08-16 byte-comparison and the 1.1-4.7% figure stand; the reading that
+adaln was *the* difference does not. Evidence behind the community praise is
+three comments, no samples, no numbers.
 
 **Not worth the 84 GB**: any variant is reproducible from files already on disk
 by copying those tensors between two safetensors. The discrete block-selective
@@ -371,6 +391,18 @@ coherence on one pair.
    **not** close, and a 16-bit PV stays on the table. Block 49 climbs
    monotonically toward convergence (49.42%, 55.56%, 62.20%), which is the
    clearest trajectory signal in the set.
+
+   > **2026-08-20: block 49 attributed, at the input level.**
+   > `bench/analyze_head_magnitudes.py` on both captures: block 49's Q and K
+   > are concentrated in four channels (K: 82, 34, 67, 19 carry ~93% of the
+   > energy across heads; block 40's loudest carries ~1.4%), per-head K rms
+   > spans ~2.2 to ~32 where every other captured block is flat, and the
+   > heads with the largest K and Q rms are the heads with the largest INT8
+   > error (Spearman ~0.4-0.5; ~0 against V). The channels are where
+   > `attn.k_norm.weight` peaks at ~37 and ~31 against an rms of ~5, identical
+   > in fl2va and ref2va to ~0.3%. A weights property of the release, present
+   > in both checkpoints, and **not** a fl2va-vs-ref2va differentiator.
+   > `bench/results/2026-08-20_head_magnitudes.json`.
 
    All twelve rows were re-measured after the eager reference was found to
    diverge from the vendored oracle and fixed; the numbers above are the

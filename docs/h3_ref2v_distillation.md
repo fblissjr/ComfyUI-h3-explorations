@@ -162,10 +162,16 @@ shared. So an fl2v turbo LoRA loads onto the ref2va checkpoint with zero
 unmatched keys and **nothing errors**. This is the same silent-success failure
 class `bench/check_distill_settings.py` was written for.
 
-**The LoRA does not touch where the checkpoints differ most.** The delta is a
-fairly uniform 3 to 5 percent across all 50 blocks, with two exceptions: RMS
-norm weights move about 0.5 percent, and `final_layer.adaln_proj.linear.weight`
-moves **1.92**, i.e. it is essentially rewritten. The turbo LoRAs touch 208
+**The LoRA does not touch the modulation path at all.** The delta is a
+fairly uniform 3 to 5 percent across all 50 blocks, with one exception: RMS
+norm weights move about 0.5 percent. (This paragraph used to name a second
+exception, `final_layer.adaln_proj.linear.weight` at **1.92**, "essentially
+rewritten". Withdrawn 2026-08-20: these are curve-form checkpoints, and that
+number compared coefficient matrices sitting on `adaln_t_table` bases whose
+columns 4-7 differ in sign between the parents. At the modulation output the
+final layer differs ~3% overall and ~12% in its time-varying part -- the
+largest adaln item, and the same order as the linears.
+`bench/results/2026-08-20_dit_internals.json`.) The turbo LoRAs touch 208
 modules, all of them `attn.qkv_proj`, `attn.out_proj`, `mlp.fc1` and `mlp.fc2`
 in the 50 blocks plus the 2 token-refiner blocks. They do not touch
 `final_layer`, per-block `adaln_proj`, the norms, the patch projections or
@@ -183,9 +189,10 @@ Measured 2026-08-13 by reading the safetensors headers, no GPU:
 | `minimax_h3_turbo_4step_ema_ckpt850` | 259 | same shape as v4 | 64 / 16 |
 
 The 51 extra modules are the 50 per-block `adaln_proj.linear` **and
-`final_layer.adaln_proj.linear`** -- which is to say, precisely the modules
-named two paragraphs above as where the two checkpoints differ most, the one
-whose delta norm is 1.92 and is therefore essentially rewritten.
+`final_layer.adaln_proj.linear`** -- the modulation path, which the official
+LoRAs leave alone. (The sentence here used to say these are "where the two
+checkpoints differ most"; withdrawn 2026-08-20 with the 1.92 figure above.
+They differ there by a few percent, like everywhere else.)
 
 A separate low rank for that path (16, against 64 for attention and MLP) is a
 deliberate design decision, not an artifact of how the LoRA was extracted.

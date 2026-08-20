@@ -2486,11 +2486,12 @@ seed. The variable is which turbo LoRA, and it is not a small one.
 | this one (v4 600 ema) | **259** | those **plus 51 `adaln_proj.linear`** | 64, adaln at **16** |
 
 Those 51 extra modules are the 50 per-block `adaln_proj` and
-`final_layer.adaln_proj` -- which `docs/h3_ref2v_distillation.md` measured as
-the place fl2va and ref2va differ MOST, the last one at a relative delta of
-1.92, i.e. rewritten. So the official LoRA leaves the conditioning-modulation
-path untouched on a checkpoint whose modulation is the thing that changed,
-and this one adapts it at a deliberately separate low rank.
+`final_layer.adaln_proj` -- the conditioning-modulation path, which the
+official LoRA leaves untouched and this one adapts at a deliberately
+separate low rank. (Until 2026-08-20 this note called that path "the place
+fl2va and ref2va differ MOST"; withdrawn, the figure behind it compared
+curve-form coefficients on differently-signed bases. At the modulation
+output the parents differ by a few percent there, as they do everywhere.)
 
 **Why the pack's own two nodes instead of `LoraLoaderModelOnly`.** Our base is
 *pruned*. This LoRA's time conditioning has to be re-injected at run time from
@@ -2933,9 +2934,10 @@ applies with zero unmatched keys and no warning.
   distillation target moved about 120x further than the adapter reaches.
 - The LoRA touches only `attn.qkv_proj`, `attn.out_proj`, `mlp.fc1` and
   `mlp.fc2`. It does **not** touch `final_layer`, `adaln_proj`, the norms or
-  the patch projections -- which is exactly where the two checkpoints differ
-  most (`final_layer.adaln_proj` is essentially rewritten). So expect
-  degradation, not garbage. NaN or noise means a wiring error, not this.
+  the patch projections. (A claim that those are "where the two checkpoints
+  differ most" was withdrawn 2026-08-20; they differ by a few percent there,
+  as the linears do.) So expect degradation, not garbage. NaN or noise means
+  a wiring error, not this.
 - fl2v conditioning sits at the target's own rotary coordinates; a reference
   does not, and pushes the target's origin by 1 to 1206 units.
 

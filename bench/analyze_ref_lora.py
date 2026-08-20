@@ -31,10 +31,15 @@ norm and `.diff_b` on every bias. It is a whole-model delta, not an adapter.
 is what makes the result readable:
 
   64 non-quantized modules   residual 0.0022, cosine 1.0000  -- essentially
-                             exact. Includes all 51 rank-8 adaln projections,
-                             which are also the MOST rewritten modules
-                             (relative delta 1.86; final_layer.adaln_proj is
-                             1.92, i.e. replaced rather than adjusted).
+                             exact. Includes all 51 rank-8 adaln projections.
+                             (An earlier version of this line called those
+                             "the MOST rewritten modules", relative delta
+                             1.86-1.92. Withdrawn 2026-08-20: the curve-form
+                             coefficient matrices sit on bases whose columns
+                             differ in sign between the parents, so that
+                             delta is an artifact; at the modulation output
+                             the parents differ by a few percent. See
+                             bench/analyze_checkpoint_delta.py.)
 
   200 int8 modules           NOT GRADEABLE. See below.
 

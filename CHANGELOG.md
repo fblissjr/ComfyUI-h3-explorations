@@ -4,6 +4,79 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.43.0
+
+### Changed
+
+- **"AdaLN is replaced in every block" is withdrawn; the two checkpoints'
+  modulation differs by a few percent, like everything else.** The
+  2026-08-18 checkpoint-internals record compared `adaln_proj.linear.weight`
+  between fl2va and ref2va directly and reported rel-delta ~1.9 with negative
+  cosine at every depth, a "flat" delta-energy profile, and the HF hybrids as
+  a linear dial on that energy. These are curve-form checkpoints: the block
+  consumes `adaln_t_table[t] @ W.T + b`, the two files were factorised
+  separately, and their bases are sign-flipped on columns 4-7 (per-column
+  cosine +1, +1, +0.996, +0.996, -0.9997, -0.9997, -0.99, -0.99). The
+  large-norm coefficient columns sit on the flipped basis columns, so the
+  coefficient comparison was measuring the factorisation, and the energy
+  profile was the squared norm of the sign flip -- and was not flat even on
+  its own numbers.
+
+  `bench/analyze_checkpoint_delta.py` now compares the modulation output over
+  the whole time grid, in float64, and reports the stored coefficients only
+  under `basis_dependent`. `bench/results/2026-08-20_dit_internals.json`:
+  per block, the whole modulation differs 1.4-4.7% (tracking the bias, which
+  is 90-95% of its norm), the time-varying part 5-9% with cosine
+  0.996-0.999, the final layer's time-varying part ~12% -- the same order as
+  the ~3.2% int8 linears. Every linear, norm, scale and global field of the
+  2026-08-18 record reproduces exactly, which is the port control; that
+  record carries a `retraction_2026-08-20` key naming the withdrawn fields.
+  Block 49's text-row modulation (`gate_msa`, `shift_mlp`, `scale_mlp`,
+  `gate_mlp` for tag 1) is exactly zero in both checkpoints, recorded as the
+  one structurally special thing about that block at the weight level.
+
+  Consumers corrected in place: `docs/roadmap.md` (the 2026-08-16 hybrid
+  section already had the right 1.1-4.7% figure under the wrong mechanism,
+  and its "adaln is the only thing meaningfully different" reading goes with
+  it), `docs/h3_ref2v_distillation.md`, two comments in
+  `workflows/h3_config.py`, `bench/analyze_ref_lora.py`, and two
+  generated-graph notes. `docs/evidence.md` carries the row and two new
+  `retraction-consumers` phrases.
+
+- **Block 49's INT8 anomaly is attributed to its inputs, and it is in both
+  checkpoints.** `bench/analyze_head_magnitudes.py`, new, reads the captured
+  q/k/v on CPU and joins per-head magnitude statistics to the 2026-08-19
+  per-head error record, refusing a record from a different capture or a
+  head-prefix record. `bench/results/2026-08-20_head_magnitudes.json`, on
+  the 2026-08-17 (fl2va + ref LoRA) and 2026-08-18 (ref2va) captures at
+  step 3: block 49's per-head K rms spans ~2.2 to ~32 where blocks 24 and
+  40 are flat; its K energy sits ~93% in four channels (82, 34, 67, 19)
+  where block 40's loudest channel carries ~1.4%; the heads with the
+  largest Q and K rms are the heads with the largest INT8 error (Spearman
+  ~0.4-0.5, ~0 against V). The channels are where `attn.k_norm.weight`
+  peaks at ~37 and ~31 against an rms of ~5 (mid-depth blocks peak ~1.9
+  against ~1.7), and the gains match between fl2va and ref2va to ~0.3%.
+  Both captures show the same structure. So the anomaly is a property of
+  the released weights and not a fl2va-vs-ref2va differentiator; the step
+  from "a few loud channels" to "INT8 per-block error" is an inference, and
+  no capture on clean fl2va exists. Closes forward item 2 of the 2026-08-19
+  postmortem at the input level rather than the output level it asked for.
+
+- **The lightx2v turbo LoRAs live in per-repo folders, and the SLA release
+  has a probe.** `TURBO_LORA` and `TURBO_768P_LORA` carry the
+  `h3/lightx2v_Minimax-h3-Turbo/` prefix and the 18 graphs that load them are
+  regenerated. `TURBO_SLA_LORA` is new: header-identical to the 768p v1.0
+  (624 tensors, attn+mlp, rank 128, alpha 128, fl2va base), distilled under a
+  top-k block router at an 85% sparsity ratio per its model card and
+  LightX2V's config. `h3_probe_turbo_768p_sla.json` is the 768p v1.0 graph
+  with only the LoRA swapped, Sol on; its note names the three attention
+  regimes none of which is measured. `bench/check_distill_settings.py` gains
+  the SLA row at 6/3 and 4 steps, graded against the LightX2V config that
+  loads it because the Turbo README has no SLA row, after verifying that
+  config's `infer_steps = N + 1` convention on the rows both sources share.
+  The v1.1 768p upload stays unclassified: no vendor row attests its shift,
+  and the self-test asserts it is refused.
+
 ## 0.42.0
 
 ### Changed

@@ -954,10 +954,13 @@ REF_LORA_STRENGTH = 1.0
 #   RECONSTRUCTION splits on the INT8 BOUNDARY, not on rank:
 #                 * 64 non-quantized modules -- residual 0.0022, cosine
 #                   1.0000. Essentially exact, and this includes all 51 rank-8
-#                   adaln projections, which are ALSO the most-rewritten
-#                   modules in the model (relative delta 1.86; final_layer's
-#                   is 1.92, i.e. replaced rather than adjusted). The parts
-#                   that change most are the parts reconstructed best.
+#                   adaln projections. (This comment used to call those "the
+#                   most-rewritten modules in the model", relative delta
+#                   1.86-1.92. Withdrawn 2026-08-20: those deltas compared
+#                   curve-form coefficients on bases that differ in sign, and
+#                   at the modulation output the parents differ by a few
+#                   percent -- `bench/results/2026-08-20_dit_internals.json`.
+#                   The reconstruction result stands; the superlative does not.)
 #                 * 200 int8 modules -- NOT GRADEABLE from these files. The
 #                   LoRA's delta there is ~0.36 quantization steps RMS, below
 #                   the half-step needed to resolve it, and the only available
