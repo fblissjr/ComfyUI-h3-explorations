@@ -4268,6 +4268,23 @@ def main():
               out_prefix="Video/h3_probe_capture_ref3"),
          "3 references spanning 0.78-4.23 MP; the h3_capture.py target"),
 
+        # The same capture on the fl2va checkpoint with no LoRA: the control
+        # the block-49 attribution was missing. The 2026-08-17 capture was
+        # fl2va + the ref LoRA and the 2026-08-18 one ref2va, so "the loud
+        # heads are a property of the released weights, not of ref2va" rested
+        # on the gains matching between checkpoints rather than on a clean
+        # fl2va observation. Same prompt, references, canvas, length and seed
+        # as the twin above, so the only thing that differs is the unet. fl2va
+        # was not trained on reference rows; that is fine for a capture, whose
+        # question is what the attention inputs look like, not whether the
+        # clip is good. Sol off for the same reason as the twin.
+        ("h3_probe_capture_ref3_fl2va.json", "probe-capture-ref3-fl2va", "r2v",
+         _ref_prompt(images=("character", "garment", "environment")),
+         dict(**REF_VIDEO_BUDGET, ref_images=CAPTURE_REF_IMAGES,
+              sol_on=False, unet=MODELS["unet_fl2va"],
+              out_prefix="Video/h3_probe_capture_ref3_fl2va"),
+         "the capture twin on fl2va with no LoRA; the missing block-49 control"),
+
         ("h3_ref_video_edit.json", "r2v-edit", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="edit"),
          dict(**REF_VIDEO_BUDGET, ref_video=True, ref_images_on=False,

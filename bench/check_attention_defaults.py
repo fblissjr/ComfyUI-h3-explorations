@@ -109,6 +109,10 @@ SOL_EXEMPT_STEMS = {
         "baseline is measured from, and Sol gives sage only the steps outside "
         "its sigma window, so a capture taken through Sol is a different "
         "trajectory than the analysis assumes",
+    "h3_probe_capture_ref3_fl2va":
+        "the same capture on the fl2va checkpoint with no LoRA, the control "
+        "for whether block 49's input structure is a property of the released "
+        "weights rather than of ref2va; Sol off for the same reason as its twin",
 }
 
 
