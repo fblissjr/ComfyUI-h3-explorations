@@ -136,10 +136,18 @@ class MiniMaxH3SageAttention(io.ComfyNode):
                 for i, b in enumerate(diffusion_model.token_refiner.blocks)
             ]
 
-        for path, attn in targets:
+        for i, (path, attn) in enumerate(targets):
             m.add_object_patch(
                 f"{path}.attn.forward", forward.__get__(attn, attn.__class__)
             )
+            # Stamp the block index for `h3_capture`. The capture module used
+            # to derive it from first-seen call order, which is correct within
+            # one loaded model and silently wrong the moment a graph swaps
+            # checkpoints between renders -- see the note there. `targets` is
+            # already in block order, and the token-refiner blocks (appended
+            # after, only when patched) continue the numbering rather than
+            # colliding with block 0.
+            attn._h3_block_index = i
 
         # Also register an optimized_attention_override. The forward patch
         # above handles every call on its own, so this never fires when our

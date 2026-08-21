@@ -137,9 +137,25 @@ def maybe_capture(module, q, k, v, length_hint=None):
         return
     import torch
 
+    # Prefer the index the patching loop stamped on the module. First-seen
+    # ordering below is the fallback and it is WRONG ACROSS A MODEL SWAP: the
+    # ids belong to the modules of whichever checkpoint was loaded, so the
+    # first render after a swap assigns 50..99 to the new blocks, no requested
+    # index matches, `block == 0` never fires again, and the render counter
+    # jams. Capture then stops silently for the rest of the process.
+    #
+    # Found 2026-08-21 on the open-experiment-22 arms, which swap checkpoints
+    # between renders by design: the first two arms captured, the remaining
+    # nine wrote nothing and the only symptom was empty directories. The
+    # module comment used to argue against a patch-time tag because it "would
+    # put a capture concern into the patching loop". It is worth that -- the
+    # alternative was an instrument that quietly stops.
+    tagged = getattr(module, "_h3_block_index", None)
     key = id(module)
     with _lock:
-        if key not in _block_of:
+        if tagged is not None:
+            _block_of[key] = tagged
+        elif key not in _block_of:
             _block_of[key] = len(_block_of)
         block = _block_of[key]
 
