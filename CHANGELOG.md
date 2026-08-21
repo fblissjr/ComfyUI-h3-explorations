@@ -90,6 +90,16 @@ captures taken on the fl2va+LoRA path.
   row-permutation defect, because fp8's scale is a scalar and the gap is
   uniform across module kinds.
 
+- **`docs/research/official_weights_metadata.md`**: the published release read
+  beside the code that consumes it. Seven H3-specific special tokens
+  (`<d>`, `</d>`, the cutoff, lyrics and caption markers) are declared by the
+  release's tokenizer config and absent from the one ComfyUI bundles, so a
+  prompt using them is tokenized as ordinary text; the embedding rows for them
+  ship in the encoders we already run. The partition split is in the weights,
+  not in sglang. Records what was checked and found clean: the two transformer
+  configs are identical, the layer-50 tap matches, patch geometry and scheduler
+  shifts match.
+
 ### Changed
 
 - **The vendor-side authority for reference conditioning is sglang, not
