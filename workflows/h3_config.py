@@ -1021,17 +1021,33 @@ CAPTURE_REF_IMAGES = (
 #
 # `bench/` and `archive/` are deliberately NOT here. The stamped bench graphs
 # read another pack's closure internals and are expected to break; the archive
-# is history. Neither should be graded against the live schema.
+# is history. Neither should be graded against the live SCHEMA.
 GRAPH_DIRS: tuple[str, ...] = ("", "image")
 
+# What `bench/` is exempt from is schema grading, and only that. A bench graph
+# naming a model file that no longer exists is not schema drift -- it is the
+# same broken graph a shipped one would be, and on 2026-08-21 the three stamped
+# graphs carried the deleted video VAE exactly as the shipped ones did. So the
+# directory is reachable through `graph_paths(include_bench=True)` rather than
+# through a second glob somewhere: `bench/check_graph_discovery.py` forbids a
+# check from enumerating graphs itself, and the way to widen coverage is to
+# widen this function, never to work around it.
+BENCH_GRAPH_DIRS: tuple[str, ...] = ("bench",)
 
-def graph_paths(workflows, pattern: str = "*.json") -> list:
+
+def graph_paths(workflows, pattern: str = "*.json", include_bench: bool = False) -> list:
     """Every shipped graph under `workflows`, in a stable order.
 
     `workflows` is the repo's `workflows/` directory as a `pathlib.Path`.
     Returns paths, sorted within each directory, root first.
+
+    `include_bench=True` adds `workflows/bench/`. Pass it when the property
+    being checked is true of ANY graph -- a model file that exists, a node id
+    that resolves -- and leave it off when the property is about the shipped
+    set, which is what schema grading is.
     """
+    dirs = GRAPH_DIRS + (BENCH_GRAPH_DIRS if include_bench else ())
     out = []
-    for sub in GRAPH_DIRS:
+    for sub in dirs:
         out += sorted((workflows / sub if sub else workflows).glob(pattern))
     return out

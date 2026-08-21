@@ -29,10 +29,15 @@ artifact.
   grades every model name in a shipped graph and in `h3_config` against what
   the live server offers **for that node class**, so a VAE name under
   `UNETLoader` fails though both files exist. Four controls run every
-  invocation; `workflows/bench/` is out of scope because `GRAPH_DIRS` excludes
-  it, and the check says so rather than implying coverage.
-  `docs/checks.md` gains its row and retires the matching
+  invocation, including a bench-only defect replayed to confirm the widened
+  coverage fires. `docs/checks.md` gains its row and retires the matching
   uncontrolled-requirement line.
+- **`h3_config.graph_paths()` takes `include_bench`**, so `workflows/bench/`
+  is reachable by the checks whose property is true of any graph while staying
+  out of schema grading, which is what `GRAPH_DIRS` actually exempts it from.
+  The flag went on the shared discovery function rather than a glob in the
+  check, because `check_graph_discovery.py` forbids the second and widening
+  coverage should widen the one function every walker goes through.
 
 ## 0.47.0
 

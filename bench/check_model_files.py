@@ -30,14 +30,19 @@ normal case in this install.
   constants   every model name in `h3_config.MODELS`, plus `IMAGE_VAE`, is
               offered by the class that loads it.
 
-## Scope, stated because it is smaller than it looks
+## Scope
 
-Discovery is `h3_config.graph_paths()`, so this covers `workflows/` and
-`workflows/image/` -- the shipped set. **`workflows/bench/` is NOT covered**,
-because `GRAPH_DIRS` deliberately excludes it, and the stamped bench graphs
-carried the deleted VAE too. If a bench graph names a missing file, this check
-stays green. Fixing that means changing what `GRAPH_DIRS` means, which is a
-larger decision than this check.
+Discovery is `h3_config.graph_paths(include_bench=True)`: `workflows/`,
+`workflows/image/` AND `workflows/bench/`. The bench directory sits outside
+`GRAPH_DIRS` because it is exempt from *schema* grading -- its stamped graphs
+read another pack's closure internals and are expected to break against the
+live schema. That exemption does not extend here. A bench graph naming a file
+that no longer exists is not schema drift, it is the same broken graph a
+shipped one would be, and on 2026-08-21 the three stamped graphs carried the
+deleted video VAE exactly as the shipped ones did.
+
+`workflows/archive/` stays out: it is history, and history is allowed to name
+files that are gone.
 
 ## Controls
 
@@ -153,7 +158,7 @@ def main() -> int:
         return 2
 
     items = []
-    for p in graph_paths(WORKFLOWS):
+    for p in graph_paths(WORKFLOWS, include_bench=True):
         for nid, cls, name in names_in_graph(json.loads(p.read_text())):
             items.append((f"{p.relative_to(WORKFLOWS.parent)}#{nid}", cls, name))
     for key, cls in CONSTANT_CLASS.items():
@@ -163,7 +168,8 @@ def main() -> int:
 
     failures = grade(items, oi)
     print(f"{len(items)} model reference(s) from "
-          f"{len(graph_paths(WORKFLOWS))} shipped graph(s) and h3_config")
+          f"{len(graph_paths(WORKFLOWS, include_bench=True))} graph(s) "
+          f"(shipped, image and bench) and h3_config")
 
     both_forms = {"X": {"input": {
         "required": {"legacy": [["legacy_only.safetensors"], {}]},
