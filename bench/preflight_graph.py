@@ -74,6 +74,7 @@ sys.path.insert(0, str(_REPO))
 sys.path.insert(0, str(_REPO / "bench"))
 
 import h3_rules  # noqa: E402
+import vendor_config  # noqa: E402
 
 # The ordinal rule lives in the label check and must not have a second copy
 # here -- a soundtrack's <Audio j> is emitted before its own <Video k>, and a
@@ -390,11 +391,13 @@ def price(node: dict, graph: dict) -> list[str]:
         tw, th = fit(iw, ih, scale)
         r = rows(tw, th)
         ref_total += r
+        bound_notes = _vision_bound_warnings(key, tw, th)
         note = "  (fit was a no-op)" if fitted and scale == 1.0 else ""
         if not fitted:
             note = "  (no fit node: core clamps, never upscales)"
         lines.append(f"  ref image {r:>8,}  {fname} {iw}x{ih} -> {tw}x{th}"
                      f"{note}")
+        lines.extend(bound_notes)
     if ref_total:
         lines.append(f"  refs      {ref_total:>8,}  total DiT reference rows")
 
@@ -596,6 +599,67 @@ def report_attention_chain(graph):
         pass
     return lines
 
+
+
+# ComfyUI's smart-resize bounds, read from source rather than restated, so this
+# goes stale loudly if the shared helper's defaults ever move. They are the
+# signature defaults of `process_qwen2vl_images` and of `process_video_block`;
+# nothing in the H3 path overrides them. `docs/h3_references.md` owns the
+# comparison against what the release declares.
+_COMFY_BOUND_RE = re.compile(
+    r"min_pixels\s*[:=]\s*int\s*=\s*(\d+)|min_pixels\s*=\s*(\d+)")
+
+
+def _comfy_image_bounds():
+    """(min_pixels, max_pixels) as ComfyUI's shared helper defaults them.
+
+    Returns None when the source cannot be read. A caller that treats that as
+    "no problem found" would be reporting silence as clearance, which is the
+    failure this whole file exists to avoid, so the caller says so instead.
+    """
+    for rel in ("comfy/text_encoders/qwen_vl.py",):
+        # Same root the prompt-guide reader below resolves, and computed rather
+        # than written down: this file is committed and a machine's layout is
+        # not a property of the project.
+        path = Path.home() / "ComfyUI" / rel
+        if not path.exists():
+            continue
+        text = path.read_text()
+        lo = re.search(r"min_pixels:\s*int\s*=\s*(\d+)", text)
+        hi = re.search(r"max_pixels:\s*int\s*=\s*(\d+)", text)
+        if lo and hi:
+            return int(lo.group(1)), int(hi.group(1))
+    return None
+
+
+def _vision_bound_warnings(key, tw, th):
+    """Warn when a reference will hit a bound ComfyUI and the release disagree on.
+
+    Neither bound binds on any graph this repo ships -- the fit node puts every
+    reference at a 2048 short edge, which is above the release's floor and below
+    ComfyUI's ceiling until roughly 3:1. This exists to say WHEN that stops
+    being true, because the fix for it is a monkeypatch nobody should write on
+    speculation.
+    """
+    out = []
+    pixels = tw * th
+    rel_lo, rel_hi = vendor_config.image_pixel_bounds()
+    comfy = _comfy_image_bounds()
+    if comfy is None:
+        return [f"  {key}: could not read ComfyUI's pixel bounds; the "
+                f"release/ComfyUI comparison was NOT made for this reference"]
+    c_lo, c_hi = comfy
+    if pixels > c_hi >= 0 and c_hi < rel_hi:
+        out.append(
+            f"  {key}: WARN {tw}x{th} is {pixels:,} px, above ComfyUI's "
+            f"{c_hi:,} ceiling but inside the release's {rel_hi:,}. The "
+            f"conditioner will shrink it; the released pipeline would not.")
+    if pixels < rel_lo and pixels >= c_lo:
+        out.append(
+            f"  {key}: WARN {tw}x{th} is {pixels:,} px, under the release's "
+            f"{rel_lo:,} floor but above ComfyUI's {c_lo:,}. The released "
+            f"pipeline would enlarge it to the floor; the conditioner will not.")
+    return out
 
 def main() -> int:
     paths = [Path(p) for p in sys.argv[1:]]
