@@ -104,6 +104,30 @@ def _descriptors(path: Path) -> dict:
     out["centroid_hz"] = float((freqs * power).sum() / power.sum())
     cum = torch.cumsum(power, 0) / power.sum()
     out["rolloff85_hz"] = float(freqs[int((cum >= 0.85).nonzero()[0])])
+
+    # The top band split by whether anyone is talking. A whole-clip top-band
+    # number is ambiguous between two opposite things: bright consonants, and
+    # hiss. They separate here, because sibilance only happens on speech and a
+    # noise floor is there the whole time.
+    #
+    # **The gaps row is a control, not a second finding.** If two arms differ
+    # by some overall filter, their silence differs too. If the arms match in
+    # the gaps and split during speech, the difference is on the voice rather
+    # than on the recording, and that is the only reading under which the
+    # speech row means anything.
+    per_frame = spec.pow(2)                       # [freq, frame], pre-average
+    frame_energy = per_frame.sum(0)
+    lo_q, hi_q = torch.quantile(frame_energy, torch.tensor([0.25, 0.75]))
+    top = (freqs >= 4000) & (freqs < 16000)
+
+    def _top_share(mask):
+        if not bool(mask.any()):
+            return float("nan")
+        p = per_frame[:, mask].mean(1)
+        return float(p[top].sum() / p.sum())
+
+    out["top_speech"] = _top_share(frame_energy >= hi_q)
+    out["top_gaps"] = _top_share(frame_energy <= lo_q)
     return out
 
 

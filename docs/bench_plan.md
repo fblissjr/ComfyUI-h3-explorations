@@ -858,6 +858,33 @@ assume the release-conformant arm is the good one because it is conformant.
 1100. Something in that arm is unstable across seeds in a way vendortokens is
 not, and nobody has looked at it.
 
+### What the top band actually is, added 2026-08-21
+
+A whole-clip top-band number is ambiguous between two opposite things: bright
+consonants, and hiss. So the band was split by whether anyone is talking --
+frames in the top quartile of energy against frames in the bottom quartile.
+
+| | stock | official tokens | separation / spread |
+|---|---|---|---|
+| top band **during speech** | 0.1095 | 0.0513 | **3.26** |
+| top band **in the gaps** | 0.0531 | 0.0535 | **0.01** |
+
+**The gaps row is the control and it is why the speech row means anything.**
+Two arms differing by an overall filter would differ in their silence too.
+These are identical to two decimals, so the difference is on the voice and not
+on the recording. Per-clip the speech figures do not overlap either: stock
+0.083-0.138 against 0.028-0.064.
+
+Stated plainly: **registering the tokens makes the model's consonants softer.**
+Not quieter, not muffled, not less intelligible -- less sibilance on the s and
+t. That also reconciles the measurement with the owner's ear, which had
+reported the stock clips as harsh; the earlier note that the numbers pointed
+the opposite way was reading "tin can" as narrowband when the audible feature
+was consonant harshness.
+
+Same two caveats as above: post-hoc, and silent on which arm is better. Softer
+consonants could be more natural or could be lost articulation.
+
 ## Deliberately not planned
 
 - **CUDA vs Triton e2e, ours.** Confirmatory only: the migration already

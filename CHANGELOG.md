@@ -4,6 +4,29 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.48.6
+
+### Added
+
+- **`grade_arm_audio_spectrum.py` splits the top band by whether anyone is
+  talking**, because a whole-clip figure is ambiguous between bright consonants
+  and hiss and those are opposite findings. Frames in the top quartile of
+  energy against frames in the bottom quartile.
+  **The gaps row is a control, not a second result**: arms differing by an
+  overall filter would differ in their silence too. Measured on the marker
+  batch, speech separates at 3.26 and the gaps at 0.01, so the difference is on
+  the voice rather than the recording. Without that row the speech number could
+  not be read at all.
+
+### Changed
+
+- **`docs/bench_plan.md` Run 6 carries what the top band is.** Registering the
+  seven tokens makes the model's consonants softer -- less sibilance, not less
+  intelligibility. That also reconciles the measurement with the owner's ear:
+  the earlier note claiming the numbers pointed opposite to what was heard was
+  reading "tin can" as narrowband when the audible feature was consonant
+  harshness.
+
 ## 0.48.5
 
 ### Added
