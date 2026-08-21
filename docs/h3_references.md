@@ -265,7 +265,7 @@ it reaches the two towers.** Everything downstream of the resize matches.
 | resampler | PIL LANCZOS (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:181-203`) | `common_upscale(..., "lanczos")` on the tensor (`comfy_extras/nodes_minimax_h3.py:64-68`) | same intent |
 | orientation | `ImageOps.exif_transpose` on open (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:886-887`) | none — a tensor arrives already decoded | not applicable |
 | one image, two towers | the identical prepared image feeds Qwen `pixel_values` and the visual-condition tokenizer, cached on the batch (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:840-846`) | the same `resized` tensor goes to `vae.encode` and into `ref_items` (`comfy_extras/nodes_minimax_h3.py:304-306`) | **yes** |
-| patchify | delegated to the HF `image_processor`; token count from `image_grid_thw.prod()` over `merge_size` squared (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:457-467`) | reimplemented: `patch_size=16`, `temporal_patch_size=2`, `merge_size=2`, `min_pixels=3136`, `max_pixels=12845056` (`comfy/text_encoders/minimax.py:35-66`) | **yes**, same policy |
+| patchify | delegated to the HF `image_processor`, which reads the release's own `processor/preprocessor_config.json` | reimplemented, with the geometry right and two bounds taken from Qwen2-VL's defaults (`comfy/text_encoders/minimax.py:35-66`, `comfy/text_encoders/qwen3vl.py:62-68`) | **algorithm yes, constants no** |
 | presentation | `<Picture i>: ` then a vision block, no chat template (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/presentation.py:104`) | the same string, the same place (`comfy/text_encoders/minimax.py:164`) | **yes** |
 | packing | ref blocks in request order, target timeline starts past their spans (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py:274-320`) | `_ref_t_span` does the same (`comfy/ldm/minimax/model.py:335-338`) | **yes** |
 | condition timestep | 0.999, applied as `max(t_video, aug)` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:24`) | 0.999, applied as `max(t_v, vis_aug)` (`comfy/ldm/minimax/model.py:32`) | **yes** |
@@ -273,14 +273,53 @@ it reaches the two towers.** Everything downstream of the resize matches.
 
 **Three consequences worth carrying away.**
 
-Patchification is not what shrinks anything. Its ceiling is the same on both
-sides and a vendor-sized reference passes through untouched. A reference that
-reaches the DiT small was made small by the resize, not by the tokenizer — so
-"Qwen sees it in patches" is not a mechanism for a quality loss, and patchified
-images are what the model was conditioned on in the first place.
+**The smart-resize bounds do not match the release, found 2026-08-21.** The
+patch geometry does: `patch_size=16`, `temporal_patch_size=2`, `merge_size=2`
+and the 0.5 mean/std are the same on both sides, and ComfyUI passes 16
+explicitly rather than inheriting Qwen2-VL's 14
+(`comfy/text_encoders/qwen3vl.py:62-68`). The **pixel bounds** do not. The
+release ships them in `processor/preprocessor_config.json` as
+`size.shortest_edge` / `size.longest_edge`, which is how the fast Qwen2-VL
+processor spells min and max pixels; ComfyUI leaves
+`process_qwen2vl_images` on its Qwen2-VL defaults and
+`process_video_block` on the same pair.
 
-The partition refusal is a fact about the release, not about ComfyUI being
-wrong. sglang reads `partition` out of `model_index.json._minimax_h3` and
+| bound | H3 release | ComfyUI |
+|---|---|---|
+| image min pixels | 65,536 | 3,136 |
+| image max pixels | 16,777,216 | 12,845,056 |
+| video min pixels | 4,096 | 3,136 |
+| video max pixels | 25,165,824 | 12,845,056 |
+
+Both edges bite, in opposite directions, and only on reference images —
+nothing else in this path is near either bound. **Above:** a reference at the
+vendor's 2048 short edge crosses ComfyUI's ceiling at roughly 3:1 and is
+silently shrunk, while the release would carry it to 4:1, which is the widest
+ratio the reference resize accepts at all. **Below:** the release *enlarges*
+anything under 65,536 pixels to reach that floor; ComfyUI's floor is twenty
+times lower, so a small reference is under-tokenized rather than raised. That
+is a second, independent way a small reference arrives smaller than the
+release intends, on top of the `min(1.0, ...)` clamp — and unlike the clamp,
+`MiniMaxH3ReferenceFit` does not close it, because it operates before the
+tokenizer.
+
+**Being seen in patches is still not a mechanism for anything.** The bounds
+above are a sizing difference wearing the tokenizer's clothes: they decide how
+big the image is before it is cut up, not how it is cut up. Patchified images
+are what the model was conditioned on in the first place, on every
+implementation, so "Qwen sees it in patches rather than natively" describes the
+training distribution rather than a departure from it. What can cost you is
+arriving at the tokenizer a different size than the release would have chosen —
+which is the resize, and now also the floor.
+
+The partition refusal is a fact about the release, and **the release itself is
+where it comes from** — confirmed 2026-08-21 by reading the official
+weights rather than sglang's reader. MiniMax ships two partitioned entry
+points beside the shared components, and each carries a `_minimax_h3` block in
+its own `model_index.json`: the fl2va one declares `tasks: ["t2va", "fl2va"]`,
+the ref2va one declares `tasks: ["ref2va"]` and nothing else. So "ref2va is not
+a text-to-video model" is the vendor's own metadata, not an inference from a
+serving implementation. sglang reads that `partition` field and
 raises when the requested task does not belong to it, which is why a `t2va`
 request against the `ref2va` partition is refused rather than served badly.
 ComfyUI has no such gate: a plain t2v graph will load `ref2va` and render. Read
