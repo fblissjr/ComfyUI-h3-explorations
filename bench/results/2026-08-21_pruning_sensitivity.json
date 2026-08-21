@@ -1,0 +1,295 @@
+{
+  "date": "2026-08-21",
+  "experiment": "docs/open_experiments.md #22",
+  "what": "pruned vs unpruned AdaLN at a fixed first-step forward",
+  "canvas": "768x768, 124 frames, seed 730451892, 1 sampler step",
+  "capture_dir": "2026-08-21_pruning",
+  "floor": {
+    "arms": [
+      "ref3_ref2va_pruned",
+      "ref3_ref2va_pruned_repeat"
+    ],
+    "velocity": {
+      "audio": {
+        "rel_l2": 0.0,
+        "cosine": 1.0,
+        "max_abs": 0.0
+      },
+      "video": {
+        "rel_l2": 0.0,
+        "cosine": 1.0000000000000047,
+        "max_abs": 0.0
+      }
+    },
+    "note": "same checkpoint twice, so this is the pipeline's own non-determinism and the scale everything else is read against"
+  },
+  "S": {
+    "fl2va/t2v": {
+      "audio": {
+        "rel_l2": 0.0613935635298281,
+        "cosine": 0.9984123991712285,
+        "max_abs": 0.71875
+      },
+      "video": {
+        "rel_l2": 0.06883705487761511,
+        "cosine": 0.9976549545026121,
+        "max_abs": 1.0
+      }
+    },
+    "fl2va/ref3": {
+      "audio": {
+        "rel_l2": 0.06290991853000051,
+        "cosine": 0.9981534176370088,
+        "max_abs": 0.8515625
+      },
+      "video": {
+        "rel_l2": 0.09350805156434674,
+        "cosine": 0.9958881726730076,
+        "max_abs": 1.40625
+      }
+    },
+    "ref2va/t2v": {
+      "audio": {
+        "rel_l2": 0.04169741552237624,
+        "cosine": 0.9991429582476156,
+        "max_abs": 0.5
+      },
+      "video": {
+        "rel_l2": 0.05594080944257721,
+        "cosine": 0.9984344013463374,
+        "max_abs": 0.75
+      }
+    },
+    "ref2va/ref3": {
+      "audio": {
+        "rel_l2": 0.03858825076381533,
+        "cosine": 0.9993320220999569,
+        "max_abs": 0.71875
+      },
+      "video": {
+        "rel_l2": 0.08047025497450574,
+        "cosine": 0.9975928773822607,
+        "max_abs": 1.46875
+      }
+    }
+  },
+  "depth": {
+    "fl2va": {
+      "0": {
+        "q": {
+          "rel_l2": 0.011762706227809987,
+          "cosine": 0.9999308209471078,
+          "max_abs": 0.17578125
+        },
+        "k": {
+          "rel_l2": 0.011438719579540173,
+          "cosine": 0.999934577203068,
+          "max_abs": 0.1875
+        },
+        "v": {
+          "rel_l2": 0.013842868707430315,
+          "cosine": 0.9999426572780288,
+          "max_abs": 1.5
+        }
+      },
+      "12": {
+        "q": {
+          "rel_l2": 0.029277656428201324,
+          "cosine": 0.9995714190603975,
+          "max_abs": 0.84375
+        },
+        "k": {
+          "rel_l2": 0.028918231588290343,
+          "cosine": 0.9995818720479172,
+          "max_abs": 0.609375
+        },
+        "v": {
+          "rel_l2": 0.03418178632720191,
+          "cosine": 0.9994161900532036,
+          "max_abs": 2.125
+        }
+      },
+      "24": {
+        "q": {
+          "rel_l2": 0.04060459543771086,
+          "cosine": 0.9991756379291399,
+          "max_abs": 2.267578125
+        },
+        "k": {
+          "rel_l2": 0.03613975710383871,
+          "cosine": 0.9993469603953887,
+          "max_abs": 1.6875
+        },
+        "v": {
+          "rel_l2": 0.050706795998666974,
+          "cosine": 0.9987237041186101,
+          "max_abs": 13.875
+        }
+      },
+      "36": {
+        "q": {
+          "rel_l2": 0.17374076801052646,
+          "cosine": 0.9849073514717435,
+          "max_abs": 10.78125
+        },
+        "k": {
+          "rel_l2": 0.14187994569427323,
+          "cosine": 0.9899352759611832,
+          "max_abs": 11.625
+        },
+        "v": {
+          "rel_l2": 0.26242793473985576,
+          "cosine": 0.9655481981848719,
+          "max_abs": 326.0
+        }
+      },
+      "49": {
+        "q": {
+          "rel_l2": 0.08590282007722841,
+          "cosine": 0.9963650081912329,
+          "max_abs": 68.375
+        },
+        "k": {
+          "rel_l2": 0.03450655930506686,
+          "cosine": 0.9994045315537878,
+          "max_abs": 161.0
+        },
+        "v": {
+          "rel_l2": 0.27719727980077524,
+          "cosine": 0.9612237345164123,
+          "max_abs": 710.0
+        }
+      }
+    },
+    "ref2va": {
+      "0": {
+        "q": {
+          "rel_l2": 0.011849528068039863,
+          "cosine": 0.9999297936871289,
+          "max_abs": 0.22265625
+        },
+        "k": {
+          "rel_l2": 0.012052366944295446,
+          "cosine": 0.9999273703871998,
+          "max_abs": 0.28125
+        },
+        "v": {
+          "rel_l2": 0.012732538120321577,
+          "cosine": 0.999921243053641,
+          "max_abs": 1.0
+        }
+      },
+      "12": {
+        "q": {
+          "rel_l2": 0.024897421109779314,
+          "cosine": 0.9996900692418496,
+          "max_abs": 0.94140625
+        },
+        "k": {
+          "rel_l2": 0.024822374289765414,
+          "cosine": 0.9996919305729302,
+          "max_abs": 0.9375
+        },
+        "v": {
+          "rel_l2": 0.02932199450716723,
+          "cosine": 0.9995711854487159,
+          "max_abs": 2.25
+        }
+      },
+      "24": {
+        "q": {
+          "rel_l2": 0.035146662531070294,
+          "cosine": 0.9993823599385983,
+          "max_abs": 2.37890625
+        },
+        "k": {
+          "rel_l2": 0.03200663790317221,
+          "cosine": 0.9994877919967219,
+          "max_abs": 2.08203125
+        },
+        "v": {
+          "rel_l2": 0.0438481139940593,
+          "cosine": 0.9990417913617365,
+          "max_abs": 20.0
+        }
+      },
+      "36": {
+        "q": {
+          "rel_l2": 0.1479792713365172,
+          "cosine": 0.9890518200137904,
+          "max_abs": 10.375
+        },
+        "k": {
+          "rel_l2": 0.12057816832921263,
+          "cosine": 0.992730827358709,
+          "max_abs": 12.0
+        },
+        "v": {
+          "rel_l2": 0.22598210974293087,
+          "cosine": 0.9744076028618754,
+          "max_abs": 407.0
+        }
+      },
+      "49": {
+        "q": {
+          "rel_l2": 0.08120264620326735,
+          "cosine": 0.996697739572954,
+          "max_abs": 77.125
+        },
+        "k": {
+          "rel_l2": 0.03482409882001818,
+          "cosine": 0.9993936681134509,
+          "max_abs": 162.0
+        },
+        "v": {
+          "rel_l2": 0.2745131857793633,
+          "cosine": 0.9629604004110647,
+          "max_abs": 716.0
+        }
+      }
+    }
+  },
+  "fp8_ref": {
+    "fl2va": {
+      "audio": {
+        "rel_l2": 0.11305413583961739,
+        "cosine": 0.9935958617756812,
+        "max_abs": 2.375
+      },
+      "video": {
+        "rel_l2": 0.2052065070671868,
+        "cosine": 0.9830078164130583,
+        "max_abs": 1.8984375
+      }
+    },
+    "ref2va": {
+      "audio": {
+        "rel_l2": 0.07291564315800321,
+        "cosine": 0.9973722350558191,
+        "max_abs": 0.625
+      },
+      "video": {
+        "rel_l2": 0.12178039024956382,
+        "cosine": 0.9927892068026022,
+        "max_abs": 2.09375
+      }
+    }
+  },
+  "decision": {
+    "floor_video_rel_l2": 0.0,
+    "S_fl2va_ref3": 0.09350805156434674,
+    "S_ref2va_ref3": 0.08047025497450574,
+    "ratio_ref2va_over_fl2va": 0.8605703319476274,
+    "fp8_reference_min": 0.12178039024956382,
+    "both_above_10x_floor": true,
+    "profile_opens_late": true,
+    "verdict": "refuted",
+    "why": "the ratio sits in [0.5, 2] with both values above the floor"
+  },
+  "caveats": [
+    "The determinism floor is EXACTLY zero: the repeat arm reproduced its twin bit for bit across a full checkpoint reload, both arms genuinely rendered (sampler 14.9 s and 19.7 s, neither flagged as a cache hit). A fixed-input first-step forward is bit-deterministic on this box.",
+    "That makes the entry's '10x floor' test degenerate -- with a floor of zero any non-zero value passes it, so that clause discriminated nothing here. It did not matter: the measured values are percent-scale, not noise-scale.",
+    "This is a first-step forward, not a render. It says the velocity differs; it says nothing about how that difference propagates over a full schedule, and nothing about whether anyone could see it. A perceptual claim would need its own blind session under docs/eval_comparison.md section 3.",
+    "The entry's pre-registered prediction was S under 1% on both checkpoints. Measured: 5.6% to 9.4%. The prediction was wrong by roughly an order of magnitude and is recorded as wrong rather than quietly dropped."
+  ]
+}
