@@ -4,6 +4,42 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.48.4
+
+### Added
+
+- **`bench/grade_h3_marker_tokens.py`**, which answers whether routing `<d>` to
+  its real id changes what the encoder produces. Not a render: `CLAUDE.md`'s
+  different-sample rule means two arms differing in conditioning give two
+  different samples, so this compares at the encoder output where the arms are
+  comparable by construction. Three arms per prompt on one set of weights --
+  markers routed, markers as the BPE fragments ComfyUI emits, markers deleted --
+  aligned by `difflib` over the id sequences rather than by position, because
+  the arms have different lengths.
+  **The deleted arm is the scale and the finding depends on it.** Read against
+  it, ComfyUI's fragments recover about a tenth of what the marker does on the
+  two strongest prompts. So "the fragments carry the delimiter anyway, routing
+  them is cosmetic" is refuted. Two controls held: a marker-free prompt gives
+  identical ids and identical states on both sides, and the forward is
+  bit-deterministic.
+  This measures the encoder, not the DiT. It establishes the representation
+  changes; whether the DiT reads the change is still open.
+
+### Changed
+
+- **`docs/h3_references.md` no longer presents the six-section prompt format as
+  the only one.** The guide ships two, and this page had described one.
+  `ref-en.txt` is the six-section reference format; `base-en.txt` is three
+  fields for t2va/i2va/fl2va/l2va, with `integrated_multimodal_description` in
+  place of `detailed_description` and no subject or retention sections.
+  `<Subject N>` labels are reference-format only.
+- **Both prompt instruments encode the reference format as the only format**,
+  which is correct today and is a trap for the extension this repo has been
+  considering. `preflight_graph.py` never sees a t2v graph, so its `SECTIONS`
+  constant is never wrong in practice; graded by hand, a correct t2v prompt
+  comes back with four sections reported absent that its guide does not have.
+  Recorded beside the format so the next reader meets it before the change.
+
 ## 0.48.3
 
 ### Added

@@ -1,0 +1,78 @@
+{
+  "control": {
+    "ids_identical": true,
+    "states_identical": true
+  },
+  "dialogue": {
+    "ids": {
+      "vendor": 31,
+      "comfy": 32,
+      "stripped": 28
+    },
+    "deterministic": true,
+    "deltas": {
+      "vendor_vs_comfy": {
+        "rel_l2": 0.1021939143538475,
+        "aligned_positions": 26
+      },
+      "vendor_vs_stripped": {
+        "rel_l2": 0.15941111743450165,
+        "aligned_positions": 27
+      },
+      "comfy_vs_stripped": {
+        "rel_l2": 0.12215851247310638,
+        "aligned_positions": 26
+      }
+    },
+    "comfy_share_of_missing_marker": 0.6410714384198243,
+    "verdict": "comfy sits between the two; read the numbers"
+  },
+  "shipped_voice_line": {
+    "ids": {
+      "vendor": 43,
+      "comfy": 44,
+      "stripped": 40
+    },
+    "deterministic": true,
+    "deltas": {
+      "vendor_vs_comfy": {
+        "rel_l2": 0.0335773304104805,
+        "aligned_positions": 38
+      },
+      "vendor_vs_stripped": {
+        "rel_l2": 0.03727424889802933,
+        "aligned_positions": 39
+      },
+      "comfy_vs_stripped": {
+        "rel_l2": 0.029888248071074486,
+        "aligned_positions": 38
+      }
+    },
+    "comfy_share_of_missing_marker": 0.9008184310390146,
+    "verdict": "comfy is close to having no marker at all"
+  },
+  "t2v_stress_14_pairs": {
+    "ids": {
+      "vendor": 539,
+      "comfy": 553,
+      "stripped": 497
+    },
+    "deterministic": true,
+    "deltas": {
+      "vendor_vs_comfy": {
+        "rel_l2": 0.09114963561296463,
+        "aligned_positions": 469
+      },
+      "vendor_vs_stripped": {
+        "rel_l2": 0.10709507018327713,
+        "aligned_positions": 483
+      },
+      "comfy_vs_stripped": {
+        "rel_l2": 0.1054733395576477,
+        "aligned_positions": 469
+      }
+    },
+    "comfy_share_of_missing_marker": 0.851109537133462,
+    "verdict": "comfy is close to having no marker at all"
+  }
+}

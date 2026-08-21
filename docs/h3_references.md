@@ -643,6 +643,37 @@ binary rather than aesthetic) and the magnitude is not bounded.
 
 ## Prompt structure
 
+**These six sections are the reference format only, and that is not obvious.**
+Found 2026-08-21. The guide ships two output formats and this page had only
+ever described one. `coderef/MiniMax-H3/skills/h3-prompt-writing/references/ref-en.txt:311-337` is the six-section format below,
+for ref2va. `coderef/MiniMax-H3/skills/h3-prompt-writing/references/base-en.txt:39-43` is what t2va, i2va, fl2va and l2va use, and
+it is **three** fields:
+
+```
+integrated_multimodal_description: [Shot 1] ...
+
+overall_soundscape: ...
+
+non_diegetic_music: ...
+```
+
+No `subject_definitions`, no `summary`, no `retention_analysis`, and
+`integrated_multimodal_description` where the reference format says
+`detailed_description`. `<Subject N>` labels are reference-format too -- the
+base guide describes people inline and carries only the `(S1)` speaker ids.
+Keyframe tasks prepend one optional line above the three fields saying how each
+`<Picture N>` maps to a second mark in the target.
+
+**Both prompt instruments in this repo encode the six-section format as the
+only format**, which is correct today and is a trap for the obvious next
+change. `bench/preflight_graph.py` collects `MiniMaxH3ReferenceToVideo` nodes
+and never sees a t2v graph, so its `SECTIONS` constant is never wrong in
+practice; run a correctly formatted t2v prompt through its grader by hand and
+it reports `sections absent: subject_definitions, summary, retention_analysis,
+detailed_description`. `bench/check_prompt_guide_conformance.py` shares the
+assumption. Extending either to the fl2va path without splitting the rule by
+guide would fail every correct t2v and keyframe prompt.
+
 Six sections, in this order:
 
 ```

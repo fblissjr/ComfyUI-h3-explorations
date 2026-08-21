@@ -32,8 +32,14 @@ prompts almost certainly carried the marker. An untrained embedding is still a
 fixed distinctive vector, and a frozen encoder maps it to a fixed distinctive
 hidden state -- which is precisely what a downstream model learns to read as a
 delimiter. So this node may buy fidelity on dialogue prompts and not only
-parity. Nobody has measured which, and it would take a comparison at the DiT
-boundary rather than a rendered pair.
+parity.
+
+**Measured at the encoder 2026-08-21** (`bench/grade_h3_marker_tokens.py`):
+against a third arm with the markers deleted, ComfyUI's fragments recover about
+a tenth of what the marker does on the strongest prompts. So the fragments are
+not quietly standing in for the delimiter, and wiring this node is a real change
+to what the encoder hands downstream. Whether the DiT reads that change is still
+open and needs a comparison at its boundary, not a rendered pair.
 
 **Why they are untrained is now known too.** The release's README says the
 H3-Encoder uses the full pretrained weights of Qwen3-VL-32B, and the same rows

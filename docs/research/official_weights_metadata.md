@@ -109,10 +109,38 @@ encoder turns it into a fixed, distinctive hidden state. That is exactly what a
 downstream model can learn to read as a delimiter.
 
 So the honest position is: **the marker is meaningless to Qwen and may well be
-load-bearing to the DiT, and this measurement cannot tell you which.** What
-would tell you is a controlled comparison at the DiT boundary on a dialogue
-prompt with the markers routed and unrouted -- not a rendered pair, which
-`CLAUDE.md`'s different-sample rule rules out. Two
+load-bearing to the DiT, and the embedding audit cannot tell you which.**
+
+**What the encoder does with it, measured 2026-08-21** by
+`bench/grade_h3_marker_tokens.py`, record at
+`bench/results/2026-08-21_h3_marker_token_states.json`. Three arms per prompt on
+the same weights -- markers routed to their real ids, markers as the BPE
+fragments ComfyUI emits, and markers deleted -- compared over the token spans
+whose ids agree, because the arms have different lengths and a positional diff
+would compare unrelated tokens.
+
+| prompt | vendor vs comfy | vendor vs stripped | ratio |
+|---|---|---|---|
+| one pair, short | 0.102 | 0.159 | 0.64 |
+| the shipped voice line | 0.034 | 0.037 | 0.90 |
+| fourteen pairs, t2v format | 0.091 | 0.107 | 0.85 |
+
+Relative L2 on the layer-50 states. **The deleted arm is what makes these
+readable**: any change to a token sequence moves the states somewhat, so
+vendor-against-comfy alone says nothing. Read against it, ComfyUI's fragments
+recover between a tenth and a third of what the marker does, and on the two
+strongest arms about a tenth. **The cheap escape hatch is closed** -- "the
+fragments carry the delimiter anyway, so routing them is cosmetic" is refuted.
+
+Two controls, both held: a marker-free prompt tokenizes to identical ids and
+identical states on both sides, and the forward is bit-deterministic. Without
+the first, the harness could be measuring something other than the markers.
+
+**This still measures the encoder, not the DiT.** It establishes that the
+representation genuinely changes and that comfy's version is much nearer to
+"no marker" than to the release's. Whether the DiT reads the difference needs a
+comparison at its boundary -- not a rendered pair, which `CLAUDE.md`'s
+different-sample rule rules out. Two
 readings remain open and this measurement does not separate them: the tokens
 may be vestigial, or the text encoder may simply have been frozen through H3
 training, in which case no row moved and the norm says nothing about whether
