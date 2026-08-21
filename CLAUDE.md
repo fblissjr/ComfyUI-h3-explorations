@@ -48,7 +48,7 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
 | path | the rule |
 |---|---|
 | [`workflows/h3_config.py`](workflows/h3_config.py) | every shared constant. Nothing here may have a second copy anywhere. |
-| [`workflows/build_workflows.py`](workflows/build_workflows.py) | generates all graphs. Never hand-edit a `workflows/*.json`. |
+| [`workflows/build_workflows.py`](workflows/build_workflows.py) | generates all graphs. Never hand-edit a `workflows/*.json` — and the inverse: **editing the generator is half the change, and nothing is true of a graph until it is rebuilt.** On 2026-08-21 a corrected note sat in this file across two commits while the shipped graph still carried the old text; only an explicit regeneration request caught it. Rebuild before you claim, and before you commit. |
 | `workflows/image/` | the single-frame image graphs. Routing is derived from `single_frame=True`; discovery is `h3_config.GRAPH_DIRS`, and **every check that walks graphs must go through `graph_paths()`** -- a bare non-recursive glob passes green over a subset. Enforced by `bench/check_graph_discovery.py` |
 | `bench/check_*.py` | fast, mostly CUDA-free guards |
 | [`bench/preflight_graph.py`](bench/preflight_graph.py) | **run this before you queue a reference render.** Grades the prompt against the guide's mechanical rules and prices the packed sequence, statically, on any graph path including hand-built ones. Reports, never refuses |
