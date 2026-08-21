@@ -141,6 +141,26 @@ def _sol_state(transformer_options, sigmas):
     if override is None:
         return {"state": "absent"}
 
+    # An override being present is not the same as SOL being present. Our own
+    # sage node installs one on every graph it patches (`attention.py`,
+    # `make_sage_override`), so a sage-only graph -- every dense baseline, both
+    # capture graphs -- reached the closure read below, found none of Sol's
+    # names, and reported "broken". That is the third-state failure CLAUDE.md
+    # warns about: correctly absent read as broken, on exactly the graphs whose
+    # job is to have no Sol. Found 2026-08-21 when the first
+    # open-experiment-22 forward raised on a graph that never wired Sol.
+    #
+    # Walk our own chain to whatever we wrapped before deciding. If nothing
+    # under it is foreign, Sol is absent and the render is fully attributable.
+    probe, ours = override, []
+    while getattr(probe, "h3_kernel", None) is not None:
+        ours.append(probe.h3_kernel)
+        probe = probe.h3_previous
+    if probe is None and ours:
+        return {"state": "absent", "override_installed_by": ours}
+    if ours:
+        override = probe
+
     state: dict[str, object] = {"state": "present"}
     compose = transformer_options.get("sol_compose")
     state["sol_compose"] = {k: _jsonable(v) for k, v in compose.items()} if compose else NOT_DETECTED

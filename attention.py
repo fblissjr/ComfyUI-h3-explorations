@@ -295,6 +295,15 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
         return out.transpose(1, 2) if skip_output_reshape else \
             out.reshape(b, -1, heads * dim_head)
 
+    # Marked so a reader can tell OUR override from Sol-Attn's. Without it,
+    # `provenance.py` sees "an attention override is installed", fails to read
+    # any Sol setting out of this closure -- there are none, it is not Sol --
+    # and reports the render as unattributable. On a sage-only graph that is
+    # the difference between "Sol is correctly absent" and "Sol is broken",
+    # which is the third-state rule in CLAUDE.md. The chain is exposed for the
+    # same reason: whoever inspects this needs to reach what it wrapped.
+    override.h3_kernel = "sage"
+    override.h3_previous = previous
     return override
 
 
