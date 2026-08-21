@@ -27,10 +27,17 @@ every time, because two finite samples of anything differ.
 
 **Descriptors chosen for the claim, not for completeness.** "Tin can" is
 band-limited and boxy: energy pulled out of the low end and concentrated in the
-low-mid, with the top rolled off. So: energy fractions in four bands, the
-spectral centroid, and the 85% rolloff. Loudness is normalised away first,
-because a quieter clip is not a boxier one and level differences would
-otherwise leak into every band ratio.
+low-mid, with the top rolled off. So: energy fractions in four bands summing to
+1, the spectral centroid, and the 85% rolloff. The bands are a power *budget*,
+not absolute levels, so a clip's loudness is already divided out of them.
+
+**The RMS normalisation below is inert and is kept only to make that explicit.**
+An earlier version of this comment claimed it stopped level differences leaking
+into the band ratios. It does not: scaling the waveform scales numerator and
+denominator of every ratio equally, and measured on a real clip the largest
+difference it makes is 6e-08, which is float32 noise. Loudness is reported as
+its own row instead, because a loudness difference is a real way two arms can
+differ and silently dropping it would hide one.
 
 Reports effect sizes; deliberately prints no p-value. At six clips an arm a
 p-value would be theatre, and the honest output is the separation beside the
@@ -82,7 +89,7 @@ def _descriptors(path: Path) -> dict:
     # this every band ratio would carry the level difference too.
     rms = float(w.pow(2).mean().sqrt())
     if rms > 0:
-        w = w / rms
+        w = w / rms   # inert for every ratio below; see the docstring
 
     spec = torch.stft(w, n_fft=2048, hop_length=512,
                       window=torch.hann_window(2048), return_complex=True).abs()
@@ -141,7 +148,7 @@ def main() -> int:
     if min(len(da), len(db)) < 3:
         print("\n  fewer than three clips in an arm: the within-arm spread "
               "cannot be estimated, so nothing below is readable as a result")
-    keys = [k for k in da[0] if k not in ("rms", "seconds")]
+    keys = [k for k in da[0] if k != "seconds"]
 
     print(f"\n{'descriptor':<18}{la + ' mean':>14}{'sd':>9}"
           f"{lb + ' mean':>16}{'sd':>9}{'sep/spread':>12}")

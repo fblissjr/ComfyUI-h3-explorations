@@ -126,6 +126,13 @@
     ]
   },
   "comparison": {
+    "rms": {
+      "stock_mean": 0.07981656678020954,
+      "stock_sd": 0.022255011136055748,
+      "vendortokens_mean": 0.05749244304994742,
+      "vendortokens_sd": 0.014167362757927722,
+      "separation_over_spread": 1.1966989120945104
+    },
     "low_20_200": {
       "stock_mean": 0.16329081888588512,
       "stock_sd": 0.06306214361888374,
@@ -175,6 +182,7 @@
       "centroid_hz"
     ],
     "marginal": [
+      "rms",
       "low_20_200",
       "lowmid_200_1k",
       "presence_1k_4k"
