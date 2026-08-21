@@ -59,7 +59,7 @@
     48,
     49
   ],
-  "not_measured": "activation quantization on either side: the fp8 input_scale path and int8's runtime activations are invisible to a stored-weight comparison. The controlled runtime version is open_experiments #22's fixed-input first-step forward.",
+  "not_measured": "what either format does with activations at run time: the fp8 input_scale path is stored and int8's is not even visible here. The controlled runtime version is open_experiments #22's fixed-input first-step forward.",
   "adaln": "excluded from every vs-bf16 number: the release is unpruned, so that comparison would measure the rank-8 pruning residual (analyze_adaln_pruning.py), not quantization",
   "self_test": {
     "identity": {
@@ -168,6 +168,12 @@
     "as_stored": 1.4042336929170078,
     "reordered": 0.008837055568477968,
     "reordering_is_better": true
+  },
+  "format_floor": {
+    "module": "blocks.0.mlp.fc1",
+    "groupsize": 256,
+    "fp8_ideal": 0.026499732274132902,
+    "int8_ideal": 0.008824223852111604
   },
   "modules": [
     {

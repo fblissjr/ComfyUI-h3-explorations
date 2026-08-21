@@ -121,13 +121,16 @@ instrument that has been shown red.
   [`bench/results/2026-08-21_quant_delta_fl2va.json`](../bench/results/2026-08-21_quant_delta_fl2va.json)
   and its ref2va twin): median relative delta per block linear 0.0091 against
   0.0265, on both checkpoints, cosine 0.9999 against 0.9996. fp8's error is
-  flat to four digits across all 200 modules -- the signature of a fixed
-  mantissa, not of outlier clipping -- while int8's varies by module kind and
-  is worst on `attn.out_proj`. Every tensor neither file quantizes is
+  flat to four digits across all 200 modules while int8's varies by module kind
+  and is worst on `attn.out_proj`. **Both files sit at their format's floor**:
+  quantizing one release weight in the script itself, scalar-scaled e4m3
+  against per-row int8 through the same rotation, reproduces 0.02651 and
+  0.00882 where the shipped files read 0.02651 and 0.00882. The gap between
+  the formats is the formats, not the calibration. Every tensor neither file quantizes is
   byte-identical between them, so nothing else is in the comparison.
   **Stored weights only**: fp8 carries an `input_scale` on 150 of its 200
-  quantized tensors and int8 quantizes activations at runtime, and no
-  comparison of stored weights can see either. The controlled runtime version
+  quantized tensors, int8 stores no activation scale at all, and what either
+  does with activations at run time is invisible to a weight comparison. The controlled runtime version
   is `docs/open_experiments.md` #22's fixed-input first-step forward.
 - **The bf16 release and the Comfy repack order `attn.qkv_proj` rows
   differently.** The release interleaves per head, `[head][q|k|v][head_dim]`;

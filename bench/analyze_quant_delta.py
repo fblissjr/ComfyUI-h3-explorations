@@ -31,8 +31,8 @@ distribution of per-output-channel relative error -- the last one because a
 scalar scale and a per-row scale differ exactly there and nowhere in a whole-
 tensor norm.
 
-Neither the fp8 `input_scale` path nor int8's runtime activation handling is
-observable in any comparison of stored weights, and the fp8 numbers here are
+Neither the fp8 `input_scale` path nor whatever int8 does with activations
+at runtime is observable in any comparison of stored weights, and the fp8 numbers here are
 what the format costs before a single activation is quantized. The controlled
 runtime measurement is a fixed-input first-step forward with `unet_name` arms,
 which is `docs/open_experiments.md` #22's method.
@@ -287,6 +287,35 @@ def probe_qkv_layout(ref: "Reference", path: str, hdr: dict, base: int,
             "reordering_is_better": reordered < 0.5 * as_stored}
 
 
+def format_floor(w: np.ndarray, gs: int) -> dict:
+    """What each format costs on this weight when quantized ideally, here.
+
+    A shipped file's error is the format's floor plus whatever its calibration
+    added. Without this, "fp8 reads 2.65% because e4m3 has three mantissa
+    bits" is a mechanism story; with it, the floor is a number beside the
+    shipped one and the difference is the calibration.
+
+    fp8: one scalar scale, amax over the tensor against e4m3's 448. int8: the
+    shipped path exactly -- rotate, per-output-row amax against 127, round,
+    and back through `dequantize_int8_convrot_weight`.
+    """
+    from comfy_kitchen.backends.eager.quantization import (
+        _build_hadamard, _rotate_weight)
+    t = torch.from_numpy(w.astype(np.float32))
+
+    s8 = float(t.abs().max()) / 448.0
+    fp8 = ((t / s8).to(torch.float8_e4m3fn).to(torch.float32) * s8).numpy()
+
+    h = _build_hadamard(gs, dtype=torch.float32)
+    rot = _rotate_weight(t, h, gs)
+    row = (rot.abs().amax(dim=1, keepdim=True) / 127.0).clamp_min(1e-30)
+    q = torch.clamp(torch.round(rot / row), -127, 127).to(torch.int8)
+    i8 = dequantize_int8_convrot_weight(q, row, gs).numpy()
+
+    return {"fp8_ideal": stats(w, fp8)["rel_delta"],
+            "int8_ideal": stats(w, i8)["rel_delta"]}
+
+
 # ---------------------------------------------------------------- self-test
 
 def self_test(files: dict[str, tuple[str, dict, int]]) -> dict:
@@ -385,9 +414,9 @@ def main() -> int:
         "reference": ("/".join(args.reference.resolve().parts[-2:])
                       if ref else None),
         "blocks": blocks,
-        "not_measured": ("activation quantization on either side: the fp8 "
-                         "input_scale path and int8's runtime activations are "
-                         "invisible to a stored-weight comparison. The "
+        "not_measured": ("what either format does with activations at "
+                         "run time: the fp8 input_scale path is stored and "
+                         "int8's is not even visible here. The "
                          "controlled runtime version is open_experiments #22's "
                          "fixed-input first-step forward."),
         "adaln": ("excluded from every vs-bf16 number: the release is "
@@ -443,6 +472,13 @@ def main() -> int:
             print("   the release's qkv rows do not reorder into the repack's "
                   "layout; refusing to measure qkv against the reference")
             return 1
+
+        print("== format floor, one module, quantized here from the release")
+        fm = f"blocks.{blocks[0]}.mlp.fc1"
+        gs = int((marker(*files["int8"], fm) or {})["convrot_groupsize"])
+        floor = format_floor(hf_to_comfy(fm + ".weight", ref.get(fm + ".weight"), hd), gs)
+        rec["format_floor"] = {"module": fm, "groupsize": gs, **floor}
+        print(f"   {fm}: fp8 {floor['fp8_ideal']:.5f}, int8 {floor['int8_ideal']:.5f}")
 
     print("== per module")
     hdr_line = f"{'module':<28}{'fp8~int8':>10}{'cos':>9}"
