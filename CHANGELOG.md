@@ -22,6 +22,45 @@ artifact.
   before any reference comparison and refuses to measure if the reordering is
   not the better reading. `docs/evidence.md` carries both entries.
 
+- **`docs/research/sglang_comparison.md`**: sglang's H3 serving path against
+  ours, read at commit `a41da991c8`. What they do that we do not (an exact
+  per-schedule AdaLN cache, breakable CUDA graphs over the packed sequence,
+  admission-time refusals), what we both do where ours is weaker (video VAE
+  encode precision, silent VAE tiling), and what looks like a gap but is
+  already priced (step caching, killed here by owner decision 2026-08-20).
+  Records one hypothesis it killed: the fp8-vs-int8 fidelity gap is not a qkv
+  row-permutation defect, because fp8's scale is a scalar and the gap is
+  uniform across module kinds.
+
+### Changed
+
+- **The vendor-side authority for reference conditioning is sglang, not
+  diffusers.** `docs/h3_references.md` gains a stage-by-stage table of the
+  vendor image path and now says which claims are diffusers-only. The two
+  implementations agree everywhere downstream of the resize; the divergence is
+  sizing, and the default `match` mode is further from the vendor than the
+  known `min(1.0, ...)` clamp.
+- **Three attributions corrected after re-derivation against sglang, diffusers
+  and DiffSynth-Studio.** The 12-reference and audio-pairing limits are
+  diffusers-only, originating in MiniMax's Open Platform README table; audio
+  truncation is two of three implementations, not a consensus; reference-video
+  upscaling is all three, so that claim strengthens.
+- **`docs/h3_resolutions.md` no longer calls the 768 short edge a trained
+  distribution enforced by the reference pipeline.** Re-derived: the area cap
+  is enforced upstream with no bypass, the short edge only warns, nothing
+  refuses a larger one, and no config shipped with the weights carries a canvas
+  geometry.
+
+### Fixed
+
+- **`bench/preflight_graph.py` over-priced a reference image with no
+  `MiniMaxH3ReferenceFit` in front of it**, treating it as upscaled to a 2048
+  short edge where core clamps with `min(1.0, ...)` in both modes and never
+  enlarges. The over-count is the square of a scale the reference never gets.
+  No shipped API graph reaches the branch; a hand-built one does, which is
+  exactly what the tool promises to price. Confirmed non-inert against a graph
+  rewired to bypass the fit node.
+
 ## 0.45.0
 
 ### Added

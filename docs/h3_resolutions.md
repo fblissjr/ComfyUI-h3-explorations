@@ -150,15 +150,31 @@ One caveat that matters in practice: core's conditioning nodes do not call
 `adapt_canvas()` on the video resolution at all. `MiniMaxH3ImageToVideo`,
 `MiniMaxH3ReferenceToVideo` and `EmptyMiniMaxH3LatentAV` take `width` and
 `height` as plain integers at `min=32, step=32`, so whatever multiple of 32
-you type is what you get. The 768 short edge and the area cap describe the
-family the model was trained on, and the reference pipeline enforces them.
+you type is what you get.
+
+**The 768 and the area cap are not the same kind of thing, and neither is a
+training-data property — re-derived from source 2026-08-21.** The **area cap**
+is the hard one: sglang scales any over-budget canvas down by
+`sqrt(MAX_PIXELS / area)` with no override and no bypass
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/resolved_plan.py:159-169`). The **short edge** only warns: a
+different positive value resolves, generates, and logs once
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:41-53`), and sglang's own warning text calls 768 the
+only short edge MiniMax publishes recipes and reference outputs for — a
+coverage claim, not a distribution claim. Nothing was found anywhere in the
+vendor clones that refuses a larger target short edge, and no config JSON
+shipped with the weights carries a canvas geometry at all. diffusers is looser
+still: it applies its canvas rule only when height and width are omitted, and
+checks an explicit pair for 32-divisibility alone (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py:391-397,424-427`).
+Because the area cap re-imposes itself, asking for a bigger short edge at 16:9
+gets you 768 back regardless; nearer square it does not.
 Inside ComfyUI the only places they are applied are core's reference-video
 sizing and this repo's `MiniMaxH3KeyframeCanvas`, which derives the
 resolution from your first keyframe.
 
-So: 32-divisibility is a hard requirement of the architecture. The 768 and
-the area cap are the trained distribution. You can leave the second without
-leaving the first, and nothing will stop you.
+So: 32-divisibility is a hard requirement of the architecture. The area cap is
+enforced by the vendor and unenforced here. The 768 short edge is a published
+recipe, warned about rather than enforced even upstream. You can leave any of
+them without leaving the others, and nothing in ComfyUI will stop you.
 
 ## Where the 32 comes from
 

@@ -355,8 +355,17 @@ def price(node: dict, graph: dict) -> list[str]:
         if not key.startswith("ref_images.") or not isinstance(link, list):
             continue
         src = graph.get(link[0], {})
-        upscale, short_edge = True, 2048
-        if src.get("class_type") == FIT_NODE:
+        # No fit node means core sizes this reference on its own, and core
+        # clamps with min(1.0, ...) in BOTH modes
+        # (comfy_extras/nodes_minimax_h3.py:297-301), so it never enlarges.
+        # Defaulting upscale True here priced a hand-built graph -- the only
+        # kind that reaches this branch, since every shipped API graph feeds
+        # its references through the fit node -- as if a small reference were
+        # raised to 2048, which over-counts its rows by the square of the
+        # scale it never gets. Found 2026-08-21 against the core source.
+        upscale, short_edge = False, 2048
+        fitted = src.get("class_type") == FIT_NODE
+        if fitted:
             upscale = src["inputs"].get("allow_upscale", True)
             short_edge = src["inputs"].get("short_edge", 2048)
             inner = src["inputs"].get("image")
@@ -381,7 +390,9 @@ def price(node: dict, graph: dict) -> list[str]:
         tw, th = fit(iw, ih, scale)
         r = rows(tw, th)
         ref_total += r
-        note = "" if scale != 1.0 else "  (fit was a no-op)"
+        note = "  (fit was a no-op)" if fitted and scale == 1.0 else ""
+        if not fitted:
+            note = "  (no fit node: core clamps, never upscales)"
         lines.append(f"  ref image {r:>8,}  {fname} {iw}x{ih} -> {tw}x{th}"
                      f"{note}")
     if ref_total:
