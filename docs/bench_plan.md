@@ -740,6 +740,62 @@ most of it as a side effect.
 
 ---
 
+## Run 6 — does routing `<d>` change what gets spoken? PRE-REGISTERED 2026-08-21
+
+**Written before any clip was heard.** The encoder half is already answered:
+`bench/grade_h3_marker_tokens.py` shows ComfyUI's BPE fragments recover about a
+tenth of what the marker does, measured against a third arm with the markers
+deleted. That closes the "the fragments carry the delimiter anyway" escape and
+says nothing about whether the DiT reads the difference.
+
+**What a render can and cannot answer here.** Not "which clip is better" -- the
+arms differ in their conditioning, so they are different samples and the
+different-sample rule applies. What it can answer is the briefs-met question
+this repo already allows for weight-level arms: **does the model speak the
+line, are the words right, does it land near the written time.** That is
+categorical, and it needs seeds in aggregate rather than a pair. Clip *i* of one
+arm is never to be compared against clip *i* of the other; only the per-arm
+totals are.
+
+**Arms.** `internal/refs/marker_arm_stock_api.json` and
+`marker_arm_vendortokens_api.json`, both built from
+`workflows/h3_text_to_video_turbo_768p_euler_api.json` with the prompt replaced
+by a four-line dialogue scene and, in the second, a `MiniMaxH3VendorTokens`
+node inserted between the CLIP loader and the conditioning node. Nothing else
+differs. `run_graph_arms.py` bumps the seed per run, so `--runs N` gives N
+distinct samples per arm and the same N seeds to both.
+
+**The score sheet, fixed now.** Per clip, per line, one of:
+
+| mark | meaning |
+|---|---|
+| `spoken` | the written words are audible and recognisable |
+| `wrong` | speech happens, the words are not the written ones |
+| `absent` | no speech where a line was written |
+
+Plus rough timing against the written mark, and free-text notes. The verdict is
+the per-arm total across seeds, not a per-clip preference.
+
+**Predictions, so the result can embarrass them.**
+
+1. If `stock` and `vendortokens` return the same `spoken` count within noise,
+   the marker does not reach the DiT as a delimiter and `vendor_tokens.py` is
+   parity-only after all.
+2. If `vendortokens` returns materially more `spoken`, the encoder difference
+   propagates and routing the markers is a fidelity fix.
+3. **The gate, and the most likely outcome:** if *both* arms return mostly
+   `absent` or `wrong`, this path cannot answer the question at all, and what
+   was learned is about the 4-step Turbo distill rather than about the markers.
+
+**Prediction 3 is why one stock clip is rendered before the batch.** The
+fallback if it fires is `workflows/h3_text_to_video_api.json` at full steps,
+which removes the distill confound and costs about 740 s per seed on this box
+-- a six-seed two-arm batch is roughly two and a half hours of GPU, so it is
+worth knowing before rather than after.
+
+**Scope.** Whatever comes back is about the Turbo-LoRA + fl2va + 4-step path,
+not about H3 at large.
+
 ## Deliberately not planned
 
 - **CUDA vs Triton e2e, ours.** Confirmatory only: the migration already
