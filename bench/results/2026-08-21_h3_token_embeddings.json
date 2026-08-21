@@ -64,5 +64,27 @@
     },
     "position_between_controls": 0.011504091382849767,
     "verdict": "indistinguishable from untrained"
+  },
+  "upstream Qwen3-VL-4B-Thinking (H3 never touched this)": {
+    "trained control (Qwen specials)": {
+      "mean": 0.5794142484664917,
+      "min": 0.35688158869743347,
+      "max": 1.125555157661438,
+      "rows": 26
+    },
+    "the seven H3 markers": {
+      "mean": 0.35772576928138733,
+      "min": 0.3568815588951111,
+      "max": 0.35983598232269287,
+      "rows": 7
+    },
+    "untrained control (padding tail)": {
+      "mean": 0.35688188672065735,
+      "min": 0.35688114166259766,
+      "max": 0.3568840026855469,
+      "rows": 260
+    },
+    "position_between_controls": 0.00379217905256325,
+    "verdict": "indistinguishable from untrained"
   }
 }

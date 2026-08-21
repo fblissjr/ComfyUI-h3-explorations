@@ -22,10 +22,18 @@ pole, making them reachable changes which sequence the encoder sees without
 making the markers mean anything, and that is worth knowing before anyone
 treats the tokenizer gap as a fidelity defect.
 
-Covers the official release and every repacked encoder present. The nvfp4 file
-stores an int8 table with a per-row scale, which has to be applied before any
-norm is comparable -- without it every row is scaled differently and the
-comparison is noise.
+Covers the official release, every repacked encoder present, and -- when a
+stock Qwen3-VL checkout is on the box -- upstream Qwen itself. **That last one
+is what makes the result interpretable rather than merely true.** The release's
+README says the H3-Encoder "uses the full pretrained weights of Qwen3-VL-32B",
+so if the same rows are untrained in a stock Qwen the release never touched,
+they are untrained because nobody ever trained them: MiniMax pointed seven
+tokenizer entries at Qwen's existing padding rows. Without that arm the reading
+"MiniMax trained them and the values happen to look like noise" survives.
+
+The nvfp4 file stores an int8 table with a per-row scale, which has to be
+applied before any norm is comparable -- without it every row is scaled
+differently and the comparison is noise.
 """
 
 from __future__ import annotations
@@ -38,6 +46,7 @@ _REPO = Path(__file__).resolve().parent.parent
 
 RELEASE = Path.home() / "Storage" / "MiniMaxAI_MiniMax-H3" / "text_encoder"
 ENCODERS = Path.home() / "ComfyUI" / "models" / "text_encoders"
+UPSTREAM = Path.home() / "Storage"
 REPACKED = ["qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
             "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"]
 
@@ -121,6 +130,18 @@ def main() -> int:
         p = ENCODERS / name
         if p.exists():
             targets.append((name.replace(".safetensors", ""), p))
+    # Any stock Qwen3-VL will do -- the question is whether the rows are
+    # untrained upstream, and that does not depend on the parameter count.
+    for d in sorted(UPSTREAM.glob("Qwen3-VL-*")):
+        idx = d / "model.safetensors.index.json"
+        if not idx.exists():
+            continue
+        wmap = json.loads(idx.read_text())["weight_map"]
+        shard = next((v for k, v in wmap.items() if "embed_tokens" in k), None)
+        if shard:
+            targets.append((f"upstream {d.name} (H3 never touched this)",
+                            d / shard))
+            break
 
     if not targets:
         print("no encoder weights reachable on this box; nothing to audit")

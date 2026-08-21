@@ -30,12 +30,17 @@ the length difference shifts every position after the marker. This node buys
 parity with what the release serves. It buys no fidelity, and anyone wiring it
 expecting `<d>` to start working should read the measurement first.
 
-**What is still NOT established:** what the markers are for, and whether the
-untrained rows mean MiniMax abandoned them or simply that the text encoder was
-frozen through H3 training -- under the second reading no row moved and the
-norms say nothing about intent. The release lists the tokens without
-documenting them. `docs/research/official_weights_metadata.md` carries the same
-caveat.
+**Why they are untrained is now known too.** The release's README says the
+H3-Encoder uses the full pretrained weights of Qwen3-VL-32B, and the same rows
+sit on the padding pole in a stock Qwen3-VL that H3 never touched. They are
+Qwen's padding rows, and MiniMax added tokenizer entries pointing at them
+without training the encoder. So the markers carry no learned meaning in any
+implementation, the vendor's own serving path included.
+
+**What is still NOT established:** what the markers are *for*. The release
+lists them without documenting them, and the prompt guide requires `<d>` for
+all dialogue while the row behind it was never trained.
+`docs/research/official_weights_metadata.md` carries the same caveat.
 
 **Isolation.** `clip.clone()` shares the tokenizer object by reference, so
 mutating the one already on a loaded CLIP would contaminate every graph in the

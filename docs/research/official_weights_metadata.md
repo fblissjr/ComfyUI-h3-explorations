@@ -74,6 +74,16 @@ training, in which case no row moved and the norm says nothing about whether
 MiniMax intended them. `vendor_tokens.py` is the node that makes them
 reachable, and it is correct to keep the caveat.
 
+**And the reason is the encoder is stock, closed 2026-08-21.** The release's
+README says the H3-Encoder "uses the full pretrained weights of Qwen3-VL-32B"
+and taps layer 50 (`coderef/MiniMax-H3/README.md:128`). Run against a stock
+Qwen3-VL checkout H3 never touched, rows 151669-151675 sit on that model's own
+padding pole too. So the rows are untrained because **nobody ever trained
+them**: they are Qwen's padding, and MiniMax added seven tokenizer entries
+pointing at them without training the encoder. That settles the two readings
+this section listed as open -- it is the frozen-encoder one, and the markers
+carry no learned meaning in any implementation, the vendor's included.
+
 **`<d>` is not exotic, and a shipped graph already uses it.** Corrected
 2026-08-21; this section previously said no prompt in this repo used any of the
 seven, which was written from expectation rather than a grep. The official
