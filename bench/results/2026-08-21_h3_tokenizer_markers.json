@@ -1,0 +1,205 @@
+{
+  "release_len": 151676,
+  "comfy_len": 151669,
+  "markers": {
+    "<d>": {
+      "release": [
+        151669
+      ],
+      "comfy": [
+        90707,
+        29
+      ],
+      "same": false
+    },
+    "</d>": {
+      "release": [
+        151670
+      ],
+      "comfy": [
+        522,
+        67,
+        29
+      ],
+      "same": false
+    },
+    "<|cutoff|>": {
+      "release": [
+        151671
+      ],
+      "comfy": [
+        27,
+        91,
+        66,
+        27440,
+        91,
+        29
+      ],
+      "same": false
+    },
+    "<|lyrics_start|>": {
+      "release": [
+        151672
+      ],
+      "comfy": [
+        27,
+        91,
+        398,
+        6198,
+        4906,
+        91,
+        29
+      ],
+      "same": false
+    },
+    "<|lyrics_end|>": {
+      "release": [
+        151673
+      ],
+      "comfy": [
+        27,
+        91,
+        398,
+        6198,
+        6213,
+        91,
+        29
+      ],
+      "same": false
+    },
+    "<|caption_start|>": {
+      "release": [
+        151674
+      ],
+      "comfy": [
+        27,
+        91,
+        23347,
+        4906,
+        91,
+        29
+      ],
+      "same": false
+    },
+    "<|caption_end|>": {
+      "release": [
+        151675
+      ],
+      "comfy": [
+        27,
+        91,
+        23347,
+        6213,
+        91,
+        29
+      ],
+      "same": false
+    }
+  },
+  "control": {
+    "<Picture 1>: ": {
+      "same": true,
+      "n": 6
+    },
+    "<Video 1>: ": {
+      "same": true,
+      "n": 6
+    },
+    "<Audio 1>: ": {
+      "same": true,
+      "n": 5
+    },
+    "<0.2 seconds>": {
+      "same": true,
+      "n": 6
+    },
+    "<5.2 seconds>": {
+      "same": true,
+      "n": 6
+    },
+    "A medium shot establishes the room.": {
+      "same": true,
+      "n": 7
+    },
+    "subject_definitions:": {
+      "same": true,
+      "n": 3
+    },
+    "retention_analysis:": {
+      "same": true,
+      "n": 4
+    }
+  },
+  "shipped_line": {
+    "release": {
+      "ids": [
+        151669,
+        58,
+        22574,
+        60,
+        358,
+        3381,
+        498,
+        1035,
+        614,
+        8048,
+        553,
+        1431,
+        13,
+        151670
+      ],
+      "pieces": [
+        "<d>",
+        "[",
+        "English",
+        "]",
+        " I",
+        " thought",
+        " you",
+        " would",
+        " have",
+        " gone",
+        " by",
+        " now",
+        ".",
+        "</d>"
+      ]
+    },
+    "comfy": {
+      "ids": [
+        90707,
+        30768,
+        22574,
+        60,
+        358,
+        3381,
+        498,
+        1035,
+        614,
+        8048,
+        553,
+        1431,
+        3918,
+        67,
+        29
+      ],
+      "pieces": [
+        "<d",
+        ">[",
+        "English",
+        "]",
+        " I",
+        " thought",
+        " you",
+        " would",
+        " have",
+        " gone",
+        " by",
+        " now",
+        ".</",
+        "d",
+        ">"
+      ]
+    }
+  }
+}

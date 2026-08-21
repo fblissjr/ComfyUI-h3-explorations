@@ -6,6 +6,18 @@ artifact.
 
 ## 0.48.1
 
+### Added
+
+- **`bench/compare_h3_tokenizers.py` and `bench/repro_mono_ref_audio.py`**,
+  the measurements behind the two corrections below. Neither is a check --
+  both report and neither gates -- but the claims they support are now in
+  shipped docs, and a claim whose evidence lives in a scratch directory is a
+  claim nobody can re-run. Each carries its own control: the tokenizer script
+  asserts that the labels the conditioner emits on every render are
+  ID-identical, so the finding stays confined to the seven markers, and the
+  mono repro runs a stereo arm so the failure is attributable to the channel
+  count rather than to the harness.
+
 ### Fixed
 
 - **`docs/research/official_weights_metadata.md` said no prompt in this repo
@@ -21,7 +33,9 @@ artifact.
   verified. It does not degrade, it raises.** ComfyUI's audio VAE preserves the
   input channel count and nothing upmixes, so `pack_audio` returns half the
   rows `PackedLayout` allocated and the masked assignment fails. Run on CPU
-  against the real `pack_audio`. Moved to Known limitations;
+  against the real `pack_audio` by `bench/repro_mono_ref_audio.py`, whose
+  stereo arm is the control that makes the failure attributable to the channel
+  count. Moved to Known limitations;
   `docs/research/sglang_comparison.md`'s open-items bullet updated to match.
 - **`docs/h3_references.md` claimed everything downstream of the reference
   resize matches between ComfyUI and sglang. The VAE encode does not.** sglang

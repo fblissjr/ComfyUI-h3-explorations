@@ -821,7 +821,8 @@ experiment, documented in its own note.
   video and audio alike. ComfyUI has no equivalent; trim upstream.
 - **A mono reference does not render — it raises.** Resolved 2026-08-21, run
   here on CPU against the real `pack_audio`, replacing the entry that had this
-  as read-but-unverified. ComfyUI's audio VAE preserves the input channel count
+  as read-but-unverified, reproducible with `bench/repro_mono_ref_audio.py`.
+  ComfyUI's audio VAE preserves the input channel count
   (`comfy/ldm/minimax/audio_vae.py:427`) and `_encode_ref_audio` does not upmix
   (`comfy_extras/nodes_minimax_h3.py:71`), so a mono waveform yields
   `[1,32,1,T]` and `pack_audio` returns `T` rows. `PackedLayout` allocates

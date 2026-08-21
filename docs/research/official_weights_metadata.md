@@ -63,7 +63,9 @@ in the audio sections (`:303`), and uses it throughout its own worked examples
 comment above. So every H3 prompt containing speech is affected on ComfyUI —
 a prompt following the vendor's guide is precisely the prompt that trips this.
 
-**Measured 2026-08-21**, both tokenizers loaded through `AutoTokenizer`, the
+**Measured 2026-08-21** by `bench/compare_h3_tokenizers.py`, whose record is
+`bench/results/2026-08-21_h3_tokenizer_markers.json`. Both tokenizers loaded
+through `AutoTokenizer`, the
 release from `coderef/MiniMax-H3/tokenizer/` (byte-identical to the copy beside
 the weights) and ComfyUI from its bundled directory, `add_special_tokens=False`:
 
