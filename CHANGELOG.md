@@ -4,6 +4,39 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.48.5
+
+### Added
+
+- **`bench/grade_arm_audio_spectrum.py`**, which asks whether one render arm's
+  audio differs in timbre from another's or whether that is the seed. Band
+  energy fractions and brightness on the decoded audio, loudness normalised
+  first so a quieter clip is not read as a boxier one. **The within-arm spread
+  across seeds is the control**, and the reported quantity is between-arm
+  separation in units of it -- a version reporting only per-arm means would
+  find a difference every time, because two finite samples of anything differ.
+  Prints no p-value: at six clips an arm that would be theatre.
+  It also prints every filename it ingests, after its own first run silently
+  globbed two experiments' clips together and reported a result off the mixed
+  set. The script cannot see which prompt made a clip; a reader can.
+- **Twelve-clip marker batch**,
+  `bench/results/2026-08-21_marker_arms.jsonl` and the spectral record beside
+  it. Routing `<d>` to its real token id **measurably changes the audio the
+  model produces**: stock carries about 2.1x the 4-16 kHz energy and the
+  per-clip ranges do not touch across six seeds an arm. So the DiT does read
+  the tokenizer difference, which the encoder measurement could not tell us.
+  Which arm is *better* is not established and the record says so.
+
+### Changed
+
+- **`docs/bench_plan.md` Run 6 carries its outcome, including that the
+  pre-registered score sheet was never used.** Both arms speak the dialogue, so
+  the spoken/wrong/absent sheet could only tie; the spectral measure that
+  replaced it was designed after hearing the clips and is labelled post-hoc
+  rather than quietly presented as the planned test. Prediction 1's conclusion
+  is recorded as refuted: same spoken count, and the marker still reaches the
+  DiT.
+
 ## 0.48.4
 
 ### Added

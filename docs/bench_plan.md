@@ -796,6 +796,68 @@ worth knowing before rather than after.
 **Scope.** Whatever comes back is about the Turbo-LoRA + fl2va + 4-step path,
 not about H3 at large.
 
+---
+
+### RESULT, 2026-08-21 — the marker reaches the DiT, and not through the sheet
+
+**The pre-registered sheet was never used, and saying so is the point.** Its
+question was spoken / wrong / absent per line. The owner listened and reported
+the dialogue is spoken in **both** arms, so that sheet cannot discriminate and
+scoring twelve clips against it would have produced a tie carrying no
+information. The question moved to timbre, on the owner's report that the stock
+clips sounded "through a tin can".
+
+**That is a post-hoc measure and it is labelled as one.** The spectral
+comparison below was designed after hearing the clips, which is exactly what
+pre-registration exists to expose. It is not evidence at the strength the sheet
+would have been, and nothing here should be quoted as though it were the
+planned test.
+
+**What was measured.** `bench/grade_arm_audio_spectrum.py`, record at
+[`bench/results/2026-08-21_marker_arm_audio_spectrum.json`](../bench/results/2026-08-21_marker_arm_audio_spectrum.json).
+Six seeds an arm, band energy fractions and brightness on the decoded audio,
+loudness normalised first. **The within-arm spread across seeds is the control**
+and every number is read against it, because two arms differing in conditioning
+are different samples and a per-clip difference is a draw.
+
+| descriptor | stock | vendortokens | separation / spread |
+|---|---|---|---|
+| `top_4k_16k` | 0.1100 | 0.0528 | **3.24** |
+| `centroid_hz` | 1064 | 831 | 2.04 |
+| `lowmid_200_1k` | 0.6722 | 0.7514 | 1.83 |
+| `presence_1k_4k` | 0.0545 | 0.0806 | 1.02 |
+| `low_20_200` | 0.1633 | 0.1152 | 1.01 |
+| `rolloff85_hz` | 1461 | 943 | 0.75 |
+
+**One result survives the control cleanly.** Stock carries about 2.1x the
+4-16 kHz energy, and the per-clip ranges do not touch across twelve clips:
+stock 0.084-0.137 against vendortokens 0.029-0.067. Complete separation over
+six seeds an arm is not seed noise.
+
+**The centroid weakened when the last three seeds landed**, 2.60 at n=3 to 2.04
+at n=6, and its ranges now overlap. Read it as corroborating the top band, not
+as a second independent result. That drift is the argument for finishing a
+batch before quoting it.
+
+**How the predictions scored.**
+
+- Prediction 3 did not fire: the path speaks, so it can discriminate.
+- Prediction 1's antecedent held and **its conclusion is refuted**. The arms do
+  return the same spoken count, and the inference drawn from that in advance --
+  "the marker does not reach the DiT and `vendor_tokens.py` is parity-only" --
+  is wrong. The marker reaches the DiT and changes the audio measurably; it
+  simply does not change *whether* words appear. The prediction was too
+  coarse about what "reaching the DiT" would look like.
+
+**What is not established.** Which arm is better. Less top energy could be less
+artifacting or a duller result, and nothing here ranks them. Resist the pull to
+assume the release-conformant arm is the good one because it is conformant.
+
+**Loose end worth more than the result.** `rolloff85_hz` on stock has an sd of
+970 on a mean of 1461 -- one clip rolls off at 3422 Hz where the rest sit near
+1100. Something in that arm is unstable across seeds in a way vendortokens is
+not, and nobody has looked at it.
+
 ## Deliberately not planned
 
 - **CUDA vs Triton e2e, ours.** Confirmatory only: the migration already
