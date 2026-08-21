@@ -76,11 +76,12 @@ _block_of: dict[int, int] = {}      # id(module) -> index, in first-seen order
 _calls: dict[int, int] = {}         # block index -> times seen (i.e. step)
 _written: set[tuple[int, int, int]] = set()   # (render, block, step) already saved
 _render = 0                         # render index within this server process
+_final_step = 0                     # forwards seen by the final-layer tap
 _config: dict = {}
 
 
 def _parse(spec):
-    out = {"dir": None, "blocks": {0}, "steps": {1}, "cycle": None}
+    out = {"dir": None, "blocks": {0}, "steps": {1}, "cycle": None, "final": False}
     for part in spec.split(","):
         key, _, val = part.partition("=")
         key, val = key.strip(), val.strip()
@@ -88,6 +89,8 @@ def _parse(spec):
             out["dir"] = os.path.expanduser(val)
         elif key == "cycle" and val:
             out["cycle"] = int(val)
+        elif key == "final" and val:
+            out["final"] = val.strip().lower() not in ("0", "false", "no", "off")
         elif key in ("blocks", "steps") and val:
             out[key] = {int(x) for x in re.split(r"[:;]", val) if x.strip()}
     return out
@@ -107,7 +110,8 @@ def _sync_spec():
             else:
                 os.makedirs(_config["dir"], exist_ok=True)
                 print(f"[h3_capture] ARMED: dir={_config['dir']} "
-                      f"blocks={sorted(_config['blocks'])} steps={sorted(_config['steps'])}")
+                      f"blocks={sorted(_config['blocks'])} steps={sorted(_config['steps'])}"
+                      + (" final=on" if _config.get("final") else ""))
         else:
             _config = {}
 
@@ -157,6 +161,10 @@ def maybe_capture(module, q, k, v, length_hint=None):
         if _config.get("cycle") and block == 0 and _calls.get(0, 0) >= _config["cycle"]:
             _render += 1
             _calls.clear()
+            # The final tap counts forwards on its own axis, so the render
+            # boundary has to reset it here too or a second render's velocity
+            # lands at a step index no filter matches and nothing is written.
+            globals()["_final_step"] = 0
 
         step = _calls.get(block, 0)
         _calls[block] = step + 1
@@ -197,6 +205,64 @@ def maybe_capture(module, q, k, v, length_hint=None):
     torch.save({"q": qh, "k": kh, "v": vh}, path)
     size = os.path.getsize(path) / 2**30
     print(f"[h3_capture] wrote {name}  {tuple(qh.shape)} {qh.dtype}  {size:.2f} GiB")
+
+
+def wants_final():
+    """Whether `final=1` was declared. Read by the patching node."""
+    _sync_spec()
+    return bool(enabled and _config.get("final"))
+
+
+def maybe_capture_final(out, length_hint=None):
+    """Save the DiT's own output -- the velocity -- at the requested steps.
+
+    This is the one tensor that is "the network output", which is what
+    `docs/open_experiments.md` #22 compares between a pruned and an unpruned
+    checkpoint. q/k/v at five depths say where two forwards diverge; only this
+    says by how much it mattered by the end.
+
+    **Counts forwards on its own axis rather than reading the block counter.**
+    Deriving the step from `_calls[0]` would work only while the sage forward
+    is the one running every block, which is exactly the assumption that fails
+    with Sol-Attn on -- Sol takes the calls inside its sigma window and sage
+    sees the rest, so the block counter undercounts and the velocity would be
+    filed under the wrong step. An independent counter cannot drift for that
+    reason. It shares `steps=`, `_written` and the render index with the q/k/v
+    path so the two stay aligned on everything else.
+
+    Filed under block -1 in `_written`, which no real block can collide with.
+    """
+    global _final_step
+    _sync_spec()
+    if not enabled or not _config.get("final"):
+        return
+    import torch
+
+    with _lock:
+        step = _final_step
+        _final_step += 1
+        if step not in _config["steps"]:
+            return
+        if (_render, -1, step) in _written:
+            return
+        _written.add((_render, -1, step))
+        render = _render
+
+    if not torch.is_tensor(out):
+        print(f"[h3_capture] final tap: expected a tensor, got "
+              f"{type(out).__name__}; nothing written")
+        return
+    # Same CPU-before-reshape discipline as the q/k/v path, for the same
+    # reason: the model is near the card's limit at this moment.
+    v = out.detach().cpu()
+    seq = v.shape[1] if v.ndim > 1 else v.shape[0]
+    suffix = f"_r{render}" if render else ""
+    name = (f"final_L{length_hint if length_hint is not None else 'na'}"
+            f"_S{seq}_s{step}{suffix}.pt")
+    path = os.path.join(_config["dir"], name)
+    torch.save({"velocity": v}, path)
+    size = os.path.getsize(path) / 2**30
+    print(f"[h3_capture] wrote {name}  {tuple(v.shape)} {v.dtype}  {size:.3f} GiB")
 
 
 def summary():

@@ -18,6 +18,7 @@ from .reference_fit import MiniMaxH3ReferenceFit
 from .resolution import MiniMaxH3Resolution
 from .sol_curve_node import MiniMaxH3SolAttnCurve
 from .vae_precision import MiniMaxH3VAEPrecision
+from . import h3_capture
 
 from .attention import (
     MODES,
@@ -162,6 +163,23 @@ class MiniMaxH3SageAttention(io.ComfyNode):
         # upstream guarantee it cannot enforce. `check_clone_v_wiring.py`
         # pins it against a deliberately shallow-cloning fake, since against
         # the real ModelPatcher the assertion cannot fail.
+        # The final-layer tap for `docs/open_experiments.md` #22. Installed
+        # here rather than in its own node so that BYPASSING THIS NODE TURNS IT
+        # OFF -- the deliberate violation the entry asks for is a run with
+        # `final=1` on a graph where the tap is bypassed writing nothing, and
+        # that is only true if the tap rides on a patch. Inert unless
+        # `H3_CAPTURE` carries `final=1`, which is every normal render.
+        if h3_capture.wants_final():
+            _original_forward = diffusion_model.forward
+
+            def _final_tap(*args, **kwargs):
+                out = _original_forward(*args, **kwargs)
+                h3_capture.maybe_capture_final(out)
+                return out
+
+            m.add_object_patch("diffusion_model.forward", _final_tap)
+            logger.info("[h3] capture: final-layer tap installed (final=1)")
+
         to = m.model_options["transformer_options"] = \
             m.model_options.get("transformer_options", {}).copy()
         to["optimized_attention_override"] = make_sage_override(
