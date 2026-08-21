@@ -12,6 +12,7 @@ from comfy_api.latest import ComfyExtension, io
 
 from .assert_chain import SageChainAssert
 from .keyframe_canvas import MiniMaxH3KeyframeCanvas
+from .conditioning import MiniMaxH3Conditioning
 from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
 from .reference_fit import MiniMaxH3ReferenceFit
@@ -294,7 +295,7 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3ReferenceFit, MiniMaxH3Resolution, MiniMaxH3Preflight,
                 MiniMaxH3ProvenanceStamp, MiniMaxH3SolAttnCurve,
                 MiniMaxH3SLARouter, MiniMaxH3VAEPrecision,
-                MiniMaxH3VendorTokens]
+                MiniMaxH3VendorTokens, MiniMaxH3Conditioning]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

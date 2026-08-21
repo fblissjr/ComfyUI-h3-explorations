@@ -1,4 +1,23 @@
 {
+  "MiniMaxH3Conditioning": {
+    "inputs": [
+      "clip",
+      "vae",
+      "prompt",
+      "width",
+      "height",
+      "length",
+      "first_frame",
+      "last_frame",
+      "canvas",
+      "vendor_tokens"
+    ],
+    "node_id": "MiniMaxH3Conditioning",
+    "outputs": [
+      "positive",
+      "Output"
+    ]
+  },
   "MiniMaxH3KeyframeCanvas": {
     "inputs": [
       "first_frame",
@@ -72,6 +91,16 @@
       "summary"
     ]
   },
+  "MiniMaxH3SLARouter": {
+    "inputs": [
+      "model",
+      "sparsity_ratio"
+    ],
+    "node_id": "MiniMaxH3SLARouter",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3SageAttention": {
     "inputs": [
       "model",
@@ -90,6 +119,27 @@
       "curve"
     ],
     "node_id": "MiniMaxH3SolAttnCurve",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3VAEPrecision": {
+    "inputs": [
+      "vae",
+      "encoder",
+      "decoder"
+    ],
+    "node_id": "MiniMaxH3VAEPrecision",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3VendorTokens": {
+    "inputs": [
+      "clip",
+      "strict"
+    ],
+    "node_id": "MiniMaxH3VendorTokens",
     "outputs": [
       "Output"
     ]

@@ -979,7 +979,7 @@ the slice is a different partition from the one the kernel sees.
 > **A caveat stood here on 2026-08-16 saying the prototype had dropped the
 > conditioning rows, and it was wrong.** Withdrawn the same day after reading
 > the script rather than the report of it:
-> `scripts/experimental/sol_curve_2026-08-16/probe_routed_density.py:41` sets
+> `internal/scripts/archive/sol_curve_2026-08-16/probe_routed_density.py:41` sets
 > `n = S // BLOCK` over the full 37,826-row sequence, and `kc`, `kmean` and
 > `kc_var` are all computed over that population. The threshold is already
 > derived the way the kernel derives it, and no reported number moves for this
@@ -992,7 +992,7 @@ the slice is a different partition from the one the kernel sees.
 **The real defect in the prototype, and it is a labelling one.** Its docstring
 claims diagonal, neighbour *and sink* blocks are excluded from numerator and
 denominator. The code masks only `|i-j| <= 1`
-(`scripts/experimental/sol_curve_2026-08-16/probe_routed_density.py:47`); there is no sink mask
+(`internal/scripts/archive/sol_curve_2026-08-16/probe_routed_density.py:47`); there is no sink mask
 anywhere. Sink pairs sit in the denominator and are judged by the threshold
 like any other pair, when the kernel forces them exact regardless.
 

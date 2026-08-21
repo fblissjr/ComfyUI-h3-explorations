@@ -4,6 +4,51 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.49.0
+
+### Added
+
+- **`MiniMaxH3Conditioning`**, replacing core's `MiniMaxH3ImageToVideo` on the
+  t2v and keyframe paths across all 19 graphs that used it. ref2va is
+  untouched. It closes four seams measured here on 2026-08-21:
+  the seven H3 special tokens are registered by the node itself, so `<d>`
+  reaches the model as id 151669 rather than BPE debris and nobody has to
+  remember to wire a second node in front; the canvas is derived from the
+  anchor keyframe by the node that also encodes it, so geometry has one owner
+  instead of two in series; **a lone `last_frame` is now a valid graph**, which
+  core cannot express and `MiniMaxH3KeyframeCanvas` cannot reach because its
+  `first_frame` input is required; and an empty prompt is refused rather than
+  conditioned on a pad token.
+  Smoke-rendered on both signatures: a first-frame graph and a last-frame-only
+  graph, each deriving 768x768 from a 1024x1024 keyframe.
+
+### Changed
+
+- **`clip_with_vendor_tokens()` and `resolve_keyframe_geometry()` are module
+  level**, with `MiniMaxH3VendorTokens` and `MiniMaxH3KeyframeCanvas` as thin
+  wrappers over them. A node cannot call another node, and the alternative was
+  a second copy of each -- which this repo forbids. Both old nodes keep their
+  schemas exactly, so nothing that already ships changes.
+- **`resolve_keyframe_geometry` accepts a keyframe set with no first frame.**
+  The anchor is chosen by semantic frame index, sglang's rule at
+  `prequeue.py:97-107`, so the lone frame anchors the canvas instead of being
+  cover-cropped into one chosen elsewhere.
+- **`docs/open_experiments.md`'s two dead citations now resolve.** The script
+  was archived, not deleted. They had been red across every `check_doc_links`
+  run for days, which is the state this repo says is worse than no check.
+
+### Deliberately not closed
+
+- **The Qwen processor's pixel bounds.** Inert on this path -- no legal H3
+  canvas trips either bound -- and reaching them means patching
+  `cond_stage_model`, which `CLIP.clone()` shares by reference, so the patch
+  would leak into every other graph in the process.
+- **The VAE posterior.** `VAE.encode` never returns the log-variance, so a node
+  would have to reach into `first_stage_model` and skip `load_models_gpu`,
+  giving a CPU-resident model whenever the VAE is offloaded. `vae_precision.py`
+  is the safe shape for this and the posterior belongs in a node like it.
+  Both are recorded in the node's own docstring.
+
 ## 0.48.6
 
 ### Added

@@ -654,35 +654,41 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # i2v takes its geometry from the keyframe node (below); every other
         # task takes it from Resolution, so the cost of the choice is visible
         # on the node where the choice is made.
-        inputs = {"clip": ["2", 0], "vae": ["3", 0], "prompt": prompt}
+        #
+        # `MiniMaxH3Conditioning`, not core's `MiniMaxH3ImageToVideo`. It owns
+        # the canvas itself, so the separate `MiniMaxH3KeyframeCanvas` that
+        # used to sit at node 17 and hand sizes forward is gone -- one geometry
+        # owner rather than two in series. It also registers the release's
+        # seven special tokens, which core's tokenizer cannot emit, so a prompt
+        # carrying `<d>` conditions on the marker rather than on BPE debris
+        # without anyone remembering to wire a second node in front.
+        inputs = {"clip": ["2", 0], "vae": ["3", 0], "prompt": prompt,
+                  "vendor_tokens": True}
         if task == "i2v":
-            inputs |= {"width": cv["width"], "height": cv["height"], "length": length}
-        else:
-            inputs |= {"width": ["27", 0], "height": ["27", 1], "length": ["27", 2]}
-        if task == "i2v":
-            # first_frame only. Wiring node 17's last_frame from a second
-            # LoadImage turns this into the fl2va task the checkpoint is named
-            # for; the model and every other node stay the same.
-            #
-            # The keyframe never reaches node 5 directly. MiniMaxH3ImageToVideo
-            # stretches the first keyframe onto width/height non-uniformly --
-            # 2.33x on a 3:4 still at the default canvas -- so node 17 fits it
-            # first and hands over both the image and the size it was fitted to.
-            # Node 5's own resize is then a bit-identical no-op.
+            # `canvas` carries what node 17's `mode` used to: derive the canvas
+            # from the keyframe, or hold the geometry the caller typed. The
+            # length window and the aspect refusal ride along inside the node,
+            # so a graph edited in the UI afterwards keeps both.
+            inputs |= {"width": cv["width"], "height": cv["height"],
+                       "length": length,
+                       "canvas": ("from_keyframe"
+                                  if canvas_mode == "match_keyframe"
+                                  else "explicit")}
+            # first_frame only. Wiring `last_frame` from a second LoadImage
+            # turns this into the fl2va task the checkpoint is named for; every
+            # other node stays the same. Unlike core, wiring ONLY `last_frame`
+            # is now also a valid graph -- the lone frame anchors the canvas
+            # instead of being cropped into one chosen elsewhere.
             g["15"] = {"class_type": "LoadImage", "inputs": {"image": PLACEHOLDER_IMAGE_A}}
-            # `length` goes through node 17 too, so the reference's 5-15s
-            # window is enforced by the graph rather than only by the
-            # generator. A graph edited in the UI afterwards -- which is the
-            # normal way these get used -- keeps the check.
-            g["17"] = {"class_type": "MiniMaxH3KeyframeCanvas",
-                       "inputs": {"first_frame": ["15", 0], "mode": canvas_mode,
-                                  "width": cv["width"], "height": cv["height"],
-                                  "length": length}}
-            inputs["first_frame"] = ["17", 2]
-            inputs["width"] = ["17", 0]
-            inputs["height"] = ["17", 1]
-            inputs["length"] = ["17", 5]
-        g["5"] = {"class_type": "MiniMaxH3ImageToVideo", "inputs": inputs}
+            inputs["first_frame"] = ["15", 0]
+        else:
+            # No keyframe, so there is nothing to derive a canvas from and
+            # Resolution owns it. `canvas` is inert on this path and is stated
+            # rather than left to the default, so the graph says which rule it
+            # is under.
+            inputs |= {"width": ["27", 0], "height": ["27", 1],
+                       "length": ["27", 2], "canvas": "explicit"}
+        g["5"] = {"class_type": "MiniMaxH3Conditioning", "inputs": inputs}
 
     model_src = ["1", 0]
     if lora is not None:
@@ -3426,49 +3432,31 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             if ref_video_audio:
                 g.link(vid, 2, cond, "ref_video_audios.ref_video_audio_0", "AUDIO")
     else:
+        # Widget order mirrors the schema: prompt, width, height, length,
+        # canvas, vendor_tokens. The keyframe images stay input sockets.
         cond_inputs = [_in("clip", "CLIP"), _in("vae", "VAE"),
                        _in("first_frame", "IMAGE", optional=True),
-                       _in("last_frame", "IMAGE", optional=True)]
-        if task == "i2v":
-            # width/height/length arrive as links from the canvas node rather
-            # than as typed widgets, so they need input sockets. `length` joins
-            # them so the reference's 5-15s window is enforced by the graph and
-            # survives editing in the UI, not only by the generator.
-            cond_inputs += [_in("width", "INT", widget=True),
-                            _in("height", "INT", widget=True),
-                            _in("length", "INT", widget=True)]
-        cond = g.add("MiniMaxH3ImageToVideo", (-460, 0), size=(430, 560),
-                     widgets=[prompt, cv["width"], cv["height"], length],
-                     inputs=cond_inputs + ([] if task == "i2v" else [
-                         _in("width", "INT", widget=True), _in("height", "INT", widget=True),
-                         _in("length", "INT", widget=True)]),
+                       _in("last_frame", "IMAGE", optional=True),
+                       _in("width", "INT", widget=True),
+                       _in("height", "INT", widget=True),
+                       _in("length", "INT", widget=True)]
+        cond = g.add("MiniMaxH3Conditioning", (-460, 0), size=(430, 620),
+                     widgets=[prompt, cv["width"], cv["height"], length,
+                              ("from_keyframe"
+                               if task == "i2v" and canvas_mode == "match_keyframe"
+                               else "explicit"),
+                              True],
+                     inputs=cond_inputs,
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
         g.link(vvae, 0, cond, "vae", "VAE")
         if task == "i2v":
+            # Straight into the conditioning node. There is no canvas node in
+            # front of it any more: it derives the canvas from this keyframe
+            # itself, which is one owner instead of two agreeing by wiring.
             img_a = g.add("LoadImage", (-880, 900), size=(290, 330),
                           widgets=[PLACEHOLDER_IMAGE_A, "image"],
                           outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
-            # The keyframe goes through the canvas node, never straight into
-            # MiniMaxH3ImageToVideo -- that node stretches the first keyframe
-            # onto width/height non-uniformly (2.33x on a 3:4 still at the
-            # default canvas). Fitted first, its resize becomes a no-op.
-            kfc = g.add("MiniMaxH3KeyframeCanvas", (-880, 640), size=(330, 230),
-                        widgets=[canvas_mode, cv["width"], cv["height"], length],
-                        inputs=[_in("first_frame", "IMAGE"),
-                                _in("last_frame", "IMAGE", optional=True)],
-                        # `length` is last because the node appends it there --
-                        # inserting it beside width/height would shift every
-                        # later slot in already-saved graphs.
-                        outputs=[_out("width", "INT"), _out("height", "INT"),
-                                 _out("first_frame", "IMAGE"),
-                                 _out("last_frame", "IMAGE"),
-                                 _out("attn_cost_vs_1to1", "FLOAT"),
-                                 _out("length", "INT")])
-            g.link(img_a, 0, kfc, "first_frame", "IMAGE")
-            g.link(kfc, 2, cond, "first_frame", "IMAGE")
-            g.link(kfc, 0, cond, "width", "INT")
-            g.link(kfc, 1, cond, "height", "INT")
-            g.link(kfc, 5, cond, "length", "INT")
+            g.link(img_a, 0, cond, "first_frame", "IMAGE")
     g.link(clip, 0, cond, "clip", "CLIP")
 
     noise = g.add("RandomNoise", (40, 0), size=(300, 110), widgets=[seed, "randomize"],
@@ -3869,7 +3857,7 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
         # H3-specific: frame count is snapped up to 17k+5 by the node, so an
         # off-grid `length` silently renders a different duration than asked.
         if ct in ("MiniMaxH3ImageToVideo", "MiniMaxH3ReferenceToVideo",
-                  "EmptyMiniMaxH3LatentAV"):
+                  "MiniMaxH3Conditioning", "EmptyMiniMaxH3LatentAV"):
             ln = given.get("length")
             if isinstance(ln, int) and ln % 17 != 5:
                 e(f"node {nid} ({ct}): length {ln} is off the 17k+5 grid; "
