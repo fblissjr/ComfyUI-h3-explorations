@@ -4,6 +4,36 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.48.0
+
+### Changed
+
+- **The video VAE is `minimax_h3_video_vae_fp16`, by owner decision
+  (2026-08-21); the int8_convrot decoder was deleted from disk.** Measured
+  before the switch: the fp16 file is the official release's fp32 weights
+  (`MiniMaxAI/MiniMax-H3`, `video_vae/source/model.safetensors`) cast down --
+  all 559 shared tensors match in name and shape, median relative delta
+  2.07e-4, max 2.48e-4, which is fp16's rounding floor and nothing more. Only
+  the fp32 original is more faithful, at twice the size; a bf16 conversion
+  would be less faithful, since fp16 carries three more mantissa bits. The
+  int8 decoder's own measurements (1.29x decode, 53.3 dB against fp16) stay in
+  0.13.0 as history.
+
+### Added
+
+- **`bench/check_model_files.py`**, for an escape the existing gates could not
+  catch: the VAE was deleted while `h3_config.py` still named it, and
+  `build_workflows.py` reported 113 graphs validated against `/object_info`
+  ok minutes later -- it grades classes, input names and link shapes, never a
+  widget's value against the combo options that input offers. The new check
+  grades every model name in a shipped graph and in `h3_config` against what
+  the live server offers **for that node class**, so a VAE name under
+  `UNETLoader` fails though both files exist. Four controls run every
+  invocation; `workflows/bench/` is out of scope because `GRAPH_DIRS` excludes
+  it, and the check says so rather than implying coverage.
+  `docs/checks.md` gains its row and retires the matching
+  uncontrolled-requirement line.
+
 ## 0.47.0
 
 ### Removed

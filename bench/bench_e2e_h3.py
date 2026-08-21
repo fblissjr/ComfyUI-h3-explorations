@@ -44,7 +44,7 @@ Method notes that matter for trusting the result:
   decode column is the one being read:
 
     ./bench/bench_e2e_h3.py --arms sage+sol --runs 2 --length 124 --steps 6 \
-        --video-vae minimax_h3_video_vae_fp16.safetensors,minimax_h3_video_vae_int8_convrot.safetensors
+        --video-vae minimax_h3_video_vae_fp16.safetensors
 
 Needs a running ComfyUI with the MiniMax H3 models installed.
 """

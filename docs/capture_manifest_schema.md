@@ -203,10 +203,11 @@ why this was done ahead of the record unification rather than behind it.
 ### `vae_quantization` is deliberately not required
 
 It is singular, and a reference graph loads two VAEs at different quantizations --
-`minimax_h3_video_vae_int8_convrot` beside `minimax_h3_audio_vae_fp32` in
+`minimax_h3_video_vae_fp16` beside `minimax_h3_audio_vae_fp32` in
 `workflows/h3_probe_capture_ref3_api.json`. One value over two files records
 something true of neither, and the existing manifest demonstrates it: it says
-`int8_convrot`, which is right about the video VAE and wrong about the audio one.
+`int8_convrot`, which described the video VAE that graph loaded when it was
+captured and never described the audio one.
 
 Requiring a singular field over a plural reality is harder to walk back than not
 requiring it, so it stays optional until it is either split per-VAE or dropped.

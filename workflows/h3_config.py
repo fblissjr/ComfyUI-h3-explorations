@@ -30,51 +30,23 @@ MODELS = dict(
     unet_hybrid_b30="minimax_h3_hybrid_fl2va_ref2va_b30-49-int8.safetensors",
     unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
     clip="qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
-    # int8_convrot decoder (Comfy-Org/ComfyUI#15334 merged 2026-08-06, loader
-    # branch at comfy/sd.py). 2666.2 MiB resident against fp16's 4966.5 --
-    # a real 2300 MiB, engagement confirmed by allocation rather than by a log
-    # line, since the loader prints `dtype: torch.float16` for both builds and
-    # cannot distinguish int8 storage from a dequantized fallback.
+    # The fp16 video VAE, and it is the best build available in ComfyUI's
+    # format. **Measured 2026-08-21** against the official release's fp32
+    # weights (`MiniMaxAI/MiniMax-H3`, `video_vae/source/model.safetensors`):
+    # all 559 shared tensors match in name and shape, median relative delta
+    # 2.07e-4 and max 2.48e-4, which is fp16's own rounding floor and no more
+    # -- so this file is that fp32 cast down, with `latents_mean` and
+    # `latents_std` folded in as tensors. Only the fp32 original is more
+    # faithful, at twice the size; a bf16 conversion would be less, since
+    # fp16 carries three more mantissa bits.
     #
-    # Swapped in 2026-08-10 after the quality and speed pass this note used to
-    # ask for. Paired arms, same seed, so the latents are identical and every
-    # pixel difference is the decoder:
-    #
-    #   decode      12.8s -> 9.9s median (1.29x) at 124f, 1344x768
-    #
-    # **Re-measured 2026-08-11 after kijai's decode rewrite (ComfyUI 2a68ce33,
-    # which added chunked IO and streams finalized chunks to the intermediate
-    # device instead of assembling the video on the GPU): 12.8s -> 10.0s,
-    # 1.28x.** Unchanged within noise, so the figure above stands and the
-    # rewrite did not move the int8-vs-fp16 relationship. Worth having
-    # checked rather than assumed: the numbers predated the rewrite and
-    # nothing said whether they survived it.
-    #
-    # Peak VRAM was NOT reproducible in that run: fp16 measured 20263 and
-    # 22528 MiB on two runs of the same seed, and int8 measured higher than
-    # fp16 overall. Process peak is dominated by ComfyUI's dynamic VRAM
-    # reallocating against free memory, not by what the VAE holds, so peak
-    # is not a number to compare VAEs on here.
-    #   quality     PSNR 53.3 dB, mean|d| 0.23/255, p99 2/255, max 20/255,
-    #               and 79.6% of pixels bit-identical. Lossless PNG straight
-    #               off VAEDecode, same latent through both VAE files.
-    #   temporal    per-frame error is a flat offset rather than a pulse, and
-    #               frame-to-frame motion energy int8/fp16 = 0.998 -- int8 is
-    #               fractionally *smoother*, where flicker would read above 1.
-    #
-    # **The first quality pass here was wrong and is worth keeping as a
-    # warning.** It compared the two arms after mp4 encode and reported
-    # ~40 dB / 1.3-1.7 of 255 as agreement. An h264 round trip on IDENTICAL
-    # pixels measures 1.63/255 at 41.1 dB, so that number was the codec's
-    # noise floor and not the decoder at all. The tell was visible and
-    # missed: three different comparisons all returned 1.64, which is what
-    # happens when the thing being varied is smaller than the instrument's
-    # resolution. Redone without a codec in the loop, the real decoder
-    # difference is 53.3 dB -- roughly 7x below what the video encode adds
-    # anyway, so shipping int8 changes the output less than saving it does.
-    #
-    # Still measured at 124 frames rather than the 250+ this config runs.
-    video_vae="minimax_h3_video_vae_int8_convrot.safetensors",
+    # The int8_convrot decoder shipped here from 2026-08-10 and was removed
+    # by owner decision on 2026-08-21, file deleted from disk. It decoded
+    # 1.29x faster at 124f/1344x768 and cost 53.3 dB against fp16 on
+    # lossless pixels; the CHANGELOG holds that measurement. Nothing may name
+    # it again -- `bench/check_model_files.py` goes red on any graph or
+    # constant pointing at a file the server does not offer.
+    video_vae="minimax_h3_video_vae_fp16.safetensors",
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
 )
 

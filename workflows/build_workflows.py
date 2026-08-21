@@ -1795,7 +1795,7 @@ Upstream tracking: Comfy-Org/ComfyUI#15644.
 | | this graph | the video graphs |
 |---|---|---|
 | length | **1** | 124-362 |
-| VAE | **single-image H3 VAE** | `minimax_h3_video_vae_int8_convrot` |
+| VAE | **single-image H3 VAE** | `minimax_h3_video_vae_fp16` |
 | audio | no decoder at all | decoded and muxed |
 | output | `SaveImage` | `VHS_VideoCombine` |
 
