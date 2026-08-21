@@ -65,9 +65,24 @@ defect, and it cuts in an unobvious direction. It does **not** make ComfyUI's
 behaviour equivalent to the release: the release emits one ID and attends an
 untrained vector, ComfyUI emits several trained BPE pieces, and those are
 different sequences of different lengths, which shifts every position after
-them. What it does mean is that **making the markers reachable is a parity fix,
-not a quality fix** -- neither path carries learned meaning for `<d>` itself,
-so nobody should expect the marker to start working once it routes. Two
+them. What it does mean is narrower than it first looks, **and narrower than this
+paragraph claimed when it was written earlier the same day.** The first version
+said making the markers reachable is "a parity fix, not a quality fix, so
+nobody should expect the marker to start working once it routes." That
+conflates two different places a token can carry meaning. The measurement
+constrains the *encoder*: Qwen assigns row 151669 no learned semantics. It says
+nothing about the *DiT*, which was trained on Qwen hidden states produced from
+prompts tokenized by the release tokenizer -- and the prompt guide mandates
+`<d>` for all dialogue, so those training prompts almost certainly contained
+it. An untrained embedding is still a fixed, distinctive vector, and a frozen
+encoder turns it into a fixed, distinctive hidden state. That is exactly what a
+downstream model can learn to read as a delimiter.
+
+So the honest position is: **the marker is meaningless to Qwen and may well be
+load-bearing to the DiT, and this measurement cannot tell you which.** What
+would tell you is a controlled comparison at the DiT boundary on a dialogue
+prompt with the markers routed and unrouted -- not a rendered pair, which
+`CLAUDE.md`'s different-sample rule rules out. Two
 readings remain open and this measurement does not separate them: the tokens
 may be vestigial, or the text encoder may simply have been frozen through H3
 training, in which case no row moved and the norm says nothing about whether

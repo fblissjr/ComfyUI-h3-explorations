@@ -24,11 +24,16 @@ and the padding rows past 151676, not -- the seven land on the untrained pole in
 the official release and in both repacked encoders alike. So this node makes the
 markers *reachable*; it does not make them *useful*, and it never could.
 
-That is still worth having, because reachable and unreachable are different
-sequences: the release emits one ID where ComfyUI emits several BPE pieces, and
-the length difference shifts every position after the marker. This node buys
-parity with what the release serves. It buys no fidelity, and anyone wiring it
-expecting `<d>` to start working should read the measurement first.
+**"Untrained in the encoder" is not "carries no signal", and the first version
+of this docstring got that wrong.** The measurement constrains Qwen only. The
+DiT was trained on Qwen hidden states from prompts the release tokenizer
+produced, and the prompt guide mandates `<d>` for all dialogue, so those
+prompts almost certainly carried the marker. An untrained embedding is still a
+fixed distinctive vector, and a frozen encoder maps it to a fixed distinctive
+hidden state -- which is precisely what a downstream model learns to read as a
+delimiter. So this node may buy fidelity on dialogue prompts and not only
+parity. Nobody has measured which, and it would take a comparison at the DiT
+boundary rather than a rendered pair.
 
 **Why they are untrained is now known too.** The release's README says the
 H3-Encoder uses the full pretrained weights of Qwen3-VL-32B, and the same rows
