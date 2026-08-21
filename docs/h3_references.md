@@ -277,6 +277,18 @@ downstream of the resize matches" until the posterior row below was added.
 
 **Four consequences worth carrying away.**
 
+**The two VAEs disagree in opposite directions, and only one of them is a
+divergence.** Recorded 2026-08-21 after an outside review pointed at the audio
+half, which this section had not covered. sglang samples the **video** VAE
+posterior at a pinned seed and takes the **audio** VAE posterior *mean*
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py:83`, whose docstring says "audio VAE posterior
+mean" in as many words). ComfyUI takes the mean for both. So ComfyUI diverges
+on every reference image and reference video and **matches the release on
+reference audio** -- and it matches on precision too, since `comfy/sd.py`
+pins the H3 audio VAE to `working_dtypes = [torch.float32]`. The asymmetry is
+in the release, not in ComfyUI: the audio VAE's own `logs_proj` ships in the
+checkpoint and is unused at inference on both sides.
+
 **The condition latent is drawn differently, and this is separate from the
 condition noise below.** Read on both sides 2026-08-21. sglang samples the
 released posterior with a seed pinned at 42 for keyframes and for reference
