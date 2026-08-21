@@ -81,12 +81,52 @@ def _find_nodes(graph: dict, key: str) -> list[str]:
     return [nid for nid, n in graph.items() if n.get("class_type") == key]
 
 
+def split_target(graph: dict, target: str) -> tuple[str, str]:
+    """Split `NODE.FIELD` when FIELD may itself contain dots.
+
+    A dynamic combo writes its branch widget as `shape.square_resolution`, so
+    `rpartition(".")` -- which this used until 2026-08-21 -- took the LAST dot
+    and produced the node key `27.shape`, which matches nothing. The tool could
+    therefore not express a canvas change at all, which is why the arms for
+    `docs/open_experiments.md` #22 could not be written as a command line.
+
+    Split at the FIRST dot whose left side actually names a node, so the node
+    key stays greedy-shortest and everything after it is the field. Falls back
+    to the old behaviour so an unmatched target still reports against the last
+    dot, which is the reading a typo in a plain field deserves.
+    """
+    parts = target.split(".")
+    for i in range(1, len(parts)):
+        head = ".".join(parts[:i])
+        if _find_nodes(graph, head):
+            return head, ".".join(parts[i:])
+    node_key, _, field = target.rpartition(".")
+    return node_key, field
+
+
 def apply_patch(graph: dict, node_key: str, field: str, value) -> list[str]:
     nids = _find_nodes(graph, node_key)
     if not nids:
         raise SystemExit(f"patch target {node_key!r} matches no node")
     for nid in nids:
         inputs = graph[nid]["inputs"]
+        if field not in inputs and "." in field:
+            # A dynamic combo's branch widget. `shape=square` and
+            # `shape.square_resolution=...` are one edit in the UI: the branch
+            # selector changes and the previous branch's widget goes away. A
+            # patch that only added the new key would leave the old band's
+            # widget behind, and the graph would carry two.
+            #
+            # Guarded on the SELECTOR existing, not on the dot: a bare typo in
+            # a plain field still fails loudly below, which is what the
+            # unknown-input guard is for.
+            selector = field.split(".", 1)[0]
+            if selector in inputs:
+                for stale in [k for k in inputs
+                              if k.startswith(selector + ".") and k != field]:
+                    del inputs[stale]
+                inputs[field] = value
+                continue
         if field not in inputs:
             raise SystemExit(
                 f"node {nid} ({graph[nid]['class_type']}) has no input "
@@ -167,7 +207,9 @@ def main() -> int:
     for spec in args.patches:
         label, _, rest = spec.partition(":")
         target, _, raw = rest.partition("=")
-        node_key, _, field = target.rpartition(".")
+        if label not in arms:
+            raise SystemExit(f"--set names arm {label!r}, which has no --arm")
+        node_key, field = split_target(arms[label]["graph"], target)
         if label not in arms or not node_key or not raw:
             raise SystemExit(f"--set wants LABEL:NODE.FIELD=VALUE, got {spec!r}")
         value = _parse_value(raw)
