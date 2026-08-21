@@ -123,54 +123,69 @@ class MiniMaxH3VendorTokens(io.ComfyNode):
 
     @classmethod
     def execute(cls, clip, strict=True) -> io.NodeOutput:
-        _, hf_probe, why = _tokenizer_chain(clip)
-        if why:
-            raise ValueError(why)
+        return io.NodeOutput(clip_with_vendor_tokens(clip, strict=strict))
 
-        declared = vendor_config.additional_special_tokens()
-        missing = [t for t in declared if t not in hf_probe.get_vocab()]
-        if not missing:
-            logger.info("[h3] vendor tokens: all %d already present, "
-                        "clip passed through unchanged", len(declared))
-            return io.NodeOutput(clip)
 
-        n = clip.clone()
-        # A FRESH tokenizer, not a copy of the loaded one: `clone()` shares the
-        # tokenizer by reference and a shallow copy would still share the
-        # HuggingFace object underneath it.
-        from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
-        fresh = MiniMaxH3Tokenizer(
-            embedding_directory=getattr(
-                getattr(clip.tokenizer, "qwen3vl_32b", None),
-                "embedding_directory", None),
-        )
-        inner, hf, why = _tokenizer_chain_of(fresh)
-        if why:
-            raise ValueError(why)
+def clip_with_vendor_tokens(clip, strict: bool = True):
+    """A CLIP whose tokenizer can emit the release's special tokens.
 
-        added = hf.add_special_tokens({"additional_special_tokens": declared})
-        still = [t for t in declared if t not in hf.get_vocab()]
-        if still:
-            message = (f"could not add {still} to the tokenizer; a prompt "
-                       "using them would condition on literal text")
-            if strict:
-                raise ValueError(message)
-            logger.warning("[h3] vendor tokens: %s", message)
+    Returns the input unchanged when they are already present, otherwise a
+    clone carrying a freshly built tokenizer with them added.
 
-        # `inv_vocab` is built at construction and only read by `untokenize`,
-        # which is off the render path. Refreshed anyway so the two views of
-        # the vocabulary do not disagree for whoever reads it next.
-        if hasattr(inner, "inv_vocab"):
-            inner.inv_vocab = {v: k for k, v in hf.get_vocab().items()}
+    **Module-level so it has exactly one implementation.** The node above is a
+    thin wrapper and `conditioning.py` calls this directly, because a
+    conditioning node that needs a graph rewired to tokenize its own prompt
+    correctly is a conditioning node with a footgun. `workflows/h3_config.py`
+    states the rule this follows: nothing here may have a second copy anywhere.
+    """
+    _, hf_probe, why = _tokenizer_chain(clip)
+    if why:
+        raise ValueError(why)
 
-        n.tokenizer = fresh
-        vocab = hf.get_vocab()
-        logger.info(
-            "[h3] vendor tokens: added %d of %d declared -> %s",
-            added, len(declared),
-            {t: vocab.get(t) for t in missing},
-        )
-        return io.NodeOutput(n)
+    declared = vendor_config.additional_special_tokens()
+    missing = [t for t in declared if t not in hf_probe.get_vocab()]
+    if not missing:
+        logger.info("[h3] vendor tokens: all %d already present, "
+                    "clip passed through unchanged", len(declared))
+        return clip
+
+    n = clip.clone()
+    # A FRESH tokenizer, not a copy of the loaded one: `clone()` shares the
+    # tokenizer by reference and a shallow copy would still share the
+    # HuggingFace object underneath it.
+    from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
+    fresh = MiniMaxH3Tokenizer(
+        embedding_directory=getattr(
+            getattr(clip.tokenizer, "qwen3vl_32b", None),
+            "embedding_directory", None),
+    )
+    inner, hf, why = _tokenizer_chain_of(fresh)
+    if why:
+        raise ValueError(why)
+
+    added = hf.add_special_tokens({"additional_special_tokens": declared})
+    still = [t for t in declared if t not in hf.get_vocab()]
+    if still:
+        message = (f"could not add {still} to the tokenizer; a prompt "
+                   "using them would condition on literal text")
+        if strict:
+            raise ValueError(message)
+        logger.warning("[h3] vendor tokens: %s", message)
+
+    # `inv_vocab` is built at construction and only read by `untokenize`,
+    # which is off the render path. Refreshed anyway so the two views of
+    # the vocabulary do not disagree for whoever reads it next.
+    if hasattr(inner, "inv_vocab"):
+        inner.inv_vocab = {v: k for k, v in hf.get_vocab().items()}
+
+    n.tokenizer = fresh
+    vocab = hf.get_vocab()
+    logger.info(
+        "[h3] vendor tokens: added %d of %d declared -> %s",
+        added, len(declared),
+    {t: vocab.get(t) for t in missing},
+    )
+    return n
 
 
 def _tokenizer_chain_of(tokenizer_obj):

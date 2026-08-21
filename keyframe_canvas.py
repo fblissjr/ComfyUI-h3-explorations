@@ -134,123 +134,159 @@ class MiniMaxH3KeyframeCanvas(io.ComfyNode):
     # `bench/check_schema_defaults.py` asserts they agree, for every node here.
     def execute(cls, first_frame, mode="match_keyframe", width=1344, height=768,
                 last_frame=None, length=124) -> io.NodeOutput:
-        if first_frame.shape[0] > 1:
-            # the H3 node takes [:1] silently; say so rather than let a batch
-            # look like it was used
-            logger.warning(
-                "[h3] first_frame carries %d images; MiniMax H3 uses only "
-                "the first. Batch the prompt instead if you meant several renders.",
-                first_frame.shape[0],
-            )
-        src_h, src_w = int(first_frame.shape[1]), int(first_frame.shape[2])
+        return io.NodeOutput(*resolve_keyframe_geometry(
+            first_frame=first_frame, last_frame=last_frame, mode=mode,
+            width=width, height=height, length=length))
 
-        if mode == "match_keyframe":
-            # The reference refuses here rather than resolving a canvas the
-            # checkpoint was never trained on, and in this mode the aspect
-            # comes from the image rather than from the user -- so nobody has
-            # chosen it and nobody would otherwise be told. Raising is the
-            # whole point: `adapt_canvas` would return a perfectly plausible
-            # canvas and the render would just be bad.
-            if not aspect_in_range(src_w, src_h):
-                raise RuntimeError(
-                    f"MiniMax H3 was trained on aspect ratios from "
-                    f"{describe_aspect_range()}; this keyframe is "
-                    f"{src_w}x{src_h} ({src_w / src_h:.3g}). Crop it, or "
-                    f"switch to fit_to_canvas to choose the geometry yourself."
-                )
-            width, height = adapt_canvas(src_w, src_h)
-            # Aspect now matches by construction, so "disabled" is a uniform
-            # scale, not a stretch. Mirrors the reference's anchor path.
-            anchor_crop = "disabled"
-        else:
-            # Round to the DiT's multiple of 32 and otherwise leave the size
-            # alone. NOT adapt_canvas: that forces a 768 short edge and the area
-            # cap, which would silently promote a 832x480 preview canvas to
-            # 1344x768 -- a 6.7x attention increase from a node whose whole job
-            # here is keeping render cost where the user put it.
-            snapped_w = max(32, round(width / 32) * 32)
-            snapped_h = max(32, round(height / 32) * 32)
-            if (snapped_w, snapped_h) != (width, height):
-                # step=32 constrains the UI, not an API submission, and the
-                # API-format workflows in this repo are how benches are driven.
-                # A size the DiT cannot patch would fail downstream with a
-                # shape error that says nothing about where it came from.
-                logger.warning(
-                    "[h3] canvas %dx%d is not a multiple of 32; "
-                    "snapped to %dx%d. The H3 latent cannot grid the original.",
-                    width, height, snapped_w, snapped_h,
-                )
-            width, height = snapped_w, snapped_h
-            # Warn rather than raise: in this mode the user typed the geometry,
-            # and this node's contract here is "you own it". Refusing a size
-            # somebody deliberately entered would be this node overruling them,
-            # which is the opposite of the mode. They still get told, because
-            # the failure is a quality one and would otherwise be invisible.
-            if not aspect_in_range(width, height):
-                logger.warning(
-                    "[h3] canvas %dx%d is aspect %.3g, outside the %s range "
-                    "MiniMax H3 was trained on. It will render; expect the "
-                    "output to degrade rather than fail.",
-                    width, height, width / height, describe_aspect_range(),
-                )
-            # The user owns the geometry, so the anchor is cover-cropped rather
-            # than stretched. NOTE: this is a deliberate divergence -- the
-            # reference stretches the anchor even when width/height are given,
-            # and only cover-crops followers. Cropping both keeps proportions
-            # honest when the aspect was chosen on purpose; it costs edge
-            # framing. Reference fidelity lives in match_keyframe.
-            anchor_crop = "center"
 
-        first_out = _resize(first_frame[:1], width, height, anchor_crop)
-        # The follower is cover-cropped in either mode, as in the reference.
-        last_out = (_resize(last_frame[:1], width, height, "center")
-                    if last_frame is not None else first_out)
+def resolve_keyframe_geometry(first_frame=None, last_frame=None,
+                              mode="match_keyframe", width=1344, height=768,
+                              length=0):
+    """(width, height, first_out, last_out, attn_cost, length) for a keyframe set.
 
-        # DiT tokens go as (h//32)*(w//32) and attention as their square, so
-        # report cost against the cheapest canvas H3 will resolve (768x768).
-        tokens = (height // 32) * (width // 32)
-        cheapest = (768 // 32) ** 2
-        attn_cost = round((tokens / cheapest) ** 2, 3)
+    **Module-level so the geometry has exactly one implementation.** The node
+    above is a thin wrapper and `conditioning.py` calls this directly. Every
+    rule below -- the aspect refusal in `match_keyframe`, the snap-then-check
+    length order, the anchor-versus-follower crop asymmetry -- was reasoned
+    out once and must not be reasoned out twice.
 
-        # Length is checked in the reference's order: snap to the VAE grid
-        # first, then hold the duration ceiling against the RESULT. Checking
-        # the request instead passes 346 and then renders 362.
-        if length:
-            snapped = snap_length(length)
-            # Single frame is refused HERE and allowed on the reference path,
-            # and that asymmetry is deliberate rather than an oversight. This
-            # node feeds MiniMaxH3ImageToVideo, which pins a `last_frame` at
-            # `frame_count - 1` -- frame 0 in a one-frame video, i.e. on top of
-            # `first_frame`. Nobody has established what fl2va does at one
-            # frame, so the shipped single-image path is ref2v. If that gets
-            # measured, this branch is the thing to delete.
-            if is_single_frame(snapped):
-                raise RuntimeError(
-                    "length=1 (single-frame image mode) is not supported on "
-                    "the keyframe path. MiniMaxH3ImageToVideo anchors a "
-                    "last_frame at the final frame, which in a one-frame video "
-                    "is the first frame, and fl2va at one frame is unmeasured. "
-                    "Use MiniMaxH3ReferenceToVideo with reference images for "
-                    "single-image edits -- that is the path this repo ships "
-                    "and renders."
-                )
-            if not duration_in_range(length):
-                raise RuntimeError(
-                    f"MiniMax H3 generates 5 to 15 seconds at 24fps; "
-                    f"{describe_length(length)} is outside that. Legal counts "
-                    f"run {min_legal_length()} to {max_legal_length()} on the "
-                    f"video VAE's 17n+5 grid."
-                    + (f" Note {length} snaps up to {snapped} before the "
-                       f"ceiling applies." if snapped != length else "")
-                )
-            if snapped != length:
-                logger.info("[h3] length %s", describe_length(length))
-            length = snapped
-
-        logger.info(
-            "[h3] H3 canvas %dx%d (%s) from a %dx%d keyframe: "
-            "aspect %.4f -> %.4f, attention ~%.2fx a 768x768 canvas",
-            width, height, mode, src_w, src_h,
-            src_w / src_h, width / height, attn_cost,
+    **`first_frame` is optional here and is not on the node.** The node keeps
+    requiring it for compatibility; this function accepts a last-frame-only
+    set because that is a released fl2va signature the node could never
+    reach. The anchor is chosen by semantic frame index, which is sglang's
+    rule at `prequeue.py:97-107` -- frame 0 sorts before the final-frame
+    sentinel, so `first_frame` anchors when present and `last_frame` anchors
+    when it is the only one. That is what makes a lone last frame keep its
+    whole picture instead of being cover-cropped into a canvas chosen
+    elsewhere.
+    """
+    anchor = first_frame if first_frame is not None else last_frame
+    if anchor is None:
+        raise ValueError("resolve_keyframe_geometry needs a first_frame or "
+                         "a last_frame to anchor on")
+    if anchor.shape[0] > 1:
+        # the H3 node takes [:1] silently; say so rather than let a batch
+        # look like it was used
+        logger.warning(
+            "[h3] the anchor keyframe carries %d images; MiniMax H3 uses only "
+            "the first. Batch the prompt instead if you meant several renders.",
+            anchor.shape[0],
         )
-        return io.NodeOutput(width, height, first_out, last_out, attn_cost, length)
+    src_h, src_w = int(anchor.shape[1]), int(anchor.shape[2])
+
+    if mode == "match_keyframe":
+        # The reference refuses here rather than resolving a canvas the
+        # checkpoint was never trained on, and in this mode the aspect
+        # comes from the image rather than from the user -- so nobody has
+        # chosen it and nobody would otherwise be told. Raising is the
+        # whole point: `adapt_canvas` would return a perfectly plausible
+        # canvas and the render would just be bad.
+        if not aspect_in_range(src_w, src_h):
+            raise RuntimeError(
+                f"MiniMax H3 was trained on aspect ratios from "
+                f"{describe_aspect_range()}; this keyframe is "
+                f"{src_w}x{src_h} ({src_w / src_h:.3g}). Crop it, or "
+                f"switch to fit_to_canvas to choose the geometry yourself."
+            )
+        width, height = adapt_canvas(src_w, src_h)
+        # Aspect now matches by construction, so "disabled" is a uniform
+        # scale, not a stretch. Mirrors the reference's anchor path.
+        anchor_crop = "disabled"
+    else:
+        # Round to the DiT's multiple of 32 and otherwise leave the size
+        # alone. NOT adapt_canvas: that forces a 768 short edge and the area
+        # cap, which would silently promote a 832x480 preview canvas to
+        # 1344x768 -- a 6.7x attention increase from a node whose whole job
+        # here is keeping render cost where the user put it.
+        snapped_w = max(32, round(width / 32) * 32)
+        snapped_h = max(32, round(height / 32) * 32)
+        if (snapped_w, snapped_h) != (width, height):
+            # step=32 constrains the UI, not an API submission, and the
+            # API-format workflows in this repo are how benches are driven.
+            # A size the DiT cannot patch would fail downstream with a
+            # shape error that says nothing about where it came from.
+            logger.warning(
+                "[h3] canvas %dx%d is not a multiple of 32; "
+                "snapped to %dx%d. The H3 latent cannot grid the original.",
+                width, height, snapped_w, snapped_h,
+            )
+        width, height = snapped_w, snapped_h
+        # Warn rather than raise: in this mode the user typed the geometry,
+        # and this node's contract here is "you own it". Refusing a size
+        # somebody deliberately entered would be this node overruling them,
+        # which is the opposite of the mode. They still get told, because
+        # the failure is a quality one and would otherwise be invisible.
+        if not aspect_in_range(width, height):
+            logger.warning(
+                "[h3] canvas %dx%d is aspect %.3g, outside the %s range "
+                "MiniMax H3 was trained on. It will render; expect the "
+                "output to degrade rather than fail.",
+                width, height, width / height, describe_aspect_range(),
+            )
+        # The user owns the geometry, so the anchor is cover-cropped rather
+        # than stretched. NOTE: this is a deliberate divergence -- the
+        # reference stretches the anchor even when width/height are given,
+        # and only cover-crops followers. Cropping both keeps proportions
+        # honest when the aspect was chosen on purpose; it costs edge
+        # framing. Reference fidelity lives in match_keyframe.
+        anchor_crop = "center"
+
+    anchor_out = _resize(anchor[:1], width, height, anchor_crop)
+    # The follower is cover-cropped in either mode, as in the reference.
+    # Which frame is the follower depends on which one anchored: with a
+    # lone last frame there is no follower and the anchor fills both slots.
+    if first_frame is not None:
+        first_out = anchor_out
+        last_out = (_resize(last_frame[:1], width, height, "center")
+                    if last_frame is not None else anchor_out)
+    else:
+        first_out = last_out = anchor_out
+
+    # DiT tokens go as (h//32)*(w//32) and attention as their square, so
+    # report cost against the cheapest canvas H3 will resolve (768x768).
+    tokens = (height // 32) * (width // 32)
+    cheapest = (768 // 32) ** 2
+    attn_cost = round((tokens / cheapest) ** 2, 3)
+
+    # Length is checked in the reference's order: snap to the VAE grid
+    # first, then hold the duration ceiling against the RESULT. Checking
+    # the request instead passes 346 and then renders 362.
+    if length:
+        snapped = snap_length(length)
+        # Single frame is refused HERE and allowed on the reference path,
+        # and that asymmetry is deliberate rather than an oversight. This
+        # node feeds MiniMaxH3ImageToVideo, which pins a `last_frame` at
+        # `frame_count - 1` -- frame 0 in a one-frame video, i.e. on top of
+        # `first_frame`. Nobody has established what fl2va does at one
+        # frame, so the shipped single-image path is ref2v. If that gets
+        # measured, this branch is the thing to delete.
+        if is_single_frame(snapped):
+            raise RuntimeError(
+                "length=1 (single-frame image mode) is not supported on "
+                "the keyframe path. MiniMaxH3ImageToVideo anchors a "
+                "last_frame at the final frame, which in a one-frame video "
+                "is the first frame, and fl2va at one frame is unmeasured. "
+                "Use MiniMaxH3ReferenceToVideo with reference images for "
+                "single-image edits -- that is the path this repo ships "
+                "and renders."
+            )
+        if not duration_in_range(length):
+            raise RuntimeError(
+                f"MiniMax H3 generates 5 to 15 seconds at 24fps; "
+                f"{describe_length(length)} is outside that. Legal counts "
+                f"run {min_legal_length()} to {max_legal_length()} on the "
+                f"video VAE's 17n+5 grid."
+                + (f" Note {length} snaps up to {snapped} before the "
+                   f"ceiling applies." if snapped != length else "")
+            )
+        if snapped != length:
+            logger.info("[h3] length %s", describe_length(length))
+        length = snapped
+
+    logger.info(
+        "[h3] H3 canvas %dx%d (%s) from a %dx%d keyframe: "
+        "aspect %.4f -> %.4f, attention ~%.2fx a 768x768 canvas",
+        width, height, mode, src_w, src_h,
+        src_w / src_h, width / height, attn_cost,
+    )
+    return width, height, first_out, last_out, attn_cost, length
