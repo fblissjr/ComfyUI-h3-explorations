@@ -17,7 +17,7 @@ The practical consequence: **card time is the scarce resource and rigour is
 cheap.** A measurement that takes a minute of Python and settles something is
 worth more than an afternoon of renders that produces a number nobody can
 defend. Most of the good results in this repo came from that trade -- the
-canvas cost table, the Morton geometry, the ref LoRA grading, the MMA rates
+canvas cost table, the Morton geometry, the checkpoint internals, the MMA rates
 all needed zero or one render.
 
 Two companion documents, and the split matters:
@@ -134,8 +134,6 @@ All in `workflows/h3_config.py`, all single switches, all regenerate with
 |---|---|---|---|
 | `CANVAS_TIER` | `full` | full / near / fast / draft | 1.00 / 0.91 / 0.73 / 0.58 attention |
 | length | 362 | 17n+5 grid | linear in tokens |
-| `REF_LORA_ENABLED` | `False` since 2026-08-18 | True / False | LoRA path vs ref2va checkpoint |
-| `REF_LORA_STRENGTH` | 1.0 | 0.0-1.0 | model interpolation |
 | `SOL_RECOMMENDED_CUDA` / `SOL_CUDA_DEFAULTS` | Sol **on** in every video graph since 2026-08-14; `tau` 1.0 from 2026-08-20 by owner decision | tau, window, sinks | see `docs/SOLATTN.md`; 1.3 returns only if it shows no difference from 1.0 on the distilled LoRAs while buying meaningful speed |
 | `TURBO_LORA` / `TURBO_768P_*` / `TURBO_SLA_*` | none shipped by default; probe graphs | the lightx2v rows `bench/check_distill_settings.py` attests | 4-8 steps against 16 |
 | `CACHE_NODE` | probe graphs only, **not canonical** (owner decision 2026-08-20) | EasyCache threshold/window | 1.56-1.74x on deterministic samplers at 16 steps; a 16-step lever with nothing to skip at 4 |
@@ -160,30 +158,6 @@ width for height. Twenty legal landscape canvases sit between 1:1 and 16:9,
 about 0.04 apart in ratio, and attention goes as the *square* of tokens. Three
 of the four shipped tiers hit a common ratio exactly, which the default
 (1.75) does not. All four verified as stable fixed points.
-
-**The ref LoRA is structurally sound, and exact where it can be graded.**
-MEASURED by `bench/analyze_ref_lora.py`. Coverage is exact: 474/474 modules,
-zero unmatched either direction. Reconstruction splits on the **int8
-boundary, not on rank** -- 64 non-quantized modules reconstruct at residual
-0.0022 and cosine 1.0000, and those include the 51 rank-8 adaln projections.
-(Until 2026-08-20 this sentence added "which are also the *most rewritten*
-modules in the model"; withdrawn, see the hybrid section below.) The 200 int8 modules
-are **not gradeable** from these artifacts: the delta is ~0.36 quantization
-steps RMS and the only available target differences two independently
-quantized checkpoints.
-
-A naive read of those 200 says "the LoRA is wrong". **The three-way
-cross-check refutes that.** We hold a second independent quantization
-(`fp8_scaled`), so the two targets can be graded against each other: they
-agree at cos 0.040, while the LoRA agrees with the fp8 target at 0.351 --
-**9x better**. The LoRA is closer to the truth than either target, which is
-exactly why neither can grade it. `int8_convrot` applies a rotation, so
-differencing two independently rotated checkpoints yields the wrong quantity,
-not merely a noisy one.
-
-**Consequence:** the delta is comparable to the quantization step of the base
-it is applied to, which bounds what *any* extraction can deliver. A
-higher-rank LoRA would be writing detail the int8 checkpoint cannot store.
 
 **The HF "hybrid" checkpoints are an adaln swap, and we can build them
 locally.** MEASURED 2026-08-16 by byte-comparing
@@ -223,8 +197,7 @@ community framing is "hybrid models"; the reality is narrower:
   output the final layer's time-varying part differs ~12%, the largest
   single adaln item but not "rewritten".
 
-**So it does coarsely, in four fixed steps, what the ref LoRA does exactly
-and continuously across all 51 adaln projections plus `final_layer`.**
+**So it swaps adaln in four fixed steps.**
 ~~Both routes independently agree that adaln is the only thing meaningfully
 different between the parents.~~ **Withdrawn 2026-08-20.** The int8 linears
 differ ~3.2% relative between the parents and the modulation output 1.4-4.7%;
@@ -263,29 +236,6 @@ the reference lacks will get that attribute hallucinated rather than dropped.
 The same prompt also specifies "steady interior room tone" over an outdoor
 scene, and carries two contradictory lighting instructions. All three defects
 come from one generic template pasted onto references it does not match.
-
-**The LoRA and the ref2va checkpoint are equivalent on identity.** MEASURED
-2026-08-16 by paired render: same graph, same seed, 243 frames, one variable
-(fl2va + ref LoRA @1.0 against the ref2va checkpoint). Judged blind by the
-owner and independently by Gemini, both without knowing which arm was which.
-
-- **Identity: equivalent.** Face structure, hair, suit and tie all preserved
-  against the reference in both. That is what the weight measurement predicted
-  (all 51 adaln projections at cosine 1.0000) and it held.
-- **Scene coherence: ref2va ahead, one pair.** Its background parallaxes
-  correctly against the window frame during the camera move; the LoRA arm's
-  reads as a flat backdrop. A temporal failure, invisible in stills.
-- **Subject presence: 60% against 90% of runtime.** Largely explained by the
-  prompt specifying no timing at all, so this is free variation rather than a
-  model property.
-- **Lighting: NOT evidence.** See the retraction in `docs/evidence.md`.
-
-**Do not treat this as settling the question.** One pair, one seed, and a
-prompt defective in three ways -- one of which demonstrably drove both outputs.
-(`REF_LORA_ENABLED` was subsequently flipped to `False` on 2026-08-18 by owner
-decision -- for fewer moving parts in the model path, not because this
-comparison settled anything. The reasoning lives at the switch in
-`workflows/h3_config.py`.)
 
 **Attention is not very sparse on this workload.** MEASURED on captured
 activations: at its most concentrated a query still needs 178 key blocks of

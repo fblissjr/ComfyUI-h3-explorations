@@ -53,8 +53,7 @@ _OUR_NODES = {
 # h3_config.py -- see its docstring for why that matters.
 from h3_config import (  # noqa: E402
     IMAGE_VAE, IMAGE_EDIT_BUDGET,
-    CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS, REF_LORA, REF_LORA_STRENGTH,
-    ref_base_and_lora,
+    CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
     CACHE_NODE, CACHE_NODE_CLASS,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
@@ -470,10 +469,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     Node ids match `bench/bench_e2e_h3.py` so a timing run and a hand-edited
     graph can be compared node-for-node; "10" is the sampler in every graph.
 
-    `unet` overrides the checkpoint the task would otherwise pick. The two are
-    separable because the ref-LoRA probe needs r2v *conditioning* driven by the
-    *fl2va* checkpoint, which is not a combination any task name describes.
-    `lora` is (name, strength) and inserts a LoraLoaderModelOnly.
+    `unet` overrides the checkpoint the task would otherwise pick, for the
+    probes that need a model source no task name describes. `lora` is
+    (name, strength) and inserts a LoraLoaderModelOnly.
     """
     if task not in ("t2v", "i2v", "r2v"):
         raise ValueError(task)
@@ -489,13 +487,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             "because a single frame's audio is 0.04s of nothing.")
     _check_geometry(length, canvas)
     ref = task == "r2v"
-    # Reference graphs load whatever `ref_base_and_lora()` says --
-    # `REF_LORA_ENABLED` in h3_config.py owns that switch (False since
-    # 2026-08-18: ref2va directly, no LoRA). An explicit `unet` or `lora`
-    # still wins, which is what keeps the turbo-pack and split graphs -- and
-    # the deliberate fl2va+LoRA arm -- working unchanged.
-    if ref and unet is None and lora is None:
-        unet, lora = ref_base_and_lora()
     cv = dict(CANVAS, **canvas)
     prompt = prompt if prompt is not None else {
         "t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]
@@ -1215,9 +1206,6 @@ are paying full price for a render that otherwise looks fine.
   per-workflow node.
 """
 
-# f-string, because the strength appears in the prose and the widget it
-# describes comes from REF_LORA_STRENGTH. Hardcoding it here is how a graph
-# ends up shipping a note that contradicts its own node.
 def _probe_note(subject, companion, changed, compare, expect,
                 held="same prompt, same canvas"):
     """Note for a probe graph: one variable, its twin, and what to look at.
@@ -3111,71 +3099,6 @@ Specs from `coderef/Minimax-H3-Turbo`, README model table.
 """
 
 
-_NOTE_REF_LORA = f"""\
-# This graph, and what to compare it against
-
-This is `h3_image_ref_plus_text_to_video.json` with **one thing changed**:
-where that graph loads `ref2va`, this one loads `fl2va` and applies Kijai's
-extracted ref LoRA on top.
-
-Everything else is shared by construction -- same seed, same prompt, same
-canvas, same length, same 16 steps, same sage and Sol-Attn settings. Open
-both, point them at the same reference images, run them. Any difference you
-see is the LoRA.
-
-**Set your own reference images first.** The two `LoadImage` nodes hold
-whatever placeholders this install happened to have.
-
-## What the LoRA is
-
-The weight difference between `fl2va` and `ref2va`, extracted at rank 256
-(`Kijai/MiniMax-H3-experimental`, 2026-08-08). Not a trained adapter -- a
-whole-model delta, covering all 50 blocks, both token_refiner blocks, the
-patch projections, `condition_proj` and the final layer, with full-rank
-deltas on every norm and bias.
-
-At strength **1.0** it is meant to turn fl2va into ref2va. Upstream's own
-description is *"completely experimental, I don't even know if it has a use
-case at this point"*, so treat the shipped {REF_LORA_STRENGTH} as a
-starting point, not a settled answer.
-
-Expect close, not identical, even when it works: rank 256 truncates the real
-delta, and on the int8_convrot checkpoint the merge is a dequantize / add /
-requantize round trip that loses a little more. A small gap is the expected
-outcome, not a broken graph.
-
-## Turning the strength dial
-
-Below 1.0 you are interpolating toward plain fl2va -- between first/last-frame
-keyframe conditioning and reference conditioning. That is the one thing two
-separate checkpoints cannot give you, and it is the reason to keep this graph
-around. Expect it to be ill-behaved before it is useful: the norm and bias
-deltas interpolate linearly, which is a crude stand-in for interpolating two
-models.
-
-**Strength 0.0 and ctrl-B bypass are the same thing.** ComfyUI short-circuits
-a LoRA whose strengths are all zero (`ComfyUI/nodes.py`) and hands back the
-untouched model, so either route renders true plain fl2va. Use whichever you
-prefer -- just do not treat them as two different baselines.
-
-Neither pays what the 1.0 arm pays. Applying the LoRA to a quantized
-checkpoint is a dequantize / add / requantize round trip, and the
-zero-strength route skips it. So part of any 1.0-against-0.0 difference is
-that round trip, not the delta. To see the round trip on its own, render
-**0.01** -- visually nil, but it does not short-circuit.
-
-## Sol-Attn enabled by default
-
-Sol-Attn is **enabled** here by default, matching every shipped video workflow.
-Its window is a *percent* band that resolves against the model's own sigma
-curve, and the LoRA changes the model -- so the two graphs can end up running a
-different number of sparse steps. That is a second difference on top of the
-LoRA, and it is not visible anywhere in the UI.
-
-It does not matter for "does this look right". It does matter if you are
-judging a subtle quality difference. If you want to compare without sparsity,
-set `SolAttnMiniMax` to bypassed (Ctrl-B) in **both** graphs.
-"""
 
 
 def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks,
@@ -3252,12 +3175,6 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # exits -- leaving a graph that loads the one-frame VAE for a 124-frame
     # clip, which is exactly what the guard exists to prevent.
     _check_single_frame(single_frame, length)
-    # Same resolution as build_api, and it has to be the same call: a
-    # reference graph that took the LoRA route in one format and the
-    # checkpoint route in the other would be two different models rendering
-    # from what reads as one config.
-    if ref and unet is None and lora is None:
-        unet, lora = ref_base_and_lora()
     cv = dict(CANVAS, **canvas)
     prompt = prompt if prompt is not None else {
         "t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]
@@ -3787,9 +3704,6 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     if variant_note is not None:
         g.add("MarkdownNote", (-2180, 1280), size=(620, 760),
               widgets=[variant_note], title="What this graph is probing")
-    elif lora is not None:
-        g.add("MarkdownNote", (-2180, 1280), size=(620, 620),
-              widgets=[_NOTE_REF_LORA], title="What this graph is probing")
 
     return g.dump(title or f"h3-{task}-sage")
 
@@ -4218,13 +4132,13 @@ def main():
     # full render -- worth more than any kernel knob when render time is the
     # objective.
     # `label` keys the UI/API cross-check and has to be unique; `task` is what
-    # the builder dispatches on. They were the same string until the ref-LoRA
-    # graph arrived, which is a second r2v graph with a different model source.
+    # the builder dispatches on. They are separate because a task can have more
+    # than one graph, differing only in model source.
     #
-    # `extra` is the whole difference between the shipped ref graph and its
-    # ref-LoRA sibling. Keeping it to one dict, on one line, next to the graph
-    # it modifies is the point: the two are meant to be compared, so anything
-    # that differs between them has to be visible in one place. Everything not
+    # `extra` is the whole difference between a graph and the shipped one for
+    # its task. Keeping it to one dict, on one line, next to the graph it
+    # modifies is the point: graphs meant to be compared have to show what
+    # differs in one place. Everything not
     # in `extra` -- seed, prompt, canvas, length, sampler, sage, Sol -- is
     # shared by construction, with ONE exception since 2026-08-13: an i2v
     # graph under the new `match_keyframe` default derives its canvas from the
@@ -4238,10 +4152,6 @@ def main():
          "reference image(s) + text -> video + audio"),
         ("h3_first_frame_to_video.json", "i2v", "i2v", None, {},
          "first frame + text -> video + audio (via MiniMaxH3KeyframeCanvas)"),
-        ("h3_image_ref_plus_text_to_video_ref_lora.json", "r2v-reflora", "r2v", _ref_prompt(images=True),
-         dict(unet=MODELS["unet_fl2va"], lora=(REF_LORA, REF_LORA_STRENGTH),
-              out_prefix="Video/h3_r2v_fl2va_ref_lora"),
-         "same, but fl2va + the extracted ref LoRA instead of ref2va"),
         # t2v deliberately: the note explains that matching the LoRA's 544p
         # means leaving H3's own canvas rule, and MiniMaxH3KeyframeCanvas is
         # the node that refuses to, so an i2v turbo graph could not show the

@@ -311,9 +311,10 @@ does and does not capture which build produced it.
 Status: `done`
 
 ### F16 — Does convrot's rotation reach Sol's routing or Morton's ordering?
-`docs/roadmap.md` states, established while grading the ref LoRA: "`int8_convrot`
-applies a rotation, so differencing two independently rotated checkpoints yields
-the wrong quantity, not merely a noisy one."
+`int8_convrot` stores `W @ H^T` in a Hadamard basis rather than the weight
+itself (measured 2026-08-21, `bench/analyze_quant_delta.py`), so anything read
+out of those files without `dequantize_int8_convrot_weight` is in a rotated
+basis.
 
 Sol reorders and routes at a **64-token block**, which is an 8x8 tile in 2d and
 4x4x4 in 3d. The reordering's whole premise is that tokens adjacent in that tile

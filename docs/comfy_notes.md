@@ -85,13 +85,9 @@ derives from it. 345 was never a model limit — it is the largest count
 362 rests on before quoting it: one upstream statement with no artifact, plus a
 third-party config that ships it.
 
-**Reference graphs load the ref2va checkpoint directly, no LoRA**
-(`REF_LORA_ENABLED = False` in `h3_config.py`, flipped 2026-08-18; the
-reasoning and the flip-back condition live at the switch). The named
-`h3_image_ref_plus_text_to_video_ref_lora` pair is the one deliberate
-fl2va+LoRA arm, and the turbo probes carry their own turbo LoRAs. **Do not
-call fl2va+LoRA and ref2va interchangeable** — that needs a paired render
-nobody has done, and it is one reason the checkpoint is now the default.
+**Reference graphs load the ref2va checkpoint directly.** There is no
+alternative path and no switch; the turbo probes carry their own turbo LoRAs
+and nothing else in the model path moves.
 
 ## Traps that have each bitten more than once
 

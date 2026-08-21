@@ -29,8 +29,8 @@ python bench/stack_eval_clips.py clip1.mp4 clip2.mp4 -o comparison.mp4
 ```bash
 python bench/stack_eval_clips.py \
     clip1.mp4 clip2.mp4 \
-    --label1 "LoRA (fl2va + ref_lora)" \
-    --label2 "Checkpoint (ref2va base)" \
+    --label1 "Sol (tau 1.0)" \
+    --label2 "sage dense" \
     -o comparison_labeled.mp4
 ```
 

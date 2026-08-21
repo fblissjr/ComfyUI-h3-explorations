@@ -4,6 +4,34 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.47.0
+
+### Removed
+
+- **The extracted ref LoRA, by owner decision (2026-08-21), from every
+  operative surface.** Gone: `bench/analyze_ref_lora.py`,
+  `bench/bench_0b_lora_ab.py`, the `h3_image_ref_plus_text_to_video_ref_lora`
+  graph pair, the `REF_LORA` / `REF_LORA_STRENGTH` / `REF_LORA_ENABLED`
+  constants and `ref_base_and_lora()` in `workflows/h3_config.py`, the
+  generator's entry, note and switch call, and every current-state mention in
+  `docs/`. Reference graphs load the ref2va checkpoint directly and there is
+  no longer a second path -- which was already true at runtime since
+  2026-08-18; what goes away is the alternative that made it a question.
+  All 113 graphs regenerate byte-identical apart from the two deletions.
+- **`docs/roadmap.md`'s ref-LoRA grading claim goes with it**, including the
+  three-way cross-check ("they agree at cos 0.040 ... 9x better"), which was
+  an artifact: the int8 side was compared in its Hadamard basis because
+  `analyze_ref_lora.py`'s `dequant()` never un-rotated. Un-rotated on three
+  sampled modules that cosine is 0.52-0.65. Nothing now asserts it, so it is
+  recorded here rather than retracted in place.
+- Two docs that cited the rotation finding through the roadmap
+  (`docs/drift_frontier.md` F16, `docs/open_experiments.md`) now cite
+  `bench/analyze_quant_delta.py` for what the rotation is.
+
+History is kept: CHANGELOG entries, dated records under `bench/results/`,
+postmortems and session logs still name it, and so does the provenance of
+captures taken on the fl2va+LoRA path.
+
 ## 0.46.0
 
 ### Added

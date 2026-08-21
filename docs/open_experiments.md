@@ -1396,10 +1396,10 @@ independently**, and none has been tested against the ordering:
 - **int8** adds quantization noise to q/k, inflating within-block variance
   whatever the ordering, so the locality signal competes with noise the ordering
   cannot reduce.
-- **convrot** applies a rotation — established in `docs/roadmap.md` while grading
-  the ref LoRA, where differencing two independently rotated checkpoints was
-  shown to yield the wrong quantity rather than a noisy one. So "similar in
-  value" is judged in a rotated basis, and whether spatial adjacency still maps
+- **convrot** applies a rotation: the file stores `W @ H^T` in a Hadamard
+  basis rather than the weight (measured 2026-08-21,
+  `bench/analyze_quant_delta.py`). So "similar in value" is judged in a rotated
+  basis, and whether spatial adjacency still maps
   to proximity there is stated nowhere.
 - **pruned** means the distribution being exploited is the pruned model's. A
   locality result need not transfer to unpruned weights, and pruning may itself
