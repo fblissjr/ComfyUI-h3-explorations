@@ -4,6 +4,34 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.48.1
+
+### Fixed
+
+- **`docs/research/official_weights_metadata.md` said no prompt in this repo
+  used the seven unreachable H3 tokens. `workflows/h3_ref_audio_voice.json`
+  and its API twin both carry `<d>`**, emitted by
+  `workflows/build_workflows.py:1718`, which quotes the guide rule requiring it
+  in the comment directly above. The claim was written from expectation rather
+  than a grep. Corrected with the measured IDs on both sides, and with the
+  fact the section also got wrong in the other direction: `<d>` is not
+  undocumented, it is what the official prompt guide mandates for all dialogue
+  and lyrics, so every H3 prompt containing speech is affected on ComfyUI.
+- **`docs/h3_references.md` carried mono reference audio as read-but-not-
+  verified. It does not degrade, it raises.** ComfyUI's audio VAE preserves the
+  input channel count and nothing upmixes, so `pack_audio` returns half the
+  rows `PackedLayout` allocated and the masked assignment fails. Run on CPU
+  against the real `pack_audio`. Moved to Known limitations;
+  `docs/research/sglang_comparison.md`'s open-items bullet updated to match.
+- **`docs/h3_references.md` claimed everything downstream of the reference
+  resize matches between ComfyUI and sglang. The VAE encode does not.** sglang
+  samples the released posterior under a seed pinned at 42 for keyframes and
+  reference video; ComfyUI takes the mean and has no sampling path. That is a
+  second, independent latent-boundary difference on top of the condition-noise
+  realisation the doc already recorded. Added as a row in the vendor image path
+  table, and tangled into the open VAE-encode precision question in
+  `sglang_comparison.md`, which now has two variables rather than one.
+
 ## 0.48.0
 
 ### Changed

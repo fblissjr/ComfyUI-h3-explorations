@@ -248,13 +248,23 @@ against a graph rewired to bypass the fit node.
 ## Open after this read
 
 - The VAE **encode** precision question, above. Needs an instrument that can
-  separate encode from decode; `--fp32-vae` cannot.
+  separate encode from decode; `--fp32-vae` cannot. **It now has a second
+  variable tangled with it, found 2026-08-21**: sglang *samples* the released
+  posterior under a seed pinned at 42 for keyframes and reference video
+  (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py:30`,
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:613`) where ComfyUI takes the mean
+  (`comfy/ldm/minimax/vae.py:685`). Any encode instrument has to separate
+  precision from mean-versus-sample or it measures neither.
+  [`h3_references.md`](../h3_references.md) carries it in the vendor image
+  path table.
 - Whether an AdaLN cache is worth building, which is downstream of
   [`open_experiments.md`](../open_experiments.md) #22 and should not be
   started before it.
 - Nothing left on the reference path: video, audio, frame rate, soundtrack
   pairing and condition noise were all re-derived on 2026-08-21 against sglang,
   diffusers and DiffSynth-Studio, and [`h3_references.md`](../h3_references.md)
-  carries the results. Two items there are marked unverified and stay that way:
-  what sglang does when a reference video is shorter than its aligned target,
-  and whether a mono reference is upmixed inside ComfyUI's audio VAE.
+  carries the results. One item there is marked unverified and stays that way:
+  what sglang does when a reference video is shorter than its aligned target.
+  The mono-upmix question that sat beside it was closed on 2026-08-21 — no
+  upmix happens and the packed layout raises — and `h3_references.md` carries
+  it under Known limitations.

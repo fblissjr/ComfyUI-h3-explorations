@@ -51,11 +51,41 @@ past the 151,669 the vocabulary and added tokens occupy. So the embedding rows
 for these markers ship with the files we already run. What is missing is the
 tokenizer entry that would route to them.
 
-**Not yet known, and worth knowing before anyone acts on this:** what the seven
-markers are *for*. The lyrics and caption pairs suggest structured
-audio-and-caption conditioning; `<d>` is undocumented beyond being listed. No
-prompt in this repo uses any of them, so nothing measured here is affected —
-but any prompt-format work that reaches for them is currently writing text.
+**`<d>` is not exotic, and a shipped graph already uses it.** Corrected
+2026-08-21; this section previously said no prompt in this repo used any of the
+seven, which was written from expectation rather than a grep. The official
+prompt guide requires `<d>[Language] ...</d>` for **all** dialogue and lyrics
+(`coderef/MiniMax-H3/skills/h3-prompt-writing/references/ref-en.txt:220`),
+preserves source language only inside it (`:5`), forbids repeating its contents
+in the audio sections (`:303`), and uses it throughout its own worked examples
+(`:330-332`). `workflows/build_workflows.py:1718` emits it into
+`workflows/h3_ref_audio_voice.json` and its API twin, quoting that rule in the
+comment above. So every H3 prompt containing speech is affected on ComfyUI —
+a prompt following the vendor's guide is precisely the prompt that trips this.
+
+**Measured 2026-08-21**, both tokenizers loaded through `AutoTokenizer`, the
+release from `coderef/MiniMax-H3/tokenizer/` (byte-identical to the copy beside
+the weights) and ComfyUI from its bundled directory, `add_special_tokens=False`:
+
+| string | release | ComfyUI |
+|---|---|---|
+| `<d>` | `[151669]` | `[90707, 29]` |
+| `</d>` | `[151670]` | `[522, 67, 29]` |
+
+On the dialogue line the voice graph actually ships, the release emits 14 IDs
+opening `151669` and closing `151670`; ComfyUI emits 15, and its split does not
+respect the marker boundary — the language tag's `[` is fused into the opening
+debris and the sentence's final `.` into the closing debris. `<Picture 1>: `,
+`<Video 1>: `, `<Audio 1>: `, `<0.2 seconds>` and ordinary prose are
+ID-identical on both sides, which is why this hides.
+
+Worth noticing: `bench/check_prompt_guide_conformance.py` and
+`bench/preflight_graph.py` both grade `<d>` placement and grammar. They are
+enforcing the syntax of a marker the tokenizer downstream cannot express.
+
+**Still not known:** what the other six markers are *for*. The lyrics and
+caption pairs suggest structured audio-and-caption conditioning, and no prompt
+here reaches for them.
 
 ### 2. The tokenizer's pixel bounds are Qwen2-VL's defaults
 
