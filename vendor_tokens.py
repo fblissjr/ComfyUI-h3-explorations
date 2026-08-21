@@ -17,12 +17,25 @@ encoders on this box carry `model.embed_tokens.weight` at `[151936, 5120]`,
 past the 151,669 the vocabulary and added tokens occupy. Adding the seven puts
 them at 151669-151675, inside the table.
 
-**What is NOT established, and this node will not pretend otherwise:** whether
-those rows carry meaningful trained values in the repacked encoders, and what
-the markers are for. The release lists them without documenting them. So this
-node makes the markers *reachable*; it does not make them *useful*, and no
-prompt in this repo uses one. `docs/research/official_weights_metadata.md`
-carries the same caveat.
+**The rows are untrained, measured 2026-08-21** by
+`bench/audit_h3_token_embeddings.py`, which resolves the question this docstring
+previously left open. Against two controls -- the stock Qwen specials, trained,
+and the padding rows past 151676, not -- the seven land on the untrained pole in
+the official release and in both repacked encoders alike. So this node makes the
+markers *reachable*; it does not make them *useful*, and it never could.
+
+That is still worth having, because reachable and unreachable are different
+sequences: the release emits one ID where ComfyUI emits several BPE pieces, and
+the length difference shifts every position after the marker. This node buys
+parity with what the release serves. It buys no fidelity, and anyone wiring it
+expecting `<d>` to start working should read the measurement first.
+
+**What is still NOT established:** what the markers are for, and whether the
+untrained rows mean MiniMax abandoned them or simply that the text encoder was
+frozen through H3 training -- under the second reading no row moved and the
+norms say nothing about intent. The release lists the tokens without
+documenting them. `docs/research/official_weights_metadata.md` carries the same
+caveat.
 
 **Isolation.** `clip.clone()` shares the tokenizer object by reference, so
 mutating the one already on a loaded CLIP would contaminate every graph in the

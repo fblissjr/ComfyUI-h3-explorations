@@ -51,6 +51,29 @@ past the 151,669 the vocabulary and added tokens occupy. So the embedding rows
 for these markers ship with the files we already run. What is missing is the
 tokenizer entry that would route to them.
 
+**But the rows are untrained, so routing to them reaches init noise.** Measured
+2026-08-21 by `bench/audit_h3_token_embeddings.py`, record at
+`bench/results/2026-08-21_h3_token_embeddings.json`, on the official release
+and on both repacked encoders. Read against two controls -- the stock Qwen
+special tokens, which are certainly trained, and the padding rows past 151676,
+which certainly are not -- the seven land on the untrained pole in all three
+files, at roughly a hundredth of the distance to the trained one. The
+controls separate cleanly, so the measurement discriminates.
+
+This is the first thing to know before treating the tokenizer gap as a fidelity
+defect, and it cuts in an unobvious direction. It does **not** make ComfyUI's
+behaviour equivalent to the release: the release emits one ID and attends an
+untrained vector, ComfyUI emits several trained BPE pieces, and those are
+different sequences of different lengths, which shifts every position after
+them. What it does mean is that **making the markers reachable is a parity fix,
+not a quality fix** -- neither path carries learned meaning for `<d>` itself,
+so nobody should expect the marker to start working once it routes. Two
+readings remain open and this measurement does not separate them: the tokens
+may be vestigial, or the text encoder may simply have been frozen through H3
+training, in which case no row moved and the norm says nothing about whether
+MiniMax intended them. `vendor_tokens.py` is the node that makes them
+reachable, and it is correct to keep the caveat.
+
 **`<d>` is not exotic, and a shipped graph already uses it.** Corrected
 2026-08-21; this section previously said no prompt in this repo used any of the
 seven, which was written from expectation rather than a grep. The official

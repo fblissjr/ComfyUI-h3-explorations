@@ -1,0 +1,68 @@
+{
+  "official release": {
+    "trained control (Qwen specials)": {
+      "mean": 0.6620035767555237,
+      "min": 0.4936009347438812,
+      "max": 1.3433234691619873,
+      "rows": 26
+    },
+    "the seven H3 markers": {
+      "mean": 0.504978597164154,
+      "min": 0.49814894795417786,
+      "max": 0.514715313911438,
+      "rows": 7
+    },
+    "untrained control (padding tail)": {
+      "mean": 0.502942681312561,
+      "min": 0.4902153015136719,
+      "max": 0.5149240493774414,
+      "rows": 260
+    },
+    "position_between_controls": 0.01279960008978494,
+    "verdict": "indistinguishable from untrained"
+  },
+  "qwen3vl_32b_minimax_h3_int8_convrot": {
+    "trained control (Qwen specials)": {
+      "mean": 0.6620035767555237,
+      "min": 0.4936009347438812,
+      "max": 1.3433234691619873,
+      "rows": 26
+    },
+    "the seven H3 markers": {
+      "mean": 0.504978597164154,
+      "min": 0.49814894795417786,
+      "max": 0.514715313911438,
+      "rows": 7
+    },
+    "untrained control (padding tail)": {
+      "mean": 0.502942681312561,
+      "min": 0.4902153015136719,
+      "max": 0.5149240493774414,
+      "rows": 260
+    },
+    "position_between_controls": 0.01279960008978494,
+    "verdict": "indistinguishable from untrained"
+  },
+  "qwen3vl_32b_minimax_h3_nvfp4_awq": {
+    "trained control (Qwen specials)": {
+      "mean": 0.661845326423645,
+      "min": 0.492384135723114,
+      "max": 1.3446016311645508,
+      "rows": 26
+    },
+    "the seven H3 markers": {
+      "mean": 0.5037323832511902,
+      "min": 0.49689149856567383,
+      "max": 0.5134170055389404,
+      "rows": 7
+    },
+    "untrained control (padding tail)": {
+      "mean": 0.5018922686576843,
+      "min": 0.48906487226486206,
+      "max": 0.5149613618850708,
+      "rows": 260
+    },
+    "position_between_controls": 0.011504091382849767,
+    "verdict": "indistinguishable from untrained"
+  }
+}

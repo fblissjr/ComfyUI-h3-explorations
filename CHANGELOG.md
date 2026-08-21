@@ -4,6 +4,36 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.48.2
+
+### Added
+
+- **`bench/audit_h3_token_embeddings.py`**, which answers the question
+  `vendor_tokens.py` had left open in its own docstring: whether the seven
+  marker rows carry trained values. **They do not.** Read against two controls
+  -- the stock Qwen specials, trained, and the padding rows past the added
+  tokens, not -- the seven land on the untrained pole in the official release
+  and in both repacked encoders alike, at roughly a hundredth of the distance
+  to the trained one. The controls separate cleanly, so the norm discriminates
+  and a null result here is a result.
+  Independently measured first in an outside review; reproduced here before it
+  was believed.
+
+### Changed
+
+- **Making the seven markers reachable is a parity fix, not a quality fix**,
+  and `vendor_tokens.py` and `docs/research/official_weights_metadata.md` now
+  say so. Neither path carries learned meaning for `<d>`: the release emits one
+  ID and attends init noise, ComfyUI emits several trained BPE pieces. They are
+  still different sequences of different lengths, which shifts every position
+  after the marker, so the node is worth wiring -- just not for fidelity. Two
+  readings of the untrained rows stay open and the measurement does not
+  separate them: vestigial tokens, or a text encoder frozen through H3
+  training, under which no row moved and the norms say nothing about intent.
+- `vendor_tokens.py` no longer states that no prompt in this repo uses one of
+  the markers. `workflows/h3_ref_audio_voice.json` does, which 0.48.1 corrected
+  in the doc that first made the claim.
+
 ## 0.48.1
 
 ### Added
