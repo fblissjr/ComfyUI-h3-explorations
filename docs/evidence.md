@@ -320,6 +320,27 @@ residual is ~0.02%, so most of the per-block figure is int8 error on the
 lose the same**: the per-block residual ratio ref2va/fl2va runs 0.97-1.01. The
 hypothesis that ref2va compresses worse under its own factorisation, the one
 ref2va-specific mechanism this repo had found with a concrete test, is refuted.
+**And the sensitivity to it, measured 2026-08-21**
+([`bench/results/2026-08-21_pruning_sensitivity.json`](../bench/results/2026-08-21_pruning_sensitivity.json),
+`bench/grade_pruning_sensitivity.py`, `docs/open_experiments.md` #22). A
+perturbation of that size still moves the network output by **5.6-9.4%**
+relative L2 on the first-step velocity, at a fixed input. That is not
+invisible, and it is roughly two orders of magnitude larger than the
+modulation residual above, so **do not read "the pruning costs 0.1-0.2% of the
+modulation" as "the pruning costs 0.1-0.2% of the output"** -- the error
+compounds through the stack, peaking around block 36. What keeps it in
+proportion is the scale beside it: on the same input the `fp8_scaled` build
+differs from `int8_convrot` by 12-21%, so the pruning is smaller than a
+quantisation choice this repo already ships.
+
+**fl2va and ref2va are equally sensitive**, which closes the ref2va question
+from the other side: ref2va moves 0.86 of what fl2va moves on the reference
+input and 0.81 on the plain one, consistently in the opposite direction to the
+hypothesis. The determinism floor was exactly zero -- the repeat arm reproduced
+its twin bit for bit across a checkpoint reload -- so none of this is noise.
+**The entry's pre-registered prediction (under 1%) was wrong**, and is recorded
+as wrong in the record's caveats rather than dropped.
+
 Side fact from the same record: the time embedder itself differs between the
 two checkpoints (10.6% relative, cosine 0.994), so the fine-tune moved `e(t)`,
 not only the projections. Still unmeasured: the int8 error of the linears

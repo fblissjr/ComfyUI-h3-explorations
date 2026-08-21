@@ -1443,6 +1443,20 @@ so it is not blocked on that.
 
 ## 22. Pruning sensitivity: does the same AdaLN residual move ref2va's output more than fl2va's?
 
+**MEASURED AND REFUTED 2026-08-21.** Eleven forwards at 768x768, 124 frames,
+seed 730451892, one sampler step; record in
+[`bench/results/2026-08-21_pruning_sensitivity.json`](../bench/results/2026-08-21_pruning_sensitivity.json),
+grader `bench/grade_pruning_sensitivity.py`, driver `bench/run_pruning_arms.py`.
+ref2va moves 0.86 of what fl2va moves on the reference input and 0.81 on the
+plain one -- inside the [0.5, 2] refutation band and in the opposite direction
+to the hypothesis. **The prediction attached below was also wrong**: it said the
+velocity would move under 1% and it moves 5.6-9.4%, so the pruning is not
+invisible at the output, only equally (in)visible on both checkpoints and
+smaller than the int8-vs-fp8 difference already shipped. `docs/evidence.md`
+carries the consequence. The design below is left as written, including the
+prediction it got wrong.
+
+
 **Tests:** whether the rank-8 AdaLN pruning, which perturbs the modulation
 output identically on both checkpoints
 ([`bench/results/2026-08-20_adaln_pruning_residual.json`](../bench/results/2026-08-20_adaln_pruning_residual.json):

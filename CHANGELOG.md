@@ -95,6 +95,33 @@ captures taken on the fl2va+LoRA path.
   row-permutation defect, because fp8's scale is a scalar and the gap is
   uniform across module kinds.
 
+- **`docs/open_experiments.md` #22 is measured and refuted**
+  (`bench/run_pruning_arms.py`, `bench/grade_pruning_sensitivity.py`,
+  `bench/results/2026-08-21_pruning_sensitivity.json`). Eleven fixed-input
+  first-step forwards. ref2va is no more sensitive to the AdaLN pruning than
+  fl2va -- it moves slightly less, in the opposite direction to the hypothesis.
+  The pre-registered prediction was wrong in the other direction and is
+  recorded as wrong: the velocity moves 5.6-9.4%, not under 1%, so the pruning
+  is not invisible at the output, only equally so on both checkpoints and
+  smaller than the fp8-vs-int8 difference already shipped. The determinism
+  floor is exactly zero.
+
+### Fixed
+
+- **The capture module stopped capturing after a checkpoint swap.** Block
+  indices came from first-seen call order keyed on `id(module)`, so a second
+  loaded checkpoint numbered its blocks 50..99, no requested index matched, and
+  the render counter jammed -- silently, with empty directories as the only
+  symptom. The patching loop now stamps the index. Found on the #22 arms, which
+  swap checkpoints by design.
+- **The provenance stamp read any attention override as Sol's**, so every
+  sage-only graph -- both capture graphs and every dense baseline -- was one
+  stamp away from being declared unattributable for correctly having no Sol.
+  The override now says which kernel installed it and what it wrapped.
+- **`bench/run_graph_arms.py` could not patch a dynamic-combo widget**, because
+  the target split took the last dot rather than the first one that names a
+  node. It could therefore not express a canvas change.
+
 - **`MiniMaxH3VAEPrecision`** (`vae_precision.py`): sets the H3 video VAE's
   encoder and decoder precision independently, which ComfyUI's single
   `--fp32-vae` flag cannot express. The released pipeline keeps this VAE fp32
