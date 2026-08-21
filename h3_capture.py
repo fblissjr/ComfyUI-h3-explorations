@@ -248,21 +248,38 @@ def maybe_capture_final(out, length_hint=None):
         _written.add((_render, -1, step))
         render = _render
 
-    if not torch.is_tensor(out):
-        print(f"[h3_capture] final tap: expected a tensor, got "
-              f"{type(out).__name__}; nothing written")
+    # H3 is an AUDIO-VIDEO model and its forward returns BOTH velocities as a
+    # list -- `[-video_out, -audio_out]` (comfy/ldm/minimax/model.py:732). The
+    # first version of this tap expected a bare tensor, refused the list and
+    # wrote nothing, which is the refusal working but the wrong expectation.
+    # Both streams are kept: the video one is what #22 compares, and dropping
+    # the audio one would silently decide that the pruning cannot have moved
+    # it, which is a claim nobody has measured.
+    if torch.is_tensor(out):
+        streams = {"video": out}
+    elif isinstance(out, (list, tuple)) and out and all(
+            torch.is_tensor(t) for t in out):
+        names = ("video", "audio") if len(out) == 2 else \
+            tuple(f"stream{i}" for i in range(len(out)))
+        streams = dict(zip(names, out))
+    else:
+        print(f"[h3_capture] final tap: expected a tensor or a list of them, "
+              f"got {type(out).__name__}; nothing written")
         return
+
     # Same CPU-before-reshape discipline as the q/k/v path, for the same
     # reason: the model is near the card's limit at this moment.
-    v = out.detach().cpu()
-    seq = v.shape[1] if v.ndim > 1 else v.shape[0]
+    saved = {k: t.detach().cpu() for k, t in streams.items()}
+    ref = saved["video"] if "video" in saved else next(iter(saved.values()))
+    seq = ref.shape[2] if ref.ndim > 2 else ref.shape[-1]
     suffix = f"_r{render}" if render else ""
     name = (f"final_L{length_hint if length_hint is not None else 'na'}"
             f"_S{seq}_s{step}{suffix}.pt")
     path = os.path.join(_config["dir"], name)
-    torch.save({"velocity": v}, path)
+    torch.save(saved, path)
     size = os.path.getsize(path) / 2**30
-    print(f"[h3_capture] wrote {name}  {tuple(v.shape)} {v.dtype}  {size:.3f} GiB")
+    shapes = " ".join(f"{k}{tuple(v.shape)}" for k, v in saved.items())
+    print(f"[h3_capture] wrote {name}  {shapes} {ref.dtype}  {size:.3f} GiB")
 
 
 def summary():
