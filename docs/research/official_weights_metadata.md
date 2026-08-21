@@ -21,21 +21,51 @@ reference-conditioning path is [`h3_references.md`](../h3_references.md).
 
 The release's `tokenizer/tokenizer_config.json` declares twenty
 `additional_special_tokens`. ComfyUI's bundled `comfy/text_encoders/qwen25_tokenizer/tokenizer_config.json`
-declares thirteen — the stock Qwen2.5-VL set. ComfyUI's H3 tokenizer resolves
-to that bundled directory (`comfy/text_encoders/qwen3vl.py:149`), so this is
-the file in play for every H3 prompt. **Present in the release and
-absent from ComfyUI: `<d>`, `</d>`, `<|cutoff|>`, `<|lyrics_start|>`,
-`<|lyrics_end|>`, `<|caption_start|>`, `<|caption_end|>`.**
+declares thirteen. ComfyUI's H3 tokenizer resolves to that bundled directory
+(`comfy/text_encoders/qwen3vl.py:149`), so this is the file in play for every
+H3 prompt. **Present in the release and absent from ComfyUI: `<d>`, `</d>`,
+`<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>`,
+`<|caption_end|>`.**
 
 This is what the model card means when it says the tokenizer and configuration
 files provided in the H3 repository are required.
 
-Everything *else* about the two tokenizers agrees, which is why this is easy to
-miss and why it is the only thing that matters here. Verified by comparison:
-`vocab.json` is dict-identical at 151,643 entries; `merges.txt` is identical
-line for line once ComfyUI's extra `#version` header is discounted; and the 26
-entries of `added_tokens_decoder` agree on both content and id. So ordinary
-prose tokenizes identically on both sides. Only the seven markers do not.
+### The directory name is a misnomer and the vocabulary is right
+
+**Read `qwen25_tokenizer` and the obvious conclusion is that ComfyUI points a
+Qwen2.5 tokenizer at a Qwen3-VL model. That is not what is happening**, and the
+distinction decides how large the defect is. Measured 2026-08-21 against a
+stock Qwen3-VL checkout, which is the arm that settles it:
+
+| | stock Qwen3-VL | ComfyUI bundled | H3 release |
+|---|---|---|---|
+| `tokenizer_class` | `Qwen2Tokenizer` | `Qwen2Tokenizer` | `Qwen2Tokenizer` |
+| `vocab.json` entries | 151,643 | 151,643 | 151,643 |
+| vocab identical to bundled | **yes** | — | yes |
+| `merges.txt` identical to bundled | **yes** | — | yes, discounting a `#version` header |
+| `added_tokens_decoder` | 26 | 26 | 26, agreeing on content and id |
+| `additional_special_tokens` | 13 | 13 | **20** |
+
+ComfyUI's bundled directory is byte-equivalent to **stock Qwen3-VL's**
+tokenizer, not to some older Qwen2.5 one. Qwen2.5, Qwen3 and Qwen3-VL ship one
+BPE vocabulary between them, and the H3 release's own config names
+`Qwen2Tokenizer` as its class. So the name is legacy and the vocabulary is
+correct. **The entire divergence is the last row**: the release adds seven
+entries on top of stock Qwen3-VL and ComfyUI has no way to see them. Ordinary
+prose tokenizes identically on both sides; only the seven markers do not.
+
+### Why ComfyUI cannot load them, which is structural rather than careless
+
+`Qwen3VLSDTokenizer` hardcodes the bundled path with no override
+(`comfy/text_encoders/qwen3vl.py:149`). More to the point, there is nowhere
+else to look: ComfyUI loads a single-file `.safetensors` text encoder, not an
+HF model repo, so no `tokenizer_config.json` travels with the weights and
+nothing can carry a model's own additions. Bundling one directory works for the
+entire Qwen family precisely *because* the vocabulary is shared, and it works
+for every case except a model that adds tokens of its own. H3 is that case, and
+the model card's sentence is aimed at exactly it. `vendor_tokens.py` is this
+repo's answer: it vendors the release's config and rebinds a fresh tokenizer on
+a cloned CLIP.
 
 **What happens instead.** None of the seven is in the base vocab or in
 `added_tokens_decoder`, so the release's loader appends them past the end of
@@ -176,10 +206,73 @@ Recorded so nobody re-derives them:
 
 ---
 
+---
+
+## Which divergence is live in which mode
+
+Added 2026-08-21. Everything above and in [`h3_references.md`](../h3_references.md)
+is stated as a property of the pipeline. This section answers the question that
+actually decides what to do about any of it: **for the mode you are running,
+which of these fire at all?** Several do not, and the inert ones are the useful
+part -- they are the ones both outside reviews of this pipeline flagged as
+concerns on paths where they cannot bite.
+
+| divergence | t2v | first frame | last only | first+last | ref2v |
+|---|---|---|---|---|---|
+| the seven markers | dialogue prompts only | same | same | same | same |
+| processor pixel bounds | — | **inert** | **inert** | **inert** | **live past ~3.06:1** |
+| bilinear against the release's bicubic | — | **inert** | **inert** | **inert** | only where the ceiling fires |
+| VAE posterior mean against seed-42 sample | — | live | live | live, twice | live, every reference |
+| crop against stretch policy | — | — | **live** | — | — |
+| stretch to a fixed canvas | — | live without `KeyframeCanvas` | live, **not closable** | live without `KeyframeCanvas` | — |
+| reference sizing, fps, audio duration, mono | — | — | — | — | live |
+| no partition admission | live | live | live | live | live |
+
+**t2v is the cleanest path in the model.** The vision tower never executes, so
+nothing about bounds, interpolation, posteriors, crops or references applies.
+The only thing that reaches it is the marker gap, and only when the prompt
+carries dialogue -- which the guide requires be written as `<d>`. On a
+descriptive prompt the two implementations agree.
+
+**The processor bounds are inert on every keyframe mode, and that is measured
+rather than assumed.** A keyframe arrives on a legal H3 canvas; every legal
+canvas is a multiple of 32, which is exactly the `patch_size * merge_size`
+factor the Qwen helper rounds to; and every legal canvas sits between both
+implementations' floors and both ceilings. So the helper's resize is a no-op,
+no interpolation happens, and the bilinear-against-bicubic difference never
+fires. It is a real divergence on a path the keyframe modes do not take.
+
+**What first-frame actually pays is the posterior.** ComfyUI takes the mean,
+the release samples at a pinned seed. The condition rows carry the shipped
+0.999 aug, so they reach the DiT essentially clean and the difference is not
+washed out by noise -- it is what your first frame *is*. Read it as adherence
+at frame 0, not as an artifact.
+
+**Last-only is the most divergent keyframe mode and the only one nothing here
+closes.** ComfyUI picks crop-against-stretch from which *socket* was wired, so
+`last_frame` takes a cover crop and loses whatever falls outside the target
+aspect; the vendors pick from *presentation position*, so a last-only request
+is the first presented keyframe and is stretched as the geometry anchor,
+keeping the whole image. `MiniMaxH3KeyframeCanvas` requires a first frame and
+cannot reach this case. Rendering last-only from a non-16:9 source silently
+crops content the release would have kept.
+
+**first+last is the closest mode to release behaviour** -- first stretched,
+last cropped, matching the vendor structure. It pays the posterior twice and
+little else.
+
+**ref2v collects everything**, and pays token-level differences roughly twice
+over because a reference image costs in the text segment as well as the
+reference segment. It is also the only mode where the pixel bounds fire;
+[`h3_references.md`](../h3_references.md) owns the measurement and the
+threshold.
+
+---
+
 ## Not done
 
-The end-to-end conditioning trace this file was opened for is not finished.
-What exists is the metadata layer. Still unread: the four conditioning paths
-(pure t2v, first frame, keyframes, references) followed from model load to both
-VAE decodes, and what differs between the `int8_convrot` and `nvfp4_awq` text
-encoders beyond the quantisation itself.
+The end-to-end conditioning trace this file was opened for is further along
+than it was. What is still unread: both VAE decodes followed to the end, and
+what differs between the `int8_convrot` and `nvfp4_awq` text encoders beyond
+the quantisation itself -- their embedding tables were compared for the seven
+marker rows on 2026-08-21 and agree, which is one tensor of many.

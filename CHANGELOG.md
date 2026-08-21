@@ -4,6 +4,46 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.48.3
+
+### Added
+
+- **`bench/measure_qwen_bounds_bite.py`**, which turns the pixel-bounds
+  divergence from a pair of constants into a location. It calls the real
+  `process_qwen2vl_images` with the arguments the H3 path passes and reports
+  the grid returned, on two arms: reference images at a 2048 short edge, and
+  keyframes at a legal canvas. **The ceiling starts biting between 3:1 and
+  3.25:1** and the release carries the same image untouched to 4:1. The
+  keyframe arm is the control and comes back untouched at every canvas, which
+  is what licenses the inert claim below; if it ever does not, the script says
+  so and names the doc it refutes.
+
+### Changed
+
+- **`docs/research/official_weights_metadata.md` gains a per-mode table** and
+  loses part of its "Not done". The question that decides what to do about any
+  of these divergences is which of them fire in the mode being run, and several
+  do not. t2v never runs the vision tower, so only the marker gap reaches it.
+  The pixel bounds and the interpolation kernel are **inert on every keyframe
+  mode**, measured, because a legal canvas is a multiple of the helper's
+  rounding factor and sits inside both implementations' bounds. Last-frame-only
+  is the most divergent keyframe mode and the only one `KeyframeCanvas` cannot
+  reach.
+- **The same file stops implying ComfyUI points a Qwen2.5 tokenizer at a
+  Qwen3-VL model.** Measured against a stock Qwen3-VL checkout, the bundled
+  directory is byte-equivalent to Qwen3-VL's own tokenizer: same class, same
+  vocabulary, same merges, same 26 `added_tokens_decoder`. Qwen2.5, Qwen3 and
+  Qwen3-VL share one BPE vocabulary and the release itself declares
+  `Qwen2Tokenizer`. The directory name is legacy and the whole divergence is
+  seven `additional_special_tokens`. The file also now records *why* ComfyUI
+  cannot load them, which is structural: a single-file text encoder travels
+  with no tokenizer config, so nothing can carry a model's own additions.
+- **`docs/h3_references.md`'s ceiling paragraph is measured rather than
+  estimated**, and states the consequence it had been missing: past 3.0625:1
+  the VAE receives the full 2048-short-edge tensor while Qwen receives a
+  smaller one, so the one-image-two-towers row in the table above it stops
+  holding and nothing warns.
+
 ## 0.48.2
 
 ### Added

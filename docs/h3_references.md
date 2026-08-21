@@ -309,16 +309,47 @@ model it was not written for, not a wrong model.
 | video max pixels | 25,165,824 | 12,845,056 |
 
 Both edges bite, in opposite directions, and only on reference images —
-nothing else in this path is near either bound. **Above:** a reference at the
-vendor's 2048 short edge crosses ComfyUI's ceiling at roughly 3:1 and is
-silently shrunk, while the release would carry it to 4:1, which is the widest
-ratio the reference resize accepts at all. **Below:** the release *enlarges*
-anything under 65,536 pixels to reach that floor; ComfyUI's floor is twenty
-times lower, so a small reference is under-tokenized rather than raised. That
-is a second, independent way a small reference arrives smaller than the
+nothing else in this path is near either bound. **Below:** the release
+*enlarges* anything under 65,536 pixels to reach that floor; ComfyUI's floor is
+twenty times lower, so a small reference is under-tokenized rather than raised.
+That is a second, independent way a small reference arrives smaller than the
 release intends, on top of the `min(1.0, ...)` clamp — and unlike the clamp,
 `MiniMaxH3ReferenceFit` does not close it, because it operates before the
 tokenizer.
+
+**Above, and this is measured rather than derived.**
+`bench/measure_qwen_bounds_bite.py` calls the real `process_qwen2vl_images`
+with the arguments `comfy/text_encoders/qwen3vl.py:65` passes and reports the
+grid it gets back; record in
+[`bench/results/2026-08-21_qwen_bounds_bite.json`](../bench/results/2026-08-21_qwen_bounds_bite.json).
+References prepared to a 2048 short edge:
+
+| prepared | what Qwen sees | release |
+|---|---|---|
+| 6144x2048 (3:1) | 6144x2048, untouched | untouched |
+| 6272x2048 | 6272x2048, untouched | untouched |
+| **6656x2048 (3.25:1)** | **6432x1984, shrunk** | untouched |
+| 7168x2048 (3.5:1) | 6688x1888, shrunk | untouched |
+| 8192x2048 (4:1) | 7168x1792, shrunk | untouched |
+
+So the ceiling starts biting between 3:1 and 3.25:1 — the crossing is at
+`12,845,056 / 2048² = 3.0625` — and the release carries the same image
+untouched all the way to 4:1, which is the widest ratio the reference resize
+accepts at all. **The consequence is worse than the shrink itself: it breaks
+the one-image-two-towers row above.** The VAE still receives the full
+2048-short-edge tensor while Qwen silently receives a smaller one, so past
+3.0625:1 the two towers are no longer looking at the same picture, and nothing
+says so.
+
+The same script carries the arm that says where this *cannot* happen. Every
+legal H3 canvas — the keyframe case — comes back untouched, because a canvas is
+always a multiple of 32, which is exactly the `patch_size * merge_size` factor
+the helper rounds to, and every legal canvas sits inside both implementations'
+floors and ceilings. So the resize never runs on a keyframe and the
+bilinear-against-bicubic difference never fires there either. That arm is the
+control: if a canvas ever is resized, the inert claim in
+[`official_weights_metadata.md`](research/official_weights_metadata.md) is
+wrong and the script goes loud.
 
 **Being seen in patches is still not a mechanism for anything.** The bounds
 above are a sizing difference wearing the tokenizer's clothes: they decide how

@@ -1,0 +1,203 @@
+{
+  "release_image_bounds": {
+    "min_pixels": 65536,
+    "max_pixels": 16777216
+  },
+  "reference_images_at_2048_short_edge": [
+    {
+      "input": [
+        2048,
+        2048
+      ],
+      "grid": [
+        128,
+        128
+      ],
+      "qwen_sees": [
+        2048,
+        2048
+      ],
+      "resized": false,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        4096,
+        2048
+      ],
+      "grid": [
+        128,
+        256
+      ],
+      "qwen_sees": [
+        4096,
+        2048
+      ],
+      "resized": false,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        6144,
+        2048
+      ],
+      "grid": [
+        128,
+        384
+      ],
+      "qwen_sees": [
+        6144,
+        2048
+      ],
+      "resized": false,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        6272,
+        2048
+      ],
+      "grid": [
+        128,
+        392
+      ],
+      "qwen_sees": [
+        6272,
+        2048
+      ],
+      "resized": false,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        6656,
+        2048
+      ],
+      "grid": [
+        124,
+        402
+      ],
+      "qwen_sees": [
+        6432,
+        1984
+      ],
+      "resized": true,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        7168,
+        2048
+      ],
+      "grid": [
+        118,
+        418
+      ],
+      "qwen_sees": [
+        6688,
+        1888
+      ],
+      "resized": true,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        8192,
+        2048
+      ],
+      "grid": [
+        112,
+        448
+      ],
+      "qwen_sees": [
+        7168,
+        1792
+      ],
+      "resized": true,
+      "release": "untouched"
+    }
+  ],
+  "keyframes_at_legal_canvas": [
+    {
+      "input": [
+        1344,
+        768
+      ],
+      "grid": [
+        48,
+        84
+      ],
+      "qwen_sees": [
+        1344,
+        768
+      ],
+      "resized": false,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        768,
+        768
+      ],
+      "grid": [
+        48,
+        48
+      ],
+      "qwen_sees": [
+        768,
+        768
+      ],
+      "resized": false,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        1024,
+        768
+      ],
+      "grid": [
+        48,
+        64
+      ],
+      "qwen_sees": [
+        1024,
+        768
+      ],
+      "resized": false,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        768,
+        1344
+      ],
+      "grid": [
+        84,
+        48
+      ],
+      "qwen_sees": [
+        768,
+        1344
+      ],
+      "resized": false,
+      "release": "untouched"
+    },
+    {
+      "input": [
+        1536,
+        672
+      ],
+      "grid": [
+        42,
+        96
+      ],
+      "qwen_sees": [
+        1536,
+        672
+      ],
+      "resized": false,
+      "release": "untouched"
+    }
+  ],
+  "control_holds": true
+}
