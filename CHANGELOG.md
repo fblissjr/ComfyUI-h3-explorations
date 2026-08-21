@@ -4,6 +4,24 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.46.0
+
+### Added
+
+- **`bench/analyze_quant_delta.py` and its records
+  `bench/results/2026-08-21_quant_delta_{fl2va,ref2va}.json`**: the two shipped
+  quantizations of the same DiT graded against the bf16 release. `int8_convrot`
+  lands about three times closer to the original weights than `fp8_scaled`
+  (median relative delta 0.0091 against 0.0265 per block linear), identically
+  on both checkpoints. Records the formats as read from the files -- fp8's
+  scalar `weight_scale` and its `input_scale` on 150 of 200 tensors, int8's
+  per-row scale and Hadamard rotation at group 256 -- and states inside the
+  record that stored-weight fidelity is all it measures.
+- **The qkv row order differs between the release and the repack**, measured:
+  interleaved per head upstream, concatenated in the repack. A probe runs
+  before any reference comparison and refuses to measure if the reordering is
+  not the better reading. `docs/evidence.md` carries both entries.
+
 ## 0.45.0
 
 ### Added

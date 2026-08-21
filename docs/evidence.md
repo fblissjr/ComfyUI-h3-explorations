@@ -115,6 +115,28 @@ instrument that has been shown red.
 - **Every `bench/check_*.py` passes**, and the ones added today were each shown
   red first: `check_sol_kernel` (4 cases), `check_bench_matches_shipped`,
   `vendored`, `node_version`.
+- **`int8_convrot` sits about three times closer to the bf16 release than
+  `fp8_scaled`.** Measured 2026-08-21 against the release itself
+  (`bench/analyze_quant_delta.py`; records
+  [`bench/results/2026-08-21_quant_delta_fl2va.json`](../bench/results/2026-08-21_quant_delta_fl2va.json)
+  and its ref2va twin): median relative delta per block linear 0.0091 against
+  0.0265, on both checkpoints, cosine 0.9999 against 0.9996. fp8's error is
+  flat to four digits across all 200 modules -- the signature of a fixed
+  mantissa, not of outlier clipping -- while int8's varies by module kind and
+  is worst on `attn.out_proj`. Every tensor neither file quantizes is
+  byte-identical between them, so nothing else is in the comparison.
+  **Stored weights only**: fp8 carries an `input_scale` on 150 of its 200
+  quantized tensors and int8 quantizes activations at runtime, and no
+  comparison of stored weights can see either. The controlled runtime version
+  is `docs/open_experiments.md` #22's fixed-input first-step forward.
+- **The bf16 release and the Comfy repack order `attn.qkv_proj` rows
+  differently.** The release interleaves per head, `[head][q|k|v][head_dim]`;
+  the repack concatenates, `[q|k|v][head][head_dim]`, which is what
+  `comfy/ldm/minimax/model.py` splits on. Compared as stored, a qkv weight
+  reads a relative delta of 1.40 against its own origin with cosine ~0, in
+  both quantizations equally; reordered, it reads the same ~0.9% as every
+  other int8 linear. `analyze_quant_delta.py` measures both readings and
+  refuses to run if the reordering is not the better one.
 - **The node is vendored, symlinked and hash-pinned**, so the file ComfyUI
   loads cannot drift from the tracked one, and an unrecorded hash fails rather
   than warns.
