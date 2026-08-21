@@ -18,6 +18,7 @@ from .reference_fit import MiniMaxH3ReferenceFit
 from .resolution import MiniMaxH3Resolution
 from .sol_curve_node import MiniMaxH3SolAttnCurve
 from .vae_precision import MiniMaxH3VAEPrecision
+from .vendor_tokens import MiniMaxH3VendorTokens
 from . import h3_capture
 
 from .attention import (
@@ -292,7 +293,8 @@ class H3ExplorationsExtension(ComfyExtension):
         return [MiniMaxH3SageAttention, SageChainAssert, MiniMaxH3KeyframeCanvas,
                 MiniMaxH3ReferenceFit, MiniMaxH3Resolution, MiniMaxH3Preflight,
                 MiniMaxH3ProvenanceStamp, MiniMaxH3SolAttnCurve,
-                MiniMaxH3SLARouter, MiniMaxH3VAEPrecision]
+                MiniMaxH3SLARouter, MiniMaxH3VAEPrecision,
+                MiniMaxH3VendorTokens]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

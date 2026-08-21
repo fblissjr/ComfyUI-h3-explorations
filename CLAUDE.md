@@ -47,6 +47,7 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
 
 | path | the rule |
 |---|---|
+| `vendor_config/` | the published release's own config files, verbatim, with `vendor_config.py` as the reader. **Anything the release declares is read from here, never retyped** -- special tokens, pixel bounds, patch geometry, partition task lists. Guarded by `bench/check_vendor_config.py`, which says so loudly when it could not reach the release to compare |
 | [`workflows/h3_config.py`](workflows/h3_config.py) | every shared constant. Nothing here may have a second copy anywhere. |
 | [`workflows/build_workflows.py`](workflows/build_workflows.py) | generates all graphs. Never hand-edit a `workflows/*.json` — and the inverse: **editing the generator is half the change, and nothing is true of a graph until it is rebuilt.** On 2026-08-21 a corrected note sat in this file across two commits while the shipped graph still carried the old text; only an explicit regeneration request caught it. Rebuild before you claim, and before you commit. |
 | `workflows/image/` | the single-frame image graphs. Routing is derived from `single_frame=True`; discovery is `h3_config.GRAPH_DIRS`, and **every check that walks graphs must go through `graph_paths()`** -- a bare non-recursive glob passes green over a subset. Enforced by `bench/check_graph_discovery.py` |

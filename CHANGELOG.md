@@ -137,6 +137,23 @@ captures taken on the fl2va+LoRA path.
   row-permutation defect, because fp8's scale is a scalar and the gap is
   uniform across module kinds.
 
+- **`vendor_config/` and `vendor_config.py`**: the release's own configuration,
+  vendored verbatim and read rather than retyped -- the twenty
+  `additional_special_tokens`, the image and video pixel bounds, the patch
+  geometry, and the two partition task lists. 13 KB against 200 GB of weights,
+  so a graph that needs the image floor does not depend on the weights being
+  downloaded. `bench/check_vendor_config.py` hashes them against what they were
+  copied as and, when the release is on disk, against the release itself; a
+  skipped release comparison announces itself rather than reading as a pass.
+- **`MiniMaxH3VendorTokens`** (`vendor_tokens.py`): adds the seven special
+  tokens the release declares and ComfyUI's bundled tokenizer lacks, so `<d>`
+  and the cutoff, lyrics and caption markers tokenize as markers instead of as
+  literal text. Builds a fresh tokenizer rather than mutating the loaded one,
+  because `clip.clone()` shares it by reference and an in-place edit would
+  contaminate every graph in the process. What the markers are FOR is
+  undocumented upstream and unmeasured here; the node makes them reachable, not
+  useful.
+
 - **`docs/open_experiments.md` #22 is measured and refuted**
   (`bench/run_pruning_arms.py`, `bench/grade_pruning_sensitivity.py`,
   `bench/results/2026-08-21_pruning_sensitivity.json`). Eleven fixed-input
