@@ -137,6 +137,19 @@ captures taken on the fl2va+LoRA path.
   row-permutation defect, because fp8's scale is a scalar and the gap is
   uniform across module kinds.
 
+- **`docs/research/conditioning_nodes.md`**: the conditioning work and its
+  scope reduction. The first sketch was two replacement conditioning nodes; the
+  node-by-node trace refuted that shape, because `MiniMaxH3ReferenceToVideo`
+  carries five contracts that exist only in code comments and fail silently, and
+  because neither defect needs that node replaced. Records the three tokenizer
+  seams that look available and are not, why the pixel floor is node-reachable
+  and the ceiling is not, and the five contracts as acceptance criteria for
+  anyone who does replace it.
+- **`bench/preflight_graph.py` warns when a reference will cross a pixel bound**
+  the conditioner and the release disagree on, naming which side does what.
+  ComfyUI's values are read from its source rather than restated; an unreadable
+  source says the comparison was not made rather than printing nothing.
+
 - **`vendor_config/` and `vendor_config.py`**: the release's own configuration,
   vendored verbatim and read rather than retyped -- the twenty
   `additional_special_tokens`, the image and video pixel bounds, the patch

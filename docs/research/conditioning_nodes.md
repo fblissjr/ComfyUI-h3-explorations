@@ -1,0 +1,138 @@
+# Conditioning against the release: what was built, and what was not
+
+last updated: 2026-08-21
+
+Two defects were found by reading the published release beside the code that
+consumes it ([`official_weights_metadata.md`](official_weights_metadata.md)).
+This records what was done about each, and — the part worth more — what was
+deliberately *not* done and why, so nobody rebuilds the discarded option.
+
+Source for the path itself: a full node-by-node trace of
+`workflows/h3_text_to_video_turbo_768p_euler.json` against
+`workflows/h3_image_ref_plus_text_to_video.json`, done 2026-08-21.
+
+---
+
+## The plan changed after the trace, and this is the change
+
+The first sketch was **two replacement conditioning nodes**, one non-reference
+and one reference, reimplementing what core does but correctly. The trace
+refuted that shape. Two findings did it:
+
+1. **`MiniMaxH3ReferenceToVideo` carries at least five load-bearing contracts
+   that exist only in code comments** (listed below). A reimplementation drops
+   one silently, and none of them raises when broken.
+2. **Neither defect actually requires replacing that node.** The tokenizer one
+   is fixed at the CLIP, one node upstream and one-tenth the surface. The pixel
+   one does not bind on any graph this repo ships.
+
+So the built thing is smaller than the sketch on purpose: fix the defect at the
+narrowest seam that reaches it, and instrument the one that is not currently
+reachable rather than patching speculatively.
+
+---
+
+## Defect 1: the seven special tokens. Fixed.
+
+`MiniMaxH3VendorTokens` (`vendor_tokens.py`), a CLIP-to-CLIP node wired between
+the loader and the conditioning node. It reads the release's declared token list
+from `vendor_config/` and adds what the bundled tokenizer lacks.
+
+The seam is a **rebind on a clone**, not a mutation. `clip.clone()`
+(`comfy/sd.py:301-310`) copies seven fields and shares the tokenizer and the
+text-encoder module by reference, so
+editing the loaded tokenizer in place would reach every graph in the process —
+the silent-contamination class `reference_fit.py` documents for its global
+rebind. The node builds a fresh tokenizer instead and rebinds it on the clone,
+which was verified: a second tokenizer constructed the same way is unaffected.
+
+Three seams that look available and are not, all read from source so nobody
+re-tries them:
+
+- **`clip.set_tokenizer_option`** (`comfy/sd.py:315-316`) dead-ends. The option
+  dict arrives at `MiniMaxH3Tokenizer.tokenize_with_weights`
+  (`comfy/text_encoders/minimax.py:137-138`) as `**kwargs` and is never
+  forwarded, so it cannot reach the inner tokenizer on this model.
+- **The `..._tokenizer_class` hook in `tokenizer_data`** is consumed inside
+  `SD1Tokenizer.__init__` (`comfy/sd1_clip.py:695`). A node running after
+  `CLIPLoader` cannot reach it.
+- **Setting the attribute on `clip.cond_stage_model`** (shared by `clone()` at
+  `comfy/sd.py:304`) is process-global contamination for the same reason as
+  above, not a scoped change.
+
+**What this does not establish**, and the node's own docstring repeats it:
+whether the embedding rows for these ids carry trained values, and what the
+markers are for. The release lists them and documents neither.
+
+## Defect 2: the pixel bounds. Detected, not patched.
+
+The conditioner leaves `min_pixels` / `max_pixels` on a shared helper's
+signature defaults where the release declares its own; the table is owned by
+[`h3_references.md`](../h3_references.md).
+
+**Neither bound binds on anything this repo ships.** `MiniMaxH3ReferenceFit`
+puts every reference at a 2048 short edge, which sits above the release's floor
+and below ComfyUI's ceiling until roughly 3:1. So the fix would be a monkeypatch
+guarding a case that does not occur.
+
+The trace also priced the two halves differently, which is why they are not
+treated the same:
+
+- **The floor is reachable from a node.** It only fires when the image is under
+  the threshold, so pre-conforming the tensor makes the helper a no-op. That is
+  `reference_fit.py`'s composition pattern one stage later. It costs forking the
+  one-image-two-towers identity, at one extra resample.
+- **The ceiling is not.** The clamp is on the helper's *output*, so no input can
+  beat it — passing a larger image just gets it shrunk. It needs a scoped
+  rebind, and the mechanism has two aspects nobody has verified: whether an
+  already-loaded text encoder re-applies object patches, and whether an instance
+  attribute holding an unbound function satisfies the call site.
+
+**What was built instead:** `bench/preflight_graph.py` now warns, statically,
+when a reference will cross either bound — naming which side would do what.
+ComfyUI's values are read out of its source rather than restated, so the warning
+goes stale loudly. When the source cannot be read it says the comparison was not
+made rather than printing nothing.
+
+That converts "should we write a monkeypatch?" from a guess into an observation:
+build it the first time a graph trips the warning.
+
+---
+
+## The five contracts a replacement node would have had to reproduce
+
+Recorded here because they are load-bearing, they fail silently, and every one
+of them currently lives only in a code comment — `CLAUDE.md`'s "a requirement is
+not a control" case, five times over. Enforced by nothing.
+
+1. **`ref_items` and `ref_blocks` are not the same length**
+   (`comfy_extras/nodes_minimax_h3.py:290-342`).** A video with a
+   soundtrack appends two entries to the presentation list and one to the DiT
+   payload. Index-aligning them mislabels every reference after the first
+   sounded video.
+2. **The soundtrack pairs by socket-name suffix**
+   (`comfy_extras/nodes_minimax_h3.py:313`), not by position:
+   `ref_video_audio_N` belongs to `ref_video_N` through a string join. A
+   mis-numbered socket silently pairs the wrong track.
+3. **The `<Audio j>` counter is shared** across video soundtracks and standalone
+   audio in one sequence, and standalone audio comes last. A prompt that says
+   `<Audio 1>` means something different depending on whether a video soundtrack
+   is wired.
+4. **Keyframe latents precede reference latents** in the flat conditioning
+   lists, established by statement order in `extra_conds` and nowhere else.
+5. **`minimax_token_tags` reaches conditioning only through the
+   `return_dict=True` path** (`comfy/sd.py:412-416`).** Nothing raises if it is missing; the DiT just tags
+   every row as text.
+
+Plus two smaller ones with the same property: the vision sentinels must flank
+each block or two rows per block get tagged as text, and prompt weighting must
+stay disabled or a CLIP-style blend is applied to a hidden state this model
+never saw weighted.
+
+---
+
+## Not done
+
+A replacement for `MiniMaxH3ReferenceToVideo`. If one is ever wanted — for a
+reason other than these two defects — the list above is the acceptance criteria,
+and none of it is currently guarded by an assertion.
