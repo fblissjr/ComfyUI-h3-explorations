@@ -265,7 +265,7 @@ it reaches the two towers.** Everything downstream of the resize matches.
 | resampler | PIL LANCZOS (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:181-203`) | `common_upscale(..., "lanczos")` on the tensor (`comfy_extras/nodes_minimax_h3.py:64-68`) | same intent |
 | orientation | `ImageOps.exif_transpose` on open (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:886-887`) | none — a tensor arrives already decoded | not applicable |
 | one image, two towers | the identical prepared image feeds Qwen `pixel_values` and the visual-condition tokenizer, cached on the batch (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:840-846`) | the same `resized` tensor goes to `vae.encode` and into `ref_items` (`comfy_extras/nodes_minimax_h3.py:304-306`) | **yes** |
-| patchify | delegated to the HF `image_processor`, which reads the release's own `processor/preprocessor_config.json` | reimplemented, with the geometry right and two bounds taken from Qwen2-VL's defaults (`comfy/text_encoders/minimax.py:35-66`, `comfy/text_encoders/qwen3vl.py:62-68`) | **algorithm yes, constants no** |
+| patchify | delegated to the HF `image_processor`, which reads the release's own `processor/preprocessor_config.json` | reimplemented, with the geometry right and two bounds left on the shared helper's signature defaults (`comfy/text_encoders/minimax.py:35-66`, `comfy/text_encoders/qwen3vl.py:62-68`) | **algorithm yes, constants no** |
 | presentation | `<Picture i>: ` then a vision block, no chat template (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/presentation.py:104`) | the same string, the same place (`comfy/text_encoders/minimax.py:164`) | **yes** |
 | packing | ref blocks in request order, target timeline starts past their spans (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py:274-320`) | `_ref_t_span` does the same (`comfy/ldm/minimax/model.py:335-338`) | **yes** |
 | condition timestep | 0.999, applied as `max(t_video, aug)` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:24`) | 0.999, applied as `max(t_v, vis_aug)` (`comfy/ldm/minimax/model.py:32`) | **yes** |
@@ -280,9 +280,11 @@ explicitly rather than inheriting Qwen2-VL's 14
 (`comfy/text_encoders/qwen3vl.py:62-68`). The **pixel bounds** do not. The
 release ships them in `processor/preprocessor_config.json` as
 `size.shortest_edge` / `size.longest_edge`, which is how the fast Qwen2-VL
-processor spells min and max pixels; ComfyUI leaves
-`process_qwen2vl_images` on its Qwen2-VL defaults and
-`process_video_block` on the same pair.
+image processor spells min and max pixels. ComfyUI reads no such file: it
+leaves `process_qwen2vl_images` on the signature defaults of the shared
+Qwen2-VL helper, and `process_video_block` carries the same pair. The model is
+Qwen3-VL-32B on both sides — this is one shared helper's defaults reaching a
+model it was not written for, not a wrong model.
 
 | bound | H3 release | ComfyUI |
 |---|---|---|
