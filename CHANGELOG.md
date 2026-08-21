@@ -95,6 +95,17 @@ captures taken on the fl2va+LoRA path.
   row-permutation defect, because fp8's scale is a scalar and the gap is
   uniform across module kinds.
 
+- **`MiniMaxH3VAEPrecision`** (`vae_precision.py`): sets the H3 video VAE's
+  encoder and decoder precision independently, which ComfyUI's single
+  `--fp32-vae` flag cannot express. The released pipeline keeps this VAE fp32
+  and decodes under fp16; the flag moves both halves together. The prices are
+  not symmetric -- read out of the shipped checkpoint, the decoder is 93% of
+  the weights and the encoder 7% (4.51 GiB against 0.34 GiB), so fp32 encode is
+  cheap and fp32 decode is the part that got the flag reverted. Both module
+  boundaries are wrapped to cast to whatever that half holds, so a graph that
+  also wires the unmodified VAE elsewhere stays correct. Whether fp32 encode
+  changes anything is unmeasured and the node says so.
+
 - **`docs/research/official_weights_metadata.md`**: the published release read
   beside the code that consumes it. Seven H3-specific special tokens
   (`<d>`, `</d>`, the cutoff, lyrics and caption markers) are declared by the
