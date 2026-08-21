@@ -62,14 +62,24 @@ weight matrix.
 
 **What it does and does not buy on this box.** No speed. On the pruned file we
 run, the AdaLN projection is already tiny, so there is no matmul left worth
-eliminating. What it buys is *unpruned accuracy at pruned memory* — which
-matters for exactly one outcome of [`open_experiments.md`](../open_experiments.md)
-#22. If the pruning residual turns out to move the output, the cache is the fix
-that does not require keeping the unpruned file resident. If #22 says the
-residual does not matter, this is dead weight and should not be built.
+eliminating. What it buys is *unpruned accuracy at pruned memory*.
 
-**Do not build it before #22 reports.** It is a solution to a problem that may
-not exist, and #22 is the experiment that says which.
+**#22 has since reported, and it half-opened the gate**
+([`bench/results/2026-08-21_pruning_sensitivity.json`](../../bench/results/2026-08-21_pruning_sensitivity.json)).
+The pruning is **not** invisible at the output: the first-step velocity moves
+5.6-9.4% against a determinism floor of exactly zero. So "the residual does not
+matter" — the outcome that would have killed this outright — did not happen.
+What did happen is that the effect is the same size on both checkpoints and
+**smaller than the `fp8_scaled`-vs-`int8_convrot` difference this repo already
+ships**, which is why it is still not urgent: an exact AdaLN would remove an
+error that is not the largest one in the stack.
+
+**What would make it worth building** is evidence that the difference is
+*visible*, which no measurement here can supply — the arms are one forward, not
+a render. That is a blind session on pruned against unpruned under
+[`eval_comparison.md`](../eval_comparison.md) section 3, and it has not been run
+or scheduled.
+
 
 ### Breakable CUDA graphs over a packed sequence
 

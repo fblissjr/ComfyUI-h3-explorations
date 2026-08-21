@@ -290,6 +290,7 @@
     "The determinism floor is EXACTLY zero: the repeat arm reproduced its twin bit for bit across a full checkpoint reload, both arms genuinely rendered (sampler 14.9 s and 19.7 s, neither flagged as a cache hit). A fixed-input first-step forward is bit-deterministic on this box.",
     "That makes the entry's '10x floor' test degenerate -- with a floor of zero any non-zero value passes it, so that clause discriminated nothing here. It did not matter: the measured values are percent-scale, not noise-scale.",
     "This is a first-step forward, not a render. It says the velocity differs; it says nothing about how that difference propagates over a full schedule, and nothing about whether anyone could see it. A perceptual claim would need its own blind session under docs/eval_comparison.md section 3.",
-    "The entry's pre-registered prediction was S under 1% on both checkpoints. Measured: 5.6% to 9.4%. The prediction was wrong by roughly an order of magnitude and is recorded as wrong rather than quietly dropped."
+    "The entry's pre-registered prediction was S under 1% on both checkpoints. Measured: 5.6% to 9.4%. The prediction was wrong by roughly an order of magnitude and is recorded as wrong rather than quietly dropped.",
+    "The entry's profile clause carries no threshold, so the grader implements the weakest testable reading: deepest block at least twice block 0. The measured profile is not a monotone opening -- q error peaks at block 36 and falls back at 49 on both checkpoints. The verdict did not turn on it."
   ]
 }

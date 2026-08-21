@@ -1456,6 +1456,24 @@ smaller than the int8-vs-fp8 difference already shipped. `docs/evidence.md`
 carries the consequence. The design below is left as written, including the
 prediction it got wrong.
 
+**How the "decision it changes" clause resolved.** The fl2va hedge for
+reference work has no basis in *sensitivity*: both checkpoints respond to the
+pruning by the same amount, so preferring the unpruned 34 GB ref2va file over
+the pruned one cannot be justified on ref2va-specific grounds. What stays open
+is the plain pruned-vs-unpruned preference on either checkpoint, which is now a
+perceptual question rather than a numerical one and would need its own blind
+session under `docs/eval_comparison.md` section 3. This entry never claimed one
+and still does not.
+
+**One clause was graded under a reading this entry did not specify.** The rule
+below asks whether the profile "opens at or after the blocks where the
+reference rows carry the modulation residual" without giving a threshold. The
+grader implements the weakest testable reading — deepest block at least twice
+block 0 — and says so in its own docstring. Under that reading the profile does
+open late, but the shape is not a monotone opening: q error climbs to a peak at
+block 36 and falls back at 49, on both checkpoints. The verdict did not turn on
+this clause; it was refuted on the ratio.
+
 
 **Tests:** whether the rank-8 AdaLN pruning, which perturbs the modulation
 output identically on both checkpoints
