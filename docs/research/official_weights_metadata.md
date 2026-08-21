@@ -250,12 +250,21 @@ at frame 0, not as an artifact.
 
 **Last-only is the most divergent keyframe mode and the only one nothing here
 closes.** ComfyUI picks crop-against-stretch from which *socket* was wired, so
-`last_frame` takes a cover crop and loses whatever falls outside the target
-aspect; the vendors pick from *presentation position*, so a last-only request
-is the first presented keyframe and is stretched as the geometry anchor,
-keeping the whole image. `MiniMaxH3KeyframeCanvas` requires a first frame and
-cannot reach this case. Rendering last-only from a non-16:9 source silently
-crops content the release would have kept.
+`last_frame` takes a cover crop into a canvas fixed elsewhere, and loses
+whatever falls outside that aspect. `MiniMaxH3KeyframeCanvas` requires a first
+frame and cannot reach this case, so rendering last-only from a non-16:9 source
+silently crops content.
+
+**The vendor side, read 2026-08-21 and not what this paragraph first said.** It
+originally claimed sglang anchors on the first *presented* keyframe, taken from
+the Codex review rather than from source. `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/prequeue.py:97-107` does
+something different and its own comment says so: "Select by semantic time, not
+request/material iteration order." Geometry is *deferred* and the canvas is
+resolved from the anchor's own display shape, so with one keyframe that
+keyframe **is** the anchor whichever socket it came from, and the canvas is
+derived from it. The consequence is stronger than the original claim: the
+release does not stretch or crop a last-only keyframe, because the canvas is
+built to fit it. ComfyUI starts from a canvas and makes the image fit instead.
 
 **first+last is the closest mode to release behaviour** -- first stretched,
 last cropped, matching the vendor structure. It pays the posterior twice and

@@ -61,6 +61,30 @@ or 345 costs proportionally less attention *and* reduces it. 362 is the
 shipped default, so that step down is a deliberate choice per render, not a
 setting you inherit.
 
+## Three modality tags, not two
+
+Recorded 2026-08-21 because no doc here stated it and two outside reviews of
+this pipeline described it as a two-way split. Every row of the packed sequence
+carries a modality tag, and `comfy/ldm/minimax/model.py:615` assigns three:
+
+```python
+seg_tag = {"text": 1, "video": 0, "audio": 2, "cond": 0, "ref_img": 0,
+           "cond_audio": 2, "ref_audio": 2}
+```
+
+The tag is not diagnostic metadata. It picks the AdaLN modulation row --
+`timestep_index * 3 + tag`, which is why `AdalnProj` emits three rows per
+timestep and why `:719` and `:723` divide by 3. Keyframes, reference images and
+target video all share the video tag; both target and reference audio share the
+audio tag; only prose is text.
+
+Two consequences worth carrying. A vision block's flanking
+`<|vision_start|>` / `<|vision_end|>` are tagged **video**, not text --
+`comfy/text_encoders/minimax.py` widens each embedding span by one on each side
+deliberately, so the markers modulate with the pixels they wrap. And the
+presentation text span is not uniform: it mixes tags, and the packing splits it
+into runs rather than tagging it wholesale.
+
 ## Which nodes to use
 
 ### Required, all ComfyUI core
