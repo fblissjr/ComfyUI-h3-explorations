@@ -1758,7 +1758,11 @@ REF_SCENE_SHOTS = {
         "dropped umbrella skidding across the tiles. {character} keeps playing "
         "through it, her identity unchanged from the reference, and sings over "
         "the crowd: <|lyrics_start|><d>[English] Hold the door and hold your line."
-        "</d><|lyrics_end|> Her lips close.",
+        "</d><|lyrics_end|> Her lips close. The camera holds wide long enough "
+        "to keep the tiled columns, the platform edge markings and the "
+        "overhead signage of the reference setting continuously visible behind "
+        "her while the crowd moves across the frame in both directions, coats "
+        "and bags passing close to the lens without occluding her face.",
         "[Shot 4] At 00:11.000, the shot changes to a close shot inside the "
         "carriage looking out through the closing doors, the woman in the raincoat "
         "pressed against the glass, breathing hard, calling back to her companion "
@@ -1788,7 +1792,10 @@ REF_SCENE_SHOTS = {
         "directions, a thumb wiping a rim clean. {character} and the cook overlap "
         "at speed: <d>[English] Where is my second plate.</d> <d>[English] Behind "
         "you, behind you.</d> Both sets of lips close as a plate is spun into "
-        "position.",
+        "position. The camera stays low across the pass so the stainless "
+        "surfaces, the loaded ticket rail and the lit burners of the reference "
+        "setting remain continuously visible behind the hands, steam crossing "
+        "the lens twice without hiding either face.",
         "[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts "
         "both plates and turns for the door, the kitchen receding behind him in a "
         "blur of steam, while {character} calls after him already reading the next "
@@ -1812,9 +1819,42 @@ REF_SCENE_AUDIO = {
 }
 
 
+def _scene_description(scene: str, image_roles, defs) -> str:
+    """A stress scene's `detailed_description`, with the labels this arm wires.
+
+    `{character}` resolves by ROLE, not by ordinal, for the same reason the
+    establishing beat does: once roles are declared per socket the character
+    can sit anywhere, and an arm whose first socket is a garment would
+    otherwise have the busker played by a coat.
+
+    **Refuses rather than under-cites.** Every defined `<Subject N>` has to
+    appear in `detailed_description` (ref-en.txt:231); a subject that carries a
+    retention marker and is never mentioned asks the model to transfer
+    something onto nothing, and `bench/preflight_graph.py` warns about it after
+    the fact. A scene that cannot cite every role this arm defines is a
+    mismatch between the scene and the arm, so it stops the build instead.
+    """
+    import re as _re
+    char = _role_label(image_roles, "character") or "<Subject 1>"
+    env = _env_label(image_roles)
+    env_beat = f"{env}, which supplies the setting for the target video, and "
+    body = "\n".join(sh.format(character=char,
+                               environment_beat=(env_beat if env else ""))
+                     for sh in REF_SCENE_SHOTS[scene])
+    defined = sorted(set(_re.findall(r"<Subject \d+>", " ".join(defs))))
+    missing = [lab for lab in defined if lab not in body]
+    if missing:
+        raise SystemExit(
+            f"_ref_prompt: scene {scene!r} never cites {missing}, which this "
+            f"arm defines. Either the arm wires a role the scene has no part "
+            f"for, or the scene needs a beat for it -- do not ship a defined "
+            f"subject the description never mentions.")
+    return body
+
+
 def _ref_prompt(*, images: bool | tuple[str, ...] = True,
                 video=False, video_audio=False, audio=False,
-                video_role="structure", audio_role="music"):
+                video_role="structure", audio_role="music", scene=None):
     """A ref2va prompt declaring EXACTLY the labels this arm wires, in the
     relationship it actually asks for.
 
@@ -2113,9 +2153,17 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
         "retention_analysis:", *retention, "",
         "detailed_description:",
         "The target video is in a cinematic live-action style.",
-        "[Shot 1] " + " ".join(shot), "",
-        "overall_soundscape:", soundscape, "",
-        "non_diegetic_music:", music,
+        # A scene replaces the one-shot establishing beat the role tables
+        # build, and brings its own sound world with it -- a reference changes
+        # WHO is in the shot, not what the room sounds like. The role
+        # machinery above still owns subject_definitions, the summary and the
+        # retention analysis, which is the half that has to match the sockets.
+        (_scene_description(scene, image_roles, defs) if scene
+         else "[Shot 1] " + " ".join(shot)), "",
+        "overall_soundscape:",
+        REF_SCENE_AUDIO[scene][0] if scene else soundscape, "",
+        "non_diegetic_music:",
+        REF_SCENE_AUDIO[scene][1] if scene else music,
     ])
 
 
