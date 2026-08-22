@@ -18,6 +18,19 @@ artifact.
 - **`bench/red/show_red_preflight_guide_split.py`**, the red harness for the
   guide split below. Five mutations red; two near-misses that are the point of
   the file rather than padding.
+- **`bench/grade_vae_encoder_precision.py`**, measuring what promoting the H3
+  video VAE's encoder actually changes, at the call rather than at a rendered
+  clip -- encoder precision is a numerical knob and a clip pair cannot A/B one.
+  fp16 is bit-identical to itself, fp32 moves the latent 6.4e-4, bf16 moves it
+  17x further; the last two are controls, not results.
+- **`workflows/h3_probe_ref_vae_encoder_{fp16,fp32}_api.json`**, the first
+  graphs to wire `MiniMaxH3VAEPrecision` at all. They differ in exactly the
+  precision node and share a seed. They price the knob and prove it runs; they
+  are labelled as unable to say which output is better.
+- **`bench/run_marker_stock_tail.py`**, six more stock-arm seeds staged for the
+  `rolloff85_hz` question. Built, deliberately not run.
+- **`internal/briefs/` and the blind batch for the marker arms**, staged with
+  the key sealed.
 
 ### Changed
 
