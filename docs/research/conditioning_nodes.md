@@ -102,8 +102,20 @@ build it the first time a graph trips the warning.
 ## The five contracts a replacement node would have had to reproduce
 
 Recorded here because they are load-bearing, they fail silently, and every one
-of them currently lives only in a code comment — `CLAUDE.md`'s "a requirement is
-not a control" case, five times over. Enforced by nothing.
+of them lives only in a code comment — `CLAUDE.md`'s "a requirement is not a
+control" case, five times over.
+
+**Five of the seven gained a control on 2026-08-22**, after standing
+unenforced through two postmortems: `bench/check_reference_contracts.py`
+asserts contracts 1, 2 and 3 plus both smaller ones against core's own
+behaviour, driving the node with stub VAEs to the point where its two
+reference lists are complete. Shown red by pairing soundtracks positionally in
+core and confirmed green on restore.
+
+**Contracts 4 and 5 are still enforced by nothing**, and the check says so on
+every run rather than leaving their absence to look like coverage. Contract 4
+is `model_base.py`'s job rather than this node's; contract 5 needs a loaded
+encoder.
 
 1. **`ref_items` and `ref_blocks` are not the same length**
    (`comfy_extras/nodes_minimax_h3.py:290-342`).** A video with a

@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+"""The load-bearing contracts in core's reference node, asserted for the first time.
+
+Run it with the ComfyUI venv python (`docs/comfy_notes.md`). CPU only, no
+server, no weights: both VAEs are stubs and the node is driven only as far as
+the point where its two reference lists are complete.
+
+**Why this exists.** `docs/research/conditioning_nodes.md` records five
+load-bearing contracts in `MiniMaxH3ReferenceToVideo`, plus two smaller ones,
+and says of all of them: they fail silently and are **enforced by nothing**.
+That is `CLAUDE.md`'s "a requirement is not a control" case, seven times over,
+and it has stood through two postmortems. This file is the control.
+
+It is also the prerequisite for replacing that node. A replacement has to
+reproduce every one of these, and until something asserts them "did we
+reproduce them" is unanswerable. **Core is the control here, not a fixture**:
+every expectation below is read off core's own behaviour on inputs built to
+make the contract's failure mode visible, rather than compared against a
+recorded blob that would freeze today's bugs as tomorrow's expectations.
+
+**How it observes.** `clip.tokenize` is patched. At the moment core calls it,
+both `ref_items` and `ref_blocks` are complete and still live in the caller's
+frame, so the spy reads them out of `sys._getframe` and raises. That is a
+reach into a private frame and it is deliberate: the alternative is asserting
+against the conditioning tensor, which needs a 32B encoder and would test the
+DiT's packing rather than the node's bookkeeping.
+
+**What is NOT covered, named rather than skipped:**
+
+- **Contract 4** (keyframe latents precede reference latents) is
+  `model_base.py`'s job, not this node's, per the 2026-08-21 re-derivation.
+  Enforced by nothing, here or anywhere.
+- **Contract 5** (`minimax_token_tags` reaches conditioning only through the
+  `return_dict=True` path) needs the real encode path and a loaded encoder.
+  **Enforced by nothing.** Reported at the end of every run so its absence
+  cannot be mistaken for coverage.
+
+Exit 0 all covered contracts hold, 1 one is violated, 2 the harness could not
+reach the node's bookkeeping at all.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# ComfyUI first, repo dir NOT on the path: `nodes_minimax_h3` does a bare
+# `import nodes` and this repo's own nodes.py wins from position 0.
+_COMFY = Path.home() / "ComfyUI"
+sys.path.insert(0, str(_COMFY))
+
+VISION_START = 151652
+VISION_END = 151653
+
+
+class _Reached(Exception):
+    """Raised once both reference lists are complete."""
+
+
+class _StubVideoVae:
+    """Returns a latent of the right rank; nothing here reads its values."""
+
+    def encode(self, frames):
+        import torch
+        t = int(frames.shape[0])
+        h, w = int(frames.shape[1]), int(frames.shape[2])
+        return torch.zeros(1, 24, max(1, t // 4 + 1), h // 16, w // 16)
+
+
+class _StubAudioVae:
+    audio_sample_rate = 32000
+
+    def encode(self, waveform):
+        import torch
+        # [1, 32, 2, T]; T distinct per call so a mispairing is visible
+        n = int(waveform.shape[-2])
+        return torch.zeros(1, 32, 2, max(1, n // 640))
+
+
+def _audio(seconds: float, sr: int = 32000):
+    import torch
+    return {"waveform": torch.zeros(1, 2, int(sr * seconds)),
+            "sample_rate": sr}
+
+
+def _drive(core, **kwargs):
+    """Run core's node until its two reference lists are complete.
+
+    Returns (ref_items, ref_blocks) read from the caller's frame at the moment
+    `clip.tokenize` is called -- the first point where both are finished.
+    """
+    captured = {}
+
+    class _SpyClip:
+        def tokenize(self, _prompt, **_kw):
+            frame = sys._getframe(1)
+            captured["items"] = frame.f_locals.get("ref_items")
+            captured["blocks"] = frame.f_locals.get("ref_blocks")
+            raise _Reached
+
+    try:
+        core.MiniMaxH3ReferenceToVideo.execute(
+            clip=_SpyClip(), vae=_StubVideoVae(), audio_vae=_StubAudioVae(),
+            prompt="a reference prompt", width=1344, height=768, length=124,
+            **kwargs)
+    except _Reached:
+        pass
+    if captured.get("items") is None or captured.get("blocks") is None:
+        raise RuntimeError(
+            "could not read ref_items/ref_blocks out of core's frame; its "
+            "local names changed and this harness is asserting nothing")
+    return captured["items"], captured["blocks"]
+
+
+def _labels(ref_items):
+    """The presentation core's tokenizer builds, decoded, with vision marked."""
+    from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
+    tok = MiniMaxH3Tokenizer()
+    entries = tok.tokenize_with_weights(
+        "", minimax_ref_items=ref_items)["qwen3vl_32b"][0]
+    hf = tok.qwen3vl_32b.tokenizer
+    out, run = [], []
+    for t, *_ in entries:
+        if isinstance(t, int) and t not in (VISION_START, VISION_END):
+            run.append(t)
+            continue
+        if run:
+            out.append(hf.decode(run))
+            run = []
+        out.append("<VISION_START>" if t == VISION_START
+                   else "<VISION_END>" if t == VISION_END else "<BLOCK>")
+    if run:
+        out.append(hf.decode(run))
+    return out
+
+
+def main() -> int:
+    try:
+        import torch  # noqa: F401
+        import comfy_extras.nodes_minimax_h3 as core
+    except Exception as exc:
+        print(f"could not import core: {exc}")
+        print("nothing was checked")
+        return 2
+
+    results = []
+
+    def record(name, ok, detail):
+        results.append((name, ok, detail))
+        print(f"  {'ok  ' if ok else 'FAIL'}  {name}\n        {detail}")
+
+    print("core's reference-node contracts, asserted against core itself\n")
+
+    try:
+        # --- Contract 1: the two lists are NOT index-aligned ---------------
+        items, blocks = _drive(
+            core,
+            ref_videos={"ref_video_0": torch.zeros(22, 544, 960, 3)},
+            ref_video_audios={"ref_video_audio_0": _audio(1.0)},
+        )
+        record("contract 1: ref_items and ref_blocks are not index-aligned",
+               len(items) != len(blocks),
+               f"one sounded video gives {len(items)} presentation item(s) "
+               f"and {len(blocks)} DiT block(s). Index-aligning them mislabels "
+               f"every reference after the first sounded video.")
+
+        # --- Contract 2: soundtracks pair by socket-name SUFFIX ------------
+        # Two videos of different lengths, and the dict deliberately supplies
+        # the soundtracks in the opposite order to the videos. Pairing by
+        # position would attach each track to the wrong video; pairing by
+        # suffix attaches them correctly. The audio stub's row count differs
+        # per track, so the mispairing would be visible in the blocks.
+        items, blocks = _drive(
+            core,
+            ref_videos={"ref_video_0": torch.zeros(22, 544, 960, 3),
+                        "ref_video_1": torch.zeros(22, 544, 960, 3)},
+            ref_video_audios={"ref_video_audio_1": _audio(4.0),
+                              "ref_video_audio_0": _audio(1.0)},
+        )
+        sounded = [b for b in blocks if b.get("kind") == "video_audio"]
+        rows = [b["ref_audio_t"] for b in sounded]
+        # video_0 gets the 1.0s track, video_1 the 4.0s one, in block order
+        paired_right = len(rows) == 2 and rows[0] < rows[1]
+        record("contract 2: soundtracks pair by socket-name suffix",
+               paired_right,
+               f"soundtracks supplied in reverse order still attach by name: "
+               f"block audio rows in video order are {rows}, ascending because "
+               f"ref_video_0 got the shorter track. Positional pairing would "
+               f"reverse this.")
+
+        # --- Contract 3: <Audio j> is one shared counter, standalone last ---
+        items, blocks = _drive(
+            core,
+            ref_images={"ref_image_0": torch.zeros(1, 768, 768, 3)},
+            ref_videos={"ref_video_0": torch.zeros(22, 544, 960, 3)},
+            ref_video_audios={"ref_video_audio_0": _audio(1.0)},
+            ref_audios={"ref_audio_0": _audio(2.0)},
+        )
+        # Filter the SENTINEL markers only. Filtering anything starting with
+        # "<" also removes "<Audio 1>: " and "<Video 1>: ", which are the very
+        # strings being asserted -- the first version of this line did exactly
+        # that and the contract could not be found in its own evidence.
+        _MARK = {"<VISION_START>", "<VISION_END>", "<BLOCK>"}
+        text = "".join(x for x in _labels(items) if x not in _MARK)
+        shared = "<Audio 1>" in text and "<Audio 2>" in text
+        order = (text.index("<Audio 1>") < text.index("<Video 1>")
+                 < text.index("<Audio 2>"))
+        record("contract 3: one <Audio j> counter, standalone audio last",
+               shared and order,
+               f"the video's soundtrack takes <Audio 1> immediately before "
+               f"<Video 1>, and the standalone track takes <Audio 2> after it. "
+               f"A prompt saying <Audio 1> means a different thing depending "
+               f"on whether a soundtrack is wired.")
+
+        # --- Small contract: vision sentinels flank EVERY block -------------
+        seq = _labels(items)
+        pairs_ok = True
+        for i, tokname in enumerate(seq):
+            if tokname == "<BLOCK>":
+                pairs_ok &= (i > 0 and seq[i - 1] == "<VISION_START>"
+                             and i + 1 < len(seq) and seq[i + 1] == "<VISION_END>")
+        nblocks = seq.count("<BLOCK>")
+        record("small contract: vision sentinels flank every vision block",
+               pairs_ok and nblocks > 0,
+               f"{nblocks} vision block(s), each between <|vision_start|> and "
+               f"<|vision_end|>. Without both, two rows per block get tagged "
+               f"as text in the DiT.")
+
+        # --- Small contract: prompt weighting stays disabled ----------------
+        from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
+        tok = MiniMaxH3Tokenizer()
+        weighted = tok.tokenize_with_weights("(a cat:1.5) on a mat")
+        ws = {float(e[1]) for e in weighted["qwen3vl_32b"][0]}
+        record("small contract: prompt weighting is disabled",
+               ws == {1.0},
+               f"a CLIP-style weight in the prompt yields weights {sorted(ws)}. "
+               f"Anything but 1.0 applies a blend to a hidden state this model "
+               f"was never trained with.")
+
+    except RuntimeError as exc:
+        print(f"\n{exc}")
+        print("nothing was checked")
+        return 2
+    except Exception as exc:
+        print(f"\ncould not drive core's node: {type(exc).__name__}: {exc}")
+        print("nothing was checked")
+        return 2
+
+    print("\nNOT covered by this file, and enforced by nothing:")
+    print("  contract 4  keyframe latents precede reference latents --")
+    print("              model_base.py's job, not this node's")
+    print("  contract 5  minimax_token_tags reaches conditioning only via the")
+    print("              return_dict=True path -- needs a loaded encoder")
+
+    failed = [n for n, ok, _ in results if not ok]
+    if failed:
+        print(f"\nFAIL: {len(failed)} contract(s) violated: {failed}")
+        return 1
+    print(f"\nok    {len(results)} contract(s) hold, asserted against core")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

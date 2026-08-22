@@ -44,7 +44,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 1 | Seven special tokens absent from the tokenizer | config | **fixed upstream, PR open** |
 | 2 | Reference video frame rate assumed, not enforced | behavioural | open, workaround gated |
 | 3 | Reference image floor (`min_pixels`) | config | open, unenforced |
-| 4 | Reference image ceiling (`max_pixels`) | config | open, no shipped graph reaches it |
+| 4 | Reference image ceiling (`max_pixels`) | config | **guarded in this pack**, open in core |
 | 5 | Reference soundtracks not truncated | behavioural | open by choice |
 | 6 | Reference media never upscaled, and never reported | behavioural | clamp is a knob; **the silence is the defect** |
 | 7 | Mono reference audio raises | behavioural | gated |
@@ -456,6 +456,23 @@ The probe arms render and **assert nothing**; they price the knob and prove it
 runs. They are labelled as unable to say which output is better, because a
 rendered clip cannot A/B a numerical change.
 
+### 6. Reference video sizing and reporting
+
+| what | where |
+|---|---|
+| The node that was missing entirely | [`reference_video_fit.py`](../reference_video_fit.py) |
+| Holds its copy of core's sizing rule to core's real behaviour | [`bench/check_ref_video_prediction.py`](../bench/check_ref_video_prediction.py) |
+
+### The contracts underneath all of it
+
+| what | where |
+|---|---|
+| Core's reference-node contracts, asserted for the first time | [`bench/check_reference_contracts.py`](../bench/check_reference_contracts.py) |
+
+Five of the seven contracts in `MiniMaxH3ReferenceToVideo` gained a control on
+2026-08-22, after standing enforced by nothing through two postmortems. Two
+remain uncovered and the check prints which on every run.
+
 ### Nothing built
 
 Gaps **5** (soundtrack length) and **9** (VAE tiling) have no instrument, no
@@ -479,9 +496,9 @@ A gap with no assertion behind it is a gap that will come back.
 | 1, special tokens | [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py), plus the upstream fix |
 | 2, frame rate | [`bench/check_ref_prompt_labels.py`](../bench/check_ref_prompt_labels.py) |
 | 3, image floor | **nothing** |
-| 4, image ceiling | [`bench/audit_shipped_reference_bounds.py`](../bench/audit_shipped_reference_bounds.py) reports; nothing refuses |
+| 4, image ceiling | **guarded in this pack since 2026-08-22**: `MiniMaxH3ReferenceFit`'s `keep_towers_matched` holds the reference under Qwen's ceiling so both towers agree. Core is still unguarded for anyone not wiring that node |
 | 5, soundtrack length | **nothing** |
-| 6, media upscale | **nothing**, and the clamp needs none. **Nothing reports the resolution a reference reached**, which does |
+| 6, media upscale | the clamp needs none. The **silence** is now addressed: both reference nodes report the resolution reached, and `MiniMaxH3ReferenceVideoFit` covers video, which nothing touched before |
 | 7, mono audio | [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py) |
 | 8, VAE encode precision | **nothing** |
 | 9, VAE tiling | **nothing** |

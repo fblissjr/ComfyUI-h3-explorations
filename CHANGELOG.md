@@ -140,6 +140,17 @@ artifact.
   - Deliberately carries no fps control. `force_rate=24` owns that and
     `check_ref_prompt_labels.py` gates it; a second place to set it is a second
     place to get it wrong.
+- **`bench/check_reference_contracts.py`**, the first assertion of any kind on
+  the load-bearing contracts in core's `MiniMaxH3ReferenceToVideo`. Five of the
+  seven now have a control; they had stood as "enforced by nothing" through two
+  postmortems. Contracts 4 and 5 remain uncovered and the check prints which on
+  every run, so an uncovered contract cannot read as a covered one.
+  - **Core is the control, not a fixture.** Contract 2's arm supplies
+    soundtracks in reverse order to the videos, so suffix pairing and
+    positional pairing give visibly different answers. Shown red by replacing
+    core's suffix pairing with positional pairing.
+  - Also the prerequisite for ever replacing that node: until something asserts
+    these, "did the replacement reproduce them" is unanswerable.
 - **`bench/check_ref_video_prediction.py`**, which holds that node's copy of
   core's sizing rule to core's real behaviour by patching `_resize` to record
   and abort. No weights, no server, and the expectation is core's own call
