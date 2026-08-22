@@ -3194,6 +3194,12 @@ dialogue placement and label agreement are enforced here unchanged."""
 def _note_ref_relationship(role: str) -> str:
     what = {
         "swap": ("replacing a character in a source video", """\
+**This graph is one of three that differ only in their prompt.**
+`h3_ref_video_swap_concise` states the same request in a single paragraph and
+`h3_ref_video_swap_directive` states it as imperative commands, on identical
+references, seed, canvas, length and sampler. Rendering this one alone answers
+nothing about the format; the point of the format is the comparison.
+
 This is the **character swap** arm: the video is the *plate* and the image is
 the *new identity*. Read it against `h3_ref_video_image_edit`, which is the
 same machinery pointed at a different question -- there the person in
