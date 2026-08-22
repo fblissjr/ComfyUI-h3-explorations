@@ -211,7 +211,7 @@ non_diegetic_music:
 N/A"""
 
 # Sung lines: the lyrics markers WRAP one or more `<d>` blocks rather than
-# replacing them. Pass as a `bench/run_graph_arms.py --set` patch.
+# replacing them.
 T2V_REHEARSAL_PROMPT = """integrated_multimodal_description:
 [Shot 1] Live-action, cinematic, static tripod framing with motivated practical light and fine film grain. A medium shot frames a basement rehearsal room, foam panels on the walls, a drum kit lit by one clamp lamp. A drummer in his thirties with a low, unhurried baritone (S1) rests his sticks across the snare, looks off toward the vocal booth, and says: <d>[English] From the second verse. Count me in this time.</d> His lips close and he rolls his shoulders once and resets his grip.
 [Shot 2] At 00:05.000, the shot cuts to a close shot of a singer in the booth behind glass, headphones on one ear. The singer, a woman in her twenties with a clear, slightly breathy mezzo (S2), leans to the microphone and sings: <|lyrics_start|><d>[English] I walked the long way home again.</d><d>[English] The lights were out on Seventh Street.</d><|lyrics_end|> Her lips close on the last word and she lifts her chin as the drummer's first hit lands.
@@ -237,6 +237,25 @@ A paper bag folded and pressed flat, a drawer rolling shut and latching, keyboar
 
 non_diegetic_music:
 N/A"""
+
+
+#: **The baseline t2v scene set (owner decision, 2026-08-22).** Future tests
+#: draw from this rather than from one scene: three settings, three sound
+#: worlds, three speaker pairs, so a result that only holds in a market aisle
+#: is visible as such. It replaced a single cyclist-in-rain prompt that every
+#: t2v measurement in this repo had been taken on.
+#:
+#: `market` is also the shipped graph default, and is the only one carrying no
+#: marker beyond `<d>` -- see the note above the prompts for why the untested
+#: five stay out of a default.
+#:
+#: Ordered, and the order is the sweep order. Keep it stable: a scene set that
+#: reorders makes "scene 2" mean different things in two records.
+T2V_SCENES = {
+    "market": LONG_T2V_PROMPT,
+    "rehearsal": T2V_REHEARSAL_PROMPT,
+    "clinic": T2V_CLINIC_PROMPT,
+}
 
 # h264-mp4 rather than h265 or an nvenc variant: software x264 at crf 19 is
 # the most portable mp4 there is, and the nvenc paths trade quality per bit
@@ -3866,8 +3885,105 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
 
 
 # --------------------------------------------------------------------------
+_PKG_NAME = Path(__file__).resolve().parent.parent.name
+
 # Static validation against /object_info
 # --------------------------------------------------------------------------
+
+def object_info_is_stale(oi: dict, source: str):
+    """(verdict, details) for whether the served schema matches the code on disk.
+
+    **Why the generator has to ask this itself.** Its report reads "validated N
+    graphs against object_info: ok", and on 2026-08-22 that line printed while
+    the running ComfyUI predated a schema change made minutes earlier -- so the
+    graphs were validated against a schema that did not include a new input,
+    and 34 of them turned out to disagree the moment the server was restarted.
+    A green line that cannot distinguish "agrees with the current code" from
+    "agrees with a stale server" teaches you to trust the wrong thing.
+
+    Compares the input NAMES `/object_info` serves for each of this pack's
+    nodes against the names their `define_schema` declares right now. Names
+    only: types and defaults are `bench/check_schema_defaults.py`'s job, and
+    this is a staleness signal rather than a second schema validator.
+
+    Four verdicts, and the last two exist because the first version of this
+    function had only two. It returned "matches" whenever the pack failed to
+    import -- so a syntax error in a node file, which is one of the ways the
+    server ends up stale in the first place, produced a clean green line.
+    Found 2026-08-22 by a deliberate violation that broke a node's schema:
+    the run reported ok because the import raised and the failure was
+    swallowed. **Green because it could not look is the failure this repo
+    names most often, and it went straight back in.**
+
+      "matches"  compared, the server serves what the code declares
+      "stale"    compared, they disagree; details say how
+      "skipped"  a cached --object-info file, with no live server behind it,
+                 so staleness is not a question that has an answer
+      "blind"    the pack could not be imported or exposes no nodes, so
+                 NOTHING was compared. Never report this as ok.
+    """
+    if not source.startswith("http"):
+        return "skipped", ["--object-info is a cached file, so there is no "
+                           "live server whose staleness could be checked"]
+    try:
+        import importlib
+        pkg = importlib.import_module(_PKG_NAME)
+    except Exception as exc:
+        return "blind", [f"could not import {_PKG_NAME}: "
+                         f"{type(exc).__name__}: {exc}"]
+    ext = getattr(pkg, "comfy_entrypoint", None) or getattr(pkg, "NODES_LIST", None)
+    if ext is None:
+        return "blind", [f"{_PKG_NAME} exposes neither comfy_entrypoint nor "
+                         f"NODES_LIST, so its nodes cannot be enumerated"]
+    try:
+        import asyncio, inspect
+        val = ext() if callable(ext) else ext
+        if inspect.iscoroutine(val):
+            val = asyncio.run(val)
+        nodes = val.get_node_list() if hasattr(val, "get_node_list") else val
+        if inspect.iscoroutine(nodes):
+            nodes = asyncio.run(nodes)
+    except Exception as exc:
+        return "blind", [f"could not enumerate this pack's nodes: "
+                         f"{type(exc).__name__}: {exc}"]
+    if not nodes:
+        return "blind", ["this pack registered no nodes, so nothing was "
+                         "compared against the server"]
+
+    out = []
+    compared = 0
+    for node in nodes:
+        try:
+            schema = node.define_schema()
+            nid = schema.node_id
+            declared = {i.id for i in schema.inputs}
+        except Exception as exc:
+            out.append(f"{getattr(node, '__name__', node)}: define_schema "
+                       f"raised, so it could not be compared: "
+                       f"{type(exc).__name__}: {exc}")
+            continue
+        compared += 1
+        served_entry = oi.get(nid)
+        if served_entry is None:
+            out.append(f"{nid}: this pack registers it, the server does not "
+                       f"serve it -- the server has not loaded this code")
+            continue
+        served = set()
+        for section in ("required", "optional"):
+            served |= set((served_entry.get("input") or {}).get(section, {}))
+        if declared - served:
+            out.append(f"{nid}: code declares {sorted(declared - served)}, "
+                       f"the server does not serve them")
+        if served - declared:
+            out.append(f"{nid}: the server serves {sorted(served - declared)}, "
+                       f"the code no longer declares them")
+    if compared == 0:
+        return "blind", ["no node's schema could be read, so nothing was "
+                         "compared"] + out
+    if out:
+        return "stale", out
+    return "matches", [f"{compared} node schema(s) match the served schema"]
+
 
 def load_object_info(source: str) -> dict:
     if source.startswith("http"):
@@ -4294,6 +4410,12 @@ def main():
     ap.add_argument("--print-prompt", metavar="GRAPH",
                     help="print one graph's exact prompt to stdout, ready to paste "
                          "(name may omit the h3_ prefix and the .json suffix)")
+    ap.add_argument("--print-scene", metavar="NAME",
+                    help="print one baseline t2v scene as a JSON string, which is "
+                         "what `bench/run_graph_arms.py --set` parses: "
+                         "--set \'arm:MiniMaxH3Conditioning.prompt=\'\"$(... --print-scene clinic)\"")
+    ap.add_argument("--list-scenes", action="store_true",
+                    help="the baseline scene names, in sweep order")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -5120,6 +5242,21 @@ def main():
          "the same render with the heads in 4 groups"),
     )
 
+    if args.list_scenes:
+        for name, text in T2V_SCENES.items():
+            first = next(l for l in text.splitlines() if l and not l.endswith(":"))
+            print(f"{name:<12} {first[:64]}")
+        return 0
+
+    if args.print_scene:
+        if args.print_scene not in T2V_SCENES:
+            raise SystemExit(f"no scene named {args.print_scene!r}. "
+                             f"Have: {', '.join(T2V_SCENES)}")
+        # JSON, not raw: `--set` parses its VALUE as JSON, and these prompts
+        # carry newlines and quotes that a raw paste would break on.
+        print(json.dumps(T2V_SCENES[args.print_scene]))
+        return 0
+
     if args.list_prompts or args.print_prompt:
         want = (args.print_prompt or "").removesuffix(".json").removeprefix("h3_")
         hit = False
@@ -5224,7 +5361,25 @@ def main():
         for x in errs:
             print("  " + x)
         return 1
-    print(f"\nvalidated {len(written)} graphs against object_info: ok")
+    verdict, details = object_info_is_stale(oi, args.object_info)
+    if verdict in ("stale", "blind"):
+        if verdict == "stale":
+            print("\nREFUSING to report a clean validation: the served schema "
+                  "disagrees with this pack's code on disk, so the graphs "
+                  "above were checked against a schema that is not the one "
+                  "they will run under. Restart ComfyUI and run this again.")
+        else:
+            print("\nREFUSING to report a clean validation: this pack's own "
+                  "schema could not be read, so whether the server is stale "
+                  "was never established. The graphs above were checked "
+                  "against a schema nothing confirmed.")
+        for x in details:
+            print("  " + x)
+        return 1
+    note = ("served schema matches this pack's code on disk" if verdict == "matches"
+            else details[0])
+    print(f"\nvalidated {len(written)} graphs against {args.object_info}: ok "
+          f"({note})")
     return 0
 
 

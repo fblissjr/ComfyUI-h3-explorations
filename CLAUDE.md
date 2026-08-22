@@ -87,6 +87,18 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
   likely to lack a control are the ones everybody agrees with, because
   agreement feels like coverage. The **Uncontrolled requirements** table in
   `docs/checks.md` is the standing audit.
+- **An assumption that has only ever met one implementation is not a tested
+  assumption.** Adopted 2026-08-22, with the escaped instance that earns it:
+  two harnesses reconstructed the pre-fix tokenizer by keying off the *name* of
+  the constant holding the token list. Correct against the only version that
+  existed. Upstream's fix named it differently, so under it the grader read "no
+  patch present" and would have returned the CORRECTED tokenizer labelled as
+  stock -- reporting near-zero deltas, which reads as a retraction of its own
+  measured numbers. Nothing in the suite could have caught it; what caught it
+  was running against somebody else's implementation. So when code branches on
+  a detail of one implementation -- a constant's name, a private attribute, a
+  message string -- branch on the *observable* instead (there, the vocabulary),
+  and say what would have to change for the branch to be wrong.
 - **Prefer a control the check compares against** — a frontend-written graph,
   the pre-fix code, an independent implementation — over asserting against
   numbers the test computed itself.
