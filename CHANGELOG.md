@@ -53,6 +53,19 @@ artifact.
 
 ### Fixed
 
+- **`bench/grade_h3_marker_tokens.py`'s `comfy` arm changed meaning under it**
+  when the correction moved into the tokenizer, and would have reported
+  near-zero deltas -- reading as a retraction of its own earlier numbers rather
+  than as the arm having become a second copy of `vendor`. It now reconstructs
+  the pre-patch tokenizer, importing that reconstruction from the audit rather
+  than copying it, and says so when it does. `CLAUDE.md`'s "when something
+  gains an off state, revisit every assertion about it", applied to an
+  instrument here rather than to a node.
+- **`docs/research/official_weights_metadata.md` argued from a state that has
+  been reversed.** Its finding 1 is retitled to the past tense, carries the fix
+  and the fact that an install without the branch still has the defect, and
+  gains the measured detail that the damage extends past the marker into the
+  prose beside it.
 - **`bench/check_workflow_schema.py` now runs in the bare sweep.** Its argument
   default was changed to `graph_paths()` last session and deliberately not run.
   It passes bare and with an explicit path, closing forward item 5.

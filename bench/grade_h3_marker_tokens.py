@@ -13,7 +13,10 @@ output, where the arms are comparable by construction.
 Three arms on the same prompt, same weights throughout:
 
     vendor    <d> and </d> as ids 151669 / 151670, what the release emits
-    comfy     the BPE fragments ComfyUI emits today
+    comfy     the BPE fragments ComfyUI emits without the tokenizer fix.
+              Reconstructed from the pre-patch constructor when the running
+              ComfyUI carries the fix, because otherwise this arm silently
+              becomes a second copy of `vendor` -- see `_unpatched`
     stripped  the markers deleted, the words left alone
 
 **`stripped` is not decoration; it is the scale.** Any change to a token
@@ -99,6 +102,32 @@ def _strip(text: str) -> str:
     return text
 
 
+def _unpatched(clip):
+    """The pre-core-patch tokenizer, or the loaded one if the patch is absent.
+
+    **Why this exists, added 2026-08-22.** The `comfy` arm below is defined as
+    "the ids ComfyUI emits today". Once the correction moved into
+    `MiniMaxH3Tokenizer` itself, the loaded tokenizer emits the release's ids,
+    so that arm would silently become a second copy of `vendor` and this file
+    would report near-zero deltas -- reading as a retraction of its own earlier
+    numbers rather than as the arm having changed meaning underneath it. That
+    is `CLAUDE.md`'s "when something gains an off state, revisit every
+    assertion about it", applied to this harness.
+
+    One implementation: the reconstruction lives in the tokenization audit and
+    is imported rather than copied.
+    """
+    import importlib.util
+    path = _REPO / "bench" / "audit_h3_marker_tokenization.py"
+    spec = importlib.util.spec_from_file_location("_marker_audit", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
+    if not getattr(MiniMaxH3Tokenizer, "H3_SPECIAL_TOKENS", None):
+        return clip, False          # no core patch; the loaded arm IS stock
+    return mod._unpatched_clip(clip), True
+
+
 def _load():
     import comfy.sd
     from transformers import AutoTokenizer
@@ -108,8 +137,16 @@ def _load():
         raise SystemExit("coderef/MiniMax-H3/tokenizer is absent (coderef is "
                          "gitignored; this needs the clone)")
     rel = AutoTokenizer.from_pretrained(str(RELEASE_TOKENIZER))
-    clip = comfy.sd.load_clip(ckpt_paths=[str(ENCODER)])
-    return rel, clip
+    loaded = comfy.sd.load_clip(ckpt_paths=[str(ENCODER)])
+    clip, reconstructed = _unpatched(loaded)
+    if reconstructed:
+        print("note: ComfyUI's tokenizer now declares the release's tokens, so "
+              "the `comfy` arm is reconstructed from the pre-patch constructor. "
+              "Without that it would duplicate `vendor` and read as a "
+              "retraction of this file's earlier numbers.")
+    # the encoder forward must run on the LOADED clip; only tokenization
+    # differs between the arms, and `_encode` takes literal ids.
+    return rel, clip, loaded
 
 
 def _comfy_ids(clip, text: str) -> list[int]:
@@ -147,7 +184,7 @@ def _aligned_delta(ids_a, ids_b, ha, hb):
     return float((num / den).mean()), len(ia)
 
 
-def _run_prompt(label, text, rel, clip, record):
+def _run_prompt(label, text, rel, clip, enc, record):
     print(f"\n=== {label}")
     arms = {
         "vendor": rel(text, add_special_tokens=False)["input_ids"],
@@ -157,10 +194,10 @@ def _run_prompt(label, text, rel, clip, record):
     for name, ids in arms.items():
         print(f"  {name:<9} {len(ids):>3} ids")
 
-    states = {name: _encode(clip, ids) for name, ids in arms.items()}
+    states = {name: _encode(enc, ids) for name, ids in arms.items()}
 
     # Control 1: the same arm twice must be bit-identical.
-    again = _encode(clip, arms["vendor"])
+    again = _encode(enc, arms["vendor"])
     deterministic = bool((again == states["vendor"]).all())
     print(f"  determinism control: {'holds' if deterministic else 'FAILED'}")
 
@@ -188,7 +225,7 @@ def _run_prompt(label, text, rel, clip, record):
 
 def main() -> int:
     import torch  # noqa: F401  # fail fast if the venv is wrong
-    rel, clip = _load()
+    rel, clip, encoder_clip = _load()
     record = {}
 
     # Control 2, first, because a failure here voids everything after it.
@@ -198,7 +235,7 @@ def main() -> int:
     ids_match = c_rel == c_cfy
     print(f"  ids identical across tokenizers: {ids_match}")
     if ids_match:
-        s1, s2 = _encode(clip, c_rel), _encode(clip, c_cfy)
+        s1, s2 = _encode(encoder_clip, c_rel), _encode(encoder_clip, c_cfy)
         states_match = bool((s1 == s2).all())
         print(f"  states identical: {states_match}")
     else:
@@ -211,9 +248,9 @@ def main() -> int:
         print("\ncontrol failed; not reporting arm deltas")
         return 1
 
-    _run_prompt("dialogue", DIALOGUE, rel, clip, record)
-    _run_prompt("shipped_voice_line", SHIPPED, rel, clip, record)
-    _run_prompt("t2v_stress_14_pairs", STRESS, rel, clip, record)
+    _run_prompt("dialogue", DIALOGUE, rel, clip, encoder_clip, record)
+    _run_prompt("shipped_voice_line", SHIPPED, rel, clip, encoder_clip, record)
+    _run_prompt("t2v_stress_14_pairs", STRESS, rel, clip, encoder_clip, record)
 
     out = _REPO / "bench" / "results" / "2026-08-21_h3_marker_token_states.json"
     out.write_text(json.dumps(record, indent=2) + "\n")

@@ -17,7 +17,21 @@ reference-conditioning path is [`h3_references.md`](../h3_references.md).
 
 ## Findings, worst first
 
-### 1. Seven H3-specific special tokens are unreachable in ComfyUI
+### 1. Seven H3-specific special tokens were unreachable in ComfyUI
+
+**Fixed 2026-08-22, in ComfyUI rather than here.**
+`MiniMaxH3Tokenizer.__init__` now declares the seven at construction, so every
+consumer gets them -- core's `MiniMaxH3ReferenceToVideo` included, which no
+custom pack can add an import to. Held on a branch in the ComfyUI checkout as a
+PR candidate, so **an install without that branch still has the defect** and
+this section describes what it does. `bench/audit_h3_marker_tokenization.py` is
+the verification harness and runs identically either way; it reports which
+source supplied the correction.
+
+`MiniMaxH3VendorTokens` is deprecated by that move. `clip_with_vendor_tokens`
+is not, because a pack cannot assume the install it runs on carries the patch.
+
+The finding below stands as written for an unpatched install.
 
 The release's `tokenizer/tokenizer_config.json` declares twenty
 `additional_special_tokens`. ComfyUI's bundled `comfy/text_encoders/qwen25_tokenizer/tokenizer_config.json`
@@ -29,6 +43,15 @@ H3 prompt. **Present in the release and absent from ComfyUI: `<d>`, `</d>`,
 
 This is what the model card means when it says the tokenizer and configuration
 files provided in the H3 repository are required.
+
+**The damage is not confined to the marker**, measured 2026-08-22. BPE has no
+reason to stop at the angle bracket, so the fragments fuse with the text on
+either side: the release emits `<d>` then `[`, ComfyUI emits `>[` as one token,
+and a sentence-final `.` is dragged forward into `.</`. Ordinary prose tokens
+next to a marker come out different too. `bench/results/2026-08-22_h3_marker_tokenization.json`
+carries the per-scene counts, and the reference presentation is covered there as
+well -- the marker reaches the encoder beside the vision blocks, so reference
+prompts carrying dialogue are exposed on the same terms as text ones.
 
 ### The directory name is a misnomer and the vocabulary is right
 
