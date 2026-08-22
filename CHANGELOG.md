@@ -4,6 +4,41 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.51.0
+
+### Added
+
+- **`bench/audit_h3_marker_tokenization.py`**, auditing all seven markers the
+  release declares and ComfyUI's bundled tokenizer does not, across nine prompt
+  shapes plus a reference-presentation integrity section. Token level only --
+  no encoder forward, no GPU. `bench/grade_h3_marker_tokens.py` remains the
+  encoder-level companion and owns the hidden-state deltas.
+  - The load-bearing control is that the patched tokenizer reproduces the
+    RELEASE tokenizer's ids exactly on every text-path scene, which is what
+    makes "patched" mean "what the model authors emit". Disagreement is
+    reported as a defect in the fix, not a finding about stock.
+  - **The damage is not confined to the marker.** BPE does not stop at the
+    angle bracket, so fragments fuse with the text on either side: the release
+    emits `<d>` then `[`, stock emits `>[` as one token, and a sentence-final
+    `.` fuses forward into `.<`. `contaminated_neighbours` counts the ordinary
+    prose tokens that come out different, and each scene carries a decoded
+    example so the count can be checked by eye.
+  - **The marker survives the reference presentation**, through the exact call
+    `comfy_extras/nodes_minimax_h3.py:351` makes. This closes the prior
+    session's forward item 6, which existed because the sizing of a reference
+    conditioning node rested on a source read rather than a run.
+  - **The patch is inert where it must be**: over a full reference set (two
+    images, an odd-frame video, audio) a marker-free prompt tokenizes
+    identically under stock and patched, ids and vision structure alike, and a
+    marker prompt leaves the `<Picture i>` / `<Video k>` / `<Audio j>` labels
+    and vision sentinels untouched.
+
+### Fixed
+
+- **`bench/check_workflow_schema.py` now runs in the bare sweep.** Its argument
+  default was changed to `graph_paths()` last session and deliberately not run.
+  It passes bare and with an explicit path, closing forward item 5.
+
 ## 0.50.0
 
 ### Added

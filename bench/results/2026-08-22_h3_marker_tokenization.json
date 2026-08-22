@@ -409,5 +409,27 @@
       ],
       "stock_pieces": null
     }
+  },
+  "reference_integrity": {
+    "no_marker": {
+      "ids": {
+        "stock": 76,
+        "patched": 76
+      },
+      "vision_blocks": 5,
+      "structure_identical": true,
+      "fully_identical": true
+    },
+    "with_marker": {
+      "ids": {
+        "stock": 86,
+        "patched": 85
+      },
+      "vision_blocks": 5,
+      "structure_identical": true,
+      "label_prefix_identical": true,
+      "marker_present": true
+    },
+    "decoded_presentation": "<Picture 1>: <|vision_start|><|vision_end|><Picture 2>: <|vision_start|><|vision_end|><Video 1>: <0.2 seconds><|vision_start|><|vision_end|><1.2 seconds><|vision_start|><|vision_end|><2.0 seconds><|vision_start|><|vision_end|><Audio 1>: She stands at the window of a wood-panelled office and sets a folder down on the desk."
   }
 }

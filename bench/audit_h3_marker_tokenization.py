@@ -262,7 +262,7 @@ def _load():
     return release, stock, patched
 
 
-def _ids(clip, text, ref_images=0):
+def _ids(clip, text, ref_images=0, ref_items=None):
     """The ids ComfyUI's own path emits. Not a reimplementation of it.
 
     With `ref_images`, goes through `minimax_ref_items` -- the same keyword
@@ -271,7 +271,9 @@ def _ids(clip, text, ref_images=0):
     patchify later), so a synthetic tensor exercises the real branch.
     """
     kwargs = {}
-    if ref_images:
+    if ref_items is not None:
+        kwargs["minimax_ref_items"] = ref_items
+    elif ref_images:
         import torch
         kwargs["minimax_ref_items"] = [
             {"type": "image", "data": torch.zeros(1, 64, 64, 3)}
@@ -283,6 +285,131 @@ def _ids(clip, text, ref_images=0):
         # A vision block is a dict stashed in the id slot, not an integer.
         out.append(int(tok) if isinstance(tok, int) else "<vision_block>")
     return out
+
+
+def _ref_items(n_images=2, video_frames=5, n_audio=1):
+    """A full reference set: images, a video with an odd frame count, and audio.
+
+    Odd on purpose -- `tokenize_with_weights` repeat-pads to the temporal patch
+    of 2, so 5 frames exercises the pad branch and produces three `<T.T
+    seconds>` labels rather than a clean split. The pixel payload is never read
+    at tokenize time (it is stashed for the encoder to patchify later), so
+    synthetic tensors exercise the real branch.
+    """
+    import torch
+    items = [{"type": "image", "data": torch.zeros(1, 64, 64, 3)}
+             for _ in range(n_images)]
+    if video_frames:
+        items.append({"type": "video",
+                      "data": torch.zeros(video_frames, 64, 64, 3)})
+    items += [{"type": "audio", "data": None} for _ in range(n_audio)]
+    return items
+
+
+def _skeleton(ids):
+    """The reference presentation's structure, with text runs collapsed.
+
+    Two arms that tokenize prose differently still have to agree on this: the
+    number and order of vision blocks and their flanking sentinels. A patch that
+    changed it would be changing the presentation, not the prompt.
+    """
+    out, run = [], 0
+    for t in ids:
+        if t in (VISION_START, VISION_END) or t == "<vision_block>":
+            if run:
+                out.append(("text", run))
+                run = 0
+            out.append(("vision", t))
+        else:
+            run += 1
+    if run:
+        out.append(("text", run))
+    return out
+
+
+def _structure_only(skel):
+    return [t for kind, t in skel if kind == "vision"]
+
+
+def _run_reference_integrity(release, stock, patched, marker_ids, record):
+    """Does the patch disturb the reference presentation itself?
+
+    **The composability question the markers alone cannot answer.** Adding
+    tokens to the tokenizer must not change how `<Picture i>` / `<Video k>` /
+    `<Audio j>` labels, the `<T.T seconds>` video-block stamps, or the vision
+    sentinels are emitted. Two arms:
+
+      no_marker    a marker-free prompt over a full reference set. Stock and
+                   patched must be IDENTICAL, ids and structure alike. This is
+                   the assertion that the patch is inert where it should be.
+      with_marker  the same reference set, a prompt carrying <d>. The vision
+                   structure must still be identical and every label token run
+                   before the first vision block must be unchanged; only the
+                   prompt may differ.
+
+    **Scope, stated rather than implied.** This checks the TOKEN-side
+    presentation. The pixel-side preparation -- `process_qwen2vl_images` and
+    `process_video_block` -- holds no vocabulary at all and is not reached at
+    tokenize time, so it is out of scope here and cannot be affected by a
+    tokenizer change.
+    """
+    items = _ref_items()
+    plain = ("She stands at the window of a wood-panelled office and sets a "
+             "folder down on the desk.")
+    marked = ("She stands at the window and says, <d>[English] I thought you "
+              "would have gone by now.</d> She sets a folder down.")
+
+    print("\n=== reference presentation integrity "
+          "[2 images + 5-frame video + audio]")
+    row = {}
+    ok = True
+
+    for label, text in (("no_marker", plain), ("with_marker", marked)):
+        s_ids = _ids(stock, text, ref_items=items)
+        p_ids = _ids(patched, text, ref_items=items)
+        s_struct = _structure_only(_skeleton(s_ids))
+        p_struct = _structure_only(_skeleton(p_ids))
+        same_struct = (s_struct == p_struct)
+        blocks = s_struct.count("<vision_block>")
+
+        entry = {"ids": {"stock": len(s_ids), "patched": len(p_ids)},
+                 "vision_blocks": blocks,
+                 "structure_identical": same_struct}
+
+        if label == "no_marker":
+            identical = (s_ids == p_ids)
+            entry["fully_identical"] = identical
+            print(f"  {label:<12} {blocks} vision block(s); "
+                  f"stock and patched identical: {identical}")
+            if not identical:
+                print("    FAILED: the patch changed a marker-free reference "
+                      "prompt, so it is not inert where it must be")
+            ok &= identical and same_struct
+        else:
+            # the run of label tokens before the first vision block
+            first = next(i for i, t in enumerate(p_ids) if t == VISION_START)
+            labels_same = (s_ids[:first] == p_ids[:first])
+            entry["label_prefix_identical"] = labels_same
+            entry["marker_present"] = any(t in marker_ids for t in p_ids)
+            print(f"  {label:<12} {blocks} vision block(s); structure "
+                  f"identical: {same_struct}; labels identical: {labels_same}; "
+                  f"marker routed: {entry['marker_present']}")
+            if not (same_struct and labels_same):
+                print("    FAILED: the patch disturbed the reference "
+                      "presentation, not just the prompt")
+            ok &= same_struct and labels_same and entry["marker_present"]
+
+        row[label] = entry
+
+    # What the labels actually are, recorded so the next reader does not have
+    # to rerun this to see them.
+    ids_plain = _ids(patched, plain, ref_items=items)
+    text_ids = [t for t in ids_plain if isinstance(t, int)]
+    row["decoded_presentation"] = release.decode(text_ids)
+    print(f"  labels         {row['decoded_presentation'][:110]}...")
+
+    record["reference_integrity"] = row
+    return ok
 
 
 def _marker_spans(ids, marker_ids):
@@ -459,6 +586,8 @@ def main() -> int:
     for scene in SCENES:
         ok &= _run_scene(scene, release, stock, patched, marker_ids,
                          markers, record)
+
+    ok &= _run_reference_integrity(release, stock, patched, marker_ids, record)
 
     out = _REPO / "bench" / "results" / "2026-08-22_h3_marker_tokenization.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
