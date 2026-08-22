@@ -183,7 +183,7 @@
         0
       ],
       "ref_audios.ref_audio_0": [
-        "33",
+        "34",
         0
       ]
     }
@@ -230,6 +230,17 @@
     "class_type": "LoadAudio",
     "inputs": {
       "audio": "4th-ninja-Breathless_Heights.mp3"
+    }
+  },
+  "34": {
+    "class_type": "TrimAudioDuration",
+    "inputs": {
+      "audio": [
+        "33",
+        0
+      ],
+      "start_index": 0.0,
+      "duration": 15.083333333333334
     }
   },
   "19": {

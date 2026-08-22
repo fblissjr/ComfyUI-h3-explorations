@@ -179,8 +179,8 @@
         0
       ],
       "ref_video_audios.ref_video_audio_0": [
-        "28",
-        2
+        "35",
+        0
       ]
     }
   },
@@ -191,10 +191,21 @@
       "force_rate": 24.0,
       "custom_width": 0,
       "custom_height": 0,
-      "frame_load_cap": 0,
+      "frame_load_cap": 362,
       "skip_first_frames": 0,
       "select_every_nth": 1,
       "format": "AnimateDiff"
+    }
+  },
+  "35": {
+    "class_type": "TrimAudioDuration",
+    "inputs": {
+      "audio": [
+        "28",
+        2
+      ],
+      "start_index": 0.0,
+      "duration": 15.083333333333334
     }
   },
   "19": {

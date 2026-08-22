@@ -865,7 +865,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # sets this also sets one of those.
             g["33"] = {"class_type": "LoadAudio",
                        "inputs": {"audio": PLACEHOLDER_AUDIO}}
-            g["5"]["inputs"]["ref_audios.ref_audio_0"] = ["33", 0]
+            g["34"] = {"class_type": "TrimAudioDuration",
+                       "inputs": {"audio": ["33", 0], "start_index": 0.0,
+                                  "duration": ref_audio_seconds(length)}}
+            g["5"]["inputs"]["ref_audios.ref_audio_0"] = ["34", 0]
         if ref_video:
             # A reference VIDEO and its own soundtrack. Both sockets exist on
             # the stock node and nothing in this repo has ever wired them.
@@ -889,13 +892,17 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        "inputs": {"video": PLACEHOLDER_VIDEO,
                                   "force_rate": REF_VIDEO_FORCE_RATE,
                                   "custom_width": 0, "custom_height": 0,
-                                  "frame_load_cap": 0, "skip_first_frames": 0,
+                                  "frame_load_cap": length,
+                                  "skip_first_frames": 0,
                                   "select_every_nth": 1, "format": "AnimateDiff"}}
             g["28"]["inputs"]["video"] = (PLACEHOLDER_VIDEO if ref_video_audio
                                           else PLACEHOLDER_VIDEO_SILENT)
             g["5"]["inputs"]["ref_videos.ref_video_0"] = ["28", 0]
             if ref_video_audio:
-                g["5"]["inputs"]["ref_video_audios.ref_video_audio_0"] = ["28", 2]
+                g["35"] = {"class_type": "TrimAudioDuration",
+                           "inputs": {"audio": ["28", 2], "start_index": 0.0,
+                                      "duration": ref_audio_seconds(length)}}
+                g["5"]["inputs"]["ref_video_audios.ref_video_audio_0"] = ["35", 0]
     else:
         # i2v takes its geometry from the keyframe node (below); every other
         # task takes it from Resolution, so the cost of the choice is visible
@@ -1561,6 +1568,37 @@ conditioned at.
 # every prompt the generator can produce, and it imports these rather than
 # repeating them -- when `swap` was added, the hardcoded copy in that check
 # silently stopped covering the generator and failed the shipped graph.
+def ref_audio_seconds(length: int) -> float:
+    """The duration every reference soundtrack is capped at, in seconds.
+
+    **The reference pipeline caps and ComfyUI does not.** sglang computes
+    `frame_count / fps` and hands it to `ffmpeg -t`
+    (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py:147-151`),
+    diffusers does the same, and it applies to BOTH material chains -- a
+    video's soundtrack and a standalone audio reference alike.
+    `comfy_extras/nodes_minimax_h3.py:71` truncates neither, so every second
+    of excess is 80 rows the DiT attends on every sampling step.
+
+    **Read against the video path, which is NOT the same.** Core already
+    truncates a reference VIDEO to the generated frame count
+    (`comfy_extras/nodes_minimax_h3.py:321-322`), so a long clip costs
+    decode and a full-length resize -- line 320 resizes before line 321
+    truncates -- and no rows. Only the audio gap costs rows.
+
+    Returned as an exact float and baked into `TrimAudioDuration.duration`,
+    which CAPS and never pads: `end_frame = min(start + duration*sr,
+    audio_length)` at `comfy_extras/nodes_audio.py:473-474`, so a soundtrack
+    shorter than the render passes through untouched, matching the cap
+    semantics rather than adding silence.
+
+    **This is a baked widget value, so it goes stale if `length` is patched
+    at submit time and the trim is not.** `bench/preflight_graph.py` grades
+    the two against each other and says so -- that warning is the control,
+    named here because a "must" without one is how this repo loses things.
+    """
+    return length / FPS
+
+
 VIDEO_ROLES = ("structure", "edit", "continue", "motion", "swap")
 AUDIO_ROLES = ("music", "voice", "copy")
 
@@ -4052,7 +4090,13 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                         widgets=[PLACEHOLDER_AUDIO],
                         outputs=[_out("AUDIO", "AUDIO")],
                         title="Standalone audio reference")
-            g.link(aud, 0, cond, "ref_audios.ref_audio_0", "AUDIO")
+            atrim = g.add("TrimAudioDuration", (-520, 1900), size=(300, 100),
+                          widgets=[0.0, ref_audio_seconds(length)],
+                          inputs=[_in("audio", "AUDIO")],
+                          outputs=[_out("AUDIO", "AUDIO")],
+                          title=f"Cap to the generated {ref_audio_seconds(length):.2f}s")
+            g.link(aud, 0, atrim, "audio", "AUDIO")
+            g.link(atrim, 0, cond, "ref_audios.ref_audio_0", "AUDIO")
         if ref_video:
             # See the matching note in build_api. force_rate=24 is the whole
             # point: the stock node has no fps input and assumes 24 twice, so
@@ -4064,14 +4108,21 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                                            else PLACEHOLDER_VIDEO_SILENT),
                                  "force_rate": REF_VIDEO_FORCE_RATE,
                                  "custom_width": 0, "custom_height": 0,
-                                 "frame_load_cap": 0, "skip_first_frames": 0,
+                                 "frame_load_cap": length,
+                                 "skip_first_frames": 0,
                                  "select_every_nth": 1, "format": "AnimateDiff"},
                         outputs=[_out("IMAGE", "IMAGE"), _out("frame_count", "INT"),
                                  _out("audio", "AUDIO"), _out("video_info", "VHS_VIDEOINFO")],
                         title="Reference video (force_rate 24)")
             g.link(vid, 0, cond, "ref_videos.ref_video_0", "IMAGE")
             if ref_video_audio:
-                g.link(vid, 2, cond, "ref_video_audios.ref_video_audio_0", "AUDIO")
+                vtrim = g.add("TrimAudioDuration", (-520, 1650), size=(300, 100),
+                              widgets=[0.0, ref_audio_seconds(length)],
+                              inputs=[_in("audio", "AUDIO")],
+                              outputs=[_out("AUDIO", "AUDIO")],
+                              title=f"Cap to the generated {ref_audio_seconds(length):.2f}s")
+                g.link(vid, 2, vtrim, "audio", "AUDIO")
+                g.link(vtrim, 0, cond, "ref_video_audios.ref_video_audio_0", "AUDIO")
     else:
         # Widget order mirrors the schema: prompt, width, height, length,
         # canvas, vendor_tokens. The keyframe images stay input sockets.

@@ -165,6 +165,128 @@ def resolve_image(name: str) -> Path | None:
     return None
 
 
+def _audio_source(graph: dict, val) -> tuple[dict | None, float | None]:
+    """Walk back from a ref-audio socket to the node holding the media.
+
+    Returns (source node, trim duration in seconds). The trim is `None` when
+    the socket is fed directly, which is the state this whole grader exists
+    to report.
+    """
+    trim = None
+    seen = set()
+    while isinstance(val, list) and val and str(val[0]) in graph:
+        nid = str(val[0])
+        if nid in seen:
+            return None, trim          # a cycle cannot ship, but do not hang on one
+        seen.add(nid)
+        node = graph[nid]
+        if node.get("class_type") == "TrimAudioDuration":
+            trim = node["inputs"].get("duration")
+            val = node["inputs"].get("audio")
+            continue
+        return node, trim
+    return None, trim
+
+
+def audio_channels(path: Path) -> int | None:
+    """Channel count of a media file's first audio stream, via ffprobe.
+
+    Returns None when ffprobe is absent or the file has no audio stream --
+    both of which are "cannot tell", not "stereo". The caller must not treat
+    a None as a pass.
+    """
+    import shutil
+    import subprocess
+    exe = shutil.which("ffprobe")
+    if exe is None:
+        return None
+    try:
+        out = subprocess.run(
+            [exe, "-v", "error", "-select_streams", "a:0",
+             "-show_entries", "stream=channels", "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, timeout=20)
+    except Exception:
+        return None
+    first = out.stdout.strip().splitlines()
+    try:
+        return int(first[0])
+    except (IndexError, ValueError):
+        return None
+
+
+def audio_reference_notes(ins: dict, graph: dict, length) -> list[str]:
+    """Grade every wired reference-audio socket: trimmed, matched, stereo.
+
+    **Three separate failures, and only one of them is ours.**
+
+    1. *Untrimmed.* The reference pipeline caps every reference soundtrack at
+       the generated duration -- sglang computes `frame_count / fps` into
+       `ffmpeg -t`, diffusers does the same, for a video's soundtrack and a
+       standalone audio reference alike. `_encode_ref_audio`
+       (`comfy_extras/nodes_minimax_h3.py:71`) truncates neither, at 80 rows
+       per second of excess attended on every sampling step. Shipped graphs
+       wire `TrimAudioDuration`; a hand-built one is who this case is for.
+    2. *Trim disagrees with the render.* The duration is a baked widget and
+       `length` can be patched at submit time without it -- which
+       `bench/run_graph_arms.py --set` does routinely. **This case is the
+       control named in `ref_audio_seconds`'s docstring**, and without it
+       that "must" would be enforced by nothing.
+    3. *Mono.* `_encode_ref_audio` does not upmix, so a mono waveform
+       produces half the rows the packed layout allocated and the assignment
+       raises (`comfy/ldm/minimax/model.py:659`, gap 7). diffusers and
+       DiffSynth-Studio expand to stereo first. **Reported, not fixed**: the
+       upmix belongs in core's encoder, and wiring one here would alter every
+       stereo source to prevent a crash none of them hit.
+
+    Reports, never refuses -- the same contract as the rest of this file.
+    """
+    out = []
+    fps = 24.0
+    want = (length / fps) if isinstance(length, (int, float)) else None
+    for key, val in sorted(ins.items()):
+        if not (key.startswith("ref_video_audios.")
+                or key.startswith("ref_audios.")) or val is None:
+            continue
+        label = key.split(".")[-1]
+        src, trim = _audio_source(graph, val)
+        if trim is None:
+            out.append(f"  {label}: WARN reaches the node untrimmed. The "
+                       f"reference pipeline caps every reference soundtrack "
+                       f"at the generated duration and ComfyUI caps none, at "
+                       f"80 rows per second of excess on every step. Wire "
+                       f"TrimAudioDuration.")
+        elif want is not None and abs(trim - want) > 0.01:
+            out.append(f"  {label}: WARN trimmed to {trim:.2f}s but the render "
+                       f"is {want:.2f}s ({length} frames at {fps:g} fps). The "
+                       f"trim is a baked widget; patching `length` alone "
+                       f"leaves it stale.")
+        else:
+            out.append(f"  {label}: trimmed to {trim:.2f}s, matching the render")
+
+        # The media itself, when it can be reached.
+        name = None
+        if src is not None:
+            si = src.get("inputs", {})
+            name = si.get("audio") or si.get("video")
+        path = resolve_image(name) if isinstance(name, str) else None
+        if path is None:
+            out.append(f"  {label}: source not resolved on this box, so its "
+                       f"channel count and length were NOT checked")
+            continue
+        ch = audio_channels(path)
+        if ch is None:
+            out.append(f"  {label}: {name} -- channel count unreadable "
+                       f"(no ffprobe, or no audio stream). NOT a pass.")
+        elif ch == 1:
+            out.append(f"  {label}: WARN {name} is MONO. "
+                       f"`_encode_ref_audio` does not upmix, so the packed "
+                       f"assignment raises rather than degrading (gap 7). "
+                       f"Convert to stereo before queueing.")
+        else:
+            out.append(f"  {label}: {name} is {ch}-channel")
+    return out
+
+
 def image_size(path: Path) -> tuple[int, int] | None:
     try:
         from PIL import Image
@@ -487,6 +609,7 @@ def price(node: dict, graph: dict) -> list[str]:
         lines.append(f"  NOT COUNTED: {', '.join(unpriced)} reference(s). A "
                      f"video reference alone measured 52,020 rows at 960x544 / "
                      f"345f, so the total below is a FLOOR, not a budget.")
+    lines.extend(audio_reference_notes(ins, graph, length))
 
     prompt = ins.get("prompt", "")
     tt, kind = text_tokens(prompt)
