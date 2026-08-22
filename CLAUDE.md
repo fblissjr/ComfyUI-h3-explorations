@@ -22,6 +22,7 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
 | [`docs/roadmap.md`](docs/roadmap.md) | what we are trying to find out next, and what would count as finding it. **Start here** if the question is what to work on. Designing a new probe or prompt: the `h3-experiment` skill in `.claude/skills/` routes to the files that own each step (this one first), and restates none of them. |
 | [`docs/evidence.md`](docs/evidence.md) | what is measured, what is retracted, and what must not be relied on. **Start here** if you are about to state a number. |
 | [`docs/checks.md`](docs/checks.md) | the index of every check, the standard it is held to, and the standing uncontrolled-requirement audit. **Start here** if you are about to change behaviour or add a check. |
+| [`docs/comfyui_vendor_gaps.md`](docs/comfyui_vendor_gaps.md) | every known divergence between this install and the release, with practical impact, priority, and which are enforced by nothing. **Start here** if the question is "what is still wrong against the vendor". A dated snapshot that defers to the docs below, not a fourth authority -- where it disagrees with an owner, the owner is right |
 
 ### Reference, when you touch the thing it covers
 
