@@ -631,7 +631,8 @@
       "widgets_values": [
         false,
         2048,
-        false
+        false,
+        true
       ],
       "title": "Reference 1 resolution"
     },

@@ -704,7 +704,8 @@
       "widgets_values": [
         false,
         2048,
-        false
+        false,
+        true
       ],
       "title": "Reference 1 resolution"
     },
@@ -749,7 +750,8 @@
       "widgets_values": [
         false,
         2048,
-        false
+        false,
+        true
       ],
       "title": "Reference 2 resolution"
     },
@@ -794,7 +796,8 @@
       "widgets_values": [
         false,
         2048,
-        false
+        false,
+        true
       ],
       "title": "Reference 3 resolution"
     },

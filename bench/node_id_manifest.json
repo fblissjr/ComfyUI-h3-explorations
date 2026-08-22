@@ -67,7 +67,8 @@
       "image",
       "allow_upscale",
       "short_edge",
-      "lift_downstream_clamp"
+      "lift_downstream_clamp",
+      "keep_towers_matched"
     ],
     "node_id": "MiniMaxH3ReferenceFit",
     "outputs": [

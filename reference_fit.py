@@ -50,6 +50,57 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def qwen_max_pixels() -> int:
+    """ComfyUI's own vision ceiling, read from the helper rather than copied.
+
+    `process_qwen2vl_images` carries min/max pixels as signature defaults and
+    `comfy/text_encoders/qwen3vl.py` calls it without overriding them, so the
+    default IS the ceiling every H3 reference is subject to. Read by
+    introspection so this node tracks ComfyUI instead of holding a second copy
+    that goes stale silently -- the release ships a different value again, and
+    `vendor_config.image_pixel_bounds()` is the authority for THAT one. These
+    are two different numbers and conflating them is the whole defect below.
+    """
+    import inspect
+    from comfy.text_encoders.qwen_vl import process_qwen2vl_images
+    param = inspect.signature(process_qwen2vl_images).parameters.get("max_pixels")
+    if param is None or not isinstance(param.default, int):
+        raise RuntimeError(
+            "comfy.text_encoders.qwen_vl.process_qwen2vl_images no longer "
+            "carries an integer `max_pixels` default, so this node cannot "
+            "tell where Qwen will resize. Its layout changed; fix this rather "
+            "than guessing a ceiling.")
+    return int(param.default)
+
+
+def clamp_to_qwen_ceiling(tw: int, th: int, ceiling: int):
+    """Shrink (tw, th) under Qwen's ceiling, or return it unchanged.
+
+    **What this is for.** Core hands ONE tensor to both towers: it VAE-encodes
+    the reference and stashes the same object for the conditioner. Qwen then
+    applies its own smart-resize inside the text encoder, after the VAE is
+    already done. Above the ceiling that resize fires for Qwen alone, so the
+    DiT receives latent rows at one resolution and hidden states at another for
+    the same reference, and nothing says so.
+
+    Pre-applying the shrink here puts both towers back on one size, because the
+    tensor core encodes is the one this returns.
+
+    Floors both dimensions to 32 rather than rounding. Rounding up could land
+    back above the ceiling, which would leave the split in place while
+    reporting that it had been closed. A multiple of 32 also makes Qwen's own
+    round-to-32 the identity, so "under the ceiling" is enough to guarantee it
+    will not resize.
+    """
+    if tw * th <= ceiling:
+        return tw, th, None
+    import math as _math
+    scale = _math.sqrt(ceiling / (tw * th))
+    nw = max(CANVAS_MULTIPLE, int(tw * scale) // CANVAS_MULTIPLE * CANVAS_MULTIPLE)
+    nh = max(CANVAS_MULTIPLE, int(th * scale) // CANVAS_MULTIPLE * CANVAS_MULTIPLE)
+    return nw, nh, (tw, th)
+
+
 class MiniMaxH3ReferenceFit(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -128,6 +179,29 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                         "'match' the constant is never read and this logs that "
                         "it did nothing."
                     )),
+                # APPENDED, and it has to stay last for the same reason the
+                # one above does: widget values map positionally in every
+                # saved graph.
+                io.Boolean.Input(
+                    "keep_towers_matched", default=True, optional=True,
+                    display_name="keep VAE and Qwen on one size",
+                    tooltip=(
+                        "Shrink the reference under Qwen's vision ceiling here, "
+                        "so the VAE and Qwen see the same picture. "
+                        "Core encodes one tensor with the VAE and hands the "
+                        "SAME object to the conditioner, then Qwen resizes it "
+                        "again inside the text encoder. Above the ceiling that "
+                        "second resize fires for Qwen alone, so the DiT gets "
+                        "latent rows at one resolution and hidden states at "
+                        "another for one reference, silently. "
+                        "Only reachable on very wide references -- at a 2048 "
+                        "short edge the ceiling crosses around 3.06:1, and the "
+                        "aspect gate refuses past 4:1. No shipped graph reaches "
+                        "it. "
+                        "Off reproduces ComfyUI's behaviour including the "
+                        "split, which is what you want if you are measuring "
+                        "the split rather than avoiding it."
+                    )),
             ],
             outputs=[
                 io.Image.Output(display_name="image"),
@@ -160,7 +234,7 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
 
     @classmethod
     def execute(cls, image, allow_upscale=True, short_edge=REF_IMAGE_SHORT_EDGE,
-                lift_downstream_clamp=False
+                lift_downstream_clamp=False, keep_towers_matched=True
                 ) -> io.NodeOutput:
         if image.shape[0] > 1:
             logger.warning(
@@ -181,6 +255,16 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
         scale = full if allow_upscale else min(1.0, full)
 
         tw, th = _fit(src_w, src_h, scale)
+
+        # Before the resize, not after: the tensor this node emits is the one
+        # core VAE-encodes AND the one it stashes for Qwen, so shrinking here
+        # is what puts the two towers on a single size. Shrinking afterwards
+        # would only move the split.
+        split_avoided = None
+        if keep_towers_matched:
+            tw, th, split_avoided = clamp_to_qwen_ceiling(
+                tw, th, qwen_max_pixels())
+
         out = _resize(image[:1], tw, th, "disabled")
         # What the DiT actually pays: reference latents are 16x downsampled
         # spatially, and every one of these rows is attended at every step.
@@ -239,6 +323,34 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                     "[h3] reference fit made NO CHANGE: %dx%d is already what "
                     "ComfyUI's own sizing produces at short_edge=%d.",
                     tw, th, short_edge)
+        # The tower split, reported either way. This is the gap that had no
+        # signal at all: nothing anywhere told you what resolution a reference
+        # finally reached, so a user could not tell a deliberate downscale from
+        # an accidental one.
+        if split_avoided is not None:
+            was_w, was_h = split_avoided
+            logger.info(
+                "[h3] reference held at %dx%d instead of %dx%d so the VAE and "
+                "Qwen stay on one size: %dx%d is past Qwen's %d-pixel ceiling, "
+                "and core would have shrunk it for the conditioner ONLY, after "
+                "the VAE had already encoded the larger tensor.",
+                tw, th, was_w, was_h, was_w, was_h, qwen_max_pixels())
+        elif not keep_towers_matched:
+            # WARNING, not INFO, and only when it actually bites. The node's
+            # own philosophy above is that a warning firing on most graphs
+            # teaches you to ignore warnings; this one fires only when the
+            # split is real and was switched off deliberately.
+            ceiling = qwen_max_pixels()
+            if tw * th > ceiling:
+                would_w, would_h, _ = clamp_to_qwen_ceiling(tw, th, ceiling)
+                logger.warning(
+                    "[h3] keep_towers_matched is OFF and this reference is "
+                    "past Qwen's ceiling: the VAE will encode %dx%d while the "
+                    "conditioner sees about %dx%d. The DiT gets one reference "
+                    "at two resolutions. Turn it on unless you are measuring "
+                    "exactly this.",
+                    tw, th, would_w, would_h)
+
         if not effective:
             logger.warning(
                 "[h3] MiniMax H3 Reference to Video is on ref_image_size=%r, "

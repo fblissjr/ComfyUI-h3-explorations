@@ -691,7 +691,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                          "inputs": {"image": [load_id, 0],
                                     "allow_upscale": ref_upscale,
                                     "short_edge": _ref_short_edge(),
-                                    "lift_downstream_clamp": False}}
+                                    "lift_downstream_clamp": False,
+                                    "keep_towers_matched": True}}
         if ref_audio:
             # Standalone audio, never alone: the reference refuses an audio
             # reference unpaired with an image or a video, so every arm that
@@ -3498,7 +3499,14 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         for i, src in enumerate(loads):
             y = 640 + 370 * i
             fit = g.add("MiniMaxH3ReferenceFit", (-580, y), size=(300, 150),
-                        widgets=[ref_upscale, _ref_short_edge(), False],
+                        # positional: allow_upscale, short_edge,
+                        # lift_downstream_clamp, keep_towers_matched.
+                        # keep_towers_matched is on -- it only bites past
+                        # ~3.06:1 and no shipped reference is near that, so
+                        # this changes no shipped conditioning and stops the
+                        # VAE/Qwen split reaching anyone who swaps in a wide
+                        # reference later.
+                        widgets=[ref_upscale, _ref_short_edge(), False, True],
                         inputs=[_in("image", "IMAGE")],
                         outputs=[_out("image", "IMAGE"),
                                  _out("latent_rows", "INT")],

@@ -217,7 +217,8 @@
       ],
       "allow_upscale": false,
       "short_edge": 2048,
-      "lift_downstream_clamp": false
+      "lift_downstream_clamp": false,
+      "keep_towers_matched": true
     }
   },
   "25": {
@@ -229,7 +230,8 @@
       ],
       "allow_upscale": false,
       "short_edge": 2048,
-      "lift_downstream_clamp": false
+      "lift_downstream_clamp": false,
+      "keep_towers_matched": true
     }
   },
   "33": {

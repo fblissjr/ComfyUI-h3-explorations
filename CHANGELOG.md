@@ -123,6 +123,28 @@ artifact.
     marker prompt leaves the `<Picture i>` / `<Video k>` / `<Audio j>` labels
     and vision sentinels untouched.
 
+### Fixed
+
+- **`MiniMaxH3ReferenceFit` now keeps the VAE and Qwen on one size.** Core
+  encodes one tensor with the VAE and hands the SAME object to the conditioner;
+  Qwen then applies its own ceiling inside the text encoder, after the VAE is
+  done. Above that ceiling the second resize fires for Qwen alone, so the DiT
+  receives one reference at two resolutions and nothing says so. The node now
+  pre-applies the shrink, so the tensor core encodes is the one both towers get.
+  - New `keep_towers_matched` input, appended last and defaulting on. Off
+    reproduces ComfyUI's behaviour including the split, which is what you want
+    if you are measuring the split rather than avoiding it.
+  - The ceiling is read from `process_qwen2vl_images`'s signature default by
+    introspection, never copied. That is ComfyUI's number; the release ships a
+    different one and `vendor_config.image_pixel_bounds()` owns THAT. Conflating
+    the two is the whole defect.
+  - Verified: every previously divergent size now matches, and at exactly the
+    resolution Qwen would have chosen, so nothing is lost.
+  - Reaches only very wide references -- the crossing is around 3.06:1 at a
+    2048 short edge and the aspect gate refuses past 4:1. **No shipped graph
+    reaches it**, so the regeneration below is schema-only and no shipped
+    conditioning changes.
+
 ### Added
 
 - **[`docs/comfyui_vendor_gaps.md`](docs/comfyui_vendor_gaps.md)**, the
