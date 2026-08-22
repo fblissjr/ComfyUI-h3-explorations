@@ -1716,6 +1716,102 @@ def _env_label(image_roles):
     return _role_label(image_roles, "environment")
 
 
+#: Ref-form bodies for the stress scenes: the `detailed_description` a ref2va
+#: arm gets instead of the one-shot establishing beat the role tables build.
+#:
+#: **Written for the six-field layout, not transformed from the t2v text.** A
+#: transformer would have to rewrite "a busker in her twenties" into "the
+#: subject shown in <Picture 1>" and would produce a prompt asserting both.
+#: These say the reference thing once, in the guide's own vocabulary.
+#:
+#: `{character}` and `{environment}` are filled with the labels the arm
+#: actually wires. Every wired `<Subject N>` MUST appear in the result --
+#: ref-en.txt:231, and `bench/preflight_graph.py` warns when one is defined and
+#: never cited -- so a scene that cannot cite a role is refused rather than
+#: emitted with the label missing.
+#:
+#: Speaker ids stay OUT of retention_analysis; a `(Sx)` there is a hard fail
+#: (ref-en.txt:278). They belong here, in the description.
+REF_SCENE_SHOTS = {
+    "subway": [
+        "[Shot 1] Handheld with fast reframing under cool platform fluorescents. "
+        "A wide shot establishes {environment_beat}a crowded underground platform, "
+        "tiled columns receding, a train braking into frame from the right with "
+        "visible speed. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> "
+        "{character} stands over an open guitar case, preserving the face, hair, "
+        "wardrobe and build established in the reference, strums once, and sings "
+        "into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the "
+        "northbound line.</d><d>[English] Everybody's leaving on time.</d>"
+        "<|lyrics_end|> Her lips close on the last word as the headlights wash "
+        "across her face and commuters surge past in both directions, one man "
+        "breaking into a run.",
+        "[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters "
+        "shouldering through the crowd at speed, the camera tracking with them at "
+        "large amplitude. A woman in a soaked raincoat with a clipped, urgent "
+        "contralto (S2) turns her head without slowing and says: <d>[English] Do "
+        "not stop, it is the last one.</d> Her lips close. Her companion, a man in "
+        "his thirties with a breathless, higher tenor (S3), answers half a step "
+        "behind her: <d>[English] I know, I know, go, go.</d> His lips close and "
+        "he shoves his bag under one arm as they cut left around a column.",
+        "[Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the "
+        "platform edge as the doors open and the crowd compresses inward, a "
+        "dropped umbrella skidding across the tiles. {character} keeps playing "
+        "through it, her identity unchanged from the reference, and sings over "
+        "the crowd: <|lyrics_start|><d>[English] Hold the door and hold your line."
+        "</d><|lyrics_end|> Her lips close.",
+        "[Shot 4] At 00:11.000, the shot changes to a close shot inside the "
+        "carriage looking out through the closing doors, the woman in the raincoat "
+        "pressed against the glass, breathing hard, calling back to her companion "
+        "still on the platform: <d>[English] Get the next one and meet me at the"
+        "</d><|cutoff|>",
+    ],
+    "kitchen": [
+        "[Shot 1] Handheld, fast reframing, hard practical light off stainless "
+        "steel. A medium-wide shot establishes {environment_beat}a restaurant line "
+        "mid-service, four burners lit, steam crossing the lens, a ticket rail "
+        "loaded above the pass. <|caption_start|>TABLE 12 - 2 COVERS - FIRE"
+        "<|caption_end|> {character} works the pass, preserving the face, hair, "
+        "wardrobe and build established in the reference, slaps the rail and calls "
+        "down the line: <d>[English] Two on twelve, fire it now.</d> His lips "
+        "close and he snaps the ticket free with two fingers. The camera tracks "
+        "right at large amplitude and fast speed past three cooks, one tossing a "
+        "pan so the flame climbs above the rim.",
+        "[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook "
+        "with a light, quick soprano (S2) at the flat top, moving fast, who "
+        "answers without looking up: <d>[English] Two on twelve, heard.</d> Her "
+        "lips close, and she sings along under her breath with a radio on the "
+        "shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it "
+        "hot.</d><|lyrics_end|> Her lips close as she flips two portions in one "
+        "motion and the flame flares behind her shoulder.",
+        "[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on "
+        "the pass as plates land in a row, hands entering frame from three "
+        "directions, a thumb wiping a rim clean. {character} and the cook overlap "
+        "at speed: <d>[English] Where is my second plate.</d> <d>[English] Behind "
+        "you, behind you.</d> Both sets of lips close as a plate is spun into "
+        "position.",
+        "[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts "
+        "both plates and turns for the door, the kitchen receding behind him in a "
+        "blur of steam, while {character} calls after him already reading the next "
+        "ticket: <d>[English] And tell them the special is</d><|cutoff|>",
+    ],
+}
+
+#: Soundscape and score per stress scene in ref form -- the same sound world as
+#: the t2v version, since the reference changes who is in the shot rather than
+#: what the room sounds like.
+REF_SCENE_AUDIO = {
+    "subway": ("Brake squeal rising and cutting out as a train settles, a dense "
+               "crowd shuffling and coats brushing, a single guitar strummed "
+               "hard over the noise, an umbrella skittering across tile, a "
+               "two-tone door chime, and pneumatic doors sealing with a hard "
+               "thump.", "N/A"),
+    "kitchen": ("A ticket printer chattering in bursts, a metal rail slapped "
+                "flat, pans ringing on a flat top with sharp oil crackle, a gas "
+                "burner whumping as it catches, plates set down hard in quick "
+                "succession, and a thin radio behind everything.", "N/A"),
+}
+
+
 def _ref_prompt(*, images: bool | tuple[str, ...] = True,
                 video=False, video_audio=False, audio=False,
                 video_role="structure", audio_role="music"):

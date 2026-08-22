@@ -1,0 +1,167 @@
+{
+  "question": "kijai 2026-08-22: adaptive tau against top-k, without and with the SLA LoRA",
+  "source_rows": "bench/results/2026-08-22_sol_selection_arms.jsonl",
+  "graph_sha256": "9e2de59a84501a2b",
+  "per_arm": {
+    "sla_adaptive": {
+      "lora": "sla",
+      "selection": "adaptive",
+      "nominal_density_kept": 0.16,
+      "sampler_s": [
+        150.05
+      ],
+      "median_s": 150.05,
+      "runs": 1,
+      "spread_frac": 0.0,
+      "errors": 0
+    },
+    "sla_tau13": {
+      "lora": "sla",
+      "selection": "adaptive",
+      "nominal_density_kept": 0.07,
+      "sampler_s": [
+        118.03,
+        118.19
+      ],
+      "median_s": 118.11,
+      "runs": 2,
+      "spread_frac": 0.0013,
+      "errors": 0
+    },
+    "sla_topk15": {
+      "lora": "sla",
+      "selection": "topk",
+      "nominal_density_kept": 0.15,
+      "sampler_s": [
+        146.53
+      ],
+      "median_s": 146.53,
+      "runs": 1,
+      "spread_frac": 0.0,
+      "errors": 0
+    },
+    "sla_topk10": {
+      "lora": "sla",
+      "selection": "topk",
+      "nominal_density_kept": 0.1,
+      "sampler_s": [
+        141.92
+      ],
+      "median_s": 141.92,
+      "runs": 1,
+      "spread_frac": 0.0,
+      "errors": 0
+    },
+    "v11_adaptive": {
+      "lora": "v11",
+      "selection": "adaptive",
+      "nominal_density_kept": 0.16,
+      "sampler_s": [
+        124.48
+      ],
+      "median_s": 124.48,
+      "runs": 1,
+      "spread_frac": 0.0,
+      "errors": 0
+    },
+    "v11_tau13": {
+      "lora": "v11",
+      "selection": "adaptive",
+      "nominal_density_kept": 0.07,
+      "sampler_s": [
+        117.8,
+        117.61
+      ],
+      "median_s": 117.7,
+      "runs": 2,
+      "spread_frac": 0.0015,
+      "errors": 0
+    },
+    "v11_topk15": {
+      "lora": "v11",
+      "selection": "topk",
+      "nominal_density_kept": 0.15,
+      "sampler_s": [
+        146.53
+      ],
+      "median_s": 146.53,
+      "runs": 1,
+      "spread_frac": 0.0,
+      "errors": 0
+    },
+    "v11_topk10": {
+      "lora": "v11",
+      "selection": "topk",
+      "nominal_density_kept": 0.1,
+      "sampler_s": [
+        141.93
+      ],
+      "median_s": 141.93,
+      "runs": 1,
+      "spread_frac": 0.0,
+      "errors": 0
+    }
+  },
+  "contrasts": {
+    "sla: topk15 vs adaptive": {
+      "topk_median_s": 146.53,
+      "adaptive_median_s": 150.05,
+      "topk_saves_frac": 0.0235
+    },
+    "sla: topk10 vs adaptive": {
+      "topk_median_s": 141.92,
+      "adaptive_median_s": 150.05,
+      "topk_saves_frac": 0.0542
+    },
+    "v11: topk15 vs adaptive": {
+      "topk_median_s": 146.53,
+      "adaptive_median_s": 124.48,
+      "topk_saves_frac": -0.1771
+    },
+    "v11: topk10 vs adaptive": {
+      "topk_median_s": 141.93,
+      "adaptive_median_s": 124.48,
+      "topk_saves_frac": -0.1402
+    }
+  },
+  "cost_slope_by_selection": {
+    "sla_adaptive": {
+      "points": {
+        "sla_adaptive": 150.05,
+        "sla_tau13": 118.11
+      },
+      "density_delta": 0.09,
+      "seconds_per_density_point": 354.9
+    },
+    "sla_topk": {
+      "points": {
+        "sla_topk15": 146.53,
+        "sla_topk10": 141.92
+      },
+      "density_delta": 0.05,
+      "seconds_per_density_point": 92.2
+    },
+    "v11_adaptive": {
+      "points": {
+        "v11_adaptive": 124.48,
+        "v11_tau13": 117.7
+      },
+      "density_delta": 0.09,
+      "seconds_per_density_point": 75.3
+    },
+    "v11_topk": {
+      "points": {
+        "v11_topk15": 146.53,
+        "v11_topk10": 141.93
+      },
+      "density_delta": 0.05,
+      "seconds_per_density_point": 92.0
+    }
+  },
+  "difference_of_differences": {
+    "topk15": 0.2006,
+    "topk10": 0.1944
+  },
+  "what_this_does_not_answer": "which arm looks better. Adaptive and top-k are a numerical knob and their trajectories diverge completely, so the clips are different samples rather than better and worse versions of one. Watch them for briefs met; do not read a quality ranking here. Nor does it say the two selections kept the SAME blocks at a matched nominal density -- tau's density varies per head and block where top-k's does not, and nothing here measures the realised density of either.",
+  "largest_within_arm_spread_frac": 0.0015
+}
