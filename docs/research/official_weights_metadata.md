@@ -19,12 +19,13 @@ reference-conditioning path is [`h3_references.md`](../h3_references.md).
 
 ### 1. Seven H3-specific special tokens were unreachable in ComfyUI
 
-**Fixed 2026-08-22, in ComfyUI rather than here.**
-`MiniMaxH3Tokenizer.__init__` now declares the seven at construction, so every
-consumer gets them -- core's `MiniMaxH3ReferenceToVideo` included, which no
-custom pack can add an import to. Held on a branch in the ComfyUI checkout as a
-PR candidate, so **an install without that branch still has the defect** and
-this section describes what it does. `bench/audit_h3_marker_tokenization.py` is
+**Fixed upstream 2026-08-22 by Comfy-Org/ComfyUI PR 15808**, which declares
+the seven on a `Qwen3VLSDTokenizer` subclass so every consumer gets them --
+core's `MiniMaxH3ReferenceToVideo` included, which no custom pack can add an
+import to. **OPEN, not merged**, so an install without it still has the defect
+and this section describes what that install does. Verified here against the
+PR's own diff applied to a clean master: all nine audit scenes reproduce the
+release tokenizer exactly and the reference path carries the marker. `bench/audit_h3_marker_tokenization.py` is
 the verification harness and runs identically either way; it reports which
 source supplied the correction.
 

@@ -122,8 +122,19 @@ def _unpatched(clip):
     spec = importlib.util.spec_from_file_location("_marker_audit", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
-    if not getattr(MiniMaxH3Tokenizer, "H3_SPECIAL_TOKENS", None):
+    # Decide from the VOCABULARY, not from a constant's name. Keying off one
+    # attribute meant that an upstream patch naming its list differently --
+    # PR 15808 calls it `MINIMAX_EXTRA_TOKENS` where this repo's branch called
+    # it `H3_SPECIAL_TOKENS` -- read as "no patch", and this returned the
+    # CORRECTED tokenizer while labelling it stock.
+    live = clip.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
+    bundled = set(mod._bundled_declared())
+    if "<d>" in bundled:
+        raise SystemExit(
+            "the bundled tokenizer directory now declares <d>, so 'is it in "
+            "the vocabulary' no longer distinguishes patched from stock and "
+            "this arm cannot be reconstructed")
+    if "<d>" not in live:
         return clip, False          # no core patch; the loaded arm IS stock
     return mod._unpatched_clip(clip), True
 

@@ -8,13 +8,15 @@ artifact.
 
 ### Changed
 
-- **The special-token fix moved into ComfyUI's tokenizer**, which is the only
-  place that reaches every consumer -- core's `MiniMaxH3ReferenceToVideo`
-  included, and no custom pack can add an import to that. `MiniMaxH3Tokenizer`
-  now declares the release's seven remaining `additional_special_tokens` at
-  construction. Held on a branch in the ComfyUI checkout as a PR candidate.
-  - Added to the tokenizer instance, not to the bundled `qwen25_tokenizer`
-    directory, which the Qwen3VL image models share and which must not change.
+- **The special-token fix belongs in ComfyUI's tokenizer**, the only place that
+  reaches every consumer -- core's `MiniMaxH3ReferenceToVideo` included, and no
+  custom pack can add an import to that. **Upstream PR 15808 does exactly this**
+  and supersedes the local branch written here the same day; it is OPEN, not
+  merged. Verified against its own diff on a clean master: nine of nine audit
+  scenes reproduce the release tokenizer exactly, the reference path carries the
+  marker, and a marker-free reference prompt is byte-identical before and after.
+  - Neither version touches the bundled `qwen25_tokenizer` directory, which the
+    Qwen3VL image models share and which must not change.
 - **`MiniMaxH3VendorTokens` is deprecated** and flagged `is_deprecated` in its
   schema. It is wired into no shipped graph and does nothing on an install
   carrying the core patch. `clip_with_vendor_tokens` is NOT deprecated: a pack

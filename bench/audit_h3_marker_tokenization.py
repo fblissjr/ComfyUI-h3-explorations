@@ -266,19 +266,31 @@ def _unpatched_clip(clip):
     A FRESH tokenizer, not a copy: `clone()` shares the tokenizer by reference
     and a shallow copy would still share the HuggingFace object underneath.
     """
+    import comfy.text_encoders.minimax as mmx
     from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
-    saved = getattr(MiniMaxH3Tokenizer, "H3_SPECIAL_TOKENS", None)
+
+    # Upstream may name the token list differently than this repo's own branch
+    # did -- PR 15808 puts it at module level as `MINIMAX_EXTRA_TOKENS`, the
+    # local branch put it on the class as `H3_SPECIAL_TOKENS`. Empty whichever
+    # exists. Guessing one name and silently finding nothing is how this
+    # reconstruction would return the PATCHED tokenizer while calling it stock.
+    targets = []
+    for owner, attr in ((MiniMaxH3Tokenizer, "H3_SPECIAL_TOKENS"),
+                        (mmx, "MINIMAX_EXTRA_TOKENS")):
+        if getattr(owner, attr, None):
+            targets.append((owner, attr, getattr(owner, attr)))
     try:
-        if saved is not None:
-            MiniMaxH3Tokenizer.H3_SPECIAL_TOKENS = []
+        for owner, attr, _ in targets:
+            setattr(owner, attr, [])
         fresh = MiniMaxH3Tokenizer(
             embedding_directory=getattr(
                 getattr(clip.tokenizer, "qwen3vl_32b", None),
                 "embedding_directory", None),
         )
     finally:
-        if saved is not None:
-            MiniMaxH3Tokenizer.H3_SPECIAL_TOKENS = saved
+        for owner, attr, saved in targets:
+            setattr(owner, attr, saved)
+
     n = clip.clone()
     n.tokenizer = fresh
     return n
