@@ -232,8 +232,22 @@ def both_models_wired_raises():
         plan_for(ins, g)
     except ChainError as e:
         assert "silently dropped" in str(e), e
-        return
-    raise AssertionError("a node wiring both models produced a partial plan")
+    else:
+        raise AssertionError("a node wiring both models produced a partial plan")
+
+    # And the ORDER of the two refusals is asserted, not incidental. A node
+    # with a malformed chain and sockets has two models wired; that is the
+    # root fault, and reporting the link shape first would send a reader to
+    # fix the link and straight back here.
+    for bad in ([], "1", ["1", 1]):
+        try:
+            plan_for({"references": bad, "ref_images.ref_image_0": ["x", 0]}, g)
+        except ChainError as e:
+            assert "silently dropped" in str(e), (
+                f"a malformed chain plus sockets reported the link shape "
+                f"({str(e)[:60]}...) where two wired models is the root fault")
+            continue
+        raise AssertionError(f"references={bad!r} plus sockets did not raise")
 
 
 def each_model_alone_still_resolves():

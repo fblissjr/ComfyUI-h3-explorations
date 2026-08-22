@@ -246,6 +246,19 @@ def plan_for(inputs, graph=None) -> list:
     """
     typed = CHAIN_INPUT in inputs
     sockets = wired_sockets(inputs)
+
+    # **Both-models first, on key presence alone.** Ordering decides which
+    # error a reader gets, and a node carrying a malformed chain AND sockets
+    # has two models wired -- that is the root fault. Reporting the link shape
+    # first sends them to fix the link, after which they hit this anyway. Both
+    # orders refuse; only one says the useful thing first.
+    if typed and sockets:
+        raise ChainError(
+            f"this node wires an ordered chain on `{CHAIN_INPUT}` AND "
+            f"{len(sockets)} legacy socket(s) ({sorted(sockets)}). One of the "
+            f"two would be silently dropped, and dropping a record renumbers "
+            f"every label after it. Wire one model or the other")
+
     if typed:
         # **Key presence, not link truthiness.** A node that declares
         # `references` is an ordered node, and every degenerate value it can
@@ -269,12 +282,7 @@ def plan_for(inputs, graph=None) -> list:
                 f"`{CHAIN_INPUT}` takes output slot {link[1]} of node "
                 f"{link[0]!r}; an append node's plan is slot 0. A different "
                 f"slot is a different value and cannot be a chain")
-    if typed and sockets:
-        raise ChainError(
-            f"this node wires an ordered chain on `{CHAIN_INPUT}` AND "
-            f"{len(sockets)} legacy socket(s) ({sorted(sockets)}). One of the "
-            f"two would be silently dropped, and dropping a record renumbers "
-            f"every label after it. Wire one model or the other")
+
     if typed:
         return resolve_chain(graph, str(inputs[CHAIN_INPUT][0]))
     return legacy_plan(inputs)
