@@ -385,8 +385,18 @@ def the_shipped_soundtrack_wiring_resolves():
                              "soundtrack": track}}
         return g
 
-    shipped = resolve_chain(chain(["35", 0]), "1")[0]
+    from reference_order import VideoRef, plan_blocks, plan_kinds
+    recs = resolve_chain(chain(["35", 0]), "1")
+    assert len(recs) == 1 and isinstance(recs[0], VideoRef), recs
+    shipped = recs[0]
+    assert shipped.has_soundtrack, shipped
     assert shipped.soundtrack_origin == "owned", shipped
+    # The two halves of contract 1, on the shape that actually ships: two
+    # presentation entries, ONE DiT block, tagged video_audio. Asserting the
+    # record resolved without asserting what it costs would leave the
+    # expensive half unchecked on the only wiring anyone runs.
+    assert plan_kinds(recs) == ["audio", "video"], plan_kinds(recs)
+    assert plan_blocks(recs) == ["video_audio"], plan_blocks(recs)
     raw = resolve_chain(chain(["28", 2]), "1")[0]
     assert raw.soundtrack_origin == "owned", raw
 
