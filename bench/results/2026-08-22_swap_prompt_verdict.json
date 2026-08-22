@@ -41,7 +41,9 @@
   "ruled_out_afterwards": {
     "fps_desync": "The source is 25 fps, the rate the fps gap is about, but force_rate=24 is wired; VHS applies it as an ffmpeg fps filter preserving wall-clock and derives the audio window from the same origin, so the frame window and the soundtrack window cover the same span.",
     "soundtrack_span_expansion": "An untrimmed soundtrack expands the packed reference span, since a video reference advances the RoPE cursor by max(ref_audio_t, video spans). Not active here: the recorded patches show frame_load_cap=124 on every arm, so VHS handed out 5.167s against a 5.167s visual reference.",
-    "grid_snap_loss": "124 = 17*7+5, exactly on the reference-video grid, so nothing was lost to the snap-down."
+    "grid_snap_loss": "124 = 17*7+5, exactly on the reference-video grid, so nothing was lost to the snap-down.",
+    "two_fps_conditioner_subsample": "Correct at 24 fps and force_rate=24 is wired. Traced for this case: range(0,124,12) gives 11 frames, odd so repeat-padded to 12, merged into 6 vision blocks stamped 0.25 .. 5.0 seconds. comfyui_vendor_gaps.md records the subsample itself as confirmed identical to sglang -- the RATE is the whole gap, and the rate is right here.",
+    "vae_encode_mean_vs_sample_gap_8": "Does not touch the audio path. comfy/ldm/minimax/audio_vae.py:427-443 has a mean_proj and no logvar head at all, so 'posterior mean, no sampling' is structural rather than a divergence -- there is nothing for sglang's seed-42 sampling to differ from. The mean-vs-sample question is the VIDEO VAE's (comfy/ldm/minimax/vae.py:685) and is about visual fidelity of the reference, not generated speech."
   },
-  "still_open": "The owner's dialogue-density hypothesis: 124 frames may be too short for the speech in the source. Testing it is a length sweep on one prompt, not a prompt comparison."
+  "still_open": "Render LENGTH against dialogue density. All four damaged renders were at 124 frames (5.167s); the shipped swap graph is 362 (15.083s) and has not been heard at its own length with the soundtrack trim in place. The cheap decisive test is one structured render at 362 frames."
 }
