@@ -4,6 +4,68 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.57.0
+
+### Added
+
+- **`preflight_graph.py` grades the five markers neither official guide
+  documents.** `<|lyrics_start|>` / `<|lyrics_end|>`, `<|caption_start|>` /
+  `<|caption_end|>` and `<|cutoff|>` are in the release's token list; the guides
+  name neither the lyrics nor the caption pair, and spell the cutoff marker
+  without its pipes. Nothing anywhere asserted anything about them and
+  `check_prompt_guide_conformance.py` cannot -- it parses its vocabulary out of
+  the guide and refuses to assert what the guide does not state. `marker_rules`
+  fails an unbalanced pair, a `<d>` inside a caption pair, a marker pair inside
+  a `<d>` and a lyrics pair wrapping no `<d>`; it warns on a padded caption
+  string, a marker opening a line, two caption pairs with only whitespace
+  between them, whitespace before `</d>`, and a full stop directly before
+  `<|cutoff|>` (which BPE drags into the marker on an install lacking the
+  tokens, so the marker retokenizes the sentence in front of it).
+
+  **The escaped instance** is a prompt written outside this repo that arrived
+  carrying three caption pairs on their own lines, one padded with spaces, one
+  spoken line split across two adjacent pairs, and a trailing space inside a
+  `<d>`. Graded by preflight as it stood, it scored exactly one WARN, for word
+  count. The balance and nesting cases did not escape and exist for the other
+  reason: the prompting guide gained a nesting requirement the same hour, and
+  this is the assertion behind it.
+
+  Green on all five t2v scenes, both ref-form stress scenes, and seven of the
+  nine audit-harness scenes; the two that warn are stressors doing on purpose
+  what the rule describes. Each rule shown red on its own mutation.
+
+### Changed
+
+- **A caption is not a transcript, and the prompting guide now says which
+  marker wraps what.** The only nesting that exists is `<d>` inside a lyrics
+  pair -- lyrics wrap the same words that are sung, because they mark them as
+  sung. A caption pair is a sibling of `<d>` in both directions: its string is
+  burned-in on-screen text and may differ from the spoken line, which is what
+  makes French speech with English subtitles a caption rather than a mistake.
+  Placement follows the shot's chronology rather than a fixed rule against the
+  `<d>`: signage early with the props, a subtitle immediately after the line it
+  translates. What a caption pair does to the picture is still unmeasured,
+  which is why no shipped default carries one.
+
+- **The prompt writer is told to emit `<|cutoff|>`, with the pipes.** Both
+  official guides spell it `<cutoff>`, which matches no entry in the release's declared
+  token list; the scenes were moved onto the piped form on 2026-08-22 and the
+  system prompt that generates prompts was not. Diverging from the guide's
+  prose here is deliberate. `<scenetrans>` stays as the guide writes it, since
+  no piped variant exists to prefer.
+
+### Fixed
+
+- **The prompting guide argued for a decision that has since been reversed,
+  and still argued for it.** Its tokenizer section read the seven special
+  tokens' embedding rows sitting at initialisation as settling what to send at
+  serving time. It does not settle it: the rows being untrained and the
+  vendor's own tokenizer emitting those ids are both true, which is a
+  train/serve mismatch rather than a question with one answer. The measurement
+  stands; the conclusion drawn from it, and specifically "do not build a node
+  to fix it", is withdrawn in favour of `docs/comfyui_vendor_gaps.md` gap 1 and
+  upstream's own fix.
+
 ## 0.56.0
 
 ### Removed
