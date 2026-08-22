@@ -181,6 +181,26 @@ position construction carries no temporal term.
 about how the tower routes tokens, which is architecture rather than anything
 learned. It tests nothing weight-dependent, and nothing in the claim is.
 
+**A related proposal was checked and its premise does not hold for H3.**
+Reviewed 2026-08-22: that the release computes a *duration-aware* Qwen grid --
+budgeting pixel area across the whole sampled-and-padded clip, so a 32-frame
+clip is fed to Qwen smaller than the VAE sees it. That is what the generic
+Qwen-VL **video** processor does, and it is not what this release's reference
+path does. sglang decodes a reference video once and **shares one transformed
+array between Qwen and the visual VAE** -- `reference_encoding.py:382`
+("The returned array is shared by Qwen and the visual VAE"), `:759` ("BOTH the
+visual-condition tokenizer and Qwen consume the same transformed array"), and
+`:843` for images ("Qwen (pixel_values) and the visual-condition tokenizer
+consume the identical prepared image"). There is no second, smaller Qwen
+resize to diverge from. **Reported, not verified: sources read, not executed**
+-- three docstrings and the cached-prepared-array structure agree, and no call
+was traced.
+
+What is real underneath that proposal's row counts is **gap 6 below**:
+sglang resolves a reference video through `minimax_h3_resolve_spatial_shape`
+at short edge 768 and ComfyUI declines to upscale. Same divergence, different
+tower.
+
 ---
 
 ## 3 and 4. The image preprocessor bounds
