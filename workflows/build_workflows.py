@@ -463,6 +463,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               single_frame: bool = False,
               cache: dict | None = None,
               sla_router: float | None = None,
+              vae_encoder: str | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -570,10 +571,30 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         g["27"] = {"class_type": "MiniMaxH3Resolution",
                    "inputs": _resolution_widgets(cv["width"], cv["height"], length)}
 
+    # The video VAE's ENCODE half, optionally promoted. Only the conditioning
+    # node is rebound: it is the consumer that encodes references, keyframes and
+    # input frames, and `VAEDecode` stays on the raw loader so the graph says
+    # literally what it does -- encoder moved, decoder untouched. Both paths
+    # stay correct because `MiniMaxH3VAEPrecision` normalises at the module
+    # boundary rather than at the wrapper.
+    #
+    # NOT a shipped default, and it must not become one by drift: whether fp32
+    # encode is BETTER is unmeasured, and a rendered pair cannot measure it
+    # (CLAUDE.md -- the trajectory diverges completely from any numerical
+    # perturbation). These arms exist to price it and to prove it runs.
+    # `bench/grade_vae_encoder_precision.py` is the comparison that is
+    # controlled by construction.
+    vae_enc = ["3", 0]
+    if vae_encoder:
+        g["47"] = {"class_type": "MiniMaxH3VAEPrecision",
+                   "inputs": {"vae": ["3", 0], "encoder": vae_encoder,
+                              "decoder": "unchanged"}}
+        vae_enc = ["47", 0]
+
     if ref:
         slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
         g["5"] = {"class_type": "MiniMaxH3ReferenceToVideo",
-                  "inputs": {"clip": ["2", 0], "vae": ["3", 0], "audio_vae": ["4", 0],
+                  "inputs": {"clip": ["2", 0], "vae": vae_enc, "audio_vae": ["4", 0],
                              "prompt": prompt,
                              "width": ["27", 0], "height": ["27", 1],
                              # 'max' rather than 'match', and the pairing is
@@ -662,7 +683,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # seven special tokens, which core's tokenizer cannot emit, so a prompt
         # carrying `<d>` conditions on the marker rather than on BPE debris
         # without anyone remembering to wire a second node in front.
-        inputs = {"clip": ["2", 0], "vae": ["3", 0], "prompt": prompt,
+        inputs = {"clip": ["2", 0], "vae": vae_enc, "prompt": prompt,
                   "vendor_tokens": True}
         if task == "i2v":
             # `canvas` carries what node 17's `mode` used to: derive the canvas
@@ -3173,6 +3194,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              unet: str | None = None, lora: tuple[str, float] | None = None,
              out_prefix: str | None = None, title: str | None = None,
              sla_router: float | None = None,
+             vae_encoder: str | None = None,
              **canvas) -> dict:
     ref = task == "r2v"
     # The same consistency guard `build_api` carries, and it has to be here
@@ -3201,6 +3223,18 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                  outputs=[_out("VAE", "VAE")],
                  title=("Load VAE (SINGLE IMAGE ONLY -- do not use for video)"
                         if single_frame else "Load VAE (video)"))
+    # Optional encoder promotion; see the note in `build_api`. Only the
+    # conditioning node moves onto it -- `VAEDecode` keeps the raw loader, so
+    # the graph reads as "encoder changed, decoder untouched".
+    vae_enc_src = vvae
+    if vae_encoder:
+        vae_enc_src = g.add(
+            "MiniMaxH3VAEPrecision", (-900, 300), size=(340, 100),
+            widgets=[vae_encoder, "unchanged"],
+            inputs=[_in("vae", "VAE")], outputs=[_out("VAE", "VAE")],
+            title="VAE precision (encode/decode split)")
+        g.link(vvae, 0, vae_enc_src, "vae", "VAE")
+
     avae = g.add("VAELoader", (-1500, 410), size=(560, 70),
                  widgets=[MODELS["audio_vae"]], outputs=[_out("VAE", "VAE")],
                  title="Load VAE (audio)")
@@ -3376,7 +3410,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                 "3 reference images plus a reference video would overlap in "
                 "the UI layout; give the video row its own y before allowing "
                 "this combination.")
-        g.link(vvae, 0, cond, "vae", "VAE")
+        g.link(vae_enc_src, 0, cond, "vae", "VAE")
         g.link(avae, 0, cond, "audio_vae", "VAE")
         # One fit node per reference, between LoadImage and the conditioning
         # node. See the matching note in build_api: paired with
@@ -3448,7 +3482,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                               True],
                      inputs=cond_inputs,
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
-        g.link(vvae, 0, cond, "vae", "VAE")
+        g.link(vae_enc_src, 0, cond, "vae", "VAE")
         if task == "i2v":
             # Straight into the conditioning node. There is no canvas node in
             # front of it any more: it derives the canvas from this keyframe
@@ -4368,6 +4402,40 @@ def main():
               sol_on=False,
               out_prefix="Video/h3_probe_capture_ref3"),
          "3 references spanning 0.78-4.23 MP; the h3_capture.py target"),
+
+        # The VAE encoder-precision arms. ComfyUI carries ONE dtype per VAE and
+        # `--fp32-vae` moves both halves; the release keeps this VAE resident in
+        # fp32 *because the same module encodes references and keyframes* and
+        # decodes under fp16, which the flag cannot express.
+        # `MiniMaxH3VAEPrecision` splits them, and until 2026-08-21 it was wired
+        # into zero graphs -- the `MiniMaxH3VendorTokens` failure mode, a fix
+        # nobody can reach.
+        #
+        # **These two arms cannot answer which output is better**, and building
+        # them as though they could would be the mistake CLAUDE.md records: a
+        # rendered clip cannot A/B a numerical change, on any sampler. They
+        # price it -- VRAM, time, and that it runs end to end in a real graph --
+        # and they give a seed sweep something to sweep if anyone ever wants a
+        # distribution. The controlled comparison is at the call, in
+        # `bench/grade_vae_encoder_precision.py`.
+        *[
+            (f"h3_probe_ref_vae_encoder_{tag}.json", f"r2v-vaeenc-{tag}", "r2v",
+             _ref_prompt(images=("character", "garment", "environment")),
+             dict(**REF_VIDEO_BUDGET, ref_images=CAPTURE_REF_IMAGES,
+                  vae_encoder=enc,
+                  out_prefix=f"Video/h3_probe_ref_vae_encoder_{tag}"),
+             note)
+            for tag, enc, note in (
+                ("fp16", None,
+                 "the stock arm: one dtype for the whole VAE, whatever "
+                 "ComfyUI resolved. The baseline the fp32 arm is priced "
+                 "against, and it wires no precision node at all"),
+                ("fp32", "fp32",
+                 "the encoder promoted to fp32, matching the release's "
+                 "residency for the half that encodes references. ~0.34 GiB "
+                 "on the shipped checkpoint; the decoder is left alone"),
+            )
+        ],
 
         # Reference transfer of the fl2v distill, four checkpoints, one
         # variable. The LoRA file is patched at run time; see the note.
