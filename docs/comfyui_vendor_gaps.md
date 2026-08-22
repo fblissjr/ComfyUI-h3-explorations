@@ -254,6 +254,13 @@ Core is unchanged, so a hand-built graph is still exposed; the control is
 `bench/preflight_graph.py`, which warns on an untrimmed socket and on a baked
 trim that disagrees with `length`.
 
+**Where the gap actually bit is narrower than it looked, found the same day.**
+`VHS_LoadVideo` already asks ffmpeg for `frame_load_cap / force_rate` seconds
+of audio, so a soundtrack was only ever untrimmed because `frame_load_cap` was
+0 -- which it was, on every graph here, until that day. The gap is real for
+**standalone** `ref_audio_*` on any loader, and for any graph that leaves the
+cap at 0. `h3_references.md` carries the per-path table and the measurement.
+
 **6. Reference media never upscaled — a tradeoff ComfyUI exposes and the vendor
 does not.** If the source has fewer pixels than the canvas, ComfyUI uses the
 source size rounded to 32. All three vendor implementations put it on the canvas

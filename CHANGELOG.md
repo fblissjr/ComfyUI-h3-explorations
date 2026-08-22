@@ -52,7 +52,16 @@ artifact.
   to the generated frame count (`nodes_minimax_h3.py:321-322`), so the cap
   saves the full-clip decode and the resize at line 320 -- which runs on every
   loaded frame *before* line 321 throws most of them away -- and saves no rows
-  at all. The row saving in this release is the audio trim alone.
+  at all on the video side.
+
+  **It does save audio rows, and that was not the reasoning when it landed.**
+  `VHS_LoadVideo` asks ffmpeg for `frame_load_cap / force_rate` seconds of
+  audio, so setting the cap trims the soundtrack by itself -- measured by
+  driving that call: cap 0 yields the full 19.541s, cap 124 yields 5.167s. On
+  the `ref_video_audio_*` path the cap and the trim therefore close gap 5
+  redundantly. The trim is still what holds if the cap goes back to 0, and it
+  is the only mechanism on the standalone `ref_audio_*` path.
+  `docs/h3_references.md` carries the per-path table.
 
 ### Added
 

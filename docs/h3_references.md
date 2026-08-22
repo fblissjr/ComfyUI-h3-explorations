@@ -128,6 +128,27 @@ it warns when a ref-audio socket arrives untrimmed, and when the baked trim
 disagrees with `length`, which is what happens when a bench patches the length
 alone. Both shown red by deliberate violation.
 
+**On the video-soundtrack path the trim overlaps a mechanism VHS already had,
+and this was found after wiring it.** `VHS_LoadVideo` asks ffmpeg for
+`frame_load_cap * (1 / force_rate)` seconds of audio
+(`videohelpersuite/load_video_nodes.py:402` into `utils.py:224-233`), so with
+`frame_load_cap` set to the generated length the soundtrack arrives already
+capped and `TrimAudioDuration` is a no-op on it. Measured 2026-08-22 by
+driving that exact ffmpeg call: cap 0 yields 19.541s of a 19.541s track, cap
+124 yields 5.167s, cap 362 yields 15.083s.
+
+So on that path the two changes close the gap **redundantly**, and it is worth
+keeping which is doing what straight:
+
+| path | closed by `frame_load_cap` | closed by the trim |
+|---|---|---|
+| `ref_video_audio_*` | yes, whenever the cap is non-zero | yes, and it is what holds if the cap goes back to 0 |
+| `ref_audio_*` (standalone `LoadAudio`) | no such mechanism exists | **yes, and it is the only one** |
+
+The trim stays on both. It states the vendor's rule where a reader can see it,
+it survives a cap someone sets back to zero, and it is the only mechanism on
+the standalone path.
+
 **Two of three vendor implementations truncate; one does not** (re-derived
 2026-08-21). sglang cuts every reference soundtrack to the generated duration —
 `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py:147-151` computes it from the frame count and
@@ -784,24 +805,44 @@ The same sockets as the edit above, pointed at the opposite question: there
 the person stays and the garment changes, here the person is the only thing
 that changes. `<Video 1>` is the *plate*; `<Picture 1>` is the new identity.
 
-**An imperative prompt damaged the speech, measured 2026-08-22.** A third arm
-carried a community character-swap prompt -- no sections, second-person
-commands, an occlusion clause, a closing prohibition list -- on identical
-references, seed, canvas and length. Rendered against the structured and
-concise arms at 1152x768 / 124 frames, it and the concise arm both degraded
-the speech in the reused soundtrack; the structured arm below was the only one
-of the three that did not. **The arm was deleted rather than kept**, so this
-paragraph is the whole record of it.
+**Speech in a reused soundtrack came out damaged on three of four renders,
+2026-08-22, and the prompt is NOT established as the cause.** Three prompts --
+the structured arm below, the concise twin, and a third imperative arm carried
+from a community write-up -- were rendered on identical references, canvas
+(1152x768) and length (124 frames). Four renders landed before the batch was
+stopped: structured at two seeds, concise and imperative at one each. The
+owner, on playback, found exactly one of the four clean, and it was a
+structured render -- but **the other structured render was not clean**, so the
+split does not follow the prompt.
 
-Read the strength of that carefully. Two seeds each, judged by the owner on
-playback, on one clip with one kind of dialogue -- so it is a reason to write
-the retention line and not a measured rate. **The candidate mechanism is
-untested**: the structured prompt is the only one of the three that states the
-soundtrack as a `retention_analysis` line, `<Audio 1>: fully_copy - reused 1:1
-as the target video's complete final audio track`, where both others said the
-same thing as prose in the body. Whether the marker is what did it, or the
-sections around it, or the length, is unseparated -- three variables moved at
-once and the arms that would separate them were not rendered.
+**What that supports and what it does not.** It supports the owner's call to
+delete the imperative arm, which was made and is recorded in the changelog. It
+does **not** support "the six sections protect the speech": one clean render
+of four, with the only within-arm pair disagreeing with itself, is a draw from
+a distribution and says nothing about the knob -- `CLAUDE.md`'s
+different-sample rule applies to prompts as much as to numbers. The concise
+twin stays shipped because nothing here refuted it either.
+
+**Two things were ruled out afterwards and one hypothesis is still open.**
+The source clip is **25 fps** (489 frames / 19.560s, `r_frame_rate=25/1`),
+which is exactly the rate the fps gap in
+[`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md) is about -- but the
+workaround is wired: these graphs set `force_rate=24`, which VHS applies as an
+ffmpeg `fps=fps=24` filter, preserving wall-clock. And the audio window VHS
+hands out is `frame_load_cap / force_rate` seconds from the same origin, so
+the frame window and the soundtrack window cover the same span of the source.
+Neither desync is present. **What is still open is the owner's other
+hypothesis**: that 124 frames is too short for the density of dialogue in the
+source, so the model is asked to fit a 19.5s monologue's speech into 5.167s.
+Nothing here tests it, and the test is a length sweep on one prompt, not a
+prompt comparison.
+
+**The real finding is that reused-soundtrack speech degrades often** at this
+canvas and length, across prompt registers. That is worth a designed
+experiment and did not get one: the arms were confounded -- structure, length,
+and whether the soundtrack is stated as an `<Audio 1>: fully_copy` retention
+line or as prose in the body all moved together -- and four renders is not a
+rate.
 
 ```
 subject_definitions:

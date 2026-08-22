@@ -1,6 +1,6 @@
 {
   "question": "Three registers of one character-swap request -- six guide sections, one paragraph, imperative commands -- on identical references, seed, canvas, length and sampler. Does the guide's format earn itself?",
-  "answer": "Partially answered and stopped early. Judged by the owner on playback: the STRUCTURED arm was the only one of the three that did not damage the speech in the reused soundtrack. The imperative arm was deleted the same day; the concise arm survives as the standing twin.",
+  "answer": "NOT answered. Four renders landed before the batch was stopped: structured at two seeds, concise and imperative at one each. The owner, on playback, found exactly ONE of the four clean on speech in the reused soundtrack, and it was a structured render -- but the other structured render was not clean, so the split does not follow the prompt. The imperative arm was deleted on the owner's call; that decision stands independently of this record.",
   "status": "STOPPED at 4 of 9 renders, on the owner's instruction, once the speech difference was audible. Not a completed design.",
   "arms": {
     "structured": "workflows/h3_ref_video_swap_api.json",
@@ -34,7 +34,8 @@
     "length": 124,
     "frame_load_cap": 124
   },
-  "what_this_does_not_support": "A rate. Two seeds for the structured arm and one each for the others, one source clip, one kind of dialogue. It is a reason to keep writing the retention line, not a measurement of how often the alternatives fail.",
+  "what_this_does_not_support": "Any claim that the six sections protect the speech. One clean render of four, with the only within-arm pair disagreeing with itself, is a draw from a distribution. CLAUDE.md's different-sample rule applies to prompts too.",
   "confound_named": "All three prompts differ in structure AND length AND whether the soundtrack is stated as an `<Audio 1>: fully_copy` retention line or as prose. Three variables moved at once. The arm that would separate them -- structured sections with the soundtrack demoted to prose -- was not rendered.",
-  "substrate_caveat": "These renders predate the reference-soundtrack trim (CHANGELOG 0.55.0) -- run_graph_arms holds its graphs in memory from launch, so all arms were equally untrimmed and the comparison between them is unaffected. Any later render of these graphs is a different sample."
+  "substrate_caveat": "These renders predate the reference-soundtrack trim (CHANGELOG 0.55.0) -- run_graph_arms holds its graphs in memory from launch, so all arms were equally untrimmed and the comparison between them is unaffected. Any later render of these graphs is a different sample.",
+  "what_it_did_surface": "Speech in a reused soundtrack degraded on three of four renders at 1152x768 / 124 frames, across three prompt registers. That is the question worth designing an experiment around, and it is not a question about prompt format."
 }

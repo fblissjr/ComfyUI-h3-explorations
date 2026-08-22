@@ -3105,11 +3105,12 @@ rendering and either graph worthless alone.
 
 **A third arm existed for part of 2026-08-22 and was deleted the same day.**
 `h3_ref_video_swap_directive` carried a community prompt, imperative rather
-than sectioned, reported elsewhere to swap characters reliably. On matched
-seeds against these two it damaged the speech in the reused soundtrack; the
-structured arm was the only one of the three that did not. It is not
-returning, and the observation is recorded in `docs/h3_references.md` rather
-than in a graph.
+than sectioned. Four renders across the three arms landed before the batch was
+stopped, the owner found one of the four clean on speech, and the imperative
+arm went on that call. **Do not read it as a result about the format** -- the
+clean render was structured, but that arm's own second seed was not, so the
+split does not follow the prompt. `docs/h3_references.md` states it at that
+strength; this pair is still unrendered as a controlled comparison.
 
 **Why doubt the format at all?** General prompting research reports working
 character swaps from prompts far looser than this -- some missing
@@ -3151,11 +3152,14 @@ identical references, seed, canvas, length and sampler. Rendering this one
 alone answers nothing about the format; the point of the format is the
 comparison.
 
-**One thing this arm has already won.** A third, imperative arm was rendered
-against these two on 2026-08-22 and deleted: it damaged the speech in the
-reused soundtrack where this one did not. This prompt is the only one of the
-three that carries `<Audio 1>: fully_copy` as a retention line rather than as
-a sentence, which is the obvious candidate mechanism and is untested.
+**This arm has NOT beaten its twin, and a partial batch on 2026-08-22 is not
+evidence that it has.** A third, imperative arm was rendered against these two
+and deleted on the owner's call. Speech in the reused soundtrack came out
+damaged on three of the four renders that landed -- including one of this
+arm's own two seeds -- so the one clean render being a structured one
+attributes to nothing. What that batch surfaced is that reused-soundtrack
+speech degrades often at this canvas and length. That is a question, not a
+finding, and not a question about prompt format.
 
 This is the **character swap** arm: the video is the *plate* and the image is
 the *new identity*. Read it against `h3_ref_video_image_edit`, which is the
