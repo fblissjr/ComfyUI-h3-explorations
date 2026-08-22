@@ -417,6 +417,41 @@ cheaper spelling of the router, and no arm here has been rendered under it.
 
 ### What has actually been measured on it here
 
+#### Selection: top-k against adaptive tau, 2026-08-22
+
+Upstream's own question (kijai, on PR 117): adaptive tau against top-k, with
+and without the SLA LoRA. Six arms, one graph, matched seeds, alternating, two
+timed runs each on a freshly started server, at 1344x768 and 362 frames on the
+`subway` scene. Kernel build `0.2.31+sol.23d1a66`.
+
+| | vs `adaptive tau` at 1.0 |
+|---|---|
+| `top-k`, keep 15% | 4.7% faster (SLA), 4.6% (v1.1) |
+| `top-k`, keep 10% | 10.3% faster (both) |
+
+**The LoRA makes no difference: the two students land within 0.06s of each
+other at every selection.** Top-k's cost is identical across them to 0.04s,
+which is what density fixed by construction should look like -- keep 15% of
+blocks and the attention work is the same whatever the model does. Adaptive tau
+has no such guarantee, and on this workload it happens not to need one.
+
+Record:
+[`bench/results/2026-08-22_sol_selection_verdict_subway.json`](../bench/results/2026-08-22_sol_selection_verdict_subway.json).
+
+**An earlier run the same day reported the opposite shape and is void** -- a
+sign flip of about 20 points that did not replicate after a server restart.
+`docs/evidence.md` carries it, and the rule it produced: do not time an arm set
+on a long-lived session.
+
+**Quality is not in these numbers and this pair of selections cannot be A/B'd
+by watching**, because their trajectories diverge and the clips are different
+samples. What the clips DID show is a failure neither selection owns: in 11 of
+12, a character introduced after a cut takes over the singing that belonged to
+the character before it.
+[`bench/results/2026-08-22_subway_speaker_bleed.json`](../bench/results/2026-08-22_subway_speaker_bleed.json)
+records it, and it is a finding about the model and the prompt rather than
+about attention -- it appears under both selections and both LoRAs.
+
 #### End to end, 2026-08-14
 
 First e2e measurement of the CUDA node. 1344x768, **362 frames** (107,856

@@ -1,0 +1,26 @@
+{
+  "date": "2026-08-22",
+  "judged_by": "the owner, watching each clip end to end",
+  "scene": "subway",
+  "what_the_prompt_asks": "[Shot 1] a busker (S1) sings, lyrics markers wrapping two sung <d> blocks. [Shot 2] at 00:03.500 the shot CUTS to two different commuters (S2, S3) speaking while moving. The singer is not in Shot 2.",
+  "observation": "In every arm but one, the walking woman from Shot 2 takes over the singing at around the 4 second mark and carries the rest of the sung part. The cut does not hand the voice over: the singing follows the camera onto a different character instead of staying with S1 or ending. h3_probe_turbo_768p_sla_v11_adaptive_00002 is the only clip that gets that handover right.",
+  "second_judgement": "All of them look and sound poor regardless. The one that gets the handover right is not therefore a good clip -- it is the only one that is correct on this specific point.",
+  "arms_this_spans": [
+    "sla_adaptive",
+    "sla_topk15",
+    "sla_topk10",
+    "v11_adaptive",
+    "v11_topk15",
+    "v11_topk10"
+  ],
+  "why_this_is_not_a_selection_finding": "It appears under BOTH selections and BOTH LoRAs, and the one clip that avoids it shares its arm with a clip that does not. So it is not attributable to adaptive-vs-top-k, and reading it as one would be the different-sample error: these arms draw different samples, and 1 of 12 landing differently is what a distribution looks like, not what a knob looks like.",
+  "what_it_IS_evidence_about": "Speaker attribution across a cut when singing is involved -- the thing the stress scene was written to expose and the thing no prompt shipped here before today could have exposed, because none had two speakers, a cut, or singing. It is a finding about the model and the prompt, not about attention.",
+  "candidate_causes_unranked_and_untested": [
+    "the lyrics markers carry no learned meaning -- their encoder rows are untrained (bench/audit_h3_token_embeddings.py, 2026-08-21), so nothing guarantees <|lyrics_start|> scopes the singing to S1",
+    "a cut at 3.5s may be too fast for the model to re-attribute a voice",
+    "the guide's <scenetrans> continuity marker is NOT one of the seven declared tokens, so there is no marker-level way to say the audio does or does not continue across this cut",
+    "4-step distillation: every clip here is a 4-step student"
+  ],
+  "cheapest_next_test": "The same scene with the singing REMOVED from Shot 1 and the two commuters left as they are. If the Shot 2 speakers are attributed correctly without singing present, the failure is scoped to singing rather than to speaker changes across cuts.",
+  "sample": "12 clips across 6 arms, 2 seeds per arm; 1 correct on this point"
+}

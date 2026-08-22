@@ -361,6 +361,33 @@ captures on the distilled trajectory). Scope for the first pass is t2v and
   quality half unmeasured. SLA under its own router looks like v1.1 under the
   same router at this seed; nothing here makes the SLA release the one to run.
 
+**Verdicts, 2026-08-22:**
+
+- *Sol selection, upstream's question*: `top-k` beats `adaptive tau` at 1.0 by
+  4.7% (keep 15%) and 10.3% (keep 10%), and the LoRA does not matter -- the SLA
+  student and v1.1 land within 0.06s at every selection.
+  `docs/SOLATTN.md` owns it. **An earlier run the same day said the opposite
+  and is void**; `docs/evidence.md` carries both that row and the rule it
+  produced, which is that a long-lived ComfyUI session is not a substrate to
+  time on. Two independent measures moved together across a restart on
+  identical inputs.
+- *Speaker attribution across a cut*: **the first real quality finding the new
+  scene set bought.** Asked for a busker singing in Shot 1 and two different
+  commuters speaking after a cut at 3.5s, 11 of 12 clips hand the singing to a
+  character introduced after the cut. One clip gets it right. It spans both
+  selections and both LoRAs, so it is a model-and-prompt finding rather than an
+  attention one, and no prompt shipped here before 2026-08-22 could have
+  surfaced it -- none had two speakers, a cut, or singing.
+  `bench/results/2026-08-22_subway_speaker_bleed.json`. The owner's second
+  judgement stands beside it: all twelve look and sound poor regardless, so
+  the one that is correct on this point is not thereby a good clip.
+  **The cheapest next test is named in that file** -- the same scene with the
+  singing removed, which scopes the failure to singing or to cuts.
+- *The audio hum*: not Sol, not the kernel, not the tokenizer. Sol on, Sol off
+  and the SLA router hum identically; what moves it is the PROMPT asking for
+  continuous texture ("tyre hiss through standing water") and 4-step
+  distillation amplifying it. `bench/results/2026-08-22_audio_hum.json`.
+
 ## CLOSED 2026-08-16: token ordering as a quality question
 
 **Stop working on which curve to use. This is a decision, not a pause**, and it

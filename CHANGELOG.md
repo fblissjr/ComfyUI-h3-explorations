@@ -68,6 +68,51 @@ artifact.
   a packed sequence whose floor is about 85,700 rows. Half a percent. The
   choice between these prompts is entirely about what comes out.
 
+## 0.53.0
+
+### Added
+
+- **A baseline t2v scene set replaces the single cyclist prompt** every t2v
+  measurement here had been taken on. Five scenes, two speakers or more each,
+  all seven of the release's special tokens across the set, and soundscapes
+  that are events rather than continuous texture. Two of them are stress
+  scenes: overlapping speech, singing over the top, high motion and burned-in
+  text inside 15.083s. `--list-scenes` and `--print-scene` reach them from a
+  shell, and `scene_prompt()` anchors any of them for the keyframe
+  permutations. `_ref_prompt(scene=...)` carries them into the six-field
+  reference layout, where `detailed_description` goes from 47 words to 360-384
+  and lands inside the guide's budget for the first time.
+- **The answer to upstream's selection question**, replicated: top-k beats
+  adaptive tau at 1.0 by 4.7% (keep 15%) and 10.3% (keep 10%), with the LoRA
+  making no difference. `docs/SOLATTN.md` owns it.
+- **A speaker-attribution failure the old prompt could not have shown.** Asked
+  for a singer in one shot and two different speakers after a cut, 11 of 12
+  clips hand the singing to a character introduced after the cut. It spans both
+  selections and both LoRAs, so it is not an attention finding.
+
+### Fixed
+
+- **The audio hum was chased to the prompt, not to anything changed that day.**
+  Sol on, Sol bypassed and the SLA router all hum identically; what moves it is
+  a prompt asking for continuous texture, amplified about 10 dB by 4-step
+  distillation. Two earlier readings of mine were wrong and are recorded as
+  such -- one compared two variables at once and read a kernel regression out
+  of it, the other held the prompt fixed at the single value that produces the
+  artifact.
+
+### Changed
+
+- **A same-day measurement is void by replication**, and the rule it produced
+  is in `docs/evidence.md`: do not time an arm set on a long-lived ComfyUI
+  session. Two independent measures moved together across a restart on
+  identical inputs, and the mechanism is left unknown rather than guessed --
+  the two obvious candidates are ruled out by evidence, not by suspicion.
+- **The ComfyUI core tokenizer patch is reverted** by owner decision pending
+  upstream merge, and `vendor/UPSTREAM.md` carries it as a ledger entry with
+  what the shim cannot reach. The marker path became load-bearing the same day,
+  since every new scene uses `<d>`, and the audit confirms the shim supplies
+  all seven markers with the core patch gone.
+
 ## 0.52.0
 
 ### Changed
