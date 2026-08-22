@@ -305,15 +305,30 @@ def main() -> int:
         }
         # A sampler that "ran" in under a second did not run: the server's
         # node-output cache returned a stored result. The row is kept (it is
-        # evidence about the harness), but no one should average it. A
-        # sampler_s of None is a DIFFERENT condition -- no
-        # SamplerCustomAdvanced node was timed (a graph with another sampler
-        # class, or the run never reached it) -- and flagging it as a cache
-        # hit would mark every honest render of such a graph suspect, the
-        # red-while-correct failure that trains readers to ignore the flag.
+        # evidence about the harness), but no one should average it.
+        #
+        # **The `sampler_s is None` case was routed away from this flag until
+        # 2026-08-22, and that is where the common cache hit actually lands.**
+        # The old reasoning was that None means "no SamplerCustomAdvanced was
+        # timed -- another sampler class, or the run never reached it", and
+        # flagging it would be red-while-correct. Sound, except a fully cached
+        # graph is exactly this shape: the server replays stored outputs, the
+        # sampler never TRANSITIONS, so it never appears in per_node_s at all.
+        # The escaped instance: on 2026-08-22 an unpatched arm re-run at a seed
+        # already rendered an hour earlier came back at 2.9s with only the
+        # save node timed, and this field said False.
+        #
+        # The ambiguity the old comment worried about is removable rather than
+        # unavoidable: read the GRAPH. If it wires a SamplerCustomAdvanced and
+        # that node produced no timing, nothing honest explains it -- an
+        # arm using a different sampler class has no such node and is still
+        # correctly exempt.
+        has_sampler = any(n.get("class_type") == "SamplerCustomAdvanced"
+                          for n in arm["graph"].values())
         row["sampler_untimed"] = (not err and row["sampler_s"] is None)
-        row["suspect_cache_hit"] = (not err and row["sampler_s"] is not None
-                                    and row["sampler_s"] < 1.0)
+        row["suspect_cache_hit"] = not err and (
+            (row["sampler_s"] is not None and row["sampler_s"] < 1.0)
+            or (row["sampler_s"] is None and has_sampler))
         with out.open("a") as f:
             f.write(json.dumps(row) + "\n")
         status = (f"ERROR: {err}" if err else

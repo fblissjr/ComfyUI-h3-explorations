@@ -181,25 +181,49 @@ position construction carries no temporal term.
 about how the tower routes tokens, which is architecture rather than anything
 learned. It tests nothing weight-dependent, and nothing in the claim is.
 
-**A related proposal was checked and its premise does not hold for H3.**
-Reviewed 2026-08-22: that the release computes a *duration-aware* Qwen grid --
-budgeting pixel area across the whole sampled-and-padded clip, so a 32-frame
-clip is fed to Qwen smaller than the VAE sees it. That is what the generic
-Qwen-VL **video** processor does, and it is not what this release's reference
-path does. sglang decodes a reference video once and **shares one transformed
-array between Qwen and the visual VAE** -- `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:382`
-("The returned array is shared by Qwen and the visual VAE"), `:759` ("BOTH the
-visual-condition tokenizer and Qwen consume the same transformed array"), and
-`:843` for images ("Qwen (pixel_values) and the visual-condition tokenizer
-consume the identical prepared image"). There is no second, smaller Qwen
-resize to diverge from. **Reported, not verified: sources read, not executed**
--- three docstrings and the cached-prepared-array structure agree, and no call
-was traced.
+**The Qwen tower gets a SECOND, duration-aware resize the VAE never sees.**
+Established 2026-08-22 by executing the release processor, after this section
+claimed the opposite for several hours and was refuted by codex tracing the
+call graph. The wrong claim rested on three sglang docstrings saying the
+decoded array is "shared by Qwen and the visual VAE"
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:382`).
+That is true and it is the *source* array. One call later,
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:488` sends the 2 fps sampled view
+through `proc.video_processor(...)` -- the release `Qwen3VLVideoProcessor` --
+and the VAE consumes the shared array directly. **Shared source is not
+identical tower resolution**, and reading docstrings instead of following the
+call is what produced the error.
 
-What is real underneath that proposal's row counts is **gap 6 below**:
-sglang resolves a reference video through `minimax_h3_resolve_spatial_shape`
-at short edge 768 and ComfyUI declines to upscale. Same divergence, different
-tower.
+Its budget is duration-aware: `vendor_config/video_preprocessor_config.json`
+sets `size.longest_edge` to 25,165,824 px **across the clip**, so more sampled
+frames means each is smaller. Run against the real processor at 31 sampled
+frames (362 target frames at 2 fps, padded to 32, 16 temporal blocks):
+
+| fed to the processor | `grid_thw` | effective | Qwen rows |
+|---|---|---|---|
+| 1344x768 | `[16, 42, 74]` | 1184x672 | **12,432** |
+| 960x544 (our source) | `[16, 34, 60]` | 960x544, untouched | **8,160** |
+
+**At our source size the duration-aware pass is inactive**, and that is the
+part neither the report nor the refutation had: 960x544 over 32 frames is
+16.7M px, under the 25.2M budget, so the processor returns the frames
+unresized and ComfyUI's per-pair path lands on the identical grid. The
+divergence for this clip is **entirely gap 6 below** -- sglang upscales the
+reference video to 1344x768 first, and the duration-aware pass then pulls it
+back to 1184x672.
+
+**Which makes the duration-aware pass a cost LIMITER, and couples the two
+gaps.** Closing gap 6 alone -- upscaling to 1344x768 and feeding Qwen per pair
+as now -- gives 84x48/4 = 1,008 tok/block x 16 = 16,128 rows, **3,696 more
+than the vendor's 12,432**. So the correct order is both or neither: an
+upscale without the duration-aware resize overshoots the release rather than
+matching it.
+
+**None of this touches the per-pair result above.**
+`grade_video_block_presentation.py` held the grid fixed and asked whether the
+*call shape* diverges. It does not. This is a different question -- what grid
+the tower is handed -- and the answer is that it can diverge, through the
+upscale.
 
 ---
 
