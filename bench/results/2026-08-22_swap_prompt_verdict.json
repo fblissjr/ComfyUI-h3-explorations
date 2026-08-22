@@ -1,0 +1,40 @@
+{
+  "question": "Three registers of one character-swap request -- six guide sections, one paragraph, imperative commands -- on identical references, seed, canvas, length and sampler. Does the guide's format earn itself?",
+  "answer": "Partially answered and stopped early. Judged by the owner on playback: the STRUCTURED arm was the only one of the three that did not damage the speech in the reused soundtrack. The imperative arm was deleted the same day; the concise arm survives as the standing twin.",
+  "status": "STOPPED at 4 of 9 renders, on the owner's instruction, once the speech difference was audible. Not a completed design.",
+  "arms": {
+    "structured": "workflows/h3_ref_video_swap_api.json",
+    "concise": "workflows/h3_ref_video_swap_concise_api.json",
+    "directive": "DELETED -- see CHANGELOG 0.56.0"
+  },
+  "renders_completed": [
+    {
+      "arm": "structured",
+      "seed": 730451892,
+      "sampler_s": 248.0
+    },
+    {
+      "arm": "concise",
+      "seed": 730451892,
+      "sampler_s": 247.1
+    },
+    {
+      "arm": "directive",
+      "seed": 730451892,
+      "sampler_s": 247.3
+    },
+    {
+      "arm": "structured",
+      "seed": 730451893,
+      "sampler_s": 248.4
+    }
+  ],
+  "patched_uniformly_across_arms": {
+    "canvas": "1152x768",
+    "length": 124,
+    "frame_load_cap": 124
+  },
+  "what_this_does_not_support": "A rate. Two seeds for the structured arm and one each for the others, one source clip, one kind of dialogue. It is a reason to keep writing the retention line, not a measurement of how often the alternatives fail.",
+  "confound_named": "All three prompts differ in structure AND length AND whether the soundtrack is stated as an `<Audio 1>: fully_copy` retention line or as prose. Three variables moved at once. The arm that would separate them -- structured sections with the soundtrack demoted to prose -- was not rendered.",
+  "substrate_caveat": "These renders predate the reference-soundtrack trim (CHANGELOG 0.55.0) -- run_graph_arms holds its graphs in memory from launch, so all arms were equally untrimmed and the comparison between them is unaffected. Any later render of these graphs is a different sample."
+}
