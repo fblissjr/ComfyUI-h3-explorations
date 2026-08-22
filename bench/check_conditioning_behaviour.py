@@ -79,6 +79,22 @@ class _SpyClip:
     def tokenizer(self):
         return self._tok
 
+    @tokenizer.setter
+    def tokenizer(self, tok):
+        # Settable since 2026-08-22, and the reason is the point: with the
+        # ComfyUI core tokenizer patch reverted, `clip_with_vendor_tokens`
+        # stops being a no-op and takes its ACTIVE path, which builds a fresh
+        # tokenizer and rebinds it on the clone. A read-only property made
+        # that raise, and this harness then reported "nothing was checked" --
+        # a red that verifies nothing, which is worse than either a pass or a
+        # real failure.
+        #
+        # `clone()` returns self here, so the rebind lands on this same
+        # object. That is deliberate: the double exists to observe the
+        # tokenize call, and observing it through whichever tokenizer the node
+        # decided to use is more faithful than pinning the original.
+        self._tok = tok
+
     def tokenize(self, prompt, **kwargs):
         frame = sys._getframe(1)
         loc = frame.f_locals
