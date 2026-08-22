@@ -219,7 +219,7 @@ def _drive_encode_from_tokens(extra: dict, hooked: bool = False):
     exactly as `MiniMaxH3ClipModel.encode_token_weights` does; everything that
     decides whether the third element survives is core's.
 
-    **`scheduled=True` drives `encode_from_tokens_scheduled`, which is what
+    **The normal branch drives `encode_from_tokens_scheduled`, which is what
     the node actually calls** (`comfy_extras/nodes_minimax_h3.py`:
     `clip.encode_from_tokens_scheduled(tokens)`). Driving
     `encode_from_tokens` directly with an explicit `return_dict=True` --
