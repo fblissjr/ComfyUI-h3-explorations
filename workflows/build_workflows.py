@@ -53,7 +53,7 @@ _OUR_NODES = {
 # h3_config.py -- see its docstring for why that matters.
 from h3_config import (  # noqa: E402
     IMAGE_VAE, IMAGE_EDIT_BUDGET,
-    CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
+    ASPECTS, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
     CACHE_NODE, CACHE_NODE_CLASS,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
@@ -1590,6 +1590,64 @@ def _concise_swap_prompt() -> str:
     )
 
 
+def _directive_swap_prompt() -> str:
+    """The same request again, as imperative instructions instead of a report.
+
+    The third leg of the prompt-structure experiment, and the one that did
+    not come from here. It is a community prompt reported on 2026-08-22 to
+    swap characters reliably (`internal/refs/Character_swap_in_minimax_is_so_epic..md`),
+    rewritten only where its text and this graph disagree. What survives is
+    the register -- second-person commands to the model, not a structured
+    description of the target video -- plus two pieces of content neither
+    other arm has: an occlusion clause, and a closing list of things not to
+    add.
+
+    **Three edits to the source, and the reasons matter more than the text.**
+
+    1. `<Image_1>` and `<Video_1>` became `<Picture 1>` and `<Video 1>`.
+       Not house style: `comfy/text_encoders/minimax.py:164` emits the
+       literal string `<Picture %d>: ` into the sequence immediately before
+       each image's vision block, and `:176` does the same for `<Video %d>: `.
+       Those labels are what the model has to bind to. `<Image_1>` names
+       nothing that appears anywhere in the packed sequence, so the reported
+       prompt is binding by position and description instead. Shipping the
+       underscore form would test the tags, not the register, and would
+       confound the arm. **Whether the tags matter at all is a separate
+       question and is not answered here** -- it needs the verbatim tags as
+       a fourth arm, which cannot ship because `check_ref_prompt_labels`
+       correctly rejects a label no socket wires.
+    2. Two identities became one. The source replaces a male and a female
+       from two images; this graph wires one image, and matching
+       `h3_ref_video_swap` reference-for-reference is the only thing that
+       makes the three arms a comparison. **The two-identity case is the
+       real capability gap here and no graph in this repo covers it.**
+    3. `<Audio 1>` is named. The source never mentions audio; this graph
+       wires `ref_video_audio_0`, and a prompt that does not name a wired
+       label fails `check_ref_prompt_labels` -- rightly, since the audio
+       reuse is then unstated.
+
+    **One clause was dropped, not adapted.** "Use its front, and close-up
+    views as one identity reference" describes several views of one subject;
+    one image is wired. The generic-template lesson above applies directly:
+    a clause naming something not present is an invitation to invent it.
+    """
+    return (
+        "Use <Video 1> as the master performance, scene, and audio. Replace "
+        "the person in it with the character shown in <Picture 1>.\n\n"
+        "Match the new character's face, hair, outfit, colours, body "
+        "proportions, and visible design details throughout the clip.\n\n"
+        "Inherit the original performer's movement, position, pose, "
+        "rotation, speed, and timing frame by frame. Preserve background, "
+        "camera path, framing, focus, motion blur, lighting, shadows, and "
+        "the original edit from <Video 1>. Reuse <Audio 1> unchanged as the "
+        "target video's complete final audio track.\n\n"
+        "Maintain correct occlusion when the hands and arms pass in front of "
+        "the body. Keep the face, hair, clothing, hands, and body shape "
+        "consistent. Do not add new movement, objects, cuts, text, "
+        "accessories, or camera motion."
+    )
+
+
 # **Do not put a specific attribute in a generic template.** The environment
 # line said "architecture, palette, and lighting" until 2026-08-16, on every
 # image-reference arm, for whatever image happened to be wired. Measured that
@@ -2437,6 +2495,76 @@ _IMAGE_SCENES: dict[str, dict] = {
              "directional key light falling from the same side are unchanged.",
     ),
 
+    # The character swap, on the path where it costs seconds instead of
+    # minutes. `h3_ref_video_swap` asks the same thing of a video plate and
+    # one identity; this asks it of a still plate and TWO, which is the case
+    # the video arms do not cover and the one where the reported failure
+    # lives -- the model blending two identities, or putting one person's
+    # features on the other.
+    #
+    # **Chosen so a failure cannot pass for a success.** Both people in the
+    # plate are young with dark hair; the two identities are a freckled
+    # middle-aged redhead and a curly-haired man in black-rimmed glasses. If
+    # the swap does not happen, or happens on the wrong person, it is visible
+    # at a glance rather than a judgement about likeness. A plate whose
+    # occupants resembled the replacements would render something plausible
+    # and demonstrate nothing.
+    "swap": dict(
+        refs=("h3_refs/scene_loft_couch_duo_2752x1536.png",
+              "h3_refs/face_freckled_woman_redhair_1024x1024.png",
+              "h3_refs/face_young_man_glasses_1024x1024.png"),
+        subjects=[
+            "<Subject 1> is the woman at camera-left in <Picture 1>, with her "
+            "identity replaced: her face, skin, freckling, hair colour and "
+            "length, and apparent age come exclusively from <Picture 2>. Her "
+            "pose sitting low on the couch with her knees drawn up and her "
+            "legs extended along the seat, her black sleeveless top, the "
+            "gold-and-black floral garment draped across her legs, and her "
+            "position and scale in frame are those of <Picture 1>.",
+            "<Subject 2> is the man at camera-right in <Picture 1>, with his "
+            "identity replaced: his face, skin, hair and black-rimmed glasses "
+            "come exclusively from <Picture 3>. His upright seated posture, "
+            "his white shirt and gold-and-black floral jacket, his eyeline off "
+            "camera-left, and his position and scale in frame are those of "
+            "<Picture 1>.",
+            "<Subject 3> is the loft interior of <Picture 1>: the raw concrete "
+            "wall, the daylight window at camera-left, the black leather "
+            "couch, the glass table with the yellow book and the red "
+            "telephone on it, and the cool desaturated grade.",
+            "<Picture 2> and <Picture 3> supply facial identity only. Neither "
+            "supplies lighting, exposure, colour grade, background, pose, "
+            "clothing, framing or composition.",
+        ],
+        summary="Replace the identities of the two people in <Picture 1> with "
+                "those of <Picture 2> and <Picture 3>, keeping the loft, the "
+                "couch, both poses, both outfits, the framing and the light "
+                "exactly as they are",
+        retention=[
+            "<Subject 1>: attribute_transfer - the facial identity of "
+            "<Picture 2> is transferred onto the woman's pose, wardrobe and "
+            "position from <Picture 1>.",
+            "<Subject 2>: attribute_transfer - the facial identity of "
+            "<Picture 3> is transferred onto the man's pose, wardrobe and "
+            "position from <Picture 1>.",
+            "<Subject 3>: fully_preserved - the loft, couch, table, objects, "
+            "window light and colour grade of <Picture 1> are unchanged.",
+        ],
+        style="One realistic photograph in the same photographic style, grain "
+              "and colour grade as <Picture 1>.",
+        body="<Subject 1> and <Subject 2> occupy exactly the positions they "
+             "hold in <Picture 1>, at the same scale and in the same framing: "
+             "she at camera-left, low on the couch with her knees drawn up; he "
+             "at camera-right, sitting upright and looking off camera-left. "
+             "Only the two faces change. The daylight from camera-left falls "
+             "on both new faces from the same direction and at the same "
+             "softness as it falls on the originals, and neither new face "
+             "brings its own lighting, background or crop into the frame. No "
+             "feature of <Picture 2> appears on <Subject 2> and no feature of "
+             "<Picture 3> appears on <Subject 1>. <Subject 3> is unchanged in "
+             "every detail, the yellow book and the red telephone on the glass "
+             "table included. Exactly two people appear anywhere in the frame.",
+    ),
+
     # Two references with opposite jobs, and the one scene where a role
     # mistake is unmissable: if <Picture 2> is read as content rather than as
     # technique, a cottage and a woodland arrive with the graphite.
@@ -2760,11 +2888,18 @@ def _image_graphs() -> tuple:
     """
     def scene(fname, label, scene_name, note, *, fmt="sections", extra=None):
         s = _IMAGE_SCENES[scene_name]
-        return (fname, label, "r2v", _image_prompt(scene_name, fmt),
-                dict(single_frame=True, length=1, ref_images=s["refs"],
-                     **IMAGE_EDIT_BUDGET,
-                     out_prefix=f"Image/{fname.removesuffix('.json')}",
-                     variant_note=note, **(extra or {})),
+        # `extra` OVERRIDES rather than adds. It was a merge until 2026-08-22,
+        # which meant a scene could not restate a key IMAGE_EDIT_BUDGET
+        # already set -- `dict(**a, **b)` raises on a collision, so the only
+        # way to change the canvas for one scene was to change it for all of
+        # them. No caller relied on the old behaviour; a collision could not
+        # have shipped, it would have crashed the build.
+        spec = dict(single_frame=True, length=1, ref_images=s["refs"],
+                    **IMAGE_EDIT_BUDGET,
+                    out_prefix=f"Image/{fname.removesuffix('.json')}",
+                    variant_note=note)
+        spec.update(extra or {})
+        return (fname, label, "r2v", _image_prompt(scene_name, fmt), spec,
                 f"{len(s['refs'])} reference image(s) -> ONE image: "
                 f"{scene_name}, {fmt} prompt")
 
@@ -2795,6 +2930,32 @@ def _image_graphs() -> tuple:
                   "them, no shadow where the feet meet the ground. The prompt "
                   "asks for the studio illumination not to survive, which is "
                   "a harder request than it reads as.")),
+
+        # The image-path twin of h3_ref_video_swap, and the only graph here
+        # that swaps TWO identities at once. Render it before spending a
+        # video arm on the two-identity case: same question, seconds instead
+        # of minutes.
+        scene("h3_image_swap.json", "r2i-swap", "swap",
+              # The ONLY image scene whose canvas is not the shared 2:3
+              # portrait, and the reason is structural rather than taste: the
+              # prompt promises the plate's framing survives, and a portrait
+              # output cannot hold a 16:9 plate's framing however the model
+              # tries. `ASPECTS["16x9"]` is 1.75 against the plate's 1.79 --
+              # close, not equal, and the small recompose that implies is a
+              # known cost of the scene rather than a swap failure. Read the
+              # edges before reading the faces.
+              extra=dict(zip(("width", "height"), ASPECTS["16x9"])),
+              note=_note_image_scene(
+                  "two identities replaced inside one plate",
+                  "whether each face lands on the RIGHT person. A swap that "
+                  "happens on one of the two, or blends the pair, is the "
+                  "reported failure and it is unmissable here -- both "
+                  "originals are young and dark-haired and neither "
+                  "replacement is. Then whether the plate survives: the "
+                  "couch, the window light, the two outfits and the objects "
+                  "on the glass table have to come through untouched, since "
+                  "a swap that also redecorates the room has not done the "
+                  "job asked of it.")),
 
         scene("h3_image_multiperson.json", "r2i-multiperson", "multiperson",
               _note_image_scene(
@@ -2940,24 +3101,35 @@ tail is exactly where lip-sync and continuity would break first."""
 
 
 _NOTE_PROMPT_STRICTNESS = """\
-## The one graph here that breaks the format on purpose
+## The unstructured leg of a three-arm prompt experiment
 
 Every other reference graph carries six sections in the order both guides
 specify. This one carries a single paragraph, and that is the entire
 experiment.
 
-**Read it against `h3_ref_video_swap`.** Same clip, same reference image,
-same seed, same canvas, same length, same sampler. The only thing that
-differs is the prompt structure, which is what makes the pair worth
-rendering and either graph worthless alone.
+**Read it against `h3_ref_video_swap` and `h3_ref_video_swap_directive`.**
+Same clip, same reference image, same seed, same canvas, same length, same
+sampler across all three. The only thing that differs is the prompt, which
+is what makes them worth rendering and any one of them worthless alone.
+This arm is the *shortest* statement of the request; the directive arm is
+the same length class as the structured one but written as commands, so the
+three separate structure from verbosity rather than confounding them.
 
 **Why doubt the format at all?** General prompting research reports working
 character swaps from prompts far looser than this -- some missing
 `retention_analysis` entirely, some with no task-type prefix, one a single
 sentence. Those reports are uncontrolled, so they are not evidence the
-structure is useless; they are evidence nobody has measured it. The six
-sections cost tokens in a budget where reference rows already dominate, and
-"the guide says so" is a reason to comply, not a measurement.
+structure is useless; they are evidence nobody has measured it. "The guide
+says so" is a reason to comply, not a measurement.
+
+**One argument against the format is already dead, and it was made here.**
+This note used to add that the six sections "cost tokens in a budget where
+reference rows already dominate". They do not cost enough to matter:
+`bench/preflight_graph.py` on the three arms, 2026-08-22, prices the
+structured prompt at 459 text tokens against 172 directive and 92 concise,
+inside a packed sequence whose floor is about 85,700 rows. Half a percent.
+So the choice between these prompts is entirely about what comes out, and
+a shorter prompt buys nothing at the input.
 
 **What to look at, in order:**
 
@@ -2972,6 +3144,40 @@ itself at this length and the finding is worth more than the format.
 graph **by name**, and prints that it did. Label agreement and marker sets
 are still enforced here exactly as everywhere else -- an unstructured prompt
 is still not allowed to name a reference the graph does not wire."""
+
+
+_NOTE_PROMPT_DIRECTIVE = """\
+## The community prompt, on this repo's references
+
+The third leg, and the only prompt here that was not written here. It is a
+character-swap prompt reported on 2026-08-22 to work reliably
+(`internal/refs/Character_swap_in_minimax_is_so_epic..md`), carried over with
+three edits, each documented in `_directive_swap_prompt`'s docstring: the
+`<Image_1>`-style tags corrected to the labels the tokenizer actually emits,
+two identities reduced to one so the arm matches its twins socket for socket,
+and `<Audio 1>` named because this graph wires it.
+
+**What it contributes that neither twin has.** An occlusion clause -- hands
+and arms passing in front of the body -- and a closing prohibition list:
+no new movement, objects, cuts, text, accessories, or camera motion. Both
+address failures the structured arm addresses only by implication.
+
+**What is uncontrolled about it, stated plainly.** The report is one person's
+experience with no matched arms, a different model quantization, a different
+canvas, a different sampler and a different step count. It is a reason to
+measure this prompt, not evidence about it. The claim it makes that this
+repo can actually check is narrow: that a prompt ignoring the guide's format
+still swaps identity reliably.
+
+**What it does NOT test.** Whether `<Image_1>` binds as well as
+`<Picture 1>`. That question needs the tags verbatim, which no shipped graph
+can carry -- `check_ref_prompt_labels` rejects a label no socket wires, and
+it is right to. Run it as a widget patch through `bench/run_graph_arms.py`
+if it is worth answering.
+
+`check_prompt_guide_conformance.py` waives its structural cases by name and
+prints that it did, exactly as for `h3_ref_video_swap_concise`. Markers,
+dialogue placement and label agreement are enforced here unchanged."""
 
 
 def _note_ref_relationship(role: str) -> str:
@@ -5023,12 +5229,23 @@ def main():
         # canvas, same length -- so the ONLY difference reaching the model is
         # whether the prompt is six structured sections or one paragraph.
         # Read the two side by side; neither is meaningful alone.
-        ("h3_probe_prompt_concise.json", "r2v-swap-concise", "r2v",
+        ("h3_ref_video_swap_concise.json", "r2v-swap-concise", "r2v",
          _concise_swap_prompt(),
          dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
-              out_prefix="Video/h3_probe_prompt_concise",
+              out_prefix="Video/h3_ref_video_swap_concise",
               variant_note=_NOTE_PROMPT_STRICTNESS),
          "same swap, unstructured prompt -- does the six-section format pay?"),
+
+        # The third leg of the same experiment: not this repo's prose at all,
+        # but a community prompt reported to work, on identical references,
+        # seed, canvas and length. Structured / concise / directive is three
+        # registers against one request.
+        ("h3_ref_video_swap_directive.json", "r2v-swap-directive", "r2v",
+         _directive_swap_prompt(),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
+              out_prefix="Video/h3_ref_video_swap_directive",
+              variant_note=_NOTE_PROMPT_DIRECTIVE),
+         "same swap, a community prompt that ignores the guide's format"),
 
         ("h3_ref_video_continue.json", "r2v-continue", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="continue"),

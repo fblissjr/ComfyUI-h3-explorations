@@ -1,0 +1,271 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_t1_image_vae_step1597.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "er_sde"
+    }
+  },
+  "8": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 16,
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "filename_prefix": "Image/h3_image_swap"
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 1
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the woman at camera-left in <Picture 1>, with her identity replaced: her face, skin, freckling, hair colour and length, and apparent age come exclusively from <Picture 2>. Her pose sitting low on the couch with her knees drawn up and her legs extended along the seat, her black sleeveless top, the gold-and-black floral garment draped across her legs, and her position and scale in frame are those of <Picture 1>.\n<Subject 2> is the man at camera-right in <Picture 1>, with his identity replaced: his face, skin, hair and black-rimmed glasses come exclusively from <Picture 3>. His upright seated posture, his white shirt and gold-and-black floral jacket, his eyeline off camera-left, and his position and scale in frame are those of <Picture 1>.\n<Subject 3> is the loft interior of <Picture 1>: the raw concrete wall, the daylight window at camera-left, the black leather couch, the glass table with the yellow book and the red telephone on it, and the cool desaturated grade.\n<Picture 2> and <Picture 3> supply facial identity only. Neither supplies lighting, exposure, colour grade, background, pose, clothing, framing or composition.\n\nsummary:\n[reference generation] Replace the identities of the two people in <Picture 1> with those of <Picture 2> and <Picture 3>, keeping the loft, the couch, both poses, both outfits, the framing and the light exactly as they are.\n\nretention_analysis:\n<Subject 1>: attribute_transfer - the facial identity of <Picture 2> is transferred onto the woman's pose, wardrobe and position from <Picture 1>.\n<Subject 2>: attribute_transfer - the facial identity of <Picture 3> is transferred onto the man's pose, wardrobe and position from <Picture 1>.\n<Subject 3>: fully_preserved - the loft, couch, table, objects, window light and colour grade of <Picture 1> are unchanged.\n\ndetailed_description:\nOne realistic photograph in the same photographic style, grain and colour grade as <Picture 1>.\n[Shot 1] <Subject 1> and <Subject 2> occupy exactly the positions they hold in <Picture 1>, at the same scale and in the same framing: she at camera-left, low on the couch with her knees drawn up; he at camera-right, sitting upright and looking off camera-left. Only the two faces change. The daylight from camera-left falls on both new faces from the same direction and at the same softness as it falls on the originals, and neither new face brings its own lighting, background or crop into the frame. No feature of <Picture 2> appears on <Subject 2> and no feature of <Picture 3> appears on <Subject 1>. <Subject 3> is unchanged in every detail, the yellow book and the red telephone on the glass table included. Exactly two people appear anywhere in the frame.",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "ref_image_size": "max",
+      "ref_images.ref_image_0": [
+        "24",
+        0
+      ],
+      "ref_images.ref_image_1": [
+        "25",
+        0
+      ],
+      "ref_images.ref_image_2": [
+        "35",
+        0
+      ]
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "h3_refs/scene_loft_couch_duo_2752x1536.png"
+    }
+  },
+  "16": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "h3_refs/face_freckled_woman_redhair_1024x1024.png"
+    }
+  },
+  "34": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "h3_refs/face_young_man_glasses_1024x1024.png"
+    }
+  },
+  "24": {
+    "class_type": "MiniMaxH3ReferenceFit",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "allow_upscale": false,
+      "short_edge": 2048,
+      "lift_downstream_clamp": false,
+      "keep_towers_matched": true
+    }
+  },
+  "25": {
+    "class_type": "MiniMaxH3ReferenceFit",
+    "inputs": {
+      "image": [
+        "16",
+        0
+      ],
+      "allow_upscale": false,
+      "short_edge": 2048,
+      "lift_downstream_clamp": false,
+      "keep_towers_matched": true
+    }
+  },
+  "35": {
+    "class_type": "MiniMaxH3ReferenceFit",
+    "inputs": {
+      "image": [
+        "34",
+        0
+      ],
+      "allow_upscale": false,
+      "short_edge": 2048,
+      "lift_downstream_clamp": false,
+      "keep_towers_matched": true
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "20": {
+    "class_type": "MiniMaxH3SageAttention",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "mode": "auto",
+      "patch_token_refiner": false,
+      "head_chunks": 1
+    }
+  },
+  "23": {
+    "class_type": "SageChainAssert",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "require_override": true,
+      "require_forward_patch": true,
+      "exercise": true,
+      "warn_only": false
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
+    }
+  }
+}

@@ -132,9 +132,10 @@ These are the parts that are not stylistic, and they are checked:
 
 ## The scenes
 
-Six, drawn from the two write-ups, chosen so each exercises a different
-retention marker rather than a different subject. Every one names an `h3_refs/`
-asset from `internal/reference_library.md`, so a result is attributable to a
+Chosen so each exercises a different retention marker rather than a different
+subject. Most are drawn from the two write-ups; `h3_image_swap` is not, and is
+the image-path twin of `h3_ref_video_swap`. Every one names an `h3_refs/` asset
+from `internal/reference_library.md`, so a result is attributable to a
 documented subject rather than to whatever was in the input root that day.
 
 | graph | refs | marker under test | what fails first |
@@ -145,6 +146,7 @@ documented subject rather than to whatever was in the input root that day.
 | `h3_image_multiperson` | 3 | two `partially_preserved` | the two faces blending into one person |
 | `h3_image_recolor` | 1 | `partially_preserved`, strict | everything that was *not* asked to change |
 | `h3_image_sheet` | 1 | `fully_preserved` | the rear view, which has no source pixels |
+| `h3_image_swap` | 3 | two `attribute_transfer` + `fully_preserved` | a face landing on the wrong one of the two people |
 
 **Two rules the scenes are written against**, both learned the hard way here:
 
@@ -324,7 +326,11 @@ arms ever show longer bodies help, this is the number to revisit.
   `h3_image_recolor` both say the crop is preserved, and both references are
   1024x1024 while the canvas is 768x1152. The model widens the frame -- it has
   to. The claim is unachievable as written and should either drop `crop` or the
-  scenes should render on a square canvas. Not yet fixed.
+  scenes should render on a square canvas. Still unfixed for those two, but the
+  **mechanism now exists**: since 2026-08-22 a scene can override the shared
+  canvas through `scene()`'s `extra`, which `h3_image_swap` uses to render its
+  16:9 plate on a 16:9 canvas rather than promise a framing a portrait output
+  cannot hold. The same edit is available to these two and has not been made.
 - **The style scene works.** No cottage, in any arm, at any step count. The
   `attribute_transfer` role bound, which is the one thing that scene exists to
   find out, and it is the first evidence here that naming what a reference does

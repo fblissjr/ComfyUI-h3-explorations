@@ -4,6 +4,70 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.53.0
+
+### Added
+
+- **A community character-swap prompt became the third arm of an experiment
+  that had been sitting at two.** `h3_ref_video_swap_directive` carries a
+  prompt reported on 2026-08-22 to swap characters reliably, on this repo's
+  references, seed, canvas and length -- so it differs from
+  `h3_ref_video_swap` (six sections) and `h3_ref_video_swap_concise` (one
+  paragraph) in the prompt and nothing else. What it contributes that neither
+  twin has: an imperative register, an occlusion clause, and a closing list of
+  things not to add.
+
+  **Three edits to the source prompt, and one clause dropped.** Its
+  `<Image_1>`/`<Video_1>` tags became `<Picture 1>`/`<Video 1>`, because
+  `comfy/text_encoders/minimax.py:164` emits the literal string
+  `<Picture %d>: ` into the sequence immediately before each image's vision
+  block -- `<Image_1>` names nothing that appears anywhere in the packed
+  sequence, so the reported prompt binds by position and description instead,
+  and shipping the underscore form would have tested the tags rather than the
+  register. Two identities became one, so the arm matches its twins socket for
+  socket. `<Audio 1>` was named, because the graph wires it. And "use its
+  front, and close-up views as one identity reference" was dropped rather than
+  adapted: one image is wired, and a clause naming something not present is an
+  invitation to invent it.
+
+  **Whether the tags matter is NOT answered by this arm** and cannot ship as a
+  graph -- `check_ref_prompt_labels` rejects a label no socket wires, which was
+  confirmed by mutation rather than assumed. Run it as a widget patch through
+  `bench/run_graph_arms.py` if it is worth answering.
+
+- **`h3_image_swap`: the swap generalized off the video path, and the only
+  graph here that replaces TWO identities at once.** A still plate of two
+  people on a loft couch, plus two face references, on the path where a render
+  costs seconds instead of minutes. The two-identity case is where the reported
+  failure lives -- the model blending the pair, or landing a face on the wrong
+  person -- and no video graph covers it. **Chosen so a failure cannot pass for
+  a success**: both people in the plate are young and dark-haired, neither
+  replacement is.
+
+  It is the only image scene not on the shared 2:3 portrait canvas. The prompt
+  promises the plate's framing survives, and a portrait output cannot hold a
+  16:9 plate's framing however the model tries.
+
+### Changed
+
+- **`h3_probe_prompt_concise` -> `h3_ref_video_swap_concise`.** The old name
+  said nothing about the thing that makes the graph what it is: a video
+  reference. It sorts beside its sibling now. `h3_probe_prompt_directive` was
+  never released under its first name.
+
+- **`scene()`'s `extra` now overrides rather than merges.** It was
+  `dict(**IMAGE_EDIT_BUDGET, **extra)`, which raises on a collision, so the
+  only way to change one image scene's canvas was to change every scene's. No
+  caller relied on the old behaviour -- a collision could not have shipped, it
+  would have crashed the build.
+
+- **One argument against the six-section format is dead, and it was made
+  here.** `_NOTE_PROMPT_STRICTNESS` said the sections "cost tokens in a budget
+  where reference rows already dominate". Priced by `bench/preflight_graph.py`
+  on 2026-08-22: 459 text tokens structured, 172 directive, 92 concise, inside
+  a packed sequence whose floor is about 85,700 rows. Half a percent. The
+  choice between these prompts is entirely about what comes out.
+
 ## 0.52.0
 
 ### Changed

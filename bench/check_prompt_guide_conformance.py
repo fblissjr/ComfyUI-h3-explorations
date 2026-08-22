@@ -133,7 +133,7 @@ GUIDE_NODE = "MiniMaxH3AddGuide"
 
 # Graphs whose prompt is UNSTRUCTURED ON PURPOSE, and only those.
 #
-# h3_probe_prompt_concise is the twin of h3_ref_video_swap: identical clip,
+# h3_ref_video_swap_concise is the twin of h3_ref_video_swap: identical clip,
 # image, seed, canvas and length, differing in nothing but whether the prompt
 # is six sections or one paragraph. It exists to measure whether the format
 # earns its tokens, so failing it for lacking the format would delete the
@@ -160,7 +160,8 @@ GUIDE_NODE = "MiniMaxH3AddGuide"
 # two and why, so an image prompt is still graded on section order, task
 # types, markers and dialogue placement. A whole-file waiver was buying
 # silence on four cases to excuse two.
-_STRUCTURE_PROBES = {"h3_probe_prompt_concise_api",
+_STRUCTURE_PROBES = {"h3_ref_video_swap_concise_api",
+                     "h3_ref_video_swap_directive_api",
                      "h3_image_probe_format_flat_api"}
 
 
