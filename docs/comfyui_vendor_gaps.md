@@ -187,7 +187,7 @@ budgeting pixel area across the whole sampled-and-padded clip, so a 32-frame
 clip is fed to Qwen smaller than the VAE sees it. That is what the generic
 Qwen-VL **video** processor does, and it is not what this release's reference
 path does. sglang decodes a reference video once and **shares one transformed
-array between Qwen and the visual VAE** -- `reference_encoding.py:382`
+array between Qwen and the visual VAE** -- `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:382`
 ("The returned array is shared by Qwen and the visual VAE"), `:759` ("BOTH the
 visual-condition tokenizer and Qwen consume the same transformed array"), and
 `:843` for images ("Qwen (pixel_values) and the visual-condition tokenizer
