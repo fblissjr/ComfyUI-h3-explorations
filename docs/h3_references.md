@@ -133,8 +133,29 @@ same file does neither.
 ## Frame rate: the one that bites silently
 
 ComfyUI's node has **no fps input** and assumes 24 twice over — for the DiT's
-temporal clock and for the `<T.T seconds>` labels the conditioner reads. The
-reference pipeline resamples onto 24 from the rate the container reports.
+temporal clock and for the `<T.T seconds>` labels the conditioner reads
+(`FPS = 24` at `comfy_extras/nodes_minimax_h3.py:30`; no node in that file
+exposes an fps or rate input).
+
+**Both implementations target 24. Only one enforces it** (read 2026-08-22 at
+`coderef/sglang` `a7ec6b97f7`). sglang's constant is the same value —
+`MINIMAX_H3_SUPPORTED_FPS = 24` at
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/constants.py:29`
+— but it reaches the clip as an ffmpeg `fps=` filter in the same decode pass
+that does rotation, Lanczos scaling and square-pixel normalisation
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:397`),
+so a 30 fps source is genuinely converted to constant-rate 24 before anything
+else sees it. ComfyUI applies no such filter: it takes whatever the loader
+hands it and assumes the rate.
+
+Two consequences follow from that being one ffmpeg pass. **fps is never in
+sglang's API surface** — the caller asks for `duration_seconds` and the frame
+count is derived as `duration * 24` at request validation
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/request_validation.py:291-295`),
+so there is no rate for a user to get wrong. And **the decoded array is shared
+by Qwen and the visual VAE** by construction rather than by convention
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/reference_encoding.py:380-383`), which is the same one-tensor-two-towers
+property ComfyUI gets by passing one object to both.
 
 **Measured**, three 6.00-second clips differing only in frame rate:
 

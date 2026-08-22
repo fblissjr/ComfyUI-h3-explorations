@@ -53,8 +53,39 @@ artifact.
     marker prompt leaves the `<Picture i>` / `<Video k>` / `<Audio j>` labels
     and vision sentinels untouched.
 
+### Changed
+
+- **`docs/research/sglang_comparison.md` gains a divergence index.** Every known
+  ComfyUI-versus-vendor gap in one table, with practical impact, a priority by
+  what it costs a working user, a dated status and the doc that owns the detail.
+  The gaps were all documented already; the ownership split meant answering
+  "what are all of them" required knowing which of three files to open. Rows
+  carry no numbers and no mechanism, so the table cannot become a second copy
+  of what it indexes.
+  - Splits the gaps into **config inheritance** (the release ships a value,
+    sglang reads it, ComfyUI hardcodes) and **behavioural** (sglang decided
+    something we did not). The first kind is cheap to fix; the second is a
+    design choice.
+  - Adds the section answering whether the special tokens reach Qwen3-VL's
+    vision tower. They do not, and the assertion that closes it already
+    existed. The release's `processor/` bundles a tokenizer config *and* the
+    pixel-bound configs, which is the natural confusion; PR 15808 fixes the
+    text half and leaves the vision half untouched.
+  - Records that `coderef/sglang` has moved past the commit the 2026-08-21
+    prose was read at, so older sections are labelled as resolving but not
+    re-read.
+- **`docs/h3_references.md` now says what sglang does about frame rate.** Both
+  implementations target 24; only sglang enforces it, with an ffmpeg `fps=`
+  filter in the same decode pass. fps never enters its API surface at all --
+  the caller asks for a duration.
+
 ### Fixed
 
+- **`docs/research/sglang_comparison.md` listed a closed question as open.** Its
+  VAE-encode item asked for an instrument that separates encode from decode.
+  That instrument landed the previous evening and the file's own last-updated
+  date preceded it by minutes. The precision half is measured; what stays open
+  is the mean-versus-sample tangle and whether any of it is visible.
 - **`bench/grade_h3_marker_tokens.py`'s `comfy` arm changed meaning under it**
   when the correction moved into the tokenizer, and would have reported
   near-zero deltas -- reading as a retraction of its own earlier numbers rather

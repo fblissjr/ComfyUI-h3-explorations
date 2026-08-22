@@ -1,6 +1,6 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-08-21
+last updated: 2026-08-22
 
 What the vendor-side serving implementation does that this install does not,
 what both do where ours may be the weaker version, and what looks like a gap
@@ -13,11 +13,88 @@ bench records. No renders were made for any of it. Every claim below says
 which file it came from; nothing here is a measurement on this card unless it
 cites a record in `bench/results/`.
 
-**Scope.** This file owns the *optimization and runtime* comparison. The
-reference-conditioning comparison — sizing, patchify, presentation, packing,
-condition timestep — is owned by
+**The clone has moved since that read.** `coderef/sglang` is at `a7ec6b97f7`
+as of 2026-08-22. The index rows added that day were read at the new commit;
+the prose sections below were read at `a41da991c8` and have **not** been
+re-read. `bench/check_doc_links.py` confirms every cited line still exists,
+which is not the same as confirming it still says the same thing. Re-read
+before quoting an older section as current.
+
+**Scope, and what the index is for.** This file owns the *optimization and
+runtime* comparison. The reference-conditioning comparison — sizing, patchify,
+presentation, packing, condition timestep — is owned by
 [`h3_references.md`](../h3_references.md), section "The vendor image path,
-stage by stage", and must not be restated here.
+stage by stage", and its detail must not be restated here.
+
+That split kept every divergence documented and left none of them listed
+together, so answering "what are all the gaps" meant knowing which of three
+files to open. **The index below is the map: one line per divergence, pointing
+at the file that owns it.** A row carries no numbers and no mechanism — those
+belong to the owner and drift the moment they are copied. Adding a divergence
+here without giving it an owner is how this table becomes a second, worse copy
+of the docs it indexes.
+
+---
+
+## Every known divergence, and who owns it
+
+Two kinds, and the distinction decides how a gap gets fixed. **Config
+inheritance**: the release ships a value, sglang reads it through
+`AutoTokenizer` / `AutoProcessor` from the paths `model_index.json` names
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/loader/component_loaders/component_loader.py:70`,
+`:467`; consumed at
+`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/text_encoding.py:34`),
+and ComfyUI hardcodes its own. These are the cheap ones: the fix is to read the
+file. **Behavioural**: sglang decided something we did not, and copying it is a
+design choice rather than a correction.
+
+Priority is by what it costs a working user, not by how interesting it is.
+
+| # | divergence | kind | practical impact | status (2026-08-22) | owner |
+|---|---|---|---|---|---|
+| **P1** | | | | | |
+| 1 | Seven H3 special tokens absent from ComfyUI's tokenizer | config | Every dialogue prompt. Markers become literal text and the BPE fragments corrupt neighbouring words | **Fixed upstream by [PR 15808](https://github.com/Comfy-Org/ComfyUI/pull/15808), OPEN not merged.** Verified here against its own diff | [`official_weights_metadata.md`](official_weights_metadata.md) |
+| 2 | Reference video frame rate assumed 24 rather than enforced | behavioural | Any non-24fps reference. Both target 24; sglang converts with an ffmpeg `fps=` filter, we assume. Motion timing and `<T.T seconds>` labels stretch, silently | Open. Workaround `force_rate=24`, gated by `bench/check_ref_prompt_labels.py` | [`h3_references.md`](../h3_references.md) |
+| 3 | Image preprocessor **floor** (`min_pixels`) | config | Small references. The release enlarges them, we do not, so they are under-tokenized. No warning, and nothing about it looks extreme | Open, unenforced | [`h3_references.md`](../h3_references.md) |
+| **P2** | | | | | |
+| 4 | Image preprocessor **ceiling** (`max_pixels`) | config | Only very wide references in `max` mode. Past the crossing the VAE and Qwen see different resolutions of the same picture | Open. Zero shipped graphs reach it (`bench/results/2026-08-21_shipped_reference_bounds.json`) | [`h3_references.md`](../h3_references.md) |
+| 5 | Reference soundtracks not truncated | behavioural | Wasted rows on any soundtrack longer than the render. Trim it yourself | Open by choice | [`h3_references.md`](../h3_references.md) |
+| 6 | Reference video never upscaled | behavioural | Small reference videos condition on less than the vendor intends | Open. Costs ~5x the image fix | [`h3_references.md`](../h3_references.md) |
+| 7 | Mono reference audio raises | behavioural | Hard crash rather than a bad render | Gated by `bench/check_mono_ref_audio.py` | [`h3_references.md`](../h3_references.md) |
+| **P3** | | | | | |
+| 8 | Video VAE **encode** precision, and mean-vs-sample | behavioural | Identity fidelity of every reference and keyframe, once per render | Precision half measured (`bench/results/2026-08-21_vae_encoder_precision.json`); mean-vs-sample untangled and no downstream evidence | this file, "Open after this read" |
+| 9 | VAE tiling unrecorded | behavioural | A tiled decode cannot be distinguished from an untiled one afterwards | Open, unenforced | this file |
+| **P4 — architectural, not user-facing** | | | | | |
+| 10 | No partition concept | behavioural | A t2v graph loads `ref2va` and renders instead of refusing | Open by design; frames the checkpoint-swap arm | this file |
+| 11 | Exact AdaLN cache | behavioural | Unpruned accuracy at pruned memory. No speed here | Downstream of [`open_experiments.md`](../open_experiments.md) #22 | this file |
+| 12 | Breakable CUDA graphs | behavioural | None on one card | Their own quality gate requires it off | this file |
+| 13 | Step caching | behavioural | None at 4 steps | Priced and declined 2026-08-20 | [`roadmap.md`](../roadmap.md) |
+| **Settled — recorded so nobody re-derives them** | | | | | |
+| 14 | 2 fps conditioner subsample, index pad, merged-pair timestamp | — | — | **Confirmed identical** to sglang | [`h3_references.md`](../h3_references.md) |
+| 15 | Patch geometry (`patch_size`, `temporal_patch_size`, `merge_size`, mean/std) | — | — | **Confirmed identical**; ComfyUI passes 16 rather than inheriting 14 | [`h3_references.md`](../h3_references.md) |
+| 16 | qkv row-permutation as the fp8/int8 fidelity cause | — | — | **Refuted** on two independent grounds | this file, "Refuted here" |
+| 17 | What sglang does with a reference video shorter than its aligned target | — | — | **Read, not verified.** Cheap to close | [`h3_references.md`](../h3_references.md) |
+
+### The processor directory carries two different things
+
+Worth stating because it is a natural confusion and the answer differs for each
+half. The release's `processor/` bundles a tokenizer config *and* the image and
+video preprocessor configs, because HF's `AutoProcessor` wraps both halves. Row
+1 is the text half; rows 3 and 4 are the vision half. **Fixing one does nothing
+for the other.**
+
+**The special tokens do not reach the vision tower, measured rather than
+argued.** The tower consumes pixel patches and never a vocabulary; the vision
+sentinels are hardcoded ids in `comfy/text_encoders/minimax.py`, not lookups;
+the seven append *above* the highest existing added token, so no id shifts. The
+assertion that closes it is the reference-integrity arm in
+`bench/audit_h3_marker_tokenization.py`: over two images, an odd-frame video
+and an audio reference, a marker-free prompt tokenizes byte-identically with
+and without the fix, vision structure included. Had any vision id moved, that
+arm would have failed.
+
+So PR 15808 leaves rows 3 and 4 exactly where they were, and they are the rows
+that actually change what Qwen sees.
 
 ---
 
@@ -247,8 +324,15 @@ against a graph rewired to bypass the fit node.
 
 ## Open after this read
 
-- The VAE **encode** precision question, above. Needs an instrument that can
-  separate encode from decode; `--fp32-vae` cannot. **It now has a second
+- The VAE **encode** precision question, above. **Half of this closed on
+  2026-08-21, after the sentence below was written**: the instrument exists.
+  `bench/grade_vae_encoder_precision.py` grades the encoder at the call rather
+  than at a rendered clip, and
+  [`bench/results/2026-08-21_vae_encoder_precision.json`](../../bench/results/2026-08-21_vae_encoder_precision.json)
+  records fp16 bit-identical to itself against fp32 moving the latent, with
+  bf16 as the far control. What stays open is whether that delta is *visible*,
+  and the variable below, which the instrument does not separate.
+  `--fp32-vae` remains the wrong flag because it forces both halves. **It now has a second
   variable tangled with it, found 2026-08-21**: sglang *samples* the released
   posterior under a seed pinned at 42 for keyframes and reference video
   (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/keyframe_encoding.py:30`,
