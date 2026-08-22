@@ -46,7 +46,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 3 | Reference image floor (`min_pixels`) | config | open, unenforced |
 | 4 | Reference image ceiling (`max_pixels`) | config | open, no shipped graph reaches it |
 | 5 | Reference soundtracks not truncated | behavioural | open by choice |
-| 6 | Reference media never upscaled | behavioural | **a knob, not a defect** — see below |
+| 6 | Reference media never upscaled, and never reported | behavioural | clamp is a knob; **the silence is the defect** |
 | 7 | Mono reference audio raises | behavioural | gated |
 | 8 | VAE encode precision, and mean vs sample | behavioural | half measured |
 | 9 | VAE tiling unrecorded | behavioural | open, unenforced |
@@ -273,11 +273,31 @@ reference size are two different samples rather than a good and a degraded
 version of one. So the honest state is a measured cost against an unmeasured
 benefit, which is a strong argument for the current default.
 
-Two things it does still mean, neither of them urgent. Output will not reproduce
-the vendor's for the same inputs, which matters only if that is your goal. And
-you are off the resolution distribution the model was trained on, though "H3
-handles it fine" is real evidence that the distribution is wider than the
-canvas rule implies.
+**The clamp is defensible. The silence is not, and that is the actual defect.**
+Nothing reports what resolution a reference finally reached. The node accepts a
+reference at any size, conditions on whatever it gets, and emits no signal about
+what it did, so a user cannot tell a deliberate downscale from an accidental one
+and has no way to find out what it cost. That is the same class as gap 4, where
+the two towers silently diverge, and gap 9, where a tiled decode is
+indistinguishable afterwards. It applies to the default too, so users who never
+chose the tradeoff are also making it.
+
+**And "H3 handles it fine" is not evidence that nothing was lost.** Recorded
+because the temptation to treat it as evidence is strong and this file nearly
+did. Anyone reporting it has seen their references at one size only, so they
+have no baseline to notice a fidelity loss against. It is compatible both with
+"the model is robust here" and with "identity is quietly worse than it would
+have been", and a rendered comparison cannot separate them: two arms differing
+in reference size are two different samples. The claim that would settle it is a
+blind session under [`eval_comparison.md`](eval_comparison.md) section 3, and
+nobody has run one.
+
+So the state is a **measured** cost against an **unmeasured** benefit, with no
+instrument reporting which regime a given render was in. The first argues for
+the current default. The second is why the default should say what it did.
+
+One more thing it means, not urgent: output will not reproduce the vendor's for
+the same inputs, which matters only if that is your goal.
 
 **7. Mono reference audio raises.** `_encode_ref_audio` does not upmix, so a
 mono waveform produces half the rows the packed layout allocated and the
@@ -461,7 +481,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 3, image floor | **nothing** |
 | 4, image ceiling | [`bench/audit_shipped_reference_bounds.py`](../bench/audit_shipped_reference_bounds.py) reports; nothing refuses |
 | 5, soundtrack length | **nothing** |
-| 6, media upscale | **nothing**, and nothing is owed — see the section |
+| 6, media upscale | **nothing**, and the clamp needs none. **Nothing reports the resolution a reference reached**, which does |
 | 7, mono audio | [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py) |
 | 8, VAE encode precision | **nothing** |
 | 9, VAE tiling | **nothing** |
