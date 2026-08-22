@@ -37,6 +37,16 @@ directly with an explicit `return_dict=True`, which asserts the merge works
 when asked for and says nothing about whether the production caller asks.
   M3  `extra_conds` stops copying the tags into the payload -- the "dropped
       afterward" half of contract 5, which raises nothing either.
+  M5  the merge stores `None` under the right key.
+  M6  `extra_conds` copies an all-zero tensor instead of the tags.
+
+**M5 and M6 are the corruption pair, and both were GREEN until 2026-08-22.**
+Contracts 5a and 5b asserted that a KEY was present, which `None` and an
+all-zero tensor both satisfy -- and an all-zero tag tensor is precisely the
+silent "every row is text" failure the contracts exist to prevent. A presence
+test passes the exact state it was written to catch. Both seams now compare
+`torch.equal` against a retained marker. Found by codex predicting it from the
+source; confirmed here by running both mutations green before the fix.
 
 The near-misses matter as much: an unrelated edit to the same function, and a
 restore, must both leave the verdict where the baseline is.
@@ -137,6 +147,18 @@ def build():
            _with(MB, "extra_conds",
                  'payload["text_token_tags"] = tags',
                  'pass',
+                 C.contract5b_holds))
+
+    h.case("M5 contract 5a: the merge stores None under the right key",
+           MUTATION,
+           _with(SD, "encode_from_tokens", "out[k] = o[2][k]", "out[k] = None",
+                 C.contract5a_holds))
+
+    h.case("M6 contract 5b: the payload gets an all-zero tag tensor",
+           MUTATION,
+           _with(MB, "extra_conds",
+                 'payload["text_token_tags"] = tags',
+                 'payload["text_token_tags"] = tags * 0',
                  C.contract5b_holds))
 
     # --- near-misses: the verdict must NOT move ---

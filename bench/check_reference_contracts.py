@@ -141,33 +141,39 @@ def contract5a_holds():
     """(ok, detail) for: the tags reach conditioning through the path the node uses.
 
     Asserted end-to-end at `encode_from_tokens_scheduled`, the node's own
-    entry point, so that flipping `return_dict=True` at its call site is
-    detectable. The `scheduled=False` arm is the mechanism, not the seam.
+    entry point, and by VALUE rather than by key presence -- see the detail
+    string for why those are different assertions.
     """
     import torch
-    tags = torch.tensor([0, 1, 0])
+    tags = torch.tensor([0, 1, 0, 1])
     out = _drive_encode_from_tokens({"minimax_token_tags": tags})
-    reached = (isinstance(out, list) and len(out) == 1
-               and isinstance(out[0][1], dict)
-               and "minimax_token_tags" in out[0][1])
-    plain = _drive_encode_from_tokens({"minimax_token_tags": tags},
-                                      scheduled=False)
-    return (reached and not isinstance(plain, dict),
-            f"conditioning extras {sorted(out[0][1]) if reached else out}; "
-            f"the non-dict path returned {type(plain).__name__}")
+    got = (out[0][1].get("minimax_token_tags")
+           if isinstance(out, list) and out and isinstance(out[0][1], dict)
+           else None)
+    ok = isinstance(got, torch.Tensor) and torch.equal(got, tags)
+    return (ok,
+            f"conditioning carries {list(got) if isinstance(got, torch.Tensor) else got!r} "
+            f"against the marker {list(tags)} -- **value equality, not key "
+            f"presence**: a key holding None or an all-zero tensor is exactly "
+            f"the silent 'every row is text' failure this contract exists to "
+            f"prevent, and both pass a presence test")
 
 
 def contract5b_holds():
     """(ok, detail) for: losing the tags is silent, which is why this exists."""
     import torch
     z = torch.zeros(1)
-    with_tags = _drive_extra_conds(z, z, z, z, tags=torch.tensor([0, 1, 0]))
+    marker = torch.tensor([0, 1, 0, 1])
+    with_tags = _drive_extra_conds(z, z, z, z, tags=marker)
     without = _drive_extra_conds(z, z, z, z)
-    return ("text_token_tags" in with_tags
-            and "text_token_tags" not in without,
-            "present when passed, absent when not, and the absent case raised "
-            "nothing -- which is the whole reason this contract needs an "
-            "assertion rather than a code comment")
+    got = with_tags.get("text_token_tags")
+    carried = isinstance(got, torch.Tensor) and torch.equal(got, marker)
+    return (carried and "text_token_tags" not in without,
+            f"payload carries {list(got) if isinstance(got, torch.Tensor) else got!r} "
+            f"against the marker {list(marker)}, and the absent case raised "
+            f"nothing. **Value equality, not presence** -- an all-zero tensor "
+            f"reaching the DiT tags every row as text while passing any "
+            f"presence test")
 
 
 def _drive_extra_conds(keyframe_latent, ref_latent,
@@ -205,8 +211,7 @@ def _drive_extra_conds(keyframe_latent, ref_latent,
     return out["minimax_payload"].cond
 
 
-def _drive_encode_from_tokens(extra: dict, scheduled: bool = True,
-                              hooked: bool = False):
+def _drive_encode_from_tokens(extra: dict, hooked: bool = False):
     """Run core's real encode path over a stub text encoder.
 
     Contract 5's subject is `comfy/sd.py`'s merge of the encoder's third
@@ -220,10 +225,15 @@ def _drive_encode_from_tokens(extra: dict, scheduled: bool = True,
     `encode_from_tokens` directly with an explicit `return_dict=True` --
     which this did until it was audited on 2026-08-22 -- asserts that the
     merge works when asked for, and says nothing about whether the production
-    caller asks. Flipping `return_dict=True` to `False` at `sd.py:341` left
-    that version green while the tags vanished. The end-to-end path is the
-    seam; the direct call is kept only as the `scheduled=False` contrast that
-    shows the mechanism.
+    caller asks. That call site cannot silently regress -- flipping it raises
+    `AttributeError: 'tuple' object has no attribute 'pop'` on the next line,
+    executed rather than reasoned -- but the earlier framing was still testing
+    the mechanism instead of the seam, so the drive moved to the end-to-end
+    path regardless. **The direct `return_dict=False` arm went with it rather
+    than being kept as documentation**: it had no caller once 5a asserted
+    value equality, and a future change to that unused return shape must not
+    fail a healthy production seam. Inert code that still runs is a failure
+    this repo has recorded before.
     """
     import comfy.sd
     import torch
@@ -282,9 +292,7 @@ def _drive_encode_from_tokens(extra: dict, scheduled: bool = True,
         clip.use_clip_schedule = True
         return comfy.sd.CLIP.encode_from_tokens_scheduled(clip, "tokens",
                                                           show_pbar=False)
-    if scheduled:
-        return comfy.sd.CLIP.encode_from_tokens_scheduled(clip, "tokens")
-    return comfy.sd.CLIP.encode_from_tokens(clip, "tokens", return_dict=False)
+    return comfy.sd.CLIP.encode_from_tokens_scheduled(clip, "tokens")
 
 
 def contract5c_state():
