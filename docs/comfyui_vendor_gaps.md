@@ -243,9 +243,16 @@ Owner: [`h3_references.md`](h3_references.md).
 
 **5. Soundtracks not truncated.** ComfyUI encodes the whole waveform, at 80 rows
 per second of excess. sglang cuts every reference soundtrack to the generated
-duration via `ffmpeg -t`, and diffusers does the same. *Impact:* wasted rows on
-any soundtrack longer than the render, and those rows are attended every step.
-Trim it yourself.
+duration via `ffmpeg -t`, and diffusers does the same. It applies to **both**
+material chains there -- a video's soundtrack and a standalone audio reference
+alike. *Impact:* wasted rows on any soundtrack longer than the render, and
+those rows are attended every step.
+
+**Closed in the graphs on 2026-08-22, not in the node.** `TrimAudioDuration` at
+`length / 24` sits on every `ref_audio_*` and `ref_video_audio_*` socket here.
+Core is unchanged, so a hand-built graph is still exposed; the control is
+`bench/preflight_graph.py`, which warns on an untrimmed socket and on a baked
+trim that disagrees with `length`.
 
 **6. Reference media never upscaled — a tradeoff ComfyUI exposes and the vendor
 does not.** If the source has fewer pixels than the canvas, ComfyUI uses the
@@ -439,10 +446,19 @@ all — everything above measures the ceiling.
 | what | where |
 |---|---|
 | Gate | [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py) |
+| Reports it on a real graph's real media | [`bench/preflight_graph.py`](../bench/preflight_graph.py) |
 
 Its two red states mean opposite things and the file says which: a failing mono
 arm is the defect, a *succeeding* one means upstream fixed it and the check
 should be retired rather than repaired.
+
+**Still open on purpose, and preflight only reports it.** Since 2026-08-22
+preflight ffprobes the media each ref-audio socket actually resolves to and
+warns when it is mono. It does not upmix: that belongs in core's
+`_encode_ref_audio`, and a `JoinAudioChannels(a, a)` in every shipped graph
+would alter every stereo source to prevent a crash none of them hit. "Channel
+count unreadable" is reported as its own state -- no ffprobe and no audio
+stream are not a pass.
 
 ### 8. VAE encode precision
 

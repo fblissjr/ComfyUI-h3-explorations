@@ -115,8 +115,18 @@ matter how long the clip is.
 
 ### Audio references
 
-Resampled to the audio VAE's rate. **Not truncated.** ComfyUI encodes the
-whole waveform, at 80 rows per second of excess. Trim it yourself.
+Resampled to the audio VAE's rate. **Core does not truncate.** ComfyUI encodes
+the whole waveform, at 80 rows per second of excess.
+
+**Every shipped graph here trims, since 2026-08-22.** `TrimAudioDuration` sits
+between the source and every `ref_audio_*` and `ref_video_audio_*` socket, at
+`length / 24` seconds. The node caps and never pads
+(`comfy_extras/nodes_audio.py:473-474`), so a soundtrack shorter than the render
+passes through untouched. **Core itself still does not**, so a hand-built graph
+is still on you -- and `bench/preflight_graph.py` is the control that says so:
+it warns when a ref-audio socket arrives untrimmed, and when the baked trim
+disagrees with `length`, which is what happens when a bench patches the length
+alone. Both shown red by deliberate violation.
 
 **Two of three vendor implementations truncate; one does not** (re-derived
 2026-08-21). sglang cuts every reference soundtrack to the generated duration —
@@ -543,14 +553,24 @@ because upscaling adds tokens rather than detail."
 Both have the same kind of divergence from the reference pipeline. The answers
 go opposite ways.
 
-**Audio: yes, and it already exists — it is a trim, not a fit.** ComfyUI
+**Audio: yes, and it is wired, since 2026-08-22.** What follows is why, and it
+is now a description of what ships rather than a proposal. ComfyUI
 encodes the whole waveform (`_encode_ref_audio`, no truncation on either the
 soundtrack or the standalone path) where the reference pipeline cuts a
 soundtrack to the generated duration. So here ComfyUI does **more** than the
 reference, at 80 rows per second of excess, and closing the gap *saves* rows
 while moving toward the reference's behaviour. Core already ships
 `TrimAudioDuration` (`comfy_extras/nodes_audio.py:430`), so this is a wiring
-fix and a Preflight warning, not a new node.
+fix and a Preflight warning, not a new node. **Both landed 2026-08-22**, in
+that shape.
+
+**Mono is the part that was NOT closed, deliberately.** A mono reference raises
+rather than degrading, and the upmix belongs in core's `_encode_ref_audio`
+where diffusers and DiffSynth-Studio put it. Wiring `JoinAudioChannels(a, a)`
+here would alter every stereo source on every graph to prevent a crash no
+shipped source hits. Preflight ffprobes the wired media and reports the channel
+count instead -- and reports "unreadable" as its own state, because no ffprobe
+and no audio stream are not a pass.
 
 **Video: no, not now.** The divergence is real and the same shape as the image
 one — never upscaled, where the reference puts the clip on the full canvas rule
@@ -893,9 +913,11 @@ experiment, documented in its own note.
 - **No mask.** Edits are prompt-driven whole-frame regeneration.
 - **No fps input.** 24 is assumed twice; use `force_rate=24`.
 - **Reference video is never upscaled**, where the reference pipeline upscales.
-- **Reference audio is never truncated**, where the reference pipeline
-  truncates to the generated duration. Costs 80 rows per second of excess;
-  core's `TrimAudioDuration` closes it without a new node here.
+- **Core never truncates reference audio**, where the reference pipeline
+  truncates to the generated duration. Costs 80 rows per second of excess.
+  **Closed in the shipped graphs on 2026-08-22** by wiring core's
+  `TrimAudioDuration` at `length / 24`; core's own behaviour is unchanged, so
+  this stays a limitation of the node, not of these graphs.
 - **`ref_image_size='max'` does not upscale.** Neither mode does. It picks
   which ceiling sizes a reference down; `MiniMaxH3ReferenceFit` with
   `allow_upscale=True` is the only thing that raises a small one to it.
