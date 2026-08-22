@@ -74,7 +74,7 @@ def _core():
 
 
 def _drive_core(img_ids, vid_ids, track_ids, aud_ids):
-    """Core's own `ref_items` type sequence for one socket configuration."""
+    """Core's own (`ref_items` types, `ref_blocks` kinds) for one configuration."""
     import torch
     import check_reference_contracts as CC
     frames = torch.zeros(8, 64, 64, 3)
@@ -84,8 +84,8 @@ def _drive_core(img_ids, vid_ids, track_ids, aud_ids):
         ref_video_audios={f"ref_video_audio_{i}": CC._audio(1.0)
                           for i in track_ids},
         ref_audios={f"ref_audio_{i}": CC._audio(1.0) for i in aud_ids})
-    items, _ = CC._drive(_core(), **kw)
-    return [i["type"] for i in items]
+    items, blocks = CC._drive(_core(), **kw)
+    return [i["type"] for i in items], [b["kind"] for b in blocks]
 
 
 def _sockets(img_ids, vid_ids, track_ids, aud_ids):
@@ -136,14 +136,26 @@ def _chain(kinds, sounded=frozenset()):
 
 
 def agrees_with_core():
-    """The plan's record sequence IS core's `ref_items` sequence."""
-    from reference_order import legacy_plan, plan_kinds
+    """The plan reproduces BOTH of core's lists, which differ in length.
+
+    Contract 1 is that `ref_items` and `ref_blocks` are not index-aligned: a
+    sounded video is two presentation entries and one DiT block. Asserting
+    only the first would pass a plan that labelled correctly and paid the
+    wrong DiT cost, so both are compared against their own core list.
+    """
+    from reference_order import legacy_plan, plan_blocks, plan_kinds
     for label, imgs, vids, tracks, auds in CONFIGS:
-        got = plan_kinds(legacy_plan(_sockets(imgs, vids, tracks, auds)))
-        want = _drive_core(imgs, vids, tracks, auds)
-        assert got == want, f"{label}: plan {got} vs core {want}"
+        plan = legacy_plan(_sockets(imgs, vids, tracks, auds))
+        items, blocks = _drive_core(imgs, vids, tracks, auds)
+        assert plan_kinds(plan) == items, (
+            f"{label} items: plan {plan_kinds(plan)} vs core {items}")
+        assert plan_blocks(plan) == blocks, (
+            f"{label} blocks: plan {plan_blocks(plan)} vs core {blocks}")
+        if any(tracks):
+            assert len(items) != len(blocks) or not vids, (
+                f"{label}: a sounded video must make the two lists differ")
     print(f"        {len(CONFIGS)} configurations driven through core, "
-          f"all identical")
+          f"items AND blocks identical")
 
 
 def wired_labels_now_shares_the_function():
@@ -201,6 +213,102 @@ def a_soundtrack_is_never_a_standalone_record():
     assert len(recs) == 1 and isinstance(recs[0], VideoRef), recs
     assert recs[0].has_soundtrack, "the soundtrack was not owned"
     assert plan_kinds(recs) == ["audio", "video"], plan_kinds(recs)
+
+
+def both_models_wired_raises():
+    """A chain AND sockets on one node is a partial plan either way.
+
+    Until 2026-08-22 the chain silently won and the sockets vanished. Found by
+    self-audit after the fail-loudly contract was flagged as the thing to
+    probe, which is where the earlier drafts of this suite kept springing
+    leaks: every one has been an assertion about one side of a two-sided
+    thing.
+    """
+    from reference_order import ChainError, plan_for
+    g = _chain(["image"])
+    ins = {"references": ["1", 0], "ref_images.ref_image_0": ["x", 0],
+           "ref_videos.ref_video_0": ["x", 0]}
+    try:
+        plan_for(ins, g)
+    except ChainError as e:
+        assert "silently dropped" in str(e), e
+        return
+    raise AssertionError("a node wiring both models produced a partial plan")
+
+
+def each_model_alone_still_resolves():
+    """The refusal above must not fire on either model used on its own."""
+    from reference_order import plan_for
+    g = _chain(["image"])
+    assert len(plan_for({"references": ["1", 0]}, g)) == 1
+    assert len(plan_for({"ref_images.ref_image_0": ["x", 0]})) == 1
+    # and a graph passed alongside socket wiring is not a chain
+    assert len(plan_for({"ref_images.ref_image_0": ["x", 0]}, g)) == 1
+
+
+def degenerate_chain_values_raise():
+    """Every value a declared `references` can carry that is not a chain.
+
+    **Key presence is the discriminator, not link truthiness.** A node that
+    declares `references` IS an ordered node; there is nothing to fall back
+    to, so an empty list, a missing graph, a malformed link or a non-zero
+    output slot are all "no plan", never "the legacy plan" and never `[]`.
+    All five were accepted before 2026-08-22, four returning an empty list and
+    one silently following the wrong slot. Found by codex probing the
+    fail-loudly contract, which is the third time that probe has found
+    something -- each one an assertion about only one side of a two-sided
+    thing.
+    """
+    from reference_order import ChainError, plan_for, resolve_chain
+    g = _chain(["image"])
+    cases = [
+        ("empty link, graph present", lambda: plan_for({"references": []}, g)),
+        ("link but no graph", lambda: plan_for({"references": ["1", 0]})),
+        ("link is not a pair", lambda: plan_for({"references": "1"}, g)),
+        ("terminal takes slot 1", lambda: plan_for({"references": ["1", 1]}, g)),
+    ]
+    for label, fn in cases:
+        try:
+            got = fn()
+        except ChainError:
+            continue
+        raise AssertionError(f"{label}: returned {got!r} instead of raising")
+
+    mid = _chain(["image", "image"])
+    mid["2"]["inputs"]["references"] = ["1", 7]
+    try:
+        resolve_chain(mid, "2")
+    except ChainError:
+        return
+    raise AssertionError("a mid-chain link from the wrong slot was followed")
+
+
+def a_video_needs_its_metadata():
+    """`video_info` is required, because ownership is the record's claim."""
+    from reference_order import ChainError, resolve_chain
+    g = _chain(["video"])
+    del g["1"]["inputs"]["video_info"]
+    try:
+        resolve_chain(g, "1")
+    except ChainError as e:
+        assert "video_info" in str(e), e
+        return
+    raise AssertionError("a video with no metadata resolved, so loaded_fps "
+                         "would have nowhere to come from")
+
+
+def video_links_must_name_their_own_slots():
+    """Right shape, wrong output, is the wrong value."""
+    from reference_order import ChainError, resolve_chain
+    for field, bad in (("frames", 1), ("video_info", 0), ("soundtrack", 3)):
+        g = _chain(["video"], sounded={0})
+        g["1"]["inputs"][field] = ["9", bad]
+        try:
+            resolve_chain(g, "1")
+        except ChainError as e:
+            assert "slot" in str(e), e
+            continue
+        raise AssertionError(f"{field} from slot {bad} was accepted")
 
 
 def a_cycle_raises():
@@ -298,6 +406,14 @@ def main() -> int:
     check("a soundtrack is owned, never a standalone record",
           a_soundtrack_is_never_a_standalone_record)
     print("\n  and it fails loudly rather than returning a partial plan")
+    check("wiring both models at once raises", both_models_wired_raises)
+    check("but either model alone still resolves",
+          each_model_alone_still_resolves)
+    check("every degenerate `references` value raises",
+          degenerate_chain_values_raise)
+    check("a video without its metadata raises", a_video_needs_its_metadata)
+    check("video links must name their own output slots",
+          video_links_must_name_their_own_slots)
     check("a cycle raises", a_cycle_raises)
     check("a link to a non-append node raises", a_non_builder_link_raises)
     check("frames and video_info from different loaders raises",

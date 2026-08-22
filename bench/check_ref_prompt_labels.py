@@ -99,12 +99,8 @@ def wired_labels(inputs, graph=None):
     `assign_labels`, which is the point: an ordered graph and a socket graph
     are two ways to build a plan, not two labelling rules.
     """
-    from reference_order import (CHAIN_INPUT, assign_labels, legacy_plan,
-                                 resolve_chain)
-    link = inputs.get(CHAIN_INPUT)
-    if graph is not None and isinstance(link, list) and link:
-        return assign_labels(resolve_chain(graph, str(link[0])))
-    return assign_labels(legacy_plan(inputs))
+    from reference_order import assign_labels, plan_for
+    return assign_labels(plan_for(inputs, graph))
 
 
 def main():

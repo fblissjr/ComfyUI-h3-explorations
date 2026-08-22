@@ -122,6 +122,17 @@ def legacy_plan(inputs) -> list:
     That is the whole legacy model expressed as a plan, which is what makes
     equivalence checkable against core rather than against another
     reimplementation of core.
+
+    **One boundary, narrower than it first looked.** Sockets are read in
+    numeric suffix order where core iterates `(ref_images or {}).values()` --
+    dict order. Autogrow rebuilds those nested dicts in schema order before
+    core sees them, so the sort predicts real execution for hand-built API
+    graphs too, not only generated ones. The two diverge only when core is
+    called directly in Python with an already-nested, non-canonical dict:
+    driven that way on 2026-08-22 with `{"ref_video_1": ..., "ref_video_0":
+    ...}` and a track on 0, core emits `video, audio, video` where this says
+    `audio, video, video`. That path exists in test harnesses and nowhere
+    else, and it is recorded so nobody rediscovers it as a bug in the plan.
     """
     def _wired(prefix):
         return sorted(
@@ -170,6 +181,35 @@ def plan_kinds(records) -> list[str]:
     return kinds
 
 
+def plan_blocks(records) -> list[str]:
+    """The record sequence as core's `ref_blocks` kind strings.
+
+    **The other half of contract 1, and asserting only the presentation half
+    would miss it.** `ref_items` and `ref_blocks` are deliberately different
+    lengths: a sounded video contributes TWO presentation entries -- the
+    soundtrack's label, then the video's -- and ONE DiT payload block, tagged
+    `video_audio`. Driven through core, one image, two videos with a track on
+    the second, and one standalone audio give five items against four blocks.
+
+    A plan that got the labels right and the payload wrong would satisfy
+    `plan_kinds` completely, which is why this exists as a separate function
+    checked against a separate core list rather than being inferred from the
+    first. Added 2026-08-22 after a self-audit found `plan_kinds` was the only
+    thing asserted.
+    """
+    kinds: list[str] = []
+    for rec in records:
+        if isinstance(rec, ImageRef):
+            kinds.append("image")
+        elif isinstance(rec, VideoRef):
+            kinds.append("video_audio" if rec.has_soundtrack else "video")
+        elif isinstance(rec, AudioRef):
+            kinds.append("audio")
+        else:
+            raise TypeError(f"not a reference record: {rec!r}")
+    return kinds
+
+
 # The append-node contract. Named here rather than in the node module so the
 # static checks can recognise a chain without importing anything from ComfyUI.
 APPEND_KINDS = {
@@ -182,6 +222,62 @@ CHAIN_INPUT = "references"
 
 class ChainError(ValueError):
     """A reference chain that cannot be resolved. Never a partial plan."""
+
+
+SOCKET_PREFIXES = ("ref_images.", "ref_videos.", "ref_video_audios.",
+                   "ref_audios.")
+
+
+def wired_sockets(inputs) -> list[str]:
+    """Socket keys carrying a link, in the order the mapping presents them."""
+    return [k for k, v in inputs.items()
+            if k.startswith(SOCKET_PREFIXES) and v is not None]
+
+
+def plan_for(inputs, graph=None) -> list:
+    """Choose a model and build the plan, or refuse to guess between them.
+
+    **A node wiring BOTH a chain and sockets is a partial plan in either
+    direction**, and until 2026-08-22 the chain silently won: one image
+    appended and two sockets wired reported a single `<Picture 1>` and the
+    sockets vanished. Dropping records is a renumbering, so this raises rather
+    than picking. Found by self-audit after codex flagged the fail-loudly
+    contract as the thing to probe.
+    """
+    typed = CHAIN_INPUT in inputs
+    sockets = wired_sockets(inputs)
+    if typed:
+        # **Key presence, not link truthiness.** A node that declares
+        # `references` is an ordered node, and every degenerate value it can
+        # carry -- an empty list, a link with no graph to resolve it against,
+        # a non-list -- used to fall through to `legacy_plan` and return the
+        # sockets' answer, or `[]`. Both are partial plans wearing a
+        # successful return. Found by codex probing the fail-loudly contract.
+        if graph is None:
+            raise ChainError(
+                f"this node declares `{CHAIN_INPUT}` but no graph was supplied "
+                f"to resolve it. The chain holds the plan; without it there is "
+                f"nothing to fall back TO, only an empty answer")
+        link = inputs.get(CHAIN_INPUT)
+        if not (isinstance(link, list) and len(link) == 2):
+            raise ChainError(
+                f"`{CHAIN_INPUT}` is {link!r}, not a [node_id, slot] link. An "
+                f"ordered node with an unresolvable chain has no plan, and "
+                f"returning an empty one would silently drop every record")
+        if int(link[1]) != 0:
+            raise ChainError(
+                f"`{CHAIN_INPUT}` takes output slot {link[1]} of node "
+                f"{link[0]!r}; an append node's plan is slot 0. A different "
+                f"slot is a different value and cannot be a chain")
+    if typed and sockets:
+        raise ChainError(
+            f"this node wires an ordered chain on `{CHAIN_INPUT}` AND "
+            f"{len(sockets)} legacy socket(s) ({sorted(sockets)}). One of the "
+            f"two would be silently dropped, and dropping a record renumbers "
+            f"every label after it. Wire one model or the other")
+    if typed:
+        return resolve_chain(graph, str(inputs[CHAIN_INPUT][0]))
+    return legacy_plan(inputs)
 
 
 def resolve_chain(graph: dict, node_id: str) -> list:
@@ -231,12 +327,21 @@ def resolve_chain(graph: dict, node_id: str) -> list:
         link = node.get("inputs", {}).get(CHAIN_INPUT)
         if link is None:
             current = None
-        elif isinstance(link, list) and link:
+        elif isinstance(link, list) and len(link) == 2:
+            # The slot matters INSIDE the chain too, not only at the terminal.
+            # An append node's plan is output 0; any other slot is a different
+            # value with the same shape, and following it would build a plan
+            # out of something that is not one.
+            if int(link[1]) != 0:
+                raise ChainError(
+                    f"node {current!r} takes `{CHAIN_INPUT}` from output slot "
+                    f"{link[1]} of node {link[0]!r}, where an append node's "
+                    f"plan is slot 0")
             current = str(link[0])
         else:
             raise ChainError(
                 f"node {current!r} has a `{CHAIN_INPUT}` input that is not a "
-                f"link: {link!r}")
+                f"[node_id, slot] link: {link!r}")
 
     records = []
     for nid, node, kind in reversed(chain):        # tail-first -> user order
@@ -253,19 +358,48 @@ def resolve_chain(graph: dict, node_id: str) -> list:
     return records
 
 
-def _assert_video_ownership(nid, ins) -> None:
-    """A video's frames and its VHS_VIDEOINFO must come from one loader."""
-    frames, info = ins.get("frames"), ins.get("video_info")
-    if frames is None:
-        raise ChainError(f"video append node {nid!r} wires no frames")
-    if info is None:
-        return                                  # metadata is optional...
-    if not (isinstance(frames, list) and isinstance(info, list)):
-        raise ChainError(f"video append node {nid!r} has a non-link frames or "
-                         f"video_info input")
-    if str(frames[0]) != str(info[0]):
+# VHS_LoadVideo's outputs, which a video record's links must name exactly.
+VIDEO_SLOTS = {"frames": 0, "soundtrack": 2, "video_info": 3}
+
+
+def _assert_link(nid, ins, field, required=True):
+    """A [node_id, slot] link naming this field's own output slot."""
+    link = ins.get(field)
+    if link is None:
+        if required:
+            raise ChainError(f"video append node {nid!r} wires no {field}")
+        return None
+    if not (isinstance(link, list) and len(link) == 2):
+        raise ChainError(f"video append node {nid!r} has a {field} input that "
+                         f"is not a [node_id, slot] link: {link!r}")
+    want = VIDEO_SLOTS[field]
+    if int(link[1]) != want:
         raise ChainError(
-            f"video append node {nid!r} takes frames from node "
-            f"{frames[0]!r} and video_info from node {info[0]!r}. The record "
-            f"claims to own both and derives loaded_fps from the metadata, "
-            f"which is false if they describe different decodes")
+            f"video append node {nid!r} takes {field} from output slot "
+            f"{link[1]} of node {link[0]!r}, where a loader's {field} is slot "
+            f"{want}. Accepting any slot means accepting the wrong value with "
+            f"the right shape")
+    return link
+
+
+def _assert_video_ownership(nid, ins) -> None:
+    """Frames, metadata and any soundtrack come from ONE loader, by exact slot.
+
+    **`video_info` is required, not optional**, and it was optional until
+    codex probed this. The record's whole claim is that it OWNS its clip, and
+    `loaded_fps` is derived from that metadata rather than from a second
+    widget somebody could set inconsistently. A record with no metadata cannot
+    honour the claim, so accepting one means the ownership contract holds for
+    some records and not others -- with nothing saying which.
+    """
+    frames = _assert_link(nid, ins, "frames")
+    info = _assert_link(nid, ins, "video_info")
+    track = _assert_link(nid, ins, "soundtrack", required=False)
+    sources = {str(frames[0]), str(info[0])}
+    if track is not None:
+        sources.add(str(track[0]))
+    if len(sources) != 1:
+        raise ChainError(
+            f"video append node {nid!r} draws from {sorted(sources)}. The "
+            f"record claims to own one clip and derives loaded_fps from its "
+            f"metadata, which is false if they describe different decodes")
