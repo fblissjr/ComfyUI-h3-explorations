@@ -36,16 +36,26 @@ artifact.
 
 ### Changed
 
-- **A caption is not a transcript, and the prompting guide now says which
-  marker wraps what.** The only nesting that exists is `<d>` inside a lyrics
-  pair -- lyrics wrap the same words that are sung, because they mark them as
-  sung. A caption pair is a sibling of `<d>` in both directions: its string is
-  burned-in on-screen text and may differ from the spoken line, which is what
-  makes French speech with English subtitles a caption rather than a mistake.
-  Placement follows the shot's chronology rather than a fixed rule against the
-  `<d>`: signage early with the props, a subtitle immediately after the line it
-  translates. What a caption pair does to the picture is still unmeasured,
-  which is why no shipped default carries one.
+- **The prompting guide now says which marker wraps what.** The only nesting
+  that exists is `<d>` inside a lyrics pair -- lyrics wrap the same words that
+  are sung, because they mark them as sung. A caption pair is a sibling of `<d>`
+  in both directions, placed immediately after the `</d>` it belongs to, and its
+  string may differ from the spoken line -- which is what makes speech in one
+  language with subtitles in another a caption rather than a mistake.
+
+- **`<|caption_start|>` is read as a subtitle marker, and the signage reading is
+  withdrawn.** This repo asserted, in the audit harness and then in the guide,
+  that the pair marks burned-in signage. Nothing sourced that. The marker
+  appears in neither prompt guide, in no script, in no skill the release ships,
+  and in no worked example in the release or any sister checkout -- verified by
+  grep, not assumed. Its name is the only evidence available and it sits in the
+  declared list beside `<d>`, `<|cutoff|>` and the lyrics pair, all of which
+  concern speech. Subtitle is the reading to write to. The scenes in
+  `build_workflows.py` use the pair for signage and are left alone pending an
+  owner call, since they are the baseline set. Whether the marker renders
+  anything at all is still unmeasured, which is why no shipped default carries
+  one, and the guide's §4.5 double-quoted string stays the documented route to
+  on-screen text of any kind.
 
 - **The prompt writer is told to emit `<|cutoff|>`, with the pipes.** Both
   official guides spell it `<cutoff>`, which matches no entry in the release's declared
