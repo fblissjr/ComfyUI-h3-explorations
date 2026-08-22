@@ -128,6 +128,17 @@ section 5.3 states it directly, and `internal/gemini/minimax_h3_comfyui_end_to_e
 carries the cursor formula. Trimming is therefore a correctness change on the
 soundtrack path, not only a saving.
 
+**`length / 24` is not an approximation of the right value, it is the exact
+one**, and the arithmetic says so. `_ref_t_span` compares `ref_audio_t`
+against `sum(_video_t_spans(latent_t))` in the same timeline units
+(`comfy/ldm/minimax/model.py:105-113`). At 124 frames those are 207 and
+206.667; at 362 they are 603 and 603.333. A soundtrack trimmed to the render
+lands on its own video's span and the `max` is a tie. Left untrimmed, the
+19.541s source clip here gives `ref_audio_t` about 782 against a video span of
+206.667 -- the reference block claims **3.8x** the timeline it should, and the
+target streams start that much later. Computed 2026-08-22 with
+`temporal_shape` and `_video_t_spans` imported, not restated.
+
 **Every shipped graph here trims, since 2026-08-22.** `TrimAudioDuration` sits
 between the source and every `ref_audio_*` and `ref_video_audio_*` socket, at
 `length / 24` seconds. The node caps and never pads
