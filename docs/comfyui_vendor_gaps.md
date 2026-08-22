@@ -212,6 +212,17 @@ divergence for this clip is **entirely gap 6 below** -- sglang upscales the
 reference video to 1344x768 first, and the duration-aware pass then pulls it
 back to 1184x672.
 
+**It has a threshold, and both settings this session used sit on opposite
+sides of it.** The budget bites only when `padded_sampled_frames * w * h`
+exceeds 25,165,824. At the vendor's 1344x768 that is 24 padded sampled frames,
+about **288 target frames**; at our un-upscaled 960x544 it is 48, about **576
+target frames** -- past the legal maximum, so the pass can never activate on
+this clip as ComfyUI feeds it. Executed at both: 11 sampled frames of 1344x768
+comes back unresized at 6,048 rows, 31 comes back at 1184x672 and 12,432. So
+the coupling below is **length-dependent**: at 124 target frames the vendor
+does not downscale either and only the upscale separates the two paths; at the
+shipped 362 it does.
+
 **Which makes the duration-aware pass a cost LIMITER, and couples the two
 gaps.** Closing gap 6 alone -- upscaling to 1344x768 and feeding Qwen per pair
 as now -- gives 84x48/4 = 1,008 tok/block x 16 = 16,128 rows, **3,696 more
