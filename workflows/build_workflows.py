@@ -166,34 +166,39 @@ def sol_api_inputs(sol):
 # `N/A` for an empty field.
 #
 # **Rewritten 2026-08-22, and this is a content change, not a reformat.** The
-# previous prompt ran four shots of a cyclist in heavy rain and contained NO
-# dialogue at all. Two things were wrong with it:
+# previous prompt ran four shots of a cyclist in heavy rain and had NO dialogue.
+# Two things were wrong with it:
 #
-#   No speech. H3 generates dialogue and the guide devotes a section to how to
-#   ask for it, and nothing shipped here exercised that path. These three do,
-#   with two speakers each: the identifying phrase, the (S1)/(S2) id, the
-#   action and the delivery sit OUTSIDE `<d>`, and only the language tag and
-#   the verbatim words sit inside, which is the guide's rule (base-en 4.4).
-#   Each block is followed by the speaker's lips closing, as the guide asks.
+#   No speech. H3 generates dialogue, the guide devotes section 4.4 to asking
+#   for it, and nothing shipped here exercised that path. All three below use
+#   two speakers: the identifying phrase, the (S1)/(S2) id, the action and the
+#   delivery sit OUTSIDE `<d>`, only the language tag and verbatim words sit
+#   inside, and each block is followed by the speaker's lips closing.
 #
 #   Its soundscape asked for continuous texture -- "steady heavy rain on
 #   asphalt and metal, tyre hiss through standing water" -- and the 4-step
-#   students render that as a tone. Measured 2026-08-22
-#   (`bench/results/2026-08-22_audio_hum.json`): clips on this prompt carry a
-#   400 Hz peak standing 16-25 dB above their own noise floor under a turbo
-#   LoRA and 5.7 dB on the base model, where clips whose prompt asks for
-#   "natural ambient atmosphere" carry 0.3 dB. The soundscapes below are
-#   deliberately EVENT-driven -- crates knocking, coins dropping, a drawer
-#   latching -- rather than continuous hiss.
+#   students render that as a TONE. Measured 2026-08-22
+#   (`bench/results/2026-08-22_audio_hum.json`): a 400 Hz peak 16-25 dB above
+#   its own noise floor under a turbo LoRA, 5.7 dB on base, against 0.3 dB in
+#   clips asking for "natural ambient atmosphere". The soundscapes below are
+#   EVENT-driven -- crates, coins, a drawer latching -- not continuous hiss.
 #
-# **Changing this makes every prior t2v render a different sample.** That is
-# the different-sample rule and it is a non-event for comparisons ACROSS this
-# change, but it does mean a number measured before today cannot be placed
-# beside one measured after without saying so.
+# **The default carries `<d>` and nothing else, deliberately.** The other five
+# markers are undocumented in the guide and their encoder rows are UNTRAINED
+# (`vendor_tokens.py`), so what they do is unmeasured -- and if
+# `<|caption_start|>` burns text into the frame, a default carrying one would
+# put text in every shipped t2v render. They live in the two opt-in scenes
+# instead, where a test can reach them without contaminating the default.
 #
-# `LONG_T2V_PROMPT` is what every long t2v graph wires. The other two are
-# siblings for arms that want a second and third scene -- pass one as a
-# `bench/run_graph_arms.py --set` patch rather than editing a graph.
+# **Changing this makes every prior t2v render a different sample**, which is a
+# non-event for comparisons wholly before or wholly after, but means a number
+# from before today cannot sit beside one from after without saying so.
+#
+# Marker coverage across the set is all seven: `<d>`/`</d>` everywhere,
+# `<|lyrics_start|>`/`<|lyrics_end|>` in the rehearsal scene wrapping the sung
+# `<d>` blocks, `<|caption_start|>`/`<|caption_end|>` and `<|cutoff|>` in the
+# clinic scene. Patterns follow `bench/audit_h3_marker_tokenization.py`'s
+# scenes, which are the only worked examples of the five the guide omits.
 LONG_T2V_PROMPT = """integrated_multimodal_description:
 [Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera tracks left at medium amplitude and moderate speed as a young porter (S2) steps into frame behind her shoulder.
 [Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter, a lean man in his twenties with a quick, bright tenor (S2), answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and coins clatter one after another into a metal tin on the counter.
@@ -205,9 +210,11 @@ Loose crowd murmur under a high roof, wooden crates knocking hollow as they stac
 non_diegetic_music:
 N/A"""
 
+# Sung lines: the lyrics markers WRAP one or more `<d>` blocks rather than
+# replacing them. Pass as a `bench/run_graph_arms.py --set` patch.
 T2V_REHEARSAL_PROMPT = """integrated_multimodal_description:
 [Shot 1] Live-action, cinematic, static tripod framing with motivated practical light and fine film grain. A medium shot frames a basement rehearsal room, foam panels on the walls, a drum kit lit by one clamp lamp. A drummer in his thirties with a low, unhurried baritone (S1) rests his sticks across the snare, looks off toward the vocal booth, and says: <d>[English] From the second verse. Count me in this time.</d> His lips close and he rolls his shoulders once and resets his grip.
-[Shot 2] At 00:05.000, the shot cuts to a close shot of a singer in the booth behind glass, headphones on one ear. The singer, a woman in her twenties with a clear, slightly breathy mezzo (S2), leans toward the microphone and replies: <d>[English] Four, three, two.</d> Her lips close and she lifts her chin as the drummer's first hit lands.
+[Shot 2] At 00:05.000, the shot cuts to a close shot of a singer in the booth behind glass, headphones on one ear. The singer, a woman in her twenties with a clear, slightly breathy mezzo (S2), leans to the microphone and sings: <|lyrics_start|><d>[English] I walked the long way home again.</d><d>[English] The lights were out on Seventh Street.</d><|lyrics_end|> Her lips close on the last word and she lifts her chin as the drummer's first hit lands.
 [Shot 3] At 00:10.000, the camera pushes in with small amplitude at slow speed on the kit as both hands work, the hi-hat opening and closing, one cymbal ringing longer than the rest while the clamp lamp shakes very slightly on its arm.
 
 overall_soundscape:
@@ -216,13 +223,17 @@ A snare rimshot and hi-hat chatter in a small treated room, a cymbal ringing dow
 non_diegetic_music:
 N/A"""
 
+# On-screen text and a line truncated by the end of the clip. `<|cutoff|>` sits
+# directly against the closing `</d>` with no full stop between -- a full stop
+# before it is dragged into `.<` by BPE on an unpatched tokenizer, so the
+# spacing is load-bearing (`docs/comfyui_vendor_gaps.md`).
 T2V_CLINIC_PROMPT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld with restrained depth of field and cool overhead fluorescent light. A medium-wide shot frames a night pharmacy counter, shelves receding behind it, a queue rope empty. A pharmacist in her forties with a calm, level contralto (S1) turns a paper bag on the counter so the label faces the customer and says: <d>[English] Twice a day. Not on an empty stomach.</d> Her lips close and she folds the top of the bag over twice, pressing the crease flat with two fingers.
+[Shot 1] Live-action, cinematic, handheld with restrained depth of field and cool overhead fluorescent light. A medium-wide shot frames a night pharmacy counter, shelves receding behind it, a queue rope empty. <|caption_start|>24 HOUR DISPENSARY<|caption_end|> A pharmacist in her forties with a calm, level contralto (S1) turns a paper bag on the counter so the label faces the customer and says: <d>[English] Twice a day. Not on an empty stomach.</d> Her lips close and she folds the top of the bag over twice, pressing the crease flat with two fingers.
 [Shot 2] At 00:04.000, the shot cuts to a close shot of an older customer with a thin, tired tenor (S2) leaning on the counter with both forearms. He takes the bag, turns it once to read it, and asks: <d>[English] And if I forget one?</d> His lips close and he tucks the bag into his coat pocket.
-[Shot 3] At 00:08.500, the camera trucks right at small amplitude and slow speed as he walks toward the sliding door, which parts for him and lets in a wash of colder blue light, while behind him the pharmacist turns back to the shelves and slides a drawer shut with her hip.
+[Shot 3] At 00:08.500, the camera trucks right at small amplitude and slow speed as he walks toward the sliding door, which parts for him and lets in a wash of colder blue light. Behind him the pharmacist slides a drawer shut with her hip and calls after him: <d>[English] And if the swelling does not go down by Thursday you should</d><|cutoff|>
 
 overall_soundscape:
-A paper bag folded and pressed flat, a drawer rolling shut and latching, keyboard keys in short bursts, a sliding door motor starting and stopping, and unhurried footsteps on hard flooring under a faint fluorescent ballast tick.
+A paper bag folded and pressed flat, a drawer rolling shut and latching, keyboard keys in short bursts, a sliding door motor starting and stopping, and unhurried footsteps on hard flooring.
 
 non_diegetic_music:
 N/A"""
