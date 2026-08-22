@@ -140,6 +140,18 @@ artifact.
   - Deliberately carries no fps control. `force_rate=24` owns that and
     `check_ref_prompt_labels.py` gates it; a second place to set it is a second
     place to get it wrong.
+- **`bench/check_conditioning_behaviour.py`**, the first control on
+  `MiniMaxH3Conditioning`, which owns 19 shipped graphs and had been asserted
+  in a docstring and controlled by nothing. Carried as a forward item through
+  **three** postmortems.
+  - **Core is the reference and it is right in both directions.** Arms are
+    AGREE (ours must match core, because this is a replacement not a rewrite)
+    or DIFFER (ours must not, because a documented defect is being fixed). A
+    DIFFER arm that starts agreeing is the dangerous failure: the node keeps
+    running, the graphs keep rendering, and the fix is silently gone.
+  - Shown red twice and independently -- deleting the empty-prompt refusal
+    reddens only that arm, forcing `fit_to_canvas` reddens only the last-frame
+    arm.
 - **`bench/check_reference_contracts.py`**, the first assertion of any kind on
   the load-bearing contracts in core's `MiniMaxH3ReferenceToVideo`. Five of the
   seven now have a control; they had stood as "enforced by nothing" through two

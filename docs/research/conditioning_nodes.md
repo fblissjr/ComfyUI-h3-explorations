@@ -143,6 +143,19 @@ never saw weighted.
 
 ---
 
+## Controlled since 2026-08-22
+
+The four defects this node exists to fix are asserted by
+`bench/check_conditioning_behaviour.py`, against core's
+`MiniMaxH3ImageToVideo` as the reference rather than against remembered
+numbers. Both kinds of failure are covered: breaking something core got right
+(the AGREE arms) and quietly ceasing to fix what it was built for (the DIFFER
+arms). The second is the one nothing would otherwise notice, because the node
+keeps running and the graphs keep rendering.
+
+Shown red twice and independently: deleting the empty-prompt refusal reddens
+only that arm, forcing `fit_to_canvas` reddens only the last-frame arm.
+
 ## Not done
 
 A replacement for `MiniMaxH3ReferenceToVideo`. If one is ever wanted — for a
