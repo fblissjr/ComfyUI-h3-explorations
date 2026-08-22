@@ -209,8 +209,35 @@ is that `bench/check_solattn_correctness.py` **hard-requires** it and
 ### 2. Install the CUDA kernel
 
 `comfy_kitchen.sol_attn` **ships on no wheel.** It exists only on
-kijai/comfy-kitchen's unmerged `sol_attn` branch. The stock
-`comfy-kitchen==0.2.31` that ComfyUI pins has no `sol_attn` at all.
+kijai/comfy-kitchen's unmerged `sol_attn` branch -- the head of
+[PR 117](https://github.com/Comfy-Org/comfy-kitchen/pull/117), still OPEN. The
+stock `comfy-kitchen==0.2.31` that ComfyUI pins has no `sol_attn` at all.
+
+**On this box, use the script.** `vendor/rebuild_kernel.sh [ARCH]` (default 89)
+does everything below and three things the manual recipe does not: it derives
+the version tag from the checkout's own short sha, it reverts the version-tag
+patch on every exit path including a failed build so the borrowed checkout is
+left clean, and it runs `bench/check_sol_kernel.py --require` afterwards so a
+build that installed but is not usable fails loudly.
+
+```bash
+vendor/rebuild_kernel.sh 89        # your arch here
+```
+
+The provenance it produces, and where each piece lives:
+
+| what | where |
+|---|---|
+| source | `coderef/comfy-kitchen-sol`, gitignored clone; remote `upstream` is `kijai/comfy-kitchen`, branch `sol_attn` |
+| the local edit | `vendor/patches/001-local-version-tag.patch`, applied for the build only |
+| wheel | `coderef/comfy-kitchen-sol/dist/`, one per build, never cleaned |
+| installed | the ComfyUI venv's `site-packages`, as a **built wheel and not an editable install** -- the running kernel does not read from the clone, so changing branches there does nothing until the next rebuild |
+| which build is live | `comfy_kitchen.__version__` / `uv pip list`, and `bench/check_sol_kernel.py` prints it |
+
+The clone is still required for the `.cu` sources `docs/morton.md` and
+`docs/sol_upstream.md` cite by path, which ship in no wheel.
+
+The manual equivalent, for a box without this repo:
 
 ```bash
 git clone -b sol_attn https://github.com/kijai/comfy-kitchen.git
@@ -218,10 +245,10 @@ cd comfy-kitchen
 git submodule update --init --depth 1 third_party/flash-attention third_party/cutlass
 uv pip install 'nanobind>=2.0.0'
 COMFY_CUDA_ARCHS=89 uv build --wheel --no-build-isolation .   # your arch here
-uv pip install --force-reinstall --no-deps dist/comfy_kitchen-*.whl
+uv pip install --force-reinstall --no-deps dist/comfy_kitchen-<version>.whl
 ```
 
-Three things that will bite:
+Four things that will bite:
 
 - **`--no-build-isolation` is required**, or arch detection sees no GPU and
   compiles every target. It also means build deps are not installed for you —
@@ -230,7 +257,11 @@ Three things that will bite:
   `third_party/flash-attention`, and a fresh clone fails there.
 - **The branch declares version `0.2.31`**, identical to the wheel ComfyUI
   pins. Tag your build (this box uses `0.2.31+sol.23d1a66`) or nothing can
-  tell the two apart.
+  tell the two apart. PEP 440 still matches a local segment against `==0.2.31`,
+  so a plain requirements install stays satisfied and will not clobber it.
+- **Install the wheel by exact version, not `comfy_kitchen-*.whl`.** `dist/`
+  keeps every build ever made, so that glob matched two wheels the first time
+  a second build landed there and uv was handed both.
 
 Requires bf16, head_dim 128, sm_80+.
 

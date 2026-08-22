@@ -140,3 +140,42 @@ past it at 102,816. Our `preflight.py` already names this and our sage fork
 carries the int64 specialisation, so nothing of ours is at risk. The point is
 that their counter is not a second opinion on the question it appears to
 answer. One-line stride read to confirm.
+
+
+### OPEN upstream, REVERTED locally — H3's seven special tokens in ComfyUI's tokenizer
+
+**Status:** relayed as ComfyUI PR 15808, still OPEN. Applied locally as
+`vendor/patches/002-comfyui-h3-special-tokens.patch` from 2026-08-21 and
+**reverted on 2026-08-22 by owner decision**: we wait for Comfy to merge it
+rather than carry a modification to a core file we do not own. The patch is
+kept here so the local state is reproducible from this repo and so it can be
+diffed against whatever upstream eventually merges.
+
+**What.** ComfyUI backs the H3 tokenizer with its bundled `qwen25_tokenizer`,
+which declares thirteen `additional_special_tokens` where the release declares
+twenty. The seven missing ones -- `<d>`, `</d>`, `<|cutoff|>`,
+`<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>`, `<|caption_end|>` --
+tokenize as ordinary text, so a prompt containing one gets several BPE pieces
+and a different embedding. The fix registers them in
+`MiniMaxH3Tokenizer.__init__`, which is the only place that reaches every
+consumer, core's `MiniMaxH3ReferenceToVideo` included -- no custom pack can
+add an import to that.
+
+**Why it belongs upstream and not here.** That reach is the whole argument. A
+pack can only fix its own nodes.
+
+**What carries it meanwhile.** `vendor_tokens.clip_with_vendor_tokens`, which
+builds a fresh tokenizer with the tokens added and rebinds it on a clone. It
+returns the CLIP unchanged when the tokens are already present, so it is a
+no-op on an install that has the core patch and does the work on one that does
+not -- written for exactly this state. Every graph here reaches it through
+`MiniMaxH3Conditioning`'s `vendor_tokens` input, default True.
+
+**What is NOT covered while the patch is out.** Core's own
+`MiniMaxH3ReferenceToVideo`, which no shim of ours can reach. A graph wired to
+the core node tokenizes markers as literal text and renders anyway.
+
+**The verifier.** `bench/audit_h3_marker_tokenization.py` runs identically in
+both states: with the core patch present it asserts the shim is a no-op, and
+without it asserts the shim supplies the tokens, grading both against the
+release tokenizer's own ids.
