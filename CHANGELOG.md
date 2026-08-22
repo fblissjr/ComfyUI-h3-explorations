@@ -4,7 +4,54 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
-## 0.53.0
+## 0.55.0
+
+### Changed
+
+- **Every reference soundtrack now stops where the render does.** sglang caps
+  each one at `frame_count / fps` into `ffmpeg -t`, diffusers does the same,
+  and both apply it to a video's soundtrack and a standalone audio reference
+  alike. `comfy_extras/nodes_minimax_h3.py:71` truncates neither, at 80 rows
+  per second of excess attended on every sampling step. Every `ref_audio_*`
+  and `ref_video_audio_*` socket in every shipped graph now reaches the node
+  through `TrimAudioDuration` at `length / 24`.
+
+  Checked before wiring rather than after: the node **caps and never pads**
+  (`end_frame = min(start + duration*sr, audio_length)`,
+  `comfy_extras/nodes_audio.py:473-474`), so a soundtrack shorter than the
+  render passes through untouched. Padding would have been a change in the
+  wrong direction and would have shipped silently.
+
+  **This changes the conditioning of every reference-audio graph.** Renders
+  from before it are different samples, not degraded ones.
+
+- **`VHS_LoadVideo.frame_load_cap` now matches the generated length**, and the
+  reason is narrower than it looks. Core already truncates a reference video
+  to the generated frame count (`nodes_minimax_h3.py:321-322`), so the cap
+  saves the full-clip decode and the resize at line 320 -- which runs on every
+  loaded frame *before* line 321 throws most of them away -- and saves no rows
+  at all. The row saving in this release is the audio trim alone.
+
+### Added
+
+- **`preflight_graph.py` grades reference audio**, and it is the named control
+  for two requirements that had none. It warns when a ref-audio socket reaches
+  the node untrimmed, and when the baked trim disagrees with `length` -- which
+  is the state a bench creates by patching the length alone, as
+  `run_graph_arms --set` routinely does. Both shown red by deliberate
+  violation.
+
+- **A mono probe, which reports and does not fix.** Preflight ffprobes the
+  media each ref-audio socket resolves to and warns on a mono track: core's
+  `_encode_ref_audio` does not upmix, so the packed assignment raises rather
+  than degrading (gap 7). The upmix belongs in core's encoder, where diffusers
+  and DiffSynth-Studio put it; a `JoinAudioChannels(a, a)` in every shipped
+  graph would alter every stereo source to prevent a crash no shipped source
+  hits. "Channel count unreadable" is reported as its own state, so a missing
+  ffprobe cannot read as a pass. Verified against a generated mono file, a
+  stereo control and a missing path: 1, 2, None.
+
+## 0.54.0
 
 ### Added
 
