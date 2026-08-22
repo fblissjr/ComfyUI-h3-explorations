@@ -1,0 +1,36 @@
+{
+  "question": "kijai 2026-08-22: adaptive tau against top-k, without and with the SLA LoRA",
+  "answer": "On a fresh server, top-k is uniformly faster than adaptive tau 1.0 and the LoRA makes no difference: +4.7% at keep 15%, +10.3% at keep 10%, for both the SLA student and v1.1. Top-k's cost is identical across LoRAs to within 0.05s because its density is fixed by construction; adaptive tau's is not, but on this workload the two LoRAs land in the same place anyway.",
+  "scene": "subway (the dense stress scene: 3 speakers, singing, caption, cutoff)",
+  "runs_per_arm": 2,
+  "per_arm_median_sampler_s": {
+    "sla_adaptive": 125.808,
+    "sla_topk15": 119.896,
+    "sla_topk10": 112.892,
+    "v11_adaptive": 125.747,
+    "v11_topk15": 119.939,
+    "v11_topk10": 112.855
+  },
+  "contrasts_pct_faster_than_adaptive_tau1.0": {
+    "sla_topk15": 4.7,
+    "sla_topk10": 10.3,
+    "v11_topk15": 4.6,
+    "v11_topk10": 10.3
+  },
+  "lora_gap_s": {
+    "adaptive_tau_1.0": 0.061,
+    "topk15": 0.043,
+    "topk10": 0.037
+  },
+  "supersedes": {
+    "record": "2026-08-22_sol_selection_verdict.json",
+    "why": "That run reported a SIGN FLIP -- top-k helping the SLA LoRA by 2.4-5.4% and hurting v1.1 by 14-17.7% -- driven by an SLA adaptive-tau arm at 150.05s. IT DOES NOT REPLICATE. The identical configuration (same LoRA, same selection, same bike prompt, same kernel, same seed) re-run on a fresh server gives 124.5s and 124.4s. Every arm in that run except one is ~20% slower than its counterpart here, INCLUDING the top-k arms whose density is fixed by construction and cannot vary with model or prompt. Treat the earlier record as void, not as a second opinion.",
+    "replication_runs_s": [
+      124.514,
+      124.423
+    ]
+  },
+  "mechanism_of_the_earlier_inflation": "UNKNOWN and deliberately not guessed. Ruled out: Sol override accumulation -- the node logs 'composed with N patched attention forward(s)' and N is a constant 50 across every render in both sessions. Thermal does not fit the ordering either: the earliest arms in that run were the slowest and a later arm was the fastest, which is backwards for accumulating load. The one thing that changed between the two runs and is known to matter is that the server was restarted.",
+  "operational_rule": "Time arms on a freshly started server. Two independent measures moved together across the restart on identical inputs -- sampler seconds and the 400 Hz audio peak -- so a long-lived session is not a neutral substrate.",
+  "what_this_does_not_answer": "Quality. Adaptive and top-k are a numerical knob and their trajectories diverge, so the clips are different samples. The subway scene exists so a person can watch for speech, singing and caption survival under each selection; that judgement is not in this file."
+}
