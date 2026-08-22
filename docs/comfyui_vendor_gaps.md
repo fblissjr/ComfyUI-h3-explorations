@@ -160,6 +160,27 @@ count is derived
 The 2 fps subsample itself, including the index pad and merged-pair timestamp,
 is **confirmed identical** to sglang. The rate is the whole gap.
 
+**And the per-pair vision call is now tested, not argued.** ComfyUI presents a
+reference video to Qwen3-VL as separate two-frame calls at `grid_thw =
+[1, H, W]` where LightX and sglang pass the whole sampled clip at `[T, H, W]`.
+`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md` section 2
+calls this "the important non-gap" and argues structural equivalence -- then
+says in its own words that it "should be tensor-tested, but it is not". It now
+is: [`bench/grade_video_block_presentation.py`](../bench/grade_video_block_presentation.py)
+runs both presentations through the real `Qwen3VLVisionModel` at the
+`qwen3vl_32b` vision config and the merged and deepstack outputs agree to
+7.5e-06, inside fp32 reassociation noise. **Two controls establish that the
+comparison can see a difference** -- reordering the pairs moves it by 7.0, and
+perturbing one pair by 1e-3 moves it by 6.0e-03 -- and the harness exits
+non-zero rather than reporting a pass if either fails to separate. The
+mechanism is `qwen35.py:660-663`: `cu_seqlens` splits attention at every
+`h*w`, so attention never crosses a frame in either presentation, and the
+position construction carries no temporal term.
+
+**Random weights are the right instrument and not a shortcut**: the claim is
+about how the tower routes tokens, which is architecture rather than anything
+learned. It tests nothing weight-dependent, and nothing in the claim is.
+
 ---
 
 ## 3 and 4. The image preprocessor bounds
