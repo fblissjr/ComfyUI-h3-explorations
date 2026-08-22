@@ -4,6 +4,28 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.56.0
+
+### Removed
+
+- **`h3_ref_video_swap_directive`, the community-prompt arm added earlier the
+  same day, is deleted.** It was rendered against the structured and concise
+  arms on matched seeds at 1152x768 / 124 frames and it damaged the speech in
+  the reused soundtrack. The structured arm -- the shipped default, unchanged
+  throughout -- was the only one of the three that did not. Owner's call on
+  playback; the arm existed to be judged and it was.
+
+  **The finding outlived the graph**, in `docs/h3_references.md`'s swap
+  section: two seeds each, one clip, one kind of dialogue, so it is a reason
+  to keep writing the `<Audio 1>: fully_copy` retention line and not a
+  measured rate. The candidate mechanism -- that the structured prompt is the
+  only one of the three stating the soundtrack as a retention marker rather
+  than as prose -- is named there and is untested, because three variables
+  moved at once.
+
+  The `_STRUCTURE_PROBES` waiver and the drift-guard entry went with it, so
+  nothing is left waived for a graph that no longer exists.
+
 ## 0.55.0
 
 ### Changed

@@ -1628,64 +1628,6 @@ def _concise_swap_prompt() -> str:
     )
 
 
-def _directive_swap_prompt() -> str:
-    """The same request again, as imperative instructions instead of a report.
-
-    The third leg of the prompt-structure experiment, and the one that did
-    not come from here. It is a community prompt reported on 2026-08-22 to
-    swap characters reliably (`internal/refs/Character_swap_in_minimax_is_so_epic..md`),
-    rewritten only where its text and this graph disagree. What survives is
-    the register -- second-person commands to the model, not a structured
-    description of the target video -- plus two pieces of content neither
-    other arm has: an occlusion clause, and a closing list of things not to
-    add.
-
-    **Three edits to the source, and the reasons matter more than the text.**
-
-    1. `<Image_1>` and `<Video_1>` became `<Picture 1>` and `<Video 1>`.
-       Not house style: `comfy/text_encoders/minimax.py:164` emits the
-       literal string `<Picture %d>: ` into the sequence immediately before
-       each image's vision block, and `:176` does the same for `<Video %d>: `.
-       Those labels are what the model has to bind to. `<Image_1>` names
-       nothing that appears anywhere in the packed sequence, so the reported
-       prompt is binding by position and description instead. Shipping the
-       underscore form would test the tags, not the register, and would
-       confound the arm. **Whether the tags matter at all is a separate
-       question and is not answered here** -- it needs the verbatim tags as
-       a fourth arm, which cannot ship because `check_ref_prompt_labels`
-       correctly rejects a label no socket wires.
-    2. Two identities became one. The source replaces a male and a female
-       from two images; this graph wires one image, and matching
-       `h3_ref_video_swap` reference-for-reference is the only thing that
-       makes the three arms a comparison. **The two-identity case is the
-       real capability gap here and no graph in this repo covers it.**
-    3. `<Audio 1>` is named. The source never mentions audio; this graph
-       wires `ref_video_audio_0`, and a prompt that does not name a wired
-       label fails `check_ref_prompt_labels` -- rightly, since the audio
-       reuse is then unstated.
-
-    **One clause was dropped, not adapted.** "Use its front, and close-up
-    views as one identity reference" describes several views of one subject;
-    one image is wired. The generic-template lesson above applies directly:
-    a clause naming something not present is an invitation to invent it.
-    """
-    return (
-        "Use <Video 1> as the master performance, scene, and audio. Replace "
-        "the person in it with the character shown in <Picture 1>.\n\n"
-        "Match the new character's face, hair, outfit, colours, body "
-        "proportions, and visible design details throughout the clip.\n\n"
-        "Inherit the original performer's movement, position, pose, "
-        "rotation, speed, and timing frame by frame. Preserve background, "
-        "camera path, framing, focus, motion blur, lighting, shadows, and "
-        "the original edit from <Video 1>. Reuse <Audio 1> unchanged as the "
-        "target video's complete final audio track.\n\n"
-        "Maintain correct occlusion when the hands and arms pass in front of "
-        "the body. Keep the face, hair, clothing, hands, and body shape "
-        "consistent. Do not add new movement, objects, cuts, text, "
-        "accessories, or camera motion."
-    )
-
-
 # **Do not put a specific attribute in a generic template.** The environment
 # line said "architecture, palette, and lighting" until 2026-08-16, on every
 # image-reference arm, for whatever image happened to be wired. Measured that
@@ -3150,19 +3092,24 @@ tail is exactly where lip-sync and continuity would break first."""
 
 
 _NOTE_PROMPT_STRICTNESS = """\
-## The unstructured leg of a three-arm prompt experiment
+## The one graph here that breaks the format on purpose
 
 Every other reference graph carries six sections in the order both guides
 specify. This one carries a single paragraph, and that is the entire
 experiment.
 
-**Read it against `h3_ref_video_swap` and `h3_ref_video_swap_directive`.**
-Same clip, same reference image, same seed, same canvas, same length, same
-sampler across all three. The only thing that differs is the prompt, which
-is what makes them worth rendering and any one of them worthless alone.
-This arm is the *shortest* statement of the request; the directive arm is
-the same length class as the structured one but written as commands, so the
-three separate structure from verbosity rather than confounding them.
+**Read it against `h3_ref_video_swap`.** Same clip, same reference image,
+same seed, same canvas, same length, same sampler. The only thing that
+differs is the prompt structure, which is what makes the pair worth
+rendering and either graph worthless alone.
+
+**A third arm existed for part of 2026-08-22 and was deleted the same day.**
+`h3_ref_video_swap_directive` carried a community prompt, imperative rather
+than sectioned, reported elsewhere to swap characters reliably. On matched
+seeds against these two it damaged the speech in the reused soundtrack; the
+structured arm was the only one of the three that did not. It is not
+returning, and the observation is recorded in `docs/h3_references.md` rather
+than in a graph.
 
 **Why doubt the format at all?** General prompting research reports working
 character swaps from prompts far looser than this -- some missing
@@ -3195,48 +3142,20 @@ are still enforced here exactly as everywhere else -- an unstructured prompt
 is still not allowed to name a reference the graph does not wire."""
 
 
-_NOTE_PROMPT_DIRECTIVE = """\
-## The community prompt, on this repo's references
-
-The third leg, and the only prompt here that was not written here. It is a
-character-swap prompt reported on 2026-08-22 to work reliably
-(`internal/refs/Character_swap_in_minimax_is_so_epic..md`), carried over with
-three edits, each documented in `_directive_swap_prompt`'s docstring: the
-`<Image_1>`-style tags corrected to the labels the tokenizer actually emits,
-two identities reduced to one so the arm matches its twins socket for socket,
-and `<Audio 1>` named because this graph wires it.
-
-**What it contributes that neither twin has.** An occlusion clause -- hands
-and arms passing in front of the body -- and a closing prohibition list:
-no new movement, objects, cuts, text, accessories, or camera motion. Both
-address failures the structured arm addresses only by implication.
-
-**What is uncontrolled about it, stated plainly.** The report is one person's
-experience with no matched arms, a different model quantization, a different
-canvas, a different sampler and a different step count. It is a reason to
-measure this prompt, not evidence about it. The claim it makes that this
-repo can actually check is narrow: that a prompt ignoring the guide's format
-still swaps identity reliably.
-
-**What it does NOT test.** Whether `<Image_1>` binds as well as
-`<Picture 1>`. That question needs the tags verbatim, which no shipped graph
-can carry -- `check_ref_prompt_labels` rejects a label no socket wires, and
-it is right to. Run it as a widget patch through `bench/run_graph_arms.py`
-if it is worth answering.
-
-`check_prompt_guide_conformance.py` waives its structural cases by name and
-prints that it did, exactly as for `h3_ref_video_swap_concise`. Markers,
-dialogue placement and label agreement are enforced here unchanged."""
-
-
 def _note_ref_relationship(role: str) -> str:
     what = {
         "swap": ("replacing a character in a source video", """\
-**This graph is one of three that differ only in their prompt.**
-`h3_ref_video_swap_concise` states the same request in a single paragraph and
-`h3_ref_video_swap_directive` states it as imperative commands, on identical
-references, seed, canvas, length and sampler. Rendering this one alone answers
-nothing about the format; the point of the format is the comparison.
+**This graph has a twin that differs only in its prompt.**
+`h3_ref_video_swap_concise` states the same request in a single paragraph, on
+identical references, seed, canvas, length and sampler. Rendering this one
+alone answers nothing about the format; the point of the format is the
+comparison.
+
+**One thing this arm has already won.** A third, imperative arm was rendered
+against these two on 2026-08-22 and deleted: it damaged the speech in the
+reused soundtrack where this one did not. This prompt is the only one of the
+three that carries `<Audio 1>: fully_copy` as a retention line rather than as
+a sentence, which is the obvious candidate mechanism and is untested.
 
 This is the **character swap** arm: the video is the *plate* and the image is
 the *new identity*. Read it against `h3_ref_video_image_edit`, which is the
@@ -5303,17 +5222,6 @@ def main():
               out_prefix="Video/h3_ref_video_swap_concise",
               variant_note=_NOTE_PROMPT_STRICTNESS),
          "same swap, unstructured prompt -- does the six-section format pay?"),
-
-        # The third leg of the same experiment: not this repo's prose at all,
-        # but a community prompt reported to work, on identical references,
-        # seed, canvas and length. Structured / concise / directive is three
-        # registers against one request.
-        ("h3_ref_video_swap_directive.json", "r2v-swap-directive", "r2v",
-         _directive_swap_prompt(),
-         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
-              out_prefix="Video/h3_ref_video_swap_directive",
-              variant_note=_NOTE_PROMPT_DIRECTIVE),
-         "same swap, a community prompt that ignores the guide's format"),
 
         ("h3_ref_video_continue.json", "r2v-continue", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="continue"),

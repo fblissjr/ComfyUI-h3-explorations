@@ -161,7 +161,6 @@ GUIDE_NODE = "MiniMaxH3AddGuide"
 # types, markers and dialogue placement. A whole-file waiver was buying
 # silence on four cases to excuse two.
 _STRUCTURE_PROBES = {"h3_ref_video_swap_concise_api",
-                     "h3_ref_video_swap_directive_api",
                      "h3_image_probe_format_flat_api"}
 
 

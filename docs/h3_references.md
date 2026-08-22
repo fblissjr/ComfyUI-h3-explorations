@@ -784,6 +784,25 @@ The same sockets as the edit above, pointed at the opposite question: there
 the person stays and the garment changes, here the person is the only thing
 that changes. `<Video 1>` is the *plate*; `<Picture 1>` is the new identity.
 
+**An imperative prompt damaged the speech, measured 2026-08-22.** A third arm
+carried a community character-swap prompt -- no sections, second-person
+commands, an occlusion clause, a closing prohibition list -- on identical
+references, seed, canvas and length. Rendered against the structured and
+concise arms at 1152x768 / 124 frames, it and the concise arm both degraded
+the speech in the reused soundtrack; the structured arm below was the only one
+of the three that did not. **The arm was deleted rather than kept**, so this
+paragraph is the whole record of it.
+
+Read the strength of that carefully. Two seeds each, judged by the owner on
+playback, on one clip with one kind of dialogue -- so it is a reason to write
+the retention line and not a measured rate. **The candidate mechanism is
+untested**: the structured prompt is the only one of the three that states the
+soundtrack as a `retention_analysis` line, `<Audio 1>: fully_copy - reused 1:1
+as the target video's complete final audio track`, where both others said the
+same thing as prose in the body. Whether the marker is what did it, or the
+sections around it, or the length, is unseparated -- three variables moved at
+once and the arms that would separate them were not rendered.
+
 ```
 subject_definitions:
 <Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.

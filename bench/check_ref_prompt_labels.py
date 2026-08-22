@@ -310,12 +310,11 @@ def main():
         for n in range(1, len(bw._REF_IMAGE_NODES) + 1):
             image_arms += list(itertools.product(bw.IMAGE_ROLES, repeat=n))
         legal = set()
-        # The deliberately unstructured prompts are still generator-produced,
-        # so the drift guard covers them unchanged -- no exemption is needed
-        # here, only in check_prompt_guide_conformance. They do not vary with
-        # the loop below, so they are added once rather than inside it.
+        # The deliberately unstructured prompt is still generator-produced,
+        # so the drift guard covers it unchanged -- no exemption is needed
+        # here, only in check_prompt_guide_conformance. It does not vary with
+        # the loop below, so it is added once rather than inside it.
         legal.add(bw._concise_swap_prompt())
-        legal.add(bw._directive_swap_prompt())
         for imgs in image_arms:
             for vid in (True, False):
                 for vaud in (True, False):
