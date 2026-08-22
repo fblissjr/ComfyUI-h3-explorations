@@ -1,0 +1,14 @@
+{
+  "question": "Does a prompt control WHICH of two identities lands on which of two people in a plate? h3_image_multiperson's note left this open for composition; h3_image_swap asks it for replacement, which is the harder case because the plate already has two faces to blend with.",
+  "answer": "Yes, on one draw. Both faces swapped and each landed on the correct person -- the redhead from <Picture 2> onto the camera-left figure, the man with black-rimmed glasses from <Picture 3> onto the camera-right figure. No blending, no feature of one on the other, no third person. The plate came through: concrete wall, window light, black leather couch, glass table with the red telephone and the yellow book, the gold-and-black floral jacket, the cool grade, and the prone pose with the boots raised.",
+  "graph": "workflows/image/h3_image_swap_api.json",
+  "runs": 1,
+  "seed": 730451892,
+  "canvas": "1344x768",
+  "timing_s": {"total": 58.68, "sampler": 41.61, "decode": 2.60},
+  "timing_note": "First render of the session, so this pays model load and autotune. Not a clean number and not offered as one; the JSONL row carries warmup:false because no discarded render preceded it.",
+  "output": "Image/h3_image_swap_imgswap_00001_.png",
+  "one_thing_that_did_not_transfer": "The freckling. <Picture 2> is heavily freckled and the render is not, though the identity is otherwise recognisable -- red hair, hair length, age, face shape. The face occupies roughly 90px of a 1344x768 canvas, so the likely cause is canvas rather than prompt. Untested: whether a taller canvas or a tighter plate recovers it.",
+  "what_this_is_not": "One draw, one scene, one seed. It establishes that the mechanism works, not how often. A rate needs seeds.",
+  "next": "The two-identity case reaches the video path only if this is worth spending video renders on. It is: the mechanism attributes correctly at seconds per render, so a video arm is now a cost question rather than an open one."
+}
