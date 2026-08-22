@@ -251,11 +251,97 @@ N/A"""
 #:
 #: Ordered, and the order is the sweep order. Keep it stable: a scene set that
 #: reorders makes "scene 2" mean different things in two records.
+# **The stress scenes, added 2026-08-22.** The three above are each one thing
+# done properly; these two are everything at once, which is a different test.
+# Fast two-person exchanges overlapping, singing over the top, high motion and
+# fast reframing, and burned-in text, all inside 15.083s. Four shots each, so
+# the cut rate is roughly one every 3.5 seconds.
+#
+# The point is that the scenes above cannot fail in an interesting way. A
+# single speaker in a quiet room either works or does not; it will not show
+# speaker identity bleeding between two voices under motion, or singing
+# collapsing into speech, or a caption surviving a whip pan. **These are for
+# finding the failure, not for judging quality** -- read them as briefs met.
+T2V_SUBWAY_PROMPT = """integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld with fast reframing and shallow depth of field under cool platform fluorescents. A wide shot frames a crowded underground platform, tiled columns receding, a train already braking into frame from the right with visible speed. Tiled signage runs above the busker's head. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> A busker in her twenties with a bright, slightly raw mezzo (S1) stands over an open guitar case, strums once, and sings into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the northbound line.</d><d>[English] Everybody's leaving on time.</d><|lyrics_end|> Her lips close on the last word as the train's headlights wash across her face and commuters surge past her in both directions, coats swinging, one man breaking into a run.
+[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters shouldering through the crowd at speed, the camera tracking with them at large amplitude. A woman in a soaked raincoat with a clipped, urgent contralto (S2) turns her head without slowing and says: <d>[English] Do not stop, it is the last one.</d> Her lips close. Her companion, a man in his thirties with a breathless, higher tenor (S3), answers half a step behind her: <d>[English] I know, I know, go, go.</d> His lips close and he shoves his bag under one arm as they cut left around a column.
+[Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the platform edge as the doors open and the crowd compresses inward, bodies turning sideways, a dropped umbrella skidding across the tiles. The busker keeps playing through it, and over the crowd she sings again: <|lyrics_start|><d>[English] Hold the door and hold your line.</d><|lyrics_end|> Her lips close.
+[Shot 4] At 00:11.000, the shot changes to a close shot inside the carriage looking out through the closing doors, the woman in the raincoat pressed against the glass, breathing hard, as she calls back to her companion still on the platform: <d>[English] Get the next one and meet me at the</d><|cutoff|>
+
+overall_soundscape:
+Brake squeal rising and cutting out as a train settles, a dense crowd shuffling and coats brushing, a single guitar strummed hard over the noise, an umbrella skittering across tile, a two-tone door chime, and pneumatic doors sealing with a hard thump.
+
+non_diegetic_music:
+N/A"""
+
+T2V_KITCHEN_PROMPT = """integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, fast reframing, hard practical light off stainless steel with fine film grain. A medium-wide shot frames a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. A printed ticket hangs closest to camera. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> An expediter in his fifties with a hard, carrying baritone (S1) slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks working, one tossing a pan so the flame climbs above the rim.
+[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and then she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in a single motion and the flame flares up behind her shoulder.
+[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, tongs setting garnish, a thumb wiping a rim clean. The expediter and the cook overlap at speed: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position.
+[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam, while the expediter calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
+
+overall_soundscape:
+A ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.
+
+non_diegetic_music:
+N/A"""
+
+
 T2V_SCENES = {
     "market": LONG_T2V_PROMPT,
     "rehearsal": T2V_REHEARSAL_PROMPT,
     "clinic": T2V_CLINIC_PROMPT,
+    "subway": T2V_SUBWAY_PROMPT,
+    "kitchen": T2V_KITCHEN_PROMPT,
 }
+
+
+def scene_prompt(name: str, *, first_frame: bool = False,
+                 last_frame: bool = False) -> str:
+    """A baseline scene rendered for the task its sockets describe.
+
+    The t2v and keyframe paths share one node and one three-field layout, so a
+    scene is written once and ANCHORED here rather than written twice. What
+    changes is only what the description promises about the wired frames:
+
+      first_frame  the guide's preamble line, plus [Shot 1] holding the
+                   picture's framing, lighting and composition.
+      last_frame   the final shot's composition CONVERGING on the picture at
+                   the end, which is the keyframe guide's own wording.
+
+    Label numbering follows what is wired, not what is authored: with both
+    frames the last is `<Picture 2>`, with only a last frame it is
+    `<Picture 1>`, because the tokenizer numbers the labels the graph emits and
+    a prompt naming `<Picture 2>` on a one-picture graph is a dangling label.
+
+    **ref2va is deliberately NOT here.** It is a different six-field layout
+    with `<Subject N>` definitions and a retention analysis, built by
+    `_ref_prompt()` and checked by `bench/check_ref_prompt_labels.py`. Folding
+    it in would mean this function silently emitting the wrong format for a
+    node that would still render.
+    """
+    text = T2V_SCENES[name]
+    if not (first_frame or last_frame):
+        return text
+
+    last_label = "<Picture 2>" if first_frame else "<Picture 1>"
+    if first_frame:
+        text = text.replace(
+            "[Shot 1] ",
+            "[Shot 1] Holding the exact framing, lighting, wardrobe and "
+            "composition established in <Picture 1>, ", 1)
+        text = ("For the target video, at 0.00 seconds into the target video, "
+                "<Picture 1> (from [Shot 1]) is fully referenced.\n\n" + text)
+    if last_frame:
+        # Into the LAST shot, which is the last [Shot N] line before the
+        # soundscape field -- appended to that line, not to the field.
+        head, sep, tail = text.partition("\n\noverall_soundscape:")
+        lines = head.rstrip().split("\n")
+        lines[-1] += (f" The camera position, subject placement, wardrobe and "
+                      f"exact final composition converge on {last_label} at "
+                      f"the end.")
+        text = "\n".join(lines) + sep + tail
+    return text
 
 # h264-mp4 rather than h265 or an nvenc variant: software x264 at crf 19 is
 # the most portable mp4 there is, and the nvenc paths trade quality per bit
