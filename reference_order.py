@@ -168,3 +168,104 @@ def plan_kinds(records) -> list[str]:
         else:
             raise TypeError(f"not a reference record: {rec!r}")
     return kinds
+
+
+# The append-node contract. Named here rather than in the node module so the
+# static checks can recognise a chain without importing anything from ComfyUI.
+APPEND_KINDS = {
+    "MiniMaxH3AppendRefImage": "image",
+    "MiniMaxH3AppendRefVideo": "video",
+    "MiniMaxH3AppendRefAudio": "audio",
+}
+CHAIN_INPUT = "references"
+
+
+class ChainError(ValueError):
+    """A reference chain that cannot be resolved. Never a partial plan."""
+
+
+def resolve_chain(graph: dict, node_id: str) -> list:
+    """Walk an append chain backward from its terminal and return it in order.
+
+    Each append node takes the plan so far on `references` and contributes one
+    record, so the chain is discovered tail-first and reversed. That reversal
+    is the only place list order is established, which is why it has its own
+    assertion rather than being trusted as obvious.
+
+    **Fails loudly, never partially.** A resolver that returned what it could
+    parse would hand a short plan to the label assigner, and a short plan is a
+    renumbering: drop one record and every ordinal after it shifts, silently.
+    So a cycle, a link to something that is not an append node, or a video
+    whose frames and metadata come from different loaders all raise
+    `ChainError`.
+
+    The last of those is worth spelling out. A video record owns its
+    soundtrack and its `VHS_VIDEOINFO`, and `loaded_fps` is derived from that
+    metadata rather than from a second widget somebody could set
+    inconsistently. That only holds if the metadata describes the same decode
+    as the frames -- so if `frames` and `video_info` resolve to different
+    source nodes, the ownership claim is false and the chain is rejected
+    rather than trusted.
+    """
+    chain, seen = [], set()
+    current = node_id
+    while current is not None:
+        if current in seen:
+            raise ChainError(
+                f"reference chain revisits node {current!r}: a cycle cannot be "
+                f"ordered, and resolving it partially would renumber every "
+                f"label after the loop")
+        seen.add(current)
+        node = graph.get(str(current))
+        if node is None:
+            raise ChainError(f"reference chain names node {current!r}, "
+                             f"which is not in the graph")
+        kind = APPEND_KINDS.get(node.get("class_type"))
+        if kind is None:
+            raise ChainError(
+                f"node {current!r} is a {node.get('class_type')!r}, not one of "
+                f"{sorted(APPEND_KINDS)}. A reference chain accepts only "
+                f"append nodes; anything else means the graph is wired to "
+                f"something that does not produce a plan")
+        chain.append((current, node, kind))
+        link = node.get("inputs", {}).get(CHAIN_INPUT)
+        if link is None:
+            current = None
+        elif isinstance(link, list) and link:
+            current = str(link[0])
+        else:
+            raise ChainError(
+                f"node {current!r} has a `{CHAIN_INPUT}` input that is not a "
+                f"link: {link!r}")
+
+    records = []
+    for nid, node, kind in reversed(chain):        # tail-first -> user order
+        ins = node.get("inputs", {})
+        if kind == "image":
+            records.append(ImageRef(name=str(nid)))
+        elif kind == "audio":
+            records.append(AudioRef(name=str(nid)))
+        else:
+            _assert_video_ownership(nid, ins)
+            records.append(VideoRef(
+                name=str(nid),
+                has_soundtrack=ins.get("soundtrack") is not None))
+    return records
+
+
+def _assert_video_ownership(nid, ins) -> None:
+    """A video's frames and its VHS_VIDEOINFO must come from one loader."""
+    frames, info = ins.get("frames"), ins.get("video_info")
+    if frames is None:
+        raise ChainError(f"video append node {nid!r} wires no frames")
+    if info is None:
+        return                                  # metadata is optional...
+    if not (isinstance(frames, list) and isinstance(info, list)):
+        raise ChainError(f"video append node {nid!r} has a non-link frames or "
+                         f"video_info input")
+    if str(frames[0]) != str(info[0]):
+        raise ChainError(
+            f"video append node {nid!r} takes frames from node "
+            f"{frames[0]!r} and video_info from node {info[0]!r}. The record "
+            f"claims to own both and derives loaded_fps from the metadata, "
+            f"which is false if they describe different decodes")

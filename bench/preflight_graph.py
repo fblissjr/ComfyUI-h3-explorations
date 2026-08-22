@@ -595,7 +595,9 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     sections = REF_SECTIONS if guide == "ref" else BASE_SECTIONS
     main_field = MAIN_FIELD[guide]
     sec = split_sections(prompt, sections)
-    expected = wired_labels(ins)
+    # the graph rides along: an ordered graph keeps its plan in the append
+    # chain, where this node's inputs cannot see it
+    expected = wired_labels(ins, graph)
     if guide == "base":
         out.append(("note", "graded against base-en (T2VA/I2VA/FL2VA/L2VA): "
                             "three core fields, not ref-en's six"))

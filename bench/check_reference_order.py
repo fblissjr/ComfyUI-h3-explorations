@@ -118,6 +118,23 @@ CONFIGS = [
 ]
 
 
+def _chain(kinds, sounded=frozenset()):
+    """A synthetic append chain: node k+1 takes `references` from node k."""
+    cls = {"image": "MiniMaxH3AppendRefImage",
+           "audio": "MiniMaxH3AppendRefAudio",
+           "video": "MiniMaxH3AppendRefVideo"}
+    g = {}
+    for k, kind in enumerate(kinds):
+        ins = {} if k == 0 else {"references": [str(k), 0]}
+        if kind == "video":
+            ins["frames"] = ["9", 0]
+            ins["video_info"] = ["9", 3]
+            if k in sounded:
+                ins["soundtrack"] = ["9", 2]
+        g[str(k + 1)] = {"class_type": cls[kind], "inputs": ins}
+    return g
+
+
 def agrees_with_core():
     """The plan's record sequence IS core's `ref_items` sequence."""
     from reference_order import legacy_plan, plan_kinds
@@ -129,21 +146,99 @@ def agrees_with_core():
           f"all identical")
 
 
-def wired_labels_is_wrong_on_sparse():
-    """Record the disagreement so a future fix to `wired_labels` is noticed.
+def wired_labels_now_shares_the_function():
+    """`wired_labels` is a front end over this module, not a second answer.
 
-    Green while `wired_labels` still mispairs a sparse socket set. If this
-    flips, it was fixed and this case retires -- it is not a defect of the
-    ordered model.
+    **This case replaced a temporary one in the same slice that earned the
+    replacement**, which is the difference between it and the recorded core
+    gaps elsewhere in this repo. Those describe upstream code nobody here
+    owns, so recording them green-while-broken is the honest state. This was
+    local code being fixed, so a case asserting it stayed broken would have
+    been green-while-broken by choice -- the state a retirement exists to
+    prevent.
+
+    What it asserted before the fix: `wired_labels` mispaired a sparse socket
+    set, putting a lone `ref_video_audio_1` on the first clip where core puts
+    it on the second. It now routes through `legacy_plan`, which pairs by
+    suffix, so the disagreement is gone by construction rather than by
+    coincidence -- and this case fails if a second implementation ever grows
+    back.
     """
     from reference_order import assign_labels, legacy_plan
-    ins = _sockets([], [0, 1], [1], [])
-    stale = wired_labels(ins)
-    ordered = assign_labels(legacy_plan(ins))
-    assert stale == ["<Audio 1>", "<Video 1>", "<Video 2>"], stale
-    assert ordered == ["<Video 1>", "<Audio 1>", "<Video 2>"], ordered
-    assert stale != ordered, ("wired_labels now agrees on sparse sockets -- "
-                              "it was fixed; retire this case")
+    for label, imgs, vids, tracks, auds in CONFIGS:
+        ins = _sockets(imgs, vids, tracks, auds)
+        assert wired_labels(ins) == assign_labels(legacy_plan(ins)), (
+            f"{label}: wired_labels has diverged from the shared function")
+
+
+def chain_traversal_and_reversal():
+    """A chain is discovered tail-first and must come back in user order."""
+    from reference_order import resolve_chain
+    g = _chain(["image", "audio", "video"])
+    got = [type(r).__name__ for r in resolve_chain(g, "3")]
+    assert got == ["ImageRef", "AudioRef", "VideoRef"], got
+    # and the reversal is load-bearing: build the same nodes in the other
+    # direction and the plan must follow the LINKS, not the node ids.
+    g2 = _chain(["video", "audio", "image"])
+    got2 = [type(r).__name__ for r in resolve_chain(g2, "3")]
+    assert got2 == ["VideoRef", "AudioRef", "ImageRef"], got2
+
+
+def interleaved_records_keep_their_places():
+    """Image, audio, video, audio, video -- ordinals follow list position."""
+    from reference_order import assign_labels, resolve_chain
+    g = _chain(["image", "audio", "video", "audio", "video"])
+    got = assign_labels(resolve_chain(g, "5"))
+    assert got == ["<Picture 1>", "<Audio 1>", "<Video 1>",
+                   "<Audio 2>", "<Video 2>"], got
+
+
+def a_soundtrack_is_never_a_standalone_record():
+    """A sounded video is two presentation items and ONE DiT record."""
+    from reference_order import VideoRef, plan_kinds, resolve_chain
+    g = _chain(["video"], sounded={0})
+    recs = resolve_chain(g, "1")
+    assert len(recs) == 1 and isinstance(recs[0], VideoRef), recs
+    assert recs[0].has_soundtrack, "the soundtrack was not owned"
+    assert plan_kinds(recs) == ["audio", "video"], plan_kinds(recs)
+
+
+def a_cycle_raises():
+    from reference_order import ChainError, resolve_chain
+    g = _chain(["image", "image"])
+    g["1"]["inputs"]["references"] = ["2", 0]          # close the loop
+    try:
+        resolve_chain(g, "2")
+    except ChainError as e:
+        assert "cycle" in str(e), e
+        return
+    raise AssertionError("a cyclic chain resolved instead of raising")
+
+
+def a_non_builder_link_raises():
+    from reference_order import ChainError, resolve_chain
+    g = _chain(["image"])
+    g["0"] = {"class_type": "LoadImage", "inputs": {}}
+    g["1"]["inputs"]["references"] = ["0", 0]
+    try:
+        resolve_chain(g, "1")
+    except ChainError as e:
+        assert "LoadImage" in str(e), e
+        return
+    raise AssertionError("a non-append node was accepted into a chain")
+
+
+def split_video_ownership_raises():
+    from reference_order import ChainError, resolve_chain
+    g = _chain(["video"], sounded={0})
+    g["1"]["inputs"]["video_info"] = ["77", 3]         # a different loader
+    try:
+        resolve_chain(g, "1")
+    except ChainError as e:
+        assert "different decodes" in str(e), e
+        return
+    raise AssertionError("frames and metadata from different loaders were "
+                         "accepted, so loaded_fps would describe another clip")
 
 
 def ownership_differs_from_pairing():
@@ -193,9 +288,20 @@ def main() -> int:
     check("the plan reproduces core's ref_items sequence", agrees_with_core)
     check("the shared <Audio j> counter is preserved",
           shared_audio_counter_is_preserved)
-    print("\n  and the resolver it replaces is wrong where core is not")
-    check("wired_labels mispairs a sparse socket set (recorded, not owned)",
-          wired_labels_is_wrong_on_sparse)
+    check("wired_labels is a front end, not a second answer",
+          wired_labels_now_shares_the_function)
+    print("\n  the typed chain")
+    check("traversal is tail-first and comes back in user order",
+          chain_traversal_and_reversal)
+    check("interleaved records keep their list positions",
+          interleaved_records_keep_their_places)
+    check("a soundtrack is owned, never a standalone record",
+          a_soundtrack_is_never_a_standalone_record)
+    print("\n  and it fails loudly rather than returning a partial plan")
+    check("a cycle raises", a_cycle_raises)
+    check("a link to a non-append node raises", a_non_builder_link_raises)
+    check("frames and video_info from different loaders raises",
+          split_video_ownership_raises)
     print("\n  DIFFER -- the two behaviours replaced on purpose")
     check("ownership can SAY what suffix pairing only implies",
           ownership_differs_from_pairing)

@@ -71,43 +71,40 @@ WORKFLOWS = REPO / "workflows"
 # reported ok. Correctly-absent and silently-dropped look identical from a
 # green run, which is the failure this repo keeps naming.
 sys.path.insert(0, str(REPO / "workflows"))
+sys.path.insert(0, str(REPO))
 from h3_config import GRAPH_DIRS, graph_paths  # noqa: E402
 
 REF_NODE = "MiniMaxH3ReferenceToVideo"
 
 
-def wired_labels(inputs):
-    """The labels the tokenizer will emit, in its own order and numbering."""
-    def count(prefix):
-        return sum(1 for k, v in inputs.items()
-                   if k.startswith(prefix) and v is not None)
+def wired_labels(inputs, graph=None):
+    """The labels the tokenizer will emit, in its own order and numbering.
 
-    # A keyframe is a `<Picture N>` as much as a reference is. The tokenizer
-    # emits them from the plain `images=` list -- `comfy/text_encoders/
-    # minimax.py:183` is `add_text("<Picture %d>: " % (i + 1))` -- and
-    # `conditioning.py` appends first then last, so the numbering is wiring
-    # order. Counting only `ref_*` here reported every keyframe graph's correct
-    # `<Picture 1>` as a label "no socket wires".
-    n_kf = sum(1 for k in ("first_frame", "last_frame")
-               if inputs.get(k) is not None)
-    n_img = count("ref_images.ref_image_") + n_kf
-    n_vid = count("ref_videos.ref_video_")
-    n_vaud = count("ref_video_audios.ref_video_audio_")
-    n_aud = count("ref_audios.ref_audio_")
+    **A thin front end over `reference_order` since 2026-08-22**, not a second
+    authority. It used to compute the answer itself, and computed one case
+    wrong: soundtracks were reduced to a COUNT and paired `k < n_vaud`, which
+    cannot represent a sparse socket set. Core pairs by suffix
+    (`comfy_extras/nodes_minimax_h3.py:313-314`), so videos 0 and 1 with only
+    `ref_video_audio_1` wired put the track on the SECOND clip, and this
+    function put it on the first. `bench/check_reference_order.py` drives core
+    to establish that, and both consumers now share one label function so the
+    disagreement cannot recur.
 
-    labels, audio_n = [], 0
-    labels += [f"<Picture {i + 1}>" for i in range(n_img)]
-    for k in range(n_vid):
-        # a soundtrack's label is emitted BEFORE its video, and only the
-        # index-paired one counts
-        if k < n_vaud:
-            audio_n += 1
-            labels.append(f"<Audio {audio_n}>")
-        labels.append(f"<Video {k + 1}>")
-    for _ in range(n_aud):
-        audio_n += 1
-        labels.append(f"<Audio {audio_n}>")
-    return labels
+    `graph` is optional and selects the model:
+
+      absent, or a node wiring `ref_*` sockets -> the legacy grouped plan
+      a node wiring `references`               -> the typed ordered chain
+
+    Both produce the same kind of record list and go through the same
+    `assign_labels`, which is the point: an ordered graph and a socket graph
+    are two ways to build a plan, not two labelling rules.
+    """
+    from reference_order import (CHAIN_INPUT, assign_labels, legacy_plan,
+                                 resolve_chain)
+    link = inputs.get(CHAIN_INPUT)
+    if graph is not None and isinstance(link, list) and link:
+        return assign_labels(resolve_chain(graph, str(link[0])))
+    return assign_labels(legacy_plan(inputs))
 
 
 def main():
@@ -128,7 +125,9 @@ def main():
         doc = json.loads(path.read_text(encoding="utf-8"))
         for node in doc.values():
             if isinstance(node, dict) and node.get("class_type") == REF_NODE:
-                graphs.append((path.name, node["inputs"]))
+                # the whole doc rides along: an ordered graph's plan lives
+                # in the append chain, not in this node's inputs
+                graphs.append((path.name, node["inputs"], doc))
 
     def every_ref_graph_seen():
         assert graphs, "no shipped graph carries a MiniMaxH3ReferenceToVideo"
@@ -173,11 +172,11 @@ def main():
 
     def labels_agree():
         bad = []
-        for name, inputs in graphs:
+        for name, inputs, doc in graphs:
             prompt = inputs.get("prompt", "")
             if not isinstance(prompt, str):
                 continue
-            want = wired_labels(inputs)
+            want = wired_labels(inputs, doc)
             used = set(re.findall(r"<(?:Picture|Video|Audio) \d+>", prompt))
             undeclared = sorted(used - set(want))
             unused = sorted(set(want) - used)
@@ -194,7 +193,7 @@ def main():
         # defined and never used (or used and never defined) is the same class
         # of dangling reference.
         bad = []
-        for name, inputs in graphs:
+        for name, inputs, _doc in graphs:
             prompt = inputs.get("prompt", "")
             if not isinstance(prompt, str) or "subject_definitions:" not in prompt:
                 continue
@@ -227,7 +226,7 @@ def main():
         here would delete the experiment.
         """
         bad = []
-        for name, inputs in graphs:
+        for name, inputs, _doc in graphs:
             prompt = inputs.get("prompt", "")
             if not isinstance(prompt, str) or "detailed_description:" not in prompt:
                 continue
@@ -343,7 +342,7 @@ def main():
         for scene_name in bw._IMAGE_SCENES:
             for image_fmt in bw.IMAGE_FORMATS:
                 legal.add(bw._image_prompt(scene_name, image_fmt))
-        bad = [name for name, inputs in graphs
+        bad = [name for name, inputs, _doc in graphs
                if isinstance(inputs.get("prompt"), str)
                and inputs["prompt"] not in legal]
         assert not bad, (
@@ -365,7 +364,7 @@ def main():
             "soft directional lighting", "ambient daylight", "harsh sunlight",
             "interior room tone",
         ]
-        for name, inputs in graphs:
+        for name, inputs, _doc in graphs:
             prompt = inputs.get("prompt", "")
             if not isinstance(prompt, str) or "subject_definitions:" not in prompt:
                 continue
