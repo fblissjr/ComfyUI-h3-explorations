@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The ordered-reference resolver against the socket resolver it replaces.
 
-Run it with the ComfyUI venv python (`docs/comfy_notes.md`). Pure stdlib on
-both sides -- no CUDA, no model, no server, no ComfyUI import.
+Run it with the ComfyUI venv python (`docs/comfy_notes.md`). **It imports
+ComfyUI** -- core is the oracle, so it must -- with stub VAEs and a patched
+tokenizer. No CUDA, no model, no server.
 
 **Two verdicts, not one, and conflating them would reject a correct
 replacement.** `docs/research/conditioning_nodes.md` splits the acceptance
@@ -10,10 +11,12 @@ criteria into behaviour a replacement must PRESERVE and behaviour it
 intentionally REPLACES. A suite asserting AGREE on all of it would fail the
 new model for doing its job, so:
 
-  AGREE   every socket-shaped input must label identically to
-          `check_ref_prompt_labels.wired_labels`, over the whole legal
-          combination space rather than a sample. This is the claim that the
-          ordered model is a superset and not a rewrite.
+  AGREE   socket-shaped inputs must produce core's own two lists exactly,
+          over a CHOSEN set of configurations rather than a sweep -- driving
+          core costs a node execution each, so the set is picked to include
+          the sparse and both-sounded cases a generator never emits, and the
+          count is printed so a shrinking set is visible. This is the claim
+          that the ordered model is a superset and not a rewrite.
 
   DIFFER  the two replaced behaviours must produce labels the socket model
           could not. If these ever AGREE, the ordered model gained nothing
@@ -312,10 +315,20 @@ def a_video_needs_its_metadata():
 
 
 def video_links_must_name_their_own_slots():
-    """Right shape, wrong output, is the wrong value."""
+    """Right shape, wrong output, is the wrong value -- for frames and metadata.
+
+    **The soundtrack is deliberately NOT in this list**, and that is the fix
+    for the compatibility blocker rather than an omission. Frames and
+    `video_info` name a loader's own outputs because `loaded_fps` is derived
+    from them; a soundtrack arrives through whatever processing the graph
+    wires, and every sounded graph here trims it, so it is slot-0 of a
+    `TrimAudioDuration`. Constraining it to slot 2 rejected the shipped
+    population. Provenance is traced instead --
+    `the_shipped_soundtrack_wiring_resolves` covers it.
+    """
     from reference_order import ChainError, resolve_chain
-    for field, bad in (("frames", 1), ("video_info", 0), ("soundtrack", 3)):
-        g = _chain(["video"], sounded={0})
+    for field, bad in (("frames", 1), ("video_info", 0)):
+        g = _chain(["video"])
         g["1"]["inputs"][field] = ["9", bad]
         try:
             resolve_chain(g, "1")
@@ -323,6 +336,75 @@ def video_links_must_name_their_own_slots():
             assert "slot" in str(e), e
             continue
         raise AssertionError(f"{field} from slot {bad} was accepted")
+
+
+def slots_must_be_real_integers():
+    """`int(slot)` swallowed 0.9, "0" and True; every one is a wrong value.
+
+    The same defect as accepting the right shape from the wrong output, one
+    level down. `bool` is excluded explicitly: it subclasses `int` and
+    `True == 1` would pass a slot check by accident. Found by codex probing
+    the validation rather than the shape.
+    """
+    from reference_order import ChainError, resolve_chain
+    for bad in (0.9, "0", True, 2.9, None, [0]):
+        g = _chain(["video"])
+        g["1"]["inputs"]["frames"] = ["9", bad]
+        try:
+            resolve_chain(g, "1")
+        except ChainError:
+            continue
+        raise AssertionError(f"frames slot {bad!r} was accepted")
+
+
+def the_shipped_soundtrack_wiring_resolves():
+    """A trimmed soundtrack is the shape this repo actually ships.
+
+    **The over-constrained rule rejected every sounded graph here**, and it
+    was written against the shape the rule's author imagined rather than the
+    one in `workflows/`. Every sounded graph routes VHS_LoadVideo's audio
+    through `TrimAudioDuration` -- the reference pipeline caps a soundtrack at
+    the generated duration and ComfyUI does not -- so the record sees
+    `[trim, 0]`, never `[loader, 2]`. Caught by codex checking the rule
+    against `workflows/build_workflows.py` instead of against its docstring.
+
+    Frames and `video_info` stay strict, because `loaded_fps` comes from the
+    metadata. A soundtrack is EXPECTED to be processed, so it is traced back
+    instead, and refused only when it reaches a different known loader.
+    """
+    from reference_order import ChainError, resolve_chain
+    base = {"28": {"class_type": "VHS_LoadVideo", "inputs": {}},
+            "35": {"class_type": "TrimAudioDuration",
+                   "inputs": {"audio": ["28", 2]}}}
+
+    def chain(track, extra=None):
+        g = dict(base)
+        g.update(extra or {})
+        g["1"] = {"class_type": "MiniMaxH3AppendRefVideo",
+                  "inputs": {"frames": ["28", 0], "video_info": ["28", 3],
+                             "soundtrack": track}}
+        return g
+
+    shipped = resolve_chain(chain(["35", 0]), "1")[0]
+    assert shipped.soundtrack_origin == "owned", shipped
+    raw = resolve_chain(chain(["28", 2]), "1")[0]
+    assert raw.soundtrack_origin == "owned", raw
+
+    # An unfamiliar audio node is UNRESOLVED, not wrong: it may read the same
+    # loader through an input this module does not know.
+    unknown = resolve_chain(
+        chain(["77", 0], {"77": {"class_type": "Whatever", "inputs": {}}}), "1")[0]
+    assert unknown.soundtrack_origin == "unresolved", unknown
+
+    # A different KNOWN loader is provably another clip's audio.
+    try:
+        resolve_chain(
+            chain(["99", 2],
+                  {"99": {"class_type": "VHS_LoadVideo", "inputs": {}}}), "1")
+    except ChainError as e:
+        assert "another clip" in str(e), e
+        return
+    raise AssertionError("a soundtrack from a different loader was accepted")
 
 
 def a_cycle_raises():
@@ -352,7 +434,7 @@ def a_non_builder_link_raises():
 
 def split_video_ownership_raises():
     from reference_order import ChainError, resolve_chain
-    g = _chain(["video"], sounded={0})
+    g = _chain(["video"])
     g["1"]["inputs"]["video_info"] = ["77", 3]         # a different loader
     try:
         resolve_chain(g, "1")
@@ -428,6 +510,9 @@ def main() -> int:
     check("a video without its metadata raises", a_video_needs_its_metadata)
     check("video links must name their own output slots",
           video_links_must_name_their_own_slots)
+    check("output slots must be real integers", slots_must_be_real_integers)
+    check("the shipped trimmed-soundtrack wiring resolves",
+          the_shipped_soundtrack_wiring_resolves)
     check("a cycle raises", a_cycle_raises)
     check("a link to a non-append node raises", a_non_builder_link_raises)
     check("frames and video_info from different loaders raises",

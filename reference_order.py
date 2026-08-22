@@ -54,9 +54,16 @@ class VideoRef:
     `has_soundtrack` is the whole difference from the socket model. There, a
     track belonged to a video because their socket numbers matched; here it
     belongs because the record says so, and there is no numbering to mismatch.
+
+    `soundtrack_origin` is `"owned"` when the track was traced back to this
+    record's own loader, `"unresolved"` when it passed through a node this
+    module does not know how to follow, and `None` when there is no track. It
+    is carried rather than discarded because "we could not check" and "we
+    checked and it is fine" must not read the same downstream.
     """
     name: str = ""
     has_soundtrack: bool = False
+    soundtrack_origin: str | None = None
 
 
 @dataclass(frozen=True)
@@ -277,7 +284,7 @@ def plan_for(inputs, graph=None) -> list:
                 f"`{CHAIN_INPUT}` is {link!r}, not a [node_id, slot] link. An "
                 f"ordered node with an unresolvable chain has no plan, and "
                 f"returning an empty one would silently drop every record")
-        if int(link[1]) != 0:
+        if _exact_slot(link[1]) != 0:
             raise ChainError(
                 f"`{CHAIN_INPUT}` takes output slot {link[1]} of node "
                 f"{link[0]!r}; an append node's plan is slot 0. A different "
@@ -340,7 +347,7 @@ def resolve_chain(graph: dict, node_id: str) -> list:
             # An append node's plan is output 0; any other slot is a different
             # value with the same shape, and following it would build a plan
             # out of something that is not one.
-            if int(link[1]) != 0:
+            if _exact_slot(link[1]) != 0:
                 raise ChainError(
                     f"node {current!r} takes `{CHAIN_INPUT}` from output slot "
                     f"{link[1]} of node {link[0]!r}, where an append node's "
@@ -359,15 +366,49 @@ def resolve_chain(graph: dict, node_id: str) -> list:
         elif kind == "audio":
             records.append(AudioRef(name=str(nid)))
         else:
-            _assert_video_ownership(nid, ins)
+            origin = _assert_video_ownership(nid, ins, graph)
             records.append(VideoRef(
                 name=str(nid),
-                has_soundtrack=ins.get("soundtrack") is not None))
+                has_soundtrack=ins.get("soundtrack") is not None,
+                soundtrack_origin=origin))
     return records
 
 
 # VHS_LoadVideo's outputs, which a video record's links must name exactly.
-VIDEO_SLOTS = {"frames": 0, "soundtrack": 2, "video_info": 3}
+VIDEO_SLOTS = {"frames": 0, "video_info": 3}
+
+# Single-input audio nodes a soundtrack may legitimately pass through on its
+# way from the loader to the record. **The shipped graphs all route through
+# TrimAudioDuration** -- the reference pipeline caps every soundtrack at the
+# generated duration and ComfyUI does not, so this repo wires the trim -- and
+# an earlier version of the ownership rule required the track to arrive raw
+# from the loader at slot 2, which rejects every sounded graph this repo
+# ships. Caught by codex checking the rule against the real wiring rather
+# than against the shape it was written for.
+# Nodes that ORIGINATE media. Reaching one of these ends a trace with a
+# verdict; stopping anywhere else means the provenance is unresolved, not
+# wrong -- refusing every unfamiliar audio node would make this resolver a
+# gatekeeper on ComfyUI's whole audio ecosystem.
+MEDIA_SOURCES = {"VHS_LoadVideo", "VHS_LoadAudio", "VHS_LoadAudioUpload",
+                 "LoadAudio", "LoadVideo", "GetVideoComponents"}
+
+AUDIO_PASSTHROUGH = {"TrimAudioDuration": "audio",
+                     "AudioAdjustVolume": "audio",
+                     "AudioEqualizer3Band": "audio"}
+
+
+def _exact_slot(value) -> int | None:
+    """The slot as a real int, or None if it is anything else.
+
+    `int(slot)` was the check until codex probed it, which quietly accepted
+    `0.9`, `"0"` and `True` -- every one of them a wrong value with a
+    coercible shape, which is the same defect as accepting the right shape
+    from the wrong output. `bool` is excluded explicitly because it is an
+    `int` subclass and `True == 1` would pass a slot check by accident.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
 
 
 def _assert_link(nid, ins, field, required=True):
@@ -381,7 +422,7 @@ def _assert_link(nid, ins, field, required=True):
         raise ChainError(f"video append node {nid!r} has a {field} input that "
                          f"is not a [node_id, slot] link: {link!r}")
     want = VIDEO_SLOTS[field]
-    if int(link[1]) != want:
+    if _exact_slot(link[1]) != want:
         raise ChainError(
             f"video append node {nid!r} takes {field} from output slot "
             f"{link[1]} of node {link[0]!r}, where a loader's {field} is slot "
@@ -390,24 +431,76 @@ def _assert_link(nid, ins, field, required=True):
     return link
 
 
-def _assert_video_ownership(nid, ins) -> None:
-    """Frames, metadata and any soundtrack come from ONE loader, by exact slot.
+def _trace_soundtrack(graph, link):
+    """Follow a soundtrack back through known pass-throughs to its origin.
 
-    **`video_info` is required, not optional**, and it was optional until
-    codex probed this. The record's whole claim is that it OWNS its clip, and
-    `loaded_fps` is derived from that metadata rather than from a second
-    widget somebody could set inconsistently. A record with no metadata cannot
-    honour the claim, so accepting one means the ownership contract holds for
-    some records and not others -- with nothing saying which.
+    Returns (origin_node_id, resolved). `resolved` is False when the walk
+    stopped at a node this module cannot follow -- which is a real answer, not
+    a failure: the track may still be correct, and refusing every unfamiliar
+    audio node would make the resolver a gatekeeper on ComfyUI's whole audio
+    ecosystem.
+    """
+    seen = set()
+    node_id = str(link[0])
+    while node_id not in seen:
+        seen.add(node_id)
+        node = graph.get(node_id)
+        if node is None:
+            return node_id, False
+        cls = node.get("class_type")
+        field = AUDIO_PASSTHROUGH.get(cls)
+        if field is None:
+            # Only a KNOWN media source ends the trace with a verdict. Any
+            # other node is a stop we cannot interpret: it may well read the
+            # same loader through an input this module does not know, so
+            # calling it a foreign origin would refuse correct wiring.
+            return node_id, cls in MEDIA_SOURCES
+        nxt = node.get("inputs", {}).get(field)
+        if not (isinstance(nxt, list) and len(nxt) == 2):
+            return node_id, False
+        node_id = str(nxt[0])
+    return node_id, False                 # a loop in the audio chain
+
+
+def _assert_video_ownership(nid, ins, graph) -> str | None:
+    """Frames and metadata from ONE loader; the soundtrack traced to it.
+
+    **Two different provenance claims, and conflating them broke the shipped
+    wiring.** Frames and `video_info` must come from the same node at their
+    own output slots, because `loaded_fps` is derived from that metadata and
+    the claim is false if the two describe different decodes. That is strict.
+
+    A soundtrack is a different matter: it is *expected* to be processed --
+    every sounded graph here trims it to the generated duration, and the mono
+    upmix would be another such node. Requiring it to arrive raw at slot 2
+    rejected the entire shipped population. So it is traced back through
+    `AUDIO_PASSTHROUGH` instead, and refused only when it demonstrably
+    originates somewhere other than this record's own loader.
+
+    Returns the origin verdict for the record to carry.
     """
     frames = _assert_link(nid, ins, "frames")
     info = _assert_link(nid, ins, "video_info")
-    track = _assert_link(nid, ins, "soundtrack", required=False)
-    sources = {str(frames[0]), str(info[0])}
-    if track is not None:
-        sources.add(str(track[0]))
-    if len(sources) != 1:
+    if str(frames[0]) != str(info[0]):
         raise ChainError(
-            f"video append node {nid!r} draws from {sorted(sources)}. The "
-            f"record claims to own one clip and derives loaded_fps from its "
-            f"metadata, which is false if they describe different decodes")
+            f"video append node {nid!r} takes frames from node {frames[0]!r} "
+            f"and video_info from node {info[0]!r}. The record claims to own "
+            f"one clip and derives loaded_fps from its metadata, which is "
+            f"false if they describe different decodes")
+
+    track = ins.get("soundtrack")
+    if track is None:
+        return None
+    if not (isinstance(track, list) and len(track) == 2):
+        raise ChainError(f"video append node {nid!r} has a soundtrack input "
+                         f"that is not a [node_id, slot] link: {track!r}")
+    origin, resolved = _trace_soundtrack(graph, track)
+    if not resolved:
+        return "unresolved"
+    if origin != str(frames[0]):
+        raise ChainError(
+            f"video append node {nid!r} takes its soundtrack from node "
+            f"{origin!r} and its frames from node {frames[0]!r}. A record owns "
+            f"one clip; a track from a different loader is another clip's "
+            f"audio wearing this one's label")
+    return "owned"
