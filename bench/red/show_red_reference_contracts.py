@@ -21,6 +21,20 @@ apply-failure raise instead of quietly returning the original.
       the same tensors in the wrong order.
   M2  `encode_from_tokens`'s `return_dict` branch stops merging the encoder's
       third return value, so `minimax_token_tags` never reaches conditioning.
+**One mutation was tried and removed, and its removal is a finding.** Flipping
+`return_dict=True` to `False` at `sd.py:341` -- the production caller -- does
+not silently drop the tags. It raises `AttributeError: 'tuple' object has no
+attribute 'pop'` on the very next line, which assumes a dict. So that half of
+contract 5 is protected by a crash rather than needing a check, and the case
+was dropped instead of being made to pass: the spine scores an exception as
+ERRORED, and rewriting `contract5a_holds` to swallow exceptions would have
+conflated "the tags are missing" with "anything at all went wrong". The silent
+failures are M2 and M3, and those are the ones that red.
+
+Auditing that call site is still what moved contract 5a onto
+`encode_from_tokens_scheduled`. The earlier version drove `encode_from_tokens`
+directly with an explicit `return_dict=True`, which asserts the merge works
+when asked for and says nothing about whether the production caller asks.
   M3  `extra_conds` stops copying the tags into the payload -- the "dropped
       afterward" half of contract 5, which raises nothing either.
 

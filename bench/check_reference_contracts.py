@@ -130,15 +130,23 @@ def contract4_holds():
 
 
 def contract5a_holds():
-    """(ok, detail) for: the encoder's third return value rides return_dict."""
+    """(ok, detail) for: the tags reach conditioning through the path the node uses.
+
+    Asserted end-to-end at `encode_from_tokens_scheduled`, the node's own
+    entry point, so that flipping `return_dict=True` at its call site is
+    detectable. The `scheduled=False` arm is the mechanism, not the seam.
+    """
     import torch
     tags = torch.tensor([0, 1, 0])
-    got = _drive_encode_from_tokens({"minimax_token_tags": tags}, True)
-    plain = _drive_encode_from_tokens({"minimax_token_tags": tags}, False)
-    return (isinstance(got, dict) and "minimax_token_tags" in got
-            and not isinstance(plain, dict),
-            f"dict path keys {sorted(got) if isinstance(got, dict) else got}; "
-            f"plain path returned {type(plain).__name__}")
+    out = _drive_encode_from_tokens({"minimax_token_tags": tags})
+    reached = (isinstance(out, list) and len(out) == 1
+               and isinstance(out[0][1], dict)
+               and "minimax_token_tags" in out[0][1])
+    plain = _drive_encode_from_tokens({"minimax_token_tags": tags},
+                                      scheduled=False)
+    return (reached and not isinstance(plain, dict),
+            f"conditioning extras {sorted(out[0][1]) if reached else out}; "
+            f"the non-dict path returned {type(plain).__name__}")
 
 
 def contract5b_holds():
@@ -189,13 +197,24 @@ def _drive_extra_conds(keyframe_latent, ref_latent,
     return out["minimax_payload"].cond
 
 
-def _drive_encode_from_tokens(extra: dict, return_dict: bool):
-    """Run core's real `CLIP.encode_from_tokens` over a stub text encoder.
+def _drive_encode_from_tokens(extra: dict, scheduled: bool = True):
+    """Run core's real encode path over a stub text encoder.
 
     Contract 5's subject is `comfy/sd.py`'s merge of the encoder's third
     return value into the conditioning dict. The stub returns a 3-tuple
     exactly as `MiniMaxH3ClipModel.encode_token_weights` does; everything that
     decides whether the third element survives is core's.
+
+    **`scheduled=True` drives `encode_from_tokens_scheduled`, which is what
+    the node actually calls** (`comfy_extras/nodes_minimax_h3.py`:
+    `clip.encode_from_tokens_scheduled(tokens)`). Driving
+    `encode_from_tokens` directly with an explicit `return_dict=True` --
+    which this did until it was audited on 2026-08-22 -- asserts that the
+    merge works when asked for, and says nothing about whether the production
+    caller asks. Flipping `return_dict=True` to `False` at `sd.py:341` left
+    that version green while the tags vanished. The end-to-end path is the
+    seam; the direct call is kept only as the `scheduled=False` contrast that
+    shows the mechanism.
     """
     import comfy.sd
     import torch
@@ -213,18 +232,28 @@ def _drive_encode_from_tokens(extra: dict, return_dict: bool):
     class _StubCLIP:
         cond_stage_model = _StubTE()
         layer_idx = None
+        apply_hooks_to_conds = None
+        use_clip_schedule = False
 
         class patcher:
             load_device = torch.device("cpu")
+            forced_hooks = None
 
         def load_model(self, _t):
             pass
 
+        # Delegated to core rather than stubbed: these two are ON the path
+        # under test, and a local stand-in would test the stand-in.
         def add_hooks_to_dict(self, d):
-            return d
+            return comfy.sd.CLIP.add_hooks_to_dict(self, d)
 
-    return comfy.sd.CLIP.encode_from_tokens(_StubCLIP(), "tokens",
-                                            return_dict=return_dict)
+        def encode_from_tokens(self, *a, **kw):
+            return comfy.sd.CLIP.encode_from_tokens(self, *a, **kw)
+
+    clip = _StubCLIP()
+    if scheduled:
+        return comfy.sd.CLIP.encode_from_tokens_scheduled(clip, "tokens")
+    return comfy.sd.CLIP.encode_from_tokens(clip, "tokens", return_dict=False)
 
 
 def _labels(ref_items):
