@@ -1,6 +1,6 @@
 {
   "question": "Does the guide's six-section prompt format earn itself, on the shipped substrate? The 124-frame batch could not answer it -- every arm ran on a bench patch three times shorter than the graph's design, which damaged the speech in all of them.",
-  "answer": "Two findings, not one. CONCISE IS GIBBERISH -- a prompt problem, settled by ear (3 of 3) and by measure (the three lowest margins, broken from the first third on two seeds). STRUCTURED DRIFTS LATE -- a length problem, not a prompt one: it starts strong every time and falls in the last third, which the owner attributes to the delivery not lining up with a 15.083s render cut out of a 19.56s utterance. The second is untested and one render away.",
+  "answer": "Two findings, not one. CONCISE IS GIBBERISH -- a prompt problem, settled by ear (3 of 3) and by measure (the three lowest margins, broken from the first third on two seeds). STRUCTURED DRIFTS LATE -- a length problem, not a prompt one: it starts strong every time and falls in the last third, which the owner attributes to the delivery not lining up with a 15.083s render cut out of a 19.56s utterance. The second is untested and CANNOT be tested by rendering longer: 362 frames is the trained ceiling. Testing it needs a source whose speech ends inside 15.083s, compared against this one at the same length.",
   "design": "Both shipped graphs unpatched -- 1024x768, 362 frames, frame_load_cap 362, TrimAudioDuration at 15.083s, er_sde, 16 steps. The two files differ in exactly two fields, `prompt` and `filename_prefix`, verified before the run. Seeds 730451892/893/894 in both arms.",
   "measure": "bench/grade_soundtrack_reuse.py -- mean per-frame Pearson correlation of 64-bin log-mel against the reference window the render was conditioned on, with a mismatched later window of the same recording as the control floor.",
   "pairs": [
@@ -42,8 +42,9 @@
     "2_structured_drifts_late": {
       "what": "A length problem, not a prompt one. The owner: 'delivery timing isnt lining up with the 15s length.' Structured starts strong every time and falls in the last third: 0.704/0.647/0.481, 0.589/0.625/0.305, 0.688/0.537/0.017.",
       "mechanism_hypothesis": "The source is 19.56s of continuous speech and the render is 15.083s, so 4.48s of the utterance is cut off mid-delivery. Small timing error accumulates against a reference that keeps going, and by the last third the generated speech is out of phase. UNTESTED.",
-      "the_test": "481 frames = 20.042s, which is 17*28+5 and the first legal length that covers the whole 19.541s soundtrack. 464 (19.333s) is legal but still cuts it. If drift is truncation, 481 should hold to the end; if it still falls off, truncation is refuted and the cause is elsewhere.",
-      "status": "open, one render away"
+      "the_test": "THERE IS NO LONGER RENDER. 362 frames / 15.083s is the longest length H3 was trained on and the ceiling MiniMaxH3Resolution warns above -- its own tooltip says so, and h3_config.LONG_LENGTH is 362. A 481-frame test was proposed here and was impossible; the tooltip would have ruled it out before the proposal. The vendor's reference pipeline stops one grid step earlier still, at 345.",
+      "status": "mechanism still untested -- but the obvious test does not exist, so testing it needs a different design: same length, a source whose speech ENDS before 15.083s, against this one. If the short-source render holds to the end, truncation is the cause.",
+      "what_that_means": "The fix is on the INPUT side, not the output side. A source longer than 15.083s will always be truncated, so for soundtrack reuse the reference clip should be cut to <=15.083s BEFORE it becomes a reference, at a natural phrase boundary rather than wherever 362 frames happens to land. This clip is 19.56s of continuous speech cut at 15.083s, which is mid-delivery by construction."
     }
   }
 }
