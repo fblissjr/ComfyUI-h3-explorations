@@ -2502,6 +2502,14 @@ _IMAGE_SCENES: dict[str, dict] = {
     # lives -- the model blending two identities, or putting one person's
     # features on the other.
     #
+    # **Every attribute below was read off the plate at full resolution**,
+    # not inferred from the thumbnail. The first draft of this scene had the
+    # woman sitting with her knees drawn up and the man's floral jacket
+    # draped over her legs; she is lying prone on her forearms with her boots
+    # in the air, and the jacket is his. A prompt asserting a pose the plate
+    # does not hold asks the model to reconcile the two, which is the
+    # generic-template failure this file records above.
+    #
     # **Chosen so a failure cannot pass for a success.** Both people in the
     # plate are young with dark hair; the two identities are a freckled
     # middle-aged redhead and a curly-haired man in black-rimmed glasses. If
@@ -2517,10 +2525,11 @@ _IMAGE_SCENES: dict[str, dict] = {
             "<Subject 1> is the woman at camera-left in <Picture 1>, with her "
             "identity replaced: her face, skin, freckling, hair colour and "
             "length, and apparent age come exclusively from <Picture 2>. Her "
-            "pose sitting low on the couch with her knees drawn up and her "
-            "legs extended along the seat, her black sleeveless top, the "
-            "gold-and-black floral garment draped across her legs, and her "
-            "position and scale in frame are those of <Picture 1>.",
+            "pose lying prone along the couch propped on her forearms with "
+            "her knees bent and her boots raised behind her, her dark hair "
+            "gathered up off her neck, her black sleeveless top and dark "
+            "trousers, and her position and scale in frame are those of "
+            "<Picture 1>.",
             "<Subject 2> is the man at camera-right in <Picture 1>, with his "
             "identity replaced: his face, skin, hair and black-rimmed glasses "
             "come exclusively from <Picture 3>. His upright seated posture, "
@@ -2553,8 +2562,10 @@ _IMAGE_SCENES: dict[str, dict] = {
               "and colour grade as <Picture 1>.",
         body="<Subject 1> and <Subject 2> occupy exactly the positions they "
              "hold in <Picture 1>, at the same scale and in the same framing: "
-             "she at camera-left, low on the couch with her knees drawn up; he "
-             "at camera-right, sitting upright and looking off camera-left. "
+             "she at camera-left, lying prone along the couch on her forearms "
+             "with her boots raised behind her; he at camera-right, sitting "
+             "upright in the gold-and-black floral jacket and looking off "
+             "camera-left. "
              "Only the two faces change. The daylight from camera-left falls "
              "on both new faces from the same direction and at the same "
              "softness as it falls on the originals, and neither new face "
