@@ -246,7 +246,12 @@ per second of excess. sglang cuts every reference soundtrack to the generated
 duration via `ffmpeg -t`, and diffusers does the same. It applies to **both**
 material chains there -- a video's soundtrack and a standalone audio reference
 alike. *Impact:* wasted rows on any soundtrack longer than the render, and
-those rows are attended every step.
+those rows are attended every step. **And more than rows**: a video
+reference advances the packed RoPE cursor by
+`max(ref_audio_t, sum of video spans)`, so an over-long soundtrack expands
+the reference span and pushes the target streams down the timeline. Both
+independent reviews reach this (`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md`
+section 5.3; the cursor formula is in `internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`).
 
 **Closed in the graphs on 2026-08-22, not in the node.** `TrimAudioDuration` at
 `length / 24` sits on every `ref_audio_*` and `ref_video_audio_*` socket here.

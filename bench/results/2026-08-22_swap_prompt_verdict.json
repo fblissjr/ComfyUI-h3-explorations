@@ -37,5 +37,11 @@
   "what_this_does_not_support": "Any claim that the six sections protect the speech. One clean render of four, with the only within-arm pair disagreeing with itself, is a draw from a distribution. CLAUDE.md's different-sample rule applies to prompts too.",
   "confound_named": "All three prompts differ in structure AND length AND whether the soundtrack is stated as an `<Audio 1>: fully_copy` retention line or as prose. Three variables moved at once. The arm that would separate them -- structured sections with the soundtrack demoted to prose -- was not rendered.",
   "substrate_caveat": "These renders predate the reference-soundtrack trim (CHANGELOG 0.55.0) -- run_graph_arms holds its graphs in memory from launch, so all arms were equally untrimmed and the comparison between them is unaffected. Any later render of these graphs is a different sample.",
-  "what_it_did_surface": "Speech in a reused soundtrack degraded on three of four renders at 1152x768 / 124 frames, across three prompt registers. That is the question worth designing an experiment around, and it is not a question about prompt format."
+  "what_it_did_surface": "Speech in a reused soundtrack degraded on three of four renders at 1152x768 / 124 frames, across three prompt registers. That is the question worth designing an experiment around, and it is not a question about prompt format.",
+  "ruled_out_afterwards": {
+    "fps_desync": "The source is 25 fps, the rate the fps gap is about, but force_rate=24 is wired; VHS applies it as an ffmpeg fps filter preserving wall-clock and derives the audio window from the same origin, so the frame window and the soundtrack window cover the same span.",
+    "soundtrack_span_expansion": "An untrimmed soundtrack expands the packed reference span, since a video reference advances the RoPE cursor by max(ref_audio_t, video spans). Not active here: the recorded patches show frame_load_cap=124 on every arm, so VHS handed out 5.167s against a 5.167s visual reference.",
+    "grid_snap_loss": "124 = 17*7+5, exactly on the reference-video grid, so nothing was lost to the snap-down."
+  },
+  "still_open": "The owner's dialogue-density hypothesis: 124 frames may be too short for the speech in the source. Testing it is a length sweep on one prompt, not a prompt comparison."
 }

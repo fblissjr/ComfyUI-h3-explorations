@@ -118,6 +118,16 @@ matter how long the clip is.
 Resampled to the audio VAE's rate. **Core does not truncate.** ComfyUI encodes
 the whole waveform, at 80 rows per second of excess.
 
+**Rows are not the only consequence, and framing it as cost alone was too
+narrow.** A reference block advances the packed 3D-RoPE cursor, and a video
+reference advances it by `max(ref_audio_t, sum of video spans)` -- so a
+soundtrack longer than its own visual reference **expands the reference span**
+and pushes the target streams further down the timeline. Both independent
+reviews of this pipeline reach it: `internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md`
+section 5.3 states it directly, and `internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`
+carries the cursor formula. Trimming is therefore a correctness change on the
+soundtrack path, not only a saving.
+
 **Every shipped graph here trims, since 2026-08-22.** `TrimAudioDuration` sits
 between the source and every `ref_audio_*` and `ref_video_audio_*` socket, at
 `length / 24` seconds. The node caps and never pads
@@ -833,11 +843,17 @@ workaround is wired: these graphs set `force_rate=24`, which VHS applies as an
 ffmpeg `fps=fps=24` filter, preserving wall-clock. And the audio window VHS
 hands out is `frame_load_cap / force_rate` seconds from the same origin, so
 the frame window and the soundtrack window cover the same span of the source.
-Neither desync is present. **What is still open is the owner's other
-hypothesis**: that 124 frames is too short for the density of dialogue in the
-source, so the model is asked to fit a 19.5s monologue's speech into 5.167s.
-Nothing here tests it, and the test is a length sweep on one prompt, not a
-prompt comparison.
+Neither desync is present. **Span expansion is ruled out for that batch too**, and it
+was the appealing explanation: the runs were patched to `frame_load_cap=124`,
+so VHS handed out 5.167s of soundtrack against a 5.167s visual reference and
+the cursor formula above had nothing to expand. Checked in the recorded
+patches rather than assumed. 124 is also exactly `17*7+5`, so the reference
+video lost nothing to the grid snap.
+
+**What is still open is the owner's other hypothesis**: that 124 frames is too
+short for the density of dialogue in the source, so the model is asked to fit
+a continuous monologue's speech into 5.167s. Nothing here tests it, and the
+test is a length sweep on one prompt -- not a prompt comparison.
 
 **The real finding is that reused-soundtrack speech degrades often** at this
 canvas and length, across prompt registers. That is worth a designed
