@@ -55,11 +55,19 @@ class VideoRef:
     track belonged to a video because their socket numbers matched; here it
     belongs because the record says so, and there is no numbering to mismatch.
 
-    `soundtrack_origin` is `"owned"` when the track was traced back to this
-    record's own loader, `"unresolved"` when it passed through a node this
-    module does not know how to follow, and `None` when there is no track. It
-    is carried rather than discarded because "we could not check" and "we
-    checked and it is fine" must not read the same downstream.
+    `soundtrack_origin` is `None` with no track, `"owned"` when traced to this
+    record's own frame loader, `"foreign"` when traced to a different known
+    audio source, and `"unresolved"` when the walk stopped at an unfamiliar
+    processor.
+
+    **`"foreign"` is accepted, not refused, and that was a decision.** An
+    earlier version raised on it. Ownership is established by placing the
+    soundtrack inside this record, so provenance is DIAGNOSTIC rather than
+    authorization -- and the strict rule was incoherent besides: a raw foreign
+    loader was refused while routing the same audio through one unknown
+    processor became `"unresolved"` and passed, penalising transparent graphs
+    without reliably stopping cross-source audio. Scoring a clip with another
+    take's audio is a thing people do on purpose.
     """
     name: str = ""
     has_soundtrack: bool = False
@@ -375,6 +383,10 @@ def resolve_chain(graph: dict, node_id: str) -> list:
 
 
 # VHS_LoadVideo's outputs, which a video record's links must name exactly.
+# `video_info` is typed VHS_VIDEOINFO, and every node that produces it -- all
+# four VHS video loaders -- emits it at slot 3, with images at 0. Verified
+# against the served `/object_info` on 2026-08-22 rather than assumed from the
+# one loader the shipped graphs happen to use.
 VIDEO_SLOTS = {"frames": 0, "video_info": 3}
 
 # Single-input audio nodes a soundtrack may legitimately pass through on its
@@ -385,16 +397,42 @@ VIDEO_SLOTS = {"frames": 0, "video_info": 3}
 # from the loader at slot 2, which rejects every sounded graph this repo
 # ships. Caught by codex checking the rule against the real wiring rather
 # than against the shape it was written for.
-# Nodes that ORIGINATE media. Reaching one of these ends a trace with a
-# verdict; stopping anywhere else means the provenance is unresolved, not
-# wrong -- refusing every unfamiliar audio node would make this resolver a
-# gatekeeper on ComfyUI's whole audio ecosystem.
-MEDIA_SOURCES = {"VHS_LoadVideo", "VHS_LoadAudio", "VHS_LoadAudioUpload",
-                 "LoadAudio", "LoadVideo", "GetVideoComponents"}
+# Where audio comes FROM, by class and output slot. Read off the running
+# server's `/object_info` on 2026-08-22, never guessed: `GetVideoComponents`
+# puts audio at slot 1 and `VHS_LoadVideo` at slot 2, and `LoadVideo` has no
+# AUDIO output at all -- it emits VIDEO. An earlier table listed class names
+# only and had `LoadVideo` in it, which would have accepted a VIDEO output as
+# a soundtrack. Class names are not enough; a class plus a slot is the value.
+AUDIO_SOURCE_SLOTS = {
+    # All four VHS video loaders agree: images 0, audio 2, video_info 3.
+    # Listing only VHS_LoadVideo would report a graph built on any of the
+    # other three as "unresolved" -- a weaker answer for wiring that is just
+    # as checkable.
+    "VHS_LoadVideo": (2,),
+    "VHS_LoadVideoPath": (2,),
+    "VHS_LoadVideoFFmpeg": (2,),
+    "VHS_LoadVideoFFmpegPath": (2,),
+    "GetVideoComponents": (1,),
+    "LoadAudio": (0,),
+    "VHS_LoadAudio": (0,),
+    "VHS_LoadAudioUpload": (0,),
+}
 
-AUDIO_PASSTHROUGH = {"TrimAudioDuration": "audio",
-                     "AudioAdjustVolume": "audio",
-                     "AudioEqualizer3Band": "audio"}
+# Single-input audio nodes a soundtrack may legitimately pass through, as
+# (input field to follow, output slots that carry audio). **The shipped graphs
+# all route through TrimAudioDuration** -- the reference pipeline caps every
+# soundtrack at the generated duration and ComfyUI does not, so this repo
+# wires the trim -- and an ownership rule requiring the track to arrive raw
+# from the loader rejects every sounded graph this repo ships.
+# `SplitAudioChannels` carries audio on BOTH outputs, which is why the value
+# is a tuple rather than a single slot.
+AUDIO_PASSTHROUGH = {
+    "TrimAudioDuration": ("audio", (0,)),
+    "AudioAdjustVolume": ("audio", (0,)),
+    "AudioEqualizer3Band": ("audio", (0,)),
+    "SplitAudioChannels": ("audio", (0, 1)),
+}
+
 
 
 def _exact_slot(value) -> int | None:
@@ -432,34 +470,66 @@ def _assert_link(nid, ins, field, required=True):
 
 
 def _trace_soundtrack(graph, link):
-    """Follow a soundtrack back through known pass-throughs to its origin.
+    """Follow a soundtrack back through known pass-throughs, carrying SLOTS.
 
-    Returns (origin_node_id, resolved). `resolved` is False when the walk
-    stopped at a node this module cannot follow -- which is a real answer, not
-    a failure: the track may still be correct, and refusing every unfamiliar
-    audio node would make the resolver a gatekeeper on ComfyUI's whole audio
-    ecosystem.
+    Returns (origin_node_id, resolved). The walk tracks `(node_id, slot)`
+    pairs, not node ids: an earlier version dropped the slot and called
+    `[loader, 0]` -- a VHS_LoadVideo's IMAGE output -- an owned soundtrack,
+    along with a fractional slot, a TrimAudioDuration output 7, and a trim
+    reading the loader's images instead of its audio. All five reported
+    "owned". Class names alone cannot decide this; a class plus a slot is the
+    value.
+
+    Raises rather than reporting unresolved when the graph is demonstrably
+    malformed -- a missing node, a known class used at a slot that carries no
+    audio, a known pass-through with a broken input link, a cycle. Those are
+    not "we could not check"; they are "this cannot be right". Unresolved is
+    reserved for an unfamiliar node used at a plausible output.
     """
     seen = set()
-    node_id = str(link[0])
-    while node_id not in seen:
-        seen.add(node_id)
+    node_id, slot = str(link[0]), link[1]
+    while True:
+        if (node_id, _exact_slot(slot)) in seen:
+            raise ChainError(
+                f"the soundtrack chain revisits node {node_id!r} slot {slot!r}: "
+                f"a cycle has no origin to attribute the audio to")
+        seen.add((node_id, _exact_slot(slot)))
         node = graph.get(node_id)
         if node is None:
-            return node_id, False
+            raise ChainError(
+                f"the soundtrack traces to node {node_id!r}, which is not in "
+                f"the graph. An unresolvable link is not an unfamiliar one")
         cls = node.get("class_type")
-        field = AUDIO_PASSTHROUGH.get(cls)
-        if field is None:
-            # Only a KNOWN media source ends the trace with a verdict. Any
-            # other node is a stop we cannot interpret: it may well read the
-            # same loader through an input this module does not know, so
-            # calling it a foreign origin would refuse correct wiring.
-            return node_id, cls in MEDIA_SOURCES
-        nxt = node.get("inputs", {}).get(field)
-        if not (isinstance(nxt, list) and len(nxt) == 2):
-            return node_id, False
-        node_id = str(nxt[0])
-    return node_id, False                 # a loop in the audio chain
+        exact = _exact_slot(slot)
+        if exact is None or exact < 0:
+            raise ChainError(
+                f"the soundtrack takes output {slot!r} of node {node_id!r}, "
+                f"which is not a real non-negative integer slot")
+        if cls in AUDIO_SOURCE_SLOTS:
+            if exact not in AUDIO_SOURCE_SLOTS[cls]:
+                raise ChainError(
+                    f"the soundtrack takes output slot {exact} of {cls} "
+                    f"{node_id!r}, which carries "
+                    f"{AUDIO_SOURCE_SLOTS[cls]} as audio. That output is not "
+                    f"a soundtrack whatever its shape")
+            return node_id, True
+        if cls in AUDIO_PASSTHROUGH:
+            field, outs = AUDIO_PASSTHROUGH[cls]
+            if exact not in outs:
+                raise ChainError(
+                    f"the soundtrack takes output slot {exact} of {cls} "
+                    f"{node_id!r}, which carries audio on {outs}")
+            nxt = node.get("inputs", {}).get(field)
+            if not (isinstance(nxt, list) and len(nxt) == 2):
+                raise ChainError(
+                    f"{cls} {node_id!r} has a `{field}` input that is not a "
+                    f"[node_id, slot] link: {nxt!r}. A known processor with a "
+                    f"broken input is malformed, not unfamiliar")
+            node_id, slot = str(nxt[0]), nxt[1]
+            continue
+        # An unfamiliar node at a plausible output: it may read the right
+        # loader through an input this module does not know.
+        return node_id, False
 
 
 def _assert_video_ownership(nid, ins, graph) -> str | None:
@@ -497,10 +567,4 @@ def _assert_video_ownership(nid, ins, graph) -> str | None:
     origin, resolved = _trace_soundtrack(graph, track)
     if not resolved:
         return "unresolved"
-    if origin != str(frames[0]):
-        raise ChainError(
-            f"video append node {nid!r} takes its soundtrack from node "
-            f"{origin!r} and its frames from node {frames[0]!r}. A record owns "
-            f"one clip; a track from a different loader is another clip's "
-            f"audio wearing this one's label")
-    return "owned"
+    return "owned" if origin == str(frames[0]) else "foreign"

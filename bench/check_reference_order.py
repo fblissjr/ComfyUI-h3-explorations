@@ -126,7 +126,10 @@ def _chain(kinds, sounded=frozenset()):
     cls = {"image": "MiniMaxH3AppendRefImage",
            "audio": "MiniMaxH3AppendRefAudio",
            "video": "MiniMaxH3AppendRefVideo"}
-    g = {}
+    # Node "9" is a real loader in the graph, not a dangling id: the
+    # provenance walker resolves soundtrack links now, so a stand-in that is
+    # not in the graph is a malformed chain rather than a fixture.
+    g = {"9": {"class_type": "VHS_LoadVideo", "inputs": {}}}
     for k, kind in enumerate(kinds):
         ins = {} if k == 0 else {"references": [str(k), 0]}
         if kind == "video":
@@ -406,15 +409,77 @@ def the_shipped_soundtrack_wiring_resolves():
         chain(["77", 0], {"77": {"class_type": "Whatever", "inputs": {}}}), "1")[0]
     assert unknown.soundtrack_origin == "unresolved", unknown
 
-    # A different KNOWN loader is provably another clip's audio.
-    try:
-        resolve_chain(
-            chain(["99", 2],
-                  {"99": {"class_type": "VHS_LoadVideo", "inputs": {}}}), "1")
-    except ChainError as e:
-        assert "another clip" in str(e), e
-        return
-    raise AssertionError("a soundtrack from a different loader was accepted")
+    # A different KNOWN source is reported, not refused. Provenance is
+    # diagnostic: ownership is established by placing the track in this
+    # record, and a deliberate cross-source pairing is legitimate.
+    foreign = resolve_chain(
+        chain(["99", 2],
+              {"99": {"class_type": "VHS_LoadVideo", "inputs": {}}}), "1")[0]
+    assert foreign.soundtrack_origin == "foreign", foreign
+    assert foreign.has_soundtrack, foreign
+
+
+def soundtrack_provenance_carries_slots():
+    """The walk tracks (node, slot) pairs, because a class name is not a value.
+
+    Every case here reported "owned" against 773dd4f, where the walker
+    followed node ids and discarded slots. Found by codex probing the walker
+    rather than its inputs. A `VHS_LoadVideo`'s slot 0 is IMAGE, not audio,
+    and calling it an owned soundtrack is the class of error the whole
+    ownership rule exists to prevent.
+
+    The verdicts split three ways on purpose. A malformed graph -- missing
+    node, known class at an output that carries no audio, known processor with
+    a broken input, a cycle -- RAISES, because those are "this cannot be
+    right". `unresolved` is reserved for an unfamiliar node at a plausible
+    output, which may well read the correct loader through an input this
+    module does not know.
+    """
+    from reference_order import ChainError, resolve_chain
+    base = {"28": {"class_type": "VHS_LoadVideo", "inputs": {}},
+            "35": {"class_type": "TrimAudioDuration",
+                   "inputs": {"audio": ["28", 2]}}}
+
+    def chain(track, extra=None):
+        g = dict(base)
+        g.update(extra or {})
+        g["1"] = {"class_type": "MiniMaxH3AppendRefVideo",
+                  "inputs": {"frames": ["28", 0], "video_info": ["28", 3],
+                             "soundtrack": track}}
+        return g
+
+    must_raise = [
+        ("loader IMAGE output as a soundtrack", ["28", 0], None),
+        ("fractional slot", ["28", 2.9], None),
+        ("negative slot", ["28", -1], None),
+        ("pass-through output that carries no audio", ["35", 7], None),
+        ("trim reading the loader's images", ["35", 0],
+         {"35": {"class_type": "TrimAudioDuration",
+                 "inputs": {"audio": ["28", 0]}}}),
+        ("a node that is not in the graph", ["404", 0], None),
+        ("known pass-through with a broken input", ["35", 0],
+         {"35": {"class_type": "TrimAudioDuration",
+                 "inputs": {"audio": "nope"}}}),
+        ("a cycle among pass-throughs", ["35", 0],
+         {"35": {"class_type": "TrimAudioDuration",
+                 "inputs": {"audio": ["36", 0]}},
+          "36": {"class_type": "TrimAudioDuration",
+                 "inputs": {"audio": ["35", 0]}}}),
+    ]
+    for label, track, extra in must_raise:
+        try:
+            got = resolve_chain(chain(track, extra), "1")[0]
+        except ChainError:
+            continue
+        raise AssertionError(
+            f"{label}: resolved to {got.soundtrack_origin!r} instead of raising")
+
+    # SplitAudioChannels carries audio on BOTH outputs, so both resolve.
+    for slot in (0, 1):
+        g = chain(["44", slot],
+                  {"44": {"class_type": "SplitAudioChannels",
+                          "inputs": {"audio": ["28", 2]}}})
+        assert resolve_chain(g, "1")[0].soundtrack_origin == "owned", slot
 
 
 def a_cycle_raises():
@@ -523,6 +588,8 @@ def main() -> int:
     check("output slots must be real integers", slots_must_be_real_integers)
     check("the shipped trimmed-soundtrack wiring resolves",
           the_shipped_soundtrack_wiring_resolves)
+    check("soundtrack provenance carries slots, not just node ids",
+          soundtrack_provenance_carries_slots)
     check("a cycle raises", a_cycle_raises)
     check("a link to a non-append node raises", a_non_builder_link_raises)
     check("frames and video_info from different loaders raises",
