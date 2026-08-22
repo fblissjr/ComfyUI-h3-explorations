@@ -131,7 +131,9 @@ alone. Both shown red by deliberate violation.
 **On the video-soundtrack path the trim overlaps a mechanism VHS already had,
 and this was found after wiring it.** `VHS_LoadVideo` asks ffmpeg for
 `frame_load_cap * (1 / force_rate)` seconds of audio
-(`videohelpersuite/load_video_nodes.py:402` into `utils.py:224-233`), so with
+(`custom_nodes/comfyui-videohelpersuite/videohelpersuite/load_video_nodes.py:402`
+into `custom_nodes/comfyui-videohelpersuite/videohelpersuite/utils.py:224-233`,
+paths relative to the ComfyUI root), so with
 `frame_load_cap` set to the generated length the soundtrack arrives already
 capped and `TrimAudioDuration` is a no-op on it. Measured 2026-08-22 by
 driving that exact ffmpeg call: cap 0 yields 19.541s of a 19.541s track, cap
