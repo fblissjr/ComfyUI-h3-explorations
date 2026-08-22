@@ -1,0 +1,16 @@
+{
+  "question": "Does the guide's six-section prompt format earn itself, on the shipped substrate? The 124-frame batch could not answer it -- every arm ran on a bench patch three times shorter than the graph's design, which damaged the speech in all of them.",
+  "answer": "Structured beats concise on soundtrack reproduction in all THREE matched-seed pairs, by a wide and consistent margin. Measured, not listened to. Nobody has judged these perceptually yet, and that judgement is the owner's.",
+  "design": "Both shipped graphs unpatched -- 1024x768, 362 frames, frame_load_cap 362, TrimAudioDuration at 15.083s, er_sde, 16 steps. The two files differ in exactly two fields, `prompt` and `filename_prefix`, verified before the run. Seeds 730451892/893/894 in both arms.",
+  "measure": "bench/grade_soundtrack_reuse.py -- mean per-frame Pearson correlation of 64-bin log-mel against the reference window the render was conditioned on, with a mismatched later window of the same recording as the control floor.",
+  "pairs": [
+    {"seed": 730451892, "structured_margin": 0.6326, "concise_margin": 0.2254},
+    {"seed": 730451893, "structured_margin": 0.5343, "concise_margin": 0.0669},
+    {"seed": 730451894, "structured_margin": 0.4256, "concise_margin": -0.1071}
+  ],
+  "the_striking_row": "concise at seed 894 scores BELOW its own control (-0.1071): it resembles a mismatched window of the same recording more than the window it was conditioned on. That is not a weaker copy, it is no copy.",
+  "why_this_is_stronger_than_the_124f_record": "Matched seeds, three pairs, one direction every time, on the shipped substrate with no bench patch. The 124-frame batch was one clean render of four on a substrate that damaged every arm, which is a draw from a distribution. This is not.",
+  "what_it_still_does_not_support": "A perceptual claim. The measure is uncalibrated and says so: no value here means 'speech intact'. It ranks arms sharing a window length and nothing more. Cross-set comparison against the 124-frame rows is invalid and the instrument groups them apart to make that hard to ignore.",
+  "confound_named": "structured and concise differ in structure AND length (459 vs 92 prompt tokens) AND whether the soundtrack is stated as an `<Audio 1>: fully_copy` retention line or as prose in the body. Three variables move together, as they did at 124 frames. The arm that would separate them -- six sections with the soundtrack demoted to prose -- is still unrendered.",
+  "next": "Listen. Then, if the direction holds by ear, render the separating arm before attributing the effect to the sections rather than to the retention line."
+}

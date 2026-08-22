@@ -3,17 +3,25 @@
   "sample_rate": 16000,
   "measure": "mean per-frame Pearson correlation of 64-bin log-mel",
   "not_calibrated": "No value here means 'speech intact'. Ranks arms sharing a window length; cross-length comparison is invalid.",
+  "sets": {
+    "124f (bench-patched substrate; VOID as prompt evidence)": [
+      "124f-structured-s892",
+      "124f-structured-s893",
+      "124f-concise-s892",
+      "124f-directive-s892"
+    ],
+    "362f (shipped substrate, unpatched, matched seeds)": [
+      "362f-structured-s892",
+      "362f-concise-s892",
+      "362f-structured-s893",
+      "362f-concise-s893",
+      "362f-structured-s894",
+      "362f-concise-s894"
+    ]
+  },
   "rows": [
     {
-      "arm": "len362-structured",
-      "file": "h3_r2v_swap_len362_00001-audio.mp4",
-      "seconds": 15.083,
-      "mel_corr_vs_own_window": 0.9089,
-      "mel_corr_vs_control_window": 0.2763,
-      "margin_over_control": 0.6326
-    },
-    {
-      "arm": "124f-structured-seed892",
+      "arm": "124f-structured-s892",
       "file": "h3_r2v_swap_structured_00001-audio.mp4",
       "seconds": 5.167,
       "mel_corr_vs_own_window": 0.8255,
@@ -21,7 +29,7 @@
       "margin_over_control": 0.5784
     },
     {
-      "arm": "124f-structured-seed893",
+      "arm": "124f-structured-s893",
       "file": "h3_r2v_swap_structured_00002-audio.mp4",
       "seconds": 5.167,
       "mel_corr_vs_own_window": 0.9071,
@@ -29,7 +37,7 @@
       "margin_over_control": 0.6624
     },
     {
-      "arm": "124f-concise-seed892",
+      "arm": "124f-concise-s892",
       "file": "h3_ref_video_swap_concise_concise_00001-audio.mp4",
       "seconds": 5.167,
       "mel_corr_vs_own_window": 0.6664,
@@ -37,12 +45,60 @@
       "margin_over_control": 0.4102
     },
     {
-      "arm": "124f-directive-seed892",
+      "arm": "124f-directive-s892",
       "file": "h3_ref_video_swap_directive_directive_00002-audio.mp4",
       "seconds": 5.167,
       "mel_corr_vs_own_window": 0.67,
       "mel_corr_vs_control_window": 0.2517,
       "margin_over_control": 0.4183
+    },
+    {
+      "arm": "362f-structured-s892",
+      "file": "h3_r2v_swap_structured_00003-audio.mp4",
+      "seconds": 15.083,
+      "mel_corr_vs_own_window": 0.9089,
+      "mel_corr_vs_control_window": 0.2763,
+      "margin_over_control": 0.6326
+    },
+    {
+      "arm": "362f-concise-s892",
+      "file": "h3_ref_video_swap_concise_concise_00002-audio.mp4",
+      "seconds": 15.083,
+      "mel_corr_vs_own_window": 0.5057,
+      "mel_corr_vs_control_window": 0.2802,
+      "margin_over_control": 0.2254
+    },
+    {
+      "arm": "362f-structured-s893",
+      "file": "h3_r2v_swap_structured_00004-audio.mp4",
+      "seconds": 15.083,
+      "mel_corr_vs_own_window": 0.7936,
+      "mel_corr_vs_control_window": 0.2593,
+      "margin_over_control": 0.5343
+    },
+    {
+      "arm": "362f-concise-s893",
+      "file": "h3_ref_video_swap_concise_concise_00003-audio.mp4",
+      "seconds": 15.083,
+      "mel_corr_vs_own_window": 0.3515,
+      "mel_corr_vs_control_window": 0.2846,
+      "margin_over_control": 0.0669
+    },
+    {
+      "arm": "362f-structured-s894",
+      "file": "h3_r2v_swap_structured_00005-audio.mp4",
+      "seconds": 15.083,
+      "mel_corr_vs_own_window": 0.7128,
+      "mel_corr_vs_control_window": 0.2872,
+      "margin_over_control": 0.4256
+    },
+    {
+      "arm": "362f-concise-s894",
+      "file": "h3_ref_video_swap_concise_concise_00004-audio.mp4",
+      "seconds": 15.083,
+      "mel_corr_vs_own_window": 0.2574,
+      "mel_corr_vs_control_window": 0.3644,
+      "margin_over_control": -0.1071
     }
   ]
 }

@@ -84,16 +84,40 @@ def duration(path):
 
 def main() -> int:
     out_dir = Path("/mnt/hub/ai/img/output/Video")
-    arms = [
-        ("len362-structured", "h3_r2v_swap_len362_00001-audio.mp4"),
-        ("124f-structured-seed892", "h3_r2v_swap_structured_00001-audio.mp4"),
-        ("124f-structured-seed893", "h3_r2v_swap_structured_00002-audio.mp4"),
-        ("124f-concise-seed892", "h3_ref_video_swap_concise_concise_00001-audio.mp4"),
-        ("124f-directive-seed892",
-         "h3_ref_video_swap_directive_directive_00002-audio.mp4"),
-    ]
+    # Two render sets, scored in one run. **They must not be compared across
+    # sets** -- this measure is uncalibrated and a 15.083s window averages
+    # differently from a 5.167s one, which the module docstring states and
+    # which the grouping here makes hard to ignore.
+    sets = {
+        "124f (bench-patched substrate; VOID as prompt evidence)": [
+            ("124f-structured-s892", "h3_r2v_swap_structured_00001-audio.mp4"),
+            ("124f-structured-s893", "h3_r2v_swap_structured_00002-audio.mp4"),
+            ("124f-concise-s892",
+             "h3_ref_video_swap_concise_concise_00001-audio.mp4"),
+            ("124f-directive-s892",
+             "h3_ref_video_swap_directive_directive_00002-audio.mp4"),
+        ],
+        "362f (shipped substrate, unpatched, matched seeds)": [
+            ("362f-structured-s892", "h3_r2v_swap_structured_00003-audio.mp4"),
+            ("362f-concise-s892",
+             "h3_ref_video_swap_concise_concise_00002-audio.mp4"),
+            ("362f-structured-s893", "h3_r2v_swap_structured_00004-audio.mp4"),
+            ("362f-concise-s893",
+             "h3_ref_video_swap_concise_concise_00003-audio.mp4"),
+            ("362f-structured-s894", "h3_r2v_swap_structured_00005-audio.mp4"),
+            ("362f-concise-s894",
+             "h3_ref_video_swap_concise_concise_00004-audio.mp4"),
+        ],
+    }
+    arms = [(label, name) for group in sets.values() for label, name in group]
+    groups = {label: title for title, group in sets.items()
+              for label, _ in group}
     rows = []
+    seen_group = None
     for label, name in arms:
+        if groups[label] != seen_group:
+            seen_group = groups[label]
+            print(f"\n  {seen_group}")
         p = out_dir / name
         if not p.exists():
             print(f"  skip {label}: {name} not on disk")
@@ -123,6 +147,7 @@ def main() -> int:
                     "not_calibrated": "No value here means 'speech intact'. "
                                       "Ranks arms sharing a window length; "
                                       "cross-length comparison is invalid.",
+                    "sets": {t: [l for l, _ in g] for t, g in sets.items()},
                     "rows": rows}, indent=2))
     print("\n  wrote bench/results/2026-08-22_soundtrack_reuse.json")
     return 0
