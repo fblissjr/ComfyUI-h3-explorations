@@ -65,6 +65,7 @@ recorded datapoints and lets you judge.
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -128,6 +129,101 @@ MAIN_FIELD = {"base": "integrated_multimodal_description",
 REF_SOCKET_PREFIXES = ("ref_images.", "ref_videos.", "ref_audios.",
                        "ref_video_audios.")
 KEYFRAME_SOCKETS = ("first_frame", "last_frame")
+
+# THE FIVE MARKERS NEITHER OFFICIAL GUIDE DOCUMENTS.
+#
+# The release declares seven special tokens. Both prompt guides describe only
+# `<d>` / `</d>`; `<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`,
+# `<|caption_start|>` and `<|caption_end|>` appear in neither. So the rules
+# below cannot be parsed out of the guide the way
+# `check_prompt_guide_conformance.py` parses its vocabulary -- they are house
+# pattern, taken from the worked examples in `workflows/build_workflows.py`
+# (`T2V_SCENES`, `REF_SCENE_SHOTS`) and `bench/audit_h3_marker_tokenization.py`.
+# That is also why they live here and not in the conformance checker: that file
+# refuses to assert anything the guide does not state, and it is right to.
+#
+# The escaped instance, which is what earns a new check at all
+# (CLAUDE.md: cite one before building). On 2026-08-22 a prompt written
+# elsewhere came through with three caption pairs on their own lines, one
+# padded with spaces, one spoken line split across two adjacent pairs, and a
+# trailing space inside a `<d>`. Run through this file as it stood, it scored
+# exactly one WARN, for word count. Every marker defect was invisible, because
+# nothing here looked at a marker other than `<d>`.
+#
+# The nesting and balance cases below did NOT escape -- no instance of either
+# has been seen. They are here because the same day
+# `internal/PROMPTING.md` gained a "must" stating the nesting rule, and
+# CLAUDE.md's standing rule is that a "must" with no assertion behind it is an
+# uncontrolled requirement. This is that assertion.
+#
+# What these deliberately do NOT decide: whether a caption is on the RIGHT
+# content. A caption is burned-in on-screen text, so its string may legitimately
+# differ from the dialogue -- a subtitle is the case in point -- and no
+# mechanical rule can tell an intended subtitle from a stray transcript. Only
+# reading it finds that.
+MARKER_PAIRS = (("<|lyrics_start|>", "<|lyrics_end|>"),
+                ("<|caption_start|>", "<|caption_end|>"))
+LYRICS, CAPTION = MARKER_PAIRS
+ALL_MARKERS = tuple(m for pair in MARKER_PAIRS for m in pair) + ("<|cutoff|>",)
+
+
+def marker_rules(prompt: str, main_body: str) -> list[tuple[str, str]]:
+    """Structure of the five undocumented markers. Decidable from the text."""
+    out = []
+    for op, cl in MARKER_PAIRS:
+        if prompt.count(op) != prompt.count(cl):
+            out.append(("FAIL", f"{op} appears {prompt.count(op)}x against "
+                                f"{prompt.count(cl)}x for {cl}"))
+    for op, cl in MARKER_PAIRS:
+        for m in re.finditer(re.escape(op) + r"(.*?)" + re.escape(cl),
+                             prompt, re.S):
+            body = m.group(1)
+            has_d = "<d>" in body or "</d>" in body
+            if has_d and (op, cl) == CAPTION:
+                out.append(("FAIL", "a <d> block sits inside a caption pair; "
+                                    "captions are a SIBLING of <d>, never a "
+                                    "wrapper. Only the lyrics pair wraps <d>"))
+            if not has_d and (op, cl) == LYRICS:
+                out.append(("FAIL", "a lyrics pair wraps no <d> block, so it "
+                                    "marks nothing as sung"))
+            if any(o in body for o, _ in MARKER_PAIRS):
+                out.append(("FAIL", f"{op} contains another marker pair"))
+            if (op, cl) == CAPTION and body != body.strip():
+                out.append(("WARN", f"caption content {body!r} is padded with "
+                                    f"whitespace; the padding is part of the "
+                                    f"string"))
+    for m in re.finditer(r"<d>(.*?)</d>", prompt, re.S):
+        if any(x in m.group(1) for x in ALL_MARKERS):
+            out.append(("FAIL", "a marker pair sits inside a <d> block; <d> "
+                                "carries a language tag and the words, and "
+                                "nothing else"))
+        if m.group(1) != m.group(1).rstrip():
+            out.append(("WARN", "a <d> block has whitespace before </d>; "
+                                "MiniMax's own examples close tight against "
+                                "the last character"))
+    # Only on an UNPATCHED tokenizer, which is the state to assume: a pack
+    # cannot know whether the install carries the special tokens. There, BPE
+    # pulls the full stop into the marker's leading fragment, so the marker
+    # retokenizes the sentence before it. The house dialogue scenes sit the
+    # marker against `</d>` with no stop at all. Not a FAIL: the audit
+    # harness's non-dialogue `hard_cut` scene legitimately has a stop there.
+    for m in re.finditer(r"(.)<\|cutoff\|>", prompt):
+        if m.group(1) == ".":
+            out.append(("WARN", "a full stop sits directly before <|cutoff|>"))
+    for line in main_body.splitlines():
+        stripped = line.lstrip()
+        for mk in ALL_MARKERS + ("<d>",):
+            if stripped.startswith(mk):
+                out.append(("WARN", f"a line opens with {mk}; markers ride "
+                                    f"inline in the shot prose, and only "
+                                    f"[Shot N] starts a line"))
+                break
+    for _ in re.finditer(re.escape(CAPTION[1]) + r"\s*" + re.escape(CAPTION[0]),
+                         prompt):
+        out.append(("WARN", "two caption pairs are adjacent with only "
+                            "whitespace between them; one on-screen line is "
+                            "one pair"))
+    return out
 
 
 def guide_for(inputs: dict) -> str:
@@ -212,6 +308,151 @@ def audio_channels(path: Path) -> int | None:
         return int(first[0])
     except (IndexError, ValueError):
         return None
+
+
+def video_probe(path: Path) -> tuple[int, int] | None:
+    """(width, height) of a media file's first video stream, via ffprobe."""
+    import shutil
+    import subprocess
+    exe = shutil.which("ffprobe")
+    if exe is None:
+        return None
+    try:
+        out = subprocess.run(
+            [exe, "-v", "error", "-select_streams", "v:0", "-show_entries",
+             "stream=width,height", "-of", "csv=p=0:s=x", str(path)],
+            capture_output=True, text=True, timeout=20)
+        w, h = out.stdout.strip().splitlines()[0].split("x")
+        return int(w), int(h)
+    except Exception:
+        return None
+
+
+def _release_qwen_grid(n_raw: int, w: int, h: int):
+    """The release's Qwen video grid, from the release processor itself.
+
+    **Executed, never reimplemented.** `smart_resize` was hand-modelled twice
+    on 2026-08-22 and was wrong both times, so this runs the real
+    `Qwen3VLVideoProcessor` against `vendor_config/video_preprocessor_config.json`
+    and reads `video_grid_thw` off it. Returns None when transformers or the
+    config cannot be reached -- the caller then prints "not calculated" rather
+    than substituting local arithmetic, which is the whole point.
+
+    **`n_raw` is the RAW sampled count, not the repeat-padded one**, and the
+    difference is not cosmetic: at 1344x768, 31 gives [16,42,74] (1184x672)
+    and 32 gives [16,40,72] (1152x640). Both are 16 temporal blocks; the
+    pixel budget divides by the frame count it was handed. ComfyUI's pad-to-
+    even happens after sampling and the release never sees it, so passing the
+    padded count reproduces a number that is wrong by 8%.
+    """
+    try:
+        import torch
+        from transformers.models.qwen3_vl.video_processing_qwen3_vl import (
+            Qwen3VLVideoProcessor,
+        )
+        cfg = json.loads((_REPO / "vendor_config"
+                          / "video_preprocessor_config.json").read_text())
+        proc = Qwen3VLVideoProcessor(
+            **{k: v for k, v in cfg.items()
+               if k not in ("processor_class", "video_processor_type")})
+        out = proc(videos=[torch.zeros(n_raw, 3, h, w, dtype=torch.uint8)],
+                   do_sample_frames=False, input_data_format="channels_first",
+                   return_tensors="pt")
+        g = out["video_grid_thw"][0].tolist()
+        merge = int(proc.merge_size) ** 2
+        return g, g[1] * g[2] // merge
+    except Exception:
+        return None
+
+
+def _comfy_pair_grid(w: int, h: int, max_pixels: int = 12845056):
+    """Rows per two-frame block under ComfyUI's per-pair policy.
+
+    Mirrors `process_video_block` (`comfy/text_encoders/minimax.py:35`): round
+    to the patch*merge factor, clamp only if over its own per-PAIR max_pixels,
+    then merge 2x2. No clip-wide budget exists on this path.
+    """
+    factor = 16 * 2
+    hb = round(h / factor) * factor
+    wb = round(w / factor) * factor
+    if hb * wb > max_pixels:
+        beta = math.sqrt((h * w) / max_pixels)
+        hb = max(factor, math.floor(h / beta / factor) * factor)
+        wb = max(factor, math.floor(w / beta / factor) * factor)
+    return (wb, hb), (hb // 16) * (wb // 16) // 4
+
+
+def reference_video_report(ins: dict, graph: dict, length) -> list[str]:
+    """Both towers, both policies, per reference video.
+
+    **Why both stages.** A reference video is sized twice and the two sizings
+    diverge from the release independently: ComfyUI declines to upscale it for
+    the VAE (gap 6), and hands Qwen the same array per two-frame pair where
+    the release runs a clip-wide pixel budget over the sampled view. Reporting
+    one without the other invites closing the upscale alone, which OVERSHOOTS
+    the release rather than matching it -- the `gap-6 only` row exists to make
+    that visible before anyone builds it.
+
+    Reports, never refuses, and never guesses: an unreachable source or
+    processor prints what could not be computed.
+    """
+    out = []
+    for key, val in sorted(ins.items()):
+        if not key.startswith("ref_videos.") or val is None:
+            continue
+        label = key.split(".")[-1]
+        src = graph[str(val[0])] if isinstance(val, list) else None
+        name = (src or {}).get("inputs", {}).get("video")
+        path = resolve_image(name) if isinstance(name, str) else None
+        dims = video_probe(path) if path else None
+        if dims is None:
+            out.append(f"  {label}: source {name!r} not resolved on this box, "
+                       f"so neither tower's geometry was calculated")
+            continue
+        import sys as _sys
+        _comfy = str(Path.home() / "ComfyUI")
+        if _comfy not in _sys.path:
+            _sys.path.insert(0, _comfy)
+        from comfy_extras.nodes_minimax_h3 import adapt_canvas
+        w, h = dims
+        cw, ch = adapt_canvas(w, h)
+        comfy_vae = (cw, ch)
+        if w * h < cw * ch:                       # gap 6: never upscales
+            comfy_vae = (max(32, round(w / 32) * 32), max(32, round(h / 32) * 32))
+        rel_vae = (cw, ch)
+
+        n = length if isinstance(length, int) else 0
+        while n % 17 != 5 and n > 5:
+            n -= 1
+        raw = len(range(0, n, 12))
+        padded = raw + (raw % 2)
+        blocks = padded // 2
+
+        c_grid, c_per = _comfy_pair_grid(*comfy_vae)
+        hyb_grid, hyb_per = _comfy_pair_grid(*rel_vae)
+        rel = _release_qwen_grid(raw, *rel_vae)
+
+        out.append(f"  {label}: {name}")
+        out.append(f"      source                {w}x{h}")
+        out.append(f"      VAE-prepared, comfy   {comfy_vae[0]}x{comfy_vae[1]}"
+                   f"{'   (gap 6: not upscaled)' if comfy_vae != rel_vae else ''}")
+        out.append(f"      VAE-prepared, release {rel_vae[0]}x{rel_vae[1]}")
+        out.append(f"      sampled at 2 fps      {raw} raw -> {padded} emitted "
+                   f"({blocks} temporal blocks) from {n} frames")
+        out.append(f"      Qwen, comfy           {c_grid[0]}x{c_grid[1]}  "
+                   f"{c_per * blocks:>7,} rows")
+        if rel is None:
+            out.append(f"      Qwen, release         NOT CALCULATED -- the release "
+                       f"processor or its config could not be reached. No local "
+                       f"substitute is offered; the arithmetic was wrong twice.")
+        else:
+            g, per = rel
+            out.append(f"      Qwen, release         {g[2] * 16}x{g[1] * 16}  "
+                       f"{per * g[0]:>7,} rows")
+        out.append(f"      Qwen, gap-6 only      {hyb_grid[0]}x{hyb_grid[1]}  "
+                   f"{hyb_per * blocks:>7,} rows   <- upscale WITHOUT the "
+                   f"clip-wide budget")
+    return out
 
 
 def audio_reference_notes(ins: dict, graph: dict, length) -> list[str]:
@@ -409,6 +650,7 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
         if s != main_field and "<d>" in body:
             out.append(("FAIL", f"<d> appears in {s}; it belongs only in "
                                 f"{main_field}"))
+    out.extend(marker_rules(prompt, dd))
 
     shots = re.findall(r"\[Shot (\d+)\]([^\n]*)", dd)
     if shots and shots[0][0] == "1" and re.match(r"\s*At \d", shots[0][1]):
@@ -609,6 +851,7 @@ def price(node: dict, graph: dict) -> list[str]:
         lines.append(f"  NOT COUNTED: {', '.join(unpriced)} reference(s). A "
                      f"video reference alone measured 52,020 rows at 960x544 / "
                      f"345f, so the total below is a FLOOR, not a budget.")
+    lines.extend(reference_video_report(ins, graph, length))
     lines.extend(audio_reference_notes(ins, graph, length))
 
     prompt = ins.get("prompt", "")
