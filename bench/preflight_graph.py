@@ -91,11 +91,49 @@ from check_ref_prompt_labels import wired_labels  # noqa: E402
 from check_prompt_guide_conformance import (  # noqa: E402
     _STRUCTURE_PROBES, _audio_sections_optional)
 
-REF_NODE = "MiniMaxH3ReferenceToVideo"
+# Every node that carries a prompt into the encoder. `MiniMaxH3Conditioning`
+# is this repo's own, and the fl2va path moved onto it on 2026-08-21; a file
+# that knows only the first name reports "nothing to grade" over every graph
+# this repo now ships and reads as a clean pass.
+PROMPT_NODES = ("MiniMaxH3ReferenceToVideo", "MiniMaxH3Conditioning")
 FIT_NODE = "MiniMaxH3ReferenceFit"
 LOAD_IMAGE = "LoadImage"
-SECTIONS = ["subject_definitions", "summary", "retention_analysis",
-            "detailed_description", "overall_soundscape", "non_diegetic_music"]
+
+# THE RELEASE SHIPS TWO PROMPT GUIDES AND THEY DO NOT SHARE A SECTION LIST.
+# Grading every prompt against the six-section one is how a correct t2v prompt
+# came back `sections absent: subject_definitions, summary, retention_analysis,
+# detailed_description` -- four failures for obeying the guide that applies.
+#
+#   base-en.txt:39-48  T2VA / I2VA / FL2VA / L2VA -- "the three core fields"
+#   ref-en.txt:12-22   full-reference mode -- "six sections in the following
+#                      order"
+#
+# Which one applies is READ OFF THE GRAPH, never off a filename: full-reference
+# mode is the mode that wires reference labels, so a graph with any `ref_*`
+# socket is graded against ref-en and everything else against base-en. That
+# derivation was checked against every shipped graph before it was written
+# here, and disagreed with none of them.
+BASE_SECTIONS = ["integrated_multimodal_description", "overall_soundscape",
+                 "non_diegetic_music"]
+REF_SECTIONS = ["subject_definitions", "summary", "retention_analysis",
+                "detailed_description", "overall_soundscape",
+                "non_diegetic_music"]
+
+# The field the shot, cut-timing and dialogue rules read. ref-en.txt:229 names
+# the pair outright: "Main field | integrated_multimodal_description |
+# detailed_description".
+MAIN_FIELD = {"base": "integrated_multimodal_description",
+              "ref": "detailed_description"}
+
+REF_SOCKET_PREFIXES = ("ref_images.", "ref_videos.", "ref_audios.",
+                       "ref_video_audios.")
+KEYFRAME_SOCKETS = ("first_frame", "last_frame")
+
+
+def guide_for(inputs: dict) -> str:
+    """"ref" when the node wires reference labels, else "base"."""
+    return "ref" if any(k.startswith(REF_SOCKET_PREFIXES) for k in inputs) \
+        else "base"
 
 VISUAL_MARKERS = {"fully_preserved", "partially_preserved",
                   "attribute_transfer", "weak_reference"}
@@ -146,9 +184,9 @@ def rows(w: int, h: int) -> int:
     return (w // 32) * (h // 32)
 
 
-def split_sections(prompt: str) -> dict[str, str]:
+def split_sections(prompt: str, sections: list[str]) -> dict[str, str]:
     idx = []
-    for name in SECTIONS:
+    for name in sections:
         m = re.search(rf"^{re.escape(name)}:", prompt, re.M)
         if m:
             idx.append((m.start(), m.end(), name))
@@ -188,11 +226,18 @@ def _single_frame(node: dict, graph: dict) -> bool:
 def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     """Mechanical rules only. Every one is decidable from the prompt + sockets."""
     out = []
-    prompt = node["inputs"].get("prompt", "")
-    sec = split_sections(prompt)
-    expected = wired_labels(node["inputs"])
+    ins = node["inputs"]
+    prompt = ins.get("prompt", "")
+    guide = guide_for(ins)
+    sections = REF_SECTIONS if guide == "ref" else BASE_SECTIONS
+    main_field = MAIN_FIELD[guide]
+    sec = split_sections(prompt, sections)
+    expected = wired_labels(ins)
+    if guide == "base":
+        out.append(("note", "graded against base-en (T2VA/I2VA/FL2VA/L2VA): "
+                            "three core fields, not ref-en's six"))
 
-    required = list(SECTIONS)
+    required = list(sections)
     if _audio_sections_optional(graph):
         required = [s for s in required
                     if s not in ("overall_soundscape", "non_diegetic_music")]
@@ -207,7 +252,7 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     if missing:
         out.append(("FAIL", f"sections absent: {', '.join(missing)}"))
     else:
-        order = [s for s in SECTIONS if s in sec]
+        order = [s for s in sections if s in sec]
         pos = [prompt.index(s + ":") for s in order]
         if pos != sorted(pos):
             out.append(("FAIL", "sections are out of the guide's order"))
@@ -229,19 +274,19 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     if re.search(r"\(S\d+\)", retention):
         out.append(("FAIL", "(Sx) speaker id in retention_analysis (ref-en.txt:278)"))
 
-    dd = sec.get("detailed_description", "")
+    dd = sec.get(main_field, "")
     for lab in defined:
         if lab.startswith("<Subject") and lab not in dd:
-            out.append(("WARN", f"{lab} never cited in detailed_description "
+            out.append(("WARN", f"{lab} never cited in {main_field} "
                                 f"(ref-en.txt:231)"))
 
     for m in re.finditer(r"<d>(.*?)</d>", prompt, re.S):
         if not re.match(r"\s*\[[A-Z][a-z]+\]", m.group(1)):
             out.append(("FAIL", "a <d> block has no [Language] tag"))
     for s, body in sec.items():
-        if s != "detailed_description" and "<d>" in body:
+        if s != main_field and "<d>" in body:
             out.append(("FAIL", f"<d> appears in {s}; it belongs only in "
-                                f"detailed_description"))
+                                f"{main_field}"))
 
     shots = re.findall(r"\[Shot (\d+)\]([^\n]*)", dd)
     if shots and shots[0][0] == "1" and re.match(r"\s*At \d", shots[0][1]):
@@ -267,7 +312,11 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
             if not is_audio and k not in VISUAL_MARKERS:
                 out.append(("FAIL", f"audio marker '{k}' on a visual label"))
 
-    if dd:
+    # The 350-500 budget is ref-en.txt:242 and has no counterpart in base-en,
+    # so it is NOT applied to a base-format prompt. Applying it there would be
+    # inventing a rule -- the mirror image of inventing an exemption, and the
+    # same defect.
+    if dd and guide == "ref":
         n = len(dd.split())
         editing = "video editing" in sec.get("summary", "")
         if not editing and not (350 <= n <= 500):
@@ -290,6 +339,27 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
                                     "timing, camera-over-time or chronology "
                                     "to describe). See docs/h3_image_editing.md "
                                     "-- deliberate, not an oversight"))
+
+    # base-en's Part One. The keyframe tasks each require an alignment
+    # instruction as the FIRST line, before the core fields (base-en.txt:19,
+    # :25, :29); T2VA "has no image-alignment instruction and begins directly
+    # with the three core fields" (base-en.txt:14). Both halves are graded,
+    # because a rule with only one side is satisfied by deleting the text.
+    if guide == "base" and main_field in sec:
+        preamble = prompt[:prompt.index(main_field + ":")].strip()
+        kf = [k for k in KEYFRAME_SOCKETS if ins.get(k) is not None]
+        if kf and not preamble:
+            out.append(("FAIL", f"{'/'.join(kf)} wired but the prompt has no "
+                                f"alignment instruction before "
+                                f"{main_field} (base-en.txt:19-29)"))
+        elif kf and "Picture" not in preamble:
+            out.append(("FAIL", "the opening instruction names no Picture "
+                                "(base-en.txt:19-29)"))
+        elif not kf and preamble:
+            out.append(("FAIL", "T2VA begins directly with the core fields, "
+                                "but this prompt opens with "
+                                f"{preamble.splitlines()[0][:60]!r} "
+                                "(base-en.txt:14)"))
     return out
 
 
@@ -683,9 +753,9 @@ def main() -> int:
                   "above was read from the UI form and is complete.")
             continue
         refs = {nid: n for nid, n in graph.items()
-                if n.get("class_type") == REF_NODE}
+                if n.get("class_type") in PROMPT_NODES}
         if not refs:
-            print("  no MiniMaxH3ReferenceToVideo; nothing to grade")
+            print(f"  no {' or '.join(PROMPT_NODES)}; nothing to grade")
             continue
         for node in refs.values():
             findings = grade(node, graph, path.stem)

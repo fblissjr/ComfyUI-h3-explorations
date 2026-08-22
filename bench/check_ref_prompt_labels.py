@@ -82,7 +82,15 @@ def wired_labels(inputs):
         return sum(1 for k, v in inputs.items()
                    if k.startswith(prefix) and v is not None)
 
-    n_img = count("ref_images.ref_image_")
+    # A keyframe is a `<Picture N>` as much as a reference is. The tokenizer
+    # emits them from the plain `images=` list -- `comfy/text_encoders/
+    # minimax.py:183` is `add_text("<Picture %d>: " % (i + 1))` -- and
+    # `conditioning.py` appends first then last, so the numbering is wiring
+    # order. Counting only `ref_*` here reported every keyframe graph's correct
+    # `<Picture 1>` as a label "no socket wires".
+    n_kf = sum(1 for k in ("first_frame", "last_frame")
+               if inputs.get(k) is not None)
+    n_img = count("ref_images.ref_image_") + n_kf
     n_vid = count("ref_videos.ref_video_")
     n_vaud = count("ref_video_audios.ref_video_audio_")
     n_aud = count("ref_audios.ref_audio_")

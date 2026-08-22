@@ -87,6 +87,13 @@ WORKFLOWS = REPO / "workflows"
 GUIDE = (REPO / "internal" / "official_prompt_guides"
          / "minimax-h3-official-VIDEO_PROMPT_WRITING_GUIDE_ref_en.md")
 
+# THE SECOND GUIDE. The release ships two and they do not share a section list;
+# this file graded every prompt against the six-section one and reached only the
+# graphs wiring `MiniMaxH3ReferenceToVideo`, so the base-format population was
+# not wrong -- it was invisible.
+BASE_GUIDE = (REPO / "internal" / "official_prompt_guides"
+              / "minimax-h3-official-VIDEO_PROMPT_WRITING_GUIDE_base_en.md")
+
 # Non-recursive `WORKFLOWS.glob` would have stopped seeing the image graphs
 # when they moved to `workflows/image/` on 2026-08-16, and this file's counts
 # would still have printed a plausible number. See h3_config.GRAPH_DIRS.
@@ -94,6 +101,20 @@ sys.path.insert(0, str(REPO / "workflows"))
 from h3_config import graph_paths  # noqa: E402
 
 REF_NODE = "MiniMaxH3ReferenceToVideo"
+
+# Every node carrying a prompt. `MiniMaxH3Conditioning` is this repo's own and
+# the fl2va path moved onto it on 2026-08-21.
+PROMPT_NODES = (REF_NODE, "MiniMaxH3Conditioning")
+
+# Full-reference mode is the mode that wires reference labels, so the guide a
+# graph is graded against is read off its sockets, never off its filename.
+REF_SOCKET_PREFIXES = ("ref_images.", "ref_videos.", "ref_audios.",
+                       "ref_video_audios.")
+
+
+def guide_of(inputs: dict) -> str:
+    return "ref" if any(k.startswith(REF_SOCKET_PREFIXES) for k in inputs) \
+        else "base"
 
 # The node that decodes the audio half of the packed AV latent. A graph
 # without it has no audio track at all -- the single-frame image path deletes
@@ -185,6 +206,32 @@ def _table_after(lines: list[str], anchor: str) -> list[str]:
     return []
 
 
+def parse_base_guide(text: str) -> list[str]:
+    """base-en's three core fields, in order, parsed TWO independent ways.
+
+    The base guide carries no markdown table, so `_table_after` finds nothing
+    in it. The fields are read from the fenced example block under "Three Core
+    Fields" and, separately, from the bulleted definitions beneath it. Both
+    must agree: a guide reformatted so that only one of them still matches
+    would otherwise silently narrow this check's vocabulary, and an empty or
+    short list fails open the same way case 0 exists to prevent.
+    """
+    lines = text.splitlines()
+    fenced: list[str] = []
+    for i, line in enumerate(lines):
+        if "Three Core Fields" not in line:
+            continue
+        for row in lines[i:]:
+            m = re.match(r"^([a-z_]+):", row)
+            if m:
+                fenced.append(m.group(1))
+            elif fenced and row.strip().startswith("```"):
+                break
+        break
+    bullets = re.findall(r"^- \*\*([a-z_]+)\*\*:", text, re.M)
+    return fenced if fenced and fenced == bullets[:len(fenced)] else []
+
+
 def parse_guide(text: str):
     lines = text.splitlines()
     return {
@@ -221,12 +268,18 @@ def graphs_without_audio() -> set:
     return out
 
 
-def ref_prompts() -> dict[str, str]:
-    """{graph name: baked prompt} for every shipped API graph wiring refs."""
+def ref_prompts() -> dict[str, tuple[str, str]]:
+    """{graph name: (baked prompt, guide)} for every shipped API graph.
+
+    Was ref-node-only, and returned a bare prompt. Both widened 2026-08-21: the
+    graphs this repo ships now carry their prompt on a node this file did not
+    look for, and which guide applies is a property of the graph that the
+    caller cannot recover from the prompt text alone.
+    """
     out = {}
     for path in graph_paths(WORKFLOWS, "*_api.json"):
         wf = json.loads(path.read_text())
-        if not any(n.get("class_type") == REF_NODE for n in wf.values()):
+        if not any(n.get("class_type") in PROMPT_NODES for n in wf.values()):
             continue
         # Taken from the reference node's own `prompt`, NOT by sniffing for
         # "subject_definitions:" in any string. Content sniffing looks more
@@ -235,11 +288,12 @@ def ref_prompts() -> dict[str, str]:
         # all, so a content match skipped it silently and reported a clean
         # pass over a graph it never read.
         for node in wf.values():
-            if node.get("class_type") != REF_NODE:
+            if node.get("class_type") not in PROMPT_NODES:
                 continue
-            value = (node.get("inputs") or {}).get("prompt")
+            ins = node.get("inputs") or {}
+            value = ins.get("prompt")
             if isinstance(value, str):
-                out[path.stem] = value
+                out[path.stem] = (value, guide_of(ins))
     return out
 
 
@@ -266,6 +320,8 @@ def main() -> int:
         return 2
 
     g = parse_guide(GUIDE.read_text())
+    base_sections = (parse_base_guide(BASE_GUIDE.read_text())
+                     if BASE_GUIDE.exists() else [])
     prompts = ref_prompts()
     fails: list[str] = []
 
@@ -278,23 +334,34 @@ def main() -> int:
         else:
             print(f"  ok    {label}")
 
-    print(f"ref prompts against {GUIDE.name}")
-    print(f"        ({len(prompts)} ref graph(s), "
-          f"{len(g['task_types'])} task types, "
+    n_base = sum(1 for _p, gu in prompts.values() if gu == "base")
+    print(f"shipped prompts against {GUIDE.name} and {BASE_GUIDE.name}")
+    print(f"        ({len(prompts) - n_base} full-reference graph(s) on "
+          f"ref-en's {len(g['sections'])} sections, {n_base} on base-en's "
+          f"{len(base_sections)}, {len(g['task_types'])} task types, "
           f"{len(g['visual'])} visual / {len(g['audio'])} audio markers)")
 
     # 0. The guide actually parsed. Everything below is set membership, and
     #    membership in an empty set fails open, so this case is what stops a
     #    reformatted guide from turning the whole file into a no-op.
-    missing = [k for k, v in g.items() if not v]
-    ok("guide parsed", [f"empty table: {k}" for k in missing])
+    missing = [f"empty table: {k}" for k, v in g.items() if not v]
+    if not base_sections:
+        missing.append(
+            "base-en's core fields did not parse -- either the file is absent "
+            "or its two extractions disagreed, and an empty vocabulary would "
+            "grade every base prompt as conforming")
+    ok("both guides parsed", missing)
     if missing or not prompts:
         if not prompts:
             fails.append("ref graphs found")
             print("  FAIL  ref graphs found\n          no ref graph carried a prompt")
         return 1
 
-    sections = g["sections"]
+    sections_for = {"ref": g["sections"], "base": base_sections}
+    # ref-en.txt:229 names the pair: "Main field |
+    # integrated_multimodal_description | detailed_description".
+    main_field = {"ref": "detailed_description",
+                  "base": base_sections[0]}
     types_ok, visual_ok, audio_ok = (set(g["task_types"]), set(g["visual"]),
                                      set(g["audio"]))
 
@@ -304,10 +371,18 @@ def main() -> int:
     with_guide = graphs_with_guide()
     no_audio = graphs_without_audio()
     waived = sorted(_STRUCTURE_PROBES & set(prompts))
-    for name, prompt in sorted(prompts.items()):
+    base_skipped = []
+    for name, (prompt, guide) in sorted(prompts.items()):
+        sections = sections_for[guide]
         body = split_sections(prompt, sections)
         structural = name not in _STRUCTURE_PROBES
         has_guide = name in with_guide
+        if guide == "base":
+            # Cases 2 and 3 read `summary` and `retention_analysis`, which are
+            # ref-en constructs a base prompt correctly does not have. Skipping
+            # them is recorded and printed, never silent: an exemption nobody
+            # sees is an exemption that grows.
+            base_skipped.append(name)
 
         # 1. Every section the guide requires OF THIS GRAPH, in guide order.
         #
@@ -328,6 +403,14 @@ def main() -> int:
                 bad_sections.append(f"{name}: out of guide order -- {present}")
 
         # 2. The `[...]` task-type prefix.
+        if guide == "base":
+            # No `summary` section exists to carry one, and no marker table
+            # applies. Case 4 below still runs, against this guide's own main
+            # field.
+            for sec, text in body.items():
+                if "<d>" in text and sec != main_field[guide]:
+                    bad_dialogue.append(f"{name}: <d> in {sec}")
+            continue
         m = re.match(r"\s*\[([^\]]*)\]", body.get("summary", ""))
         if not m:
             if structural:
@@ -356,25 +439,29 @@ def main() -> int:
                 which = "audio" if kind == "Audio" else "visual"
                 bad_marker.append(f"{name}: <{kind}> takes {marker!r}, not a {which} marker")
 
-        # 4. Dialogue lives in detailed_description and nowhere else.
+        # 4. Dialogue lives in the guide's main field and nowhere else.
         for sec, text in body.items():
-            if "<d>" in text and sec != "detailed_description":
+            if "<d>" in text and sec != main_field[guide]:
                 bad_dialogue.append(f"{name}: <d> in {sec}")
 
     # Name the waiver on every run, pass or fail. A silent exemption is how a
     # check quietly stops covering the thing it was written for.
     note = f"  ({len(waived)} structure probe waived: {', '.join(waived)})" if waived else ""
-    ok("six sections, in order" + note, bad_sections)
-    ok("legal task types" + note, bad_types)
-    ok("keyframe completion only where a guide node is wired", bad_keyframe)
-    ok("markers stay in their set", bad_marker)
-    ok("dialogue only in detailed_description", bad_dialogue)
+    base_note = (f"  ({len(base_skipped)} base-format graph(s) exempt: the "
+                 f"section does not exist in base-en)" if base_skipped else "")
+    ok("each prompt has its guide's sections, in order" + note, bad_sections)
+    ok("legal task types" + note + base_note, bad_types)
+    ok("keyframe completion only where a guide node is wired" + base_note,
+       bad_keyframe)
+    ok("markers stay in their set" + base_note, bad_marker)
+    ok("dialogue only in the guide's main field", bad_dialogue)
 
     print()
     if fails:
         print(f"FAIL -- {len(fails)} case(s): {', '.join(fails)}")
         return 1
-    print("all ok -- every shipped ref prompt conforms to the official guide")
+    print("all ok -- every shipped prompt conforms to the guide that applies "
+          "to its graph")
     return 0
 
 
