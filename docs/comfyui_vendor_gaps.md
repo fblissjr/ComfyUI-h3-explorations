@@ -212,16 +212,29 @@ divergence for this clip is **entirely gap 6 below** -- sglang upscales the
 reference video to 1344x768 first, and the duration-aware pass then pulls it
 back to 1184x672.
 
-**It has a threshold, and both settings this session used sit on opposite
-sides of it.** The budget bites only when `padded_sampled_frames * w * h`
-exceeds 25,165,824. At the vendor's 1344x768 that is 24 padded sampled frames,
-about **288 target frames**; at our un-upscaled 960x544 it is 48, about **576
-target frames** -- past the legal maximum, so the pass can never activate on
-this clip as ComfyUI feeds it. Executed at both: 11 sampled frames of 1344x768
-comes back unresized at 6,048 rows, 31 comes back at 1184x672 and 12,432. So
-the coupling below is **length-dependent**: at 124 target frames the vendor
-does not downscale either and only the upscale separates the two paths; at the
-shipped 362 it does.
+**It has a threshold, and every H3 length below 311 frames sits under it.**
+Swept against the real processor rather than derived -- a first attempt
+derived it from `budget // pixels_per_frame` and was wrong twice, on the frame
+count and on the mapping; codex caught both. The executed boundary at
+1344x768:
+
+| sampled frames | `grid_thw` | effective |
+|---|---|---|
+| 24 | `[12, 48, 84]` | unchanged |
+| 25 | `[13, 48, 84]` | unchanged -- 13 blocks, but `smart_resize` ties to even and budgets it as 24 |
+| **26** | `[13, 46, 80]` | **1280x736, first resize** |
+
+Sampling is `ceil(N / 12)`, so 26 samples starts at **301 target frames**, and
+the first legal `17n+5` at or above it is **311**. At our un-upscaled 960x544
+the first resize is at 50 sampled frames -- target 589, first legal 600 --
+which is outside the legal range entirely, so **the pass can never activate on
+this clip as ComfyUI feeds it.**
+
+So the coupling below is length-dependent, and the boundary is exact:
+
+- **124 through 294 frames**: only the upscale differs between the two paths.
+- **311 through 362 frames**: the upscale and the duration-aware limit both
+  apply.
 
 **Which makes the duration-aware pass a cost LIMITER, and couples the two
 gaps.** Closing gap 6 alone -- upscaling to 1344x768 and feeding Qwen per pair
