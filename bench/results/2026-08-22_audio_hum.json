@@ -1,0 +1,189 @@
+{
+  "bands_hz": [
+    400,
+    800,
+    1600
+  ],
+  "halfwidth_hz": 25.0,
+  "metric": "welch PSD dB minus median-filtered self, peak in band",
+  "groups": {
+    "old_SLA_sol_tau1.0": {
+      "n": 3,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_sla_sol_00001-audio.mp4",
+          "400": 16.2,
+          "800": 18.8,
+          "1600": 10.7
+        },
+        {
+          "clip": "h3_probe_turbo_768p_sla_sla_sol_00002-audio.mp4",
+          "400": 16.2,
+          "800": 18.8,
+          "1600": 10.7
+        },
+        {
+          "clip": "h3_probe_turbo_768p_sla_sla_sol_00003-audio.mp4",
+          "400": 16.7,
+          "800": 19.0,
+          "1600": 10.6
+        }
+      ],
+      "median_400Hz_db": 16.2,
+      "median_800Hz_db": 18.8,
+      "median_1600Hz_db": 10.7
+    },
+    "old_SLA_dense": {
+      "n": 1,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_dense_sla_dense_00001-audio.mp4",
+          "400": 18.0,
+          "800": 18.6,
+          "1600": 10.5
+        }
+      ],
+      "median_400Hz_db": 18.0,
+      "median_800Hz_db": 18.6,
+      "median_1600Hz_db": 10.5
+    },
+    "old_SLA_router": {
+      "n": 1,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_router_sla_router_00001-audio.mp4",
+          "400": 16.0,
+          "800": 18.3,
+          "1600": 11.5
+        }
+      ],
+      "median_400Hz_db": 16.0,
+      "median_800Hz_db": 18.3,
+      "median_1600Hz_db": 11.5
+    },
+    "old_v11_sol_tau1.0": {
+      "n": 1,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_v11_sol_00001-audio.mp4",
+          "400": 13.8,
+          "800": 16.9,
+          "1600": 10.1
+        }
+      ],
+      "median_400Hz_db": 13.8,
+      "median_800Hz_db": 16.9,
+      "median_1600Hz_db": 10.1
+    },
+    "old_v11_dense": {
+      "n": 1,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_dense_v11_dense_00001-audio.mp4",
+          "400": 16.1,
+          "800": 17.1,
+          "1600": 9.8
+        }
+      ],
+      "median_400Hz_db": 16.1,
+      "median_800Hz_db": 17.1,
+      "median_1600Hz_db": 9.8
+    },
+    "new_SLA_adaptive": {
+      "n": 2,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_sla_adaptive_00001-audio.mp4",
+          "400": 22.2,
+          "800": 23.7,
+          "1600": 16.1
+        },
+        {
+          "clip": "h3_probe_turbo_768p_sla_sla_adaptive_00002-audio.mp4",
+          "400": 24.0,
+          "800": 25.2,
+          "1600": 17.3
+        }
+      ],
+      "median_400Hz_db": 23.1,
+      "median_800Hz_db": 24.4,
+      "median_1600Hz_db": 16.7
+    },
+    "new_SLA_topk15": {
+      "n": 2,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_sla_topk15_00001-audio.mp4",
+          "400": 15.9,
+          "800": 19.1,
+          "1600": 10.3
+        },
+        {
+          "clip": "h3_probe_turbo_768p_sla_sla_topk15_00002-audio.mp4",
+          "400": 25.1,
+          "800": 25.0,
+          "1600": 17.6
+        }
+      ],
+      "median_400Hz_db": 20.5,
+      "median_800Hz_db": 22.1,
+      "median_1600Hz_db": 14.0
+    },
+    "new_SLA_topk10": {
+      "n": 1,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_sla_topk10_00001-audio.mp4",
+          "400": 25.6,
+          "800": 24.6,
+          "1600": 17.5
+        }
+      ],
+      "median_400Hz_db": 25.6,
+      "median_800Hz_db": 24.6,
+      "median_1600Hz_db": 17.5
+    },
+    "new_v11_adaptive": {
+      "n": 1,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_v11_adaptive_00001-audio.mp4",
+          "400": 14.1,
+          "800": 16.9,
+          "1600": 9.7
+        }
+      ],
+      "median_400Hz_db": 14.1,
+      "median_800Hz_db": 16.9,
+      "median_1600Hz_db": 9.7
+    },
+    "new_v11_topk15": {
+      "n": 1,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_v11_topk15_00001-audio.mp4",
+          "400": 20.5,
+          "800": 22.1,
+          "1600": 15.4
+        }
+      ],
+      "median_400Hz_db": 20.5,
+      "median_800Hz_db": 22.1,
+      "median_1600Hz_db": 15.4
+    },
+    "new_v11_topk10": {
+      "n": 1,
+      "clips": [
+        {
+          "clip": "h3_probe_turbo_768p_sla_v11_topk10_00001-audio.mp4",
+          "400": 22.9,
+          "800": 20.3,
+          "1600": 14.7
+        }
+      ],
+      "median_400Hz_db": 22.9,
+      "median_800Hz_db": 20.3,
+      "median_1600Hz_db": 14.7
+    }
+  }
+}
