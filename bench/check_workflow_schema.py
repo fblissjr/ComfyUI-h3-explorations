@@ -63,6 +63,11 @@ import argparse
 import json
 import sys
 import urllib.request
+from pathlib import Path
+
+_REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO / "workflows"))
+from h3_config import graph_paths  # noqa: E402
 
 # Node types with no schema to check them against.
 NON_NODES = {"MarkdownNote", "Note", "Reroute", "PrimitiveNode"}
@@ -380,7 +385,18 @@ def check(wf, object_info):
 
 def main():
     ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
-    ap.add_argument("workflows", nargs="+", help="UI-format workflow JSON")
+    # Defaults to every shipped graph, so the bare `for c in bench/check_*.py`
+    # sweep covers this file. It did not until 2026-08-21: `nargs="+"` made a
+    # no-argument call exit 2 on argparse, which read as "needs a server" in a
+    # sweep that tolerates exit 2, and the check silently sat out two rounds of
+    # graph regeneration. Discovery goes through `graph_paths()` per
+    # `check_graph_discovery.py`; API-format files are skipped by the loop
+    # below, which reads the file rather than the filename.
+    ap.add_argument("workflows", nargs="*",
+                    default=[str(p) for p in
+                             graph_paths(_REPO / "workflows", "*.json",
+                                         include_bench=True)],
+                    help="UI-format workflow JSON (default: every shipped graph)")
     ap.add_argument("--url", default="http://127.0.0.1:8188",
                     help="running ComfyUI (default %(default)s)")
     ap.add_argument("--object-info", help="cached /object_info JSON instead of --url")

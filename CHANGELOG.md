@@ -46,6 +46,12 @@ artifact.
   (`comfy/text_encoders/minimax.py:183`). Without this, adding the node name
   above would have reported every correct keyframe prompt as naming a label no
   socket wires.
+- **`bench/check_workflow_schema.py` defaults its argument to
+  `graph_paths()`**, so the bare `for c in bench/check_*.py` sweep reaches it.
+  `nargs="+"` made a no-argument call exit on argparse, indistinguishable from
+  the exit 2 this check uses for "no server, nothing validated", and it sat out
+  two rounds of graph regeneration. **Written and not run; unverified until a
+  bare invocation validates against a live `/object_info`.**
 - **`bench/repro_mono_ref_audio.py` is now `bench/check_mono_ref_audio.py`**, a
   gate. It guards a crash that still ships and needs no GPU, model or server,
   so running only when a person typed it was the same as not existing.
