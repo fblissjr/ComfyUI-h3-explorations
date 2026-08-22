@@ -1,0 +1,48 @@
+{
+  "reference": "/mnt/hub/ai/img/input/20260601_172336_00001-audio.mp4",
+  "sample_rate": 16000,
+  "measure": "mean per-frame Pearson correlation of 64-bin log-mel",
+  "not_calibrated": "No value here means 'speech intact'. Ranks arms sharing a window length; cross-length comparison is invalid.",
+  "rows": [
+    {
+      "arm": "len362-structured",
+      "file": "h3_r2v_swap_len362_00001-audio.mp4",
+      "seconds": 15.083,
+      "mel_corr_vs_own_window": 0.9089,
+      "mel_corr_vs_control_window": 0.2763,
+      "margin_over_control": 0.6326
+    },
+    {
+      "arm": "124f-structured-seed892",
+      "file": "h3_r2v_swap_structured_00001-audio.mp4",
+      "seconds": 5.167,
+      "mel_corr_vs_own_window": 0.8255,
+      "mel_corr_vs_control_window": 0.2471,
+      "margin_over_control": 0.5784
+    },
+    {
+      "arm": "124f-structured-seed893",
+      "file": "h3_r2v_swap_structured_00002-audio.mp4",
+      "seconds": 5.167,
+      "mel_corr_vs_own_window": 0.9071,
+      "mel_corr_vs_control_window": 0.2447,
+      "margin_over_control": 0.6624
+    },
+    {
+      "arm": "124f-concise-seed892",
+      "file": "h3_ref_video_swap_concise_concise_00001-audio.mp4",
+      "seconds": 5.167,
+      "mel_corr_vs_own_window": 0.6664,
+      "mel_corr_vs_control_window": 0.2561,
+      "margin_over_control": 0.4102
+    },
+    {
+      "arm": "124f-directive-seed892",
+      "file": "h3_ref_video_swap_directive_directive_00002-audio.mp4",
+      "seconds": 5.167,
+      "mel_corr_vs_own_window": 0.67,
+      "mel_corr_vs_control_window": 0.2517,
+      "margin_over_control": 0.4183
+    }
+  ]
+}
