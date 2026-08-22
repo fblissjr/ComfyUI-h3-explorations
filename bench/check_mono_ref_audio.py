@@ -25,7 +25,19 @@ keep passing after the real function changed.
 
 **The stereo arm is the control.** Without it this script proves only that some
 assignment somewhere fails; with it, the failure is attributable to the channel
-count and nothing else. If the mono arm ever succeeds, the doc entry is stale.
+count and nothing else.
+
+**Promoted from `repro_mono_ref_audio.py` to a gate on 2026-08-21.** It guards a
+crash that still ships, it needs no GPU, model or server, and it was already
+shaped as one -- so it ran only when a person typed it, which for a live crash
+is the same as not existing.
+
+**Read the exit codes the right way round.** Exit 1 on the MONO arm succeeding
+does not mean something broke here; it means ComfyUI fixed the mono path and
+`docs/h3_references.md`'s Known-limitations entry is now false. The fix is to
+correct that entry and retire this file, which is the wrong-premise closure
+`internal/postmortems/` item 2 named. Exit 1 on the STEREO arm failing is the
+real red: the script has stopped measuring the channel count.
 """
 
 from __future__ import annotations

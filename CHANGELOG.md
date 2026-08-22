@@ -4,6 +4,46 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.50.0
+
+### Added
+
+- **`bench/audit_shipped_reference_bounds.py`**, answering whether any shipped
+  graph hands Qwen a reference image it shrinks. It does not: every reference
+  input is priced end to end -- real file size, the real `MiniMaxH3ReferenceFit`
+  with that graph's own arguments, the real `process_qwen2vl_images` -- and
+  nothing is resized (`bench/results/2026-08-21_shipped_reference_bounds.json`).
+  Two synthetic arms must trip or the run is rejected, because the expected
+  answer is an empty list and so is the answer a broken detector gives.
+- **`bench/red/show_red_preflight_guide_split.py`**, the red harness for the
+  guide split below. Five mutations red; two near-misses that are the point of
+  the file rather than padding.
+
+### Changed
+
+- **`bench/preflight_graph.py` and `bench/check_prompt_guide_conformance.py`
+  now grade against the guide that applies to each graph.** The release ships
+  two prompt guides with different section lists, and both instruments knew
+  only the six-section one, and only `MiniMaxH3ReferenceToVideo`. Base-format
+  graphs were therefore not failing -- they were invisible, answering `nothing
+  to grade`. Which guide applies is read off the graph's own sockets. Preflight
+  returns no FAIL and nothing ungraded across every shipped graph, up from 21
+  ungraded; the conformance check grades 55 graphs, up from 36.
+- **`wired_labels` counts keyframes as the `<Picture N>` labels they are**
+  (`comfy/text_encoders/minimax.py:183`). Without this, adding the node name
+  above would have reported every correct keyframe prompt as naming a label no
+  socket wires.
+- **`bench/repro_mono_ref_audio.py` is now `bench/check_mono_ref_audio.py`**, a
+  gate. It guards a crash that still ships and needs no GPU, model or server,
+  so running only when a person typed it was the same as not existing.
+
+### Fixed
+
+- **`bench/audit_shipped_reference_bounds.py` read the input directory the
+  server is actually launched with.** Its first run resolved zero files and
+  printed a clean empty list, which is indistinguishable from the correct
+  answer; it now fails when it prices nothing.
+
 ## 0.49.0
 
 ### Added
