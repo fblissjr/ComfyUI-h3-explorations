@@ -25,15 +25,23 @@ reach into a private frame and it is deliberate: the alternative is asserting
 against the conditioning tensor, which needs a 32B encoder and would test the
 DiT's packing rather than the node's bookkeeping.
 
-**What is NOT covered, named rather than skipped:**
+**All seven are covered as of 2026-08-22**, contracts 4 and 5 last. Both had
+been recorded here as out of reach -- 4 as `model_base.py`'s job rather than
+this node's, 5 as needing a loaded 32B encoder -- and neither held.
+`MiniMaxH3.extra_conds` runs on a stub supplying `concat_keys` and
+`model_config`; `CLIP.encode_from_tokens_scheduled` runs over a stub text
+encoder returning the same 3-tuple the real one does. The blocker was where to
+point the harness, not what it would cost.
 
-- **Contract 4** (keyframe latents precede reference latents) is
-  `model_base.py`'s job, not this node's, per the 2026-08-21 re-derivation.
-  Enforced by nothing, here or anywhere.
-- **Contract 5** (`minimax_token_tags` reaches conditioning only through the
-  `return_dict=True` path) needs the real encode path and a loaded encoder.
-  **Enforced by nothing.** Reported at the end of every run so its absence
-  cannot be mistaken for coverage.
+**One gap in core is measured and deliberately NOT failed here.** With forced
+CLIP-schedule hooks active, `comfy/sd.py:379-381` reads only `o[:2]` and never
+`o[2]`, so `minimax_token_tags` is dropped. Executed 2026-08-22 against a stub
+with `forced_hooks` set: the conditioning extras come back as
+`clip_start_percent`, `clip_end_percent`, `pooled_output` and nothing else.
+Case 5c records it rather than failing on it -- it is core's behaviour, no
+shipped graph here wires CLIP hooks, and a check that reds on a correct state
+trains readers to ignore red. **If 5c ever flips, upstream fixed it and the
+case should be retired rather than repaired.**
 
 Exit 0 all covered contracts hold, 1 one is violated, 2 the harness could not
 reach the node's bookkeeping at all.
@@ -197,7 +205,8 @@ def _drive_extra_conds(keyframe_latent, ref_latent,
     return out["minimax_payload"].cond
 
 
-def _drive_encode_from_tokens(extra: dict, scheduled: bool = True):
+def _drive_encode_from_tokens(extra: dict, scheduled: bool = True,
+                              hooked: bool = False):
     """Run core's real encode path over a stub text encoder.
 
     Contract 5's subject is `comfy/sd.py`'s merge of the encoder's third
@@ -250,10 +259,57 @@ def _drive_encode_from_tokens(extra: dict, scheduled: bool = True):
         def encode_from_tokens(self, *a, **kw):
             return comfy.sd.CLIP.encode_from_tokens(self, *a, **kw)
 
+    class _Hooks:
+        def get_hooks_for_clip_schedule(self):
+            return [((0.0, 1.0), [])]
+
+        def reset(self):
+            pass
+
     clip = _StubCLIP()
+    if hooked:
+        # The OTHER branch of encode_from_tokens_scheduled, taken when the
+        # patcher carries forced hooks. Reached by giving the stub patcher a
+        # hooks object rather than by mutating core.
+        class _HookedPatcher:
+            load_device = torch.device("cpu")
+            forced_hooks = _Hooks()
+
+            def patch_hooks(self, _h):
+                pass
+
+        clip.patcher = _HookedPatcher()
+        clip.use_clip_schedule = True
+        return comfy.sd.CLIP.encode_from_tokens_scheduled(clip, "tokens",
+                                                          show_pbar=False)
     if scheduled:
         return comfy.sd.CLIP.encode_from_tokens_scheduled(clip, "tokens")
     return comfy.sd.CLIP.encode_from_tokens(clip, "tokens", return_dict=False)
+
+
+def contract5c_state():
+    """(ok, detail) for CORE's forced-CLIP-schedule branch, which drops the tags.
+
+    **Not a failure of anything in this repo, and it must not red.**
+    `comfy/sd.py:379-381` reads `o[:2]` and never `o[2]`, so with forced hooks
+    active `minimax_token_tags` never reaches conditioning and the DiT tags
+    every row as text. No graph here wires CLIP hooks, so the shipped path is
+    the no-hook branch that case 5a covers.
+
+    Recorded rather than fixed, and asserted in its CURRENT state so the
+    record cannot rot: `ok` is True while the tags are still dropped. **If
+    this flips, upstream fixed it** -- retire the case and the gap entry,
+    do not repair them. Same retirement contract as
+    `bench/check_mono_ref_audio.py`.
+    """
+    import torch
+    out = _drive_encode_from_tokens({"minimax_token_tags": torch.tensor([0, 1, 0])},
+                                    hooked=True)
+    extras = sorted(out[0][1]) if isinstance(out, list) and out else out
+    dropped = isinstance(out, list) and "minimax_token_tags" not in out[0][1]
+    return (dropped,
+            f"forced-hook branch yields {extras} -- the tags are "
+            f"{'dropped, as core still does' if dropped else 'PRESENT, so upstream fixed it: retire this case'}")
 
 
 def _labels(ref_items):
@@ -413,6 +469,8 @@ def main() -> int:
                *contract5a_holds())
         record("contract 5b dropping the tags is SILENT, not an error",
                *contract5b_holds())
+        record("contract 5c core drops the tags under forced CLIP hooks "
+               "(recorded, not owned)", *contract5c_state())
     except Exception as exc:
         record("contract 5  minimax_token_tags reaches conditioning", False,
                f"could not drive the path: {type(exc).__name__}: {exc}")

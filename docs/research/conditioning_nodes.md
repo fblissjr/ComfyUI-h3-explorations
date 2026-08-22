@@ -172,5 +172,19 @@ only that arm, forcing `fit_to_canvas` reddens only the last-frame arm.
 ## Not done
 
 A replacement for `MiniMaxH3ReferenceToVideo`. If one is ever wanted — for a
-reason other than these two defects — the list above is the acceptance criteria,
-and none of it is currently guarded by an assertion.
+reason other than these two defects — the list above is the acceptance
+criteria, and **since 2026-08-22 every item on it is guarded by an
+assertion**: `bench/check_reference_contracts.py` covers all seven, with
+contracts 4 and 5 shown red in `bench/red/show_red_reference_contracts.py`.
+This paragraph said "none of it is currently guarded" until that day, which is
+the sentence a replacement would have been built against.
+
+**Read the acceptance criteria as two lists, not one.** Some of these are
+behaviour a replacement must PRESERVE — a sounded video making two Qwen items
+but one DiT block, the shared `<Audio j>` ordinal with a soundtrack
+immediately before its video, the vision sentinels, weighting stayed disabled.
+Others are behaviour a typed surface would INTENTIONALLY replace: pairing a
+soundtrack by socket-name suffix becomes ownership by the video record, and
+"standalone audio always comes last" becomes ordered-list position. A test
+suite that asserts AGREE on all seven would reject the replacement for doing
+its job, so the intentional ones have to be asserted as DIFFER.
