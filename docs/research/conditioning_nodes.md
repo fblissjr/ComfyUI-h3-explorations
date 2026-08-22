@@ -112,10 +112,23 @@ behaviour, driving the node with stub VAEs to the point where its two
 reference lists are complete. Shown red by pairing soundtracks positionally in
 core and confirmed green on restore.
 
-**Contracts 4 and 5 are still enforced by nothing**, and the check says so on
-every run rather than leaving their absence to look like coverage. Contract 4
-is `model_base.py`'s job rather than this node's; contract 5 needs a loaded
-encoder.
+**Contracts 4 and 5 gained controls later the same day**, closing the last two.
+Both were held open by an assumption about where they could be asserted --
+contract 4 is `model_base.py`'s job rather than this node's, and contract 5 was
+recorded as needing a loaded encoder. Neither is true: `extra_conds` runs on a
+stub whose only supplied attributes are `concat_keys` and `model_config`, and
+`CLIP.encode_from_tokens` runs over a stub text encoder returning the same
+3-tuple `MiniMaxH3ClipModel.encode_token_weights` returns. **The blocker was
+where to point the harness, not what it would cost.**
+
+Both are shown red in `bench/red/show_red_reference_contracts.py`, which
+mutates the real functions in memory rather than on disk -- the install is
+shared with a running render server. Three mutations, each phrased in the
+contract's own terms: the concat order reversed, the `return_dict` merge
+removed, and the tag copy deleted. A mutation whose anchor no longer matches
+**refuses** instead of reporting a red, which is not hypothetical -- the first
+run of that harness errored on a recompiled `super()` losing its `__class__`
+cell, and the spine correctly scored it ERRORED rather than counting it.
 
 1. **`ref_items` and `ref_blocks` are not the same length**
    (`comfy_extras/nodes_minimax_h3.py:290-342`).** A video with a

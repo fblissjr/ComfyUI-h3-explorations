@@ -112,6 +112,121 @@ def _drive(core, **kwargs):
     return captured["items"], captured["blocks"]
 
 
+def contract4_holds():
+    """(ok, detail) for: keyframe latents precede reference latents.
+
+    A callable rather than inline in main() so `bench/red/` can drive it with
+    the subject mutated. Marker VALUES, not counts -- a reversal has to be
+    unambiguous, and two same-length lists in the wrong order are not.
+    """
+    import torch
+    pl = _drive_extra_conds(torch.full((1,), 7.0), torch.full((1,), 9.0),
+                            torch.full((1,), 70.0), torch.full((1,), 90.0))
+    vids = [float(t[0]) for t in pl["cond_video_latents"]]
+    auds = [float(t[0]) for t in pl["cond_audio_latents"]]
+    return (vids == [7.0, 9.0] and auds == [70.0, 90.0],
+            f"video {vids}, audio {auds} -- keyframe marker must come first "
+            f"in both")
+
+
+def contract5a_holds():
+    """(ok, detail) for: the encoder's third return value rides return_dict."""
+    import torch
+    tags = torch.tensor([0, 1, 0])
+    got = _drive_encode_from_tokens({"minimax_token_tags": tags}, True)
+    plain = _drive_encode_from_tokens({"minimax_token_tags": tags}, False)
+    return (isinstance(got, dict) and "minimax_token_tags" in got
+            and not isinstance(plain, dict),
+            f"dict path keys {sorted(got) if isinstance(got, dict) else got}; "
+            f"plain path returned {type(plain).__name__}")
+
+
+def contract5b_holds():
+    """(ok, detail) for: losing the tags is silent, which is why this exists."""
+    import torch
+    z = torch.zeros(1)
+    with_tags = _drive_extra_conds(z, z, z, z, tags=torch.tensor([0, 1, 0]))
+    without = _drive_extra_conds(z, z, z, z)
+    return ("text_token_tags" in with_tags
+            and "text_token_tags" not in without,
+            "present when passed, absent when not, and the absent case raised "
+            "nothing -- which is the whole reason this contract needs an "
+            "assertion rather than a code comment")
+
+
+def _drive_extra_conds(keyframe_latent, ref_latent,
+                       keyframe_audio, ref_audio, tags=None):
+    """Run core's real `MiniMaxH3.extra_conds` and return its payload.
+
+    Contract 4 lives in `comfy/model_base.py`, not in the node, so this is the
+    one assertion here whose subject is the model rather than
+    `MiniMaxH3ReferenceToVideo`. The stub supplies only what `BaseModel`
+    touches on the path taken with `cross_attn=None` -- `concat_keys` and
+    `model_config` -- so the ordering statements execute unmodified.
+    """
+    import comfy.model_base as mb
+
+    class _Probe(mb.MiniMaxH3):
+        def __init__(self):
+            self.concat_keys = ()
+            self.model_config = None
+
+        def audio_scale(self):
+            return 1.0
+
+    kw = dict(device="cpu", cross_attn=None,
+              minimax_keyframes=[{"latent": keyframe_latent,
+                                  "audio_latent": keyframe_audio}],
+              minimax_refs=[{"latent": ref_latent,
+                             "audio_latent": ref_audio}])
+    if tags is not None:
+        kw["minimax_token_tags"] = tags
+    out = _Probe().extra_conds(**kw)
+    if "minimax_payload" not in out:
+        raise RuntimeError(
+            "extra_conds returned no `minimax_payload`; the key was renamed "
+            "and this harness is asserting nothing")
+    return out["minimax_payload"].cond
+
+
+def _drive_encode_from_tokens(extra: dict, return_dict: bool):
+    """Run core's real `CLIP.encode_from_tokens` over a stub text encoder.
+
+    Contract 5's subject is `comfy/sd.py`'s merge of the encoder's third
+    return value into the conditioning dict. The stub returns a 3-tuple
+    exactly as `MiniMaxH3ClipModel.encode_token_weights` does; everything that
+    decides whether the third element survives is core's.
+    """
+    import comfy.sd
+    import torch
+
+    class _StubTE:
+        def set_clip_options(self, _o):
+            pass
+
+        def reset_clip_options(self):
+            pass
+
+        def encode_token_weights(self, _t):
+            return torch.zeros(1, 3, 8), torch.zeros(1, 8), dict(extra)
+
+    class _StubCLIP:
+        cond_stage_model = _StubTE()
+        layer_idx = None
+
+        class patcher:
+            load_device = torch.device("cpu")
+
+        def load_model(self, _t):
+            pass
+
+        def add_hooks_to_dict(self, d):
+            return d
+
+    return comfy.sd.CLIP.encode_from_tokens(_StubCLIP(), "tokens",
+                                            return_dict=return_dict)
+
+
 def _labels(ref_items):
     """The presentation core's tokenizer builds, decoded, with vision marked."""
     from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
@@ -246,11 +361,37 @@ def main() -> int:
         print("nothing was checked")
         return 2
 
-    print("\nNOT covered by this file, and enforced by nothing:")
-    print("  contract 4  keyframe latents precede reference latents --")
-    print("              model_base.py's job, not this node's")
-    print("  contract 5  minimax_token_tags reaches conditioning only via the")
-    print("              return_dict=True path -- needs a loaded encoder")
+    # ---- contract 4: keyframe latents precede reference latents ----
+    #
+    # Established by STATEMENT ORDER in extra_conds and nothing else: the
+    # keyframe block seeds cond_video_latents and the refs block appends to
+    # it. Swapping the two blocks reverses the flat lists and raises nothing.
+    # Marker values rather than counts, so a reversal is unambiguous.
+    try:
+        record("contract 4  keyframe latents precede reference latents",
+               *contract4_holds())
+    except Exception as exc:
+        record("contract 4  keyframe latents precede reference latents", False,
+               f"could not drive extra_conds: {type(exc).__name__}: {exc}")
+
+    # ---- contract 5: the tags ride the return_dict=True path, silently ----
+    #
+    # Two failures, and the second is why this needs a control at all: losing
+    # the dict path drops the tags, and losing the tags raises nothing -- the
+    # DiT simply tags every row as text.
+    try:
+        record("contract 5a return_dict=True carries the encoder's extras",
+               *contract5a_holds())
+        record("contract 5b dropping the tags is SILENT, not an error",
+               *contract5b_holds())
+    except Exception as exc:
+        record("contract 5  minimax_token_tags reaches conditioning", False,
+               f"could not drive the path: {type(exc).__name__}: {exc}")
+
+    print("\nEvery contract in docs/research/conditioning_nodes.md now has an "
+          "assertion.\nContracts 4 and 5 are asserted against "
+          "comfy/model_base.py and comfy/sd.py\nrather than against the node, "
+          "because that is where they live.")
 
     failed = [n for n, ok, _ in results if not ok]
     if failed:
