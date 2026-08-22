@@ -72,6 +72,19 @@ artifact.
   - Answers whether the seven special tokens reach Qwen3-VL's vision tower.
     They do not, and the assertion that closes it already existed.
 
+### Fixed
+
+- **The "reference media never upscaled" gap was filed as a defect and is not
+  one.** Corrected same-day after a user pointed out the cost, which the
+  measurements in this repo already carried and the gap report had not
+  consulted. Reference rows are attended at every sampling step, so upscaling
+  is a tax on the whole render: a single 1024x1024 image upscaled to 2048 costs
+  6,144 tokens, half of it in the conditioner's vision blocks. The clamp is a
+  speed/fidelity knob ComfyUI exposes and the vendor's pipeline does not.
+  - What remains is narrower and stated as such: the cost is measured, the
+    benefit is not, and a rendered pair cannot supply it because two arms
+    differing in reference size are two different samples.
+
 ### Changed
 
 - **`docs/research/sglang_comparison.md` points at the consolidated report**

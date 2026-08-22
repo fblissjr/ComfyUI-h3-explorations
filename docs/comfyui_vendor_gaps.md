@@ -46,7 +46,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 3 | Reference image floor (`min_pixels`) | config | open, unenforced |
 | 4 | Reference image ceiling (`max_pixels`) | config | open, no shipped graph reaches it |
 | 5 | Reference soundtracks not truncated | behavioural | open by choice |
-| 6 | Reference video never upscaled | behavioural | open, expensive |
+| 6 | Reference media never upscaled | behavioural | **a knob, not a defect** — see below |
 | 7 | Mono reference audio raises | behavioural | gated |
 | 8 | VAE encode precision, and mean vs sample | behavioural | half measured |
 | 9 | VAE tiling unrecorded | behavioural | open, unenforced |
@@ -247,11 +247,37 @@ duration via `ffmpeg -t`, and diffusers does the same. *Impact:* wasted rows on
 any soundtrack longer than the render, and those rows are attended every step.
 Trim it yourself.
 
-**6. Reference video never upscaled.** If the source has fewer pixels than the
-canvas, ComfyUI uses the source size rounded to 32. All three vendor
-implementations put it on the canvas rule with no such clamp. *Impact:* small
-reference videos condition on less than intended. Open because closing it costs
-about 5x what the image equivalent does.
+**6. Reference media never upscaled — a tradeoff ComfyUI exposes and the vendor
+does not.** If the source has fewer pixels than the canvas, ComfyUI uses the
+source size rounded to 32. All three vendor implementations put it on the canvas
+rule with no such clamp.
+
+**This was filed as a defect and that framing was wrong.** Corrected 2026-08-22
+after a user pointed out the cost, which the measurements here already had.
+Reference rows are attended at **every sampling step**, so a larger reference is
+not a one-off cost, it is a tax on the whole render. From the measured table in
+[`h3_references.md`](h3_references.md): upscaling a single 1024x1024 reference
+image to 2048 costs **6,144 tokens**, half in the reference block and half in
+the conditioner's vision blocks, which read the resized image too. A 960x544
+reference video at 124 frames is already 18,870 rows; putting it on a 1344x768
+canvas roughly doubles the pixel area and the rows with it.
+
+So deliberately passing downscaled references is a **sound default**, and the
+clamp is a knob the vendor's pipeline does not give you.
+
+**What is actually unresolved is narrower.** The cost of upscaling is measured
+and large. The benefit is **not measured at all** — no controlled comparison
+here shows that a canvas-sized reference conditions better than a downscaled
+one, and a rendered pair could not show it anyway, because two arms differing in
+reference size are two different samples rather than a good and a degraded
+version of one. So the honest state is a measured cost against an unmeasured
+benefit, which is a strong argument for the current default.
+
+Two things it does still mean, neither of them urgent. Output will not reproduce
+the vendor's for the same inputs, which matters only if that is your goal. And
+you are off the resolution distribution the model was trained on, though "H3
+handles it fine" is real evidence that the distribution is wider than the
+canvas rule implies.
 
 **7. Mono reference audio raises.** `_encode_ref_audio` does not upmix, so a
 mono waveform produces half the rows the packed layout allocated and the
@@ -412,9 +438,14 @@ rendered clip cannot A/B a numerical change.
 
 ### Nothing built
 
-Gaps **5** (soundtrack length), **6** (video upscale) and **9** (VAE tiling)
-have no instrument, no check and no fix. They are recorded here and nowhere
-else in executable form.
+Gaps **5** (soundtrack length) and **9** (VAE tiling) have no instrument, no
+check and no fix. They are recorded here and nowhere else in executable form.
+
+Gap **6** needs no instrument for the cost, which is already measured; what it
+would need is a controlled comparison of the *benefit*, and
+[`eval_comparison.md`](eval_comparison.md) section 3 is the only process here
+that could supply one. Nobody has asked for it, and the measured cost argues
+against bothering.
 
 
 ---
@@ -430,7 +461,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 3, image floor | **nothing** |
 | 4, image ceiling | [`bench/audit_shipped_reference_bounds.py`](../bench/audit_shipped_reference_bounds.py) reports; nothing refuses |
 | 5, soundtrack length | **nothing** |
-| 6, video upscale | **nothing** |
+| 6, media upscale | **nothing**, and nothing is owed — see the section |
 | 7, mono audio | [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py) |
 | 8, VAE encode precision | **nothing** |
 | 9, VAE tiling | **nothing** |
