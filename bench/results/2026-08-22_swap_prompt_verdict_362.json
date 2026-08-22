@@ -1,16 +1,49 @@
 {
   "question": "Does the guide's six-section prompt format earn itself, on the shipped substrate? The 124-frame batch could not answer it -- every arm ran on a bench patch three times shorter than the graph's design, which damaged the speech in all of them.",
-  "answer": "Structured beats concise on soundtrack reproduction in all THREE matched-seed pairs, by a wide and consistent margin. Measured, not listened to. Nobody has judged these perceptually yet, and that judgement is the owner's.",
+  "answer": "Two findings, not one. CONCISE IS GIBBERISH -- a prompt problem, settled by ear (3 of 3) and by measure (the three lowest margins, broken from the first third on two seeds). STRUCTURED DRIFTS LATE -- a length problem, not a prompt one: it starts strong every time and falls in the last third, which the owner attributes to the delivery not lining up with a 15.083s render cut out of a 19.56s utterance. The second is untested and one render away.",
   "design": "Both shipped graphs unpatched -- 1024x768, 362 frames, frame_load_cap 362, TrimAudioDuration at 15.083s, er_sde, 16 steps. The two files differ in exactly two fields, `prompt` and `filename_prefix`, verified before the run. Seeds 730451892/893/894 in both arms.",
   "measure": "bench/grade_soundtrack_reuse.py -- mean per-frame Pearson correlation of 64-bin log-mel against the reference window the render was conditioned on, with a mismatched later window of the same recording as the control floor.",
   "pairs": [
-    {"seed": 730451892, "structured_margin": 0.6326, "concise_margin": 0.2254},
-    {"seed": 730451893, "structured_margin": 0.5343, "concise_margin": 0.0669},
-    {"seed": 730451894, "structured_margin": 0.4256, "concise_margin": -0.1071}
+    {
+      "seed": 730451892,
+      "structured_margin": 0.6326,
+      "concise_margin": 0.2254
+    },
+    {
+      "seed": 730451893,
+      "structured_margin": 0.5343,
+      "concise_margin": 0.0669
+    },
+    {
+      "seed": 730451894,
+      "structured_margin": 0.4256,
+      "concise_margin": -0.1071
+    }
   ],
   "the_striking_row": "concise at seed 894 scores BELOW its own control (-0.1071): it resembles a mismatched window of the same recording more than the window it was conditioned on. That is not a weaker copy, it is no copy.",
   "why_this_is_stronger_than_the_124f_record": "Matched seeds, three pairs, one direction every time, on the shipped substrate with no bench patch. The 124-frame batch was one clean render of four on a substrate that damaged every arm, which is a draw from a distribution. This is not.",
-  "what_it_still_does_not_support": "A perceptual claim. The measure is uncalibrated and says so: no value here means 'speech intact'. It ranks arms sharing a window length and nothing more. Cross-set comparison against the 124-frame rows is invalid and the instrument groups them apart to make that hard to ignore.",
+  "what_it_still_does_not_support": "That the six SECTIONS are the cause. structured and concise differ in structure AND length (459 vs 92 prompt tokens) AND whether the soundtrack is stated as an `<Audio 1>: fully_copy` retention line or as prose. Three variables move together. What IS established is narrower and still useful: this concise prompt breaks speech reliably on a soundtrack-reuse task, so it is not a viable arm for one.",
   "confound_named": "structured and concise differ in structure AND length (459 vs 92 prompt tokens) AND whether the soundtrack is stated as an `<Audio 1>: fully_copy` retention line or as prose in the body. Three variables move together, as they did at 124 frames. The arm that would separate them -- six sections with the soundtrack demoted to prose -- is still unrendered.",
-  "next": "Listen. Then, if the direction holds by ear, render the separating arm before attributing the effect to the sections rather than to the retention line."
+  "next": "Owner's call on whether h3_ref_video_swap_concise stays shipped -- the experiment it existed for has now returned. If the MECHANISM is wanted, the separating arm is six sections with the soundtrack demoted to prose in the body.",
+  "perceptual_verdict": {
+    "authority": "the owner, on playback, 2026-08-22",
+    "concise": "broken speech every single time, 3 of 3",
+    "structured_seed_892": "good -- judged earlier, as the unpatched length probe; the batch row for that seed is the same render, re-encoded by VHS_VideoCombine after a sampler cache hit",
+    "not_stated": "the other two structured renders were not individually reported and are not claimed here"
+  },
+  "calibration_note": "This is the first time the log-mel margin has been checked against a listener on more than one clip. Six renders, and the ordering agrees on the arm the owner reported. That makes the measure useful for ranking soundtrack reuse on THIS clip at THIS window length. It does not make it calibrated in general, and no threshold is proposed: nothing here says which value is the line between intact and broken.",
+  "two_separate_issues": {
+    "note": "The owner's separation, 2026-08-22, and it is sharper than the first reading here, which merged them into one 'structured degrades slower' axis. They are different phenomena with different fixes, and the per-third numbers show it.",
+    "1_concise_is_gibberish": {
+      "what": "A prompt problem. The owner: 'concise is clearly broken. its gibberish.' 3 of 3.",
+      "evidence": "Concise is bad from the FIRST third on two of three seeds -- 0.151 at s893 and -0.016 at s894, where every structured render starts at 0.589-0.704. That is not decay, it is broken at t=0.",
+      "status": "settled by ear and by measure; no further render needed"
+    },
+    "2_structured_drifts_late": {
+      "what": "A length problem, not a prompt one. The owner: 'delivery timing isnt lining up with the 15s length.' Structured starts strong every time and falls in the last third: 0.704/0.647/0.481, 0.589/0.625/0.305, 0.688/0.537/0.017.",
+      "mechanism_hypothesis": "The source is 19.56s of continuous speech and the render is 15.083s, so 4.48s of the utterance is cut off mid-delivery. Small timing error accumulates against a reference that keeps going, and by the last third the generated speech is out of phase. UNTESTED.",
+      "the_test": "481 frames = 20.042s, which is 17*28+5 and the first legal length that covers the whole 19.541s soundtrack. 464 (19.333s) is legal but still cuts it. If drift is truncation, 481 should hold to the end; if it still falls off, truncation is refuted and the cause is elsewhere.",
+      "status": "open, one render away"
+    }
+  }
 }

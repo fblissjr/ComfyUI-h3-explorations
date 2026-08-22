@@ -17,6 +17,15 @@ Mel rather than waveform because the model regenerates rather than copies --
 the output is never sample-aligned, so waveform correlation would read ~0 for a
 perfect result and measure nothing.
 
+**Report thirds, not just a mean, and the mean alone hid the finding.** The
+owner reported on 2026-08-22 that the structured arm "looks fine in some but a
+little off in later parts sometimes" -- a degradation over TIME inside one
+render, which a whole-window average cannot show. Split into thirds it is
+plain: structured seed 894 runs 0.652 / 0.542 / 0.156 and averages 0.426, a
+mid-pack number for a render that is strong for ten seconds and gone by the
+end. Every arm declines; the prompt changes how fast. A mean over a window is
+the wrong summary for a quantity that drifts within it.
+
 **Read the numbers as ORDINAL, and only within one window length.** This is a
 similarity proxy with no calibration: nothing establishes what value counts as
 "speech intact", and a longer window averages differently from a shorter one.
@@ -130,12 +139,24 @@ def main() -> int:
         ctrl_start = d + 1.0
         ctrl = load(REF, ctrl_start, d)
         r_match, r_ctrl = corr(gen, ref), corr(gen, ctrl)
+        # Thirds, because the quantity drifts inside the window it is
+        # averaged over. See the module docstring.
+        third = d / 3.0
+        by_third = []
+        for k in range(3):
+            st = k * third
+            g3 = load(p, st, third)
+            r3 = load(REF, st, third)
+            c3 = load(REF, st + ctrl_start / 2.0, third)
+            by_third.append(round(corr(g3, r3) - corr(g3, c3), 3))
         rows.append({"arm": label, "file": name, "seconds": round(d, 3),
                      "mel_corr_vs_own_window": round(r_match, 4),
                      "mel_corr_vs_control_window": round(r_ctrl, 4),
-                     "margin_over_control": round(r_match - r_ctrl, 4)})
-        print(f"  {label:<26} {d:6.3f}s   own {r_match:+.4f}   "
-              f"control {r_ctrl:+.4f}   margin {r_match - r_ctrl:+.4f}")
+                     "margin_over_control": round(r_match - r_ctrl, 4),
+                     "margin_by_third": by_third})
+        print(f"  {label:<24} margin {r_match - r_ctrl:+.4f}   "
+              f"by third {by_third[0]:+.3f} {by_third[1]:+.3f} "
+              f"{by_third[2]:+.3f}")
 
     print("\n  Ordinal, and only within one window length. The margin over the "
           "\n  control is the load-bearing column: it is what says the render "
