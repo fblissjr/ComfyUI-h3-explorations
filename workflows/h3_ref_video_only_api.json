@@ -223,7 +223,8 @@
         "20",
         0
       ],
-      "tau": 1.0,
+      "selection": "adaptive tau",
+      "selection.tau": 1.0,
       "start_percent": 0.2,
       "end_percent": 0.9,
       "min_tokens": 4096,
@@ -231,7 +232,6 @@
       "morton": false,
       "morton_curve": "3d",
       "centroid_tail": true,
-      "routed_cap_percent": 0,
       "reuse_qkv_memory": false,
       "verbose": false,
       "dense_blocks": ""

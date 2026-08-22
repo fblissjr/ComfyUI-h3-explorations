@@ -280,12 +280,6 @@
           "name": "model",
           "type": "MODEL",
           "link": 4
-        },
-        {
-          "name": "tau_profile",
-          "type": "STRING",
-          "link": null,
-          "shape": 7
         }
       ],
       "outputs": [
@@ -301,6 +295,7 @@
         "Node name for S&R": "SolAttnMiniMax"
       },
       "widgets_values": [
+        "adaptive tau",
         1.0,
         0.2,
         0.9,
@@ -309,7 +304,6 @@
         false,
         "3d",
         true,
-        0,
         false,
         false,
         ""
@@ -1004,12 +998,6 @@
           "name": "model",
           "type": "MODEL",
           "link": 11
-        },
-        {
-          "name": "tau_profile",
-          "type": "STRING",
-          "link": null,
-          "shape": 7
         }
       ],
       "outputs": [
@@ -1025,6 +1013,7 @@
         "Node name for S&R": "SolAttnMiniMax"
       },
       "widgets_values": [
+        "adaptive tau",
         1.0,
         0.2,
         0.9,
@@ -1033,7 +1022,6 @@
         false,
         "3d",
         true,
-        0,
         false,
         false,
         ""

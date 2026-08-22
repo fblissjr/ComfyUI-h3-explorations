@@ -78,7 +78,7 @@ _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO / "workflows"))
 
 import h3_config  # noqa: E402
-from build_workflows import SOL_WIDGET_ORDER  # noqa: E402
+from build_workflows import SOL_SELECTION_INPUTS, sol_widget_order  # noqa: E402
 
 WORKFLOWS = _REPO / "workflows"
 SOL = "SolAttnMiniMax"
@@ -159,6 +159,21 @@ def reachable(g):
     return seen
 
 
+def _sol_ui_order(widgets):
+    """Widget ids for a UI-form Sol node, whose order depends on its own
+    `selection` value (widget 0).
+
+    An unrecognised selection returns the selector alone rather than guessing
+    an order: pairing the remaining values against the wrong names would
+    invent settings the graph does not have. The lone `selection` entry is
+    enough for the comparison against h3_config to report the real problem.
+    """
+    selected = widgets[0] if widgets else None
+    if selected not in SOL_SELECTION_INPUTS:
+        return ("selection",)
+    return sol_widget_order({"selection": selected})
+
+
 def attn_nodes(g, want):
     """[(node_id, values_by_name, state)] for every `want` node in `g`.
 
@@ -168,11 +183,15 @@ def attn_nodes(g, want):
     live = reachable(g)
     out = []
     if is_ui(g):
-        order = SOL_WIDGET_ORDER if want == SOL else SAGE_WIDGET_ORDER
         for n in g["nodes"]:
             if n.get("type") != want:
                 continue
-            vals = dict(zip(order, n.get("widgets_values") or []))
+            widgets = n.get("widgets_values") or []
+            if want == SOL:
+                order = _sol_ui_order(widgets)
+            else:
+                order = SAGE_WIDGET_ORDER
+            vals = dict(zip(order, widgets))
             mode = n.get("mode", 0)
             state = ("bypassed" if mode == 4 else "muted" if mode == 2
                      else "live" if n["id"] in live else "orphaned")
@@ -183,6 +202,15 @@ def attn_nodes(g, want):
                 continue
             vals = {k: v for k, v in (n.get("inputs") or {}).items()
                     if not isinstance(v, list)}
+            if want == SOL:
+                # The API form keys the selected option's inputs under the
+                # combo (`selection.tau`). Strip the prefix so both forms are
+                # graded in h3_config's vocabulary -- left dotted, `tau` is
+                # simply absent from `vals`, every `if k in vals` comparison
+                # below skips it, and the check goes green having graded
+                # nothing about the knob it exists for.
+                vals = {k.split(".", 1)[1] if k.startswith("selection.") else k: v
+                        for k, v in vals.items()}
             out.append((i, vals, "live" if i in live else "orphaned"))
     return out
 

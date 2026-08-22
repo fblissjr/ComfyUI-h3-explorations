@@ -126,6 +126,10 @@ KNOWN_NODE_VERSIONS = {
         "v1 (2026-08-14 10:48) -- sink_q = whole conditioning range",
     "d856ba83557d18fbe642011e7a101f597cceea75fcf2e9d600ae064d062de526":
         "v2 (2026-08-14 14:19) -- sink_q narrowed to the target audio span",
+    "7805cf3706bf9b9123932e66f1dd311c3f005b6a1c188d40cc5a23321debc0dd":
+        "v3 (2026-08-22) -- tau/tau_profile folded into a `selection` "
+        "DynamicCombo alongside top-k, routed_cap_percent dropped; needs a "
+        "kernel with topk_ratio (0.2.31+sol.23d1a66 or later)",
 }
 
 

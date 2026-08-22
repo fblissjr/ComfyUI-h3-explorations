@@ -149,9 +149,9 @@ Their two modes, in `coderef/Sana/techniques/sparse_backends/sol_attn/preprocess
   blocks for that query.
 
 comfy-kitchen's CUDA kernel computes `kcvar[d]` as the per-dimension variance of
-the key-block centroids (`coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_attn_preprocess.cu:123`), reduces
-`sred[d] = c_d^2 * kcvar[d]` (`:192`), and thresholds at
-`tau * sqrt(sum + 1e-6)` (`:199`), against mean-centred key centroids so the
+the key-block centroids (`coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/sage_attention/sol_attn_preprocess.cu:122`), reduces
+`sred[d] = c_d^2 * kcvar[d]` (`:191`), and thresholds at
+`tau * sqrt(sum + 1e-6)` (`:198`), against mean-centred key centroids so the
 mean term is already absorbed. **That is Sol-Engine's `diag` formula.**
 
 So `exact` is not an unexposed input. It is a threshold kernel nobody has

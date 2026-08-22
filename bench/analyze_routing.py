@@ -85,10 +85,12 @@ def load_eager():
     installed package for the rest of the process, so anything reaching for the
     compiled CUDA op afterwards would have found the un-built copy.
 
-    The installed build is that branch: the capture manifests record
-    `comfy_kitchen_version: 0.2.31+sol.c04ef20`, and its `_pool`, `sol_attn` and
-    `_normalize_key_bias` are structurally identical to the vendored
-    `bench/_sol_attn_reference.py` (compared by AST, 2026-08-17). The clone is
+    The installed build is that branch. The capture manifests on disk record
+    `comfy_kitchen_version: 0.2.31+sol.c04ef20`, which is what produced them;
+    the installed build has been `0.2.31+sol.23d1a66` since 2026-08-22. Its
+    `_pool`, `sol_attn` and `_normalize_key_bias` are structurally identical to
+    the vendored `bench/_sol_attn_reference.py` (compared by AST, re-derived
+    2026-08-22 after re-vendoring). The clone is
     still needed for the CUDA sources, which ship in no wheel -- `docs/morton.md`
     and `docs/sol_upstream.md` cite `.cu` files by path.
     """

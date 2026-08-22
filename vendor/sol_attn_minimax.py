@@ -117,21 +117,6 @@ def _log_once(key, message):
 
 
 def _log_kernel_failure(exc):
-    # Full traceback on the first occurrence of each distinct failure; a short
-    # line on repeats so a failing run stays diagnosable without spam.
-    key = ("kernel_failure", type(exc).__name__, str(exc))
-    first = key not in _seen
-    _seen.add(key)
-    logging.error(f"[sol_attn] kernel failed ({exc}); falling back", exc_info=first)
-
-
-def _log_once(key, message):
-    if key not in _seen:
-        _seen.add(key)
-        logging.info(f"[sol_attn] {message}")
-
-
-def _log_kernel_failure(exc):
     # Full traceback on the first distinct failure, short line on repeats.
     key = ("kernel_failure", type(exc).__name__, str(exc))
     first = key not in _seen
@@ -421,7 +406,7 @@ def _ineligible(q, k, mask, dim_head, min_tokens):
 
 def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
          tau, min_tokens, verbose, sink_blocks=(0, 0), sink_q=(0, 0),
-         routed_cap_percent=0, centroid_tail=True, reuse_qkv_memory=False):
+         centroid_tail=True, reuse_qkv_memory=False, topk_ratio=0.0):
     """Returns the attention output, or None if this call should stay dense."""
     if skip_reshape:
         b, _, _, dim_head = q.shape          # BHND
@@ -438,8 +423,6 @@ def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
             _log_once((tuple(qs.shape), reason), f"dense {tuple(qs.shape)}: {reason}")
         return None
 
-    blocks = (qs.shape[1] + BLOCK_SIZE - 1) // BLOCK_SIZE
-    cap = (blocks * routed_cap_percent + 99) // 100 if routed_cap_percent else 0
     if reuse_qkv_memory:
         # `out` goes into q/k/v's storage (H3's fused qkv buffer), shaving the
         # output allocation off peak VRAM; H3 discards that buffer after
@@ -447,19 +430,21 @@ def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
         from comfy_kitchen.backends import cuda as _ck_cuda
         out = _ck_cuda.sol_attn(
             qs, ks, vs, tau=tau, scale=scale,
-            sink_blocks=list(sink_blocks), sink_q=list(sink_q), max_blocks=cap,
+            sink_blocks=list(sink_blocks), sink_q=list(sink_q),
             centroid_tail=centroid_tail, reuse_qkv_memory=True,
+            topk_ratio=topk_ratio,
         )  # BTHD
     else:
         out = _ck.sol_attn(
             qs, ks, vs, tau=tau, scale=scale,
-            sink_blocks=list(sink_blocks), sink_q=list(sink_q), max_blocks=cap,
-            centroid_tail=centroid_tail,
+            sink_blocks=list(sink_blocks), sink_q=list(sink_q),
+            centroid_tail=centroid_tail, topk_ratio=topk_ratio,
         )  # BTHD
     _stats["sparse"] += 1
     if verbose:
+        sel = (f"topk={topk_ratio:.3f}" if topk_ratio else f"tau={tau}")
         _log_once((tuple(qs.shape), "sparse"),
-                  f"sparse {tuple(qs.shape)} tau={tau} cuda-int8")
+                  f"sparse {tuple(qs.shape)} {sel} cuda-int8")
 
     if skip_output_reshape:
         return out.transpose(1, 2)           # BHND
@@ -497,8 +482,8 @@ def _sink_blocks(transformer_options, tokens, mode):
 def make_override(tau=1.0, min_tokens=4096,
                   sigma_start=None, sigma_end=None, verbose=False,
                   sink_conditioning="exact_kv", dense_blocks=frozenset(),
-                  tau_profile=None, previous=None, routed_cap_percent=0,
-                  centroid_tail=True, reuse_qkv_memory=False):
+                  tau_profile=None, previous=None,
+                  centroid_tail=True, reuse_qkv_memory=False, topk_ratio=0.0):
     """Build an optimized_attention_override callable.
 
     ``previous`` chains any override already installed on the model: every path
@@ -548,8 +533,7 @@ def make_override(tau=1.0, min_tokens=4096,
         try:
             out = _run(q, k, v, heads, skip_reshape, skip_output_reshape,
                        kwargs.get("scale", None), block_tau, min_tokens, verbose,
-                       sink, sink_q, routed_cap_percent, centroid_tail,
-                       reuse_qkv_memory)
+                       sink, sink_q, centroid_tail, reuse_qkv_memory, topk_ratio)
         except Exception as exc:
             _stats["errors"] += 1
             _log_kernel_failure(exc)
@@ -638,8 +622,8 @@ def _install_compose_hooks(model, attn_attr):
 
 def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
                  sink_conditioning, morton, morton_curve, dense_blocks,
-                 verbose, tau_profile, routed_cap_percent=0,
-                 centroid_tail=True, reuse_qkv_memory=False):
+                 verbose, tau_profile,
+                 centroid_tail=True, reuse_qkv_memory=False, topk_ratio=0.0):
     diffusion_model = model.get_model_object("diffusion_model")
     is_h3 = hasattr(diffusion_model, "rope_freqs") and hasattr(diffusion_model, "_forward")
 
@@ -701,8 +685,8 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
                       sigma_start=sigma_start, sigma_end=sigma_end,
                       verbose=verbose, sink_conditioning=sink_conditioning,
                       dense_blocks=dense, tau_profile=profile, previous=previous,
-                      routed_cap_percent=routed_cap_percent,
-                      centroid_tail=centroid_tail, reuse_qkv_memory=reuse_qkv_memory)
+                      centroid_tail=centroid_tail, reuse_qkv_memory=reuse_qkv_memory,
+                      topk_ratio=topk_ratio)
     if reorder:
         m.model_options["transformer_options"]["sol_morton"] = True
         m.model_options["transformer_options"]["sol_morton_curve"] = morton_curve
@@ -726,9 +710,37 @@ class SolAttnMiniMax(io.ComfyNode):
                         "min_tokens high.",
             inputs=[
                 io.Model.Input("model"),
-                io.Float.Input("tau", default=1.3, min=0.0, max=4.0, step=0.05,
-                               tooltip="Threshold beta. Higher is sparser: 1.0 ~ 16% of "
-                                       "blocks kept exact, 1.5 ~ 7%, 2.0 ~ 2.7%."),
+                io.DynamicCombo.Input("selection", options=[
+                    io.DynamicCombo.Option("adaptive tau", [
+                        io.Float.Input("tau", default=1.3, min=0.0, max=4.0,
+                                       step=0.05,
+                                       tooltip="Threshold beta. Higher is sparser: "
+                                               "1.0 ~ 16% of blocks kept exact, "
+                                               "1.5 ~ 7%, 2.0 ~ 2.7%."),
+                        io.String.Input("tau_profile", optional=True,
+                                        force_input=True,
+                                        tooltip="Per-block tau overriding the base "
+                                                "value. 'blocks=tau' entries "
+                                                "separated by ';' or newlines."),
+                    ]),
+                    io.DynamicCombo.Option("top-k (SLA)", [
+                        io.Float.Input("keep_percent", default=10.0, min=0.5,
+                                       max=95.0, step=0.5,
+                                       tooltip="Percent of key blocks each query "
+                                               "block keeps exactly (sinks and the "
+                                               "diagonal ride on top). With the "
+                                               "lightx2v SLA turbo LoRA: 15 is the "
+                                               "value it was distilled against, 10 "
+                                               "is community-validated and faster. "
+                                               "Without the LoRA, higher = closer "
+                                               "to dense."),
+                    ]),
+                ], tooltip="How exact key blocks are chosen per query block. "
+                           "'adaptive tau': threshold at tau sigmas of the score "
+                           "distribution (density varies per head/block). "
+                           "'top-k (SLA)': a fixed keep_percent everywhere -- the "
+                           "selection the lightx2v SLA LoRAs were distilled "
+                           "against."),
                 io.Float.Input("start_percent", default=0.2, min=0.0, max=1.0, step=0.01,
                                tooltip="Run dense before this point. The paper uses 0.2."),
                 io.Float.Input("end_percent", default=0.9, min=0.0, max=1.0, step=0.01),
@@ -755,13 +767,6 @@ class SolAttnMiniMax(io.ComfyNode):
                                  tooltip="Evaluate the pooled branch once per 64-token query "
                                          "block at its centroid instead of per row. ~1.4x "
                                          "faster; turn OFF for a quality A/B."),
-                io.Int.Input("routed_cap_percent", default=0, min=0, max=100, step=5,
-                             tooltip="Cap the routed-block list at this percent of the "
-                                     "sequence; 0 = uncapped. Bounds the only workspace "
-                                     "term that grows with T^2. ~30 is 3x headroom at "
-                                     "tau=1.4 and measured lossless; below the actual "
-                                     "density it degrades routed blocks to their pooled "
-                                     "term."),
                 io.Boolean.Input("reuse_qkv_memory", default=False,
                                  tooltip="Write the attention output into the model's fused "
                                          "qkv buffer instead of a fresh allocation, cutting "
@@ -770,9 +775,6 @@ class SolAttnMiniMax(io.ComfyNode):
                                          "that buffer after attention; leave OFF for other "
                                          "models unless you know theirs does too."),
                 io.Boolean.Input("verbose", default=False),
-                io.String.Input("tau_profile", optional=True, force_input=True,
-                                tooltip="Per-block tau overriding the base value. "
-                                        "'blocks=tau' entries separated by ';' or newlines."),
                 io.String.Input("dense_blocks", default="",
                                 tooltip="Transformer blocks to keep dense, e.g. '0-2,-1'. "
                                         "The first and last blocks are the most "
@@ -782,9 +784,8 @@ class SolAttnMiniMax(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, model, tau, start_percent, end_percent, min_tokens,
+    def execute(cls, model, selection, start_percent, end_percent, min_tokens,
                 sink_conditioning, morton, morton_curve, dense_blocks, verbose,
-                tau_profile=None, routed_cap_percent=0,
                 centroid_tail=True, reuse_qkv_memory=False) -> io.NodeOutput:
         if _ck is None:
             raise RuntimeError(f"comfy_kitchen unavailable: {_CK_IMPORT_ERROR}")
@@ -792,13 +793,15 @@ class SolAttnMiniMax(io.ComfyNode):
             raise RuntimeError(
                 "comfy_kitchen has no sol_attn; rebuild the extension "
                 "(python setup.py build_ext --inplace)")
+        topk = selection["selection"] == "top-k (SLA)"
         return _apply_patch(
-            model, tau=tau, start_percent=start_percent, end_percent=end_percent,
+            model, tau=selection.get("tau", 1.3),
+            start_percent=start_percent, end_percent=end_percent,
             min_tokens=min_tokens, sink_conditioning=sink_conditioning,
             morton=morton, morton_curve=morton_curve, dense_blocks=dense_blocks,
-            verbose=verbose, tau_profile=tau_profile,
-            routed_cap_percent=routed_cap_percent, centroid_tail=centroid_tail,
-            reuse_qkv_memory=reuse_qkv_memory)
+            verbose=verbose, tau_profile=selection.get("tau_profile"),
+            centroid_tail=centroid_tail, reuse_qkv_memory=reuse_qkv_memory,
+            topk_ratio=selection["keep_percent"] / 100.0 if topk else 0.0)
 
 
 class SolAttnMiniMaxExtension(ComfyExtension):

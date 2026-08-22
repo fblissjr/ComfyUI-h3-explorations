@@ -22,7 +22,7 @@ profiled this path per stage.
 
 ## What to collect
 
-The pipeline is four kernels (`ops/sol_attn.cu:19-24`): `preprocess`,
+The pipeline is four kernels (`sage_attention/sol_attn.cu:19-24`): `preprocess`,
 `vtranspose`, `route`, `exact`. Per kernel:
 
   - device time, and its share of the four

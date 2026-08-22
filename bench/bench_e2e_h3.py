@@ -378,8 +378,18 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
         # one graph, and keeping the id stable keeps the timing breakdown
         # comparable across a --sol-backend switch.
         class_type, defaults = sol_node()
+        merged = {**defaults, **sol}
+        if class_type == "SolAttnMiniMax":
+            # The CUDA node's `selection` is a DynamicCombo, so the option's
+            # own inputs are keyed under it with a dot in the API form. Routed
+            # through the generator's translator rather than spelled again
+            # here: a second implementation is how the bench arm and the
+            # shipped graph come to disagree, which is the whole subject of
+            # `bench/check_bench_matches_shipped.py`.
+            from build_workflows import sol_api_inputs
+            merged = sol_api_inputs(merged)
         g["21"] = {"class_type": class_type,
-                   "inputs": {"model": model_src, **defaults, **sol}}
+                   "inputs": {"model": model_src, **merged}}
         model_src = ["21", 0]
     if curve:
         # AFTER 21. It overwrites the transformer option that node sets, so

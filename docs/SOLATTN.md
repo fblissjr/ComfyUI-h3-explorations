@@ -229,7 +229,7 @@ Three things that will bite:
 - **Submodules are not optional.** `flash_decode.cu` includes `flash.h` from
   `third_party/flash-attention`, and a fresh clone fails there.
 - **The branch declares version `0.2.31`**, identical to the wheel ComfyUI
-  pins. Tag your build (this box uses `0.2.31+sol.c04ef20`) or nothing can
+  pins. Tag your build (this box uses `0.2.31+sol.23d1a66`) or nothing can
   tell the two apart.
 
 Requires bf16, head_dim 128, sm_80+.
@@ -322,17 +322,32 @@ left to make.
 that list — regroup it semantically and you will pair a value with the wrong
 knob.
 
-Widget order is not quite the declared input order. `tau_profile` is
-`force_input`, so it is a socket rather than a widget and takes no slot in
-`widgets_values`; it is declared between `verbose` and `dense_blocks` but sits
-last here, and the graphs bake **12** values, not 13. Checked against both the
+Widget order is not quite the declared input order, for two reasons.
+
+`tau_profile` is `force_input`, so it is a socket rather than a widget and
+takes no slot in `widgets_values`; it sits last here. Checked against both the
 node source and a live `/object_info` — the two disagree in presentation
 (`/object_info` reports required inputs before optional ones), which is its
 own way to get this wrong.
 
+And since the v3 node (2026-08-22) `selection` is a **DynamicCombo**: picking
+an option adds that option's own inputs to the node, so the widget list has a
+variable middle. The chosen option's widgets are spliced in **immediately
+after the selector**, not appended — source read at ComfyUI_frontend v1.49.6,
+`src/core/graph/widgets/dynamicWidgets.ts`. The API form spells the same thing
+differently, keying them under the combo with a dot (`selection.tau`), which
+ComfyUI regroups into the dict the node receives.
+
+**Do not hand-edit a Sol node in a saved graph.** A graph carrying the old
+pre-v3 inputs passes ComfyUI's prompt validation and then dies at execute, so
+the queue is the first thing that tells you. `workflows/build_workflows.py`
+owns both spellings; regenerate.
+
 | option | default | what it does |
 |---|---|---|
-| `tau` | 1.3 | Routing threshold in sigmas of the proxy row. A key block is exact when its mean score over the query block clears `tau * sqrt(var)`. Higher is sparser. Upstream densities: 1.0 keeps ~16% exact, 1.5 ~7%, 2.0 ~2.7%. |
+| `selection` NEW | `adaptive tau` | Which rule picks the exact key blocks. `adaptive tau` is the threshold every number on this page was measured under and what every graph here ships. `top-k (SLA)` is the other option and brings `keep_percent` instead of `tau`. |
+| `keep_percent` NEW | 10.0 | Only under `top-k (SLA)`. Percent of key blocks each query block keeps exactly, a fixed density everywhere rather than one that varies per head and block; sinks and the diagonal still ride on top. **This is not `MiniMaxH3SLARouter`** — read the row below the table before treating the two as arms of one comparison. |
+| `tau` | 1.3 | Only under `adaptive tau`. Routing threshold in sigmas of the proxy row. A key block is exact when its mean score over the query block clears `tau * sqrt(var)`. Higher is sparser. Upstream densities: 1.0 keeps ~16% exact, 1.5 ~7%, 2.0 ~2.7%. |
 | `start_percent` | 0.2 | Dense before this point. **Never measured** — see the step table below, it is badly non-linear. |
 | `end_percent` | 0.9 | Dense after this point. Also never measured. |
 | `min_tokens` | 12288 | Shorter sequences stay dense. `SOL_RECOMMENDED_CUDA` pins 4096, and **neither value changes anything** — but not for the reason first written here. The 50 DiT calls are at the full packed length and the shortest clip past 5 frames is already S = 7,194, so both thresholds take them; the 2 token-refiner calls are ~311 rows, so both thresholds reject them. The conclusion survives the 52-module correction; the "both select everything" reasoning does not. |
@@ -340,11 +355,34 @@ own way to get this wrong.
 | `morton` | False | Z-order the video tokens so each 64-token block is a compact 3D neighbourhood. Neutral for dense attention **in exact arithmetic** -- not bit-identical, measured. **Under Sol it is not a free toggle: block membership feeds `kcvar`, so turning it on moves the routing threshold and the routed density at a fixed `tau`.** Direction not derivable, unmeasured. `Canonical: docs/morton.md` |
 | `morton_curve` | `2d_frame` | Node default. Z-order within each frame, leaving frame order alone. **`SOL_RECOMMENDED_CUDA` pins `3d` since 2026-08-16**, on a centroid-fidelity measurement; changes nothing while `morton=False`. `Canonical: docs/morton.md` |
 | `centroid_tail` NEW | True | One pooled tail per query block instead of per row, 64x less routing work. Upstream: ~1.4x on the **operation**, **~5–10% end to end**, ~5e-4 cosine. **Ours measured 2.5% e2e, which makes this the smallest knob in the node, not the largest.** The tooltip's "~1.4x" has been read as end-to-end twice; see `docs/evidence.md`. |
-| `routed_cap_percent` NEW | 0 | Cap routed blocks as a percent of sequence; 0 is uncapped. Bounds the only workspace term growing with T². Below the actual density it silently degrades routed blocks to their pooled term. |
 | `reuse_qkv_memory` NEW | False | Write the output into H3's fused qkv buffer instead of allocating. Upstream: ~1.2 GB at 80k tokens, enough to put attention's peak below the FFN's. Safe for H3, which discards that buffer; leave off for other models. |
 | `verbose` | False | Per-shape dispatch logging, once per distinct shape. |
 | `dense_blocks` | `""` | Blocks kept fully dense, e.g. `0-2,-1`. First and last are the most approximation-sensitive. |
-| `tau_profile` NEW | unset | Per-block tau, `blocks=tau` separated by `;` or newlines. `force_input`, so it needs a node wired to it — which is why the graphs bake 12 widget values and not 13. |
+| `tau_profile` NEW | unset | Only under `adaptive tau`. Per-block tau, `blocks=tau` separated by `;` or newlines. `force_input`, so it needs a node wired to it — a socket, not a widget value. |
+
+`routed_cap_percent` was here until 2026-08-22 and the v3 node does not
+declare it. It capped the routed-block list as a percent of the sequence to
+bound the one workspace term growing with T².
+
+**`top-k` agrees with the algorithm less closely than `tau` does, measured
+2026-08-22.** At B=1 T=1024 H=8, kernel against the vendored oracle with the
+same selection on both sides, `tau=1.0` lands at cos 0.9987 while `topk_ratio`
+lands at 0.975-0.983 -- the top-k path is roughly an order of magnitude
+further from its own reference. Consistent with what the CUDA source says of
+its threshold ("matches exact top-k up to int8 rounding at the boundary"),
+which the tau path does not have to survive the same way. `bench/probe_sol_topk.py`
+is the run; **read its caveat before quoting either number** -- synthetic input
+gives a near-uniform softmax and nothing for a router to find, so only the
+ratio between the two selections at one shape means anything, and neither
+absolute figure does.
+
+**`top-k (SLA)` is not the SLA router, and the difference is the tail.** Under
+either selection Sol still adds a pooled term for every block it did not pick,
+so nothing leaves the softmax. `MiniMaxH3SLARouter` — the arm the Turbo-SLA
+LoRA was distilled under — drops unpicked blocks outright. Read in the eager
+implementation, where `topk_ratio` changes which blocks are marked exact and
+leaves the tail branch alone. So Sol at `top-k` is a third attention, not a
+cheaper spelling of the router, and no arm here has been rendered under it.
 
 ### What has actually been measured on it here
 

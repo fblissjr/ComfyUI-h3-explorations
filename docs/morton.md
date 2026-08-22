@@ -380,8 +380,8 @@ earned. Six links, and only the first four are verified.
 
 | # | link | status |
 |---|---|---|
-| 1 | Sol cuts the sequence into 64-token blocks, counted from index 0 | verified, `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_attn_route.cu:18`, `:288`, `:435` |
-| 2 | Routing and the pooled tail are centroid quantities | verified, `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_attn_route.cu:20-21`: "Both the routing decision and the tail VALUES are centroid quantities" |
+| 1 | Sol cuts the sequence into 64-token blocks, counted from index 0 | verified, `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/sage_attention/sol_attn_route.cu:18`, `:351`, `:498` |
+| 2 | Routing and the pooled tail are centroid quantities | verified, `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/sage_attention/sol_attn_route.cu:20-21`: "Both the routing decision and the tail VALUES are centroid quantities" |
 | 3 | Morton changes which tokens share a block | verified, node source and `bench/analyze_morton.py` |
 | 4 | The partition computed here is the partition the kernel uses | deterministic given grid and `video_start`; not an estimate, not a sample |
 | 5 | **A fragmented block's centroid represents its members worse than a compact block's** | **MEASURED 2026-08-15 on captured activations. True.** See below |
@@ -584,7 +584,7 @@ makes three times.** The routing threshold is not a constant that `tau` scales.
 It is derived from the block partition, so **Morton moves the threshold itself.**
 
 The chain, in
-`coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/ops/sol_attn_preprocess.cu`:
+`coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/sage_attention/sol_attn_preprocess.cu`:
 
 1. `kcvar[d]` is the variance **across the NTB block centroids** of dimension
    `d` -- `prep_pooled_stats` means over blocks, then sums `(kc - mean)^2` over

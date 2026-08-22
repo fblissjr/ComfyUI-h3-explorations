@@ -178,6 +178,14 @@ def expand_dynamic_combo(spec, wants, values):
             for section in ("required", "optional"):
                 for nm, val in (inner.get(section) or {}).items():
                     o = val[1] if len(val) > 1 and isinstance(val[1], dict) else {}
+                    # Same rule as `widget_inputs`: `force_input` makes it a
+                    # SOCKET, and a socket owns no widget value. Missing it
+                    # here counted `selection.tau_profile` as a 13th widget on
+                    # the 12-widget v3 Sol node and failed 48 correct graphs --
+                    # this file's own defect, in the mirror image of the one
+                    # its docstring says it exists to catch.
+                    if o.get("forceInput"):
+                        continue
                     if is_combo(val[0]):
                         out.append((nm, "COMBO", choices_of(val[0], o)))
                     else:

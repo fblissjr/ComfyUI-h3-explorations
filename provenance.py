@@ -91,10 +91,15 @@ STAMP_SCHEMA_VERSION = 2
 # The failure mode is the one this file's own docstring warns about: three
 # permanently-absent keys read as introspection failure, and a reader diffing
 # two sidecars cannot tell that from a setting that was never on.
+# Re-derived 2026-08-22 against the v3 node's `make_override`, which dropped
+# `routed_cap_percent` and gained `topk_ratio`. `topk_ratio` matters most of
+# the three: 0.0 means the tau threshold chose the blocks and
+# anything else means top-k did, so a sidecar without it cannot say which
+# selection rule produced the render.
 SOL_CLOSURE_KEYS = (
     "tau", "min_tokens", "sigma_start", "sigma_end", "verbose",
     "sink_conditioning", "dense_blocks", "tau_profile",
-    "routed_cap_percent", "centroid_tail", "reuse_qkv_memory",
+    "topk_ratio", "centroid_tail", "reuse_qkv_memory",
 )
 
 NOT_DETECTED = "not detected"
@@ -306,7 +311,7 @@ class MiniMaxH3ProvenanceStamp(io.ComfyNode):
 
         This is the only field that can tell the fork build apart from the
         stock wheel. Both declare `0.2.31`, so the local tag
-        (`0.2.31+sol.c04ef20`) is the whole signal -- see
+        (`0.2.31+sol.23d1a66` at the time of writing) is the whole signal -- see
         `bench/check_sol_kernel.py`. Reports whether `sol_attn` is actually
         present too, because a stock wheel swapped in by a `--force-reinstall`
         makes every Sol call fall back to dense and renders successfully.

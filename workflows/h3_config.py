@@ -281,7 +281,7 @@ SOL_BASELINE_124F = dict(
 # SEPARATE dict rather than overrides on the Triton one, because the two nodes
 # do not share a vocabulary: `int8_qk`, `int8_pv` and `use_tma` do not exist
 # here (the CUDA kernel routes in INT8 unconditionally), and `centroid_tail`,
-# `routed_cap_percent` and `reuse_qkv_memory` do not exist there. Merging them
+# `selection` and `reuse_qkv_memory` do not exist there. Merging them
 # would let a Triton-only knob be silently dropped on a CUDA arm, which turns
 # `sage+sol+int8` into plain `sol` while it still prints as an int8 result.
 #
@@ -336,6 +336,12 @@ SOL_BASELINE_124F = dict(
 #                     FFN's. Left off only because it is a separate question
 #                     from the migration. Cheap win when someone measures it.
 SOL_RECOMMENDED_CUDA = dict(
+    # "adaptive tau" since the v3 node (2026-08-22). It is the threshold
+    # selection every Sol number here was measured under, so it is the
+    # continuity choice, not a preference between the two: the node's other
+    # option, "top-k (SLA)", is a different selection rule and no arm here has
+    # been rendered under it.
+    selection="adaptive tau",
     # 1.0 since 2026-08-20, owner decision; see the tau note above for the
     # reversal condition. 1.3 was the value every Sol number before that date
     # was measured at.
@@ -368,14 +374,26 @@ SOL_RECOMMENDED_CUDA = dict(
     # pin resting on one canvas. `docs/morton.md` has both readings and names
     # the experiment that separates them. Nothing is at risk while
     # `morton=False`; the exposure is the next person who turns it on.
-    morton_curve="3d", centroid_tail=True, routed_cap_percent=0,
+    morton_curve="3d", centroid_tail=True,
     reuse_qkv_memory=False, verbose=False, dense_blocks="",
 )
 
+# `selection` is the v3 node's DynamicCombo: it picks HOW exact key blocks are
+# chosen, and the chosen option brings its own input. "adaptive tau" carries
+# `tau` and is what every graph here ships; "top-k (SLA)" carries
+# `keep_percent` and is the selection the lightx2v SLA LoRAs were distilled
+# against. `SOL_SELECTION_INPUTS` in build_workflows.py owns which key belongs
+# to which option, because both graph forms have to agree about it and they
+# encode it differently.
+#
+# `routed_cap_percent` went with the v2 node on 2026-08-22; the v3 node does
+# not declare it, and `bench/check_sol_kernel.py`'s schema case fails on a
+# pinned knob the node has never heard of.
 SOL_CUDA_DEFAULTS = dict(
-    tau=1.3, start_percent=0.2, end_percent=0.9, min_tokens=12288,
+    selection="adaptive tau", tau=1.3,
+    start_percent=0.2, end_percent=0.9, min_tokens=12288,
     sink_conditioning="exact_kv_and_rows", morton=False,
-    morton_curve="2d_frame", centroid_tail=True, routed_cap_percent=0,
+    morton_curve="2d_frame", centroid_tail=True,
     reuse_qkv_memory=False, verbose=False, dense_blocks="",
 )
 

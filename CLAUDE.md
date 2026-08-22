@@ -158,7 +158,7 @@ DiffSynth-Studio, comfy-kitchen, sage-fork, triton, LightX2V, Minimax-H3-Turbo
 `docs/sol_upstream.md` quote its `.cu` files by path, and those ship in no wheel.
 
 **Do not import Python from it.** The built branch is installed
-(`comfy_kitchen_version: 0.2.31+sol.c04ef20`), so
+(`comfy_kitchen_version: 0.2.31+sol.23d1a66`), so
 `from comfy_kitchen.backends.eager.sol_attn import _pool` works without the
 clone, and its `sol_attn`, `_pool` and `_normalize_key_bias` are structurally
 identical to the vendored `bench/_sol_attn_reference.py`. Requiring the clone

@@ -52,10 +52,22 @@ cleanup() { git -C "$SRC" checkout -- pyproject.toml 2>/dev/null || true; }
 trap cleanup EXIT
 
 git apply "$PATCH"
-echo "== version: $(grep -m1 '^version' pyproject.toml)"
+# The patch carries LOCALSHA rather than a commit, so it does not go stale on
+# every update; the tag is derived from the checkout being built.
+sed -i "s/LOCALSHA/$(git rev-parse --short=7 HEAD)/" pyproject.toml
+if grep -q LOCALSHA pyproject.toml; then
+    echo "ERROR: version placeholder not substituted"; exit 1
+fi
+VER="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
+echo "== version: $VER"
 
 COMFY_CUDA_ARCHS="$ARCH" uv build --wheel --no-build-isolation .
-uv pip install --force-reinstall --no-deps dist/comfy_kitchen-*.whl
+# By exact version, not a glob: dist/ keeps every wheel ever built here, so
+# `comfy_kitchen-*.whl` grew to match more than one the first time this script
+# ran twice, and uv would have been handed both.
+WHL=(dist/comfy_kitchen-"$VER"-*.whl)
+[ -f "${WHL[0]}" ] || { echo "ERROR: no wheel built for $VER"; exit 1; }
+uv pip install --force-reinstall --no-deps "${WHL[0]}"
 
 cleanup; trap - EXIT
 echo "== checkout restored: $(git status --porcelain | wc -l) modified files (want 0)"

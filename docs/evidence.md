@@ -281,19 +281,26 @@ paragraph is the instrument.
 
 ## Environment, because it is not in git
 
-The venv and ComfyUI were both changed today and neither is version-controlled
-here:
+The venv and ComfyUI were both changed on 2026-08-14 and neither is
+version-controlled here. Updated 2026-08-22, where noted:
 
 - `comfy-kitchen` replaced: `0.2.31` → `0.2.31+sol.c04ef20`, **built from
   source for sm_89 only**. It will not work on another architecture, and it
   declares a version the stock wheel also declares.
+  **Rebuilt 2026-08-22 to `0.2.31+sol.23d1a66`**, the same branch five commits
+  on, for the rewritten routing kernel and `topk_ratio`. Everything above
+  still holds; only the tag moved.
 - `nanobind` 2.14.0 added.
 - `custom_nodes/ComfyUI-SolAttn-cuda/` created; its `sol_attn_minimax.py` is a
   **symlink into this repo's `vendor/`**. Editing through the installed path
   writes into the tracked file.
-- `coderef/comfy-kitchen-sol/` cloned at `c04ef20` with submodules, and its
-  `pyproject.toml` **edited** — that is a modification to a checkout of
-  someone else's tree.
+- `coderef/comfy-kitchen-sol/` cloned with submodules; at `c04ef20` from
+  2026-08-14 and at `23d1a66` since 2026-08-22. Its `pyproject.toml` is
+  **edited during a build only** — `vendor/rebuild_kernel.sh` applies the
+  version-tag patch, substitutes the checkout's own short sha, and reverts on
+  every exit path, so the tree is left as found. It was carried as a standing
+  working-tree modification until 2026-08-14, which blocked `git pull` outright
+  rather than conflicting loudly as intended.
 
 **The model build is software substrate too, and it was missing from this list.**
 `workflows/h3_config.py` points at `minimax_h3_fl2va_pruned_int8_convrot` and

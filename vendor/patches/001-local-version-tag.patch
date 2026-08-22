@@ -2,7 +2,7 @@ diff --git a/pyproject.toml b/pyproject.toml
 index d4166f8..7cd1d1c 100644
 --- a/pyproject.toml
 +++ b/pyproject.toml
-@@ -16,7 +16,14 @@ build-backend = "setuptools.build_meta"
+@@ -16,7 +16,20 @@ build-backend = "setuptools.build_meta"
  
  [project]
  name = "comfy-kitchen"
@@ -14,7 +14,13 @@ index d4166f8..7cd1d1c 100644
 +# `==0.2.31`, so a plain requirements install stays satisfied and will not
 +# clobber it. Re-apply after pulling this branch; `bench/check_sol_kernel.py`
 +# in ComfyUI-h3-explorations is what notices if it is lost.
-+version = "0.2.31+sol.c04ef20"
++#
++# LOCALSHA is a placeholder. `vendor/rebuild_kernel.sh` substitutes the
++# checkout's actual short sha after applying this patch, so the tag names the
++# commit that was built without this file having to be edited per update --
++# it was hardcoded to one commit until 2026-08-22 and went stale on the first
++# update that used it.
++version = "0.2.31+sol.LOCALSHA"
  description = "Fast Kernel Library for ComfyUI with multiple compute backends"
  readme = "README.md"
  requires-python = ">=3.10"

@@ -74,15 +74,55 @@ from h3_config import (  # noqa: E402
 # h3_config.py for what that does and does not carry over.
 #
 # It is a node id in saved graphs, so it obeys the one rule in CLAUDE.md: the
-# UI form matches `widgets_values` POSITIONALLY against the schema, so
-# SOL_WIDGETS below must stay in the node's declared input order, widgets only
-# (`model` and `tau_profile` are sockets, not widgets). Verified against a live
+# UI form matches `widgets_values` POSITIONALLY against the schema, so the
+# widget order below must stay in the node's declared input order, widgets
+# only (`model` is a socket, not a widget). Verified against a live
 # /object_info, which is the only thing that can confirm it.
 SOL_NODE = "SolAttnMiniMax"
-SOL_WIDGET_ORDER = ("tau", "start_percent", "end_percent", "min_tokens",
+
+# `selection` is a DynamicCombo (v3 node, 2026-08-22): choosing an option adds
+# that option's own inputs to the node, and the two graph forms encode them
+# DIFFERENTLY, which is the whole reason this lives in one place.
+#
+#   UI form   the option's widgets are spliced in immediately after the
+#             selector, not appended at the end. Source read, not a build:
+#             ComfyUI_frontend v1.49.6 (the version installed here),
+#             `src/core/graph/widgets/dynamicWidgets.ts` --
+#             `insertionPoint = node.widgets.findIndex(w => w === widget) + 1`
+#             followed by `node.widgets.splice(insertionPoint, 0, ...)`.
+#   API form  the option's inputs are keyed under the combo's id with a dot,
+#             `selection.tau`, and ComfyUI regroups them into the dict the
+#             node receives (`comfy_api/latest/_io.py::build_nested_inputs`).
+#             Confirmed against ComfyUI's own validator, which rejects a bare
+#             `tau` with "Required input is missing / tau".
+#
+# **That validator is not a gate.** A graph carrying NO `selection` at all
+# validates clean and then dies at execute on `selection["selection"]`, so a
+# stale Sol node reaches the queue before anything complains. Regenerate;
+# do not hand-edit.
+SOL_SELECTION_INPUTS = {
+    "adaptive tau": ("tau",),
+    "top-k (SLA)": ("keep_percent",),
+}
+# Widgets after the selection group, in the node's declared input order
+# (`model` is a socket, not a widget).
+SOL_TAIL_WIDGETS = ("start_percent", "end_percent", "min_tokens",
                     "sink_conditioning", "morton", "morton_curve",
-                    "centroid_tail", "routed_cap_percent", "reuse_qkv_memory",
-                    "verbose", "dense_blocks")
+                    "centroid_tail", "reuse_qkv_memory", "verbose",
+                    "dense_blocks")
+
+
+def sol_widget_order(sol):
+    """Widget ids in the order the frontend lays them out, for this selection.
+
+    Not a constant, because the middle of the list depends on `selection`.
+    """
+    try:
+        nested = SOL_SELECTION_INPUTS[sol["selection"]]
+    except KeyError:
+        raise KeyError(f"Sol config selection {sol.get('selection')!r} is not "
+                       f"one of {sorted(SOL_SELECTION_INPUTS)}") from None
+    return ("selection",) + nested + SOL_TAIL_WIDGETS
 
 
 def _sol_widgets(sol):
@@ -92,11 +132,28 @@ def _sol_widgets(sol):
     exactly the failure that cost a real bug on 2026-08-10 -- a saved graph
     stores widgets_values as a bare list and matches by index.
     """
-    missing = [k for k in SOL_WIDGET_ORDER if k not in sol]
+    order = sol_widget_order(sol)
+    missing = [k for k in order if k not in sol]
     if missing:
         raise KeyError(f"Sol config is missing {missing}; widgets are positional "
                        f"and a short list re-points every later one")
-    return [sol[k] for k in SOL_WIDGET_ORDER]
+    return [sol[k] for k in order]
+
+
+def sol_api_inputs(sol):
+    """API-form inputs: the selected option's inputs are dotted under it.
+
+    Also refuses a config carrying an input that belongs to the OTHER option.
+    Such a key would be emitted as an undotted top-level input, which the node
+    does not declare and which ComfyUI would reject only at queue time.
+    """
+    nested = set(sol_widget_order(sol)[1:len(SOL_SELECTION_INPUTS[sol["selection"]]) + 1])
+    foreign = {k for opt, keys in SOL_SELECTION_INPUTS.items()
+               for k in keys if k in sol} - nested
+    if foreign:
+        raise KeyError(f"Sol config selects {sol['selection']!r} but also carries "
+                       f"{sorted(foreign)}, which belongs to another selection")
+    return {(f"selection.{k}" if k in nested else k): v for k, v in sol.items()}
 
 
 # Prompt for the long presets (362 frames, 15.083s). That needs a shot timeline,
@@ -436,7 +493,8 @@ def _plain_model_chain(g, *, sage, sol, shift, head_chunks):
                           else {"head_chunks": head_chunks}))}}
         src = ["41", 0]
     if sol is not None:
-        g["42"] = {"class_type": SOL_NODE, "inputs": {"model": src, **sol}}
+        g["42"] = {"class_type": SOL_NODE,
+                   "inputs": {"model": src, **sol_api_inputs(sol)}}
         src = ["42", 0]
     g["43"] = {"class_type": "SageChainAssert",
                "inputs": {"model": src, "require_override": sage,
@@ -773,7 +831,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # patches it finds, and reversed it overwrites ours and you silently
         # get sage only. Node id 21 matches `bench/bench_e2e_h3.py`.
         g["21"] = {"class_type": SOL_NODE,
-                   "inputs": {"model": model_src, **sol}}
+                   "inputs": {"model": model_src, **sol_api_inputs(sol)}}
         model_src = ["21", 0]
     # Last in the chain, because it asserts what the composition ended up
     # as, not what any one node intended. Sol-Attn negotiates with our
@@ -3153,8 +3211,12 @@ def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks,
     if sol is not None:
         node = g.add(SOL_NODE, (-880, 1040), size=(360, 330),
                      widgets=_sol_widgets(sol),
-                     inputs=[_in("model", "MODEL"),
-                             _in("tau_profile", "STRING", optional=True)],
+                     # `tau_profile` is no longer a top-level socket: the v3
+                     # node moved it inside the "adaptive tau" option, where
+                     # the frontend names it `selection.tau_profile`. It is
+                     # unwired in every graph here, so it is dropped rather
+                     # than renamed to a socket nothing connects.
+                     inputs=[_in("model", "MODEL")],
                      outputs=[_out("MODEL", "MODEL")],
                      title=("Patch Sol-Attn (stage 2)" if sol_enabled
                             else "Patch Sol-Attn (stage 2, bypassed)"))
@@ -3322,15 +3384,19 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                          # widget values past the end of the widget list -- but it
                          # meant the node carried a widget count no build of
                          # Sol-Attn has ever had, and the socket was never
-                         # declared at all. Left unconnected: one tau everywhere
-                         # is what we ship.
+                         # declared at all.
                          #
                          # The API-graph validator cannot catch this class of bug:
                          # API graphs have no widget list, so widget/socket
                          # confusion is invisible there. That is what
                          # check_workflow_schema.py is for.
-                         inputs=[_in("model", "MODEL"),
-                                 _in("tau_profile", "STRING", optional=True)],
+                         #
+                         # The v3 node (2026-08-22) moved it inside the
+                         # "adaptive tau" option, so its socket is now named
+                         # `selection.tau_profile`. Dropped rather than
+                         # renamed: one tau everywhere is what we ship, and it
+                         # was unconnected under the old name too.
+                         inputs=[_in("model", "MODEL")],
                          outputs=[_out("MODEL", "MODEL")],
                          title=("Patch Sol-Attn" if sol_enabled
                                 else "Patch Sol-Attn (bypassed)"))
@@ -4073,12 +4139,30 @@ def cross_check(written):
         # graph loads is exactly the class of difference this function exists
         # to catch, and the node-set check above cannot see it -- both formats
         # carry a UNETLoader either way.
+        #
+        # The Sol node's widget order depends on its own `selection` value, so
+        # it is read back out of the UI graph rather than assumed. Position 0
+        # is the selector; the option's inputs follow it, and they are the
+        # entries whose API key is dotted -- comparing `tau` against a keyed
+        # `tau` would find nothing, because the API form no longer has one.
+        sol_order = []
+        sol_ui = ui_s.get(SOL_NODE)
+        if sol_ui:
+            selected = sol_ui[0]
+            nested = SOL_SELECTION_INPUTS.get(selected)
+            if nested is None:
+                errs.append(f"{task}: {SOL_NODE} selection is {selected!r} in "
+                            f"{ui_name}, which is not a declared option")
+            else:
+                sol_order = (["selection"] + [f"selection.{k}" for k in nested]
+                             + list(SOL_TAIL_WIDGETS))
+
         for cls, order in (
-            # Derived from SOL_WIDGET_ORDER rather than repeated, so the
-            # drift check cannot itself drift from what the builder emits --
-            # a check comparing the generator to a stale copy of the
-            # generator passes for the wrong reason.
-            (SOL_NODE, list(SOL_WIDGET_ORDER)),
+            # Derived from the same tables the builder emits from rather than
+            # repeated, so the drift check cannot itself drift from what the
+            # builder emits -- a check comparing the generator to a stale copy
+            # of the generator passes for the wrong reason.
+            (SOL_NODE, sol_order),
             ("UNETLoader", ["unet_name"]),
             ("LoraLoaderModelOnly", ["lora_name", "strength_model"]),
             # The scheduler and step count joined on 2026-08-20, when a

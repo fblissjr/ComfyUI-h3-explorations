@@ -4,6 +4,76 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.52.0
+
+### Changed
+
+- **The Sol-Attn backend moved to the current head of kijai's PR 117**,
+  `comfy-kitchen` `0.2.31+sol.c04ef20` -> `0.2.31+sol.23d1a66`, five commits.
+  It was already this branch; this is an update, not an adoption. What is in
+  the range: a rewritten CUDA routing kernel ("Optimize routing", about a
+  third of `sol_attn_route.cu`), `topk_ratio`, a nanobind change, and a move of
+  the CUDA sources from `backends/cuda/ops/` to `backends/cuda/sage_attention/`.
+  The rest of the diff is an upstream-main merge (HIP/AMD, flash-decode) that
+  does not reach this box.
+  - **The routing rewrite is the risk, and it was re-graded, not assumed.**
+    `bench/check_solattn_correctness.py` puts the rebuilt kernel at cos 0.999919
+    against the re-vendored oracle in its own tail mode -- a controlled
+    call-level comparison, which is the only kind that answers a numerical
+    knob.
+  - `bench/_sol_attn_reference.py` re-vendored, `c04ef20` -> `23d1a66`, and its
+    three functions confirmed AST-identical to upstream's eager module.
+- **The Sol-Attn node is upstream's v3 (sha256 `7805cf37...`), and it is a
+  schema change** -- unlike v1 to v2, which needed no regeneration. `tau` and
+  `tau_profile` fold into a `selection` DynamicCombo whose other option is
+  `top-k (SLA)` with `keep_percent`; `routed_cap_percent` is gone. Every graph
+  regenerated in both forms.
+  - The node passes `topk_ratio` to the kernel unconditionally, so **the node
+    and the kernel have to move together**; neither works against the other's
+    old half.
+  - The two graph forms spell the selection DIFFERENTLY, which is why one
+    module now owns both: the UI form splices the option's widgets in
+    immediately after the selector (source read at ComfyUI_frontend v1.49.6),
+    the API form keys them under the combo with a dot (`selection.tau`).
+  - **ComfyUI's prompt validation does not gate this.** A graph carrying the
+    pre-v3 inputs validates clean and dies at execute on `selection["selection"]`,
+    so a stale hand-edited Sol node reaches the queue before anything complains.
+- **`top-k (SLA)` is not `MiniMaxH3SLARouter`,** though the two are described
+  almost identically. Read in the eager implementation: `topk_ratio` changes
+  which blocks are marked exact and leaves the pooled tail alone, so Sol still
+  adds a term for every block it did not pick, where the router drops them.
+  A third attention, not a cheaper spelling of the arm the Turbo-SLA LoRA was
+  distilled under. Nothing here renders under it and no graph wires it.
+
+### Fixed
+
+- **`bench/check_workflow_schema.py` counted a `force_input` nested under a
+  DynamicCombo as a widget**, applying at the top level a rule it dropped one
+  level down. It failed 48 correct graphs on `selection.tau_profile` -- the
+  mirror image of the defect its own docstring says it exists to catch, and
+  invisible until an option first carried a socket.
+- **`bench/check_attention_defaults.py` would have gone green having graded
+  nothing.** Its comparison is `if k in vals`, and the API form's `tau` is now
+  `selection.tau`, so every Sol knob would have been skipped silently. Both
+  forms are normalised to one vocabulary before comparison, and the fix was
+  shown red by mutating `tau` in each form.
+- **`vendor/rebuild_kernel.sh` hardcoded the commit it tagged builds with**, so
+  the version-tag patch went stale on the first update that used it. The patch
+  carries a placeholder and the script substitutes the checkout's own short
+  sha. Two latent bugs in the same script went with it: the wheel was installed
+  through a glob that matches every build ever made in `dist/`, and a guard
+  written as `grep -q ... && exit 1` aborted the script under `set -e` on its
+  success path.
+
+### Added
+
+- `bench/probe_sol_topk.py`, the only thing here that executes `topk_ratio`.
+  Not a check and it asserts nothing: no graph renders under that selection, so
+  there is no threshold anyone has agreed to hold it to. It does carry the
+  control that separates "agrees" from "the argument was ignored", and it
+  records that the top-k path sits further from its own reference than the tau
+  path does at the same shape.
+
 ## 0.51.0
 
 ### Changed

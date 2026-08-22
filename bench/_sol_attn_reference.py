@@ -1,6 +1,6 @@
 """Sol-Attn eager reference, vendored from kijai/comfy-kitchen.
 
-Source: branch `sol_attn`, commit c04ef20, file
+Source: branch `sol_attn`, commit 23d1a66, file
 `comfy_kitchen/backends/eager/sol_attn.py`. Vendored rather than imported
 because that branch is unmerged and ships no wheel on PyPI -- the stock
 comfy-kitchen (0.2.31) has no `sol_attn` at all. A local build of the branch
@@ -21,6 +21,21 @@ Two deletions from the original, both deliberate:
     `functools` and `inspect` imports go with it.
 
 The pure function is otherwise byte-identical to upstream.
+
+## Re-vendored 2026-08-22, from c04ef20 to 23d1a66
+
+One upstream addition, and a rewrite underneath it that this file cannot see:
+
+  - **`topk_ratio`, default 0.0.** Above zero it replaces the tau threshold
+    with SLA-style per-query-block top-k. It changes SELECTION ONLY: the
+    pooled tail still runs for every unselected block, which is what
+    distinguishes it from `MiniMaxH3SLARouter`, where unselected blocks are
+    dropped outright. At the shipped default of 0.0 this path is not taken,
+    so it does not change what the oracle says about any render here.
+  - Upstream also rewrote the CUDA routing kernel in this range
+    (`sage_attention/sol_attn_route.cu`, "Optimize routing"). Nothing of that
+    is visible in this file -- which is the point of grading the kernel
+    against it rather than against itself.
 
 ## Re-vendored 2026-08-14, from ad9a4a8 to c04ef20
 
@@ -46,7 +61,6 @@ vendor could not adjudicate: it was the pre-fix algorithm.
 It is O(T^2) and materialises the full score tensor, so it refuses past 4 GiB
 -- it cannot run at H3's real sequence length. Small shapes only.
 """
-
 
 import torch
 
@@ -109,8 +123,13 @@ def sol_attn(
     sink_q: list[int] | None = None,
     centroid_tail: bool = True,
     key_bias: torch.Tensor | None = None,
+    topk_ratio: float = 0.0,
 ) -> torch.Tensor:
-    """Sol-Attn over ``(B, T, H, D)`` tensors. See the module docstring."""
+    """Sol-Attn over ``(B, T, H, D)`` tensors. See the module docstring.
+
+    ``topk_ratio`` > 0 selects SLA-style per-query-block top-k instead of the
+    tau threshold (sinks and diagonal still forced exact); tau is ignored.
+    """
     b, t, h, d = q.shape
     n = (t + BLOCK - 1) // BLOCK
     if scale is None:
@@ -171,7 +190,12 @@ def sol_attn(
     colmean.scatter_add_(2, qblk.view(1, 1, t, 1).expand(b, h, t, n), s_blk)
     colmean = colmean / lengths.view(1, 1, n, 1)
     idx = torch.arange(n, device=q.device)
-    exact = colmean > thr.permute(0, 2, 1).unsqueeze(-1)            # (B, H, NQ, N)
+    if topk_ratio:
+        kk = max(1, min(n - 1, round(topk_ratio * n)))
+        row_thr = colmean.topk(kk + 1, dim=-1).values[..., -1:]
+        exact = colmean > row_thr
+    else:
+        exact = colmean > thr.permute(0, 2, 1).unsqueeze(-1)            # (B, H, NQ, N)
     exact |= ((idx.view(1, -1) - idx.view(-1, 1)).abs() <= 1).view(1, 1, n, n)
     exact |= ((idx >= sink_kv0) & (idx < sink_kv1)).view(1, 1, 1, n)
     exact |= ((idx >= sink_q0) & (idx < sink_q1)).view(1, 1, n, 1)
