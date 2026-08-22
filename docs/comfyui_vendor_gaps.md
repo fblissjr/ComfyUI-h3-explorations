@@ -173,7 +173,7 @@ runs both presentations through the real `Qwen3VLVisionModel` at the
 comparison can see a difference** -- reordering the pairs moves it by 7.0, and
 perturbing one pair by 1e-3 moves it by 6.0e-03 -- and the harness exits
 non-zero rather than reporting a pass if either fails to separate. The
-mechanism is `qwen35.py:660-663`: `cu_seqlens` splits attention at every
+mechanism is `comfy/text_encoders/qwen35.py:660-663`: `cu_seqlens` splits attention at every
 `h*w`, so attention never crosses a frame in either presentation, and the
 position construction carries no temporal term.
 
