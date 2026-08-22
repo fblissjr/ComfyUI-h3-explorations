@@ -160,8 +160,7 @@ GUIDE_NODE = "MiniMaxH3AddGuide"
 # two and why, so an image prompt is still graded on section order, task
 # types, markers and dialogue placement. A whole-file waiver was buying
 # silence on four cases to excuse two.
-_STRUCTURE_PROBES = {"h3_ref_video_swap_concise_api",
-                     "h3_image_probe_format_flat_api"}
+_STRUCTURE_PROBES = {"h3_image_probe_format_flat_api"}
 
 
 def _audio_sections_optional(wf: dict) -> bool:

@@ -360,11 +360,31 @@ VIDEO_FORMAT = "video/h264-mp4"
 # reference pipeline resamples onto 24 from the rate the container reports.
 # A 30 fps source left at force_rate=0 is conditioned at the wrong speed,
 # silently, and diffusers' own docstring flags exactly this.
-# 960x544, 25 fps, 19.6s, WITH an audio track. Three properties earn it: 25 fps
+# 960x544, 25 fps, 14.4s, WITH an audio track. Three properties earn it: 25 fps
 # so force_rate=24 has visible work to do, a soundtrack so the paired <Audio 1>
-# path is exercised rather than skipped, and long enough that the
-# truncate-then-snap-to-17n+5 step actually truncates.
-PLACEHOLDER_VIDEO = "20260601_172336_00001-audio.mp4"
+# path is exercised rather than skipped, and a length that MATCHES the render.
+#
+# **Trimmed from a 19.56s original on 2026-08-22, and the trim is the point.**
+# The model tops out at 362 frames / 15.083s -- `MiniMaxH3Resolution`'s tooltip
+# and `h3_rules.MAX_LENGTH` -- so 4.46s of that source, 23% of a continuous
+# monologue, was cut wherever 362 frames happened to land. The reference kept
+# talking past the end of the render and the last third of every render
+# drifted; the owner heard it before any measure showed it, and
+# `bench/results/2026-08-22_swap_prompt_verdict_362.json` has the per-third
+# numbers. The cut is at 14.375s, inside a 0.3s silence at -56 dB, so the
+# utterance ENDS rather than being interrupted -- and 14.375 * 24 is exactly
+# 345, the `17n+5` count `REF_VIDEO_LENGTH` renders at.
+#
+# **Still 25 fps on purpose.** Trimming to 24 would have made `force_rate=24` a
+# no-op and quietly retired the fps hazard this clip exists to exercise. The
+# problem was the length, so only the length changed.
+#
+# The 19.56s original stays in the input root, referenced by nothing.
+# In the input ROOT, not `h3_refs/`: VHS_LoadVideo's `video` widget is a combo
+# of root filenames and lists no subfolder paths, so a graph naming one fails
+# the served-schema validation. Found by that validation, which is what it is
+# for. The `h3ref_` prefix keeps it grouped with the fps probe clips instead.
+PLACEHOLDER_VIDEO = "h3ref_diner_monologue_25fps_14s.mp4"
 # Kept in the input directory but used by NO shipped graph. They exist to make
 # the force_rate hazard reproducible: three 6.00-second clips trimmed to differ
 # only in frame rate, so the 0% / +4.2% / +25.0% timeline errors in the note
@@ -1601,31 +1621,6 @@ def ref_audio_seconds(length: int) -> float:
 
 VIDEO_ROLES = ("structure", "edit", "continue", "motion", "swap")
 AUDIO_ROLES = ("music", "voice", "copy")
-
-
-def _concise_swap_prompt() -> str:
-    """The same request as the `swap` arm, in one paragraph and no sections.
-
-    Deliberately non-conformant, and the only prompt here that is. Both
-    guides specify six sections in a fixed order, and every other graph
-    obeys; general prompting research reports that far looser prompts also
-    work, and nobody has measured whether the structure earns its tokens.
-    This is the twin that answers it -- identical references, seed, canvas
-    and length to `h3_ref_video_swap`, differing in nothing but the prompt.
-
-    It still names every wired label, so `check_ref_prompt_labels` applies to
-    it unchanged. Only the structural cases in
-    `check_prompt_guide_conformance` are waived, by name, and that check
-    prints what it waived.
-    """
-    return (
-        "The character from <Picture 1> replaces the person in <Video 1>, "
-        "keeping the face, hair, build, and clothing of <Picture 1> while "
-        "following the original person's movements, gestures, timing, and "
-        "the camera path of <Video 1> exactly. The setting, lighting, "
-        "framing, and colour of <Video 1> are unchanged. <Audio 1> is reused "
-        "as the target video's complete final audio track."
-    )
 
 
 # **Do not put a specific attribute in a generic template.** The environment
@@ -3091,75 +3086,28 @@ counts, and these arms carry a `fully_copy` reference track, so a distilled
 tail is exactly where lip-sync and continuity would break first."""
 
 
-_NOTE_PROMPT_STRICTNESS = """\
-## The one graph here that breaks the format on purpose
-
-Every other reference graph carries six sections in the order both guides
-specify. This one carries a single paragraph, and that is the entire
-experiment.
-
-**Read it against `h3_ref_video_swap`.** Same clip, same reference image,
-same seed, same canvas, same length, same sampler. The only thing that
-differs is the prompt structure, which is what makes the pair worth
-rendering and either graph worthless alone.
-
-**A third arm existed for part of 2026-08-22 and was deleted the same day.**
-`h3_ref_video_swap_directive` carried a community prompt, imperative rather
-than sectioned. Four renders across the three arms landed before the batch was
-stopped, the owner found one of the four clean on speech, and the imperative
-arm went on that call. **Do not read it as a result about the format** -- the
-clean render was structured, but that arm's own second seed was not, so the
-split does not follow the prompt. `docs/h3_references.md` states it at that
-strength; this pair is still unrendered as a controlled comparison.
-
-**Why doubt the format at all?** General prompting research reports working
-character swaps from prompts far looser than this -- some missing
-`retention_analysis` entirely, some with no task-type prefix, one a single
-sentence. Those reports are uncontrolled, so they are not evidence the
-structure is useless; they are evidence nobody has measured it. "The guide
-says so" is a reason to comply, not a measurement.
-
-**One argument against the format is already dead, and it was made here.**
-This note used to add that the six sections "cost tokens in a budget where
-reference rows already dominate". They do not cost enough to matter:
-`bench/preflight_graph.py` on the three arms, 2026-08-22, prices the
-structured prompt at 459 text tokens against 172 directive and 92 concise,
-inside a packed sequence whose floor is about 85,700 rows. Half a percent.
-So the choice between these prompts is entirely about what comes out, and
-a shorter prompt buys nothing at the input.
-
-**What to look at, in order:**
-
-1. Does the swap happen at all, or does the model blend the two identities?
-2. Is the plate held -- lighting, framing, camera path, colour?
-3. Does the audio still line up?
-
-If the concise arm matches on all three, the structure is not paying for
-itself at this length and the finding is worth more than the format.
-
-`check_prompt_guide_conformance.py` waives its structural cases for this
-graph **by name**, and prints that it did. Label agreement and marker sets
-are still enforced here exactly as everywhere else -- an unstructured prompt
-is still not allowed to name a reference the graph does not wire."""
-
-
 def _note_ref_relationship(role: str) -> str:
     what = {
         "swap": ("replacing a character in a source video", """\
-**This graph has a twin that differs only in its prompt.**
-`h3_ref_video_swap_concise` states the same request in a single paragraph, on
-identical references, seed, canvas, length and sampler. Rendering this one
-alone answers nothing about the format; the point of the format is the
-comparison.
+**This is the only swap prompt left, and two others were rendered against it
+and retired on 2026-08-22.** An imperative arm carried from a community
+write-up, and a concise one-paragraph twin written here. The concise arm is
+the one that settles the format question this graph used to be half of: the
+owner judged it **broken speech, gibberish, 3 of 3** at the shipped canvas and
+length on matched seeds, and the log-mel measure ordered it the same way
+without hearing anything -- bad in the FIRST third on two of three seeds,
+where this arm starts at 0.589-0.704. `bench/results/2026-08-22_swap_prompt_verdict_362.json`
+holds the numbers.
 
-**This arm has NOT beaten its twin, and a partial batch on 2026-08-22 is not
-evidence that it has.** A third, imperative arm was rendered against these two
-and deleted on the owner's call. Speech in the reused soundtrack came out
-damaged on three of the four renders that landed -- including one of this
-arm's own two seeds -- so the one clean render being a structured one
-attributes to nothing. What that batch surfaced is that reused-soundtrack
-speech degrades often at this canvas and length. That is a question, not a
-finding, and not a question about prompt format.
+**What that does NOT establish is that the six sections are the cause.** This
+prompt differs from the retired one in structure AND length AND whether the
+soundtrack is stated as an `<Audio 1>: fully_copy` retention line or as prose.
+Three variables moved together and the separating arm was never rendered.
+
+**A separate problem is open and is not about the prompt.** This arm drifts in
+the last third of a 15.083s render -- 0.704/0.647/0.481 at its best seed,
+0.688/0.537/0.017 at its worst -- because a 19.56s source is cut mid-delivery
+and 362 frames is the trained ceiling. See the reference-video note below.
 
 This is the **character swap** arm: the video is the *plate* and the image is
 the *new identity*. Read it against `h3_ref_video_image_edit`, which is the
@@ -5214,18 +5162,6 @@ def main():
               out_prefix="Video/h3_r2v_swap",
               variant_note=_note_ref_relationship("swap")),
          "replace a character in a source video with one from an image"),
-
-        # The prompt-structure probe. Everything here is identical to
-        # h3_ref_video_swap above -- same clip, same image, same seed, same
-        # canvas, same length -- so the ONLY difference reaching the model is
-        # whether the prompt is six structured sections or one paragraph.
-        # Read the two side by side; neither is meaningful alone.
-        ("h3_ref_video_swap_concise.json", "r2v-swap-concise", "r2v",
-         _concise_swap_prompt(),
-         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_image_count=1,
-              out_prefix="Video/h3_ref_video_swap_concise",
-              variant_note=_NOTE_PROMPT_STRICTNESS),
-         "same swap, unstructured prompt -- does the six-section format pay?"),
 
         ("h3_ref_video_continue.json", "r2v-continue", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="continue"),

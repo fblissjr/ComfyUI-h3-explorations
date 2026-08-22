@@ -385,7 +385,7 @@
       "widgets_values": [
         "standard",
         "1024x768  4/3  768 tok/frame  0.58x",
-        362
+        345
       ],
       "title": "Resolution: shape, and what it costs"
     },
@@ -509,7 +509,7 @@
         "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video the target video continues from, beginning at its final frame.\n\nsummary:\n[video continuation + audio reuse] The target video continues <Video 1> from its final frame, without a cut.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] The shot begins exactly where <Video 1> ends, on the same framing and lighting, and carries the motion forward without a cut. <Subject 1> continues walking out of frame to the right as the camera holds.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
         1024,
         768,
-        362,
+        345,
         "max"
       ]
     },
@@ -558,11 +558,11 @@
         "Node name for S&R": "VHS_LoadVideo"
       },
       "widgets_values": {
-        "video": "20260601_172336_00001-audio.mp4",
+        "video": "h3ref_diner_monologue_25fps_14s.mp4",
         "force_rate": 24.0,
         "custom_width": 0,
         "custom_height": 0,
-        "frame_load_cap": 362,
+        "frame_load_cap": 345,
         "skip_first_frames": 0,
         "select_every_nth": 1,
         "format": "AnimateDiff"
@@ -604,9 +604,9 @@
       },
       "widgets_values": [
         0.0,
-        15.083333333333334
+        14.375
       ],
-      "title": "Cap to the generated 15.08s"
+      "title": "Cap to the generated 14.38s"
     },
     {
       "id": 13,

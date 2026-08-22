@@ -76,6 +76,56 @@ artifact.
   to fix it", is withdrawn in favour of `docs/comfyui_vendor_gaps.md` gap 1 and
   upstream's own fix.
 
+## 0.57.0
+
+### Removed
+
+- **`h3_ref_video_swap_concise` is retired.** The owner watched the
+  three-matched-seed batch at the shipped canvas and length: the concise arm is
+  **broken speech, gibberish, 3 of 3**. `bench/grade_soundtrack_reuse.py`
+  ordered it the same way without hearing anything -- the three lowest margins
+  over control, and bad in the FIRST third on two of three seeds where every
+  structured render starts at 0.589-0.704.
+
+  **What this does NOT establish is that the six sections are the cause.** The
+  two prompts differ in structure AND length AND whether the soundtrack is an
+  `<Audio 1>: fully_copy` retention line or prose. Three variables moved
+  together; the separating arm was never rendered. The finding is narrower and
+  still useful: that prompt breaks speech reliably on a soundtrack-reuse task.
+
+### Changed
+
+- **The shared reference clip is trimmed from 19.56s to 14.375s**, and the trim
+  is a fix rather than housekeeping. The model tops out at 362 frames /
+  15.083s, so 23% of a continuous monologue was cut wherever 362 frames
+  happened to land -- the reference kept talking past the end of the render and
+  the last third of every render drifted. The owner heard it before any measure
+  showed it. The new cut lands inside a 0.3s silence at -56 dB, so the
+  utterance ENDS instead of being interrupted.
+
+  **Still 25 fps on purpose.** Trimming to 24 would have made `force_rate=24` a
+  no-op and quietly retired the fps hazard this clip exists to exercise. The
+  problem was the length, so only the length changed.
+
+- **Reference-video graphs render at `REF_VIDEO_LENGTH = 345`**, which is
+  `14.375 * 24` -- the clip and the render now end together. **This is not the
+  2026-08-10 global move to 345 that was reverted on 2026-08-16**: that capped
+  every render at diffusers' emit limit and broke comparability with
+  measurements taken at 362. `LONG_LENGTH` is untouched; only the thirteen
+  graphs wired to this clip move, because only they have a clip to match.
+
+- The clip lives in the input ROOT, not `h3_refs/`. `VHS_LoadVideo`'s `video`
+  widget is a combo of root filenames and lists no subfolder paths, so a graph
+  naming one fails the served-schema validation -- which is how this was found.
+
+### Added
+
+- **`grade_soundtrack_reuse.py` reports thirds, not just a mean.** The whole-
+  window average hid the finding the instrument was built for: structured seed
+  894 averages +0.426, mid-pack, for a render that is +0.688 early and +0.017
+  by the end. A mean is the wrong summary for a quantity that drifts inside the
+  window it is averaged over.
+
 ## 0.56.0
 
 ### Removed

@@ -142,7 +142,7 @@
     "inputs": {
       "shape": "standard",
       "shape.standard_resolution": "1024x768  4/3  768 tok/frame  0.58x",
-      "length": 362
+      "length": 345
     }
   },
   "5": {
@@ -233,11 +233,11 @@
   "28": {
     "class_type": "VHS_LoadVideo",
     "inputs": {
-      "video": "20260601_172336_00001-audio.mp4",
+      "video": "h3ref_diner_monologue_25fps_14s.mp4",
       "force_rate": 24.0,
       "custom_width": 0,
       "custom_height": 0,
-      "frame_load_cap": 362,
+      "frame_load_cap": 345,
       "skip_first_frames": 0,
       "select_every_nth": 1,
       "format": "AnimateDiff"
@@ -251,7 +251,7 @@
         2
       ],
       "start_index": 0.0,
-      "duration": 15.083333333333334
+      "duration": 14.375
     }
   },
   "19": {

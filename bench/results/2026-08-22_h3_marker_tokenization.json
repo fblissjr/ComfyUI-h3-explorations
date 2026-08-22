@@ -147,7 +147,7 @@
     },
     "captioned_documentary": {
       "shape": "caption markers around on-screen text",
-      "why": "<|caption_start|> / <|caption_end|> are the release's markers for burned-in text. Also unmeasured before this run. A documentary or subtitled scene is the shape that reaches for them.",
+      "why": "<|caption_start|> / <|caption_end|> are undocumented: the pair appears in neither prompt guide, in no script and in no skill the release ships, and in no worked example anywhere. This file said they were 'the release's markers for burned-in text', which was an inference stated as a fact and is withdrawn. The name is the only evidence, and it sits in the declared list beside <d>, <|cutoff|> and the lyrics pair -- so read it as the on-screen text of speech. The scene below is signage, which is what it was built as; it is kept because the tokenization it measures does not depend on what the marker means.",
       "reference_path": false,
       "ids": {
         "stock": 95,

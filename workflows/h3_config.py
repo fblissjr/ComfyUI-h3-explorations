@@ -986,7 +986,24 @@ SPLIT_AT = 2
 # Spread into every video-bearing reference arm so the three numbers have one
 # home. Editing them here moves all eight arms together, which is the point.
 REF_VIDEO_CANVAS = dict(width=1024, height=768)
-REF_VIDEO_BUDGET = dict(length=LONG_LENGTH, **REF_VIDEO_CANVAS,
+# Reference-video graphs render at the length of the reference CLIP, not at
+# `LONG_LENGTH`. Since 2026-08-22 the shared clip is trimmed to 14.375s ending
+# in a 0.3s silence, and 345 is the 17n+5 count that lands exactly there
+# (14.375 * 24). Matching them is the point: the untrimmed 19.56s source was
+# cut mid-delivery by a 15.083s render, the reference kept talking past the
+# end, and the last third of every render drifted --
+# `bench/results/2026-08-22_swap_prompt_verdict_362.json` has the per-third
+# numbers. 362 frames against this clip would fail the other way, ending 0.7s
+# after the reference runs out.
+#
+# **This is NOT the 2026-08-10 global move to 345 that was reverted on
+# 2026-08-16.** That one capped every render at diffusers' emit limit and broke
+# comparability with measurements taken at 362. `LONG_LENGTH` is untouched and
+# t2v, keyframe and turbo graphs still render 362; only the graphs wired to
+# this clip move, because only they have a clip to match.
+REF_VIDEO_LENGTH = 345
+
+REF_VIDEO_BUDGET = dict(length=REF_VIDEO_LENGTH, **REF_VIDEO_CANVAS,
                         ref_upscale=False)
 
 

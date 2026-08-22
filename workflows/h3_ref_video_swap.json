@@ -385,7 +385,7 @@
       "widgets_values": [
         "standard",
         "1024x768  4/3  768 tok/frame  0.58x",
-        362
+        345
       ],
       "title": "Resolution: shape, and what it costs"
     },
@@ -509,7 +509,7 @@
         "subject_definitions:\n<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.\n<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.\n\nsummary:\n[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, replacing its original character with <Subject 1> from <Picture 1> while preserving the camera movement, environment, and audio.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.\n<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.\n<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] The scene maintains the exact environmental details, lighting, and composition of <Video 1>. Within this space, <Subject 1> performs the exact movements and actions of the original character from <Video 1>, executing every gesture, step, and head turn frame for frame, while the face, hair, and build stay those defined by <Picture 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
         1024,
         768,
-        362,
+        345,
         "max"
       ]
     },
@@ -641,11 +641,11 @@
         "Node name for S&R": "VHS_LoadVideo"
       },
       "widgets_values": {
-        "video": "20260601_172336_00001-audio.mp4",
+        "video": "h3ref_diner_monologue_25fps_14s.mp4",
         "force_rate": 24.0,
         "custom_width": 0,
         "custom_height": 0,
-        "frame_load_cap": 362,
+        "frame_load_cap": 345,
         "skip_first_frames": 0,
         "select_every_nth": 1,
         "format": "AnimateDiff"
@@ -687,9 +687,9 @@
       },
       "widgets_values": [
         0.0,
-        15.083333333333334
+        14.375
       ],
-      "title": "Cap to the generated 15.08s"
+      "title": "Cap to the generated 14.38s"
     },
     {
       "id": 15,
@@ -1291,7 +1291,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Reference relationship: replacing a character in a source video\n\nThe five socket-combination arms all ask for the same weak thing -- pacing at\n`weak_reference` -- because which sockets are wired is mechanical. **What the\nprompt asks those labels to do is the axis that changes the output**, and this\narm isolates one point on it.\n\n**This graph has a twin that differs only in its prompt.**\n`h3_ref_video_swap_concise` states the same request in a single paragraph, on\nidentical references, seed, canvas, length and sampler. Rendering this one\nalone answers nothing about the format; the point of the format is the\ncomparison.\n\n**This arm has NOT beaten its twin, and a partial batch on 2026-08-22 is not\nevidence that it has.** A third, imperative arm was rendered against these two\nand deleted on the owner's call. Speech in the reused soundtrack came out\ndamaged on three of the four renders that landed -- including one of this\narm's own two seeds -- so the one clean render being a structured one\nattributes to nothing. What that batch surfaced is that reused-soundtrack\nspeech degrades often at this canvas and length. That is a question, not a\nfinding, and not a question about prompt format.\n\nThis is the **character swap** arm: the video is the *plate* and the image is\nthe *new identity*. Read it against `h3_ref_video_image_edit`, which is the\nsame machinery pointed at a different question -- there the person in\n`<Video 1>` stays and their garment changes; here the person is the only\nthing that changes and everything around them must not.\n\n**Its distinguishing feature is a technique the official guide does not\ncontain.** `<Picture 1>` and `<Video 1>` are each told what they do *not*\nsupply:\n\n```\n<Picture 1> supplies subject identity only. It does not supply lighting,\n    exposure, colour grade, background, camera angle, pose, framing, or\n    scene composition.\n<Video 1> ... It does not supply the face or identity.\n```\n\nThe guide never writes a negative clause -- every relationship there is\nstated as what a reference *provides*. These come from general prompting\nresearch, where the reported failure is the model blending the two\nidentities, or dragging the image's own lighting and background into the\nplate. **Whether the negatives earn their tokens is untested here**, and it\nis the reason this arm exists rather than a claim it ships with.\n\n`[video editing]`, not `[reference generation]`, because the source video is\ndirectly modified -- and `+ audio reuse` alongside it, since the original\ntrack stays audible. Community write-ups of this scenario routinely stop at\na bare `[video editing]`; guide section 3.2 asks for both.\n\n**A reference image that is too small, or a face too far from the camera,\nis the failure mode to rule out first.** The identity has to survive being\nresized into the reference budget before any of the wording above matters.\n\n## Markers do not cross sets\n\nVisual labels take `fully_preserved`, `partially_preserved`,\n`attribute_transfer`, `weak_reference` (guide 4.1). Audio labels take\n`fully_copy`, `partially_copy`, `reference`, `weak_reference` (4.2). Only\n`weak_reference` appears in both. `bench/check_ref_prompt_labels.py` checks the\nlabels exist; it does NOT check you picked a sensible marker, so that part is\non the reader.\n\nSee `docs/h3_references.md` for the full reference-type reference.\n"
+        "## Reference relationship: replacing a character in a source video\n\nThe five socket-combination arms all ask for the same weak thing -- pacing at\n`weak_reference` -- because which sockets are wired is mechanical. **What the\nprompt asks those labels to do is the axis that changes the output**, and this\narm isolates one point on it.\n\n**This is the only swap prompt left, and two others were rendered against it\nand retired on 2026-08-22.** An imperative arm carried from a community\nwrite-up, and a concise one-paragraph twin written here. The concise arm is\nthe one that settles the format question this graph used to be half of: the\nowner judged it **broken speech, gibberish, 3 of 3** at the shipped canvas and\nlength on matched seeds, and the log-mel measure ordered it the same way\nwithout hearing anything -- bad in the FIRST third on two of three seeds,\nwhere this arm starts at 0.589-0.704. `bench/results/2026-08-22_swap_prompt_verdict_362.json`\nholds the numbers.\n\n**What that does NOT establish is that the six sections are the cause.** This\nprompt differs from the retired one in structure AND length AND whether the\nsoundtrack is stated as an `<Audio 1>: fully_copy` retention line or as prose.\nThree variables moved together and the separating arm was never rendered.\n\n**A separate problem is open and is not about the prompt.** This arm drifts in\nthe last third of a 15.083s render -- 0.704/0.647/0.481 at its best seed,\n0.688/0.537/0.017 at its worst -- because a 19.56s source is cut mid-delivery\nand 362 frames is the trained ceiling. See the reference-video note below.\n\nThis is the **character swap** arm: the video is the *plate* and the image is\nthe *new identity*. Read it against `h3_ref_video_image_edit`, which is the\nsame machinery pointed at a different question -- there the person in\n`<Video 1>` stays and their garment changes; here the person is the only\nthing that changes and everything around them must not.\n\n**Its distinguishing feature is a technique the official guide does not\ncontain.** `<Picture 1>` and `<Video 1>` are each told what they do *not*\nsupply:\n\n```\n<Picture 1> supplies subject identity only. It does not supply lighting,\n    exposure, colour grade, background, camera angle, pose, framing, or\n    scene composition.\n<Video 1> ... It does not supply the face or identity.\n```\n\nThe guide never writes a negative clause -- every relationship there is\nstated as what a reference *provides*. These come from general prompting\nresearch, where the reported failure is the model blending the two\nidentities, or dragging the image's own lighting and background into the\nplate. **Whether the negatives earn their tokens is untested here**, and it\nis the reason this arm exists rather than a claim it ships with.\n\n`[video editing]`, not `[reference generation]`, because the source video is\ndirectly modified -- and `+ audio reuse` alongside it, since the original\ntrack stays audible. Community write-ups of this scenario routinely stop at\na bare `[video editing]`; guide section 3.2 asks for both.\n\n**A reference image that is too small, or a face too far from the camera,\nis the failure mode to rule out first.** The identity has to survive being\nresized into the reference budget before any of the wording above matters.\n\n## Markers do not cross sets\n\nVisual labels take `fully_preserved`, `partially_preserved`,\n`attribute_transfer`, `weak_reference` (guide 4.1). Audio labels take\n`fully_copy`, `partially_copy`, `reference`, `weak_reference` (4.2). Only\n`weak_reference` appears in both. `bench/check_ref_prompt_labels.py` checks the\nlabels exist; it does NOT check you picked a sensible marker, so that part is\non the reader.\n\nSee `docs/h3_references.md` for the full reference-type reference.\n"
       ],
       "title": "What this graph is probing"
     }
