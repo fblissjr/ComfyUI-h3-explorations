@@ -76,6 +76,18 @@
       "latent_rows"
     ]
   },
+  "MiniMaxH3ReferenceVideoFit": {
+    "inputs": [
+      "frames",
+      "short_edge",
+      "keep_towers_matched"
+    ],
+    "node_id": "MiniMaxH3ReferenceVideoFit",
+    "outputs": [
+      "frames",
+      "latent_rows"
+    ]
+  },
   "MiniMaxH3Resolution": {
     "inputs": [
       "shape",

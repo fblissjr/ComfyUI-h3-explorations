@@ -123,6 +123,29 @@ artifact.
     marker prompt leaves the `<Picture i>` / `<Video k>` / `<Audio j>` labels
     and vision sentinels untouched.
 
+### Added
+
+- **`MiniMaxH3ReferenceVideoFit`**, closing the half of the reference path this
+  pack could not reach. `MiniMaxH3ReferenceFit` covers images; nothing touched
+  reference *video*, so its resolution could not be reported, held under Qwen's
+  ceiling, or distinguished from an accidental downscale.
+  - **Reporting is the deliverable, not resizing.** It defaults to changing
+    nothing and saying what core will do. Reference rows are attended every
+    sampling step, so a smaller reference is usually right; the node makes that
+    choice visible rather than overriding it.
+  - Resizing is honest about its own limits: core re-derives the size from its
+    own canvas rule, so only downscales below the canvas area survive and an
+    upscale is capped straight back. The node warns when it was overridden
+    rather than reporting a size the user did not get.
+  - Deliberately carries no fps control. `force_rate=24` owns that and
+    `check_ref_prompt_labels.py` gates it; a second place to set it is a second
+    place to get it wrong.
+- **`bench/check_ref_video_prediction.py`**, which holds that node's copy of
+  core's sizing rule to core's real behaviour by patching `_resize` to record
+  and abort. No weights, no server, and the expectation is core's own call
+  rather than a number the check computed. Shown red by deleting core's
+  no-upscale override from the prediction.
+
 ### Fixed
 
 - **`MiniMaxH3ReferenceFit` now keeps the VAE and Qwen on one size.** Core
