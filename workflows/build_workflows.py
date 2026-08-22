@@ -3927,6 +3927,11 @@ def object_info_is_stale(oi: dict, source: str):
                            "live server whose staleness could be checked"]
     try:
         import importlib
+        # custom_nodes/ on the path so the pack resolves by its directory name,
+        # which carries hyphens and is therefore not an importable identifier.
+        _parent = str(Path(__file__).resolve().parents[2])
+        if _parent not in sys.path:
+            sys.path.insert(0, _parent)
         pkg = importlib.import_module(_PKG_NAME)
     except Exception as exc:
         return "blind", [f"could not import {_PKG_NAME}: "
