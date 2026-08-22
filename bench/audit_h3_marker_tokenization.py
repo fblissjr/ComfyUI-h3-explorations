@@ -83,11 +83,12 @@ VISION_END = 151653
 # CLAUDE.md forbids a second copy. The thirteen ComfyUI already has are
 # subtracted at runtime by checking the stock vocabulary, so this list cannot
 # drift out of agreement with what the fix actually adds.
-def _missing_markers(stock_vocab) -> list[str]:
+def _missing_markers() -> list[str]:
     import importlib
     vendor_config = importlib.import_module(f"{_PKG}.vendor_config")
+    bundled = _bundled_declared()
     return [t for t in vendor_config.additional_special_tokens()
-            if t not in stock_vocab]
+            if t not in bundled]
 
 
 # --------------------------------------------------------------------------
@@ -240,7 +241,64 @@ SCENES = [
 # --------------------------------------------------------------------------
 
 
+def _bundled_declared() -> set[str]:
+    """What ComfyUI's bundled tokenizer DIRECTORY declares.
+
+    Read from the directory rather than from a live vocabulary on purpose: the
+    core patch adds tokens in code, so a live vocabulary stops being able to
+    tell you what the shipped directory said. This is the thing the patch
+    compensates for and it does not move when the patch lands.
+    """
+    cfg = (_COMFY / "comfy" / "text_encoders" / "qwen25_tokenizer"
+           / "tokenizer_config.json")
+    return set(json.loads(cfg.read_text()).get("additional_special_tokens", []))
+
+
+def _unpatched_clip(clip):
+    """A CLIP whose tokenizer is what ComfyUI shipped BEFORE the core patch.
+
+    Once the patch is applied there is no other way to obtain the broken arm,
+    and without the broken arm every contamination column loses the thing it is
+    measured against. Builds a fresh tokenizer with the class's token list
+    emptied, which reproduces the pre-patch constructor exactly rather than
+    approximating it.
+
+    A FRESH tokenizer, not a copy: `clone()` shares the tokenizer by reference
+    and a shallow copy would still share the HuggingFace object underneath.
+    """
+    from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
+    saved = getattr(MiniMaxH3Tokenizer, "H3_SPECIAL_TOKENS", None)
+    try:
+        if saved is not None:
+            MiniMaxH3Tokenizer.H3_SPECIAL_TOKENS = []
+        fresh = MiniMaxH3Tokenizer(
+            embedding_directory=getattr(
+                getattr(clip.tokenizer, "qwen3vl_32b", None),
+                "embedding_directory", None),
+        )
+    finally:
+        if saved is not None:
+            MiniMaxH3Tokenizer.H3_SPECIAL_TOKENS = saved
+    n = clip.clone()
+    n.tokenizer = fresh
+    return n
+
+
 def _load():
+    """(release tokenizer, unpatched arm, corrected arm, how it was corrected).
+
+    **Runs identically before and after the core patch**, which is what makes
+    this file the verification harness for that patch rather than only a
+    demonstration of the defect. Three ways the corrected arm can arise:
+
+      core   `MiniMaxH3Tokenizer` already declares all twenty, so the loaded
+             CLIP is correct as it stands. `clip_with_vendor_tokens` must then
+             be a no-op, and that is asserted rather than assumed -- a shim
+             that silently did work here would mean the two disagree.
+      shim   the core patch is absent and `clip_with_vendor_tokens` supplies
+             the tokens, which is this pack's behaviour today.
+      none   neither, which is a broken run and refuses.
+    """
     import comfy.sd
     from transformers import AutoTokenizer
     if not ENCODER.exists():
@@ -249,17 +307,50 @@ def _load():
         raise SystemExit("coderef/MiniMax-H3/tokenizer is absent (coderef is "
                          "gitignored; this needs the clone)")
     release = AutoTokenizer.from_pretrained(str(RELEASE_TOKENIZER))
-    stock = comfy.sd.load_clip(ckpt_paths=[str(ENCODER)])
+    loaded = comfy.sd.load_clip(ckpt_paths=[str(ENCODER)])
+
     import importlib
+    vc = importlib.import_module(f"{_PKG}.vendor_config")
     vt = importlib.import_module(f"{_PKG}.vendor_tokens")
-    patched = vt.clip_with_vendor_tokens(stock, strict=True)
-    if patched is stock:
-        raise SystemExit(
-            "clip_with_vendor_tokens returned the input unchanged, which means "
-            "the bundled tokenizer already declares all twenty. There is then "
-            "no defect to audit and this harness would report a clean run for "
-            "the wrong reason.")
-    return release, stock, patched
+    declared = vc.additional_special_tokens()
+
+    live = loaded.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
+    core_patched = all(t in live for t in declared)
+
+    if core_patched:
+        mode = "core"
+        corrected = loaded
+        # The shim must recognise it has nothing to do. If it returns a new
+        # object it did work, which would mean core and shim disagree about
+        # what "already correct" means.
+        passthrough = vt.clip_with_vendor_tokens(loaded, strict=True)
+        if passthrough is not loaded:
+            raise SystemExit(
+                "the core tokenizer declares all twenty, but "
+                "clip_with_vendor_tokens still rebuilt it. The shim and the "
+                "core patch disagree; fix that before trusting this run.")
+        unpatched = _unpatched_clip(loaded)
+        still = [t for t in declared
+                 if t in unpatched.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
+                 and t not in _bundled_declared()]
+        if still:
+            raise SystemExit(
+                f"the unpatched arm still declares {still}, so it is not the "
+                "pre-patch tokenizer and every comparison below would be "
+                "against the wrong control.")
+    else:
+        mode = "shim"
+        unpatched = loaded
+        corrected = vt.clip_with_vendor_tokens(loaded, strict=True)
+        if corrected is loaded:
+            raise SystemExit(
+                "neither the core tokenizer nor clip_with_vendor_tokens "
+                "supplied the release's special tokens. There is nothing "
+                "correct to compare against and this run would be green for "
+                "the wrong reason.")
+
+    print(f"=== corrected arm supplied by: {mode}")
+    return release, unpatched, corrected, mode
 
 
 def _ids(clip, text, ref_images=0, ref_items=None):
@@ -548,16 +639,15 @@ def _run_scene(scene, release, stock, patched, marker_ids, markers, record):
         print(f"  example        release {row['example']['release_pieces']}")
         print(f"                 stock   {row['example']['stock_pieces']}")
 
-    record[key] = row
+    record["scenes"][key] = row
     return row["ok"]
 
 
 def main() -> int:
-    release, stock, patched = _load()
+    release, stock, patched, mode = _load()
 
-    stock_vocab = stock.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
     patched_vocab = patched.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
-    markers = _missing_markers(stock_vocab)
+    markers = _missing_markers()
     marker_ids = {patched_vocab[m] for m in markers}
     print("=== the markers ComfyUI's bundled tokenizer does not declare")
     for m in markers:
@@ -566,7 +656,9 @@ def main() -> int:
         print("  none: nothing to audit")
         return 1
 
-    record = {"markers": {m: patched_vocab[m] for m in markers}, "scenes": {}}
+    record = {"corrected_by": mode,
+              "markers": {m: patched_vocab[m] for m in markers},
+              "scenes": {}}
 
     # Control 1, first, because a failure here voids everything after it.
     print("\n=== control: a prompt with no markers")

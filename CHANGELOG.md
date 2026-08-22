@@ -6,6 +6,24 @@ artifact.
 
 ## 0.51.0
 
+### Changed
+
+- **The special-token fix moved into ComfyUI's tokenizer**, which is the only
+  place that reaches every consumer -- core's `MiniMaxH3ReferenceToVideo`
+  included, and no custom pack can add an import to that. `MiniMaxH3Tokenizer`
+  now declares the release's seven remaining `additional_special_tokens` at
+  construction. Held on a branch in the ComfyUI checkout as a PR candidate.
+  - Added to the tokenizer instance, not to the bundled `qwen25_tokenizer`
+    directory, which the Qwen3VL image models share and which must not change.
+- **`MiniMaxH3VendorTokens` is deprecated** and flagged `is_deprecated` in its
+  schema. It is wired into no shipped graph and does nothing on an install
+  carrying the core patch. `clip_with_vendor_tokens` is NOT deprecated: a pack
+  cannot assume the install it runs on carries the patch, and it already
+  returns the CLIP unchanged when the tokens are present.
+  - `audit_h3_marker_tokenization.py` asserts the two agree rather than
+    assuming it -- with the core patch in place the shim must be a no-op, and
+    the run refuses if it quietly does work instead.
+
 ### Added
 
 - **`bench/audit_h3_marker_tokenization.py`**, auditing all seven markers the

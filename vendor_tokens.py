@@ -53,6 +53,16 @@ lists them without documenting them, and the prompt guide requires `<d>` for
 all dialogue while the row behind it was never trained.
 `docs/research/official_weights_metadata.md` carries the same caveat.
 
+**Where this now lives, since 2026-08-22.** The correction moved into
+`MiniMaxH3Tokenizer.__init__` in ComfyUI itself, which is the only place that
+reaches every consumer -- core's `MiniMaxH3ReferenceToVideo` included, which no
+custom pack can add an import to. The node below is deprecated; the module-level
+function is not, because a pack cannot assume the install it is running on
+carries the patch, and the function already returns the CLIP unchanged when the
+tokens are present. `bench/audit_h3_marker_tokenization.py` verifies the two
+agree: with the core patch in place it asserts this function is a no-op, and
+refuses the run if it quietly does work instead.
+
 **Isolation.** `clip.clone()` shares the tokenizer object by reference, so
 mutating the one already on a loaded CLIP would contaminate every graph in the
 process -- the same silent-contamination class `reference_fit.py` documents for
@@ -91,15 +101,20 @@ class MiniMaxH3VendorTokens(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="MiniMaxH3VendorTokens",
-            display_name="MiniMax H3 Vendor Special Tokens",
+            display_name="MiniMax H3 Vendor Special Tokens (deprecated)",
             category="MiniMaxH3/experimental",
+            is_deprecated=True,
             description=(
-                "Add the special tokens the H3 release declares and ComfyUI's "
-                "bundled tokenizer does not, so a prompt using <d> or the "
-                "lyrics/caption markers tokenizes as those markers instead of "
-                "as literal text. Wire between the CLIP loader and the "
-                "conditioning node. What the markers DO is undocumented "
-                "upstream and unmeasured here."
+                "DEPRECATED. The fix belongs in the tokenizer, not in a node "
+                "somebody has to remember to wire, and it now lives there: "
+                "`MiniMaxH3Tokenizer` adds the release's seven remaining "
+                "special tokens at construction, so every consumer gets them "
+                "including core's own reference node. On a ComfyUI carrying "
+                "that patch this node does nothing at all. It is kept only so "
+                "existing graphs referencing it still load, and it is wired "
+                "into none of the shipped ones. Nothing new should use it: "
+                "`clip_with_vendor_tokens` below is the import for code that "
+                "must stay correct on an unpatched install."
             ),
             inputs=[
                 io.Clip.Input("clip"),
