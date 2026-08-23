@@ -623,8 +623,31 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
             out.append(("FAIL", "sections are out of the guide's order"))
 
     named = set(re.findall(r"<(?:Picture|Video|Audio) \d+>", prompt))
+
+    # FL2VA NAMES ITS PICTURES WITHOUT BRACKETS, AND THE GUIDE IS EXPLICIT.
+    # `base_en.md:14-32` gives one alignment sentence per task and FL2VA's is
+    # the only one of the three that carries no angle brackets and no square
+    # brackets: "Picture 1 (from Shot 1) ... Picture 2 (from Shot N)". I2VA and
+    # L2VA both bracket, so a rule that demands `<Picture N>` is correct for
+    # every keyframe graph EXCEPT the two-frame one.
+    #
+    # This is the one-implementation trap from CLAUDE.md, caught by a second
+    # implementation rather than by reasoning: the rule was written when i2v was
+    # the only keyframe graph in the repo, it was right about that graph, and it
+    # would have failed the first correct fl2va prompt anybody wrote -- pushing
+    # them to bracket the labels and diverge from the string the guide says the
+    # mode "always uses".
+    #
+    # Deliberately narrow. The bare form satisfies the requirement ONLY on a
+    # graph wiring BOTH keyframe sockets, and only for `Picture`; `named` is
+    # unchanged, so the reverse check below still fails a prompt that mentions a
+    # label no socket wires.
+    satisfied = set(named)
+    if all(ins.get(k) is not None for k in KEYFRAME_SOCKETS):
+        satisfied |= {f"<Picture {n}>"
+                      for n in re.findall(r"(?<![<\w])Picture (\d+)", prompt)}
     for lab in expected:
-        if lab not in named:
+        if lab not in satisfied:
             out.append(("FAIL", f"{lab} is wired but the prompt never names it"))
     for lab in sorted(named):
         if lab not in expected:

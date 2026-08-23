@@ -330,8 +330,6 @@ def scene_prompt(name: str, *, first_frame: bool = False,
             "[Shot 1] ",
             "[Shot 1] Holding the exact framing, lighting, wardrobe and "
             "composition established in <Picture 1>, ", 1)
-        text = ("For the target video, at 0.00 seconds into the target video, "
-                "<Picture 1> (from [Shot 1]) is fully referenced.\n\n" + text)
     if last_frame:
         # Into the LAST shot, which is the last [Shot N] line before the
         # soundscape field -- appended to that line, not to the field.
@@ -341,7 +339,34 @@ def scene_prompt(name: str, *, first_frame: bool = False,
                       f"exact final composition converge on {last_label} at "
                       f"the end.")
         text = "\n".join(lines) + sep + tail
-    return text
+
+    # THE ALIGNMENT LINE IS PER-MODE AND THE THREE ARE NOT INTERCHANGEABLE.
+    # `base_en.md:14-32` gives one string per task and they differ in more than
+    # wording: FL2VA carries NO angle brackets and NO square brackets, where
+    # I2VA and L2VA both bracket, and T2VA has no line at all. Until 2026-08-22
+    # this function prepended the I2VA sentence whenever `first_frame` was set,
+    # so a first+last call emitted the I2VA line for an fl2va task and a
+    # last-only call emitted no line at all -- which `preflight_graph.grade`
+    # fails outright as a keyframe socket with no preamble.
+    #
+    # Nothing caught either, and nothing would have: preflight checks that the
+    # preamble NAMES a Picture, not that it is the right sentence for the mode.
+    # This function is still uncalled (the shipped graphs run on the prompt
+    # constants above), so the defect never reached a graph -- but it was
+    # staged for exactly the task that would have hit it first.
+    if first_frame and last_frame:
+        line = ("How the reference pictures align with the target video \u2014 "
+                "Picture 1 (from Shot 1) aligns with the 0.00-second mark of "
+                f"the target video; Picture 2 (from Shot {FL2V_FINAL_SHOT}) "
+                "aligns with the S.SS-second mark of the target video.")
+    elif first_frame:
+        line = ("For the target video, at 0.00 seconds into the target video, "
+                "<Picture 1> (from [Shot 1]) is fully referenced.")
+    else:
+        line = ("How the reference pictures align with the target video \u2014 "
+                "<Picture 1> (from [Shot N]) aligns with the S.SS-second mark "
+                "of the target video.")
+    return line + "\n\n" + text
 
 # h264-mp4 rather than h265 or an nvenc variant: software x264 at crf 19 is
 # the most portable mp4 there is, and the nvenc paths trade quality per bit
@@ -497,6 +522,65 @@ overall_soundscape: Quiet room tone with a low ambient hum continues throughout,
 
 non_diegetic_music: N/A"""
 
+#: The fl2va graphs' configured canvas. 3:2 at the 768 short edge the 4-step
+#: turbo LoRA is named for, and `h3_config`'s `fast` row -- 864 tokens a frame
+#: against 1008 for 16:9. It is a FALLBACK: under `from_keyframe` the canvas
+#: comes from the loaded first frame and this governs only under `explicit`.
+FL2V_CANVAS = dict(width=1152, height=768)
+
+#: The final shot index the fl2va alignment sentence names. One, because the
+#: body below is one continuous shot; raise it with the body, never alone.
+FL2V_FINAL_SHOT = 1
+
+
+def fl2v_prompt(length: int) -> str:
+    """The fl2va prompt, with the alignment line resolved against `length`.
+
+    **A function, not a constant, because the FL2VA alignment sentence carries
+    two placeholders the other two modes do not.** `base_en.md:24` gives the
+    string with `Shot N` and `S.SS` in it; N is the index of the actual final
+    shot and S.SS is the effective duration to exactly two decimals. Typing a
+    duration here would be a number that silently disagrees with the graph the
+    moment `length` changes, so it is derived from the snapped frame count --
+    the same grid `MiniMaxH3Conditioning` applies.
+
+    **Note the punctuation.** FL2VA is the one alignment sentence of the three
+    that carries no angle brackets and no square brackets: `Picture 1 (from
+    Shot 1)`, not `<Picture 1> (from [Shot 1])`. I2VA and L2VA both bracket.
+    `base_en.md:14-32` gives all three and this differs from its neighbours by
+    exactly that, which is how a writer borrowing the I2VA form gets it wrong
+    and nothing goes red -- preflight checks that the preamble names a Picture,
+    not that it is the right sentence for the mode.
+
+    One shot, deliberately. `base_en.md:60` says FL2VA "generally favors a
+    single shot so the model can interpolate continuously from the first frame
+    to the last", and that multiple shots are for when they are explicitly
+    specified. So N is 1 here, and stays 1 unless the body grows a cut.
+    """
+    seconds = duration_of(snap_length(length))
+    return (
+        "How the reference pictures align with the target video \u2014 Picture 1 "
+        "(from Shot 1) aligns with the 0.00-second mark of the target video; "
+        f"Picture 2 (from Shot {FL2V_FINAL_SHOT}) aligns with the {seconds:.2f}-second "
+        "mark of the target video.\n"
+        "\n"
+        "integrated_multimodal_description: [Shot 1] Live-action, cinematic, one "
+        "continuous shot that begins in the exact state of the opening frame and "
+        "ends in the exact state of the closing frame. The subject holds the "
+        "opening position, framing, lighting and colors, then moves steadily "
+        "through the space while the camera trucks right with small amplitude at "
+        "slow speed. Wardrobe, palette and the surrounding scene stay continuous "
+        "throughout, and the subject's pose, placement and the camera's position, "
+        "angle and framing converge on the closing composition, reaching it only "
+        "at the final frame.\n"
+        "\n"
+        "overall_soundscape: Quiet room tone with a low ambient hum continues "
+        "throughout, joined by soft physical sounds from the subject's movement "
+        "and a single settling sound as the motion comes to rest.\n"
+        "\n"
+        "non_diegetic_music: N/A")
+
+
 R2V_PROMPT = """subject_definitions:
 <Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
 <Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
@@ -526,7 +610,8 @@ N/A"""
 sys.path.insert(0, str(HERE.parent))
 from h3_rules import (  # noqa: E402
     aspect_in_range, describe_aspect_range, describe_length,
-    duration_in_range, is_single_frame, max_legal_length, min_legal_length,
+    duration_in_range, duration_of, is_single_frame, max_legal_length,
+    min_legal_length, snap_length,
 )
 
 
@@ -692,6 +777,7 @@ def _plain_model_chain(g, *, sage, sol, shift, head_chunks):
 def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               length: int = LENGTH, seed: int = SEED,
               sol: dict | None = None, canvas_mode: str = "match_keyframe",
+              last_frame: bool = False,
               stamp: bool = False, unet: str | None = None,
               lora: tuple[str, float] | None = None,
               steps: int | None = None, shift: dict | None = None,
@@ -733,8 +819,16 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     _check_geometry(length, canvas)
     ref = task == "r2v"
     cv = dict(CANVAS, **canvas)
-    prompt = prompt if prompt is not None else {
-        "t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]
+    # THE DEFAULT PROMPT FOLLOWS THE SOCKETS, NOT THE TASK STRING. `i2v`
+    # covers both keyframe modes -- one wired frame or two -- and they take
+    # DIFFERENT alignment sentences (`base_en.md:14-32`), so keying this on
+    # `task` alone hands an fl2va graph the I2VA line. Nothing downstream
+    # would catch it: preflight checks that the preamble names a Picture,
+    # not that it is the right sentence for the mode.
+    if prompt is None:
+        prompt = (fl2v_prompt(length) if (task == "i2v" and last_frame)
+                  else {"t2v": T2V_PROMPT, "i2v": I2V_PROMPT,
+                        "r2v": R2V_PROMPT}[task])
 
     g = {
         "1": {"class_type": "UNETLoader",
@@ -954,6 +1048,17 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # instead of being cropped into one chosen elsewhere.
             g["15"] = {"class_type": "LoadImage", "inputs": {"image": PLACEHOLDER_IMAGE_A}}
             inputs["first_frame"] = ["15", 0]
+            if last_frame:
+                # The second LoadImage is the whole difference between
+                # i2va and fl2va. The canvas still comes from the FIRST
+                # frame under `from_keyframe` -- the release resolves it
+                # on `keyframes[0]` and the closing frame cover-crops to
+                # match -- so wiring this does not move the geometry
+                # owner, and both placeholders are square, which keeps
+                # the crop a no-op until somebody loads real stills.
+                g["16"] = {"class_type": "LoadImage",
+                           "inputs": {"image": PLACEHOLDER_IMAGE_B}}
+                inputs["last_frame"] = ["16", 0]
         else:
             # No keyframe, so there is nothing to derive a canvas from and
             # Resolution owns it. `canvas` is inert on this path and is stated
@@ -3524,6 +3629,53 @@ day with no documentation and is deliberately not a graph.
 """
 
 
+_NOTE_FL2V = f"""\
+## First and last frame, and the first in-distribution turbo arm
+
+Two keyframes into one continuous shot. `MiniMaxH3Conditioning` derives the
+canvas from the FIRST frame under `from_keyframe`, the way the release does
+(`resolve_canvas_size` on `keyframes[0]`), and cover-crops the closing frame to
+match. The `width`/`height` in this graph are the FALLBACK, and they govern
+only if you switch `canvas` to `explicit`. **Load a 3:2 still to render at
+{FL2V_CANVAS['width']}x{FL2V_CANVAS['height']}**; load something else and you
+get that image's aspect on H3's grid, which is the point of the mode.
+
+The prompt carries the FL2VA alignment sentence, which is not the I2VA one with
+a word changed: it is the only one of the three that carries no angle brackets
+and no square brackets (`base_en.md:14-32`). Its `S.SS` is derived from
+`length` by `fl2v_prompt()` rather than typed, so it cannot drift from the
+graph.
+
+**One shot, deliberately.** `base_en.md:60`: FL2VA "generally favors a single
+shot so the model can interpolate continuously from the first frame to the last",
+and multiple shots are for when they are explicitly specified.
+"""
+
+_NOTE_FL2V_TURBO = f"""\
+## The first turbo arm this repo has run in distribution
+
+Every turbo LoRA the vendor released is an **fl2v** distill -- the filenames say
+so and so does `_NOTE_REF2V_TURBO` -- and until this graph every turbo arm here
+was t2v or ref2v. So every turbo number and every turbo comparison recorded in
+this repo was taken out of distribution, including the ones that reason
+carefully about *how far* out.
+
+This is `h3_first_last_frame_to_video.json` with the 4-step 768p LoRA at the
+vendor's row: {TURBO_768P_STEPS} steps, shift 6/3, `{TURBO_SAMPLER}`, strength
+{TURBO_LORA_STRENGTH:g}. Same canvas, same seed, same length, same placeholder
+keyframes as its base twin, so the pair is comparable by construction.
+
+**What it is for.** Not "is turbo good" -- a rendered pair cannot A/B a
+numerical knob, and this repo's own rule says so. It is the missing reference
+point: when a ref2v turbo arm degrades, there has been no in-distribution arm to
+say how much of that is the LoRA being asked to do something it was not
+distilled for. Now there is one.
+
+**The short edge matters here.** {FL2V_CANVAS['width']}x{FL2V_CANVAS['height']}
+carries the 768 short edge this LoRA is named for, unlike the 544p home canvas.
+"""
+
+
 _NOTE_REF2V_TURBO = f"""\
 ## Deliberately out of distribution
 
@@ -3696,6 +3848,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              length: int = LENGTH, seed: int = SEED, preview: bool = False,
              sol: dict | None = None, sol_enabled: bool = True,
              canvas_mode: str = "match_keyframe", stamp: bool = False,
+             last_frame: bool = False,
              unet: str | None = None, lora: tuple[str, float] | None = None,
              out_prefix: str | None = None, title: str | None = None,
              sla_router: float | None = None,
@@ -3709,8 +3862,16 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # clip, which is exactly what the guard exists to prevent.
     _check_single_frame(single_frame, length)
     cv = dict(CANVAS, **canvas)
-    prompt = prompt if prompt is not None else {
-        "t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]
+    # THE DEFAULT PROMPT FOLLOWS THE SOCKETS, NOT THE TASK STRING. `i2v`
+    # covers both keyframe modes -- one wired frame or two -- and they take
+    # DIFFERENT alignment sentences (`base_en.md:14-32`), so keying this on
+    # `task` alone hands an fl2va graph the I2VA line. Nothing downstream
+    # would catch it: preflight checks that the preamble names a Picture,
+    # not that it is the right sentence for the mode.
+    if prompt is None:
+        prompt = (fl2v_prompt(length) if (task == "i2v" and last_frame)
+                  else {"t2v": T2V_PROMPT, "i2v": I2V_PROMPT,
+                        "r2v": R2V_PROMPT}[task])
     g = UIGraph()
 
     unet_node = g.add("UNETLoader", (-1500, 0), size=(560, 90),
@@ -4020,6 +4181,16 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                           widgets=[PLACEHOLDER_IMAGE_A, "image"],
                           outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
             g.link(img_a, 0, cond, "first_frame", "IMAGE")
+            if last_frame:
+                # Mirrors `build_api`. `cross_check` is what asserts the
+                # two builders agree, so a second frame added to one and
+                # not the other fails at build time rather than at
+                # render time.
+                img_b = g.add("LoadImage", (-880, 1260), size=(290, 330),
+                              widgets=[PLACEHOLDER_IMAGE_B, "image"],
+                              outputs=[_out("IMAGE", "IMAGE"),
+                                       _out("MASK", "MASK")])
+                g.link(img_b, 0, cond, "last_frame", "IMAGE")
     g.link(clip, 0, cond, "clip", "CLIP")
 
     noise = g.add("RandomNoise", (40, 0), size=(300, 110), widgets=[seed, "randomize"],
@@ -4829,6 +5000,30 @@ def main():
          "reference image(s) + text -> video + audio"),
         ("h3_first_frame_to_video.json", "i2v", "i2v", None, {},
          "first frame + text -> video + audio (via MiniMaxH3KeyframeCanvas)"),
+
+        # fl2va: the same node, the same task string, one more LoadImage.
+        # `last_frame` is what separates them, which is why the task stays
+        # "i2v" -- inventing a fourth task value would fork the geometry and
+        # canvas logic that both modes share exactly.
+        ("h3_first_last_frame_to_video.json", "fl2v", "i2v", None,
+         dict(last_frame=True, variant_note=_NOTE_FL2V,
+              out_prefix="Video/h3_fl2v", **FL2V_CANVAS),
+         "first frame + last frame + text -> video + audio"),
+
+        # The first turbo graph here that is IN distribution: every released
+        # turbo LoRA is an fl2v distill and every previous turbo arm was t2v or
+        # ref2v. Vendor row for the 4-step 768p, cloned from
+        # h3_text_to_video_turbo_4step_768p rather than retyped.
+        ("h3_first_last_frame_to_video_turbo_4step_768p.json", "fl2v-turbo768",
+         "i2v", None,
+         dict(last_frame=True,
+              lora=(TURBO_768P_LORA, TURBO_LORA_STRENGTH),
+              steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
+              sampler_name=TURBO_SAMPLER,
+              variant_note=_NOTE_FL2V_TURBO,
+              out_prefix="Video/h3_fl2v_turbo_4step_768p", **FL2V_CANVAS),
+         "first + last frame + text -> video + audio, via the 4-step 768p "
+         "turbo LoRA at shift 6 -- in distribution"),
         # t2v deliberately: the note explains that matching the LoRA's 544p
         # means leaving H3's own canvas rule, and MiniMaxH3KeyframeCanvas is
         # the node that refuses to, so an i2v turbo graph could not show the

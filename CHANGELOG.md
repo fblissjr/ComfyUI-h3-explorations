@@ -4,6 +4,69 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.58.0
+
+### Added
+
+- **Two fl2va graphs ship, and one of them is the first turbo arm this repo has
+  run in distribution.** `h3_first_last_frame_to_video.json` and
+  `h3_first_last_frame_to_video_turbo_4step_768p.json`: two keyframes into one
+  continuous shot, 1152x768 fallback canvas, 362 frames, matched seed and
+  placeholders so the pair is comparable by construction.
+
+  **Every released turbo LoRA is an fl2v distill** -- the filenames say so and
+  `_NOTE_REF2V_TURBO` says so -- and until now every turbo graph here was t2v or
+  ref2v. So every turbo number recorded in this repo was taken out of
+  distribution, including the arms that reason carefully about how far out. The
+  turbo graph is the reference point those arms have never had. It is not an
+  answer to "is turbo good": a rendered pair cannot A/B a numerical knob.
+
+  The canvas is a FALLBACK. Under `from_keyframe` the geometry comes from the
+  loaded first frame, as the release resolves it on `keyframes[0]`, and the
+  closing frame cover-crops to match. 1152x768 governs only under `explicit`,
+  and it carries the 768 short edge the 4-step LoRA is named for.
+
+  `last_frame` runs through both builders; `cross_check` is what asserts they
+  agree. The task string stays `i2v`, because one wired frame and two share the
+  geometry and canvas logic exactly and a fourth task value would fork it.
+
+### Fixed
+
+- **The fl2va alignment sentence is the one of three that carries no brackets,
+  and two places had it wrong.** `base_en.md:14-32` gives one string per task:
+  I2VA and L2VA bracket (`<Picture 1> (from [Shot 1])`), FL2VA does not
+  (`Picture 1 (from Shot 1)`), T2VA has none.
+
+  `scene_prompt()` prepended the I2VA sentence whenever `first_frame` was set,
+  so a first+last call emitted the I2VA line for an fl2va task and a last-only
+  call emitted no line at all -- which `preflight_graph.grade` fails outright.
+  The function is still uncalled, so no graph carried the defect, but it was
+  staged for exactly the task that would have hit it first.
+
+  The default-prompt lookup keyed on the task string alone, so an fl2va graph
+  built through it would have been handed `I2V_PROMPT`. It now follows the
+  wired sockets in both builders.
+
+  `fl2v_prompt()` derives the sentence's `S.SS` from the snapped frame count
+  rather than carrying a typed duration, so it cannot drift from `length`.
+
+- **`preflight_graph.py` would have failed the first correct fl2va prompt
+  anybody wrote.** Its label rule demanded `<Picture N>` with brackets, which is
+  right for every keyframe graph except the two-frame one, whose guide-mandated
+  sentence is bare. The rule was written when i2v was the only keyframe graph in
+  the repo; it was correct about that graph and untested against any other.
+  Second implementation, not reasoning, is what found it.
+
+  The waiver is narrow: the bare form satisfies the requirement only on a graph
+  wiring both keyframe sockets, and only for `Picture`. Shown red on three
+  mutations (a picture never named, a picture no socket wires, no alignment line
+  at all), and i2v with a bare label still fails.
+
+  **Still enforced by nothing: that the alignment sentence is the RIGHT one for
+  the mode.** Preflight checks that the preamble names a Picture, which is how
+  `scene_prompt` held the I2VA sentence for an fl2va task without anything going
+  red. The guide-extracted grep used here is a manual control.
+
 ## 0.57.0
 
 ### Added
