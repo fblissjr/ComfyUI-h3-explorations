@@ -80,7 +80,17 @@ MODELS = dict(
 #              sparse steps, no benefit measured against it. `simple` is also
 #              the only scheduler reproducing a distilled LoRA's own sigma
 #              grid, which matters at 4 steps where the deviation is most of
-#              the schedule.
+#              the schedule. **That sentence was prose and enforced by nothing
+#              until 2026-08-23; `bench/check_distill_grid.py` is now its
+#              control**, against the grid the vendor publishes in
+#              `coderef/Minimax-H3-Turbo/README.md` rather than against a
+#              number computed here. Measured there: `simple` is EXACT at 4 and
+#              8 steps (it reads the discrete 1,000-entry table, and both
+#              divide 1,000), where `beta` is off by 0.10, `normal` by 0.67 and
+#              `sgm_uniform` by 0.007. At 16 steps -- this line's own value --
+#              `simple` quantizes by ~0.002, which is why the check grades only
+#              the graphs that load a distilled LoRA: the base checkpoint was
+#              never fitted to a step grid, so the vendor rule does not bind it.
 #
 #   steps 16   Measured 2026-08-06 at 362 frames: 20 steps 765.4 s, 16 steps
 #              669.2 s (-12.6%), 12 steps 508.5 s. 12 was rejected because it
@@ -550,6 +560,19 @@ CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
 # four. The SLA row is from a different vendor repo (lightx2v's
 # Minimax-h3-Turbo-SLA card) and its LightX2V inference config; see
 # TURBO_SLA_LORA below for how `bench/check_distill_settings.py` grades it.
+#
+# **2.22 is not one of these, and it will be offered to you.** DiffSynth's H3
+# pipeline defaults to flow shift 2.22 and applies it to video and audio alike
+# (`coderef/DiffSynth-Studio/diffsynth/diffusion/flow_match.py::set_timesteps_minimax_h3`
+# -- a source read, not a build). ComfyUI and every vendor row above use 12/3,
+# or 6/3 for the 768p students. The disagreement is only the CONSTANT: DiffSynth
+# builds `linspace(1, 0, N+1)[:-1]`, which is the Turbo README's own
+# `q_i = (N - i) / N`, then applies the same shift algebra, so all three agree
+# on the rule. Nothing in this repo runs at 2.22, and a port that adopted it as
+# "the MiniMax default" was reverted on 2026-08-23; it also carries a Gaussian
+# center-weighted LOSS weight (`set_training_weight`) with no inference
+# analogue at all. If a schedule here ever reads 2.22, it came from that path
+# and not from anything we sample.
 #
 # A sixth file, `minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16`, is on
 # disk as of 2026-08-20 and is deliberately NOT a constant here: it was

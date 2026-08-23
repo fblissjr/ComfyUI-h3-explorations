@@ -338,6 +338,126 @@ def resolve_image(name: str) -> Path | None:
     return None
 
 
+# ComfyUI resolves `embedding:name` in an H3 prompt through the ordinary
+# SD1Tokenizer path (`MiniMaxH3Tokenizer` passes `embedding_size=5120,
+# embedding_key="qwen3vl_32b"`, merged upstream in PR #15697). What it does
+# with one it cannot find is the reason this grader exists:
+# `comfy/sd1_clip.py` logs `warning, embedding:<name> does not exist, ignoring`
+# and renders anyway. The render completes, the prompt is quietly missing a
+# concept, and nothing in a queued job's output says so.
+H3_EMBEDDING_KEY = "qwen3vl_32b"
+# The DiffSynth exports name their tensor `weight`; core reads that shape too
+# (`bundled_embed` / the `embed_key` fallback), so a file carrying it is
+# loadable and must not be reported as broken.
+H3_EMBEDDING_ALT_KEY = "weight"
+H3_HIDDEN_SIZE = 5120
+_EMBEDDING_REF = re.compile(r"embedding:([^\s,.;:!?)\]}\"']+)")
+
+
+def _embedding_dirs() -> list[Path]:
+    """Where ComfyUI would look, deduped and order-preserving.
+
+    `folder_paths` is the authority (it honours extra_model_paths.yaml); the
+    literal is the fallback for running this with no ComfyUI on the path, which
+    is the state most of this file already tolerates.
+    """
+    dirs = []
+    try:
+        sys.path.insert(0, str(Path.home() / "ComfyUI"))
+        import folder_paths
+        dirs += [Path(d) for d in folder_paths.get_folder_paths("embeddings")]
+    except Exception:
+        pass
+    dirs.append(Path.home() / "ComfyUI" / "models" / "embeddings")
+    seen, out = set(), []
+    for d in dirs:
+        if d not in seen:
+            seen.add(d)
+            out.append(d)
+    return out
+
+
+def resolve_embedding(name: str) -> tuple[str, str]:
+    """(state, detail) for one `embedding:` reference. Never raises.
+
+    States are `ok`, `missing`, and `unreadable` -- three, not two, because a
+    file that is present but whose header cannot be parsed is a different
+    problem from one that is absent, and reporting either as the other sends
+    the reader to the wrong place. Core accepts several extensions; the
+    reference may also carry a subfolder (`embedding:h3/name`).
+    """
+    stem = name.strip()
+    cands = []
+    for d in _embedding_dirs():
+        for ext in ("", ".safetensors", ".pt", ".bin"):
+            cands.append(d / f"{stem}{ext}")
+    hit = next((p for p in cands if p.is_file()), None)
+    if hit is None:
+        return "missing", (
+            f"no file for `embedding:{stem}` under "
+            f"{', '.join(str(d) for d in _embedding_dirs())}")
+    if hit.suffix != ".safetensors":
+        # Only the safetensors header is cheap to read without torch.
+        return "unreadable", f"{hit.name} is not safetensors; header not read"
+    try:
+        from safetensors import safe_open
+        with safe_open(hit, framework="pt") as f:
+            keys = list(f.keys())
+            key = next((k for k in (H3_EMBEDDING_KEY, H3_EMBEDDING_ALT_KEY)
+                        if k in keys), None)
+            if key is None:
+                return "unreadable", (
+                    f"{hit.name} holds {keys}, neither "
+                    f"`{H3_EMBEDDING_KEY}` nor `{H3_EMBEDDING_ALT_KEY}`")
+            shape = list(f.get_slice(key).get_shape())
+    except Exception as exc:
+        return "unreadable", f"{hit.name}: {type(exc).__name__}: {exc}"
+    if len(shape) != 2 or shape[-1] != H3_HIDDEN_SIZE:
+        return "unreadable", (
+            f"{hit.name} key `{key}` is {shape}, not "
+            f"[tokens, {H3_HIDDEN_SIZE}]")
+    return "ok", f"{hit.name} `{key}` {shape[0]} token(s)"
+
+
+def embedding_notes(prompt: str) -> list[tuple[str, str]]:
+    """Findings for every `embedding:` reference in a prompt."""
+    out = []
+    for name in _EMBEDDING_REF.findall(prompt or ""):
+        state, detail = resolve_embedding(name)
+        if state == "ok":
+            out.append(("note", f"embedding:{name} resolves -- {detail}"))
+        elif state == "missing":
+            # WARN, not FAIL: core does not refuse either, and this file
+            # reports rather than blocking. The point is that the render will
+            # silently proceed WITHOUT it.
+            out.append(("WARN", f"embedding:{name} does not resolve, and "
+                                f"ComfyUI will render without it rather than "
+                                f"refuse -- {detail}"))
+        else:
+            out.append(("WARN", f"embedding:{name} present but not gradeable "
+                                f"-- {detail}"))
+    return out
+
+
+def embedding_tokens(prompt: str) -> tuple[int, int]:
+    """(rows contributed by resolved embeddings, count that did NOT resolve).
+
+    The second half is why this returns a pair: an unresolved reference costs
+    zero rows AND drops a concept, and a price that quietly omits both reads as
+    a graph that is cheaper than it is.
+    """
+    rows = unresolved = 0
+    for name in _EMBEDDING_REF.findall(prompt or ""):
+        state, detail = resolve_embedding(name)
+        if state != "ok":
+            unresolved += 1
+            continue
+        m = re.search(r"(\d+) token", detail)
+        if m:
+            rows += int(m.group(1))
+    return rows, unresolved
+
+
 def _audio_source(graph: dict, val) -> tuple[dict | None, float | None]:
     """Walk back from a ref-audio socket to the node holding the media.
 
@@ -810,6 +930,7 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
             out.append(("FAIL", f"<d> appears in {s}; it belongs only in "
                                 f"{main_field}"))
     out.extend(marker_rules(prompt, dd))
+    out.extend(embedding_notes(prompt))
 
     shots = re.findall(r"\[Shot (\d+)\]([^\n]*)", dd)
     if shots and shots[0][0] == "1" and re.match(r"\s*At \d", shots[0][1]):
@@ -1035,6 +1156,20 @@ def price(node: dict, graph: dict) -> list[str]:
     lines.append(f"  text      {tt:>8,}  prompt tokens ({kind})"
                  + (f" + ~{twin:,} vision blocks" if twin else ""))
 
+    # A resolved `embedding:` reference is expanded into the sequence one row
+    # per token by `comfy/sd1_clip.py` (`emb.view(1, -1, D)`, then
+    # `index += emb_shape - 1`), so it is real width, not a single token
+    # standing in for a file.
+    emb_rows, emb_unresolved = embedding_tokens(prompt)
+    if emb_rows:
+        lines.append(f"  embed     {emb_rows:>8,}  rows from resolved "
+                     f"`embedding:` reference(s)")
+    if emb_unresolved:
+        lines.append(f"  NOT COUNTED: {emb_unresolved} `embedding:` "
+                     f"reference(s) did not resolve. ComfyUI drops them and "
+                     f"renders, so the total below is the price of a prompt "
+                     f"missing them -- see the WARN above.")
+
     # Target audio, omitted entirely until 2026-08-16 and worth 1,206 rows at
     # 362 frames. `PackedLayout` appends it unconditionally between the
     # references and the video -- "target audio then target video, always the
@@ -1076,7 +1211,7 @@ def price(node: dict, graph: dict) -> list[str]:
         lines.append(f"  audio     {audio_rows:>8,}  target audio rows "
                      f"(always present, soundtrack or not)")
 
-    total = video + ref_total + tt + twin + audio_rows
+    total = video + ref_total + tt + twin + audio_rows + emb_rows
     lines.append(f"  TOTAL    ~{total:>8,}  packed sequence")
     lines.append("")
     lines.append("  recorded peaks on this box, for judgement not prediction:")

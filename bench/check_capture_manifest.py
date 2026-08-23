@@ -103,7 +103,53 @@ def assert_substrate(block: dict, keys: set, where: str) -> None:
 # schema and the only existing manifest were both 1.1.0, so it would have kept
 # claiming 1.0.0 through every future bump. One constant for the accepted set,
 # and the report states the versions it actually saw rather than a fixed string.
-SCHEMA_VERSIONS = ("1.0.0", "1.1.0")
+SCHEMA_VERSIONS = ("1.0.0", "1.1.0", "1.2.0")
+
+#: Model-file hashes were added in 1.2.0, gated the same way and for the same
+#: reason as the substrate keys above: a 1.1.0 manifest that never carried them
+#: conforms to the version it declares, and failing it would be red on correct
+#: state.
+MODEL_HASHES_SINCE = "1.2.0"
+
+
+def model_hashes_expected(schema_version: str) -> bool:
+    return tuple(int(x) for x in schema_version.split(".")) >= \
+        tuple(int(x) for x in MODEL_HASHES_SINCE.split("."))
+
+
+def assert_model_hashes(models: dict, where: str) -> None:
+    """Every model the manifest NAMES carries a hash, and it looks like one.
+
+    Keyed off the names already in the block rather than a fixed list, so a
+    manifest naming a model this file has never heard of still has to account
+    for it. A resolution failure is recorded as a reason string and passes here
+    -- "could not hash, and here is why" is a fact; a silently absent entry is
+    the thing being ruled out.
+    """
+    digests = models.get("sha256")
+    assert isinstance(digests, dict), (
+        f"{where}.sha256 must be an object mapping each named model to its "
+        f"digest, got {type(digests).__name__}. A manifest that names its "
+        f"models but records no bytes identifies them by filename alone.")
+    if "_unavailable" in digests:
+        return  # generation could not reach folder_paths, and says so
+    for field in ("unet", "clip", "video_vae", "audio_vae"):
+        if not models.get(field):
+            continue
+        assert field in digests, (
+            f"{where} names {field!r} but {where}.sha256 has no entry for it")
+        val = digests[field]
+        assert isinstance(val, str) and (
+            len(val) == 64 or val.startswith(("unresolved:", "unreadable:"))), (
+            f"{where}.sha256.{field} is {val!r}: expected a 64-char sha256 or "
+            f"a reason string saying why not")
+    named = models.get("loras") or []
+    if named:
+        got = digests.get("loras")
+        assert isinstance(got, list) and len(got) == len(named), (
+            f"{where} names {len(named)} lora(s) but sha256.loras holds "
+            f"{got!r}; a per-lora hash cannot be matched up by position "
+            f"unless the lists are the same length")
 
 
 def check_manifest(manifest_path: Path):
@@ -138,6 +184,8 @@ def check_manifest(manifest_path: Path):
         assert k in models and models[k], f"Missing required models key {k!r}"
     if substrate_expected(data["schema_version"]):
         assert_substrate(models, SUBSTRATE_MODELS_KEYS, "workload.models")
+    if model_hashes_expected(data["schema_version"]):
+        assert_model_hashes(models, "workload.models")
 
     # `weight_quantization` is a PROJECTION of the required `unet` filename, not
     # independent information -- `int8_convrot` is readable straight off

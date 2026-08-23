@@ -92,6 +92,12 @@ class Found(NamedTuple):
     loras: list[str]
     shift: tuple[float, float] | None
     steps: int | None
+    # Read here, graded nowhere in this file. `check_distill_grid.py` imports
+    # these readers rather than growing a second graph walk, and the scheduler
+    # is the field it needs: a LoRA loaded at the right shift and step count is
+    # still off its distillation grid if the scheduler places the steps
+    # somewhere else.
+    scheduler: str | None = None
 
 
 # Keyed by the distinguishing fragment of the ComfyUI filename.
@@ -178,6 +184,7 @@ def read_api(doc) -> Found:
     loras: list[str] = []
     shift: tuple[float, float] | None = None
     steps: int | None = None
+    scheduler: str | None = None
     for node in doc.values():
         ct, inp = node.get("class_type"), node.get("inputs", {})
         if ct in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA"):
@@ -192,7 +199,9 @@ def read_api(doc) -> Found:
         elif ct == "BasicScheduler":
             n = _literal(inp.get("steps"))
             steps = None if n is None else int(n)
-    return Found(loras, shift, steps)
+            sched = _literal(inp.get("scheduler"))
+            scheduler = None if sched is None else str(sched)
+    return Found(loras, shift, steps, scheduler)
 
 
 def read_ui(doc) -> Found:
@@ -202,6 +211,7 @@ def read_ui(doc) -> Found:
     loras: list[str] = []
     shift: tuple[float, float] | None = None
     steps: int | None = None
+    scheduler: str | None = None
     for node in doc.get("nodes", []):
         t, w = node.get("type"), node.get("widgets_values") or []
         if t in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA") and w:
@@ -210,7 +220,8 @@ def read_ui(doc) -> Found:
             shift = (float(w[0]), float(w[1]))
         elif t == "BasicScheduler" and len(w) >= 2:
             steps = int(w[1])
-    return Found(loras, shift, steps)
+            scheduler = str(w[0])
+    return Found(loras, shift, steps, scheduler)
 
 
 def parse_vendor_table(text):

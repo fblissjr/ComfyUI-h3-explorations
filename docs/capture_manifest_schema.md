@@ -28,7 +28,7 @@ The manifest makes a captured tensor traceable to the prompt, reference images a
     "captured_tensors"
   ],
   "properties": {
-    "schema_version": { "type": "string", "enum": ["1.0.0", "1.1.0"] },
+    "schema_version": { "type": "string", "enum": ["1.0.0", "1.1.0", "1.2.0"] },
     "timestamp": { "type": "string", "format": "date-time" },
     "provenance": {
       "type": "object",
@@ -80,6 +80,18 @@ The manifest makes a captured tensor traceable to the prompt, reference images a
                   "strength": { "type": "number" },
                   "rank": { "type": ["integer", "null"] }
                 }
+              }
+            },
+            "sha256": {
+              "type": "object",
+              "description": "since 1.2.0; per-model file digest, or a reason string beginning 'unresolved:' or 'unreadable:'. `_unavailable` alone means generation could not reach folder_paths.",
+              "properties": {
+                "unet": { "type": "string" },
+                "clip": { "type": "string" },
+                "video_vae": { "type": "string" },
+                "audio_vae": { "type": "string" },
+                "loras": { "type": "array", "items": { "type": "string" } },
+                "_unavailable": { "type": "string" }
               }
             }
           }
@@ -199,6 +211,36 @@ geometry is a claim about a rotated, pruned, quantized space. `fp8_scaled` and
 `schema_version`, and the only existing manifest already declared `1.1.0` and
 already populated both quantization fields. It gets dearer per capture, which is
 why this was done ahead of the record unification rather than behind it.
+
+### `models.sha256` records bytes, not the loaded model (1.2.0)
+
+Every other model field is a **filename**, and `weight_quantization` and `rank`
+are read back out of one. A name is what the graph asked for. It is not evidence
+of what the loader read: a file replaced in place leaves every one of those
+fields identical, and the manifest keeps asserting the old identity. Reference
+media and the captured tensors were already hashed in this same generator; the
+models were the gap.
+
+**What the hash cannot see, stated because a silent limit reads as coverage.**
+It pins which bytes sat on disk, not what the sampler ended up holding. A LoRA
+at strength 0.75 and the same LoRA at 1.0 hash identically. So does a checkpoint
+under a quantization applied after load, and so does any runtime patch. Reading
+the live weights instead would close that, but a sampled digest over a few
+tensors of a 32B checkpoint is not a sound way to do it and would read as a
+stronger claim than it is. This is the file-level half, and it is honest about
+being only that.
+
+A model that cannot be resolved or read is recorded as a reason string
+(`unresolved: ...`, `unreadable: ...`) rather than omitted, and generation that
+could not reach `folder_paths` writes `_unavailable`. An absent hash and an
+unhashed model must not look alike, which is the same rule the substrate keys
+follow: null means confirmed absent, missing means nobody wrote it down.
+
+`bench/check_capture_manifest.py::assert_model_hashes` keys off the names the
+manifest itself carries rather than a fixed list, so a manifest naming a model
+this repo has never heard of still has to account for it. Gated on
+`schema_version` >= 1.2.0, so the 1.1.0 manifests already on disk conform to the
+version they declare and are not failed for a field that did not exist.
 
 ### `vae_quantization` is deliberately not required
 

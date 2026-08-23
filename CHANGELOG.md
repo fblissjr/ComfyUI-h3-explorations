@@ -4,6 +4,62 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.60.0
+
+### Added
+
+- **A distilled graph is now checked against the grid it was distilled at.**
+  `bench/check_distill_grid.py` grades where the scheduler actually puts the
+  steps, which `check_distill_settings.py` never saw: that file grades the
+  shift and the step count, and both can be right while the sampler evaluates
+  somewhere else entirely. It computes no expected values of its own. The grid
+  comes from the rule and the literal NFE=4 sigmas published in the vendor's
+  `Minimax-H3-Turbo` README, and from ComfyUI's own `calculate_sigmas` over the
+  object `MiniMaxH3SigmaShift` builds, plus `time_shift_sigma` for the audio
+  schedule the DiT derives. Red harness `bench/red/show_red_distill_grid.py`:
+  eight mutations red across both sources, seven near-misses green.
+
+- **`bench/preflight_graph.py` grades `embedding:` references.** ComfyUI
+  resolves them in an H3 prompt and, when the file is missing, logs a warning
+  and renders anyway, so a queued job silently loses a concept with nothing in
+  its output saying so. Preflight now reports each reference as resolved,
+  missing or present-but-ungradeable, and prices the rows a resolved one
+  contributes into the packed sequence.
+
+- **The capture manifest records model file digests** (`models.sha256`).
+  Model identity was the filename and nothing else, with `rank` regexed back
+  out of it; a file replaced in place left every field unchanged. Hashing is
+  what reference media and captured tensors already got. What it cannot see is
+  stated in the schema rather than left implied: a runtime patch, a LoRA
+  strength, a post-load quantization all hash identically.
+
+### Changed
+
+- Capture manifest `schema_version` is `1.2.0`. The new digests are gated on
+  it, so the 1.1.0 manifests already on disk conform to the version they
+  declare and are not failed for a field that did not exist.
+- `check_distill_settings.py`'s graph readers also return the scheduler, so the
+  new check reuses them instead of walking the same JSON a second time.
+- `workflows/h3_config.py` names the control for its `simple`-scheduler claim,
+  which was prose enforced by nothing, and records that DiffSynth's H3 pipeline
+  defaults to flow shift 2.22 on video and audio alike where ComfyUI and every
+  vendor row use 12/3 or 6/3. The rule is the same in all three; only the
+  constant differs.
+
+### Removed
+
+- An imported flow-schedule module, embedding-injection nodes, and a weight
+  fingerprinting module, together with their four registered nodes and three
+  checks. The schedule was keyed on a shift belonging to a different
+  implementation and fed nothing; the embedding nodes counted an `[N, 5120]`
+  injection as one sequence position where ComfyUI expands it to N, and formed
+  a third conditioning entry point that skipped both the vendor-token
+  registration and the empty-prompt refusal that `MiniMaxH3Conditioning` owns;
+  the fingerprinting module was imported by nothing but its own check. Node
+  registration returns to its previous set, unchanged `node_id` baseline
+  included. Static `embedding:name` resolution is a ComfyUI feature and needs
+  no node here.
+
 ## 0.59.0
 
 ### Added

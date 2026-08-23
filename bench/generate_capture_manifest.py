@@ -43,6 +43,65 @@ def sha256_file(path: str | Path) -> str:
     return h.hexdigest()
 
 
+#: {manifest field: the folder_paths category holding it}. The `loras` entry is
+#: handled separately because it is a list.
+_MODEL_FOLDERS = {
+    "unet": "diffusion_models",
+    "clip": "text_encoders",
+    "video_vae": "vae",
+    "audio_vae": "vae",
+}
+
+
+def hash_model_files(models: dict) -> dict:
+    """{manifest field: sha256} for every model file this capture named.
+
+    Model identity in this manifest was the FILENAME and nothing else, with
+    `rank` regexed back out of it. A name is what the graph asked for; it is not
+    evidence of what the loader read, and a file replaced in place leaves every
+    field here unchanged. Hashing is the same treatment reference media and the
+    captured tensors already get in this file.
+
+    **What a file hash cannot see**, stated because a silent limit reads as
+    coverage: a model patched at runtime. A LoRA at strength 0.75 and the same
+    LoRA at 1.0 hash identically, and so does a checkpoint under a different
+    quantization applied after load. This pins WHICH BYTES were on disk, not
+    what the sampler ended up holding.
+
+    A file that cannot be resolved or read maps to a reason string rather than
+    being dropped: an absent hash and an unhashed model must not look alike.
+    """
+    out: dict = {}
+    try:
+        import folder_paths
+    except Exception as exc:
+        return {"_unavailable": f"folder_paths not importable: {exc}"}
+
+    def one(category: str, name: str):
+        if not name:
+            return None
+        try:
+            path = folder_paths.get_full_path(category, name)
+        except Exception as exc:
+            return f"unresolved: {type(exc).__name__}: {exc}"
+        if not path or not Path(path).is_file():
+            return f"unresolved: {name!r} not found under {category}"
+        try:
+            return sha256_file(path)
+        except OSError as exc:
+            return f"unreadable: {exc}"
+
+    for field, category in _MODEL_FOLDERS.items():
+        digest = one(category, str(models.get(field) or ""))
+        if digest is not None:
+            out[field] = digest
+    declared: list[dict] = list(models.get("loras", []) or [])
+    loras = [one("loras", str(lo.get("name") or "")) for lo in declared]
+    if loras:
+        out["loras"] = loras
+    return out
+
+
 def get_git_commit() -> str:
     try:
         res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
@@ -388,8 +447,12 @@ def main():
                  f"`substrate.py`. Writing a plausible default here is the defect "
                  f"this guard exists to prevent.")
 
+    # Added in 1.2.0. Written next to `models` rather than into it so a reader
+    # keying on the old shape still finds exactly what it expects there.
+    models["sha256"] = hash_model_files(models)
+
     manifest = {
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "provenance": {
             "git_commit": get_git_commit(),
