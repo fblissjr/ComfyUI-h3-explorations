@@ -44,6 +44,33 @@ choice, not a correction.
 
 ---
 
+## Adjacent checkpoint-format status — AWQ is not one loader format
+
+This is not a MiniMax-release divergence, but it belongs beside the gap table
+because the filenames otherwise make the wrong conclusion easy.
+
+Core ComfyUI **does natively support the shipped NVFP4-AWQ H3 encoder** on
+compatible hardware. Its file uses the H3 namespace core detects
+(`visual.*`, `model.layers.0` through `49`) and carries per-layer
+`comfy_quant` records: 350 language linears declare `format=nvfp4`. The stock
+`CLIPLoader` is the correct owner of that artifact. This is native ComfyUI
+support, not code from this repository.
+
+The canonical graph selection, `qwen3vl_32b_minimax_h3_w4a16_awq.safetensors`, is AWQ-calibrated
+but is a different representation: compressed-tensors W4A16, packed `int32`
+weights, group-128 scales, and the full Hugging Face
+`model.language_model.*` namespace. Core lists it because the file is in
+`models/text_encoders`, then detects that namespace as Qwen3-VL-8B and builds
+width 4096 for width-5120 tensors. The resulting load failure was reproduced
+on 2026-08-23. `MiniMaxH3AWQEncoderLoader` is this repo's local adapter for
+that representation: it accepts any selected filename only after its embedded
+metadata and complete adapted tensor inventory satisfy the versioned contract.
+It does not supply or imply generic AWQ support in core.
+[`bench/check_h3_awq_encoder.py`](../bench/check_h3_awq_encoder.py) controls
+both sides from the real files.
+
+---
+
 ## Summary
 
 Priority is by what it costs a working user, not by how interesting it is.
@@ -653,6 +680,15 @@ rendered clip cannot A/B a numerical change.
 | The node that was missing entirely | [`reference_video_fit.py`](../reference_video_fit.py) |
 | Holds its copy of core's sizing rule to core's real behaviour | [`bench/check_ref_video_prediction.py`](../bench/check_ref_video_prediction.py) |
 | Opt-in local release policy | `MiniMaxH3ReferenceConditioning.video_policy=release`, controlled by [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) and its red harness |
+| Shipped hybrid encoder policy | `video_policy=encoder`: native-compatible no-upscale VAE geometry plus the selected encoder artifact's snapshotted duration-aware Qwen stage, implemented locally and controlled against accidental release-config substitution by the same runtime check |
+
+### Custom W4A16 encoder format (adjacent, not a vendor-release gap)
+
+| what | where |
+|---|---|
+| Native NVFP4-AWQ control and local compressed-tensors W4A16 loader contract | [`bench/check_h3_awq_encoder.py`](../bench/check_h3_awq_encoder.py) |
+| Repo-local loader/adaptation | [`h3_awq_encoder.py`](../h3_awq_encoder.py) (`MiniMaxH3AWQEncoderLoader`) |
+| Exact source artifact configs, recipes and digests | [`config/qwen3vl_32b_minimax_h3_w4a16_awq/`](../config/qwen3vl_32b_minimax_h3_w4a16_awq/) |
 
 ### The contracts underneath all of it
 
@@ -674,12 +710,14 @@ Soundtrack duration and mono normalization are executable properties of this
 repo's typed runtime; native ComfyUI remains unchanged. VAE tiling was removed
 as a gap after the native H3-owned paths were traced.
 
-The release's video upscale and duration-aware Qwen resize are now implemented
-as one **opt-in local policy**. `video_policy=release` puts the full-rate VAE
-view on the release canvas and independently runs the raw 2 fps samples through
-the release's own Qwen video processor. `video_policy=comfy` remains the
-generated default because the release path is materially more expensive and
-its quality benefit has not been measured. Native
+The release's video upscale and duration-aware Qwen resize are implemented as
+one **opt-in local policy**. `video_policy=release` puts the full-rate VAE view
+on the release canvas and independently runs the raw 2 fps samples through the
+release's own Qwen video processor. Shipped graphs now default to the local
+`video_policy=encoder` hybrid: it keeps ComfyUI's cheaper no-upscale VAE view
+while applying the custom encoder's source-config, duration-aware Qwen stage.
+`video_policy=comfy` remains available as the unmodified native preprocessing
+control. Native
 `MiniMaxH3ReferenceToVideo` still does neither stage and exposes no policy;
 this implementation therefore does not close gap 6 upstream.
 

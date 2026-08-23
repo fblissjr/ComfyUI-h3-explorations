@@ -8,6 +8,24 @@ artifact.
 
 ### Added
 
+- **A repo-local loader for compatible compressed-tensors W4A16 AWQ H3
+  encoders.** `MiniMaxH3AWQEncoderLoader` offers the real `text_encoders`
+  population and validates the selected checkpoint's embedded
+  Qwen3-VL-32B/group-128 config, retains the 50 H3 language layers, maps the
+  full Hugging Face namespace into core's native H3 model, exposes the packed
+  int4 weights to comfy-kitchen without a weight-sized repack, and installs the
+  source image/video preprocessing on that CLIP instance. It is not bound to a
+  filename: metadata, packing, every required native tensor, and shapes are the
+  acceptance boundary. FP32 H3 activations are narrowed only across the BF16
+  W4A16 matmul so kitchen selects its CUDA kernel, then restored to FP32 for
+  residual arithmetic. The small source
+  configs, tokenizer/processor declarations, quantization recipe and digests
+  are versioned under `config/qwen3vl_32b_minimax_h3_w4a16_awq/`; the model
+  remains an external symlink. `check_h3_awq_encoder.py` proves the distinction
+  the filenames hide: core natively recognizes the shipped NVFP4-AWQ artifact,
+  while this compressed-tensors W4A16 artifact still needs the local adapter.
+  This is not a claim that ComfyUI lacks AWQ support.
+
 - **A distilled graph is now checked against the grid it was distilled at.**
   `bench/check_distill_grid.py` grades where the scheduler actually puts the
   steps, which `check_distill_settings.py` never saw: that file grades the
@@ -34,6 +52,24 @@ artifact.
   strength, a post-load quantization all hash identically.
 
 ### Changed
+
+- **Generated graphs and the e2e bench now load the canonical W4A16 encoder
+  through its format owner**, not through core `CLIPLoader`. Core's menu did
+  offer the filename, but the executed job selected Qwen3-VL-8B from the full
+  HF namespace and failed width 4096 against H3's 5120. `check_model_files.py`
+  now separates discovery from format ownership, and
+  `check_bench_matches_shipped.py` grades the loader and filename alongside the
+  attention settings.
+
+- **Reference-video preprocessing defaults to `video_policy=encoder`.** It
+  keeps ComfyUI's cheaper, no-upscale VAE view while sending the raw 2 fps Qwen
+  samples through the custom encoder's source-config duration-aware processor.
+  `comfy` remains the native preprocessing control; `release` remains the
+  opt-in full local parity policy that also moves the VAE view to the release
+  canvas. All three are repo-local choices around core's unchanged reference
+  node, not native ComfyUI fixes. A red control deliberately makes `encoder`
+  read the release snapshot, so today's equal config values cannot hide which
+  artifact owns that policy.
 
 - **v1.1 is the canonical 768p LoRA on every operative surface.** Moving the
   constant was not the change: sixteen graphs loaded v1.1 while their own

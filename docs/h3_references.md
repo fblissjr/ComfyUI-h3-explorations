@@ -115,7 +115,8 @@ reach 7.5 megapixels when the video cannot exceed about one.
    routes through its canvas resolver. Native ComfyUI still has this
    divergence. This repo's typed conditioner can handle it locally with
    `video_policy=release`, which also enables the coupled Qwen stage below;
-   `comfy` remains the generated default.
+   generated graphs use `video_policy=encoder`, which keeps native-compatible
+   VAE sizing while enabling only the source-config Qwen stage.
 3. Truncated to the **generated** frame count, then snapped **down** to the
    `17n+5` grid. Fewer than 5 frames raises.
 4. VAE-encoded whole. Those rows ride **every sampling step**.
@@ -619,12 +620,14 @@ Native `_encode_ref_audio` still raises on mono, so both duration and channel
 handling must remain described as local behavior. Preflight reports native
 socket graphs separately, including "unreadable" when ffprobe cannot answer.
 
-**Video: available now as an opt-in compiler policy, not a new default.** The
-divergence is the same shape as the image one — native ComfyUI never upscales,
-where the release puts the clip on the full canvas rule — but video is the most
-expensive reference input. `MiniMaxH3ReferenceConditioning.video_policy` keeps
-`comfy` as the generated default and offers `release` for explicit parity
-experiments.
+**Video: full release parity remains opt-in; the encoder-aware hybrid is now
+the generated default.** The divergence is the same shape as the image one —
+native ComfyUI never upscales, where the release puts the clip on the full
+canvas rule — but video is the most expensive reference input.
+`MiniMaxH3ReferenceConditioning.video_policy=encoder` keeps the native
+no-upscale VAE view while applying the custom encoder's source-config,
+duration-aware processor to the raw 2 fps Qwen samples. `comfy` remains the
+native preprocessing control; `release` is the explicit full-parity experiment.
 
 `release` owns two inseparable stages. It upscales the full-rate view to
 `adapt_canvas` for the video VAE, then independently sends the raw 2 fps Qwen

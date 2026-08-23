@@ -788,7 +788,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               steps: int | None = None, shift: dict | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
-              ref_video_policy: str = "comfy",
+              ref_video_policy: str = "encoder",
               ref_video: bool = False, ref_video_audio: bool = True,
               ref_images_on: bool = True, ref_image_count: int = 2,
               ref_images: tuple[str, ...] | None = None,
@@ -812,10 +812,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     """
     if task not in ("t2v", "i2v", "r2v"):
         raise ValueError(task)
-    if ref_video_policy not in ("comfy", "release"):
+    if ref_video_policy not in ("comfy", "release", "encoder"):
         raise ValueError(
             f"unknown ref_video_policy {ref_video_policy!r}; "
-            "expected 'comfy' or 'release'"
+            "expected 'comfy', 'release', or 'encoder'"
         )
     _check_single_frame(single_frame, length)
     if single_frame and (stamp or split_at):
@@ -845,8 +845,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         "1": {"class_type": "UNETLoader",
               "inputs": {"unet_name": unet or MODELS["unet_ref2va" if ref else "unet_fl2va"],
                          "weight_dtype": "default"}},
-        "2": {"class_type": "CLIPLoader",
-              "inputs": {"clip_name": MODELS["clip"], "type": "minimax",
+        # Core CLIPLoader lists this file because it lists the directory; it
+        # cannot recognize compressed-tensors packing or the full HF namespace.
+        "2": {"class_type": "MiniMaxH3AWQEncoderLoader",
+              "inputs": {"encoder_name": MODELS["clip"],
                          "device": "default"}},
         # The image VAE ONLY on the single-frame path. See h3_config: same
         # frozen encoder, decoder retrained for one temporal latent, and its
@@ -3838,7 +3840,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              steps: int | None = None, shift: dict | None = None,
              sampler_name: str | None = None, scheduler_name: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
-             ref_video_policy: str = "comfy",
+             ref_video_policy: str = "encoder",
              ref_video: bool = False, ref_video_audio: bool = True,
              ref_images_on: bool = True, ref_image_count: int = 2,
              ref_images: tuple[str, ...] | None = None,
@@ -3865,10 +3867,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # exits -- leaving a graph that loads the one-frame VAE for a 124-frame
     # clip, which is exactly what the guard exists to prevent.
     _check_single_frame(single_frame, length)
-    if ref_video_policy not in ("comfy", "release"):
+    if ref_video_policy not in ("comfy", "release", "encoder"):
         raise ValueError(
             f"unknown ref_video_policy {ref_video_policy!r}; "
-            "expected 'comfy' or 'release'"
+            "expected 'comfy', 'release', or 'encoder'"
         )
     cv = dict(CANVAS, **canvas)
     # THE DEFAULT PROMPT FOLLOWS THE SOCKETS, NOT THE TASK STRING. `i2v`
@@ -3887,9 +3889,12 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                       widgets=[unet or MODELS["unet_ref2va" if ref else "unet_fl2va"],
                                "default"],
                       outputs=[_out("MODEL", "MODEL")])
-    clip = g.add("CLIPLoader", (-1500, 140), size=(560, 110),
-                 widgets=[MODELS["clip"], "minimax", "default"],
-                 outputs=[_out("CLIP", "CLIP")])
+    clip = g.add(
+        "MiniMaxH3AWQEncoderLoader", (-1500, 140), size=(560, 110),
+        widgets=[MODELS["clip"], "default"],
+        outputs=[_out("CLIP", "CLIP")],
+        title="Load custom H3 W4A16 encoder (repo adapter)",
+    )
     # Single-frame swaps the decoder, and the node TITLE carries the warning:
     # it is the only thing visible when someone copies this node into a video
     # graph, which is the mistake worth making hard to make.
@@ -5085,7 +5090,8 @@ def main():
               sampler_name=TURBO_SAMPLER, scheduler_name=TURBO_OWNER_SCHEDULER,
               out_prefix="Video/h3_probe_turbo_768p_owner",
               variant_note=_NOTE_TURBO_OWNER),
-         "the 768p turbo LoRA at the owner's recipe: euler, beta, 4 steps, strength 0.75"),
+         f"the 768p turbo LoRA at the owner's recipe: euler, beta, "
+         f"{TURBO_768P_STEPS} steps, strength {TURBO_768P_STRENGTH:g}"),
 
         # The SLA release on the same row. A probe rather than a shipped
         # variant because nothing is known about how a LoRA distilled under

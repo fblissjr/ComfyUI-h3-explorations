@@ -23,6 +23,9 @@ is the property that silently broke.
 
 Claims, i.e. what breaks if a case is deleted:
 
+  clip_matches       the bench loads a different text encoder from the shipped
+                     graph, so every e2e arm pays a different memory/load path
+                     and conditions from different quantized weights.
   sage_matches       the bench measures a sage configuration nobody ships, in
                      the direction that understates every arm compared against
                      it. This is the case that would have caught 2026-08-13.
@@ -35,7 +38,9 @@ Claims, i.e. what breaks if a case is deleted:
                      knob. Cheap, and it is the thing that changed today.
 
 Shown red: 2026-08-14, by reverting the bench's sage node to `mode="auto"` --
-the exact historical bug. `sage_matches` failed and named the key.
+the exact historical bug. `sage_matches` failed and named the key. Shown red
+again 2026-08-23 when the shipped encoder moved to the owner's W4A16 AWQ build
+while the bench retained int8_convrot; `clip_matches` named that exact drift.
 
 Needs neither CUDA nor a model nor a server. Runs in about a second.
 """
@@ -103,6 +108,20 @@ def built_inputs(class_type):
 print(f"the bench's `shipped` arm vs what workflows/ ships "
       f"(sol backend: {bench.SOL_BACKEND}):\n")
 
+print("text encoder:")
+want = node_inputs(SAGE_GRAPH, "MiniMaxH3AWQEncoderLoader")
+got = built_inputs("MiniMaxH3AWQEncoderLoader")
+if want is None or got is None:
+    check("clip_matches", False,
+          f"missing MiniMaxH3AWQEncoderLoader in "
+          f"{'the graph' if want is None else 'the bench graph'}")
+else:
+    diff = {k: (want.get(k), got.get(k)) for k in set(want) | set(got)
+            if want.get(k) != got.get(k)}
+    check("clip_matches", not diff,
+          f"differs: {diff} (graph, bench)" if diff else f"{len(want)} inputs agree")
+
+print()
 print("sage node:")
 want = node_inputs(SAGE_GRAPH, "MiniMaxH3SageAttention")
 got = built_inputs("MiniMaxH3SageAttention")

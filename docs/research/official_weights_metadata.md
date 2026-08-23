@@ -259,6 +259,30 @@ Recorded so nobody re-derives them:
 
 ---
 
+## AWQ checkpoint formats: one native, one locally adapted
+
+Recorded 2026-08-23 after a filename-level comparison incorrectly suggested
+that ComfyUI either supports “AWQ” or does not. AWQ describes calibration; the
+two installed artifacts use different storage and loader contracts.
+
+| artifact | stored contract | owner here |
+|---|---|---|
+| `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors` | native H3 namespace; 350 `format=nvfp4` `comfy_quant` linears plus an int8 embedding | core `CLIPLoader` — native ComfyUI support |
+| `qwen3vl_32b_minimax_h3_w4a16_awq.safetensors` | full 64-layer HF namespace; compressed-tensors signed W4 group-128 `weight_packed`/`weight_scale`/`weight_shape` records | this repo's `MiniMaxH3AWQEncoderLoader` |
+
+Core's directory scan offers both names, but discovery is not representation
+support. Executing the W4A16 artifact under core on 2026-08-23 selected
+Qwen3-VL-8B from its full HF namespace, instantiated width 4096, and rejected
+the H3 width-5120 tensors. The local adapter is not bound to that basename: it
+validates whichever file the user selects, including its embedded config and
+complete native H3 tensor inventory, against
+[`config/qwen3vl_32b_minimax_h3_w4a16_awq/`](../../config/qwen3vl_32b_minimax_h3_w4a16_awq/),
+retains layers 0–49, maps the namespace, exposes the packed nibbles to
+comfy-kitchen without a weight-sized copy, and uses the source processor
+configuration. It deliberately leaves core architecture and tokenizer in
+charge. [`bench/check_h3_awq_encoder.py`](../../bench/check_h3_awq_encoder.py)
+proves the native NVFP4 control and the local W4A16 contract separately.
+
 ---
 
 ## Which divergence is live in which mode

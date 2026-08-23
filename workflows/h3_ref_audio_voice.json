@@ -47,7 +47,7 @@
     },
     {
       "id": 2,
-      "type": "CLIPLoader",
+      "type": "MiniMaxH3AWQEncoderLoader",
       "pos": [
         -1500,
         140
@@ -70,13 +70,13 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "CLIPLoader"
+        "Node name for S&R": "MiniMaxH3AWQEncoderLoader"
       },
       "widgets_values": [
-        "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
-        "minimax",
+        "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
         "default"
-      ]
+      ],
+      "title": "Load custom H3 W4A16 encoder (repo adapter)"
     },
     {
       "id": 3,
@@ -473,7 +473,7 @@
         768,
         362,
         true,
-        "comfy"
+        "encoder"
       ]
     },
     {

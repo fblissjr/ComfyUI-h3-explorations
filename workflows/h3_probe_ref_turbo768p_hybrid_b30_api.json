@@ -7,10 +7,9 @@
     }
   },
   "2": {
-    "class_type": "CLIPLoader",
+    "class_type": "MiniMaxH3AWQEncoderLoader",
     "inputs": {
-      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
-      "type": "minimax",
+      "encoder_name": "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
       "device": "default"
     }
   },
@@ -178,7 +177,7 @@
         2
       ],
       "vendor_tokens": true,
-      "video_policy": "comfy"
+      "video_policy": "encoder"
     }
   },
   "15": {

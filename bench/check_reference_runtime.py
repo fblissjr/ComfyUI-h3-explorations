@@ -247,6 +247,16 @@ def release_video_policy_is_opt_in_and_two_stage():
         assert tuple(comfy_items[0]["data"].shape[1:3]) == (32, 32)
         assert tuple(release_items[0]["data"].shape[1:3]) == (64, 64)
 
+        # The encoder policy keeps the native-compatible VAE size while using
+        # the source-config Qwen stage. It is the shipped custom-loader default.
+        encoder_vae = _VideoVae()
+        encoder_items, _ = R._compile_reference_records(
+            records, encoder_vae, _AudioVae(), 64, 64, 22,
+            video_policy="encoder",
+        )
+        assert tuple(encoder_vae.inputs[0].shape[1:3]) == (32, 32)
+        assert tuple(encoder_items[0]["data"].shape[1:3]) == (64, 64)
+
         # Then isolate the Qwen stage. With an identity VAE canvas, the
         # release processor's clip floor moves only the sampled Qwen view.
         R.adapt_canvas = lambda w, h: (w, h)
@@ -330,6 +340,37 @@ def release_policy_floor_is_two_sampled_frames():
     assert items, "22 prepared frames must pass release mode"
 
 
+def encoder_policy_reads_encoder_config():
+    """Encoder policy is governed by the encoder snapshot, not release data.
+
+    The two checked-in processors happen to agree today. Make their temporal
+    factors disagree in memory so this case proves which authority is read;
+    comparing their current values would go green even if the wrong one won.
+    """
+    original_source_geometry = R.source_video_patch_geometry
+    original_release_geometry = R.video_patch_geometry
+    try:
+        source = dict(original_source_geometry())
+        release = dict(original_release_geometry())
+        source["temporal_patch_size"] = 4
+        release["temporal_patch_size"] = 2
+        R.source_video_patch_geometry = lambda: source
+        R.video_patch_geometry = lambda: release
+
+        try:
+            R._encoder_qwen_video_size(2, 960, 544)
+        except ValueError as exc:
+            assert "encoder video policy needs at least 4" in str(exc), exc
+        else:
+            raise AssertionError("encoder policy ignored its source temporal factor")
+
+        assert R._release_qwen_video_size(2, 960, 544), (
+            "release policy incorrectly inherited the encoder's test geometry")
+    finally:
+        R.source_video_patch_geometry = original_source_geometry
+        R.video_patch_geometry = original_release_geometry
+
+
 def conditioning_node_assembles_the_real_payload_shape():
     """The registered node attaches minimax_refs and an H3 nested latent."""
     records = (
@@ -372,6 +413,7 @@ CHECKS = (
     compiler_preserves_one_order_for_both_lists,
     release_video_policy_is_opt_in_and_two_stage,
     release_policy_floor_is_two_sampled_frames,
+    encoder_policy_reads_encoder_config,
     conditioning_node_assembles_the_real_payload_shape,
 )
 

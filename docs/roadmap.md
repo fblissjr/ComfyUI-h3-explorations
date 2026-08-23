@@ -57,7 +57,11 @@ The next policy slice is also complete:
 5. `MiniMaxH3ReferenceConditioning.video_policy=release` is one opt-in switch
    for both release-video stages: the full-rate VAE view is put on the release
    canvas, while the raw 2 fps Qwen samples go through the release's
-   duration-aware video processor. `comfy` remains the default.
+   duration-aware video processor. Generated graphs now use `encoder`: the
+   selected encoder artifact's snapshotted Qwen stage with Comfy-compatible
+   no-upscale VAE sizing. The two snapshots agree today but remain separate
+   authorities and are tested by deliberate disagreement.
+   `comfy` remains the native preprocessing control.
 6. Added `h3_probe_release_video_policy` against the otherwise-matched
    `h3_ref_video_audio` graph. Preflight marks which VAE and Qwen rows are
    active and labels the release path as a local typed policy, not a native
@@ -65,8 +69,9 @@ The next policy slice is also complete:
 7. The 39-frame live acceptance rendered in 92.73 seconds. The server logged
    the 960x544 source becoming a 1344x768 VAE reference, four raw Qwen samples,
    23,892 packed rows, Sage routing, and Sol sparse execution. The CPU control
-   separately pins the long-duration 31-versus-32-sample boundary and its red
-   mutation collapses Qwen back onto the VAE frames.
+   separately pins the long-duration 31-versus-32-sample boundary; its red
+   mutations collapse Qwen back onto the VAE frames and substitute release
+   settings for encoder settings.
 
 Next, in order:
 

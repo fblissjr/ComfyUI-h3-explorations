@@ -12,10 +12,17 @@ never rendered; keep it structural rather than remembered.
 Nothing here is allowed to have a second copy anywhere in the repo.
 """
 
-# Checkpoint names are the ones ComfyUI actually offers. The bundled
-# templates ask for `qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors`, an NVFP4
-# text encoder that is not present in this install (and is a
-# Blackwell-oriented quant); the int8_convrot build is the one to use.
+# Checkpoint names are the ones their owning loader actually offers. The text
+# encoder is the canonical custom W4A16 AWQ build. Core CLIPLoader also lists it,
+# but that is filesystem discovery, not format support: the file uses
+# compressed-tensors' full Hugging Face namespace and metadata, while native
+# H3 expects Comfy's 50-layer namespace and quant metadata. This repo's
+# `MiniMaxH3AWQEncoderLoader` performs that adaptation in memory and dispatches
+# the weights through comfy-kitchen. Architecture and tokenizer are native
+# ComfyUI; format recognition/repacking and config-driven preprocessing are
+# explicitly local handling. The graph must name a concrete file; the custom
+# loader itself is not filename-bound and validates any selected file by its
+# metadata and complete adapted tensor inventory.
 MODELS = dict(
     unet_fl2va="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
     unet_ref2va="minimax_h3_ref2va_pruned_int8_convrot.safetensors",
@@ -29,7 +36,7 @@ MODELS = dict(
     # The filenames end `-int8`, not `_int8_convrot`; `substrate.py` tags them.
     unet_hybrid_b30="minimax_h3_hybrid_fl2va_ref2va_b30-49-int8.safetensors",
     unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
-    clip="qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+    clip="qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
     # The fp16 video VAE, and it is the best build available in ComfyUI's
     # format. **Measured 2026-08-21** against the official release's fp32
     # weights (`MiniMaxAI/MiniMax-H3`, `video_vae/source/model.safetensors`):

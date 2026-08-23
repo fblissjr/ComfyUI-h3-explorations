@@ -205,12 +205,16 @@ and ordered resolver had stopped changing under adversarial review:
   to 24 fps, duplicates mono to stereo, and caps audio at aligned
   `frame_count / 24`;
 - reference geometry defaults to Comfy-compatible and no-upscale. The later
-  opt-in `video_policy=release` change is separate from the ordering migration.
+  video policies are separate from the ordering migration: `encoder` is the
+  shipped hybrid default, while full `release` geometry remains opt-in.
 
 `bench/check_reference_runtime.py` controls the runtime boundary with stub
 VAEs and no CUDA; `bench/red/show_red_reference_runtime.py` makes ignored fps,
 skipped audio normalization, foreign metadata, reversed order, and a release
-policy that reuses the VAE frames for Qwen go red.
+policy that reuses the VAE frames for Qwen go red. A sixth mutation makes the
+`encoder` policy read the release snapshot; it goes red even though the two
+checked-in configs agree today, proving that the selected encoder remains the
+authority if they diverge later.
 `bench/check_typed_reference_consumers.py` proves label discovery and preflight
 read the same validated chain.
 
@@ -231,14 +235,17 @@ server logged `presentation=['<Picture 1>', '<Picture 2>', '<Audio 1>',
 execution, and all twenty native tokens already present, so the local token
 compatibility helper was a no-op.
 
-**Release reference-video preparation is now an opt-in local policy.** The
-`comfy` default preserves the cheaper native no-upscale/shared-frame path.
-`release` atomically puts the full-rate clip on the release canvas for the VAE
-and runs the raw 2 fps Qwen samples through the release's own duration-aware
-processor. The two switches are not exposed separately: upscale alone would
-overshoot the release's Qwen row budget after its long-duration boundary.
+**Release reference-video preparation remains an opt-in local policy.** The
+generated `encoder` default preserves the cheaper native no-upscale VAE path
+but runs the raw 2 fps Qwen samples through the custom encoder's source-config,
+duration-aware processor. `comfy` is the unchanged native preprocessing
+control. `release` additionally puts the full-rate clip on the release canvas
+for the VAE. The policy stages remain named together rather than exposed as
+independent low-level toggles: upscale without the matching Qwen policy would
+overshoot the release's row budget after its long-duration boundary.
 `check_reference_runtime.py` pins the raw 31-versus-padded-32 grid and the
-two-view compiler path; the red harness detects collapsing them.
+two-view compiler path; the red harness detects collapsing them or reading the
+release snapshot under the encoder policy.
 
 The live release-policy smoke rendered at 1024x768, 39 frames, and 10 steps in
 92.73 seconds. Its 960x544 source reached the VAE at 1344x768, Qwen received

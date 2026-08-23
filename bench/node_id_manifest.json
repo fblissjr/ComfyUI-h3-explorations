@@ -1,4 +1,14 @@
 {
+  "MiniMaxH3AWQEncoderLoader": {
+    "inputs": [
+      "encoder_name",
+      "device"
+    ],
+    "node_id": "MiniMaxH3AWQEncoderLoader",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3AppendRefAudio": {
     "inputs": [
       "audio",

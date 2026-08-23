@@ -8,10 +8,11 @@ Qwen presentation and the DiT payload.
 
 Still images retain their per-record ``match``/``max`` policy. Reference video
 preparation is selected once at the compiler boundary: ``comfy`` keeps core's
-no-upscale/shared-frame behaviour, while the opt-in ``release`` policy both
-puts the VAE view on the release canvas and sends the sampled Qwen view through
-the release's duration-aware video processor. Those two release stages are one
-policy because enabling the upscale alone overshoots Qwen's long-clip budget.
+no-upscale/shared-frame behaviour, ``encoder`` keeps that VAE behaviour while
+using the selected encoder artifact's snapshotted Qwen processor settings, and
+``release`` both puts the VAE view on the release canvas and uses the release
+processor settings. The two release stages are one policy because enabling the
+upscale alone overshoots Qwen's long-clip budget.
 
 This is local release-parity handling. It does not change native ComfyUI's
 ``MiniMaxH3ReferenceToVideo`` node or close either upstream gap.
@@ -40,6 +41,10 @@ from comfy_extras.nodes_minimax_h3 import (
 )
 
 from .reference_order import AudioRef, ImageRef, VideoRef, assign_labels
+from .h3_awq_encoder import (
+    source_video_patch_geometry,
+    source_video_pixel_bounds,
+)
 from .vendor_config import video_patch_geometry, video_pixel_bounds
 from .vendor_tokens import clip_with_vendor_tokens
 
@@ -47,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 H3References = io.Custom("MINIMAX_H3_REFERENCES")
 VHSVideoInfo = io.Custom("VHS_VIDEOINFO")
-VIDEO_POLICIES = ("comfy", "release")
+VIDEO_POLICIES = ("comfy", "release", "encoder")
 
 
 @dataclass(frozen=True)
@@ -213,24 +218,32 @@ def _prepare_reference_video(frames, loaded_fps: float, frame_count: int):
     return frames[:n]
 
 
-def _release_qwen_video_size(
-    sampled_count: int, width: int, height: int
+def _qwen_video_settings(video_policy: str) -> tuple[tuple[int, int], dict]:
+    """Return the settings owned by the selected Qwen preprocessing policy."""
+    if video_policy == "release":
+        return video_pixel_bounds(), video_patch_geometry()
+    if video_policy == "encoder":
+        return source_video_pixel_bounds(), source_video_patch_geometry()
+    raise ValueError(f"no configured Qwen processor for policy {video_policy!r}")
+
+
+def _configured_qwen_video_size(
+    sampled_count: int, width: int, height: int, video_policy: str,
 ) -> tuple[int, int]:
-    """Return the release processor's Qwen view as ``(width, height)``.
+    """Return a configured processor's Qwen view as ``(width, height)``.
 
     The clip-wide pixel budget is divided by the RAW 2 fps sample count. The
     odd repeat pad belongs to Comfy's later temporal-block presentation and
     must not be passed here: at 31 versus 32 samples it changes the spatial
     grid despite leaving the temporal-block count unchanged.
 
-    ``smart_resize`` is imported from the installed release processor rather
-    than copied. Its bounds and patch geometry come from this repo's verbatim
-    release configs, never from literals or Comfy's shared Qwen defaults.
+    ``smart_resize`` is imported from the installed processor rather than
+    copied. Bounds and patch geometry come from the selected policy's config,
+    never from literals or Comfy's shared Qwen defaults.
     """
     from transformers.models.qwen3_vl.video_processing_qwen3_vl import smart_resize
 
-    min_pixels, max_pixels = video_pixel_bounds()
-    geometry = video_patch_geometry()
+    (min_pixels, max_pixels), geometry = _qwen_video_settings(video_policy)
     # `smart_resize` needs a full temporal patch, not merely one frame: it
     # raises `t:1 must be larger than temporal_factor:2` from inside
     # transformers, which names neither the reference nor the policy. The bound
@@ -247,7 +260,7 @@ def _release_qwen_video_size(
     temporal_factor = int(geometry["temporal_patch_size"])
     if sampled_count < temporal_factor:
         raise ValueError(
-            f"release video policy needs at least {temporal_factor} sampled "
+            f"{video_policy} video policy needs at least {temporal_factor} sampled "
             f"frames at 2 fps, got {sampled_count}. Reference lengths snap to "
             f"17n+5, so the shortest clip this policy can take is 22 prepared "
             f"frames (~0.9s); 5 frames samples to one. Use video_policy="
@@ -265,16 +278,34 @@ def _release_qwen_video_size(
     return int(target_w), int(target_h)
 
 
-def _release_qwen_video_frames(frames):
-    """Resize one raw sampled clip with the release's own bicubic processor.
+def _release_qwen_video_size(
+    sampled_count: int, width: int, height: int
+) -> tuple[int, int]:
+    """Compatibility wrapper for the release-policy sizing seam."""
+    return _configured_qwen_video_size(
+        sampled_count, width, height, video_policy="release"
+    )
+
+
+def _encoder_qwen_video_size(
+    sampled_count: int, width: int, height: int
+) -> tuple[int, int]:
+    """Size with the selected encoder artifact's snapshotted settings."""
+    return _configured_qwen_video_size(
+        sampled_count, width, height, video_policy="encoder"
+    )
+
+
+def _configured_qwen_video_frames(frames, video_policy: str):
+    """Resize one raw sampled clip with the policy's bicubic processor.
 
     Only the sampled Qwen view reaches this function. The full-rate frames for
     the video VAE remain on the release canvas, matching the serving path's
     two independently prepared views.
     """
     sampled_count, height, width = _image_shape(frames, "sampled Qwen video")
-    target_w, target_h = _release_qwen_video_size(
-        sampled_count, width, height
+    target_w, target_h = _configured_qwen_video_size(
+        sampled_count, width, height, video_policy
     )
     if (target_w, target_h) == (width, height):
         return frames
@@ -282,7 +313,7 @@ def _release_qwen_video_frames(frames):
     # The processor's resize method is the pixel authority as well as
     # `smart_resize` being the geometry authority: it preserves the release's
     # bicubic kernel instead of substituting Comfy's bilinear video-block path.
-    processor = _release_qwen_video_processor()
+    processor = _qwen_video_processor(video_policy)
     # The released serving path decodes media into uint8 and the HF processor
     # resizes those pixels before its 1/255 rescale. Comfy IMAGE values arrive
     # as floats in [0, 1], so temporarily restore that uint8 boundary; running
@@ -302,7 +333,7 @@ def _release_qwen_video_frames(frames):
     )
     if tuple(resized.shape[-2:]) != (target_h, target_w):
         raise RuntimeError(
-            "release Qwen processor disagreed with its smart_resize result: "
+            f"{video_policy} Qwen processor disagreed with its smart_resize result: "
             f"planned {target_w}x{target_h}, produced "
             f"{int(resized.shape[-1])}x{int(resized.shape[-2])}"
         )
@@ -312,17 +343,27 @@ def _release_qwen_video_frames(frames):
     return resized
 
 
-@functools.lru_cache(maxsize=1)
-def _release_qwen_video_processor():
-    """Construct the release processor once, and only if release mode runs."""
+def _release_qwen_video_frames(frames):
+    """Resize with the local release-parity processor configuration."""
+    return _configured_qwen_video_frames(frames, video_policy="release")
+
+
+def _encoder_qwen_video_frames(frames):
+    """Resize with the selected encoder artifact's processor configuration."""
+    return _configured_qwen_video_frames(frames, video_policy="encoder")
+
+
+@functools.lru_cache(maxsize=2)
+def _qwen_video_processor(video_policy: str):
+    """Construct a configured processor once, and only when its policy runs."""
     from transformers.models.qwen3_vl.video_processing_qwen3_vl import (
         Qwen3VLVideoProcessor,
     )
 
-    min_pixels, max_pixels = video_pixel_bounds()
+    (min_pixels, max_pixels), geometry = _qwen_video_settings(video_policy)
     return Qwen3VLVideoProcessor(
         size={"shortest_edge": min_pixels, "longest_edge": max_pixels},
-        **video_patch_geometry(),
+        **geometry,
     )
 
 
@@ -344,7 +385,7 @@ def _order_records(records) -> list[ImageRef | VideoRef | AudioRef]:
 
 def _compile_reference_records(
     records, vae, audio_vae, width, height, frame_count,
-    video_policy="comfy",
+    video_policy="encoder",
 ):
     """Compile one ordered record list into Qwen items and DiT blocks."""
     if video_policy not in VIDEO_POLICIES:
@@ -391,7 +432,7 @@ def _compile_reference_records(
             )
             _, source_h, source_w = _image_shape(frames, f"reference video {index + 1}")
             canvas_w, canvas_h = adapt_canvas(source_w, source_h)
-            if (video_policy == "comfy"
+            if (video_policy in ("comfy", "encoder")
                     and source_w * source_h < canvas_w * canvas_h):
                 # Core never upscales a reference video.
                 canvas_w = max(
@@ -417,6 +458,8 @@ def _compile_reference_records(
             qwen_frames = frames[sample_indices]
             if video_policy == "release":
                 qwen_frames = _release_qwen_video_frames(qwen_frames)
+            elif video_policy == "encoder":
+                qwen_frames = _encoder_qwen_video_frames(qwen_frames)
             ref_items.append({
                 "type": "video",
                 "data": qwen_frames,
@@ -586,11 +629,13 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
                 # controls after every established widget.
                 io.Combo.Input(
                     "video_policy", options=list(VIDEO_POLICIES),
-                    default="comfy", optional=True,
+                    default="encoder", optional=True,
                     tooltip=(
-                        "Reference VIDEO preparation only. comfy preserves "
-                        "native ComfyUI's cheaper no-upscale/shared-frame "
-                        "behaviour. release is an opt-in local parity policy: "
+                        "Reference VIDEO preparation only. encoder (default) "
+                        "keeps ComfyUI's cheaper no-upscale VAE view but runs "
+                        "the raw 2 fps Qwen samples through the encoder's "
+                        "duration-aware config. comfy is native ComfyUI "
+                        "preprocessing. release is a full local parity policy: "
                         "it upscales the VAE view to the release canvas AND "
                         "runs the raw 2 fps Qwen samples through the release's "
                         "duration-aware processor. The two stages are atomic "
@@ -608,7 +653,7 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
     @classmethod
     def execute(
         cls, clip, vae, audio_vae, references, prompt, width=1344,
-        height=768, length=124, vendor_tokens=True, video_policy="comfy",
+        height=768, length=124, vendor_tokens=True, video_policy="encoder",
     ):
         records = _reference_tuple(references)
         if not records:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""No graph and no constant may name a model file ComfyUI cannot offer.
+"""No graph or constant may name a model file its real loader cannot use.
 
 ## The escape this exists for
 
@@ -19,16 +19,22 @@ loader.
 
 ## What it asserts
 
-`/object_info` is the authority, not the filesystem. A file present on disk
-that ComfyUI does not index is unusable, and a name ComfyUI offers is usable
-whatever the disk layout underneath -- symlinks into other volumes are the
-normal case in this install.
+`/object_info` is the authority for discovery, not the filesystem. A file
+present on disk that ComfyUI does not index is unusable. Discovery is not
+format acceptance, though: on 2026-08-23 core `CLIPLoader` offered the owner's
+compressed-tensors AWQ file, then misdetected its full Hugging Face namespace
+as ordinary Qwen3-VL and could not load it. That escaped this check's original
+"offered means usable" claim. The W4A16 file therefore has one explicit owner,
+this repo's `MiniMaxH3AWQEncoderLoader`; naming it under core is red even while
+core's menu contains it. Symlinks into other volumes remain normal.
 
   resolves    every `*.safetensors` name in a shipped graph is one the live
               server offers for THAT node class. A VAE name under `UNETLoader`
               is a failure even though both files exist.
   constants   every model name in `h3_config.MODELS`, plus `IMAGE_VAE`, is
               offered by the class that loads it.
+  format owner the custom compressed-tensors W4A16 artifact is loaded only by
+              the repo adapter that recognizes and repacks that format.
 
 ## Scope
 
@@ -46,12 +52,14 @@ files that are gone.
 
 ## Controls
 
-Four deliberate checks run on every invocation, because a corpus in which
+Deliberate controls run on every invocation, because a corpus in which
 every name is already valid cannot tell a working check from an inert one:
 
   control:missing   a synthetic graph naming a file no server offers -> red
   control:wrongclass a synthetic graph naming a REAL vae under UNETLoader -> red
   control:bothforms both combo declaration forms are read, on a fixture
+  control:format-owner core offering the AWQ filename does not make core a
+                       compatible loader
   control:empty     an empty corpus must not report success
 
 Needs a live ComfyUI. With none it SKIPS loudly and exits 2, because the only
@@ -78,8 +86,10 @@ DEFAULT_URL = "http://127.0.0.1:8188"
 CONSTANT_CLASS = {
     "unet": "UNETLoader", "unet_fl2va": "UNETLoader", "unet_ref2va": "UNETLoader",
     "unet_hybrid_b30": "UNETLoader", "unet_hybrid_adaln_all": "UNETLoader",
-    "clip": "CLIPLoader", "video_vae": "VAELoader", "audio_vae": "VAELoader",
+    "clip": "MiniMaxH3AWQEncoderLoader",
+    "video_vae": "VAELoader", "audio_vae": "VAELoader",
 }
+AWQ_LOADER = "MiniMaxH3AWQEncoderLoader"
 
 
 def object_info(base: str) -> dict:
@@ -147,6 +157,20 @@ def grade(items, oi: dict) -> list[str]:
     return bad
 
 
+def grade_format_owner(items) -> list[str]:
+    """The escaped case: a filesystem menu entry is not loader support."""
+    bad = []
+    awq_name = MODELS["clip"]
+    for where, cls, name in items:
+        if name == awq_name and cls != AWQ_LOADER:
+            bad.append(
+                f"{where}: {name!r} is compressed-tensors AWQ and must use "
+                f"{AWQ_LOADER}, not {cls}. Core menu discovery is not format "
+                "support."
+            )
+    return bad
+
+
 def main() -> int:
     base = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_URL
     try:
@@ -166,7 +190,7 @@ def main() -> int:
             items.append((f"h3_config.MODELS[{key!r}]", cls, MODELS[key]))
     items.append(("h3_config.IMAGE_VAE", "VAELoader", IMAGE_VAE))
 
-    failures = grade(items, oi)
+    failures = grade(items, oi) + grade_format_owner(items)
     print(f"{len(items)} model reference(s) from "
           f"{len(graph_paths(WORKFLOWS, include_bench=True))} graph(s) "
           f"(shipped, image and bench) and h3_config")
@@ -184,17 +208,21 @@ def main() -> int:
     controls.append(("control:empty", not items))
     controls.insert(2, ("control:bothforms",
                         seen == {"legacy_only.safetensors", "v3_only.safetensors"}))
+    core_awq = [("control", "CLIPLoader", MODELS["clip"])]
+    controls.insert(3, ("control:format-owner", bool(grade_format_owner(core_awq))))
 
     ok = True
     verdict = {"control:missing": ("went red as it must", "did NOT fire"),
                "control:wrongclass": ("went red as it must", "did NOT fire"),
                "control:bothforms": ("reads both combo forms",
                                      "misses a combo form, so a green means "
-                                     "nothing")}
-    for name, fired in controls[:3]:
+                                     "nothing"),
+               "control:format-owner": ("rejects core's false-positive menu entry",
+                                         "accepted discovery as format support")}
+    for name, fired in controls[:4]:
         print(f"  {'ok  ' if fired else 'FAIL'} {name} {verdict[name][0 if fired else 1]}")
         ok &= fired
-    if controls[3][1]:
+    if controls[4][1]:
         print("  FAIL control:empty  nothing was collected, so a pass here "
               "would mean nothing")
         ok = False
@@ -204,9 +232,9 @@ def main() -> int:
     for f in failures:
         print(f"  FAIL {f}")
     if failures:
-        print(f"\n{len(failures)} reference(s) name a file the server cannot "
-              "load. A graph that names a missing model fails at the loader, "
-              "after the queue and after the model load it did manage.")
+        print(f"\n{len(failures)} reference(s) name a missing file or use a "
+              "loader that does not own its format. Either fails only after "
+              "the graph reaches that loader.")
     elif ok:
         print("  ok   resolves  every reference is offered by its own class")
     return 0 if ok and not failures else 1

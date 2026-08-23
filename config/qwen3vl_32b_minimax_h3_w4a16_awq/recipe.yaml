@@ -1,0 +1,26 @@
+default_stage:
+  default_modifiers:
+    AWQModifier:
+      requires_calibration_data: true
+      mappings:
+      - smooth_layer: re:.*input_layernorm$
+        balance_layers: ['re:.*q_proj$', 're:.*k_proj$', 're:.*v_proj$']
+        activation_hook_target: null
+      - smooth_layer: re:.*v_proj$
+        balance_layers: ['re:.*o_proj$']
+        activation_hook_target: null
+      - smooth_layer: re:.*post_attention_layernorm$
+        balance_layers: ['re:.*gate_proj$', 're:.*up_proj$']
+        activation_hook_target: null
+      - smooth_layer: re:.*up_proj$
+        balance_layers: ['re:.*down_proj$']
+        activation_hook_target: null
+      duo_scaling: false
+      n_grid: 20
+    QuantizationModifier:
+      targets: [Linear]
+      ignore: [lm_head, 're:.*visual.*', 're:.*embed_tokens', 're:.*input_layernorm$', 're:.*post_attention_layernorm$',
+        're:.*norm$']
+      scheme: W4A16
+      bypass_divisibility_checks: false
+      requires_calibration_data: false

@@ -62,7 +62,7 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "workflows"))
-from h3_config import SAMPLING  # noqa: E402
+from h3_config import MODELS, SAMPLING  # noqa: E402
 
 # Settings lifted from the bundled i2v template so this measures the
 # configuration people actually run.
@@ -81,7 +81,7 @@ from h3_config import SAMPLING  # noqa: E402
 # reproduce them. The `shipped` arm is what carries the graphs' own settings.
 DEFAULTS = dict(
     unet="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
-    clip="qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+    clip=MODELS["clip"],
     video_vae="minimax_h3_video_vae_fp16.safetensors",
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
     sampler=SAMPLING["sampler"],
@@ -301,8 +301,8 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
     g = {
         "1": {"class_type": "UNETLoader",
               "inputs": {"unet_name": cfg["unet"], "weight_dtype": "default"}},
-        "2": {"class_type": "CLIPLoader",
-              "inputs": {"clip_name": cfg["clip"], "type": "minimax", "device": "default"}},
+        "2": {"class_type": "MiniMaxH3AWQEncoderLoader",
+              "inputs": {"encoder_name": cfg["clip"], "device": "default"}},
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": cfg["video_vae"]}},
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": cfg["audio_vae"]}},
         "5": {"class_type": "MiniMaxH3ImageToVideo",

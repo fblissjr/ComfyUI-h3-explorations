@@ -92,12 +92,23 @@ def build():
         ),
     )
     h.case(
-        "M5 release policy reuses the VAE frames for Qwen",
+        "M5 release Qwen policy reuses the VAE frames",
         MUTATION,
         _under(
             "_release_qwen_video_frames",
             lambda _original: lambda frames: frames,
             C.release_video_policy_is_opt_in_and_two_stage,
+        ),
+    )
+    h.case(
+        "M6 encoder policy reads release config instead of encoder config",
+        MUTATION,
+        _under(
+            "_qwen_video_settings",
+            lambda original: (
+                lambda _policy: original("release")
+            ),
+            C.encoder_policy_reads_encoder_config,
         ),
     )
 
@@ -122,9 +133,14 @@ def build():
         lambda: _holds(C.compiler_preserves_one_order_for_both_lists),
     )
     h.case(
-        "G5 restored: atomic release video policy",
+        "G5 restored: distinct release Qwen view",
         NEAR_MISS,
         lambda: _holds(C.release_video_policy_is_opt_in_and_two_stage),
+    )
+    h.case(
+        "G6 restored: encoder config owns encoder policy",
+        NEAR_MISS,
+        lambda: _holds(C.encoder_policy_reads_encoder_config),
     )
     return h
 

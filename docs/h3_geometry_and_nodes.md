@@ -1,6 +1,6 @@
 # MiniMax H3: valid geometry, and which nodes to use
 
-Last updated: 2026-08-06.
+Last updated: 2026-08-23.
 
 Everything here is read out of ComfyUI's own `comfy_extras/nodes_minimax_h3.py`
 or measured on a 4090, not inferred from community lore.
@@ -92,7 +92,7 @@ into runs rather than tagging it wholesale.
 | node | notes |
 |---|---|
 | Load Diffusion Model (`UNETLoader`) | `fl2va` checkpoint for t2v/i2v, `ref2va` for reference-to-video |
-| `CLIPLoader` | Qwen3-VL-32B text encoder, type `minimax` |
+| `CLIPLoader` | Qwen3-VL-32B text encoder, type `minimax`, when using a native Comfy H3-format artifact such as the shipped NVFP4-AWQ file. It does **not** load this repo's compressed-tensors W4A16 artifact merely because that filename appears in its menu |
 | `VAELoader` x2 | video VAE and audio VAE are separate loaders |
 | `MiniMaxH3ImageToVideo` | t2v **and** i2v — `first_frame`/`last_frame` are optional, so no image wired is text-to-video |
 | `MiniMaxH3ReferenceToVideo` | reference images / video / audio → conditioning |
@@ -107,6 +107,17 @@ time the sampler occupies. `SAMPLING` in `workflows/h3_config.py` is the only
 place the defaults live, and it carries the reasoning.
 
 ### Use from this repo
+
+**`MiniMaxH3AWQEncoderLoader`** — the loader used by every generated graph; the
+graphs currently select `qwen3vl_32b_minimax_h3_w4a16_awq.safetensors`, but the
+node itself is not filename-bound. It accepts a selected text-encoder file only
+after its metadata and complete tensor inventory match the versioned contract.
+It keeps core's
+native 50-layer H3 architecture and corrected tokenizer, adapts the source
+compressed-tensors namespace and group-128 int4 packing in memory, and executes
+the W4A16 linears through comfy-kitchen. It also consumes the versioned
+`config/` snapshot for validation and image/video preprocessing. This is local
+support for that representation; core's working NVFP4-AWQ path remains native.
 
 **`MiniMax H3 SageAttention`** — the attention node. Replaces all 50 DiT
 attention forwards with SageAttention's INT8-QK / FP8-PV kernel, and *also*

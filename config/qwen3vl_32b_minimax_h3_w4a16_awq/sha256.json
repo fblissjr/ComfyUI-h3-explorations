@@ -1,0 +1,8 @@
+{
+  "config.json": "9917eaef4fa12e25b213103f0e6593a8b967e96517f56ad01a9b003227cafcc5",
+  "processor_config.json": "62be31450acaccdf8ef9a528e31a1d511918db85132bc9b8b708f254311306a0",
+  "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors": "4d34831ddb7a5b9c8660fbf8eb6740b3cccace518fea883e4a41a76cc20b4dad",
+  "recipe.yaml": "042a23b5390ff1351d7586161fed34be402fb554fcd221534f80ea699599d83b",
+  "tokenizer_config.json": "ed52146b25a3a8e50b2fb84341fce37188d21b6ef44c071619a6a3e0baca051a",
+  "video_preprocessor_config.json": "00bd47a5eaaf8760744a12658cd99ba168b818edc4c0a983b90157289c8e546a"
+}
