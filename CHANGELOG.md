@@ -11,20 +11,9 @@ artifact.
 - **The denoising-trajectory pair is gone from every UI graph.**
   `GetPreviewOverrideFramesKJ` ("Preview frames (trajectory)") and its
   `PreviewImage` sink ("Denoising trajectory") were in all 59 UI graphs and no
-  API graph. Owner decision: redundant against `Preview (taeh3)` in practice.
-
-  **The argument for keeping them is preserved in the generator rather than
-  deleted**, because it is the thing a future reader would otherwise rediscover
-  and re-litigate: the live widget is transient, showing the current step and
-  forgetting the previous one, so the pair was the only way to see the
-  trajectory rather than one moment of it, and it added no compute because the
-  taeh3 decodes had already happened. The owner watches these graphs and judged
-  it redundant anyway.
-
-  `Preview (taeh3)` itself stays in all 59 -- it is what lets a bad seed die at
-  90 s instead of costing a 17-minute render. `PreviewImage` stays in `_UI_ONLY`
-  even though nothing emits one now: it is a stock node somebody may add by
-  hand, and stripping it from the API form is right regardless.
+  API graph, so nothing measured changes. `Preview (taeh3)` is all these graphs
+  need and stays in all 59. `PreviewImage` stays in `_UI_ONLY` even though
+  nothing emits one now: it is a stock node somebody may add by hand.
 
 ### Added
 

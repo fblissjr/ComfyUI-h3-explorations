@@ -4369,25 +4369,6 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         g.link(model_src, 0, stampn, "model", "MODEL")
         g.link(sched, 0, stampn, "sigmas", "SIGMAS")
         latent_src, latent_slot = stampn, 0
-    # THE TRAJECTORY PAIR IS GONE, BY OWNER DECISION 2026-08-22.
-    #
-    # Every UI graph used to carry `GetPreviewOverrideFramesKJ` ("Preview frames
-    # (trajectory)") and a `PreviewImage` sink ("Denoising trajectory"), which
-    # recovered the frames `ModelPreviewOverrideKJ` had already pushed to its DOM
-    # widget and showed them as a batch after sampling.
-    #
-    # **The argument recorded here for keeping them was that the live widget is
-    # transient** -- it shows the current step and forgets the previous one -- so
-    # the pair was the only way to see the trajectory rather than one moment of
-    # it, at no extra compute since the taeh3 decodes had already happened. The
-    # owner, who is the one watching these graphs, judged the pair redundant
-    # against `Preview (taeh3)` in practice. Recorded rather than deleted,
-    # because the argument is the thing a future reader would otherwise
-    # rediscover and re-litigate.
-    #
-    # `Preview (taeh3)` itself stays: it is what makes a bad seed die at 90 s
-    # instead of costing a 17-minute render.
-
     # Link ORDER is preserved exactly as it was before the single-frame path
     # existed, including the two audio links sitting between the video decode
     # and the save. Link ids are assigned in call order, so reordering these
@@ -4795,14 +4776,9 @@ def validate_ui(wf: dict, oi: dict, label: str) -> list[str]:
 # any timing run as an unattributed confound. It belongs in the graph you
 # watch and nowhere near the graph you measure.
 #
-# `GetPreviewOverrideFramesKJ` and its `PreviewImage` sink used to sit here for
-# the same reason and one more -- the frames node reads a wrapper
-# ModelPreviewOverrideKJ installs, so in an API graph, where that node is
-# stripped, it would not merely be useless, it would raise. Both were removed
-# from the UI graphs on 2026-08-22 and no longer appear anywhere. `PreviewImage`
-# stays in this set: it is a stock node somebody may legitimately add to a UI
-# graph by hand, and stripping it from the API form is right whether or not this
-# generator emits one.
+# `PreviewImage` is kept in this set although nothing emits one: it is a stock
+# node somebody may add to a UI graph by hand, and stripping it from the API
+# form is right whether or not this generator produces it.
 _UI_ONLY = {"MarkdownNote", "Note", "Reroute", "PrimitiveNode",
             "ModelPreviewOverrideKJ", "PreviewImage"}
 
