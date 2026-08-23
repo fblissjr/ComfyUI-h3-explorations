@@ -786,6 +786,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               steps: int | None = None, shift: dict | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
+              ref_video_policy: str = "comfy",
               ref_video: bool = False, ref_video_audio: bool = True,
               ref_images_on: bool = True, ref_image_count: int = 2,
               ref_images: tuple[str, ...] | None = None,
@@ -809,6 +810,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     """
     if task not in ("t2v", "i2v", "r2v"):
         raise ValueError(task)
+    if ref_video_policy not in ("comfy", "release"):
+        raise ValueError(
+            f"unknown ref_video_policy {ref_video_policy!r}; "
+            "expected 'comfy' or 'release'"
+        )
     _check_single_frame(single_frame, length)
     if single_frame and (stamp or split_at):
         # Both reach for node 12, which the single-frame path deletes. Not
@@ -951,7 +957,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                              # Wired to Resolution so duration and geometry
                              # continue to move together in API sweeps.
                              "length": ["27", 2],
-                             "vendor_tokens": True}}
+                             "vendor_tokens": True,
+                             "video_policy": ref_video_policy}}
         # One fit node per reference. ComfyUI clamps reference scaling with
         # min(1.0, 2048/short_edge) where the reference pipeline has none, so
         # a reference smaller than 2048 on its short side arrives under-sized
@@ -3811,6 +3818,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              steps: int | None = None, shift: dict | None = None,
              sampler_name: str | None = None, scheduler_name: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
+             ref_video_policy: str = "comfy",
              ref_video: bool = False, ref_video_audio: bool = True,
              ref_images_on: bool = True, ref_image_count: int = 2,
              ref_images: tuple[str, ...] | None = None,
@@ -3837,6 +3845,11 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # exits -- leaving a graph that loads the one-frame VAE for a 124-frame
     # clip, which is exactly what the guard exists to prevent.
     _check_single_frame(single_frame, length)
+    if ref_video_policy not in ("comfy", "release"):
+        raise ValueError(
+            f"unknown ref_video_policy {ref_video_policy!r}; "
+            "expected 'comfy' or 'release'"
+        )
     cv = dict(CANVAS, **canvas)
     # THE DEFAULT PROMPT FOLLOWS THE SOCKETS, NOT THE TASK STRING. `i2v`
     # covers both keyframe modes -- one wired frame or two -- and they take
@@ -4033,7 +4046,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             _in("references", "MINIMAX_H3_REFERENCES"),
         ]
         cond = g.add("MiniMaxH3ReferenceConditioning", (-460, 0), size=(430, 620),
-                     widgets=[prompt, cv["width"], cv["height"], length, True],
+                     # `video_policy` is appended after vendor_tokens because
+                     # saved UI graphs map widgets positionally.
+                     widgets=[prompt, cv["width"], cv["height"], length, True,
+                              ref_video_policy],
                      inputs=cond_inputs + [
                          _in("width", "INT", widget=True), _in("height", "INT", widget=True),
                          _in("length", "INT", widget=True)],
@@ -5167,6 +5183,31 @@ def main():
               out_prefix="Video/h3_r2v_video_audio",
               variant_note=_note_ref_matrix("a reference video with its own soundtrack")),
          "reference video + its soundtrack, no images"),
+
+        # One named two-stage policy, not two independently switchable fixes.
+        # The release first puts the full-rate clip on the reference canvas for
+        # the VAE, then independently applies its duration-aware processor to
+        # the raw 2 fps Qwen samples. Upscale alone would overshoot the long-
+        # clip Qwen budget, so the probe toggles both at one compiler boundary.
+        ("h3_probe_release_video_policy.json", "r2v-video-release-policy", "r2v",
+         _ref_prompt(images=False, video=True, video_audio=True),
+         dict(**REF_VIDEO_BUDGET, ref_video=True, ref_images_on=False,
+              ref_video_policy="release",
+              out_prefix="Video/h3_probe_release_video_policy",
+              variant_note=_probe_note(
+                  "what release-matched two-stage reference-video preparation changes",
+                  "h3_ref_video_audio.json",
+                  "only `video_policy`: release instead of comfy. The local "
+                  "compiler upscales the full-rate VAE view to the release "
+                  "canvas and independently runs the raw 2 fps Qwen samples "
+                  "through the release's duration-aware processor.",
+                  "Preflight's VAE/Qwen geometry block and the `[h3] reference "
+                  "video ... policy=release` server line before judging the clip.",
+                  "More VAE reference rows than the comfy twin, while Qwen "
+                  "lands on its own duration-budgeted grid rather than blindly "
+                  "sharing the upscaled frames. This is an opt-in local parity "
+                  "policy over native-open ComfyUI gaps, not an upstream fix.")),
+         "reference video on the atomic release VAE/Qwen preparation policy"),
 
         ("h3_ref_image_audio.json", "r2v-image-audio", "r2v",
          _ref_prompt(images=True, audio=True),

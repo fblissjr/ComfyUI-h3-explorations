@@ -105,7 +105,8 @@
       "width",
       "height",
       "length",
-      "vendor_tokens"
+      "vendor_tokens",
+      "video_policy"
     ],
     "node_id": "MiniMaxH3ReferenceConditioning",
     "outputs": [

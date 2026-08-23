@@ -457,22 +457,25 @@ for eight arms, that probe no longer isolates its own variable.
 
 ## 11. Does a reference video's INPUT resolution cost tokens
 
-**Tests:** whether feeding a downscaled clip reduces the sequence, or only
-decode time.
+**RESOLVED for mechanism and cost, 2026-08-23.** Feeding a smaller clip changes
+both core's no-upscale VAE rows and Comfy's Qwen rows. Preflight now reports
+source, VAE-prepared, raw/padded sample count, and both Comfy and release Qwen
+grids. The typed conditioner's opt-in `release` policy executes the other path:
+full release canvas for the VAE, duration-budgeted sampled view for Qwen.
 
-**Why it matters:** general prompting research recommends downscaling a
+**Why it mattered:** general prompting research recommends downscaling a
 reference video hard when it is only providing motion, and our loaders sit at
 native (`custom_width: 0`). A reference video already costs rows in two
 places — the DiT reference block, and vision blocks inside the *text* segment
 at 2 fps, ~519 tokens per merged pair (`docs/h3_references.md`). The DiT side
-is resized to canvas, so input resolution should not touch it. Whether the
-**Qwen vision** side tokenizes at input resolution is the open half, and if it
-does, downscaling is a real lever on the ceiling rather than a load-time
-saving.
+uses core's source-size clamp when the source is below its canvas, and the
+**Qwen vision** side tokenizes the prepared input resolution under Comfy's
+per-pair policy. Downscaling is therefore a real sequence lever, not only a
+load-time saving.
 
-**Cost:** two Preflight reads. No render, no GPU time, no sampling.
-
-**Blocker: none — this is the cheapest unrun item here.**
+The remaining question is quality, not token accounting: whether the more
+expensive release-sized video transfers identity or motion better. That is gap
+6's controlled-benefit experiment, not this retired geometry question.
 
 ---
 

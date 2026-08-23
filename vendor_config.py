@@ -86,6 +86,20 @@ def patch_geometry() -> dict:
              "image_mean", "image_std") if k in cfg}
 
 
+def video_patch_geometry() -> dict:
+    """Video patch geometry and normalisation declared by the release.
+
+    Keep this separate from :func:`patch_geometry` even while the two files
+    agree.  The duration-aware video processor owns its own config, and
+    borrowing the still-image values would turn an upstream divergence into a
+    silent local assumption.
+    """
+    cfg = _load("video_preprocessor_config.json")
+    return {k: cfg[k] for k in
+            ("patch_size", "temporal_patch_size", "merge_size",
+             "image_mean", "image_std") if k in cfg}
+
+
 def partition_tasks() -> dict[str, list[str]]:
     """Which tasks each released partition serves, from its own model_index."""
     out = {}

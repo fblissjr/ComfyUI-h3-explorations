@@ -8,8 +8,10 @@ the authority; video and audio VAEs are small recording stubs.
 This check covers the boundary the pure graph resolver cannot see: append
 nodes must be copy-on-add, VHS metadata must describe the wired frames, video
 must be normalized from the owned loaded rate to 24 fps, mono must become
-stereo, audio must stop at the aligned target duration, and one ordered walk
-must produce Qwen items and DiT blocks with the sounded-video 2:1 shape.
+stereo, audio must stop at the aligned target duration, the opt-in release
+video policy must keep its VAE and duration-aware Qwen views distinct, and one
+ordered walk must produce Qwen items and DiT blocks with the sounded-video 2:1
+shape.
 """
 
 from __future__ import annotations
@@ -78,8 +80,12 @@ def _video_info(frames, loaded_fps=30.0):
 
 
 class _VideoVae:
+    def __init__(self):
+        self.inputs = []
+
     def encode(self, frames):
         import torch
+        self.inputs.append(frames)
         return torch.zeros(
             1, 24, max(1, int(frames.shape[0])),
             int(frames.shape[1]) // 16, int(frames.shape[2]) // 16,
@@ -212,6 +218,59 @@ def compiler_preserves_one_order_for_both_lists():
         assert tuple(encoded.shape) == (1, round(22 / 24 * 32000), 2), encoded.shape
 
 
+def release_video_policy_is_opt_in_and_two_stage():
+    """Release mode atomically upscales VAE and processes raw Qwen samples."""
+    # The real release processor must see the raw odd count. Repeat-padding 31
+    # to 32 preserves 16 temporal blocks but changes the spatial result.
+    assert R._release_qwen_video_size(31, 1344, 768) == (1184, 672)
+    assert R._release_qwen_video_size(32, 1344, 768) == (1152, 640)
+
+    frames = _frames(22, 32, 32)
+    records = (R.RuntimeVideoReference(frames, 24.0, None),)
+    original_adapt_canvas = R.adapt_canvas
+    try:
+        # First isolate the VAE stage. Native-compatible mode keeps a small
+        # source small; release mode accepts the canvas upscale.
+        R.adapt_canvas = lambda _w, _h: (64, 64)
+        comfy_vae = _VideoVae()
+        comfy_items, _ = R._compile_reference_records(
+            records, comfy_vae, _AudioVae(), 64, 64, 22,
+            video_policy="comfy",
+        )
+        release_vae = _VideoVae()
+        release_items, _ = R._compile_reference_records(
+            records, release_vae, _AudioVae(), 64, 64, 22,
+            video_policy="release",
+        )
+        assert tuple(comfy_vae.inputs[0].shape[1:3]) == (32, 32)
+        assert tuple(release_vae.inputs[0].shape[1:3]) == (64, 64)
+        assert tuple(comfy_items[0]["data"].shape[1:3]) == (32, 32)
+        assert tuple(release_items[0]["data"].shape[1:3]) == (64, 64)
+
+        # Then isolate the Qwen stage. With an identity VAE canvas, the
+        # release processor's clip floor moves only the sampled Qwen view.
+        R.adapt_canvas = lambda w, h: (w, h)
+        split_vae = _VideoVae()
+        split_items, _ = R._compile_reference_records(
+            records, split_vae, _AudioVae(), 32, 32, 22,
+            video_policy="release",
+        )
+        assert tuple(split_vae.inputs[0].shape[1:3]) == (32, 32)
+        assert tuple(split_items[0]["data"].shape[1:3]) == (64, 64)
+    finally:
+        R.adapt_canvas = original_adapt_canvas
+
+    try:
+        R._compile_reference_records(
+            records, _VideoVae(), _AudioVae(), 32, 32, 22,
+            video_policy="upscale_only",
+        )
+    except ValueError as exc:
+        assert "unknown reference video policy" in str(exc), exc
+    else:
+        raise AssertionError("an unowned partial video policy was accepted")
+
+
 def conditioning_node_assembles_the_real_payload_shape():
     """The registered node attaches minimax_refs and an H3 nested latent."""
     records = (
@@ -252,6 +311,7 @@ CHECKS = (
     audio_is_stereo_and_target_bounded,
     vhs_lazy_audio_mapping_is_accepted,
     compiler_preserves_one_order_for_both_lists,
+    release_video_policy_is_opt_in_and_two_stage,
     conditioning_node_assembles_the_real_payload_shape,
 )
 

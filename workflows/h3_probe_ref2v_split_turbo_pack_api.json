@@ -175,7 +175,8 @@
         "27",
         2
       ],
-      "vendor_tokens": true
+      "vendor_tokens": true,
+      "video_policy": "comfy"
     }
   },
   "15": {

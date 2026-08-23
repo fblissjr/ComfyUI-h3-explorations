@@ -103,18 +103,30 @@ def main() -> int:
     wf = json.loads(wf_path.read_text())
     for n in wf.values():
         ct = n["class_type"]
-        if ct == "MiniMaxH3ImageToVideo":
+        if ct in ("MiniMaxH3ImageToVideo", "MiniMaxH3Conditioning"):
             n["inputs"]["length"] = args.length
             n["inputs"]["prompt"] = (
                 "Live-action, cinematic. A woman in a dark coat walks along a "
                 "rain-wet stone street past iron railings, the camera tracking "
                 "with her.\n\nAudio: rain on stone, footsteps.")
+        if ct == "MiniMaxH3Resolution":
+            # Generated reference graphs wire conditioner geometry from this
+            # node. Patching the downstream link would destroy the graph;
+            # patch its owning widget instead.
+            n["inputs"]["length"] = args.length
+        if ct == "VHS_LoadVideo":
+            # Do not decode hundreds of reference frames for a short smoke.
+            # The typed compiler would cap them later, but the loader cost is
+            # paid first and can hide the behaviour the smoke means to test.
+            n["inputs"]["frame_load_cap"] = args.length
         if ct == "BasicScheduler":
             n["inputs"]["steps"] = args.steps
         if ct in SOL_NODE_IDS:
             n["inputs"]["verbose"] = True
         if ct == "SaveVideo":
             n["inputs"]["filename_prefix"] = "video/_smoketest"
+        if ct == "VHS_VideoCombine":
+            n["inputs"]["filename_prefix"] = "Video/_smoketest"
 
     pid = json.load(urllib.request.urlopen(urllib.request.Request(
         f"{base}/prompt", json.dumps({"prompt": wf, "client_id": str(uuid.uuid4())}).encode(),

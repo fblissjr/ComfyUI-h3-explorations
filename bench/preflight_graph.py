@@ -459,7 +459,9 @@ def _comfy_pair_grid(w: int, h: int, max_pixels: int = 12845056):
     return (wb, hb), (hb // 16) * (wb // 16) // 4
 
 
-def reference_video_report(ins: dict, graph: dict, length) -> list[str]:
+def reference_video_report(
+    ins: dict, graph: dict, length, video_policy: str = "native-comfy"
+) -> list[str]:
     """Both towers, both policies, per reference video.
 
     **Why both stages.** A reference video is sized twice and the two sizings
@@ -507,13 +509,19 @@ def reference_video_report(ins: dict, graph: dict, length) -> list[str]:
 
         out.append(f"  {label}: {name}")
         out.append(f"      source                {w}x{h}")
+        comfy_active = video_policy in ("comfy", "native-comfy")
+        active_kind = ("native core" if video_policy == "native-comfy"
+                       else "local typed policy")
         out.append(f"      VAE-prepared, comfy   {comfy_vae[0]}x{comfy_vae[1]}"
-                   f"{'   (gap 6: not upscaled)' if comfy_vae != rel_vae else ''}")
-        out.append(f"      VAE-prepared, release {rel_vae[0]}x{rel_vae[1]}")
+                   f"{'   (gap 6: not upscaled)' if comfy_vae != rel_vae else ''}"
+                   f"{'   <- ACTIVE (' + active_kind + ')' if comfy_active else ''}")
+        out.append(f"      VAE-prepared, release {rel_vae[0]}x{rel_vae[1]}"
+                   f"{'   <- ACTIVE (local typed policy)' if video_policy == 'release' else ''}")
         out.append(f"      sampled at 2 fps      {raw} raw -> {padded} emitted "
                    f"({blocks} temporal blocks) from {n} frames")
         out.append(f"      Qwen, comfy           {c_grid[0]}x{c_grid[1]}  "
-                   f"{c_per * blocks:>7,} rows")
+                   f"{c_per * blocks:>7,} rows"
+                   f"{'   <- ACTIVE (' + active_kind + ')' if comfy_active else ''}")
         if rel is None:
             out.append(f"      Qwen, release         NOT CALCULATED -- the release "
                        f"processor or its config could not be reached. No local "
@@ -521,7 +529,8 @@ def reference_video_report(ins: dict, graph: dict, length) -> list[str]:
         else:
             g, per = rel
             out.append(f"      Qwen, release         {g[2] * 16}x{g[1] * 16}  "
-                       f"{per * g[0]:>7,} rows")
+                       f"{per * g[0]:>7,} rows"
+                       f"{'   <- ACTIVE (local typed policy)' if video_policy == 'release' else ''}")
         out.append(f"      Qwen, gap-6 only      {hyb_grid[0]}x{hyb_grid[1]}  "
                    f"{hyb_per * blocks:>7,} rows   <- upscale WITHOUT the "
                    f"clip-wide budget")
@@ -1013,7 +1022,10 @@ def price(node: dict, graph: dict) -> list[str]:
         lines.append(f"  NOT COUNTED: {', '.join(unpriced)} reference(s). A "
                      f"video reference alone measured 52,020 rows at 960x544 / "
                      f"345f, so the total below is a FLOOR, not a budget.")
-    lines.extend(reference_video_report(media_ins, graph, length))
+    video_policy = (ins.get("video_policy", "comfy") if typed_references
+                    else "native-comfy")
+    lines.extend(reference_video_report(
+        media_ins, graph, length, video_policy=video_policy))
     lines.extend(audio_reference_notes(
         media_ins, graph, length, typed_boundary=typed_references))
 

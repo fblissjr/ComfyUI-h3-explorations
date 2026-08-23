@@ -204,18 +204,19 @@ and ordered resolver had stopped changing under adversarial review:
 - that boundary derives the source clock from `loaded_fps`, normalizes video
   to 24 fps, duplicates mono to stereo, and caps audio at aligned
   `frame_count / 24`;
-- reference geometry remains Comfy-compatible and no-upscale. Release sizing
-  is deliberately not mixed into an ordering migration.
+- reference geometry defaults to Comfy-compatible and no-upscale. The later
+  opt-in `video_policy=release` change is separate from the ordering migration.
 
 `bench/check_reference_runtime.py` controls the runtime boundary with stub
 VAEs and no CUDA; `bench/red/show_red_reference_runtime.py` makes ignored fps,
-skipped audio normalization, foreign metadata, and reversed order go red.
+skipped audio normalization, foreign metadata, reversed order, and a release
+policy that reuses the VAE frames for Qwen go red.
 `bench/check_typed_reference_consumers.py` proves label discovery and preflight
 read the same validated chain.
 
-**Live acceptance and workflow migration are green as of 2026-08-23.** All 38
+**Live acceptance and workflow migration are green as of 2026-08-23.** All 39
 shipped reference API graphs now use the typed conditioner; across UI, API, and
-the stamped bench copy that is 77 typed files and no shipped core socket node.
+the stamped bench copy that is 79 typed files and no shipped core socket node.
 The generator preserves the old image → sounded video → standalone-audio order
 so existing prompts retain their ordinals, while hand-built typed chains may
 use list order directly. Explicit audio trims were removed because the compiler
@@ -229,6 +230,22 @@ server logged `presentation=['<Picture 1>', '<Picture 2>', '<Audio 1>',
 '<Video 1>', '<Audio 2>']`, 21,283 packed rows, Sage routing, Sol sparse
 execution, and all twenty native tokens already present, so the local token
 compatibility helper was a no-op.
+
+**Release reference-video preparation is now an opt-in local policy.** The
+`comfy` default preserves the cheaper native no-upscale/shared-frame path.
+`release` atomically puts the full-rate clip on the release canvas for the VAE
+and runs the raw 2 fps Qwen samples through the release's own duration-aware
+processor. The two switches are not exposed separately: upscale alone would
+overshoot the release's Qwen row budget after its long-duration boundary.
+`check_reference_runtime.py` pins the raw 31-versus-padded-32 grid and the
+two-view compiler path; the red harness detects collapsing them.
+
+The live release-policy smoke rendered at 1024x768, 39 frames, and 10 steps in
+92.73 seconds. Its 960x544 source reached the VAE at 1344x768, Qwen received
+four raw samples, and the packed sequence was 23,892 rows with Sage and Sol
+sparse execution. This proves the local runtime path, not a native ComfyUI fix
+and not a quality benefit. The long-duration resize is covered on CPU because
+exercising its activation boundary in a full render is needlessly expensive.
 
 Core's node is retained as a research subject and compatibility surface, not as
 the shipped graph authority. Its still-open sizing, rate, duration, and mono

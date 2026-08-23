@@ -1,11 +1,13 @@
 """Say what a reference VIDEO will actually be conditioned at, and optionally set it.
 
-**Why this exists.** `MiniMaxH3ReferenceFit` covers reference images. Nothing in
-this pack touches reference *video*: `bench/preflight_graph.py` prices one
-statically, but no node transforms or reports one. So for a reference video you
-could not find out what resolution it finally reached, could not hold it under
-Qwen's ceiling, and could not tell a deliberate downscale from an accidental
-one. That silence is the defect -- not the sizing, which is defensible.
+**Why this exists.** `MiniMaxH3ReferenceFit` covers reference images. When this
+node was added, nothing in this pack touched reference *video*:
+`bench/preflight_graph.py` priced one statically, but no node transformed or
+reported one. So for a reference video you could not find out what resolution
+it finally reached or tell a deliberate downscale from an accidental one. That
+silence was the defect -- not the cheaper native-compatible sizing, which is
+defensible. The typed conditioner's later release policy is described below;
+it does not replace this reporter on `comfy` or native-core paths.
 
 **Reporting is the deliverable here, not resizing.** Core re-applies its own
 rule to whatever it is handed
@@ -21,6 +23,12 @@ Reference rows are attended at every sampling step, so reference size taxes the
 whole render rather than costing once; `docs/h3_references.md` prices it.
 Deliberately passing downscaled reference video is sound, and the cost of the
 alternative is measured while its benefit is not.
+
+**The typed conditioner now has a separate release-parity policy.**
+`MiniMaxH3ReferenceConditioning.video_policy=release` atomically upscales the
+VAE view and applies the duration-aware release Qwen processor. This fit node
+does not: it remains a reporter/downscale control for native-compatible paths.
+Wiring it must not be described as closing the native ComfyUI gap.
 
 **What this does NOT do: frame rate.** `force_rate=24` on the loader owns that,
 and `bench/check_ref_prompt_labels.py` gates it. Putting a second fps control

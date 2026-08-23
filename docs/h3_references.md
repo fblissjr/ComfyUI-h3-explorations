@@ -112,8 +112,10 @@ reach 7.5 megapixels when the video cannot exceed about one.
    through the same shape function it uses for the target, from the clip's own
    display aspect (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/prequeue.py:292-302`); DiffSynth-Studio scales by
    `min(768/min(w,h), sqrt(max_pixels/(w*h)))` with no unity clamp; diffusers
-   routes through its canvas resolver. The same divergence as image references,
-   still unclosed, because closing it costs about 5x what the image one does.
+   routes through its canvas resolver. Native ComfyUI still has this
+   divergence. This repo's typed conditioner can handle it locally with
+   `video_policy=release`, which also enables the coupled Qwen stage below;
+   `comfy` remains the generated default.
 3. Truncated to the **generated** frame count, then snapped **down** to the
    `17n+5` grid. Fewer than 5 frames raises.
 4. VAE-encoded whole. Those rows ride **every sampling step**.
@@ -617,16 +619,26 @@ Native `_encode_ref_audio` still raises on mono, so both duration and channel
 handling must remain described as local behavior. Preflight reports native
 socket graphs separately, including "unreadable" when ffprobe cannot answer.
 
-**Video: no, not now.** The divergence is real and the same shape as the image
-one — never upscaled, where the reference puts the clip on the full canvas rule
-— but building it would make **the most expensive input in the model** more
-expensive. A 960x544 clip at 345 frames is already 52,020 rows, the reference
-arms already OOM on 24 GB past about 124 generated frames with images at `max`,
-and closing this gap costs roughly 5x what the image one does. It would also be
-building the expensive version of an idea whose cheap version is unproven:
-settle whether upscaling helps at all on images first. If it does not, the
-video question dissolves; if it does, the video fit finally has an evidence base
-to justify its cost.
+**Video: available now as an opt-in compiler policy, not a new default.** The
+divergence is the same shape as the image one — native ComfyUI never upscales,
+where the release puts the clip on the full canvas rule — but video is the most
+expensive reference input. `MiniMaxH3ReferenceConditioning.video_policy` keeps
+`comfy` as the generated default and offers `release` for explicit parity
+experiments.
+
+`release` owns two inseparable stages. It upscales the full-rate view to
+`adapt_canvas` for the video VAE, then independently sends the raw 2 fps Qwen
+samples through the release's `Qwen3VLVideoProcessor`. Above the processor's
+duration boundary, Qwen may shrink its view while the VAE keeps the full
+canvas. Exposing “upscale only” would overshoot the release's Qwen rows, so it
+is deliberately not an option.
+
+This is handling in our custom node, not native ComfyUI. Core's
+`MiniMaxH3ReferenceToVideo` remains no-upscale and duration-unaware. The
+39-frame live smoke proves the local policy executes; it does not establish
+that upscaling improves a clip. `MiniMaxH3ReferenceVideoFit` remains useful for
+reporting or deliberate downscaling on native-compatible paths, not as a
+substitute for the atomic release policy.
 
 ---
 

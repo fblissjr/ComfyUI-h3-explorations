@@ -91,6 +91,15 @@ def build():
             C.compiler_preserves_one_order_for_both_lists,
         ),
     )
+    h.case(
+        "M5 release policy reuses the VAE frames for Qwen",
+        MUTATION,
+        _under(
+            "_release_qwen_video_frames",
+            lambda _original: lambda frames: frames,
+            C.release_video_policy_is_opt_in_and_two_stage,
+        ),
+    )
 
     h.case(
         "G1 restored: 24 fps normalization",
@@ -111,6 +120,11 @@ def build():
         "G4 restored: shared compiler order",
         NEAR_MISS,
         lambda: _holds(C.compiler_preserves_one_order_for_both_lists),
+    )
+    h.case(
+        "G5 restored: atomic release video policy",
+        NEAR_MISS,
+        lambda: _holds(C.release_video_policy_is_opt_in_and_two_stage),
     )
     return h
 

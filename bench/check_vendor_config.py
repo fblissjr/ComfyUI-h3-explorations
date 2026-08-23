@@ -83,9 +83,11 @@ def main() -> int:
         toks = vc.additional_special_tokens()
         lo_i, hi_i = vc.image_pixel_bounds()
         lo_v, hi_v = vc.video_pixel_bounds()
+        video_geometry = vc.video_patch_geometry()
         parts = vc.partition_tasks()
         print(f"  ok    {len(toks)} special token(s), image {lo_i}..{hi_i}, "
               f"video {lo_v}..{hi_v}")
+        print(f"  ok    video patch geometry {video_geometry}")
         print(f"  ok    partitions {parts}")
     except Exception as exc:  # a vendored file that parses but says nothing
         failures.append(f"a reader failed: {exc}")

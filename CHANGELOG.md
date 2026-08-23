@@ -19,17 +19,26 @@ artifact.
   from the frames' own `VHS_VIDEOINFO`; non-24-fps clips are resampled before
   either encoder, mono audio is duplicated to stereo, and every soundtrack and
   standalone audio reference is capped at the aligned target duration. Still
-  images and video geometry deliberately keep Comfy-compatible no-upscale
-  policy; release upscaling remains a separate opt-in question.
+  images retain their per-record policy and video geometry defaults to
+  Comfy-compatible no-upscale behaviour.
+
+- **Release reference-video preparation is one named opt-in policy.** On
+  `MiniMaxH3ReferenceConditioning`, `video_policy=release` puts the full-rate
+  VAE view on the release canvas and independently runs raw 2 fps samples
+  through the release's duration-aware Qwen processor. `comfy` remains the
+  default. This is local parity handling over native-open gaps, not a native
+  ComfyUI fix.
 
 - **CPU acceptance and red controls for the runtime.**
   `check_reference_runtime.py` covers copy-on-add order, runtime metadata
   ownership, fps normalization, mono/duration normalization, and the sounded
-  video's two-Qwen-items/one-DiT-block contract. It also drives a lazy
+  video's two-Qwen-items/one-DiT-block contract, release Qwen's raw-sample
+  boundary, and the policy's distinct VAE/Qwen views. It also drives a lazy
   `Mapping` shaped like VHS's `LazyAudioMap`, after the first multimodal smoke
   found that accepting only core's concrete audio dict rejected a schema-valid
   VHS soundtrack at execution. Its red harness detects four independent
-  regressions. `check_typed_reference_consumers.py` proves label discovery and
+  regressions, including collapsing release Qwen back onto the VAE frames.
+  `check_typed_reference_consumers.py` proves label discovery and
   preflight read the same typed chain and refuse malformed plans.
 
 ### Changed
@@ -87,7 +96,7 @@ artifact.
   tokenizer already carrying all twenty tokens, so the compatibility shim was
   a no-op.
 
-- The regenerated population contains 38 reference API graphs and 77 typed
+- The regenerated population contains 39 reference API graphs and 79 typed
   UI/API/stamped files, with no shipped `MiniMaxH3ReferenceToVideo` or
   `TrimAudioDuration` node. Prompt labels, guide conformance, typed consumers,
   reference ordering, generator constants, preflight, and the real-image Qwen
@@ -103,6 +112,13 @@ artifact.
 - Full live schema validation now reaches the current code. Its only red rows
   are eight existing graphs that name a removed v1.0 768p Turbo LoRA while
   this installation carries v1.1; every migrated reference UI graph is clean.
+
+- The opt-in release-video probe also passed live at 1024x768, 39 frames, and
+  10 steps in 92.73 seconds. The server logged its 960x544 source prepared at
+  1344x768 for the VAE, four raw Qwen samples, 23,892 packed rows, Sage routing,
+  and Sol sparse execution. Models were unloaded afterward. The long-duration
+  processor boundary is pinned by the CPU check rather than an expensive
+  full-length render.
 
 ## 0.58.0
 

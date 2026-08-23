@@ -55,7 +55,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 3 | Reference image floor (`min_pixels`) | config | open | preflight reports the divergence; no general runtime parity implementation |
 | 4 | Reference image ceiling (`max_pixels`) | config | open | custom fit nodes can opt in to keeping VAE and Qwen sizes matched; core remains unchanged |
 | 5 | Reference soundtracks not truncated | behavioural | open | all shipped graphs now use typed internal caps; native socket graphs remain exposed unless they trim upstream |
-| 6 | Reference media never upscaled, and never reported | behavioural | sizing divergence remains; native path does not report the choice | custom fit nodes report final dimensions and expose an explicit cost/fidelity knob |
+| 6 | Reference media never upscaled, and never reported | behavioural | sizing divergence remains; native path does not report the choice | fit nodes report it; the typed conditioner has an opt-in atomic release-video policy, while shipped defaults remain native-compatible |
 | 7 | Mono reference audio raises | behavioural | open | typed nodes upmix mono and refuse ambiguous multichannel input; legacy preflight reports it |
 | 8 | VAE encode precision, and mean vs sample | behavioural | open | measured only; no claimed fix |
 | 9 | H3 VAE tiling as a runtime branch | behavioural | **not a gap in the installed native implementation** | documented as fixed H3-owned policy; no custom-node fix claimed |
@@ -652,6 +652,7 @@ rendered clip cannot A/B a numerical change.
 |---|---|
 | The node that was missing entirely | [`reference_video_fit.py`](../reference_video_fit.py) |
 | Holds its copy of core's sizing rule to core's real behaviour | [`bench/check_ref_video_prediction.py`](../bench/check_ref_video_prediction.py) |
+| Opt-in local release policy | `MiniMaxH3ReferenceConditioning.video_policy=release`, controlled by [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) and its red harness |
 
 ### The contracts underneath all of it
 
@@ -667,17 +668,24 @@ surface preserves the four that remain semantic contracts and deliberately
 replaces suffix pairing and fixed modality grouping with ownership and list
 position.
 
-### Remaining policy work
+### Policy disposition
 
-Soundtrack duration and mono normalization are now executable properties of
-this repo's typed runtime; native ComfyUI remains unchanged. VAE tiling was
-removed as a gap after the native H3-owned paths were traced. The remaining
-policy not implemented in this repo is the release's upscale plus
-duration-aware Qwen-video resize; typed workflow migration is now complete, so
-that policy can be considered separately without confounding order.
+Soundtrack duration and mono normalization are executable properties of this
+repo's typed runtime; native ComfyUI remains unchanged. VAE tiling was removed
+as a gap after the native H3-owned paths were traced.
 
-Gap **6** needs no instrument for the cost, which is already measured; what it
-would need is a controlled comparison of the *benefit*, and
+The release's video upscale and duration-aware Qwen resize are now implemented
+as one **opt-in local policy**. `video_policy=release` puts the full-rate VAE
+view on the release canvas and independently runs the raw 2 fps samples through
+the release's own Qwen video processor. `video_policy=comfy` remains the
+generated default because the release path is materially more expensive and
+its quality benefit has not been measured. Native
+`MiniMaxH3ReferenceToVideo` still does neither stage and exposes no policy;
+this implementation therefore does not close gap 6 upstream.
+
+Gap **6** needs no further instrument for the cost or mechanism, which are now
+reported and live-smoked; what remains is a controlled comparison of the
+*benefit*, and
 [`eval_comparison.md`](eval_comparison.md) section 3 is the only process here
 that could supply one. Nobody has asked for it, and the measured cost argues
 against bothering.
@@ -696,7 +704,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 3, image floor | open | preflight warning only; **no runtime parity enforcement** |
 | 4, image ceiling | open | opt-in local guard since 2026-08-22: `MiniMaxH3ReferenceFit.keep_towers_matched`; native graphs not wiring it remain exposed |
 | 5, soundtrack length | open | shipped typed graphs: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py); native socket graphs: [`bench/preflight_graph.py`](../bench/preflight_graph.py) reports required upstream handling |
-| 6, media upscale/reporting | sizing divergence remains; native path is silent | custom image/video fit nodes report the resolution reached; no claim that native sizing now matches the vendor |
+| 6, media upscale/reporting | sizing divergence remains; native path is silent | custom fit nodes report the resolution reached; the typed conditioner's opt-in `release` policy handles both video stages locally, with no claim that native sizing now matches the vendor |
 | 7, mono audio | open | native defect gate: [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py); local typed handling: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 | 8, VAE encode precision | open | **nothing enforces a choice**; measurement only |
 | 9, VAE tiling | not a gap in installed native H3 path | policy documented from native source; no custom fix |

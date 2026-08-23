@@ -51,18 +51,30 @@ Completed this slice:
    then completed the rerun. The native tokenizer already had all twenty tokens,
    so this repo's compatibility shim logged a no-op.
 
+The next policy slice is also complete:
+
+5. `MiniMaxH3ReferenceConditioning.video_policy=release` is one opt-in switch
+   for both release-video stages: the full-rate VAE view is put on the release
+   canvas, while the raw 2 fps Qwen samples go through the release's
+   duration-aware video processor. `comfy` remains the default.
+6. Added `h3_probe_release_video_policy` against the otherwise-matched
+   `h3_ref_video_audio` graph. Preflight marks which VAE and Qwen rows are
+   active and labels the release path as a local typed policy, not a native
+   fix.
+7. The 39-frame live acceptance rendered in 92.73 seconds. The server logged
+   the 960x544 source becoming a 1344x768 VAE reference, four raw Qwen samples,
+   23,892 packed rows, Sage routing, and Sol sparse execution. The CPU control
+   separately pins the long-duration 31-versus-32-sample boundary and its red
+   mutation collapses Qwen back onto the VAE frames.
+
 Next, in order:
 
-1. Consider release upscaling plus the
-   duration-aware Qwen-video processor as one named opt-in policy. It must not
-   be presented as a native ComfyUI fix: it would be an explicit local parity
-   policy over gaps that remain upstream.
-2. Later cleanup: retire `vendor_tokens` from generated workflow inputs now
+1. Later cleanup: retire `vendor_tokens` from generated workflow inputs now
    that merged ComfyUI PR 15808 supplies the tokens natively. First set and
    verify the minimum supported ComfyUI version; until then, keep the helper as
    backward compatibility for older installs. This is cleanup, not a current
    conditioning or migration blocker.
-3. GPU experiments remain behind that work: the FL2VA base-versus-turbo pair,
+2. GPU experiments: the FL2VA base-versus-turbo pair,
    the singing-removed speaker-attribution scene, and `ncu` profiling all need
    the card alone.
 
