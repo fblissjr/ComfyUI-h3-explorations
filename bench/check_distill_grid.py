@@ -41,9 +41,20 @@ rule is not in dispute; only the constant is. See `docs/comfyui_vendor_gaps.md`.
 EXACTLY when `1000 % steps == 0` and quantizes otherwise (measured: 0 at 4, 5,
 8, 10 and 20 steps; ~0.002 at 12, 16 and 24). Every distilled graph this repo
 ships runs at 4 or 8 steps, so every one of them is in the exact regime and no
-tolerance is needed. `divisor_regime_holds` asserts that precondition instead
-of assuming it, so a 6-step turbo graph fails loudly rather than being silently
-graded against a fudge factor. The 16-step BASE graphs are deliberately out of
+tolerance is needed -- among the arms still graded that way. `divisor_regime_holds`
+asserts that precondition instead of assuming it.
+
+**Owner-recipe arms are partitioned OUT rather than tolerated.** Since
+2026-08-23 the 768p arm renders at 6 steps, which does not divide 1,000, so
+`simple` quantizes there and the exactness claim does not apply. Loosening
+EXACT would have destroyed the vendor claim for every arm at once; rewriting
+the vendor row to say 6 would have been worse, because the row records what the
+student was distilled to do. So those arms go down their own path with a weaker
+claim, stated as weaker: the deviation must be DECLARED in
+`check_distill_settings.OWNER_RECIPE`, and `simple` must still be strictly the
+nearest scheduler at the arm's own step count -- comparative, so it needs no
+invented tolerance. What is deliberately not claimed about them is that they
+sit on the vendor's distillation grid. They do not. The 16-step BASE graphs are deliberately out of
 scope: the base checkpoint was not distilled to a step grid, so the vendor rule
 does not bind them, and `check_distill_settings.py` already holds them at 12/3.
 
@@ -63,11 +74,16 @@ Claims, i.e. what breaks if a case is deleted:
                          DISAGREEMENT, so it cannot pass by everything happening
                          to agree. Without it, a change making all schedulers
                          identical would leave every other case green
-  divisor regime holds   every graded graph runs at a step count dividing 1,000,
-                         which is what makes exactness the right assertion. A
-                         turbo graph at 6 steps fails HERE, naming the reason,
-                         rather than failing the grid case for a quantization
-                         it was never graded against
+  divisor regime holds   every VENDOR-GRID arm runs at a step count dividing
+                         1,000, which is what makes exactness the right
+                         assertion there. Fails if that population empties --
+                         if every arm became a recipe arm, this case passing
+                         would say nothing
+  recipe arms declared   an arm off its LoRA's distilled step count must be
+                         declared in OWNER_RECIPE, so a recipe cannot arrive by
+                         somebody editing a widget; and `simple` must still be
+                         strictly nearest at its own step count, which is the
+                         part of the grid claim that survives the recipe
   graphs on grid         every shipped graph loading a turbo LoRA reproduces its
                          own (shift, steps) grid exactly. Both graph forms, and
                          they are read through `check_distill_settings`'s
@@ -109,7 +125,10 @@ WORKFLOWS = REPO / "workflows"
 VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 
 from h3_config import graph_paths  # noqa: E402
-from check_distill_settings import is_turbo, read_api, read_ui  # noqa: E402
+from check_distill_settings import (  # noqa: E402
+    LEGAL, OWNER_RECIPE, PACK_STEPS, classify, classify_pack, is_turbo,
+    read_api, read_ui,
+)
 
 #: The closed form is exact only where the discrete table lands on the step
 #: boundaries. See the module docstring.
@@ -378,8 +397,35 @@ def main() -> int:
             continue
         for why in grade_shift_nodes(found.shifts):
             split_disagree.append(f"{path.relative_to(REPO)} {why}")
+        key = classify(next(n for n in found.loras if is_turbo(n)))
         graded.append((path, path.stem[:-4] if path.stem.endswith("_api")
-                       else path.stem, found.shift, found.scheduler, found.steps))
+                       else path.stem, found.shift, found.scheduler,
+                       found.steps, key))
+
+    # Partition. A vendor-grid arm runs the step count its LoRA was distilled
+    # to; a recipe arm runs a declared owner recipe instead. An arm at neither
+    # is an undeclared deviation and fails below -- which is the whole point of
+    # partitioning rather than widening the tolerance until everything fits.
+    vendor_arms, recipe_arms, undeclared_arms = [], [], []
+    for row in graded:
+        _p, _stem, _sh, _sc, steps, key = row
+        recipe = OWNER_RECIPE.get(key)
+        if key is None:
+            # The third-party pack family (`turbo_v<n>_step<ckpt>_ema`) has no
+            # LEGAL row: its README documents a step RANGE, not one NFE, and
+            # `check_distill_settings` grades it that way. Treated as a vendor
+            # arm at any documented count, so it keeps its exact-grid grading
+            # rather than being read as an undeclared deviation.
+            lo, hi = PACK_STEPS
+            (vendor_arms if lo <= steps <= hi else undeclared_arms).append(row)
+            continue
+        distilled = LEGAL[key].steps if key in LEGAL else frozenset()
+        if recipe is not None and steps == recipe["steps"]:
+            recipe_arms.append(row)
+        elif steps in distilled:
+            vendor_arms.append(row)
+        else:
+            undeclared_arms.append(row)
 
     def graphs_are_readable():
         assert not unreadable, "; ".join(unreadable)
@@ -399,8 +445,11 @@ def main() -> int:
         assert not split_disagree, "; ".join(split_disagree)
 
     def divisor_regime_holds():
-        assert graded, "no graph loads a turbo LoRA; this check has no subject"
-        bad = [(p.relative_to(REPO), n) for p, _s, _sh, _sc, n in graded
+        assert vendor_arms, (
+            "no graph is a vendor-grid arm any more -- every one now runs an "
+            "owner recipe. The exactness claim has lost its subject, and this "
+            "case passing would say nothing.")
+        bad = [(p.relative_to(REPO), n) for p, _s, _sh, _sc, n, _k in vendor_arms
                if TRAIN_TIMESTEPS % n]
         assert not bad, (
             f"exactness is only the right assertion where the step count "
@@ -409,7 +458,7 @@ def main() -> int:
 
     def graphs_on_grid():
         problems = []
-        for path, stem, (sv, sa), scheduler, steps in graded:
+        for path, stem, (sv, sa), scheduler, steps, _key in vendor_arms:
             if stem in GRID_EXEMPT_STEMS:
                 continue
             for why in grade_arm(sv, sa, scheduler, steps):
@@ -417,12 +466,12 @@ def main() -> int:
         assert not problems, "; ".join(problems)
 
     def exemptions_necessary():
-        seen = {stem for _p, stem, _sh, _sc, _n in graded}
+        seen = {stem for _p, stem, _sh, _sc, _n, _k in graded}
         stale = sorted(set(GRID_EXEMPT_STEMS) - seen)
         assert not stale, (
             f"exempted graphs that no longer load a turbo LoRA (or no longer "
             f"exist): {stale}. Remove the exemption or the graph.")
-        for path, stem, (sv, sa), scheduler, steps in graded:
+        for path, stem, (sv, sa), scheduler, steps, _key in graded:
             if stem not in GRID_EXEMPT_STEMS:
                 continue
             assert grade_arm(sv, sa, scheduler, steps), (
@@ -441,7 +490,77 @@ def main() -> int:
         check("vendor grid agrees", vendor_grid_agrees)
         check("simple is the only one", simple_is_the_only_one)
 
+    def recipe_arms_are_declared_and_simple_is_nearest():
+        """Owner-recipe arms are NOT vendor-grid arms, and are not graded as one.
+
+        Six steps does not divide the 1,000-step training grid, so `simple`
+        quantizes there and the exactness claim that makes `graphs on grid`
+        mean anything simply does not apply. Loosening EXACT to cover it would
+        have destroyed the vendor claim for every arm at once; rewriting the
+        vendor row to say 6 would have been worse, because the row is what the
+        student was actually distilled to do.
+
+        So these arms get a weaker claim, stated as such. What is still
+        asserted:
+
+          * the deviation is declared -- an arm off its distilled step count
+            with no `OWNER_RECIPE` entry fails, so a recipe cannot arrive by
+            somebody editing a widget;
+          * `simple` is STRICTLY the nearest scheduler to the closed form at
+            the arm's own step count. Comparative, so it needs no invented
+            tolerance, and it is the part of the original claim that survives:
+            the steps are the owner's, the placement of them is still the one
+            scheduler that tracks the flow curve.
+
+        What is deliberately NOT asserted: that these arms are on the vendor's
+        distillation grid. They are not, by construction, and nothing here
+        should be readable as saying they are.
+        """
+        assert not undeclared_arms, (
+            "these graphs run a step count that is neither their LoRA's "
+            "distilled NFE nor a declared OWNER_RECIPE: "
+            + "; ".join(f"{p.relative_to(REPO)} at {n} steps ({k})"
+                        for p, _s, _sh, _sc, n, k in undeclared_arms))
+        if not recipe_arms:
+            return
+        compared = 0
+        for path, stem, (sv, sa), scheduler, steps, key in recipe_arms:
+            if stem in GRID_EXEMPT_STEMS:
+                # An arm whose scheduler deviation IS its subject. Grading it
+                # on "is simple nearest" would contradict the exemption that
+                # already covers it, and `exemptions_necessary` keeps that
+                # exemption honest from the other side.
+                continue
+            compared += 1
+            mine = deviation(comfy_grid(sv, sa, scheduler, steps)[0],
+                             vendor_rule(steps, sv))
+            worse = {}
+            # The arm's OWN scheduler is not a comparison against itself.
+            for other in ("simple", "beta", "normal", "sgm_uniform",
+                          "ddim_uniform"):
+                if other == scheduler:
+                    continue
+                try:
+                    worse[other] = deviation(
+                        comfy_grid(sv, sa, other, steps)[0],
+                        vendor_rule(steps, sv))
+                except Exception:
+                    continue
+            assert worse, f"{path.relative_to(REPO)}: no comparison scheduler ran"
+            closer = sorted(o for o, d in worse.items() if d <= mine)
+            assert not closer, (
+                f"{path.relative_to(REPO)}: this arm runs the owner recipe at "
+                f"{steps} steps, where `{scheduler}` is off the closed form by "
+                f"{mine:.4f} and {closer} are no further. `simple` being the "
+                f"nearest scheduler is the only grid claim these arms carry; "
+                f"if it is no longer true, the recipe needs re-deciding.")
+        print(f"        ({len(recipe_arms)} owner-recipe arm(s) NOT graded as "
+              f"vendor-grid arms, {compared} of them scheduler-compared; "
+              f"{len(vendor_arms)} vendor-grid arm(s))")
+
     check("graphs are readable", graphs_are_readable)
+    check("recipe arms are declared, simple still nearest",
+          recipe_arms_are_declared_and_simple_is_nearest)
     check("split arms share one shift", split_arms_share_one_shift)
     check("divisor regime holds", divisor_regime_holds)
     check("graphs on grid", graphs_on_grid)

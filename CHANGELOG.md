@@ -35,6 +35,44 @@ artifact.
 
 ### Changed
 
+- **v1.1 is the canonical 768p LoRA on every operative surface.** Moving the
+  constant was not the change: sixteen graphs loaded v1.1 while their own
+  generated help text still read v1.0, which is the right file under the wrong
+  instructions, and nothing in the suite read a note. Generator notes, the
+  config commentary, the graph help text, and the operative advice in
+  `docs/h3_ref2v_distillation.md` now name v1.1. The version a note SHOWS is
+  derived from the filename that owns it (`h3_config.turbo_label()`) rather
+  than typed beside it, and `check_distill_settings.py::notes_match_the_lora`
+  is the control -- it went red on the sixteen stale graphs before the
+  regeneration that fixed them. Only claims a note makes about its own graph
+  are graded, so the comparison table naming the other four LoRAs stays green.
+  v1.0 is historical, not a fallback: it survives where it records genuine
+  provenance (the vendor's documented row, the measured distillation table, the
+  dated 2026-08-20 power-limit run) and nowhere else.
+
+- **The 768p arm renders at 6 steps, strength 0.75** (v1.1 only; SLA and the
+  8-step keep the vendor's 1.0). Owner-selected on their own trials, provisional
+  and unscored. Kept structurally distinct from what the student was distilled
+  to do: `TURBO_768P_DISTILLED_STEPS` holds the vendor's 4 NFE and
+  `check_distill_settings.LEGAL` still grades that row against the vendor, while
+  `OWNER_RECIPE` records what we actually run. A dedicated
+  `TURBO_768P_STRENGTH` rather than the shared `TURBO_LORA_STRENGTH`, so moving
+  it cannot move every other turbo arm. The recipe never touches the shift: 6/3
+  is the training value and stays. Filename, shift, steps and strength are now
+  graded as one configuration -- strength was read by nothing until now, and
+  three of four fields staying right is exactly how the fourth drifts.
+
+- **Six steps does not divide the 1,000-step training grid, so those arms are
+  partitioned out of the exact-grid claim rather than tolerated inside it.**
+  `check_distill_grid.py` now splits vendor-grid arms from owner-recipe arms:
+  the first keep the exactness assertion, the second get a weaker claim stated
+  as weaker -- the deviation must be declared, and `simple` must still be
+  strictly the nearest scheduler at the arm's own step count. Loosening the
+  tolerance would have destroyed the vendor claim for all 22 remaining arms at
+  once; rewriting the vendor row to say 6 would have erased what the student was
+  distilled to do. An arm at neither a distilled count nor a declared recipe
+  fails, so a recipe cannot arrive by editing a widget.
+
 - **The 768p turbo arm runs v1.1, not v1.0** (`TURBO_768P_LORA`, 16 graph
   references). v1.0 is no longer on this machine and every reference to it was
   red at the loader. The vendor still documents no v1.1 row, so its 6/3 shift

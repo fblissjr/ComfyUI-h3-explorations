@@ -46,7 +46,7 @@
         0
       ],
       "scheduler": "simple",
-      "steps": 4,
+      "steps": 6,
       "denoise": 1.0
     }
   },
@@ -181,7 +181,7 @@
         0
       ],
       "lora_name": "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors",
-      "strength_model": 1.0
+      "strength_model": 0.75
     }
   },
   "19": {

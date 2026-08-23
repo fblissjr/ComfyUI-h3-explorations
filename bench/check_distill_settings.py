@@ -79,7 +79,7 @@ VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 # Graphs live in more than one directory since 2026-08-16; a bare
 # `WORKFLOWS.glob` is non-recursive and would quietly stop covering the image
 # path. See h3_config.GRAPH_DIRS.
-from h3_config import graph_paths  # noqa: E402
+from h3_config import graph_paths, turbo_label  # noqa: E402
 
 
 class Row(NamedTuple):
@@ -103,6 +103,11 @@ class Found(NamedTuple):
     # (`build_workflows.py::_plain_model_chain` builds node 40 beside node 19)
     # and reading one of two silently grades half the graph.
     shifts: tuple[tuple[float, float], ...] = ()
+    # {lora filename: strength_model}. Strength was read by nothing until
+    # 2026-08-23: a graph at the right file, shift and steps but the wrong
+    # strength is a different arm, and three of four fields staying right is
+    # exactly how the fourth drifts unnoticed.
+    strengths: dict[str, float] | None = None
 
 
 # Keyed by the distinguishing fragment of the ComfyUI filename.
@@ -135,9 +140,32 @@ UNATTESTED = {
     "turbo_4step_v1.1_768p":
         "lightx2v published this file on 2026-08-20 with no README row and it "
         "still has none (checked 2026-08-23). Its 6/3 shift and 4 steps are "
-        "taken from the v1.0 768p row on the strength of the filename family. "
-        "Adopted by owner decision when v1.0 left this disk; v1.0 is still "
-        "published if the inheritance is ever doubted",
+        "inherited from the 4-step v1.0 768p row on the strength of the "
+        "filename family, not attested by any vendor source",
+}
+
+#: Arms this repo renders at settings the vendor does not recommend, keyed by
+#: LEGAL row. The vendor row in `LEGAL` is NOT rewritten to match -- it stays
+#: the distilled truth, gradeable against the vendor -- and this records what
+#: we actually run beside it.
+#:
+#: All four fields move together on purpose. Filename, shift, steps and
+#: strength are one configuration: a graph at the right steps and the wrong
+#: strength is as much a different arm as one at the wrong shift, and grading
+#: them separately is how three of the four stay right while the fourth drifts.
+#: `shift` is deliberately the DISTILLED value here -- the recipe moves steps
+#: and strength, never the schedule the student was fitted to.
+OWNER_RECIPE = {
+    "turbo_4step_v1.1_768p": {
+        "steps": 6,
+        "strength": 0.75,
+        "shift": (6.0, 3.0),
+        "why": "owner's own trials, 2026-08-23, provisional and unscored -- "
+               "six steps at 0.75 preferred over the vendor's 4 NFE at 1.0. "
+               "Six does NOT divide the 1,000-step grid, so these graphs are "
+               "not exact vendor-grid arms; check_distill_grid.py routes them "
+               "down its owner-recipe path rather than loosening the tolerance",
+    },
 }
 
 # LightX2V's inference configs, each of which names the LoRA it loads and
@@ -148,6 +176,10 @@ LIGHTX2V_CONFIGS = REPO / "coderef" / "LightX2V" / "configs" / "minimax_h3" / "d
 # LoRA must sit here, which is what makes "every shipped graph" true rather
 # than "the two graphs that happen to load a LoRA".
 BASE_SHIFT = (12.0, 3.0)
+
+#: The vendor's own default for every turbo arm without an OWNER_RECIPE.
+#: `--lora-scale` defaults to 1.0 in Minimax-H3-Turbo's inference script.
+DEFAULT_TURBO_STRENGTH = 1.0
 
 # turbo_<n>step_<version>[_<resolution>] -- parsed structurally, NOT by
 # substring. A substring match classifies a hypothetical
@@ -169,6 +201,29 @@ _PACK_NAME = re.compile(r"turbo_v(\d+)_step(\d+)(?:_ema)?", re.IGNORECASE)
 # generate.py hardcodes 12/3 and its example graph carries no shift node.
 PACK_STEPS = (4, 8)
 PACK_SHIFT = (12.0, 3.0)
+
+
+#: The two places a generated note claims a version FOR THE GRAPH IT IS ON.
+#: Notes legitimately name other LoRAs -- the comparison table lists all five --
+#: so a blanket "no note may mention another version" would be red on correct
+#: state. These two phrasings are the ones that are about *this* graph, and
+#: they are the ones that go stale when `TURBO_768P_LORA` moves.
+_THIS_GRAPH_CLAIMS = (
+    re.compile(r"This graph loads the \*\*([^*]+?)\*\* LoRA"),
+    re.compile(r"\|\s*([^|]+?)\s*\(this graph\)\s*\|"),
+)
+
+
+def note_versions(doc) -> list[str]:
+    """Every version label a UI graph's notes claim for itself."""
+    out = []
+    for node in doc.get("nodes", []):
+        if node.get("type") != "MarkdownNote":
+            continue
+        text = " ".join(str(w) for w in (node.get("widgets_values") or []))
+        for pattern in _THIS_GRAPH_CLAIMS:
+            out.extend(m.strip() for m in pattern.findall(text))
+    return out
 
 
 def classify_pack(lora_name):
@@ -214,6 +269,7 @@ def read_api(doc) -> Found:
     steps: int | None = None
     scheduler: str | None = None
     shifts: list[tuple[float, float]] = []
+    strengths: dict[str, float] = {}
     for node in doc.values():
         ct, inp = node.get("class_type"), node.get("inputs", {})
         if ct in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA"):
@@ -222,6 +278,9 @@ def read_api(doc) -> Found:
             # which they happened to satisfy, and never graded on steps.
             # A pass for the wrong reason is what this file exists to stop.
             loras.append(inp.get("lora_name", ""))
+            s = _literal(inp.get("strength_model"))
+            if s is not None:
+                strengths[str(inp.get("lora_name", ""))] = float(s)
         elif ct == "MiniMaxH3SigmaShift":
             sv, sa = _literal(inp.get("shift_video")), _literal(inp.get("shift_audio"))
             shift = None if sv is None or sa is None else (float(sv), float(sa))
@@ -232,7 +291,7 @@ def read_api(doc) -> Found:
             steps = None if n is None else int(n)
             sched = _literal(inp.get("scheduler"))
             scheduler = None if sched is None else str(sched)
-    return Found(loras, shift, steps, scheduler, tuple(shifts))
+    return Found(loras, shift, steps, scheduler, tuple(shifts), strengths)
 
 
 def read_ui(doc) -> Found:
@@ -244,17 +303,20 @@ def read_ui(doc) -> Found:
     steps: int | None = None
     scheduler: str | None = None
     shifts: list[tuple[float, float]] = []
+    strengths: dict[str, float] = {}
     for node in doc.get("nodes", []):
         t, w = node.get("type"), node.get("widgets_values") or []
         if t in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA") and w:
             loras.append(w[0])
+            if len(w) >= 2 and isinstance(w[1], (int, float)):
+                strengths[str(w[0])] = float(w[1])
         elif t == "MiniMaxH3SigmaShift" and len(w) >= 2:
             shift = (float(w[0]), float(w[1]))
             shifts.append(shift)
         elif t == "BasicScheduler" and len(w) >= 2:
             steps = int(w[1])
             scheduler = str(w[0])
-    return Found(loras, shift, steps, scheduler, tuple(shifts))
+    return Found(loras, shift, steps, scheduler, tuple(shifts), strengths)
 
 
 def parse_vendor_table(text):
@@ -454,9 +516,27 @@ def main():
             assert got == (want.shift_video, want.shift_audio), (
                 f"{label} ({key}): config shift {got}, distilled at "
                 f"({want.shift_video}, {want.shift_audio})")
-            assert steps in want.steps, (
-                f"{label} ({key}): config steps {steps}, "
-                f"distilled for {sorted(want.steps)}")
+            recipe = OWNER_RECIPE.get(key)
+            if recipe is None:
+                assert steps in want.steps, (
+                    f"{label} ({key}): config steps {steps}, "
+                    f"distilled for {sorted(want.steps)}")
+            else:
+                # An owner recipe replaces the STEP claim, never the shift: the
+                # shift assertion above already ran and is the distilled value.
+                assert steps == recipe["steps"], (
+                    f"{label} ({key}): config steps {steps}, but OWNER_RECIPE "
+                    f"declares {recipe['steps']}. Move both or neither -- a "
+                    f"recipe that disagrees with the config it describes is "
+                    f"worse than no recipe.")
+                assert got == recipe["shift"], (
+                    f"{label} ({key}): OWNER_RECIPE shift {recipe['shift']} is "
+                    f"not the config's {got}")
+                assert recipe["shift"] == (want.shift_video, want.shift_audio), (
+                    f"{label} ({key}): OWNER_RECIPE moved the SHIFT off the "
+                    f"distilled {(want.shift_video, want.shift_audio)}. Steps "
+                    f"and strength are the recipe; the schedule the student "
+                    f"was fitted to is not.")
 
     check("h3_config turbo triples are legal", config_is_consistent)
 
@@ -516,9 +596,33 @@ def main():
                     f"{path.name}: loads {key} but no BasicScheduler step count "
                     "could be read; steps move with the LoRA and nothing here "
                     "would notice")
-                assert found.steps in want.steps, (
-                    f"{path.name}: {key} wants steps {sorted(want.steps)}, "
-                    f"graph has {found.steps}")
+                # Steps and strength come from the owner recipe where one is
+                # declared, and from the vendor row otherwise. The SHIFT above
+                # is graded against the vendor either way -- a recipe never
+                # moves the schedule the student was fitted to.
+                recipe = OWNER_RECIPE.get(key)
+                if recipe is None:
+                    assert found.steps in want.steps, (
+                        f"{path.name}: {key} wants steps {sorted(want.steps)}, "
+                        f"graph has {found.steps}")
+                else:
+                    assert found.steps == recipe["steps"], (
+                        f"{path.name}: {key} runs the owner recipe at "
+                        f"{recipe['steps']} steps ({recipe['why']}), graph has "
+                        f"{found.steps}")
+                # Strength, graded for every turbo arm and not only the recipe
+                # ones. Read by nothing until 2026-08-23.
+                got_strength = (found.strengths or {}).get(lora)
+                assert got_strength is not None, (
+                    f"{path.name}: loads {key} but no strength_model could be "
+                    f"read; filename, shift, steps and strength are one "
+                    f"configuration and three of four is not a pass")
+                want_strength = (recipe["strength"] if recipe
+                                 else DEFAULT_TURBO_STRENGTH)
+                assert got_strength == want_strength, (
+                    f"{path.name}: {key} wants strength {want_strength:g}, "
+                    f"graph has {got_strength:g}"
+                    + (f" ({recipe['why']})" if recipe else ""))
 
         assert turbo_graphs, "no shipped graph loads a turbo LoRA; this check saw nothing"
         assert base_graphs, "no shipped base graph was examined; the base arm is unpoliced"
@@ -591,6 +695,54 @@ def main():
             "v1.1's row is inherited, not attested. If a vendor source now "
             "carries it, drop the UNATTESTED entry -- do not silently keep "
             "grading it against its filename")
+
+    # ---- the note against the file it sits beside -------------------------
+    def notes_match_the_lora():
+        """A graph cannot load one version while its own note names another.
+
+        The generated help text and the `lora_name` widget were independent
+        strings until 2026-08-23. `TURBO_768P_LORA` moved to v1.1 and sixteen
+        graphs went on loading v1.1 under notes that still read v1.0 -- correct
+        file, wrong instructions, and nothing in the suite looked at the note
+        at all. `h3_config.turbo_label()` now derives the displayed label from
+        the same filename the graph loads; this is what keeps them derived.
+
+        Only claims a note makes about ITS OWN graph are graded. The comparison
+        table naming the other four LoRAs is correct and must stay green.
+        """
+        graded = skipped_pack = 0
+        problems = []
+        for path in graph_paths(WORKFLOWS):
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(doc.get("nodes"), list):
+                continue  # the API form carries no notes
+            found = read_ui(doc)
+            turbo = [n for n in found.loras if is_turbo(n)]
+            if not turbo:
+                continue
+            want = turbo_label(turbo[0])
+            if not want:
+                # The third-party pack's `turbo_v4_step600_ema` family has no
+                # N-step-vX.Y label. Counted, not silently passed.
+                skipped_pack += 1
+                continue
+            claimed = note_versions(doc)
+            if not claimed:
+                continue
+            graded += 1
+            wrong = sorted({c for c in claimed if c != want})
+            if wrong:
+                problems.append(
+                    f"{path.relative_to(REPO)} loads {want!r} but its note "
+                    f"claims {wrong} for this graph")
+        assert graded, (
+            "no graph paired a turbo LoRA with a self-describing note; this "
+            "case would pass on an empty set, so it has lost its subject")
+        assert not problems, "; ".join(problems)
+        print(f"        ({graded} graph(s) with a self-describing note, "
+              f"{skipped_pack} pack graph(s) with no parseable label)")
+
+    check("notes match the lora they sit beside", notes_match_the_lora)
 
     check("an unknown turbo checkpoint is not classified", unknown_lora_is_caught)
 

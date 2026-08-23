@@ -344,9 +344,11 @@ own schedule, which is the precise silent failure
 `bench/check_distill_settings.py` exists to catch. It also confounds: move
 shift and strength together and you cannot attribute the result.
 
-If you want a shift-6 arm, the honest way to get it is the 4-step v1.0 768p
-LoRA, which was *distilled* at 6/3 and at 1344x768, matching the ref2v canvas.
-That is one coherent configuration rather than a mismatched one.
+If you want a shift-6 arm, the honest way to get it is the 768p turbo LoRA
+(`h3_config.TURBO_768P_LORA`, v1.1 since 2026-08-23), whose family was
+*distilled* at 6/3 and at 1344x768, matching the ref2v canvas. That is one
+coherent configuration rather than a mismatched one. The measured rows above
+were taken on v1.0, the 768p file at the time, and are left as recorded.
 
 ---
 

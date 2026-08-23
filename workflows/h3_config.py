@@ -544,7 +544,7 @@ CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
 #
 #   FL2VA Turbo 4-step v0.1     544p mixed aspect   12 / 3   4 steps
 #   FL2VA Turbo 8-step v1.0     544p                12 / 3   8 or 4 steps
-#   FL2VA Turbo 4-step v1.0     768p (1344x768)      6 / 3   4 steps
+#   FL2VA Turbo 4-step v1.0     768p (1344x768)      6 / 3   4 steps  <- v1.1 inherits this row
 #   Ref2VA Turbo 4-step v0.1    544p mixed aspect   12 / 3   4 steps
 #   FL2VA Turbo 4-step v0.1 SLA 768p (1344x768)      6 / 3   4 steps
 #
@@ -574,22 +574,25 @@ CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
 # analogue at all. If a schedule here ever reads 2.22, it came from that path
 # and not from anything we sample.
 #
-# **The 768p arm moved from v1.0 to v1.1 on 2026-08-23, by owner decision.**
-# This paragraph argued the other way until then, and the argument is left
-# visible rather than deleted because it has NOT been answered: the vendor
-# README still carries no v1.1 row (checked 2026-08-23), so v1.1's 6/3 shift
-# and 4 steps are inherited from v1.0's row by filename family, not attested.
-# What forced the choice was availability -- v1.0 left this disk, and 16
-# graph references went red against a file the server could not offer.
+# **v1.1 is the 768p arm.** It is what every 768p graph loads, what every note
+# names, and the only 768p file this repo treats as current. v1.0 is
+# historical: it is the row the vendor documented and the file earlier runs
+# were measured on, and it is not a fallback -- nothing here should offer it,
+# reach for it, or describe the shipped graph as loading it.
 #
-# The v1.0 artifact is still published (HTTP 200 on the lightx2v repo,
-# 1,956,192,992 bytes, sha256 919ee205...eea55, repo commit ec01fa4), so
-# re-downloading it remains open if the inheritance is ever doubted.
+# What v1.1 inherits rather than owns is its schedule. The vendor README
+# carries no v1.1 row (checked 2026-08-23), so the 6/3 shift and 4 steps below
+# come from v1.0's row on the strength of the filename family. That is
+# declared, not assumed: `bench/check_distill_settings.py::UNATTESTED` names
+# the row, the vendor case FAILS if a LEGAL row is neither found in a source
+# nor declared there, and it fails again if a vendor source later carries the
+# row and the declaration is left standing.
 #
-# The inheritance is DECLARED, not silent: `check_distill_settings.UNATTESTED`
-# names this row, and the vendor-table case fails if a LEGAL row is neither
-# found in a vendor source nor declared there -- and fails again if the vendor
-# later publishes a v1.1 row, because the declaration would then be stale.
+# The version a note SHOWS is derived from the filename below via
+# `turbo_label()`, never typed. They were independent strings until
+# 2026-08-23 and drifted the moment this constant moved: sixteen graphs loaded
+# v1.1 under help text still saying v1.0.
+# `check_distill_settings.py::notes_match_the_lora` is that control.
 SIGMA_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
 # The turbo graph. This is the 8-step v1.0; the others are listed in the
@@ -624,12 +627,62 @@ TURBO_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 # v1.1 since 2026-08-23; see the note above SIGMA_SHIFT for why, and for what
 # is inherited rather than attested about its shift.
 TURBO_768P_LORA = "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors"
-TURBO_768P_STEPS = 4
+# **Training provenance, kept separate from the render recipe below.** This is
+# the NFE the v1.0 row documents and the count v1.1 inherits: it is what the
+# student was distilled to do, and it is what `check_distill_settings.LEGAL`
+# holds. Nothing renders at it today. Keeping it named means the vendor row
+# stays gradeable against the vendor while the recipe moves independently -- a
+# single `TURBO_768P_STEPS` would have made changing the recipe look like
+# rewriting the vendor's row.
+TURBO_768P_DISTILLED_STEPS = 4
+
+# **The render recipe: owner-selected, 2026-08-23, and provisional.** Six steps
+# at strength 0.75 on the owner's own trials -- "it seems to be working best".
+# Not a vendor number and not measured here against a distribution, so it is
+# declared as a recipe rather than folded into the row above.
+#
+# **Six does not divide the 1,000-step training grid** (1000 % 6 == 4), so
+# these graphs are NOT exact vendor-grid arms and must not be graded as one.
+# `bench/check_distill_grid.py` routes them down a separate owner-recipe path
+# that still asserts `simple` is the nearest scheduler at this count, rather
+# than loosening the tolerance that makes the vendor-grid claim mean anything.
+TURBO_768P_STEPS = 6
+
+# Dedicated, NOT `TURBO_LORA_STRENGTH`. That constant is the vendor's own
+# default of 1.0 and is what the 8-step and every other turbo arm loads;
+# pointing the 768p arm at it and then changing it would have moved every arm
+# at once. `TURBO_OWNER_STRENGTH` is also not this: that belongs to the
+# `h3_probe_turbo_768p_owner` graph, which additionally moves the sampler and
+# the scheduler and exists to be judged against the vendor recipe.
+TURBO_768P_STRENGTH = 0.75
+
 TURBO_768P_SHIFT = dict(shift_video=6.0, shift_audio=3.0)
 
+
+def turbo_label(lora_path: str) -> str:
+    """`minimax_h3_fl2v_turbo_4step_v1.1_768p_...` -> `4-step v1.1 768p`.
+
+    Every note that names a LoRA version derives it from here, so the string a
+    graph SHOWS and the file it LOADS come from one place. They were typed
+    independently until 2026-08-23 and drifted the moment `TURBO_768P_LORA`
+    moved to v1.1: sixteen graphs loaded v1.1 while their own help text said
+    v1.0, and nothing looked. `check_distill_settings.py::notes_match_the_lora`
+    is the control.
+
+    Returns "" for a filename this cannot parse, so a caller writing a note
+    gets an obviously empty label rather than a confident wrong one.
+    """
+    import re as _re
+    name = str(lora_path).rsplit("/", 1)[-1]
+    m = _re.search(r"(\d+)step_(v\d+\.\d+)(?:_(\d+p))?", name)
+    if not m:
+        return ""
+    steps, version, res = m.groups()
+    return f"{steps}-step {version}" + (f" {res}" if res else "")
+
 # The SLA release (lightx2v/Minimax-h3-Turbo-SLA, 2026-08-20). Same tensor
-# keys, rank, alpha and base as the 768p v1.0 above -- header read
-# 2026-08-20: 624 tensors, attn+mlp of all 50 blocks plus the refiner, rank
+# keys, rank, alpha and base as the 768p arm -- header read 2026-08-20
+# against v1.0, which was the 768p file at the time: 624 tensors, attn+mlp of all 50 blocks plus the refiner, rank
 # 128, alpha 128, `base_model: minimax_h3_fl2va_bf16` -- so it loads through
 # the stock loader exactly as that one does. What differs is how it was
 # trained, and that is the whole point of wiring it.
@@ -649,8 +702,8 @@ TURBO_768P_SHIFT = dict(shift_video=6.0, shift_audio=3.0)
 #     router -- threshold on pooled scores with a dense fallback, not a fixed
 #     top-k -- so the LoRA's sparsity is not Sol's sparsity
 #   - under dense attention: every block it learned to do without is back
-# The probe graph `h3_probe_turbo_768p_sla.json` is the 768p v1.0 graph with
-# only this file swapped, Sol on per the repo default, so the first render
+# The probe graph `h3_probe_turbo_768p_sla.json` is the 768p graph with only
+# this file swapped, Sol on per the repo default, so the first render
 # answers "does it work at all under Sol" and nothing finer.
 #
 # Shift 6/3 and 4 steps are the 768p v1.0's row, and that is not a guess:

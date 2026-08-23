@@ -59,6 +59,8 @@ from h3_config import (  # noqa: E402
     CACHE_NODE, CACHE_NODE_CLASS,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
+    TURBO_768P_STRENGTH, TURBO_768P_DISTILLED_STEPS,
+    turbo_label,
     TURBO_SLA_LORA, TURBO_SLA_SHIFT, TURBO_SLA_STEPS,
     TURBO_OWNER_STRENGTH, TURBO_OWNER_SCHEDULER,
     TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
@@ -1531,7 +1533,7 @@ node refuses any sageattention without `sageattn_consume`. See the doc.
 """
 
 
-_NOTE_NODES = """\
+_NOTE_NODES = f"""\
 ## Node order is load-bearing
 
 ```
@@ -1549,9 +1551,10 @@ error and no log line saying so.
 **The sigma shift is here to be changed, not because it does anything at
 12/3.** Those are the base checkpoint's training shifts, so the node is a
 no-op as shipped. The turbo LoRAs inherit the sampler's shift instead of
-carrying their own, and the 4-step v1.0 768p one was distilled at video
-shift **6** -- and that is the variant trained at 1344x768, this canvas. Load
-it without changing this and you sample it off a schedule it never saw.
+carrying their own, and the {turbo_label(TURBO_768P_LORA)} one was
+distilled at video shift **6** -- and that is the variant trained at 1344x768,
+this canvas. Load it without changing this and you sample it off a schedule it
+never saw.
 Steps move with it too: 16 is a base-model number, these want 4 or 8. The
 4-step v0.1 and 8-step v1.0 were both distilled at 12/3 and need no change
 here.
@@ -3508,15 +3511,23 @@ the bottom 63% of the range**. Krea 2's sweet spot of k=2-3 was still at sigma
 _NOTE_TURBO_768P = f"""\
 ## The turbo LoRAs whose shift is not 12/3
 
-This graph loads the **4-step v1.0 768p** LoRA at {TURBO_768P_STEPS} steps,
-video shift **{TURBO_768P_SHIFT["shift_video"]:g}** and audio shift
+This graph loads the **{turbo_label(TURBO_768P_LORA)}** LoRA at
+**{TURBO_768P_STEPS} steps, strength {TURBO_768P_STRENGTH:g}**, video shift
+**{TURBO_768P_SHIFT["shift_video"]:g}** and audio shift
 {TURBO_768P_SHIFT["shift_audio"]:g}.
+
+**Steps and strength here are an owner-selected recipe, not the vendor's
+row.** The vendor documents {TURBO_768P_DISTILLED_STEPS} NFE at strength 1.0,
+and that is what the student was distilled to do; the table below records it.
+Six steps at 0.75 is what the owner's own trials preferred as of 2026-08-23,
+and it is provisional -- no blind distribution has scored it. The shift is
+NOT part of the recipe: 6/3 is the training value and stays.
 
 | LoRA | trained at | shift (v/a) | steps |
 |---|---|---|---|
 | 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |
 | 8-step v1.0 | 544p, mixed aspect | 12 / 3 | 8 or 4 |
-| 4-step v1.0 768p (this graph) | **1344x768** | **6** / 3 | 4 |
+| {turbo_label(TURBO_768P_LORA)} (this graph) | **1344x768** | **6** / 3 | {TURBO_768P_DISTILLED_STEPS} distilled, **{TURBO_768P_STEPS} rendered** |
 | ref2v 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |
 | 4-step v0.1 768p **SLA** | **1344x768** | **6** / 3 | 4 |
 
@@ -3606,9 +3617,14 @@ Two costs the recipe carries, stated up front:
 
 Bench arms patch the LoRA file onto this graph (`run_graph_arms.py --set
 LABEL:LoraLoaderModelOnly.lora_name=...`) rather than shipping a row per
-file, because only the v1.0 768p file has a vendor-attested shift/steps row
-that `bench/check_distill_settings.py` can grade; v1.1 was uploaded the same
-day with no documentation and is deliberately not a graph.
+file, so one graph carries the recipe and the file is the only thing that
+moves. **This paragraph argued the opposite until 2026-08-23**: it said only
+the v1.0 768p file had a vendor-attested row and that v1.1 was deliberately
+not a graph. v1.1 is now the graph -- v1.0 left this machine -- and its 6/3
+shift and 4 steps are inherited from v1.0's vendor row by filename family
+rather than attested. `bench/check_distill_settings.py::UNATTESTED` is where
+that is written down, and it fails if the vendor ever publishes the real
+row and the declaration is left standing.
 """
 
 
@@ -3643,9 +3659,13 @@ was t2v or ref2v. So every turbo number and every turbo comparison recorded in
 this repo was taken out of distribution, including the ones that reason
 carefully about *how far* out.
 
-This is `h3_first_last_frame_to_video.json` with the 4-step 768p LoRA at the
-vendor's row: {TURBO_768P_STEPS} steps, shift 6/3, `{TURBO_SAMPLER}`, strength
-{TURBO_LORA_STRENGTH:g}. Same canvas, same seed, same length, same placeholder
+This is `h3_first_last_frame_to_video.json` with the
+{turbo_label(TURBO_768P_LORA)} LoRA at this repo's current recipe:
+{TURBO_768P_STEPS} steps, shift 6/3, `{TURBO_SAMPLER}`, strength
+{TURBO_768P_STRENGTH:g}. The shift is the vendor's training value; the steps
+and strength are owner-selected and provisional, so a number taken here is
+comparable to other arms on this recipe and not to the vendor's
+{TURBO_768P_DISTILLED_STEPS}-NFE row. Same canvas, same seed, same length, same placeholder
 keyframes as its base twin, so the pair is comparable by construction.
 
 **What it is for.** Not "is turbo good" -- a rendered pair cannot A/B a
@@ -3716,7 +3736,7 @@ This graph loads the **8-step v1.0** LoRA at {TURBO_STEPS} steps, shift
 |---|---|---|---|
 | 4-step v0.1 | 544p, **mixed aspect** | 12 / 3 | 4 |
 | 8-step v1.0 (this graph) | 544p, **mixed aspect** | 12 / 3 | 8 or 4 |
-| 4-step v1.0 768p | **1344x768** | **6** / 3 | 4 |
+| {turbo_label(TURBO_768P_LORA)} | **1344x768** | **6** / 3 | {TURBO_768P_DISTILLED_STEPS} distilled, {TURBO_768P_STEPS} rendered |
 | ref2v 4-step v0.1 | 544p, **mixed aspect** | 12 / 3 | 4 |
 | 4-step v0.1 768p SLA | **1344x768** | **6** / 3 | 4 |
 
@@ -3749,7 +3769,7 @@ reference generates. 544p is below it. So:
 **Which one costs less is not measured here.** Do not assume the LoRA's
 resolution wins just because the LoRA is the thing you added.
 
-**The 4-step v1.0 768p is the only one with no resolution gap at this
+**The {turbo_label(TURBO_768P_LORA)} is the only one with no resolution gap at this
 canvas** -- it was distilled at exactly 1344x768. The trade is aspect: it saw
 that one shape, where **both** 544p LoRAs (v0.1 and the 8-step v1.0 this
 graph loads) saw mixed aspect ratios. So render 1:1 or 9:16 and the 768p LoRA
@@ -4995,7 +5015,7 @@ def main():
         ("h3_first_last_frame_to_video_turbo_4step_768p.json", "fl2v-turbo768",
          "i2v", None,
          dict(last_frame=True,
-              lora=(TURBO_768P_LORA, TURBO_LORA_STRENGTH),
+              lora=(TURBO_768P_LORA, TURBO_768P_STRENGTH),
               steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
               sampler_name=TURBO_SAMPLER,
               variant_note=_NOTE_FL2V_TURBO,
@@ -5020,7 +5040,7 @@ def main():
         # canvas, so unlike the 8-step nothing else has to move.
         ("h3_text_to_video_turbo_4step_768p.json", "t2v-turbo768", "t2v",
          LONG_T2V_PROMPT,
-         dict(lora=(TURBO_768P_LORA, TURBO_LORA_STRENGTH),
+         dict(lora=(TURBO_768P_LORA, TURBO_768P_STRENGTH),
               steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
               variant_note=_NOTE_TURBO_768P,
               out_prefix="Video/h3_t2v_turbo_4step_768p"),
@@ -5035,7 +5055,7 @@ def main():
         # swap the LoRA widget to v1.1.
         ("h3_text_to_video_turbo_768p_euler.json", "t2v-turbo768-euler", "t2v",
          LONG_T2V_PROMPT,
-         dict(lora=(TURBO_768P_LORA, TURBO_LORA_STRENGTH),
+         dict(lora=(TURBO_768P_LORA, TURBO_768P_STRENGTH),
               steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
               sampler_name=TURBO_SAMPLER,
               out_prefix="Video/h3_t2v_turbo_768p_euler",
@@ -5079,7 +5099,7 @@ def main():
                   "different sparse attention",
                   "h3_text_to_video_turbo_4step_768p.json",
                   "the LoRA file: lightx2v's Turbo-SLA 4-step v0.1 768p instead "
-                  "of the Turbo 4-step v1.0 768p. Same shift (6/3), same steps, "
+                  f"of the Turbo {turbo_label(TURBO_768P_LORA)}. Same shift (6/3), same steps, "
                   "same rank, alpha, base and tensor keys -- the file differs in "
                   "what the student saw during distillation. The SLA student's "
                   "attention ran a top-k block router that keeps 15% of key "
@@ -5297,7 +5317,7 @@ def main():
              _ref_prompt(images=("character", "garment", "environment")),
              dict(**REF_VIDEO_BUDGET, ref_images=CAPTURE_REF_IMAGES,
                   unet=MODELS[key],
-                  lora=(TURBO_768P_LORA, TURBO_LORA_STRENGTH),
+                  lora=(TURBO_768P_LORA, TURBO_768P_STRENGTH),
                   steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
                   sampler_name=TURBO_SAMPLER,
                   out_prefix=f"Video/h3_probe_ref_turbo768p_{tag}",

@@ -46,7 +46,7 @@
         0
       ],
       "scheduler": "beta",
-      "steps": 4,
+      "steps": 6,
       "denoise": 1.0
     }
   },

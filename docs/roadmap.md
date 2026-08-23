@@ -45,8 +45,9 @@ Completed this slice:
    mono; native ComfyUI remains unchanged, so these are locally handled gaps,
    not native fixes.
 3. Passed prompt, guide, ordering, typed-consumer, bounds, preflight, live API,
-   and UI-schema checks for the migrated population. The only full-schema red
-   rows are eight unrelated v1.0 Turbo LoRA filenames absent on this install.
+   and UI-schema checks for the migrated population. The eight full-schema red
+   rows were 768p Turbo LoRA filenames absent on this install; resolved
+   2026-08-23 by moving the 768p arm to v1.1, the file that is present.
 4. Fixed VHS `LazyAudioMap` compatibility found by the first all-media smoke,
    then completed the rerun. The native tokenizer already had all twenty tokens,
    so this repo's compatibility shim logged a no-op.
