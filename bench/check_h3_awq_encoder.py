@@ -46,6 +46,8 @@ sys.path.insert(0, str(REPO / "workflows"))
 
 import comfy.cli_args  # noqa: E402
 from build_h3_awq_standalone import (  # noqa: E402
+    COMPARE_WORKFLOW_FILENAME,
+    FIRST_LAST_WORKFLOW,
     NODE_ID,
     REF2V_TURBO_LORA_PATH,
     RUNTIME_CONFIGS,
@@ -143,7 +145,7 @@ def standalone_distribution_contract():
     with tempfile.TemporaryDirectory(prefix="h3-awq-standalone-") as raw:
         output_dir = Path(raw)
         written = build_standalone(output_dir)
-        expected_names = {STANDALONE_FILENAME, *WORKFLOWS}
+        expected_names = {STANDALONE_FILENAME, COMPARE_WORKFLOW_FILENAME, *WORKFLOWS}
         assert {path.name for path in written} == expected_names
         standalone_path = output_dir / STANDALONE_FILENAME
         assert standalone_path.read_text() == rendered
@@ -209,7 +211,7 @@ def standalone_distribution_contract():
             assert loaders[0]["widgets_values"] == [
                 "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors", "default",
             ]
-            if workflow_name.endswith(("text_to_video.json", "first_frame.json")):
+            if workflow_name != "comfyui_minimax_h3_awq_image_reference.json":
                 lora = next(n for n in nodes if n.get("type") == "LoraLoaderModelOnly")
                 assert lora["widgets_values"] == [
                     TURBO_768P_LORA, TURBO_768P_STRENGTH,
@@ -232,6 +234,52 @@ def standalone_distribution_contract():
             else:
                 lora = next(n for n in nodes if n.get("type") == "LoraLoaderModelOnly")
                 assert lora["widgets_values"][0] == REF2V_TURBO_LORA_PATH
+
+            if workflow_name == FIRST_LAST_WORKFLOW:
+                assert types_.count("LoadImage") == 2
+                outer = workflow["nodes"]
+                subgraph_ids = {
+                    subgraph["id"]
+                    for subgraph in workflow["definitions"]["subgraphs"]
+                }
+                instance = next(n for n in outer if n.get("type") in subgraph_ids)
+                last_frame = next(
+                    input_ for input_ in instance["inputs"]
+                    if input_["name"] == "last_frame"
+                )
+                assert last_frame["link"] is not None
+                prompt = instance["widgets_values_named"]["prompt"]
+                assert prompt.startswith(
+                    "How the reference pictures align with the target video — "
+                    "Picture 1 (from Shot 1) aligns with the 0.00-second mark "
+                    "of the target video; Picture 2 (from Shot 1) aligns with "
+                    "the 5.17-second mark of the target video.\n\n"
+                )
+                assert all(
+                    section in prompt for section in (
+                        "integrated_multimodal_description:",
+                        "overall_soundscape:",
+                        "non_diegetic_music:",
+                    )
+                )
+                note_text = "\n".join(
+                    str(value)
+                    for node in outer if node.get("type") == "MarkdownNote"
+                    for value in node.get("widgets_values", [])
+                )
+                assert "default 5-second duration snaps to 124 frames" in note_text
+
+        compare = json.loads((output_dir / COMPARE_WORKFLOW_FILENAME).read_text())
+        compare_types = [node["type"] for node in compare["nodes"]]
+        assert compare_types.count("VHS_LoadVideo") == 2
+        assert compare_types.count("ImageConcatMulti") == 1
+        assert compare_types.count("VHS_VideoCombine") == 1
+        concat = next(node for node in compare["nodes"]
+                      if node["type"] == "ImageConcatMulti")
+        assert concat["widgets_values"] == [2, "right", True]
+        combine = next(node for node in compare["nodes"]
+                       if node["type"] == "VHS_VideoCombine")
+        assert combine["widgets_values"]["frame_rate"] == 24.0
 
         external = os.environ.get("H3_AWQ_STANDALONE")
         if external:

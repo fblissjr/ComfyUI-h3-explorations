@@ -75,6 +75,35 @@ def _replace_instruction(prompt, instruction):
     return instruction + "\n\n" + prompt[prompt.index(MAIN + ":"):]
 
 
+def _linked_core_fl2v(*, prompt_mutation=lambda value: value,
+                      duration_seconds=15.0):
+    """HF-shaped core node: linked prompt plus duration math expression."""
+    wf, nid = _graph(FL2V)
+    prompt = prompt_mutation(wf[nid]["inputs"]["prompt"])
+    wf[nid]["class_type"] = "MiniMaxH3ImageToVideo"
+    wf[nid]["inputs"]["prompt"] = ["900", 0]
+    wf[nid]["inputs"]["length"] = ["901", 1]
+    wf["900"] = {
+        "class_type": "PrimitiveStringMultiline",
+        "inputs": {"value": prompt},
+    }
+    wf["901"] = {
+        "class_type": "ComfyMathExpression",
+        "inputs": {
+            "expression": (
+                "max(5, round(a * 24)) + "
+                "(5 - (max(5, round(a * 24)) % 17)) % 17"
+            ),
+            "values.a": ["902", 0],
+        },
+    }
+    wf["902"] = {
+        "class_type": "PrimitiveFloat",
+        "inputs": {"value": duration_seconds},
+    }
+    return _fails(wf, nid)
+
+
 def build():
     h = Harness("bench/preflight_graph.py")
     h.fixture(REPO / "workflows" / T2V, "the base-format t2v graph under test")
@@ -101,6 +130,10 @@ def build():
     h.case("FL2VA: final-shot placeholder resolves to the wrong shot", MUTATION,
            _mutate(FL2V, lambda p: p.replace(
                "[Shot 1] Live-action", "[Shot 2] Live-action", 1)))
+    h.case("HF core: linked prompt loses a required section", MUTATION,
+           lambda: _linked_core_fl2v(prompt_mutation=_drop_section))
+    h.case("HF core: duration primitive disagrees with alignment", MUTATION,
+           lambda: _linked_core_fl2v(duration_seconds=14.0))
 
     # The two that must NOT move. See the module docstring.
     h.case("base: a 10-word prompt, far outside ref-en's 350-500", NEAR_MISS,
@@ -111,6 +144,8 @@ def build():
            lambda: _fails(*_graph(KEYFRAME)))
     h.case("FL2VA: exact guide line with graph-derived N and S.SS", NEAR_MISS,
            lambda: _fails(*_graph(FL2V)))
+    h.case("HF core: linked prompt and duration expression", NEAR_MISS,
+           _linked_core_fl2v)
     return h
 
 

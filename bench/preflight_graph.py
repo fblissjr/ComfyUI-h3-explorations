@@ -112,8 +112,8 @@ def _core_minimax_cpu():
 # is this repo's own, and the fl2va path moved onto it on 2026-08-21; a file
 # that knows only the first name reports "nothing to grade" over every graph
 # this repo now ships and reads as a clean pass.
-PROMPT_NODES = ("MiniMaxH3ReferenceToVideo", "MiniMaxH3Conditioning",
-                "MiniMaxH3ReferenceConditioning")
+PROMPT_NODES = ("MiniMaxH3ReferenceToVideo", "MiniMaxH3ImageToVideo",
+                "MiniMaxH3Conditioning", "MiniMaxH3ReferenceConditioning")
 FIT_NODE = "MiniMaxH3ReferenceFit"
 LOAD_IMAGE = "LoadImage"
 
@@ -790,6 +790,28 @@ def split_sections(prompt: str, sections: list[str]) -> dict[str, str]:
     return out
 
 
+def _resolved_prompt(node: dict, graph: dict) -> str | None:
+    """Return an inline prompt or follow a frontend string primitive once.
+
+    ComfyUI's public Ref2VA workflow keeps its prompt in a
+    `PrimitiveStringMultiline` node. The API graph therefore hands the
+    conditioner a link, not a string. Treating that two-item link as text used
+    to crash `split_sections`, so the exact HF workflow could not be
+    preflighted even though ComfyUI executes it.
+    """
+    value = node.get("inputs", {}).get("prompt", "")
+    seen = set()
+    while isinstance(value, list) and len(value) == 2:
+        source_id = str(value[0])
+        if source_id in seen or source_id not in graph:
+            return None
+        seen.add(source_id)
+        source = graph[source_id]
+        inputs = source.get("inputs", {})
+        value = inputs.get("value", inputs.get("text"))
+    return value if isinstance(value, str) else None
+
+
 def text_tokens(prompt: str) -> tuple[int, str]:
     """Token count from ComfyUI's own tokenizer, or an estimate if absent."""
     try:
@@ -824,7 +846,27 @@ def _resolved_length(node: dict, graph: dict) -> int | None:
         if source_id in seen or source_id not in graph:
             return None
         seen.add(source_id)
-        value = graph[source_id].get("inputs", {}).get("length")
+        source = graph[source_id]
+        source_inputs = source.get("inputs", {})
+        if source.get("class_type") == "ComfyMathExpression":
+            # The official H3 frontend workflows convert a duration primitive
+            # with this exact public snap expression and link the INT output.
+            # Resolve that graph shape without evaluating arbitrary text.
+            expression = source_inputs.get("expression", "")
+            duration_link = source_inputs.get("values.a")
+            if expression != (
+                "max(5, round(a * 24)) + "
+                "(5 - (max(5, round(a * 24)) % 17)) % 17"
+            ) or not (isinstance(duration_link, list) and len(duration_link) == 2):
+                return None
+            duration_node = graph.get(str(duration_link[0]), {})
+            seconds = duration_node.get("inputs", {}).get("value")
+            if isinstance(seconds, bool) or not isinstance(seconds, (int, float)):
+                return None
+            frames = max(5, round(seconds * 24))
+            value = frames + (5 - frames % 17) % 17
+        else:
+            value = source_inputs.get("length")
     if isinstance(value, bool) or not isinstance(value, int):
         return None
     return h3_rules.snap_length(value)
@@ -859,7 +901,9 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     """Mechanical rules only. Every one is decidable from the prompt + sockets."""
     out = []
     ins = node["inputs"]
-    prompt = ins.get("prompt", "")
+    prompt = _resolved_prompt(node, graph)
+    if prompt is None:
+        return [("FAIL", "prompt is linked but its string source could not be resolved")]
     guide = guide_for(ins)
     sections = REF_SECTIONS if guide == "ref" else BASE_SECTIONS
     main_field = MAIN_FIELD[guide]

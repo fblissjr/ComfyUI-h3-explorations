@@ -297,7 +297,7 @@ The standalone file is not maintained as a second implementation.
    `video_preprocessor_config.json`;
 3. adds its own V3 `comfy_entrypoint`, so ComfyUI discovers the `.py` file
    directly; and
-4. derives three examples from the installed official ComfyUI H3 templates,
+4. derives four examples from the installed official ComfyUI H3 templates,
    replacing only the text-encoder loader and, for the FL2VA examples, applying
    this repo's declared v1.1 owner recipe.
 
@@ -308,12 +308,19 @@ uv run --active --no-sync python bench/build_h3_awq_standalone.py \
   --output-dir /path/to/hf-model-repo
 ```
 
-The generated examples are text-to-video, image-reference-plus-text, and
-first-frame-to-video. Their conditioning, scheduler, sampler, AV decode and
-save nodes remain native ComfyUI. The T2VA/first-frame copies use the current
-repo-owned v1.1 recipe—strength 0.75, six render steps and shift 6/3—and label
-that as an owner choice rather than vendor-attested v1.1 settings. The
-reference example remains on its separate native ref2va base recipe.
+The generated examples are text-to-video, image-reference-plus-text,
+first-frame-to-video, and an explicit first/last-frame copy with two image
+loaders. Their conditioning, scheduler, sampler, AV decode and save nodes
+remain native ComfyUI. The T2VA/keyframe copies use the current repo-owned
+v1.1 recipe—strength 0.75, six render steps and shift 6/3—and label that as an
+owner choice rather than vendor-attested v1.1 settings. The reference example
+remains on its separate native ref2va base recipe.
+
+The build also emits `comfyui_minimax_h3_encoder_ab_compare.json`, a visual
+review utility rather than a generation graph. It loads two completed clips,
+concatenates them left-to-right at matching size, and writes a 24 fps H.264
+comparison. That file requires VideoHelperSuite and ComfyUI-KJNodes; audio is
+intentionally disconnected so the comparison has one unambiguous clock.
 
 The single file does not include this repo's typed reference builders,
 preflight, attention experiments, or duration-aware
@@ -328,8 +335,8 @@ which duplicate definition wins would depend on custom-node load order.
 
 ## Workflows and verification
 
-Every currently generated workflow uses `MiniMaxH3AWQEncoderLoader`. The most
-direct examples are:
+Every currently generated **generation example** uses
+`MiniMaxH3AWQEncoderLoader`. The most direct examples are:
 
 - [`workflows/h3_text_to_video.json`](../workflows/h3_text_to_video.json) for a
   text-only UI graph; and
@@ -346,8 +353,10 @@ native/local boundary against the real installed files. It verifies:
 - all 350 retained W4 linears, 50-layer depth, strict tensor inventory,
   processor source and tokenizer ids; and
 - deterministic standalone output, exact embedded-config digests, critical
-  function parity, direct V3 discovery, and one standalone loader per example
-  workflow; and
+  function parity, direct V3 discovery, and one standalone loader per
+  generation example;
+- the separate comparison workflow's two VHS loaders, rightward matched-size
+  KJNodes concatenation, and 24 fps VHS output; and
 - optionally, real CUDA dispatch (`--gpu`) and the external model's full-file
   digest (`--verify-model-hash`).
 

@@ -39,6 +39,7 @@ RUNTIME_CONFIGS = (
 HF_REPO_ID = "fbjr/qwen3-vl-32b-W4A16-AWQ-H3"
 MODEL_FILENAME = "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors"
 STANDALONE_FILENAME = "comfyui_minimax_h3_awq_loader.py"
+COMPARE_WORKFLOW_FILENAME = "comfyui_minimax_h3_encoder_ab_compare.json"
 NODE_ID = "MiniMaxH3AWQEncoderLoader"
 OLD_ENCODER = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
 OLD_ENCODER_URL = (
@@ -62,7 +63,17 @@ WORKFLOWS = {
     "comfyui_minimax_h3_awq_text_to_video.json": "video_minimax_h3_t2v.json",
     "comfyui_minimax_h3_awq_image_reference.json": "video_minimax_h3_r2v.json",
     "comfyui_minimax_h3_awq_first_frame.json": "video_minimax_h3_i2v.json",
+    "comfyui_minimax_h3_awq_first_last_frame.json": "video_minimax_h3_i2v.json",
 }
+FIRST_LAST_WORKFLOW = "comfyui_minimax_h3_awq_first_last_frame.json"
+
+_FIRST_LAST_PROMPT = """How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Cinematic live-action realism in one continuous shot with no cuts. The target video begins exactly from Picture 1, preserving its subjects, faces, wardrobe, objects, lighting, camera side, and spatial composition. Natural motion develops continuously between the two supplied moments while the camera performs a slow Push In with small amplitude. Every subject moves with coherent anatomy and stable identity; fixed objects remain fixed, materials retain their textures, and lighting changes only where Picture 2 requires it. Motion gradually settles as framing, pose, expression, object placement, illumination, shadows, and the complete composition converge on Picture 2 exactly at the final frame. No additional subject, duplicate face, wardrobe change, unrelated object, scene change, text, subtitles, logo, watermark, or camera reversal appears.
+
+overall_soundscape: Quiet location ambience matched to the reference scene, with restrained movement sounds synchronized to the visible action and no unexplained voice.
+
+non_diegetic_music: A minimal sustained cinematic underscore at low volume, resolving gently at the final frame."""
 
 _CONFIG_DECLARATION = '''CONFIG_DIR = (Path(__file__).resolve().parent / "config" /
               "qwen3vl_32b_minimax_h3_w4a16_awq")
@@ -463,7 +474,66 @@ def _apply_owner_turbo_recipe(workflow: dict, template_name: str) -> None:
     workflow["last_link_id"] = link_id
 
 
-def render_workflow(template: Path) -> str:
+def _add_last_frame_input(workflow: dict, label: str) -> None:
+    """Turn the official I2VA template into an explicit two-anchor example."""
+    nodes = workflow.get("nodes", [])
+    loads = [node for node in nodes if node.get("type") == "LoadImage"]
+    subgraph_ids = {
+        subgraph["id"]
+        for subgraph in (workflow.get("definitions") or {}).get("subgraphs", [])
+    }
+    instances = [node for node in nodes if node.get("type") in subgraph_ids]
+    if len(loads) != 1 or len(instances) != 1:
+        raise ValueError(
+            f"{label}: first/last variant expected one LoadImage and one instance"
+        )
+    instance = instances[0]
+    target_slot = next(
+        (index for index, input_ in enumerate(instance.get("inputs", []))
+         if input_.get("name") == "last_frame"),
+        None,
+    )
+    if target_slot is None or instance["inputs"][target_slot].get("link") is not None:
+        raise ValueError(f"{label}: last_frame input is absent or already connected")
+
+    numeric_node_ids = [
+        node["id"] for node in nodes if isinstance(node.get("id"), int)
+    ]
+    numeric_link_ids = [
+        link[0] for link in workflow.get("links", [])
+        if isinstance(link, list) and isinstance(link[0], int)
+    ]
+    node_id = max(numeric_node_ids + [int(workflow.get("last_node_id") or 0)]) + 1
+    link_id = max(numeric_link_ids + [int(workflow.get("last_link_id") or 0)]) + 1
+
+    last = json.loads(json.dumps(loads[0]))
+    last["id"] = node_id
+    last["pos"] = [last["pos"][0] + 500, last["pos"][1]]
+    last["title"] = "Last frame"
+    last["outputs"][0]["links"] = [link_id]
+    nodes.append(last)
+    instance["inputs"][target_slot]["link"] = link_id
+    workflow.setdefault("links", []).append(
+        [link_id, node_id, 0, instance["id"], target_slot, "IMAGE"]
+    )
+    named = instance.get("widgets_values_named")
+    values = instance.get("widgets_values")
+    if not isinstance(named, dict) or not isinstance(named.get("prompt"), str):
+        raise ValueError(f"{label}: exposed prompt widget is missing")
+    old_prompt = named["prompt"]
+    matches = [index for index, value in enumerate(values or [])
+               if value == old_prompt]
+    if len(matches) != 1:
+        raise ValueError(
+            f"{label}: could not identify one positional prompt widget"
+        )
+    values[matches[0]] = _FIRST_LAST_PROMPT
+    named["prompt"] = _FIRST_LAST_PROMPT
+    workflow["last_node_id"] = node_id
+    workflow["last_link_id"] = link_id
+
+
+def render_workflow(template: Path, output_name: str | None = None) -> str:
     workflow = _replace_strings(json.loads(template.read_text()))
     _apply_owner_turbo_recipe(workflow, template.name)
     replaced = 0
@@ -526,13 +596,26 @@ def render_workflow(template: Path) -> str:
     if sum(node.get("type") == NODE_ID for node in _nodes(workflow)) != 1:
         raise AssertionError(f"{template.name}: standalone loader population is not one")
 
+    if output_name == FIRST_LAST_WORKFLOW:
+        _add_last_frame_input(workflow, output_name)
+
     note = next(
         (node for node in workflow.get("nodes", []) if node.get("type") == "MarkdownNote"),
         None,
     )
     if note is None or not isinstance(note.get("widgets_values"), list):
         raise ValueError(f"{template.name}: no top-level MarkdownNote for provenance")
-    note["widgets_values"][0] = _WORKFLOW_NOTE + note["widgets_values"][0]
+    variant_note = ""
+    if output_name == FIRST_LAST_WORKFLOW:
+        variant_note = (
+            "**First/last alignment:** the default 5-second duration snaps to "
+            "124 frames, so Picture 2 is named at 5.17 seconds in the prompt. "
+            "If you change duration, update that final timestamp to the "
+            "workflow's snapped frame count divided by 24.\n\n"
+        )
+    note["widgets_values"][0] = (
+        _WORKFLOW_NOTE + variant_note + note["widgets_values"][0]
+    )
     if template.name in {"video_minimax_h3_t2v.json", "video_minimax_h3_i2v.json"}:
         note["widgets_values"][0] = (
             _WORKFLOW_NOTE
@@ -553,6 +636,137 @@ def render_workflow(template: Path) -> str:
     return json.dumps(workflow, indent=2, ensure_ascii=False) + "\n"
 
 
+def render_compare_workflow() -> str:
+    """Two-clip, side-by-side review graph matching the owner's UI block."""
+    load_outputs = [
+        {"name": "IMAGE", "type": "IMAGE", "links": None},
+        {"name": "frame_count", "type": "INT", "links": None},
+        {"name": "audio", "type": "AUDIO", "links": None},
+        {"name": "video_info", "type": "VHS_VIDEOINFO", "links": None},
+    ]
+
+    def load_node(node_id: int, x: int, link_id: int, title: str) -> dict:
+        outputs = json.loads(json.dumps(load_outputs))
+        outputs[0]["links"] = [link_id]
+        return {
+            "id": node_id,
+            "type": "VHS_LoadVideo",
+            "pos": [x, 120],
+            "size": [340, 500],
+            "flags": {},
+            "order": node_id - 1,
+            "mode": 0,
+            "inputs": [],
+            "outputs": outputs,
+            "properties": {"Node name for S&R": "VHS_LoadVideo"},
+            "widgets_values": {
+                "video": "",
+                "force_rate": 0,
+                "custom_width": 0,
+                "custom_height": 0,
+                "frame_load_cap": 0,
+                "skip_first_frames": 0,
+                "select_every_nth": 1,
+                "format": "AnimateDiff",
+            },
+            "title": title,
+        }
+
+    workflow = {
+        "id": "5ed7ef44-7d93-438b-a429-58c78cc6ac37",
+        "revision": 0,
+        "last_node_id": 5,
+        "last_link_id": 3,
+        "nodes": [
+            load_node(1, 0, 1, "A — choose first encoder clip"),
+            load_node(2, 380, 2, "B — choose second encoder clip"),
+            {
+                "id": 3,
+                "type": "ImageConcatMulti",
+                "pos": [780, 230],
+                "size": [300, 220],
+                "flags": {},
+                "order": 2,
+                "mode": 0,
+                "inputs": [
+                    {"name": "image_1", "type": "COMFY_MATCHTYPE_V3", "link": 1},
+                    {"name": "image_2", "type": "IMAGE,MASK", "link": 2},
+                ],
+                "outputs": [
+                    {"name": "output", "type": "COMFY_MATCHTYPE_V3", "links": [3]},
+                ],
+                "properties": {"Node name for S&R": "ImageConcatMulti"},
+                "widgets_values": [2, "right", True],
+            },
+            {
+                "id": 4,
+                "type": "VHS_VideoCombine",
+                "pos": [1140, 100],
+                "size": [600, 520],
+                "flags": {},
+                "order": 3,
+                "mode": 0,
+                "inputs": [
+                    {"name": "images", "type": "IMAGE", "link": 3},
+                    {"name": "audio", "type": "AUDIO", "link": None, "shape": 7},
+                    {"name": "meta_batch", "type": "VHS_BatchManager", "link": None,
+                     "shape": 7},
+                    {"name": "vae", "type": "VAE", "link": None, "shape": 7},
+                ],
+                "outputs": [
+                    {"name": "Filenames", "type": "VHS_FILENAMES", "links": None},
+                ],
+                "properties": {"Node name for S&R": "VHS_VideoCombine"},
+                "widgets_values": {
+                    "frame_rate": 24.0,
+                    "loop_count": 0,
+                    "filename_prefix": "Video/h3_encoder_ab",
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 13,
+                    "save_metadata": False,
+                    "trim_to_audio": False,
+                    "pingpong": False,
+                    "save_output": True,
+                },
+            },
+            {
+                "id": 5,
+                "type": "MarkdownNote",
+                "pos": [780, 500],
+                "size": [300, 210],
+                "flags": {},
+                "order": 4,
+                "mode": 0,
+                "inputs": [],
+                "outputs": [],
+                "properties": {},
+                "widgets_values": [
+                    "## Encoder A/B viewer\n\nChoose two equal-length 24 fps clips. "
+                    "Frames are concatenated left-to-right with matching size.\n\n"
+                    "Requires VideoHelperSuite and KJNodes. Audio is intentionally "
+                    "not connected so the visual comparison has one unambiguous clock."
+                ],
+            },
+        ],
+        "links": [
+            [1, 1, 0, 3, 0, "IMAGE"],
+            [2, 2, 0, 3, 1, "IMAGE"],
+            [3, 3, 0, 4, 0, "IMAGE"],
+        ],
+        "groups": [],
+        "config": {},
+        "extra": {
+            "h3_awq_standalone": {
+                "purpose": "side-by-side encoder A/B review",
+                "dependencies": ["VideoHelperSuite", "ComfyUI-KJNodes"],
+            },
+        },
+        "version": 0.4,
+    }
+    return json.dumps(workflow, indent=2, ensure_ascii=False) + "\n"
+
+
 def build(output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     written = []
@@ -563,8 +777,11 @@ def build(output_dir: Path) -> list[Path]:
     templates = _template_dir()
     for output_name, template_name in WORKFLOWS.items():
         output = output_dir / output_name
-        output.write_text(render_workflow(templates / template_name))
+        output.write_text(render_workflow(templates / template_name, output_name))
         written.append(output)
+    compare = output_dir / COMPARE_WORKFLOW_FILENAME
+    compare.write_text(render_compare_workflow())
+    written.append(compare)
     return written
 
 
