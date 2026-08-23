@@ -5050,9 +5050,11 @@ def main():
         # the vendor's sampler. Differs from h3_text_to_video_turbo_4step_768p
         # in one widget (er_sde -> euler); differs from the owner graph below in
         # scheduler and strength, which the session found indistinguishable at
-        # 20% more sampler time. Ships v1.0 because only v1.0 has an attested
-        # row; internal/recipes/2026-08-20_t2v_distilled_recipe.md says when to
-        # swap the LoRA widget to v1.1.
+        # 20% more sampler time. Ships whatever TURBO_768P_LORA names, which
+        # has been v1.1 since 2026-08-23 -- this comment said it ships v1.0
+        # "because only v1.0 has an attested row", which was the argument for
+        # not adopting v1.1 and is no longer the state.  The row is now
+        # inherited rather than attested; see check_distill_settings.UNATTESTED.
         ("h3_text_to_video_turbo_768p_euler.json", "t2v-turbo768-euler", "t2v",
          LONG_T2V_PROMPT,
          dict(lora=(TURBO_768P_LORA, TURBO_768P_STRENGTH),
@@ -5120,7 +5122,7 @@ def main():
                   "relative to its twin, the candidate cause is the router "
                   "mismatch and the control is the same pair with Sol "
                   "bypassed, which nothing here has rendered either.")),
-         "the 768p v1.0 turbo graph with lightx2v's SLA-distilled LoRA swapped in"),
+         "the 768p turbo graph with lightx2v's SLA-distilled LoRA swapped in"),
 
         # The same SLA arm under the router it was distilled with, and under
         # no sparse attention at all. With the probe above (Sol) these are the
