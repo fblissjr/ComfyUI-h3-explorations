@@ -345,6 +345,7 @@ def resolve_image(name: str) -> Path | None:
 # `comfy/sd1_clip.py` logs `warning, embedding:<name> does not exist, ignoring`
 # and renders anyway. The render completes, the prompt is quietly missing a
 # concept, and nothing in a queued job's output says so.
+_EMBEDDING_DIRS: list[Path] | None = None
 H3_EMBEDDING_KEY = "qwen3vl_32b"
 # The DiffSynth exports name their tensor `weight`; core reads that shape too
 # (`bundled_embed` / the `embed_key` fallback), so a file carrying it is
@@ -360,10 +361,19 @@ def _embedding_dirs() -> list[Path]:
     `folder_paths` is the authority (it honours extra_model_paths.yaml); the
     literal is the fallback for running this with no ComfyUI on the path, which
     is the state most of this file already tolerates.
+
+    Resolved once and cached. This is called per `embedding:` reference, and an
+    earlier version inserted into `sys.path` on every call -- five references
+    left five duplicate entries, unbounded across a sweep of every graph.
     """
+    global _EMBEDDING_DIRS
+    if _EMBEDDING_DIRS is not None:
+        return _EMBEDDING_DIRS
     dirs = []
     try:
-        sys.path.insert(0, str(Path.home() / "ComfyUI"))
+        comfy_root = str(Path.home() / "ComfyUI")
+        if comfy_root not in sys.path:
+            sys.path.insert(0, comfy_root)
         import folder_paths
         dirs += [Path(d) for d in folder_paths.get_folder_paths("embeddings")]
     except Exception:
@@ -374,11 +384,18 @@ def _embedding_dirs() -> list[Path]:
         if d not in seen:
             seen.add(d)
             out.append(d)
+    _EMBEDDING_DIRS = out
     return out
 
 
-def resolve_embedding(name: str) -> tuple[str, str]:
-    """(state, detail) for one `embedding:` reference. Never raises.
+def resolve_embedding(name: str) -> tuple[str, str, int]:
+    """(state, detail, token rows) for one `embedding:` reference. Never raises.
+
+    The row count is RETURNED, not recovered from `detail` by regex. It was, and
+    that coupled pricing to the wording of a human-readable sentence: reword
+    "7 token(s)" and the sequence total silently drops those rows while still
+    reporting a number, which is the shape of under-report this file exists to
+    stop.
 
     States are `ok`, `missing`, and `unreadable` -- three, not two, because a
     file that is present but whose header cannot be parsed is a different
@@ -395,10 +412,10 @@ def resolve_embedding(name: str) -> tuple[str, str]:
     if hit is None:
         return "missing", (
             f"no file for `embedding:{stem}` under "
-            f"{', '.join(str(d) for d in _embedding_dirs())}")
+            f"{', '.join(str(d) for d in _embedding_dirs())}"), 0
     if hit.suffix != ".safetensors":
         # Only the safetensors header is cheap to read without torch.
-        return "unreadable", f"{hit.name} is not safetensors; header not read"
+        return "unreadable", f"{hit.name} is not safetensors; header not read", 0
     try:
         from safetensors import safe_open
         with safe_open(hit, framework="pt") as f:
@@ -408,22 +425,22 @@ def resolve_embedding(name: str) -> tuple[str, str]:
             if key is None:
                 return "unreadable", (
                     f"{hit.name} holds {keys}, neither "
-                    f"`{H3_EMBEDDING_KEY}` nor `{H3_EMBEDDING_ALT_KEY}`")
+                    f"`{H3_EMBEDDING_KEY}` nor `{H3_EMBEDDING_ALT_KEY}`"), 0
             shape = list(f.get_slice(key).get_shape())
     except Exception as exc:
-        return "unreadable", f"{hit.name}: {type(exc).__name__}: {exc}"
+        return "unreadable", f"{hit.name}: {type(exc).__name__}: {exc}", 0
     if len(shape) != 2 or shape[-1] != H3_HIDDEN_SIZE:
         return "unreadable", (
             f"{hit.name} key `{key}` is {shape}, not "
-            f"[tokens, {H3_HIDDEN_SIZE}]")
-    return "ok", f"{hit.name} `{key}` {shape[0]} token(s)"
+            f"[tokens, {H3_HIDDEN_SIZE}]"), 0
+    return "ok", f"{hit.name} `{key}` {shape[0]} token(s)", int(shape[0])
 
 
 def embedding_notes(prompt: str) -> list[tuple[str, str]]:
     """Findings for every `embedding:` reference in a prompt."""
     out = []
     for name in _EMBEDDING_REF.findall(prompt or ""):
-        state, detail = resolve_embedding(name)
+        state, detail, _rows = resolve_embedding(name)
         if state == "ok":
             out.append(("note", f"embedding:{name} resolves -- {detail}"))
         elif state == "missing":
@@ -448,13 +465,11 @@ def embedding_tokens(prompt: str) -> tuple[int, int]:
     """
     rows = unresolved = 0
     for name in _EMBEDDING_REF.findall(prompt or ""):
-        state, detail = resolve_embedding(name)
+        state, _detail, got = resolve_embedding(name)
         if state != "ok":
             unresolved += 1
             continue
-        m = re.search(r"(\d+) token", detail)
-        if m:
-            rows += int(m.group(1))
+        rows += got
     return rows, unresolved
 
 
