@@ -118,6 +118,9 @@ compressed-tensors namespace and group-128 int4 packing in memory, and executes
 the W4A16 linears through comfy-kitchen. It also consumes the versioned
 `config/` snapshot for validation and image/video preprocessing. This is local
 support for that representation; core's working NVFP4-AWQ path remains native.
+The exact native/local boundary, adaptation sequence, CUDA routing caveat and
+installed-checkpoint comparison are documented in
+[`h3_awq_encoder.md`](h3_awq_encoder.md).
 
 **`MiniMax H3 SageAttention`** — the attention node. Replaces all 50 DiT
 attention forwards with SageAttention's INT8-QK / FP8-PV kernel, and *also*

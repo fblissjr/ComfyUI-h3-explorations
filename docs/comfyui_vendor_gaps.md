@@ -67,7 +67,9 @@ that representation: it accepts any selected filename only after its embedded
 metadata and complete adapted tensor inventory satisfy the versioned contract.
 It does not supply or imply generic AWQ support in core.
 [`bench/check_h3_awq_encoder.py`](../bench/check_h3_awq_encoder.py) controls
-both sides from the real files.
+both sides from the real files. See
+[`h3_awq_encoder.md`](h3_awq_encoder.md) for the full responsibility boundary,
+packing adaptation, processor behavior and execution-path comparison.
 
 ---
 
@@ -688,6 +690,7 @@ rendered clip cannot A/B a numerical change.
 |---|---|
 | Native NVFP4-AWQ control and local compressed-tensors W4A16 loader contract | [`bench/check_h3_awq_encoder.py`](../bench/check_h3_awq_encoder.py) |
 | Repo-local loader/adaptation | [`h3_awq_encoder.py`](../h3_awq_encoder.py) (`MiniMaxH3AWQEncoderLoader`) |
+| Detailed native/local boundary and checkpoint comparison | [`docs/h3_awq_encoder.md`](h3_awq_encoder.md) |
 | Exact source artifact configs, recipes and digests | [`config/qwen3vl_32b_minimax_h3_w4a16_awq/`](../config/qwen3vl_32b_minimax_h3_w4a16_awq/) |
 
 ### The contracts underneath all of it
