@@ -26,6 +26,18 @@ artifact.
   while this compressed-tensors W4A16 artifact still needs the local adapter.
   This is not a claim that ComfyUI lacks AWQ support.
 
+- **A self-contained Hugging Face distribution of the AWQ loader.**
+  `bench/build_h3_awq_standalone.py` deterministically embeds the four runtime
+  JSON configs in one directly discoverable custom-node `.py` and adapts three
+  official native-Comfy H3 templates for text-to-video, image-reference, and
+  first-frame use. The FL2VA copies explicitly carry the provisional v1.1
+  owner recipe (strength 0.75, six render steps, shift 6/3); the ref2va copy
+  remains a separate base recipe. `check_h3_awq_encoder.py` compares embedded
+  config digests and critical implementation source, exercises direct V3
+  registration, validates the generated workflow population, and performs the
+  full CPU construction through the generated module. This does not bundle
+  the research repo's typed conditioning or reference-video policy nodes.
+
 - **A distilled graph is now checked against the grid it was distilled at.**
   `bench/check_distill_grid.py` grades where the scheduler actually puts the
   steps, which `check_distill_settings.py` never saw: that file grades the

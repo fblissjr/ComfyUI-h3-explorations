@@ -280,6 +280,52 @@ It is a strict bridge between one serving-oriented storage ABI and native
 Comfy H3 execution, with artifact-faithful preprocessing added to that CLIP
 instance.
 
+## Standalone Hugging Face distribution
+
+The model repository also carries
+`comfyui_minimax_h3_awq_loader.py`, a generated single-file form of this node.
+It can be downloaded directly into `ComfyUI/custom_nodes`; cloning this full
+research repo is not required merely to load the encoder.
+
+The standalone file is not maintained as a second implementation.
+[`bench/build_h3_awq_standalone.py`](../bench/build_h3_awq_standalone.py):
+
+1. copies the format, execution, preprocessing, validation and load paths from
+   the authoritative [`h3_awq_encoder.py`](../h3_awq_encoder.py);
+2. embeds exact text plus SHA-256 provenance for `config.json`,
+   `tokenizer_config.json`, `processor_config.json`, and
+   `video_preprocessor_config.json`;
+3. adds its own V3 `comfy_entrypoint`, so ComfyUI discovers the `.py` file
+   directly; and
+4. derives three examples from the installed official ComfyUI H3 templates,
+   replacing only the text-encoder loader and, for the FL2VA examples, applying
+   this repo's declared v1.1 owner recipe.
+
+Rebuild to any staging directory with uv:
+
+```bash
+uv run --active --no-sync python bench/build_h3_awq_standalone.py \
+  --output-dir /path/to/hf-model-repo
+```
+
+The generated examples are text-to-video, image-reference-plus-text, and
+first-frame-to-video. Their conditioning, scheduler, sampler, AV decode and
+save nodes remain native ComfyUI. The T2VA/first-frame copies use the current
+repo-owned v1.1 recipe—strength 0.75, six render steps and shift 6/3—and label
+that as an owner choice rather than vendor-attested v1.1 settings. The
+reference example remains on its separate native ref2va base recipe.
+
+The single file does not include this repo's typed reference builders,
+preflight, attention experiments, or duration-aware
+`MiniMaxH3ReferenceConditioning video_policy=encoder`. In particular, a
+standalone native reference-video graph follows core's reference-video sizing
+path; users who want the repo-owned split VAE/Qwen video policy still need the
+full research repo.
+
+Do not install the generated file and the full research repo in the same
+ComfyUI instance. Both intentionally register `MiniMaxH3AWQEncoderLoader`, and
+which duplicate definition wins would depend on custom-node load order.
+
 ## Workflows and verification
 
 Every currently generated workflow uses `MiniMaxH3AWQEncoderLoader`. The most
@@ -299,8 +345,15 @@ native/local boundary against the real installed files. It verifies:
 - packed-nibble order and CPU numerical execution;
 - all 350 retained W4 linears, 50-layer depth, strict tensor inventory,
   processor source and tokenizer ids; and
+- deterministic standalone output, exact embedded-config digests, critical
+  function parity, direct V3 discovery, and one standalone loader per example
+  workflow; and
 - optionally, real CUDA dispatch (`--gpu`) and the external model's full-file
   digest (`--verify-model-hash`).
+
+The full CPU construction runs through the generated standalone module after
+those parity controls pass. Set `H3_AWQ_STANDALONE` to the HF-hosted `.py` path
+to additionally require that published/local copy to equal a fresh build.
 
 The highest-value remaining comparison is an encoder-only BF16/INT8/NVFP4/W4
 benchmark. Quantization fidelity should first be measured on text-only inputs

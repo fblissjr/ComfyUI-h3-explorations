@@ -27,11 +27,14 @@ imply that compressed-tensors W4A16 works there too.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import importlib.util
 import hashlib
+import inspect
 import json
 import os
 import sys
+import tempfile
 import time
 import types
 from pathlib import Path
@@ -42,6 +45,19 @@ sys.path.insert(0, str(COMFY))
 sys.path.insert(0, str(REPO / "workflows"))
 
 import comfy.cli_args  # noqa: E402
+from build_h3_awq_standalone import (  # noqa: E402
+    NODE_ID,
+    REF2V_TURBO_LORA_PATH,
+    RUNTIME_CONFIGS,
+    STANDALONE_FILENAME,
+    TURBO_768P_LORA,
+    TURBO_768P_SHIFT,
+    TURBO_768P_STEPS,
+    TURBO_768P_STRENGTH,
+    WORKFLOWS,
+    build as build_standalone,
+    render_standalone_loader,
+)
 from h3_config import MODELS  # noqa: E402
 
 comfy.cli_args.args.cpu = True
@@ -118,6 +134,110 @@ def source_config_snapshot_matches_digests():
     for name in expected:
         digest = hashlib.sha256((H.CONFIG_DIR / name).read_bytes()).hexdigest()
         assert digest == recorded[name], (name, digest, recorded[name])
+
+
+def standalone_distribution_contract():
+    """Prove the one-file build stays code/config-identical and discoverable."""
+    rendered = render_standalone_loader()
+    assert rendered == render_standalone_loader(), "standalone render is not deterministic"
+    with tempfile.TemporaryDirectory(prefix="h3-awq-standalone-") as raw:
+        output_dir = Path(raw)
+        written = build_standalone(output_dir)
+        expected_names = {STANDALONE_FILENAME, *WORKFLOWS}
+        assert {path.name for path in written} == expected_names
+        standalone_path = output_dir / STANDALONE_FILENAME
+        assert standalone_path.read_text() == rendered
+
+        spec = importlib.util.spec_from_file_location(
+            "_h3_awq_standalone_check", standalone_path
+        )
+        standalone = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = standalone
+        spec.loader.exec_module(standalone)
+
+        for name in RUNTIME_CONFIGS:
+            source_path = H.CONFIG_DIR / name
+            assert standalone._config(name) == json.loads(source_path.read_text())
+            digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+            assert standalone._EMBEDDED_CONFIG_SHA256[name] == digest
+
+        # These functions own the format, execution, preprocessing, and load
+        # boundaries. The standalone builder copies them from the authoritative
+        # module; only config storage, wording, and registration may differ.
+        for name in (
+            "_quant_contract",
+            "adapt_compressed_state_dict",
+            "awq_operations",
+            "_source_image_patches",
+            "_source_video_block_patches",
+            "install_source_processors",
+            "_validate_loaded_state_contract",
+            "_validate_native_tokenizer",
+            "_load_clip",
+        ):
+            standalone_source = inspect.getsource(getattr(standalone, name)).replace(
+                "through standalone compressed-tensors adapter",
+                "through repo-local compressed-tensors adapter",
+            )
+            assert standalone_source == inspect.getsource(getattr(H, name)), name
+
+        extension = asyncio.run(standalone.comfy_entrypoint())
+        node_list = asyncio.run(extension.get_node_list())
+        assert node_list == [standalone.MiniMaxH3AWQEncoderLoader]
+        assert NODE_ID in rendered
+
+        for workflow_name in WORKFLOWS:
+            workflow = json.loads((output_dir / workflow_name).read_text())
+            nodes = list(workflow.get("nodes", []))
+            for subgraph in (workflow.get("definitions") or {}).get("subgraphs", []):
+                nodes.extend(subgraph.get("nodes", []))
+            types_ = [node.get("type") for node in nodes]
+            assert types_.count(NODE_ID) == 1, (workflow_name, types_.count(NODE_ID))
+            assert "CLIPLoader" not in types_, workflow_name
+            assert not ({
+                "MiniMaxH3Conditioning", "MiniMaxH3ReferenceConditioning",
+                "MiniMaxH3Resolution", "MiniMaxH3Preflight",
+                "MiniMaxH3SageAttention", "SageChainAssert", "SolAttnMiniMax",
+            } & set(types_)), workflow_name
+            for create_video in (n for n in nodes if n.get("type") == "CreateVideo"):
+                assert create_video.get("widgets_values") == [24, 8, "sRGB"]
+                assert create_video.get("widgets_values_named", {}).get(
+                    "color_space"
+                ) == "sRGB"
+
+            loaders = [node for node in nodes if node.get("type") == NODE_ID]
+            assert loaders[0]["widgets_values"] == [
+                "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors", "default",
+            ]
+            if workflow_name.endswith(("text_to_video.json", "first_frame.json")):
+                lora = next(n for n in nodes if n.get("type") == "LoraLoaderModelOnly")
+                assert lora["widgets_values"] == [
+                    TURBO_768P_LORA, TURBO_768P_STRENGTH,
+                ]
+                shift = next(n for n in nodes if n.get("type") == "MiniMaxH3SigmaShift")
+                assert shift["widgets_values"] == [
+                    TURBO_768P_SHIFT["shift_video"],
+                    TURBO_768P_SHIFT["shift_audio"],
+                ]
+                assert any(
+                    n.get("type") == "PrimitiveBoolean"
+                    and n.get("widgets_values") == [True]
+                    for n in nodes
+                )
+                assert any(
+                    n.get("type") == "PrimitiveInt"
+                    and n.get("widgets_values", [None])[0] == TURBO_768P_STEPS
+                    for n in nodes
+                )
+            else:
+                lora = next(n for n in nodes if n.get("type") == "LoraLoaderModelOnly")
+                assert lora["widgets_values"][0] == REF2V_TURBO_LORA_PATH
+
+        external = os.environ.get("H3_AWQ_STANDALONE")
+        if external:
+            external_path = Path(os.path.expanduser(external))
+            assert external_path.read_text() == rendered, external_path
+        return standalone
 
 
 def external_model_digest_matches(path: Path):
@@ -302,15 +422,15 @@ def kitchen_cuda_dispatches_fp32_h3_input():
         got, expected)
 
 
-def full_loader_contract(path: Path):
-    clip = H._load_clip(str(path), [], device="cpu")
+def full_loader_contract(path: Path, module=H):
+    clip = module._load_clip(str(path), [], device="cpu")
     model = clip.cond_stage_model.qwen3vl_32b.transformer
     linears = [m for m in model.modules()
-               if getattr(m, "quant_format", None) == H.QUANT_FORMAT]
-    assert len(linears) == H.EXPECTED_QUANTIZED_LINEARS, len(linears)
-    assert all(m.weight._params.group_size == H.GROUP_SIZE for m in linears)
-    assert model.num_layers == H.H3_LAYERS
-    assert Path(model._h3_processor_source) == H.CONFIG_DIR
+               if getattr(m, "quant_format", None) == module.QUANT_FORMAT]
+    assert len(linears) == module.EXPECTED_QUANTIZED_LINEARS, len(linears)
+    assert all(m.weight._params.group_size == module.GROUP_SIZE for m in linears)
+    assert model.num_layers == module.H3_LAYERS
+    assert model._h3_processor_source == module.CONFIG_SOURCE
     vocab = clip.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
     assert [vocab[t] for t in (
         "<d>", "</d>", "<|cutoff|>", "<|lyrics_start|>",
@@ -334,8 +454,14 @@ def main(argv=None) -> int:
     if not path.exists():
         print(f"SKIP  custom AWQ encoder not found at {path}; set H3_AWQ_ENCODER")
         return 2
+    standalone_module = {}
+
+    def standalone_case():
+        standalone_module["module"] = standalone_distribution_contract()
+
     cases = [
         ("source config snapshot", source_config_snapshot_matches_digests),
+        ("standalone loader/workflows", standalone_case),
         ("core format control", lambda: core_still_misdetects_the_real_format(path)),
         ("core load boundary", lambda: core_loader_still_rejects_the_real_format(path)),
         ("compressed nibble order", lambda: compressed_nibbles_are_kitchen_order(path)),
@@ -371,7 +497,11 @@ def main(argv=None) -> int:
             print(f"  ok    {label}")
     started = time.monotonic()
     try:
-        count = full_loader_contract(path)
+        # Load through the generated one-file module when its parity/discovery
+        # control passed. This makes the large CPU construction an artifact
+        # test, not merely another test of the repo-local import.
+        module = standalone_module.get("module", H)
+        count = full_loader_contract(path, module=module)
     except Exception as exc:
         ok = False
         print(f"  FAIL  full CPU loader: {type(exc).__name__}: {exc}")

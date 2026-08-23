@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 CONFIG_DIR = (Path(__file__).resolve().parent / "config" /
               "qwen3vl_32b_minimax_h3_w4a16_awq")
+CONFIG_SOURCE = str(CONFIG_DIR)
 QUANT_FORMAT = "h3_awq_w4a16"
 H3_LAYERS = 50
 SOURCE_LAYERS = 64
@@ -118,7 +119,7 @@ def _validate_metadata(metadata: dict | None) -> None:
     if embedded != _quant_contract():
         raise ValueError(
             "checkpoint embedded config differs from the versioned config "
-            f"snapshot in {CONFIG_DIR.relative_to(CONFIG_DIR.parents[1])}"
+            f"snapshot from {CONFIG_SOURCE}"
         )
 
 
@@ -469,7 +470,7 @@ def install_source_processors(clip) -> None:
         return merged, {"grid": grid, "deepstack": deepstack}
 
     model.preprocess_embed = types.MethodType(preprocess_embed, model)
-    model._h3_processor_source = str(CONFIG_DIR)
+    model._h3_processor_source = CONFIG_SOURCE
 
 
 def _validate_loaded_state_contract(clip, provided_shapes: dict[str, tuple]) -> None:
