@@ -227,12 +227,32 @@ def _release_qwen_video_size(
     than copied. Its bounds and patch geometry come from this repo's verbatim
     release configs, never from literals or Comfy's shared Qwen defaults.
     """
-    if sampled_count < 1:
-        raise ValueError("release Qwen video sizing needs at least one sampled frame")
     from transformers.models.qwen3_vl.video_processing_qwen3_vl import smart_resize
 
     min_pixels, max_pixels = video_pixel_bounds()
     geometry = video_patch_geometry()
+    # `smart_resize` needs a full temporal patch, not merely one frame: it
+    # raises `t:1 must be larger than temporal_factor:2` from inside
+    # transformers, which names neither the reference nor the policy. The bound
+    # is read from the release geometry rather than written as 2, because it is
+    # the same constant `smart_resize` is about to enforce.
+    #
+    # This is error handling, NOT support for shorter clips. The release
+    # deliberately requires two 2 fps samples. Reference lengths are snapped to
+    # 17n+5 by `_prepare_reference_video`, and `sample_indices` steps by 12, so
+    # the legal counts are 5, 22, 39, ... and 5 yields exactly one sample.
+    # Release mode's practical minimum is therefore **22 prepared frames**;
+    # comfy mode still accepts 5, which is why this refuses here rather than
+    # tightening `_prepare_reference_video` for everyone.
+    temporal_factor = int(geometry["temporal_patch_size"])
+    if sampled_count < temporal_factor:
+        raise ValueError(
+            f"release video policy needs at least {temporal_factor} sampled "
+            f"frames at 2 fps, got {sampled_count}. Reference lengths snap to "
+            f"17n+5, so the shortest clip this policy can take is 22 prepared "
+            f"frames (~0.9s); 5 frames samples to one. Use video_policy="
+            f"'comfy' for a reference this short."
+        )
     target_h, target_w = smart_resize(
         num_frames=sampled_count,
         height=height,

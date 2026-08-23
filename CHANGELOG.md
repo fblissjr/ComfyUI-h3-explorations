@@ -35,6 +35,28 @@ artifact.
 
 ### Changed
 
+- **The 768p turbo arm runs v1.1, not v1.0** (`TURBO_768P_LORA`, 16 graph
+  references). v1.0 is no longer on this machine and every reference to it was
+  red at the loader. The vendor still documents no v1.1 row, so its 6/3 shift
+  and 4 steps are inherited from v1.0's row by filename family rather than
+  attested, and that is declared rather than assumed:
+  `check_distill_settings.UNATTESTED` names the row and its reason, fails if a
+  LEGAL row is neither found in a vendor source nor declared, and fails again
+  if a declared row is later carried by one. The assertion that previously
+  refused to classify v1.1 is inverted rather than deleted, because
+  classification is what hands a file its shift and this is the one row whose
+  shift came from a filename. v1.0 remains published if the inheritance is
+  ever doubted.
+
+- **The release video policy refuses a clip it cannot size, with its own
+  message.** One 2 fps sample reached the release `smart_resize`, which raised
+  `t:1 must be larger than temporal_factor:2` from inside transformers, naming
+  neither the reference nor the policy. Reference lengths snap to 17n+5 and the
+  Qwen sampler steps by 12, so release mode's real minimum is 22 prepared
+  frames; 5 samples to one. This is error handling for a release requirement,
+  not a new floor: comfy mode still accepts 5 frames, and
+  `check_reference_runtime.py` asserts both ends plus the boundary.
+
 - Capture manifest `schema_version` is `1.2.0`. The new digests are gated on
   it, so the 1.1.0 manifests already on disk conform to the version they
   declare and are not failed for a field that did not exist.
@@ -97,7 +119,7 @@ was declined. The detail is in the note under `internal/gemini/`.
   boundary, and the policy's distinct VAE/Qwen views. It also drives a lazy
   `Mapping` shaped like VHS's `LazyAudioMap`, after the first multimodal smoke
   found that accepting only core's concrete audio dict rejected a schema-valid
-  VHS soundtrack at execution. Its red harness detects four independent
+  VHS soundtrack at execution. Its red harness detects five independent
   regressions, including collapsing release Qwen back onto the VAE frames.
   `check_typed_reference_consumers.py` proves label discovery and
   preflight read the same typed chain and refuse malformed plans.

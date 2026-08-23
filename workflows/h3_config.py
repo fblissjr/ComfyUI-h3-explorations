@@ -574,11 +574,22 @@ CACHE_NODE = dict(reuse_threshold=0.2, start_percent=0.15, end_percent=0.95,
 # analogue at all. If a schedule here ever reads 2.22, it came from that path
 # and not from anything we sample.
 #
-# A sixth file, `minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16`, is on
-# disk as of 2026-08-20 and is deliberately NOT a constant here: it was
-# uploaded hours before with no README row, so nothing attests its shift, and
-# the check above exists to refuse exactly that. Its filename puts it in the
-# 768p family, which is a guess until the vendor says so.
+# **The 768p arm moved from v1.0 to v1.1 on 2026-08-23, by owner decision.**
+# This paragraph argued the other way until then, and the argument is left
+# visible rather than deleted because it has NOT been answered: the vendor
+# README still carries no v1.1 row (checked 2026-08-23), so v1.1's 6/3 shift
+# and 4 steps are inherited from v1.0's row by filename family, not attested.
+# What forced the choice was availability -- v1.0 left this disk, and 16
+# graph references went red against a file the server could not offer.
+#
+# The v1.0 artifact is still published (HTTP 200 on the lightx2v repo,
+# 1,956,192,992 bytes, sha256 919ee205...eea55, repo commit ec01fa4), so
+# re-downloading it remains open if the inheritance is ever doubted.
+#
+# The inheritance is DECLARED, not silent: `check_distill_settings.UNATTESTED`
+# names this row, and the vendor-table case fails if a LEGAL row is neither
+# found in a vendor source nor declared there -- and fails again if the vendor
+# later publishes a v1.1 row, because the declaration would then be stale.
 SIGMA_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
 # The turbo graph. This is the 8-step v1.0; the others are listed in the
@@ -610,7 +621,9 @@ TURBO_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 # vendor's own README and fails if any of the three drifts. Distilled at
 # 1344x768, which is `CANVAS`, so unlike the 8-step it is already at home on
 # the default canvas.
-TURBO_768P_LORA = "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors"
+# v1.1 since 2026-08-23; see the note above SIGMA_SHIFT for why, and for what
+# is inherited rather than attested about its shift.
+TURBO_768P_LORA = "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors"
 TURBO_768P_STEPS = 4
 TURBO_768P_SHIFT = dict(shift_video=6.0, shift_audio=3.0)
 

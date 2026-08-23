@@ -271,6 +271,65 @@ def release_video_policy_is_opt_in_and_two_stage():
         raise AssertionError("an unowned partial video policy was accepted")
 
 
+def release_policy_floor_is_two_sampled_frames():
+    """The shortest clip release mode can take is 22 prepared frames, not 5.
+
+    `_prepare_reference_video` snaps to 17n+5 and the Qwen sampler steps by 12,
+    so the legal prepared counts are 5, 22, 39, ... A 5-frame reference yields
+    exactly ONE 2 fps sample, and the release's `smart_resize` requires a full
+    temporal patch. Before 2026-08-23 that surfaced as
+    `ValueError: t:1 must be larger than temporal_factor:2` raised inside
+    transformers, naming neither the reference nor the policy.
+
+    Both ends are asserted on purpose. The floor alone would be satisfied by a
+    policy that refused everything, so 22 must pass in the same breath that 5
+    fails -- and 5 must still be accepted by comfy mode, because this is error
+    handling for a release requirement, not a new minimum for every reference.
+    """
+    boundary = int(R.video_patch_geometry()["temporal_patch_size"])
+
+    # RED at the floor: one sampled frame, refused by us with our own message.
+    try:
+        R._release_qwen_video_frames(_frames(1, 544, 960))
+    except ValueError as exc:
+        assert "release video policy needs at least" in str(exc), exc
+        assert "22 prepared frames" in str(exc), (
+            "the message must name the real minimum a caller can act on")
+    else:
+        raise AssertionError("one sampled frame was accepted by release sizing")
+
+    # GREEN one frame later: the boundary is where it is claimed to be.
+    assert R._release_qwen_video_frames(_frames(boundary, 544, 960)) is not None
+
+    # And through the compiler, which is what a graph actually reaches.
+    short = (R.RuntimeVideoReference(_frames(5, 32, 32), 24.0, None),)
+    try:
+        R._compile_reference_records(
+            short, _VideoVae(), _AudioVae(), 32, 32, 5,
+            video_policy="release",
+        )
+    except ValueError as exc:
+        assert "release video policy needs at least" in str(exc), exc
+    else:
+        raise AssertionError("a 5-frame reference passed the release compiler")
+
+    # The SAME reference under comfy mode still works. Without this, tightening
+    # `_prepare_reference_video` for everyone would satisfy the case above.
+    items, _ = R._compile_reference_records(
+        short, _VideoVae(), _AudioVae(), 32, 32, 5,
+        video_policy="comfy",
+    )
+    assert items, "comfy mode must still accept a 5-frame reference"
+
+    # 22 is the first legal length release mode accepts end to end.
+    ok = (R.RuntimeVideoReference(_frames(22, 32, 32), 24.0, None),)
+    items, _ = R._compile_reference_records(
+        ok, _VideoVae(), _AudioVae(), 32, 32, 22,
+        video_policy="release",
+    )
+    assert items, "22 prepared frames must pass release mode"
+
+
 def conditioning_node_assembles_the_real_payload_shape():
     """The registered node attaches minimax_refs and an H3 nested latent."""
     records = (
@@ -312,6 +371,7 @@ CHECKS = (
     vhs_lazy_audio_mapping_is_accepted,
     compiler_preserves_one_order_for_both_lists,
     release_video_policy_is_opt_in_and_two_stage,
+    release_policy_floor_is_two_sampled_frames,
     conditioning_node_assembles_the_real_payload_shape,
 )
 

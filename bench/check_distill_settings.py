@@ -115,6 +115,29 @@ LEGAL: dict[str, Row] = {
     # row, which is the prefix trap below working as intended. Not in the
     # Turbo README -- graded against LIGHTX2V_CONFIGS instead.
     "turbo_4step_v0.1_768p": Row(6.0, 3.0, frozenset({4})),
+    # v1.1 of the 768p student, adopted 2026-08-23 when v1.0 left the disk.
+    # INHERITED from the v1.0 row by filename family, not attested: see
+    # UNATTESTED below, which is what keeps that fact from going quiet.
+    "turbo_4step_v1.1_768p": Row(6.0, 3.0, frozenset({4})),
+}
+
+#: LEGAL rows no vendor source states, and why. `parse_vendor_table` looks each
+#: LEGAL key up in the README and SKIPS the misses, so without this a row with
+#: no vendor backing is not caught being wrong -- it is simply never graded,
+#: which reads exactly like a row that passed. Declaring it converts a silent
+#: hole into a visible one.
+#:
+#: Being in here is not permission. `vendor_table_agrees` fails if a key is
+#: neither found in a vendor source NOR declared here, and fails again if a
+#: declared key IS found -- a vendor who publishes the row makes the
+#: declaration stale, and a stale one hides a source that now exists.
+UNATTESTED = {
+    "turbo_4step_v1.1_768p":
+        "lightx2v published this file on 2026-08-20 with no README row and it "
+        "still has none (checked 2026-08-23). Its 6/3 shift and 4 steps are "
+        "taken from the v1.0 768p row on the strength of the filename family. "
+        "Adopted by owner decision when v1.0 left this disk; v1.0 is still "
+        "published if the inheritance is ever doubted",
 }
 
 # LightX2V's inference configs, each of which names the LoRA it loads and
@@ -357,9 +380,22 @@ def main():
                 f"{key}: LightX2V config implies steps {sorted(steps)}, our "
                 f"table says {sorted(want.steps)}")
         missing = set(LEGAL) - set(rows) - set(cfg_rows)
-        assert not missing, (
+        undeclared = sorted(missing - set(UNATTESTED))
+        assert not undeclared, (
             f"neither the vendor README nor LightX2V's configs have a row for "
-            f"{sorted(missing)}")
+            f"{undeclared}. Either the source moved, or this row is inherited "
+            f"rather than attested -- in which case declare it in UNATTESTED "
+            f"with the reason, so the gap is visible instead of silent.")
+
+        # The other direction. A declared row that a vendor source DOES carry
+        # means the declaration outlived the gap it described, and a stale one
+        # hides a source that now exists -- so the row would keep being graded
+        # as "inherited" while the real numbers sat unread a directory away.
+        stale = sorted(set(UNATTESTED) & (set(rows) | set(cfg_rows)))
+        assert not stale, (
+            f"{stale} is declared UNATTESTED but a vendor source now carries "
+            f"it. Drop the declaration so the row is graded against the "
+            f"source rather than against its filename family.")
 
     if not VENDOR_README.exists():
         skipped.append("vendor table agrees")
@@ -535,11 +571,26 @@ def main():
         assert classify("h3/lightx2v_Minimax-h3-Turbo/"
                         "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors") \
             == "turbo_4step_v0.1", "the 544p v0.1 family must not be pulled onto the 768p row"
-        # The v1.1 768p upload has no vendor row anywhere yet. It must fail
-        # to classify until one exists, not inherit v1.0's.
+        # v1.1 768p classified as None until 2026-08-23, on the rule that a
+        # file with no vendor row must not inherit v1.0's shift. The owner
+        # adopted it anyway when v1.0 left this disk, so it now HAS a row --
+        # and the thing that assertion was protecting moved to `UNATTESTED`,
+        # which states the inheritance instead of forbidding it and fails if
+        # the vendor ever publishes the real numbers.
+        #
+        # Kept as a positive assertion rather than deleted: the reason to write
+        # it down is that classification is what hands a file its shift, and
+        # this is the one row where that shift came from a filename.
         assert classify("h3/lightx2v_Minimax-h3-Turbo/"
-                        "minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors") is None, (
-            "v1.1 768p has no vendor row; classifying it hands it a shift nobody attested")
+                        "minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors") \
+            == "turbo_4step_v1.1_768p", (
+            "v1.1 768p must resolve to its OWN row, never to v1.0's -- the "
+            "shift is the same by inheritance, and a row of its own is what "
+            "keeps UNATTESTED able to say so")
+        assert "turbo_4step_v1.1_768p" in UNATTESTED, (
+            "v1.1's row is inherited, not attested. If a vendor source now "
+            "carries it, drop the UNATTESTED entry -- do not silently keep "
+            "grading it against its filename")
 
     check("an unknown turbo checkpoint is not classified", unknown_lora_is_caught)
 
