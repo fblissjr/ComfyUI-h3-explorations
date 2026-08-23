@@ -3,12 +3,12 @@
   "discovery": "h3_config.graph_paths(include_bench=True)",
   "ref_consumers": [
     "MiniMaxH3ReferenceToVideo",
-    "MiniMaxH3Conditioning"
+    "MiniMaxH3ReferenceConditioning"
   ],
   "reference_inputs": [
     {
       "graph": "workflows/h3_image_ref_plus_text_to_video_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -18,7 +18,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -33,7 +34,7 @@
     },
     {
       "graph": "workflows/h3_image_ref_plus_text_to_video_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -43,7 +44,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -58,7 +60,7 @@
     },
     {
       "graph": "workflows/h3_probe_cache_easy_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -68,7 +70,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -83,7 +86,7 @@
     },
     {
       "graph": "workflows/h3_probe_cache_easy_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -93,7 +96,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -108,7 +112,7 @@
     },
     {
       "graph": "workflows/h3_probe_capture_ref3_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/subject_performer_stage_662x1177.png",
       "source": [
         662,
@@ -118,7 +122,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         672,
@@ -133,7 +138,7 @@
     },
     {
       "graph": "workflows/h3_probe_capture_ref3_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/product_soccer_jersey_1600x1600.png",
       "source": [
         1600,
@@ -143,7 +148,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1600,
@@ -158,7 +164,7 @@
     },
     {
       "graph": "workflows/h3_probe_capture_ref3_api.json",
-      "input": "ref_images.ref_image_2",
+      "input": "references.52",
       "file": "h3_refs/scene_loft_couch_duo_2752x1536.png",
       "source": [
         2752,
@@ -168,7 +174,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2752,
@@ -183,7 +190,7 @@
     },
     {
       "graph": "workflows/h3_probe_capture_ref3_fl2va_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/subject_performer_stage_662x1177.png",
       "source": [
         662,
@@ -193,7 +200,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         672,
@@ -208,7 +216,7 @@
     },
     {
       "graph": "workflows/h3_probe_capture_ref3_fl2va_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/product_soccer_jersey_1600x1600.png",
       "source": [
         1600,
@@ -218,7 +226,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1600,
@@ -233,7 +242,7 @@
     },
     {
       "graph": "workflows/h3_probe_capture_ref3_fl2va_api.json",
-      "input": "ref_images.ref_image_2",
+      "input": "references.52",
       "file": "h3_refs/scene_loft_couch_duo_2752x1536.png",
       "source": [
         2752,
@@ -243,7 +252,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2752,
@@ -258,7 +268,7 @@
     },
     {
       "graph": "workflows/h3_probe_euler_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -268,7 +278,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -283,7 +294,7 @@
     },
     {
       "graph": "workflows/h3_probe_euler_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -293,7 +304,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -308,7 +320,7 @@
     },
     {
       "graph": "workflows/h3_probe_euler_cache_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -318,7 +330,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -333,7 +346,7 @@
     },
     {
       "graph": "workflows/h3_probe_euler_cache_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -343,32 +356,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
-      },
-      "into_qwen": [
-        1024,
-        1024
-      ],
-      "into_qwen_ratio": 1.0,
-      "qwen_sees": [
-        1024,
-        1024
-      ],
-      "shrunk": false
-    },
-    {
-      "graph": "workflows/h3_probe_prompt_concise_api.json",
-      "input": "ref_images.ref_image_0",
-      "file": "1-man.png",
-      "source": [
-        1024,
-        1024
-      ],
-      "source_ratio": 1.0,
-      "fit": {
-        "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -383,7 +372,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref2v_split_turbo_pack_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -393,7 +382,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -408,7 +398,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref2v_turbo_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -418,7 +408,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -433,7 +424,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref2v_turbo_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -443,7 +434,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -458,7 +450,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref2v_turbo_pack_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -468,7 +460,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -483,7 +476,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_fl2va_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/subject_performer_stage_662x1177.png",
       "source": [
         662,
@@ -493,7 +486,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         672,
@@ -508,7 +502,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_fl2va_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/product_soccer_jersey_1600x1600.png",
       "source": [
         1600,
@@ -518,7 +512,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1600,
@@ -533,7 +528,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_fl2va_api.json",
-      "input": "ref_images.ref_image_2",
+      "input": "references.52",
       "file": "h3_refs/scene_loft_couch_duo_2752x1536.png",
       "source": [
         2752,
@@ -543,7 +538,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2752,
@@ -558,7 +554,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_hybrid_adaln_all_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/subject_performer_stage_662x1177.png",
       "source": [
         662,
@@ -568,7 +564,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         672,
@@ -583,7 +580,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_hybrid_adaln_all_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/product_soccer_jersey_1600x1600.png",
       "source": [
         1600,
@@ -593,7 +590,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1600,
@@ -608,7 +606,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_hybrid_adaln_all_api.json",
-      "input": "ref_images.ref_image_2",
+      "input": "references.52",
       "file": "h3_refs/scene_loft_couch_duo_2752x1536.png",
       "source": [
         2752,
@@ -618,7 +616,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2752,
@@ -633,7 +632,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_hybrid_b30_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/subject_performer_stage_662x1177.png",
       "source": [
         662,
@@ -643,7 +642,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         672,
@@ -658,7 +658,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_hybrid_b30_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/product_soccer_jersey_1600x1600.png",
       "source": [
         1600,
@@ -668,7 +668,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1600,
@@ -683,7 +684,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_hybrid_b30_api.json",
-      "input": "ref_images.ref_image_2",
+      "input": "references.52",
       "file": "h3_refs/scene_loft_couch_duo_2752x1536.png",
       "source": [
         2752,
@@ -693,7 +694,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2752,
@@ -708,7 +710,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_ref2va_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/subject_performer_stage_662x1177.png",
       "source": [
         662,
@@ -718,7 +720,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         672,
@@ -733,7 +736,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_ref2va_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/product_soccer_jersey_1600x1600.png",
       "source": [
         1600,
@@ -743,7 +746,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1600,
@@ -758,7 +762,7 @@
     },
     {
       "graph": "workflows/h3_probe_ref_turbo768p_ref2va_api.json",
-      "input": "ref_images.ref_image_2",
+      "input": "references.52",
       "file": "h3_refs/scene_loft_couch_duo_2752x1536.png",
       "source": [
         2752,
@@ -768,7 +772,164 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
+      },
+      "into_qwen": [
+        2752,
+        1536
+      ],
+      "into_qwen_ratio": 1.7917,
+      "qwen_sees": [
+        2752,
+        1536
+      ],
+      "shrunk": false
+    },
+    {
+      "graph": "workflows/h3_probe_ref_vae_encoder_fp16_api.json",
+      "input": "references.50",
+      "file": "h3_refs/subject_performer_stage_662x1177.png",
+      "source": [
+        662,
+        1177
+      ],
+      "source_ratio": 1.7779,
+      "fit": {
+        "allow_upscale": false,
+        "short_edge": 2048,
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
+      },
+      "into_qwen": [
+        672,
+        1184
+      ],
+      "into_qwen_ratio": 1.7619,
+      "qwen_sees": [
+        672,
+        1184
+      ],
+      "shrunk": false
+    },
+    {
+      "graph": "workflows/h3_probe_ref_vae_encoder_fp16_api.json",
+      "input": "references.51",
+      "file": "h3_refs/product_soccer_jersey_1600x1600.png",
+      "source": [
+        1600,
+        1600
+      ],
+      "source_ratio": 1.0,
+      "fit": {
+        "allow_upscale": false,
+        "short_edge": 2048,
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
+      },
+      "into_qwen": [
+        1600,
+        1600
+      ],
+      "into_qwen_ratio": 1.0,
+      "qwen_sees": [
+        1600,
+        1600
+      ],
+      "shrunk": false
+    },
+    {
+      "graph": "workflows/h3_probe_ref_vae_encoder_fp16_api.json",
+      "input": "references.52",
+      "file": "h3_refs/scene_loft_couch_duo_2752x1536.png",
+      "source": [
+        2752,
+        1536
+      ],
+      "source_ratio": 1.7917,
+      "fit": {
+        "allow_upscale": false,
+        "short_edge": 2048,
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
+      },
+      "into_qwen": [
+        2752,
+        1536
+      ],
+      "into_qwen_ratio": 1.7917,
+      "qwen_sees": [
+        2752,
+        1536
+      ],
+      "shrunk": false
+    },
+    {
+      "graph": "workflows/h3_probe_ref_vae_encoder_fp32_api.json",
+      "input": "references.50",
+      "file": "h3_refs/subject_performer_stage_662x1177.png",
+      "source": [
+        662,
+        1177
+      ],
+      "source_ratio": 1.7779,
+      "fit": {
+        "allow_upscale": false,
+        "short_edge": 2048,
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
+      },
+      "into_qwen": [
+        672,
+        1184
+      ],
+      "into_qwen_ratio": 1.7619,
+      "qwen_sees": [
+        672,
+        1184
+      ],
+      "shrunk": false
+    },
+    {
+      "graph": "workflows/h3_probe_ref_vae_encoder_fp32_api.json",
+      "input": "references.51",
+      "file": "h3_refs/product_soccer_jersey_1600x1600.png",
+      "source": [
+        1600,
+        1600
+      ],
+      "source_ratio": 1.0,
+      "fit": {
+        "allow_upscale": false,
+        "short_edge": 2048,
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
+      },
+      "into_qwen": [
+        1600,
+        1600
+      ],
+      "into_qwen_ratio": 1.0,
+      "qwen_sees": [
+        1600,
+        1600
+      ],
+      "shrunk": false
+    },
+    {
+      "graph": "workflows/h3_probe_ref_vae_encoder_fp32_api.json",
+      "input": "references.52",
+      "file": "h3_refs/scene_loft_couch_duo_2752x1536.png",
+      "source": [
+        2752,
+        1536
+      ],
+      "source_ratio": 1.7917,
+      "fit": {
+        "allow_upscale": false,
+        "short_edge": 2048,
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2752,
@@ -783,7 +944,7 @@
     },
     {
       "graph": "workflows/h3_probe_reference_upscale_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -793,7 +954,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -808,7 +970,7 @@
     },
     {
       "graph": "workflows/h3_probe_reference_upscale_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -818,7 +980,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -833,7 +996,7 @@
     },
     {
       "graph": "workflows/h3_probe_sol_on_all_refs_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -843,7 +1006,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -858,7 +1022,7 @@
     },
     {
       "graph": "workflows/h3_probe_sol_on_all_refs_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -868,7 +1032,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -883,7 +1048,7 @@
     },
     {
       "graph": "workflows/h3_probe_sol_on_refs_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -893,7 +1058,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -908,7 +1074,7 @@
     },
     {
       "graph": "workflows/h3_probe_sol_on_refs_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -918,7 +1084,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -933,7 +1100,7 @@
     },
     {
       "graph": "workflows/h3_ref_audio_voice_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -943,7 +1110,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -958,7 +1126,7 @@
     },
     {
       "graph": "workflows/h3_ref_audio_voice_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -968,7 +1136,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -983,7 +1152,7 @@
     },
     {
       "graph": "workflows/h3_ref_image_audio_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -993,7 +1162,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -1008,7 +1178,7 @@
     },
     {
       "graph": "workflows/h3_ref_image_audio_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -1018,7 +1188,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -1033,7 +1204,7 @@
     },
     {
       "graph": "workflows/h3_ref_image_video_audio_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -1043,7 +1214,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1058,7 +1230,7 @@
     },
     {
       "graph": "workflows/h3_ref_image_video_audio_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -1068,7 +1240,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1083,7 +1256,7 @@
     },
     {
       "graph": "workflows/h3_ref_video_image_edit_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -1093,7 +1266,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1108,7 +1282,7 @@
     },
     {
       "graph": "workflows/h3_ref_video_image_edit_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -1118,7 +1292,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1133,7 +1308,7 @@
     },
     {
       "graph": "workflows/h3_ref_video_motion_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -1143,7 +1318,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1158,7 +1334,7 @@
     },
     {
       "graph": "workflows/h3_ref_video_motion_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -1168,7 +1344,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1183,7 +1360,7 @@
     },
     {
       "graph": "workflows/h3_ref_video_swap_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -1193,7 +1370,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1208,7 +1386,7 @@
     },
     {
       "graph": "workflows/h3_ref_video_to_video_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -1218,7 +1396,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1233,7 +1412,7 @@
     },
     {
       "graph": "workflows/h3_ref_video_to_video_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -1243,7 +1422,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1258,7 +1438,7 @@
     },
     {
       "graph": "workflows/image/h3_image_composite_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/face_young_man_glasses_1024x1024.png",
       "source": [
         1024,
@@ -1268,7 +1448,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1283,7 +1464,7 @@
     },
     {
       "graph": "workflows/image/h3_image_composite_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/scene_alpine_lake_meadow_1024x1024.png",
       "source": [
         1024,
@@ -1293,7 +1474,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1308,7 +1490,7 @@
     },
     {
       "graph": "workflows/image/h3_image_edit_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/face_elderly_man_suit_1024x1024.png",
       "source": [
         1024,
@@ -1318,7 +1500,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1333,7 +1516,7 @@
     },
     {
       "graph": "workflows/image/h3_image_multiperson_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/face_young_man_glasses_1024x1024.png",
       "source": [
         1024,
@@ -1343,7 +1526,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1358,7 +1542,7 @@
     },
     {
       "graph": "workflows/image/h3_image_multiperson_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/face_freckled_woman_redhair_1024x1024.png",
       "source": [
         1024,
@@ -1368,7 +1552,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1383,7 +1568,7 @@
     },
     {
       "graph": "workflows/image/h3_image_multiperson_api.json",
-      "input": "ref_images.ref_image_2",
+      "input": "references.52",
       "file": "h3_refs/scene_officers_corridor_1376x768.jpeg",
       "source": [
         1376,
@@ -1393,7 +1578,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1376,
@@ -1408,7 +1594,7 @@
     },
     {
       "graph": "workflows/image/h3_image_probe_format_av_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/face_freckled_woman_redhair_1024x1024.png",
       "source": [
         1024,
@@ -1418,7 +1604,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1433,7 +1620,7 @@
     },
     {
       "graph": "workflows/image/h3_image_probe_format_av_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/style_pencil_cottage_1024x1024.png",
       "source": [
         1024,
@@ -1443,7 +1630,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1458,7 +1646,7 @@
     },
     {
       "graph": "workflows/image/h3_image_probe_format_flat_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/face_freckled_woman_redhair_1024x1024.png",
       "source": [
         1024,
@@ -1468,7 +1656,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1483,7 +1672,7 @@
     },
     {
       "graph": "workflows/image/h3_image_probe_format_flat_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/style_pencil_cottage_1024x1024.png",
       "source": [
         1024,
@@ -1493,7 +1682,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1508,7 +1698,7 @@
     },
     {
       "graph": "workflows/image/h3_image_recolor_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/face_freckled_woman_redhair_1024x1024.png",
       "source": [
         1024,
@@ -1518,7 +1708,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1533,7 +1724,7 @@
     },
     {
       "graph": "workflows/image/h3_image_sheet_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/face_young_man_glasses_1024x1024.png",
       "source": [
         1024,
@@ -1543,7 +1734,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1558,7 +1750,7 @@
     },
     {
       "graph": "workflows/image/h3_image_style_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "h3_refs/face_freckled_woman_redhair_1024x1024.png",
       "source": [
         1024,
@@ -1568,7 +1760,8 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1583,7 +1776,7 @@
     },
     {
       "graph": "workflows/image/h3_image_style_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "h3_refs/style_pencil_cottage_1024x1024.png",
       "source": [
         1024,
@@ -1593,7 +1786,86 @@
       "fit": {
         "allow_upscale": false,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
+      },
+      "into_qwen": [
+        1024,
+        1024
+      ],
+      "into_qwen_ratio": 1.0,
+      "qwen_sees": [
+        1024,
+        1024
+      ],
+      "shrunk": false
+    },
+    {
+      "graph": "workflows/image/h3_image_swap_api.json",
+      "input": "references.50",
+      "file": "h3_refs/scene_loft_couch_duo_2752x1536.png",
+      "source": [
+        2752,
+        1536
+      ],
+      "source_ratio": 1.7917,
+      "fit": {
+        "allow_upscale": false,
+        "short_edge": 2048,
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
+      },
+      "into_qwen": [
+        2752,
+        1536
+      ],
+      "into_qwen_ratio": 1.7917,
+      "qwen_sees": [
+        2752,
+        1536
+      ],
+      "shrunk": false
+    },
+    {
+      "graph": "workflows/image/h3_image_swap_api.json",
+      "input": "references.51",
+      "file": "h3_refs/face_freckled_woman_redhair_1024x1024.png",
+      "source": [
+        1024,
+        1024
+      ],
+      "source_ratio": 1.0,
+      "fit": {
+        "allow_upscale": false,
+        "short_edge": 2048,
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
+      },
+      "into_qwen": [
+        1024,
+        1024
+      ],
+      "into_qwen_ratio": 1.0,
+      "qwen_sees": [
+        1024,
+        1024
+      ],
+      "shrunk": false
+    },
+    {
+      "graph": "workflows/image/h3_image_swap_api.json",
+      "input": "references.52",
+      "file": "h3_refs/face_young_man_glasses_1024x1024.png",
+      "source": [
+        1024,
+        1024
+      ],
+      "source_ratio": 1.0,
+      "fit": {
+        "allow_upscale": false,
+        "short_edge": 2048,
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         1024,
@@ -1608,7 +1880,7 @@
     },
     {
       "graph": "workflows/bench/h3_image_ref_plus_text_to_video_stamped_api.json",
-      "input": "ref_images.ref_image_0",
+      "input": "references.50",
       "file": "1-man.png",
       "source": [
         1024,
@@ -1618,7 +1890,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -1633,7 +1906,7 @@
     },
     {
       "graph": "workflows/bench/h3_image_ref_plus_text_to_video_stamped_api.json",
-      "input": "ref_images.ref_image_1",
+      "input": "references.51",
       "file": "2-mountain_landscape.png",
       "source": [
         1024,
@@ -1643,7 +1916,8 @@
       "fit": {
         "allow_upscale": true,
         "short_edge": 2048,
-        "lift_downstream_clamp": false
+        "lift_downstream_clamp": false,
+        "keep_towers_matched": true
       },
       "into_qwen": [
         2048,
@@ -1661,6 +1935,7 @@
   "widest_ratio_into_qwen": 1.7917,
   "ceiling_is": "a pixel count, not a ratio; see the module docstring",
   "unresolved": [],
+  "chain_errors": [],
   "controls": [
     {
       "arm": "detector",

@@ -120,7 +120,7 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ReferenceConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -132,6 +132,10 @@
       ],
       "audio_vae": [
         "4",
+        0
+      ],
+      "references": [
+        "50",
         0
       ],
       "prompt": "subject_definitions:\n<Subject 1> is the adult woman and the complete portrait image in <Picture 1>, including her clothing, the background, the crop and the lighting.\n\nsummary:\n[reference generation] Make one selective colour edit to <Subject 1>: her visible skin becomes sapphire blue and her hair becomes silver-white, in the same portrait photograph.\n\nretention_analysis:\n<Subject 1>: partially_preserved - skin colour and hair colour change; identity, facial geometry, age, expression, gaze, pose, crop, clothing, background, lighting, camera angle and depth of field are all retained.\n\ndetailed_description:\nOne photorealistic portrait photograph.\n[Shot 1] Exactly two colour attributes of <Subject 1> change. All visible skin becomes a rich, unmistakable sapphire blue while keeping its pores, freckling pattern, shading, highlights and tonal depth. All hair becomes luminous silver-white while keeping the exact hairline, strand detail, shape, volume and shadows. The face of <Subject 1> is the same face: the same eyes, the same expression, the same gaze, the same head angle. Everything else in <Subject 1> is untouched -- clothing keeps its colour, material, folds, highlights and shadows, and the background is unchanged. No makeup is added, no facial feature is altered, and no object is changed. Exactly one adult, and no text or border.",
@@ -147,11 +151,7 @@
         "27",
         2
       ],
-      "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ]
+      "vendor_tokens": true
     }
   },
   "15": {
@@ -171,6 +171,16 @@
       "short_edge": 2048,
       "lift_downstream_clamp": false,
       "keep_towers_matched": true
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "24",
+        0
+      ],
+      "size_policy": "max"
     }
   },
   "19": {

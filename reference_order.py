@@ -6,9 +6,9 @@ the path. Nothing here imports torch, comfy or this pack's node modules, so
 `bench/` can import it directly rather than reconstructing the rule -- which is
 how two label authorities drift apart.
 
-## Two models, and why both exist for now
+## Two models, and why both remain visible
 
-The shipped node takes references through fixed sockets: `ref_image_0..2`,
+The native node takes references through fixed sockets: `ref_image_0..2`,
 `ref_video_0..2`, `ref_video_audio_0..2`, `ref_audio_0..2`. Core walks images,
 then videos, then standalone audio, and pairs a soundtrack to a video **by
 socket-name suffix**. Order is a property of which socket you plugged into, and
@@ -30,11 +30,12 @@ demonstrated where it is claimed: feed it a socket-shaped input and this module
 reproduces the legacy labels exactly, which is the AGREE half. The DIFFER half
 is any ordering the socket model could not express.
 
-## Retirement
+## Compatibility after migration
 
-`bench/check_ref_prompt_labels.wired_labels` stays the authority for graphs
-that still wire sockets, and is retired when the last one is repointed --
-never maintained alongside this as a second permanent authority.
+Shipped graphs use the ordered model as of 2026-08-23. The legacy adapter stays
+because native ComfyUI and historical/hand-built graphs still use sockets, and
+because its equivalence checks keep the core behaviour explicit. Label
+assignment remains shared; there is no second legacy label authority.
 """
 from __future__ import annotations
 
@@ -412,14 +413,10 @@ VIDEO_SOURCE_CLASSES = frozenset({
 })
 VIDEO_SLOTS = {"frames": 0, "video_info": 3}
 
-# Single-input audio nodes a soundtrack may legitimately pass through on its
-# way from the loader to the record. **The shipped graphs all route through
-# TrimAudioDuration** -- the reference pipeline caps every soundtrack at the
-# generated duration and ComfyUI does not, so this repo wires the trim -- and
-# an earlier version of the ownership rule required the track to arrive raw
-# from the loader at slot 2, which rejects every sounded graph this repo
-# ships. Caught by codex checking the rule against the real wiring rather
-# than against the shape it was written for.
+# Audio nodes a legacy or hand-built soundtrack may legitimately pass through
+# on its way from the loader to a record. Shipped typed graphs now wire VHS
+# audio directly and cap it in the compiler, but historical trimmed graphs
+# remain valid inputs to this compatibility resolver.
 # Where audio comes FROM, by class and output slot. Read off the running
 # server's `/object_info` on 2026-08-22, never guessed: `GetVideoComponents`
 # puts audio at slot 1 and `VHS_LoadVideo` at slot 2, and `LoadVideo` has no
@@ -441,12 +438,10 @@ AUDIO_SOURCE_SLOTS = {
     "VHS_LoadAudioUpload": (0,),
 }
 
-# Single-input audio nodes a soundtrack may legitimately pass through, as
-# (input field to follow, output slots that carry audio). **The shipped graphs
-# all route through TrimAudioDuration** -- the reference pipeline caps every
-# soundtrack at the generated duration and ComfyUI does not, so this repo
-# wires the trim -- and an ownership rule requiring the track to arrive raw
-# from the loader rejects every sounded graph this repo ships.
+# Single-input audio nodes a legacy or hand-built soundtrack may legitimately
+# pass through, as (input field to follow, output slots that carry audio).
+# `TrimAudioDuration` remains supported even though generated typed graphs now
+# cap audio inside the compiler.
 # `SplitAudioChannels` carries audio on BOTH outputs, which is why the value
 # is a tuple rather than a single slot.
 AUDIO_PASSTHROUGH = {

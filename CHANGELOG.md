@@ -25,9 +25,12 @@ artifact.
 - **CPU acceptance and red controls for the runtime.**
   `check_reference_runtime.py` covers copy-on-add order, runtime metadata
   ownership, fps normalization, mono/duration normalization, and the sounded
-  video's two-Qwen-items/one-DiT-block contract. Its red harness detects four
-  independent regressions. `check_typed_reference_consumers.py` proves label
-  discovery and preflight read the same typed chain and refuse malformed plans.
+  video's two-Qwen-items/one-DiT-block contract. It also drives a lazy
+  `Mapping` shaped like VHS's `LazyAudioMap`, after the first multimodal smoke
+  found that accepting only core's concrete audio dict rejected a schema-valid
+  VHS soundtrack at execution. Its red harness detects four independent
+  regressions. `check_typed_reference_consumers.py` proves label discovery and
+  preflight read the same typed chain and refuse malformed plans.
 
 ### Changed
 
@@ -35,6 +38,17 @@ artifact.
   `MiniMaxH3ReferenceConditioning`. Preflight selects `ref-en`, prices image
   policies and discovers video/audio media through the validated chain, and
   reports that trim/mono normalization is owned by the typed compiler.
+
+- **Every shipped reference workflow now uses the typed surface.** The
+  generator emits image append records first, then the video with its owned
+  soundtrack, then standalone audio, preserving every existing prompt ordinal
+  while replacing suffix pairing with ownership. UI and API forms agree on
+  repeated append-node counts. Explicit `TrimAudioDuration` nodes are gone;
+  the compiler owns the cap and cannot drift from a patched `length`.
+
+- The migration deliberately leaves `force_rate=24`, image fit settings, and
+  no-upscale video geometry unchanged. Those remain native ComfyUI/vendor
+  divergences; the typed nodes are this repo's handling, not upstream fixes.
 
 - The ordered resolver admits only the four served VHS video-loader classes,
   traces both branches of `JoinAudioChannels`, and exposes one validated entry
@@ -54,7 +68,16 @@ artifact.
   sentence for the wrong mode, wrong duration, or wrong final shot. The red
   harness covers all three.
 
-### Live accepted; migration pending
+- The shipped-reference bounds audit follows image links through typed append
+  chains and refuses malformed chains instead of returning a partial clean
+  answer. Its fit-path red control now explicitly disables
+  `keep_towers_matched`; shipped graphs keep that safety guard enabled.
+
+- `smoke_h3.py --log` now reports a missing launcher log as an unchecked
+  diagnostic (exit 2) after a successful render, rather than throwing a
+  `FileNotFoundError` that makes the render itself look failed.
+
+### Live accepted; shipped migration complete
 
 - ComfyUI was restarted onto commit `0b665b7` after the GPU became free, and
   `/object_info` served all four new schemas. A scratch two-image append chain
@@ -62,8 +85,24 @@ artifact.
   steps in 49.80 seconds. The server log records two ordered picture entries,
   the typed payload reaching preflight at 9,578 packed rows, and the native
   tokenizer already carrying all twenty tokens, so the compatibility shim was
-  a no-op. Shipped graphs still use core's socket node; workflow migration and
-  retirement remain deliberately pending rather than claimed complete.
+  a no-op.
+
+- The regenerated population contains 38 reference API graphs and 77 typed
+  UI/API/stamped files, with no shipped `MiniMaxH3ReferenceToVideo` or
+  `TrimAudioDuration` node. Prompt labels, guide conformance, typed consumers,
+  reference ordering, generator constants, preflight, and the real-image Qwen
+  bounds audit all pass.
+
+- A second live smoke exercised every reference medium at 1024x768, 39 frames,
+  and 10 steps. The first attempt exposed and fixed VHS lazy-audio compatibility;
+  the rerun completed in 84.51 seconds. The server logged
+  `['<Picture 1>', '<Picture 2>', '<Audio 1>', '<Video 1>', '<Audio 2>']`,
+  21,283 packed rows, Sage routing, and Sol sparse execution. Models were
+  unloaded afterward.
+
+- Full live schema validation now reaches the current code. Its only red rows
+  are eight existing graphs that name a removed v1.0 768p Turbo LoRA while
+  this installation carries v1.1; every migrated reference UI graph is clean.
 
 ## 0.58.0
 

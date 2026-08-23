@@ -146,7 +146,7 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ReferenceConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -158,6 +158,10 @@
       ],
       "audio_vae": [
         "4",
+        0
+      ],
+      "references": [
+        "52",
         0
       ],
       "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video whose camera movement the target video follows.\n\nsummary:\n[reference generation + audio reuse] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (camera movement): weak_reference - only the path and pacing of the camera move is followed; its scene and cutting are not.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed, holding the unhurried pace of <Video 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
@@ -173,23 +177,7 @@
         "27",
         2
       ],
-      "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ],
-      "ref_images.ref_image_1": [
-        "25",
-        0
-      ],
-      "ref_videos.ref_video_0": [
-        "28",
-        0
-      ],
-      "ref_video_audios.ref_video_audio_0": [
-        "35",
-        0
-      ]
+      "vendor_tokens": true
     }
   },
   "15": {
@@ -217,6 +205,16 @@
       "keep_towers_matched": true
     }
   },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "24",
+        0
+      ],
+      "size_policy": "max"
+    }
+  },
   "25": {
     "class_type": "MiniMaxH3ReferenceFit",
     "inputs": {
@@ -228,6 +226,20 @@
       "short_edge": 2048,
       "lift_downstream_clamp": false,
       "keep_towers_matched": true
+    }
+  },
+  "51": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "25",
+        0
+      ],
+      "size_policy": "max",
+      "references": [
+        "50",
+        0
+      ]
     }
   },
   "28": {
@@ -243,15 +255,25 @@
       "format": "AnimateDiff"
     }
   },
-  "35": {
-    "class_type": "TrimAudioDuration",
+  "52": {
+    "class_type": "MiniMaxH3AppendRefVideo",
     "inputs": {
-      "audio": [
+      "frames": [
+        "28",
+        0
+      ],
+      "video_info": [
+        "28",
+        3
+      ],
+      "soundtrack": [
         "28",
         2
       ],
-      "start_index": 0.0,
-      "duration": 14.375
+      "references": [
+        "51",
+        0
+      ]
     }
   },
   "19": {

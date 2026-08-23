@@ -14,6 +14,7 @@ must produce Qwen items and DiT blocks with the sounded-video 2:1 shape.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import importlib
 import math
 import sys
@@ -37,6 +38,26 @@ def _audio(seconds=2.0, channels=1, sample_rate=32000):
         "waveform": torch.zeros(1, channels, round(seconds * sample_rate)),
         "sample_rate": sample_rate,
     }
+
+
+class _LazyAudio(Mapping):
+    """VHS-shaped AUDIO: a Mapping that realizes on first value access."""
+
+    def __init__(self, value):
+        self.value = value
+        self.realized = False
+
+    def __getitem__(self, key):
+        self.realized = True
+        return self.value[key]
+
+    def __iter__(self):
+        self.realized = True
+        return iter(self.value)
+
+    def __len__(self):
+        self.realized = True
+        return len(self.value)
 
 
 def _frames(count=30, height=64, width=96):
@@ -151,6 +172,19 @@ def audio_is_stereo_and_target_bounded():
         raise AssertionError("three-channel audio was silently reduced")
 
 
+def vhs_lazy_audio_mapping_is_accepted():
+    """The AUDIO socket accepts VHS LazyAudioMap, not only core's dict."""
+    frames = _frames()
+    lazy = _LazyAudio(_audio(seconds=2.0, channels=2))
+    records = R.MiniMaxH3AppendRefVideo.execute(
+        frames, _video_info(frames, 24.0), soundtrack=lazy
+    ).args[0]
+    assert records[0].soundtrack is lazy
+    assert lazy.realized, "the mapping was accepted without validating its payload"
+    got = R._prepare_audio(lazy, 1.0, "VHS soundtrack")
+    assert tuple(got["waveform"].shape) == (1, 2, 32000)
+
+
 def compiler_preserves_one_order_for_both_lists():
     """Arbitrary order survives; a sounded video is two items, one block."""
     frames = _frames()
@@ -216,6 +250,7 @@ CHECKS = (
     video_metadata_is_owned,
     video_is_normalized_to_24fps,
     audio_is_stereo_and_target_bounded,
+    vhs_lazy_audio_mapping_is_accepted,
     compiler_preserves_one_order_for_both_lists,
     conditioning_node_assembles_the_real_payload_shape,
 )

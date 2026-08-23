@@ -144,7 +144,7 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ReferenceConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -156,6 +156,10 @@
       ],
       "audio_vae": [
         "4",
+        0
+      ],
+      "references": [
+        "51",
         0
       ],
       "prompt": "subject_definitions:\n<Subject 1> is the character whose complete visual identity -- face, facial structure, eyes, skin tone, hair style and colour, body proportions, and overall appearance -- comes exclusively from <Picture 1>. Their body motion, posture, gestures, head movements, timing, and physical performance come from the original character in <Video 1>.\n<Picture 1> supplies subject identity only. It does not supply lighting, exposure, colour grade, background, camera angle, pose, framing, or scene composition.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video for the target video edit. It supplies the camera path, framing, background, environment, lighting, composition, action timing, and the original character's body motion. It does not supply the face or identity.\n\nsummary:\n[video editing + reference generation + audio reuse] The target video is an edited version of <Video 1>, replacing its original character with <Subject 1> from <Picture 1> while preserving the camera movement, environment, and audio.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - facial structure, identity, hair, and appearance from <Picture 1> are retained.\n<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track.\n<Video 1> (environment and motion): partially_preserved - the setting, lighting, and camera composition are retained, and the original character's actions are transferred to <Subject 1>.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] The scene maintains the exact environmental details, lighting, and composition of <Video 1>. Within this space, <Subject 1> performs the exact movements and actions of the original character from <Video 1>, executing every gesture, step, and head turn frame for frame, while the face, hair, and build stay those defined by <Picture 1>.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
@@ -171,19 +175,7 @@
         "27",
         2
       ],
-      "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ],
-      "ref_videos.ref_video_0": [
-        "28",
-        0
-      ],
-      "ref_video_audios.ref_video_audio_0": [
-        "35",
-        0
-      ]
+      "vendor_tokens": true
     }
   },
   "15": {
@@ -205,6 +197,16 @@
       "keep_towers_matched": true
     }
   },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "24",
+        0
+      ],
+      "size_policy": "max"
+    }
+  },
   "28": {
     "class_type": "VHS_LoadVideo",
     "inputs": {
@@ -218,15 +220,25 @@
       "format": "AnimateDiff"
     }
   },
-  "35": {
-    "class_type": "TrimAudioDuration",
+  "51": {
+    "class_type": "MiniMaxH3AppendRefVideo",
     "inputs": {
-      "audio": [
+      "frames": [
+        "28",
+        0
+      ],
+      "video_info": [
+        "28",
+        3
+      ],
+      "soundtrack": [
         "28",
         2
       ],
-      "start_index": 0.0,
-      "duration": 14.375
+      "references": [
+        "50",
+        0
+      ]
     }
   },
   "18": {

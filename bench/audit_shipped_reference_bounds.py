@@ -26,10 +26,11 @@ every shipped row:
                  must come back SHRUNK. If it does not, `_grid` is not
                  measuring what this script claims and every green row above
                  it is unreadable.
-  fit-path arm   an 896x256 source with `allow_upscale=True` must be fitted UP
-                 to a size that then trips. If it does not, the fit stage is
-                 inert here and a shipped graph could trip through a path this
-                 script never exercises.
+  fit-path arm   an 896x256 source with `allow_upscale=True` and the repo's
+                 Qwen/VAE tower guard deliberately disabled must be fitted UP
+                 to a size that then trips. The unsafe setting is intentional:
+                 the control has to prove this audit can see a fit-fed failure,
+                 while shipped graphs keep `keep_towers_matched=True`.
 
 Both arms must trip or the script exits non-zero, whatever the shipped rows
 said.
@@ -69,11 +70,14 @@ _REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO.parents[1]))         # ComfyUI root, first
 sys.path.insert(1, str(_REPO))
 
-# Nodes that consume a prepared reference image. Both are graded because the
-# fl2va path moved from the first to the second on 2026-08-21 and a check that
-# knows only one name goes green over the graphs this repo now ships.
-REF_CONSUMERS = ("MiniMaxH3ReferenceToVideo", "MiniMaxH3Conditioning")
+# Native ComfyUI's socket conditioner remains supported for historical and
+# bench graphs; shipped graphs use this repo's typed conditioner. This audit
+# follows both so the local handling does not make the native gap invisible.
+REF_CONSUMERS = ("MiniMaxH3ReferenceToVideo",
+                 "MiniMaxH3ReferenceConditioning")
 REF_INPUT_PREFIX = "ref_images."
+
+from reference_order import ChainError, resolve_chain_entries  # noqa: E402
 
 # Synthetic arms. The first size is one `measure_qwen_bounds_bite.py` recorded
 # as resized; the second is a source small enough that only an upscaling fit
@@ -186,7 +190,8 @@ def _controls() -> tuple[list[dict], bool]:
     rows.append({"arm": "detector", "source": list(DETECTOR_ARM),
                  "into_qwen": list(DETECTOR_ARM), "qwen_sees": list(seen),
                  "shrunk": shrunk, "must_shrink": True})
-    fw, fh = _fitted(*FIT_PATH_ARM, {"allow_upscale": True, "short_edge": 2048})
+    fw, fh = _fitted(*FIT_PATH_ARM, {"allow_upscale": True, "short_edge": 2048,
+                                    "keep_towers_matched": False})
     seen2, shrunk2 = _qwen_sees(fw, fh)
     rows.append({"arm": "fit-path", "source": list(FIT_PATH_ARM),
                  "into_qwen": [fw, fh], "qwen_sees": list(seen2),
@@ -212,7 +217,7 @@ def main() -> int:
     in_root, in_how = _input_dir(override)
     print(f"reference files read from {in_how}\n")
 
-    rows, unresolved = [], []
+    rows, unresolved, chain_errors = [], [], []
     for path in h3_config.graph_paths(_REPO / "workflows", include_bench=True):
         try:
             wf = json.loads(path.read_text())
@@ -226,8 +231,32 @@ def main() -> int:
                 continue
             if node.get("class_type") not in REF_CONSUMERS:
                 continue
-            for key, val in sorted(node.get("inputs", {}).items()):
-                if not key.startswith(REF_INPUT_PREFIX) or not isinstance(val, list):
+            inputs = node.get("inputs", {})
+            image_links = []
+            if node.get("class_type") == "MiniMaxH3ReferenceConditioning":
+                terminal = inputs.get("references")
+                if not (isinstance(terminal, list) and len(terminal) == 2):
+                    chain_errors.append({"graph": rel,
+                                         "why": "typed conditioner has no valid terminal chain link"})
+                    continue
+                try:
+                    entries = resolve_chain_entries(wf, str(terminal[0]))
+                except ChainError as exc:
+                    chain_errors.append({"graph": rel, "why": str(exc)})
+                    continue
+                image_links = [
+                    (f"references.{append_id}", append["inputs"].get("image"))
+                    for append_id, append, kind in entries if kind == "image"
+                ]
+            else:
+                image_links = [
+                    (key, val) for key, val in sorted(inputs.items())
+                    if key.startswith(REF_INPUT_PREFIX) and isinstance(val, list)
+                ]
+            for key, val in image_links:
+                if not isinstance(val, list):
+                    unresolved.append({"graph": rel, "input": key,
+                                       "why": "image append has no linked image"})
                     continue
                 name, fit_args = _trace_to_loader(wf, val)
                 if name is None:
@@ -281,6 +310,10 @@ def main() -> int:
         print("\n--- reference inputs this script could not price ---")
         for u in unresolved:
             print(f"  {u['graph']}  {u['input']}  {u.get('file', '')}  {u['why']}")
+    if chain_errors:
+        print("\n--- typed reference chains this script could not resolve ---")
+        for failure in chain_errors:
+            print(f"  {failure['graph']}  {failure['why']}")
 
     widest = max((r["into_qwen_ratio"] for r in rows), default=None)
     print()
@@ -306,6 +339,7 @@ def main() -> int:
         "widest_ratio_into_qwen": widest,
         "ceiling_is": "a pixel count, not a ratio; see the module docstring",
         "unresolved": unresolved,
+        "chain_errors": chain_errors,
         "controls": ctrl_rows,
         "controls_hold": ctrl_ok,
     }
@@ -318,6 +352,10 @@ def main() -> int:
               "disk, so this run answers nothing. An empty tripping list here "
               "is indistinguishable from a clean result and must not be read "
               "as one.")
+        return 1
+    if chain_errors:
+        print("\nCHAIN ERROR: at least one typed reference plan could not be "
+              "resolved completely, so this audit refuses a partial answer.")
         return 1
     if not ctrl_ok:
         print("\nCONTROL FAILED: the detector did not fire on a reference "

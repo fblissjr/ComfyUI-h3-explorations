@@ -20,7 +20,7 @@ variable so the fork cannot drift.
 
 Run it to regenerate:
 
-    python3 build_workflows.py
+    uv run --active --no-sync python build_workflows.py
 
 It writes the JSON next to itself and validates every API graph against a
 live ComfyUI's /object_info (or a cached copy passed with --object-info).
@@ -30,6 +30,7 @@ Validation is static -- nothing is submitted, nothing touches the GPU.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import re
 import sys
@@ -445,16 +446,19 @@ PLACEHOLDER_IMAGE_B = "2-mountain_landscape.png"
 # so a renumbering would silently point a bench at the wrong node. Slot 3 takes
 # 34/35 because 26-33 and 40-43 are already spoken for in this graph.
 #
-# The UI builder declares `ref_image_0..2` on the conditioning node for
-# graphs wiring three or fewer, and that socket list is positional in every
-# saved graph -- growing it means APPENDING, never inserting, which is what
-# slots 4-6 do (added 2026-08-18 for the workload-grid count ladder; a graph
-# wiring more than three references grows the socket list to its count, so
-# every shipped <=3-reference graph keeps its exact socket list and byte
-# layout). Slots 4-6 take 36-39 and 45-46: 26-33 and 40-43 are spoken for
-# (reference loaders, split path, plain chain) and 44 is the cache node.
+# Slots 4-6 were added 2026-08-18 for the workload-grid count ladder. Typed
+# append ids are allocated separately below, so these pairs remain only the
+# stable loader/fit ids benches address. Slots 4-6 take 36-39 and 45-46: 26-33
+# and 40-43 are spoken for (reference loaders, split path, plain chain), and 44
+# is the cache node.
 _REF_IMAGE_NODES = (("15", "24"), ("16", "25"), ("34", "35"),
                     ("36", "37"), ("38", "39"), ("45", "46"))
+
+# Typed reference append nodes, in presentation order. The six image slots
+# above plus one video and one standalone audio reference can consume all
+# eight. These ids are outside the long-standing 1-47 API graph allocation so
+# the migration does not renumber nodes that benches address directly.
+_REF_APPEND_NODES = tuple(str(i) for i in range(50, 58))
 
 
 def _graph_dir(out, extra: dict):
@@ -502,10 +506,9 @@ def _ref_image_slots(ref_images_on: bool, ref_image_count: int,
              else placeholders[:ref_image_count])
     if not 1 <= len(files) <= len(_REF_IMAGE_NODES):
         raise SystemExit(
-            f"{len(files)} reference images: the conditioning node declares "
-            f"{len(_REF_IMAGE_NODES)} image sockets. Appending a fourth means "
-            "appending it to the UI builder's socket list too, at the END -- "
-            "saved graphs match sockets by position.")
+            f"{len(files)} reference images: the generator reserves "
+            f"{len(_REF_IMAGE_NODES)} stable loader/fit slots and the same "
+            "number of image positions in its typed append-id budget.")
     return [(ld, fit, f) for (ld, fit), f in zip(_REF_IMAGE_NODES, files)]
 
 T2V_PROMPT = """integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium-wide shot frames a lone lighthouse keeper on a wet stone balcony at dawn, wearing a heavy oilskin coat, the lamp housing glowing behind him. Grey-blue sea fog rolls past below the railing and gulls cross the frame. The camera pushes in with small amplitude at slow speed as he raises a brass telescope, holds it steady against his eye, then lowers it and turns toward the light. [Shot 2] At 00:03.000, the shot cuts to a close-up of the rotating lamp assembly, the beam sweeping past the lens and out into the fog.
@@ -895,9 +898,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # an unconsumed output never executes, so leaving it would be dead
         # weight in the graph that reads as an intentional wiring.
         #
-        # The audio VAE loader (node 4) stays. MiniMaxH3ReferenceToVideo takes
-        # `audio_vae` as a REQUIRED input and the prompt is rejected without
-        # it, whether or not any audio is anchored.
+        # The audio VAE loader (node 4) stays. Both the native reference node
+        # and this repo's typed reference conditioner require `audio_vae`,
+        # whether or not any audio is anchored.
         del g["12"]
         g["13"] = {"class_type": "SaveImage",
                    "inputs": {"images": ["11", 0],
@@ -931,29 +934,24 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
 
     if ref:
         slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
-        g["5"] = {"class_type": "MiniMaxH3ReferenceToVideo",
-                  "inputs": {"clip": ["2", 0], "vae": vae_enc, "audio_vae": ["4", 0],
+        n_refs = len(slots) + int(ref_video) + int(ref_audio)
+        if not n_refs:
+            raise SystemExit("r2v graph has no references to condition on")
+        if n_refs > len(_REF_APPEND_NODES):
+            raise SystemExit(
+                f"r2v graph needs {n_refs} typed append nodes, but only "
+                f"{len(_REF_APPEND_NODES)} ids are reserved")
+        terminal_ref = _REF_APPEND_NODES[n_refs - 1]
+        g["5"] = {"class_type": "MiniMaxH3ReferenceConditioning",
+                  "inputs": {"clip": ["2", 0], "vae": vae_enc,
+                             "audio_vae": ["4", 0],
+                             "references": [terminal_ref, 0],
                              "prompt": prompt,
                              "width": ["27", 0], "height": ["27", 1],
-                             # 'max' rather than 'match', and the pairing is
-                             # load-bearing: under 'match' the stock node sizes
-                             # references from the video's pixel area and never
-                             # reads the 2048 constant, so the fit nodes below
-                             # would be undone and their two resamples wasted.
-                             # Wired, not a literal. It was `length` until
-                             # 2026-08-13, which meant sweeping length on
-                             # MiniMaxH3Resolution moved the canvas and left the
-                             # duration behind -- silently, and only in the API
-                             # form, which is the form the benches drive. It
-                             # also skipped the node's own snap_length().
-                             "length": ["27", 2], "ref_image_size": "max",
-                             # Autogrow slots are addressed by their flat dotted
-                             # path; ComfyUI reassembles them into the nested
-                             # dict the node signature expects. Slot ordinals are
-                             # 0-based but the prompt tags are 1-based, so
-                             # ref_image_0 is <Picture 1>.
-                             **{f"ref_images.ref_image_{i}": [fit, 0]
-                                for i, (_ld, fit, _f) in enumerate(slots)}}}
+                             # Wired to Resolution so duration and geometry
+                             # continue to move together in API sweeps.
+                             "length": ["27", 2],
+                             "vendor_tokens": True}}
         # One fit node per reference. ComfyUI clamps reference scaling with
         # min(1.0, 2048/short_edge) where the reference pipeline has none, so
         # a reference smaller than 2048 on its short side arrives under-sized
@@ -966,6 +964,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # reads carefully.
         for load_id, _fit_id, fname in slots:
             g[load_id] = {"class_type": "LoadImage", "inputs": {"image": fname}}
+        chain = None
+        append_ids = iter(_REF_APPEND_NODES)
         for load_id, fit_id, _fname in slots:
             g[fit_id] = {"class_type": "MiniMaxH3ReferenceFit",
                          "inputs": {"image": [load_id, 0],
@@ -973,20 +973,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                     "short_edge": _ref_short_edge(),
                                     "lift_downstream_clamp": False,
                                     "keep_towers_matched": True}}
-        if ref_audio:
-            # Standalone audio, never alone: the reference refuses an audio
-            # reference unpaired with an image or a video, so every arm that
-            # sets this also sets one of those.
-            g["33"] = {"class_type": "LoadAudio",
-                       "inputs": {"audio": PLACEHOLDER_AUDIO}}
-            g["34"] = {"class_type": "TrimAudioDuration",
-                       "inputs": {"audio": ["33", 0], "start_index": 0.0,
-                                  "duration": ref_audio_seconds(length)}}
-            g["5"]["inputs"]["ref_audios.ref_audio_0"] = ["34", 0]
+            append_id = next(append_ids)
+            append_inputs = {"image": [fit_id, 0], "size_policy": "max"}
+            if chain is not None:
+                append_inputs["references"] = chain
+            g[append_id] = {"class_type": "MiniMaxH3AppendRefImage",
+                            "inputs": append_inputs}
+            chain = [append_id, 0]
         if ref_video:
-            # A reference VIDEO and its own soundtrack. Both sockets exist on
-            # the stock node and nothing in this repo has ever wired them.
-            #
             # There is NO fit node on this path, deliberately. The image path
             # has one because ComfyUI clamps reference images with
             # min(1.0, 2048/short_edge) where the reference does not. The video
@@ -997,11 +991,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # +7,168 for a `max` image reference. So the divergence is
             # documented and left open until the cost is known to buy anything.
             #
-            # The audio pairing is by INDEX, not by link: ref_video_audio_0
-            # belongs to ref_video_0. The tokenizer emits that soundtrack's
-            # <Audio j> label immediately BEFORE its <Video k>, and the two
-            # counters are independent, so one video with sound reads as
-            # "<Audio 1> ... <Video 1>".
+            # The typed append owns both media streams and the loader metadata.
+            # The compiler emits its soundtrack immediately before its video,
+            # preserving legacy labels while making ownership structural.
             g["28"] = {"class_type": "VHS_LoadVideo",
                        "inputs": {"video": PLACEHOLDER_VIDEO,
                                   "force_rate": REF_VIDEO_FORCE_RATE,
@@ -1011,12 +1003,32 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                   "select_every_nth": 1, "format": "AnimateDiff"}}
             g["28"]["inputs"]["video"] = (PLACEHOLDER_VIDEO if ref_video_audio
                                           else PLACEHOLDER_VIDEO_SILENT)
-            g["5"]["inputs"]["ref_videos.ref_video_0"] = ["28", 0]
+            append_id = next(append_ids)
+            append_inputs = {"frames": ["28", 0], "video_info": ["28", 3]}
             if ref_video_audio:
-                g["35"] = {"class_type": "TrimAudioDuration",
-                           "inputs": {"audio": ["28", 2], "start_index": 0.0,
-                                      "duration": ref_audio_seconds(length)}}
-                g["5"]["inputs"]["ref_video_audios.ref_video_audio_0"] = ["35", 0]
+                append_inputs["soundtrack"] = ["28", 2]
+            if chain is not None:
+                append_inputs["references"] = chain
+            g[append_id] = {"class_type": "MiniMaxH3AppendRefVideo",
+                            "inputs": append_inputs}
+            chain = [append_id, 0]
+        if ref_audio:
+            # Standalone audio is appended after visual references, matching
+            # the legacy conditioner's presentation order. The typed compiler
+            # performs the generation-duration cap internally.
+            g["33"] = {"class_type": "LoadAudio",
+                       "inputs": {"audio": PLACEHOLDER_AUDIO}}
+            append_id = next(append_ids)
+            append_inputs = {"audio": ["33", 0]}
+            if chain is not None:
+                append_inputs["references"] = chain
+            g[append_id] = {"class_type": "MiniMaxH3AppendRefAudio",
+                            "inputs": append_inputs}
+            chain = [append_id, 0]
+        if chain != [terminal_ref, 0]:
+            raise AssertionError(
+                f"typed reference chain ended at {chain}, expected "
+                f"{[terminal_ref, 0]}")
     else:
         # i2v takes its geometry from the keyframe node (below); every other
         # task takes it from Resolution, so the cost of the choice is visible
@@ -1025,10 +1037,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # `MiniMaxH3Conditioning`, not core's `MiniMaxH3ImageToVideo`. It owns
         # the canvas itself, so the separate `MiniMaxH3KeyframeCanvas` that
         # used to sit at node 17 and hand sizes forward is gone -- one geometry
-        # owner rather than two in series. It also registers the release's
-        # seven special tokens, which core's tokenizer cannot emit, so a prompt
-        # carrying `<d>` conditions on the marker rather than on BPE debris
-        # without anyone remembering to wire a second node in front.
+        # owner rather than two in series. `vendor_tokens` is retained for
+        # compatibility with older ComfyUI installs; current ComfyUI includes
+        # those tokens natively, so the repo helper detects that and no-ops.
         inputs = {"clip": ["2", 0], "vae": vae_enc, "prompt": prompt,
                   "vendor_tokens": True}
         if task == "i2v":
@@ -1667,13 +1678,13 @@ be one you made on purpose.
 
 You will never want both in one graph.
 
-## Reference Resolution needs ref_image_size on `max`
+## Reference Resolution pairs with the repo's typed `max` policy
 
-This pairing is load-bearing, not tidiness. Under `match` the stock node
-sizes references from the video's pixel area and never reads the 2048
-constant, so the fit nodes would run, resample twice, and be undone. This
-graph ships with `max` set. If you switch it back to `match`, delete the fit
-nodes too or you are paying for nothing.
+These shipped graphs use this repo's `MiniMaxH3AppendRefImage`, not native
+ComfyUI's autogrow image sockets. Its `max` policy keeps the prepared image on
+its own grid after `MiniMaxH3ReferenceFit`; `match` would resize it to the
+target canvas and undo the explicit preparation. This is how the repo handles
+the native sizing gap, not a claim that native ComfyUI closed it.
 
 `allow_upscale` on is the released pipeline's behaviour: it scales until the
 short side reaches 2048, enlarging small references. ComfyUI's own rule only
@@ -1686,42 +1697,6 @@ running an experiment and expect to discard the result. It monkeypatches a
 core node for one call and pushes references past what the checkpoint was
 conditioned at.
 """
-
-
-# The roles `_ref_prompt` knows how to write, named once so nothing has to
-# keep a second list in sync. check_ref_prompt_labels' drift guard enumerates
-# every prompt the generator can produce, and it imports these rather than
-# repeating them -- when `swap` was added, the hardcoded copy in that check
-# silently stopped covering the generator and failed the shipped graph.
-def ref_audio_seconds(length: int) -> float:
-    """The duration every reference soundtrack is capped at, in seconds.
-
-    **The reference pipeline caps and ComfyUI does not.** sglang computes
-    `frame_count / fps` and hands it to `ffmpeg -t`
-    (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/stages/audio_encoding.py:147-151`),
-    diffusers does the same, and it applies to BOTH material chains -- a
-    video's soundtrack and a standalone audio reference alike.
-    `comfy_extras/nodes_minimax_h3.py:71` truncates neither, so every second
-    of excess is 80 rows the DiT attends on every sampling step.
-
-    **Read against the video path, which is NOT the same.** Core already
-    truncates a reference VIDEO to the generated frame count
-    (`comfy_extras/nodes_minimax_h3.py:321-322`), so a long clip costs
-    decode and a full-length resize -- line 320 resizes before line 321
-    truncates -- and no rows. Only the audio gap costs rows.
-
-    Returned as an exact float and baked into `TrimAudioDuration.duration`,
-    which CAPS and never pads: `end_frame = min(start + duration*sr,
-    audio_length)` at `comfy_extras/nodes_audio.py:473-474`, so a soundtrack
-    shorter than the render passes through untouched, matching the cap
-    semantics rather than adding silence.
-
-    **This is a baked widget value, so it goes stale if `length` is patched
-    at submit time and the trim is not.** `bench/preflight_graph.py` grades
-    the two against each other and says so -- that warning is the control,
-    named here because a "must" without one is how this repo loses things.
-    """
-    return length / FPS
 
 
 VIDEO_ROLES = ("structure", "edit", "continue", "motion", "swap")
@@ -1996,8 +1971,8 @@ def _ref_prompt(*, images: bool | tuple[str, ...] = True,
     """A ref2va prompt declaring EXACTLY the labels this arm wires, in the
     relationship it actually asks for.
 
-    **The socket combination is mechanical; the relationship is the request.**
-    Which sockets are wired decides which labels the tokenizer emits. What the
+    **The reference combination is mechanical; the relationship is the request.**
+    Which records are appended decides which labels the tokenizer emits. What the
     prompt asks those labels to DO is a separate axis, and it is the one that
     changes the output. Every arm here used to be `structure` + `music`, the
     thinnest slice of what the guides describe.
@@ -3334,7 +3309,7 @@ def _note_ref_matrix(what: str) -> str:
     return f"""\
 ## Reference matrix arm: {what}
 
-One of five graphs that differ only in **which reference sockets are wired**.
+One of five graphs that differ only in **which typed references are appended**.
 Run them against each other; everything else -- seed, prompt skeleton, canvas,
 length, sampler, attention chain -- is shared by construction.
 
@@ -3348,21 +3323,19 @@ length, sampler, attention chain -- is shared by construction.
 
 **The prompt in each one declares exactly the labels that graph wires**, and
 `bench/check_ref_prompt_labels.py` fails the build if that stops being true.
-The numbering is the tokenizer's, not a convention: references are emitted as
-images, then videos with each soundtrack's `<Audio j>` immediately BEFORE its
-`<Video k>`, then standalone audio, with a separate 1-based counter per type.
+The numbering is the tokenizer's, not a convention. The typed surface permits
+arbitrary list order; this generator deliberately preserves the legacy order:
+images, then videos with each owned soundtrack's `<Audio j>` immediately BEFORE
+its `<Video k>`, then standalone audio, with a separate 1-based counter per type.
 So in the all-types arm the soundtrack is `<Audio 1>` and the standalone clip
 is `<Audio 2>`, while the video is `<Video 1>` in every arm that has one.
 
-**A silent clip cannot have its audio socket wired.** VHS raises
+**A silent clip cannot have a soundtrack pulled.** VHS raises
 "failed to extract audio" when its audio output is pulled on a video with no
 audio stream, and the render dies at execution having validated cleanly. The
-video-only arm therefore loads a different, silent clip and leaves the socket
+video-only arm therefore loads a different, silent clip and leaves the append
+node's soundtrack
 alone.
-
-**An audio reference is never valid alone.** The reference refuses one that is
-not paired with at least one image or video, so no arm here wires audio by
-itself.
 
 `force_rate` is {REF_VIDEO_FORCE_RATE:g} on every arm that loads a video. See
 `h3_ref_video_to_video.json` for why that is not optional.
@@ -3377,8 +3350,9 @@ source and never executed. This graph is what executing it looks like.
 
 ## force_rate is 24, and it is not optional
 
-`ref_videos.ref_video_0` takes an **IMAGE batch**, not a VIDEO. ComfyUI's node
-has **no fps input at all** and assumes 24 twice over: once for the DiT's
+The native `ref_videos.ref_video_0` socket takes an **IMAGE batch**, not a
+VIDEO. Native ComfyUI has **no fps input at all** and assumes 24 twice over:
+once for the DiT's
 temporal clock, and once for the `<T.T seconds>` labels the conditioner reads
 off the 2 fps subsample. The reference pipeline instead resamples onto 24 from
 the rate the container reports, and diffusers' own docstring flags the hazard
@@ -3399,8 +3373,10 @@ seconds of action, and the conditioner's final timestamp says
 `<7.0 seconds>` where it should say `<5.2 seconds>`. **A 24 fps source is
 unaffected either way**, which is exactly why testing on one proves nothing.
 
-`bench/check_ref_prompt_labels.py` fails the build if any reference video
-loader drops off 24.
+This repo's `MiniMaxH3AppendRefVideo` also owns `VHS_VIDEOINFO` and normalizes
+from its `loaded_fps`. Shipped graphs still hold `force_rate=24` so the clock
+policy did not change in the ordering migration; `bench/check_ref_prompt_labels.py`
+fails the build if a shipped reference-video loader drops it.
 
 ## What it costs, and why there is no fit node on this path
 
@@ -3421,24 +3397,24 @@ image one does, and nothing has measured whether it buys anything.
 
 ## Two more divergences to know about
 
-- **Reference audio is not truncated.** The reference cuts a soundtrack to the
-  generated duration; ComfyUI encodes the whole waveform, at 80 rows per
-  unwanted second. Trim it yourself.
+- **Native reference audio is not truncated.** The reference cuts a soundtrack
+  to the generated duration; core encodes the whole waveform, at 80 rows per
+  unwanted second. This repo's typed conditioner caps owned and standalone
+  audio internally; that handles shipped graphs, not native ComfyUI generally.
 - **The frame count snaps DOWN** to the 17n+5 grid after being truncated to the
   generated length, and fewer than 5 frames raises.
 
 ## Labels
 
-`<Video k>` and `<Audio j>` are numbered independently, and a paired
+`<Video k>` and `<Audio j>` are numbered independently, and an owned
 soundtrack's `<Audio j>` is emitted immediately BEFORE its `<Video k>`. One
 video with sound therefore reads as `<Audio 1>` then `<Video 1>`. Images are
-`<Picture i>` and come first.
+`<Picture i>`. This generated graph appends its images first.
 
-**The shipped clip has no audio track**, so `ref_video_audio_0` receives
-nothing, no `<Audio 1>` is emitted, and the prompt here deliberately does not
-declare one. Swap in a clip that has sound and the prompt needs two lines
-added, per `internal/official_prompt_guides/...ref_en.md` section 4.2, whose
-`<Audio N>` markers are a different set from the visual ones:
+**The shipped clip has an audio track**, owned by its video append record, so
+the prompt declares `<Audio 1>`. Swap in a silent clip and remove both the
+soundtrack link and those prompt lines. Section 4.2's `<Audio N>` markers are a
+different set from the visual ones:
 
 ```
 subject_definitions:
@@ -3453,9 +3429,9 @@ Valid audio markers are `fully_copy`, `partially_copy`, `reference` and
 `partially_preserved`, `attribute_transfer` and `weak_reference`. They do not
 interchange.
 
-Limits the reference enforces and ComfyUI does not: 9 images, 3 videos, 3
-audios, **12 references total**, and an audio reference may never appear
-without an image or video.
+Limits diffusers enforces and ComfyUI, sglang, and this typed surface do not:
+9 images, 3 videos, 3 audios, **12 references total**, and an audio reference
+may never appear without an image or video.
 """
 
 
@@ -4052,45 +4028,28 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     img_a = img_b = None
     if ref:
         slots = _ref_image_slots(ref_images_on, ref_image_count, ref_images)
-        # Three image sockets minimum, matching every saved graph to date;
-        # a graph wiring more grows the list to its own count. Autogrow
-        # sockets are matched by NAME in saved graphs, so a longer list in a
-        # new graph does not disturb the three-socket layout of existing ones.
-        n_img_sockets = max(3, len(slots))
         cond_inputs = [
             _in("clip", "CLIP"), _in("vae", "VAE"), _in("audio_vae", "VAE"),
-            *[_in(f"ref_images.ref_image_{i}", "IMAGE", optional=True,
-                  label=f"ref_image_{i}") for i in range(n_img_sockets)],
-            _in("ref_videos.ref_video_0", "IMAGE", optional=True, label="ref_video_0"),
-            _in("ref_video_audios.ref_video_audio_0", "AUDIO", optional=True,
-                label="ref_video_audio_0"),
-            _in("ref_audios.ref_audio_0", "AUDIO", optional=True, label="ref_audio_0"),
+            _in("references", "MINIMAX_H3_REFERENCES"),
         ]
-        cond = g.add("MiniMaxH3ReferenceToVideo", (-460, 0), size=(430, 620),
-                     widgets=[prompt, cv["width"], cv["height"], length, "max"],
+        cond = g.add("MiniMaxH3ReferenceConditioning", (-460, 0), size=(430, 620),
+                     widgets=[prompt, cv["width"], cv["height"], length, True],
                      inputs=cond_inputs + [
                          _in("width", "INT", widget=True), _in("height", "INT", widget=True),
                          _in("length", "INT", widget=True)],
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
-        if len(slots) > 2 and ref_video:
-            # The third loader would land on the reference-video node's own
-            # row. No graph asks for both, and this is here so that stays true
-            # by refusal rather than by nobody having tried it.
-            raise SystemExit(
-                "3 reference images plus a reference video would overlap in "
-                "the UI layout; give the video row its own y before allowing "
-                "this combination.")
         g.link(vae_enc_src, 0, cond, "vae", "VAE")
         g.link(avae, 0, cond, "audio_vae", "VAE")
-        # One fit node per reference, between LoadImage and the conditioning
-        # node. See the matching note in build_api: paired with
-        # ref_image_size on 'max', or the stock node undoes them.
+        # One fit and typed append node per image. `max` preserves the shipped
+        # fit policy: after MiniMaxH3ReferenceFit, the typed compiler leaves the
+        # prepared image on its own grid instead of resizing it to the target.
         #
-        # Loaders first, THEN fits, which is the order this builder has always
-        # created them in. Interleaving would renumber every node in every
-        # existing reference graph for no gain -- the ids are ours to assign,
-        # but a 70-file diff that changes nothing is a diff nobody reads.
-        loads = [g.add("LoadImage", (-880, 640 + 370 * i), size=(290, 330),
+        # Loaders first, then fits, then the append chain. Keeping each layer
+        # aligned makes presentation order legible in the saved UI graph.
+        def row_y(i):
+            return 900 + 370 * i
+
+        loads = [g.add("LoadImage", (-1420, row_y(i)), size=(290, 330),
                        widgets=[fname, "image"],
                        outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
                  for i, (_ld, _ft, fname) in enumerate(slots)]
@@ -4100,8 +4059,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             img_b = loads[1]
         fits = []
         for i, src in enumerate(loads):
-            y = 640 + 370 * i
-            fit = g.add("MiniMaxH3ReferenceFit", (-580, y), size=(300, 150),
+            y = row_y(i)
+            fit = g.add("MiniMaxH3ReferenceFit", (-1100, y), size=(300, 150),
                         # positional: allow_upscale, short_edge,
                         # lift_downstream_clamp, keep_towers_matched.
                         # keep_towers_matched is on -- it only bites past
@@ -4115,27 +4074,29 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                                  _out("latent_rows", "INT")],
                         title=f"Reference {i + 1} resolution")
             g.link(src, 0, fit, "image", "IMAGE")
-            g.link(fit, 0, cond, f"ref_images.ref_image_{i}", "IMAGE")
             fits.append(fit)
-        if ref_audio:
-            aud = g.add("LoadAudio", (-880, 1900), size=(300, 130),
-                        widgets=[PLACEHOLDER_AUDIO],
-                        outputs=[_out("AUDIO", "AUDIO")],
-                        title="Standalone audio reference")
-            atrim = g.add("TrimAudioDuration", (-520, 1900), size=(300, 100),
-                          widgets=[0.0, ref_audio_seconds(length)],
-                          inputs=[_in("audio", "AUDIO")],
-                          outputs=[_out("AUDIO", "AUDIO")],
-                          title=f"Cap to the generated {ref_audio_seconds(length):.2f}s")
-            g.link(aud, 0, atrim, "audio", "AUDIO")
-            g.link(atrim, 0, cond, "ref_audios.ref_audio_0", "AUDIO")
+        chain = None
+        for i, fit in enumerate(fits):
+            append_inputs = [_in("image", "IMAGE")]
+            if chain is not None:
+                append_inputs.append(
+                    _in("references", "MINIMAX_H3_REFERENCES", optional=True))
+            append = g.add("MiniMaxH3AppendRefImage", (-760, row_y(i)),
+                           size=(280, 120), widgets=["max"],
+                           inputs=append_inputs,
+                           outputs=[_out("references", "MINIMAX_H3_REFERENCES")],
+                           title=f"Append Picture {i + 1}")
+            g.link(fit, 0, append, "image", "IMAGE")
+            if chain is not None:
+                g.link(chain, 0, append, "references", "MINIMAX_H3_REFERENCES")
+            chain = append
         if ref_video:
             # See the matching note in build_api. force_rate=24 is the whole
-            # point: the stock node has no fps input and assumes 24 twice, so
-            # a 30 fps source left at 0 is conditioned at the wrong speed with
-            # nothing said. Its audio output feeds the index-paired soundtrack
-            # socket -- ref_video_audio_0 belongs to ref_video_0.
-            vid = g.add("VHS_LoadVideo", (-880, 1380), size=(340, 500),
+            # point during migration: changing source clock policy at the same
+            # time would confound output comparisons. The typed compiler also
+            # receives video_info and derives the effective source fps.
+            video_y = row_y(len(slots))
+            vid = g.add("VHS_LoadVideo", (-1420, video_y), size=(340, 500),
                         widgets={"video": (PLACEHOLDER_VIDEO if ref_video_audio
                                            else PLACEHOLDER_VIDEO_SILENT),
                                  "force_rate": REF_VIDEO_FORCE_RATE,
@@ -4146,15 +4107,45 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                         outputs=[_out("IMAGE", "IMAGE"), _out("frame_count", "INT"),
                                  _out("audio", "AUDIO"), _out("video_info", "VHS_VIDEOINFO")],
                         title="Reference video (force_rate 24)")
-            g.link(vid, 0, cond, "ref_videos.ref_video_0", "IMAGE")
+            append_inputs = [_in("frames", "IMAGE"),
+                             _in("video_info", "VHS_VIDEOINFO")]
             if ref_video_audio:
-                vtrim = g.add("TrimAudioDuration", (-520, 1650), size=(300, 100),
-                              widgets=[0.0, ref_audio_seconds(length)],
-                              inputs=[_in("audio", "AUDIO")],
-                              outputs=[_out("AUDIO", "AUDIO")],
-                              title=f"Cap to the generated {ref_audio_seconds(length):.2f}s")
-                g.link(vid, 2, vtrim, "audio", "AUDIO")
-                g.link(vtrim, 0, cond, "ref_video_audios.ref_video_audio_0", "AUDIO")
+                append_inputs.append(_in("soundtrack", "AUDIO", optional=True))
+            if chain is not None:
+                append_inputs.append(
+                    _in("references", "MINIMAX_H3_REFERENCES", optional=True))
+            append = g.add("MiniMaxH3AppendRefVideo", (-760, video_y),
+                           size=(280, 150), inputs=append_inputs,
+                           outputs=[_out("references", "MINIMAX_H3_REFERENCES")],
+                           title="Append video + owned soundtrack")
+            g.link(vid, 0, append, "frames", "IMAGE")
+            g.link(vid, 3, append, "video_info", "VHS_VIDEOINFO")
+            if ref_video_audio:
+                g.link(vid, 2, append, "soundtrack", "AUDIO")
+            if chain is not None:
+                g.link(chain, 0, append, "references", "MINIMAX_H3_REFERENCES")
+            chain = append
+        if ref_audio:
+            audio_y = row_y(len(slots) + int(ref_video))
+            aud = g.add("LoadAudio", (-1420, audio_y), size=(300, 130),
+                        widgets=[PLACEHOLDER_AUDIO],
+                        outputs=[_out("AUDIO", "AUDIO")],
+                        title="Standalone audio reference")
+            append_inputs = [_in("audio", "AUDIO")]
+            if chain is not None:
+                append_inputs.append(
+                    _in("references", "MINIMAX_H3_REFERENCES", optional=True))
+            append = g.add("MiniMaxH3AppendRefAudio", (-760, audio_y),
+                           size=(280, 100), inputs=append_inputs,
+                           outputs=[_out("references", "MINIMAX_H3_REFERENCES")],
+                           title="Append standalone audio")
+            g.link(aud, 0, append, "audio", "AUDIO")
+            if chain is not None:
+                g.link(chain, 0, append, "references", "MINIMAX_H3_REFERENCES")
+            chain = append
+        if chain is None:
+            raise SystemExit("r2v graph has no references to condition on")
+        g.link(chain, 0, cond, "references", "MINIMAX_H3_REFERENCES")
     else:
         # Widget order mirrors the schema: prompt, width, height, length,
         # canvas, vendor_tokens. The keyframe images stay input sockets.
@@ -4662,7 +4653,8 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
         # H3-specific: frame count is snapped up to 17k+5 by the node, so an
         # off-grid `length` silently renders a different duration than asked.
         if ct in ("MiniMaxH3ImageToVideo", "MiniMaxH3ReferenceToVideo",
-                  "MiniMaxH3Conditioning", "EmptyMiniMaxH3LatentAV"):
+                  "MiniMaxH3Conditioning", "MiniMaxH3ReferenceConditioning",
+                  "EmptyMiniMaxH3LatentAV"):
             ln = given.get("length")
             if isinstance(ln, int) and ln % 17 != 5:
                 e(f"node {nid} ({ct}): length {ln} is off the 17k+5 grid; "
@@ -4805,7 +4797,7 @@ def _api_settings(wf):
 def cross_check(written):
     """Report where a task's UI and API graphs disagree.
 
-    Compares which nodes are present and, for the ones carrying settings we
+    Compares which node counts are present and, for the ones carrying settings we
     pin, that the pinned values match. Widget *order* differs between the two
     formats by design (UI is positional, API is keyed), so this checks the
     node set plus the Sol-Attn and MiniMaxH3SageAttention values explicitly
@@ -4823,12 +4815,15 @@ def cross_check(written):
         api_name, api = forms["api"]
         ui_s, api_s = _ui_settings(ui), _api_settings(api)
 
-        only_ui = set(ui_s) - set(api_s) - _UI_ONLY
-        only_api = set(api_s) - set(ui_s)
-        for n in sorted(only_ui):
-            errs.append(f"{task}: {n} in {ui_name} but not {api_name}")
-        for n in sorted(only_api):
-            errs.append(f"{task}: {n} in {api_name} but not {ui_name}")
+        ui_counts = Counter(n["type"] for n in ui["nodes"]
+                            if n["type"] not in _UI_ONLY
+                            and n.get("mode", 0) == 0)
+        api_counts = Counter(n["class_type"] for n in api.values())
+        for cls in sorted(set(ui_counts) | set(api_counts)):
+            if ui_counts[cls] != api_counts[cls]:
+                errs.append(
+                    f"{task}: {cls} count differs -- {ui_name} has "
+                    f"{ui_counts[cls]}, {api_name} has {api_counts[cls]}")
 
         # Nodes whose values are compared, not just their presence. UI widgets
         # are positional in schema order; API inputs are keyed, so each entry
@@ -5878,7 +5873,7 @@ def main():
         for x in drift:
             print("  " + x)
         return 1
-    print("UI/API cross-check: same node set and settings")
+    print("UI/API cross-check: same node counts and settings")
 
     if args.no_validate:
         return 0

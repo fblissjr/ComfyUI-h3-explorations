@@ -15,6 +15,7 @@ render difference impossible to attribute.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 import logging
 import math
@@ -94,7 +95,11 @@ def _image_shape(image, field: str) -> tuple[int, int, int]:
 
 
 def _audio_shape(audio, field: str) -> tuple[torch.Tensor, int]:
-    if not isinstance(audio, dict):
+    # VHS returns LazyAudioMap, a Mapping that decodes through ffmpeg on first
+    # access. Core LoadAudio returns a plain dict. AUDIO is the public socket
+    # type for both, so rejecting everything but dict makes a schema-valid VHS
+    # soundtrack fail only at execution time.
+    if not isinstance(audio, Mapping):
         raise ValueError(f"{field} must be a Comfy AUDIO value")
     waveform = audio.get("waveform")
     sample_rate = audio.get("sample_rate")
@@ -433,8 +438,9 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
                 io.Boolean.Input(
                     "vendor_tokens", default=True,
                     tooltip=(
-                        "Register the seven H3 special tokens absent from the "
-                        "bundled tokenizer before encoding the presentation."
+                        "Compatibility for ComfyUI versions before the seven "
+                        "H3 tokens landed upstream. No-ops when native tokens "
+                        "are already present."
                     ),
                 ),
             ],

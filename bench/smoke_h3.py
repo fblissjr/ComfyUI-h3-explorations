@@ -145,7 +145,13 @@ def main() -> int:
     # run -- Sol ships OFF and API graphs omit it entirely.
     has_sol = any(n["class_type"] in SOL_NODE_IDS for n in wf.values())
 
-    text = Path(args.log).read_text(errors="replace")
+    log_path = Path(args.log)
+    if not log_path.is_file():
+        print(f"\nrender succeeded, but --log does not exist: {log_path}")
+        print("The attention-chain lines were NOT checked from a file. Read "
+              "the live server terminal, or pass a path the launcher writes.")
+        return 2
+    text = log_path.read_text(errors="replace")
     missing, skipped = False, False
     for label, needle, needs_sol in WANT:
         if needs_sol and not has_sol:

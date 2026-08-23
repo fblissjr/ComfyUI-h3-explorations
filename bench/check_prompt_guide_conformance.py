@@ -100,11 +100,12 @@ BASE_GUIDE = (REPO / "internal" / "official_prompt_guides"
 sys.path.insert(0, str(REPO / "workflows"))
 from h3_config import graph_paths  # noqa: E402
 
-REF_NODE = "MiniMaxH3ReferenceToVideo"
+REF_NODES = ("MiniMaxH3ReferenceToVideo",
+             "MiniMaxH3ReferenceConditioning")
 
 # Every node carrying a prompt. `MiniMaxH3Conditioning` is this repo's own and
 # the fl2va path moved onto it on 2026-08-21.
-PROMPT_NODES = (REF_NODE, "MiniMaxH3Conditioning")
+PROMPT_NODES = REF_NODES + ("MiniMaxH3Conditioning",)
 
 # Full-reference mode is the mode that wires reference labels, so the guide a
 # graph is graded against is read off its sockets, never off its filename.
@@ -113,7 +114,8 @@ REF_SOCKET_PREFIXES = ("ref_images.", "ref_videos.", "ref_audios.",
 
 
 def guide_of(inputs: dict) -> str:
-    return "ref" if any(k.startswith(REF_SOCKET_PREFIXES) for k in inputs) \
+    return "ref" if ("references" in inputs or
+                     any(k.startswith(REF_SOCKET_PREFIXES) for k in inputs)) \
         else "base"
 
 # The node that decodes the audio half of the packed AV latent. A graph

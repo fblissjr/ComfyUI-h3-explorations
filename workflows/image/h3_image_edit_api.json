@@ -120,7 +120,7 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ReferenceConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -132,6 +132,10 @@
       ],
       "audio_vae": [
         "4",
+        0
+      ],
+      "references": [
+        "50",
         0
       ],
       "prompt": "subject_definitions:\n<Subject 1> is the man in <Picture 1>, with his own facial structure, eyes, nose, mouth, ears, skin tone and texture, white hair and hairline, dark suit, white shirt and navy tie.\n\nsummary:\n[reference generation] Re-photograph <Subject 1> from a camera moved to his left and slightly down, keeping the studio, the wardrobe and the key light of <Picture 1> unchanged.\n\nretention_analysis:\n<Subject 1>: partially_preserved - identity, age, wardrobe, background and lighting are retained; only the camera position and the resulting occlusions change.\n\ndetailed_description:\nOne realistic portrait photograph in the same photographic style as <Picture 1>.\n[Shot 1] The camera sits about 45 degrees to <Subject 1>'s left and slightly below its original height, so he is seen in three-quarter view rather than facing the lens. <Subject 1> turns his head to follow the camera and looks directly into it, while his shoulders stay squared to his original facing, so the turn reads in the neck and head and not in the torso. The newly visible side of his face and head is consistent with the original view. The plain brown studio background and the soft directional key light falling from the same side are unchanged.",
@@ -147,11 +151,7 @@
         "27",
         2
       ],
-      "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ]
+      "vendor_tokens": true
     }
   },
   "15": {
@@ -171,6 +171,16 @@
       "short_edge": 2048,
       "lift_downstream_clamp": false,
       "keep_towers_matched": true
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "24",
+        0
+      ],
+      "size_policy": "max"
     }
   },
   "19": {

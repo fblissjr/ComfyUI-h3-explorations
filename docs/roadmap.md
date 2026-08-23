@@ -28,38 +28,41 @@ what would make it a real answer.
 
 ## Current forward plan — 2026-08-23
 
-The highest-value CPU work is complete: base-guide alignment is exact, the
-ordered resolver admits explicit VHS sources and traces branched audio, the
-typed append/compiler nodes exist, and both runtime and static-consumer
-controls are green. Live operational acceptance is also green: ComfyUI was
-restarted onto commit `0b665b7`, all four schemas appeared in `/object_info`,
-and a scratch two-image typed chain rendered 768x768 at 39 frames and 10 steps
-in 49.80 seconds. The server logged the two records in list order and a 9,578
-row payload.
+The typed-reference migration is complete. Base-guide alignment is exact, the
+ordered resolver admits explicit VHS sources and traces branched audio, all 38
+shipped reference API graphs now compile append chains, and both runtime and
+static-consumer controls are green. The all-media smoke rendered 1024x768 at
+39 frames and 10 steps in 84.51 seconds, with the server logging the expected
+five presentation labels and 21,283 packed rows.
 
 Completed this slice:
 
-1. Restarted ComfyUI and confirmed the three append schemas plus the ordered
-   conditioner from live `/object_info`.
-2. Built a temporary typed graph, passed the live API validator and static
-   preflight, then completed one GPU smoke. The native tokenizer already had
-   all twenty tokens, so this repo's compatibility shim logged a no-op.
+1. Repointed every generated reference workflow from native core's parallel
+   sockets to this repo's typed append/compiler nodes, preserving the legacy
+   presentation order, `force_rate=24`, and existing sizing policy.
+2. Removed explicit reference-audio trims from those workflows. The local
+   typed compiler now derives the cap from aligned frame count and normalizes
+   mono; native ComfyUI remains unchanged, so these are locally handled gaps,
+   not native fixes.
+3. Passed prompt, guide, ordering, typed-consumer, bounds, preflight, live API,
+   and UI-schema checks for the migrated population. The only full-schema red
+   rows are eight unrelated v1.0 Turbo LoRA filenames absent on this install.
+4. Fixed VHS `LazyAudioMap` compatibility found by the first all-media smoke,
+   then completed the rerun. The native tokenizer already had all twenty tokens,
+   so this repo's compatibility shim logged a no-op.
 
 Next, in order:
 
-1. Repoint the shipped reference graphs through append chains, regenerate UI
-   and API forms, and rerun discovery, prompt, preflight, schema, and smoke
-   checks. Core's legacy node is not retired while any shipped graph uses it.
-2. Only after migration is clean, consider release upscaling plus the
+1. Consider release upscaling plus the
    duration-aware Qwen-video processor as one named opt-in policy. It must not
-   be folded into the ordering migration, because that would move both media
-   content and order in the same render.
-3. Later cleanup: retire `vendor_tokens` from generated workflow inputs now
+   be presented as a native ComfyUI fix: it would be an explicit local parity
+   policy over gaps that remain upstream.
+2. Later cleanup: retire `vendor_tokens` from generated workflow inputs now
    that merged ComfyUI PR 15808 supplies the tokens natively. First set and
    verify the minimum supported ComfyUI version; until then, keep the helper as
    backward compatibility for older installs. This is cleanup, not a current
    conditioning or migration blocker.
-4. GPU experiments remain behind that work: the FL2VA base-versus-turbo pair,
+3. GPU experiments remain behind that work: the FL2VA base-versus-turbo pair,
    the singing-removed speaker-attribution scene, and `ncu` profiling all need
    the card alone.
 

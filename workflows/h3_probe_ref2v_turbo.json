@@ -10,8 +10,8 @@
   },
   "id": "a8475bc6-b1cc-577d-b6cc-96a770084d3a",
   "revision": 0,
-  "last_node_id": 29,
-  "last_link_id": 32,
+  "last_node_id": 31,
+  "last_link_id": 34,
   "nodes": [
     {
       "id": 1,
@@ -65,7 +65,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            12
+            14
           ]
         }
       ],
@@ -99,7 +99,7 @@
           "type": "VAE",
           "links": [
             6,
-            28
+            30
           ]
         }
       ],
@@ -132,7 +132,7 @@
           "type": "VAE",
           "links": [
             7,
-            30
+            32
           ]
         }
       ],
@@ -342,7 +342,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            13
+            15
           ]
         }
       ],
@@ -379,21 +379,21 @@
           "name": "width",
           "type": "INT",
           "links": [
-            16
+            18
           ]
         },
         {
           "name": "height",
           "type": "INT",
           "links": [
-            17
+            19
           ]
         },
         {
           "name": "length",
           "type": "INT",
           "links": [
-            18
+            20
           ]
         },
         {
@@ -429,7 +429,7 @@
     },
     {
       "id": 11,
-      "type": "MiniMaxH3ReferenceToVideo",
+      "type": "MiniMaxH3ReferenceConditioning",
       "pos": [
         -460,
         0
@@ -439,13 +439,13 @@
         620
       ],
       "flags": {},
-      "order": 21,
+      "order": 23,
       "mode": 0,
       "inputs": [
         {
           "name": "clip",
           "type": "CLIP",
-          "link": 12
+          "link": 14
         },
         {
           "name": "vae",
@@ -458,51 +458,14 @@
           "link": 7
         },
         {
-          "name": "ref_images.ref_image_0",
-          "type": "IMAGE",
-          "link": 9,
-          "label": "ref_image_0",
-          "shape": 7
-        },
-        {
-          "name": "ref_images.ref_image_1",
-          "type": "IMAGE",
-          "link": 11,
-          "label": "ref_image_1",
-          "shape": 7
-        },
-        {
-          "name": "ref_images.ref_image_2",
-          "type": "IMAGE",
-          "link": null,
-          "label": "ref_image_2",
-          "shape": 7
-        },
-        {
-          "name": "ref_videos.ref_video_0",
-          "type": "IMAGE",
-          "link": null,
-          "label": "ref_video_0",
-          "shape": 7
-        },
-        {
-          "name": "ref_video_audios.ref_video_audio_0",
-          "type": "AUDIO",
-          "link": null,
-          "label": "ref_video_audio_0",
-          "shape": 7
-        },
-        {
-          "name": "ref_audios.ref_audio_0",
-          "type": "AUDIO",
-          "link": null,
-          "label": "ref_audio_0",
-          "shape": 7
+          "name": "references",
+          "type": "MINIMAX_H3_REFERENCES",
+          "link": 13
         },
         {
           "name": "width",
           "type": "INT",
-          "link": 16,
+          "link": 18,
           "widget": {
             "name": "width"
           }
@@ -510,7 +473,7 @@
         {
           "name": "height",
           "type": "INT",
-          "link": 17,
+          "link": 19,
           "widget": {
             "name": "height"
           }
@@ -518,7 +481,7 @@
         {
           "name": "length",
           "type": "INT",
-          "link": 18,
+          "link": 20,
           "widget": {
             "name": "length"
           }
@@ -529,34 +492,34 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            19
+            21
           ]
         },
         {
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            20
+            22
           ]
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3ReferenceToVideo"
+        "Node name for S&R": "MiniMaxH3ReferenceConditioning"
       },
       "widgets_values": [
         "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.\n\noverall_soundscape:\nNatural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music:\nN/A",
         1344,
         768,
         362,
-        "max"
+        true
       ]
     },
     {
       "id": 12,
       "type": "LoadImage",
       "pos": [
-        -880,
-        640
+        -1420,
+        900
       ],
       "size": [
         290,
@@ -592,8 +555,8 @@
       "id": 13,
       "type": "LoadImage",
       "pos": [
-        -880,
-        1010
+        -1420,
+        1270
       ],
       "size": [
         290,
@@ -608,7 +571,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            10
+            9
           ]
         },
         {
@@ -629,8 +592,8 @@
       "id": 14,
       "type": "MiniMaxH3ReferenceFit",
       "pos": [
-        -580,
-        640
+        -1100,
+        900
       ],
       "size": [
         300,
@@ -651,7 +614,7 @@
           "name": "image",
           "type": "IMAGE",
           "links": [
-            9
+            10
           ]
         },
         {
@@ -675,8 +638,8 @@
       "id": 15,
       "type": "MiniMaxH3ReferenceFit",
       "pos": [
-        -580,
-        1010
+        -1100,
+        1270
       ],
       "size": [
         300,
@@ -689,7 +652,7 @@
         {
           "name": "image",
           "type": "IMAGE",
-          "link": 10
+          "link": 9
         }
       ],
       "outputs": [
@@ -719,6 +682,88 @@
     },
     {
       "id": 16,
+      "type": "MiniMaxH3AppendRefImage",
+      "pos": [
+        -760,
+        900
+      ],
+      "size": [
+        280,
+        120
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "references",
+          "type": "MINIMAX_H3_REFERENCES",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3AppendRefImage"
+      },
+      "widgets_values": [
+        "max"
+      ],
+      "title": "Append Picture 1"
+    },
+    {
+      "id": 17,
+      "type": "MiniMaxH3AppendRefImage",
+      "pos": [
+        -760,
+        1270
+      ],
+      "size": [
+        280,
+        120
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "name": "references",
+          "type": "MINIMAX_H3_REFERENCES",
+          "link": 12,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "references",
+          "type": "MINIMAX_H3_REFERENCES",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3AppendRefImage"
+      },
+      "widgets_values": [
+        "max"
+      ],
+      "title": "Append Picture 2"
+    },
+    {
+      "id": 18,
       "type": "RandomNoise",
       "pos": [
         40,
@@ -729,7 +774,7 @@
         110
       ],
       "flags": {},
-      "order": 14,
+      "order": 16,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -737,7 +782,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            23
+            25
           ]
         }
       ],
@@ -750,7 +795,7 @@
       ]
     },
     {
-      "id": 17,
+      "id": 19,
       "type": "KSamplerSelect",
       "pos": [
         40,
@@ -761,7 +806,7 @@
         60
       ],
       "flags": {},
-      "order": 15,
+      "order": 17,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -769,7 +814,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            25
+            27
           ]
         }
       ],
@@ -781,7 +826,7 @@
       ]
     },
     {
-      "id": 18,
+      "id": 20,
       "type": "BasicScheduler",
       "pos": [
         40,
@@ -792,13 +837,13 @@
         130
       ],
       "flags": {},
-      "order": 22,
+      "order": 24,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 14
+          "link": 16
         }
       ],
       "outputs": [
@@ -806,7 +851,7 @@
           "name": "SIGMAS",
           "type": "SIGMAS",
           "links": [
-            26
+            28
           ]
         }
       ],
@@ -820,7 +865,7 @@
       ]
     },
     {
-      "id": 19,
+      "id": 21,
       "type": "BasicGuider",
       "pos": [
         40,
@@ -831,18 +876,18 @@
         70
       ],
       "flags": {},
-      "order": 24,
+      "order": 26,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 15
+          "link": 17
         },
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 21
+          "link": 23
         }
       ],
       "outputs": [
@@ -850,7 +895,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            24
+            26
           ]
         }
       ],
@@ -859,7 +904,7 @@
       }
     },
     {
-      "id": 20,
+      "id": 22,
       "type": "SamplerCustomAdvanced",
       "pos": [
         400,
@@ -870,33 +915,33 @@
         150
       ],
       "flags": {},
-      "order": 25,
+      "order": 27,
       "mode": 0,
       "inputs": [
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 23
+          "link": 25
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 24
+          "link": 26
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 25
+          "link": 27
         },
         {
           "name": "sigmas",
           "type": "SIGMAS",
-          "link": 26
+          "link": 28
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 22
+          "link": 24
         }
       ],
       "outputs": [
@@ -904,8 +949,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            27,
-            29
+            29,
+            31
           ]
         },
         {
@@ -919,7 +964,7 @@
       }
     },
     {
-      "id": 21,
+      "id": 23,
       "type": "VAEDecode",
       "pos": [
         780,
@@ -930,46 +975,7 @@
         60
       ],
       "flags": {},
-      "order": 26,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "samples",
-          "type": "LATENT",
-          "link": 27
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 28
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            31
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "VAEDecode"
-      }
-    },
-    {
-      "id": 22,
-      "type": "VAEDecodeAudio",
-      "pos": [
-        780,
-        110
-      ],
-      "size": [
-        260,
-        60
-      ],
-      "flags": {},
-      "order": 27,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
@@ -985,10 +991,49 @@
       ],
       "outputs": [
         {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            33
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 24,
+      "type": "VAEDecodeAudio",
+      "pos": [
+        780,
+        110
+      ],
+      "size": [
+        260,
+        60
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 31
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 32
+        }
+      ],
+      "outputs": [
+        {
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            32
+            34
           ]
         }
       ],
@@ -997,7 +1042,7 @@
       }
     },
     {
-      "id": 23,
+      "id": 25,
       "type": "VHS_VideoCombine",
       "pos": [
         1080,
@@ -1008,18 +1053,18 @@
         520
       ],
       "flags": {},
-      "order": 28,
+      "order": 30,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 31
+          "link": 33
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 32,
+          "link": 34,
           "shape": 7
         },
         {
@@ -1059,7 +1104,7 @@
       }
     },
     {
-      "id": 24,
+      "id": 26,
       "type": "SageChainAssert",
       "pos": [
         -480,
@@ -1070,13 +1115,13 @@
         130
       ],
       "flags": {},
-      "order": 16,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 13
+          "link": 15
         }
       ],
       "outputs": [
@@ -1084,8 +1129,8 @@
           "name": "model",
           "type": "MODEL",
           "links": [
-            14,
-            15
+            16,
+            17
           ]
         }
       ],
@@ -1101,7 +1146,7 @@
       "title": "Assert the attention chain composed"
     },
     {
-      "id": 25,
+      "id": 27,
       "type": "MiniMaxH3Preflight",
       "pos": [
         -60,
@@ -1112,18 +1157,18 @@
         260
       ],
       "flags": {},
-      "order": 23,
+      "order": 25,
       "mode": 0,
       "inputs": [
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 19
+          "link": 21
         },
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 20
+          "link": 22
         }
       ],
       "outputs": [
@@ -1131,14 +1176,14 @@
           "name": "conditioning",
           "type": "CONDITIONING",
           "links": [
-            21
+            23
           ]
         },
         {
           "name": "samples",
           "type": "LATENT",
           "links": [
-            22
+            24
           ]
         },
         {
@@ -1158,7 +1203,7 @@
       "title": "Preflight: what this render costs"
     },
     {
-      "id": 26,
+      "id": 28,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1169,7 +1214,7 @@
         620
       ],
       "flags": {},
-      "order": 17,
+      "order": 19,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1182,7 +1227,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 27,
+      "id": 29,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1193,7 +1238,7 @@
         560
       ],
       "flags": {},
-      "order": 18,
+      "order": 20,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1206,7 +1251,7 @@
       "title": "Which nodes, and the order that matters"
     },
     {
-      "id": 28,
+      "id": 30,
       "type": "MarkdownNote",
       "pos": [
         -2860,
@@ -1217,7 +1262,7 @@
         900
       ],
       "flags": {},
-      "order": 19,
+      "order": 21,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1225,12 +1270,12 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## What the sizing nodes decide, and what Preflight tells you\n\n**Preflight is pass-through.** It changes nothing. It reads the assembled\nconditioning through the model's own `PackedLayout`, so the sequence length\nit draws is the one attention will actually run at.\n\nRead it top to bottom:\n\n```\n1152x768  trained family  864 video tokens/frame\n124 frames (5.167s)  37 latent frames\nsequence length 52,702\n  video         31,968  ############........   60.7%\n  references    17,216  #######.............   32.7%\n  text           3,104  #...................    5.9%\n  audio            414  ....................    0.8%\nif the aspect ratio changed, same length:\n  1:1   768x768      42,046    -20%\n  16:9  1344x768     58,030    +10%\n```\n\nThe percentages are the decision. Reference tokens are attended at every\nsampling step exactly as video tokens are, so references at a third of the\nsequence means a third of your attention cost is spent describing them.\n\n**\"trained family\" vs \"OUTSIDE trained family\".** Core's conditioning nodes\ntake width and height as plain ints and never call `adapt_canvas`, so the 768\nshort edge and the 768x1344 area cap constrain nothing you type. 1024x1024 is\nlegal, renders, costs more per frame than 16:9, and is outside the family the\ncheckpoint was trained on. Outside is a choice, not an error -- but it should\nbe one you made on purpose.\n\n## The two resolution nodes are not interchangeable\n\n- A **keyframe** is patchified on the video's own latent grid, so its\n  resolution must equal the video's. That is why *MiniMax H3 Keyframe\n  Resolution* outputs width and height: the keyframe decides them.\n- A **reference** is patchified on its own grid, so its resolution only sets\n  how many vision tokens it contributes. That is why *MiniMax H3 Reference\n  Resolution* does not output width and height.\n\nYou will never want both in one graph.\n\n## Reference Resolution needs ref_image_size on `max`\n\nThis pairing is load-bearing, not tidiness. Under `match` the stock node\nsizes references from the video's pixel area and never reads the 2048\nconstant, so the fit nodes would run, resample twice, and be undone. This\ngraph ships with `max` set. If you switch it back to `match`, delete the fit\nnodes too or you are paying for nothing.\n\n`allow_upscale` on is the released pipeline's behaviour: it scales until the\nshort side reaches 2048, enlarging small references. ComfyUI's own rule only\never shrinks. Upscaling adds tokens, not detail, so whether it helps an\nalready-small source is unmeasured -- turn it off and watch the Preflight\npercentages if you want the cheap version.\n\n**The EXPERIMENTAL clamp lift is off and should stay off** unless you are\nrunning an experiment and expect to discard the result. It monkeypatches a\ncore node for one call and pushes references past what the checkpoint was\nconditioned at.\n"
+        "## What the sizing nodes decide, and what Preflight tells you\n\n**Preflight is pass-through.** It changes nothing. It reads the assembled\nconditioning through the model's own `PackedLayout`, so the sequence length\nit draws is the one attention will actually run at.\n\nRead it top to bottom:\n\n```\n1152x768  trained family  864 video tokens/frame\n124 frames (5.167s)  37 latent frames\nsequence length 52,702\n  video         31,968  ############........   60.7%\n  references    17,216  #######.............   32.7%\n  text           3,104  #...................    5.9%\n  audio            414  ....................    0.8%\nif the aspect ratio changed, same length:\n  1:1   768x768      42,046    -20%\n  16:9  1344x768     58,030    +10%\n```\n\nThe percentages are the decision. Reference tokens are attended at every\nsampling step exactly as video tokens are, so references at a third of the\nsequence means a third of your attention cost is spent describing them.\n\n**\"trained family\" vs \"OUTSIDE trained family\".** Core's conditioning nodes\ntake width and height as plain ints and never call `adapt_canvas`, so the 768\nshort edge and the 768x1344 area cap constrain nothing you type. 1024x1024 is\nlegal, renders, costs more per frame than 16:9, and is outside the family the\ncheckpoint was trained on. Outside is a choice, not an error -- but it should\nbe one you made on purpose.\n\n## The two resolution nodes are not interchangeable\n\n- A **keyframe** is patchified on the video's own latent grid, so its\n  resolution must equal the video's. That is why *MiniMax H3 Keyframe\n  Resolution* outputs width and height: the keyframe decides them.\n- A **reference** is patchified on its own grid, so its resolution only sets\n  how many vision tokens it contributes. That is why *MiniMax H3 Reference\n  Resolution* does not output width and height.\n\nYou will never want both in one graph.\n\n## Reference Resolution pairs with the repo's typed `max` policy\n\nThese shipped graphs use this repo's `MiniMaxH3AppendRefImage`, not native\nComfyUI's autogrow image sockets. Its `max` policy keeps the prepared image on\nits own grid after `MiniMaxH3ReferenceFit`; `match` would resize it to the\ntarget canvas and undo the explicit preparation. This is how the repo handles\nthe native sizing gap, not a claim that native ComfyUI closed it.\n\n`allow_upscale` on is the released pipeline's behaviour: it scales until the\nshort side reaches 2048, enlarging small references. ComfyUI's own rule only\never shrinks. Upscaling adds tokens, not detail, so whether it helps an\nalready-small source is unmeasured -- turn it off and watch the Preflight\npercentages if you want the cheap version.\n\n**The EXPERIMENTAL clamp lift is off and should stay off** unless you are\nrunning an experiment and expect to discard the result. It monkeypatches a\ncore node for one call and pushes references past what the checkpoint was\nconditioned at.\n"
       ],
       "title": "Resolution, references, and reading the preflight"
     },
     {
-      "id": 29,
+      "id": 31,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1241,7 +1286,7 @@
         760
       ],
       "flags": {},
-      "order": 20,
+      "order": 22,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1321,14 +1366,6 @@
     ],
     [
       9,
-      14,
-      0,
-      11,
-      3,
-      "IMAGE"
-    ],
-    [
-      10,
       13,
       0,
       15,
@@ -1336,15 +1373,39 @@
       "IMAGE"
     ],
     [
+      10,
+      14,
+      0,
+      16,
+      0,
+      "IMAGE"
+    ],
+    [
       11,
       15,
       0,
-      11,
-      4,
+      17,
+      0,
       "IMAGE"
     ],
     [
       12,
+      16,
+      0,
+      17,
+      1,
+      "MINIMAX_H3_REFERENCES"
+    ],
+    [
+      13,
+      17,
+      0,
+      11,
+      3,
+      "MINIMAX_H3_REFERENCES"
+    ],
+    [
+      14,
       2,
       0,
       11,
@@ -1352,162 +1413,162 @@
       "CLIP"
     ],
     [
-      13,
+      15,
       9,
       0,
-      24,
-      0,
-      "MODEL"
-    ],
-    [
-      14,
-      24,
-      0,
-      18,
-      0,
-      "MODEL"
-    ],
-    [
-      15,
-      24,
-      0,
-      19,
+      26,
       0,
       "MODEL"
     ],
     [
       16,
-      10,
+      26,
       0,
-      11,
-      9,
-      "INT"
+      20,
+      0,
+      "MODEL"
     ],
     [
       17,
-      10,
-      1,
-      11,
-      10,
-      "INT"
+      26,
+      0,
+      21,
+      0,
+      "MODEL"
     ],
     [
       18,
       10,
-      2,
+      0,
       11,
-      11,
+      4,
       "INT"
     ],
     [
       19,
+      10,
+      1,
       11,
-      0,
-      25,
-      0,
-      "CONDITIONING"
+      5,
+      "INT"
     ],
     [
       20,
+      10,
+      2,
       11,
-      1,
-      25,
-      1,
-      "LATENT"
+      6,
+      "INT"
     ],
     [
       21,
-      25,
+      11,
       0,
-      19,
-      1,
+      27,
+      0,
       "CONDITIONING"
     ],
     [
       22,
-      25,
+      11,
       1,
-      20,
-      4,
+      27,
+      1,
       "LATENT"
     ],
     [
       23,
-      16,
+      27,
       0,
-      20,
+      21,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      24,
+      27,
+      1,
+      22,
+      4,
+      "LATENT"
+    ],
+    [
+      25,
+      18,
+      0,
+      22,
       0,
       "NOISE"
     ],
     [
-      24,
-      19,
+      26,
+      21,
       0,
-      20,
+      22,
       1,
       "GUIDER"
     ],
     [
-      25,
-      17,
+      27,
+      19,
       0,
-      20,
+      22,
       2,
       "SAMPLER"
     ],
     [
-      26,
-      18,
-      0,
+      28,
       20,
+      0,
+      22,
       3,
       "SIGMAS"
     ],
     [
-      27,
-      20,
-      0,
-      21,
-      0,
-      "LATENT"
-    ],
-    [
-      28,
-      3,
-      0,
-      21,
-      1,
-      "VAE"
-    ],
-    [
       29,
-      20,
-      0,
       22,
+      0,
+      23,
       0,
       "LATENT"
     ],
     [
       30,
-      4,
+      3,
       0,
-      22,
+      23,
       1,
       "VAE"
     ],
     [
       31,
-      21,
+      22,
       0,
+      24,
+      0,
+      "LATENT"
+    ],
+    [
+      32,
+      4,
+      0,
+      24,
+      1,
+      "VAE"
+    ],
+    [
+      33,
       23,
+      0,
+      25,
       0,
       "IMAGE"
     ],
     [
-      32,
-      22,
+      34,
+      24,
       0,
-      23,
+      25,
       1,
       "AUDIO"
     ]

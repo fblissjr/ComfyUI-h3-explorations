@@ -120,7 +120,7 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ReferenceConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -132,6 +132,10 @@
       ],
       "audio_vae": [
         "4",
+        0
+      ],
+      "references": [
+        "52",
         0
       ],
       "prompt": "subject_definitions:\n<Subject 1> is the young man in <Picture 1>, with his own face, curly hair, black-rimmed glasses, build and clothing.\n<Subject 2> is the adult woman in <Picture 2>, with her own face, freckling, red hair, build and clothing.\n<Subject 3> is the green-lit marble corridor in <Picture 3>: its architecture, palette, lighting and depth. <Picture 3> supplies no person.\n\nsummary:\n[reference generation] Place <Subject 1> and <Subject 2> together in <Subject 3> as one photograph of two people in conversation.\n\nretention_analysis:\n<Subject 1>: partially_preserved - face, hair, glasses, build and clothing are retained; pose, framing and lighting change.\n<Subject 2>: partially_preserved - face, freckling, hair, build and clothing are retained; pose, framing and lighting change.\n<Subject 3>: fully_preserved - the corridor is the complete environment, with its own architecture, palette and green light.\n\ndetailed_description:\nOne realistic photograph, medium-wide, single exposure.\n[Shot 1] The two adults stand an arm's length apart in the middle of the corridor, angled toward each other. <Subject 1> is camera-left with one hand at his side and his head turned toward her; <Subject 2> is camera-right, speaking, one hand raised at chest height. Each keeps their own face, hair, build and clothing with no blending between them and no feature of one appearing on the other. Their eyelines meet, their scale agrees with the corridor, and both sets of feet meet the floor with contact shadows in the same direction as the architecture's own. The green key light of <Subject 3> falls across both of them. Exactly two people appear anywhere in the frame, and the corridor behind them stays empty.",
@@ -147,19 +151,7 @@
         "27",
         2
       ],
-      "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ],
-      "ref_images.ref_image_1": [
-        "25",
-        0
-      ],
-      "ref_images.ref_image_2": [
-        "35",
-        0
-      ]
+      "vendor_tokens": true
     }
   },
   "15": {
@@ -193,6 +185,16 @@
       "keep_towers_matched": true
     }
   },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "24",
+        0
+      ],
+      "size_policy": "max"
+    }
+  },
   "25": {
     "class_type": "MiniMaxH3ReferenceFit",
     "inputs": {
@@ -206,6 +208,20 @@
       "keep_towers_matched": true
     }
   },
+  "51": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "25",
+        0
+      ],
+      "size_policy": "max",
+      "references": [
+        "50",
+        0
+      ]
+    }
+  },
   "35": {
     "class_type": "MiniMaxH3ReferenceFit",
     "inputs": {
@@ -217,6 +233,20 @@
       "short_edge": 2048,
       "lift_downstream_clamp": false,
       "keep_towers_matched": true
+    }
+  },
+  "52": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "35",
+        0
+      ],
+      "size_policy": "max",
+      "references": [
+        "51",
+        0
+      ]
     }
   },
   "19": {

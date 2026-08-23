@@ -146,7 +146,7 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ReferenceConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -158,6 +158,10 @@
       ],
       "audio_vae": [
         "4",
+        0
+      ],
+      "references": [
+        "52",
         0
       ],
       "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n<Audio 1> is the voice-timbre reference for <Subject 1> (S1).\n\nsummary:\n[reference generation + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, with the voice of <Audio 1>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n<Audio 1>: reference - only timbre and delivery are referenced, the signal is not copied.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed. <Subject 1> (S1) turns toward the camera and says, in the clear timbre referenced from <Audio 1>, <d>[English] I thought you would have gone by now.</d>\n\noverall_soundscape:\nNatural ambient atmosphere continues throughout the shot. The vocal timbre of <Audio 1> is referenced for the speaking voice, and its signal is not copied.\n\nnon_diegetic_music:\nN/A",
@@ -173,19 +177,7 @@
         "27",
         2
       ],
-      "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ],
-      "ref_images.ref_image_1": [
-        "25",
-        0
-      ],
-      "ref_audios.ref_audio_0": [
-        "34",
-        0
-      ]
+      "vendor_tokens": true
     }
   },
   "15": {
@@ -213,6 +205,16 @@
       "keep_towers_matched": true
     }
   },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "24",
+        0
+      ],
+      "size_policy": "max"
+    }
+  },
   "25": {
     "class_type": "MiniMaxH3ReferenceFit",
     "inputs": {
@@ -226,21 +228,37 @@
       "keep_towers_matched": true
     }
   },
+  "51": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "25",
+        0
+      ],
+      "size_policy": "max",
+      "references": [
+        "50",
+        0
+      ]
+    }
+  },
   "33": {
     "class_type": "LoadAudio",
     "inputs": {
       "audio": "4th-ninja-Breathless_Heights.mp3"
     }
   },
-  "34": {
-    "class_type": "TrimAudioDuration",
+  "52": {
+    "class_type": "MiniMaxH3AppendRefAudio",
     "inputs": {
       "audio": [
         "33",
         0
       ],
-      "start_index": 0.0,
-      "duration": 15.083333333333334
+      "references": [
+        "51",
+        0
+      ]
     }
   },
   "19": {

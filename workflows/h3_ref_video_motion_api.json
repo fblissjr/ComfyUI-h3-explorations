@@ -146,7 +146,7 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ReferenceConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -158,6 +158,10 @@
       ],
       "audio_vae": [
         "4",
+        0
+      ],
+      "references": [
+        "52",
         0
       ],
       "prompt": "subject_definitions:\n<Subject 1> is the person whose appearance comes from <Picture 1> and whose walking motion comes from <Video 1>.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n<Video 1> is the source of the walking motion transferred to <Subject 1>; its own scene is not reused.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2>, carrying the walking motion of <Video 1>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Picture 1>.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n<Video 1> (motion source): attribute_transfer - only the gait and its timing are taken; the scene and the person are not.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left, walking with the gait and timing taken from <Video 1>. The camera trucks right with small amplitude at slow speed.\n\noverall_soundscape:\nNatural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music:\nN/A",
@@ -173,19 +177,7 @@
         "27",
         2
       ],
-      "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ],
-      "ref_images.ref_image_1": [
-        "25",
-        0
-      ],
-      "ref_videos.ref_video_0": [
-        "28",
-        0
-      ]
+      "vendor_tokens": true
     }
   },
   "15": {
@@ -213,6 +205,16 @@
       "keep_towers_matched": true
     }
   },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "24",
+        0
+      ],
+      "size_policy": "max"
+    }
+  },
   "25": {
     "class_type": "MiniMaxH3ReferenceFit",
     "inputs": {
@@ -226,6 +228,20 @@
       "keep_towers_matched": true
     }
   },
+  "51": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "25",
+        0
+      ],
+      "size_policy": "max",
+      "references": [
+        "50",
+        0
+      ]
+    }
+  },
   "28": {
     "class_type": "VHS_LoadVideo",
     "inputs": {
@@ -237,6 +253,23 @@
       "skip_first_frames": 0,
       "select_every_nth": 1,
       "format": "AnimateDiff"
+    }
+  },
+  "52": {
+    "class_type": "MiniMaxH3AppendRefVideo",
+    "inputs": {
+      "frames": [
+        "28",
+        0
+      ],
+      "video_info": [
+        "28",
+        3
+      ],
+      "references": [
+        "51",
+        0
+      ]
     }
   },
   "19": {

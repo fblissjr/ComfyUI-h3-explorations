@@ -146,7 +146,7 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ReferenceConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -158,6 +158,10 @@
       ],
       "audio_vae": [
         "4",
+        0
+      ],
+      "references": [
+        "50",
         0
       ],
       "prompt": "subject_definitions:\n<Subject 1> is the person in <Video 1>, whose face, hair, and clothing are carried into the target video.\n<Audio 1> is the synchronized audio track of <Video 1> and is reused in the target video.\n<Video 1> is the source video the target video continues from, beginning at its final frame.\n\nsummary:\n[video continuation + audio reuse] The target video continues <Video 1> from its final frame, without a cut.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained from <Video 1>.\n<Audio 1>: partially_copy - the ambience of <Audio 1> is kept under the new scene.\n<Video 1> (continuation source): partially_preserved - scene, lighting, and subject position continue from its final state.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] The shot begins exactly where <Video 1> ends, on the same framing and lighting, and carries the motion forward without a cut. <Subject 1> continues walking out of frame to the right as the camera holds.\n\noverall_soundscape:\nThe ambience of <Audio 1> continues under the shot.\n\nnon_diegetic_music:\nN/A",
@@ -173,15 +177,7 @@
         "27",
         2
       ],
-      "ref_image_size": "max",
-      "ref_videos.ref_video_0": [
-        "28",
-        0
-      ],
-      "ref_video_audios.ref_video_audio_0": [
-        "35",
-        0
-      ]
+      "vendor_tokens": true
     }
   },
   "28": {
@@ -197,15 +193,21 @@
       "format": "AnimateDiff"
     }
   },
-  "35": {
-    "class_type": "TrimAudioDuration",
+  "50": {
+    "class_type": "MiniMaxH3AppendRefVideo",
     "inputs": {
-      "audio": [
+      "frames": [
+        "28",
+        0
+      ],
+      "video_info": [
+        "28",
+        3
+      ],
+      "soundtrack": [
         "28",
         2
-      ],
-      "start_index": 0.0,
-      "duration": 14.375
+      ]
     }
   },
   "19": {

@@ -27,10 +27,10 @@ sglang 2026-08-21.
 
 ---
 
-## The four reference types
+## The four reference types: native sockets and this repo's typed surface
 
-`MiniMaxH3ReferenceToVideo` has four reference sockets. There is **no mask
-socket and no fps input** on any of them.
+Native ComfyUI's `MiniMaxH3ReferenceToVideo` has four parallel reference socket
+groups. There is **no mask socket and no fps input** on any of them.
 
 | socket | type | max | what it is |
 |---|---|---|---|
@@ -38,6 +38,17 @@ socket and no fps input** on any of them.
 | `ref_videos.ref_video_N` | IMAGE (frame batch) | 3 | a clip, on the canvas rule |
 | `ref_video_audios.ref_video_audio_N` | AUDIO | 3 | the soundtrack of the **same-numbered** video |
 | `ref_audios.ref_audio_N` | AUDIO | 3 | a standalone audio asset |
+
+Shipped workflows in this repo no longer wire those groups. They use local
+`MiniMaxH3AppendRefImage`, `MiniMaxH3AppendRefVideo`, and
+`MiniMaxH3AppendRefAudio` nodes feeding `MiniMaxH3ReferenceConditioning`.
+List position is explicit, the video record owns its optional soundtrack and
+`VHS_VIDEOINFO`, and the compiler owns duration/channel normalization. This is
+the repo's handling of native gaps, not a claim that core's socket node changed.
+
+The generator deliberately preserves native presentation order -- images,
+then each sounded video, then standalone audio -- so existing prompts keep
+their ordinals. A hand-built typed chain can choose another order.
 
 Two limits **diffusers** enforces with a raise and ComfyUI does not: 12
 references total across all types (`coderef/diffusers/src/diffusers/modular_pipelines/minimax_h3/before_encoder.py:410-413`), and an audio reference
@@ -140,15 +151,12 @@ lands on its own video's span and the `max` is a tie. Left untrimmed, the
 target streams start that much later. Computed 2026-08-22 with
 `temporal_shape` and `_video_t_spans` imported, not restated.
 
-**Every shipped graph here trims, since 2026-08-22.** `TrimAudioDuration` sits
-between the source and every `ref_audio_*` and `ref_video_audio_*` socket, at
-`length / 24` seconds. The node caps and never pads
-(`comfy_extras/nodes_audio.py:473-474`), so a soundtrack shorter than the render
-passes through untouched. **Core itself still does not**, so a hand-built graph
-is still on you -- and `bench/preflight_graph.py` is the control that says so:
-it warns when a ref-audio socket arrives untrimmed, and when the baked trim
-disagrees with `length`, which is what happens when a bench patches the length
-alone. Both shown red by deliberate violation.
+**Every shipped graph here is now capped at the typed boundary.** The compiler
+derives `frame_count / 24`, slices both an owned video soundtrack and standalone
+audio, duplicates mono to stereo, and refuses ambiguous multichannel input.
+There is no `TrimAudioDuration` widget left to drift when a bench patches
+`length`. **Core itself still does none of this**, so a native socket graph
+remains exposed; preflight reports its trim and channel state separately.
 
 **On the video-soundtrack path the trim overlaps a mechanism VHS already had,
 and this was found after wiring it.** `VHS_LoadVideo` asks ffmpeg for
@@ -157,21 +165,20 @@ and this was found after wiring it.** `VHS_LoadVideo` asks ffmpeg for
 into `custom_nodes/comfyui-videohelpersuite/videohelpersuite/utils.py:224-233`,
 paths relative to the ComfyUI root), so with
 `frame_load_cap` set to the generated length the soundtrack arrives already
-capped and `TrimAudioDuration` is a no-op on it. Measured 2026-08-22 by
+capped before the typed compiler sees it. Measured 2026-08-22 by
 driving that exact ffmpeg call: cap 0 yields 19.541s of a 19.541s track, cap
 124 yields 5.167s, cap 362 yields 15.083s.
 
-So on that path the two local workflow changes handle the still-open native
-gap **redundantly**, and it is worth keeping which is doing what straight:
+So on that path VHS and the typed compiler handle the still-open native gap
+**redundantly**, and it is worth keeping which is doing what straight:
 
-| path | locally handled by `frame_load_cap` | locally handled by the trim |
+| path | locally handled by `frame_load_cap` | locally handled by typed compiler |
 |---|---|---|
 | `ref_video_audio_*` | yes, whenever the cap is non-zero | yes, and it is what holds if the cap goes back to 0 |
 | `ref_audio_*` (standalone `LoadAudio`) | no such mechanism exists | **yes, and it is the only one** |
 
-The trim stays on both. It states the vendor's rule where a reader can see it,
-it survives a cap someone sets back to zero, and it is the only mechanism on
-the standalone path.
+The compiler cap stays authoritative on both. It survives a loader cap someone
+sets back to zero and is the only mechanism on the standalone path.
 
 **Two of three vendor implementations truncate; one does not** (re-derived
 2026-08-21). sglang cuts every reference soundtrack to the generated duration —
@@ -598,24 +605,17 @@ because upscaling adds tokens rather than detail."
 Both have the same kind of divergence from the reference pipeline. The answers
 go opposite ways.
 
-**Audio: yes, and it is wired, since 2026-08-22.** What follows is why, and it
-is now a description of what ships rather than a proposal. ComfyUI
-encodes the whole waveform (`_encode_ref_audio`, no truncation on either the
-soundtrack or the standalone path) where the reference pipeline cuts a
-soundtrack to the generated duration. So here ComfyUI does **more** than the
-reference, at 80 rows per second of excess, and closing the gap *saves* rows
-while moving toward the reference's behaviour. Core already ships
-`TrimAudioDuration` (`comfy_extras/nodes_audio.py:430`), so this is a wiring
-fix and a Preflight warning, not a new node. **Both landed 2026-08-22**, in
-that shape.
+**Audio: yes, at this repo's typed boundary.** Native ComfyUI encodes the whole
+waveform (`_encode_ref_audio`, no truncation on either material path) where the
+reference pipeline cuts it to generated duration. That costs 80 rows per second
+of excess. The first local handling used explicit `TrimAudioDuration` nodes in
+2026-08-22; the typed migration replaced them with one compiler-derived cap,
+which cannot drift from `length`.
 
-**Mono is the part that was NOT closed, deliberately.** A mono reference raises
-rather than degrading, and the upmix belongs in core's `_encode_ref_audio`
-where diffusers and DiffSynth-Studio put it. Wiring `JoinAudioChannels(a, a)`
-here would alter every stereo source on every graph to prevent a crash no
-shipped source hits. Preflight ffprobes the wired media and reports the channel
-count instead -- and reports "unreadable" as its own state, because no ffprobe
-and no audio stream are not a pass.
+The same boundary duplicates mono to stereo and refuses more than two channels.
+Native `_encode_ref_audio` still raises on mono, so both duration and channel
+handling must remain described as local behavior. Preflight reports native
+socket graphs separately, including "unreadable" when ffprobe cannot answer.
 
 **Video: no, not now.** The divergence is real and the same shape as the image
 one — never upscaled, where the reference puts the clip on the full canvas rule
@@ -632,8 +632,8 @@ to justify its cost.
 
 ## Labels: the tokenizer decides, not the prompt
 
-References are emitted in a fixed order with a **separate 1-based counter per
-type**:
+Native socket references are emitted in a fixed order with a **separate
+1-based counter per type**:
 
 1. images, as `<Picture i>`
 2. then each video: its paired soundtrack's `<Audio j>` **immediately before**
@@ -651,11 +651,17 @@ exactly what its graph wires, in this numbering. It also catches the reverse —
 a wired reference the prompt never mentions, which still costs its rows on
 every step and is the most expensive way to say nothing.
 
+This repo's typed surface replaces fixed grouping with list position and suffix
+pairing with ownership. The label counters and sounded-video rule are unchanged:
+an owned soundtrack still emits its `<Audio j>` immediately before its
+`<Video k>`. Generated workflows preserve the native group order during this
+migration; arbitrary order is available only when a graph explicitly builds it.
+
 `<Video N>` and `<Audio N>` are numbered independently, and an ordinary
 reference video does not create an `<Audio N>` merely because the file has
-sound. The soundtrack socket has to be wired.
+sound. Its native soundtrack socket or typed soundtrack input has to be wired.
 
-**A silent clip must not have its audio socket wired.** VHS raises "failed to
+**A silent clip must not have its soundtrack pulled.** VHS raises "failed to
 extract audio" when its audio output is pulled on a video with no audio
 stream, and the render dies at execution having validated cleanly.
 
@@ -750,15 +756,10 @@ base guide describes people inline and carries only the `(S1)` speaker ids.
 Keyframe tasks prepend one optional line above the three fields saying how each
 `<Picture N>` maps to a second mark in the target.
 
-**Both prompt instruments in this repo encode the six-section format as the
-only format**, which is correct today and is a trap for the obvious next
-change. `bench/preflight_graph.py` collects `MiniMaxH3ReferenceToVideo` nodes
-and never sees a t2v graph, so its `SECTIONS` constant is never wrong in
-practice; run a correctly formatted t2v prompt through its grader by hand and
-it reports `sections absent: subject_definitions, summary, retention_analysis,
-detailed_description`. `bench/check_prompt_guide_conformance.py` shares the
-assumption. Extending either to the fl2va path without splitting the rule by
-guide would fail every correct t2v and keyframe prompt.
+Both prompt instruments now select the guide from the graph itself and support
+native sockets plus typed append chains. `bench/preflight_graph.py` and
+`bench/check_prompt_guide_conformance.py` grade ref2va against this six-section
+format and base/keyframe tasks against base-en's three fields.
 
 Six sections, in this order:
 
@@ -1001,13 +1002,14 @@ experiment, documented in its own note.
 ## Known limitations, collected
 
 - **No mask.** Edits are prompt-driven whole-frame regeneration.
-- **No fps input.** 24 is assumed twice; use `force_rate=24`.
+- **Native core has no fps input.** It assumes 24 twice. Shipped typed graphs
+  own loader metadata and normalize, while retaining `force_rate=24` to keep
+  migration media policy unchanged.
 - **Reference video is never upscaled**, where the reference pipeline upscales.
 - **Core never truncates reference audio**, where the reference pipeline
   truncates to the generated duration. Costs 80 rows per second of excess.
-  **Closed in the shipped graphs on 2026-08-22** by wiring core's
-  `TrimAudioDuration` at `length / 24`; core's own behaviour is unchanged, so
-  this stays a limitation of the node, not of these graphs.
+  **Locally handled in shipped graphs** by the typed compiler's derived cap;
+  core's own behaviour is unchanged, so this stays a native limitation.
 - **`ref_image_size='max'` does not upscale.** Neither mode does. It picks
   which ceiling sizes a reference down; `MiniMaxH3ReferenceFit` with
   `allow_upscale=True` is the only thing that raises a small one to it.
@@ -1016,17 +1018,18 @@ experiment, documented in its own note.
 - **12-total and audio-never-alone are unenforced** by ComfyUI — and by
   sglang and DiffSynth-Studio. Only diffusers raises. See the reference-types
   section for where the limits come from.
-- A silent clip's audio socket must be left unwired or the render dies.
-- **A reference video's soundtrack is paired by socket number, not by
+- A silent clip's soundtrack output/input must be left unwired or the render dies.
+- **Native core pairs a reference video's soundtrack by socket number, not by
   material.** ComfyUI matches `ref_video_audio_N` to `ref_video_N` on the name
   suffix (`comfy_extras/nodes_minimax_h3.py:313`), so a mis-numbered socket
   silently pairs the wrong track. sglang routes the video material itself into
   the audio encoder (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/task_profiles.py:193-202`) and represents an
   absent soundtrack as a zero-length audio condition to keep block order, so
-  the mistake is not expressible there.
+  the mistake is not expressible there. This repo's typed video record replaces
+  suffix pairing with explicit ownership; native core remains unchanged.
 - **No trim offset.** sglang takes a `start_time_seconds` on every material,
   video and audio alike. ComfyUI has no equivalent; trim upstream.
-- **A mono reference does not render — it raises.** Resolved 2026-08-21, run
+- **A mono reference on native core does not render — it raises.** Resolved 2026-08-21, run
   here on CPU against the real `pack_audio`, replacing the entry that had this
   as read-but-unverified, reproducible with `bench/check_mono_ref_audio.py`, a gate since 2026-08-21.
   ComfyUI's audio VAE preserves the input channel count
@@ -1037,7 +1040,8 @@ experiment, documented in its own note.
   so the masked assignment at `:659` fails with a shape mismatch. diffusers and
   DiffSynth-Studio both expand to stereo before encoding. Upmix or convert
   before the socket; the same path serves `MiniMaxH3AddGuide`, so an anchored
-  mono soundtrack fails identically.
+  mono soundtrack fails identically. This repo's typed compiler upmixes mono;
+  that is local handling, not a core fix.
 - At 1344x768 with images at `max`, one video reference does not fit on 24 GB
   past about 124 generated frames.
 - **Confirmed identical, so nobody re-checks it**: the 2 fps subsample for the

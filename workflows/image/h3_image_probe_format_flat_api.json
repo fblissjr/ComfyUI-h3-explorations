@@ -120,7 +120,7 @@
     }
   },
   "5": {
-    "class_type": "MiniMaxH3ReferenceToVideo",
+    "class_type": "MiniMaxH3ReferenceConditioning",
     "inputs": {
       "clip": [
         "2",
@@ -132,6 +132,10 @@
       ],
       "audio_vae": [
         "4",
+        0
+      ],
+      "references": [
+        "51",
         0
       ],
       "prompt": "Task: reference-guided single-image edit. <Subject 1> is the adult woman in <Picture 1>, with her own facial geometry, expression, gaze, freckling, red hair and head angle. <Subject 2> is the graphite drawing technique in <Picture 2>: its pencil contours, hatching, tonal modelling, erased highlights and visible paper. <Picture 2> supplies no subject, no scene and no composition. <Subject 1> is fully preserved: identity, facial geometry, expression, gaze, hairstyle, head angle, crop and the lighting relationships are retained. <Subject 2> supplies an attribute transfer: its graphite handling is applied to <Subject 1> without copying its cottage, its woodland or its composition. One monochrome graphite drawing on off-white paper. <Subject 1> is rendered in the technique of <Subject 2>: precise pencil contours, varied pressure, fine parallel and cross hatching, soft tonal modelling, erased highlights and visible paper tooth. <Subject 1>'s face and expression are preserved while photographic microtexture becomes drawn value and mark-making. Every region is converted to the medium of <Subject 2> consistently, including hair, skin, clothing and background; no area stays photographic or coloured, and no cottage, woodland or other content from <Subject 2> appears. Exactly one adult, and no added person, text, signature or decorative frame.",
@@ -147,15 +151,7 @@
         "27",
         2
       ],
-      "ref_image_size": "max",
-      "ref_images.ref_image_0": [
-        "24",
-        0
-      ],
-      "ref_images.ref_image_1": [
-        "25",
-        0
-      ]
+      "vendor_tokens": true
     }
   },
   "15": {
@@ -183,6 +179,16 @@
       "keep_towers_matched": true
     }
   },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "24",
+        0
+      ],
+      "size_policy": "max"
+    }
+  },
   "25": {
     "class_type": "MiniMaxH3ReferenceFit",
     "inputs": {
@@ -194,6 +200,20 @@
       "short_edge": 2048,
       "lift_downstream_clamp": false,
       "keep_towers_matched": true
+    }
+  },
+  "51": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "25",
+        0
+      ],
+      "size_policy": "max",
+      "references": [
+        "50",
+        0
+      ]
     }
   },
   "19": {

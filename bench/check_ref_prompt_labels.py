@@ -8,11 +8,13 @@ disagree silently: a prompt can name `<Audio 1>` on a graph that wires no
 audio, or number a standalone clip `<Audio 1>` when the tokenizer has already
 spent that ordinal on a video's soundtrack.
 
-The emission order is fixed (`comfy/text_encoders/minimax.py`): images, then
-videos with each soundtrack's `<Audio j>` immediately BEFORE its `<Video k>`,
-then standalone audio -- with a separate 1-based counter per type. One video
-with sound plus one standalone clip is therefore `<Audio 1>`, `<Video 1>`,
-`<Audio 2>`.
+Native socket emission order is fixed (`comfy/text_encoders/minimax.py`):
+images, then videos with each soundtrack's `<Audio j>` immediately BEFORE its
+`<Video k>`, then standalone audio. This repo's typed surface uses list order
+and video ownership; the generator deliberately emits that same sequence so
+existing prompts keep their ordinals. Both use separate 1-based counters per
+type. One sounded video plus one standalone clip is therefore `<Audio 1>`,
+`<Video 1>`, `<Audio 2>` in the shipped ordering.
 
 Claims, i.e. what breaks if a case is deleted:
   no undeclared label   the prompt never names a label the graph does not
@@ -49,7 +51,7 @@ Claims, i.e. what breaks if a case is deleted:
 
 Reads the shipped API graphs. No CUDA, no model, no ComfyUI import.
 
-    python bench/check_ref_prompt_labels.py
+    uv run --active --no-sync python bench/check_ref_prompt_labels.py
 """
 
 from __future__ import annotations

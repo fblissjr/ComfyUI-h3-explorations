@@ -51,10 +51,10 @@ Priority is by what it costs a working user, not by how interesting it is.
 | # | gap | kind | native ComfyUI status | handling in this repo |
 |---|---|---|---|---|
 | 1 | Seven special tokens absent from the tokenizer | config | **fixed in the installed checkout by merged PR 15808** | compatibility shim remains for older installs; audit requires it to be a no-op here |
-| 2 | Reference video frame rate assumed, not enforced | behavioural | open | typed nodes normalize from owned loader metadata; legacy graphs require and check `force_rate=24` |
+| 2 | Reference video frame rate assumed, not enforced | behavioural | open | typed nodes normalize from owned loader metadata; shipped graphs also retain and check `force_rate=24` |
 | 3 | Reference image floor (`min_pixels`) | config | open | preflight reports the divergence; no general runtime parity implementation |
 | 4 | Reference image ceiling (`max_pixels`) | config | open | custom fit nodes can opt in to keeping VAE and Qwen sizes matched; core remains unchanged |
-| 5 | Reference soundtracks not truncated | behavioural | open | typed nodes trim internally; shipped legacy graphs wire and check explicit trims |
+| 5 | Reference soundtracks not truncated | behavioural | open | all shipped graphs now use typed internal caps; native socket graphs remain exposed unless they trim upstream |
 | 6 | Reference media never upscaled, and never reported | behavioural | sizing divergence remains; native path does not report the choice | custom fit nodes report final dimensions and expose an explicit cost/fidelity knob |
 | 7 | Mono reference audio raises | behavioural | open | typed nodes upmix mono and refuse ambiguous multichannel input; legacy preflight reports it |
 | 8 | VAE encode precision, and mean vs sample | behavioural | open | measured only; no claimed fix |
@@ -167,8 +167,9 @@ reference socket drops off 24.
 **Native ComfyUI status: open. Handling in this repo:**
 `MiniMaxH3AppendRefVideo` requires the frames' own `VHS_VIDEOINFO`, records its
 `loaded_fps`, and `MiniMaxH3ReferenceConditioning` normalizes the frames to 24
-fps before either Qwen or the video VAE sees them. The legacy socket node still
-has no metadata input and therefore still relies on `force_rate=24`.
+fps before either Qwen or the video VAE sees them. Every shipped reference
+workflow now uses that local path and also retains `force_rate=24` so migration
+did not change media policy. The native socket node still has no metadata input.
 
 Two design consequences of sglang doing this in one ffmpeg pass: **fps never
 enters its API surface** — the caller asks for `duration_seconds` and the frame
@@ -401,12 +402,12 @@ the reference span and pushes the target streams down the timeline. Both
 independent reviews reach this (`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md`
 section 5.3; the cursor formula is in `internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`).
 
-**Native ComfyUI status: open. Handling in this repo:** since 2026-08-22,
-`TrimAudioDuration` at `length / 24` sits on every legacy
-`ref_audio_*` and `ref_video_audio_*` socket here. The typed compiler derives
-the duration from its aligned `frame_count` and slices every video soundtrack
-and standalone reference internally, so there is no second widget to drift.
-Core remains exposed in a hand-built socket graph; preflight warns there.
+**Native ComfyUI status: open. Handling in this repo:** every shipped graph now
+uses the typed compiler, which derives duration from aligned `frame_count` and
+slices every video soundtrack and standalone reference internally. The former
+explicit `TrimAudioDuration` nodes were removed, so there is no second widget
+to drift. Core remains exposed in a hand-built socket graph; preflight warns
+there. This closes the gap for this repo's workflows, not in native ComfyUI.
 
 **Where the gap actually bit is narrower than it looked, found the same day.**
 `VHS_LoadVideo` already asks ffmpeg for `frame_load_cap / force_rate` seconds
@@ -672,8 +673,8 @@ Soundtrack duration and mono normalization are now executable properties of
 this repo's typed runtime; native ComfyUI remains unchanged. VAE tiling was
 removed as a gap after the native H3-owned paths were traced. The remaining
 policy not implemented in this repo is the release's upscale plus
-duration-aware Qwen-video resize; it should land atomically, if measured, after
-typed workflow migration.
+duration-aware Qwen-video resize; typed workflow migration is now complete, so
+that policy can be considered separately without confounding order.
 
 Gap **6** needs no instrument for the cost, which is already measured; what it
 would need is a controlled comparison of the *benefit*, and
@@ -694,7 +695,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 2, frame rate | open | legacy: [`bench/check_ref_prompt_labels.py`](../bench/check_ref_prompt_labels.py); typed: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 | 3, image floor | open | preflight warning only; **no runtime parity enforcement** |
 | 4, image ceiling | open | opt-in local guard since 2026-08-22: `MiniMaxH3ReferenceFit.keep_towers_matched`; native graphs not wiring it remain exposed |
-| 5, soundtrack length | open | legacy shipped graphs: [`bench/preflight_graph.py`](../bench/preflight_graph.py); typed: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
+| 5, soundtrack length | open | shipped typed graphs: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py); native socket graphs: [`bench/preflight_graph.py`](../bench/preflight_graph.py) reports required upstream handling |
 | 6, media upscale/reporting | sizing divergence remains; native path is silent | custom image/video fit nodes report the resolution reached; no claim that native sizing now matches the vendor |
 | 7, mono audio | open | native defect gate: [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py); local typed handling: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 | 8, VAE encode precision | open | **nothing enforces a choice**; measurement only |

@@ -30,6 +30,13 @@ So the built thing is smaller than the sketch on purpose: fix the defect at the
 narrowest seam that reaches it, and instrument the one that is not currently
 reachable rather than patching speculatively.
 
+That conclusion still governs the two defects above; it does **not** mean this
+repo never needs a reference conditioner. A typed one was later built for a
+different reason: make order, soundtrack ownership, loader metadata, and audio
+normalization explicit. Native core's contracts remain tested, and its gaps
+remain recorded. The local node handles selected gaps for this repo; it does
+not turn them into native ComfyUI fixes.
+
 ---
 
 ## Defect 1: the seven special tokens. Fixed natively; local shim retained.
@@ -182,7 +189,7 @@ keeps running and the graphs keep rendering.
 Shown red twice and independently: deleting the empty-prompt refusal reddens
 only that arm, forcing `fit_to_canvas` reddens only the last-frame arm.
 
-## Typed reference surface: built, not migrated
+## Typed reference surface: built and migrated
 
 The runtime replacement was added on 2026-08-23, after the acceptance suite
 and ordered resolver had stopped changing under adversarial review:
@@ -206,18 +213,27 @@ skipped audio normalization, foreign metadata, and reversed order go red.
 `bench/check_typed_reference_consumers.py` proves label discovery and preflight
 read the same validated chain.
 
-**Live acceptance is green as of 2026-08-23.** ComfyUI was restarted onto
-commit `0b665b7`; all four schemas appeared in `/object_info`, and a temporary
-two-image append chain passed the live API validator and static preflight. Its
-768x768, 39-frame, 10-step render completed in 49.80 seconds. The server logged
-`presentation=['<Picture 1>', '<Picture 2>']`, a 9,578-row payload, and all
-twenty native tokens already present so the local compatibility helper was a
-no-op.
+**Live acceptance and workflow migration are green as of 2026-08-23.** All 38
+shipped reference API graphs now use the typed conditioner; across UI, API, and
+the stamped bench copy that is 77 typed files and no shipped core socket node.
+The generator preserves the old image → sounded video → standalone-audio order
+so existing prompts retain their ordinals, while hand-built typed chains may
+use list order directly. Explicit audio trims were removed because the compiler
+owns the aligned-duration cap.
 
-What remains is workflow migration: shipped reference graphs have not been
-repointed and still use core's socket node. Regeneration and retirement should
-now proceed, but the legacy node remains the shipped authority until that
-migration and its full static/smoke suite are green.
+The all-media acceptance graph passed the live schema and rendered at 1024x768,
+39 frames, and 10 steps in 84.51 seconds. The first attempt found that VHS
+returns a lazy `Mapping` rather than core's concrete audio dict; that boundary
+was fixed and added to the CPU runtime check before the successful rerun. The
+server logged `presentation=['<Picture 1>', '<Picture 2>', '<Audio 1>',
+'<Video 1>', '<Audio 2>']`, 21,283 packed rows, Sage routing, Sol sparse
+execution, and all twenty native tokens already present, so the local token
+compatibility helper was a no-op.
+
+Core's node is retained as a research subject and compatibility surface, not as
+the shipped graph authority. Its still-open sizing, rate, duration, and mono
+gaps stay documented as native gaps even where this repo's typed boundary
+handles them.
 
 The acceptance list above remains relevant: **since 2026-08-22 every item is
 guarded by an assertion** in `bench/check_reference_contracts.py`, with
