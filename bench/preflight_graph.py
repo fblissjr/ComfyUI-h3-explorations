@@ -1166,7 +1166,12 @@ def price(node: dict, graph: dict) -> list[str]:
         media_ins, graph, length, typed_boundary=typed_references))
 
     prompt = ins.get("prompt", "")
-    tt, kind = text_tokens(prompt)
+    # The `embedding:name` literal is REPLACED by the embedding's rows, not
+    # tokenized alongside them (`comfy/sd1_clip.py` drops the reference and
+    # splices the tensor in its place). Counting the raw prompt and then adding
+    # the rows charges for both, contradicting the citation below. Strip the
+    # literals first, then add the rows they stand for.
+    tt, kind = text_tokens(_EMBEDDING_REF.sub("", prompt))
     twin = ref_total + 100 if ref_total else 0
     lines.append(f"  text      {tt:>8,}  prompt tokens ({kind})"
                  + (f" + ~{twin:,} vision blocks" if twin else ""))

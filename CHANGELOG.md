@@ -46,19 +46,24 @@ artifact.
   vendor row use 12/3 or 6/3. The rule is the same in all three; only the
   constant differs.
 
-### Removed
+### Not adopted
+
+**Nothing here was ever committed, so `git log` shows no deletion** -- these
+arrived as working-tree files, were reviewed, and were dropped before landing.
+Recorded because the two gaps they found are real and became the entries above,
+and because the next person to meet the same source should not re-derive why it
+was declined. The detail is in the note under `internal/gemini/`.
 
 - An imported flow-schedule module, embedding-injection nodes, and a weight
-  fingerprinting module, together with their four registered nodes and three
+  fingerprinting module, together with four proposed nodes and three
   checks. The schedule was keyed on a shift belonging to a different
   implementation and fed nothing; the embedding nodes counted an `[N, 5120]`
   injection as one sequence position where ComfyUI expands it to N, and formed
   a third conditioning entry point that skipped both the vendor-token
   registration and the empty-prompt refusal that `MiniMaxH3Conditioning` owns;
   the fingerprinting module was imported by nothing but its own check. Node
-  registration returns to its previous set, unchanged `node_id` baseline
-  included. Static `embedding:name` resolution is a ComfyUI feature and needs
-  no node here.
+  registration is unchanged, `node_id` baseline included. Static
+  `embedding:name` resolution is a ComfyUI feature and needs no node here.
 
 ## 0.59.0
 

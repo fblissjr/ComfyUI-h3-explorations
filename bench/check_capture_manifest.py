@@ -150,6 +150,14 @@ def assert_model_hashes(models: dict, where: str) -> None:
             f"{where} names {len(named)} lora(s) but sha256.loras holds "
             f"{got!r}; a per-lora hash cannot be matched up by position "
             f"unless the lists are the same length")
+        # Length alone accepted a null, which the schema declares as a string.
+        # A null says nothing -- not the digest, and not why there isn't one.
+        for i, val in enumerate(got):
+            assert isinstance(val, str) and (
+                len(val) == 64
+                or val.startswith(("unresolved:", "unreadable:"))), (
+                f"{where}.sha256.loras[{i}] is {val!r}: expected a 64-char "
+                f"sha256 or a reason string saying why not")
 
 
 def check_manifest(manifest_path: Path):

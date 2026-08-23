@@ -233,6 +233,22 @@ def deviation(got: list[float], want: list[float]) -> float:
     return max(abs(a - b) for a, b in zip(got, want))
 
 
+def grade_shift_nodes(shifts) -> list[str]:
+    """Problems with a graph's set of shift nodes. Empty means they agree.
+
+    Split graphs carry two. `build_workflows.py::_plain_model_chain` states
+    they must be identical -- both halves read sigmas from ONE `BasicScheduler`,
+    so two shifts would have them integrating different curves -- and nothing
+    asserted it. A collector so the red harness can drive it; the three shipped
+    split graphs agree today, which is precisely why the assertion has to exist
+    rather than be inferred from their agreeing.
+    """
+    distinct = sorted(set(shifts))
+    if len(distinct) > 1:
+        return [f"{len(shifts)} shift nodes disagree: {distinct}"]
+    return []
+
+
 def grade_arm(shift_video: float, shift_audio: float, scheduler: str,
               steps: int) -> list[str]:
     """Problems with one (shift, scheduler, steps) arm. Empty means on-grid.
@@ -345,19 +361,42 @@ def main() -> int:
 
     # --- graph population -------------------------------------------------
     graded = []           # (path, stem, shift, scheduler, steps)
+    unreadable = []       # graphs whose arm could not be resolved statically
+    split_disagree = []   # graphs whose two shift nodes do not match
     for path in graph_paths(WORKFLOWS):
         doc = json.loads(path.read_text())
         found = read_ui(doc) if isinstance(doc.get("nodes"), list) else read_api(doc)
         if not any(is_turbo(name) for name in found.loras):
             continue
         if found.shift is None or found.steps is None or found.scheduler is None:
-            failures.append("graphs on grid")
-            print(f"  FAIL  graphs on grid: {path.relative_to(REPO)} loads a "
-                  f"turbo LoRA but its shift, steps or scheduler could not be "
-                  f"read (linked widget?)")
+            # Collected, not printed here: printing a FAIL under a case name
+            # that `check()` later prints `ok` for makes the log contradict
+            # itself. This gets its own case below.
+            unreadable.append(
+                f"{path.relative_to(REPO)} loads a turbo LoRA but its shift, "
+                f"steps or scheduler could not be read (linked widget?)")
             continue
+        for why in grade_shift_nodes(found.shifts):
+            split_disagree.append(f"{path.relative_to(REPO)} {why}")
         graded.append((path, path.stem[:-4] if path.stem.endswith("_api")
                        else path.stem, found.shift, found.scheduler, found.steps))
+
+    def graphs_are_readable():
+        assert not unreadable, "; ".join(unreadable)
+
+    def split_arms_share_one_shift():
+        """A split graph's two shift nodes must agree.
+
+        `build_workflows.py::_plain_model_chain` states this as a must -- both
+        halves read sigmas from ONE `BasicScheduler`, so two different shifts
+        would have the halves integrating different curves and the handoff
+        would be meaningless -- and nothing asserted it. Three shipped graphs
+        carry two nodes (`h3_probe_split_base_first`, `..._last`, and
+        `h3_probe_ref2v_split_turbo_pack`). They agree today, which is exactly
+        why this needs stating: without it, the grid case grades whichever node
+        the reader happened to see last and passes for a reason it never checks.
+        """
+        assert not split_disagree, "; ".join(split_disagree)
 
     def divisor_regime_holds():
         assert graded, "no graph loads a turbo LoRA; this check has no subject"
@@ -402,6 +441,8 @@ def main() -> int:
         check("vendor grid agrees", vendor_grid_agrees)
         check("simple is the only one", simple_is_the_only_one)
 
+    check("graphs are readable", graphs_are_readable)
+    check("split arms share one shift", split_arms_share_one_shift)
     check("divisor regime holds", divisor_regime_holds)
     check("graphs on grid", graphs_on_grid)
     check("exemptions necessary", exemptions_necessary)

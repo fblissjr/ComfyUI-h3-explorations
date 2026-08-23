@@ -96,7 +96,11 @@ def hash_model_files(models: dict) -> dict:
         if digest is not None:
             out[field] = digest
     declared: list[dict] = list(models.get("loras", []) or [])
-    loras = [one("loras", str(lo.get("name") or "")) for lo in declared]
+    # `one()` answers None for an empty name. Keeping that would put a null in
+    # a list the schema declares as strings, and `assert_model_hashes` only
+    # compares lengths, so it would pass its own check while being invalid.
+    loras = [one("loras", str(lo.get("name") or "")) or "unresolved: lora record carries no name"
+             for lo in declared]
     if loras:
         out["loras"] = loras
     return out
@@ -447,8 +451,11 @@ def main():
                  f"`substrate.py`. Writing a plausible default here is the defect "
                  f"this guard exists to prevent.")
 
-    # Added in 1.2.0. Written next to `models` rather than into it so a reader
-    # keying on the old shape still finds exactly what it expects there.
+    # Added in 1.2.0, INSIDE `workload.models` -- the schema doc nests it there
+    # and `check_capture_manifest.assert_model_hashes` is handed that block. So
+    # anything enumerating `workload.models` expecting name -> filename now
+    # meets one dict-valued key; `sha256` is the only non-string entry and is
+    # skippable by name.
     models["sha256"] = hash_model_files(models)
 
     manifest = {

@@ -98,6 +98,11 @@ class Found(NamedTuple):
     # still off its distillation grid if the scheduler places the steps
     # somewhere else.
     scheduler: str | None = None
+    # EVERY shift node, in iteration order. `shift` above keeps the last one
+    # for the callers that want a single answer; a split graph carries two
+    # (`build_workflows.py::_plain_model_chain` builds node 40 beside node 19)
+    # and reading one of two silently grades half the graph.
+    shifts: tuple[tuple[float, float], ...] = ()
 
 
 # Keyed by the distinguishing fragment of the ComfyUI filename.
@@ -185,6 +190,7 @@ def read_api(doc) -> Found:
     shift: tuple[float, float] | None = None
     steps: int | None = None
     scheduler: str | None = None
+    shifts: list[tuple[float, float]] = []
     for node in doc.values():
         ct, inp = node.get("class_type"), node.get("inputs", {})
         if ct in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA"):
@@ -196,12 +202,14 @@ def read_api(doc) -> Found:
         elif ct == "MiniMaxH3SigmaShift":
             sv, sa = _literal(inp.get("shift_video")), _literal(inp.get("shift_audio"))
             shift = None if sv is None or sa is None else (float(sv), float(sa))
+            if shift is not None:
+                shifts.append(shift)
         elif ct == "BasicScheduler":
             n = _literal(inp.get("steps"))
             steps = None if n is None else int(n)
             sched = _literal(inp.get("scheduler"))
             scheduler = None if sched is None else str(sched)
-    return Found(loras, shift, steps, scheduler)
+    return Found(loras, shift, steps, scheduler, tuple(shifts))
 
 
 def read_ui(doc) -> Found:
@@ -212,16 +220,18 @@ def read_ui(doc) -> Found:
     shift: tuple[float, float] | None = None
     steps: int | None = None
     scheduler: str | None = None
+    shifts: list[tuple[float, float]] = []
     for node in doc.get("nodes", []):
         t, w = node.get("type"), node.get("widgets_values") or []
         if t in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA") and w:
             loras.append(w[0])
         elif t == "MiniMaxH3SigmaShift" and len(w) >= 2:
             shift = (float(w[0]), float(w[1]))
+            shifts.append(shift)
         elif t == "BasicScheduler" and len(w) >= 2:
             steps = int(w[1])
             scheduler = str(w[0])
-    return Found(loras, shift, steps, scheduler)
+    return Found(loras, shift, steps, scheduler, tuple(shifts))
 
 
 def parse_vendor_table(text):

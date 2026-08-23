@@ -112,6 +112,20 @@ def build():
            lambda: C.grade_arm(12.0, 3.0, "simple", 20))
     h.case("G4 the README exactly as the vendor publishes it", NEAR_MISS,
            lambda: C.grade_published(published()))
+
+    # --- a split graph's two shift nodes ----------------------------------
+    # These run against the baseline's own verdict (GREEN = no problems), so
+    # MUTATION still means "must differ".
+    h.case("M12 a split graph's two shift nodes disagree", MUTATION,
+           lambda: C.grade_shift_nodes([(6.0, 3.0), (12.0, 3.0)]))
+    h.case("M13 they agree on video but not audio", MUTATION,
+           lambda: C.grade_shift_nodes([(6.0, 3.0), (6.0, 12.0)]))
+    h.case("G8 two nodes that agree -- the three shipped split graphs",
+           NEAR_MISS, lambda: C.grade_shift_nodes([(12.0, 3.0), (12.0, 3.0)]))
+    h.case("G9 a single shift node, the ordinary case", NEAR_MISS,
+           lambda: C.grade_shift_nodes([(6.0, 3.0)]))
+    h.case("G10 no shift node at all is not this case's business", NEAR_MISS,
+           lambda: C.grade_shift_nodes([]))
     return h
 
 
