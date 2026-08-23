@@ -54,13 +54,16 @@ artifact.
   sentence for the wrong mode, wrong duration, or wrong final shot. The red
   harness covers all three.
 
-### Not yet validated or migrated
+### Live accepted; migration pending
 
-- The running ComfyUI process predates these node registrations and was not
-  restarted while its GPU was occupied. No typed-reference prompt has been
-  submitted. Shipped graphs still use core's socket node until the live schema
-  and one GPU smoke pass are green; migration and retirement are deliberately
-  pending rather than claimed complete.
+- ComfyUI was restarted onto commit `0b665b7` after the GPU became free, and
+  `/object_info` served all four new schemas. A scratch two-image append chain
+  validated against that live schema and rendered at 768x768, 39 frames and 10
+  steps in 49.80 seconds. The server log records two ordered picture entries,
+  the typed payload reaching preflight at 9,578 packed rows, and the native
+  tokenizer already carrying all twenty tokens, so the compatibility shim was
+  a no-op. Shipped graphs still use core's socket node; workflow migration and
+  retirement remain deliberately pending rather than claimed complete.
 
 ## 0.58.0
 

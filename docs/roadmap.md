@@ -31,29 +31,35 @@ what would make it a real answer.
 The highest-value CPU work is complete: base-guide alignment is exact, the
 ordered resolver admits explicit VHS sources and traces branched audio, the
 typed append/compiler nodes exist, and both runtime and static-consumer
-controls are green. The working ComfyUI server is still running the pre-change
-registration, so this is **implemented but not operationally accepted**.
+controls are green. Live operational acceptance is also green: ComfyUI was
+restarted onto commit `0b665b7`, all four schemas appeared in `/object_info`,
+and a scratch two-image typed chain rendered 768x768 at 39 frames and 10 steps
+in 49.80 seconds. The server logged the two records in list order and a 9,578
+row payload.
+
+Completed this slice:
+
+1. Restarted ComfyUI and confirmed the three append schemas plus the ordered
+   conditioner from live `/object_info`.
+2. Built a temporary typed graph, passed the live API validator and static
+   preflight, then completed one GPU smoke. The native tokenizer already had
+   all twenty tokens, so this repo's compatibility shim logged a no-op.
 
 Next, in order:
 
-1. When the GPU is free, restart ComfyUI and confirm the four new schemas from
-   `/object_info`. Do not infer registration from an import in another process.
-2. Build one small typed reference graph and run the live schema validator,
-   then one GPU smoke. Acceptance means it reaches Qwen and the DiT with the
-   same ordered item/block contracts as the CPU compiler check.
-3. Repoint the shipped reference graphs through append chains, regenerate UI
+1. Repoint the shipped reference graphs through append chains, regenerate UI
    and API forms, and rerun discovery, prompt, preflight, schema, and smoke
    checks. Core's legacy node is not retired while any shipped graph uses it.
-4. Only after migration is clean, consider release upscaling plus the
+2. Only after migration is clean, consider release upscaling plus the
    duration-aware Qwen-video processor as one named opt-in policy. It must not
    be folded into the ordering migration, because that would move both media
    content and order in the same render.
-5. Later cleanup: retire `vendor_tokens` from generated workflow inputs now
+3. Later cleanup: retire `vendor_tokens` from generated workflow inputs now
    that merged ComfyUI PR 15808 supplies the tokens natively. First set and
    verify the minimum supported ComfyUI version; until then, keep the helper as
    backward compatibility for older installs. This is cleanup, not a current
    conditioning or migration blocker.
-6. GPU experiments remain behind that work: the FL2VA base-versus-turbo pair,
+4. GPU experiments remain behind that work: the FL2VA base-versus-turbo pair,
    the singing-removed speaker-attribution scene, and `ncu` profiling all need
    the card alone.
 

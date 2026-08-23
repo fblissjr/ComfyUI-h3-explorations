@@ -206,11 +206,18 @@ skipped audio normalization, foreign metadata, and reversed order go red.
 `bench/check_typed_reference_consumers.py` proves label discovery and preflight
 read the same validated chain.
 
-What is not done is operational rather than architectural: the running server
-has not been restarted onto these registrations, no typed graph has rendered,
-and shipped reference graphs have not been repointed. Core's socket node stays
-the live authority until a schema check and GPU smoke pass are green; only then
-should regeneration and retirement happen.
+**Live acceptance is green as of 2026-08-23.** ComfyUI was restarted onto
+commit `0b665b7`; all four schemas appeared in `/object_info`, and a temporary
+two-image append chain passed the live API validator and static preflight. Its
+768x768, 39-frame, 10-step render completed in 49.80 seconds. The server logged
+`presentation=['<Picture 1>', '<Picture 2>']`, a 9,578-row payload, and all
+twenty native tokens already present so the local compatibility helper was a
+no-op.
+
+What remains is workflow migration: shipped reference graphs have not been
+repointed and still use core's socket node. Regeneration and retirement should
+now proceed, but the legacy node remains the shipped authority until that
+migration and its full static/smoke suite are green.
 
 The acceptance list above remains relevant: **since 2026-08-22 every item is
 guarded by an assertion** in `bench/check_reference_contracts.py`, with
