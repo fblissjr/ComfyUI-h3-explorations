@@ -10,8 +10,8 @@
   },
   "id": "d36c5b86-e2b0-5b30-9399-e21e1d769ff7",
   "revision": 0,
-  "last_node_id": 30,
-  "last_link_id": 32,
+  "last_node_id": 28,
+  "last_link_id": 29,
   "nodes": [
     {
       "id": 1,
@@ -99,7 +99,7 @@
           "type": "VAE",
           "links": [
             4,
-            31
+            28
           ]
         }
       ],
@@ -253,8 +253,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            13,
-            27
+            13
           ]
         }
       ],
@@ -899,8 +898,7 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            28,
-            30
+            27
           ]
         },
         {
@@ -931,12 +929,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 30
+          "link": 27
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 31
+          "link": 28
         }
       ],
       "outputs": [
@@ -944,7 +942,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            32
+            29
           ]
         }
       ],
@@ -970,7 +968,7 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 32
+          "link": 29
         }
       ],
       "outputs": [],
@@ -1083,73 +1081,6 @@
     },
     {
       "id": 25,
-      "type": "GetPreviewOverrideFramesKJ",
-      "pos": [
-        1080,
-        560
-      ],
-      "size": [
-        340,
-        80
-      ],
-      "flags": {},
-      "order": 28,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 27
-        },
-        {
-          "name": "after_sample",
-          "type": "LATENT,IMAGE",
-          "link": 28
-        }
-      ],
-      "outputs": [
-        {
-          "name": "frames",
-          "type": "IMAGE",
-          "links": [
-            29
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "GetPreviewOverrideFramesKJ"
-      },
-      "title": "Preview frames (trajectory)"
-    },
-    {
-      "id": 26,
-      "type": "PreviewImage",
-      "pos": [
-        1080,
-        700
-      ],
-      "size": [
-        360,
-        340
-      ],
-      "flags": {},
-      "order": 29,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 29
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "PreviewImage"
-      },
-      "title": "Denoising trajectory"
-    },
-    {
-      "id": 27,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1173,7 +1104,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 28,
+      "id": 26,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1197,7 +1128,7 @@
       "title": "Which nodes, and the order that matters"
     },
     {
-      "id": 29,
+      "id": 27,
       "type": "MarkdownNote",
       "pos": [
         -2860,
@@ -1221,7 +1152,7 @@
       "title": "Resolution, references, and reading the preflight"
     },
     {
-      "id": 30,
+      "id": 28,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1456,30 +1387,6 @@
     ],
     [
       27,
-      7,
-      0,
-      25,
-      0,
-      "MODEL"
-    ],
-    [
-      28,
-      20,
-      0,
-      25,
-      1,
-      "LATENT"
-    ],
-    [
-      29,
-      25,
-      0,
-      26,
-      0,
-      "IMAGE"
-    ],
-    [
-      30,
       20,
       0,
       21,
@@ -1487,7 +1394,7 @@
       "LATENT"
     ],
     [
-      31,
+      28,
       3,
       0,
       21,
@@ -1495,7 +1402,7 @@
       "VAE"
     ],
     [
-      32,
+      29,
       21,
       0,
       22,

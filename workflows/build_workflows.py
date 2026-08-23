@@ -4369,36 +4369,24 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         g.link(model_src, 0, stampn, "model", "MODEL")
         g.link(sched, 0, stampn, "sigmas", "SIGMAS")
         latent_src, latent_slot = stampn, 0
-    # The preview frames the override node already pushed to its DOM widget,
-    # recovered as an IMAGE batch once sampling is over. The live widget is
-    # transient -- it shows the current step and forgets the previous one --
-    # so this is the only way to see the denoising TRAJECTORY rather than one
-    # moment of it, and it adds no compute: the taeh3 decodes already happened.
+    # THE TRAJECTORY PAIR IS GONE, BY OWNER DECISION 2026-08-22.
     #
-    # `after_sample` is a pure ordering edge; the node ignores the value. It
-    # hangs off latent_src, not `sampler`, because in the split graph the
-    # frames are still being written during stage 2 and latent_src is the
-    # only handle that means "whichever sampler ran last".
+    # Every UI graph used to carry `GetPreviewOverrideFramesKJ` ("Preview frames
+    # (trajectory)") and a `PreviewImage` sink ("Denoising trajectory"), which
+    # recovered the frames `ModelPreviewOverrideKJ` had already pushed to its DOM
+    # widget and showed them as a batch after sampling.
     #
-    # Two couplings worth knowing before hand-editing:
-    #   - Bypassing the preview node requires bypassing these two as well.
-    #     The frames live on a wrapper that node installs, so without it this
-    #     raises rather than degrading quietly.
-    #   - PreviewImage is load-bearing, not decoration: an IMAGE output with
-    #     no consumer is never executed, so without a sink the frames node
-    #     would not run at all.
-    if prev_node is not None:
-        frames = g.add("GetPreviewOverrideFramesKJ", (1080, 560), size=(340, 80),
-                       inputs=[_in("model", "MODEL"),
-                               _in("after_sample", "LATENT,IMAGE")],
-                       outputs=[_out("frames", "IMAGE")],
-                       title="Preview frames (trajectory)")
-        g.link(prev_node, 0, frames, "model", "MODEL")
-        g.link(latent_src, latent_slot, frames, "after_sample", "LATENT")
-        strip = g.add("PreviewImage", (1080, 700), size=(360, 340),
-                      inputs=[_in("images", "IMAGE")],
-                      title="Denoising trajectory")
-        g.link(frames, 0, strip, "images", "IMAGE")
+    # **The argument recorded here for keeping them was that the live widget is
+    # transient** -- it shows the current step and forgets the previous one -- so
+    # the pair was the only way to see the trajectory rather than one moment of
+    # it, at no extra compute since the taeh3 decodes had already happened. The
+    # owner, who is the one watching these graphs, judged the pair redundant
+    # against `Preview (taeh3)` in practice. Recorded rather than deleted,
+    # because the argument is the thing a future reader would otherwise
+    # rediscover and re-litigate.
+    #
+    # `Preview (taeh3)` itself stays: it is what makes a bad seed die at 90 s
+    # instead of costing a 17-minute render.
 
     # Link ORDER is preserved exactly as it was before the single-frame path
     # existed, including the two audio links sitting between the video decode
@@ -4807,13 +4795,16 @@ def validate_ui(wf: dict, oi: dict, label: str) -> list[str]:
 # any timing run as an unattributed confound. It belongs in the graph you
 # watch and nowhere near the graph you measure.
 #
-# GetPreviewOverrideFramesKJ and its PreviewImage sink follow it for the same
-# reason and one more: the frames node reads a wrapper ModelPreviewOverrideKJ
-# installs, so in an API graph -- where that node is stripped -- it would not
-# merely be useless, it would raise and fail the render.
+# `GetPreviewOverrideFramesKJ` and its `PreviewImage` sink used to sit here for
+# the same reason and one more -- the frames node reads a wrapper
+# ModelPreviewOverrideKJ installs, so in an API graph, where that node is
+# stripped, it would not merely be useless, it would raise. Both were removed
+# from the UI graphs on 2026-08-22 and no longer appear anywhere. `PreviewImage`
+# stays in this set: it is a stock node somebody may legitimately add to a UI
+# graph by hand, and stripping it from the API form is right whether or not this
+# generator emits one.
 _UI_ONLY = {"MarkdownNote", "Note", "Reroute", "PrimitiveNode",
-            "ModelPreviewOverrideKJ", "GetPreviewOverrideFramesKJ",
-            "PreviewImage"}
+            "ModelPreviewOverrideKJ", "PreviewImage"}
 
 # Rendered entirely by the frontend, so they have no entry in /object_info.
 # Subset of _UI_ONLY: ModelPreviewOverrideKJ is a real backend node that we

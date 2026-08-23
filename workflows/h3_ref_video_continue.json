@@ -10,8 +10,8 @@
   },
   "id": "40a87dfb-d8b3-54ef-a2a2-9fbc79f94bc6",
   "revision": 0,
-  "last_node_id": 28,
-  "last_link_id": 33,
+  "last_node_id": 26,
+  "last_link_id": 30,
   "nodes": [
     {
       "id": 1,
@@ -99,7 +99,7 @@
           "type": "VAE",
           "links": [
             5,
-            29
+            26
           ]
         }
       ],
@@ -132,7 +132,7 @@
           "type": "VAE",
           "links": [
             6,
-            31
+            28
           ]
         }
       ],
@@ -303,8 +303,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            11,
-            25
+            11
           ]
         }
       ],
@@ -795,9 +794,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            26,
-            28,
-            30
+            25,
+            27
           ]
         },
         {
@@ -828,12 +826,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 28
+          "link": 25
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 29
+          "link": 26
         }
       ],
       "outputs": [
@@ -841,7 +839,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            32
+            29
           ]
         }
       ],
@@ -867,12 +865,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 30
+          "link": 27
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 31
+          "link": 28
         }
       ],
       "outputs": [
@@ -880,7 +878,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            33
+            30
           ]
         }
       ],
@@ -906,12 +904,12 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 32
+          "link": 29
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 33,
+          "link": 30,
           "shape": 7
         },
         {
@@ -1051,73 +1049,6 @@
     },
     {
       "id": 23,
-      "type": "GetPreviewOverrideFramesKJ",
-      "pos": [
-        1080,
-        560
-      ],
-      "size": [
-        340,
-        80
-      ],
-      "flags": {},
-      "order": 26,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 25
-        },
-        {
-          "name": "after_sample",
-          "type": "LATENT,IMAGE",
-          "link": 26
-        }
-      ],
-      "outputs": [
-        {
-          "name": "frames",
-          "type": "IMAGE",
-          "links": [
-            27
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "GetPreviewOverrideFramesKJ"
-      },
-      "title": "Preview frames (trajectory)"
-    },
-    {
-      "id": 24,
-      "type": "PreviewImage",
-      "pos": [
-        1080,
-        700
-      ],
-      "size": [
-        360,
-        340
-      ],
-      "flags": {},
-      "order": 27,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 27
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "PreviewImage"
-      },
-      "title": "Denoising trajectory"
-    },
-    {
-      "id": 25,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1141,7 +1072,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 26,
+      "id": 24,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1165,7 +1096,7 @@
       "title": "Which nodes, and the order that matters"
     },
     {
-      "id": 27,
+      "id": 25,
       "type": "MarkdownNote",
       "pos": [
         -2860,
@@ -1189,7 +1120,7 @@
       "title": "Resolution, references, and reading the preflight"
     },
     {
-      "id": 28,
+      "id": 26,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1408,30 +1339,6 @@
     ],
     [
       25,
-      8,
-      0,
-      23,
-      0,
-      "MODEL"
-    ],
-    [
-      26,
-      17,
-      0,
-      23,
-      1,
-      "LATENT"
-    ],
-    [
-      27,
-      23,
-      0,
-      24,
-      0,
-      "IMAGE"
-    ],
-    [
-      28,
       17,
       0,
       18,
@@ -1439,7 +1346,7 @@
       "LATENT"
     ],
     [
-      29,
+      26,
       3,
       0,
       18,
@@ -1447,7 +1354,7 @@
       "VAE"
     ],
     [
-      30,
+      27,
       17,
       0,
       19,
@@ -1455,7 +1362,7 @@
       "LATENT"
     ],
     [
-      31,
+      28,
       4,
       0,
       19,
@@ -1463,7 +1370,7 @@
       "VAE"
     ],
     [
-      32,
+      29,
       18,
       0,
       20,
@@ -1471,7 +1378,7 @@
       "IMAGE"
     ],
     [
-      33,
+      30,
       19,
       0,
       20,

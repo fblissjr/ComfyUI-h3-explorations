@@ -10,8 +10,8 @@
   },
   "id": "534e89a9-3352-50bd-a97f-6509a58ee8a5",
   "revision": 0,
-  "last_node_id": 35,
-  "last_link_id": 42,
+  "last_node_id": 33,
+  "last_link_id": 39,
   "nodes": [
     {
       "id": 1,
@@ -100,7 +100,7 @@
           "type": "VAE",
           "links": [
             6,
-            38
+            35
           ]
         }
       ],
@@ -132,7 +132,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            40
+            37
           ]
         }
       ],
@@ -342,8 +342,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            8,
-            34
+            8
           ]
         }
       ],
@@ -731,18 +730,18 @@
         60
       ],
       "flags": {},
-      "order": 32,
+      "order": 30,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 37
+          "link": 34
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 38
+          "link": 35
         }
       ],
       "outputs": [
@@ -750,7 +749,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            41
+            38
           ]
         }
       ],
@@ -770,18 +769,18 @@
         60
       ],
       "flags": {},
-      "order": 33,
+      "order": 31,
       "mode": 0,
       "inputs": [
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 39
+          "link": 36
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 40
+          "link": 37
         }
       ],
       "outputs": [
@@ -789,7 +788,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            42
+            39
           ]
         }
       ],
@@ -809,18 +808,18 @@
         520
       ],
       "flags": {},
-      "order": 34,
+      "order": 32,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 41
+          "link": 38
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 42,
+          "link": 39,
           "shape": 7
         },
         {
@@ -1287,9 +1286,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            35,
-            37,
-            39
+            34,
+            36
           ]
         },
         {
@@ -1305,73 +1303,6 @@
     },
     {
       "id": 30,
-      "type": "GetPreviewOverrideFramesKJ",
-      "pos": [
-        1080,
-        560
-      ],
-      "size": [
-        340,
-        80
-      ],
-      "flags": {},
-      "order": 30,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 34
-        },
-        {
-          "name": "after_sample",
-          "type": "LATENT,IMAGE",
-          "link": 35
-        }
-      ],
-      "outputs": [
-        {
-          "name": "frames",
-          "type": "IMAGE",
-          "links": [
-            36
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "GetPreviewOverrideFramesKJ"
-      },
-      "title": "Preview frames (trajectory)"
-    },
-    {
-      "id": 31,
-      "type": "PreviewImage",
-      "pos": [
-        1080,
-        700
-      ],
-      "size": [
-        360,
-        340
-      ],
-      "flags": {},
-      "order": 31,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 36
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "PreviewImage"
-      },
-      "title": "Denoising trajectory"
-    },
-    {
-      "id": 32,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1395,7 +1326,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 33,
+      "id": 31,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1419,7 +1350,7 @@
       "title": "Which nodes, and the order that matters"
     },
     {
-      "id": 34,
+      "id": 32,
       "type": "MarkdownNote",
       "pos": [
         -2860,
@@ -1443,7 +1374,7 @@
       "title": "Resolution, references, and reading the preflight"
     },
     {
-      "id": 35,
+      "id": 33,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1734,30 +1665,6 @@
     ],
     [
       34,
-      9,
-      0,
-      30,
-      0,
-      "MODEL"
-    ],
-    [
-      35,
-      29,
-      0,
-      30,
-      1,
-      "LATENT"
-    ],
-    [
-      36,
-      30,
-      0,
-      31,
-      0,
-      "IMAGE"
-    ],
-    [
-      37,
       29,
       0,
       17,
@@ -1765,7 +1672,7 @@
       "LATENT"
     ],
     [
-      38,
+      35,
       3,
       0,
       17,
@@ -1773,7 +1680,7 @@
       "VAE"
     ],
     [
-      39,
+      36,
       29,
       0,
       18,
@@ -1781,7 +1688,7 @@
       "LATENT"
     ],
     [
-      40,
+      37,
       4,
       0,
       18,
@@ -1789,7 +1696,7 @@
       "VAE"
     ],
     [
-      41,
+      38,
       17,
       0,
       19,
@@ -1797,7 +1704,7 @@
       "IMAGE"
     ],
     [
-      42,
+      39,
       18,
       0,
       19,
