@@ -1,6 +1,6 @@
 # Where ComfyUI's H3 path differs from the vendor's
 
-last updated: 2026-08-22
+last updated: 2026-08-23
 
 Every known divergence between this ComfyUI install and the MiniMax H3 release,
 in one place, with what each one costs a working user.
@@ -11,6 +11,15 @@ that keeps those documents from drifting also meant that answering "what are all
 the gaps" required knowing which of three files to open. **If this file
 disagrees with an owner, the owner is right** and this one is stale. Regenerate
 it by re-reading the owners rather than by editing it in place.
+
+**Native status and local handling are separate facts.** In this document,
+"native ComfyUI" means code provided by the installed ComfyUI checkout, without
+this custom-node pack. "Local handling" means a node, check, preflight rule or
+shipped workflow in this repository. A local workaround can make this repo's
+graphs safe without resolving the ComfyUI/vendor divergence for anyone else;
+it is therefore described as **locally handled**, never as a closed native gap.
+Conversely, a native ComfyUI fix remains a native fix even when this repo keeps
+a compatibility shim for older installs.
 
 Sources, and what each is worth:
 
@@ -39,22 +48,22 @@ choice, not a correction.
 
 Priority is by what it costs a working user, not by how interesting it is.
 
-| # | gap | kind | status |
-|---|---|---|---|
-| 1 | Seven special tokens absent from the tokenizer | config | **fixed upstream, PR open** |
-| 2 | Reference video frame rate assumed, not enforced | behavioural | open, workaround gated |
-| 3 | Reference image floor (`min_pixels`) | config | open, unenforced |
-| 4 | Reference image ceiling (`max_pixels`) | config | **guarded in this pack**, open in core |
-| 5 | Reference soundtracks not truncated | behavioural | open by choice |
-| 6 | Reference media never upscaled, and never reported | behavioural | clamp is a knob; **the silence is the defect** |
-| 7 | Mono reference audio raises | behavioural | gated |
-| 8 | VAE encode precision, and mean vs sample | behavioural | half measured |
-| 9 | VAE tiling unrecorded | behavioural | open, unenforced |
-| 10-13 | Partition gate, AdaLN cache, CUDA graphs, step caching | behavioural | architectural, not user-facing |
+| # | gap | kind | native ComfyUI status | handling in this repo |
+|---|---|---|---|---|
+| 1 | Seven special tokens absent from the tokenizer | config | **fixed in the installed checkout by merged PR 15808** | compatibility shim remains for older installs; audit requires it to be a no-op here |
+| 2 | Reference video frame rate assumed, not enforced | behavioural | open | typed nodes normalize from owned loader metadata; legacy graphs require and check `force_rate=24` |
+| 3 | Reference image floor (`min_pixels`) | config | open | preflight reports the divergence; no general runtime parity implementation |
+| 4 | Reference image ceiling (`max_pixels`) | config | open | custom fit nodes can opt in to keeping VAE and Qwen sizes matched; core remains unchanged |
+| 5 | Reference soundtracks not truncated | behavioural | open | typed nodes trim internally; shipped legacy graphs wire and check explicit trims |
+| 6 | Reference media never upscaled, and never reported | behavioural | sizing divergence remains; native path does not report the choice | custom fit nodes report final dimensions and expose an explicit cost/fidelity knob |
+| 7 | Mono reference audio raises | behavioural | open | typed nodes upmix mono and refuse ambiguous multichannel input; legacy preflight reports it |
+| 8 | VAE encode precision, and mean vs sample | behavioural | open | measured only; no claimed fix |
+| 9 | H3 VAE tiling as a runtime branch | behavioural | **not a gap in the installed native implementation** | documented as fixed H3-owned policy; no custom-node fix claimed |
+| 10-13 | Partition gate, AdaLN cache, CUDA graphs, step caching | behavioural | architectural differences | researched or explicitly declined; no native-equivalence claim |
 
 ---
 
-## 1. Seven special tokens — fixed upstream
+## 1. Seven special tokens — fixed natively in installed ComfyUI
 
 Owner: [`research/official_weights_metadata.md`](research/official_weights_metadata.md).
 
@@ -79,10 +88,12 @@ the sentence *before* it. Measured 2026-08-22 across nine prompt shapes
 ([`bench/results/2026-08-22_h3_marker_tokenization.json`](../bench/results/2026-08-22_h3_marker_tokenization.json)): in an ordinary
 two-person dialogue prompt, 9 of 91 non-marker tokens come out different.
 
-**Status: fixed by [Comfy-Org/ComfyUI PR 15808](https://github.com/Comfy-Org/ComfyUI/pull/15808)**
-(kijai), which declares the seven on a `Qwen3VLSDTokenizer` subclass so every
-consumer gets them, including core's `MiniMaxH3ReferenceToVideo`. **Open, not
-merged**, so an install without it still has the defect.
+**Native ComfyUI status: fixed.**
+[Comfy-Org/ComfyUI PR 15808](https://github.com/Comfy-Org/ComfyUI/pull/15808)
+(kijai) is merged, and this installed checkout contains it as commit
+`924743af`. It declares the seven on a `Qwen3VLSDTokenizer` subclass so every
+consumer gets them, including core's `MiniMaxH3ReferenceToVideo`. An older
+ComfyUI install without that commit still has the defect described below.
 
 Verified here against the PR's own diff applied to a clean master: all nine
 scenes reproduce the release tokenizer's ids exactly, the reference path carries
@@ -90,9 +101,11 @@ the marker beside its vision blocks, and a marker-free prompt is byte-identical
 before and after. [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py) is the harness and
 runs identically with or without the patch.
 
-`MiniMaxH3VendorTokens` in this pack is deprecated by that fix.
-`clip_with_vendor_tokens` is not, because a pack cannot assume the install it
-runs on carries the patch.
+**Handling in this repo:** `MiniMaxH3VendorTokens` is deprecated by the native
+fix. `clip_with_vendor_tokens` remains only as compatibility handling because a
+pack cannot assume every install it runs on carries the patch. The audit
+requires that shim to be a no-op on this patched install; it is not the reason
+the native gap is marked fixed.
 
 ### Do the seven tokens touch Qwen3-VL's vision tower?
 
@@ -150,6 +163,12 @@ seconds of action, and the spoken-word timestamps stretch with it.
 either way, which is exactly why testing on one proves nothing.
 [`bench/check_ref_prompt_labels.py`](../bench/check_ref_prompt_labels.py) fails the build if any loader feeding a
 reference socket drops off 24.
+
+**Native ComfyUI status: open. Handling in this repo:**
+`MiniMaxH3AppendRefVideo` requires the frames' own `VHS_VIDEOINFO`, records its
+`loaded_fps`, and `MiniMaxH3ReferenceConditioning` normalizes the frames to 24
+fps before either Qwen or the video VAE sees them. The legacy socket node still
+has no metadata input and therefore still relies on `force_rate=24`.
 
 Two design consequences of sglang doing this in one ffmpeg pass: **fps never
 enters its API surface** — the caller asks for `duration_seconds` and the frame
@@ -314,10 +333,15 @@ it; we hand Qwen fewer patches than the vendor intends, so the reference carries
 less identity signal. Thumbnails and cropped faces land here easily.
 
 Both towers agree with each other, so this is not a VAE-versus-Qwen split. It is
-a ComfyUI-versus-release split, and nothing about it looks extreme, and nothing
-warns. **This is the higher-priority half of the two.**
+a ComfyUI-versus-release split, and nothing about it looks extreme. Native
+ComfyUI does not warn; this repo's preflight does. **This is the higher-priority
+half of the two.**
 
-`MiniMaxH3ReferenceFit` does not close it, because it runs before the tokenizer.
+**Native ComfyUI status: open. Handling in this repo:** preflight reports when
+the release floor would enlarge a reference that ComfyUI leaves alone.
+`MiniMaxH3ReferenceFit` can deliberately upscale a reference, but it does not
+implement the release processor's `min_pixels` rule as a general runtime
+boundary and therefore is not a native-equivalence fix.
 
 ### 4. The ceiling — real but genuinely extreme
 
@@ -349,6 +373,12 @@ than what Qwen extracted identity from, and nothing says so.
 [`bench/results/2026-08-21_shipped_reference_bounds.json`](../bench/results/2026-08-21_shipped_reference_bounds.json): **no shipped graph
 reaches it.**
 
+**Native ComfyUI status: open. Handling in this repo:**
+`MiniMaxH3ReferenceFit` and `MiniMaxH3ReferenceVideoFit` can pre-clamp their
+outputs with `keep_towers_matched`, so graphs that explicitly wire those custom
+nodes keep the VAE and Qwen on one resolution. That is an opt-in local guard;
+the native reference node and hand-built graphs without it remain exposed.
+
 Video references are canvas-sized at around 1M pixels, far below either
 ceiling, so the video bounds do not bite in practice. That is derived from the
 geometry rather than measured.
@@ -371,11 +401,12 @@ the reference span and pushes the target streams down the timeline. Both
 independent reviews reach this (`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md`
 section 5.3; the cursor formula is in `internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`).
 
-**Closed in the graphs on 2026-08-22, not in the node.** `TrimAudioDuration` at
-`length / 24` sits on every `ref_audio_*` and `ref_video_audio_*` socket here.
-Core is unchanged, so a hand-built graph is still exposed; the control is
-`bench/preflight_graph.py`, which warns on an untrimmed socket and on a baked
-trim that disagrees with `length`.
+**Native ComfyUI status: open. Handling in this repo:** since 2026-08-22,
+`TrimAudioDuration` at `length / 24` sits on every legacy
+`ref_audio_*` and `ref_video_audio_*` socket here. The typed compiler derives
+the duration from its aligned `frame_count` and slices every video soundtrack
+and standalone reference internally, so there is no second widget to drift.
+Core remains exposed in a hand-built socket graph; preflight warns there.
 
 **Where the gap actually bit is narrower than it looked, found the same day.**
 `VHS_LoadVideo` already asks ffmpeg for `frame_load_cap / force_rate` seconds
@@ -415,9 +446,9 @@ Nothing reports what resolution a reference finally reached. The node accepts a
 reference at any size, conditions on whatever it gets, and emits no signal about
 what it did, so a user cannot tell a deliberate downscale from an accidental one
 and has no way to find out what it cost. That is the same class as gap 4, where
-the two towers silently diverge, and gap 9, where a tiled decode is
-indistinguishable afterwards. It applies to the default too, so users who never
-chose the tradeoff are also making it.
+the two towers silently diverge. It applies to the default too, so users who
+never chose the tradeoff are also making it. This repo's custom fit nodes report
+the reached resolution; the native node still does not.
 
 **And "H3 handles it fine" is not evidence that nothing was lost.** Recorded
 because the temptation to treat it as evidence is strong and this file nearly
@@ -442,9 +473,13 @@ assignment fails. diffusers and DiffSynth-Studio both expand to stereo first.
 *Impact:* a hard crash rather than a bad render, which is the better failure.
 Gated by [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py).
 
+**Native ComfyUI status: open. Handling in this repo:** the typed compiler duplicates
+a mono channel to stereo before `_encode_ref_audio`; stereo passes unchanged,
+and more than two channels are refused rather than silently selecting a pair.
+
 ---
 
-## 8 and 9. The VAE
+## 8. The VAE encode question
 
 Owner: [`research/sglang_comparison.md`](research/sglang_comparison.md).
 
@@ -470,10 +505,15 @@ at 42 for keyframes and reference video, where ComfyUI takes the mean
 (`comfy/ldm/minimax/vae.py:685`). Any encode instrument has to separate
 precision from mean-versus-sample or it measures neither.
 
-**9. VAE tiling is silent.** ComfyUI tiles under memory pressure and records
-nothing; sglang treats decode mode as part of the quality contract and refuses
-modes it considers inexact. *Impact:* a tiled decode cannot be distinguished
-from an untiled one after the fact, so a render's provenance is incomplete.
+### Removed gap: H3 VAE tiling
+
+This snapshot used to describe tiling as an unrecorded runtime fallback. The
+installed H3 VAE does not have that branch: `MiniMaxH3VideoVAE` owns a fixed
+spatial tile/overlap policy, always uses its H3 temporal chunking, declares
+chunked I/O, and its `encode_tiled`/`decode_tiled` routes back through the same
+H3 implementation. Generic OOM retry does not silently switch H3 to another
+algorithm. Recording the fixed policy may improve provenance; it is not an
+untiled-versus-tiled gap.
 
 ---
 
@@ -529,14 +569,16 @@ speedups and ours are not comparable and must not be put in the same table.
 
 ## Everything built against these gaps
 
-Code, instruments and records, per gap. A gap with nothing in this table is a
-gap nothing is watching.
+Code, instruments and records, per gap. Except where a row explicitly says
+"native ComfyUI", entries in these tables are this repository's handling and
+do not change the native status above. A gap with nothing in this table is a gap
+nothing is watching.
 
 ### 1. Special tokens
 
 | what | where |
 |---|---|
-| The upstream fix | [PR 15808](https://github.com/Comfy-Org/ComfyUI/pull/15808), `comfy/text_encoders/minimax.py` |
+| The merged native fix in this installed ComfyUI | [PR 15808](https://github.com/Comfy-Org/ComfyUI/pull/15808), `comfy/text_encoders/minimax.py` at installed commit `924743af` |
 | Tokenization audit, nine scenes plus reference integrity | [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py) |
 | Record | [`bench/results/2026-08-22_h3_marker_tokenization.json`](../bench/results/2026-08-22_h3_marker_tokenization.json) |
 | Encoder-level companion, what the states do | [`bench/grade_h3_marker_tokens.py`](../bench/grade_h3_marker_tokens.py), [record](../bench/results/2026-08-21_h3_marker_token_states.json) |
@@ -557,8 +599,10 @@ instead.
 |---|---|
 | Fails the build if a loader feeding a reference socket drops off 24 | [`bench/check_ref_prompt_labels.py`](../bench/check_ref_prompt_labels.py) |
 | Prompt and label grading before a render is queued | [`bench/preflight_graph.py`](../bench/preflight_graph.py) |
+| Typed ownership and normalization | [`reference_conditioning.py`](../reference_conditioning.py), controlled by [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 
-No fix. The check enforces the workaround, not the behaviour.
+Native ComfyUI has no fix. The legacy check enforces this repo's workaround;
+the typed surface implements the behaviour locally.
 
 ### 3 and 4. Pixel bounds
 
@@ -568,8 +612,9 @@ No fix. The check enforces the workaround, not the behaviour.
 | Does any shipped graph hand Qwen a reference it shrinks | [`bench/audit_shipped_reference_bounds.py`](../bench/audit_shipped_reference_bounds.py), [record](../bench/results/2026-08-21_shipped_reference_bounds.json) |
 | The release's bounds, read not retyped | [`vendor_config.py`](../vendor_config.py) `image_pixel_bounds()` / `video_pixel_bounds()` |
 
-Both instruments **report**; neither refuses. The floor has no instrument at
-all — everything above measures the ceiling.
+The measurement instruments **report**; neither refuses. Preflight reports a
+real graph crossing either divergent bound, but there is no runtime assertion
+that implements the release's image floor.
 
 ### 7. Mono reference audio
 
@@ -577,18 +622,16 @@ all — everything above measures the ceiling.
 |---|---|
 | Gate | [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py) |
 | Reports it on a real graph's real media | [`bench/preflight_graph.py`](../bench/preflight_graph.py) |
+| Typed mono-to-stereo boundary | [`reference_conditioning.py`](../reference_conditioning.py), controlled by [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 
 Its two red states mean opposite things and the file says which: a failing mono
 arm is the defect, a *succeeding* one means upstream fixed it and the check
 should be retired rather than repaired.
 
-**Still open on purpose, and preflight only reports it.** Since 2026-08-22
-preflight ffprobes the media each ref-audio socket actually resolves to and
-warns when it is mono. It does not upmix: that belongs in core's
-`_encode_ref_audio`, and a `JoinAudioChannels(a, a)` in every shipped graph
-would alter every stereo source to prevent a crash none of them hit. "Channel
-count unreadable" is reported as its own state -- no ffprobe and no audio
-stream are not a pass.
+**Still open in native ComfyUI; locally handled without graph-wide channel
+nodes on the typed surface.** Preflight warns on legacy mono media. For typed
+graphs it reports the compiler's upmix instead. "Channel count unreadable"
+remains its own state -- no ffprobe and no audio stream are not a pass.
 
 ### 8. VAE encode precision
 
@@ -613,16 +656,24 @@ rendered clip cannot A/B a numerical change.
 
 | what | where |
 |---|---|
-| Core's reference-node contracts, asserted for the first time | [`bench/check_reference_contracts.py`](../bench/check_reference_contracts.py) |
+| Core's reference-node contracts | [`bench/check_reference_contracts.py`](../bench/check_reference_contracts.py) |
+| Ordered plan against core plus intended differences | [`bench/check_reference_order.py`](../bench/check_reference_order.py) |
+| Typed runtime media and compiler contracts | [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py), red harness [`bench/red/show_red_reference_runtime.py`](../bench/red/show_red_reference_runtime.py) |
+| Label/preflight visibility of typed chains | [`bench/check_typed_reference_consumers.py`](../bench/check_typed_reference_consumers.py) |
 
-Five of the seven contracts in `MiniMaxH3ReferenceToVideo` gained a control on
-2026-08-22, after standing enforced by nothing through two postmortems. Two
-remain uncovered and the check prints which on every run.
+All seven contracts in `MiniMaxH3ReferenceToVideo` are controlled. The ordered
+surface preserves the four that remain semantic contracts and deliberately
+replaces suffix pairing and fixed modality grouping with ownership and list
+position.
 
-### Nothing built
+### Remaining policy work
 
-Gaps **5** (soundtrack length) and **9** (VAE tiling) have no instrument, no
-check and no fix. They are recorded here and nowhere else in executable form.
+Soundtrack duration and mono normalization are now executable properties of
+this repo's typed runtime; native ComfyUI remains unchanged. VAE tiling was
+removed as a gap after the native H3-owned paths were traced. The remaining
+policy not implemented in this repo is the release's upscale plus
+duration-aware Qwen-video resize; it should land atomically, if measured, after
+typed workflow migration.
 
 Gap **6** needs no instrument for the cost, which is already measured; what it
 would need is a controlled comparison of the *benefit*, and
@@ -633,21 +684,21 @@ against bothering.
 
 ---
 
-## What is actually enforced
+## Native status versus what this repo enforces
 
 A gap with no assertion behind it is a gap that will come back.
 
-| gap | enforced by |
-|---|---|
-| 1, special tokens | [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py), plus the upstream fix |
-| 2, frame rate | [`bench/check_ref_prompt_labels.py`](../bench/check_ref_prompt_labels.py) |
-| 3, image floor | **nothing** |
-| 4, image ceiling | **guarded in this pack since 2026-08-22**: `MiniMaxH3ReferenceFit`'s `keep_towers_matched` holds the reference under Qwen's ceiling so both towers agree. Core is still unguarded for anyone not wiring that node |
-| 5, soundtrack length | **nothing** |
-| 6, media upscale | the clamp needs none. The **silence** is now addressed: both reference nodes report the resolution reached, and `MiniMaxH3ReferenceVideoFit` covers video, which nothing touched before |
-| 7, mono audio | [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py) |
-| 8, VAE encode precision | **nothing** |
-| 9, VAE tiling | **nothing** |
+| gap | native ComfyUI status | this repo's enforcement or handling |
+|---|---|---|
+| 1, special tokens | **fixed** in installed commit `924743af` / merged PR 15808 | [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py) verifies native behavior and the compatibility shim's no-op |
+| 2, frame rate | open | legacy: [`bench/check_ref_prompt_labels.py`](../bench/check_ref_prompt_labels.py); typed: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
+| 3, image floor | open | preflight warning only; **no runtime parity enforcement** |
+| 4, image ceiling | open | opt-in local guard since 2026-08-22: `MiniMaxH3ReferenceFit.keep_towers_matched`; native graphs not wiring it remain exposed |
+| 5, soundtrack length | open | legacy shipped graphs: [`bench/preflight_graph.py`](../bench/preflight_graph.py); typed: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
+| 6, media upscale/reporting | sizing divergence remains; native path is silent | custom image/video fit nodes report the resolution reached; no claim that native sizing now matches the vendor |
+| 7, mono audio | open | native defect gate: [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py); local typed handling: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
+| 8, VAE encode precision | open | **nothing enforces a choice**; measurement only |
+| 9, VAE tiling | not a gap in installed native H3 path | policy documented from native source; no custom fix |
 
-Five of nine are enforced by nothing, and the two highest-priority open gaps —
-the image floor and the VAE encode question — are both among them.
+The image floor and the visual VAE mean-versus-sample question remain the
+highest-value unclosed conformance items. Neither blocks typed migration.

@@ -90,13 +90,30 @@ from check_ref_prompt_labels import wired_labels  # noqa: E402
 # cannot apply -- a checker going red while the state is correct, which is the
 # one thing docs/checks.md says is worse than no checker.
 from check_prompt_guide_conformance import (  # noqa: E402
-    _STRUCTURE_PROBES, _audio_sections_optional)
+    BASE_GUIDE, _STRUCTURE_PROBES, _audio_sections_optional)
+
+
+def _core_minimax_cpu():
+    """Import the installed H3 arithmetic with Comfy forced to CPU mode.
+
+    Preflight is explicitly a no-GPU tool. Merely importing Comfy's model
+    management otherwise selects the CUDA device on this install, even though
+    the only functions read here are scalar geometry helpers.
+    """
+    import importlib
+    comfy_root = str(Path.home() / "ComfyUI")
+    if sys.path[0] != comfy_root:
+        sys.path.insert(0, comfy_root)
+    import comfy.cli_args
+    comfy.cli_args.args.cpu = True
+    return importlib.import_module("comfy_extras.nodes_minimax_h3")
 
 # Every node that carries a prompt into the encoder. `MiniMaxH3Conditioning`
 # is this repo's own, and the fl2va path moved onto it on 2026-08-21; a file
 # that knows only the first name reports "nothing to grade" over every graph
 # this repo now ships and reads as a clean pass.
-PROMPT_NODES = ("MiniMaxH3ReferenceToVideo", "MiniMaxH3Conditioning")
+PROMPT_NODES = ("MiniMaxH3ReferenceToVideo", "MiniMaxH3Conditioning",
+                "MiniMaxH3ReferenceConditioning")
 FIT_NODE = "MiniMaxH3ReferenceFit"
 LOAD_IMAGE = "LoadImage"
 
@@ -129,6 +146,30 @@ MAIN_FIELD = {"base": "integrated_multimodal_description",
 REF_SOCKET_PREFIXES = ("ref_images.", "ref_videos.", "ref_audios.",
                        "ref_video_audios.")
 KEYFRAME_SOCKETS = ("first_frame", "last_frame")
+
+
+def _base_alignment_templates() -> dict[str, str]:
+    """The three keyframe instructions, parsed from the release guide.
+
+    The strings differ in punctuation and bracket use as well as wording. A
+    local copy would turn the check into a comparison against ourselves, so
+    the guide is the baseline and a missing/unparseable guide is a loud error.
+    """
+    text = BASE_GUIDE.read_text()
+    out = {}
+    for mode in ("I2VA", "FL2VA", "L2VA"):
+        match = re.search(
+            rf"\*\*{mode}\*\* always uses:\s*```text\s*(.*?)\s*```",
+            text, re.S)
+        if match is None:
+            raise RuntimeError(
+                f"could not parse {mode}'s alignment instruction from "
+                f"{BASE_GUIDE}")
+        out[mode] = match.group(1).strip()
+    return out
+
+
+BASE_ALIGNMENT = _base_alignment_templates()
 
 # THE FIVE MARKERS NEITHER OFFICIAL GUIDE DOCUMENTS.
 #
@@ -228,8 +269,44 @@ def marker_rules(prompt: str, main_body: str) -> list[tuple[str, str]]:
 
 def guide_for(inputs: dict) -> str:
     """"ref" when the node wires reference labels, else "base"."""
-    return "ref" if any(k.startswith(REF_SOCKET_PREFIXES) for k in inputs) \
+    return "ref" if ("references" in inputs or
+                     any(k.startswith(REF_SOCKET_PREFIXES) for k in inputs)) \
         else "base"
+
+
+def _reference_media(inputs: dict, graph: dict):
+    """Socket-shaped media view plus per-image policy for either surface.
+
+    The typed chain remains the source of order and ownership; this adapter is
+    only for older pricing/reporting code whose natural unit is a media link.
+    Chain traversal comes from ``reference_order`` so a malformed chain cannot
+    be priced as a shorter, apparently valid one.
+    """
+    if "references" not in inputs:
+        return inputs, {}, False
+    from reference_order import resolve_chain_entries
+    link = inputs.get("references")
+    if not (isinstance(link, list) and len(link) == 2):
+        # `wired_labels` will report the precise chain error during grading.
+        return {}, {}, True
+    media, image_policies = {}, {}
+    counts = {"image": 0, "video": 0, "audio": 0}
+    for _nid, append, kind in resolve_chain_entries(graph, str(link[0])):
+        append_inputs = append.get("inputs", {})
+        index = counts[kind]
+        counts[kind] += 1
+        if kind == "image":
+            key = f"ref_images.ref_image_{index}"
+            media[key] = append_inputs.get("image")
+            image_policies[key] = append_inputs.get("size_policy", "match")
+        elif kind == "video":
+            media[f"ref_videos.ref_video_{index}"] = append_inputs.get("frames")
+            soundtrack = append_inputs.get("soundtrack")
+            if soundtrack is not None:
+                media[f"ref_video_audios.ref_video_audio_{index}"] = soundtrack
+        else:
+            media[f"ref_audios.ref_audio_{index}"] = append_inputs.get("audio")
+    return media, image_policies, True
 
 VISUAL_MARKERS = {"fully_preserved", "partially_preserved",
                   "attribute_transfer", "weak_reference"}
@@ -409,11 +486,7 @@ def reference_video_report(ins: dict, graph: dict, length) -> list[str]:
             out.append(f"  {label}: source {name!r} not resolved on this box, "
                        f"so neither tower's geometry was calculated")
             continue
-        import sys as _sys
-        _comfy = str(Path.home() / "ComfyUI")
-        if _comfy not in _sys.path:
-            _sys.path.insert(0, _comfy)
-        from comfy_extras.nodes_minimax_h3 import adapt_canvas
+        adapt_canvas = _core_minimax_cpu().adapt_canvas
         w, h = dims
         cw, ch = adapt_canvas(w, h)
         comfy_vae = (cw, ch)
@@ -455,7 +528,8 @@ def reference_video_report(ins: dict, graph: dict, length) -> list[str]:
     return out
 
 
-def audio_reference_notes(ins: dict, graph: dict, length) -> list[str]:
+def audio_reference_notes(ins: dict, graph: dict, length,
+                          typed_boundary: bool = False) -> list[str]:
     """Grade every wired reference-audio socket: trimmed, matched, stereo.
 
     **Three separate failures, and only one of them is ours.**
@@ -490,7 +564,12 @@ def audio_reference_notes(ins: dict, graph: dict, length) -> list[str]:
             continue
         label = key.split(".")[-1]
         src, trim = _audio_source(graph, val)
-        if trim is None:
+        if typed_boundary:
+            duration = f"{want:.2f}s" if want is not None else "the aligned target"
+            out.append(
+                f"  {label}: typed boundary caps audio to {duration} and "
+                f"normalizes mono to stereo before the audio VAE")
+        elif trim is None:
             out.append(f"  {label}: WARN reaches the node untrimmed. The "
                        f"reference pipeline caps every reference soundtrack "
                        f"at the generated duration and ComfyUI caps none, at "
@@ -518,11 +597,17 @@ def audio_reference_notes(ins: dict, graph: dict, length) -> list[str]:
         if ch is None:
             out.append(f"  {label}: {name} -- channel count unreadable "
                        f"(no ffprobe, or no audio stream). NOT a pass.")
+        elif ch == 1 and typed_boundary:
+            out.append(f"  {label}: {name} is mono; the typed boundary will "
+                       f"duplicate it to stereo")
         elif ch == 1:
             out.append(f"  {label}: WARN {name} is MONO. "
                        f"`_encode_ref_audio` does not upmix, so the packed "
                        f"assignment raises rather than degrading (gap 7). "
                        f"Convert to stereo before queueing.")
+        elif ch > 2 and typed_boundary:
+            out.append(f"  {label}: FAIL {name} has {ch} channels; the typed "
+                       f"boundary refuses to guess which stereo pair to use")
         else:
             out.append(f"  {label}: {name} is {ch}-channel")
     return out
@@ -584,6 +669,46 @@ def _single_frame(node: dict, graph: dict) -> bool:
     if isinstance(val, list) and val and str(val[0]) in graph:
         return graph[str(val[0])].get("inputs", {}).get("length") == 1
     return False
+
+
+def _resolved_length(node: dict, graph: dict) -> int | None:
+    """Follow the conditioner's length link to a literal, when observable."""
+    value = node.get("inputs", {}).get("length")
+    seen = set()
+    while isinstance(value, list) and len(value) == 2:
+        source_id = str(value[0])
+        if source_id in seen or source_id not in graph:
+            return None
+        seen.add(source_id)
+        value = graph[source_id].get("inputs", {}).get("length")
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return h3_rules.snap_length(value)
+
+
+def _expected_base_alignment(node: dict, graph: dict,
+                             shots: list[tuple[str, str]]) -> tuple[str | None, str]:
+    """Expected Part One from sockets, final shot, and effective duration."""
+    ins = node.get("inputs", {})
+    first = ins.get("first_frame") is not None
+    last = ins.get("last_frame") is not None
+    if not first and not last:
+        return "", "T2VA"
+    if first and not last:
+        return BASE_ALIGNMENT["I2VA"], "I2VA"
+
+    mode = "FL2VA" if first else "L2VA"
+    if not shots:
+        return None, f"{mode}: no [Shot N] exists to resolve the final shot"
+    length = _resolved_length(node, graph)
+    if length is None:
+        return None, f"{mode}: graph length could not be resolved"
+    final_shot = int(shots[-1][0])
+    seconds = h3_rules.duration_of(length)
+    expected = (BASE_ALIGNMENT[mode]
+                .replace("Shot N", f"Shot {final_shot}")
+                .replace("S.SS", f"{seconds:.2f}"))
+    return expected, mode
 
 
 def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
@@ -729,11 +854,11 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
                                     "to describe). See docs/h3_image_editing.md "
                                     "-- deliberate, not an oversight"))
 
-    # base-en's Part One. The keyframe tasks each require an alignment
-    # instruction as the FIRST line, before the core fields (base-en.txt:19,
-    # :25, :29); T2VA "has no image-alignment instruction and begins directly
-    # with the three core fields" (base-en.txt:14). Both halves are graded,
-    # because a rule with only one side is satisfied by deleting the text.
+    # base-en's Part One. The exact instruction is parsed from the guide, then
+    # its N and S.SS placeholders are resolved from this graph. Presence alone
+    # was not a control: an FL2VA graph carrying I2VA's sentence still named a
+    # Picture and passed. That wrong sentence existed in `scene_prompt()` on
+    # 2026-08-23, staged for the first caller that would have used it.
     if guide == "base" and main_field in sec:
         preamble = prompt[:prompt.index(main_field + ":")].strip()
         kf = [k for k in KEYFRAME_SOCKETS if ins.get(k) is not None]
@@ -749,11 +874,21 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
                                 "but this prompt opens with "
                                 f"{preamble.splitlines()[0][:60]!r} "
                                 "(base-en.txt:14)"))
+        else:
+            expected_alignment, mode = _expected_base_alignment(
+                node, graph, shots)
+            if expected_alignment is None:
+                out.append(("FAIL", mode))
+            elif preamble != expected_alignment:
+                out.append(("FAIL", f"{mode} alignment instruction differs "
+                                    "from the release guide after resolving "
+                                    "Shot N and S.SS"))
     return out
 
 
 def price(node: dict, graph: dict) -> list[str]:
     ins = node["inputs"]
+    media_ins, image_policies, typed_references = _reference_media(ins, graph)
     w, h = ins.get("width"), ins.get("height")
     length = ins.get("length")
     lines = []
@@ -809,11 +944,12 @@ def price(node: dict, graph: dict) -> list[str]:
     lines.append(f"  video     {video:>8,}  ({latent_t} latent frames x "
                  f"{per_frame:,}/frame at {w}x{h}, {snapped} frames)")
 
-    size_mode = ins.get("ref_image_size", "match")
     ref_total = 0
-    for key, link in ins.items():
+    for key, link in media_ins.items():
         if not key.startswith("ref_images.") or not isinstance(link, list):
             continue
+        size_mode = image_policies.get(
+            key, ins.get("ref_image_size", "match"))
         src = graph.get(link[0], {})
         # No fit node means core sizes this reference on its own, and core
         # clamps with min(1.0, ...) in BOTH modes
@@ -869,15 +1005,17 @@ def price(node: dict, graph: dict) -> list[str]:
     for kind_, prefix in (("video", "ref_videos."),
                           ("video soundtrack", "ref_video_audios."),
                           ("audio", "ref_audios.")):
-        n = sum(1 for k, v in ins.items() if k.startswith(prefix) and v is not None)
+        n = sum(1 for k, v in media_ins.items()
+                if k.startswith(prefix) and v is not None)
         if n:
             unpriced.append(f"{n} {kind_}")
     if unpriced:
         lines.append(f"  NOT COUNTED: {', '.join(unpriced)} reference(s). A "
                      f"video reference alone measured 52,020 rows at 960x544 / "
                      f"345f, so the total below is a FLOOR, not a budget.")
-    lines.extend(reference_video_report(ins, graph, length))
-    lines.extend(audio_reference_notes(ins, graph, length))
+    lines.extend(reference_video_report(media_ins, graph, length))
+    lines.extend(audio_reference_notes(
+        media_ins, graph, length, typed_boundary=typed_references))
 
     prompt = ins.get("prompt", "")
     tt, kind = text_tokens(prompt)
@@ -915,11 +1053,7 @@ def price(node: dict, graph: dict) -> list[str]:
         # dies on a relative import -- which is exactly what happened on the
         # first attempt here. Safe to put ComfyUI first: every module this file
         # imports from the repo is already bound by now.
-        _comfy = Path.home() / "ComfyUI"
-        if sys.path[0] != str(_comfy):
-            sys.path.insert(0, str(_comfy))
-        from comfy_extras.nodes_minimax_h3 import temporal_shape
-        audio_rows = temporal_shape(snapped)[2] * 2
+        audio_rows = _core_minimax_cpu().temporal_shape(snapped)[2] * 2
     except Exception:
         lines.append("  NOT COUNTED: target audio rows -- ComfyUI is not "
                      "importable from here, so `temporal_shape` could not be "

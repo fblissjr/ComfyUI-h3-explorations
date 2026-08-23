@@ -57,6 +57,9 @@ from pathlib import Path
 _COMFY = Path.home() / "ComfyUI"
 sys.path.insert(0, str(_COMFY))
 
+import comfy.cli_args  # noqa: E402
+comfy.cli_args.args.cpu = True
+
 VISION_START = 151652
 VISION_END = 151653
 

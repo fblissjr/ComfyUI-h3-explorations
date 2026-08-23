@@ -73,6 +73,11 @@ def check(name, fn):
 def _core():
     import importlib
     sys.path.insert(0, str(Path.home() / "ComfyUI"))
+    # This acceptance suite executes only stubs. Comfy's import path otherwise
+    # selects CUDA before the first stub runs, contradicting this file's own
+    # no-CUDA contract and needlessly contending with a live render.
+    import comfy.cli_args
+    comfy.cli_args.args.cpu = True
     return importlib.import_module("comfy_extras.nodes_minimax_h3")
 
 
@@ -520,6 +525,59 @@ def split_video_ownership_raises():
                          "accepted, so loaded_fps would describe another clip")
 
 
+def video_source_class_is_admitted_explicitly():
+    """Slots 0/3 only mean frames/info on a recognized VHS video loader."""
+    from reference_order import ChainError, VIDEO_SOURCE_CLASSES, resolve_chain
+    for cls in VIDEO_SOURCE_CLASSES:
+        g = _chain(["video"])
+        g["9"]["class_type"] = cls
+        recs = resolve_chain(g, "1")
+        assert len(recs) == 1, (cls, recs)
+
+    g = _chain(["video"])
+    g["9"]["class_type"] = "UnrelatedFourOutputNode"
+    try:
+        resolve_chain(g, "1")
+    except ChainError as e:
+        assert "matching slots 0/3" in str(e), e
+        return
+    raise AssertionError("an unrelated node at matching slots 0/3 was accepted")
+
+
+def join_audio_channels_traces_both_branches():
+    """One joined output has two provenance branches, neither disposable."""
+    from reference_order import ChainError, resolve_chain
+
+    def graph(left, right, extra=None):
+        g = _chain(["video"])
+        g.update(extra or {})
+        g["44"] = {"class_type": "JoinAudioChannels",
+                   "inputs": {"audio_left": left, "audio_right": right}}
+        g["1"]["inputs"]["soundtrack"] = ["44", 0]
+        return g
+
+    same = resolve_chain(graph(["9", 2], ["9", 2]), "1")[0]
+    assert same.soundtrack_origin == "owned", same
+
+    foreign_source = {"99": {"class_type": "LoadAudio", "inputs": {}}}
+    mixed = resolve_chain(
+        graph(["9", 2], ["99", 0], foreign_source), "1")[0]
+    assert mixed.soundtrack_origin == "foreign", mixed
+
+    unknown = {"77": {"class_type": "Whatever", "inputs": {}}}
+    unresolved = resolve_chain(
+        graph(["9", 2], ["77", 0], unknown), "1")[0]
+    assert unresolved.soundtrack_origin == "unresolved", unresolved
+
+    malformed = graph(["9", 2], "not-a-link")
+    try:
+        resolve_chain(malformed, "1")
+    except ChainError as e:
+        assert "audio_right" in str(e), e
+        return
+    raise AssertionError("a JoinAudioChannels with a broken branch resolved")
+
+
 def ownership_differs_from_pairing():
     """A soundtrack on the SECOND of two videos, said directly rather than by suffix."""
     from reference_order import VideoRef, assign_labels, legacy_plan
@@ -594,6 +652,10 @@ def main() -> int:
     check("a link to a non-append node raises", a_non_builder_link_raises)
     check("frames and video_info from different loaders raises",
           split_video_ownership_raises)
+    check("frames and video_info come from a recognized VHS loader",
+          video_source_class_is_admitted_explicitly)
+    check("JoinAudioChannels provenance follows both inputs",
+          join_audio_channels_traces_both_branches)
     print("\n  DIFFER -- the two behaviours replaced on purpose")
     check("ownership can SAY what suffix pairing only implies",
           ownership_differs_from_pairing)

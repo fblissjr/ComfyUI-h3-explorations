@@ -49,6 +49,9 @@ sys.path.insert(0, str(_COMFY))
 sys.path.insert(0, str(_REPO.parent))
 _PKG = _REPO.name
 
+import comfy.cli_args  # noqa: E402
+comfy.cli_args.args.cpu = True
+
 MARKER_PROMPT = "She says, <d>[English] We leave now.</d>"
 
 

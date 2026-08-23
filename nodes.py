@@ -21,6 +21,12 @@ from .sol_curve_node import MiniMaxH3SolAttnCurve
 from .vae_precision import MiniMaxH3VAEPrecision
 from .vendor_tokens import MiniMaxH3VendorTokens
 from .reference_video_fit import MiniMaxH3ReferenceVideoFit
+from .reference_conditioning import (
+    MiniMaxH3AppendRefAudio,
+    MiniMaxH3AppendRefImage,
+    MiniMaxH3AppendRefVideo,
+    MiniMaxH3ReferenceConditioning,
+)
 from . import h3_capture
 
 from .attention import (
@@ -297,7 +303,9 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3ProvenanceStamp, MiniMaxH3SolAttnCurve,
                 MiniMaxH3SLARouter, MiniMaxH3VAEPrecision,
                 MiniMaxH3VendorTokens, MiniMaxH3Conditioning,
-                MiniMaxH3ReferenceVideoFit]
+                MiniMaxH3ReferenceVideoFit,
+                MiniMaxH3AppendRefImage, MiniMaxH3AppendRefVideo,
+                MiniMaxH3AppendRefAudio, MiniMaxH3ReferenceConditioning]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

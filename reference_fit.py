@@ -17,10 +17,11 @@ it -- and reference tokens are latent rows, so a 512px reference contributes
 the whole job of a reference image, and it is being conditioned on a fraction
 of the rows the model was built to see.
 
-This node closes that gap the same way `MiniMaxH3KeyframeCanvas` closes the
-canvas one: it does the resize itself, so the stock node's own scale becomes
-`min(1.0, 2048/2048) = 1.0` and its resize is a no-op. It composes rather
-than replacing.
+This custom node handles that still-open native ComfyUI gap for graphs that wire
+it, the same way `MiniMaxH3KeyframeCanvas` handles the canvas divergence: it
+does the resize itself, so the stock node's own scale becomes
+`min(1.0, 2048/2048) = 1.0` and its resize is a no-op. It composes rather than
+replacing core, and does not make the native gap closed.
 
 **Upscaling is not free and the node says so.** Reference rows ride through
 every sampling step, so quadrupling the short edge multiplies those rows by

@@ -4,7 +4,7 @@
 is, what ComfyUI actually does to it, what it costs, and how to write the
 prompt so the model uses it the way you meant.
 
-last updated: 2026-08-21
+last updated: 2026-08-23
 
 Sources: MiniMax's official prompt guide, general prompting research, ComfyUI's
 own code, and **sglang's MiniMax H3 serving path** (`coderef/sglang`, read at
@@ -70,8 +70,9 @@ read from source 2026-08-21: `scale = 2048 / min(w, h)`, `"allow_upscale": True`
 in the returned shape, nearest-32 per axis, and a docstring that says in as many
 words that reference images have no area-cap branch). So a reference smaller
 than 2048 on its short side reaches the DiT under-sized — and identity fidelity
-is the whole job of a reference image. `MiniMaxH3ReferenceFit` exists to close
-that gap.
+is the whole job of a reference image. Native ComfyUI still behaves this way;
+this repo's optional `MiniMaxH3ReferenceFit` node handles the divergence only
+for graphs that explicitly wire it.
 
 **The default mode is off-vendor in the other direction too, and by more.**
 `ref_image_size` defaults to `match`, which sizes a reference to the
@@ -160,10 +161,10 @@ capped and `TrimAudioDuration` is a no-op on it. Measured 2026-08-22 by
 driving that exact ffmpeg call: cap 0 yields 19.541s of a 19.541s track, cap
 124 yields 5.167s, cap 362 yields 15.083s.
 
-So on that path the two changes close the gap **redundantly**, and it is worth
-keeping which is doing what straight:
+So on that path the two local workflow changes handle the still-open native
+gap **redundantly**, and it is worth keeping which is doing what straight:
 
-| path | closed by `frame_load_cap` | closed by the trim |
+| path | locally handled by `frame_load_cap` | locally handled by the trim |
 |---|---|---|
 | `ref_video_audio_*` | yes, whenever the cap is non-zero | yes, and it is what holds if the cap goes back to 0 |
 | `ref_audio_*` (standalone `LoadAudio`) | no such mechanism exists | **yes, and it is the only one** |

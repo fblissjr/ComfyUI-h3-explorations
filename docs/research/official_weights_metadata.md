@@ -1,6 +1,6 @@
 # What the official release ships, against what ComfyUI does with it
 
-last updated: 2026-08-21
+last updated: 2026-08-23
 
 The MiniMax H3 release as published, read from the repo on the `Storage` side
 on **2026-08-21**: `model_index.json`, both partition entry points, and every
@@ -19,18 +19,19 @@ reference-conditioning path is [`h3_references.md`](../h3_references.md).
 
 ### 1. Seven H3-specific special tokens were unreachable in ComfyUI
 
-**Fixed upstream 2026-08-22 by Comfy-Org/ComfyUI PR 15808**, which declares
-the seven on a `Qwen3VLSDTokenizer` subclass so every consumer gets them --
-core's `MiniMaxH3ReferenceToVideo` included, which no custom pack can add an
-import to. **OPEN, not merged**, so an install without it still has the defect
-and this section describes what that install does. Verified here against the
-PR's own diff applied to a clean master: all nine audit scenes reproduce the
-release tokenizer exactly and the reference path carries the marker. `bench/audit_h3_marker_tokenization.py` is
-the verification harness and runs identically either way; it reports which
-source supplied the correction.
+**Fixed natively in ComfyUI by merged PR 15808.** This installed checkout
+contains the fix as commit `924743af`; it declares the seven on a
+`Qwen3VLSDTokenizer` subclass so every consumer gets them -- core's
+`MiniMaxH3ReferenceToVideo` included. This is a native ComfyUI resolution, not
+a fix supplied by this custom-node repo. An older install without that commit
+still has the defect and this section describes what that install does.
+`bench/audit_h3_marker_tokenization.py` is this repo's verification harness; it
+reports which source supplied the correction.
 
-`MiniMaxH3VendorTokens` is deprecated by that move. `clip_with_vendor_tokens`
-is not, because a pack cannot assume the install it runs on carries the patch.
+`MiniMaxH3VendorTokens` is deprecated by that native fix.
+`clip_with_vendor_tokens` remains only as a compatibility shim because a pack
+cannot assume the install it runs on carries the patch. On this checkout the
+audit requires the shim to do nothing.
 
 The finding below stands as written for an unpatched install.
 

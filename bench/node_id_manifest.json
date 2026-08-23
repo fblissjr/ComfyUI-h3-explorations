@@ -1,4 +1,37 @@
 {
+  "MiniMaxH3AppendRefAudio": {
+    "inputs": [
+      "audio",
+      "references"
+    ],
+    "node_id": "MiniMaxH3AppendRefAudio",
+    "outputs": [
+      "references"
+    ]
+  },
+  "MiniMaxH3AppendRefImage": {
+    "inputs": [
+      "image",
+      "size_policy",
+      "references"
+    ],
+    "node_id": "MiniMaxH3AppendRefImage",
+    "outputs": [
+      "references"
+    ]
+  },
+  "MiniMaxH3AppendRefVideo": {
+    "inputs": [
+      "frames",
+      "video_info",
+      "soundtrack",
+      "references"
+    ],
+    "node_id": "MiniMaxH3AppendRefVideo",
+    "outputs": [
+      "references"
+    ]
+  },
   "MiniMaxH3Conditioning": {
     "inputs": [
       "clip",
@@ -60,6 +93,24 @@
     "node_id": "MiniMaxH3ProvenanceStamp",
     "outputs": [
       "latent"
+    ]
+  },
+  "MiniMaxH3ReferenceConditioning": {
+    "inputs": [
+      "clip",
+      "vae",
+      "audio_vae",
+      "references",
+      "prompt",
+      "width",
+      "height",
+      "length",
+      "vendor_tokens"
+    ],
+    "node_id": "MiniMaxH3ReferenceConditioning",
+    "outputs": [
+      "positive",
+      "Output"
     ]
   },
   "MiniMaxH3ReferenceFit": {

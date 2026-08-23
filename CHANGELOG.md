@@ -4,6 +4,64 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.59.0
+
+### Added
+
+- **A typed, ordered reference runtime now exists.** Three copy-on-append nodes
+  build `MINIMAX_H3_REFERENCES` image, video(+soundtrack), and standalone-audio
+  records; `MiniMaxH3ReferenceConditioning` compiles that one list into both
+  Qwen's presentation items and the DiT reference blocks. List position is the
+  authority, a video owns its soundtrack and VHS metadata, and arbitrary
+  cross-modality order no longer has to be simulated through parallel sockets.
+
+- **Reference media is normalized at that typed boundary.** `loaded_fps` comes
+  from the frames' own `VHS_VIDEOINFO`; non-24-fps clips are resampled before
+  either encoder, mono audio is duplicated to stereo, and every soundtrack and
+  standalone audio reference is capped at the aligned target duration. Still
+  images and video geometry deliberately keep Comfy-compatible no-upscale
+  policy; release upscaling remains a separate opt-in question.
+
+- **CPU acceptance and red controls for the runtime.**
+  `check_reference_runtime.py` covers copy-on-add order, runtime metadata
+  ownership, fps normalization, mono/duration normalization, and the sounded
+  video's two-Qwen-items/one-DiT-block contract. Its red harness detects four
+  independent regressions. `check_typed_reference_consumers.py` proves label
+  discovery and preflight read the same typed chain and refuse malformed plans.
+
+### Changed
+
+- Prompt-label discovery and static preflight now recognize
+  `MiniMaxH3ReferenceConditioning`. Preflight selects `ref-en`, prices image
+  policies and discovers video/audio media through the validated chain, and
+  reports that trim/mono normalization is owned by the typed compiler.
+
+- The ordered resolver admits only the four served VHS video-loader classes,
+  traces both branches of `JoinAudioChannels`, and exposes one validated entry
+  view for static consumers. Matching output slots on an unrelated node are no
+  longer accepted as video plus `VHS_VIDEOINFO`.
+
+- Schema collection, preflight, and the reference-fit acceptance check
+  explicitly import Comfy in CPU mode. These checks no longer select the CUDA
+  device merely to read schemas or scalar H3 geometry while a render owns the
+  GPU.
+
+### Fixed
+
+- **Base-guide alignment is now exact, not presence-only.** Preflight parses
+  I2VA/FL2VA/L2VA's literal Part One templates from the release guide, resolves
+  FL2VA/L2VA's final shot and snapped `length / 24`, and rejects a plausible
+  sentence for the wrong mode, wrong duration, or wrong final shot. The red
+  harness covers all three.
+
+### Not yet validated or migrated
+
+- The running ComfyUI process predates these node registrations and was not
+  restarted while its GPU was occupied. No typed-reference prompt has been
+  submitted. Shipped graphs still use core's socket node until the live schema
+  and one GPU smoke pass are green; migration and retirement are deliberately
+  pending rather than claimed complete.
+
 ## 0.58.0
 
 ### Removed
@@ -71,10 +129,9 @@ artifact.
   mutations (a picture never named, a picture no socket wires, no alignment line
   at all), and i2v with a bare label still fails.
 
-  **Still enforced by nothing: that the alignment sentence is the RIGHT one for
-  the mode.** Preflight checks that the preamble names a Picture, which is how
-  `scene_prompt` held the I2VA sentence for an fl2va task without anything going
-  red. The guide-extracted grep used here is a manual control.
+  **Closed in 0.59.0:** preflight now compares the exact guide-derived template
+  for the resolved mode, final shot, and snapped duration; the red harness
+  exercises the wrong-mode sentence that used to pass.
 
 ## 0.57.0
 

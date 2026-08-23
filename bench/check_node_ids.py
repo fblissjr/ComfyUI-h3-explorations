@@ -73,6 +73,12 @@ def collect():
     import types
 
     sys.path.insert(0, str(REPO.parent.parent))   # ComfyUI root, for comfy_api
+    # Schema collection is a CPU-only operation. On this install importing
+    # Comfy's model management otherwise selects the CUDA device even though
+    # no node is executed, which makes this nominally GPU-free guard contend
+    # with a running render for no reason.
+    import comfy.cli_args
+    comfy.cli_args.args.cpu = True
 
     pkg = types.ModuleType("_h3pack")
     pkg.__path__ = [str(REPO)]

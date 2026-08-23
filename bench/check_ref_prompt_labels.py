@@ -74,7 +74,7 @@ sys.path.insert(0, str(REPO / "workflows"))
 sys.path.insert(0, str(REPO))
 from h3_config import GRAPH_DIRS, graph_paths  # noqa: E402
 
-REF_NODE = "MiniMaxH3ReferenceToVideo"
+REF_NODES = ("MiniMaxH3ReferenceToVideo", "MiniMaxH3ReferenceConditioning")
 
 
 def wired_labels(inputs, graph=None):
@@ -120,13 +120,13 @@ def main():
     for path in graph_paths(WORKFLOWS, "*_api.json"):
         doc = json.loads(path.read_text(encoding="utf-8"))
         for node in doc.values():
-            if isinstance(node, dict) and node.get("class_type") == REF_NODE:
+            if isinstance(node, dict) and node.get("class_type") in REF_NODES:
                 # the whole doc rides along: an ordered graph's plan lives
                 # in the append chain, not in this node's inputs
                 graphs.append((path.name, node["inputs"], doc))
 
     def every_ref_graph_seen():
-        assert graphs, "no shipped graph carries a MiniMaxH3ReferenceToVideo"
+        assert graphs, f"no shipped graph carries one of {REF_NODES}"
         print(f"        ({len(graphs)} ref graph(s))")
 
     def no_graph_directory_is_invisible():
@@ -244,7 +244,15 @@ def main():
             # which loaders actually feed a reference socket
             feeding = set()
             for node in doc.values():
-                if not isinstance(node, dict) or node.get("class_type") != REF_NODE:
+                if (not isinstance(node, dict)
+                        or node.get("class_type") not in REF_NODES):
+                    continue
+                # The typed surface derives `loaded_fps` from its owned
+                # VHS_VIDEOINFO and normalizes before either encoder. A
+                # force_rate widget is therefore no longer its clock; this
+                # legacy gate remains only for the socket node that has no
+                # metadata input at all.
+                if node.get("class_type") == "MiniMaxH3ReferenceConditioning":
                     continue
                 for key, val in (node.get("inputs") or {}).items():
                     if key.startswith(("ref_videos.", "ref_video_audios.")) \

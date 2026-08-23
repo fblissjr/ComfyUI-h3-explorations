@@ -1,6 +1,6 @@
 # Roadmap: what we are trying to find out, and what would count as finding it
 
-Last updated: 2026-08-20.
+Last updated: 2026-08-23.
 
 ## What this is, and who it is for
 
@@ -25,6 +25,40 @@ Two companion documents, and the split matters:
 `docs/evidence.md` is the ledger of things measured that **should not be
 relied on**. This file is the forward-looking one: what we are doing next and
 what would make it a real answer.
+
+## Current forward plan — 2026-08-23
+
+The highest-value CPU work is complete: base-guide alignment is exact, the
+ordered resolver admits explicit VHS sources and traces branched audio, the
+typed append/compiler nodes exist, and both runtime and static-consumer
+controls are green. The working ComfyUI server is still running the pre-change
+registration, so this is **implemented but not operationally accepted**.
+
+Next, in order:
+
+1. When the GPU is free, restart ComfyUI and confirm the four new schemas from
+   `/object_info`. Do not infer registration from an import in another process.
+2. Build one small typed reference graph and run the live schema validator,
+   then one GPU smoke. Acceptance means it reaches Qwen and the DiT with the
+   same ordered item/block contracts as the CPU compiler check.
+3. Repoint the shipped reference graphs through append chains, regenerate UI
+   and API forms, and rerun discovery, prompt, preflight, schema, and smoke
+   checks. Core's legacy node is not retired while any shipped graph uses it.
+4. Only after migration is clean, consider release upscaling plus the
+   duration-aware Qwen-video processor as one named opt-in policy. It must not
+   be folded into the ordering migration, because that would move both media
+   content and order in the same render.
+5. Later cleanup: retire `vendor_tokens` from generated workflow inputs now
+   that merged ComfyUI PR 15808 supplies the tokens natively. First set and
+   verify the minimum supported ComfyUI version; until then, keep the helper as
+   backward compatibility for older installs. This is cleanup, not a current
+   conditioning or migration blocker.
+6. GPU experiments remain behind that work: the FL2VA base-versus-turbo pair,
+   the singing-removed speaker-attribution scene, and `ncu` profiling all need
+   the card alone.
+
+The historical lists below remain evidence of how priorities arrived; this
+block is the current authority when they conflict.
 
 ---
 

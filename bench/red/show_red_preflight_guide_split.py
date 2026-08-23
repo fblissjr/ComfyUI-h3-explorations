@@ -31,6 +31,7 @@ PF = subject("bench/preflight_graph.py")
 
 T2V = "h3_probe_split_base_first_api.json"      # base guide, no keyframe
 KEYFRAME = "h3_first_frame_to_video_api.json"   # base guide, first_frame wired
+FL2V = "h3_first_last_frame_to_video_api.json"  # both keyframes wired
 MAIN = "integrated_multimodal_description"
 
 
@@ -70,10 +71,15 @@ def _strip_instruction(prompt):
     return prompt[prompt.index(MAIN + ":"):]
 
 
+def _replace_instruction(prompt, instruction):
+    return instruction + "\n\n" + prompt[prompt.index(MAIN + ":"):]
+
+
 def build():
     h = Harness("bench/preflight_graph.py")
     h.fixture(REPO / "workflows" / T2V, "the base-format t2v graph under test")
     h.fixture(REPO / "workflows" / KEYFRAME, "the keyframe graph under test")
+    h.fixture(REPO / "workflows" / FL2V, "the FL2VA graph under test")
     h.baseline(lambda: _fails(*_graph(T2V)))
 
     h.case("base: a core field renamed away", MUTATION,
@@ -86,6 +92,15 @@ def build():
            MUTATION, _mutate(KEYFRAME, _strip_instruction))
     h.case("keyframe: names <Picture 2> with one frame wired", MUTATION,
            _mutate(KEYFRAME, lambda p: p.replace("<Picture 1>", "<Picture 2>")))
+    h.case("FL2VA: I2VA's plausible alignment sentence", MUTATION,
+           _mutate(FL2V, lambda p: _replace_instruction(
+               p, PF.BASE_ALIGNMENT["I2VA"])))
+    h.case("FL2VA: duration differs from the graph", MUTATION,
+           _mutate(FL2V, lambda p: p.replace(
+               "15.08-second mark", "15.07-second mark", 1)))
+    h.case("FL2VA: final-shot placeholder resolves to the wrong shot", MUTATION,
+           _mutate(FL2V, lambda p: p.replace(
+               "[Shot 1] Live-action", "[Shot 2] Live-action", 1)))
 
     # The two that must NOT move. See the module docstring.
     h.case("base: a 10-word prompt, far outside ref-en's 350-500", NEAR_MISS,
@@ -94,6 +109,8 @@ def build():
                "overall_soundscape: Quiet.\n\nnon_diegetic_music: N/A")))
     h.case("keyframe: its own correct <Picture 1>", NEAR_MISS,
            lambda: _fails(*_graph(KEYFRAME)))
+    h.case("FL2VA: exact guide line with graph-derived N and S.SS", NEAR_MISS,
+           lambda: _fails(*_graph(FL2V)))
     return h
 
 

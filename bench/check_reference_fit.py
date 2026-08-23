@@ -60,6 +60,9 @@ sys.path.insert(0, str(HERE.parents[2]))          # ComfyUI root
 # repo has its own top-level `nodes.py`, and comfy_extras does `import nodes`.
 # Adding the repo first shadows ComfyUI's and the import dies somewhere
 # confusing.
+import comfy.cli_args  # noqa: E402
+comfy.cli_args.args.cpu = True
+
 from comfy_extras.nodes_minimax_h3 import (CANVAS_MULTIPLE,  # noqa: E402
                                            REF_IMAGE_SHORT_EDGE, _resize)
 

@@ -45,6 +45,12 @@ REPO = HERE.parent
 sys.path.insert(0, str(REPO.parent))          # custom_nodes/, for the package
 sys.path.insert(0, str(REPO.parents[1]))      # ComfyUI root, must win
 
+# Loading schemas must not select the GPU. The node modules import Comfy's
+# model-management layer for runtime helpers even though this check never
+# executes a node.
+import comfy.cli_args  # noqa: E402
+comfy.cli_args.args.cpu = True
+
 _PKG = REPO.name
 
 _SENTINEL = object()

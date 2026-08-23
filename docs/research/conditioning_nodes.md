@@ -1,6 +1,6 @@
 # Conditioning against the release: what was built, and what was not
 
-last updated: 2026-08-21
+last updated: 2026-08-23
 
 Two defects were found by reading the published release beside the code that
 consumes it ([`official_weights_metadata.md`](official_weights_metadata.md)).
@@ -32,11 +32,24 @@ reachable rather than patching speculatively.
 
 ---
 
-## Defect 1: the seven special tokens. Fixed.
+## Defect 1: the seven special tokens. Fixed natively; local shim retained.
 
-`MiniMaxH3VendorTokens` (`vendor_tokens.py`), a CLIP-to-CLIP node wired between
-the loader and the conditioning node. It reads the release's declared token list
-from `vendor_config/` and adds what the bundled tokenizer lacks.
+**Native ComfyUI status:** fixed by merged PR 15808, present in this installed
+checkout as commit `924743af`. Core's H3 tokenizer now registers all seven
+tokens itself. That is the resolution of the ComfyUI/vendor gap.
+
+**This repo's handling:** `MiniMaxH3VendorTokens` and
+`clip_with_vendor_tokens` predate the native fix. They remain only for older
+ComfyUI installs and are required to be no-ops on this checkout. Removing their
+workflow inputs is deferred in [`roadmap.md`](../roadmap.md) until the minimum
+supported ComfyUI version is explicit.
+
+`MiniMaxH3VendorTokens` (`vendor_tokens.py`) is the standalone CLIP-to-CLIP
+form. The local conditioning nodes call the same module's
+`clip_with_vendor_tokens` helper while their generated `vendor_tokens` input is
+enabled. On an older unpatched install it reads the release's declared token
+list from `vendor_config/` and adds what the bundled tokenizer lacks. This
+describes the compatibility implementation, not the native fix.
 
 The seam is a **rebind on a clone**, not a mutation. `clip.clone()`
 (`comfy/sd.py:301-310`) copies seven fields and shares the tokenizer and the
@@ -169,15 +182,41 @@ keeps running and the graphs keep rendering.
 Shown red twice and independently: deleting the empty-prompt refusal reddens
 only that arm, forcing `fit_to_canvas` reddens only the last-frame arm.
 
-## Not done
+## Typed reference surface: built, not migrated
 
-A replacement for `MiniMaxH3ReferenceToVideo`. If one is ever wanted — for a
-reason other than these two defects — the list above is the acceptance
-criteria, and **since 2026-08-22 every item on it is guarded by an
-assertion**: `bench/check_reference_contracts.py` covers all seven, with
+The runtime replacement was added on 2026-08-23, after the acceptance suite
+and ordered resolver had stopped changing under adversarial review:
+
+- `MiniMaxH3AppendRefImage`, `MiniMaxH3AppendRefVideo`, and
+  `MiniMaxH3AppendRefAudio` build one copy-on-append
+  `MINIMAX_H3_REFERENCES` tuple;
+- a video record owns its frames, the same loader's `VHS_VIDEOINFO`, and its
+  optional soundtrack;
+- `MiniMaxH3ReferenceConditioning` walks the tuple once to build Qwen's
+  `ref_items` and the DiT's `minimax_refs` blocks;
+- that boundary derives the source clock from `loaded_fps`, normalizes video
+  to 24 fps, duplicates mono to stereo, and caps audio at aligned
+  `frame_count / 24`;
+- reference geometry remains Comfy-compatible and no-upscale. Release sizing
+  is deliberately not mixed into an ordering migration.
+
+`bench/check_reference_runtime.py` controls the runtime boundary with stub
+VAEs and no CUDA; `bench/red/show_red_reference_runtime.py` makes ignored fps,
+skipped audio normalization, foreign metadata, and reversed order go red.
+`bench/check_typed_reference_consumers.py` proves label discovery and preflight
+read the same validated chain.
+
+What is not done is operational rather than architectural: the running server
+has not been restarted onto these registrations, no typed graph has rendered,
+and shipped reference graphs have not been repointed. Core's socket node stays
+the live authority until a schema check and GPU smoke pass are green; only then
+should regeneration and retirement happen.
+
+The acceptance list above remains relevant: **since 2026-08-22 every item is
+guarded by an assertion** in `bench/check_reference_contracts.py`, with
 contracts 4 and 5 shown red in `bench/red/show_red_reference_contracts.py`.
-This paragraph said "none of it is currently guarded" until that day, which is
-the sentence a replacement would have been built against.
+This section said "not done" until the runtime existed; preserving that history
+matters because the controls, not implementation enthusiasm, were the blocker.
 
 **Read the acceptance criteria as two lists, not one.** Some of these are
 behaviour a replacement must PRESERVE — a sounded video making two Qwen items

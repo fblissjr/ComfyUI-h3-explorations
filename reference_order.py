@@ -303,28 +303,13 @@ def plan_for(inputs, graph=None) -> list:
     return legacy_plan(inputs)
 
 
-def resolve_chain(graph: dict, node_id: str) -> list:
-    """Walk an append chain backward from its terminal and return it in order.
+def resolve_chain_entries(graph: dict, node_id: str) -> list[tuple[str, dict, str]]:
+    """Validate an append chain and return ``(id, node, kind)`` in user order.
 
-    Each append node takes the plan so far on `references` and contributes one
-    record, so the chain is discovered tail-first and reversed. That reversal
-    is the only place list order is established, which is why it has its own
-    assertion rather than being trusted as obvious.
-
-    **Fails loudly, never partially.** A resolver that returned what it could
-    parse would hand a short plan to the label assigner, and a short plan is a
-    renumbering: drop one record and every ordinal after it shifts, silently.
-    So a cycle, a link to something that is not an append node, or a video
-    whose frames and metadata come from different loaders all raise
-    `ChainError`.
-
-    The last of those is worth spelling out. A video record owns its
-    soundtrack and its `VHS_VIDEOINFO`, and `loaded_fps` is derived from that
-    metadata rather than from a second widget somebody could set
-    inconsistently. That only holds if the metadata describes the same decode
-    as the frames -- so if `frames` and `video_info` resolve to different
-    source nodes, the ownership claim is false and the chain is rejected
-    rather than trusted.
+    Static consumers that need media links as well as labels use this function
+    instead of growing a second chain walker.  Validation therefore remains
+    identical whether the caller is assigning labels, pricing references, or
+    discovering source files.
     """
     chain, seen = [], set()
     current = node_id
@@ -365,9 +350,41 @@ def resolve_chain(graph: dict, node_id: str) -> list:
             raise ChainError(
                 f"node {current!r} has a `{CHAIN_INPUT}` input that is not a "
                 f"[node_id, slot] link: {link!r}")
+    ordered = list(reversed(chain))
+    # Entries are a public view for static consumers, not a weaker structural
+    # parse. Validate record-specific ownership here too so a pricing/reporting
+    # caller cannot accept a chain that label assignment would refuse.
+    for nid, node, kind in ordered:
+        if kind == "video":
+            _assert_video_ownership(nid, node.get("inputs", {}), graph)
+    return ordered
 
+
+def resolve_chain(graph: dict, node_id: str) -> list:
+    """Walk an append chain backward from its terminal and return it in order.
+
+    Each append node takes the plan so far on `references` and contributes one
+    record, so the chain is discovered tail-first and reversed. That reversal
+    is the only place list order is established, which is why it has its own
+    assertion rather than being trusted as obvious.
+
+    **Fails loudly, never partially.** A resolver that returned what it could
+    parse would hand a short plan to the label assigner, and a short plan is a
+    renumbering: drop one record and every ordinal after it shifts, silently.
+    So a cycle, a link to something that is not an append node, or a video
+    whose frames and metadata come from different loaders all raise
+    `ChainError`.
+
+    The last of those is worth spelling out. A video record owns its
+    soundtrack and its `VHS_VIDEOINFO`, and `loaded_fps` is derived from that
+    metadata rather than from a second widget somebody could set
+    inconsistently. That only holds if the metadata describes the same decode
+    as the frames -- so if `frames` and `video_info` resolve to different
+    source nodes, the ownership claim is false and the chain is rejected
+    rather than trusted.
+    """
     records = []
-    for nid, node, kind in reversed(chain):        # tail-first -> user order
+    for nid, node, kind in resolve_chain_entries(graph, node_id):
         ins = node.get("inputs", {})
         if kind == "image":
             records.append(ImageRef(name=str(nid)))
@@ -382,11 +399,17 @@ def resolve_chain(graph: dict, node_id: str) -> list:
     return records
 
 
-# VHS_LoadVideo's outputs, which a video record's links must name exactly.
-# `video_info` is typed VHS_VIDEOINFO, and every node that produces it -- all
-# four VHS video loaders -- emits it at slot 3, with images at 0. Verified
-# against the served `/object_info` on 2026-08-22 rather than assumed from the
-# one loader the shipped graphs happen to use.
+# VHS video sources admitted by the typed record. Matching a node id and slots
+# 0/3 is not sufficient: an unrelated four-output node can have values at both
+# positions without either being the frames/VHS_VIDEOINFO pair the record
+# claims to own. All four rows were re-read from the served `/object_info` on
+# 2026-08-23; each emits IMAGE at 0, AUDIO at 2 and VHS_VIDEOINFO at 3.
+VIDEO_SOURCE_CLASSES = frozenset({
+    "VHS_LoadVideo",
+    "VHS_LoadVideoPath",
+    "VHS_LoadVideoFFmpeg",
+    "VHS_LoadVideoFFmpegPath",
+})
 VIDEO_SLOTS = {"frames": 0, "video_info": 3}
 
 # Single-input audio nodes a soundtrack may legitimately pass through on its
@@ -433,6 +456,14 @@ AUDIO_PASSTHROUGH = {
     "SplitAudioChannels": ("audio", (0, 1)),
 }
 
+# Multi-input audio nodes need their own rule: treating JoinAudioChannels as a
+# one-input pass-through makes provenance depend on whichever channel was
+# followed and silently drops the other. The live schema names both inputs and
+# one AUDIO output. Both branches are traced; see `_trace_soundtrack`.
+AUDIO_BRANCHING = {
+    "JoinAudioChannels": (("audio_left", "audio_right"), (0,)),
+}
+
 
 
 def _exact_slot(value) -> int | None:
@@ -469,10 +500,10 @@ def _assert_link(nid, ins, field, required=True):
     return link
 
 
-def _trace_soundtrack(graph, link):
+def _trace_soundtrack(graph, link, trail=frozenset()):
     """Follow a soundtrack back through known pass-throughs, carrying SLOTS.
 
-    Returns (origin_node_id, resolved). The walk tracks `(node_id, slot)`
+    Returns (known_origin_ids, resolved). The walk tracks `(node_id, slot)`
     pairs, not node ids: an earlier version dropped the slot and called
     `[loader, 0]` -- a VHS_LoadVideo's IMAGE output -- an owned soundtrack,
     along with a fractional slot, a TrimAudioDuration output 7, and a trim
@@ -486,50 +517,68 @@ def _trace_soundtrack(graph, link):
     not "we could not check"; they are "this cannot be right". Unresolved is
     reserved for an unfamiliar node used at a plausible output.
     """
-    seen = set()
     node_id, slot = str(link[0]), link[1]
-    while True:
-        if (node_id, _exact_slot(slot)) in seen:
+    exact = _exact_slot(slot)
+    point = (node_id, exact)
+    if point in trail:
+        raise ChainError(
+            f"the soundtrack chain revisits node {node_id!r} slot {slot!r}: "
+            f"a cycle has no origin to attribute the audio to")
+    trail = trail | {point}
+    node = graph.get(node_id)
+    if node is None:
+        raise ChainError(
+            f"the soundtrack traces to node {node_id!r}, which is not in "
+            f"the graph. An unresolvable link is not an unfamiliar one")
+    cls = node.get("class_type")
+    if exact is None or exact < 0:
+        raise ChainError(
+            f"the soundtrack takes output {slot!r} of node {node_id!r}, "
+            f"which is not a real non-negative integer slot")
+    if cls in AUDIO_SOURCE_SLOTS:
+        if exact not in AUDIO_SOURCE_SLOTS[cls]:
             raise ChainError(
-                f"the soundtrack chain revisits node {node_id!r} slot {slot!r}: "
-                f"a cycle has no origin to attribute the audio to")
-        seen.add((node_id, _exact_slot(slot)))
-        node = graph.get(node_id)
-        if node is None:
+                f"the soundtrack takes output slot {exact} of {cls} "
+                f"{node_id!r}, which carries "
+                f"{AUDIO_SOURCE_SLOTS[cls]} as audio. That output is not "
+                f"a soundtrack whatever its shape")
+        return {node_id}, True
+    if cls in AUDIO_PASSTHROUGH:
+        field, outs = AUDIO_PASSTHROUGH[cls]
+        if exact not in outs:
             raise ChainError(
-                f"the soundtrack traces to node {node_id!r}, which is not in "
-                f"the graph. An unresolvable link is not an unfamiliar one")
-        cls = node.get("class_type")
-        exact = _exact_slot(slot)
-        if exact is None or exact < 0:
+                f"the soundtrack takes output slot {exact} of {cls} "
+                f"{node_id!r}, which carries audio on {outs}")
+        nxt = node.get("inputs", {}).get(field)
+        if not (isinstance(nxt, list) and len(nxt) == 2):
             raise ChainError(
-                f"the soundtrack takes output {slot!r} of node {node_id!r}, "
-                f"which is not a real non-negative integer slot")
-        if cls in AUDIO_SOURCE_SLOTS:
-            if exact not in AUDIO_SOURCE_SLOTS[cls]:
-                raise ChainError(
-                    f"the soundtrack takes output slot {exact} of {cls} "
-                    f"{node_id!r}, which carries "
-                    f"{AUDIO_SOURCE_SLOTS[cls]} as audio. That output is not "
-                    f"a soundtrack whatever its shape")
-            return node_id, True
-        if cls in AUDIO_PASSTHROUGH:
-            field, outs = AUDIO_PASSTHROUGH[cls]
-            if exact not in outs:
-                raise ChainError(
-                    f"the soundtrack takes output slot {exact} of {cls} "
-                    f"{node_id!r}, which carries audio on {outs}")
+                f"{cls} {node_id!r} has a `{field}` input that is not a "
+                f"[node_id, slot] link: {nxt!r}. A known processor with a "
+                f"broken input is malformed, not unfamiliar")
+        return _trace_soundtrack(graph, nxt, trail)
+    if cls in AUDIO_BRANCHING:
+        fields, outs = AUDIO_BRANCHING[cls]
+        if exact not in outs:
+            raise ChainError(
+                f"the soundtrack takes output slot {exact} of {cls} "
+                f"{node_id!r}, which carries audio on {outs}")
+        origins, resolved = set(), True
+        for field in fields:
             nxt = node.get("inputs", {}).get(field)
             if not (isinstance(nxt, list) and len(nxt) == 2):
                 raise ChainError(
                     f"{cls} {node_id!r} has a `{field}` input that is not a "
                     f"[node_id, slot] link: {nxt!r}. A known processor with a "
-                    f"broken input is malformed, not unfamiliar")
-            node_id, slot = str(nxt[0]), nxt[1]
-            continue
-        # An unfamiliar node at a plausible output: it may read the right
-        # loader through an input this module does not know.
-        return node_id, False
+                    f"broken branch is malformed, not unfamiliar")
+            branch_origins, branch_resolved = _trace_soundtrack(
+                graph, nxt, trail)
+            origins.update(branch_origins)
+            resolved = resolved and branch_resolved
+        return origins, resolved
+    # An unfamiliar node at a plausible output: it may read the right loader
+    # through an input this module does not know. The id is diagnostic only;
+    # `resolved=False` prevents it being compared as a known origin.
+    return {node_id}, False
 
 
 def _assert_video_ownership(nid, ins, graph) -> str | None:
@@ -544,8 +593,9 @@ def _assert_video_ownership(nid, ins, graph) -> str | None:
     every sounded graph here trims it to the generated duration, and the mono
     upmix would be another such node. Requiring it to arrive raw at slot 2
     rejected the entire shipped population. So it is traced back through
-    `AUDIO_PASSTHROUGH` instead, and refused only when it demonstrably
-    originates somewhere other than this record's own loader.
+    `AUDIO_PASSTHROUGH` and `AUDIO_BRANCHING` instead. Ownership is established
+    by placing it in the record; provenance is diagnostic, so another known
+    origin is reported as `foreign` rather than refused.
 
     Returns the origin verdict for the record to carry.
     """
@@ -558,13 +608,25 @@ def _assert_video_ownership(nid, ins, graph) -> str | None:
             f"one clip and derives loaded_fps from its metadata, which is "
             f"false if they describe different decodes")
 
+    source = graph.get(str(frames[0]))
+    if source is None:
+        raise ChainError(
+            f"video append node {nid!r} names source node {frames[0]!r}, "
+            f"which is not in the graph")
+    source_class = source.get("class_type")
+    if source_class not in VIDEO_SOURCE_CLASSES:
+        raise ChainError(
+            f"video append node {nid!r} takes frames and video_info from "
+            f"{source_class!r} {frames[0]!r}; matching slots 0/3 do not make "
+            f"an unrelated node one of {sorted(VIDEO_SOURCE_CLASSES)}")
+
     track = ins.get("soundtrack")
     if track is None:
         return None
     if not (isinstance(track, list) and len(track) == 2):
         raise ChainError(f"video append node {nid!r} has a soundtrack input "
                          f"that is not a [node_id, slot] link: {track!r}")
-    origin, resolved = _trace_soundtrack(graph, track)
+    origins, resolved = _trace_soundtrack(graph, track)
     if not resolved:
         return "unresolved"
-    return "owned" if origin == str(frames[0]) else "foreign"
+    return "owned" if origins == {str(frames[0])} else "foreign"
