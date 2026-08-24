@@ -55,18 +55,18 @@ owns that correction and the Gate 1B acceptance rule.
 
 ## Effective attention-mask rule
 
-**MEASURED.** Supplying an all-ones attention mask makes Transformers SDPA use
-its math backend. On the measured long fixture this materialized a quadratic
-attention tensor and made the forward substantially slower. Omitting a mask
-that masks no positions preserves causal attention.
+**MEASURED.** On the released-weight comparison fixture, keeping versus
+omitting an all-ones mask under the same forced math backend was bit-identical
+at the raw layer-49 state. The mask therefore added no masking semantics on
+that eligible input; omitting it preserved causal attention.
 
-On the released-weight comparison fixture, keeping versus omitting the
-all-ones mask under the same forced math backend was bit-identical at the raw
-layer-49 state. Changing from forced math to the automatic kernel policy while
-also omitting the mask produced relative L2 0.000420, so that difference belongs
-to the kernel-policy arm rather than to mask semantics. Torch reports backend
-availability but not the backend actually selected by an automatic call; the
-artifact labels that arm `auto`, not as a named fused kernel.
+Changing from forced math to the automatic kernel policy while also omitting
+the mask produced relative L2 0.000420. That comparison establishes
+kernel-policy sensitivity, not the identity of the automatically selected
+backend. The availability API does not identify selection, and availability
+must be queried at the real tensor shape and causal mode. The artifact labels
+that arm `auto`, not as a named fused kernel. Earlier long-fixture memory and
+timing behavior remains a resource observation, not backend attribution.
 
 - [`2026-08-24_effective_mask_equivalence.json`](../../../../bench/results/2026-08-24_effective_mask_equivalence.json)
 

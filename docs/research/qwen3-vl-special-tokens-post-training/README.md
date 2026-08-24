@@ -17,3 +17,9 @@ documentation tree.
 
 The deployed AWQ checkpoint and symlink are outside this directory and are not
 changed by reorganizing these records.
+
+At the 2026-08-24 stopping point, resume with the authoritative
+[`Gate 2 readiness record`](canonical/2026-08-24_gate2_readiness.md) and
+[`active plan`](canonical/active_plan.md). Gate 1/1B are accepted; the corrected
+Gate 2A measurement and non-exporting Gate 2B modifier pilot remain before any
+v2 quantization launch package.

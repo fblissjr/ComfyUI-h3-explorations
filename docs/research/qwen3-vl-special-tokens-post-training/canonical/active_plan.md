@@ -15,10 +15,12 @@ The current W4 checkpoint remains deployed while the candidate is built and
 evaluated. Do not edit its processor snapshot, repoint its symlink, publish a
 candidate, or begin special-token training as part of this work.
 
-The first expensive milestone is the corrected v2 quantization, after a bounded
-feasibility pilot and a reviewed launch preflight. The no-training marker render
-evaluation follows on the accepted candidate; it is not a prerequisite for
-building the candidate.
+The immediate milestone is acceptance of one corrected no-modifier Gate 2A
+record, followed by a bounded, non-exporting real-AWQ-modifier Gate 2B. Only
+then can the plan freeze an absolute calibration population and reviewed launch
+package. The first full expensive milestone is the corrected v2 quantization.
+The no-training marker render evaluation follows on the accepted candidate; it
+is not a prerequisite for building the candidate.
 
 ## Locked decisions
 
@@ -142,16 +144,35 @@ dataloader/cache/trace identity assertions apply to that effective input.
 
 ### Gate 2A — measure the no-modifier sequential floor
 
+**Status:** In progress. The supported converted offload substrate has executed
+all 64 decoder layers, but the first resource table is diagnostic rather than
+budget-setting. Accept only the corrected single-version rerun specified in
+[`2026-08-24_gate2_readiness.md`](2026-08-24_gate2_readiness.md).
+
 Run the smallest no-modifier experiment through the real pinned
 `llm-compressor` sequential path that reveals cache, replay, offload, cleanup,
 and baseline resource behavior without producing a launchable candidate.
 
-Measure peak allocated and reserved VRAM, peak host RAM, activation/intermediate
-cache placement and growth, replay behavior, time by observable stage, temporary
-disk use, and interruption/OOM cleanup. Include representative single-, multi-,
+Use the supported `load_context`/`load_offloaded_model` conversion after the
+Accelerate load and prove that no Accelerate hooks or `hf_device_map` remain.
+Do not use a raw `device_map="auto"` failure to characterize the converted
+path.
+
+Measure cumulative peak allocated and reserved VRAM, current and high-water
+process RSS, system memory available, activation/intermediate-cache placement
+and growth, replay behavior, time by observable stage, physical temporary-disk
+use, and interruption/OOM cleanup. Report total population tokens separately
+from the longest row and individual visual-block grids. Preserve the allocator
+message and failure stage. Include representative single-, multi-,
 mixed-keyframe/reference-, reference-video-, and 2048-upscale stress rows. The
-pilot must have a deliberate abort/failure control and mark every partial output
-non-launchable.
+pilot must have a deliberate abort/failure control and mark every partial
+output non-launchable.
+
+Read offload placement from the offload mechanism without enumerating model
+parameters in a way that onloads them. Probe Flash, memory-efficient, and cuDNN
+availability at each real row/block shape. If automatic backend selection is
+used to explain a result, establish it with a separate profiler or
+forced-backend probe; availability alone is not selection.
 
 Use the accepted `comfy_exact` policy. Plain FP32, native BF16, and the earlier
 generic-sum hybrid remain comparison arms; lower cost alone cannot promote one
@@ -160,7 +181,9 @@ all-ones-mask omission survives the real sequential dataloader and cache path.
 
 This no-modifier run is a floor measurement. It does not instantiate AWQ
 observers or modifier state and therefore cannot set the final token budget or
-absolute calibration population.
+absolute calibration population. A prefix's total token count is not a GPU
+budget: rows execute sequentially, so the longest row and largest visual block
+must be kept distinct from population-wide host-cache growth.
 
 ### Gate 2B — measure a bounded real AWQ modifier
 
@@ -170,8 +193,17 @@ layer calibration, cache/replay behavior, peak VRAM and host RAM, temporary
 disk use, and cleanup on intentional abort. It must remain incapable of
 producing or publishing a candidate checkpoint.
 
+Every modifier arm starts from a fresh full model load. Use the supported
+converted offload bridge with an explicit host-memory reserve derived from Gate
+2A, explicitly place AWQ observer offload on CPU, and verify the decoder-only
+target boundary before execution. Include a control proving that the modifier
+path was entered. Do not create an output directory, serializer, symlink action,
+or publishing step.
+
 Gate 2B sets the total-token budget and therefore the absolute calibration
-population. Neither Gate 2 arm changes the accepted role partition.
+population only if its measured arms cover the accepted workload shapes and
+leave a declared operating reserve. Otherwise it narrows the next pilot.
+Neither Gate 2 arm changes the accepted role partition.
 
 ### Gate 3 — freeze the executable split and launch package
 
@@ -267,7 +299,7 @@ independent axis and stays outside this v2 run.
 
 ## Roles
 
-- **New Claude, v2 technical lead:** exact seam, full-load validation,
+- **Encoder Claude, v2 technical lead:** exact seam, full-load validation,
   feasibility pilot, split/trace integration, recipe and launcher, run
   supervision, and candidate artifact audit.
 - **Codex:** canonical authority, independent preflight review, privacy and

@@ -2,7 +2,8 @@
 
 **Status:** Authoritative index
 **Created:** 2026-08-24
-**Maintainers:** repository owner, Codex, and Gemini / Antigravity
+**Maintainers:** repository owner and Codex, with reviewed contributions from
+the active technical lanes
 
 This directory is the shared source of truth for the Qwen3-VL special-token and
 AWQ calibration work. A statement is not authoritative merely because it
@@ -49,13 +50,16 @@ not override a conflicting statement in this directory.
 | [`2026-08-24_layer50_processor_policy_benchmark.md`](2026-08-24_layer50_processor_policy_benchmark.md) | Measured BF16-versus-current-W4 layer-50 baseline and the decision not to widen the deployed artifact's image budget as a config-only repair. |
 | [`2026-08-24_transformers_comfy_parity.md`](2026-08-24_transformers_comfy_parity.md) | Measured M-RoPE and vision/DeepStack arithmetic parity, the released-weight precision gap, and the accepted calibration-only `comfy_exact` policy. |
 | [`2026-08-24_gate1_seam_acceptance.md`](2026-08-24_gate1_seam_acceptance.md) | Accepted native-H3-to-`llm-compressor` Gate 1/1B evidence, the fail-closed effective attention-mask rule, and the Gate 2 boundary. |
+| [`2026-08-24_gate2_readiness.md`](2026-08-24_gate2_readiness.md) | End-of-day Gate 2 boundary: closed substrate findings, superseded diagnostics, corrected Gate 2A acceptance requirements, and the Gate 2B entry contract. |
 | [`owner_authored_marker_corpus.md`](owner_authored_marker_corpus.md) | Accepted construction contract for new multimodal marker evaluation and candidate training/development corpora compiled from semantically fixed scene specifications. |
 | [`calibration_data_pool.md`](calibration_data_pool.md) | Accepted H3-IR candidate-pool partition, overlay coverage, exact-media component constraint, rights boundary, and remaining split checks. |
 
 No post-training recipe is canonical yet. The first proposed v2 calibration
-manifest and launcher were
-independently rejected; no v2 checkpoint exists. A replacement can be promoted
-only after the stated gates pass.
+manifest and launcher were independently rejected; no v2 checkpoint exists.
+Gate 1 and Gate 1B are accepted. Gate 2A is the active measurement boundary,
+and its first resource table is not a population budget. Resume from
+[`2026-08-24_gate2_readiness.md`](2026-08-24_gate2_readiness.md); a replacement
+launcher can be promoted only after the stated gates pass.
 
 ## Evidence labels
 
