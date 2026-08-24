@@ -348,6 +348,7 @@ def _sdpa_availability(dtype: torch.dtype, config) -> dict:
         return {"available": None, "reason": "no CUDA"}
     from torch.backends.cuda import (
         SDPAParams,
+        can_use_cudnn_attention,
         can_use_efficient_attention,
         can_use_flash_attention,
     )
@@ -361,8 +362,11 @@ def _sdpa_availability(dtype: torch.dtype, config) -> dict:
         q = torch.zeros(1, heads, seq, head_dim, dtype=dtype, device="cuda")
         k = torch.zeros(1, k_heads, seq, head_dim, dtype=dtype, device="cuda")
         params = SDPAParams(q, k, k, None, 0.0, True, gqa)
-        out[label] = {"flash": bool(can_use_flash_attention(params, False)),
-                      "efficient": bool(can_use_efficient_attention(params, False))}
+        out[label] = {
+            "flash": bool(can_use_flash_attention(params, False)),
+            "efficient": bool(can_use_efficient_attention(params, False)),
+            "cudnn": bool(can_use_cudnn_attention(params, False)),
+        }
         del q, k
     torch.cuda.empty_cache()
     out["note"] = ("availability, not selection: torch does not expose which "

@@ -99,6 +99,38 @@ def host_peak_kib() -> int:
     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
 
+def _proc_kib(path: str, key: str) -> int | None:
+    try:
+        for line in Path(path).read_text().splitlines():
+            if line.startswith(key):
+                return int(line.split()[1])
+    except OSError:
+        return None
+    return None
+
+
+def host_memory() -> dict:
+    """Current occupancy and what the system says is still available.
+
+    `ru_maxrss` is a *historical* high-water mark: a peak of 121 GiB does not
+    say that only a few GiB were free when the next stage would begin, because
+    the peak may have been released long before. Current RSS and the kernel's
+    own `MemAvailable` are the two that bound what a later stage can still ask
+    for, so all three are reported and none of them stands in for the others.
+    """
+    return {
+        "peak_rss_gib": round(host_peak_kib() / 2**20, 2),
+        "current_rss_gib": (
+            round(_proc_kib("/proc/self/status", "VmRSS:") / 2**20, 2)
+            if _proc_kib("/proc/self/status", "VmRSS:") else None
+        ),
+        "system_mem_available_gib": (
+            round(_proc_kib("/proc/meminfo", "MemAvailable:") / 2**20, 2)
+            if _proc_kib("/proc/meminfo", "MemAvailable:") else None
+        ),
+    }
+
+
 def cuda_reset() -> None:
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
@@ -114,13 +146,62 @@ def cuda_peak() -> dict:
     }
 
 
-def directory_bytes(path: Path) -> int:
-    total = 0
+class _CumulativePeak:
+    """A step-wide maximum that survives the per-subgraph stat resets.
+
+    The per-subgraph split needs `reset_peak_memory_stats` before every forward,
+    which makes torch's own peak describe only the last window. Reading that at
+    the end of a step would report the final subgraph's peak as the step's --
+    an under-report with no warning attached. This keeps the running maximum.
+    """
+
+    def __init__(self) -> None:
+        self.allocated = 0.0
+        self.reserved = 0.0
+
+    def observe(self, peak: dict | None = None) -> None:
+        peak = peak if peak is not None else cuda_peak()
+        self.allocated = max(self.allocated, peak.get("allocated_gib", 0.0))
+        self.reserved = max(self.reserved, peak.get("reserved_gib", 0.0))
+
+    def as_dict(self) -> dict:
+        return {"allocated_gib": round(self.allocated, 3),
+                "reserved_gib": round(self.reserved, 3),
+                "note": "cumulative across cache construction and every "
+                        "subgraph forward, not the last reset window"}
+
+
+def directory_bytes(path: Path) -> dict:
+    """Physical staging bytes, with symlinked targets counted separately.
+
+    `stat()` follows symlinks, so an offload directory that links to the source
+    checkpoint would report tens of gigabytes of "temporary disk use" that were
+    never written. `lstat` measures what is actually staged; the link targets
+    are reported beside it as a logical figure that is explicitly not disk
+    consumption.
+    """
+    physical = links = files = 0
+    targets: dict[str, int] = {}
     for entry in path.rglob("*"):
-        if entry.is_file():
+        try:
+            info = entry.lstat()
+        except OSError:
+            continue
+        if entry.is_symlink():
+            links += 1
+            physical += info.st_size
+            # Deduplicate by resolved target. Hundreds of links can point into
+            # one checkpoint shard, and summing per link would report that shard
+            # once per link -- a number larger than the disk holds.
             with contextlib.suppress(OSError):
-                total += entry.stat().st_size
-    return total
+                resolved = entry.resolve()
+                targets[str(resolved)] = resolved.stat().st_size
+        elif entry.is_file():
+            files += 1
+            physical += info.st_size
+    return {"physical_bytes": physical, "files": files, "symlinks": links,
+            "unique_symlink_targets": len(targets),
+            "unique_symlink_target_bytes_not_staged": sum(targets.values())}
 
 
 def cache_footprint(cache) -> dict:
@@ -217,6 +298,11 @@ class _Instrumentation:
         self.cache = None
         self.cache_build_seconds = 0.0
         self.subgraph_peak: dict[int, dict] = {}
+        self.peak: "_CumulativePeak | None" = None
+        self.seen_subgraphs: set[int] = set()
+        self.oom_message: str | None = None
+        self.oom_stage: str | None = None
+        self.oom_on_cold_call: bool | None = None
         self.abort_after: int | None = None
 
     @contextlib.contextmanager
@@ -232,12 +318,46 @@ class _Instrumentation:
                     f"aborting after {instrumentation.forward_calls} subgraph forwards"
                 )
             started = time.time()
+            allocated_before = (
+                torch.cuda.memory_allocated() if torch.cuda.is_available() else 0
+            )
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
+            # First call for this subgraph versus a later one. A subgraph's
+            # weights are onloaded lazily inside the forward, so the entry
+            # value on a cold call does not yet include them and cannot be
+            # read as weight residency. Only the warmed calls can be.
+            key = id(self)
+            cold = key not in instrumentation.seen_subgraphs
+            instrumentation.seen_subgraphs.add(key)
             try:
                 return original_forward(self, *args, **kwargs)
+            except torch.OutOfMemoryError as exc:
+                # Keep the allocator's own words. The outer
+                # `handle_sequential_oom` wrapper replaces this with generic
+                # advice, and `max_memory_allocated()` cannot report the size of
+                # an allocation that never succeeded -- which is why an OOM on a
+                # large row can show a *lower* recorded peak than one on a
+                # smaller row that got further.
+                instrumentation.oom_message = str(exc).strip().splitlines()[0][:400]
+                instrumentation.oom_stage = "subgraph_forward"
+                instrumentation.oom_on_cold_call = cold
+                raise
             finally:
                 instrumentation.forward_calls += 1
                 instrumentation.forward_seconds += time.time() - started
-                instrumentation.subgraph_peak[instrumentation.forward_calls] = cuda_peak()
+                peak = cuda_peak()
+                if instrumentation.peak is not None:
+                    instrumentation.peak.observe(peak)
+                instrumentation.subgraph_peak[instrumentation.forward_calls] = {
+                    **peak,
+                    "cold_call": cold,
+                    "allocated_before_gib": round(allocated_before / 2**30, 3),
+                    "transient_gib": round(
+                        max(0.0, peak.get("allocated_gib", 0.0)
+                            - allocated_before / 2**30), 3
+                    ),
+                }
 
         # `original_cache` is already a bound classmethod, and after the
         # library's own decoration it can be a `functools.partial` with no
@@ -245,8 +365,25 @@ class _Instrumentation:
         # it is wrapped in; reaching for `__func__` broke on the first real run.
         def from_dataloader(dataloader, model_device, offload_device):
             started = time.time()
-            cache = original_cache(dataloader, model_device, offload_device)
+            try:
+                cache = original_cache(dataloader, model_device, offload_device)
+            except torch.OutOfMemoryError as exc:
+                # The same capture as in the forward wrapper, for the same
+                # reason. `IntermediatesCache.from_dataloader` materialises
+                # every row before the first subgraph runs, so a large-row
+                # population can fail here -- before any `Subgraph.forward` is
+                # reached, which is the only other place the allocator's own
+                # message is preserved. Without this, a cache-stage OOM reaches
+                # the report as the pipeline wrapper's generic advice and the
+                # failed allocation size is lost.
+                instrumentation.oom_message = str(exc).strip().splitlines()[0][:400]
+                instrumentation.oom_stage = "intermediates_cache_build"
+                if instrumentation.peak is not None:
+                    instrumentation.peak.observe()
+                raise
             instrumentation.cache_build_seconds = time.time() - started
+            if instrumentation.peak is not None:
+                instrumentation.peak.observe()
             instrumentation.cache = cache
             return cache
 
@@ -267,37 +404,265 @@ class DeliberateAbort(RuntimeError):
 
 
 def load_model(source: Path, policy: str, layers: int, gpu_gib: float,
-               offload_dir: Path):
-    """Load plainly on the host and let the pipeline own onload/offload.
+               offload_dir: Path, offload: str):
+    """Load the calibration model under one of two offload arrangements.
 
-    **Not `device_map="auto"`.** Accelerate's dispatch replaces every hooked
+    `host` loads plainly on the CPU and lets `SequentialPipeline` move each
+    subgraph to the accelerator itself. Every parameter is resident in host RAM,
+    which at FP32 over 50 layers is most of this box.
+
+    `auto_offload` uses the official bridge: `llmcompressor.utils.dev
+    ::load_context` wraps `compressed_tensors.offload::load_offloaded_model`,
+    which loads through Accelerate and then calls `from_accelerate` to *replace*
+    Accelerate's hooks with compressed-tensors offload caches. `auto_offload`
+    additionally restricts placement to CPU and disk, so anything that does not
+    fit in host memory spills to the offload directory.
+
+    **The distinction matters and an earlier version of this file got it
+    wrong.** What was measured is that *raw, unconverted* `device_map="auto"`
+    does not compose with `SequentialPipeline`: Accelerate replaces each hooked
     module's `forward` with a `functools.partial`, and
-    `compressed_tensors.offload.module.offload_module` -- which
-    `SequentialPipeline` calls through `set_onload_device` before the first
-    batch -- reads `module.forward.__func__`. The two offload mechanisms do not
-    compose, and the pipeline dies on the partial before any calibration
-    happens. Measured on the first real run of this pilot; it is a property of
-    the pinned library pair, not of this harness, and any launcher that reaches
-    for `device_map` will meet it.
-
-    So the model is loaded on the host and the sequential pipeline moves each
-    subgraph to the accelerator itself, which is the arrangement `oneshot`
-    expects. `gpu_gib` is therefore recorded rather than enforced here.
+    `compressed_tensors.offload.module.offload_module` -- reached through
+    `set_onload_device` before the first batch -- reads
+    `module.forward.__func__`. That failure is real and reproducible. It is not
+    evidence about the conversion path, which exists precisely to remove those
+    hooks, and this file previously generalised one to the other.
     """
     from transformers import AutoConfig, Qwen3VLForConditionalGeneration
 
     config = AutoConfig.from_pretrained(source)
     config.text_config.num_hidden_layers = layers
-    model = Qwen3VLForConditionalGeneration.from_pretrained(
-        source, config=config, dtype=compute_dtype(policy),
-        attn_implementation="sdpa",
-    ).eval()
-    return model
+    kwargs = {
+        "config": config,
+        "dtype": compute_dtype(policy),
+        "attn_implementation": "sdpa",
+    }
+    if offload == "host":
+        return Qwen3VLForConditionalGeneration.from_pretrained(source, **kwargs).eval()
+
+    from llmcompressor.utils.dev import load_context
+
+    # The bridge reserves `extra_cpu_mem` (default 5 GB) of host memory for
+    # everything that is not model loading. That default is recorded rather
+    # than accepted silently: Gate 2B adds the AWQ modifier's own host-side
+    # state on top and will need an explicit larger reserve.
+    with load_context(Qwen3VLForConditionalGeneration):
+        model = Qwen3VLForConditionalGeneration.from_pretrained(
+            source, device_map="auto_offload", offload_folder=str(offload_dir),
+            **kwargs,
+        )
+    return model.eval()
+
+
+def offload_topology(model) -> dict:
+    """Where the weights actually are, without onloading a single one.
+
+    **Iterating `model.parameters()` on a disk-offloaded model onloads every
+    parameter.** That is not a reporting detail: it pulls the whole checkpoint
+    through host RAM, contaminates the load time and the RSS high-water mark,
+    and destroys the very topology the field was meant to describe. An earlier
+    version of this file did exactly that, so any host figure it produced under
+    `auto_offload` describes the instrumentation as much as the bridge.
+
+    `compressed_tensors` keeps offloaded tensors in an `OffloadCache` at
+    `module._parameters.offloaded_values`, which can be read without onloading.
+    This also asserts the conversion actually happened: an Accelerate hook or a
+    surviving `hf_device_map` means the raw path is still in place, which is the
+    arrangement `SequentialPipeline` cannot use.
+    """
+    from compressed_tensors.offload.cache import OffloadCache
+
+    by_device: dict[str, int] = {}
+    by_dtype: dict[str, int] = {}
+    offloaded = resident = 0
+    accelerate_hooks = []
+
+    def record(where: str, tensor) -> None:
+        nonlocal by_device, by_dtype
+        if tensor is None:
+            return
+        by_device[where] = by_device.get(where, 0) + tensor.numel() * tensor.element_size()
+        dt = str(getattr(tensor, "dtype", "?")).removeprefix("torch.")
+        by_dtype[dt] = by_dtype.get(dt, 0) + 1
+
+    for name, module in model.named_modules():
+        for attribute in ("_parameters", "_buffers"):
+            store = getattr(module, attribute, None)
+            if isinstance(store, OffloadCache):
+                # Key by the CACHE's offload device, not the tensor's. A
+                # disk-offloaded tensor reports `meta` for its own device, so
+                # keying on that would file every disk-resident weight under
+                # `meta` and the report could not tell CPU from disk -- which is
+                # the one thing this field exists to say.
+                where = str(getattr(store, "offload_device", "unknown"))
+                for tensor in store.offloaded_values.values():
+                    if tensor is None:
+                        continue
+                    offloaded += 1
+                    record(where, tensor)
+            else:
+                for tensor in (store or {}).values():
+                    if tensor is None:
+                        continue
+                    resident += 1
+                    record(str(tensor.device), tensor)
+        if hasattr(module, "_hf_hook"):
+            accelerate_hooks.append(name)
+
+    return {
+        "offloaded_tensors": offloaded,
+        "resident_tensors": resident,
+        "bytes_by_offload_device": by_device,
+        "gib_by_offload_device": {k: round(v / 2**30, 2) for k, v in by_device.items()},
+        "tensors_by_dtype": by_dtype,
+        "accelerate_hooks_remaining": accelerate_hooks[:5],
+        "accelerate_hook_count": len(accelerate_hooks),
+        "hf_device_map_present": hasattr(model, "hf_device_map"),
+        "conversion_clean": not accelerate_hooks and not hasattr(model, "hf_device_map"),
+        "summary": (f"{offloaded} offloaded + {resident} resident tensors, "
+                    f"dtypes {sorted(by_dtype)}, "
+                    f"{ {k: round(v / 2**30, 1) for k, v in by_device.items()} }"),
+        "read_without_onloading": True,
+    }
+
+
+def _probe_backends(query, key, is_causal: bool, gqa: bool) -> dict:
+    from torch.backends.cuda import (
+        SDPAParams,
+        can_use_cudnn_attention,
+        can_use_efficient_attention,
+        can_use_flash_attention,
+    )
+
+    params = SDPAParams(query, key, key, None, 0.0, is_causal, gqa)
+    return {
+        "flash": bool(can_use_flash_attention(params, False)),
+        "efficient": bool(can_use_efficient_attention(params, False)),
+        "cudnn": bool(can_use_cudnn_attention(params, False)),
+    }
+
+
+def sdpa_availability_for_rows(records: list[dict], config,
+                               dtype: torch.dtype) -> dict:
+    """Which fused SDPA backends exist for the shapes this step actually uses.
+
+    **Probed at the real shapes, not a synthetic one.** Availability can depend
+    on sequence length and on `is_causal`, so a 512-token causal text probe
+    cannot be paired with an 8,981-token language footprint or with a
+    128x128 vision block -- an earlier version of this function did exactly
+    that, and its result had no standing in an OOM attribution.
+
+    Text attention is probed at each row's own sequence length, in both the
+    grouped-query form the model declares and the expanded form a `repeat_kv`
+    would produce, causal. Vision attention is probed at each unique block
+    patch count, non-causal and without grouped-query, because the tower
+    attends fully within a block.
+
+    Availability, not selection: this API reports what could run, not what was
+    selected. A forward cannot have used a backend that is unavailable, and
+    that is the whole of what this bounds. Identifying the kernel that actually
+    ran is `bench/probe_sdpa_backend_selection.py`, which names the dispatched
+    operation with `torch.profiler` and is kept separate so its overhead cannot
+    contaminate these feasibility numbers.
+    """
+    if not torch.cuda.is_available():
+        return {"available": None, "reason": "no CUDA"}
+
+    text = config.text_config
+    heads, kv_heads, head_dim = (text.num_attention_heads,
+                                 text.num_key_value_heads, text.head_dim)
+    vision = config.vision_config
+    vision_heads = vision.num_heads
+    vision_head_dim = vision.hidden_size // vision_heads
+
+    lengths = sorted({r["sequence_length"] for r in records})
+    patch_counts = sorted({
+        int(b["grid_thw"][0][1]) * int(b["grid_thw"][0][2])
+        for r in records for b in r["vision_blocks"]
+    })
+
+    out: dict = {"text_attention": {}, "vision_attention": {},
+                 "probed_at_real_row_shapes": True,
+                 "note": "availability, not selection: this API reports what "
+                         "could run. probe_sdpa_backend_selection.py names "
+                         "what did"}
+    for length in lengths:
+        q = torch.zeros(1, heads, length, head_dim, dtype=dtype, device="cuda")
+        grouped = torch.zeros(1, kv_heads, length, head_dim, dtype=dtype, device="cuda")
+        expanded = torch.zeros(1, heads, length, head_dim, dtype=dtype, device="cuda")
+        out["text_attention"][str(length)] = {
+            "sequence_tokens": length, "is_causal": True,
+            "grouped_query": _probe_backends(q, grouped, True, True),
+            "expanded_kv": _probe_backends(q, expanded, True, False),
+        }
+        del q, grouped, expanded
+    for patches in patch_counts:
+        q = torch.zeros(1, vision_heads, patches, vision_head_dim,
+                        dtype=dtype, device="cuda")
+        out["vision_attention"][str(patches)] = {
+            "block_patches": patches, "is_causal": False,
+            "full_attention": _probe_backends(q, q, False, False),
+        }
+        del q
+    torch.cuda.empty_cache()
+    return out
+
+
+ATTRIBUTION_CAVEAT = (
+    "A nominal footprint matching the captured allocator request supports an "
+    "attribution; it does not prove one. These are single-tensor sizes, not "
+    "predicted allocator requests: the selected SDPA backend may allocate "
+    "additional buffers, choose a different internal layout, or split the "
+    "computation -- cuDNN and memory-efficient attention need workspace too, "
+    "and which backend runs is deliberately still unknown here. "
+    "Read this only together with the captured allocator message, the failure "
+    "stage, and the backend availability above."
+)
+
+
+def nominal_attention_logit_footprints(record: dict, config,
+                                       dtype: torch.dtype) -> dict:
+    """Nominal one-attention-logit tensor footprints for one row.
+
+    Two quadratics matter and they are separate: the language stack attends
+    over the row's whole sequence, and the vision tower attends within each
+    vision block, so the largest single block governs the second. Neither is a
+    function of the population's total tokens, because rows are processed one
+    at a time.
+    """
+    element = torch.finfo(dtype).bits // 8
+    heads = config.text_config.num_attention_heads
+    vision_heads = config.vision_config.num_heads
+    tokens = record["sequence_length"]
+    grids = [[int(b["grid_thw"][0][1]), int(b["grid_thw"][0][2])]
+             for b in record["vision_blocks"]]
+    patches = [h * w for h, w in grids]
+    largest = max(patches, default=0)
+    return {
+        "kind": "nominal one-attention-logit tensor footprints",
+        "is_a_predicted_allocator_request": False,
+        "caveat": ATTRIBUTION_CAVEAT,
+        "element_bytes": element,
+        "language": {
+            "heads": heads,
+            "sequence_tokens": tokens,
+            "nominal_gib": round(heads * tokens * tokens * element / 2**30, 2),
+        },
+        "vision": {
+            "heads": vision_heads,
+            "block_grids": grids,
+            "block_patches": patches,
+            "largest_block_patches": largest,
+            "nominal_gib": round(
+                vision_heads * largest * largest * element / 2**30, 2
+            ),
+        },
+    }
 
 
 def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: str,
              propagate_error: bool, abort_after: int | None,
-             offload_dir: Path) -> dict:
+             offload_dir: Path, config=None) -> dict:
     """One population size through the real pipeline. Returns its measurements."""
     loader = build_loader(bundle, manifest, row_ids)
     tokens = sum(
@@ -314,11 +679,23 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
         propagate_error=propagate_error,
     )
 
+    longest = max(
+        (next(r for r in manifest["rows"] if r["row_id"] == row_id)["sequence_length"]
+         for row_id in row_ids), default=0
+    )
+    records = [next(r for r in manifest["rows"] if r["row_id"] == row_id)
+               for row_id in row_ids]
+    # Before `cuda_reset`, so the probe's own small allocations cannot enter
+    # the step's peak.
+    availability = (sdpa_availability_for_rows(records, config, compute_dtype(policy))
+                    if config is not None else None)
     cuda_reset()
+    peak = _CumulativePeak()
     host_before = host_peak_kib()
-    disk_before = directory_bytes(offload_dir)
+    disk_before = directory_bytes(offload_dir)["physical_bytes"]
     started = time.time()
     instrumentation = _Instrumentation()
+    instrumentation.peak = peak
     instrumentation.abort_after = abort_after
     outcome, error = "completed", None
 
@@ -342,12 +719,43 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
             measurement_traceback = traceback.format_exc()
             print(measurement_traceback[-2500:])
 
+    # Unconditionally, after the attempt. An OOM during cache construction
+    # happens before the cache wrapper returns and before any subgraph forward,
+    # so neither of the observation points inside the instrumentation is ever
+    # reached and that peak would otherwise be dropped entirely.
+    peak.observe()
     elapsed = time.time() - started
     measurement = {
         "rows": len(row_ids),
         "row_ids": list(row_ids),
         "sequence_tokens": tokens,
+        "longest_row_tokens": longest,
         "visual_tokens": visual,
+        "rows_detail": [
+            {
+                "row_id": row_id,
+                "sequence_tokens": record["sequence_length"],
+                "visual_tokens": record["vision_positions"],
+                "vision_blocks": len(record["vision_blocks"]),
+                "largest_block_patches": max(
+                    (int(b["grid_thw"][0][1]) * int(b["grid_thw"][0][2])
+                     for b in record["vision_blocks"]), default=0
+                ),
+                "nominal_attention_logit_footprints": (
+                    nominal_attention_logit_footprints(
+                        record, config, compute_dtype(policy)
+                    ) if config is not None else None
+                ),
+            }
+            for row_id, record in (
+                (r, next(x for x in manifest["rows"] if x["row_id"] == r))
+                for r in row_ids
+            )
+        ],
+        "note_on_attribution": "total tokens govern the host-side cache; GPU "
+                               "peak is governed by the longest single row and "
+                               "its largest vision block, because rows are "
+                               "processed one at a time",
         "precision_policy": policy,
         "propagate_error": propagate_error,
         "outcome": outcome,
@@ -356,12 +764,44 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
         "seconds_cache_build": round(instrumentation.cache_build_seconds, 1),
         "seconds_in_subgraph_forwards": round(instrumentation.forward_seconds, 1),
         "subgraph_forward_calls": instrumentation.forward_calls,
-        "peak_cuda": cuda_peak(),
+        "peak_cuda": peak.as_dict(),
+        "host_memory": host_memory(),
         "peak_host_rss_gib": round(host_peak_kib() / 2**20, 2),
         "host_rss_growth_gib": round((host_peak_kib() - host_before) / 2**20, 2),
-        "offload_dir_bytes_before": disk_before,
-        "offload_dir_bytes_after": directory_bytes(offload_dir),
+        "offload_dir_physical_bytes_before": disk_before,
+        "offload_dir": directory_bytes(offload_dir),
     }
+    peaks = list(instrumentation.subgraph_peak.values())
+    if peaks:
+        warm = [p for p in peaks if not p["cold_call"]]
+        measurement["per_subgraph"] = {
+            "calls": len(peaks),
+            "cold_calls": sum(1 for p in peaks if p["cold_call"]),
+            "max_allocated_before_gib": max(p["allocated_before_gib"] for p in peaks),
+            "max_transient_gib": max(p["transient_gib"] for p in peaks),
+            "warm_max_allocated_before_gib": (
+                max(p["allocated_before_gib"] for p in warm) if warm else None
+            ),
+            "warm_max_transient_gib": (
+                max(p["transient_gib"] for p in warm) if warm else None
+            ),
+            "note": "a subgraph's weights are onloaded lazily inside its first "
+                    "forward, so only the warmed figures can be read as weight "
+                    "residency; the cold ones understate it",
+        }
+    if availability is not None:
+        measurement["sdpa_availability"] = availability
+    if instrumentation.oom_message:
+        measurement["oom"] = {
+            "allocator_message": instrumentation.oom_message,
+            "stage": instrumentation.oom_stage,
+            "on_cold_call": instrumentation.oom_on_cold_call,
+            "note": "the allocator's own message, kept because the pipeline's "
+                    "wrapper replaces it and a failed allocation never appears "
+                    "in max_memory_allocated",
+            "compare_against": "rows_detail[].nominal_attention_logit_footprints "
+                               "and sdpa_availability, both in this step",
+        }
     if instrumentation.cache is not None:
         measurement["intermediates_cache"] = cache_footprint(instrumentation.cache)
         if tokens:
@@ -398,6 +838,12 @@ def main() -> int:
     )
     parser.add_argument("--layers", type=int, default=50,
                         help="decoder layers to build; 50 is the H3 window")
+    parser.add_argument(
+        "--offload", default="host", choices=("host", "auto_offload"),
+        help="`host` keeps every parameter in host RAM; `auto_offload` uses "
+             "llmcompressor's load_context bridge, which converts Accelerate's "
+             "hooks into compressed-tensors offload and can spill to disk",
+    )
     parser.add_argument("--gpu-gib", type=float, default=14.0,
                         help="recorded, not enforced: the sequential pipeline "
                              "owns onload/offload, see load_model")
@@ -429,12 +875,12 @@ def main() -> int:
           f"{compute_dtype(args.policy)}; offload staging in a temporary directory")
 
     started = time.time()
-    model = load_model(source, args.policy, args.layers, args.gpu_gib, offload_dir)
+    model = load_model(source, args.policy, args.layers, args.gpu_gib, offload_dir,
+                       args.offload)
     load_seconds = time.time() - started
-    parameter_dtypes = sorted({str(p.dtype).removeprefix("torch.")
-                               for p in model.parameters()})
-    devices = sorted({str(p.device) for p in model.parameters()})
-    print(f"  loaded in {load_seconds:.1f}s, dtypes {parameter_dtypes}, devices {devices}")
+    topology = offload_topology(model)
+    model_config = model.config
+    print(f"  loaded in {load_seconds:.1f}s, {topology['summary']}")
 
     report: dict = {
         "pilot": "Gate 2A: llm-compressor SequentialPipeline over native-H3 "
@@ -460,13 +906,23 @@ def main() -> int:
         "model": {
             "logical_name": source.name,
             "decoder_layers_built": args.layers,
-            "parameter_dtypes": parameter_dtypes,
-            "parameter_devices": devices,
+            "offload_topology": topology,
             "load_seconds": round(load_seconds, 1),
             "gpu_weight_budget_gib_recorded_not_enforced": args.gpu_gib,
-            "device_map": "none; loaded on the host so compressed_tensors owns "
-                          "offload. accelerate's device_map is incompatible "
-                          "with SequentialPipeline in this pinned pair",
+            "offload_arrangement": args.offload,
+            "bridge_extra_cpu_mem_default_bytes": 5e9,
+            "bridge_reserve_note": "compressed_tensors load_offloaded_model "
+                                   "reserves this much host memory for "
+                                   "non-loading work; Gate 2B needs an explicit "
+                                   "larger reserve and a fresh model per "
+                                   "modifier arm, because AWQ mutates weights "
+                                   "and attaches state",
+            "device_map_note": "raw device_map='auto' is incompatible with "
+                               "SequentialPipeline in this pinned pair "
+                               "(accelerate's functools.partial forward vs "
+                               "compressed_tensors reading forward.__func__). "
+                               "`auto_offload` goes through load_context, which "
+                               "converts those hooks, and is a different claim",
         },
         "bundle_provenance": manifest["provenance"],
         "steps": [],
@@ -484,7 +940,7 @@ def main() -> int:
                     model, bundle, manifest, rows, args.policy,
                     not args.no_propagate_error,
                     args.abort_after if size == sizes[-1] else None,
-                    offload_dir,
+                    offload_dir, model_config,
                 )
                 report["steps"].append(measurement)
                 print(f"  {measurement['outcome']}  tokens {measurement['sequence_tokens']}  "
@@ -502,7 +958,7 @@ def main() -> int:
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        report["offload_dir_bytes_at_exit"] = directory_bytes(offload_dir)
+        report["offload_dir_at_exit"] = directory_bytes(offload_dir)
         shutil.rmtree(offload_dir, ignore_errors=True)
 
     completed = [s for s in report["steps"] if s["outcome"] == "completed"]

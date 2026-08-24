@@ -1033,7 +1033,13 @@ def _provenance(revision: str, image_record: dict, video_record: dict) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", required=True, help="new bundle directory; must not exist")
-    parser.add_argument("--row", action="append", help="H3-IR row id; repeatable")
+    parser.add_argument(
+        "--row", action="append",
+        help="H3-IR row id, optionally `id:still_policy`; repeatable. A per-row "
+             "policy lets one bundle carry a small primary-policy trace row "
+             "ahead of a stress row, which is the only way to separate a "
+             "singleton's trace cost from its forward cost",
+    )
     parser.add_argument(
         "--family", action="append",
         help=f"pool primary role; defaults to {', '.join(DEFAULT_FAMILIES)}",
@@ -1059,11 +1065,28 @@ def main() -> int:
     by_id = {r["id"]: r for r in pool}
 
     wanted: list[str] = []
+    row_policy: dict[str, str] = {}
     if args.row:
-        for row_id in args.row:
+        for spec in args.row:
+            row_id, _, policy = spec.partition(":")
             if row_id not in by_id:
                 raise SystemExit(f"row {row_id} is not in the accepted pool")
+            if policy and policy not in STILL_POLICIES:
+                raise SystemExit(
+                    f"unknown still policy {policy!r} for {row_id}; "
+                    f"expected {STILL_POLICIES}"
+                )
+            if row_id in row_policy:
+                # Rows are keyed by id throughout -- batch filename, record,
+                # policy map -- so the same id twice would silently emit two
+                # identical rows under whichever policy came last.
+                raise SystemExit(
+                    f"{row_id} was requested twice. One bundle carries one "
+                    f"policy per row id; build two bundles to compare policies "
+                    f"on the same row."
+                )
             wanted.append(row_id)
+            row_policy[row_id] = policy or args.still_policy
     families = args.family or list(DEFAULT_FAMILIES)
     if not args.row:
         for family in families:
@@ -1106,10 +1129,11 @@ def main() -> int:
         batch, record, media = build_row(
             row, contract, root, host, transformer, tokenizer,
             geometry_nodes, reference_conditioning, mutation=args.mutate,
-            still_policy=args.still_policy,
+            still_policy=row_policy.get(row_id, args.still_policy),
         )
         name = f"batch-{row_id}.safetensors"
         save_file({k: v.contiguous() for k, v in batch.items()}, out / name)
+        record["still_policy"] = row_policy.get(row_id, args.still_policy)
         record["batch_file"] = name
         record["batch_file_sha256"] = _sha256_file(out / name)
         if media:
@@ -1127,7 +1151,10 @@ def main() -> int:
         )
 
     provenance = _provenance(revision, image_record, video_record)
-    provenance["still_policy"] = args.still_policy
+    provenance["still_policy_default"] = args.still_policy
+    provenance["still_policy_by_row"] = {
+        row_id: row_policy.get(row_id, args.still_policy) for row_id in wanted
+    }
     provenance["mutation"] = args.mutate
     provenance["mutation_intent"] = MUTATIONS.get(args.mutate) if args.mutate else None
     manifest = {"provenance": provenance, "order": wanted, "rows": records}
