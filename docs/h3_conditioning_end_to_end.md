@@ -38,8 +38,8 @@ packing; a reference's is not, so it is decided by settings that vary per graph
 and per reference, then capped again by the encoder. The 2048 short edge is the
 *vendor serving convention*, and installed ComfyUI caps at it without ever
 upscaling to it, so a reference reaches that size here only when
-`MiniMaxH3ReferenceFit(allow_upscale=True)` is wired — six shipped graphs, not
-all of them. Reference video is sized by its own separate policy again. Never
+`MiniMaxH3AppendRefImage(allow_upscale=True)` is wired, which some shipped
+graphs do and most do not. Reference video is sized by its own separate policy again. Never
 quote a single number for reference geometry; read
 [`h3_references.md`](h3_references.md) for the knobs and
 [`2026-08-24_serving_geometry_composes.md`](research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_serving_geometry_composes.md)
@@ -198,9 +198,10 @@ reference's effective conditioning influence is unmeasured.
 policy.** It is pinned to the canvas by the packing. Canvas size and the number
 of guides remain separate cost levers.
 
-**Contradictory sizing settings go inert rather than erroring.** A
-`MiniMaxH3ReferenceFit` above 2048 is re-clamped by a downstream `max` policy,
-and a downstream `match` can undo a large fit entirely. See
+**Contradictory sizing settings warn rather than erroring.** `size_policy`,
+`short_edge` and `allow_upscale` sit on one node since 2026-08-24, so a
+`match` policy carrying a non-default `short_edge` is checkable and says so;
+before the fold the two lived a node apart and went silently inert. See
 [`h3_references.md`](h3_references.md) for the two knobs and how they are
 confused for each other.
 

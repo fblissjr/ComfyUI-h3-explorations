@@ -107,34 +107,52 @@ def _qwen_sees(w: int, h: int):
 
 
 def _fitted(src_w: int, src_h: int, fit_args: dict | None):
-    """Drive the real node, so the mode logic this depends on is executed.
+    """Drive the real sizing function, not a copy of its arithmetic.
 
-    `fit_args` is None when a graph wires a LoadImage straight into the
-    reference input with no fit node between them. Core then applies its own
-    downscale-only clamp, which is what `allow_upscale=False` reproduces --
-    recorded in the row as `fit: "core clamp"` so the two cases stay legible.
+    `fit_args` is None when nothing on the path declares a policy. Core then
+    applies its own downscale-only clamp, which is what `allow_upscale=False`
+    reproduces -- recorded in the row as `fit: "core clamp"` so the two cases
+    stay legible.
+
+    This called `MiniMaxH3ReferenceFit.execute` until the fit fold, which meant
+    allocating and resizing a real tensor to learn two integers. It now calls
+    the shared sizing function that both the append node and the calibration
+    builder call, which is a stronger control as well as a cheaper one: the
+    thing under test is the arithmetic, and this now executes the arithmetic
+    itself rather than a node that happens to wrap it.
     """
-    import torch
-    from reference_fit import MiniMaxH3ReferenceFit
-    args = {"allow_upscale": False} if fit_args is None else dict(fit_args)
+    from reference_geometry import fit_reference_image
+    args = dict(fit_args or {})
     args.pop("lift_downstream_clamp", None)
-    img = torch.zeros(1, src_h, src_w, 3)
-    try:
-        out = MiniMaxH3ReferenceFit.execute(img, **args)
-        tensor = out[0] if isinstance(out, (tuple, list)) else out.result[0]
-        return int(tensor.shape[2]), int(tensor.shape[1])
-    finally:
-        del img
+    args.pop("keep_towers_matched", None)
+    return fit_reference_image(
+        src_w, src_h,
+        size_policy=args.get("size_policy", "max"),
+        short_edge=int(args.get("short_edge", 2048)),
+        allow_upscale=bool(args.get("allow_upscale", False)),
+    )
 
 
-def _trace_to_loader(wf: dict, link: list):
+def _trace_to_loader(wf: dict, link: list, append_inputs: dict | None = None):
     """Walk back from a reference input to the LoadImage that feeds it.
 
-    Returns (filename, fit_args or None). Follows the first linked input at
-    each hop, which is the only shape these graphs use; a node reached with no
-    linked inputs and no filename ends the walk and the caller reports it.
+    Returns (filename, fit_args or None).
+
+    **This used to be the load-bearing heuristic and is no longer.** Sizing now
+    lives on the append node, so `append_inputs` carries it directly and the
+    walk only has to find a filename. The loop is retained because a saved
+    graph may still put the retired fit node -- or an unrelated image node --
+    between the loader and the append, and it still follows the first linked
+    input at each hop, which its own docstring conceded was the only shape
+    these graphs use. A node reached with no linked inputs and no filename ends
+    the walk and the caller reports it.
     """
     fit_args = None
+    if append_inputs:
+        fit_args = {k: v for k, v in append_inputs.items()
+                    if k in ("size_policy", "allow_upscale", "short_edge")
+                    and not isinstance(v, list)}
+        fit_args = fit_args or None
     node_id = link[0]
     for _ in range(8):
         node = wf.get(node_id)
@@ -143,9 +161,20 @@ def _trace_to_loader(wf: dict, link: list):
         ct = node.get("class_type")
         if ct == "LoadImage":
             return node["inputs"].get("image"), fit_args
-        if ct == "MiniMaxH3ReferenceFit" and fit_args is None:
-            fit_args = {k: v for k, v in node["inputs"].items()
+        if ct == "MiniMaxH3ReferenceFit":
+            # A legacy fit upstream of the append. Its short edge and upscale
+            # compose with the append's rather than replacing them: whichever
+            # enlarges more is what the reference actually reaches.
+            upstream = {k: v for k, v in node["inputs"].items()
                         if not isinstance(v, list)}
+            merged = dict(fit_args or {})
+            merged["allow_upscale"] = (
+                bool(upstream.get("allow_upscale", True))
+                or bool(merged.get("allow_upscale", False)))
+            merged["short_edge"] = max(int(upstream.get("short_edge", 2048)),
+                                       int(merged.get("short_edge", 2048)))
+            merged.setdefault("size_policy", "max")
+            fit_args = merged
         linked = [v for v in node.get("inputs", {}).values()
                   if isinstance(v, list)]
         if not linked:
@@ -245,20 +274,21 @@ def main() -> int:
                     chain_errors.append({"graph": rel, "why": str(exc)})
                     continue
                 image_links = [
-                    (f"references.{append_id}", append["inputs"].get("image"))
+                    (f"references.{append_id}", append["inputs"].get("image"),
+                     append["inputs"])
                     for append_id, append, kind in entries if kind == "image"
                 ]
             else:
                 image_links = [
-                    (key, val) for key, val in sorted(inputs.items())
+                    (key, val, None) for key, val in sorted(inputs.items())
                     if key.startswith(REF_INPUT_PREFIX) and isinstance(val, list)
                 ]
-            for key, val in image_links:
+            for key, val, append_inputs in image_links:
                 if not isinstance(val, list):
                     unresolved.append({"graph": rel, "input": key,
                                        "why": "image append has no linked image"})
                     continue
-                name, fit_args = _trace_to_loader(wf, val)
+                name, fit_args = _trace_to_loader(wf, val, append_inputs)
                 if name is None:
                     unresolved.append({"graph": rel, "input": key,
                                        "why": "no LoadImage on the traced path"})

@@ -667,7 +667,7 @@ def _resolution_widgets(width, height, length):
 def _ref_short_edge():
     """ComfyUI's reference short edge, read rather than repeated.
 
-    `MiniMaxH3ReferenceFit` defaults this input to core's
+    `MiniMaxH3AppendRefImage` defaults this input to core's
     `REF_IMAGE_SHORT_EDGE`. Writing 2048 into the graph as a literal would be
     a second place to edit that agrees with the first only by inspection --
     if core ever moves the constant, the node's default moves and the shipped
@@ -789,6 +789,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
               ref_video_policy: str = "encoder",
+              ref_image_policy: str = "comfy",
               ref_video: bool = False, ref_video_audio: bool = True,
               ref_images_on: bool = True, ref_image_count: int = 2,
               ref_images: tuple[str, ...] | None = None,
@@ -815,6 +816,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     if ref_video_policy not in ("comfy", "release", "encoder"):
         raise ValueError(
             f"unknown ref_video_policy {ref_video_policy!r}; "
+            "expected 'comfy', 'release', or 'encoder'"
+        )
+    if ref_image_policy not in ("comfy", "release", "encoder"):
+        raise ValueError(
+            f"unknown ref_image_policy {ref_image_policy!r}; "
             "expected 'comfy', 'release', or 'encoder'"
         )
     _check_single_frame(single_frame, length)
@@ -961,32 +967,32 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                              # Wired to Resolution so duration and geometry
                              # continue to move together in API sweeps.
                              "length": ["27", 2],
-                             "video_policy": ref_video_policy}}
-        # One fit node per reference. ComfyUI clamps reference scaling with
-        # min(1.0, 2048/short_edge) where the reference pipeline has none, so
-        # a reference smaller than 2048 on its short side arrives under-sized
-        # and identity fidelity comes out of those vision tokens.
+                             "video_policy": ref_video_policy,
+                             "image_policy": ref_image_policy}}
+        # No fit node. `MiniMaxH3AppendRefImage` carries `allow_upscale` and
+        # `short_edge` itself and the conditioner performs ONE resize with the
+        # canvas in scope, so the loader wires straight to the append. Before
+        # that fold every reference paid a second full lanczos pass and a
+        # second float32 -> uint8 -> float32 quantization, because the sizing
+        # decision and its consumer were two nodes apart.
         #
-        # Loaders first, THEN fits, matching the order these keys have always
-        # been emitted in. Interleaving is equivalent to ComfyUI -- an API
-        # graph is a dict - but it reorders the JSON in every existing
-        # reference graph, and a diff that changes nothing is a diff nobody
-        # reads carefully.
+        # `slots` still carries a fit id per reference and it is deliberately
+        # left unallocated: reusing the loader and append ids keeps every
+        # existing graph's node numbering, so the regeneration diff is the fold
+        # and nothing else.
         for load_id, _fit_id, fname in slots:
             g[load_id] = {"class_type": "LoadImage", "inputs": {"image": fname}}
         chain = None
         append_ids = iter(_REF_APPEND_NODES)
-        for load_id, fit_id, _fname in slots:
-            g[fit_id] = {"class_type": "MiniMaxH3ReferenceFit",
-                         "inputs": {"image": [load_id, 0],
-                                    "allow_upscale": ref_upscale,
-                                    "short_edge": _ref_short_edge(),
-                                    "lift_downstream_clamp": False,
-                                    "keep_towers_matched": True}}
+        for load_id, _fit_id, _fname in slots:
             append_id = next(append_ids)
-            append_inputs = {"image": [fit_id, 0], "size_policy": "max"}
+            append_inputs = {"image": [load_id, 0], "size_policy": "max"}
             if chain is not None:
                 append_inputs["references"] = chain
+            # Appended inputs go after `references`, matching the schema order
+            # a saved graph maps widget values by.
+            append_inputs["allow_upscale"] = ref_upscale
+            append_inputs["short_edge"] = _ref_short_edge()
             g[append_id] = {"class_type": "MiniMaxH3AppendRefImage",
                             "inputs": append_inputs}
             chain = [append_id, 0]
@@ -1677,24 +1683,26 @@ legal, renders, costs more per frame than 16:9, and is outside the family the
 checkpoint was trained on. Outside is a choice, not an error -- but it should
 be one you made on purpose.
 
-## The two resolution nodes are not interchangeable
+## Keyframes and references are not sized the same way
 
 - A **keyframe** is patchified on the video's own latent grid, so its
   resolution must equal the video's. That is why *MiniMax H3 Keyframe
   Resolution* outputs width and height: the keyframe decides them.
 - A **reference** is patchified on its own grid, so its resolution only sets
-  how many vision tokens it contributes. That is why *MiniMax H3 Reference
-  Resolution* does not output width and height.
+  how many vision tokens it contributes, and *Append Picture* carries that
+  decision itself rather than outputting a size.
 
-You will never want both in one graph.
+## Reference sizing lives on the Append Picture node
 
-## Reference Resolution pairs with the repo's typed `max` policy
+These graphs use this repo's `MiniMaxH3AppendRefImage`, not native ComfyUI's
+autogrow image sockets. Each append carries its own `size_policy`,
+`allow_upscale` and `short_edge`, and *MiniMax H3 Reference Conditioning*
+performs ONE resize with the target canvas in scope. There is no separate
+Reference Resolution node in the chain any more -- it stays registered for
+saved graphs that wire it, and its fit is idempotent with this one.
 
-These shipped graphs use this repo's `MiniMaxH3AppendRefImage`, not native
-ComfyUI's autogrow image sockets. Its `max` policy keeps the prepared image on
-its own grid after `MiniMaxH3ReferenceFit`; `match` would resize it to the
-target canvas and undo the explicit preparation. This is how the repo handles
-the native sizing gap, not a claim that native ComfyUI closed it.
+`max` sizes from `short_edge` and keeps the reference on its own grid; `match`
+sizes it from the target canvas area instead.
 
 `allow_upscale` on is the released pipeline's behaviour: it scales until the
 short side reaches 2048, enlarging small references. ComfyUI's own rule only
@@ -1702,10 +1710,11 @@ ever shrinks. Upscaling adds tokens, not detail, so whether it helps an
 already-small source is unmeasured -- turn it off and watch the Preflight
 percentages if you want the cheap version.
 
-**The EXPERIMENTAL clamp lift is off and should stay off** unless you are
-running an experiment and expect to discard the result. It monkeypatches a
-core node for one call and pushes references past what the checkpoint was
-conditioned at.
+`image_policy` on the conditioner is a separate decision: it selects WHOSE
+still-image ceiling applies once the reference has been prepared. `comfy`
+leaves it to whatever processor the loaded CLIP carries, which is the default
+and what these graphs have always done. `encoder` and `release` pre-apply the
+selected policy's own bounds so the VAE and Qwen stay on one size.
 """
 
 
@@ -3388,7 +3397,7 @@ from its `loaded_fps`. Shipped graphs still hold `force_rate=24` so the clock
 policy did not change in the ordering migration; `bench/check_ref_prompt_labels.py`
 fails the build if a shipped reference-video loader drops it.
 
-## What it costs, and why there is no fit node on this path
+## What it costs, and why the video path has no upscale knob
 
 Reference rows ride every sampling step exactly as video rows do. A five-second
 reference at the full 1344x768 canvas is **+32,256 rows**, taking the sequence
@@ -3398,11 +3407,11 @@ from 38,222 to 70,478 -- 1.84x, and attention goes as the square, so roughly
 Budget references by pixel area, not by count: the same clip at 640x360 costs
 +7,040.
 
-The image path has a Reference Resolution node because ComfyUI clamps image
-references with `min(1.0, 2048/short_edge)` where the reference pipeline has
-no clamp. **The video path has the same class of divergence** -- ComfyUI
-refuses to upscale a reference video, the reference puts it on the full canvas
-rule -- and deliberately has no node closing it. Closing it costs 5x what the
+The image path carries `allow_upscale` on its append node because ComfyUI
+clamps image references with `min(1.0, 2048/short_edge)` where the reference
+pipeline has no clamp. **The video path has the same class of divergence** --
+ComfyUI refuses to upscale a reference video, the reference puts it on the full
+canvas rule -- and deliberately has no knob closing it. Closing it costs 5x what the
 image one does, and nothing has measured whether it buys anything.
 
 ## Two more divergences to know about
@@ -3839,6 +3848,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              sampler_name: str | None = None, scheduler_name: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
              ref_video_policy: str = "encoder",
+             ref_image_policy: str = "comfy",
              ref_video: bool = False, ref_video_audio: bool = True,
              ref_images_on: bool = True, ref_image_count: int = 2,
              ref_images: tuple[str, ...] | None = None,
@@ -3868,6 +3878,11 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     if ref_video_policy not in ("comfy", "release", "encoder"):
         raise ValueError(
             f"unknown ref_video_policy {ref_video_policy!r}; "
+            "expected 'comfy', 'release', or 'encoder'"
+        )
+    if ref_image_policy not in ("comfy", "release", "encoder"):
+        raise ValueError(
+            f"unknown ref_image_policy {ref_image_policy!r}; "
             "expected 'comfy', 'release', or 'encoder'"
         )
     cv = dict(CANVAS, **canvas)
@@ -4071,21 +4086,22 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         cond = g.add("MiniMaxH3ReferenceConditioning", (-460, 0), size=(430, 620),
                      # The True is the ignored legacy vendor_tokens slot. Keep
                      # it before video_policy because saved UI graphs map
-                     # widget values positionally.
+                     # widget values positionally, and keep image_policy last
+                     # for the same reason -- it is the newest append.
                      widgets=[prompt, cv["width"], cv["height"], length, True,
-                              ref_video_policy],
+                              ref_video_policy, ref_image_policy],
                      inputs=cond_inputs + [
                          _in("width", "INT", widget=True), _in("height", "INT", widget=True),
                          _in("length", "INT", widget=True)],
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
         g.link(vae_enc_src, 0, cond, "vae", "VAE")
         g.link(avae, 0, cond, "audio_vae", "VAE")
-        # One fit and typed append node per image. `max` preserves the shipped
-        # fit policy: after MiniMaxH3ReferenceFit, the typed compiler leaves the
-        # prepared image on its own grid instead of resizing it to the target.
+        # One typed append node per image, carrying its own sizing. `max`
+        # sizes from `short_edge` rather than the target canvas area, which is
+        # the policy the shipped graphs have always used.
         #
-        # Loaders first, then fits, then the append chain. Keeping each layer
-        # aligned makes presentation order legible in the saved UI graph.
+        # Loaders, then the append chain. Keeping each layer aligned makes
+        # presentation order legible in the saved UI graph.
         def row_y(i):
             return 900 + 370 * i
 
@@ -4097,36 +4113,26 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             img_a = loads[0]
         if len(loads) > 1:
             img_b = loads[1]
-        fits = []
-        for i, src in enumerate(loads):
-            y = row_y(i)
-            fit = g.add("MiniMaxH3ReferenceFit", (-1100, y), size=(300, 150),
-                        # positional: allow_upscale, short_edge,
-                        # lift_downstream_clamp, keep_towers_matched.
-                        # keep_towers_matched is on -- it only bites past
-                        # ~3.06:1 and no shipped reference is near that, so
-                        # this changes no shipped conditioning and stops the
-                        # VAE/Qwen split reaching anyone who swaps in a wide
-                        # reference later.
-                        widgets=[ref_upscale, _ref_short_edge(), False, True],
-                        inputs=[_in("image", "IMAGE")],
-                        outputs=[_out("image", "IMAGE"),
-                                 _out("latent_rows", "INT")],
-                        title=f"Reference {i + 1} resolution")
-            g.link(src, 0, fit, "image", "IMAGE")
-            fits.append(fit)
+        # No fit node here either. This is the UI half of the same fold, and
+        # `docs/comfy_notes.md` is why both halves move in one commit: nothing
+        # checks that the two emission paths agree, so a change to one is
+        # invisible until somebody opens a graph.
         chain = None
-        for i, fit in enumerate(fits):
+        for i, src in enumerate(loads):
             append_inputs = [_in("image", "IMAGE")]
             if chain is not None:
                 append_inputs.append(
                     _in("references", "MINIMAX_H3_REFERENCES", optional=True))
             append = g.add("MiniMaxH3AppendRefImage", (-760, row_y(i)),
-                           size=(280, 120), widgets=["max"],
+                           size=(280, 150),
+                           # positional: size_policy, allow_upscale,
+                           # short_edge. `references` is a socket and consumes
+                           # no widget slot.
+                           widgets=["max", ref_upscale, _ref_short_edge()],
                            inputs=append_inputs,
                            outputs=[_out("references", "MINIMAX_H3_REFERENCES")],
                            title=f"Append Picture {i + 1}")
-            g.link(fit, 0, append, "image", "IMAGE")
+            g.link(src, 0, append, "image", "IMAGE")
             if chain is not None:
                 g.link(chain, 0, append, "references", "MINIMAX_H3_REFERENCES")
             chain = append
@@ -5576,7 +5582,7 @@ def main():
               variant_note=_probe_note(
                   "does upscaling a small reference buy anything",
                   "h3_image_ref_plus_text_to_video.json",
-                  "`allow_upscale` is OFF on both Reference Resolution nodes, "
+                  "`allow_upscale` is OFF on both Append Picture nodes, "
                   "so references arrive at ComfyUI's own sizing instead of the "
                   "released pipeline's 2048 short edge.",
                   "Preflight's `references` line and percentage, then the "

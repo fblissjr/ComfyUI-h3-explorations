@@ -404,6 +404,76 @@ def conditioning_node_assembles_the_real_payload_shape():
             raise AssertionError("empty references or prompt reached compilation")
 
 
+def image_policy_is_opt_in_and_the_three_differ():
+    """`comfy` changes nothing, and the other two are genuinely different.
+
+    The failure this exists for is a policy selector that silently collapses to
+    one branch. Asserting each policy against its own declared bounds cannot
+    catch that -- every branch reading the same config would still agree with
+    it. So this asserts the three DISAGREE on one input, which is only true if
+    the selection is real.
+
+    The input is chosen to make all three differ: a 16:9 reference prepared at
+    the release's 2048 short edge sits under the release ceiling untouched and
+    far above the current encoder artifact's, and a 224x224 reference sits
+    under BOTH floors, which is the half `keep_towers_matched` never modelled.
+    """
+    role = (3648, 2048)
+    release = R._configured_qwen_image_size(*role, "release")
+    encoder = R._configured_qwen_image_size(*role, "encoder")
+    assert release == role, (
+        f"the release still policy resized a reference inside its own "
+        f"ceiling: {role} -> {release}")
+    assert encoder != role and encoder[0] * encoder[1] < role[0] * role[1], (
+        f"the encoder still policy left {role} alone; its declared budget is "
+        f"far below that and it must shrink it")
+    assert release != encoder, (
+        "release and encoder still policies agreed on an input where their "
+        "declared budgets differ by orders of magnitude -- the selector is "
+        "not selecting")
+
+    # The floor, in the other direction. A policy that only clamps a ceiling
+    # would pass everything above and go green here.
+    small = (224, 224)
+    for policy in ("release", "encoder"):
+        out = R._configured_qwen_image_size(*small, policy)
+        assert out[0] * out[1] > small[0] * small[1], (
+            f"{policy} still policy left {small} below its own floor: {out}")
+
+    # `comfy` has no configured processor and must refuse to invent one rather
+    # than quietly returning somebody else's bounds.
+    try:
+        R._qwen_image_settings("comfy")
+    except ValueError as exc:
+        assert "no configured processor" in str(exc), exc
+    else:
+        raise AssertionError("comfy still policy returned processor settings")
+
+
+def image_policy_reads_encoder_config():
+    """The encoder still policy is governed by the encoder snapshot.
+
+    The two checked-in still processors agree on patch geometry today, so
+    comparing their current values would go green even if the wrong authority
+    won. Make them disagree in memory instead, and assert the bounds each
+    policy actually applies come from its own config.
+    """
+    original_source = R.source_image_pixel_bounds
+    original_release = R.image_pixel_bounds
+    try:
+        # A deliberately tiny encoder ceiling nothing else declares.
+        R.source_image_pixel_bounds = lambda: (1024, 4096)
+        R.image_pixel_bounds = original_release
+        out = R._configured_qwen_image_size(3648, 2048, "encoder")
+        assert out[0] * out[1] <= 4096, (
+            f"encoder still policy ignored its own ceiling: {out}")
+        assert R._configured_qwen_image_size(3648, 2048, "release") == (3648, 2048), (
+            "release still policy inherited the encoder's test bounds")
+    finally:
+        R.source_image_pixel_bounds = original_source
+        R.image_pixel_bounds = original_release
+
+
 CHECKS = (
     append_is_copy_on_add_and_ordered,
     video_metadata_is_owned,
@@ -414,6 +484,8 @@ CHECKS = (
     release_video_policy_is_opt_in_and_two_stage,
     release_policy_floor_is_two_sampled_frames,
     encoder_policy_reads_encoder_config,
+    image_policy_is_opt_in_and_the_three_differ,
+    image_policy_reads_encoder_config,
     conditioning_node_assembles_the_real_payload_shape,
 )
 

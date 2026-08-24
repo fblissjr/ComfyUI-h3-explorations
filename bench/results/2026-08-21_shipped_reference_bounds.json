@@ -16,10 +16,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -42,10 +41,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -68,10 +66,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -94,10 +91,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -120,10 +116,9 @@
       ],
       "source_ratio": 1.7779,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         672,
@@ -146,10 +141,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1600,
@@ -172,10 +166,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2752,
@@ -198,10 +191,9 @@
       ],
       "source_ratio": 1.7779,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         672,
@@ -224,10 +216,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1600,
@@ -250,10 +241,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2752,
@@ -276,10 +266,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -302,10 +291,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -328,10 +316,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -354,10 +341,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -380,10 +366,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -406,10 +391,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -432,10 +416,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -458,10 +441,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -484,10 +466,9 @@
       ],
       "source_ratio": 1.7779,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         672,
@@ -510,10 +491,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1600,
@@ -536,10 +516,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2752,
@@ -562,10 +541,9 @@
       ],
       "source_ratio": 1.7779,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         672,
@@ -588,10 +566,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1600,
@@ -614,10 +591,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2752,
@@ -640,10 +616,9 @@
       ],
       "source_ratio": 1.7779,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         672,
@@ -666,10 +641,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1600,
@@ -692,10 +666,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2752,
@@ -718,10 +691,9 @@
       ],
       "source_ratio": 1.7779,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         672,
@@ -744,10 +716,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1600,
@@ -770,10 +741,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2752,
@@ -796,10 +766,9 @@
       ],
       "source_ratio": 1.7779,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         672,
@@ -822,10 +791,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1600,
@@ -848,10 +816,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2752,
@@ -874,10 +841,9 @@
       ],
       "source_ratio": 1.7779,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         672,
@@ -900,10 +866,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1600,
@@ -926,10 +891,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2752,
@@ -952,10 +916,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -978,10 +941,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1004,10 +966,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1030,10 +991,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1056,10 +1016,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -1082,10 +1041,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -1108,10 +1066,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -1134,10 +1091,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -1160,10 +1116,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -1186,10 +1141,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -1212,10 +1166,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1238,10 +1191,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1264,10 +1216,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1290,10 +1241,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1316,10 +1266,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1342,10 +1291,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1368,10 +1316,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1394,10 +1341,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1420,10 +1366,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1446,10 +1391,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1472,10 +1416,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1498,10 +1441,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1524,10 +1466,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1550,10 +1491,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1576,10 +1516,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1376,
@@ -1602,10 +1541,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1628,10 +1566,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1654,10 +1591,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1680,10 +1616,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1706,10 +1641,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1732,10 +1666,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1758,10 +1691,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1784,10 +1716,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1810,10 +1741,9 @@
       ],
       "source_ratio": 1.7917,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2752,
@@ -1836,10 +1766,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1862,10 +1791,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": false,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         1024,
@@ -1888,10 +1816,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,
@@ -1914,10 +1841,9 @@
       ],
       "source_ratio": 1.0,
       "fit": {
+        "size_policy": "max",
         "allow_upscale": true,
-        "short_edge": 2048,
-        "lift_downstream_clamp": false,
-        "keep_towers_matched": true
+        "short_edge": 2048
       },
       "into_qwen": [
         2048,

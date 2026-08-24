@@ -95,6 +95,25 @@ def source_image_pixel_bounds() -> tuple[int, int]:
     return lo, hi
 
 
+def source_image_patch_geometry() -> dict:
+    """Return still patch/normalization settings from the encoder's snapshot.
+
+    The sibling of :func:`source_video_patch_geometry`, and separate from it
+    for the same reason: the still and video processors own their own configs,
+    and borrowing one for the other turns an upstream divergence into a silent
+    local assumption. They agree today.
+    """
+    cfg = _config("processor_config.json")["image_processor"]
+    keys = ("patch_size", "temporal_patch_size", "merge_size",
+            "image_mean", "image_std")
+    geometry = {key: cfg[key] for key in keys if key in cfg}
+    if set(geometry) != set(keys):
+        raise ValueError(
+            "source image processor is missing patch or normalization settings"
+        )
+    return geometry
+
+
 def source_video_pixel_bounds() -> tuple[int, int]:
     """Return the selected encoder artifact's declared video pixel budget."""
     size = _config("video_preprocessor_config.json").get("size") or {}

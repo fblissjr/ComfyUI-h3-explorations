@@ -23,6 +23,29 @@ does the resize itself, so the stock node's own scale becomes
 `min(1.0, 2048/2048) = 1.0` and its resize is a no-op. It composes rather than
 replacing core, and does not make the native gap closed.
 
+**On the typed reference path this node is no longer needed.**
+`MiniMaxH3AppendRefImage` carries `short_edge` and `allow_upscale` itself and
+`MiniMaxH3ReferenceConditioning` performs one resize with the canvas in scope,
+so the shipped graphs wire the loader straight to the append. This node stays
+registered, and stays correct, because saved graphs outside this repo wire it
+and a node that vanishes is a graph that stops loading. Its fit is idempotent
+with the append's: a reference already at a 2048 short edge resolves the
+append's `max` scale to 1.0.
+
+**Two inputs on it are inert.** `lift_downstream_clamp` and
+`keep_towers_matched` are retained so saved-graph widget positions stay valid,
+and they do nothing. The first armed an override on `MiniMaxH3ReferenceToVideo`,
+which no graph in this repo has ever wired, and which bound the constant by
+value at import time in both consumers -- so the arm was invisible to them even
+where the node was present. The second applied a Qwen ceiling this node cannot
+know: it read Comfy's native `process_qwen2vl_images` default by introspection
+and applied it universally, which is right for a native BF16 graph and wrong by
+a large factor under the AWQ adapter. That decision moved to
+`MiniMaxH3ReferenceConditioning.image_policy`, where the CLIP is in scope and
+the answer is knowable. `qwen_max_pixels` and `clamp_to_qwen_ceiling` below stay
+exported: `reference_video_fit.py` is a reporter for native-core paths, where
+Comfy's default IS the right ceiling.
+
 **Upscaling is not free and the node says so.** Reference rows ride through
 every sampling step, so quadrupling the short edge multiplies those rows by
 16 and the stock node's own tooltip already warns that `max` "can be several
@@ -36,7 +59,6 @@ It also carries the reference's 1:4..4:1 check on reference images
 
 from __future__ import annotations
 
-import contextlib
 import logging
 
 from comfy_api.latest import io
@@ -45,8 +67,11 @@ from comfy_extras.nodes_minimax_h3 import (CANVAS_MULTIPLE,
 
 try:
     from .h3_rules import aspect_in_range, describe_aspect_range
-except ImportError:
+    from .reference_geometry import fit_reference_image, latent_rows
+except ImportError:  # pragma: no cover - direct-module import for the checks
     from h3_rules import aspect_in_range, describe_aspect_range  # type: ignore[no-redef]
+    from reference_geometry import (fit_reference_image,  # type: ignore[no-redef]
+                                    latent_rows)
 
 logger = logging.getLogger(__name__)
 
@@ -154,54 +179,35 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                         "whether it helps an already-small source is "
                         "unmeasured."
                     )),
-                # APPENDED, and it has to stay last: widget values map
-                # positionally in every saved graph.
+                # APPENDED, and they have to stay: widget values map
+                # positionally in every saved graph, so removing either would
+                # break every graph built while they worked. Both are INERT.
+                # See the module docstring for what each used to do and where
+                # the surviving half of it went.
                 io.Boolean.Input(
                     "lift_downstream_clamp", default=False, optional=True,
-                    display_name="EXPERIMENTAL: lift the 2048 clamp",
+                    display_name="RETIRED: lift the 2048 clamp",
                     tooltip=(
-                        "EXPERIMENTAL. Leave this off unless you are running "
-                        "an experiment and expect to throw the result away. "
-                        "It monkeypatches a core ComfyUI node for one call and "
-                        "pushes the model outside the distribution it was "
-                        "trained on; nothing downstream is tested there. "
-                        "Only matters above 2048. MiniMax H3 Reference to "
-                        "Video clamps with min(1.0, 2048/short_edge), so "
-                        "anything larger this node produces is scaled straight "
-                        "back and the setting appears to do nothing. Turning "
-                        "this on lifts that clamp for exactly one downstream "
-                        "call, then restores it. "
-                        "Above 2048 is off-distribution: 2048 is what the "
-                        "released checkpoint conditioned image references at. "
-                        "Cost climbs quadratically -- 3072 is 16,416 vision "
-                        "tokens against 7,296 -- per reference, on a sequence "
-                        "that already crosses the int32 threshold at 362 "
-                        "frames. Requires ref_image_size on 'max'; under "
-                        "'match' the constant is never read and this logs that "
-                        "it did nothing."
+                        "RETIRED and ignored. This armed a one-call override "
+                        "on MiniMaxH3ReferenceToVideo, a node no graph in this "
+                        "repo wires; and both consumers of the constant it "
+                        "rebound had already bound it by value at import, so "
+                        "the arm was invisible to them anyway. Retained only "
+                        "so saved graphs keep their widget positions."
                     )),
-                # APPENDED, and it has to stay last for the same reason the
-                # one above does: widget values map positionally in every
-                # saved graph.
                 io.Boolean.Input(
                     "keep_towers_matched", default=True, optional=True,
-                    display_name="keep VAE and Qwen on one size",
+                    display_name="RETIRED: keep VAE and Qwen on one size",
                     tooltip=(
-                        "Shrink the reference under Qwen's vision ceiling here, "
-                        "so the VAE and Qwen see the same picture. "
-                        "Core encodes one tensor with the VAE and hands the "
-                        "SAME object to the conditioner, then Qwen resizes it "
-                        "again inside the text encoder. Above the ceiling that "
-                        "second resize fires for Qwen alone, so the DiT gets "
-                        "latent rows at one resolution and hidden states at "
-                        "another for one reference, silently. "
-                        "Only reachable on very wide references -- at a 2048 "
-                        "short edge the ceiling crosses around 3.06:1, and the "
-                        "aspect gate refuses past 4:1. No shipped graph reaches "
-                        "it. "
-                        "Off reproduces ComfyUI's behaviour including the "
-                        "split, which is what you want if you are measuring "
-                        "the split rather than avoiding it."
+                        "RETIRED and ignored here. The job was real -- core "
+                        "encodes one tensor with the VAE and hands the SAME "
+                        "object to the conditioner, so a Qwen-side resize "
+                        "above the ceiling splits the towers -- but this node "
+                        "has no clip and cannot tell which ceiling applies. It "
+                        "read Comfy's native process_qwen2vl_images default and "
+                        "applied it universally, which the AWQ adapter makes "
+                        "wrong by a large factor. Use "
+                        "MiniMaxH3ReferenceConditioning.image_policy instead."
                     )),
             ],
             outputs=[
@@ -221,22 +227,14 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
         )
 
     @classmethod
-    def fingerprint_inputs(cls, lift_downstream_clamp=False, **kwargs):
-        """Force re-execution whenever the experimental clamp lift is armed.
-
-        The arm is a side effect of `execute`, and a cached node does not run.
-        So editing only the prompt text downstream left this node cached, the
-        arm never fired, and the render silently reverted to the 2048 clamp
-        with the checkbox still ticked. Returning a changing value here keeps
-        the node out of the cache for exactly the configuration that depends
-        on it, and leaves normal use cached.
-        """
-        return float("nan") if lift_downstream_clamp else None
-
-    @classmethod
     def execute(cls, image, allow_upscale=True, short_edge=REF_IMAGE_SHORT_EDGE,
                 lift_downstream_clamp=False, keep_towers_matched=True
                 ) -> io.NodeOutput:
+        if lift_downstream_clamp:
+            logger.warning(
+                "[h3] lift_downstream_clamp is RETIRED and does nothing. It "
+                "armed an override on MiniMaxH3ReferenceToVideo, which this "
+                "repo has never wired. Untick it.")
         if image.shape[0] > 1:
             logger.warning(
                 "[h3] reference carries %d images; using the first. Wire one "
@@ -252,65 +250,38 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                 f"({src_w / src_h:.3g}). Crop it before referencing it."
             )
 
-        full = short_edge / min(src_w, src_h)
-        scale = full if allow_upscale else min(1.0, full)
-
-        tw, th = _fit(src_w, src_h, scale)
-
-        # Before the resize, not after: the tensor this node emits is the one
-        # core VAE-encodes AND the one it stashes for Qwen, so shrinking here
-        # is what puts the two towers on a single size. Shrinking afterwards
-        # would only move the split.
-        split_avoided = None
-        if keep_towers_matched:
-            tw, th, split_avoided = clamp_to_qwen_ceiling(
-                tw, th, qwen_max_pixels())
-
+        tw, th = fit_reference_image(
+            src_w, src_h, size_policy="max", short_edge=short_edge,
+            allow_upscale=allow_upscale)
         out = _resize(image[:1], tw, th, "disabled")
         # What the DiT actually pays: reference latents are 16x downsampled
         # spatially, and every one of these rows is attended at every step.
-        tokens = _tokens(tw, th)
+        tokens = latent_rows(tw, th)
         # Always against ComfyUI's current behaviour, so the log answers "what
         # is this node changing" rather than restating what it just did.
-        stock_tokens = _tokens(*_fit(src_w, src_h, min(1.0, full)))
-
-        # Clear this node's own arm FIRST, unconditionally. The previous code
-        # only disarmed when the checkbox was off, so the "nothing to lift"
-        # branch -- the one that says out loud it is doing nothing -- was the
-        # branch that let a previous prompt's 3072 through.
-        node_id = getattr(cls.hidden, "unique_id", None)
-        disarm_short_edge_override(node_id)
-
-        # Does the node we feed actually read the constant we are about to
-        # lift? Under core's default `ref_image_size='match'` it never does:
-        # references are sized from the video's pixel area instead, this node's
-        # resize is undone, and the log below would otherwise claim an
-        # improvement that did not happen.
-        downstream = _downstream_ref_image_size(
-            getattr(cls.hidden, "prompt", None), node_id)
-        effective = downstream in (None, "max")
+        stock_w, stock_h = fit_reference_image(
+            src_w, src_h, size_policy="max", short_edge=short_edge,
+            allow_upscale=False)
+        stock_tokens = latent_rows(stock_w, stock_h)
 
         logger.info(
             "[h3] reference %dx%d -> %dx%d (allow_upscale=%s, short_edge=%d): "
-            "%d latent rows, %.2gx ComfyUI's own sizing%s",
+            "%d latent rows, %.2gx ComfyUI's own sizing",
             src_w, src_h, tw, th, allow_upscale, short_edge, tokens,
             tokens / stock_tokens,
-            "" if effective else "  -- BUT SEE THE WARNING BELOW",
         )
 
         # Say "no change" out loud. The ratio above already carries it -- 1.0
         # prints as "1x" -- which is exactly the problem: it reads as a
         # successful resize at a glance, and a reader who sees this node in a
-        # graph concludes the reference was fitted. As of 2026-08-16 that is
-        # false in 10 of the 18 shipped graphs that wire it, because
-        # `REF_VIDEO_BUDGET` holds `allow_upscale=False` to fit 24 GB and every
-        # reference in the library is under the clamp.
+        # graph concludes the reference was fitted.
         #
         # INFO and not WARNING on purpose. Inert here is usually the correct
         # state, deliberately chosen, and a warning that fires on more than half
-        # the shipped graphs every render is how a project learns to ignore
-        # warnings -- worse than not having one.
+        # the graphs that wire it is how a project learns to ignore warnings --
+        # worse than not having one.
         if tokens == stock_tokens:
+            full = short_edge / min(src_w, src_h)
             if not allow_upscale and full > 1.0:
                 logger.info(
                     "[h3] reference fit made NO CHANGE: allow_upscale is off "
@@ -324,257 +295,5 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                     "[h3] reference fit made NO CHANGE: %dx%d is already what "
                     "ComfyUI's own sizing produces at short_edge=%d.",
                     tw, th, short_edge)
-        # The tower split, reported either way. This is the gap that had no
-        # signal at all: nothing anywhere told you what resolution a reference
-        # finally reached, so a user could not tell a deliberate downscale from
-        # an accidental one.
-        if split_avoided is not None:
-            was_w, was_h = split_avoided
-            logger.info(
-                "[h3] reference held at %dx%d instead of %dx%d so the VAE and "
-                "Qwen stay on one size: %dx%d is past Qwen's %d-pixel ceiling, "
-                "and core would have shrunk it for the conditioner ONLY, after "
-                "the VAE had already encoded the larger tensor.",
-                tw, th, was_w, was_h, was_w, was_h, qwen_max_pixels())
-        elif not keep_towers_matched:
-            # WARNING, not INFO, and only when it actually bites. The node's
-            # own philosophy above is that a warning firing on most graphs
-            # teaches you to ignore warnings; this one fires only when the
-            # split is real and was switched off deliberately.
-            ceiling = qwen_max_pixels()
-            if tw * th > ceiling:
-                would_w, would_h, _ = clamp_to_qwen_ceiling(tw, th, ceiling)
-                logger.warning(
-                    "[h3] keep_towers_matched is OFF and this reference is "
-                    "past Qwen's ceiling: the VAE will encode %dx%d while the "
-                    "conditioner sees about %dx%d. The DiT gets one reference "
-                    "at two resolutions. Turn it on unless you are measuring "
-                    "exactly this.",
-                    tw, th, would_w, would_h)
-
-        if not effective:
-            logger.warning(
-                "[h3] MiniMax H3 Reference to Video is on ref_image_size=%r, "
-                "so it sizes references from the video's pixel area and never "
-                "reads the %d constant. This node's resize is undone "
-                "downstream: the %d rows above will NOT be what the DiT sees, "
-                "and you are paying two lanczos resamples for nothing. Set it "
-                "to 'max'.", downstream, REF_IMAGE_SHORT_EDGE, tokens)
-
-        if lift_downstream_clamp:
-            if short_edge > REF_IMAGE_SHORT_EDGE:
-                arm_short_edge_override(short_edge, node_id)
-            else:
-                logger.info(
-                    "[h3] lift_downstream_clamp is on but short_edge is %d, at "
-                    "or below the %d clamp, so there is nothing to lift.",
-                    short_edge, REF_IMAGE_SHORT_EDGE)
 
         return io.NodeOutput(out, tokens)
-
-
-def _downstream_ref_image_size(prompt, node_id):
-    """`ref_image_size` of the ReferenceToVideo this node feeds, or None.
-
-    None means "could not tell" -- no prompt, no consumer found, or a graph
-    shape this does not understand -- and is deliberately treated as "fine"
-    rather than as a warning, because a false alarm on every render would be
-    worse than the silence it replaces.
-    """
-    if not prompt or node_id is None:
-        return None
-    node_id = str(node_id)
-    sizes = set()
-    for spec in prompt.values():
-        if not isinstance(spec, dict) or spec.get("class_type") != "MiniMaxH3ReferenceToVideo":
-            continue
-        inputs = spec.get("inputs") or {}
-        feeds = any(isinstance(v, list) and v and str(v[0]) == node_id
-                    for v in inputs.values())
-        if feeds:
-            sizes.add(inputs.get("ref_image_size", "match"))
-    if len(sizes) != 1:
-        return None
-    return sizes.pop()
-
-
-def _fit(w, h, scale):
-    def snap(v):
-        return max(CANVAS_MULTIPLE,
-                   round(v * scale / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
-    return snap(w), snap(h)
-
-
-def _tokens(w, h):
-    """Vision tokens a reference of this pixel size contributes to the DiT.
-
-    Two stages, not one. The VAE compresses space by 16, then the DiT
-    patchifies that latent with `patch_size=(1, 2, 2)` before anything is
-    attended (`comfy/ldm/minimax/model.py`, `patchify_video`). Counting only
-    the VAE stage reports four times what the sequence actually carries,
-    which is what this function did until 2026-08-11 and what the number in
-    the 0.3.0 changelog entry came from.
-    """
-    return (h // 32) * (w // 32)
-
-
-# --------------------------------------------------------------------------
-# Lifting ComfyUI's 2048 clamp, for one downstream call
-# --------------------------------------------------------------------------
-#
-# `MiniMaxH3ReferenceToVideo.execute` sizes image references with
-# `min(1.0, REF_IMAGE_SHORT_EDGE / min(w, h))` (`nodes_minimax_h3.py`).
-# The clamp is what lets this node work at all below 2048: we resize first,
-# the stock scale resolves to 1.0, and its resize is a no-op. Above 2048 the
-# same clamp scales our work back down, so `short_edge` is one-directional
-# and a sweep past the default silently does nothing.
-#
-# `REF_IMAGE_SHORT_EDGE` is a module attribute read inside `execute` at call
-# time, so rebinding it changes behaviour. Rebinding it *globally* would be
-# the wrong fix: it is sticky for the process, invisible in the UI, and would
-# reach graphs that do not contain this node -- the same silent-contamination
-# class `nodes.py` guards against when it copies transformer_options. So the
-# override is armed by this node, consumed by exactly one downstream call,
-# and cleared in a `finally`.
-#
-# Above 2048 is off-distribution by construction: 2048 is what the released
-# checkpoint conditioned image references at, carried in the reference
-# pipeline as `ConfigSpec("reference_image_short_edge", 2048)`. This exists to
-# make that measurable, not because bigger is better.
-
-# Keyed by the arming node's unique_id, not a bare value. With one global
-# value, two fit nodes in one graph resolved by execution order: the one with
-# the checkbox OFF called a global disarm and silently cancelled the other's
-# arm, and ComfyUI's order between independent nodes is not the graph's visual
-# order and not settable. Per-node entries make disarm affect only its own.
-_PENDING_SHORT_EDGE: dict[str, int] = {}
-_WRAP_MARKER = "_h3_explorations_short_edge_wrapper"
-
-
-@contextlib.contextmanager
-def _rebound_short_edge(value):
-    """Swap the module constant for the duration of one call."""
-    import comfy_extras.nodes_minimax_h3 as core
-
-    previous = core.REF_IMAGE_SHORT_EDGE
-    core.REF_IMAGE_SHORT_EDGE = value
-    try:
-        yield
-    finally:
-        core.REF_IMAGE_SHORT_EDGE = previous
-
-
-def _make_wrapper(original):
-    """Wrap `ReferenceToVideo.execute` so an armed override applies once.
-
-    Factored out so the behaviour is testable without a VAE, a CLIP or a
-    model: `bench/check_short_edge_override.py` calls this with a stub.
-    """
-    def wrapper(*args, **kwargs):
-        # Consume and clear on EVERY call, armed or not, in a finally. An arm
-        # that is never consumed is an arm that reaches a later prompt, and
-        # clearing only on the armed path is what let that happen.
-        armed = dict(_PENDING_SHORT_EDGE)
-        _PENDING_SHORT_EDGE.clear()
-        pending = max(armed.values()) if armed else None
-        if len(set(armed.values())) > 1:
-            logger.warning(
-                "[h3] two Reference Resolution nodes armed different short "
-                "edges (%s); the downstream node reads ONE value for all of "
-                "them, so %d is being used for every reference in this graph.",
-                sorted(set(armed.values())), pending)
-        if pending is None:
-            return original(*args, **kwargs)
-        if kwargs.get("ref_image_size", "match") == "match":
-            # In `match` the stock node never reads the constant -- it scales
-            # to the generation's pixel area instead. An override that
-            # silently does nothing in the default configuration is worse
-            # than no override, so say so rather than appear to work.
-            logger.warning(
-                "[h3] short_edge override of %d ignored: ref_image_size is "
-                "'match', which sizes references from the video's pixel area "
-                "and never reads the 2048 constant. Set it to 'max'.", pending)
-            return original(*args, **kwargs)
-        logger.warning(
-            "[h3] EXPERIMENTAL: lifting ComfyUI's reference clamp to %d for "
-            "one call. This monkeypatches a core node and pushes image "
-            "references past the %d the released checkpoint was conditioned "
-            "at. Results are not comparable to anything measured at the "
-            "default, and nothing downstream is tested here.",
-            pending, REF_IMAGE_SHORT_EDGE)
-        with _rebound_short_edge(pending):
-            return original(*args, **kwargs)
-
-    setattr(wrapper, _WRAP_MARKER, True)
-    return wrapper
-
-
-def _install_wrapper():
-    """Wrap the stock node once. Idempotent, and says so if someone else won.
-
-    The chaining packs established the marker convention for exactly this;
-    two packs each wrapping unaware of the other is the collision class this
-    ecosystem keeps producing.
-    """
-    import comfy_extras.nodes_minimax_h3 as core
-
-    node = core.MiniMaxH3ReferenceToVideo
-    current = node.__dict__.get("execute")
-    if current is None:
-        # Inherited from a base or a mixin rather than defined here. Wrapping
-        # `None` would install `classmethod(_make_wrapper(None))` and kill
-        # every reference render in the process, including graphs that never
-        # touched the experimental flag, since the wrapper is global.
-        logger.warning(
-            "[h3] cannot install the short-edge override: "
-            "MiniMaxH3ReferenceToVideo.execute is not defined on the class. "
-            "Upstream moved it; the override will not apply.")
-        return
-    inner = current.__func__ if isinstance(current, classmethod) else current
-    if getattr(inner, _WRAP_MARKER, False):
-        return
-    node.execute = classmethod(_make_wrapper(inner))
-
-
-def arm_short_edge_override(value, node_id=None):
-    """Arm the override for the next downstream ReferenceToVideo call.
-
-    Arming is per fit node and consumption is per downstream call, and a graph
-    has one `ReferenceToVideo` for however many references. The entry is keyed
-    by `node_id` so a sibling fit node with the checkbox off cannot cancel it;
-    the wrapper reconciles multiple arms and warns if they disagree.
-
-    **Known residual, and it is not closable through the public surface.** If a
-    prompt arms and no `ReferenceToVideo` runs -- the node is muted, execution
-    is interrupted, an unrelated branch raises -- the entry survives until the
-    next call to that node, which may be in a later prompt that never asked
-    for it. Closing it properly needs a prompt identity the wrapper can compare
-    against, and ComfyUI does not expose `prompt_id` to nodes (see
-    `provenance.py`, same finding). What is closed: the wrapper now clears on
-    every call rather than only the armed path, and every fit node clears its
-    own entry before arming, so the window is one prompt that contains the fit
-    node, does not reach the downstream node, and is followed by a prompt that
-    reaches the downstream node without the fit node.
-    """
-    _install_wrapper()
-    key = str(node_id) if node_id is not None else "_anonymous"
-    previous = _PENDING_SHORT_EDGE.get(key)
-    if previous not in (None, value):
-        logger.warning(
-            "[h3] short-edge override for node %s was armed at %d and is now "
-            "%d.", key, previous, value)
-    _PENDING_SHORT_EDGE[key] = value
-
-
-def disarm_short_edge_override(node_id=None):
-    """Drop this node's arm, or every arm when no node is named.
-
-    Called unconditionally at the top of each `execute`, which is what stops a
-    previous prompt's value surviving the checkbox being switched off -- the
-    old code only disarmed on the checkbox-off path, so the branch that logged
-    "there is nothing to lift" was the branch that let 3072 through.
-    """
-    if node_id is None:
-        _PENDING_SHORT_EDGE.clear()
-    else:
-        _PENDING_SHORT_EDGE.pop(str(node_id), None)

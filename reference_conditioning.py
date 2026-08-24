@@ -40,23 +40,47 @@ from comfy_extras.nodes_minimax_h3 import (
     adapt_canvas,
 )
 
+from .h3_rules import aspect_in_range, describe_aspect_range
 from .reference_order import AudioRef, ImageRef, VideoRef, assign_labels
+from .reference_geometry import (
+    SIZE_POLICIES,
+    fit_reference_image,
+    latent_rows,
+)
 from .h3_awq_encoder import (
+    source_image_patch_geometry,
+    source_image_pixel_bounds,
     source_video_patch_geometry,
     source_video_pixel_bounds,
 )
-from .vendor_config import video_patch_geometry, video_pixel_bounds
+from .vendor_config import (
+    image_pixel_bounds,
+    patch_geometry,
+    video_patch_geometry,
+    video_pixel_bounds,
+)
 logger = logging.getLogger(__name__)
 
 H3References = io.Custom("MINIMAX_H3_REFERENCES")
 VHSVideoInfo = io.Custom("VHS_VIDEOINFO")
 VIDEO_POLICIES = ("comfy", "release", "encoder")
+IMAGE_POLICIES = ("comfy", "release", "encoder")
 
 
 @dataclass(frozen=True)
 class RuntimeImageReference:
+    """One still reference and the stage-one sizing decision made for it.
+
+    `short_edge` and `allow_upscale` ride the record rather than being applied
+    upstream so that exactly one resize happens, at the compiler, where the
+    canvas is also known. Their defaults reproduce ComfyUI's own sizing, which
+    is what a saved graph built before they existed must keep getting.
+    """
+
     image: Any
     size_policy: str
+    short_edge: int = REF_IMAGE_SHORT_EDGE
+    allow_upscale: bool = False
 
 
 @dataclass(frozen=True)
@@ -214,6 +238,61 @@ def _prepare_reference_video(frames, loaded_fps: float, frame_count: int):
     while n % 17 != 5:
         n -= 1
     return frames[:n]
+
+
+def _qwen_image_settings(image_policy: str) -> tuple[tuple[int, int], dict]:
+    """Return the settings owned by the selected Qwen STILL-image policy.
+
+    The sibling of :func:`_qwen_video_settings`, and the reason it exists: one
+    ceiling has three live values and nothing could select between them. The
+    installed ComfyUI code path uses `process_qwen2vl_images` defaults; the
+    current encoder artifact declares its own, far lower, snapshot; the release
+    declares a third. `reference_fit.py` read the first by introspection and
+    applied it as though it were universal, which is right for a native BF16
+    graph and wrong by orders of magnitude under the AWQ adapter -- and the fit
+    node cannot tell which it is feeding, because it has no `clip`.
+
+    `comfy` returns nothing to apply: it is the passthrough that leaves the
+    still exactly as core would, which is what every graph got before this
+    existed and therefore what the default has to be.
+    """
+    if image_policy == "comfy":
+        raise ValueError(
+            "the comfy still policy has no configured processor; callers must "
+            "skip the Qwen stage entirely rather than ask for its settings")
+    if image_policy == "release":
+        return image_pixel_bounds(), patch_geometry()
+    if image_policy == "encoder":
+        return source_image_pixel_bounds(), source_image_patch_geometry()
+    raise ValueError(f"no configured Qwen processor for policy {image_policy!r}")
+
+
+def _configured_qwen_image_size(
+    width: int, height: int, image_policy: str,
+) -> tuple[int, int]:
+    """Return the selected still policy's Qwen view as ``(width, height)``.
+
+    Pre-applying this is what puts both towers on one size. Core hands ONE
+    tensor to the VAE and stashes the SAME object for the conditioner, so a
+    Qwen-side resize that fires after the VAE has already encoded leaves the
+    DiT holding latent rows at one resolution and hidden states at another for
+    a single reference, silently. Resizing here means the tensor the VAE
+    encodes is the tensor Qwen wanted, and Qwen's own resize becomes identity.
+
+    `smart_resize` is imported from the installed processor rather than copied,
+    and it enforces a FLOOR as well as a ceiling: a still under the policy's
+    `min_pixels` is enlarged by it. That is a real behaviour of the declared
+    policy, not a bug to clamp away, and the caller logs it.
+    """
+    from transformers.models.qwen2_vl.image_processing_qwen2_vl import smart_resize
+
+    (min_pixels, max_pixels), geometry = _qwen_image_settings(image_policy)
+    factor = int(geometry["patch_size"]) * int(geometry["merge_size"])
+    target_h, target_w = smart_resize(
+        height=height, width=width, factor=factor,
+        min_pixels=min_pixels, max_pixels=max_pixels,
+    )
+    return int(target_w), int(target_h)
 
 
 def _qwen_video_settings(video_policy: str) -> tuple[tuple[int, int], dict]:
@@ -383,13 +462,18 @@ def _order_records(records) -> list[ImageRef | VideoRef | AudioRef]:
 
 def _compile_reference_records(
     records, vae, audio_vae, width, height, frame_count,
-    video_policy="encoder",
+    video_policy="encoder", image_policy="comfy",
 ):
     """Compile one ordered record list into Qwen items and DiT blocks."""
     if video_policy not in VIDEO_POLICIES:
         raise ValueError(
             f"unknown reference video policy {video_policy!r}; "
             f"expected one of {VIDEO_POLICIES}"
+        )
+    if image_policy not in IMAGE_POLICIES:
+        raise ValueError(
+            f"unknown reference image policy {image_policy!r}; "
+            f"expected one of {IMAGE_POLICIES}"
         )
     ref_items = []
     ref_blocks = []
@@ -399,21 +483,45 @@ def _compile_reference_records(
         if isinstance(record, RuntimeImageReference):
             image = record.image
             _, source_h, source_w = _image_shape(image, f"reference image {index + 1}")
-            if record.size_policy == "match":
-                scale = min(1.0, math.sqrt((width * height) / (source_w * source_h)))
-            elif record.size_policy == "max":
-                scale = min(1.0, REF_IMAGE_SHORT_EDGE / min(source_w, source_h))
+            # Stage one: upstream role sizing. Shared with the calibration
+            # builder rather than reimplemented here; see reference_geometry.
+            role_w, role_h = fit_reference_image(
+                source_w, source_h,
+                size_policy=record.size_policy,
+                short_edge=record.short_edge,
+                allow_upscale=record.allow_upscale,
+                canvas_w=width, canvas_h=height,
+            )
+            # Stage two: the selected Qwen still policy, applied BEFORE the VAE
+            # so both towers encode one size. `comfy` declines to have an
+            # opinion, which is what core does and what every graph built
+            # before this input existed must keep getting.
+            target_w, target_h = role_w, role_h
+            if image_policy != "comfy":
+                target_w, target_h = _configured_qwen_image_size(
+                    role_w, role_h, image_policy)
+                if (target_w, target_h) != (role_w, role_h):
+                    logger.info(
+                        "[h3] reference %d: %s still policy moved %dx%d to "
+                        "%dx%d before the VAE, so the VAE and Qwen stay on one "
+                        "size.", index + 1, image_policy, role_w, role_h,
+                        target_w, target_h)
+            # The identity guard. `comfy/utils.py::lanczos` has no
+            # short-circuit and round-trips through PIL uint8 unconditionally,
+            # so a no-op resize is not free: it costs a full resample and a
+            # float32 -> uint8 -> float32 quantization for nothing.
+            if (target_w, target_h) == (source_w, source_h):
+                resized = image[:1]
             else:
-                raise ValueError(f"unknown image size policy {record.size_policy!r}")
-            target_w = max(
-                CANVAS_MULTIPLE,
-                round(source_w * scale / CANVAS_MULTIPLE) * CANVAS_MULTIPLE,
-            )
-            target_h = max(
-                CANVAS_MULTIPLE,
-                round(source_h * scale / CANVAS_MULTIPLE) * CANVAS_MULTIPLE,
-            )
-            resized = _resize(image[:1], target_w, target_h, "disabled")
+                resized = _resize(image[:1], target_w, target_h, "disabled")
+            logger.info(
+                "[h3] reference %d: %dx%d source -> %dx%d role (%s, "
+                "short_edge=%d, allow_upscale=%s) -> %dx%d encoded "
+                "(image_policy=%s): %d latent rows",
+                index + 1, source_w, source_h, role_w, role_h,
+                record.size_policy, record.short_edge, record.allow_upscale,
+                target_w, target_h, image_policy,
+                latent_rows(target_w, target_h))
             latent = vae.encode(resized)
             ref_items.append({"type": "image", "data": resized})
             ref_blocks.append({
@@ -513,26 +621,87 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
             inputs=[
                 io.Image.Input("image"),
                 io.Combo.Input(
-                    "size_policy", options=["match", "max"], default="match",
+                    "size_policy", options=list(SIZE_POLICIES), default="match",
                     tooltip=(
                         "Core-compatible sizing for this image. match caps it "
-                        "at target pixel area; max caps the short edge at 2048. "
-                        "Neither policy upscales."
+                        "at target pixel area; max caps the short edge at "
+                        "short_edge. Whether either upscales is allow_upscale's "
+                        "decision, not this one's."
                     ),
                 ),
                 H3References.Input("references", optional=True),
+                # APPENDED, and they have to stay after `references`: widget
+                # values map positionally in every saved graph, so these are
+                # the permitted change shape and reordering is not. Defaults
+                # reproduce ComfyUI's own sizing, which is what a graph built
+                # before they existed must keep getting.
+                io.Boolean.Input(
+                    "allow_upscale", default=False, optional=True,
+                    tooltip=(
+                        "Scale until the shorter side REACHES short_edge, "
+                        "enlarging a smaller reference. Off (default) matches "
+                        "ComfyUI, which clamps its scale with min(1.0, ...) and "
+                        "only ever shrinks. On matches the three serving "
+                        "implementations, which upscale unconditionally: a "
+                        "1280x720 reference becomes 3648x2048, going from 880 "
+                        "to 7296 latent rows. Those rows are attended at every "
+                        "sampling step. Upscaling adds rows, not detail, so "
+                        "whether it helps an already-small source is unmeasured."
+                    ),
+                ),
+                io.Int.Input(
+                    "short_edge", default=REF_IMAGE_SHORT_EDGE, min=256,
+                    max=4096, step=32, optional=True,
+                    tooltip=(
+                        "Under size_policy=max, scale until the SHORTER side "
+                        "reaches this, then round to 32. 2048 is a property of "
+                        "the released checkpoint, carried beside the canvas "
+                        "rules as reference_image_short_edge. Ignored under "
+                        "size_policy=match, which sizes from the canvas area."
+                    ),
+                ),
             ],
             outputs=[H3References.Output(display_name="references")],
         )
 
     @classmethod
-    def execute(cls, image, size_policy="match", references=None):
-        _image_shape(image, "image")
-        if size_policy not in ("match", "max"):
+    def execute(cls, image, size_policy="match", references=None,
+                allow_upscale=False, short_edge=REF_IMAGE_SHORT_EDGE):
+        count, source_h, source_w = _image_shape(image, "image")
+        if size_policy not in SIZE_POLICIES:
             raise ValueError(f"unknown image size policy {size_policy!r}")
+        if count > 1:
+            # `_compile_reference_records` keeps only the first. Saying so is
+            # the whole fix: wiring a video loader's IMAGE output here dropped
+            # frames 2..N with no message at all.
+            logger.warning(
+                "[h3] image reference carries %d images; using the first. "
+                "Append one node per reference, or use the video reference "
+                "node for a clip.", count)
+        # The aspect gate, at the node rather than at the compiler, so a
+        # reference that cannot be conditioned fails before the VAE is touched.
+        if not aspect_in_range(source_w, source_h):
+            raise RuntimeError(
+                f"A MiniMax H3 reference image must be within "
+                f"{describe_aspect_range()}; this one is {source_w}x{source_h} "
+                f"({source_w / source_h:.3g}). Crop it before referencing it.")
+        if short_edge < CANVAS_MULTIPLE:
+            raise ValueError(
+                f"short_edge must be at least {CANVAS_MULTIPLE}, got {short_edge}")
+        if size_policy == "match" and (allow_upscale or
+                                       short_edge != REF_IMAGE_SHORT_EDGE):
+            # Inert settings used to go quiet. They are checkable here because
+            # the policy and its knobs are finally on one node.
+            logger.warning(
+                "[h3] size_policy='match' sizes this reference from the canvas "
+                "area, so short_edge=%d and allow_upscale=%s are not read. Set "
+                "size_policy='max' to use them.", short_edge, allow_upscale)
         return io.NodeOutput(
             _reference_tuple(references)
-            + (RuntimeImageReference(image=image, size_policy=size_policy),)
+            + (RuntimeImageReference(
+                image=image, size_policy=size_policy,
+                short_edge=int(short_edge), allow_upscale=bool(allow_upscale),
+            ),)
         )
 
 
@@ -641,6 +810,27 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
                         "This does not modify or fix native ComfyUI."
                     ),
                 ),
+                # APPENDED for the same reason video_policy was.
+                io.Combo.Input(
+                    "image_policy", options=list(IMAGE_POLICIES),
+                    default="comfy", optional=True,
+                    tooltip=(
+                        "Reference STILL preparation only, and the sibling of "
+                        "video_policy. comfy (default) changes nothing: the "
+                        "still is handed to the text encoder exactly as core "
+                        "hands it, and whatever processor that CLIP carries "
+                        "resizes it afterwards -- for Qwen alone, after the VAE "
+                        "has already encoded the larger tensor. encoder and "
+                        "release instead pre-apply the selected policy's own "
+                        "ceiling AND floor here, so the VAE encodes the tensor "
+                        "Qwen wanted and both towers stay on one size. They "
+                        "differ by a large factor: the current encoder "
+                        "artifact declares a far smaller still budget than the "
+                        "release does, so 'encoder' can shrink a reference "
+                        "hard where 'release' leaves it alone. Pick the one "
+                        "matching the checkpoint you loaded."
+                    ),
+                ),
             ],
             outputs=[
                 io.Conditioning.Output(display_name="positive"),
@@ -652,6 +842,7 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
     def execute(
         cls, clip, vae, audio_vae, references, prompt, width=1344,
         height=768, length=124, vendor_tokens=True, video_policy="encoder",
+        image_policy="comfy",
     ):
         records = _reference_tuple(references)
         if not records:
@@ -666,7 +857,7 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
         latent, frame_count = _empty_av_latent(width, height, length)
         ref_items, ref_blocks = _compile_reference_records(
             records, vae, audio_vae, width, height, frame_count,
-            video_policy=video_policy,
+            video_policy=video_policy, image_policy=image_policy,
         )
         tokens = clip.tokenize(prompt, minimax_ref_items=ref_items)
         conditioning = clip.encode_from_tokens_scheduled(tokens)

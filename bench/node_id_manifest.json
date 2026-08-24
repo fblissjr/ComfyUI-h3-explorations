@@ -23,7 +23,9 @@
     "inputs": [
       "image",
       "size_policy",
-      "references"
+      "references",
+      "allow_upscale",
+      "short_edge"
     ],
     "node_id": "MiniMaxH3AppendRefImage",
     "outputs": [
@@ -116,7 +118,8 @@
       "height",
       "length",
       "vendor_tokens",
-      "video_policy"
+      "video_policy",
+      "image_policy"
     ],
     "node_id": "MiniMaxH3ReferenceConditioning",
     "outputs": [

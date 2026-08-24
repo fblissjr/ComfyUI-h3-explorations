@@ -176,7 +176,8 @@
         "27",
         2
       ],
-      "video_policy": "encoder"
+      "video_policy": "encoder",
+      "image_policy": "comfy"
     }
   },
   "15": {
@@ -197,81 +198,48 @@
       "image": "h3_refs/scene_loft_couch_duo_2752x1536.png"
     }
   },
-  "24": {
-    "class_type": "MiniMaxH3ReferenceFit",
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
     "inputs": {
       "image": [
         "15",
         0
       ],
+      "size_policy": "max",
       "allow_upscale": false,
-      "short_edge": 2048,
-      "lift_downstream_clamp": false,
-      "keep_towers_matched": true
-    }
-  },
-  "50": {
-    "class_type": "MiniMaxH3AppendRefImage",
-    "inputs": {
-      "image": [
-        "24",
-        0
-      ],
-      "size_policy": "max"
-    }
-  },
-  "25": {
-    "class_type": "MiniMaxH3ReferenceFit",
-    "inputs": {
-      "image": [
-        "16",
-        0
-      ],
-      "allow_upscale": false,
-      "short_edge": 2048,
-      "lift_downstream_clamp": false,
-      "keep_towers_matched": true
+      "short_edge": 2048
     }
   },
   "51": {
     "class_type": "MiniMaxH3AppendRefImage",
     "inputs": {
       "image": [
-        "25",
+        "16",
         0
       ],
       "size_policy": "max",
       "references": [
         "50",
         0
-      ]
-    }
-  },
-  "35": {
-    "class_type": "MiniMaxH3ReferenceFit",
-    "inputs": {
-      "image": [
-        "34",
-        0
       ],
       "allow_upscale": false,
-      "short_edge": 2048,
-      "lift_downstream_clamp": false,
-      "keep_towers_matched": true
+      "short_edge": 2048
     }
   },
   "52": {
     "class_type": "MiniMaxH3AppendRefImage",
     "inputs": {
       "image": [
-        "35",
+        "34",
         0
       ],
       "size_policy": "max",
       "references": [
         "51",
         0
-      ]
+      ],
+      "allow_upscale": false,
+      "short_edge": 2048
     }
   },
   "19": {

@@ -526,7 +526,7 @@ condition at 2048.
 
 | | `ref_image_size` | `allow_upscale` |
 |---|---|---|
-| lives on | `MiniMaxH3ReferenceToVideo` | `MiniMaxH3ReferenceFit` |
+| lives on | `MiniMaxH3ReferenceToVideo` | `MiniMaxH3AppendRefImage` |
 | applies to | **all image references at once** | **one reference** |
 | touches video refs | no | no |
 | touches audio refs | no | no |
@@ -535,9 +535,10 @@ condition at 2048.
 references never see it — they take `adapt_canvas` from their own aspect ratio
 (`:315-319`) — and audio has no spatial sizing at all.
 
-`MiniMaxH3ReferenceFit` takes **one image per node** and warns if you feed it a
-batch (`reference_fit.py:165-168`), so upscaling is decided per reference. Five
-references means five nodes and five independent decisions.
+`MiniMaxH3AppendRefImage` takes **one image per node** and warns if you feed it
+a batch, so upscaling is decided per reference. Five references means five
+nodes and five independent decisions. The retired `MiniMaxH3ReferenceFit` did
+the same and still does, for saved graphs that wire it.
 
 ### The four combinations
 

@@ -272,12 +272,19 @@ def guide_for(inputs: dict) -> str:
 
 
 def _reference_media(inputs: dict, graph: dict):
-    """Socket-shaped media view plus per-image policy for either surface.
+    """Socket-shaped media view plus per-image sizing for either surface.
 
     The typed chain remains the source of order and ownership; this adapter is
     only for older pricing/reporting code whose natural unit is a media link.
     Chain traversal comes from ``reference_order`` so a malformed chain cannot
     be priced as a shorter, apparently valid one.
+
+    The per-image entry is the WHOLE stage-one decision -- policy, upscale and
+    short edge together -- because that is where all three now live. This file
+    read `size_policy` and never read `allow_upscale`, which was not an
+    oversight: `allow_upscale` lived on a node the chain model could not see,
+    so it had to be recovered by walking upstream and guessing the shape. It
+    is a field on the append node now.
     """
     if "references" not in inputs:
         return inputs, {}, False
@@ -295,7 +302,11 @@ def _reference_media(inputs: dict, graph: dict):
         if kind == "image":
             key = f"ref_images.ref_image_{index}"
             media[key] = append_inputs.get("image")
-            image_policies[key] = append_inputs.get("size_policy", "match")
+            image_policies[key] = {
+                "size_policy": append_inputs.get("size_policy", "match"),
+                "allow_upscale": bool(append_inputs.get("allow_upscale", False)),
+                "short_edge": int(append_inputs.get("short_edge", 2048)),
+            }
         elif kind == "video":
             media[f"ref_videos.ref_video_{index}"] = append_inputs.get("frames")
             soundtrack = append_inputs.get("soundtrack")
@@ -1134,22 +1145,30 @@ def price(node: dict, graph: dict) -> list[str]:
     for key, link in media_ins.items():
         if not key.startswith("ref_images.") or not isinstance(link, list):
             continue
-        size_mode = image_policies.get(
-            key, ins.get("ref_image_size", "match"))
+        policy = image_policies.get(key)
         src = graph.get(link[0], {})
-        # No fit node means core sizes this reference on its own, and core
-        # clamps with min(1.0, ...) in BOTH modes
-        # (comfy_extras/nodes_minimax_h3.py:297-301), so it never enlarges.
-        # Defaulting upscale True here priced a hand-built graph -- the only
-        # kind that reaches this branch, since every shipped API graph feeds
-        # its references through the fit node -- as if a small reference were
-        # raised to 2048, which over-counts its rows by the square of the
-        # scale it never gets. Found 2026-08-21 against the core source.
+        # Core sizes an unmanaged reference on its own, and it clamps with
+        # min(1.0, ...) in BOTH modes (comfy_extras/nodes_minimax_h3.py:297-301),
+        # so it never enlarges. Defaulting upscale True here priced a
+        # hand-built graph as if a small reference were raised to 2048, which
+        # over-counts its rows by the square of the scale it never gets. Found
+        # 2026-08-21 against the core source.
         upscale, short_edge = False, 2048
-        fitted = src.get("class_type") == FIT_NODE
-        if fitted:
-            upscale = src["inputs"].get("allow_upscale", True)
-            short_edge = src["inputs"].get("short_edge", 2048)
+        if policy is None:
+            size_mode = ins.get("ref_image_size", "match")
+        else:
+            # The typed append owns all three since the fit fold.
+            size_mode = policy["size_policy"]
+            upscale = policy["allow_upscale"]
+            short_edge = policy["short_edge"]
+        # A saved graph may still wire the retired fit node upstream. Its fit
+        # is idempotent with the append's, but it can carry an upscale the
+        # append does not -- so read it and take the larger short edge rather
+        # than pricing the append alone.
+        if src.get("class_type") == FIT_NODE:
+            upscale = bool(src["inputs"].get("allow_upscale", True)) or upscale
+            short_edge = max(short_edge,
+                             int(src["inputs"].get("short_edge", 2048)))
             inner = src["inputs"].get("image")
             src = graph.get(inner[0], {}) if isinstance(inner, list) else {}
         fname = src.get("inputs", {}).get("image")
@@ -1165,17 +1184,27 @@ def price(node: dict, graph: dict) -> list[str]:
             lines.append(f"  {key}: {fname} unreadable")
             continue
         iw, ih = wh
-        full = short_edge / min(iw, ih)
-        scale = full if upscale else min(1.0, full)
-        if size_mode == "match":
-            scale = min(scale, (w * h / (iw * ih)) ** 0.5)
-        tw, th = fit(iw, ih, scale)
-        r = rows(tw, th)
+        # The shared implementation, not a fourth copy of the arithmetic. This
+        # file carried its own until 2026-08-24, which is precisely where a
+        # divergence would mislead: preflight exists to price what you are
+        # about to render, so a copy that disagrees with the node reports a
+        # sequence length nobody will get. Imported lazily, the same way this
+        # file already reaches `reference_order` and core.
+        _core_minimax_cpu()   # puts ComfyUI on sys.path, CPU-forced
+        from reference_geometry import fit_reference_image, latent_rows
+        tw, th = fit_reference_image(
+            iw, ih, size_policy=size_mode, short_edge=short_edge,
+            allow_upscale=upscale, canvas_w=w, canvas_h=h)
+        scale = tw / iw
+        r = latent_rows(tw, th)
         ref_total += r
         bound_notes = _vision_bound_warnings(key, tw, th)
-        note = "  (fit was a no-op)" if fitted and scale == 1.0 else ""
-        if not fitted:
-            note = "  (no fit node: core clamps, never upscales)"
+        if policy is None:
+            note = "  (unmanaged: core clamps, never upscales)"
+        elif scale == 1.0:
+            note = "  (sizing was a no-op)"
+        else:
+            note = ""
         lines.append(f"  ref image {r:>8,}  {fname} {iw}x{ih} -> {tw}x{th}"
                      f"{note}")
         lines.extend(bound_notes)

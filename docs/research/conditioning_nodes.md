@@ -66,10 +66,18 @@ The conditioner leaves `min_pixels` / `max_pixels` on a shared helper's
 signature defaults where the release declares its own; the table is owned by
 [`h3_references.md`](../h3_references.md).
 
-**Neither bound binds on anything this repo ships.** `MiniMaxH3ReferenceFit`
+**Neither bound binds on anything this repo ships.** `MiniMaxH3AppendRefImage`
 puts every reference at a 2048 short edge, which sits above the release's floor
 and below ComfyUI's ceiling until roughly 3:1. So the fix would be a monkeypatch
 guarding a case that does not occur.
+
+**Patched since 2026-08-24, without a monkeypatch.**
+`MiniMaxH3ReferenceConditioning.image_policy` selects which declared bounds
+apply and pre-applies them before the VAE, so the helper's defaults stop being
+the only answer. It is off by default (`comfy`), so the sentence above still
+describes the shipped graphs; what changed is that the other two answers are
+now reachable, and that under the AWQ adapter the binding ceiling is the
+artifact's 301,056 rather than the helper's signature default.
 
 The trace also priced the two halves differently, which is why they are not
 treated the same:

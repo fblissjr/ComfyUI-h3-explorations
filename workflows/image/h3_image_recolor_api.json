@@ -150,7 +150,8 @@
         "27",
         2
       ],
-      "video_policy": "encoder"
+      "video_policy": "encoder",
+      "image_policy": "comfy"
     }
   },
   "15": {
@@ -159,27 +160,16 @@
       "image": "h3_refs/face_freckled_woman_redhair_1024x1024.png"
     }
   },
-  "24": {
-    "class_type": "MiniMaxH3ReferenceFit",
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
     "inputs": {
       "image": [
         "15",
         0
       ],
+      "size_policy": "max",
       "allow_upscale": false,
-      "short_edge": 2048,
-      "lift_downstream_clamp": false,
-      "keep_towers_matched": true
-    }
-  },
-  "50": {
-    "class_type": "MiniMaxH3AppendRefImage",
-    "inputs": {
-      "image": [
-        "24",
-        0
-      ],
-      "size_policy": "max"
+      "short_edge": 2048
     }
   },
   "19": {

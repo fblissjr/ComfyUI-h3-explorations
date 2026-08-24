@@ -403,10 +403,19 @@ than what Qwen extracted identity from, and nothing says so.
 reaches it.**
 
 **Native ComfyUI status: open. Handling in this repo:**
-`MiniMaxH3ReferenceFit` and `MiniMaxH3ReferenceVideoFit` can pre-clamp their
-outputs with `keep_towers_matched`, so graphs that explicitly wire those custom
-nodes keep the VAE and Qwen on one resolution. That is an opt-in local guard;
-the native reference node and hand-built graphs without it remain exposed.
+`MiniMaxH3ReferenceConditioning.image_policy` selects WHOSE still-image ceiling
+applies -- `comfy` (default, no opinion), `encoder`, or `release` -- and
+pre-applies the selected policy's bounds before the VAE, keeping both towers on
+one resolution. That is an opt-in local guard and it is **off by default**; the
+native reference node and every graph left on `comfy` remain exposed.
+
+Until 2026-08-24 this was `MiniMaxH3ReferenceFit.keep_towers_matched`, which
+clamped to Comfy's `process_qwen2vl_images` default unconditionally. That is
+the right ceiling on a native BF16 path and wrong by orders of magnitude under
+the AWQ adapter, and the fit node has no `clip` with which to tell the
+difference. `MiniMaxH3ReferenceVideoFit` keeps `keep_towers_matched` and keeps
+reading Comfy's default, which is correct there: it is a reporter for
+native-core paths.
 
 Video references are canvas-sized at around 1M pixels, far below either
 ceiling, so the video bounds do not bite in practice. That is derived from the
@@ -740,7 +749,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 1, special tokens | **fixed** in installed commit `924743af` / merged PR 15808 | [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py) requires and verifies native behavior |
 | 2, frame rate | open | legacy: [`bench/check_ref_prompt_labels.py`](../bench/check_ref_prompt_labels.py); typed: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 | 3, image floor | open | preflight warning only; **no runtime parity enforcement** |
-| 4, image ceiling | open | opt-in local guard since 2026-08-22: `MiniMaxH3ReferenceFit.keep_towers_matched`; native graphs not wiring it remain exposed |
+| 4, image ceiling | open | opt-in local guard, **off by default**: `MiniMaxH3ReferenceConditioning.image_policy` (`encoder`/`release`) since 2026-08-24, replacing `MiniMaxH3ReferenceFit.keep_towers_matched`, which read the wrong ceiling under the AWQ adapter. Graphs left on `comfy` remain exposed |
 | 5, soundtrack length | open | shipped typed graphs: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py); native socket graphs: [`bench/preflight_graph.py`](../bench/preflight_graph.py) reports required upstream handling |
 | 6, media upscale/reporting | sizing divergence remains; native path is silent | custom fit nodes report the resolution reached; the typed conditioner's opt-in `release` policy handles both video stages locally, with no claim that native sizing now matches the vendor |
 | 7, mono audio | open | native defect gate: [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py); local typed handling: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |

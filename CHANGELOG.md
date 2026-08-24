@@ -4,6 +4,77 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.61.0
+
+### Added
+
+- **`MiniMaxH3ReferenceConditioning.image_policy`, the still-image sibling of
+  `video_policy`.** One Qwen still-image ceiling had three live values -- the
+  installed ComfyUI code path's `process_qwen2vl_images` defaults, the loaded
+  encoder artifact's snapshotted bounds, and the release's declared bounds --
+  and nothing could select between them. The new input does, with the same
+  three arms and the same shape as the video policy: `comfy` (default,
+  passthrough, exactly what every graph got before), `encoder`, `release`. The
+  selected policy's `smart_resize` is applied *before* the VAE encode, so the
+  VAE and Qwen encode one tensor at one size rather than the DiT receiving
+  latent rows at one resolution and hidden states at another for one reference.
+  Both the ceiling and the **floor** apply; the mechanism this replaces only
+  ever clamped a ceiling. `h3_awq_encoder.source_image_patch_geometry()` is the
+  one accessor that had to be added.
+
+- **`reference_geometry.py`, the single implementation of reference-image role
+  sizing.** `fit_reference_image` is called by the append node, the retired fit
+  node, the conditioner and `bench/audit_shipped_reference_bounds.py`, and is
+  importable by the post-training calibration builder, whose accepted plan names
+  two strata that are exactly its arguments.
+
+### Changed
+
+- **Reference sizing folded onto `MiniMaxH3AppendRefImage`.** It gained
+  `allow_upscale` and `short_edge`, appended after `references`, and the
+  shipped graphs now wire `LoadImage` straight to the append. The conditioner
+  performs exactly one resize with the target canvas in scope, where before the
+  fit node resized and `_compile_reference_records` resized again -- a full
+  second lanczos pass and a second float32/uint8/float32 quantization on every
+  shipped image reference, because `comfy/utils.py::lanczos` has no identity
+  short-circuit. An identity guard skips the resize entirely when the target
+  already equals the source.
+
+- **The sizing decision is now visible to static analysis.**
+  `bench/preflight_graph.py` reads `allow_upscale` -- it read `size_policy` and
+  never read `allow_upscale`, because that knob lived on a node the chain model
+  could not see. `bench/audit_shipped_reference_bounds.py` reads the append
+  node's arguments directly rather than recovering them by walking the first
+  linked input for eight hops, and drives the shared sizing function instead of
+  allocating and resizing a real tensor to learn two integers.
+
+- **`MiniMaxH3AppendRefImage` warns instead of dropping frames silently.**
+  Wiring a video loader's IMAGE output kept only the first frame with no
+  message. It also carries the reference aspect gate now, so an unconditionable
+  reference fails before the VAE is touched, and warns when `size_policy=match`
+  is paired with knobs `match` does not read.
+
+### Removed
+
+- **The experimental downstream clamp lift, and the Qwen ceiling clamp on the
+  image fit node.** Both inputs remain on `MiniMaxH3ReferenceFit` as inert,
+  documented legacy so saved-graph widget positions stay valid; the machinery
+  is gone. `lift_downstream_clamp` armed an override on
+  `MiniMaxH3ReferenceToVideo`, which no graph in this repo wires, and which
+  both consumers of the rebound constant had already bound by value at import,
+  so the arm was invisible to them regardless. Its `fingerprint_inputs` hook
+  returned `float("nan")` whenever the flag was set, so arming a feature that
+  could never work also permanently disabled that node's cache.
+  `keep_towers_matched` read Comfy's function default as though it were
+  universal; that decision moved to `image_policy`, where the CLIP is in scope.
+  `MiniMaxH3ReferenceVideoFit` keeps its copy and keeps reading Comfy's
+  default, which is correct for a reporter on native-core paths.
+
+- **`bench/check_short_edge_override.py`**, with the code it guarded. It was
+  green because its fixture supplied synthetic prompts containing
+  `MiniMaxH3ReferenceToVideo`, so its input pre-satisfied its outcome and it
+  could never notice that no shipped graph contains that node.
+
 ## 0.60.0
 
 ### Added
@@ -62,6 +133,18 @@ artifact.
   what reference media and captured tensors already got. What it cannot see is
   stated in the schema rather than left implied: a runtime patch, a LoRA
   strength, a post-load quantization all hash identically.
+
+- **The replacement AWQ v2 lane now has an executable native-H3 calibration
+  seam proof.** Real H3-IR still, multi-reference, keyframe, mixed, and
+  reference-video inputs are produced by the installed presentation path and
+  re-identified through a preconstructed `llm-compressor` dataloader, its
+  intermediate cache, and the traced graph. The same work strictly loads the
+  released checkpoint, holds the BF16 vision/DeepStack/embedding boundary, and
+  repairs the candidate-pool media gate so videos are opened and hashed rather
+  than trusted by filename. Released-weight comparison also found that
+  ComfyUI's BF16 position interpolation plus FP32 manual-cast linears is not
+  reproduced by either plain Transformers dtype; a bounded hybrid-precision
+  gate now precedes the one-4090 feasibility pilot.
 
 ### Changed
 

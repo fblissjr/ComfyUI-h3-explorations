@@ -176,7 +176,8 @@
         "27",
         2
       ],
-      "video_policy": "release"
+      "video_policy": "release",
+      "image_policy": "comfy"
     }
   },
   "28": {

@@ -72,7 +72,9 @@ def main():
             "ref_videos.ref_video_0": ["9", 0],
             "ref_video_audios.ref_video_audio_0": ["12", 0],
         }, media
-        assert policies == {"ref_images.ref_image_0": "max"}, policies
+        assert policies == {"ref_images.ref_image_0": {
+            "size_policy": "max", "allow_upscale": False, "short_edge": 2048,
+        }}, policies
 
     def malformed_chain_is_not_partially_reported():
         broken = _graph()

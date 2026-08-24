@@ -67,7 +67,8 @@ from comfy_extras.nodes_minimax_h3 import (CANVAS_MULTIPLE,  # noqa: E402
                                            REF_IMAGE_SHORT_EDGE, _resize)
 
 sys.path.insert(0, str(HERE.parent))              # this repo
-from reference_fit import MiniMaxH3ReferenceFit, _tokens  # noqa: E402
+from reference_fit import MiniMaxH3ReferenceFit  # noqa: E402
+from reference_geometry import latent_rows as _tokens  # noqa: E402
 
 # below 2048, exactly 2048, above, non-square, and a portrait
 SOURCES = [(512, 512), (768, 512), (2048, 2048), (4096, 2304), (512, 1024),

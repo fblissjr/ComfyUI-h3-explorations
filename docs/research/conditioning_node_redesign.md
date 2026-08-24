@@ -1,188 +1,238 @@
-# Reference node redesign: fold the fit into the append
+# Reference node redesign: fold the fit, and move the ceiling to the conditioner
 
-**Status:** Design, not yet implemented
+**Status:** Implemented
 **Date:** 2026-08-24
-**Scope:** `reference_conditioning.py`, `reference_fit.py`,
-`workflows/build_workflows.py`, and every graph that wires an image reference —
-`workflows/h3_image_ref_plus_text_to_video.json` and its `_api` twin among them.
+**Scope, as committed:** `reference_geometry.py` (new),
+`reference_conditioning.py`, `reference_fit.py`, `h3_awq_encoder.py`,
+`workflows/build_workflows.py` and every regenerated graph; the static
+readers `bench/preflight_graph.py` and
+`bench/audit_shipped_reference_bounds.py`; the checks
+`bench/check_reference_runtime.py`, `bench/check_generator_constants.py`,
+`bench/check_reference_fit.py`, `bench/check_typed_reference_consumers.py`,
+`bench/node_id_manifest.json`, and the deletion of
+`bench/check_short_edge_override.py`; and the docs that stated where these
+knobs live -- `docs/h3_references.md`, `docs/comfyui_vendor_gaps.md`,
+`docs/research/conditioning_nodes.md`, `docs/h3_conditioning_end_to_end.md`,
+`docs/research/sglang_comparison.md`, `docs/checks.md`.
 
-Today one image reference costs four nodes: `LoadImage` ->
-`MiniMaxH3ReferenceFit` -> `MiniMaxH3AppendRefImage` ->
-`MiniMaxH3ReferenceConditioning`. This proposes three, by folding the fit into
-the append. It is not a tidiness change; the reasons are a measured redundant
-resample, a class of static-analysis defect, and four dead code paths.
+One image reference cost four nodes: `LoadImage` -> `MiniMaxH3ReferenceFit` ->
+`MiniMaxH3AppendRefImage` -> `MiniMaxH3ReferenceConditioning`. It now costs
+three. That was the smaller half of the change. The larger half is that the
+Qwen still-image ceiling moved to the conditioner, where the CLIP is in scope
+and the answer is knowable, and became `image_policy`.
 
-## What was considered and rejected
+## What shipped
 
-**An Autogrow "star"** — `reference_0 .. reference_11` typed
-`MINIMAX_H3_REFERENCES` on the conditioner, replacing the chain. Verified
-buildable against installed ComfyUI: Autogrow accepts a custom type, slot order
-is canonical and independent of JSON key order, gaps are free, and core already
-ships the precedent in `nodes_gaussian_splat.py`'s `MergeSplat`. On a greenfield
-repo it is the better design.
+### 1. `image_policy` on `MiniMaxH3ReferenceConditioning`
 
-Rejected here on saved-graph compatibility. The conditioner's single
-`references` link would become `reference_0..11`, so **every saved graph wiring
-`"references": [id, 0]` on the conditioner stops validating** — including the
-owner's graphs outside this repo, which no check can see. That is precisely what
-`bench/check_node_ids.py` exists to prevent, and its manifest is committed for
-that reason. Folding the fit is the *permitted* change shape (an input appended
-at the end); the star is the forbidden one.
+The sibling of `video_policy`, with the same three arms and the same shape:
+`comfy` (default, passthrough — exactly what every graph got before), `release`,
+`encoder`. `_qwen_image_settings` selects bounds and geometry per policy, and
+`_configured_qwen_image_size` pre-applies the selected policy's `smart_resize`
+*before* the VAE encode, so both towers encode one tensor at one size.
 
-It also buys no static-analysis advantage: the win below comes from folding the
-fit, which both options do.
+Why it had to move. One ceiling has three live values:
 
-## Why fold
+| policy | bounds | source |
+|---|---|---|
+| `comfy` | 3,136 – 12,845,056 | `process_qwen2vl_images` signature defaults |
+| `encoder` | 200,704 – 301,056 | the loaded artifact's `processor_config.json` |
+| `release` | 65,536 – 16,777,216 | the release's `preprocessor_config.json` |
 
-**1. The split expresses nothing any graph uses.** Across the 40 `_api` graphs
-carrying the typed conditioner: zero vary fit settings between slots, zero vary
-`size_policy` between slots, zero append nodes lack a fit upstream, and zero
-consumers read `MiniMaxH3ReferenceFit`'s second output. It is 1:1 with every
-image reference and never shared.
+`reference_fit.py::qwen_max_pixels()` read the first by introspection and
+applied it universally. That is right for a native BF16 graph and wrong by
+orders of magnitude under the AWQ adapter — and the fit node has no `clip`, so
+it cannot tell which it is feeding. `h3_awq_encoder.source_image_pixel_bounds()`
+names the defect in its own docstring, added in `329ab25` earlier the same day
+as this change.
 
-**2. It costs a redundant resample and a redundant quantization, measured.**
-`comfy/utils.py::lanczos` has no identity short-circuit and round-trips through
-PIL uint8 unconditionally; `_resize` does not guard either. So the fit resizes,
-then `_compile_reference_records` resizes *again* under `size_policy='max'` —
-usually a no-op. Measured on this box, CPU, 3-run mean:
+**The design that got this wrong assumed it was a separate, later change.** It
+is not: the pattern was already implemented next door for video, and the
+override plumbing already existed too — `install_source_processors(clip,
+image_bounds=...)` takes an override, records `_h3_image_bounds`, and logs it.
+Only the selector was missing, plus one accessor —
+`source_image_patch_geometry()`, a mirror of its video sibling reading the same
+config block `source_image_pixel_bounds()` already read.
 
-| resize | cost |
-|---|---:|
-| 1024x1024 -> 2048x2048 (fit, upscale arms) | 81.0 ms |
-| 2048x2048 -> 2048x2048 (compiler, pure no-op) | 68.8 ms |
-| 1024x1024 -> 1024x1024 (both, no-upscale arms) | 11.0 ms |
+Measured, on this box, for one reference prepared at the release's 2048 short
+edge:
 
-Every shipped image reference pays a full redundant lanczos pass **and a second
-float32 -> uint8 -> float32 quantization**, purely because the sizing decision
-and its consumer are two nodes apart. The quantization is the part that is not
-merely wall clock. Note it is the second of three: `h3_awq_encoder.py::
-_source_image_patches` performs a third on the way into the conditioner.
+| source | `comfy` | `release` | `encoder` |
+|---|---|---|---|
+| 3648x2048 | unchanged | 3648x2048 | **704x384** |
+| 2048x2048 | unchanged | 2048x2048 | 544x544 |
+| 224x224 | unchanged | 256x256 | 448x448 |
 
-**3. It puts the sizing decision inside the validated chain.** `allow_upscale`
-currently lives on a node the chain model cannot see, with three consequences:
-`bench/preflight_graph.py::_reference_media` reads `size_policy` and never reads
-`allow_upscale`; `bench/audit_shipped_reference_bounds.py::_trace_to_loader`
-reaches fit arguments only by walking "the first linked input" for eight hops,
-which its own docstring concedes is the only shape these graphs use; and no
-check anywhere asserts `allow_upscale` on any graph. After folding,
-`resolve_chain_entries` already returns the append node's dict, so all three
-read a field. That is a structural fix rather than a fourth heuristic walker —
-what `CLAUDE.md`'s "no new check until a drift instance appears" asks for.
+The first row is the current artifact's ceiling costing roughly 25x the visual
+detail of a reference sized the way the release serves it — independently
+reproducing what
+[`still_policy_token_cost.md`](qwen3-vl-special-tokens-post-training/canonical/2026-08-24_still_policy_token_cost.md)
+measured. The third row is the **floor**, which the retired `keep_towers_matched`
+never modelled at all: it clamped a ceiling and had no opinion about a
+reference too small for the declared policy.
 
-## The change
+### 2. The fit folded into the append
 
-### `MiniMaxH3AppendRefImage` — inputs appended, never reordered
+`MiniMaxH3AppendRefImage` gained `allow_upscale` and `short_edge`, appended
+after `references`. `MiniMaxH3ReferenceConditioning` performs exactly one
+resize, with the canvas in scope.
 
-```
-current:  image, size_policy, references
-proposed: image, size_policy, references, allow_upscale, short_edge, keep_towers_matched
-```
+**This differs from the original design, which had the append do the resize.**
+It cannot: `size_policy='match'` sizes from the target canvas area, and the
+append has no canvas. Recording the decision on the record and resizing once at
+the compiler works for both policies, and eliminates the redundant resample and
+the redundant quantization outright rather than guarding a second resize site.
 
-The three new inputs go **after `references`**. `bench/check_node_ids.py`
-permits exactly this shape ("an input appended at the end") and rejects
-reordering or renaming, because widget values map positionally in every saved
-graph. `node_id` is unchanged. Old saved graphs keep working on the defaults.
+Consequently the proposed `image` and `latent_rows` outputs on the append were
+**not** added — with the resize at the conditioner the append cannot honestly
+produce a fitted tensor. Nothing consumed the fit node's outputs on any graph,
+so this forecloses nothing, and appending outputs later is permitted.
 
-Defaults must reproduce today's shipped behaviour, which is **not** uniform:
-`allow_upscale=False` on 28 graphs and `True` on six, including
-`h3_image_ref_plus_text_to_video`. So the node default is `False` and the six
-graphs set it explicitly, exactly as they do now.
+### 3. Retired, but not removed
 
-New outputs, appended:
+`lift_downstream_clamp` and `keep_towers_matched` stay on `MiniMaxH3ReferenceFit`
+as inert inputs with tooltips saying so, following the `vendor_tokens`
+precedent on the conditioner. The original design called for removing
+`lift_downstream_clamp` and accepted a breaking manifest update for it. There is
+no reason to pay that: an inert input costs a tooltip, and a removed one breaks
+every saved graph that carries it.
 
-```
-current:  references
-proposed: references, image, latent_rows
-```
+The machinery behind them is gone: `_downstream_ref_image_size`,
+`arm_short_edge_override` / `disarm_short_edge_override`, the
+`MiniMaxH3ReferenceToVideo` wrapper, and `fingerprint_inputs` — which returned
+`float("nan")` whenever `lift_downstream_clamp` was set, so arming a feature
+that could never work also permanently disabled that node's cache.
 
-`image` passes through the fitted tensor so a graph can still see and save what
-the model will receive — the one thing the split genuinely bought. `latent_rows`
-stays a readout even though nothing wires it. Appending outputs is permitted;
-reordering is not, since links are integer slots.
+`bench/check_short_edge_override.py` retired with the code it guarded. Worth
+recording why it was green: its fixture supplied synthetic prompts containing
+`MiniMaxH3ReferenceToVideo`, so its input pre-satisfied the outcome and it
+could never notice that no shipped graph contains that node.
 
-### One resample, not two
+### 4. One sizing implementation
 
-The folded node performs the aspect gate, the upscale decision, the Qwen-ceiling
-clamp and **one** resize, then hands the compiler a tensor already at its target
-geometry. `_compile_reference_records` keeps its `size_policy` branch for
-correctness but will find nothing to do; add an identity guard there so a no-op
-resize costs nothing rather than 68.8 ms and a quantization.
+`reference_geometry.py::fit_reference_image` is the only implementation of
+stage-one role sizing. Its callers are `MiniMaxH3ReferenceConditioning` (which
+performs the resize), `MiniMaxH3ReferenceFit` (legacy), and the two static
+readers `bench/preflight_graph.py` and `bench/audit_shipped_reference_bounds.py`.
+The post-training calibration builder is meant to be the fifth.
 
-### Four dead paths to delete, not migrate
+**`MiniMaxH3AppendRefImage` is deliberately not among them.** It records the
+decision on the record and validates it; it never sizes anything, because the
+canvas `match` needs is not in its scope. An earlier draft of this document
+listed it as a caller, which was wrong.
 
-All four are dead on every shipped graph today, and stay dead under any topology:
+`bench/preflight_graph.py` was the last copy and was the one that mattered: it
+exists to price what you are about to render, so a copy that disagrees with the
+node reports a sequence length nobody will get. It carried its own `fit()` plus
+an inline scale selection until this change.
 
-| path | why it is dead |
-|---|---|
-| `lift_downstream_clamp` (input + logic) | `_downstream_ref_image_size` matches only `class_type == "MiniMaxH3ReferenceToVideo"`, which **zero graphs wire**, so it always returns `None` and the warning can never fire |
-| `_downstream_ref_image_size` | same |
-| `arm_short_edge_override` / `disarm_short_edge_override` | installs on `core.MiniMaxH3ReferenceToVideo.execute`, never executed; and it mutates `core.REF_IMAGE_SHORT_EDGE` while both consumers bound the **value** at import time, so the arm is invisible to them regardless |
-| `MiniMaxH3ReferenceVideoFit` | in the node manifest, wired by zero graphs |
+That is not tidiness. The active plan names two strata that are exactly this
+function's arguments — a primary `max` with upscaling off, and a separately
+named 2048-short-edge upscale-allowed stress stratum — and requires every row
+to record which one it came from. Two implementations of that arithmetic is
+drift nothing would catch, because both copies would be individually correct
+and would disagree only on inputs neither author tried.
 
-Deleting `lift_downstream_clamp` is an input **removal**, which
-`check_node_ids.py` treats as a breaking change — so it needs a deliberate
-manifest update and should be called out rather than slipped in.
+### 5. `match` ignores `allow_upscale`, on purpose
 
-`bench/check_short_edge_override.py` retires with the code it guards. Worth
-recording why: it is green today because its fixture supplies synthetic prompts
-containing `MiniMaxH3ReferenceToVideo`, so its input pre-satisfies the outcome
-and it can never notice that no shipped graph contains that node.
+Found while auditing this document against the committed code, not before it.
+The first implementation applied `allow_upscale` to both policies, while the
+append node warned that `match` does not read it. One of the two was lying, and
+it was the code: before the fold this branch had no upscale knob to read at
+all, so honouring it would have silently changed every saved graph carrying
+`size_policy='match'`. Core also clamps with `min(1.0, ...)` in **both** its
+modes. `match` now clamps unconditionally and the warning is true. Verified
+against the pre-fold arithmetic across four sources and both flag states.
 
-### What this does *not* fix
+## Corrections to the original design
 
-`reference_fit.py::qwen_max_pixels()` introspects Comfy's native
-`process_qwen2vl_images` default of 12,845,056. Under the AWQ adapter that
-function is never called — `preprocess_embed` is replaced — and the real ceiling
-is 301,056, **42x lower**. So `keep_towers_matched` finds nothing to clamp and
-the tower-split warning cannot fire on any shipped graph, precisely where the
-split is largest.
+**`MiniMaxH3ReferenceVideoFit` is not dead and was not deleted.** The design
+listed it as a dead path on the grounds that zero graphs wire it. Its module
+docstring says why that is deliberate: it is a *reporter* for native-core
+paths, explicitly distinguished from `video_policy=release`, and reporting is
+its deliverable. By the "wired by zero graphs" test every diagnostic node in
+the repo is dead. `qwen_max_pixels` and `clamp_to_qwen_ceiling` therefore stay
+exported for it — and on a native-core path Comfy's default genuinely **is**
+the right ceiling, which is the whole reason the same helper was wrong in the
+fit node and right here.
 
-**Reading `h3_awq_encoder.source_image_pixel_bounds()` unconditionally is the
-wrong fix** (Codex's correction): the fit has no `clip` input and cannot know
-whether downstream is the AWQ adapter, native BF16, or another artifact, so an
-unconditional read would fix AWQ graphs and break native ones. The effective
-bound must be resolved where both the `clip` and the pre-VAE image are in scope
-— the conditioner, before `_compile_reference_records` encodes the VAE view.
-That is a separate change and should not ride along with this one.
+**The static-analysis argument was overstated.** The design credited the fold
+with fixing `bench/audit_shipped_reference_bounds.py::_trace_to_loader`'s eight-hop
+walk. The walk was eight hops only because the fit node sat between the append
+and the loader; after the fold the append links straight to `LoadImage`. The
+loop is retained for saved graphs that still wire a fit node, and now composes
+the two rather than taking the first it finds.
 
-### Two smaller defects worth folding in
+## What was rejected
 
-- **`MiniMaxH3AppendRefImage` silently drops frames.** `_resize(image[:1], ...)`
-  keeps only the first image and `_image_shape` validates `count >= 1` without
-  warning on more. Wire a video loader's IMAGE output and frames 2..N vanish
-  with no message. `reference_fit.py` already logs
-  `"reference carries %d images; using the first"` — the folded node should
-  inherit that, since it is the mandatory node on the typed path.
-- **Contradictory settings go inert rather than erroring.** A fit above 2048 is
-  re-clamped by a downstream `max`, and a `match` can undo a large fit entirely.
-  Inside one node these become checkable, and a warning is cheap.
+**An Autogrow "star"** — `reference_0 .. reference_11` on the conditioner,
+replacing the chain. Verified buildable against installed ComfyUI. Rejected on
+saved-graph compatibility: the conditioner's single `references` link would
+become `reference_0..11`, so every saved graph wiring `"references": [id, 0]`
+stops validating, including the owner's graphs outside this repo, which no
+check can see.
 
-## Migration
+**Folding `LoadImage` into the append.** Every reference image is loaded from a
+file today and no `LoadImage` in any graph has more than one consumer, so the
+1:1 evidence is identical to the fit's. Rejected anyway, on three counts: it is
+an input *removal*, the shape `check_node_ids.py` exists to prevent and the same
+ground the star was rejected on; it takes ownership of a core node that recently
+moved to `InputImpl.VideoFromFile` and carries an `IS_CHANGED` file-hash cache
+contract, so missing it serves a stale tensor silently; and it forecloses
+non-file sources — `workflows/image/` produces single frames in this repo, and
+the socket already permits chaining them.
 
-1. Fold, with the input and output appends above. Do not touch `node_id`.
-2. Update `bench/node_id_manifest.json` deliberately for the appends and for the
-   `lift_downstream_clamp` removal.
-3. Regenerate. **Both emission paths** —
-   `workflows/build_workflows.py:982-989` (API) and `:4105-4118` (UI) — must be updated
-   together. They currently agree across all 49 UI/API pairs, and a change
-   touching one would not be caught by any check.
-4. Diff the regenerated graphs. ~30 fit nodes disappear across 40 `_api` graphs
-   plus UI twins; every remaining append node gains three widget values.
-5. Confirm the six `allow_upscale=True` graphs still carry it, including
-   `h3_image_ref_plus_text_to_video`.
-6. Re-run `check_node_ids.py`, `check_reference_runtime.py`,
-   `show_red_reference_runtime.py`, `check_reference_fit.py`,
-   `check_graph_discovery.py`, `audit_shipped_reference_bounds.py`.
+If the source-identity half is wanted later (path plus content hash on the
+record, which the plan's media hashing would use), it should arrive as an
+additive `MiniMaxH3LoadReferenceImage` beside the socket-taking node, never
+instead of it. Core does the same with `LoadImage` / `LoadImageOutput` /
+`LoadImageMask`.
 
-`bench/check_reference_runtime.py::append_is_copy_on_add_and_ordered` survives — the
-chain is unchanged. `bench/check_reference_contracts.py` is unaffected; its
-subject is core's `MiniMaxH3ReferenceToVideo`, which this does not touch.
+## What is still not fixed
+
+`image_policy` defaults to `comfy`, which means the shipped graphs still get
+core's behaviour: the still is handed to the text encoder as core hands it, and
+whatever processor the loaded CLIP carries resizes it afterwards — for Qwen
+alone, after the VAE has already encoded. Choosing a different default is a
+behaviour change to every reference graph and wants a measurement, not a
+decision made while folding nodes.
+
+## Controls
+
+`bench/check_reference_runtime.py` gained two contracts, and both were shown to
+fail before being trusted. Three deliberate violations — collapsing the policy
+selector to one branch, removing the floor so only ceilings clamp, and letting
+`comfy` borrow the release processor rather than refusing — each turn them red,
+and the unmutated pair is green.
+
+`bench/check_generator_constants.py` now reads `short_edge` from the append
+node. It previously read it from the fit node, and when the graphs stopped
+carrying that node the set comprehension simply went empty; an empty set
+compares unequal to every value, so its three cases went red for the right
+reason by accident. It asserts against the empty case explicitly now.
+
+`bench/check_node_ids.py` classified every schema change as an append and
+nothing as a removal or a reorder, which is the compatibility claim above
+stated by the guard rather than by the author.
+
+Old and new graph shapes were driven through the sizing function across six
+sources and both upscale states, and agree everywhere: a saved
+`LoadImage -> Fit -> Append` graph and a folded `LoadImage -> Append` graph
+produce identical geometry, because the append's `max` fit is idempotent on an
+already-fitted reference. `match` was checked separately, after the defect in
+section 5 was found, against the pre-fold arithmetic.
+
+Routing `bench/preflight_graph.py` through the shared function reproduced its
+previous prices exactly on both arms of the shipped reference graph -- which is
+what makes it a refactor rather than a behaviour change.
 
 ## What stays as it is
 
 The chain itself, the per-reference record model, `reference_order.py`'s label
-assignment and ownership validation, and `MiniMaxH3ReferenceConditioning`'s
-schema. Per-reference sizing stays per-reference and is **not** hoisted onto the
-conditioner as one global knob — each record already carries its own policy,
+assignment and ownership validation, and the conditioner's schema beyond the
+appended input. Per-reference sizing stays per-reference and is **not** hoisted
+onto the conditioner as one global knob — each record carries its own policy,
 geometry, latent grid and rotary slot, and mixed geometry is supported by
-construction.
+construction. `image_policy` is deliberately the opposite kind of knob: it
+selects whose *processor* applies, which is a property of the loaded checkpoint
+and cannot vary per reference.

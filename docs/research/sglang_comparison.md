@@ -256,8 +256,7 @@ Auditing this repo against it (2026-08-21, source read) came out mostly clean.
 `resolution.py` already grades a canvas by whether `adapt_canvas` is a fixed
 point on it and labels anything outside the trained family rather than refusing,
 which is the right posture given what the cap turns out to be. `reference_fit.py`
-and `bench/check_short_edge_override.py` keep the 2048 reference short edge and
-the 768 target cap properly separate — the two knobs this repo has confused
+keeps the 2048 reference short edge and the 768 target cap properly separate — the two knobs this repo has confused
 before — and `h3_config.py` has no target short-edge constant to confuse.
 
 **One real defect, found and fixed.** `bench/preflight_graph.py` priced a

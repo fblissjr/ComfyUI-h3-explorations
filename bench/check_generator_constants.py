@@ -49,9 +49,24 @@ def check(name, ok, detail=""):
 
 
 def ref_short_edge_in(graph):
-    """The short_edge every ReferenceFit node in an API graph was given."""
-    return {n["inputs"]["short_edge"] for n in graph.values()
-            if n["class_type"] == "MiniMaxH3ReferenceFit"}
+    """The short_edge every image append in an API graph was given.
+
+    Read from `MiniMaxH3AppendRefImage` since the fit fold, which is where the
+    knob lives now. Reading it from the retired `MiniMaxH3ReferenceFit` did not
+    fail loudly when the graphs stopped carrying that node: the set comprehension
+    simply went empty, and an empty set compares unequal to every value, so the
+    three cases below went red for the right reason by luck rather than by
+    design. An empty set is asserted against explicitly now.
+    """
+    found = {n["inputs"]["short_edge"] for n in graph.values()
+             if n["class_type"] == "MiniMaxH3AppendRefImage"
+             and "short_edge" in n["inputs"]}
+    if not found:
+        raise AssertionError(
+            "no MiniMaxH3AppendRefImage in this graph carries short_edge; this "
+            "check has lost its subject and would otherwise report a "
+            "difference it never measured")
+    return found
 
 
 print("reference short edge follows comfy_extras.nodes_minimax_h3:")
