@@ -168,6 +168,12 @@ the two rather than taking the first it finds.
 
 ## What a review caught afterwards
 
+The session that shipped this is written up at
+`internal/postmortems/2026-08-24_session_reference-fold-and-image-policy.md`
+(gitignored, local). Bare path rather than a link, matching how
+`docs/evidence.md` and `docs/roadmap.md` cite that directory.
+
+
 An `xhigh` code review of the committed change found fifteen issues, several
 reproduced by running the code rather than inferred. They are worth recording
 because most are not in the design at all -- they are the difference between a
