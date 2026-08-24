@@ -47,6 +47,8 @@ sys.path.insert(0, str(REPO / "workflows"))
 import comfy.cli_args  # noqa: E402
 from build_h3_awq_standalone import (  # noqa: E402
     COMPARE_WORKFLOW_FILENAME,
+    MODEL_FILENAME,
+    WORKFLOW_SUBDIR,
     FIRST_LAST_WORKFLOW,
     NODE_ID,
     REF2V_TURBO_LORA_PATH,
@@ -145,8 +147,12 @@ def standalone_distribution_contract():
     with tempfile.TemporaryDirectory(prefix="h3-awq-standalone-") as raw:
         output_dir = Path(raw)
         written = build_standalone(output_dir)
-        expected_names = {STANDALONE_FILENAME, COMPARE_WORKFLOW_FILENAME, *WORKFLOWS}
-        assert {path.name for path in written} == expected_names
+        # The loader is emitted at the root and the workflows one level down;
+        # see build_h3_awq_standalone.build() for why that split is load-bearing.
+        expected_names = {STANDALONE_FILENAME,
+                          f"{WORKFLOW_SUBDIR}/{COMPARE_WORKFLOW_FILENAME}",
+                          *(f"{WORKFLOW_SUBDIR}/{n}" for n in WORKFLOWS)}
+        assert {str(path.relative_to(output_dir)) for path in written} == expected_names
         standalone_path = output_dir / STANDALONE_FILENAME
         assert standalone_path.read_text() == rendered
 
@@ -189,7 +195,7 @@ def standalone_distribution_contract():
         assert NODE_ID in rendered
 
         for workflow_name in WORKFLOWS:
-            workflow = json.loads((output_dir / workflow_name).read_text())
+            workflow = json.loads((output_dir / WORKFLOW_SUBDIR / workflow_name).read_text())
             nodes = list(workflow.get("nodes", []))
             for subgraph in (workflow.get("definitions") or {}).get("subgraphs", []):
                 nodes.extend(subgraph.get("nodes", []))
@@ -208,9 +214,11 @@ def standalone_distribution_contract():
                 ) == "sRGB"
 
             loaders = [node for node in nodes if node.get("type") == NODE_ID]
-            assert loaders[0]["widgets_values"] == [
-                "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors", "default",
-            ]
+            # Read the name from the generator rather than restating it: a
+            # hardcoded copy here went stale the first time the published file
+            # was renamed, and the shipped workflows would have pointed at a
+            # file the README no longer tells anyone to download.
+            assert loaders[0]["widgets_values"] == [MODEL_FILENAME, "default"]
             if workflow_name != "comfyui_minimax_h3_awq_image_reference.json":
                 lora = next(n for n in nodes if n.get("type") == "LoraLoaderModelOnly")
                 assert lora["widgets_values"] == [
@@ -269,7 +277,7 @@ def standalone_distribution_contract():
                 )
                 assert "default 5-second duration snaps to 124 frames" in note_text
 
-        compare = json.loads((output_dir / COMPARE_WORKFLOW_FILENAME).read_text())
+        compare = json.loads((output_dir / WORKFLOW_SUBDIR / COMPARE_WORKFLOW_FILENAME).read_text())
         compare_types = [node["type"] for node in compare["nodes"]]
         assert compare_types.count("VHS_LoadVideo") == 2
         assert compare_types.count("ImageConcatMulti") == 1

@@ -37,9 +37,12 @@ RUNTIME_CONFIGS = (
 )
 
 HF_REPO_ID = "fbjr/qwen3-vl-32b-W4A16-AWQ-H3"
-MODEL_FILENAME = "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors"
+MODEL_FILENAME = "qwen3vl_32b_minimax_h3_w4a16_awq_v1-comfy.safetensors"
 STANDALONE_FILENAME = "comfyui_minimax_h3_awq_loader.py"
 COMPARE_WORKFLOW_FILENAME = "comfyui_minimax_h3_encoder_ab_compare.json"
+# Repo-relative directory the generated workflows are emitted into. The loader
+# and the Hugging Face checkpoint files stay at the root; see build().
+WORKFLOW_SUBDIR = "comfyui_sample_workflows"
 NODE_ID = "MiniMaxH3AWQEncoderLoader"
 OLD_ENCODER = "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors"
 OLD_ENCODER_URL = (
@@ -770,16 +773,28 @@ def render_compare_workflow() -> str:
 def build(output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     written = []
+    # The loader stays at the repo root deliberately. ComfyUI's custom-node scan
+    # walks only the top level of `custom_nodes/`, and `hf download --local-dir`
+    # preserves repo-relative paths, so a loader emitted into a subdirectory
+    # would land at `custom_nodes/<dir>/loader.py` and never be imported --
+    # silently, with no error. Verified against `nodes.py::init_external_custom_nodes`.
     loader = output_dir / STANDALONE_FILENAME
     loader.write_text(render_standalone_loader())
     written.append(loader)
 
+    # Workflows nest under WORKFLOW_SUBDIR so a ComfyUI user can fetch the whole
+    # set with one `--include`, and so the workflow browser renders them as a
+    # folder. Safe to nest: they are downloaded into `user/default/workflows`,
+    # which ComfyUI walks recursively -- unlike custom_nodes/, which it does not.
+    workflow_dir = output_dir / WORKFLOW_SUBDIR
+    workflow_dir.mkdir(parents=True, exist_ok=True)
+
     templates = _template_dir()
     for output_name, template_name in WORKFLOWS.items():
-        output = output_dir / output_name
+        output = workflow_dir / output_name
         output.write_text(render_workflow(templates / template_name, output_name))
         written.append(output)
-    compare = output_dir / COMPARE_WORKFLOW_FILENAME
+    compare = workflow_dir / COMPARE_WORKFLOW_FILENAME
     compare.write_text(render_compare_workflow())
     written.append(compare)
     return written
