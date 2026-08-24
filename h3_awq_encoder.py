@@ -79,6 +79,22 @@ def _quant_contract() -> dict:
     return cfg
 
 
+def source_image_pixel_bounds() -> tuple[int, int]:
+    """Return the selected encoder artifact's declared still-image pixel budget.
+
+    Exported for the same reason as the video pair below: a caller that has to
+    reason about this artifact's ceiling should read it rather than assume it.
+    ``reference_fit.py`` in particular introspects Comfy's native
+    ``process_qwen2vl_images`` default, which is the wrong ceiling whenever this
+    adapter has replaced ``preprocess_embed``.
+    """
+    size = (_config("processor_config.json")["image_processor"].get("size") or {})
+    lo, hi = size.get("shortest_edge"), size.get("longest_edge")
+    if not isinstance(lo, int) or not isinstance(hi, int) or not 0 < lo < hi:
+        raise ValueError(f"source image processor has invalid size bounds: {size!r}")
+    return lo, hi
+
+
 def source_video_pixel_bounds() -> tuple[int, int]:
     """Return the selected encoder artifact's declared video pixel budget."""
     size = _config("video_preprocessor_config.json").get("size") or {}
@@ -388,29 +404,81 @@ def awq_operations():
     return H3AWQOperations
 
 
-@functools.lru_cache(maxsize=1)
-def _image_processor():
+@functools.lru_cache(maxsize=8)
+def _image_processor(bounds: tuple[int, int] | None = None):
+    """Build the artifact's still-image processor, or one at overridden bounds.
+
+    ``bounds`` exists so a caller can measure this artifact under a different
+    still-image budget without editing the snapshot, which is hash-guarded by
+    ``bench/check_h3_awq_encoder.py`` for good reason: the snapshot records what
+    the artifact *declares*. Passing bounds does not change that declaration,
+    and the default remains the declared one.
+    """
     from transformers.models.qwen2_vl.image_processing_qwen2_vl import (
         Qwen2VLImageProcessor,
     )
-    return Qwen2VLImageProcessor(
-        **_config("processor_config.json")["image_processor"]
+    settings = dict(_config("processor_config.json")["image_processor"])
+    if bounds is not None:
+        lo, hi = bounds
+        if not (isinstance(lo, int) and isinstance(hi, int) and 0 < lo < hi):
+            raise ValueError(
+                f"still-image pixel bounds must be ints with 0 < min < max, got {bounds!r}"
+            )
+        settings["size"] = {"shortest_edge": lo, "longest_edge": hi}
+    return Qwen2VLImageProcessor(**settings)
+
+
+_clamp_reported: set = set()
+
+
+def _report_clamp(width: int, height: int, grid, bounds: tuple[int, int]) -> None:
+    """Say so, once per distinct case, when the budget actually reduces a reference.
+
+    The still-image budget is a ceiling applied *after* whatever sizing the
+    reference nodes performed, and it governs only the conditioner. When it
+    binds, the DiT's view of a reference and Qwen's view diverge — a reference
+    deliberately upscaled upstream can still reach layer 50 heavily reduced.
+    Until 2026-08-24 nothing reported that at runtime, in this module or in the
+    conditioning path.
+    """
+    key = (width, height, bounds)
+    if key in _clamp_reported:
+        return
+    patch = int(_config("processor_config.json")["image_processor"]["patch_size"])
+    grid_h, grid_w = int(grid[0][1]), int(grid[0][2])
+    out_h, out_w = grid_h * patch, grid_w * patch
+    if out_h * out_w >= width * height:
+        return
+    _clamp_reported.add(key)
+    logger.info(
+        "[h3-awq] still-image budget %d..%d px reduced a %dx%d reference to "
+        "%dx%d for the conditioner (%d merged tokens). The DiT's view of this "
+        "reference is unaffected; only the Qwen view is capped.",
+        bounds[0], bounds[1], width, height, out_w, out_h,
+        (grid_h // 2) * (grid_w // 2),
     )
 
 
-def _source_image_patches(images, device):
-    """Run the source checkpoint's declared still-image processor."""
+def _source_image_patches(images, device, bounds: tuple[int, int] | None = None):
+    """Run the source checkpoint's declared still-image processor.
+
+    ``bounds`` overrides the declared budget for this call only; see
+    ``_image_processor``.
+    """
     import torch
 
     if images.ndim != 4 or images.shape[-1] != 3 or images.shape[0] < 1:
         raise ValueError(f"Qwen image must be [B,H,W,3], got {tuple(images.shape)}")
+    height, width = int(images.shape[1]), int(images.shape[2])
     image = images[0].detach().permute(2, 0, 1).to("cpu")
     if image.is_floating_point():
         image = image.mul(255).round().clamp_(0, 255).to(torch.uint8)
     else:
         image = image.to(torch.uint8)
-    batch = _image_processor().preprocess(image, return_tensors="pt")
-    return batch["pixel_values"], batch["image_grid_thw"].to(device=device)
+    batch = _image_processor(bounds).preprocess(image, return_tensors="pt")
+    grid = batch["image_grid_thw"].to(device=device)
+    _report_clamp(width, height, grid, bounds or source_image_pixel_bounds())
+    return batch["pixel_values"], grid
 
 
 def _source_video_block_patches(frames, device):
@@ -451,11 +519,20 @@ def _source_video_block_patches(frames, device):
     return flatten, grid
 
 
-def install_source_processors(clip) -> None:
-    """Bind source-config preprocessing to this CLIP instance only."""
+def install_source_processors(clip, image_bounds: tuple[int, int] | None = None) -> None:
+    """Bind source-config preprocessing to this CLIP instance only.
+
+    ``image_bounds`` overrides the artifact's declared still-image budget for
+    this CLIP instance. It exists for measurement — comparing one set of weights
+    under two processor policies — and is not a way to redeclare the artifact.
+    The snapshot on disk stays authoritative and unchanged; ``_h3_image_bounds``
+    records what this instance was actually bound with so a capture can report
+    it rather than assume the declared value.
+    """
     import torch
 
     model = clip.cond_stage_model.qwen3vl_32b.transformer
+    bounds = image_bounds or source_image_pixel_bounds()
 
     def preprocess_embed(this, embed, device):
         if embed.get("type") != "image":
@@ -463,7 +540,7 @@ def install_source_processors(clip) -> None:
         if embed.get("minimax_video_block", False):
             flatten, grid = _source_video_block_patches(embed["data"], device)
         else:
-            flatten, grid = _source_image_patches(embed["data"], device)
+            flatten, grid = _source_image_patches(embed["data"], device, image_bounds)
         merged, deepstack = this.visual(
             flatten.to(device=device, dtype=torch.float32), grid
         )
@@ -471,6 +548,13 @@ def install_source_processors(clip) -> None:
 
     model.preprocess_embed = types.MethodType(preprocess_embed, model)
     model._h3_processor_source = CONFIG_SOURCE
+    model._h3_image_bounds = bounds
+    if image_bounds is not None:
+        logger.info(
+            "[h3-awq] still-image budget overridden to %d..%d px for this CLIP "
+            "instance; the artifact still declares %d..%d",
+            bounds[0], bounds[1], *source_image_pixel_bounds(),
+        )
 
 
 def _validate_loaded_state_contract(clip, provided_shapes: dict[str, tuple]) -> None:

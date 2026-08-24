@@ -1,7 +1,7 @@
 # MiniMax H3 compressed-tensors W4A16 encoder adapter
 
 Last verified against the installed ComfyUI and comfy-kitchen checkouts on
-2026-08-23.
+2026-08-24.
 
 `MiniMaxH3AWQEncoderLoader` is a repo-local format adapter for a specific
 family of Qwen3-VL-32B MiniMax H3 encoders: full Hugging Face checkpoints
@@ -141,8 +141,9 @@ not literally allocation-free:
   them as `(K / group_size, N)`;
 - the symmetric source omits affine zero tensors, so the loader constructs
   exact-zero tensors required by kitchen's general AWQ ABI; and
-- ordinary BF16 vision, embedding and normalization weights retain their
-  existing tensors.
+- retained vision tensors, the full-shape input embedding, and decoder
+  normalization weights retain their source BF16 tensors. The full-Qwen final
+  language norm is not among those retained tensors.
 
 No second multi-gigabyte checkpoint is written to disk.
 
@@ -247,9 +248,22 @@ every checkpoint that may share a similar filename.
 
 | representation | loader owner | language linears | token embedding | vision tower | approximate file size | RTX 4090 execution note |
 |---|---|---|---|---|---:|---|
-| H3 INT8 ConvRot | core `CLIPLoader` | 350 `int8_tensorwise` ConvRot | BF16 | 351 BF16 tensors | 26 GB | Native core format; transfer/offload cost needs measurement rather than inference from file size alone |
-| H3 NVFP4-AWQ | core `CLIPLoader` | 350 `nvfp4` records | INT8 tensorwise | 351 BF16 tensors | 15 GB | Ada has no native NVFP4 compute, and this specific file also declares `full_precision_matrix_mult=true`; expect dequantized/full-precision matmul |
-| Full-HF compressed-tensors W4A16 AWQ | this repo's loader | 350 retained group-128 W4A16 linears | BF16 | 351 BF16 tensors | 19 GB source file | CUDA backend is available; fused versus dequant-plus-cuBLAS depends on `M` as described above |
+| H3 INT8 ConvRot | core `CLIPLoader` | 350 `int8_tensorwise` ConvRot | full-shape BF16 | 351 BF16 tensors | 26 GB | Native core format; transfer/offload cost needs measurement rather than inference from file size alone |
+| H3 NVFP4-AWQ | core `CLIPLoader` | 350 `nvfp4` records | full-shape INT8 plus FP32 per-row scale | 351 BF16 tensors | 15 GB | Ada has no native NVFP4 compute, and this specific file also declares `full_precision_matrix_mult=true`; expect dequantized/full-precision matmul |
+| Full-HF compressed-tensors W4A16 AWQ | this repo's loader | 350 retained group-128 W4A16 linears | full-shape BF16 | 351 BF16 tensors | 19 GB source file | CUDA backend is available; fused versus dequant-plus-cuBLAS depends on `M` as described above |
+
+Header inspection on 2026-08-24 shows that neither Comfy-native compressed
+file prunes vocabulary rows or embedding width: both retain an input lookup of
+shape `[151936, 5120]`. The INT8 ConvRot file stores that table in BF16; the
+NVFP4 file stores it as INT8 with one FP32 scale per row. Quantizing the latter
+is compression, not structural pruning.
+
+Those two files are already H3-only structural subsets on disk. Each contains
+decoder layers 0–49, no final language-model norm, and no LM head. After
+normalizing quantized records into logical weights, each retains the same H3
+set: the input embedding, all first-50-layer decoder tensors, and all 351 BF16
+vision/DeepStack tensors. Their physical pruning is therefore limited to
+decoder layers 50–63, the final language-model norm, and the separate LM head.
 
 The W4 source file contains 64 language layers plus full-Qwen output tensors;
 the adapter discards the 14 unused layers, final norm and language head before
