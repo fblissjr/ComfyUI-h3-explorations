@@ -188,7 +188,7 @@ def sol_api_inputs(sol):
 #
 # **The default carries `<d>` and nothing else, deliberately.** The other five
 # markers are undocumented in the guide and their encoder rows are UNTRAINED
-# (`vendor_tokens.py`), so what they do is unmeasured -- and if
+# (`bench/audit_h3_token_embeddings.py`), so what they do is unmeasured -- and if
 # `<|caption_start|>` burns text into the frame, a default carrying one would
 # put text in every shipped t2v render. They live in the two opt-in scenes
 # instead, where a test can reach them without contaminating the default.
@@ -961,7 +961,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                              # Wired to Resolution so duration and geometry
                              # continue to move together in API sweeps.
                              "length": ["27", 2],
-                             "vendor_tokens": True,
                              "video_policy": ref_video_policy}}
         # One fit node per reference. ComfyUI clamps reference scaling with
         # min(1.0, 2048/short_edge) where the reference pipeline has none, so
@@ -1048,11 +1047,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # `MiniMaxH3Conditioning`, not core's `MiniMaxH3ImageToVideo`. It owns
         # the canvas itself, so the separate `MiniMaxH3KeyframeCanvas` that
         # used to sit at node 17 and hand sizes forward is gone -- one geometry
-        # owner rather than two in series. `vendor_tokens` is retained for
-        # compatibility with older ComfyUI installs; current ComfyUI includes
-        # those tokens natively, so the repo helper detects that and no-ops.
-        inputs = {"clip": ["2", 0], "vae": vae_enc, "prompt": prompt,
-                  "vendor_tokens": True}
+        # owner rather than two in series. Current ComfyUI owns the H3 special
+        # tokens in its native tokenizer; the ignored legacy schema slot is
+        # omitted from new API workflows.
+        inputs = {"clip": ["2", 0], "vae": vae_enc, "prompt": prompt}
         if task == "i2v":
             # `canvas` carries what node 17's `mode` used to: derive the canvas
             # from the keyframe, or hold the geometry the caller typed. The
@@ -4071,8 +4069,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             _in("references", "MINIMAX_H3_REFERENCES"),
         ]
         cond = g.add("MiniMaxH3ReferenceConditioning", (-460, 0), size=(430, 620),
-                     # `video_policy` is appended after vendor_tokens because
-                     # saved UI graphs map widgets positionally.
+                     # The True is the ignored legacy vendor_tokens slot. Keep
+                     # it before video_policy because saved UI graphs map
+                     # widget values positionally.
                      widgets=[prompt, cv["width"], cv["height"], length, True,
                               ref_video_policy],
                      inputs=cond_inputs + [
@@ -4189,7 +4188,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         g.link(chain, 0, cond, "references", "MINIMAX_H3_REFERENCES")
     else:
         # Widget order mirrors the schema: prompt, width, height, length,
-        # canvas, vendor_tokens. The keyframe images stay input sockets.
+        # canvas, then the ignored legacy vendor_tokens slot. Keep its True so
+        # saved widget positions stay stable. The keyframe images stay sockets.
         cond_inputs = [_in("clip", "CLIP"), _in("vae", "VAE"),
                        _in("first_frame", "IMAGE", optional=True),
                        _in("last_frame", "IMAGE", optional=True),

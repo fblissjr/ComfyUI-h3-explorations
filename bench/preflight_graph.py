@@ -242,12 +242,9 @@ def marker_rules(prompt: str, main_body: str) -> list[tuple[str, str]]:
             out.append(("WARN", "a <d> block has whitespace before </d>; "
                                 "MiniMax's own examples close tight against "
                                 "the last character"))
-    # Only on an UNPATCHED tokenizer, which is the state to assume: a pack
-    # cannot know whether the install carries the special tokens. There, BPE
-    # pulls the full stop into the marker's leading fragment, so the marker
-    # retokenizes the sentence before it. The house dialogue scenes sit the
-    # marker against `</d>` with no stop at all. Not a FAIL: the audit
-    # harness's non-dialogue `hard_cut` scene legitimately has a stop there.
+    # A house-format warning, not tokenizer compatibility logic. The
+    # `hard_cut` audit stressor legitimately triggers it, so this reports and
+    # never refuses the graph.
     for m in re.finditer(r"(.)<\|cutoff\|>", prompt):
         if m.group(1) == ".":
             out.append(("WARN", "a full stop sits directly before <|cutoff|>"))

@@ -381,7 +381,7 @@ def conditioning_node_assembles_the_real_payload_shape():
     output = R.MiniMaxH3ReferenceConditioning.execute(
         clip=clip, vae=_VideoVae(), audio_vae=_AudioVae(),
         references=records, prompt="use <Picture 1> and <Audio 1>",
-        width=64, height=64, length=22, vendor_tokens=False,
+        width=64, height=64, length=22,
     )
     conditioning, latent = output.args
     assert [item["type"] for item in clip.ref_items] == ["image", "audio"]
@@ -396,7 +396,7 @@ def conditioning_node_assembles_the_real_payload_shape():
             R.MiniMaxH3ReferenceConditioning.execute(
                 clip=clip, vae=_VideoVae(), audio_vae=_AudioVae(),
                 references=bad_refs, prompt=bad_prompt,
-                width=64, height=64, length=22, vendor_tokens=False,
+                width=64, height=64, length=22,
             )
         except ValueError:
             pass

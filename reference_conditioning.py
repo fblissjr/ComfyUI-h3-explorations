@@ -46,8 +46,6 @@ from .h3_awq_encoder import (
     source_video_pixel_bounds,
 )
 from .vendor_config import video_patch_geometry, video_pixel_bounds
-from .vendor_tokens import clip_with_vendor_tokens
-
 logger = logging.getLogger(__name__)
 
 H3References = io.Custom("MINIMAX_H3_REFERENCES")
@@ -618,11 +616,11 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
                 io.Int.Input("height", default=768, min=32, max=16384, step=32),
                 io.Int.Input("length", default=124, min=5, max=3600, step=17),
                 io.Boolean.Input(
-                    "vendor_tokens", default=True,
+                    "vendor_tokens", default=True, optional=True, advanced=True,
                     tooltip=(
-                        "Compatibility for ComfyUI versions before the seven "
-                        "H3 tokens landed upstream. No-ops when native tokens "
-                        "are already present."
+                        "Legacy ignored input retained so saved UI graph "
+                        "widget positions remain valid. Current ComfyUI "
+                        "registers the H3 tokens natively."
                     ),
                 ),
                 # APPENDED: saved UI graphs map widgets positionally. Keep new
@@ -665,9 +663,6 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
                 "MiniMaxH3ReferenceConditioning needs a prompt; empty prompts "
                 "condition on a pad token in core and are refused here"
             )
-        if vendor_tokens:
-            clip = clip_with_vendor_tokens(clip, strict=True)
-
         latent, frame_count = _empty_av_latent(width, height, length)
         ref_items, ref_blocks = _compile_reference_records(
             records, vae, audio_vae, width, height, frame_count,
@@ -682,9 +677,8 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
         labels = assign_labels(_order_records(records))
         logger.info(
             "[h3] ordered reference conditioning: %dx%d, %d frames, %d "
-            "record(s), presentation=%s, video_policy=%s%s",
+            "record(s), presentation=%s, video_policy=%s",
             width, height, frame_count, len(records), labels,
             video_policy,
-            "" if vendor_tokens else ", vendor tokens OFF",
         )
         return io.NodeOutput(conditioning, latent)

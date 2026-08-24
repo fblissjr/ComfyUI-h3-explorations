@@ -84,14 +84,14 @@ The next policy slice is also complete:
 
 Next, in order:
 
-1. Later cleanup: retire `vendor_tokens` from generated workflow inputs now
-   that merged ComfyUI PR 15808 supplies the tokens natively. First set and
-   verify the minimum supported ComfyUI version; until then, keep the helper as
-   backward compatibility for older installs. This is cleanup, not a current
-   conditioning or migration blocker.
-2. GPU experiments: the FL2VA base-versus-turbo pair,
+1. GPU experiments: the FL2VA base-versus-turbo pair,
    the singing-removed speaker-attribution scene, and `ncu` profiling all need
    the card alone.
+
+Completed 2026-08-24: ComfyUI commit `924743af` or newer is now the marker
+tokenization contract. The local fallback was removed from both conditioners
+and from generated API workflows. Inert schema/node tombstones remain solely
+to keep saved UI graphs loadable.
 
 The historical lists below remain evidence of how priorities arrived; this
 block is the current authority when they conflict.

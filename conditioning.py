@@ -1,29 +1,16 @@
-"""fl2va conditioning with the seams this repo measured, closed at one node.
+"""fl2va conditioning with the geometry seams measured here closed at one node.
 
 Replaces `MiniMaxH3ImageToVideo` for t2va and the three keyframe signatures.
 It does not touch ref2va; `MiniMaxH3ReferenceToVideo` is still core's.
 
 **Why a node rather than compensating nodes around core's.** Every fix this
-repo shipped before now works by handing core a different input --
-`MiniMaxH3KeyframeCanvas` pre-fits the keyframe, `MiniMaxH3VendorTokens`
-rebinds the tokenizer. That works until two of them have to agree about the
-same thing. Geometry was owned by two nodes in series, and a prompt could be
-tokenized correctly only if somebody remembered to wire a second node in front
-of the first.
+repo shipped before now worked by handing core a different input.
+`MiniMaxH3KeyframeCanvas` pre-fit the keyframe, which left geometry owned by
+two nodes in series. This node closes that ownership seam.
 
 What it closes, each measured in this repo on 2026-08-21:
 
-1. **The seven H3 special tokens.** ComfyUI's bundled tokenizer declares 13
-   `additional_special_tokens` against the release's 20, so `<d>` reaches the
-   model as BPE debris rather than id 151669. Measured at the encoder
-   (`bench/grade_h3_marker_tokens.py`): against an arm with the markers
-   deleted entirely, ComfyUI's fragments recover about a tenth of what the
-   marker does. Measured at the render (`bench/grade_arm_audio_spectrum.py`,
-   six seeds an arm): routing them changes the audio, speech separating at
-   3.26x the within-arm spread while the silence between lines matches at
-   0.01x. This node registers them itself, so the fix cannot be forgotten.
-
-2. **Last-frame-only geometry.** Core picks stretch-versus-crop from which
+1. **Last-frame-only geometry.** Core picks stretch-versus-crop from which
    socket was wired, so a lone `last_frame` is cover-cropped into a canvas
    chosen elsewhere and loses whatever falls outside it. sglang selects the
    geometry anchor by semantic frame index (`prequeue.py:97-107`) and derives
@@ -32,10 +19,10 @@ What it closes, each measured in this repo on 2026-08-21:
    surface that can reach it -- `MiniMaxH3KeyframeCanvas` requires a
    `first_frame`.
 
-3. **One geometry owner.** Canvas resolution and conditioning happen here, not
+2. **One geometry owner.** Canvas resolution and conditioning happen here, not
    in a node upstream feeding sizes into a node that resizes again.
 
-4. **An empty prompt is refused.** Core pads to token 151643
+3. **An empty prompt is refused.** Core pads to token 151643
    (`comfy_extras/nodes_minimax_h3.py:186-187`) and renders; LightX and sglang
    refuse. Refusing is cheap and the alternative conditions on a pad token.
 
@@ -73,8 +60,6 @@ import node_helpers
 from comfy_extras.nodes_minimax_h3 import _empty_av_latent
 
 from .keyframe_canvas import resolve_keyframe_geometry
-from .vendor_tokens import clip_with_vendor_tokens
-
 logger = logging.getLogger(__name__)
 
 
@@ -88,10 +73,11 @@ class MiniMaxH3Conditioning(io.ComfyNode):
             display_name="MiniMax H3 Conditioning",
             category="MiniMaxH3",
             description=(
-                "fl2va conditioning that registers the release's special "
-                "tokens, owns its own canvas, and accepts a last frame on its "
-                "own. Replaces MiniMaxH3ImageToVideo on the t2v and keyframe "
-                "paths; ref2va still uses MiniMaxH3ReferenceToVideo."
+                "fl2va conditioning that owns its own canvas and accepts a "
+                "last frame on its own. Special-token ownership is native to "
+                "ComfyUI's MiniMaxH3Tokenizer. Replaces "
+                "MiniMaxH3ImageToVideo on the t2v and keyframe paths; ref2va "
+                "uses its separate conditioning path."
             ),
             inputs=[
                 io.Clip.Input("clip"),
@@ -115,11 +101,13 @@ class MiniMaxH3Conditioning(io.ComfyNode):
                             "are ignored. explicit uses width/height and "
                             "cover-crops the anchor to fit."),
                 io.Boolean.Input(
-                    "vendor_tokens", default=True,
-                    tooltip="Register the seven special tokens ComfyUI's "
-                            "bundled tokenizer lacks, so <d> and the lyrics "
-                            "and caption markers reach the model as markers "
-                            "rather than as literal text."),
+                    "vendor_tokens", default=True, optional=True, advanced=True,
+                    tooltip=(
+                        "Legacy ignored input retained so saved UI graph "
+                        "widget positions remain valid. Current ComfyUI "
+                        "registers the H3 tokens natively."
+                    ),
+                ),
             ],
             outputs=[io.Conditioning.Output(display_name="positive"),
                      io.Latent.Output()],
@@ -139,9 +127,6 @@ class MiniMaxH3Conditioning(io.ComfyNode):
                 "renders anyway; LightX2V and sglang both refuse the request, "
                 "and so does this."
             )
-
-        if vendor_tokens:
-            clip = clip_with_vendor_tokens(clip, strict=True)
 
         images, keyframes = [], []
         # Bound up front so the two blocks below cannot drift apart: they are
@@ -185,8 +170,7 @@ class MiniMaxH3Conditioning(io.ComfyNode):
                 cond, {"minimax_keyframes": keyframes})
 
         logger.info(
-            "[h3] conditioning: %dx%d, %d frames, %s, %s keyframe(s)%s",
+            "[h3] conditioning: %dx%d, %d frames, %s, %s keyframe(s)",
             width, height, frame_count, canvas, len(keyframes),
-            "" if vendor_tokens else ", vendor tokens OFF",
         )
         return io.NodeOutput(cond, latent)

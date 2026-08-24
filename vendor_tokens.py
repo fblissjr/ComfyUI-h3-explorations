@@ -1,129 +1,44 @@
-"""Give the H3 text encoder the special tokens its own release declares.
+"""Compatibility tombstone for the retired H3 tokenizer workaround.
 
-ComfyUI backs the H3 tokenizer with its bundled `qwen25_tokenizer` directory,
-whose config declares thirteen `additional_special_tokens`. The release declares
-twenty. The seven it does not have are `<d>`, `</d>`, `<|cutoff|>`,
-`<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>` and `<|caption_end|>`,
-and without them a prompt containing one is tokenized as ordinary text -- angle
-brackets and letters, several BPE pieces, a different embedding.
+ComfyUI commit ``924743af`` registers MiniMax H3's seven extra special tokens
+inside ``MiniMaxH3Tokenizer``. That native owner reaches every H3 consumer,
+including ComfyUI's own conditioning nodes, so this custom-node pack no longer
+patches or replaces tokenizers.
 
-Everything else about the two tokenizers agrees: the vocabulary is identical at
-151,643 entries, the merges are identical, and all 26 `added_tokens_decoder`
-entries match on content and id. Ordinary prose is unaffected. Only the markers
-change, which is why nothing has ever noticed.
-
-**The rows exist.** The release declares `vocab_size: 151936` and both repacked
-encoders on this box carry `model.embed_tokens.weight` at `[151936, 5120]`,
-past the 151,669 the vocabulary and added tokens occupy. Adding the seven puts
-them at 151669-151675, inside the table.
-
-**The rows are untrained, measured 2026-08-21** by
-`bench/audit_h3_token_embeddings.py`, which resolves the question this docstring
-previously left open. Against two controls -- the stock Qwen specials, trained,
-and the padding rows past 151676, not -- the seven land on the untrained pole in
-the official release and in both repacked encoders alike. So this node makes the
-markers *reachable*; it does not make them *useful*, and it never could.
-
-**"Untrained in the encoder" is not "carries no signal", and the first version
-of this docstring got that wrong.** The measurement constrains Qwen only. The
-DiT was trained on Qwen hidden states from prompts the release tokenizer
-produced, and the prompt guide mandates `<d>` for all dialogue, so those
-prompts almost certainly carried the marker. An untrained embedding is still a
-fixed distinctive vector, and a frozen encoder maps it to a fixed distinctive
-hidden state -- which is precisely what a downstream model learns to read as a
-delimiter. So this node may buy fidelity on dialogue prompts and not only
-parity.
-
-**Measured at the encoder 2026-08-21** (`bench/grade_h3_marker_tokens.py`):
-against a third arm with the markers deleted, ComfyUI's fragments recover about
-a tenth of what the marker does on the strongest prompts. So the fragments are
-not quietly standing in for the delimiter, and wiring this node is a real change
-to what the encoder hands downstream. Whether the DiT reads that change is still
-open and needs a comparison at its boundary, not a rendered pair.
-
-**Why they are untrained is now known too.** The release's README says the
-H3-Encoder uses the full pretrained weights of Qwen3-VL-32B, and the same rows
-sit on the padding pole in a stock Qwen3-VL that H3 never touched. They are
-Qwen's padding rows, and MiniMax added tokenizer entries pointing at them
-without training the encoder. So the markers carry no learned meaning in any
-implementation, the vendor's own serving path included.
-
-**What is still NOT established:** what the markers are *for*. The release
-lists them without documenting them, and the prompt guide requires `<d>` for
-all dialogue while the row behind it was never trained.
-`docs/research/official_weights_metadata.md` carries the same caveat.
-
-**Where this now lives, since 2026-08-22.** The correction moved into
-`MiniMaxH3Tokenizer.__init__` in ComfyUI itself, which is the only place that
-reaches every consumer -- core's `MiniMaxH3ReferenceToVideo` included, which no
-custom pack can add an import to. The node below is deprecated; the module-level
-function is not, because a pack cannot assume the install it is running on
-carries the patch, and the function already returns the CLIP unchanged when the
-tokens are present. `bench/audit_h3_marker_tokenization.py` verifies the two
-agree: with the core patch in place it asserts this function is a no-op, and
-refuses the run if it quietly does work instead.
-
-**Isolation.** `clip.clone()` shares the tokenizer object by reference, so
-mutating the one already on a loaded CLIP would contaminate every graph in the
-process -- the same silent-contamination class `reference_fit.py` documents for
-its global rebind. This node therefore builds a FRESH tokenizer, adds the
-tokens to that, and rebinds it on the clone. Verified 2026-08-21: a second
-tokenizer constructed the same way is unaffected by the first one's additions.
+The deprecated node ID and module-level function remain as inert pass-throughs
+so saved graphs and third-party Python imports do not fail merely because the
+workaround was retired. New code must rely on a ComfyUI version containing the
+native fix.
 """
 
 from __future__ import annotations
 
-import logging
-
 from comfy_api.latest import io
-
-from . import vendor_config
-
-logger = logging.getLogger(__name__)
-
-
-def _tokenizer_chain(clip):
-    """(the SD1Tokenizer, its inner SDTokenizer) for an H3 CLIP, or a reason."""
-    tok = getattr(clip, "tokenizer", None)
-    inner = getattr(tok, "qwen3vl_32b", None) if tok is not None else None
-    hf = getattr(inner, "tokenizer", None) if inner is not None else None
-    if hf is None or not hasattr(hf, "add_special_tokens"):
-        return None, None, (
-            "this node needs the MiniMax H3 text encoder: a CLIP whose "
-            "tokenizer exposes `qwen3vl_32b` with a HuggingFace tokenizer "
-            f"under it. Got {type(tok).__name__}."
-        )
-    return inner, hf, None
 
 
 class MiniMaxH3VendorTokens(io.ComfyNode):
+    """Deprecated no-op retained only for saved-graph compatibility."""
+
     @classmethod
     def define_schema(cls):
         return io.Schema(
             node_id="MiniMaxH3VendorTokens",
-            display_name="MiniMax H3 Vendor Special Tokens (deprecated)",
+            display_name="MiniMax H3 Vendor Special Tokens (retired)",
             category="MiniMaxH3/experimental",
             is_deprecated=True,
             description=(
-                "DEPRECATED. The fix belongs in the tokenizer, not in a node "
-                "somebody has to remember to wire, and it now lives there: "
-                "`MiniMaxH3Tokenizer` adds the release's seven remaining "
-                "special tokens at construction, so every consumer gets them "
-                "including core's own reference node. On a ComfyUI carrying "
-                "that patch this node does nothing at all. It is kept only so "
-                "existing graphs referencing it still load, and it is wired "
-                "into none of the shipped ones. Nothing new should use it: "
-                "`clip_with_vendor_tokens` below is the import for code that "
-                "must stay correct on an unpatched install."
+                "RETIRED NO-OP. ComfyUI commit 924743af moved the seven H3 "
+                "special tokens into MiniMaxH3Tokenizer, their native owner. "
+                "This node remains registered only so existing graphs load; "
+                "remove it from new or edited graphs."
             ),
             inputs=[
                 io.Clip.Input("clip"),
                 io.Boolean.Input(
                     "strict", default=True,
                     tooltip=(
-                        "On: refuse if any declared token cannot be added, "
-                        "rather than silently conditioning on a prompt whose "
-                        "markers are half text. Off: warn and continue."
+                        "Legacy ignored input retained so saved widget values "
+                        "keep their positions."
                     ),
                 ),
             ],
@@ -132,83 +47,13 @@ class MiniMaxH3VendorTokens(io.ComfyNode):
 
     @classmethod
     def fingerprint_inputs(cls, strict=True, **kwargs):
-        # The node builds a fresh tokenizer each run, so nothing persists
-        # between runs -- but the flag must still re-execute when flipped.
-        return f"vendor_tokens/{strict}/{len(vendor_config.additional_special_tokens())}"
+        return f"vendor_tokens/retired/{strict}"
 
     @classmethod
     def execute(cls, clip, strict=True) -> io.NodeOutput:
-        return io.NodeOutput(clip_with_vendor_tokens(clip, strict=strict))
+        return io.NodeOutput(clip)
 
 
 def clip_with_vendor_tokens(clip, strict: bool = True):
-    """A CLIP whose tokenizer can emit the release's special tokens.
-
-    Returns the input unchanged when they are already present, otherwise a
-    clone carrying a freshly built tokenizer with them added.
-
-    **Module-level so it has exactly one implementation.** The node above is a
-    thin wrapper and `conditioning.py` calls this directly, because a
-    conditioning node that needs a graph rewired to tokenize its own prompt
-    correctly is a conditioning node with a footgun. `workflows/h3_config.py`
-    states the rule this follows: nothing here may have a second copy anywhere.
-    """
-    _, hf_probe, why = _tokenizer_chain(clip)
-    if why:
-        raise ValueError(why)
-
-    declared = vendor_config.additional_special_tokens()
-    missing = [t for t in declared if t not in hf_probe.get_vocab()]
-    if not missing:
-        logger.info("[h3] vendor tokens: all %d already present, "
-                    "clip passed through unchanged", len(declared))
-        return clip
-
-    n = clip.clone()
-    # A FRESH tokenizer, not a copy of the loaded one: `clone()` shares the
-    # tokenizer by reference and a shallow copy would still share the
-    # HuggingFace object underneath it.
-    from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
-    fresh = MiniMaxH3Tokenizer(
-        embedding_directory=getattr(
-            getattr(clip.tokenizer, "qwen3vl_32b", None),
-            "embedding_directory", None),
-    )
-    inner, hf, why = _tokenizer_chain_of(fresh)
-    if why:
-        raise ValueError(why)
-
-    added = hf.add_special_tokens({"additional_special_tokens": declared})
-    still = [t for t in declared if t not in hf.get_vocab()]
-    if still:
-        message = (f"could not add {still} to the tokenizer; a prompt "
-                   "using them would condition on literal text")
-        if strict:
-            raise ValueError(message)
-        logger.warning("[h3] vendor tokens: %s", message)
-
-    # `inv_vocab` is built at construction and only read by `untokenize`,
-    # which is off the render path. Refreshed anyway so the two views of
-    # the vocabulary do not disagree for whoever reads it next.
-    if hasattr(inner, "inv_vocab"):
-        inner.inv_vocab = {v: k for k, v in hf.get_vocab().items()}
-
-    n.tokenizer = fresh
-    vocab = hf.get_vocab()
-    logger.info(
-        "[h3] vendor tokens: added %d of %d declared -> %s",
-        added, len(declared),
-    {t: vocab.get(t) for t in missing},
-    )
-    return n
-
-
-def _tokenizer_chain_of(tokenizer_obj):
-    inner = getattr(tokenizer_obj, "qwen3vl_32b", None)
-    hf = getattr(inner, "tokenizer", None) if inner is not None else None
-    if hf is None or not hasattr(hf, "add_special_tokens"):
-        return None, None, (
-            "the freshly built H3 tokenizer does not expose a HuggingFace "
-            "tokenizer under `qwen3vl_32b`; ComfyUI's tokenizer layout changed"
-        )
-    return inner, hf, None
+    """Deprecated compatibility import; returns ``clip`` unchanged."""
+    return clip

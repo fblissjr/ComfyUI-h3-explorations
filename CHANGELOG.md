@@ -65,6 +65,14 @@ artifact.
 
 ### Changed
 
+- **H3 special-token ownership is now exclusively native ComfyUI.** Commit
+  `924743af` adds the seven release tokens in `MiniMaxH3Tokenizer`, so the
+  FL2VA and ordered Ref2VA conditioners no longer import, construct, clone or
+  mutate tokenizers. New API workflows omit `vendor_tokens`. The old input
+  stays optional and ignored at its original schema position, and the
+  deprecated standalone node is a pass-through tombstone, so saved UI graphs
+  keep loading without carrying two tokenizer implementations.
+
 - **Generated graphs and the e2e bench now load the canonical W4A16 encoder
   through its format owner**, not through core `CLIPLoader`. Core's menu did
   offer the filename, but the executed job selected Qwen3-VL-8B from the full

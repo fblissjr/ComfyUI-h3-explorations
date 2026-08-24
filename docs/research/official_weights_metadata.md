@@ -1,6 +1,6 @@
 # What the official release ships, against what ComfyUI does with it
 
-last updated: 2026-08-23
+last updated: 2026-08-24
 
 The MiniMax H3 release as published, read from the repo on the `Storage` side
 on **2026-08-21**: `model_index.json`, both partition entry points, and every
@@ -25,13 +25,13 @@ contains the fix as commit `924743af`; it declares the seven on a
 `MiniMaxH3ReferenceToVideo` included. This is a native ComfyUI resolution, not
 a fix supplied by this custom-node repo. An older install without that commit
 still has the defect and this section describes what that install does.
-`bench/audit_h3_marker_tokenization.py` is this repo's verification harness; it
-reports which source supplied the correction.
+`bench/audit_h3_marker_tokenization.py` is this repo's verification harness. It
+now requires the native tokens and reconstructs the legacy tokenizer only as a
+measurement control.
 
-`MiniMaxH3VendorTokens` is deprecated by that native fix.
-`clip_with_vendor_tokens` remains only as a compatibility shim because a pack
-cannot assume the install it runs on carries the patch. On this checkout the
-audit requires the shim to do nothing.
+The local fallback is retired. Both custom conditioners rely on native
+ComfyUI; their old `vendor_tokens` schema slots and the standalone
+`MiniMaxH3VendorTokens` node remain inert only so saved graphs still load.
 
 The finding below stands as written for an unpatched install.
 
@@ -50,7 +50,7 @@ files provided in the H3 repository are required.
 reason to stop at the angle bracket, so the fragments fuse with the text on
 either side: the release emits `<d>` then `[`, ComfyUI emits `>[` as one token,
 and a sentence-final `.` is dragged forward into `.</`. Ordinary prose tokens
-next to a marker come out different too. `bench/results/2026-08-22_h3_marker_tokenization.json`
+next to a marker come out different too. `bench/results/2026-08-24_h3_marker_tokenization_native.json`
 carries the per-scene counts, and the reference presentation is covered there as
 well -- the marker reaches the encoder beside the vision blocks, so reference
 prompts carrying dialogue are exposed on the same terms as text ones.
@@ -88,9 +88,9 @@ HF model repo, so no `tokenizer_config.json` travels with the weights and
 nothing can carry a model's own additions. Bundling one directory works for the
 entire Qwen family precisely *because* the vocabulary is shared, and it works
 for every case except a model that adds tokens of its own. H3 is that case, and
-the model card's sentence is aimed at exactly it. `vendor_tokens.py` is this
-repo's answer: it vendors the release's config and rebinds a fresh tokenizer on
-a cloned CLIP.
+the model card's sentence is aimed at exactly it. The native
+`MiniMaxH3Tokenizer` subclass is now the answer; the retired local node does
+not alter tokenizers.
 
 **What happens instead.** None of the seven is in the base vocab or in
 `added_tokens_decoder`, so the release's loader appends them past the end of
@@ -169,8 +169,8 @@ different-sample rule rules out. Two
 readings remain open and this measurement does not separate them: the tokens
 may be vestigial, or the text encoder may simply have been frozen through H3
 training, in which case no row moved and the norm says nothing about whether
-MiniMax intended them. `vendor_tokens.py` is the node that makes them
-reachable, and it is correct to keep the caveat.
+MiniMax intended them. Native ComfyUI makes them reachable; it is correct to
+keep the caveat.
 
 **And the reason is the encoder is stock, closed 2026-08-21.** The release's
 README says the H3-Encoder "uses the full pretrained weights of Qwen3-VL-32B"

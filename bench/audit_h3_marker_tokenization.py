@@ -7,24 +7,21 @@ GPU work**. `bench/grade_h3_marker_tokens.py` is the encoder-level companion and
 owns the hidden-state deltas; this file owns the token sequences underneath them
 and says nothing about states.
 
-**The question.** `vendor_tokens.py` establishes that ComfyUI's bundled
-tokenizer declares thirteen `additional_special_tokens` where the release
-declares twenty, so `<d>`, `</d>`, `<|cutoff|>`, `<|lyrics_start|>`,
-`<|lyrics_end|>`, `<|caption_start|>` and `<|caption_end|>` tokenize as ordinary
-text. That much was known. What was never shown is **what the damage looks like
-across the prompt shapes people actually write**, which is what a reader needs
-to decide whether it matters to them.
+**The question.** ComfyUI's tokenizer directory declares thirteen
+`additional_special_tokens` where the release declares twenty. ComfyUI commit
+`924743af` now adds the remaining seven in `MiniMaxH3Tokenizer`; before that
+fix, the markers tokenized as ordinary text. This audit reconstructs that
+legacy arm and shows the token-level damage across real prompt shapes.
 
 **The controls, and the run is void without them.**
 
-1. *Marker-free prompt.* Stock, patched and release tokenizers must produce
+1. *Marker-free prompt.* Legacy, native and release tokenizers must produce
    identical ids. If they do not, this harness is measuring something other
    than the markers.
-2. *Patched equals the release.* On every text-path scene the patched
-   tokenizer's ids must equal the release tokenizer's, exactly. **This is the
-   load-bearing one**: it is what makes "patched" mean "what the model authors
-   emit" rather than "different from stock". A scene where they disagree is
-   reported as a failure of the fix, not as a finding about stock.
+2. *Native equals the release.* On every text-path scene the native
+   tokenizer's ids must equal the release tokenizer's, exactly. This is the
+   load-bearing control: it makes "native" mean "what the model authors emit"
+   rather than merely "different from legacy".
 
 Both are asserted per scene and the exit code follows control 2.
 
@@ -304,19 +301,11 @@ def _unpatched_clip(clip):
 
 
 def _load():
-    """(release tokenizer, unpatched arm, corrected arm, how it was corrected).
+    """(release tokenizer, reconstructed legacy arm, native arm, owner).
 
-    **Runs identically before and after the core patch**, which is what makes
-    this file the verification harness for that patch rather than only a
-    demonstration of the defect. Three ways the corrected arm can arise:
-
-      core   `MiniMaxH3Tokenizer` already declares all twenty, so the loaded
-             CLIP is correct as it stands. `clip_with_vendor_tokens` must then
-             be a no-op, and that is asserted rather than assumed -- a shim
-             that silently did work here would mean the two disagree.
-      shim   the core patch is absent and `clip_with_vendor_tokens` supplies
-             the tokens, which is this pack's behaviour today.
-      none   neither, which is a broken run and refuses.
+    The local fallback has been retired. A ComfyUI checkout without the native
+    tokens is unsupported and makes the audit fail instead of silently testing
+    a different implementation.
     """
     import comfy.sd
     from transformers import AutoTokenizer
@@ -330,46 +319,30 @@ def _load():
 
     import importlib
     vc = importlib.import_module(f"{_PKG}.vendor_config")
-    vt = importlib.import_module(f"{_PKG}.vendor_tokens")
     declared = vc.additional_special_tokens()
 
     live = loaded.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
-    core_patched = all(t in live for t in declared)
+    missing = [t for t in declared if t not in live]
+    if missing:
+        raise SystemExit(
+            "ComfyUI's native MiniMaxH3Tokenizer is missing the release "
+            f"tokens {missing}. Update ComfyUI to commit 924743af or newer; "
+            "the retired local workaround is intentionally not an audit arm."
+        )
 
-    if core_patched:
-        mode = "core"
-        corrected = loaded
-        # The shim must recognise it has nothing to do. If it returns a new
-        # object it did work, which would mean core and shim disagree about
-        # what "already correct" means.
-        passthrough = vt.clip_with_vendor_tokens(loaded, strict=True)
-        if passthrough is not loaded:
-            raise SystemExit(
-                "the core tokenizer declares all twenty, but "
-                "clip_with_vendor_tokens still rebuilt it. The shim and the "
-                "core patch disagree; fix that before trusting this run.")
-        unpatched = _unpatched_clip(loaded)
-        still = [t for t in declared
-                 if t in unpatched.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
-                 and t not in _bundled_declared()]
-        if still:
-            raise SystemExit(
-                f"the unpatched arm still declares {still}, so it is not the "
-                "pre-patch tokenizer and every comparison below would be "
-                "against the wrong control.")
-    else:
-        mode = "shim"
-        unpatched = loaded
-        corrected = vt.clip_with_vendor_tokens(loaded, strict=True)
-        if corrected is loaded:
-            raise SystemExit(
-                "neither the core tokenizer nor clip_with_vendor_tokens "
-                "supplied the release's special tokens. There is nothing "
-                "correct to compare against and this run would be green for "
-                "the wrong reason.")
+    unpatched = _unpatched_clip(loaded)
+    still = [t for t in declared
+             if t in unpatched.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
+             and t not in _bundled_declared()]
+    if still:
+        raise SystemExit(
+            f"the reconstructed legacy arm still declares {still}, so it is "
+            "not the pre-fix tokenizer and every comparison would use the "
+            "wrong control."
+        )
 
-    print(f"=== corrected arm supplied by: {mode}")
-    return release, unpatched, corrected, mode
+    print("=== corrected arm supplied by: native ComfyUI")
+    return release, unpatched, loaded, "native_comfyui"
 
 
 def _ids(clip, text, ref_images=0, ref_items=None):
@@ -700,7 +673,7 @@ def main() -> int:
 
     ok &= _run_reference_integrity(release, stock, patched, marker_ids, record)
 
-    out = _REPO / "bench" / "results" / "2026-08-22_h3_marker_tokenization.json"
+    out = _REPO / "bench" / "results" / "2026-08-24_h3_marker_tokenization_native.json"
     out.write_text(json.dumps(record, indent=2) + "\n")
     print(f"\nwrote {out.relative_to(_REPO)}")
 

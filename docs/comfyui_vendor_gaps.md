@@ -1,6 +1,6 @@
 # Where ComfyUI's H3 path differs from the vendor's
 
-last updated: 2026-08-23
+last updated: 2026-08-24
 
 Every known divergence between this ComfyUI install and the MiniMax H3 release,
 in one place, with what each one costs a working user.
@@ -18,8 +18,8 @@ this custom-node pack. "Local handling" means a node, check, preflight rule or
 shipped workflow in this repository. A local workaround can make this repo's
 graphs safe without resolving the ComfyUI/vendor divergence for anyone else;
 it is therefore described as **locally handled**, never as a closed native gap.
-Conversely, a native ComfyUI fix remains a native fix even when this repo keeps
-a compatibility shim for older installs.
+Conversely, a native ComfyUI fix remains a native fix after this repo retires
+its workaround and keeps only inert saved-graph compatibility slots.
 
 Sources, and what each is worth:
 
@@ -79,7 +79,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 
 | # | gap | kind | native ComfyUI status | handling in this repo |
 |---|---|---|---|---|
-| 1 | Seven special tokens absent from the tokenizer | config | **fixed in the installed checkout by merged PR 15808** | compatibility shim remains for older installs; audit requires it to be a no-op here |
+| 1 | Seven special tokens absent from the tokenizer | config | **fixed in the installed checkout by merged PR 15808** | local fallback retired; native behavior is required and audited |
 | 2 | Reference video frame rate assumed, not enforced | behavioural | open | typed nodes normalize from owned loader metadata; shipped graphs also retain and check `force_rate=24` |
 | 3 | Reference image floor (`min_pixels`) | config | open | preflight reports the divergence; no general runtime parity implementation |
 | 4 | Reference image ceiling (`max_pixels`) | config | open | custom fit nodes can opt in to keeping VAE and Qwen sizes matched; core remains unchanged |
@@ -114,7 +114,7 @@ with the text on either side:
 
 A full stop before `<|cutoff|>` is dragged into `.<`, so a marker retokenizes
 the sentence *before* it. Measured 2026-08-22 across nine prompt shapes
-([`bench/results/2026-08-22_h3_marker_tokenization.json`](../bench/results/2026-08-22_h3_marker_tokenization.json)): in an ordinary
+([`bench/results/2026-08-24_h3_marker_tokenization_native.json`](../bench/results/2026-08-24_h3_marker_tokenization_native.json)): in an ordinary
 two-person dialogue prompt, 9 of 91 non-marker tokens come out different.
 
 **Native ComfyUI status: fixed.**
@@ -124,17 +124,16 @@ two-person dialogue prompt, 9 of 91 non-marker tokens come out different.
 consumer gets them, including core's `MiniMaxH3ReferenceToVideo`. An older
 ComfyUI install without that commit still has the defect described below.
 
-Verified here against the PR's own diff applied to a clean master: all nine
-scenes reproduce the release tokenizer's ids exactly, the reference path carries
-the marker beside its vision blocks, and a marker-free prompt is byte-identical
-before and after. [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py) is the harness and
-runs identically with or without the patch.
+Verified here against the release tokenizer: all nine scenes reproduce its ids
+exactly, the reference path carries the marker beside its vision blocks, and a
+marker-free prompt is byte-identical to the reconstructed legacy arm.
+[`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py)
+is the harness and refuses an install that lacks the native fix.
 
-**Handling in this repo:** `MiniMaxH3VendorTokens` is deprecated by the native
-fix. `clip_with_vendor_tokens` remains only as compatibility handling because a
-pack cannot assume every install it runs on carries the patch. The audit
-requires that shim to be a no-op on this patched install; it is not the reason
-the native gap is marked fixed.
+**Handling in this repo:** no tokenizer patching remains. The conditioning
+nodes rely on native ComfyUI. Their old `vendor_tokens` inputs and the
+standalone `MiniMaxH3VendorTokens` node are inert compatibility tombstones so
+saved UI graphs retain their positional widget contract.
 
 ### Do the seven tokens touch Qwen3-VL's vision tower?
 
@@ -610,18 +609,16 @@ nothing is watching.
 |---|---|
 | The merged native fix in this installed ComfyUI | [PR 15808](https://github.com/Comfy-Org/ComfyUI/pull/15808), `comfy/text_encoders/minimax.py` at installed commit `924743af` |
 | Tokenization audit, nine scenes plus reference integrity | [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py) |
-| Record | [`bench/results/2026-08-22_h3_marker_tokenization.json`](../bench/results/2026-08-22_h3_marker_tokenization.json) |
+| Record | [`bench/results/2026-08-24_h3_marker_tokenization_native.json`](../bench/results/2026-08-24_h3_marker_tokenization_native.json) |
 | Encoder-level companion, what the states do | [`bench/grade_h3_marker_tokens.py`](../bench/grade_h3_marker_tokens.py), [record](../bench/results/2026-08-21_h3_marker_token_states.json) |
 | Are the embedding rows trained | [`bench/audit_h3_token_embeddings.py`](../bench/audit_h3_token_embeddings.py) |
-| The pack's shim, still needed on an unpatched install | [`vendor_tokens.py`](../vendor_tokens.py) (`clip_with_vendor_tokens`), consumed at [`conditioning.py`](../conditioning.py) |
+| Saved-graph compatibility tombstone; no tokenizer mutation | [`vendor_tokens.py`](../vendor_tokens.py) |
 | The release's declared list, never retyped | [`vendor_config.py`](../vendor_config.py), guarded by [`bench/check_vendor_config.py`](../bench/check_vendor_config.py) |
 
 The audit's two controls are what make it worth running. A marker-free prompt
-must tokenize identically across all three tokenizers, and the corrected arm
-must reproduce the **release** tokenizer exactly rather than merely differing
-from stock. It also asserts that `clip_with_vendor_tokens` is a **no-op** when
-the core patch is present, and refuses the run if the shim quietly does work
-instead.
+must tokenize identically across the release, native and reconstructed legacy
+tokenizers, and the native arm must reproduce the **release** tokenizer exactly
+rather than merely differing from legacy. Missing native tokens refuse the run.
 
 ### 2. Frame rate
 
@@ -740,7 +737,7 @@ A gap with no assertion behind it is a gap that will come back.
 
 | gap | native ComfyUI status | this repo's enforcement or handling |
 |---|---|---|
-| 1, special tokens | **fixed** in installed commit `924743af` / merged PR 15808 | [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py) verifies native behavior and the compatibility shim's no-op |
+| 1, special tokens | **fixed** in installed commit `924743af` / merged PR 15808 | [`bench/audit_h3_marker_tokenization.py`](../bench/audit_h3_marker_tokenization.py) requires and verifies native behavior |
 | 2, frame rate | open | legacy: [`bench/check_ref_prompt_labels.py`](../bench/check_ref_prompt_labels.py); typed: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 | 3, image floor | open | preflight warning only; **no runtime parity enforcement** |
 | 4, image ceiling | open | opt-in local guard since 2026-08-22: `MiniMaxH3ReferenceFit.keep_towers_matched`; native graphs not wiring it remain exposed |

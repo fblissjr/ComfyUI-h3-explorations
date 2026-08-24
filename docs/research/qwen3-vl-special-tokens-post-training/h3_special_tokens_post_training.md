@@ -62,7 +62,7 @@ The evidence already in this repo separates facts from hypotheses:
   tokens and DeepStack features for image/reference prompts.
 - The seven-token tokenizer gap is now fixed **natively in ComfyUI**, not by
   this repo. The installed core adds them in `MiniMaxH3Tokenizer`; the local
-  compatibility shim is a no-op on patched installs.
+  fallback is retired and only inert saved-graph compatibility slots remain.
 
 One fact that is *not* established is the tokenizer configuration used for
 MiniMax's DiT training. Untrained rows prove that Qwen did not learn them. They

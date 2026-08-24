@@ -1,6 +1,6 @@
 # Conditioning against the release: what was built, and what was not
 
-last updated: 2026-08-23
+last updated: 2026-08-24
 
 Two defects were found by reading the published release beside the code that
 consumes it ([`official_weights_metadata.md`](official_weights_metadata.md)).
@@ -39,46 +39,22 @@ not turn them into native ComfyUI fixes.
 
 ---
 
-## Defect 1: the seven special tokens. Fixed natively; local shim retained.
+## Defect 1: the seven special tokens. Fixed natively; local shim retired.
 
 **Native ComfyUI status:** fixed by merged PR 15808, present in this installed
 checkout as commit `924743af`. Core's H3 tokenizer now registers all seven
 tokens itself. That is the resolution of the ComfyUI/vendor gap.
 
-**This repo's handling:** `MiniMaxH3VendorTokens` and
-`clip_with_vendor_tokens` predate the native fix. They remain only for older
-ComfyUI installs and are required to be no-ops on this checkout. Removing their
-workflow inputs is deferred in [`roadmap.md`](../roadmap.md) until the minimum
-supported ComfyUI version is explicit.
+**This repo's handling:** the fallback has been removed from both the FL2VA and
+Ref2VA conditioners. New API workflows omit `vendor_tokens`. The old schema
+slot remains optional, advanced and ignored at its original position because
+saved UI graphs store widget values positionally. `MiniMaxH3VendorTokens`
+remains registered as a deprecated pass-through node for the same loadability
+reason; `vendor_tokens.py` contains no tokenizer construction or mutation.
 
-`MiniMaxH3VendorTokens` (`vendor_tokens.py`) is the standalone CLIP-to-CLIP
-form. The local conditioning nodes call the same module's
-`clip_with_vendor_tokens` helper while their generated `vendor_tokens` input is
-enabled. On an older unpatched install it reads the release's declared token
-list from `vendor_config/` and adds what the bundled tokenizer lacks. This
-describes the compatibility implementation, not the native fix.
-
-The seam is a **rebind on a clone**, not a mutation. `clip.clone()`
-(`comfy/sd.py:301-310`) copies seven fields and shares the tokenizer and the
-text-encoder module by reference, so
-editing the loaded tokenizer in place would reach every graph in the process —
-the silent-contamination class `reference_fit.py` documents for its global
-rebind. The node builds a fresh tokenizer instead and rebinds it on the clone,
-which was verified: a second tokenizer constructed the same way is unaffected.
-
-Three seams that look available and are not, all read from source so nobody
-re-tries them:
-
-- **`clip.set_tokenizer_option`** (`comfy/sd.py:315-316`) dead-ends. The option
-  dict arrives at `MiniMaxH3Tokenizer.tokenize_with_weights`
-  (`comfy/text_encoders/minimax.py:137-138`) as `**kwargs` and is never
-  forwarded, so it cannot reach the inner tokenizer on this model.
-- **The `..._tokenizer_class` hook in `tokenizer_data`** is consumed inside
-  `SD1Tokenizer.__init__` (`comfy/sd1_clip.py:695`). A node running after
-  `CLIPLoader` cannot reach it.
-- **Setting the attribute on `clip.cond_stage_model`** (shared by `clone()` at
-  `comfy/sd.py:304`) is process-global contamination for the same reason as
-  above, not a scoped change.
+ComfyUI commit `924743af` or newer is therefore the minimum runtime contract
+for correct H3 marker tokenization. The native-token arm in
+`bench/check_conditioning_behaviour.py` fails if that contract is absent.
 
 **What this does not establish**, and the node's own docstring repeats it:
 whether the embedding rows for these ids carry trained values, and what the
@@ -232,8 +208,7 @@ returns a lazy `Mapping` rather than core's concrete audio dict; that boundary
 was fixed and added to the CPU runtime check before the successful rerun. The
 server logged `presentation=['<Picture 1>', '<Picture 2>', '<Audio 1>',
 '<Video 1>', '<Audio 2>']`, 21,283 packed rows, Sage routing, Sol sparse
-execution, and all twenty native tokens already present, so the local token
-compatibility helper was a no-op.
+execution, with all twenty tokens supplied by native ComfyUI.
 
 **Release reference-video preparation remains an opt-in local policy.** The
 generated `encoder` default preserves the cheaper native no-upscale VAE path

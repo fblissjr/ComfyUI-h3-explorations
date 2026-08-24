@@ -1,0 +1,437 @@
+{
+  "corrected_by": "native_comfyui",
+  "markers": {
+    "<d>": 151669,
+    "</d>": 151670,
+    "<|cutoff|>": 151671,
+    "<|lyrics_start|>": 151672,
+    "<|lyrics_end|>": 151673,
+    "<|caption_start|>": 151674,
+    "<|caption_end|>": 151675
+  },
+  "scenes": {
+    "two_hander_argument": {
+      "shape": "t2v dialogue, ordinary density",
+      "why": "The commonest way a user meets <d>: two people talking. This is the baseline the denser scenes should be read against.",
+      "reference_path": false,
+      "ids": {
+        "stock": 100,
+        "patched": 97,
+        "release": 97
+      },
+      "id_inflation": 3,
+      "marker_tokens_in_patched": 6,
+      "marker_char_share": 0.0603,
+      "marker_chars": 21,
+      "total_chars": 348,
+      "contaminated_neighbours": 9,
+      "non_marker_positions": 91,
+      "release_match": true,
+      "ok": true,
+      "example": {
+        "release_text": ") says, <d>[English",
+        "stock_text": ") says, <d>[English] You said tomorrow",
+        "release_pieces": [
+          ")",
+          " says",
+          ",",
+          " ",
+          "<d>",
+          "[",
+          "English"
+        ],
+        "stock_pieces": [
+          ")",
+          " says",
+          ",",
+          " <",
+          "d",
+          ">[",
+          "English",
+          "]",
+          " You",
+          " said",
+          " tomorrow"
+        ]
+      }
+    },
+    "staccato_exchange": {
+      "shape": "t2v dialogue, maximum density an on-format prompt can reach",
+      "why": "Short alternating lines put a marker pair every few words. If the per-marker cost compounds, this is where it shows without the prompt stopping being something a person would write.",
+      "reference_path": false,
+      "ids": {
+        "stock": 102,
+        "patched": 96,
+        "release": 96
+      },
+      "id_inflation": 6,
+      "marker_tokens_in_patched": 12,
+      "marker_char_share": 0.1424,
+      "marker_chars": 42,
+      "total_chars": 295,
+      "contaminated_neighbours": 18,
+      "non_marker_positions": 84,
+      "release_match": true,
+      "ok": true,
+      "example": {
+        "release_text": ") says, <d>[English",
+        "stock_text": ") says, <d>[English] Go.</d",
+        "release_pieces": [
+          ")",
+          " says",
+          ",",
+          " ",
+          "<d>",
+          "[",
+          "English"
+        ],
+        "stock_pieces": [
+          ")",
+          " says",
+          ",",
+          " <",
+          "d",
+          ">[",
+          "English",
+          "]",
+          " Go",
+          ".</",
+          "d"
+        ]
+      }
+    },
+    "musical_number": {
+      "shape": "lyrics markers around sung dialogue",
+      "why": "<|lyrics_start|> and <|lyrics_end|> exist for this and nothing else. No prompt in this repo has ever used them, so their behaviour under ComfyUI was entirely unmeasured before this run.",
+      "reference_path": false,
+      "ids": {
+        "stock": 97,
+        "patched": 85,
+        "release": 85
+      },
+      "id_inflation": 12,
+      "marker_tokens_in_patched": 8,
+      "marker_char_share": 0.1405,
+      "marker_chars": 51,
+      "total_chars": 363,
+      "contaminated_neighbours": 7,
+      "non_marker_positions": 77,
+      "release_match": true,
+      "ok": true,
+      "example": {
+        "release_text": " a doorway. <|lyrics_start|><d>[",
+        "stock_text": " a doorway. <|lyrics_start|><d>[",
+        "release_pieces": [
+          " a",
+          " doorway",
+          ".",
+          " ",
+          "<|lyrics_start|>",
+          "<d>",
+          "["
+        ],
+        "stock_pieces": [
+          " a",
+          " doorway",
+          ".",
+          " <|",
+          "ly",
+          "rics",
+          "_start",
+          "|",
+          "><",
+          "d",
+          ">["
+        ]
+      }
+    },
+    "captioned_documentary": {
+      "shape": "caption markers around on-screen text",
+      "why": "<|caption_start|> / <|caption_end|> are undocumented: the pair appears in neither prompt guide, in no script and in no skill the release ships, and in no worked example anywhere. This file said they were 'the release's markers for burned-in text', which was an inference stated as a fact and is withdrawn. The name is the only evidence, and it sits in the declared list beside <d>, <|cutoff|> and the lyrics pair -- so read it as the on-screen text of speech. The scene below is signage, which is what it was built as; it is kept because the tokenization it measures does not depend on what the marker means.",
+      "reference_path": false,
+      "ids": {
+        "stock": 95,
+        "patched": 86,
+        "release": 86
+      },
+      "id_inflation": 9,
+      "marker_tokens_in_patched": 4,
+      "marker_char_share": 0.1189,
+      "marker_chars": 39,
+      "total_chars": 328,
+      "contaminated_neighbours": 4,
+      "non_marker_positions": 82,
+      "release_match": true,
+      "ok": true,
+      "example": {
+        "release_text": " at dawn. <|caption_start|>Port of",
+        "stock_text": " at dawn. <|caption_start|>Port of V",
+        "release_pieces": [
+          " at",
+          " dawn",
+          ".",
+          " ",
+          "<|caption_start|>",
+          "Port",
+          " of"
+        ],
+        "stock_pieces": [
+          " at",
+          " dawn",
+          ".",
+          " <|",
+          "caption",
+          "_start",
+          "|",
+          ">",
+          "Port",
+          " of",
+          " V"
+        ]
+      }
+    },
+    "hard_cut": {
+      "shape": "the cutoff marker",
+      "why": "<|cutoff|> is the seventh and the least documented. Included so the audit covers all seven rather than the six that appear in prompt guidance.",
+      "reference_path": false,
+      "ids": {
+        "stock": 51,
+        "patched": 47,
+        "release": 47
+      },
+      "id_inflation": 4,
+      "marker_tokens_in_patched": 1,
+      "marker_char_share": 0.0469,
+      "marker_chars": 10,
+      "total_chars": 213,
+      "contaminated_neighbours": 1,
+      "non_marker_positions": 46,
+      "release_match": true,
+      "ok": true,
+      "example": {
+        "release_text": " past the window.<|cutoff|> A close",
+        "stock_text": " past the window.<|cutoff|> A close",
+        "release_pieces": [
+          " past",
+          " the",
+          " window",
+          ".",
+          "<|cutoff|>",
+          " A",
+          " close"
+        ],
+        "stock_pieces": [
+          " past",
+          " the",
+          " window",
+          ".<",
+          "|",
+          "c",
+          "utoff",
+          "|",
+          ">",
+          " A",
+          " close"
+        ]
+      }
+    },
+    "multilingual_dialogue": {
+      "shape": "language tags inside the dialogue markers",
+      "why": "The guide's [Language] tag sits immediately after <d>, so the marker's fragments land against a bracket rather than a letter. Whether the damage differs by language tag is not obvious and nothing has looked.",
+      "reference_path": false,
+      "ids": {
+        "stock": 93,
+        "patched": 88,
+        "release": 88
+      },
+      "id_inflation": 5,
+      "marker_tokens_in_patched": 6,
+      "marker_char_share": 0.0698,
+      "marker_chars": 21,
+      "total_chars": 301,
+      "contaminated_neighbours": 9,
+      "non_marker_positions": 82,
+      "release_match": true,
+      "ok": true,
+      "example": {
+        "release_text": " calls out, <d>[Mand",
+        "stock_text": " calls out, <d>[Mandarin] Two",
+        "release_pieces": [
+          " calls",
+          " out",
+          ",",
+          " ",
+          "<d>",
+          "[M",
+          "and"
+        ],
+        "stock_pieces": [
+          " calls",
+          " out",
+          ",",
+          " <",
+          "d",
+          ">[",
+          "M",
+          "and",
+          "arin",
+          "]",
+          " Two"
+        ]
+      }
+    },
+    "reference_prompt_with_dialogue": {
+      "shape": "ref2va presentation: vision blocks then a prompt carrying <d>",
+      "why": "**The case the postmortem's forward item 6 was written for.** Nobody had put a marker prompt through the reference presentation with the ref items wired, so whether the marker survives beside the vision blocks was an inference from a source read. This scene is the run. It goes through the exact call `comfy_extras/nodes_minimax_h3.py:351` makes.",
+      "reference_path": true,
+      "ids": {
+        "stock": 84,
+        "patched": 83
+      },
+      "id_inflation": 1,
+      "marker_tokens_in_patched": 2,
+      "marker_char_share": 0.0228,
+      "marker_chars": 7,
+      "total_chars": 307,
+      "contaminated_neighbours": 3,
+      "non_marker_positions": 81,
+      "release_match": null,
+      "reference_check": {
+        "marker_present_beside_vision": true,
+        "vision_blocks": 1,
+        "vision_start_tokens": 1
+      },
+      "ok": true,
+      "example": {
+        "release_text": " and says, <d>[English",
+        "stock_text": " and says, <d>[English] I thought you",
+        "release_pieces": [
+          " and",
+          " says",
+          ",",
+          " ",
+          "<d>",
+          "[",
+          "English"
+        ],
+        "stock_pieces": [
+          " and",
+          " says",
+          ",",
+          " <",
+          "d",
+          ">[",
+          "English",
+          "]",
+          " I",
+          " thought",
+          " you"
+        ]
+      }
+    },
+    "all_seven_together": {
+      "shape": "STRESSOR -- every one of the seven in one prompt",
+      "why": "Not a prompt anyone would write. It exists so a reader can see all seven failure modes side by side in one token sequence, and so no marker is audited only in isolation.",
+      "reference_path": false,
+      "ids": {
+        "stock": 149,
+        "patched": 124,
+        "release": 124
+      },
+      "id_inflation": 25,
+      "marker_tokens_in_patched": 13,
+      "marker_char_share": 0.2096,
+      "marker_chars": 100,
+      "total_chars": 477,
+      "contaminated_neighbours": 12,
+      "non_marker_positions": 111,
+      "release_match": true,
+      "ok": true,
+      "example": {
+        "release_text": "olly-in. <|caption_start|>Seventh",
+        "stock_text": "olly-in. <|caption_start|>Seventh Street",
+        "release_pieces": [
+          "olly",
+          "-in",
+          ".",
+          " ",
+          "<|caption_start|>",
+          "Se",
+          "venth"
+        ],
+        "stock_pieces": [
+          "olly",
+          "-in",
+          ".",
+          " <|",
+          "caption",
+          "_start",
+          "|",
+          ">",
+          "Se",
+          "venth",
+          " Street"
+        ]
+      }
+    },
+    "marker_saturated": {
+      "shape": "STRESSOR -- over half the prompt text is marker",
+      "why": "The density limit. Built to answer 'how bad can this get' rather than to represent anything real: the marker share of the raw text is reported per scene and this one is built to clear half. Read it as an upper bound, not as a scene.",
+      "reference_path": false,
+      "ids": {
+        "stock": 91,
+        "patched": 42,
+        "release": 42
+      },
+      "id_inflation": 49,
+      "marker_tokens_in_patched": 23,
+      "marker_char_share": 0.7882,
+      "marker_chars": 160,
+      "total_chars": 203,
+      "contaminated_neighbours": 8,
+      "non_marker_positions": 19,
+      "release_match": true,
+      "ok": true,
+      "example": {
+        "release_text": "<|lyrics_start|><d>Go.</d><d>Now",
+        "stock_text": null,
+        "release_pieces": [
+          "<|lyrics_start|>",
+          "<d>",
+          "Go",
+          ".",
+          "</d>",
+          "<d>",
+          "Now"
+        ],
+        "stock_pieces": null
+      }
+    }
+  },
+  "control": {
+    "all_three_identical": true,
+    "ids": 19
+  },
+  "reference_integrity": {
+    "no_marker": {
+      "ids": {
+        "stock": 76,
+        "patched": 76
+      },
+      "vision_blocks": 5,
+      "structure_identical": true,
+      "fully_identical": true
+    },
+    "with_marker": {
+      "ids": {
+        "stock": 86,
+        "patched": 85
+      },
+      "vision_blocks": 5,
+      "structure_identical": true,
+      "label_prefix_identical": true,
+      "marker_present": true
+    },
+    "decoded_presentation": "<Picture 1>: <|vision_start|><|vision_end|><Picture 2>: <|vision_start|><|vision_end|><Video 1>: <0.2 seconds><|vision_start|><|vision_end|><1.2 seconds><|vision_start|><|vision_end|><2.0 seconds><|vision_start|><|vision_end|><Audio 1>: She stands at the window of a wood-panelled office and sets a folder down on the desk."
+  }
+}

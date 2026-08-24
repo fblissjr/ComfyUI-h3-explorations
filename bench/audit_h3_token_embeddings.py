@@ -5,9 +5,9 @@ Run it with the ComfyUI venv python (`docs/comfy_notes.md`). Reads weights off
 disk; no CUDA, no model load.
 
 `bench/compare_h3_tokenizers.py` establishes that ComfyUI cannot emit IDs
-151669-151675. This answers the question that one leaves open and that
-`vendor_tokens.py` names in its own docstring: whether routing to those rows
-would reach anything.
+151669-151675. This answers the question that one leaves open and that the
+retired tokenizer workaround once named in its docstring: whether routing to
+those rows would reach anything.
 
 **The two controls are what make the answer readable**, and neither is
 optional. The stock Qwen special tokens at 151643-151668 are rows that are
