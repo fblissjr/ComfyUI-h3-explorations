@@ -232,7 +232,7 @@ in this repo calls their kernel yet.
 
 Two of Sol-Engine's five methods, and **not applied to their H3 stack** either.
 
-- **NVFP4 is hardware-blocked here.** `AGENTS.md:172`: needs Blackwell
+- **NVFP4 is hardware-blocked here.** `ComfyUI/AGENTS.md:172`: needs Blackwell
   (sm_100+) plus `transformer_engine`. A 4090 is sm89. Not a choice they made
   and not one we can make.
 - **Token pruning is not hardware-blocked**, but the policy in
