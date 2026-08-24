@@ -1,0 +1,71 @@
+{
+  "check": "released checkpoint maps and loads strictly into the Transformers calibration model",
+  "path_policy": "logical identifiers only; the source directory is not recorded",
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.1"
+  },
+  "source": {
+    "logical_name": "text_encoder",
+    "shards": 14
+  },
+  "declared_dtype": "bfloat16",
+  "non_persistent_buffers": {
+    "model.visual.rotary_pos_emb.inv_freq": [
+      18
+    ],
+    "model.language_model.rotary_emb.inv_freq": [
+      64
+    ],
+    "model.language_model.rotary_emb.original_inv_freq": [
+      64
+    ]
+  },
+  "mapping": {
+    "checkpoint_tensors": 1058,
+    "model_tensors": 1058,
+    "missing_from_checkpoint": [],
+    "unexpected_in_checkpoint": [],
+    "shape_mismatch": [],
+    "dtype_mismatch": []
+  },
+  "quantization_surface": {
+    "decoder_layers_present": 64,
+    "decoder_layer_range": [
+      0,
+      63
+    ],
+    "contiguous": true,
+    "h3_consumes_layers": "0-49",
+    "must_stay_bf16_tensors": 352,
+    "vision_tower_tensors": 351,
+    "deepstack_merger_tensors": 18,
+    "input_embedding_present": true
+  },
+  "violation_arm": {
+    "failures": [],
+    "passed": true
+  },
+  "load": {
+    "loaded": true,
+    "seconds": 0.2,
+    "load_is_mmap_backed": true,
+    "tensors_touched": 1058,
+    "tensors_left_on_meta": [],
+    "tensors_with_non_finite_ends": [],
+    "parameters": 33357390064,
+    "parameter_dtypes": [
+      "bfloat16"
+    ],
+    "loading_info": {
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "mismatched_keys": [],
+      "error_msgs": []
+    },
+    "decoder_layers_built": 64,
+    "deepstack_mergers_built": 3
+  },
+  "failures": []
+}

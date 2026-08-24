@@ -1,0 +1,92 @@
+{
+  "probe": "released Qwen3-VL vision tower, ComfyUI versus Transformers, by parameter precision",
+  "path_policy": "logical identifiers only",
+  "source": {
+    "logical_name": "text_encoder",
+    "vision_tensors": 351
+  },
+  "input": {
+    "bundle_row": "train-00500-68f926b378a008b0",
+    "grids": [
+      [
+        1,
+        84,
+        48
+      ],
+      [
+        1,
+        22,
+        22
+      ]
+    ],
+    "patch_rows": 4516,
+    "merged_tokens": 1129,
+    "pixel_values_dtype": "float32"
+  },
+  "reference_arm": "comfy-bfloat16-params",
+  "reference_note": "the deployed ComfyUI encoder stores vision weights in bfloat16, so this arm is what H3 conditioning is actually built from",
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0"
+  },
+  "against_deployed": {
+    "comfy-float32-params": {
+      "relative_l2": 0.01873548904296267,
+      "flattened_cosine": 0.9998248483850676,
+      "max_abs_delta": 3.3048881590366364,
+      "tokenwise_cosine_min": 0.9495419798742863,
+      "reference_rms": 1.2829656418509439,
+      "candidate_rms": 1.2838490411492098
+    },
+    "transformers-float32": {
+      "relative_l2": 0.018804644978406216,
+      "flattened_cosine": 0.999823540737808,
+      "max_abs_delta": 3.437978893518448,
+      "tokenwise_cosine_min": 0.9461137290387338,
+      "reference_rms": 1.2829656418509439,
+      "candidate_rms": 1.28383337801989
+    },
+    "transformers-bfloat16": {
+      "relative_l2": 0.09550663410299333,
+      "flattened_cosine": 0.99543896585323,
+      "max_abs_delta": 11.509492874145508,
+      "tokenwise_cosine_min": 0.5821463580942254,
+      "reference_rms": 1.2829656418509439,
+      "candidate_rms": 1.2828876075285691
+    }
+  },
+  "matched_precision": {
+    "comfy-float32 vs transformers-float32": {
+      "relative_l2": 0.001378976782108032,
+      "flattened_cosine": 0.9999990492740792,
+      "max_abs_delta": 0.13309073448181152,
+      "tokenwise_cosine_min": 0.9999196765235827,
+      "reference_rms": 1.2838490411492098,
+      "candidate_rms": 1.28383337801989
+    },
+    "comfy-bfloat16 vs comfy-float32": {
+      "relative_l2": 0.01873548904296267,
+      "flattened_cosine": 0.9998248483850676,
+      "max_abs_delta": 3.3048881590366364,
+      "tokenwise_cosine_min": 0.9495419798742863,
+      "reference_rms": 1.2829656418509439,
+      "candidate_rms": 1.2838490411492098
+    }
+  },
+  "control": {
+    "guards": "comfy-float32 vs transformers-float32",
+    "perturbed_tensor": "merger.linear_fc2.weight",
+    "perturbed_in_arm": "transformers-float32",
+    "relative_scale": 0.02,
+    "relative_l2": 0.020394571736214683,
+    "flattened_cosine": 0.9999983988972272,
+    "max_abs_delta": 0.681427001953125,
+    "tokenwise_cosine_min": 0.9999194458263043,
+    "reference_rms": 1.2838490411492098,
+    "candidate_rms": 1.309929552037561,
+    "honest_relative_l2": 0.001378976782108032,
+    "ratio": 14.789641131620538,
+    "detected": true
+  }
+}

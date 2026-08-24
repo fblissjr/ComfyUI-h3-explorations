@@ -2,6 +2,9 @@
   "source": "StellarVoyager/H3-IR",
   "source_revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e",
   "rows_read": 1110,
+  "media_files_by_status": {
+    "verified": 3121
+  },
   "pool": 1028,
   "excluded": 82,
   "exclusion_reasons": {

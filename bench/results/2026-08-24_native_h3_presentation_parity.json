@@ -1,0 +1,461 @@
+{
+  "check": "native-H3 calibration presentation parity and mutation controls",
+  "clean_bundle_rows": [
+    {
+      "row_id": "train-00003-0c519774864ae265",
+      "primary_role": "single-image",
+      "sequence_length": 1699,
+      "vision_positions": 662,
+      "blocks": {
+        "count": 1,
+        "grids": [
+          [
+            [
+              1,
+              60,
+              44
+            ]
+          ]
+        ],
+        "patch_hashes": [
+          "524ea87b3458746203980f1c71b5d64772362f5ee672d466086e7639a1432643"
+        ]
+      }
+    },
+    {
+      "row_id": "train-00012-4bbe43dc3a3f95fe",
+      "primary_role": "multi-image-2-3",
+      "sequence_length": 5857,
+      "vision_positions": 4944,
+      "blocks": {
+        "count": 2,
+        "grids": [
+          [
+            [
+              1,
+              156,
+              104
+            ]
+          ],
+          [
+            [
+              1,
+              52,
+              68
+            ]
+          ]
+        ],
+        "patch_hashes": [
+          "867664f4d49193a5e41cfc7686ec4995d94c71fdd843e11af64faaa8117a0d40",
+          "4a9596cb8e9522fee3dbeb4416eedbcf12dcefcffa7b7af52b4c651c5fcdfb82"
+        ]
+      }
+    },
+    {
+      "row_id": "train-00001-44c65e69cff6b334",
+      "primary_role": "keyframe-only",
+      "sequence_length": 2007,
+      "vision_positions": 1010,
+      "blocks": {
+        "count": 1,
+        "grids": [
+          [
+            [
+              1,
+              48,
+              84
+            ]
+          ]
+        ],
+        "patch_hashes": [
+          "2c61e4f00bca10ce33f984fae884dc502c566582079e641b93c1269bc4a22efe"
+        ]
+      }
+    },
+    {
+      "row_id": "train-00006-e3f6d45e7ec76432",
+      "primary_role": "keyframe-plus-reference",
+      "sequence_length": 10358,
+      "vision_positions": 9270,
+      "blocks": {
+        "count": 3,
+        "grids": [
+          [
+            [
+              1,
+              96,
+              172
+            ]
+          ],
+          [
+            [
+              1,
+              96,
+              172
+            ]
+          ],
+          [
+            [
+              1,
+              48,
+              84
+            ]
+          ]
+        ],
+        "patch_hashes": [
+          "19e5672e28165132211a4d3f9728a171add5c737d911905d5f5e56821b7b9f09",
+          "a7f612345cd909a3be76ade205912d1c9ccaf8dd03e8c066aed4f1f093f05500",
+          "9f865221ba6d0b53531e057bc0d6b6dfb02c508f7200f221024146d0c70ac137"
+        ]
+      }
+    },
+    {
+      "row_id": "train-00002-f631dbe673b72816",
+      "primary_role": "video-reference",
+      "sequence_length": 6189,
+      "vision_positions": 5050,
+      "blocks": {
+        "count": 5,
+        "grids": [
+          [
+            [
+              1,
+              48,
+              84
+            ]
+          ],
+          [
+            [
+              1,
+              48,
+              84
+            ]
+          ],
+          [
+            [
+              1,
+              48,
+              84
+            ]
+          ],
+          [
+            [
+              1,
+              48,
+              84
+            ]
+          ],
+          [
+            [
+              1,
+              48,
+              84
+            ]
+          ]
+        ],
+        "patch_hashes": [
+          "866a0c676c74c83b3f884b2cc4471b89d2ae223e376e35c0e0e52be86f80f24c",
+          "ca6f32cea91c32dcec1c55541cde7e6d59cc35346e0ff7c4560c67dfa1a0feb7",
+          "4253e7dc3ca21f8be78e6bcc1a6d59cd6644a1cf8faa096c815d1af11660b79b",
+          "799569091a854910252f705c0b7ed6277c677f266be49cf835026a1c6a4702e0",
+          "3254ffcf88e81596d6e42a42629c2c4b3476d8ad4105eab1ed2d032e17faf96d"
+        ]
+      }
+    }
+  ],
+  "independent_arm": {
+    "train-00003-0c519774864ae265": {
+      "segmented_ids": {
+        "equal": true,
+        "builder_length": 1699,
+        "arm_length": 1699,
+        "mismatches": 0
+      },
+      "processor": {
+        "covered": true,
+        "text_bytes": 4813,
+        "sequence_fields_excluded": false,
+        "exclusion_reason": null,
+        "input_ids": {
+          "equal": true,
+          "mismatches": 0
+        },
+        "attention_mask": {
+          "equal": true,
+          "mismatches": 0
+        },
+        "mm_token_type_ids": {
+          "equal": true,
+          "mismatches": 0
+        },
+        "pixel_values": {
+          "equal": true,
+          "max_abs_delta": 0.0
+        },
+        "image_grid_thw": {
+          "equal": true,
+          "mismatches": 0
+        }
+      }
+    },
+    "train-00012-4bbe43dc3a3f95fe": {
+      "segmented_ids": {
+        "equal": true,
+        "builder_length": 5857,
+        "arm_length": 5857,
+        "mismatches": 0
+      },
+      "processor": {
+        "covered": true,
+        "text_bytes": 4149,
+        "sequence_fields_excluded": false,
+        "exclusion_reason": null,
+        "input_ids": {
+          "equal": true,
+          "mismatches": 0
+        },
+        "attention_mask": {
+          "equal": true,
+          "mismatches": 0
+        },
+        "mm_token_type_ids": {
+          "equal": true,
+          "mismatches": 0
+        },
+        "pixel_values": {
+          "equal": true,
+          "max_abs_delta": 0.0
+        },
+        "image_grid_thw": {
+          "equal": true,
+          "mismatches": 0
+        }
+      }
+    },
+    "train-00001-44c65e69cff6b334": {
+      "segmented_ids": {
+        "equal": true,
+        "builder_length": 2007,
+        "arm_length": 2007,
+        "mismatches": 0
+      },
+      "processor": {
+        "covered": true,
+        "text_bytes": 4717,
+        "sequence_fields_excluded": true,
+        "exclusion_reason": "row ends on an audio label, so this arm's single-shot tokenization merges the label's trailing space into the prompt and is one token shorter by construction",
+        "pixel_values": {
+          "equal": true,
+          "max_abs_delta": 0.0
+        },
+        "image_grid_thw": {
+          "equal": true,
+          "mismatches": 0
+        }
+      }
+    },
+    "train-00006-e3f6d45e7ec76432": {
+      "segmented_ids": {
+        "equal": true,
+        "builder_length": 10358,
+        "arm_length": 10358,
+        "mismatches": 0
+      },
+      "processor": {
+        "covered": true,
+        "text_bytes": 4828,
+        "sequence_fields_excluded": true,
+        "exclusion_reason": "row ends on an audio label, so this arm's single-shot tokenization merges the label's trailing space into the prompt and is one token shorter by construction",
+        "pixel_values": {
+          "equal": true,
+          "max_abs_delta": 0.0
+        },
+        "image_grid_thw": {
+          "equal": true,
+          "mismatches": 0
+        }
+      }
+    },
+    "train-00002-f631dbe673b72816": {
+      "segmented_ids": {
+        "equal": true,
+        "builder_length": 6189,
+        "arm_length": 6189,
+        "mismatches": 0
+      },
+      "processor": {
+        "covered": false,
+        "reason": "Qwen3VLProcessor cannot emit H3's two-frame block presentation; those blocks are compared patch-for-patch against comfy process_video_block in the bundle record"
+      }
+    }
+  },
+  "mutations": {
+    "chat-framing": {
+      "intent": "wrap the prompt in the Qwen chat template, as the completed calibration run did",
+      "row_id": "train-00003-0c519774864ae265",
+      "graded_field": "presentation_scaffold_or_length",
+      "changed": true,
+      "detail": "length 1699 -> 1707"
+    },
+    "first-image-only": {
+      "intent": "present only the first reference image, the rejected preflight's slicing defect",
+      "row_id": "train-00012-4bbe43dc3a3f95fe",
+      "graded_field": "vision_block_count",
+      "changed": true,
+      "detail": "2 -> 1"
+    },
+    "reorder-references": {
+      "intent": "reverse the declared request order",
+      "row_id": "train-00012-4bbe43dc3a3f95fe",
+      "graded_field": "vision_block_order",
+      "changed": true,
+      "detail": "grids [[[1, 156, 104]], [[1, 52, 68]]] -> [[[1, 52, 68]], [[1, 156, 104]]]"
+    },
+    "timestamp-shift": {
+      "intent": "offset every video-block timestamp by half a second",
+      "row_id": "train-00002-f631dbe673b72816",
+      "graded_field": "presentation_scaffold",
+      "changed": true,
+      "detail": "'<Video\u01201>:\u0120<0.2\u0120seconds><|vision_start|><|vision_end|><1.2\u0120s' -> '<Video\u01201>:\u0120<0.8\u0120seconds><|vision_start|><|vision_end|><1.8\u0120s'",
+      "unreachable_row": "train-00003-0c519774864ae265",
+      "unreachable_row_drift": []
+    },
+    "drop-temporal-repeat": {
+      "intent": "truncate an odd sampled-frame count instead of repeat-padding it",
+      "row_id": "train-00002-f631dbe673b72816",
+      "graded_field": "vision_block_count",
+      "changed": true,
+      "detail": "5 -> 4",
+      "unreachable_row": "train-00003-0c519774864ae265",
+      "unreachable_row_drift": []
+    },
+    "grid-shrink": {
+      "intent": "process stills at the current artifact's 200,704--301,056 band instead of the release bounds",
+      "row_id": "train-00003-0c519774864ae265",
+      "graded_field": "vision_block_grids",
+      "changed": true,
+      "detail": "[[[1, 60, 44]]] -> [[[1, 40, 28]]]",
+      "unreachable_row": "train-00002-f631dbe673b72816",
+      "unreachable_row_drift": []
+    },
+    "drop-media": {
+      "intent": "omit the last declared media item",
+      "row_id": "train-00003-0c519774864ae265",
+      "graded_field": "vision_block_count",
+      "changed": true,
+      "detail": "1 -> 0"
+    },
+    "token-tags-flip": {
+      "intent": "tag every vision position as text",
+      "row_id": "train-00003-0c519774864ae265",
+      "graded_field": "token_tags_sha256",
+      "changed": true,
+      "detail": "9470de060f6b34d7246d4290457934fcdf8e81936ffba1fa14c2001c3c6fceb0 -> 08fc3f07af078d0b70d0c2befaf113add8fe9d47ba05ce8f9da6ad17de72af45"
+    },
+    "mm-types-zero": {
+      "intent": "emit all-zero mm_token_type_ids",
+      "row_id": "train-00003-0c519774864ae265",
+      "graded_field": "mm_token_type_ids_sha256",
+      "changed": true,
+      "detail": "c596fe148728544c6b98b9325d5fe816aa5c05e79156444beb0879eef2fdf716 -> b842d761e16f1d1dfe92f386257ff3207859e5e613702beb8e16be5bafcd4a48"
+    }
+  },
+  "provenance": {
+    "schema": "h3-native-calibration-bundle-v1",
+    "path_policy": "logical identifiers only; no machine-local paths",
+    "dataset": {
+      "repo_id": "StellarVoyager/H3-IR",
+      "revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e"
+    },
+    "repository_commit": "1438b59c066b81cd600f8fe38ce83884b5e8bf5d",
+    "comfyui_commit": "b78cec879b9460d5cb25228a83a942fb78d2cd24",
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0",
+    "processors": {
+      "image": {
+        "declared_type": "Qwen2VLImageProcessorFast",
+        "resolved_class": "Qwen2VLImageProcessor",
+        "resolved_backend": "TorchvisionBackend",
+        "size": {
+          "longest_edge": 16777216,
+          "shortest_edge": 65536
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+      },
+      "video": {
+        "declared_type": "Qwen3VLVideoProcessor",
+        "resolved_class": "Qwen3VLVideoProcessor",
+        "size": {
+          "longest_edge": 25165824,
+          "shortest_edge": 4096
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+      }
+    },
+    "geometry_substitution": "vision tower and token embedding run at released patch/merge/depth/DeepStack geometry with a reduced hidden width; no presentation field depends on that width and no weight-dependent claim is made",
+    "mutation": null,
+    "mutation_intent": null
+  },
+  "release_special_tokens": {
+    "release_declared_special_tokens": 20,
+    "release_stock_added_tokens": 26,
+    "release_appended_tokens": [
+      "<d>",
+      "</d>",
+      "<|cutoff|>",
+      "<|lyrics_start|>",
+      "<|lyrics_end|>",
+      "<|caption_start|>",
+      "<|caption_end|>"
+    ],
+    "release_derived_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+    },
+    "installed_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+    },
+    "failures": []
+  },
+  "failures": []
+}

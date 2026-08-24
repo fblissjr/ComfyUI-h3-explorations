@@ -43,6 +43,11 @@ Four corrections from review, each of which had made the pool provisional:
    pictures in the same request. Since a keyframe arrives at canvas geometry and
    a reference at its own, a row-wide role would assign one geometry to pictures
    that need two.
+5. **Every declared media file is opened and hashed, with no exemption**, added
+   2026-08-24 for the escaped defect `media_status` documents. The earlier
+   version verified nothing for `video-reference` rows and read only image
+   headers for the rest, so a row could enter the pool naming a file that was
+   not present. `bench/check_pool_media_integrity.py` holds this red/green.
 """
 
 from __future__ import annotations
@@ -166,6 +171,60 @@ def image_dimensions(root: Path, relative_paths: list[str]) -> list[tuple[int, i
     return out
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def media_status(root: Path, row: dict) -> tuple[str | None, list[dict]]:
+    """Verify every declared media file of one row against its declared hash.
+
+    Returns ``(rejection_reason_or_None, per-file records)``.
+
+    **This is the repair for an escaped defect.** Until 2026-08-24 the only
+    media check here was a count of images whose geometry PIL could read, and it
+    was skipped entirely for `video-reference` rows. Videos were therefore never
+    opened, never hashed, and never required to exist: all 20 video rows entered
+    the accepted pool on the strength of a declared filename. Sixteen of the
+    nineteen distinct files they name were absent from the pinned snapshot, and
+    nothing said so. A declared hash that is never recomputed is a claim, not
+    evidence, so every declared file is now opened and hashed with no exemption
+    by role or media kind. Held red/green by
+    `bench/check_pool_media_integrity.py`, which feeds this function a missing
+    file, a corrupted file, and a wrong declared hash.
+    """
+    declared = row.get("media_sha256") or {}
+    records = []
+    problems = []
+    for rel in list(row.get("images") or []) + list(row.get("videos") or []):
+        want = declared.get(rel)
+        path = root / rel
+        record = {"path": rel, "declared_sha256": want}
+        if want is None:
+            record["status"] = "undeclared"
+            problems.append(f"{rel}: no declared sha256")
+        elif not path.is_file():
+            record["status"] = "missing"
+            problems.append(f"{rel}: not in the pinned snapshot")
+        else:
+            actual = file_sha256(path)
+            record["actual_sha256"] = actual
+            record["size"] = path.stat().st_size
+            if actual == want:
+                record["status"] = "verified"
+            else:
+                record["status"] = "mismatch"
+                problems.append(f"{rel}: sha256 {actual[:12]} != declared {want[:12]}")
+        records.append(record)
+    if not problems:
+        return None, records
+    return ("declared media did not verify against the pinned snapshot: "
+            + "; ".join(problems)), records
+
+
 class Components:
     """Union-find over individual media hashes.
 
@@ -201,6 +260,7 @@ def main() -> int:
     pool, excluded = [], []
     for index, row in enumerate(rows):
         dims = image_dimensions(root, row.get("images") or [])
+        media_reason, media_records = media_status(root, row)
         roles = picture_roles(row)
         role = primary_role(row, roles)
         ir = row.get("target_ir") or ""
@@ -218,6 +278,7 @@ def main() -> int:
             "images": list(row.get("images") or []),
             "videos": list(row.get("videos") or []),
             "media_sha256": row.get("media_sha256") or {},
+            "media_verification": media_records,
             "image_dimensions": [list(d) for d in dims],
             "prompt_sha256": sha(ir),
             "normalized_prompt_sha256": sha(normalize(ir)),
@@ -235,7 +296,9 @@ def main() -> int:
             reason = "source row does not declare redistribution_allowed"
         elif row.get("license") != "cc0-1.0":
             reason = f"unexpected per-row license {row.get('license')!r}"
-        elif role != "video-reference" and len(dims) != len(row.get("images") or []):
+        elif media_reason:
+            reason = media_reason
+        elif len(dims) != len(row.get("images") or []):
             reason = (f"read geometry for {len(dims)} of "
                       f"{len(row.get('images') or [])} images; the rest are not "
                       "in the pinned snapshot")
@@ -285,10 +348,16 @@ def main() -> int:
         if o["audio_label"]:
             ov[r["primary_role"]]["audio_label"] += 1
 
+    verified_files = Counter()
+    for record in pool + excluded:
+        for item in record["media_verification"]:
+            verified_files[item["status"]] += 1
+
     summary = {
         "source": "StellarVoyager/H3-IR",
         "source_revision": revision,
         "rows_read": len(rows),
+        "media_files_by_status": dict(sorted(verified_files.items())),
         "pool": len(pool),
         "excluded": len(excluded),
         "exclusion_reasons": dict(Counter(r["exclusion_reason"].split(":")[0]
@@ -319,6 +388,7 @@ def main() -> int:
 
     print(f"H3-IR @ {revision}: {len(rows)} rows -> pool {len(pool)}, "
           f"excluded {len(excluded)}")
+    print(f"declared media files, recomputed: {dict(sorted(verified_files.items()))}")
     print(f"\n{'primary role':<20} {'rows':>5} | {'wide/tall':>9} {'small':>5} "
           f"{'dialogue':>8} {'audio':>5}")
     for role, n in by_role.most_common():
