@@ -302,10 +302,29 @@ def _reference_media(inputs: dict, graph: dict):
         if kind == "image":
             key = f"ref_images.ref_image_{index}"
             media[key] = append_inputs.get("image")
+            # A widget converted to an input socket carries `[node_id, slot]`,
+            # not a value. `int([...])` raised TypeError and killed the whole
+            # report, and `bool([...])` is True for any non-empty list -- so a
+            # converted `allow_upscale` was silently priced as upscaling, a 4x
+            # error with no marker. Widget-to-input conversion is an ordinary
+            # frontend action, so both are graphs a user can build. Unresolved
+            # values become None and the caller says so.
+            def _value(name, default):
+                raw = append_inputs.get(name, default)
+                return None if isinstance(raw, list) else raw
+
+            size_policy = _value("size_policy", "match")
+            allow_upscale = _value("allow_upscale", False)
+            short_edge = _value("short_edge", 2048)
             image_policies[key] = {
-                "size_policy": append_inputs.get("size_policy", "match"),
-                "allow_upscale": bool(append_inputs.get("allow_upscale", False)),
-                "short_edge": int(append_inputs.get("short_edge", 2048)),
+                "size_policy": size_policy,
+                "allow_upscale": (None if allow_upscale is None
+                                  else bool(allow_upscale)),
+                "short_edge": None if short_edge is None else int(short_edge),
+                "linked": [n for n, v in (("size_policy", size_policy),
+                                          ("allow_upscale", allow_upscale),
+                                          ("short_edge", short_edge))
+                           if v is None],
             }
         elif kind == "video":
             media[f"ref_videos.ref_video_{index}"] = append_inputs.get("frames")
@@ -774,13 +793,15 @@ def image_size(path: Path) -> tuple[int, int] | None:
         return None
 
 
-def fit(w: int, h: int, scale: float, mult: int = 32) -> tuple[int, int]:
-    return (max(mult, round(w * scale / mult) * mult),
-            max(mult, round(h * scale / mult) * mult))
-
-
 def rows(w: int, h: int) -> int:
-    """DiT rows for a w x h pixel area: VAE /16, then the DiT's 2x2 patch."""
+    """DiT rows for a w x h pixel area: VAE /16, then the DiT's 2x2 patch.
+
+    Kept as a thin local name for the callers that price a canvas rather than a
+    reference; it is `reference_geometry.latent_rows` and must stay so. The
+    sibling `fit()` was deleted on 2026-08-24 once the reference path stopped
+    using it -- a dead copy of shared arithmetic is exactly how the fourth copy
+    comes back.
+    """
     return (w // 32) * (h // 32)
 
 
@@ -1086,6 +1107,10 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
 def price(node: dict, graph: dict) -> list[str]:
     ins = node["inputs"]
     media_ins, image_policies, typed_references = _reference_media(ins, graph)
+    # Stage two is a property of the conditioner, not of any one reference.
+    image_policy = ins.get("image_policy", "comfy") if typed_references else "comfy"
+    if isinstance(image_policy, list):
+        image_policy = "comfy"
     w, h = ins.get("width"), ins.get("height")
     length = ins.get("length")
     lines = []
@@ -1157,19 +1182,34 @@ def price(node: dict, graph: dict) -> list[str]:
         if policy is None:
             size_mode = ins.get("ref_image_size", "match")
         else:
+            if policy["linked"]:
+                lines.append(
+                    f"  {key}: {', '.join(policy['linked'])} is wired to an "
+                    f"input socket, so its value is not in the graph. This "
+                    f"reference was NOT priced.")
+                continue
             # The typed append owns all three since the fit fold.
             size_mode = policy["size_policy"]
             upscale = policy["allow_upscale"]
             short_edge = policy["short_edge"]
-        # A saved graph may still wire the retired fit node upstream. Its fit
-        # is idempotent with the append's, but it can carry an upscale the
-        # append does not -- so read it and take the larger short edge rather
-        # than pricing the append alone.
+        # A saved graph may still wire the retired fit node upstream. The two
+        # COMPOSE -- the fit sizes the source, then the append sizes that
+        # result -- so they must be applied in order. Merging them by taking
+        # the larger short edge and OR-ing the upscale flags, as this did until
+        # 2026-08-24, over-prices by the square of the ratio whenever the
+        # append is narrower than the fit: Fit(2048, upscale) -> Append(1024)
+        # really yields 1024x1024 and was priced at 2048x2048.
+        legacy_fit = None
         if src.get("class_type") == FIT_NODE:
-            upscale = bool(src["inputs"].get("allow_upscale", True)) or upscale
-            short_edge = max(short_edge,
-                             int(src["inputs"].get("short_edge", 2048)))
-            inner = src["inputs"].get("image")
+            fit_inputs = src["inputs"]
+            legacy_fit = {
+                "short_edge": (2048 if isinstance(fit_inputs.get("short_edge"), list)
+                               else int(fit_inputs.get("short_edge", 2048))),
+                "allow_upscale": (
+                    True if isinstance(fit_inputs.get("allow_upscale"), list)
+                    else bool(fit_inputs.get("allow_upscale", True))),
+            }
+            inner = fit_inputs.get("image")
             src = graph.get(inner[0], {}) if isinstance(inner, list) else {}
         fname = src.get("inputs", {}).get("image")
         if not fname:
@@ -1191,20 +1231,39 @@ def price(node: dict, graph: dict) -> list[str]:
         # sequence length nobody will get. Imported lazily, the same way this
         # file already reaches `reference_order` and core.
         _core_minimax_cpu()   # puts ComfyUI on sys.path, CPU-forced
-        from reference_geometry import fit_reference_image, latent_rows
+        from reference_geometry import (fit_reference_image, latent_rows,
+                                        qwen_image_size)
+        stage_w, stage_h = iw, ih
+        if legacy_fit is not None:
+            stage_w, stage_h = fit_reference_image(
+                iw, ih, size_policy="max", short_edge=legacy_fit["short_edge"],
+                allow_upscale=legacy_fit["allow_upscale"])
         tw, th = fit_reference_image(
-            iw, ih, size_policy=size_mode, short_edge=short_edge,
+            stage_w, stage_h, size_policy=size_mode, short_edge=short_edge,
             allow_upscale=upscale, canvas_w=w, canvas_h=h)
+        # Stage two. The conditioner applies the selected still policy BEFORE
+        # the VAE, so under `encoder` or `release` the geometry the DiT gets is
+        # not the role size. Omitting this over-priced an `encoder` graph by
+        # more than 10x, on the tool whose job is to price the sequence.
+        if image_policy != "comfy":
+            try:
+                tw, th = qwen_image_size(tw, th, image_policy)
+            except Exception as exc:
+                lines.append(f"  {key}: could not apply image_policy="
+                             f"{image_policy!r} ({exc}); priced at the role size")
         scale = tw / iw
         r = latent_rows(tw, th)
         ref_total += r
-        bound_notes = _vision_bound_warnings(key, tw, th)
+        bound_notes = (_vision_bound_warnings(key, tw, th)
+                       if image_policy == "comfy" else [])
         if policy is None:
             note = "  (unmanaged: core clamps, never upscales)"
         elif scale == 1.0:
             note = "  (sizing was a no-op)"
         else:
             note = ""
+        if image_policy != "comfy":
+            note += f"  (image_policy={image_policy})"
         lines.append(f"  ref image {r:>8,}  {fname} {iw}x{ih} -> {tw}x{th}"
                      f"{note}")
         lines.extend(bound_notes)
@@ -1467,11 +1526,17 @@ def _comfy_image_bounds():
 def _vision_bound_warnings(key, tw, th):
     """Warn when a reference will hit a bound ComfyUI and the release disagree on.
 
-    Neither bound binds on any graph this repo ships -- the fit node puts every
-    reference at a 2048 short edge, which is above the release's floor and below
-    ComfyUI's ceiling until roughly 3:1. This exists to say WHEN that stops
-    being true, because the fix for it is a monkeypatch nobody should write on
-    speculation.
+    Neither bound binds on any graph this repo ships -- the append node puts
+    every reference at a 2048 short edge, which is above the release's floor and
+    below ComfyUI's ceiling until roughly 3:1. This exists to say WHEN that
+    stops being true.
+
+    **Only meaningful under `image_policy='comfy'`.** The two warnings below
+    describe what happens when the conditioner hands the still on untouched and
+    lets whatever processor the CLIP carries resize it. Under `release` or
+    `encoder` the conditioner has already applied that policy's own floor and
+    ceiling before the VAE, so both sentences would be false and the caller
+    does not ask.
     """
     out = []
     pixels = tw * th

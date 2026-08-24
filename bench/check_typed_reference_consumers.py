@@ -72,8 +72,11 @@ def main():
             "ref_videos.ref_video_0": ["9", 0],
             "ref_video_audios.ref_video_audio_0": ["12", 0],
         }, media
+        # `linked` names any of the three that is wired to an input socket
+        # rather than carrying a value; empty is the ordinary case.
         assert policies == {"ref_images.ref_image_0": {
             "size_policy": "max", "allow_upscale": False, "short_edge": 2048,
+            "linked": [],
         }}, policies
 
     def malformed_chain_is_not_partially_reported():

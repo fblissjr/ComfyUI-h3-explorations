@@ -110,11 +110,14 @@ could never notice that no shipped graph contains that node.
 
 ### 4. One sizing implementation
 
-`reference_geometry.py::fit_reference_image` is the only implementation of
-stage-one role sizing. Its callers are `MiniMaxH3ReferenceConditioning` (which
-performs the resize), `MiniMaxH3ReferenceFit` (legacy), and the two static
-readers `bench/preflight_graph.py` and `bench/audit_shipped_reference_bounds.py`.
-The post-training calibration builder is meant to be the fifth.
+`reference_geometry.py` owns both stages: `fit_reference_image` for role
+sizing, and `qwen_image_settings` / `qwen_image_size` for the still policy,
+which moved there so the static readers can reach them without importing the
+node package. Its callers are `MiniMaxH3ReferenceConditioning` (which performs
+the resize), `MiniMaxH3ReferenceFit` (legacy), `bench/count_packed_rows.py`,
+and the two static readers `bench/preflight_graph.py` and
+`bench/audit_shipped_reference_bounds.py`. The post-training calibration
+builder is meant to be the sixth.
 
 **`MiniMaxH3AppendRefImage` is deliberately not among them.** It records the
 decision on the record and validates it; it never sizes anything, because the
@@ -162,6 +165,51 @@ walk. The walk was eight hops only because the fit node sat between the append
 and the loader; after the fold the append links straight to `LoadImage`. The
 loop is retained for saved graphs that still wire a fit node, and now composes
 the two rather than taking the first it finds.
+
+## What a review caught afterwards
+
+An `xhigh` code review of the committed change found fifteen issues, several
+reproduced by running the code rather than inferred. They are worth recording
+because most are not in the design at all -- they are the difference between a
+design being right and a change being right.
+
+**Three were defects introduced by the change.**
+
+- `bench/count_packed_rows.py` imported the sizing helper that moved into
+  `reference_geometry`, so it died with `ImportError` on every invocation. The
+  dangling-symbol sweep before committing covered the retired override
+  machinery and missed the helper that moved.
+- The identity guard returned `image[:1]`, dropping the `[..., :3]` channel
+  slice that `_resize` performs on every other path. A four-channel RGBA
+  reference already at its target size reached `vae.encode` with four channels.
+- Two preparation stages were merged rather than composed. A legacy fit node
+  upstream of the append had its arguments combined by taking the larger
+  `short_edge` and OR-ing the upscale flags; they compose in order. The merge
+  over-priced by the square of the ratio whenever the append was narrower --
+  `Fit(2048, upscale) -> Append(1024)` really yields 1024x1024 and was reported
+  as 2048x2048. **This one was flagged as unvalidated when the review was
+  commissioned** and the answer came back that it was wrong, which is the
+  cheapest way this list was produced.
+
+**The rest were gaps rather than breakage**, and the two that matter:
+
+- `bench/preflight_graph.py` never read `image_policy`, so under `encoder` it
+  reported 4,096 rows for a reference the DiT receives at 289. The tool exists
+  to price the sequence, so a stage-two-blind price is the failure it is for.
+  Its `_vision_bound_warnings` also asserted the opposite of what `release` and
+  `encoder` do, and now fires only under `comfy`.
+- **Nothing asserted that the folded knobs reach the compiler.** Replacing
+  `record.short_edge` / `record.allow_upscale` with the function defaults left
+  `check_node_ids`, `check_reference_fit` and the two `image_policy` contracts
+  green while every shipped graph silently lost its upscale -- a 4x change in
+  sequence length. The knob with the largest blast radius in the change had no
+  runtime control. `append_sizing_reaches_the_encoded_geometry` is that control,
+  asserted against the latent grid the DiT is handed and shown to go red under
+  exactly that mutation.
+
+The pattern in all five: the design was about where a decision should live, and
+every one of these is about whether the decision is actually read at the far
+end. A design review cannot produce this list; only running the code can.
 
 ## What was rejected
 

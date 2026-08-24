@@ -404,6 +404,53 @@ def conditioning_node_assembles_the_real_payload_shape():
             raise AssertionError("empty references or prompt reached compilation")
 
 
+def append_sizing_reaches_the_encoded_geometry():
+    """`short_edge` and `allow_upscale` on the append change what the VAE gets.
+
+    The gap this closes: nothing asserted that the two inputs folded onto
+    `MiniMaxH3AppendRefImage` on 2026-08-24 are read by
+    `_compile_reference_records` at all. Replacing `record.short_edge` /
+    `record.allow_upscale` with the function defaults left every other control
+    green -- `check_node_ids` compares schemas, `check_typed_reference_consumers`
+    compares the static preflight adapter, and the two `image_policy` contracts
+    exercise stage two only -- while every shipped graph silently lost its
+    upscale, a 4x change in sequence length. It is the knob with the largest
+    blast radius in that change and it had no runtime control.
+
+    Asserted through the registered node on the real compiler, against the
+    LATENT GRID the DiT is handed, not against an intermediate. A 64x64 source
+    with `short_edge=256, allow_upscale=True` must reach 256x256; the same
+    record with the defaults must stay at 64x64.
+    """
+    def encoded(**record_kwargs):
+        records = (R.RuntimeImageReference(_frames(1, 64, 64), "max",
+                                           **record_kwargs),)
+        output = R.MiniMaxH3ReferenceConditioning.execute(
+            clip=_Clip(), vae=_VideoVae(), audio_vae=_AudioVae(),
+            references=records, prompt="use <Picture 1>",
+            width=64, height=64, length=22,
+        )
+        block = output.args[0][0][1]["minimax_refs"][0]
+        return block["latent_w"] * 16, block["latent_h"] * 16
+
+    default = encoded()
+    assert default == (64, 64), (
+        f"a 64x64 reference under the append defaults should stay 64x64, got "
+        f"{default}; core never upscales")
+
+    upscaled = encoded(short_edge=256, allow_upscale=True)
+    assert upscaled == (256, 256), (
+        f"short_edge=256 with allow_upscale did not reach the encoder: the DiT "
+        f"was handed {upscaled}. The append's sizing is not being read.")
+
+    # short_edge alone, without the upscale flag, must NOT enlarge -- otherwise
+    # the assertion above would pass on a build that ignored allow_upscale.
+    clamped = encoded(short_edge=256, allow_upscale=False)
+    assert clamped == (64, 64), (
+        f"allow_upscale=False still enlarged to {clamped}; the flag is not "
+        f"being read independently of short_edge")
+
+
 def image_policy_is_opt_in_and_the_three_differ():
     """`comfy` changes nothing, and the other two are genuinely different.
 
@@ -458,20 +505,26 @@ def image_policy_reads_encoder_config():
     won. Make them disagree in memory instead, and assert the bounds each
     policy actually applies come from its own config.
     """
-    original_source = R.source_image_pixel_bounds
-    original_release = R.image_pixel_bounds
-    try:
+    import importlib as _il
+    G = _il.import_module(f"{_REPO.name}.reference_geometry")
+    original = G._policy_config
+    vendor_config, h3_awq_encoder = original()
+
+    class _Encoder:
         # A deliberately tiny encoder ceiling nothing else declares.
-        R.source_image_pixel_bounds = lambda: (1024, 4096)
-        R.image_pixel_bounds = original_release
-        out = R._configured_qwen_image_size(3648, 2048, "encoder")
+        source_image_pixel_bounds = staticmethod(lambda: (1024, 4096))
+        source_image_patch_geometry = staticmethod(
+            h3_awq_encoder.source_image_patch_geometry)
+
+    try:
+        G._policy_config = lambda: (vendor_config, _Encoder)
+        out = G.qwen_image_size(3648, 2048, "encoder")
         assert out[0] * out[1] <= 4096, (
             f"encoder still policy ignored its own ceiling: {out}")
-        assert R._configured_qwen_image_size(3648, 2048, "release") == (3648, 2048), (
+        assert G.qwen_image_size(3648, 2048, "release") == (3648, 2048), (
             "release still policy inherited the encoder's test bounds")
     finally:
-        R.source_image_pixel_bounds = original_source
-        R.image_pixel_bounds = original_release
+        G._policy_config = original
 
 
 CHECKS = (
@@ -484,6 +537,7 @@ CHECKS = (
     release_video_policy_is_opt_in_and_two_stage,
     release_policy_floor_is_two_sampled_frames,
     encoder_policy_reads_encoder_config,
+    append_sizing_reaches_the_encoded_geometry,
     image_policy_is_opt_in_and_the_three_differ,
     image_policy_reads_encoder_config,
     conditioning_node_assembles_the_real_payload_shape,

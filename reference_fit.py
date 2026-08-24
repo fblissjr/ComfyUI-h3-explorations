@@ -235,6 +235,19 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
                 "[h3] lift_downstream_clamp is RETIRED and does nothing. It "
                 "armed an override on MiniMaxH3ReferenceToVideo, which this "
                 "repo has never wired. Untick it.")
+        if keep_towers_matched:
+            # LOUDER than the one above, and this asymmetry is the point: that
+            # one never worked, this one did, and it was on in every shipped
+            # graph before the fold. Its replacement defaults to OFF, so a
+            # reloaded saved graph loses the tower match unless somebody is
+            # told. Silence here would be the regression.
+            logger.warning(
+                "[h3] keep_towers_matched is RETIRED and does nothing HERE. It "
+                "was doing something before 2026-08-24, and its replacement is "
+                "not on by default: set "
+                "MiniMaxH3ReferenceConditioning.image_policy to 'encoder' or "
+                "'release' to keep the VAE and Qwen on one size. This node "
+                "could not tell which ceiling applied because it has no clip.")
         if image.shape[0] > 1:
             logger.warning(
                 "[h3] reference carries %d images; using the first. Wire one "

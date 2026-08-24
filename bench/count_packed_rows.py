@@ -58,7 +58,7 @@ def _layout(text_len, latent_t, latent_h, latent_w, audio_t, refs):
 def _ref_blocks(specs):
     """`refs=` blocks for image references given as WxH strings.
 
-    **Sizes go through `reference_fit._fit`, not through arithmetic here.** A
+    **Sizes go through `reference_geometry`, not through arithmetic here.** A
     reference is snapped to a multiple of 32 by *rounding* before it is priced
     by *truncation*, and doing only the truncation under-prices it: 662x1177 is
     777 rows (snapped to 672x1184), not the 720 that `(662//32) * (1177//32)`
@@ -68,11 +68,16 @@ def _ref_blocks(specs):
     Importing rather than restating is the whole point of a counter that exists
     to check other people's arithmetic.
     """
-    from reference_fit import _fit
+    # `reference_fit._fit` until 2026-08-24, when the sizing moved into
+    # `reference_geometry` and this import broke outright. The docstring above
+    # is why the fix is another import and not a local copy.
+    from reference_geometry import snap_to_multiple
     out = []
     for spec in specs:
         w, h = (int(v) for v in spec.lower().split("x"))
-        fw, fh = _fit(w, h, 1.0)                 # scale 1.0 == native, no upscale
+        # scale 1.0 == native, no upscale: the snap alone, which is the part
+        # that rounds where the pricing below truncates.
+        fw, fh = snap_to_multiple(w), snap_to_multiple(h)
         out.append({"kind": "image", "latent_h": fh // 16, "latent_w": fw // 16,
                     "ref_audio_t": 0})
     return out

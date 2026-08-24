@@ -33,8 +33,11 @@ SIZE_POLICIES = ("match", "max")
 __all__ = [
     "CANVAS_MULTIPLE",
     "REF_IMAGE_SHORT_EDGE",
+    "IMAGE_POLICIES",
     "SIZE_POLICIES",
     "fit_reference_image",
+    "qwen_image_settings",
+    "qwen_image_size",
     "latent_rows",
     "snap_to_multiple",
 ]
@@ -96,6 +99,77 @@ def fit_reference_image(
         scale = full if allow_upscale else min(1.0, full)
 
     return snap_to_multiple(source_w, scale), snap_to_multiple(source_h, scale)
+
+
+IMAGE_POLICIES = ("comfy", "release", "encoder")
+
+
+def _policy_config():
+    """The two declared still-image processor configs, imported lazily.
+
+    Lazily and both ways: this module is imported as a package member by the
+    nodes and as a top-level module by `bench/preflight_graph.py` and
+    `bench/count_packed_rows.py`. `h3_awq_encoder` also pulls in `comfy_api`,
+    which a caller that only wants `fit_reference_image` should not pay for.
+    """
+    try:
+        from . import h3_awq_encoder, vendor_config
+    except ImportError:  # pragma: no cover - top-level import for the tools
+        import h3_awq_encoder  # type: ignore[no-redef]
+        import vendor_config  # type: ignore[no-redef]
+    return vendor_config, h3_awq_encoder
+
+
+def qwen_image_settings(image_policy: str) -> tuple[tuple[int, int], dict]:
+    """Return the bounds and geometry owned by the selected STILL policy.
+
+    One ceiling has three live values and nothing could select between them:
+    the installed ComfyUI code path's `process_qwen2vl_images` defaults, the
+    loaded encoder artifact's snapshot, and the release's declaration.
+    `reference_fit.py` read the first by introspection and applied it as though
+    it were universal, which is right for a native BF16 graph and wrong by
+    orders of magnitude under the AWQ adapter.
+
+    `comfy` returns nothing to apply: it is the passthrough that leaves the
+    still exactly as core would, which is what every graph got before this
+    existed and therefore what the default has to be.
+    """
+    if image_policy == "comfy":
+        raise ValueError(
+            "the comfy still policy has no configured processor; callers must "
+            "skip the Qwen stage entirely rather than ask for its settings")
+    vendor_config, h3_awq_encoder = _policy_config()
+    if image_policy == "release":
+        return vendor_config.image_pixel_bounds(), vendor_config.patch_geometry()
+    if image_policy == "encoder":
+        return (h3_awq_encoder.source_image_pixel_bounds(),
+                h3_awq_encoder.source_image_patch_geometry())
+    raise ValueError(f"no configured Qwen processor for policy {image_policy!r}")
+
+
+def qwen_image_size(width: int, height: int, image_policy: str) -> tuple[int, int]:
+    """Return the selected still policy's Qwen view as ``(width, height)``.
+
+    Pre-applying this is what puts both towers on one size. Core hands ONE
+    tensor to the VAE and stashes the SAME object for the conditioner, so a
+    Qwen-side resize that fires after the VAE has already encoded leaves the
+    DiT holding latent rows at one resolution and hidden states at another for
+    a single reference, silently.
+
+    `smart_resize` is imported from the installed processor rather than copied,
+    and it enforces a FLOOR as well as a ceiling: a still under the policy's
+    `min_pixels` is enlarged by it. That is a real behaviour of the declared
+    policy, not a bug to clamp away, and callers log it.
+    """
+    from transformers.models.qwen2_vl.image_processing_qwen2_vl import smart_resize
+
+    (min_pixels, max_pixels), geometry = qwen_image_settings(image_policy)
+    factor = int(geometry["patch_size"]) * int(geometry["merge_size"])
+    target_h, target_w = smart_resize(
+        height=height, width=width, factor=factor,
+        min_pixels=min_pixels, max_pixels=max_pixels,
+    )
+    return int(target_w), int(target_h)
 
 
 def latent_rows(width: int, height: int) -> int:

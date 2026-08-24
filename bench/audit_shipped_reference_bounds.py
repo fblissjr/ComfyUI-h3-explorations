@@ -8,14 +8,22 @@ ceiling starts resizing a reference prepared to a 2048 short edge. It answered
 that with synthetic sizes swept along a ratio axis. This script answers the
 other half -- whether the graphs this repo actually ships ever reach it -- and
 that question is not answerable from a threshold plus arithmetic, because the
-size Qwen sees is the size `MiniMaxH3ReferenceFit` produced, not the size on
+size Qwen sees is the size the reference preparation produced, not the size on
 disk.
 
 So every row is driven, not derived. The graph is walked for real, the file is
-opened for its real dimensions, the real `MiniMaxH3ReferenceFit.execute` is
-called with the arguments that graph wires, and the real
+opened for its real dimensions, the real shared sizing function
+(`reference_geometry.fit_reference_image`) is called with the arguments that
+graph wires -- once per preparation stage, in order, since a legacy
+`MiniMaxH3ReferenceFit` and the append node COMPOSE -- and the real
 `process_qwen2vl_images` is called on the result. A row says SHRUNK because the
 helper returned a smaller grid, not because a ratio was compared to 3.0625.
+
+**What this does NOT model.** `MiniMaxH3ReferenceConditioning.image_policy`,
+which since 2026-08-24 can apply the release's or the encoder artifact's own
+bounds before the VAE. This script asks a narrower question -- whether ComfyUI's
+native ceiling bites a reference as prepared -- so it prices the `comfy` policy,
+which is the default and what every shipped graph carries.
 
 **The control, and what its absence would hide.** The expected result is an
 empty list, and an empty list is exactly what a detector that cannot fire
@@ -26,11 +34,10 @@ every shipped row:
                  must come back SHRUNK. If it does not, `_grid` is not
                  measuring what this script claims and every green row above
                  it is unreadable.
-  fit-path arm   an 896x256 source with `allow_upscale=True` and the repo's
-                 Qwen/VAE tower guard deliberately disabled must be fitted UP
-                 to a size that then trips. The unsafe setting is intentional:
-                 the control has to prove this audit can see a fit-fed failure,
-                 while shipped graphs keep `keep_towers_matched=True`.
+  fit-path arm   an 896x256 source with `allow_upscale=True` must be fitted UP
+                 to a size that then trips. It has to prove this audit can see
+                 a preparation-fed failure and not only a source-fed one, which
+                 no shipped graph exercises because none is near the ceiling.
 
 Both arms must trip or the script exits non-zero, whatever the shipped rows
 said.
@@ -106,7 +113,8 @@ def _qwen_sees(w: int, h: int):
     return (out_w, out_h), (out_w, out_h) != (w, h)
 
 
-def _fitted(src_w: int, src_h: int, fit_args: dict | None):
+def _fitted(src_w: int, src_h: int, fit_args: dict | None,
+            canvas: tuple[int, int] | None = None):
     """Drive the real sizing function, not a copy of its arithmetic.
 
     `fit_args` is None when nothing on the path declares a policy. Core then
@@ -114,23 +122,40 @@ def _fitted(src_w: int, src_h: int, fit_args: dict | None):
     reproduces -- recorded in the row as `fit: "core clamp"` so the two cases
     stay legible.
 
-    This called `MiniMaxH3ReferenceFit.execute` until the fit fold, which meant
-    allocating and resizing a real tensor to learn two integers. It now calls
-    the shared sizing function that both the append node and the calibration
-    builder call, which is a stronger control as well as a cheaper one: the
-    thing under test is the arithmetic, and this now executes the arithmetic
-    itself rather than a node that happens to wrap it.
+    Two stages when a legacy `MiniMaxH3ReferenceFit` is on the path: it sizes
+    the source, then the append sizes that result. They COMPOSE and must be
+    applied in order; merging them into one argument set produced a geometry no
+    node ever receives, which is precisely the derived-row failure this audit
+    exists to exclude.
+
+    `size_policy` defaults to `match`, matching the node's own default rather
+    than the policy every shipped graph happens to set. `match` needs a canvas,
+    so a caller that cannot supply one gets a clear refusal for that row
+    instead of a ValueError that takes down the whole run.
     """
     from reference_geometry import fit_reference_image
-    args = dict(fit_args or {})
-    args.pop("lift_downstream_clamp", None)
-    args.pop("keep_towers_matched", None)
-    return fit_reference_image(
-        src_w, src_h,
-        size_policy=args.get("size_policy", "max"),
-        short_edge=int(args.get("short_edge", 2048)),
-        allow_upscale=bool(args.get("allow_upscale", False)),
-    )
+    stages = list(fit_args or [{}]) if isinstance(fit_args, list) else [fit_args or {}]
+    w, h = src_w, src_h
+    for stage in stages:
+        args = {k: v for k, v in stage.items()
+                if k in ("size_policy", "short_edge", "allow_upscale")}
+        policy = args.get("size_policy", "match")
+        if policy == "match" and not canvas:
+            raise _UnpriceableRow(
+                "size_policy='match' sizes from the target canvas and this "
+                "graph's canvas was not statically resolvable")
+        w, h = fit_reference_image(
+            w, h, size_policy=policy,
+            short_edge=int(args.get("short_edge", 2048)),
+            allow_upscale=bool(args.get("allow_upscale", False)),
+            canvas_w=canvas[0] if canvas else None,
+            canvas_h=canvas[1] if canvas else None,
+        )
+    return w, h
+
+
+class _UnpriceableRow(Exception):
+    """One row cannot be graded. Never a reason to abandon the whole audit."""
 
 
 def _trace_to_loader(wf: dict, link: list, append_inputs: dict | None = None):
@@ -147,12 +172,13 @@ def _trace_to_loader(wf: dict, link: list, append_inputs: dict | None = None):
     these graphs use. A node reached with no linked inputs and no filename ends
     the walk and the caller reports it.
     """
-    fit_args = None
+    append_stage = None
     if append_inputs:
-        fit_args = {k: v for k, v in append_inputs.items()
-                    if k in ("size_policy", "allow_upscale", "short_edge")
-                    and not isinstance(v, list)}
-        fit_args = fit_args or None
+        append_stage = {k: v for k, v in append_inputs.items()
+                        if k in ("size_policy", "allow_upscale", "short_edge")
+                        and not isinstance(v, list)} or None
+    upstream_stages = []
+    fit_args = [append_stage] if append_stage else None
     node_id = link[0]
     for _ in range(8):
         node = wf.get(node_id)
@@ -162,19 +188,17 @@ def _trace_to_loader(wf: dict, link: list, append_inputs: dict | None = None):
         if ct == "LoadImage":
             return node["inputs"].get("image"), fit_args
         if ct == "MiniMaxH3ReferenceFit":
-            # A legacy fit upstream of the append. Its short edge and upscale
-            # compose with the append's rather than replacing them: whichever
-            # enlarges more is what the reference actually reaches.
+            # A legacy fit upstream of the append. It runs FIRST and its output
+            # is what the append then sizes, so it is prepended as its own
+            # stage rather than merged into the append's arguments.
             upstream = {k: v for k, v in node["inputs"].items()
                         if not isinstance(v, list)}
-            merged = dict(fit_args or {})
-            merged["allow_upscale"] = (
-                bool(upstream.get("allow_upscale", True))
-                or bool(merged.get("allow_upscale", False)))
-            merged["short_edge"] = max(int(upstream.get("short_edge", 2048)),
-                                       int(merged.get("short_edge", 2048)))
-            merged.setdefault("size_policy", "max")
-            fit_args = merged
+            upstream_stages.insert(0, {
+                "size_policy": "max",
+                "short_edge": int(upstream.get("short_edge", 2048)),
+                "allow_upscale": bool(upstream.get("allow_upscale", True)),
+            })
+            fit_args = upstream_stages + ([append_stage] if append_stage else [])
         linked = [v for v in node.get("inputs", {}).values()
                   if isinstance(v, list)]
         if not linked:
@@ -219,8 +243,11 @@ def _controls() -> tuple[list[dict], bool]:
     rows.append({"arm": "detector", "source": list(DETECTOR_ARM),
                  "into_qwen": list(DETECTOR_ARM), "qwen_sees": list(seen),
                  "shrunk": shrunk, "must_shrink": True})
-    fw, fh = _fitted(*FIT_PATH_ARM, {"allow_upscale": True, "short_edge": 2048,
-                                    "keep_towers_matched": False})
+    # `size_policy` is explicit: `_fitted` defaults to the node's own default
+    # (`match`), and this arm is exercising the `max` preparation path.
+    fw, fh = _fitted(*FIT_PATH_ARM, {"size_policy": "max",
+                                     "allow_upscale": True,
+                                     "short_edge": 2048})
     seen2, shrunk2 = _qwen_sees(fw, fh)
     rows.append({"arm": "fit-path", "source": list(FIT_PATH_ARM),
                  "into_qwen": [fw, fh], "qwen_sees": list(seen2),
@@ -301,7 +328,18 @@ def main() -> int:
                 from PIL import Image
                 with Image.open(src) as im:
                     sw, sh = im.size
-                fw, fh = _fitted(sw, sh, fit_args)
+                # `match` sizes from the target canvas. Read it as a literal
+                # only; a linked width/height is not statically knowable and
+                # that row is reported rather than guessed.
+                cw, ch = inputs.get("width"), inputs.get("height")
+                canvas = ((int(cw), int(ch))
+                          if isinstance(cw, int) and isinstance(ch, int) else None)
+                try:
+                    fw, fh = _fitted(sw, sh, fit_args, canvas)
+                except _UnpriceableRow as exc:
+                    unresolved.append({"graph": rel, "input": key,
+                                       "file": name, "why": str(exc)})
+                    continue
                 seen, shrunk = _qwen_sees(fw, fh)
                 rows.append({
                     "graph": rel, "input": key, "file": name,

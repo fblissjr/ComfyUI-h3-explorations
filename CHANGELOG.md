@@ -4,6 +4,71 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.62.0
+
+### Fixed
+
+- **`bench/count_packed_rows.py` was broken outright by 0.61.0.** It imports
+  the sizing helper that moved into `reference_geometry`, so every invocation
+  died with `ImportError`. Its own docstring explains why the fix is another
+  import and not a local copy: it rounds where the pricing truncates, and the
+  first version of that file reimplemented the arithmetic and was wrong by 8%.
+
+- **The identity guard dropped `_resize`'s channel normalisation.** `_resize`
+  does `image[..., :3]` on every other path, so an RGBA reference already at
+  its target size reached `vae.encode` with four channels where every earlier
+  render had been sliced to RGB.
+
+- **Two preparation stages were merged instead of composed.** A saved graph
+  wiring the retired fit node upstream of the append had the two argument sets
+  combined by taking the larger `short_edge` and OR-ing the upscale flags. They
+  compose: the fit sizes the source, the append sizes that result. The merge
+  over-priced by the square of the ratio whenever the append was narrower --
+  `Fit(2048, upscale) -> Append(1024)` really yields 1024x1024 and was reported
+  as 2048x2048, a 4x error per reference in both `bench/preflight_graph.py` and
+  `bench/audit_shipped_reference_bounds.py`.
+
+- **`bench/preflight_graph.py` ignored `image_policy` entirely**, so it priced
+  the role size and not the geometry the DiT receives. Under `image_policy=encoder`
+  a 2048x2048 reference is pre-resized to 544x544 before the VAE, which the
+  tool reported as 4,096 rows against a true 289. Its `_vision_bound_warnings`
+  also asserted the opposite of what `release` and `encoder` do, and is now
+  reported only under `comfy`, which is the policy it describes.
+
+- **Widget-to-input conversion crashed or silently lied.** `short_edge` wired
+  to an input socket raised `TypeError` from `int([...])` and abandoned the
+  whole report; `allow_upscale` wired the same way evaluated a non-empty list
+  as True and priced the reference as upscaling with no marker. Both are
+  ordinary frontend actions. Unresolvable values are now named and that
+  reference is reported as not priced, which is preflight's documented
+  "reports, never refuses" contract.
+
+- **`MiniMaxH3ReferenceFit.keep_towers_matched` went inert in silence.** It was
+  the input that actually did something and was set on every shipped graph,
+  while its retired sibling -- which never worked -- got the only warning. It
+  now says so and names `image_policy`, whose default is off.
+
+### Added
+
+- **A runtime control that the append's sizing reaches the encoded geometry.**
+  Nothing asserted that `short_edge` and `allow_upscale` are read by
+  `_compile_reference_records`; replacing them with the function defaults left
+  the node-id, reference-fit and typed-consumer checks green while every
+  shipped graph lost its upscale. Asserted through the registered node against
+  the latent grid the DiT is handed, and shown to go red under exactly that
+  mutation.
+
+### Changed
+
+- **The still-image policy resolver moved into `reference_geometry`**, so the
+  conditioner and the static readers share one implementation of stage two as
+  they already do of stage one.
+
+- **`_fitted` in the bounds audit defaults to the node's own `match`**, not to
+  the `max` every shipped graph happens to set, and reports one unpriceable row
+  instead of raising and abandoning the run. The audit also records that it
+  models the `comfy` policy only.
+
 ## 0.61.0
 
 ### Added
@@ -23,10 +88,13 @@ artifact.
   one accessor that had to be added.
 
 - **`reference_geometry.py`, the single implementation of reference-image role
-  sizing.** `fit_reference_image` is called by the append node, the retired fit
-  node, the conditioner and `bench/audit_shipped_reference_bounds.py`, and is
-  importable by the post-training calibration builder, whose accepted plan names
-  two strata that are exactly its arguments.
+  sizing.** `fit_reference_image` is called by the conditioner (which performs
+  the resize), the retired fit node, and the static readers
+  `bench/preflight_graph.py` and `bench/audit_shipped_reference_bounds.py`. The
+  append node records the decision and never sizes anything, because the canvas
+  `match` needs is not in its scope. Importable by the post-training
+  calibration builder, whose accepted plan names two strata that are exactly
+  its arguments.
 
 ### Changed
 

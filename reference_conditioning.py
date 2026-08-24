@@ -43,9 +43,12 @@ from comfy_extras.nodes_minimax_h3 import (
 from .h3_rules import aspect_in_range, describe_aspect_range
 from .reference_order import AudioRef, ImageRef, VideoRef, assign_labels
 from .reference_geometry import (
+    IMAGE_POLICIES,
     SIZE_POLICIES,
     fit_reference_image,
     latent_rows,
+    qwen_image_settings,
+    qwen_image_size,
 )
 from .h3_awq_encoder import (
     source_image_patch_geometry,
@@ -64,7 +67,6 @@ logger = logging.getLogger(__name__)
 H3References = io.Custom("MINIMAX_H3_REFERENCES")
 VHSVideoInfo = io.Custom("VHS_VIDEOINFO")
 VIDEO_POLICIES = ("comfy", "release", "encoder")
-IMAGE_POLICIES = ("comfy", "release", "encoder")
 
 
 @dataclass(frozen=True)
@@ -241,58 +243,15 @@ def _prepare_reference_video(frames, loaded_fps: float, frame_count: int):
 
 
 def _qwen_image_settings(image_policy: str) -> tuple[tuple[int, int], dict]:
-    """Return the settings owned by the selected Qwen STILL-image policy.
-
-    The sibling of :func:`_qwen_video_settings`, and the reason it exists: one
-    ceiling has three live values and nothing could select between them. The
-    installed ComfyUI code path uses `process_qwen2vl_images` defaults; the
-    current encoder artifact declares its own, far lower, snapshot; the release
-    declares a third. `reference_fit.py` read the first by introspection and
-    applied it as though it were universal, which is right for a native BF16
-    graph and wrong by orders of magnitude under the AWQ adapter -- and the fit
-    node cannot tell which it is feeding, because it has no `clip`.
-
-    `comfy` returns nothing to apply: it is the passthrough that leaves the
-    still exactly as core would, which is what every graph got before this
-    existed and therefore what the default has to be.
-    """
-    if image_policy == "comfy":
-        raise ValueError(
-            "the comfy still policy has no configured processor; callers must "
-            "skip the Qwen stage entirely rather than ask for its settings")
-    if image_policy == "release":
-        return image_pixel_bounds(), patch_geometry()
-    if image_policy == "encoder":
-        return source_image_pixel_bounds(), source_image_patch_geometry()
-    raise ValueError(f"no configured Qwen processor for policy {image_policy!r}")
+    """Delegate to `reference_geometry`, which the static readers share."""
+    return qwen_image_settings(image_policy)
 
 
 def _configured_qwen_image_size(
     width: int, height: int, image_policy: str,
 ) -> tuple[int, int]:
-    """Return the selected still policy's Qwen view as ``(width, height)``.
-
-    Pre-applying this is what puts both towers on one size. Core hands ONE
-    tensor to the VAE and stashes the SAME object for the conditioner, so a
-    Qwen-side resize that fires after the VAE has already encoded leaves the
-    DiT holding latent rows at one resolution and hidden states at another for
-    a single reference, silently. Resizing here means the tensor the VAE
-    encodes is the tensor Qwen wanted, and Qwen's own resize becomes identity.
-
-    `smart_resize` is imported from the installed processor rather than copied,
-    and it enforces a FLOOR as well as a ceiling: a still under the policy's
-    `min_pixels` is enlarged by it. That is a real behaviour of the declared
-    policy, not a bug to clamp away, and the caller logs it.
-    """
-    from transformers.models.qwen2_vl.image_processing_qwen2_vl import smart_resize
-
-    (min_pixels, max_pixels), geometry = _qwen_image_settings(image_policy)
-    factor = int(geometry["patch_size"]) * int(geometry["merge_size"])
-    target_h, target_w = smart_resize(
-        height=height, width=width, factor=factor,
-        min_pixels=min_pixels, max_pixels=max_pixels,
-    )
-    return int(target_w), int(target_h)
+    """Delegate to `reference_geometry`, which the static readers share."""
+    return qwen_image_size(width, height, image_policy)
 
 
 def _qwen_video_settings(video_policy: str) -> tuple[tuple[int, int], dict]:
@@ -511,7 +470,11 @@ def _compile_reference_records(
             # so a no-op resize is not free: it costs a full resample and a
             # float32 -> uint8 -> float32 quantization for nothing.
             if (target_w, target_h) == (source_w, source_h):
-                resized = image[:1]
+                # `[..., :3]` is NOT optional: `_resize` does it on every other
+                # path (`image[..., :3].movedim(...)`), so a bare `image[:1]`
+                # here would hand `vae.encode` a 4-channel RGBA reference that
+                # every pre-fold render had already been sliced to RGB.
+                resized = image[:1, ..., :3]
             else:
                 resized = _resize(image[:1], target_w, target_h, "disabled")
             logger.info(
@@ -524,10 +487,27 @@ def _compile_reference_records(
                 latent_rows(target_w, target_h))
             latent = vae.encode(resized)
             ref_items.append({"type": "image", "data": resized})
+            # Read the grid off the tensor the VAE returned, not off the pixel
+            # size. `target_*` is a multiple of 32 only because both installed
+            # processor configs declare patch_size 16 / merge_size 2; stage two
+            # derives its factor from whichever config is loaded, and an
+            # artifact declaring patch_size 14 (the Qwen2-VL value, and the
+            # reason `smart_resize`'s own default factor is 28) would make
+            # `target_w // 16` disagree with the latent silently, for one
+            # reference. This repo's "an assumption that has only ever met one
+            # implementation is not a tested assumption" case.
+            latent_h, latent_w = int(latent.shape[-2]), int(latent.shape[-1])
+            if (latent_h, latent_w) != (target_h // 16, target_w // 16):
+                logger.warning(
+                    "[h3] reference %d: the VAE returned a %dx%d latent grid "
+                    "where %dx%d pixels implies %dx%d. Using the VAE's. Check "
+                    "the loaded processor's patch/merge geometry.",
+                    index + 1, latent_h, latent_w, target_w, target_h,
+                    target_w // 16, target_h // 16)
             ref_blocks.append({
                 "kind": "image",
-                "latent_h": target_h // 16,
-                "latent_w": target_w // 16,
+                "latent_h": latent_h,
+                "latent_w": latent_w,
                 "latent": latent,
             })
             continue
