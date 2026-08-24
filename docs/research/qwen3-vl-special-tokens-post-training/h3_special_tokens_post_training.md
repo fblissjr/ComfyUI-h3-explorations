@@ -3,6 +3,10 @@
 Last updated: 2026-08-23. This is a research proposal, not a training recipe or
 a released adapter.
 
+> **Authority notice, 2026-08-24:** This remains a non-canonical research
+> proposal. The shared facts, unknowns, and accepted work order now live in
+> [`canonical/`](canonical/README.md). Canonical files win on conflict.
+
 ## Short answer
 
 The seven H3 markers are real tokenizer entries, but their Qwen embedding rows
@@ -64,11 +68,14 @@ One fact that is *not* established is the tokenizer configuration used for
 MiniMax's DiT training. Untrained rows prove that Qwen did not learn them. They
 do not prove that the frozen encoder never emitted them while the DiT trained.
 
-## Why the original prototype was removed
+## Why the original prototype was retired
 
 The first draft paired a sound high-level warning with code that violated it.
-The code and synthetic JSONL samples were removed rather than published as a
-runnable recipe.
+The code was removed from the active research surface and retained only as
+non-executable historical source in the
+[`special-token-prototype` archive](archive/rejected/special-token-prototype/README.md).
+The generated synthetic JSONL was deleted after its hash and measured defects
+were recorded there.
 
 | Prototype behavior | Why it was invalid |
 |---|---|
@@ -80,7 +87,7 @@ runnable recipe.
 | Saved a full replacement embedding table | The result would be roughly 1.5 GiB in BF16, lacked source hashes and sparse-row metadata, and was not loadable by the current ComfyUI node as an overlay. |
 | Suggested batch four on one GPU | A BF16 Qwen3-VL-32B training forward plus optimizer state cannot fit a 24 GiB RTX 4090. |
 | Treated generated prompt strings as training data | Diffusion grounding requires licensed target video/audio (or a justified teacher signal), exact H3 preprocessing, and reproducible noise/timestep records. |
-| Included caption examples | The caption-token semantics are not documented in either official prompt guide and have not been behaviorally established here. |
+| Included caption examples | The caption-token semantics are not documented in either official prompt guide. A later owner-reviewed arm set demonstrated a behavioral effect in its tested setup, but that does not turn synthetic caption strings into dialogue-training data or establish the behavior of the other markers. |
 
 The 100-row samples also had very low combinatorial diversity: the
 "contrastive" file contained only 61 unique complete rows, and its alleged
@@ -254,8 +261,10 @@ voice-activity intervals where licensing and annotation permit it.
   endpoint plus naturally completed controls. The official prose spells this
   `<cutoff>` while the tokenizer declares `<|cutoff|>`; the contract must be
   settled first.
-- Caption markers should remain out of training until their intended behavior
-  is established. Neither official guide documents them.
+- Caption markers are behaviorally active in the owner-reviewed 2026-08-23 arm
+  set, despite being absent from both official prompt guides. Keep them out of
+  the dialogue pilot: their effect, target behavior, data, and evaluation are a
+  separate problem, and one tested setup does not justify retuning their rows.
 
 ## Evaluation and stop conditions
 

@@ -1,0 +1,190 @@
+{
+  "probe": "ComfyUI vs Transformers M-RoPE position-id parity",
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0"
+  },
+  "cases": [
+    {
+      "agree": true,
+      "shape": [
+        3,
+        15
+      ],
+      "mismatched_positions": 0,
+      "case": "single square block",
+      "blocks": [
+        [
+          4,
+          4
+        ]
+      ],
+      "seq_len": 15
+    },
+    {
+      "agree": true,
+      "shape": [
+        3,
+        23
+      ],
+      "mismatched_positions": 0,
+      "case": "single wide block",
+      "blocks": [
+        [
+          4,
+          12
+        ]
+      ],
+      "seq_len": 23
+    },
+    {
+      "agree": true,
+      "shape": [
+        3,
+        23
+      ],
+      "mismatched_positions": 0,
+      "case": "single tall block",
+      "blocks": [
+        [
+          12,
+          4
+        ]
+      ],
+      "seq_len": 23
+    },
+    {
+      "agree": true,
+      "shape": [
+        3,
+        23
+      ],
+      "mismatched_positions": 0,
+      "case": "two equal blocks",
+      "blocks": [
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "seq_len": 23
+    },
+    {
+      "agree": true,
+      "shape": [
+        3,
+        47
+      ],
+      "mismatched_positions": 0,
+      "case": "three mixed blocks",
+      "blocks": [
+        [
+          4,
+          4
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          8,
+          6
+        ]
+      ],
+      "seq_len": 47
+    },
+    {
+      "agree": true,
+      "shape": [
+        3,
+        99
+      ],
+      "mismatched_positions": 0,
+      "case": "nine blocks, Ref2VA shaped",
+      "blocks": [
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          6,
+          6
+        ]
+      ],
+      "seq_len": 99
+    }
+  ],
+  "mutation_control": {
+    "agree": false,
+    "shape": [
+      3,
+      31
+    ],
+    "mismatched_positions": 24,
+    "first_mismatch": 13,
+    "last_mismatch": 24,
+    "comfy_at_first": [
+      11,
+      11,
+      11
+    ],
+    "transformers_at_first": [
+      10,
+      10,
+      11
+    ],
+    "distinct_deltas": 3,
+    "sample_deltas": [
+      [
+        -3,
+        -1,
+        0
+      ],
+      [
+        1,
+        1,
+        0
+      ],
+      [
+        1,
+        0,
+        4
+      ]
+    ],
+    "detects_mutation": true
+  },
+  "all_agree": true
+}

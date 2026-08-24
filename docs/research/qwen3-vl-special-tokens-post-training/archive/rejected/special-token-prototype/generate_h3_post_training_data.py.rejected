@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+"""Dataset Generator for MiniMax H3 Special Tokens Research.
+
+Generates paired contrastive datasets following the DiT-grounded consumer principle:
+1. Dialogue Contrast: Spoken tagged <d>...</d> vs identical untagged text (mouth articulating vs silent reading).
+2. Lyric Contrast: Sung <|lyrics_start|>...<|lyrics_end|> vs spoken narration.
+3. Omni-Reference: Multi-image character identity preservation (<Subject 1>, <Picture 1>, retention_analysis:).
+4. Keyframe Anchors: At 0.00 seconds ... <Picture 1>, At 4.50 seconds ... <Picture 2>.
+5. Regression Anchors: Standard prompt schemas without special markers to enforce zero Layer 50 drift.
+
+Usage:
+    python generate_h3_post_training_data.py --output ../data/h3_contrastive_pairs_1k.jsonl --num_pairs 1000
+"""
+
+import argparse
+import json
+import random
+from pathlib import Path
+
+CHARACTERS = [
+    ("a cybernetic detective", "wearing a worn trenchcoat and glowing ocular implant", "detective office with rain streaked neon windows"),
+    ("a medieval knight", "in polished plate armor bearing a silver lion crest", "torchlit stone castle courtyard"),
+    ("an astrophysicist", "wearing lab goggles and a white research coat", "high-tech observatory overlooking a starry galaxy"),
+    ("a deep sea diver", "in a heavy vintage brass diving helmet", "sunken galleon surrounded by bioluminescent jellyfish"),
+    ("a cyberpunk street racer", "wearing an illuminated leather jacket and racing helmet", "damp underground neon tunnel with wet asphalt reflections"),
+    ("a vintage aircraft pilot", "wearing a shearling bomber jacket and leather aviator cap", "cockpit of a twin-engine prop plane flying through golden clouds"),
+    ("a desert wanderer", "wrapped in sand-blown linen robes and brass goggles", "sweeping golden sand dunes under a blazing twin sun"),
+]
+
+DIALOGUE_LINES = {
+    "English": [
+        "We only have a few moments before the system locks us out.",
+        "Look closely at the coordinate markings on the map.",
+        "Hold your position until the secondary unit confirms contact.",
+        "The atmospheric pressure is dropping faster than anticipated.",
+        "Initialize the backup power relays before the core overheats.",
+        "The primary compression valve is failing, shut down the turbine immediately!",
+    ],
+    "Chinese": [
+        "系统锁定之前，我们只剩下最后几分钟了。",
+        "仔细观察地图上的坐标标记，不要遗漏任何细节。",
+        "保持当前位置，等待第二小队确认信号联络。",
+        "核心温度正在迅速上升，立即启动备用冷却系统。",
+    ],
+    "Spanish": [
+        "Solo tenemos unos momentos antes de que el sistema se bloquee.",
+        "Mantén tu posición hasta que el equipo secundario confirme contacto.",
+    ],
+    "Japanese": [
+        "システムがロックされるまで、あと数分しかありません。",
+        "第2部隊の信号確認が取れるまで、現在位置を維持してください。",
+    ],
+}
+
+LYRIC_LINES = [
+    ("80s synthwave with analog synthesizers and rhythmic drums", "Chasing neon shadows through the midnight rain, we will never fade away"),
+    ("cinematic orchestral strings and booming timpani", "Rise from the ashes into the golden light of dawn"),
+    ("gritty delta blues slide guitar and acoustic bass", "Walking down this lonesome road, nowhere left to turn"),
+    ("ambient electronic soundscape with airy vocal pads", "Floating through silent oceans of starlight and time"),
+]
+
+def generate_dialogue_contrast_pair():
+    char, outfit, setting = random.choice(CHARACTERS)
+    lang = random.choice(list(DIALOGUE_LINES.keys()))
+    line = random.choice(DIALOGUE_LINES[lang])
+
+    # Positive: Spoken dialogue (character articulating speech)
+    positive_prompt = (
+        f"<Subject 1> <Picture 1> {char.capitalize()} {outfit} in {setting}. "
+        f"[Shot 1] Medium close-up as <Subject 1> speaks directly: "
+        f"<d>[{lang}] \"{line}\"</d> "
+        f"overall_soundscape: ambient room acoustics and distant mechanical hum."
+    )
+
+    # Negative / Contrast: Silent reading (character mouth closed, internal thoughts)
+    contrast_prompt = (
+        f"<Subject 1> <Picture 1> {char.capitalize()} {outfit} in {setting}. "
+        f"[Shot 1] Medium close-up as <Subject 1> silently reads a document: "
+        f"\"{line}\" "
+        f"overall_soundscape: ambient room acoustics and distant mechanical hum."
+    )
+
+    return {
+        "experiment": "dialogue_tag_grounding",
+        "pair_type": "spoken_vs_silent_reading",
+        "language": lang,
+        "positive": positive_prompt,
+        "contrast": contrast_prompt,
+        "tokens_evaluated": ["<d>", "</d>"]
+    }
+
+def generate_lyric_contrast_pair():
+    char, outfit, setting = random.choice(CHARACTERS)
+    genre, lyric = random.choice(LYRIC_LINES)
+
+    # Positive: Sung lyrics (melodic pitch & rhythm)
+    positive_prompt = (
+        f"integrated_multimodal_description: Cinematic visual of {char} {outfit} in {setting}. "
+        f"overall_soundscape: ambient reverb and distant cheering. "
+        f"non_diegetic_music: {genre}: <|lyrics_start|> {lyric} <|lyrics_end|>"
+    )
+
+    # Negative / Contrast: Spoken voiceover narration over track
+    contrast_prompt = (
+        f"integrated_multimodal_description: Cinematic visual of {char} {outfit} in {setting}. "
+        f"overall_soundscape: ambient reverb and distant cheering. "
+        f"non_diegetic_music: {genre} with spoken voiceover: {lyric}."
+    )
+
+    return {
+        "experiment": "lyric_tag_grounding",
+        "pair_type": "sung_vs_spoken_narration",
+        "genre": genre,
+        "positive": positive_prompt,
+        "contrast": contrast_prompt,
+        "tokens_evaluated": ["<|lyrics_start|>", "<|lyrics_end|>"]
+    }
+
+def generate_omni_reference_sample():
+    char, outfit, setting = random.choice(CHARACTERS)
+    action_setting = random.choice(["ancient ruin", "neon alleyway", "snowy fortress", "desert outpost", "orbital space station"])
+
+    prompt = (
+        f"<Subject 1> <Picture 1> <Picture 2> {char.capitalize()} {outfit}. "
+        f"retention_analysis: Maintain precise facial bone structure, jawline definition, and clothing textures across all camera angles. "
+        f"summary: [reference generation] <Subject 1> exploring a mysterious {action_setting} during sunset. "
+        f"[Shot 1] Low-angle tracking shot following <Subject 1>."
+    )
+    return {
+        "experiment": "omni_reference_grounding",
+        "pair_type": "multi_image_character_retention",
+        "positive": prompt,
+        "contrast": None,
+        "tokens_evaluated": ["<Subject 1>", "<Picture 1>", "<Picture 2>"]
+    }
+
+def generate_keyframe_anchor_sample():
+    char, outfit, setting = random.choice(CHARACTERS)
+    time_start = "0.00"
+    time_end = f"{random.uniform(3.0, 5.0):.2f}"
+
+    prompt = (
+        f"At {time_start} seconds into the target video, <Picture 1> showing {char} {outfit} in {setting}. "
+        f"At {time_end} seconds, the camera dollies forward into a dramatic low-angle close-up as lighting shifts dynamically. "
+        f"<|caption_start|> Act I: The Awakening <|caption_end|>"
+    )
+    return {
+        "experiment": "keyframe_anchor_grounding",
+        "pair_type": "temporal_frame_interpolation",
+        "positive": prompt,
+        "contrast": None,
+        "tokens_evaluated": ["<|caption_start|>", "<|caption_end|>", "<Picture 1>"]
+    }
+
+def generate_regression_anchor():
+    char, outfit, setting = random.choice(CHARACTERS)
+    action = random.choice(["walking forward slowly", "looking up at the stars", "repairing a circuit board", "adjusting the control dial"])
+
+    prompt = (
+        f"<Subject 1> <Picture 1> {char.capitalize()} {outfit} in {setting}. "
+        f"[Shot 1] Wide angle shot showing <Subject 1> {action}. "
+        f"overall_soundscape: ambient environmental breeze and distant mechanical hum."
+    )
+    return {
+        "experiment": "regression_anchor",
+        "pair_type": "standard_prompt_no_markers",
+        "positive": prompt,
+        "contrast": None,
+        "tokens_evaluated": []
+    }
+
+def main():
+    parser = argparse.ArgumentParser(description="Generate contrastive paired H3 post-training dataset")
+    parser.add_argument("--output", type=str, default="../data/h3_contrastive_pairs_1k.jsonl", help="Output JSONL path")
+    parser.add_argument("--num_pairs", type=int, default=1000, help="Number of pairs to generate")
+    args = parser.parse_args()
+
+    out_path = Path(args.output)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    samples = []
+    print(f"Generating {args.num_pairs} structured contrastive H3 research pairs...")
+
+    generators = [
+        (generate_dialogue_contrast_pair, 0.40),
+        (generate_lyric_contrast_pair, 0.25),
+        (generate_omni_reference_sample, 0.15),
+        (generate_keyframe_anchor_sample, 0.10),
+        (generate_regression_anchor, 0.10),
+    ]
+
+    for _ in range(args.num_pairs):
+        r = random.random()
+        cumulative = 0.0
+        for gen_fn, weight in generators:
+            cumulative += weight
+            if r <= cumulative:
+                samples.append(gen_fn())
+                break
+
+    random.shuffle(samples)
+    with open(out_path, "w", encoding="utf-8") as f:
+        for s in samples:
+            f.write(json.dumps(s, ensure_ascii=False) + "\n")
+
+    print(f"SUCCESS: Saved {len(samples)} contrastive research pairs to {out_path.resolve()}")
+
+if __name__ == "__main__":
+    main()

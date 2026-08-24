@@ -1,0 +1,93 @@
+{
+  "source": "StellarVoyager/H3-IR",
+  "source_revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e",
+  "rows_read": 1110,
+  "pool": 1028,
+  "excluded": 82,
+  "exclusion_reasons": {
+    "text-only": 82
+  },
+  "primary_roles": {
+    "keyframe-only": 91,
+    "video-reference": 20,
+    "single-image": 79,
+    "keyframe-plus-reference": 40,
+    "multi-image-2-3": 520,
+    "multi-image-4-9": 278
+  },
+  "overlays_by_role": {
+    "keyframe-only": {
+      "dialogue": 30,
+      "audio_label": 1,
+      "wide_or_tall": 68,
+      "small_source": 4
+    },
+    "video-reference": {
+      "audio_label": 18,
+      "dialogue": 13,
+      "wide_or_tall": 3
+    },
+    "single-image": {
+      "dialogue": 31,
+      "wide_or_tall": 14,
+      "audio_label": 1,
+      "small_source": 1
+    },
+    "keyframe-plus-reference": {
+      "dialogue": 12,
+      "audio_label": 4,
+      "wide_or_tall": 27
+    },
+    "multi-image-2-3": {
+      "dialogue": 249,
+      "wide_or_tall": 125,
+      "audio_label": 37,
+      "small_source": 2
+    },
+    "multi-image-4-9": {
+      "wide_or_tall": 104,
+      "dialogue": 170,
+      "audio_label": 59
+    }
+  },
+  "duplicate_normalized_prompts": 0,
+  "media_components": 410,
+  "media_components_multi_row": 154,
+  "rows_in_multi_row_components": 772,
+  "largest_media_component": 76,
+  "media_component_size_histogram": {
+    "1": 256,
+    "2": 74,
+    "3": 33,
+    "4": 10,
+    "5": 4,
+    "6": 8,
+    "7": 5,
+    "8": 4,
+    "9": 3,
+    "11": 2,
+    "12": 1,
+    "13": 1,
+    "17": 3,
+    "19": 1,
+    "21": 1,
+    "36": 2,
+    "37": 1,
+    "76": 1
+  },
+  "picture_roles": {
+    "keyframe": 141,
+    "reference": 2960
+  },
+  "rights": {
+    "StellarVoyager/H3-IR": {
+      "license": "cc0-1.0",
+      "declared_in": "dataset tag, README front matter, and per-row `license` + `redistribution_allowed` fields",
+      "eligible": true
+    }
+  },
+  "notes": [
+    "Primary roles partition the pool; overlays are counted across it and are not additive with the roles.",
+    "No population size is chosen here. Selection needs a feasibility-measured N, which is owned by the encoder/quant lane."
+  ]
+}

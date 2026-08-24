@@ -1,0 +1,276 @@
+{
+  "probe": "ComfyUI vs Transformers Qwen3-VL vision-tower parity",
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0"
+  },
+  "state_dict_keys_agree": true,
+  "num_shared_keys": 39,
+  "cases": [
+    {
+      "case": "single square block",
+      "grids": [
+        [
+          4,
+          4
+        ]
+      ],
+      "patch_rows": 16,
+      "tensors": [
+        {
+          "tensor": "merged",
+          "comparable": true,
+          "shape": [
+            4,
+            64
+          ],
+          "max_abs_diff": 5.960464477539063e-08,
+          "mean_abs_diff": 6.832124199718237e-09,
+          "relative_l2": 6.787508510797124e-08,
+          "exact": false
+        },
+        {
+          "tensor": "deepstack[0]",
+          "comparable": true,
+          "shape": [
+            4,
+            64
+          ],
+          "max_abs_diff": 0.0,
+          "mean_abs_diff": 0.0,
+          "relative_l2": 0.0,
+          "exact": true
+        }
+      ]
+    },
+    {
+      "case": "single wide block",
+      "grids": [
+        [
+          4,
+          12
+        ]
+      ],
+      "patch_rows": 48,
+      "tensors": [
+        {
+          "tensor": "merged",
+          "comparable": true,
+          "shape": [
+            12,
+            64
+          ],
+          "max_abs_diff": 1.7881393432617188e-07,
+          "mean_abs_diff": 1.9011205054653146e-08,
+          "relative_l2": 1.4539982373662497e-07,
+          "exact": false
+        },
+        {
+          "tensor": "deepstack[0]",
+          "comparable": true,
+          "shape": [
+            12,
+            64
+          ],
+          "max_abs_diff": 2.384185791015625e-07,
+          "mean_abs_diff": 9.53756806865158e-09,
+          "relative_l2": 1.150435764429858e-07,
+          "exact": false
+        }
+      ]
+    },
+    {
+      "case": "single tall block",
+      "grids": [
+        [
+          12,
+          4
+        ]
+      ],
+      "patch_rows": 48,
+      "tensors": [
+        {
+          "tensor": "merged",
+          "comparable": true,
+          "shape": [
+            12,
+            64
+          ],
+          "max_abs_diff": 1.7881393432617188e-07,
+          "mean_abs_diff": 1.9494185821145038e-08,
+          "relative_l2": 1.4880821197493788e-07,
+          "exact": false
+        },
+        {
+          "tensor": "deepstack[0]",
+          "comparable": true,
+          "shape": [
+            12,
+            64
+          ],
+          "max_abs_diff": 1.1920928955078125e-07,
+          "mean_abs_diff": 8.378265192732215e-09,
+          "relative_l2": 1.0439148923069297e-07,
+          "exact": false
+        }
+      ]
+    },
+    {
+      "case": "two equal blocks",
+      "grids": [
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "patch_rows": 32,
+      "tensors": [
+        {
+          "tensor": "merged",
+          "comparable": true,
+          "shape": [
+            8,
+            64
+          ],
+          "max_abs_diff": 8.940696716308594e-08,
+          "mean_abs_diff": 6.628397386521101e-09,
+          "relative_l2": 7.659279788185813e-08,
+          "exact": false
+        },
+        {
+          "tensor": "deepstack[0]",
+          "comparable": true,
+          "shape": [
+            8,
+            64
+          ],
+          "max_abs_diff": 2.9802322387695312e-08,
+          "mean_abs_diff": 3.2741809263825417e-10,
+          "relative_l2": 1.2379728353550945e-08,
+          "exact": false
+        }
+      ]
+    },
+    {
+      "case": "three mixed blocks",
+      "grids": [
+        [
+          4,
+          4
+        ],
+        [
+          6,
+          8
+        ],
+        [
+          8,
+          6
+        ]
+      ],
+      "patch_rows": 112,
+      "tensors": [
+        {
+          "tensor": "merged",
+          "comparable": true,
+          "shape": [
+            28,
+            64
+          ],
+          "max_abs_diff": 1.341104507446289e-07,
+          "mean_abs_diff": 2.1453420373518384e-08,
+          "relative_l2": 1.548193893086136e-07,
+          "exact": false
+        },
+        {
+          "tensor": "deepstack[0]",
+          "comparable": true,
+          "shape": [
+            28,
+            64
+          ],
+          "max_abs_diff": 1.4901161193847656e-07,
+          "mean_abs_diff": 1.0722682297625852e-08,
+          "relative_l2": 1.0894300572772408e-07,
+          "exact": false
+        }
+      ]
+    },
+    {
+      "case": "nine blocks, Ref2VA shaped",
+      "grids": [
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          6,
+          6
+        ],
+        [
+          6,
+          6
+        ]
+      ],
+      "patch_rows": 224,
+      "tensors": [
+        {
+          "tensor": "merged",
+          "comparable": true,
+          "shape": [
+            56,
+            64
+          ],
+          "max_abs_diff": 1.1920928955078125e-07,
+          "mean_abs_diff": 1.1537655275617453e-08,
+          "relative_l2": 1.0222802870885062e-07,
+          "exact": false
+        },
+        {
+          "tensor": "deepstack[0]",
+          "comparable": true,
+          "shape": [
+            56,
+            64
+          ],
+          "max_abs_diff": 1.043081283569336e-07,
+          "mean_abs_diff": 2.863572490241495e-09,
+          "relative_l2": 4.775901984999109e-08,
+          "exact": false
+        }
+      ]
+    }
+  ],
+  "mutation_control": {
+    "detects_mutation": true,
+    "max_abs_diff": 0.3626391887664795
+  }
+}

@@ -1,0 +1,499 @@
+{
+  "path_policy": "machine-local paths removed; logical identifiers only",
+  "schema_version": "h3-layer50-comparison-v1",
+  "comparison_kind": "weight_only",
+  "processor_policy": "shared_current_w4",
+  "processor_policy_record": {
+    "name": "shared_current_w4",
+    "scope": "weight-only shared policy; current W4 source processor with its snapshotted image bounds",
+    "changed_from_current_w4": [],
+    "effective_still_bounds": {
+      "longest_edge": 301056,
+      "shortest_edge": 200704
+    },
+    "effective_image_processor_config": {
+      "do_convert_rgb": true,
+      "do_normalize": true,
+      "do_rescale": true,
+      "do_resize": true,
+      "image_mean": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "image_processor_type": "Qwen2VLImageProcessor",
+      "image_std": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "merge_size": 2,
+      "patch_size": 16,
+      "resample": 3,
+      "rescale_factor": 0.00392156862745098,
+      "size": {
+        "longest_edge": 301056,
+        "shortest_edge": 200704
+      },
+      "temporal_patch_size": 2
+    },
+    "effective_image_processor_config_sha256": "ae61256b7d019808d96f8df9b5edc9325929f36deca81ad2d15c08739f742bdd",
+    "effective_video_policy": "current_w4_snapshot_unchanged",
+    "source_files": [
+      {
+        "role": "current_w4_processor_snapshot",
+        "path": "config/qwen3vl_32b_minimax_h3_w4a16_awq/processor_config.json",
+        "sha256": "62be31450acaccdf8ef9a528e31a1d511918db85132bc9b8b708f254311306a0"
+      },
+      {
+        "role": "current_w4_video_snapshot_unchanged",
+        "path": "config/qwen3vl_32b_minimax_h3_w4a16_awq/video_preprocessor_config.json",
+        "sha256": "00bd47a5eaaf8760744a12658cd99ba168b818edc4c0a983b90157289c8e546a"
+      }
+    ]
+  },
+  "accumulation_dtype": "float64",
+  "comparison_provenance": {
+    "compared_at": "2026-08-24T16:52:43.401753+00:00",
+    "comparison_script_sha256": "da85bfdd4fa063ec9f8c7f5d40377aea7edfbb7b994120bb144fe0ecc752ea8d"
+  },
+  "reference_capture": {
+    "directory": "bf16-current-1080p-max",
+    "manifest_sha256": "93e2d80144903d237dc0fd0934765a28f880a311f582adf808fe56b64e39d535",
+    "model": {
+      "arm": "bf16",
+      "source": {
+        "directory": "bf16-model:text_encoder",
+        "selected_tensor_count": 902,
+        "mapped_shard_bytes": 56962931704
+      },
+      "files": [
+        {
+          "name": "model.safetensors.index.json",
+          "size": 97831,
+          "sha256": "06c952c569285870b811989b794b9766493e280fb77fbcb957fc4e5fcf25403a"
+        },
+        {
+          "name": "model-00001-of-00014.safetensors",
+          "size": 4932328944,
+          "sha256": "6b9dfbc930e505402ae9d7e5091a9d7d656cda5f34614f01cfe70bfb0cca27cb"
+        },
+        {
+          "name": "model-00002-of-00014.safetensors",
+          "size": 4875990528,
+          "sha256": "d8bb44b4ff303fe76fe9e894022fb3dc71b15a2e716592790fe0e3c3e60478fa"
+        },
+        {
+          "name": "model-00003-of-00014.safetensors",
+          "size": 4875990552,
+          "sha256": "54f22e8b3168f8dc962fac0d313607ebf52a12b433d4cf3098a0d82d9f042940"
+        },
+        {
+          "name": "model-00004-of-00014.safetensors",
+          "size": 4875990584,
+          "sha256": "ad09c74d3c13ee29b5d0d84548fd8a3424a651564eaccd519946c296e59c557f"
+        },
+        {
+          "name": "model-00005-of-00014.safetensors",
+          "size": 4875990584,
+          "sha256": "fc993c8a0e2a5b0570f383e1a95dc3a1281d1b224b6f3ee908f4827941e1dfc2"
+        },
+        {
+          "name": "model-00006-of-00014.safetensors",
+          "size": 4875990584,
+          "sha256": "82f05620d1f718a90c362b221d6a184ff1a0f53301d706882d3df49695fa1974"
+        },
+        {
+          "name": "model-00007-of-00014.safetensors",
+          "size": 4875990584,
+          "sha256": "fb91da8cb01ff4de3eef0eab1c3e769a734b3a1aafc61734068638a0d6c86934"
+        },
+        {
+          "name": "model-00008-of-00014.safetensors",
+          "size": 4875990584,
+          "sha256": "431ca56535c8781944ce3801f5eb61c45531e853ecc5846d936ebaf4761b764f"
+        },
+        {
+          "name": "model-00009-of-00014.safetensors",
+          "size": 4875990584,
+          "sha256": "3825e3f4302f4d2f7d76aa7430d2ce0864fde6b9e540a5806bf0d8e38e4d9f47"
+        },
+        {
+          "name": "model-00010-of-00014.safetensors",
+          "size": 4875990584,
+          "sha256": "aded5a4d1d5e22dbd8b6f79266b6eb88c840411b09527c53917a1419ace22e2f"
+        },
+        {
+          "name": "model-00011-of-00014.safetensors",
+          "size": 4875990584,
+          "sha256": "3820ffe8d8d6477f6fe8d614ef3c87abb264ee39accebf43a1507b970d80946f"
+        },
+        {
+          "name": "model-00014-of-00014.safetensors",
+          "size": 3270697008,
+          "sha256": "e45b6c9998c77ee5a6577f9f47bc76416c1d4d387169e50c4c9d3134ea51b13b"
+        }
+      ],
+      "shared_processor_configs": [
+        {
+          "role": "current_w4_processor_snapshot",
+          "path": "config/qwen3vl_32b_minimax_h3_w4a16_awq/processor_config.json",
+          "sha256": "62be31450acaccdf8ef9a528e31a1d511918db85132bc9b8b708f254311306a0"
+        },
+        {
+          "role": "current_w4_video_snapshot_unchanged",
+          "path": "config/qwen3vl_32b_minimax_h3_w4a16_awq/video_preprocessor_config.json",
+          "sha256": "00bd47a5eaaf8760744a12658cd99ba168b818edc4c0a983b90157289c8e546a"
+        }
+      ],
+      "effective_image_processor_config_sha256": "ae61256b7d019808d96f8df9b5edc9325929f36deca81ad2d15c08739f742bdd"
+    },
+    "provenance": {
+      "captured_at": "2026-08-24T16:52:02.653644+00:00",
+      "repo_commit": "9b164ebacb5bccf3f56fb344bb33bb0fa0b3e6bb",
+      "repo_dirty": true,
+      "comfyui_commit": "b78cec879b9460d5cb25228a83a942fb78d2cd24",
+      "comfyui_dirty": true,
+      "capture_script_sha256": "93e0babf803e667cbdf962bf51672b263ef04e3356b42f85dd012b1a1c771462",
+      "h3_awq_adapter_sha256": "3f7c09df442e9fc736c01a5f3abe4e4104072c761baa802763587fef340e4854",
+      "implementation_files": [
+        {
+          "path": "comfy/sd.py",
+          "sha256": "35ce040db161945c4a3f41bc435c30922b3bad7143f996896fbe5293c99d4f31"
+        },
+        {
+          "path": "comfy/sd1_clip.py",
+          "sha256": "cada45bf2cd1e2e20d24a46b959d86fc9f5529953456bb21471735f036e2dc70"
+        },
+        {
+          "path": "comfy/text_encoders/llama.py",
+          "sha256": "de20f78e44a4cbd911ff7cc32a0ef74e1bcb7b202372f9e552f49ce78383d027"
+        },
+        {
+          "path": "comfy/text_encoders/minimax.py",
+          "sha256": "0e16e44100d6db2bdfd1292eafd1b2f8d71147c546f49afe292fe4d2cdcefe8a"
+        },
+        {
+          "path": "comfy/text_encoders/qwen3vl.py",
+          "sha256": "1004f4184c8ca5da74e4147a706bc4f1c9bd1a19ae63db74f3cab88ded0f0255"
+        },
+        {
+          "path": "comfy/text_encoders/qwen_vl.py",
+          "sha256": "3ac8d517b5adf33bd7c3c87c505cee79537dc5a3981a577f8d43bfe5eba80c16"
+        }
+      ],
+      "python": "3.13.9 (main, Oct 28 2025, 12:10:42) [Clang 20.1.4 ]",
+      "torch": "2.13.0+cu132",
+      "cuda_runtime": "13.2",
+      "extra_reserved_vram_bytes": 4294967296,
+      "gpu": "NVIDIA GeForce RTX 4090"
+    }
+  },
+  "candidate_capture": {
+    "directory": "w4-current-1080p-max",
+    "manifest_sha256": "26fc937fc52f3b5556d6d61cc77115d8dcee1abebea4bc970b15e1e193f99bcd",
+    "model": {
+      "arm": "w4",
+      "source": {
+        "selected_path": "comfy-models:text_encoders/qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
+        "resolved_path": "artifact:qwen3vl_32b_minimax_h3_w4a16_awq.safetensors"
+      },
+      "files": [
+        {
+          "name": "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
+          "size": 20394199288,
+          "sha256": "4d34831ddb7a5b9c8660fbf8eb6740b3cccace518fea883e4a41a76cc20b4dad"
+        }
+      ],
+      "shared_processor_configs": [
+        {
+          "role": "current_w4_processor_snapshot",
+          "path": "config/qwen3vl_32b_minimax_h3_w4a16_awq/processor_config.json",
+          "sha256": "62be31450acaccdf8ef9a528e31a1d511918db85132bc9b8b708f254311306a0"
+        },
+        {
+          "role": "current_w4_video_snapshot_unchanged",
+          "path": "config/qwen3vl_32b_minimax_h3_w4a16_awq/video_preprocessor_config.json",
+          "sha256": "00bd47a5eaaf8760744a12658cd99ba168b818edc4c0a983b90157289c8e546a"
+        }
+      ],
+      "effective_image_processor_config_sha256": "ae61256b7d019808d96f8df9b5edc9325929f36deca81ad2d15c08739f742bdd"
+    },
+    "provenance": {
+      "captured_at": "2026-08-24T16:52:33.204655+00:00",
+      "repo_commit": "9b164ebacb5bccf3f56fb344bb33bb0fa0b3e6bb",
+      "repo_dirty": true,
+      "comfyui_commit": "b78cec879b9460d5cb25228a83a942fb78d2cd24",
+      "comfyui_dirty": true,
+      "capture_script_sha256": "93e0babf803e667cbdf962bf51672b263ef04e3356b42f85dd012b1a1c771462",
+      "h3_awq_adapter_sha256": "3f7c09df442e9fc736c01a5f3abe4e4104072c761baa802763587fef340e4854",
+      "implementation_files": [
+        {
+          "path": "comfy/sd.py",
+          "sha256": "35ce040db161945c4a3f41bc435c30922b3bad7143f996896fbe5293c99d4f31"
+        },
+        {
+          "path": "comfy/sd1_clip.py",
+          "sha256": "cada45bf2cd1e2e20d24a46b959d86fc9f5529953456bb21471735f036e2dc70"
+        },
+        {
+          "path": "comfy/text_encoders/llama.py",
+          "sha256": "de20f78e44a4cbd911ff7cc32a0ef74e1bcb7b202372f9e552f49ce78383d027"
+        },
+        {
+          "path": "comfy/text_encoders/minimax.py",
+          "sha256": "0e16e44100d6db2bdfd1292eafd1b2f8d71147c546f49afe292fe4d2cdcefe8a"
+        },
+        {
+          "path": "comfy/text_encoders/qwen3vl.py",
+          "sha256": "1004f4184c8ca5da74e4147a706bc4f1c9bd1a19ae63db74f3cab88ded0f0255"
+        },
+        {
+          "path": "comfy/text_encoders/qwen_vl.py",
+          "sha256": "3ac8d517b5adf33bd7c3c87c505cee79537dc5a3981a577f8d43bfe5eba80c16"
+        }
+      ],
+      "python": "3.13.9 (main, Oct 28 2025, 12:10:42) [Clang 20.1.4 ]",
+      "torch": "2.13.0+cu132",
+      "cuda_runtime": "13.2",
+      "extra_reserved_vram_bytes": 4294967296,
+      "gpu": "NVIDIA GeForce RTX 4090"
+    }
+  },
+  "alignment_fields_required": [
+    "expanded_token_ids_sha256",
+    "sequence_length",
+    "ordered_media",
+    "visual_patches",
+    "grid_thw",
+    "vision_spans",
+    "token_tags_sha256",
+    "attention_mask_sha256",
+    "position_ids_sha256",
+    "input_embeds_sha256",
+    "text_positions",
+    "vision_positions",
+    "marker_positions"
+  ],
+  "aggregate": {
+    "all": {
+      "available": true,
+      "rows": 297,
+      "elements": 1520640,
+      "flattened_cosine": 0.9989620756237275,
+      "mse": 6.056218244498809,
+      "rmse": 2.460938488564639,
+      "relative_l2": 0.09590251370113446,
+      "reference_rms": 25.66083404480811,
+      "candidate_rms": 23.46855324445777,
+      "max_abs_error": 2470.669921875,
+      "tokenwise_cosine": {
+        "finite_rows": 297,
+        "minimum": 0.858610652234281,
+        "mean": 0.9819253176163665,
+        "p01": 0.9079162590182875,
+        "p05": 0.9614284321929616,
+        "p50": 0.9856811814676026,
+        "p95": 0.9943721589387844,
+        "p99": 0.9971299106670714,
+        "maximum": 0.999982414495105
+      }
+    },
+    "text": {
+      "available": true,
+      "rows": 31,
+      "elements": 158720,
+      "flattened_cosine": 0.9998877864468645,
+      "mse": 2.8187735026672858,
+      "rmse": 1.6789203383922913,
+      "relative_l2": 0.04077464804624632,
+      "reference_rms": 41.17559363082932,
+      "candidate_rms": 39.60946924471096,
+      "max_abs_error": 618.7890625,
+      "tokenwise_cosine": {
+        "finite_rows": 31,
+        "minimum": 0.9837095831987501,
+        "mean": 0.9924070506193199,
+        "p01": 0.9845896826858042,
+        "p05": 0.9869544682763288,
+        "p50": 0.9929250051303073,
+        "p95": 0.9962517272179876,
+        "p99": 0.9990747508547352,
+        "maximum": 0.9999584282998932
+      }
+    },
+    "vision": {
+      "available": true,
+      "rows": 266,
+      "elements": 1361920,
+      "flattened_cosine": 0.9992984347281418,
+      "mse": 6.433514436216017,
+      "rmse": 2.5364373511317044,
+      "relative_l2": 0.10939112845426209,
+      "reference_rms": 23.18686521450718,
+      "candidate_rms": 20.787446216383355,
+      "max_abs_error": 2470.669921875,
+      "tokenwise_cosine": {
+        "finite_rows": 266,
+        "minimum": 0.858610652234281,
+        "mean": 0.9807037622663981,
+        "p01": 0.9070004376117791,
+        "p05": 0.9603190631415464,
+        "p50": 0.9851340887619708,
+        "p95": 0.9936767039953451,
+        "p99": 0.9956455664266547,
+        "maximum": 0.999982414495105
+      }
+    },
+    "markers": {
+      "rows": 0,
+      "elements": 0,
+      "available": false
+    }
+  },
+  "fixtures": [
+    {
+      "fixture_id": "ref2va_single_image_1080p_max",
+      "family": "Ref2VA-still-max-no-upscale",
+      "prompt_sha256": "d1bf6fcee12a986826e9cf708944c7852ea1f08441b734822bb0b7009770a991",
+      "sequence_length": 297,
+      "text_rows": 31,
+      "vision_rows": 266,
+      "marker_rows": 0,
+      "expanded_token_ids_sha256": "4114ce121814fbd968b73f91d6cf9a6603a194d37af9a29aed1b6df94a0fb80b",
+      "ordered_media": [
+        {
+          "type": "image",
+          "tensor": {
+            "sha256": "09f2b5739b87858241b83655548d3a8e8d8bb8013412d6649b7e41cba31fc531",
+            "shape": [
+              1,
+              1088,
+              1920,
+              3
+            ],
+            "dtype": "float32"
+          }
+        }
+      ],
+      "visual_patches": [
+        {
+          "kind": "image",
+          "sha256": "42a01118f5778fd62a2342dabe89126b7e6451d3fc54258f7fe08691a3c61dc9",
+          "shape": [
+            1056,
+            1536
+          ],
+          "dtype": "float32",
+          "grid_thw": [
+            [
+              1,
+              24,
+              44
+            ]
+          ],
+          "source_media": {
+            "sha256": "09f2b5739b87858241b83655548d3a8e8d8bb8013412d6649b7e41cba31fc531",
+            "shape": [
+              1,
+              1088,
+              1920,
+              3
+            ],
+            "dtype": "float32"
+          }
+        }
+      ],
+      "grid_thw": [
+        [
+          1,
+          24,
+          44
+        ]
+      ],
+      "vision_spans": [
+        [
+          6,
+          271
+        ]
+      ],
+      "input_embeds_sha256": "ba5d273c79f56dc08a2d3f0439191961be144f3cbca4b0e39068acd6dd6113b3",
+      "metrics": {
+        "all": {
+          "available": true,
+          "rows": 297,
+          "elements": 1520640,
+          "flattened_cosine": 0.9989620756237275,
+          "mse": 6.056218244498809,
+          "rmse": 2.460938488564639,
+          "relative_l2": 0.09590251370113446,
+          "reference_rms": 25.66083404480811,
+          "candidate_rms": 23.46855324445777,
+          "max_abs_error": 2470.669921875,
+          "tokenwise_cosine": {
+            "finite_rows": 297,
+            "minimum": 0.858610652234281,
+            "mean": 0.9819253176163665,
+            "p01": 0.9079162590182875,
+            "p05": 0.9614284321929616,
+            "p50": 0.9856811814676026,
+            "p95": 0.9943721589387844,
+            "p99": 0.9971299106670714,
+            "maximum": 0.999982414495105
+          }
+        },
+        "text": {
+          "available": true,
+          "rows": 31,
+          "elements": 158720,
+          "flattened_cosine": 0.9998877864468645,
+          "mse": 2.8187735026672858,
+          "rmse": 1.6789203383922913,
+          "relative_l2": 0.04077464804624632,
+          "reference_rms": 41.17559363082932,
+          "candidate_rms": 39.60946924471096,
+          "max_abs_error": 618.7890625,
+          "tokenwise_cosine": {
+            "finite_rows": 31,
+            "minimum": 0.9837095831987501,
+            "mean": 0.9924070506193199,
+            "p01": 0.9845896826858042,
+            "p05": 0.9869544682763288,
+            "p50": 0.9929250051303073,
+            "p95": 0.9962517272179876,
+            "p99": 0.9990747508547352,
+            "maximum": 0.9999584282998932
+          }
+        },
+        "vision": {
+          "available": true,
+          "rows": 266,
+          "elements": 1361920,
+          "flattened_cosine": 0.9992984347281418,
+          "mse": 6.433514436216017,
+          "rmse": 2.5364373511317044,
+          "relative_l2": 0.10939112845426209,
+          "reference_rms": 23.18686521450718,
+          "candidate_rms": 20.787446216383355,
+          "max_abs_error": 2470.669921875,
+          "tokenwise_cosine": {
+            "finite_rows": 266,
+            "minimum": 0.858610652234281,
+            "mean": 0.9807037622663981,
+            "p01": 0.9070004376117791,
+            "p05": 0.9603190631415464,
+            "p50": 0.9851340887619708,
+            "p95": 0.9936767039953451,
+            "p99": 0.9956455664266547,
+            "maximum": 0.999982414495105
+          }
+        },
+        "markers": {
+          "rows": 0,
+          "elements": 0,
+          "available": false
+        }
+      }
+    }
+  ]
+}

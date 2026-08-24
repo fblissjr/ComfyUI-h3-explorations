@@ -1,6 +1,6 @@
 # Roadmap: what we are trying to find out, and what would count as finding it
 
-Last updated: 2026-08-23.
+Last updated: 2026-08-24.
 
 ## What this is, and who it is for
 
@@ -26,7 +26,16 @@ Two companion documents, and the split matters:
 relied on**. This file is the forward-looking one: what we are doing next and
 what would make it a real answer.
 
-## Current forward plan — 2026-08-23
+## Current forward plan — 2026-08-24
+
+**Parallel encoder lane, accepted 2026-08-24:** the next model artifact is a
+new native-H3-calibrated W4A16 AWQ candidate for multimodal conditioning. The
+immediate work is the exact calibration-seam proof, a bounded RTX 4090
+feasibility pilot, and an independently reviewed launch package. The deployed
+artifact remains unchanged, and no full quantization launch or special-token
+training is authorized by the roadmap alone. The detailed decisions, gates,
+roles, and stop conditions are owned by
+[`qwen3-vl-special-tokens-post-training/canonical/active_plan.md`](research/qwen3-vl-special-tokens-post-training/canonical/active_plan.md).
 
 The typed-reference migration is complete. Base-guide alignment is exact, the
 ordered resolver admits explicit VHS sources and traces branched audio, all 38

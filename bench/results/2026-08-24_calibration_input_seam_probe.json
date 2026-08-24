@@ -1,0 +1,220 @@
+{
+  "probe": "llm-compressor sequential-trace modality envelope (Qwen3-VL)",
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.1",
+    "llmcompressor": "0.13.1.dev38+g501f432bf"
+  },
+  "cases": [
+    {
+      "case": "Q1a vision trace, text-only row",
+      "question": "can a text-only row join a run traced from a vision row?",
+      "trace_row_keys": [
+        "attention_mask",
+        "image_grid_thw",
+        "input_ids",
+        "mm_token_type_ids",
+        "pixel_values"
+      ],
+      "trace": "ok",
+      "num_subgraphs": 3,
+      "subgraph0_input_names": [
+        "attention_mask",
+        "image_grid_thw",
+        "input_ids",
+        "mm_token_type_ids",
+        "pixel_values"
+      ],
+      "feeds": [
+        {
+          "passed": [
+            "attention_mask",
+            "image_grid_thw",
+            "input_ids",
+            "mm_token_type_ids",
+            "pixel_values"
+          ],
+          "dropped_by_trace": [],
+          "missing_for_trace": [],
+          "outcome": "ran",
+          "row": "one-image"
+        },
+        {
+          "passed": [
+            "attention_mask",
+            "input_ids",
+            "mm_token_type_ids"
+          ],
+          "dropped_by_trace": [],
+          "missing_for_trace": [
+            "image_grid_thw",
+            "pixel_values"
+          ],
+          "outcome": "raised",
+          "error_type": "TypeError",
+          "error": "forward() missing 2 required positional arguments: 'pixel_values' and 'image_grid_thw'",
+          "row": "text-only"
+        }
+      ],
+      "media_influence_max_abs_delta": 0.1446203589439392,
+      "media_reached_language_stack": true
+    },
+    {
+      "case": "Q1b text-only trace, vision row",
+      "question": "can a vision row join a run traced from a text-only row?",
+      "trace_row_keys": [
+        "attention_mask",
+        "input_ids",
+        "mm_token_type_ids"
+      ],
+      "trace": "ok",
+      "num_subgraphs": 3,
+      "subgraph0_input_names": [
+        "attention_mask",
+        "input_ids",
+        "mm_token_type_ids"
+      ],
+      "feeds": [
+        {
+          "passed": [
+            "attention_mask",
+            "input_ids",
+            "mm_token_type_ids"
+          ],
+          "dropped_by_trace": [],
+          "missing_for_trace": [],
+          "outcome": "ran",
+          "row": "text-only"
+        },
+        {
+          "passed": [
+            "attention_mask",
+            "input_ids",
+            "mm_token_type_ids"
+          ],
+          "dropped_by_trace": [
+            "image_grid_thw",
+            "pixel_values"
+          ],
+          "missing_for_trace": [],
+          "outcome": "ran",
+          "row": "one-image"
+        }
+      ],
+      "media_influence_max_abs_delta": 0.0,
+      "media_reached_language_stack": false
+    },
+    {
+      "case": "Q2 vision trace, nine-image row",
+      "question": "does a one-image trace accept a nine-image row?",
+      "trace_row_keys": [
+        "attention_mask",
+        "image_grid_thw",
+        "input_ids",
+        "mm_token_type_ids",
+        "pixel_values"
+      ],
+      "trace": "ok",
+      "num_subgraphs": 3,
+      "subgraph0_input_names": [
+        "attention_mask",
+        "image_grid_thw",
+        "input_ids",
+        "mm_token_type_ids",
+        "pixel_values"
+      ],
+      "feeds": [
+        {
+          "passed": [
+            "attention_mask",
+            "image_grid_thw",
+            "input_ids",
+            "mm_token_type_ids",
+            "pixel_values"
+          ],
+          "dropped_by_trace": [],
+          "missing_for_trace": [],
+          "outcome": "ran",
+          "row": "nine-image"
+        }
+      ],
+      "media_influence_max_abs_delta": 0.13121017813682556,
+      "media_reached_language_stack": true
+    },
+    {
+      "case": "Q3 vision trace, three two-frame video blocks",
+      "question": "do H3 two-frame video blocks ride the image keys?",
+      "trace_row_keys": [
+        "attention_mask",
+        "image_grid_thw",
+        "input_ids",
+        "mm_token_type_ids",
+        "pixel_values"
+      ],
+      "trace": "ok",
+      "num_subgraphs": 3,
+      "subgraph0_input_names": [
+        "attention_mask",
+        "image_grid_thw",
+        "input_ids",
+        "mm_token_type_ids",
+        "pixel_values"
+      ],
+      "feeds": [
+        {
+          "passed": [
+            "attention_mask",
+            "image_grid_thw",
+            "input_ids",
+            "mm_token_type_ids",
+            "pixel_values"
+          ],
+          "dropped_by_trace": [],
+          "missing_for_trace": [],
+          "outcome": "ran",
+          "row": "three two-frame blocks"
+        }
+      ],
+      "media_influence_max_abs_delta": 0.11986091732978821,
+      "media_reached_language_stack": true
+    },
+    {
+      "case": "Q4 vision trace, text-only row with empty vision tensors",
+      "question": "can empty pixel_values/[0,3] grid carry a text-only row?",
+      "trace_row_keys": [
+        "attention_mask",
+        "image_grid_thw",
+        "input_ids",
+        "mm_token_type_ids",
+        "pixel_values"
+      ],
+      "trace": "ok",
+      "num_subgraphs": 3,
+      "subgraph0_input_names": [
+        "attention_mask",
+        "image_grid_thw",
+        "input_ids",
+        "mm_token_type_ids",
+        "pixel_values"
+      ],
+      "feeds": [
+        {
+          "passed": [
+            "attention_mask",
+            "image_grid_thw",
+            "input_ids",
+            "mm_token_type_ids",
+            "pixel_values"
+          ],
+          "dropped_by_trace": [],
+          "missing_for_trace": [],
+          "outcome": "raised",
+          "error_type": "RuntimeError",
+          "error": "repeats must have the same size as input along dim, but got repeats.size(0) = 0 and input.size(0) = 1",
+          "row": "text-only + empty vision"
+        }
+      ]
+    }
+  ]
+}

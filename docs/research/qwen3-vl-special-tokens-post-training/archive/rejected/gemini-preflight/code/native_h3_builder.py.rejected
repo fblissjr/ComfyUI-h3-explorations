@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+"""
+Phase B: Native-H3 Multimodal Presentation Builder.
+Constructs exact native-H3 input tensors (input_ids, attention_mask, position_ids,
+pixel_values, image_grid_thw, minimax_token_tags) conforming strictly to
+comfy/text_encoders/minimax.py and reference_conditioning.py.
+"""
+
+import math
+from typing import Any, Sequence
+import torch
+import torch.nn.functional as F
+from PIL import Image
+
+VISION_START = 151652
+VISION_END = 151653
+IMAGE_PAD = 151655
+PAD_TOKEN_ID = 151643
+
+MINIMAX_EXTRA_TOKENS = {
+    "<d>": 151669, "</d>": 151670, "<|cutoff|>": 151671,
+    "<|lyrics_start|>": 151672, "<|lyrics_end|>": 151673,
+    "<|caption_start|>": 151674, "<|caption_end|>": 151675
+}
+
+QWEN_IMAGE_MEAN = [0.5, 0.5, 0.5]
+QWEN_IMAGE_STD = [0.5, 0.5, 0.5]
+
+
+def process_still_image(
+    image: Image.Image | torch.Tensor,
+    patch_size: int = 16,
+    merge_size: int = 2,
+    min_pixels: int = 65536,
+    max_pixels: int = 16777216,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Process a still image into normalized pixel patches and grid_thw.
+    Supports both PIL.Image and torch.Tensor [H, W, C] / [1, H, W, C].
+    """
+    if isinstance(image, Image.Image):
+        image = image.convert("RGB")
+        w, h = image.size
+        # To torch tensor [1, 3, H, W] in [0, 1]
+        t_img = torch.from_numpy(
+            torch.ByteTensor(torch.ByteStorage.from_buffer(image.tobytes())).view(h, w, 3).numpy()
+        ).permute(2, 0, 1).unsqueeze(0).float() / 255.0
+    elif isinstance(image, torch.Tensor):
+        if image.ndim == 3: # [H, W, C]
+            t_img = image.permute(2, 0, 1).unsqueeze(0).float()
+        elif image.ndim == 4: # [1, H, W, C] or [1, C, H, W]
+            if image.shape[-1] == 3:
+                t_img = image.permute(0, 3, 1, 2).float()
+            else:
+                t_img = image.float()
+        if t_img.max() > 1.0:
+            t_img = t_img / 255.0
+    else:
+        raise TypeError(f"Unsupported image type: {type(image)}")
+
+    _, _, height, width = t_img.shape
+    factor = patch_size * merge_size
+    h_bar = round(height / factor) * factor
+    w_bar = round(width / factor) * factor
+
+    if h_bar * w_bar > max_pixels:
+        beta = math.sqrt((height * width) / max_pixels)
+        h_bar = max(factor, math.floor(height / beta / factor) * factor)
+        w_bar = max(factor, math.floor(width / beta / factor) * factor)
+    elif h_bar * w_bar < min_pixels:
+        beta = math.sqrt(min_pixels / (height * width))
+        h_bar = max(factor, math.ceil(height * beta / factor) * factor)
+        w_bar = max(factor, math.ceil(width * beta / factor) * factor)
+
+    imgs = F.interpolate(t_img, size=(h_bar, w_bar), mode="bilinear", align_corners=False)
+    mean = torch.tensor(QWEN_IMAGE_MEAN).view(1, 3, 1, 1)
+    std = torch.tensor(QWEN_IMAGE_STD).view(1, 3, 1, 1)
+    imgs = (imgs - mean) / std
+
+    grid_h = h_bar // patch_size
+    grid_w = w_bar // patch_size
+
+    # 2D patch extraction [1, 1, 3, grid_h // merge, merge, patch, grid_w // merge, merge, patch]
+    patches = imgs.reshape(1, 1, 3, grid_h // merge_size, merge_size, patch_size, grid_w // merge_size, merge_size, patch_size)
+    patches = patches.permute(0, 3, 6, 4, 7, 2, 1, 5, 8)
+    flatten = patches.reshape(grid_h * grid_w, 3 * patch_size * patch_size)
+    grid_thw = torch.tensor([[1, grid_h, grid_w]], dtype=torch.long)
+    return flatten, grid_thw
+
+
+def process_video_block(
+    frames: torch.Tensor, # [2, H, W, C]
+    patch_size: int = 16,
+    temporal_patch_size: int = 2,
+    merge_size: int = 2,
+    min_pixels: int = 3136,
+    max_pixels: int = 12845056,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Process a 2-frame video block [2, H, W, C] into temporal patches and grid_thw."""
+    t, height, width, _ = frames.shape
+    assert t == temporal_patch_size, f"Expected {temporal_patch_size} frames, got {t}"
+    imgs = frames.permute(0, 3, 1, 2).float()
+    if imgs.max() > 1.0:
+        imgs = imgs / 255.0
+
+    factor = patch_size * merge_size
+    h_bar = round(height / factor) * factor
+    w_bar = round(width / factor) * factor
+
+    if h_bar * w_bar > max_pixels:
+        beta = math.sqrt((height * width) / max_pixels)
+        h_bar = max(factor, math.floor(height / beta / factor) * factor)
+        w_bar = max(factor, math.floor(width / beta / factor) * factor)
+    elif h_bar * w_bar < min_pixels:
+        beta = math.sqrt(min_pixels / (height * width))
+        h_bar = max(factor, math.ceil(height * beta / factor) * factor)
+        w_bar = max(factor, math.ceil(width * beta / factor) * factor)
+
+    imgs = F.interpolate(imgs, size=(h_bar, w_bar), mode="bilinear", align_corners=False)
+    mean = torch.tensor(QWEN_IMAGE_MEAN).view(1, 3, 1, 1)
+    std = torch.tensor(QWEN_IMAGE_STD).view(1, 3, 1, 1)
+    imgs = (imgs - mean) / std
+
+    grid_h = h_bar // patch_size
+    grid_w = w_bar // patch_size
+    patches = imgs.reshape(1, temporal_patch_size, 3, grid_h // merge_size, merge_size, patch_size, grid_w // merge_size, merge_size, patch_size)
+    patches = patches.permute(0, 3, 6, 4, 7, 2, 1, 5, 8)
+    flatten = patches.reshape(grid_h * grid_w, 3 * temporal_patch_size * patch_size * patch_size)
+    grid_thw = torch.tensor([[1, grid_h, grid_w]], dtype=torch.long)
+    return flatten, grid_thw
+
+
+class NativeH3PresentationBuilder:
+    """
+    Builds native H3 token sequences and multimodal inputs.
+    Strictly follows ComfyUI MiniMaxH3Tokenizer formatting without chat templates.
+    """
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
+        # Ensure special tokens are added
+        self.tokenizer.add_special_tokens({"additional_special_tokens": list(MINIMAX_EXTRA_TOKENS)})
+
+    def build_presentation(
+        self,
+        prompt: str,
+        ref_items: Sequence[dict[str, Any]] | None = None,
+        image_policy: str = "native", # "native" (65k-16M) or "awq_constrained" (200k-301k)
+    ) -> dict[str, Any]:
+        """
+        Assembles token_ids, token_tags, pixel_values, and image_grid_thw.
+        ref_items: list of dicts with {"type": "image"|"audio"|"video", "data": ...}
+        """
+        min_px = 200704 if image_policy == "awq_constrained" else 65536
+        max_px = 301056 if image_policy == "awq_constrained" else 16777216
+
+        token_ids = []
+        token_tags = [] # 1 for text, 0 for vision
+        pixel_patches_list = []
+        grid_thw_list = []
+
+        def append_text(text_str: str):
+            if not text_str:
+                return
+            ids = self.tokenizer.encode(text_str, add_special_tokens=False)
+            token_ids.extend(ids)
+            token_tags.extend([1] * len(ids))
+
+        def append_vision_block(patches: torch.Tensor, grid_thw: torch.Tensor):
+            # Vision Start (Tag 0)
+            token_ids.append(VISION_START)
+            token_tags.append(0)
+
+            # Merged tokens = (grid_h // merge_size) * (grid_w // merge_size)
+            gh, gw = grid_thw[0, 1].item(), grid_thw[0, 2].item()
+            num_merged_tokens = (gh // 2) * (gw // 2)
+
+            # Pad placeholders (Tag 0)
+            token_ids.extend([IMAGE_PAD] * num_merged_tokens)
+            token_tags.extend([0] * num_merged_tokens)
+
+            # Vision End (Tag 0)
+            token_ids.append(VISION_END)
+            token_tags.append(0)
+
+            pixel_patches_list.append(patches)
+            grid_thw_list.append(grid_thw)
+
+        if ref_items:
+            counters = {"image": 0, "audio": 0, "video": 0}
+            for item in ref_items:
+                kind = item["type"]
+                counters[kind] += 1
+
+                if kind == "image":
+                    append_text(f"<Picture {counters['image']}>: ")
+                    patches, grid = process_still_image(item["data"], min_pixels=min_px, max_pixels=max_px)
+                    append_vision_block(patches, grid)
+
+                elif kind == "audio":
+                    # Audio enters only as text label
+                    append_text(f"<Audio {counters['audio']}>: ")
+
+                elif kind == "video":
+                    frames = item["data"] # [T, H, W, C]
+                    if not isinstance(frames, torch.Tensor):
+                        frames = torch.tensor(frames)
+                    if frames.ndim == 3:
+                        frames = frames.unsqueeze(0)
+                    timestamps = item.get("timestamps")
+                    if timestamps is None:
+                        timestamps = [i / 2.0 for i in range(frames.shape[0])]
+                    if frames.shape[0] % 2 == 1:
+                        # Repeat pad odd frames
+                        frames = torch.cat([frames, frames[-1:]], dim=0)
+                        timestamps = list(timestamps) + [timestamps[-1]]
+
+                    append_text(f"<Video {counters['video']}>: ")
+                    for i in range(0, frames.shape[0], 2):
+                        block_ts = (timestamps[i] + timestamps[i + 1]) / 2.0
+                        append_text(f"<{block_ts:.1f} seconds>")
+                        patches, grid = process_video_block(frames[i:i + 2])
+                        append_vision_block(patches, grid)
+
+        # Prompt text appended at the end
+        append_text(prompt)
+
+        if len(token_ids) == 0:
+            token_ids.append(PAD_TOKEN_ID)
+            token_tags.append(1)
+
+        input_ids_tensor = torch.tensor([token_ids], dtype=torch.long)
+        attention_mask_tensor = torch.ones_like(input_ids_tensor)
+        token_tags_tensor = torch.tensor([token_tags], dtype=torch.long)
+
+        combined_grid_thw = torch.cat(grid_thw_list, dim=0) if grid_thw_list else None
+
+        return {
+            "input_ids": input_ids_tensor,
+            "attention_mask": attention_mask_tensor,
+            "minimax_token_tags": token_tags_tensor,
+            "pixel_values_blocks": pixel_patches_list,
+            "image_grid_thw": combined_grid_thw,
+            "seq_len": len(token_ids),
+            "num_visual_blocks": len(grid_thw_list),
+            "num_merged_visual_tokens": sum((g[0, 1].item() // 2) * (g[0, 2].item() // 2) for g in grid_thw_list) if grid_thw_list else 0
+        }
