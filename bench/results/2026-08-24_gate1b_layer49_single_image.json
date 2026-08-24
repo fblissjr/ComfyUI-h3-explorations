@@ -1,0 +1,686 @@
+{
+  "comparison": "ComfyUI versus Transformers at the H3 layer-50 boundary",
+  "reference_arm": {
+    "schema": "h3-crossstack-layer50-v1",
+    "arm": "comfy",
+    "dtype": "float32 compute, bfloat16 stored weights",
+    "tap_layer": 49,
+    "seconds": 7.2,
+    "presentation": {
+      "row_id": "train-00973-d8cd5223d6ff1cac",
+      "prompt_sha256": "7acb0ed4d2dee796ed95acae15fdca67f7025442017e54b48bcea90ff1f1b037",
+      "sequence_length": 1100,
+      "input_ids_sha256": "211ceae1d0eab7c24319267f2b9637480629629e5c1c514915f811a5f7fc5336",
+      "attention_mask_sha256": "1d4ddd6cbc6c4ec735081f5d621563b38c56aa3c39d61a1d5068d1bf41f5f3fc",
+      "mm_token_type_ids_sha256": "e4308160040f1d56ac732629e95da58ef804028acb356a957503589a29b07ded",
+      "pixel_values_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229",
+      "image_grid_thw_sha256": "9a49d9f3e9f22920ffd6f74505c36dd6ccac8d4e415df05e45ed4b6a25ec7d2f",
+      "grids": [
+        [
+          1,
+          44,
+          40
+        ]
+      ],
+      "token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+      "comfy_position_ids_sha256": "3d2c9fe6ae5d9813d2876b1a9a646318deda7770da5a3cd4500c48ca717a4a22"
+    },
+    "comfy_sequence_length": 1100,
+    "comfy_token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+    "consumed_vision_blocks": [
+      {
+        "grid_thw": [
+          [
+            1,
+            44,
+            40
+          ]
+        ],
+        "patches_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229"
+      }
+    ],
+    "hidden_state": {
+      "shape": [
+        1100,
+        5120
+      ],
+      "dtype": "float32",
+      "sha256": "489e20d9e932492a4bb5af9d31b59704e04b9c0757998471f89503e0af6be8a1"
+    },
+    "layer0_input": {
+      "shape": [
+        1100,
+        5120
+      ],
+      "dtype": "float32",
+      "sha256": "ea2ffeaf0d96d988eeaa74476e8ee984501434e042e08763698bff296aef9ec6"
+    },
+    "source": {
+      "logical_name": "text_encoder",
+      "mapped_tensors": 902
+    },
+    "environment": {
+      "python": "3.13.9",
+      "torch": "2.13.0+cu132",
+      "transformers": "5.15.0"
+    },
+    "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/g1b-single_image-comfy"
+  },
+  "reference_chosen_explicitly": false,
+  "arms": {
+    "transformers-float32-tap49": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "float32",
+        "precision_policy": {
+          "policy": "float32",
+          "intent": "plain Transformers FP32; a control, not the deployed configuration",
+          "compute_dtype": "float32",
+          "position_interpolation_dtype": "float32",
+          "position_embedding_source_dtype": "float32",
+          "position_cast_is_round_trip_exact": true,
+          "applied_to": "pos_embed weight and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "tap_layer": 49,
+        "tap": "forward hook on language_model.layers[49], raw residual",
+        "load_seconds": 7.1,
+        "forward_seconds": 11.7,
+        "presentation": {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "prompt_sha256": "7acb0ed4d2dee796ed95acae15fdca67f7025442017e54b48bcea90ff1f1b037",
+          "sequence_length": 1100,
+          "input_ids_sha256": "211ceae1d0eab7c24319267f2b9637480629629e5c1c514915f811a5f7fc5336",
+          "attention_mask_sha256": "1d4ddd6cbc6c4ec735081f5d621563b38c56aa3c39d61a1d5068d1bf41f5f3fc",
+          "mm_token_type_ids_sha256": "e4308160040f1d56ac732629e95da58ef804028acb356a957503589a29b07ded",
+          "pixel_values_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229",
+          "image_grid_thw_sha256": "9a49d9f3e9f22920ffd6f74505c36dd6ccac8d4e415df05e45ed4b6a25ec7d2f",
+          "grids": [
+            [
+              1,
+              44,
+              40
+            ]
+          ],
+          "token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+          "comfy_position_ids_sha256": "3d2c9fe6ae5d9813d2876b1a9a646318deda7770da5a3cd4500c48ca717a4a22"
+        },
+        "transformers_sequence_length": 1100,
+        "layers_built": 50,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "3b234c3f9ba69704434d6c4a2132634bf1bfc3ed8b1f8120518eaada2e105f57"
+        },
+        "layer0_input": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "8b2e13bc28a878ad6a33faa318f72c9ed288dd113555ce99ed868c8f975e0ebe"
+        },
+        "source": {
+          "logical_name": "text_encoder"
+        },
+        "peak_cuda_gib": 14.12,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        },
+        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/g1b-single_image-float32"
+      },
+      "all": {
+        "rows": 1100,
+        "flattened_cosine": 0.9940733940368507,
+        "relative_l2": 0.11126858026469563,
+        "mse": 2.0572274277786082,
+        "rmse": 1.434303812927585,
+        "reference_activation_rms": 12.890465659898485,
+        "candidate_activation_rms": 13.119822992479873,
+        "tokenwise_cosine_mean": 0.9994054571665083,
+        "tokenwise_cosine_min": 0.81596053477337,
+        "tokenwise_cosine_p01": 0.9949725907987614,
+        "tokenwise_cosine_p50": 0.9999983994206567
+      },
+      "text_rows": {
+        "rows": 658,
+        "flattened_cosine": 0.9999996976084895,
+        "relative_l2": 0.0007777273036221638,
+        "mse": 5.6585600924953625e-05,
+        "rmse": 0.007522340122924091,
+        "reference_activation_rms": 9.672207839271099,
+        "candidate_activation_rms": 9.672120028161087,
+        "tokenwise_cosine_mean": 0.9999976567777945,
+        "tokenwise_cosine_min": 0.9998772342852624,
+        "tokenwise_cosine_p01": 0.9999681718837922,
+        "tokenwise_cosine_p50": 0.9999992594299834
+      },
+      "vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9912567636172889,
+        "relative_l2": 0.13662821872760808,
+        "mse": 5.119712527672078,
+        "rmse": 2.262678175895122,
+        "reference_activation_rms": 16.560840776283598,
+        "candidate_activation_rms": 17.003253138780465,
+        "tokenwise_cosine_mean": 0.9985238568402044,
+        "tokenwise_cosine_min": 0.81596053477337,
+        "tokenwise_cosine_p01": 0.9804787174489803,
+        "tokenwise_cosine_p50": 0.9999848954955399
+      },
+      "layer0_input": {
+        "rows": 1100,
+        "flattened_cosine": 0.9999636967862074,
+        "relative_l2": 0.008530660913246207,
+        "mse": 4.1098576188345264e-05,
+        "rmse": 0.0064108171232960046,
+        "reference_activation_rms": 0.7515029830034934,
+        "candidate_activation_rms": 0.7511685360889896,
+        "tokenwise_cosine_mean": 0.9999787097427569,
+        "tokenwise_cosine_min": 0.9948402635035696,
+        "tokenwise_cosine_p01": 0.9996743184426142,
+        "tokenwise_cosine_p50": 0.9999999999999999
+      },
+      "layer0_input_text_rows": {
+        "rows": 658,
+        "flattened_cosine": 1.0000000000000062,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021601424685009623,
+        "candidate_activation_rms": 0.021601424685009623,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999998,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.999963678874634,
+        "relative_l2": 0.008532769785555202,
+        "mse": 0.00010228152445063302,
+        "rmse": 0.010113432871712406,
+        "reference_activation_rms": 1.1852461892064918,
+        "candidate_activation_rms": 1.1847184494669138,
+        "tokenwise_cosine_mean": 0.9999470151969065,
+        "tokenwise_cosine_min": 0.9948402635035696,
+        "tokenwise_cosine_p01": 0.9994304079169816,
+        "tokenwise_cosine_p50": 0.9999944727304562
+      }
+    },
+    "transformers-bfloat16_native-tap49": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "bfloat16_native",
+        "precision_policy": {
+          "policy": "bfloat16_native",
+          "intent": "plain Transformers BF16 exactly as the library runs it: the model is BF16 but the interpolation coefficients come back from the helper in FP32 and are only rounded once, after the weighted sum. This is the honest plain-BF16 control",
+          "compute_dtype": "bfloat16",
+          "position_interpolation_dtype": "library default (float32 coefficients)",
+          "position_reduction": "transformers .sum(1)",
+          "position_embedding_source_dtype": "bfloat16",
+          "position_cast_is_round_trip_exact": true,
+          "substituted_expression": null,
+          "scoped_to": "this vision instance only, gated by its own forward hooks",
+          "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "tap_layer": 49,
+        "tap": "forward hook on language_model.layers[49], raw residual",
+        "load_seconds": 10.4,
+        "forward_seconds": 21.8,
+        "presentation": {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "prompt_sha256": "7acb0ed4d2dee796ed95acae15fdca67f7025442017e54b48bcea90ff1f1b037",
+          "sequence_length": 1100,
+          "input_ids_sha256": "211ceae1d0eab7c24319267f2b9637480629629e5c1c514915f811a5f7fc5336",
+          "attention_mask_sha256": "1d4ddd6cbc6c4ec735081f5d621563b38c56aa3c39d61a1d5068d1bf41f5f3fc",
+          "mm_token_type_ids_sha256": "e4308160040f1d56ac732629e95da58ef804028acb356a957503589a29b07ded",
+          "pixel_values_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229",
+          "image_grid_thw_sha256": "9a49d9f3e9f22920ffd6f74505c36dd6ccac8d4e415df05e45ed4b6a25ec7d2f",
+          "grids": [
+            [
+              1,
+              44,
+              40
+            ]
+          ],
+          "token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+          "comfy_position_ids_sha256": "3d2c9fe6ae5d9813d2876b1a9a646318deda7770da5a3cd4500c48ca717a4a22"
+        },
+        "transformers_sequence_length": 1100,
+        "layers_built": 50,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "8d2d93d9114ab001c9b125236b18395d496860e3c1d4d172d9cdd68b500d6b99"
+        },
+        "layer0_input": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "cc7bb78a17c7172f385f8849ad64f98e922d6afed89f9b20a2feb959d08fb7cb"
+        },
+        "source": {
+          "logical_name": "text_encoder"
+        },
+        "peak_cuda_gib": 14.33,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        },
+        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/ce-single_image-bfloat16_native"
+      },
+      "all": {
+        "rows": 1100,
+        "flattened_cosine": 0.8503604217621715,
+        "relative_l2": 0.6498063624394282,
+        "mse": 70.16251226741853,
+        "rmse": 8.376306600609754,
+        "reference_activation_rms": 12.890465659898485,
+        "candidate_activation_rms": 15.876194021282737,
+        "tokenwise_cosine_mean": 0.9958407106075616,
+        "tokenwise_cosine_min": 0.6596446773505338,
+        "tokenwise_cosine_p01": 0.8436621023606101,
+        "tokenwise_cosine_p50": 0.9999096486261375
+      },
+      "text_rows": {
+        "rows": 658,
+        "flattened_cosine": 0.9999607113762079,
+        "relative_l2": 0.012769966613215234,
+        "mse": 0.015255651671973212,
+        "rmse": 0.12351377118351302,
+        "reference_activation_rms": 9.672207839271099,
+        "candidate_activation_rms": 9.58291906651098,
+        "tokenwise_cosine_mean": 0.9998589228694784,
+        "tokenwise_cosine_min": 0.9857363463808224,
+        "tokenwise_cosine_p01": 0.9984706338132221,
+        "tokenwise_cosine_p50": 0.9999332296466622
+      },
+      "vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.8045772844923176,
+        "relative_l2": 0.7978608343685738,
+        "mse": 174.58987618859783,
+        "rmse": 13.213246239611136,
+        "reference_activation_rms": 16.560840776283598,
+        "candidate_activation_rms": 22.148879830613737,
+        "tokenwise_cosine_mean": 0.9898588471045269,
+        "tokenwise_cosine_min": 0.6596446773505338,
+        "tokenwise_cosine_p01": 0.7667102453249738,
+        "tokenwise_cosine_p50": 0.999597505053816
+      },
+      "layer0_input": {
+        "rows": 1100,
+        "flattened_cosine": 0.9992682630836098,
+        "relative_l2": 0.03824842235376429,
+        "mse": 0.0008262062393028337,
+        "rmse": 0.028743803494019955,
+        "reference_activation_rms": 0.7515029830034934,
+        "candidate_activation_rms": 0.7509091564164578,
+        "tokenwise_cosine_mean": 0.99963731406658,
+        "tokenwise_cosine_min": 0.9615324515059439,
+        "tokenwise_cosine_p01": 0.9943923922410397,
+        "tokenwise_cosine_p50": 0.9999999999999999
+      },
+      "layer0_input_text_rows": {
+        "rows": 658,
+        "flattened_cosine": 1.0000000000000062,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021601424685009623,
+        "candidate_activation_rms": 0.021601424685009623,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999998,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9992679011192253,
+        "relative_l2": 0.03825787778044048,
+        "mse": 0.002056169373830582,
+        "rmse": 0.04534500384640608,
+        "reference_activation_rms": 1.1852461892064918,
+        "candidate_activation_rms": 1.1843091618291053,
+        "tokenwise_cosine_mean": 0.999097387948502,
+        "tokenwise_cosine_min": 0.9615324515059439,
+        "tokenwise_cosine_p01": 0.9874505521180206,
+        "tokenwise_cosine_p50": 0.9997802592662168
+      }
+    },
+    "transformers-hybrid-tap49": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "hybrid",
+        "precision_policy": {
+          "policy": "hybrid",
+          "intent": "BF16 position interpolation with FP32 active compute, the deployed ComfyUI combination",
+          "compute_dtype": "float32",
+          "position_interpolation_dtype": "bfloat16",
+          "position_embedding_source_dtype": "float32",
+          "position_cast_is_round_trip_exact": true,
+          "applied_to": "pos_embed weight and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "tap_layer": 49,
+        "tap": "forward hook on language_model.layers[49], raw residual",
+        "load_seconds": 8.2,
+        "forward_seconds": 68.3,
+        "presentation": {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "prompt_sha256": "7acb0ed4d2dee796ed95acae15fdca67f7025442017e54b48bcea90ff1f1b037",
+          "sequence_length": 1100,
+          "input_ids_sha256": "211ceae1d0eab7c24319267f2b9637480629629e5c1c514915f811a5f7fc5336",
+          "attention_mask_sha256": "1d4ddd6cbc6c4ec735081f5d621563b38c56aa3c39d61a1d5068d1bf41f5f3fc",
+          "mm_token_type_ids_sha256": "e4308160040f1d56ac732629e95da58ef804028acb356a957503589a29b07ded",
+          "pixel_values_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229",
+          "image_grid_thw_sha256": "9a49d9f3e9f22920ffd6f74505c36dd6ccac8d4e415df05e45ed4b6a25ec7d2f",
+          "grids": [
+            [
+              1,
+              44,
+              40
+            ]
+          ],
+          "token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+          "comfy_position_ids_sha256": "3d2c9fe6ae5d9813d2876b1a9a646318deda7770da5a3cd4500c48ca717a4a22"
+        },
+        "transformers_sequence_length": 1100,
+        "layers_built": 50,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "5313f162d7f71dc52ea0ae3b92acd6304e3a49d16891be4aea7b8579e0878c81"
+        },
+        "layer0_input": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "e70bf8d8279df998f3cc49e8f8753814aa0ad26589e49c8dc7e5382d8422d9dd"
+        },
+        "source": {
+          "logical_name": "text_encoder"
+        },
+        "peak_cuda_gib": 14.13,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        },
+        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/g1b-single_image-hybrid"
+      },
+      "all": {
+        "rows": 1100,
+        "flattened_cosine": 0.9010733825259098,
+        "relative_l2": 0.49914084454811664,
+        "mse": 41.39838808932435,
+        "rmse": 6.434157916100936,
+        "reference_activation_rms": 12.890465659898485,
+        "candidate_activation_rms": 14.800917649028868,
+        "tokenwise_cosine_mean": 0.9992322863971065,
+        "tokenwise_cosine_min": 0.6615985028718353,
+        "tokenwise_cosine_p01": 0.9928724883994494,
+        "tokenwise_cosine_p50": 0.9999907015890777
+      },
+      "text_rows": {
+        "rows": 658,
+        "flattened_cosine": 0.9999985821803496,
+        "relative_l2": 0.001684094940371818,
+        "mse": 0.0002653287937193676,
+        "rmse": 0.01628891628437471,
+        "reference_activation_rms": 9.672207839271099,
+        "candidate_activation_rms": 9.671969646029416,
+        "tokenwise_cosine_mean": 0.9999901125432216,
+        "tokenwise_cosine_min": 0.9995796000052333,
+        "tokenwise_cosine_p01": 0.9999481859964645,
+        "tokenwise_cosine_p50": 0.9999921013628154
+      },
+      "vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.8648899974907297,
+        "relative_l2": 0.6129057694103706,
+        "mse": 103.02726767400564,
+        "rmse": 10.150234858071297,
+        "reference_activation_rms": 16.560840776283598,
+        "candidate_activation_rms": 20.14764257916858,
+        "tokenwise_cosine_mean": 0.9981041198718947,
+        "tokenwise_cosine_min": 0.6615985028718353,
+        "tokenwise_cosine_p01": 0.9737957239858662,
+        "tokenwise_cosine_p50": 0.9999791406057448
+      },
+      "layer0_input": {
+        "rows": 1100,
+        "flattened_cosine": 0.9999435125808536,
+        "relative_l2": 0.010631359257844841,
+        "mse": 6.383208141829787e-05,
+        "rmse": 0.007989498195650204,
+        "reference_activation_rms": 0.7515029830034934,
+        "candidate_activation_rms": 0.7512856568483246,
+        "tokenwise_cosine_mean": 0.9999783271322392,
+        "tokenwise_cosine_min": 0.9967322700255411,
+        "tokenwise_cosine_p01": 0.99961450971179,
+        "tokenwise_cosine_p50": 0.9999999999999999
+      },
+      "layer0_input_text_rows": {
+        "rows": 658,
+        "flattened_cosine": 1.0000000000000062,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021601424685009623,
+        "candidate_activation_rms": 0.021601424685009623,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999998,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9999434846601124,
+        "relative_l2": 0.010633987445669188,
+        "mse": 0.00015885812117675938,
+        "rmse": 0.012603893096054067,
+        "reference_activation_rms": 1.1852461892064918,
+        "candidate_activation_rms": 1.1849032599129752,
+        "tokenwise_cosine_mean": 0.9999460629987854,
+        "tokenwise_cosine_min": 0.9967322700255411,
+        "tokenwise_cosine_p01": 0.9991434648488522,
+        "tokenwise_cosine_p50": 0.9999946695111283
+      }
+    },
+    "transformers-comfy_exact-tap49": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "comfy_exact",
+        "precision_policy": {
+          "policy": "comfy_exact",
+          "intent": "BF16 position interpolation reduced in ComfyUI's explicit four-term order, with FP32 active compute; reproduces the deployed ComfyUI position embedding bit-for-bit",
+          "compute_dtype": "float32",
+          "position_interpolation_dtype": "bfloat16",
+          "position_reduction": "comfy four-term add",
+          "position_embedding_source_dtype": "float32",
+          "position_cast_is_round_trip_exact": true,
+          "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+          "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+          "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+          "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "tap_layer": 49,
+        "tap": "forward hook on language_model.layers[49], raw residual",
+        "load_seconds": 8.8,
+        "forward_seconds": 37.8,
+        "presentation": {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "prompt_sha256": "7acb0ed4d2dee796ed95acae15fdca67f7025442017e54b48bcea90ff1f1b037",
+          "sequence_length": 1100,
+          "input_ids_sha256": "211ceae1d0eab7c24319267f2b9637480629629e5c1c514915f811a5f7fc5336",
+          "attention_mask_sha256": "1d4ddd6cbc6c4ec735081f5d621563b38c56aa3c39d61a1d5068d1bf41f5f3fc",
+          "mm_token_type_ids_sha256": "e4308160040f1d56ac732629e95da58ef804028acb356a957503589a29b07ded",
+          "pixel_values_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229",
+          "image_grid_thw_sha256": "9a49d9f3e9f22920ffd6f74505c36dd6ccac8d4e415df05e45ed4b6a25ec7d2f",
+          "grids": [
+            [
+              1,
+              44,
+              40
+            ]
+          ],
+          "token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+          "comfy_position_ids_sha256": "3d2c9fe6ae5d9813d2876b1a9a646318deda7770da5a3cd4500c48ca717a4a22"
+        },
+        "transformers_sequence_length": 1100,
+        "layers_built": 50,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "077c4a0f840c21ecf46a5ddc31ae0ddf813baeb50a6226449ed53ec82ca28056"
+        },
+        "layer0_input": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "b5c01eb3525d125924e849236a9275f3f945eb1642705292d1697b86963edef8"
+        },
+        "source": {
+          "logical_name": "text_encoder"
+        },
+        "peak_cuda_gib": 14.13,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        },
+        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/ce-single_image-comfy_exact"
+      },
+      "all": {
+        "rows": 1100,
+        "flattened_cosine": 0.9988386129642997,
+        "relative_l2": 0.04826600548201763,
+        "mse": 0.387097109379552,
+        "rmse": 0.62217128620626,
+        "reference_activation_rms": 12.890465659898485,
+        "candidate_activation_rms": 12.838622623993047,
+        "tokenwise_cosine_mean": 0.999985326139543,
+        "tokenwise_cosine_min": 0.994281776346378,
+        "tokenwise_cosine_p01": 0.9999093673258623,
+        "tokenwise_cosine_p50": 0.9999997842656154
+      },
+      "text_rows": {
+        "rows": 658,
+        "flattened_cosine": 0.9999999561234519,
+        "relative_l2": 0.0002962353193121343,
+        "mse": 8.20965514262618e-06,
+        "rmse": 0.002865249577720269,
+        "reference_activation_rms": 9.672207839271099,
+        "candidate_activation_rms": 9.672222536331038,
+        "tokenwise_cosine_mean": 0.9999996638740214,
+        "tokenwise_cosine_min": 0.9999759608738106,
+        "tokenwise_cosine_p01": 0.9999960393870806,
+        "tokenwise_cosine_p50": 0.9999998385096907
+      },
+      "vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9982515489159828,
+        "relative_l2": 0.059266603020494454,
+        "mse": 0.963351625258877,
+        "rmse": 0.9815047759735441,
+        "reference_activation_rms": 16.560840776283598,
+        "candidate_activation_rms": 16.46029853701994,
+        "tokenwise_cosine_mean": 0.9999639817293917,
+        "tokenwise_cosine_min": 0.994281776346378,
+        "tokenwise_cosine_p01": 0.9997931213249802,
+        "tokenwise_cosine_p50": 0.9999993551574113
+      },
+      "layer0_input": {
+        "rows": 1100,
+        "flattened_cosine": 0.9999992122881333,
+        "relative_l2": 0.0012551673554693583,
+        "mse": 8.897432229116247e-07,
+        "rmse": 0.0009432620118035205,
+        "reference_activation_rms": 0.7515029830034934,
+        "candidate_activation_rms": 0.7515057217478922,
+        "tokenwise_cosine_mean": 0.9999996048223195,
+        "tokenwise_cosine_min": 0.999936339235875,
+        "tokenwise_cosine_p01": 0.9999936585613542,
+        "tokenwise_cosine_p50": 0.9999999999999999
+      },
+      "layer0_input_text_rows": {
+        "rows": 658,
+        "flattened_cosine": 1.0000000000000062,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021601424685009623,
+        "candidate_activation_rms": 0.021601424685009623,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999998,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9999992118973363,
+        "relative_l2": 0.0012554776465131617,
+        "mse": 2.214293088694089e-06,
+        "rmse": 0.0014880500961641343,
+        "reference_activation_rms": 1.1852461892064918,
+        "candidate_activation_rms": 1.185250510801438,
+        "tokenwise_cosine_mean": 0.9999990165261343,
+        "tokenwise_cosine_min": 0.999936339235875,
+        "tokenwise_cosine_p01": 0.9999881074585426,
+        "tokenwise_cosine_p50": 0.9999997309333205
+      }
+    }
+  },
+  "refusals": []
+}

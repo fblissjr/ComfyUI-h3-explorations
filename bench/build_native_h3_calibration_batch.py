@@ -578,17 +578,33 @@ def _size_keyframe(image: torch.Tensor, where: str, geometry_nodes) -> tuple[tor
     }
 
 
-def _size_reference_still(image: torch.Tensor, geometry_nodes) -> tuple[torch.Tensor, dict]:
-    """`max` with no upstream upscale, the accepted v2 primary still policy.
+STILL_POLICIES = ("max_no_upscale", "upscale_2048")
 
-    The scale is `min(1.0, ...)`, so this is a ceiling at a 2048 short edge and
-    never an upscale; `reference_conditioning.py::_compile_reference_records`
-    computes it the same way for the deployed path.
+
+def _size_reference_still(image: torch.Tensor, geometry_nodes,
+                          policy: str = "max_no_upscale") -> tuple[torch.Tensor, dict]:
+    """The accepted v2 still policy, or the separately named stress stratum.
+
+    `max_no_upscale` is the primary policy: the scale is `min(1.0, ...)`, so it
+    is a ceiling at a 2048 short edge and never an upscale, and
+    `reference_conditioning.py::_compile_reference_records` computes it the same
+    way for the deployed path.
+
+    `upscale_2048` is the stress stratum `active_plan.md` keeps separately
+    named -- the 2048-short-edge serving convention with upstream upscaling
+    allowed, which `MiniMaxH3ReferenceFit(allow_upscale=True)` performs on the
+    deployed path. It is not an alternative primary policy and must not be
+    mixed into one: it manufactures pixels, and its whole purpose is to measure
+    the serving convention's cost without letting interpolated large references
+    dominate the mix.
     """
     import math
 
+    if policy not in STILL_POLICIES:
+        raise ValueError(f"unknown still policy {policy!r}; expected {STILL_POLICIES}")
     source_h, source_w = int(image.shape[1]), int(image.shape[2])
-    scale = min(1.0, geometry_nodes.REF_IMAGE_SHORT_EDGE / min(source_w, source_h))
+    ratio = geometry_nodes.REF_IMAGE_SHORT_EDGE / min(source_w, source_h)
+    scale = ratio if policy == "upscale_2048" else min(1.0, ratio)
     multiple = geometry_nodes.CANVAS_MULTIPLE
     target_w = max(multiple, round(source_w * scale / multiple) * multiple)
     target_h = max(multiple, round(source_h * scale / multiple) * multiple)
@@ -602,10 +618,12 @@ def _size_reference_still(image: torch.Tensor, geometry_nodes) -> tuple[torch.Te
     resized = geometry_nodes._resize(source, target_w, target_h, "disabled")
     unchanged = (target_w, target_h) == (source_w, source_h)
     return resized, {
-        "policy": "reference-still-max-no-upscale",
-        "rule": "min(1.0, REF_IMAGE_SHORT_EDGE / short_edge), round to "
-                "CANVAS_MULTIPLE, then the unconditional _resize the deployed "
-                "reference compiler performs",
+        "policy": f"reference-still-{policy.replace('_', '-')}",
+        "rule": ("REF_IMAGE_SHORT_EDGE / short_edge" if policy == "upscale_2048"
+                 else "min(1.0, REF_IMAGE_SHORT_EDGE / short_edge)")
+                + ", round to CANVAS_MULTIPLE, then the unconditional _resize "
+                  "the deployed reference compiler performs",
+        "upscaling_allowed": policy == "upscale_2048",
         "scale": scale,
         "source": [source_w, source_h],
         "upstream": [target_w, target_h],
@@ -659,7 +677,8 @@ def _size_reference_video(clip: torch.Tensor, loaded_fps: float, duration_second
 
 
 def build_ordered_media(row: dict, contract: dict, root: Path,
-                        geometry_nodes, reference_conditioning) -> list[dict]:
+                        geometry_nodes, reference_conditioning,
+                        still_policy: str = "max_no_upscale") -> list[dict]:
     """Ordered reference items with per-item role, geometry and media hash."""
     order = declared_media_order(contract)
     keyframes = keyframe_declarations(row)
@@ -686,7 +705,9 @@ def build_ordered_media(row: dict, contract: dict, root: Path,
             decoded = _decode_still(path)
             where = keyframes.get(ordinal)
             if where is None:
-                sized, geometry = _size_reference_still(decoded, geometry_nodes)
+                sized, geometry = _size_reference_still(
+                    decoded, geometry_nodes, still_policy
+                )
                 role = "reference-still"
             else:
                 sized, geometry = _size_keyframe(decoded, where, geometry_nodes)
@@ -808,7 +829,8 @@ CHAT_TEMPLATE = "<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
 
 def build_row(row: dict, contract: dict, root: Path, host, transformer,
               tokenizer, geometry_nodes, reference_conditioning,
-              mutation: str | None = None) -> tuple[dict, dict]:
+              mutation: str | None = None,
+              still_policy: str = "max_no_upscale") -> tuple[dict, dict]:
     import comfy.sd1_clip
 
     prompt = row.get("target_ir") or ""
@@ -817,7 +839,8 @@ def build_row(row: dict, contract: dict, root: Path, host, transformer,
     if mutation == "chat-framing":
         prompt = CHAT_TEMPLATE.format(prompt)
 
-    items = build_ordered_media(row, contract, root, geometry_nodes, reference_conditioning)
+    items = build_ordered_media(row, contract, root, geometry_nodes,
+                                reference_conditioning, still_policy)
     if mutation == "reorder-references":
         items = list(reversed(items))
     elif mutation == "drop-media":
@@ -1017,6 +1040,11 @@ def main() -> int:
     )
     parser.add_argument("--device", default="cuda")
     parser.add_argument(
+        "--still-policy", choices=STILL_POLICIES, default="max_no_upscale",
+        help="primary accepted policy, or the separately named 2048-upscale "
+             "stress stratum",
+    )
+    parser.add_argument(
         "--mutate", choices=sorted(MUTATIONS),
         help="build a deliberately defective bundle; see MUTATIONS",
     )
@@ -1078,6 +1106,7 @@ def main() -> int:
         batch, record, media = build_row(
             row, contract, root, host, transformer, tokenizer,
             geometry_nodes, reference_conditioning, mutation=args.mutate,
+            still_policy=args.still_policy,
         )
         name = f"batch-{row_id}.safetensors"
         save_file({k: v.contiguous() for k, v in batch.items()}, out / name)
@@ -1098,6 +1127,7 @@ def main() -> int:
         )
 
     provenance = _provenance(revision, image_record, video_record)
+    provenance["still_policy"] = args.still_policy
     provenance["mutation"] = args.mutate
     provenance["mutation_intent"] = MUTATIONS.get(args.mutate) if args.mutate else None
     manifest = {"provenance": provenance, "order": wanted, "rows": records}

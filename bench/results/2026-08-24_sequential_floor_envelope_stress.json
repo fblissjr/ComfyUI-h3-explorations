@@ -1,0 +1,157 @@
+{
+  "pilot": "Gate 2A: llm-compressor SequentialPipeline over native-H3 batches, no modifiers, no artifact",
+  "gate": "2A",
+  "sets_population_budget": false,
+  "budget_requires": "Gate 2B, a bounded disposable modifier-bearing run that measures the AWQ increment",
+  "boundary": "no recipe instantiated, no quantization, no candidate directory, nothing saved. Measures the floor beneath a calibration run, not the whole of one",
+  "path_policy": "logical identifiers only",
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.1",
+    "llmcompressor": "0.13.1.dev38+g501f432bf",
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "gpu_total_gib": 23.5
+  },
+  "precision_policy": {
+    "policy": "comfy_exact",
+    "intent": "BF16 position interpolation reduced in ComfyUI's explicit four-term order, with FP32 active compute; reproduces the deployed ComfyUI position embedding bit-for-bit",
+    "compute_dtype": "float32",
+    "position_interpolation_dtype": "bfloat16",
+    "position_reduction": "comfy four-term add",
+    "position_embedding_source_dtype": "float32",
+    "position_cast_is_round_trip_exact": true,
+    "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+    "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+    "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+    "forward_substitution_is_bound_method": true,
+    "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+    "modifies_checkpoint_or_deployment": false,
+    "modifies_installed_packages": false
+  },
+  "model": {
+    "logical_name": "text_encoder",
+    "decoder_layers_built": 50,
+    "parameter_dtypes": [
+      "float32"
+    ],
+    "parameter_devices": [
+      "cpu"
+    ],
+    "load_seconds": 8.9,
+    "gpu_weight_budget_gib_recorded_not_enforced": 14.0,
+    "device_map": "none; loaded on the host so compressed_tensors owns offload. accelerate's device_map is incompatible with SequentialPipeline in this pinned pair"
+  },
+  "bundle_provenance": {
+    "schema": "h3-native-calibration-bundle-v1",
+    "path_policy": "logical identifiers only; no machine-local paths",
+    "dataset": {
+      "repo_id": "StellarVoyager/H3-IR",
+      "revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e"
+    },
+    "repository_commit": "f1b91484f75198775c6f387bcb942608392feb1c",
+    "comfyui_commit": "b78cec879b9460d5cb25228a83a942fb78d2cd24",
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0",
+    "processors": {
+      "image": {
+        "declared_type": "Qwen2VLImageProcessorFast",
+        "resolved_class": "Qwen2VLImageProcessor",
+        "resolved_backend": "TorchvisionBackend",
+        "size": {
+          "longest_edge": 16777216,
+          "shortest_edge": 65536
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+      },
+      "video": {
+        "declared_type": "Qwen3VLVideoProcessor",
+        "resolved_class": "Qwen3VLVideoProcessor",
+        "size": {
+          "longest_edge": 25165824,
+          "shortest_edge": 4096
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+      }
+    },
+    "geometry_substitution": "vision tower and token embedding run at released patch/merge/depth/DeepStack geometry with a reduced hidden width; no presentation field depends on that width and no weight-dependent claim is made",
+    "still_policy": "upscale_2048",
+    "mutation": null,
+    "mutation_intent": null
+  },
+  "steps": [
+    {
+      "rows": 1,
+      "row_ids": [
+        "train-00302-f84a2242a0a998ac"
+      ],
+      "sequence_tokens": 8981,
+      "visual_tokens": 8196,
+      "precision_policy": "comfy_exact",
+      "propagate_error": true,
+      "outcome": "cuda_oom",
+      "error": "Sequential pipeline ran out of memory. Please consider choosing a smaller module for `sequential_targets`, ex. 'Linear' for dense models. For MoE models with untraceable attention, use the attention m",
+      "seconds_total": 31.1,
+      "seconds_cache_build": 0.3,
+      "seconds_in_subgraph_forwards": 20.8,
+      "subgraph_forward_calls": 3,
+      "peak_cuda": {
+        "allocated_gib": 8.171,
+        "reserved_gib": 8.584
+      },
+      "peak_host_rss_gib": 122.08,
+      "host_rss_growth_gib": 0.0,
+      "offload_dir_bytes_before": 0,
+      "offload_dir_bytes_after": 0,
+      "intermediates_cache": {
+        "tensors": 7,
+        "bytes_by_device": {
+          "cpu": 696452885
+        },
+        "gib_by_device": {
+          "cpu": 0.649
+        },
+        "declared_offload_device": "cpu",
+        "bytes_per_token": 77547.4
+      },
+      "cuda_allocated_after_cleanup_gib": 0.009,
+      "cuda_reserved_after_cleanup_gib": 0.025
+    }
+  ],
+  "offload_dir_bytes_at_exit": 0,
+  "sequential_floor_envelope": {
+    "largest_completed_sequence_tokens": 0,
+    "largest_completed_rows": 0,
+    "is_a_budget": false,
+    "note": "a token total this MODIFIER-FREE path completed on this box. It is the floor beneath a calibration run: tracing, the intermediates cache and two forwards per subgraph per row, with no AWQ modifier observing or rewriting anything. It is not a chosen population, not a manifest, and it cannot set the final budget, which needs a modifier-bearing pass"
+  }
+}

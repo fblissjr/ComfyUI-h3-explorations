@@ -1,0 +1,597 @@
+{
+  "probe": "released Qwen3-VL vision tower, ComfyUI versus Transformers, by parameter precision",
+  "path_policy": "logical identifiers only",
+  "source": {
+    "logical_name": "text_encoder",
+    "vision_tensors": 351
+  },
+  "input": {
+    "bundle_row": "train-00001-44c65e69cff6b334",
+    "grids": [
+      [
+        1,
+        48,
+        84
+      ]
+    ],
+    "patch_rows": 4032,
+    "merged_tokens": 1008,
+    "pixel_values_dtype": "float32"
+  },
+  "reference_arm": "comfy-bfloat16-params",
+  "reference_note": "the deployed ComfyUI encoder stores vision weights in bfloat16, so this arm is what H3 conditioning is actually built from",
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0"
+  },
+  "policies": {
+    "float32": "plain Transformers FP32; a control, not the deployed configuration",
+    "bfloat16_native": "plain Transformers BF16 exactly as the library runs it: the model is BF16 but the interpolation coefficients come back from the helper in FP32 and are only rounded once, after the weighted sum. This is the honest plain-BF16 control",
+    "bfloat16": "BF16 model with the interpolation coefficients ALSO cast to BF16. This is a proposed arm, not what plain Transformers does, and must not be reported as generic Transformers BF16",
+    "hybrid": "BF16 position interpolation with FP32 active compute, reduced with transformers' own `.sum(1)`. Also the reduction-order control for hybrid_exact",
+    "comfy_exact": "BF16 position interpolation reduced in ComfyUI's explicit four-term order, with FP32 active compute; reproduces the deployed ComfyUI position embedding bit-for-bit",
+    "comfy_exact_corrupt_tap": "red control: comfy_exact with one interpolation tap scaled, so a comparison blind to it is blind to a real substitution defect"
+  },
+  "precision_records": {
+    "transformers-float32": {
+      "policy": "float32",
+      "intent": "plain Transformers FP32; a control, not the deployed configuration",
+      "compute_dtype": "float32",
+      "position_interpolation_dtype": "float32",
+      "position_reduction": "transformers .sum(1)",
+      "position_embedding_source_dtype": "float32",
+      "position_cast_is_round_trip_exact": true,
+      "substituted_expression": null,
+      "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+      "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+      "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+      "modifies_checkpoint_or_deployment": false,
+      "modifies_installed_packages": false
+    },
+    "transformers-bfloat16_native": {
+      "policy": "bfloat16_native",
+      "intent": "plain Transformers BF16 exactly as the library runs it: the model is BF16 but the interpolation coefficients come back from the helper in FP32 and are only rounded once, after the weighted sum. This is the honest plain-BF16 control",
+      "compute_dtype": "bfloat16",
+      "position_interpolation_dtype": "library default (float32 coefficients)",
+      "position_reduction": "transformers .sum(1)",
+      "position_embedding_source_dtype": "bfloat16",
+      "position_cast_is_round_trip_exact": true,
+      "substituted_expression": null,
+      "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+      "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+      "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+      "modifies_checkpoint_or_deployment": false,
+      "modifies_installed_packages": false
+    },
+    "transformers-bfloat16": {
+      "policy": "bfloat16",
+      "intent": "BF16 model with the interpolation coefficients ALSO cast to BF16. This is a proposed arm, not what plain Transformers does, and must not be reported as generic Transformers BF16",
+      "compute_dtype": "bfloat16",
+      "position_interpolation_dtype": "bfloat16",
+      "position_reduction": "transformers .sum(1)",
+      "position_embedding_source_dtype": "bfloat16",
+      "position_cast_is_round_trip_exact": true,
+      "substituted_expression": null,
+      "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+      "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+      "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+      "modifies_checkpoint_or_deployment": false,
+      "modifies_installed_packages": false
+    },
+    "transformers-hybrid": {
+      "policy": "hybrid",
+      "intent": "BF16 position interpolation with FP32 active compute, reduced with transformers' own `.sum(1)`. Also the reduction-order control for hybrid_exact",
+      "compute_dtype": "float32",
+      "position_interpolation_dtype": "bfloat16",
+      "position_reduction": "transformers .sum(1)",
+      "position_embedding_source_dtype": "float32",
+      "position_cast_is_round_trip_exact": true,
+      "substituted_expression": null,
+      "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+      "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+      "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+      "modifies_checkpoint_or_deployment": false,
+      "modifies_installed_packages": false
+    },
+    "transformers-comfy_exact": {
+      "policy": "comfy_exact",
+      "intent": "BF16 position interpolation reduced in ComfyUI's explicit four-term order, with FP32 active compute; reproduces the deployed ComfyUI position embedding bit-for-bit",
+      "compute_dtype": "float32",
+      "position_interpolation_dtype": "bfloat16",
+      "position_reduction": "comfy four-term add",
+      "position_embedding_source_dtype": "float32",
+      "position_cast_is_round_trip_exact": true,
+      "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+      "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+      "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+      "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+      "modifies_checkpoint_or_deployment": false,
+      "modifies_installed_packages": false
+    },
+    "transformers-comfy_exact_corrupt_tap": {
+      "policy": "comfy_exact_corrupt_tap",
+      "intent": "red control: comfy_exact with one interpolation tap scaled, so a comparison blind to it is blind to a real substitution defect",
+      "compute_dtype": "float32",
+      "position_interpolation_dtype": "bfloat16",
+      "position_reduction": "comfy four-term add",
+      "position_embedding_source_dtype": "float32",
+      "position_cast_is_round_trip_exact": true,
+      "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+      "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+      "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+      "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+      "modifies_checkpoint_or_deployment": false,
+      "modifies_installed_packages": false
+    }
+  },
+  "against_deployed": {
+    "comfy-float32-params": {
+      "merged": {
+        "relative_l2": 0.011103816063159163,
+        "flattened_cosine": 0.9999383685319614,
+        "max_abs_delta": 1.2483186721801758,
+        "tokenwise_cosine_min": 0.892726228231296,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3516725954850135
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.0024031460270217734,
+          "flattened_cosine": 0.9999971135075199,
+          "max_abs_delta": 0.0679328441619873,
+          "tokenwise_cosine_min": 0.9986449888848744,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.5883187614199722
+        },
+        {
+          "relative_l2": 0.005462417958558929,
+          "flattened_cosine": 0.9999850940378802,
+          "max_abs_delta": 0.23110520839691162,
+          "tokenwise_cosine_min": 0.9882231821826688,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.030004297317468
+        },
+        {
+          "relative_l2": 0.007145091242646485,
+          "flattened_cosine": 0.9999744767730113,
+          "max_abs_delta": 0.16575169563293457,
+          "tokenwise_cosine_min": 0.9947049295120646,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.41520487766817843
+        }
+      ],
+      "worst_relative_l2": 0.011103816063159163,
+      "all_bit_identical": false
+    },
+    "transformers-float32": {
+      "merged": {
+        "relative_l2": 0.01088285748054201,
+        "flattened_cosine": 0.9999407968579639,
+        "max_abs_delta": 1.1676206588745117,
+        "tokenwise_cosine_min": 0.9124210557710419,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3516823592039717
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.0024017257484617804,
+          "flattened_cosine": 0.9999971169873032,
+          "max_abs_delta": 0.06585264205932617,
+          "tokenwise_cosine_min": 0.9986614741889214,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.588317915334134
+        },
+        {
+          "relative_l2": 0.005453231409492239,
+          "flattened_cosine": 0.9999851439963138,
+          "max_abs_delta": 0.22319179773330688,
+          "tokenwise_cosine_min": 0.9873693170514194,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.0300031961915033
+        },
+        {
+          "relative_l2": 0.007123482728910505,
+          "flattened_cosine": 0.9999746301912246,
+          "max_abs_delta": 0.1635241061449051,
+          "tokenwise_cosine_min": 0.9950132303404057,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.41520085310142
+        }
+      ],
+      "worst_relative_l2": 0.01088285748054201,
+      "all_bit_identical": false
+    },
+    "transformers-bfloat16_native": {
+      "merged": {
+        "relative_l2": 0.05110647401785789,
+        "flattened_cosine": 0.9986934750086105,
+        "max_abs_delta": 3.226277031004429,
+        "tokenwise_cosine_min": 0.29939189387516246,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3512276430188195
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.014990938484154332,
+          "flattened_cosine": 0.9998877775344267,
+          "max_abs_delta": 0.2153339385986328,
+          "tokenwise_cosine_min": 0.9865715562091161,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.5886016590702268
+        },
+        {
+          "relative_l2": 0.02499170799585805,
+          "flattened_cosine": 0.999687760721772,
+          "max_abs_delta": 0.7212629914283752,
+          "tokenwise_cosine_min": 0.8808622100568728,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.0299966562412257
+        },
+        {
+          "relative_l2": 0.03455850825153493,
+          "flattened_cosine": 0.9994027922035226,
+          "max_abs_delta": 0.5143965482711792,
+          "tokenwise_cosine_min": 0.8312488250556164,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.41513376962054105
+        }
+      ],
+      "worst_relative_l2": 0.05110647401785789,
+      "all_bit_identical": false
+    },
+    "transformers-bfloat16": {
+      "merged": {
+        "relative_l2": 0.04964310548088786,
+        "flattened_cosine": 0.9987680689506997,
+        "max_abs_delta": 2.508035659790039,
+        "tokenwise_cosine_min": 0.336477718782558,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3523016181772554
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.014875846443922026,
+          "flattened_cosine": 0.9998894585590049,
+          "max_abs_delta": 0.2153339385986328,
+          "tokenwise_cosine_min": 0.984181769515911,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.5885586571447531
+        },
+        {
+          "relative_l2": 0.025836698326583737,
+          "flattened_cosine": 0.9996661894585566,
+          "max_abs_delta": 0.9069066047668457,
+          "tokenwise_cosine_min": 0.879523945142149,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.0296727280435427
+        },
+        {
+          "relative_l2": 0.03551192211355182,
+          "flattened_cosine": 0.9993692841904054,
+          "max_abs_delta": 0.4909590482711792,
+          "tokenwise_cosine_min": 0.842750677358,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.4150241113215368
+        }
+      ],
+      "worst_relative_l2": 0.04964310548088786,
+      "all_bit_identical": false
+    },
+    "transformers-hybrid": {
+      "merged": {
+        "relative_l2": 0.0011533096187168424,
+        "flattened_cosine": 0.9999993349944627,
+        "max_abs_delta": 0.09604787826538086,
+        "tokenwise_cosine_min": 0.9999027311371025,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3520244686111487
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.00043826706615933923,
+          "flattened_cosine": 0.9999999039606878,
+          "max_abs_delta": 0.00543212890625,
+          "tokenwise_cosine_min": 0.9999945540870288,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.5883475262046661
+        },
+        {
+          "relative_l2": 0.000610659199295356,
+          "flattened_cosine": 0.9999998135497592,
+          "max_abs_delta": 0.01976168155670166,
+          "tokenwise_cosine_min": 0.9999686941745541,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.0298501833558156
+        },
+        {
+          "relative_l2": 0.0009489188624469386,
+          "flattened_cosine": 0.999999549782428,
+          "max_abs_delta": 0.017257481813430786,
+          "tokenwise_cosine_min": 0.9999405620473955,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.4151802746331668
+        }
+      ],
+      "worst_relative_l2": 0.0011533096187168424,
+      "all_bit_identical": false
+    },
+    "transformers-comfy_exact": {
+      "merged": {
+        "relative_l2": 0.0011533096187168424,
+        "flattened_cosine": 0.9999993349944627,
+        "max_abs_delta": 0.09604787826538086,
+        "tokenwise_cosine_min": 0.9999027311371025,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3520244686111487
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.00043826706615933923,
+          "flattened_cosine": 0.9999999039606878,
+          "max_abs_delta": 0.00543212890625,
+          "tokenwise_cosine_min": 0.9999945540870288,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.5883475262046661
+        },
+        {
+          "relative_l2": 0.000610659199295356,
+          "flattened_cosine": 0.9999998135497592,
+          "max_abs_delta": 0.01976168155670166,
+          "tokenwise_cosine_min": 0.9999686941745541,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.0298501833558156
+        },
+        {
+          "relative_l2": 0.0009489188624469386,
+          "flattened_cosine": 0.999999549782428,
+          "max_abs_delta": 0.017257481813430786,
+          "tokenwise_cosine_min": 0.9999405620473955,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.4151802746331668
+        }
+      ],
+      "worst_relative_l2": 0.0011533096187168424,
+      "all_bit_identical": false
+    },
+    "transformers-comfy_exact_corrupt_tap": {
+      "merged": {
+        "relative_l2": 0.2633609354336785,
+        "flattened_cosine": 0.9652148341005837,
+        "max_abs_delta": 16.95596671104431,
+        "tokenwise_cosine_min": 0.08883072145097103,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3477067205543227
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.20689669563699567,
+          "flattened_cosine": 0.979139851977049,
+          "max_abs_delta": 15.60963249206543,
+          "tokenwise_cosine_min": 0.15524805280755924,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.5990208795128392
+        },
+        {
+          "relative_l2": 0.21821231573743569,
+          "flattened_cosine": 0.9762005914923066,
+          "max_abs_delta": 8.355836868286133,
+          "tokenwise_cosine_min": 0.06080489609655364,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.030234702435248
+        },
+        {
+          "relative_l2": 0.23949250810062442,
+          "flattened_cosine": 0.97145372066362,
+          "max_abs_delta": 3.9753917455673218,
+          "tokenwise_cosine_min": 0.18605960029128465,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.4169679400242005
+        }
+      ],
+      "worst_relative_l2": 0.2633609354336785,
+      "all_bit_identical": false
+    }
+  },
+  "matched_precision": {
+    "comfy-float32 vs transformers-float32": {
+      "merged": {
+        "relative_l2": 0.0012114616772242576,
+        "flattened_cosine": 0.999999266211456,
+        "max_abs_delta": 0.08069801330566406,
+        "tokenwise_cosine_min": 0.9988978083634834,
+        "reference_rms": 1.3516725954850135,
+        "candidate_rms": 1.3516823592039717
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.000439548155061034,
+          "flattened_cosine": 0.999999903399336,
+          "max_abs_delta": 0.0037262439727783203,
+          "tokenwise_cosine_min": 0.999998540439331,
+          "reference_rms": 0.5883187614199722,
+          "candidate_rms": 0.588317915334134
+        },
+        {
+          "relative_l2": 0.0005843327851654479,
+          "flattened_cosine": 0.9999998292777159,
+          "max_abs_delta": 0.02657628059387207,
+          "tokenwise_cosine_min": 0.9999829146717943,
+          "reference_rms": 1.030004297317468,
+          "candidate_rms": 1.0300031961915033
+        },
+        {
+          "relative_l2": 0.0009124306309636732,
+          "flattened_cosine": 0.9999995837778661,
+          "max_abs_delta": 0.008895855396986008,
+          "tokenwise_cosine_min": 0.999963985243467,
+          "reference_rms": 0.41520487766817843,
+          "candidate_rms": 0.41520085310142
+        }
+      ],
+      "worst_relative_l2": 0.0012114616772242576,
+      "all_bit_identical": false
+    },
+    "comfy-bfloat16 (deployed) vs transformers-hybrid": {
+      "merged": {
+        "relative_l2": 0.0011533096187168424,
+        "flattened_cosine": 0.9999993349944627,
+        "max_abs_delta": 0.09604787826538086,
+        "tokenwise_cosine_min": 0.9999027311371025,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3520244686111487
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.00043826706615933923,
+          "flattened_cosine": 0.9999999039606878,
+          "max_abs_delta": 0.00543212890625,
+          "tokenwise_cosine_min": 0.9999945540870288,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.5883475262046661
+        },
+        {
+          "relative_l2": 0.000610659199295356,
+          "flattened_cosine": 0.9999998135497592,
+          "max_abs_delta": 0.01976168155670166,
+          "tokenwise_cosine_min": 0.9999686941745541,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.0298501833558156
+        },
+        {
+          "relative_l2": 0.0009489188624469386,
+          "flattened_cosine": 0.999999549782428,
+          "max_abs_delta": 0.017257481813430786,
+          "tokenwise_cosine_min": 0.9999405620473955,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.4151802746331668
+        }
+      ],
+      "worst_relative_l2": 0.0011533096187168424,
+      "all_bit_identical": false
+    },
+    "comfy-bfloat16 (deployed) vs transformers-comfy_exact": {
+      "merged": {
+        "relative_l2": 0.0011533096187168424,
+        "flattened_cosine": 0.9999993349944627,
+        "max_abs_delta": 0.09604787826538086,
+        "tokenwise_cosine_min": 0.9999027311371025,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3520244686111487
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.00043826706615933923,
+          "flattened_cosine": 0.9999999039606878,
+          "max_abs_delta": 0.00543212890625,
+          "tokenwise_cosine_min": 0.9999945540870288,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.5883475262046661
+        },
+        {
+          "relative_l2": 0.000610659199295356,
+          "flattened_cosine": 0.9999998135497592,
+          "max_abs_delta": 0.01976168155670166,
+          "tokenwise_cosine_min": 0.9999686941745541,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.0298501833558156
+        },
+        {
+          "relative_l2": 0.0009489188624469386,
+          "flattened_cosine": 0.999999549782428,
+          "max_abs_delta": 0.017257481813430786,
+          "tokenwise_cosine_min": 0.9999405620473955,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.4151802746331668
+        }
+      ],
+      "worst_relative_l2": 0.0011533096187168424,
+      "all_bit_identical": false
+    },
+    "comfy-bfloat16 vs comfy-float32": {
+      "merged": {
+        "relative_l2": 0.011103816063159163,
+        "flattened_cosine": 0.9999383685319614,
+        "max_abs_delta": 1.2483186721801758,
+        "tokenwise_cosine_min": 0.892726228231296,
+        "reference_rms": 1.3520109974513514,
+        "candidate_rms": 1.3516725954850135
+      },
+      "deepstack": [
+        {
+          "relative_l2": 0.0024031460270217734,
+          "flattened_cosine": 0.9999971135075199,
+          "max_abs_delta": 0.0679328441619873,
+          "tokenwise_cosine_min": 0.9986449888848744,
+          "reference_rms": 0.5883476434273488,
+          "candidate_rms": 0.5883187614199722
+        },
+        {
+          "relative_l2": 0.005462417958558929,
+          "flattened_cosine": 0.9999850940378802,
+          "max_abs_delta": 0.23110520839691162,
+          "tokenwise_cosine_min": 0.9882231821826688,
+          "reference_rms": 1.0298526074665115,
+          "candidate_rms": 1.030004297317468
+        },
+        {
+          "relative_l2": 0.007145091242646485,
+          "flattened_cosine": 0.9999744767730113,
+          "max_abs_delta": 0.16575169563293457,
+          "tokenwise_cosine_min": 0.9947049295120646,
+          "reference_rms": 0.41518193243131607,
+          "candidate_rms": 0.41520487766817843
+        }
+      ],
+      "worst_relative_l2": 0.011103816063159163,
+      "all_bit_identical": false
+    }
+  },
+  "revert_equivalence": {},
+  "control": {
+    "guards": "comfy-float32 vs transformers-float32",
+    "perturbed_tensor": "merger.linear_fc2.weight",
+    "perturbed_in_arm": "transformers-float32",
+    "relative_scale": 0.02,
+    "merged": {
+      "relative_l2": 0.020410144323276685,
+      "flattened_cosine": 0.9999985999216947,
+      "max_abs_delta": 0.6325321197509766,
+      "tokenwise_cosine_min": 0.9989019469818508,
+      "reference_rms": 1.3516725954850135,
+      "candidate_rms": 1.379165658604307
+    },
+    "deepstack": [
+      {
+        "relative_l2": 0.000439548155061034,
+        "flattened_cosine": 0.999999903399336,
+        "max_abs_delta": 0.0037262439727783203,
+        "tokenwise_cosine_min": 0.999998540439331,
+        "reference_rms": 0.5883187614199722,
+        "candidate_rms": 0.588317915334134
+      },
+      {
+        "relative_l2": 0.0005843327851654479,
+        "flattened_cosine": 0.9999998292777159,
+        "max_abs_delta": 0.02657628059387207,
+        "tokenwise_cosine_min": 0.9999829146717943,
+        "reference_rms": 1.030004297317468,
+        "candidate_rms": 1.0300031961915033
+      },
+      {
+        "relative_l2": 0.0009124306309636732,
+        "flattened_cosine": 0.9999995837778661,
+        "max_abs_delta": 0.008895855396986008,
+        "tokenwise_cosine_min": 0.999963985243467,
+        "reference_rms": 0.41520487766817843,
+        "candidate_rms": 0.41520085310142
+      }
+    ],
+    "worst_relative_l2": 0.020410144323276685,
+    "all_bit_identical": false,
+    "relative_l2": 0.020410144323276685,
+    "honest_relative_l2": 0.0012114616772242576,
+    "ratio": 16.847536085533555,
+    "detected": true
+  }
+}

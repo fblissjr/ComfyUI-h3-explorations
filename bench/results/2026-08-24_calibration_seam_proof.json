@@ -206,35 +206,30 @@
   "dataloader_identity": {
     "dataloader": {
       "train-00003-0c519774864ae265": {
-        "attention_mask": "86ffac80d7e8a1aec4846e8a3fbfb06f8c5b9393377a18c2f67119058cabd26a",
         "image_grid_thw": "93222ac49d099bcdb1d93650244f53a868af8e480fdf499b2f02ea79f3d2d2c6",
         "input_ids": "d29c3e811d71a3ac9452abac073ea80de6781f8e6e027d40574277dbc8267e78",
         "pixel_values": "524ea87b3458746203980f1c71b5d64772362f5ee672d466086e7639a1432643",
         "mm_token_type_ids": "0ff4e418e13aa513d5bf5f5c147614a3465ee232b9f3f88673f7d72f818ebb55"
       },
       "train-00012-4bbe43dc3a3f95fe": {
-        "attention_mask": "192d8eed735480ebac62e580006a7d1e686eae6ca7e8ed4f0d60c28e8232bcc9",
         "image_grid_thw": "49bcb994464e5084190d1a49b7069ade0eabc85c6f32bb7590122ee54976e85f",
         "input_ids": "2173e1c65735f902991a25de21e708780db1095388b79e311d2b2e2f3e949966",
         "pixel_values": "766868470fd3b775c35e81050746ca0bad6c46b392863df001bcc42c928149bb",
         "mm_token_type_ids": "6086a9b111b89300210e086cd3395cf04c2a875a84c12ecd5b633b0441713355"
       },
       "train-00001-44c65e69cff6b334": {
-        "attention_mask": "0c54e865242ac1c21a7173245e3551306a9b3b50b6f052d54c2acbe2bbb51451",
         "image_grid_thw": "7644b2c532baf8c85e513cad22a466b47729168952f6d037d87acdd6e2c5d3b3",
         "input_ids": "df5c8b735d4f934046b94d299d2fca01179b30a03d8fbb18bb2b9cb79ce3628f",
         "pixel_values": "2c61e4f00bca10ce33f984fae884dc502c566582079e641b93c1269bc4a22efe",
         "mm_token_type_ids": "6a2def06fc26ed984c589e93a8dc21f2d277a933f5a2134129e26415ee94dc21"
       },
       "train-00006-e3f6d45e7ec76432": {
-        "attention_mask": "79ddde039fe2666121daa7ee27c9a70c9161556553951d4b36bb2d413f468f69",
         "image_grid_thw": "2adb0cba1cd876a56af7323a36390f6d18e4e15b3cdfc4361271fceaed6051f6",
         "input_ids": "f4ebc5e4211c3dbd4882d191aba1b497a29baa37ce0127f2344f47c84454ee41",
         "pixel_values": "aa57a515066856a2029a6fe7dab1e360f4811c38669ed9c9c53c2bed5a8e5708",
         "mm_token_type_ids": "e0df1009b5a76b140fdebda2e9cab4e41a0c76ba7dff992b85e39a654772ec3d"
       },
       "train-00002-f631dbe673b72816": {
-        "attention_mask": "558865c239d8d221b04717a15cf3caa52111755c5e1191ef9f7f7e025eb2fd2a",
         "image_grid_thw": "4b29b7eef08b3e65de608f2054b85c511b287d84ad877f8aa4958ac915a975b2",
         "input_ids": "0e48a8cfd0638a2f75d88a82f76abeeca23666cdc223b07e5eedd02f05623363",
         "pixel_values": "056af868b3a1a5fabc9b5aba02ca93ce045979ebe671578a75e7206e86896640",
@@ -243,48 +238,194 @@
     },
     "intermediates_cache": {
       "train-00003-0c519774864ae265": {
-        "attention_mask": "86ffac80d7e8a1aec4846e8a3fbfb06f8c5b9393377a18c2f67119058cabd26a",
         "image_grid_thw": "93222ac49d099bcdb1d93650244f53a868af8e480fdf499b2f02ea79f3d2d2c6",
         "input_ids": "d29c3e811d71a3ac9452abac073ea80de6781f8e6e027d40574277dbc8267e78",
         "pixel_values": "524ea87b3458746203980f1c71b5d64772362f5ee672d466086e7639a1432643",
         "mm_token_type_ids": "0ff4e418e13aa513d5bf5f5c147614a3465ee232b9f3f88673f7d72f818ebb55"
       },
       "train-00012-4bbe43dc3a3f95fe": {
-        "attention_mask": "192d8eed735480ebac62e580006a7d1e686eae6ca7e8ed4f0d60c28e8232bcc9",
         "image_grid_thw": "49bcb994464e5084190d1a49b7069ade0eabc85c6f32bb7590122ee54976e85f",
         "input_ids": "2173e1c65735f902991a25de21e708780db1095388b79e311d2b2e2f3e949966",
         "pixel_values": "766868470fd3b775c35e81050746ca0bad6c46b392863df001bcc42c928149bb",
         "mm_token_type_ids": "6086a9b111b89300210e086cd3395cf04c2a875a84c12ecd5b633b0441713355"
       },
       "train-00001-44c65e69cff6b334": {
-        "attention_mask": "0c54e865242ac1c21a7173245e3551306a9b3b50b6f052d54c2acbe2bbb51451",
         "image_grid_thw": "7644b2c532baf8c85e513cad22a466b47729168952f6d037d87acdd6e2c5d3b3",
         "input_ids": "df5c8b735d4f934046b94d299d2fca01179b30a03d8fbb18bb2b9cb79ce3628f",
         "pixel_values": "2c61e4f00bca10ce33f984fae884dc502c566582079e641b93c1269bc4a22efe",
         "mm_token_type_ids": "6a2def06fc26ed984c589e93a8dc21f2d277a933f5a2134129e26415ee94dc21"
       },
       "train-00006-e3f6d45e7ec76432": {
-        "attention_mask": "79ddde039fe2666121daa7ee27c9a70c9161556553951d4b36bb2d413f468f69",
         "image_grid_thw": "2adb0cba1cd876a56af7323a36390f6d18e4e15b3cdfc4361271fceaed6051f6",
         "input_ids": "f4ebc5e4211c3dbd4882d191aba1b497a29baa37ce0127f2344f47c84454ee41",
         "pixel_values": "aa57a515066856a2029a6fe7dab1e360f4811c38669ed9c9c53c2bed5a8e5708",
         "mm_token_type_ids": "e0df1009b5a76b140fdebda2e9cab4e41a0c76ba7dff992b85e39a654772ec3d"
       },
       "train-00002-f631dbe673b72816": {
-        "attention_mask": "558865c239d8d221b04717a15cf3caa52111755c5e1191ef9f7f7e025eb2fd2a",
         "image_grid_thw": "4b29b7eef08b3e65de608f2054b85c511b287d84ad877f8aa4958ac915a975b2",
         "input_ids": "0e48a8cfd0638a2f75d88a82f76abeeca23666cdc223b07e5eedd02f05623363",
         "pixel_values": "056af868b3a1a5fabc9b5aba02ca93ce045979ebe671578a75e7206e86896640",
         "mm_token_type_ids": "07a344682753a924e610da69b99d60438d2a6fb52bb3114521a0afc55643d1e7"
       }
     },
-    "rows": 5
+    "rows": 5,
+    "effective_input_transform": {
+      "train-00003-0c519774864ae265": {
+        "schema": "h3-effective-calibration-input-v1",
+        "transform": "omit-all-ones-attention-mask",
+        "row_id": "train-00003-0c519774864ae265",
+        "assertion": "every element of attention_mask equals 1",
+        "assertion_holds": true,
+        "attention_mask_present": true,
+        "attention_mask_elements": 1699,
+        "attention_mask_non_one_elements": 0,
+        "attention_mask_sha256": "86ffac80d7e8a1aec4846e8a3fbfb06f8c5b9393377a18c2f67119058cabd26a",
+        "raw_keys": [
+          "attention_mask",
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "raw_presentation_sha256": "6a48811b8f54fc5a1e84c4b8df00269b7f9cfcf88c0503da702ed41d2a2938b4",
+        "omitted_keys": [
+          "attention_mask"
+        ],
+        "effective_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "effective_model_input_sha256": "fc20da8933f49c662f3204b04420e962e9a2f0971634d039ee8272929f945c91",
+        "rationale": "an all-ones mask sends Transformers SDPA to its math backend, which materialises a quadratic attention tensor; omitting a mask that masks nothing leaves the attention causal"
+      },
+      "train-00012-4bbe43dc3a3f95fe": {
+        "schema": "h3-effective-calibration-input-v1",
+        "transform": "omit-all-ones-attention-mask",
+        "row_id": "train-00012-4bbe43dc3a3f95fe",
+        "assertion": "every element of attention_mask equals 1",
+        "assertion_holds": true,
+        "attention_mask_present": true,
+        "attention_mask_elements": 5857,
+        "attention_mask_non_one_elements": 0,
+        "attention_mask_sha256": "192d8eed735480ebac62e580006a7d1e686eae6ca7e8ed4f0d60c28e8232bcc9",
+        "raw_keys": [
+          "attention_mask",
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "raw_presentation_sha256": "676328a4c8c5e7536140f0f35040edaa08dca19e6aac26ce00c0455be993a875",
+        "omitted_keys": [
+          "attention_mask"
+        ],
+        "effective_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "effective_model_input_sha256": "c99c0c976d4d7910e6ed5055f6b1147138cb4a528f0d11bdfa951a9e6acc0d92",
+        "rationale": "an all-ones mask sends Transformers SDPA to its math backend, which materialises a quadratic attention tensor; omitting a mask that masks nothing leaves the attention causal"
+      },
+      "train-00001-44c65e69cff6b334": {
+        "schema": "h3-effective-calibration-input-v1",
+        "transform": "omit-all-ones-attention-mask",
+        "row_id": "train-00001-44c65e69cff6b334",
+        "assertion": "every element of attention_mask equals 1",
+        "assertion_holds": true,
+        "attention_mask_present": true,
+        "attention_mask_elements": 2007,
+        "attention_mask_non_one_elements": 0,
+        "attention_mask_sha256": "0c54e865242ac1c21a7173245e3551306a9b3b50b6f052d54c2acbe2bbb51451",
+        "raw_keys": [
+          "attention_mask",
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "raw_presentation_sha256": "143188af6bb76574c74f9daaf768a8ddfe3ec31a6bf85d632e77751862932a0a",
+        "omitted_keys": [
+          "attention_mask"
+        ],
+        "effective_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "effective_model_input_sha256": "8b7275ad5f840150a4d33e5d7825cc0394d78bed0fb149182106637912e0a422",
+        "rationale": "an all-ones mask sends Transformers SDPA to its math backend, which materialises a quadratic attention tensor; omitting a mask that masks nothing leaves the attention causal"
+      },
+      "train-00006-e3f6d45e7ec76432": {
+        "schema": "h3-effective-calibration-input-v1",
+        "transform": "omit-all-ones-attention-mask",
+        "row_id": "train-00006-e3f6d45e7ec76432",
+        "assertion": "every element of attention_mask equals 1",
+        "assertion_holds": true,
+        "attention_mask_present": true,
+        "attention_mask_elements": 10358,
+        "attention_mask_non_one_elements": 0,
+        "attention_mask_sha256": "79ddde039fe2666121daa7ee27c9a70c9161556553951d4b36bb2d413f468f69",
+        "raw_keys": [
+          "attention_mask",
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "raw_presentation_sha256": "e106c3398bf9de11f1d3b5463038bf8040763c61df637a281aee48308de9469d",
+        "omitted_keys": [
+          "attention_mask"
+        ],
+        "effective_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "effective_model_input_sha256": "7da0ad5ec3da548b66b5836cea915cfb36f2124ce5416c9501eb2a30a29400a3",
+        "rationale": "an all-ones mask sends Transformers SDPA to its math backend, which materialises a quadratic attention tensor; omitting a mask that masks nothing leaves the attention causal"
+      },
+      "train-00002-f631dbe673b72816": {
+        "schema": "h3-effective-calibration-input-v1",
+        "transform": "omit-all-ones-attention-mask",
+        "row_id": "train-00002-f631dbe673b72816",
+        "assertion": "every element of attention_mask equals 1",
+        "assertion_holds": true,
+        "attention_mask_present": true,
+        "attention_mask_elements": 6189,
+        "attention_mask_non_one_elements": 0,
+        "attention_mask_sha256": "558865c239d8d221b04717a15cf3caa52111755c5e1191ef9f7f7e025eb2fd2a",
+        "raw_keys": [
+          "attention_mask",
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "raw_presentation_sha256": "75afaad69739514da8918ec953c8736a2b9f7a18ef10878180eb7d1992099278",
+        "omitted_keys": [
+          "attention_mask"
+        ],
+        "effective_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "effective_model_input_sha256": "edff422b738da400debf008f184aaf6f89fa7a86a86ecd973de73939c96e94da",
+        "rationale": "an all-ones mask sends Transformers SDPA to its math backend, which materialises a quadratic attention tensor; omitting a mask that masks nothing leaves the attention causal"
+      }
+    }
   },
   "trace": {
     "traced_from": "train-00003-0c519774864ae265",
     "subgraph_count": 5,
     "subgraph0_input_names": [
-      "attention_mask",
       "image_grid_thw",
       "input_ids",
       "mm_token_type_ids",
@@ -295,31 +436,31 @@
         "dropped_by_trace": [],
         "missing_for_trace": [],
         "outcome": "ran",
-        "media_influence": 0.21337567269802094
+        "media_influence": 0.20363542437553406
       },
       "train-00012-4bbe43dc3a3f95fe": {
         "dropped_by_trace": [],
         "missing_for_trace": [],
         "outcome": "ran",
-        "media_influence": 0.18983067572116852
+        "media_influence": 0.22523745894432068
       },
       "train-00001-44c65e69cff6b334": {
         "dropped_by_trace": [],
         "missing_for_trace": [],
         "outcome": "ran",
-        "media_influence": 0.20444241166114807
+        "media_influence": 0.22139814496040344
       },
       "train-00006-e3f6d45e7ec76432": {
         "dropped_by_trace": [],
         "missing_for_trace": [],
         "outcome": "ran",
-        "media_influence": 0.23248016834259033
+        "media_influence": 0.19535265862941742
       },
       "train-00002-f631dbe673b72816": {
         "dropped_by_trace": [],
         "missing_for_trace": [],
         "outcome": "ran",
-        "media_influence": 0.20832881331443787
+        "media_influence": 0.19982527196407318
       }
     }
   },
@@ -329,6 +470,7 @@
       "transformers_position_ids_sha256": "376cb0c7ad71e840fe1d277de21223ce761e2d84c92c5e24c9ea32e89e66c1ec",
       "comfy_position_ids_sha256": "376cb0c7ad71e840fe1d277de21223ce761e2d84c92c5e24c9ea32e89e66c1ec",
       "equal": true,
+      "position_ids_unchanged_by_mask_omission": true,
       "max_position": 1068
     },
     "train-00012-4bbe43dc3a3f95fe": {
@@ -336,6 +478,7 @@
       "transformers_position_ids_sha256": "d4980cf524ebbb66f690767bb765572627a40588aa80301eeaedd10c2b6eccd7",
       "comfy_position_ids_sha256": "d4980cf524ebbb66f690767bb765572627a40588aa80301eeaedd10c2b6eccd7",
       "equal": true,
+      "position_ids_unchanged_by_mask_omission": true,
       "max_position": 1028
     },
     "train-00001-44c65e69cff6b334": {
@@ -343,6 +486,7 @@
       "transformers_position_ids_sha256": "315f1712097aad9824e377ec31d471b3cbff69e96600eaf56807db7149b73bd4",
       "comfy_position_ids_sha256": "315f1712097aad9824e377ec31d471b3cbff69e96600eaf56807db7149b73bd4",
       "equal": true,
+      "position_ids_unchanged_by_mask_omission": true,
       "max_position": 1040
     },
     "train-00006-e3f6d45e7ec76432": {
@@ -350,6 +494,7 @@
       "transformers_position_ids_sha256": "e54514651fccc08b969b4a8fb880d651fc025731f08e4918f342a61f7b9fb019",
       "comfy_position_ids_sha256": "e54514651fccc08b969b4a8fb880d651fc025731f08e4918f342a61f7b9fb019",
       "equal": true,
+      "position_ids_unchanged_by_mask_omission": true,
       "max_position": 1307
     },
     "train-00002-f631dbe673b72816": {
@@ -357,6 +502,7 @@
       "transformers_position_ids_sha256": "29c9950db5930ee2d46bcf618cab24a41978e228090bf2b90eb5289ab44cb847",
       "comfy_position_ids_sha256": "29c9950db5930ee2d46bcf618cab24a41978e228090bf2b90eb5289ab44cb847",
       "equal": true,
+      "position_ids_unchanged_by_mask_omission": true,
       "max_position": 1358
     }
   },
@@ -389,6 +535,52 @@
     "reading": "vendor serving labels H3 video blocks <|video_pad|>; this batch labels them <|image_pad|>, matching ComfyUI"
   },
   "controls": {
+    "effective_input_transform": {
+      "row_id": "train-00003-0c519774864ae265",
+      "clean": {
+        "schema": "h3-effective-calibration-input-v1",
+        "transform": "omit-all-ones-attention-mask",
+        "row_id": "train-00003-0c519774864ae265",
+        "assertion": "every element of attention_mask equals 1",
+        "assertion_holds": true,
+        "attention_mask_present": true,
+        "attention_mask_elements": 1699,
+        "attention_mask_non_one_elements": 0,
+        "attention_mask_sha256": "86ffac80d7e8a1aec4846e8a3fbfb06f8c5b9393377a18c2f67119058cabd26a",
+        "raw_keys": [
+          "attention_mask",
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "raw_presentation_sha256": "6a48811b8f54fc5a1e84c4b8df00269b7f9cfcf88c0503da702ed41d2a2938b4",
+        "omitted_keys": [
+          "attention_mask"
+        ],
+        "effective_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "effective_model_input_sha256": "fc20da8933f49c662f3204b04420e962e9a2f0971634d039ee8272929f945c91",
+        "rationale": "an all-ones mask sends Transformers SDPA to its math backend, which materialises a quadratic attention tensor; omitting a mask that masks nothing leaves the attention causal"
+      },
+      "omitted_key_absent_from_effective": true,
+      "surviving_keys_untouched": true,
+      "hashes_differ": true,
+      "controls": {
+        "one zero in the mask": {
+          "refused": true,
+          "reason": "train-00003-0c519774864ae265: attention_mask has 1 element(s) that are not 1, so it masks real positions. This row is not eligible for the omit-all-ones-attention-mask normalisation and the run must s"
+        },
+        "no mask at all": {
+          "refused": true,
+          "reason": "train-00003-0c519774864ae265: the raw batch has no attention_mask. This transform asserts an all-ones mask before omitting it; an absent mask is not the same claim and is refused rather than assumed."
+        }
+      }
+    },
     "text_only_row": {
       "outcome": "raised",
       "error": "TypeError: forward() missing 2 required positional arguments: 'pixel_values' and 'image_grid_thw'",

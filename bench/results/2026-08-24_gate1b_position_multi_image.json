@@ -1,0 +1,174 @@
+{
+  "probe": "Qwen3-VL vision position-embedding interpolation, ComfyUI versus Transformers, located field by field",
+  "path_policy": "logical identifiers only",
+  "source": {
+    "logical_name": "text_encoder"
+  },
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0"
+  },
+  "rows": {
+    "train-00302-f84a2242a0a998ac": {
+      "grids": [
+        [
+          1,
+          18,
+          18
+        ],
+        [
+          1,
+          18,
+          18
+        ]
+      ],
+      "steps": {
+        "1_indices": {
+          "field": "interp_indices",
+          "comparable": true,
+          "exactly_equal": true,
+          "mismatches": 0,
+          "elements": 2592
+        },
+        "2_weights_float32": {
+          "field": "interp_weights fp32",
+          "comparable": true,
+          "exactly_equal": true,
+          "max_abs_delta": 0.0,
+          "relative_l2": 0.0,
+          "elements_differing": 0,
+          "elements": 2592
+        },
+        "2_weights_bfloat16": {
+          "field": "interp_weights bf16",
+          "comparable": true,
+          "exactly_equal": true,
+          "max_abs_delta": 0.0,
+          "relative_l2": 0.0,
+          "elements_differing": 0,
+          "elements": 2592
+        },
+        "3_pos_embeds_float32": {
+          "field": "pos_embeds fp32",
+          "comparable": true,
+          "exactly_equal": true,
+          "max_abs_delta": 0.0,
+          "relative_l2": 0.0,
+          "elements_differing": 0,
+          "elements": 746496
+        },
+        "3_pos_embeds_bfloat16": {
+          "field": "pos_embeds bf16",
+          "comparable": true,
+          "exactly_equal": false,
+          "max_abs_delta": 0.015625,
+          "relative_l2": 0.0021778957783663965,
+          "elements_differing": 155604,
+          "elements": 746496
+        },
+        "4a_generic_sum_reduction": {
+          "field": "pos_embeds bf16, comfy coefficients, .sum(1)",
+          "comparable": true,
+          "exactly_equal": false,
+          "max_abs_delta": 0.015625,
+          "relative_l2": 0.0021778957783663965,
+          "elements_differing": 155604,
+          "elements": 746496
+        },
+        "4a_explicit_four_term_reduction": {
+          "field": "pos_embeds bf16, comfy coefficients, four-term add",
+          "comparable": true,
+          "exactly_equal": true,
+          "max_abs_delta": 0.0,
+          "relative_l2": 0.0,
+          "elements_differing": 0,
+          "elements": 746496
+        },
+        "4a_control_corrupt_index": {
+          "field": "one index corrupted",
+          "comparable": true,
+          "exactly_equal": false,
+          "max_abs_delta": 0.7099609375,
+          "relative_l2": 0.02590205016056127,
+          "elements_differing": 1151,
+          "elements": 746496
+        },
+        "4a_control_corrupt_weight": {
+          "field": "one coefficient corrupted",
+          "comparable": true,
+          "exactly_equal": false,
+          "max_abs_delta": 1.671875,
+          "relative_l2": 0.03628370568786916,
+          "elements_differing": 1152,
+          "elements": 746496
+        },
+        "4b_tower_merged_fed_vs_plain": {
+          "field": "tower pooler_output, comfy coefficients vs library coefficients",
+          "comparable": true,
+          "exactly_equal": false,
+          "max_abs_delta": 1.34375,
+          "relative_l2": 0.029910941238356154,
+          "elements_differing": 773442,
+          "elements": 829440
+        },
+        "4b_tower_deepstack_fed_vs_plain": [
+          {
+            "field": "deepstack[0]",
+            "comparable": true,
+            "exactly_equal": false,
+            "max_abs_delta": 0.15625,
+            "relative_l2": 0.009690518128705944,
+            "elements_differing": 696639,
+            "elements": 829440
+          },
+          {
+            "field": "deepstack[1]",
+            "comparable": true,
+            "exactly_equal": false,
+            "max_abs_delta": 0.45849609375,
+            "relative_l2": 0.017313617399684334,
+            "elements_differing": 715838,
+            "elements": 829440
+          },
+          {
+            "field": "deepstack[2]",
+            "comparable": true,
+            "exactly_equal": false,
+            "max_abs_delta": 0.625,
+            "relative_l2": 0.024934846751515253,
+            "elements_differing": 761422,
+            "elements": 829440
+          }
+        ],
+        "4b_kwargs_were_consumed": {
+          "note": "if the tower had ignored interp_indices/interp_weights the two forwards would be bit-identical",
+          "outputs_differ": true
+        }
+      },
+      "comfy_extraction_invariants": {
+        "float32": {
+          "permutation_is_bijection": true,
+          "permutation_elements": 648,
+          "indices_in_range": true,
+          "index_max": 2303,
+          "table_rows": 2304,
+          "weight_sum_max_abs_error": 3.3527612686157227e-08
+        },
+        "bfloat16": {
+          "permutation_is_bijection": true,
+          "permutation_elements": 648,
+          "indices_in_range": true,
+          "index_max": 2303,
+          "table_rows": 2304,
+          "weight_sum_max_abs_error": 0.001953125
+        }
+      },
+      "transformers_interpolation": {
+        "mode": "bilinear",
+        "align_corners": true,
+        "num_grid_per_side": 48
+      }
+    }
+  }
+}

@@ -1,0 +1,722 @@
+{
+  "comparison": "ComfyUI versus Transformers at the H3 layer-50 boundary",
+  "reference_arm": {
+    "schema": "h3-crossstack-layer50-v1",
+    "arm": "comfy",
+    "dtype": "float32 compute, bfloat16 stored weights",
+    "tap_layer": 49,
+    "seconds": 7.1,
+    "presentation": {
+      "row_id": "train-00302-f84a2242a0a998ac",
+      "prompt_sha256": "34060a597b11223c21d1956f1b8ce587bb203252ec65b0cd223364d180c4539f",
+      "sequence_length": 951,
+      "input_ids_sha256": "ded0e086de134e341165aa5b2b511616f693810e5e39e8ee9bc8f14cc6426cf8",
+      "attention_mask_sha256": "ad6a5c3ff53d1f80fc0052c723059e6a23e4bbc0c17654afb8b32e4a2928ec9d",
+      "mm_token_type_ids_sha256": "2fbcdac1573ae5999c03230f3d73634381b251273128ecf05c34bf29b57a3519",
+      "pixel_values_sha256": "08e0d4d20fa979384571d7a23622857b419d7a04f2451634a44673244816bea9",
+      "image_grid_thw_sha256": "d5bc4648f411fcf0f59167807638eb6f7edc32f587d680448100fccd1267984f",
+      "grids": [
+        [
+          1,
+          18,
+          18
+        ],
+        [
+          1,
+          18,
+          18
+        ]
+      ],
+      "token_tags_sha256": "39a576a97035f2629cca25d0f4a654c037da9476491479ae2beb0001205313cc",
+      "comfy_position_ids_sha256": "ed2c2197cd8b5059dc660e1f7c71932f984573337e9450084024e94e70dd24f7"
+    },
+    "comfy_sequence_length": 951,
+    "comfy_token_tags_sha256": "39a576a97035f2629cca25d0f4a654c037da9476491479ae2beb0001205313cc",
+    "consumed_vision_blocks": [
+      {
+        "grid_thw": [
+          [
+            1,
+            18,
+            18
+          ]
+        ],
+        "patches_sha256": "37141ff068a5bce93a3b1f0a9f3a7e637f393604e435b480fe562a28d927dc11"
+      },
+      {
+        "grid_thw": [
+          [
+            1,
+            18,
+            18
+          ]
+        ],
+        "patches_sha256": "15eab82b8ea7f09f04e3189bac6d09dd4889479636cf767cd9e0661bb7eb3c85"
+      }
+    ],
+    "hidden_state": {
+      "shape": [
+        951,
+        5120
+      ],
+      "dtype": "float32",
+      "sha256": "2c0705732ec03406b3ea434ffb413d2bf462fefb61cd2d509aa1ed33c896d9a7"
+    },
+    "layer0_input": {
+      "shape": [
+        951,
+        5120
+      ],
+      "dtype": "float32",
+      "sha256": "4ac86a41c81d8667392ebc67c97ffb9ea0e40f2a4b95bb834020544a9d7c9d80"
+    },
+    "source": {
+      "logical_name": "text_encoder",
+      "mapped_tensors": 902
+    },
+    "environment": {
+      "python": "3.13.9",
+      "torch": "2.13.0+cu132",
+      "transformers": "5.15.0"
+    },
+    "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/g1b-multi_image-comfy"
+  },
+  "reference_chosen_explicitly": false,
+  "arms": {
+    "transformers-float32-tap49": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "float32",
+        "precision_policy": {
+          "policy": "float32",
+          "intent": "plain Transformers FP32; a control, not the deployed configuration",
+          "compute_dtype": "float32",
+          "position_interpolation_dtype": "float32",
+          "position_embedding_source_dtype": "float32",
+          "position_cast_is_round_trip_exact": true,
+          "applied_to": "pos_embed weight and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "tap_layer": 49,
+        "tap": "forward hook on language_model.layers[49], raw residual",
+        "load_seconds": 8.3,
+        "forward_seconds": 100.0,
+        "presentation": {
+          "row_id": "train-00302-f84a2242a0a998ac",
+          "prompt_sha256": "34060a597b11223c21d1956f1b8ce587bb203252ec65b0cd223364d180c4539f",
+          "sequence_length": 951,
+          "input_ids_sha256": "ded0e086de134e341165aa5b2b511616f693810e5e39e8ee9bc8f14cc6426cf8",
+          "attention_mask_sha256": "ad6a5c3ff53d1f80fc0052c723059e6a23e4bbc0c17654afb8b32e4a2928ec9d",
+          "mm_token_type_ids_sha256": "2fbcdac1573ae5999c03230f3d73634381b251273128ecf05c34bf29b57a3519",
+          "pixel_values_sha256": "08e0d4d20fa979384571d7a23622857b419d7a04f2451634a44673244816bea9",
+          "image_grid_thw_sha256": "d5bc4648f411fcf0f59167807638eb6f7edc32f587d680448100fccd1267984f",
+          "grids": [
+            [
+              1,
+              18,
+              18
+            ],
+            [
+              1,
+              18,
+              18
+            ]
+          ],
+          "token_tags_sha256": "39a576a97035f2629cca25d0f4a654c037da9476491479ae2beb0001205313cc",
+          "comfy_position_ids_sha256": "ed2c2197cd8b5059dc660e1f7c71932f984573337e9450084024e94e70dd24f7"
+        },
+        "transformers_sequence_length": 951,
+        "layers_built": 50,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            951,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "4973f5fd80cf0fc9b7ec46fb557b95aba1a23e648d7a7fbd3db1099e25d8b2c2"
+        },
+        "layer0_input": {
+          "shape": [
+            951,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "5475589c2009892fc34acfb2f0c9519c4110e91615a9b49ec9812c6f626d6073"
+        },
+        "source": {
+          "logical_name": "text_encoder"
+        },
+        "peak_cuda_gib": 14.03,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        },
+        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/g1b-multi_image-float32"
+      },
+      "all": {
+        "rows": 951,
+        "flattened_cosine": 0.9999982284815522,
+        "relative_l2": 0.002007412024700175,
+        "mse": 0.0010873528827194286,
+        "rmse": 0.03297503423378706,
+        "reference_activation_rms": 16.426639786951544,
+        "candidate_activation_rms": 16.41515118345134,
+        "tokenwise_cosine_mean": 0.9999624178269304,
+        "tokenwise_cosine_min": 0.9855823039158802,
+        "tokenwise_cosine_p01": 0.9996004895134043,
+        "tokenwise_cosine_p50": 0.999998905020207
+      },
+      "text_rows": {
+        "rows": 785,
+        "flattened_cosine": 0.9999992058903696,
+        "relative_l2": 0.0012611126570558448,
+        "mse": 0.00012868795772179748,
+        "rmse": 0.01134407147905008,
+        "reference_activation_rms": 8.995287943190677,
+        "candidate_activation_rms": 8.994860176105613,
+        "tokenwise_cosine_mean": 0.9999951049123645,
+        "tokenwise_cosine_min": 0.9994869158294644,
+        "tokenwise_cosine_p01": 0.9999355421304953,
+        "tokenwise_cosine_p50": 0.9999991948998009
+      },
+      "vision_rows": {
+        "rows": 166,
+        "flattened_cosine": 0.999997999725205,
+        "relative_l2": 0.0021982064197618727,
+        "mse": 0.005620798461774489,
+        "rmse": 0.07497198451271307,
+        "reference_activation_rms": 34.10598014759052,
+        "candidate_activation_rms": 34.0748106023097,
+        "tokenwise_cosine_mean": 0.9998078433566544,
+        "tokenwise_cosine_min": 0.9855823039158802,
+        "tokenwise_cosine_p01": 0.995488163456311,
+        "tokenwise_cosine_p50": 0.9999943303429575
+      },
+      "layer0_input": {
+        "rows": 951,
+        "flattened_cosine": 0.9999652310163624,
+        "relative_l2": 0.008353421788176985,
+        "mse": 2.8249723826669097e-05,
+        "rmse": 0.005315046926102261,
+        "reference_activation_rms": 0.6362718249932647,
+        "candidate_activation_rms": 0.636563286221665,
+        "tokenwise_cosine_mean": 0.9999943103008224,
+        "tokenwise_cosine_min": 0.9974571504618006,
+        "tokenwise_cosine_p01": 0.9999359273053325,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_text_rows": {
+        "rows": 785,
+        "flattened_cosine": 1.0000000000000064,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021441495430246125,
+        "candidate_activation_rms": 0.021441495430246125,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999997,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 166,
+        "flattened_cosine": 0.999965198507256,
+        "relative_l2": 0.008357339691971891,
+        "mse": 0.00016184028529615842,
+        "rmse": 0.012721646328056696,
+        "reference_activation_rms": 1.5222124260755308,
+        "candidate_activation_rms": 1.5229103700403543,
+        "tokenwise_cosine_mean": 0.9999674041932657,
+        "tokenwise_cosine_min": 0.9974571504618006,
+        "tokenwise_cosine_p01": 0.9997250131326703,
+        "tokenwise_cosine_p50": 0.9999961285638901
+      }
+    },
+    "transformers-bfloat16_native-tap49": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "bfloat16_native",
+        "precision_policy": {
+          "policy": "bfloat16_native",
+          "intent": "plain Transformers BF16 exactly as the library runs it: the model is BF16 but the interpolation coefficients come back from the helper in FP32 and are only rounded once, after the weighted sum. This is the honest plain-BF16 control",
+          "compute_dtype": "bfloat16",
+          "position_interpolation_dtype": "library default (float32 coefficients)",
+          "position_reduction": "transformers .sum(1)",
+          "position_embedding_source_dtype": "bfloat16",
+          "position_cast_is_round_trip_exact": true,
+          "substituted_expression": null,
+          "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+          "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+          "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "tap_layer": 49,
+        "tap": "forward hook on language_model.layers[49], raw residual",
+        "load_seconds": 8.3,
+        "forward_seconds": 30.3,
+        "presentation": {
+          "row_id": "train-00302-f84a2242a0a998ac",
+          "prompt_sha256": "34060a597b11223c21d1956f1b8ce587bb203252ec65b0cd223364d180c4539f",
+          "sequence_length": 951,
+          "input_ids_sha256": "ded0e086de134e341165aa5b2b511616f693810e5e39e8ee9bc8f14cc6426cf8",
+          "attention_mask_sha256": "ad6a5c3ff53d1f80fc0052c723059e6a23e4bbc0c17654afb8b32e4a2928ec9d",
+          "mm_token_type_ids_sha256": "2fbcdac1573ae5999c03230f3d73634381b251273128ecf05c34bf29b57a3519",
+          "pixel_values_sha256": "08e0d4d20fa979384571d7a23622857b419d7a04f2451634a44673244816bea9",
+          "image_grid_thw_sha256": "d5bc4648f411fcf0f59167807638eb6f7edc32f587d680448100fccd1267984f",
+          "grids": [
+            [
+              1,
+              18,
+              18
+            ],
+            [
+              1,
+              18,
+              18
+            ]
+          ],
+          "token_tags_sha256": "39a576a97035f2629cca25d0f4a654c037da9476491479ae2beb0001205313cc",
+          "comfy_position_ids_sha256": "ed2c2197cd8b5059dc660e1f7c71932f984573337e9450084024e94e70dd24f7"
+        },
+        "transformers_sequence_length": 951,
+        "layers_built": 50,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            951,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "77691063ca69a31cffe8c41dd3faf519217f7f31665a9427b9f51703f07fc007"
+        },
+        "layer0_input": {
+          "shape": [
+            951,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "c9cd9e381ee93ce80eb4db0b9c5e9b9c37f6f2e38c5174487ae42d84ab0391c4"
+        },
+        "source": {
+          "logical_name": "text_encoder"
+        },
+        "peak_cuda_gib": 14.29,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        },
+        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/ce-multi_image-bfloat16_native"
+      },
+      "all": {
+        "rows": 951,
+        "flattened_cosine": 0.9999305762215897,
+        "relative_l2": 0.012134784527540448,
+        "mse": 0.039733937640324055,
+        "rmse": 0.19933373432593907,
+        "reference_activation_rms": 16.426639786951544,
+        "candidate_activation_rms": 16.37786140028733,
+        "tokenwise_cosine_mean": 0.9989156313149554,
+        "tokenwise_cosine_min": 0.7335448363221736,
+        "tokenwise_cosine_p01": 0.9858569917438254,
+        "tokenwise_cosine_p50": 0.9999450044359535
+      },
+      "text_rows": {
+        "rows": 785,
+        "flattened_cosine": 0.999920193769027,
+        "relative_l2": 0.015454698763688011,
+        "mse": 0.019326411775275474,
+        "rmse": 0.13901946545457392,
+        "reference_activation_rms": 8.995287943190677,
+        "candidate_activation_rms": 8.91449602230349,
+        "tokenwise_cosine_mean": 0.9995274977842513,
+        "tokenwise_cosine_min": 0.7870113382955612,
+        "tokenwise_cosine_p01": 0.9966739217377099,
+        "tokenwise_cosine_p50": 0.9999504796407164
+      },
+      "vision_rows": {
+        "rows": 166,
+        "flattened_cosine": 0.9999418801562877,
+        "relative_l2": 0.010822331590095137,
+        "mse": 0.13623940633949957,
+        "rmse": 0.36910622636241125,
+        "reference_activation_rms": 34.10598014759052,
+        "candidate_activation_rms": 34.071884791027,
+        "tokenwise_cosine_mean": 0.996022166384852,
+        "tokenwise_cosine_min": 0.7335448363221736,
+        "tokenwise_cosine_p01": 0.9113774717139942,
+        "tokenwise_cosine_p50": 0.9998175932869433
+      },
+      "layer0_input": {
+        "rows": 951,
+        "flattened_cosine": 0.999396258109649,
+        "relative_l2": 0.03506630692154254,
+        "mse": 0.0004978120952557875,
+        "rmse": 0.022311703100744852,
+        "reference_activation_rms": 0.6362718249932647,
+        "candidate_activation_rms": 0.6389075670570364,
+        "tokenwise_cosine_mean": 0.9999203136266099,
+        "tokenwise_cosine_min": 0.9908992987529719,
+        "tokenwise_cosine_p01": 0.9988802813290032,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_text_rows": {
+        "rows": 785,
+        "flattened_cosine": 1.0000000000000064,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021441495430246125,
+        "candidate_activation_rms": 0.021441495430246125,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999997,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 166,
+        "flattened_cosine": 0.9993957019705239,
+        "relative_l2": 0.03508275364486684,
+        "mse": 0.0028519235095677935,
+        "rmse": 0.053403403539173354,
+        "reference_activation_rms": 1.5222124260755308,
+        "candidate_activation_rms": 1.5285240617989213,
+        "tokenwise_cosine_mean": 0.9995434834873868,
+        "tokenwise_cosine_min": 0.9908992987529719,
+        "tokenwise_cosine_p01": 0.9919710488522829,
+        "tokenwise_cosine_p50": 0.9998506485312874
+      }
+    },
+    "transformers-hybrid-tap49": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "hybrid",
+        "precision_policy": {
+          "policy": "hybrid",
+          "intent": "BF16 position interpolation with FP32 active compute, the deployed ComfyUI combination",
+          "compute_dtype": "float32",
+          "position_interpolation_dtype": "bfloat16",
+          "position_embedding_source_dtype": "float32",
+          "position_cast_is_round_trip_exact": true,
+          "applied_to": "pos_embed weight and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "tap_layer": 49,
+        "tap": "forward hook on language_model.layers[49], raw residual",
+        "load_seconds": 11.8,
+        "forward_seconds": 48.1,
+        "presentation": {
+          "row_id": "train-00302-f84a2242a0a998ac",
+          "prompt_sha256": "34060a597b11223c21d1956f1b8ce587bb203252ec65b0cd223364d180c4539f",
+          "sequence_length": 951,
+          "input_ids_sha256": "ded0e086de134e341165aa5b2b511616f693810e5e39e8ee9bc8f14cc6426cf8",
+          "attention_mask_sha256": "ad6a5c3ff53d1f80fc0052c723059e6a23e4bbc0c17654afb8b32e4a2928ec9d",
+          "mm_token_type_ids_sha256": "2fbcdac1573ae5999c03230f3d73634381b251273128ecf05c34bf29b57a3519",
+          "pixel_values_sha256": "08e0d4d20fa979384571d7a23622857b419d7a04f2451634a44673244816bea9",
+          "image_grid_thw_sha256": "d5bc4648f411fcf0f59167807638eb6f7edc32f587d680448100fccd1267984f",
+          "grids": [
+            [
+              1,
+              18,
+              18
+            ],
+            [
+              1,
+              18,
+              18
+            ]
+          ],
+          "token_tags_sha256": "39a576a97035f2629cca25d0f4a654c037da9476491479ae2beb0001205313cc",
+          "comfy_position_ids_sha256": "ed2c2197cd8b5059dc660e1f7c71932f984573337e9450084024e94e70dd24f7"
+        },
+        "transformers_sequence_length": 951,
+        "layers_built": 50,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            951,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "8989b50b9512adc1f0b585427eb4218179f70abbd4a859caf55c7a1905df586d"
+        },
+        "layer0_input": {
+          "shape": [
+            951,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "4555370ad4d8973f96d13216c3be1aa20833881907e9922a3a89a15df4286a07"
+        },
+        "source": {
+          "logical_name": "text_encoder"
+        },
+        "peak_cuda_gib": 14.04,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        },
+        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/g1b-multi_image-hybrid"
+      },
+      "all": {
+        "rows": 951,
+        "flattened_cosine": 0.9999993300251238,
+        "relative_l2": 0.001190321124725892,
+        "mse": 0.0003823188840151476,
+        "rmse": 0.019552976346713755,
+        "reference_activation_rms": 16.426639786951544,
+        "candidate_activation_rms": 16.42207308697531,
+        "tokenwise_cosine_mean": 0.9999927872851833,
+        "tokenwise_cosine_min": 0.9986970739720462,
+        "tokenwise_cosine_p01": 0.9998983887979183,
+        "tokenwise_cosine_p50": 0.9999996614890051
+      },
+      "text_rows": {
+        "rows": 785,
+        "flattened_cosine": 0.9999997810743593,
+        "relative_l2": 0.0006620124559287753,
+        "mse": 3.546193761725604e-05,
+        "rmse": 0.005954992663073234,
+        "reference_activation_rms": 8.995287943190677,
+        "candidate_activation_rms": 8.995103993250222,
+        "tokenwise_cosine_mean": 0.999998553212855,
+        "tokenwise_cosine_min": 0.9998903538041611,
+        "tokenwise_cosine_p01": 0.9999761548184433,
+        "tokenwise_cosine_p50": 0.9999997474937744
+      },
+      "vision_rows": {
+        "rows": 166,
+        "flattened_cosine": 0.9999991961114523,
+        "relative_l2": 0.0013186268173035099,
+        "mse": 0.002022576130535297,
+        "rmse": 0.044973060053050615,
+        "reference_activation_rms": 34.10598014759052,
+        "candidate_activation_rms": 34.0936084259176,
+        "tokenwise_cosine_mean": 0.9999655206995068,
+        "tokenwise_cosine_min": 0.9986970739720462,
+        "tokenwise_cosine_p01": 0.9992620911526693,
+        "tokenwise_cosine_p50": 0.9999969514306316
+      },
+      "layer0_input": {
+        "rows": 951,
+        "flattened_cosine": 0.9999823500565503,
+        "relative_l2": 0.0059720877629627685,
+        "mse": 1.4439020984295288e-05,
+        "rmse": 0.0037998711799606165,
+        "reference_activation_rms": 0.6362718249932647,
+        "candidate_activation_rms": 0.6366456609745317,
+        "tokenwise_cosine_mean": 0.9999978195241404,
+        "tokenwise_cosine_min": 0.9997906146813712,
+        "tokenwise_cosine_p01": 0.9999507089219262,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_text_rows": {
+        "rows": 785,
+        "flattened_cosine": 1.0000000000000064,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021441495430246125,
+        "candidate_activation_rms": 0.021441495430246125,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999997,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 166,
+        "flattened_cosine": 0.9999823336677299,
+        "relative_l2": 0.005974888778630761,
+        "mse": 8.271993347027e-05,
+        "rmse": 0.009095049943253199,
+        "reference_activation_rms": 1.5222124260755308,
+        "candidate_activation_rms": 1.5231076276519495,
+        "tokenwise_cosine_mean": 0.9999875082376962,
+        "tokenwise_cosine_min": 0.9997906146813712,
+        "tokenwise_cosine_p01": 0.9998437152484629,
+        "tokenwise_cosine_p50": 0.9999968031812196
+      }
+    },
+    "transformers-comfy_exact-tap49": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "comfy_exact",
+        "precision_policy": {
+          "policy": "comfy_exact",
+          "intent": "BF16 position interpolation reduced in ComfyUI's explicit four-term order, with FP32 active compute; reproduces the deployed ComfyUI position embedding bit-for-bit",
+          "compute_dtype": "float32",
+          "position_interpolation_dtype": "bfloat16",
+          "position_reduction": "comfy four-term add",
+          "position_embedding_source_dtype": "float32",
+          "position_cast_is_round_trip_exact": true,
+          "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+          "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+          "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+          "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "tap_layer": 49,
+        "tap": "forward hook on language_model.layers[49], raw residual",
+        "load_seconds": 8.0,
+        "forward_seconds": 49.6,
+        "presentation": {
+          "row_id": "train-00302-f84a2242a0a998ac",
+          "prompt_sha256": "34060a597b11223c21d1956f1b8ce587bb203252ec65b0cd223364d180c4539f",
+          "sequence_length": 951,
+          "input_ids_sha256": "ded0e086de134e341165aa5b2b511616f693810e5e39e8ee9bc8f14cc6426cf8",
+          "attention_mask_sha256": "ad6a5c3ff53d1f80fc0052c723059e6a23e4bbc0c17654afb8b32e4a2928ec9d",
+          "mm_token_type_ids_sha256": "2fbcdac1573ae5999c03230f3d73634381b251273128ecf05c34bf29b57a3519",
+          "pixel_values_sha256": "08e0d4d20fa979384571d7a23622857b419d7a04f2451634a44673244816bea9",
+          "image_grid_thw_sha256": "d5bc4648f411fcf0f59167807638eb6f7edc32f587d680448100fccd1267984f",
+          "grids": [
+            [
+              1,
+              18,
+              18
+            ],
+            [
+              1,
+              18,
+              18
+            ]
+          ],
+          "token_tags_sha256": "39a576a97035f2629cca25d0f4a654c037da9476491479ae2beb0001205313cc",
+          "comfy_position_ids_sha256": "ed2c2197cd8b5059dc660e1f7c71932f984573337e9450084024e94e70dd24f7"
+        },
+        "transformers_sequence_length": 951,
+        "layers_built": 50,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            951,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "192dce6afb5d479e24de6176ea291591a6693b0815f0f900f51bf685445f73c8"
+        },
+        "layer0_input": {
+          "shape": [
+            951,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "5e8e2158218cd122ab53e671ee41fdfa619fe3b13f2b99c5060387c4cc4aae6b"
+        },
+        "source": {
+          "logical_name": "text_encoder"
+        },
+        "peak_cuda_gib": 14.04,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        },
+        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/ce-multi_image-comfy_exact"
+      },
+      "all": {
+        "rows": 951,
+        "flattened_cosine": 0.9999999367365879,
+        "relative_l2": 0.00045232326120646767,
+        "mse": 5.520714803073823e-05,
+        "rmse": 0.007430151279128725,
+        "reference_activation_rms": 16.426639786951544,
+        "candidate_activation_rms": 16.422048988328584,
+        "tokenwise_cosine_mean": 0.9999993573447856,
+        "tokenwise_cosine_min": 0.9999190206575459,
+        "tokenwise_cosine_p01": 0.999989359910423,
+        "tokenwise_cosine_p50": 0.9999998983923392
+      },
+      "text_rows": {
+        "rows": 785,
+        "flattened_cosine": 0.9999999269289961,
+        "relative_l2": 0.00038229875044497655,
+        "mse": 1.1825946141182437e-05,
+        "rmse": 0.003438887340577245,
+        "reference_activation_rms": 8.995287943190677,
+        "candidate_activation_rms": 8.995258242249399,
+        "tokenwise_cosine_mean": 0.9999994386017819,
+        "tokenwise_cosine_min": 0.9999190206575459,
+        "tokenwise_cosine_p01": 0.999995213380033,
+        "tokenwise_cosine_p50": 0.9999999062460869
+      },
+      "vision_rows": {
+        "rows": 166,
+        "flattened_cosine": 0.999999956647554,
+        "relative_l2": 0.00047309778998641484,
+        "mse": 0.00026035319311086655,
+        "rmse": 0.016135463833149222,
+        "reference_activation_rms": 34.10598014759052,
+        "candidate_activation_rms": 34.0933494739123,
+        "tokenwise_cosine_mean": 0.9999989730873017,
+        "tokenwise_cosine_min": 0.9999593928668361,
+        "tokenwise_cosine_p01": 0.999983670930039,
+        "tokenwise_cosine_p50": 0.9999997765483312
+      },
+      "layer0_input": {
+        "rows": 951,
+        "flattened_cosine": 0.9999995583309651,
+        "relative_l2": 0.0009447155702400113,
+        "mse": 3.6131628096810563e-07,
+        "rmse": 0.0006010958999761233,
+        "reference_activation_rms": 0.6362718249932647,
+        "candidate_activation_rms": 0.6362106836006008,
+        "tokenwise_cosine_mean": 0.9999999307188298,
+        "tokenwise_cosine_min": 0.9999915808620956,
+        "tokenwise_cosine_p01": 0.9999987212983025,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_text_rows": {
+        "rows": 785,
+        "flattened_cosine": 1.0000000000000064,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021441495430246125,
+        "candidate_activation_rms": 0.021441495430246125,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999997,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 166,
+        "flattened_cosine": 0.9999995579205633,
+        "relative_l2": 0.0009451586586906616,
+        "mse": 2.069950501208846e-06,
+        "rmse": 0.0014387322548719223,
+        "reference_activation_rms": 1.5222124260755308,
+        "candidate_activation_rms": 1.5220660145705256,
+        "tokenwise_cosine_mean": 0.9999996030940184,
+        "tokenwise_cosine_min": 0.9999915808620956,
+        "tokenwise_cosine_p01": 0.9999979927038358,
+        "tokenwise_cosine_p50": 0.9999997754024479
+      }
+    }
+  },
+  "refusals": []
+}

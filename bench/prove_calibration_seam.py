@@ -72,7 +72,14 @@ from llmcompressor.datasets.utils import get_calibration_dataloader
 from llmcompressor.pipelines.cache import IntermediatesCache
 from llmcompressor.pipelines.sequential.helpers import trace_subgraphs
 
+from h3_effective_batch import (  # noqa: E402
+    OMITTED_KEY,
+    MaskNotNormalisable,
+    effective_batch,
+)
+
 BENCH = Path(__file__).resolve().parent
+sys.path.insert(0, str(BENCH))
 REPORT = BENCH / "results" / "2026-08-24_calibration_seam_proof.json"
 SEQUENTIAL_TARGETS = ["Qwen3VLTextDecoderLayer"]
 IMAGE_PAD, VIDEO_PAD = 151655, 151656
@@ -103,25 +110,37 @@ def _file_sha(path: Path) -> str:
 
 
 class _BundleDataset(torch.utils.data.Dataset):
-    """The bundle's rows, in the manifest's declared order.
+    """The bundle's rows, in the manifest's declared order, after normalisation.
 
     Deterministic by construction: the order is the manifest's, not a sampler's.
     `active_plan.md` requires the row trace to come from the exact post-policy
     dataloader the launcher consumes, so there is only one ordering and it is
     written down.
+
+    Every row passes through `h3_effective_batch.effective_batch` on the way
+    out, so what the dataloader yields is the effective model input and not the
+    raw presentation. That transformation is declared and hashed rather than
+    applied inside a launcher; the acceptance record calls for exactly that.
     """
 
     def __init__(self, bundle: Path, manifest: dict):
         self.bundle = bundle
         self.records = {r["row_id"]: r for r in manifest["rows"]}
         self.order = [r for r in manifest["order"] if r in self.records]
+        self.transforms: dict[str, dict] = {}
 
     def __len__(self) -> int:
         return len(self.order)
 
-    def __getitem__(self, index: int) -> dict:
+    def raw(self, index: int) -> dict:
         record = self.records[self.order[index]]
         return load_file(self.bundle / record["batch_file"])
+
+    def __getitem__(self, index: int) -> dict:
+        row_id = self.order[index]
+        batch, transform = effective_batch(self.raw(index), row_id=row_id)
+        self.transforms[row_id] = transform
+        return batch
 
 
 def _identity_collate(rows: list[dict]) -> dict:
@@ -240,10 +259,27 @@ def check_dataloader_and_cache(bundle: Path, manifest: dict) -> tuple[dict, list
     failures = []
     loader = build_dataloader(bundle, manifest)
     dataset = loader.dataset
-    declared = {r["row_id"]: r["batch_tensors"] for r in manifest["rows"]}
+    # The presentation record still describes the RAW batch, mask included.
+    # The dataloader yields the effective one. Grading the effective batch
+    # against the raw record with the omitted key removed is the point: every
+    # surviving tensor must be untouched, and the omitted one must be gone.
+    declared = {
+        row_id: {k: v for k, v in record["batch_tensors"].items() if k != OMITTED_KEY}
+        for row_id, record in ((r["row_id"], r) for r in manifest["rows"])
+    }
+    for record in manifest["rows"]:
+        if OMITTED_KEY not in record["batch_tensors"]:
+            failures.append(
+                f"{record['row_id']}: the presentation record has no {OMITTED_KEY}; "
+                f"the raw batch must keep it so the transform has something to assert"
+            )
 
     first = next(iter(loader))
     first_row = dataset.order[0]
+    if OMITTED_KEY in first:
+        failures.append(
+            f"{first_row}: {OMITTED_KEY} survived into the effective batch"
+        )
     for key, value in first.items():
         if _tensor_sha(value) != declared[first_row][key]["sha256"]:
             failures.append(
@@ -274,7 +310,8 @@ def check_dataloader_and_cache(bundle: Path, manifest: dict) -> tuple[dict, list
                 failures.append(f"{row_id}: cache fetch differs from the record on {key}")
 
     return {"dataloader": yielded, "intermediates_cache": cached,
-            "rows": len(dataset)}, failures
+            "rows": len(dataset),
+            "effective_input_transform": dataset.transforms}, failures
 
 
 def check_trace_envelope(bundle: Path, manifest: dict) -> tuple[dict, list[str]]:
@@ -359,6 +396,17 @@ def check_mrope(bundle: Path, manifest: dict) -> tuple[dict, list[str]]:
             image_grid_thw=batch["image_grid_thw"],
             attention_mask=batch["attention_mask"],
         )
+        # The effective batch omits the mask, so the position ids the traced
+        # graph will actually see are computed without it. Asserting the two
+        # agree is what makes the omission a normalisation rather than a change
+        # of input: with an all-ones mask the filtering inside `get_rope_index`
+        # is a no-op, and this is where that stops being an argument.
+        omitted_ids, _ = model.model.get_rope_index(
+            input_ids=batch["input_ids"],
+            mm_token_type_ids=batch["mm_token_type_ids"],
+            image_grid_thw=batch["image_grid_thw"],
+            attention_mask=None,
+        )
         # ComfyUI stores (3, seq) float; transformers returns (3, batch, seq) long.
         theirs = position_ids[:, 0, :].to(torch.float32)
         sha = _tensor_sha(theirs)
@@ -367,10 +415,23 @@ def check_mrope(bundle: Path, manifest: dict) -> tuple[dict, list[str]]:
             "transformers_position_ids_sha256": sha,
             "comfy_position_ids_sha256": record["position_ids_sha256"],
             "equal": sha == record["position_ids_sha256"],
+            "position_ids_unchanged_by_mask_omission": bool(
+                torch.equal(position_ids, omitted_ids)
+            ),
             "max_position": int(position_ids.max()),
         }
+    failures = []
     bad = [row for row, value in rows.items() if value.get("covered") and not value["equal"]]
-    return rows, ([f"M-RoPE differs from the ComfyUI record on {bad}"] if bad else [])
+    if bad:
+        failures.append(f"M-RoPE differs from the ComfyUI record on {bad}")
+    moved = [row for row, value in rows.items()
+             if value.get("covered") and not value["position_ids_unchanged_by_mask_omission"]]
+    if moved:
+        failures.append(
+            f"omitting the all-ones mask moved the M-RoPE position ids on {moved}; "
+            f"the omission is not a normalisation"
+        )
+    return rows, failures
 
 
 def check_deepstack(manifest: dict) -> tuple[dict, list[str]]:
@@ -525,6 +586,56 @@ def check_mutated(bundle: Path, manifest: dict, name: str,
     ]
 
 
+def check_effective_transform(bundle: Path, manifest: dict) -> tuple[dict, list[str]]:
+    """The declared normalisation, and the two batches it must refuse.
+
+    A transform that only ever meets eligible input is indistinguishable from
+    one that drops the key unconditionally, which is the silent convenience the
+    record exists to prevent. So it is handed a mask with one zero and a batch
+    with no mask at all, and must refuse both by name.
+    """
+    failures = []
+    record = manifest["rows"][0]
+    raw = load_file(bundle / record["batch_file"])
+    clean, transform = effective_batch(raw, row_id=record["row_id"])
+
+    result: dict = {
+        "row_id": record["row_id"],
+        "clean": transform,
+        "omitted_key_absent_from_effective": OMITTED_KEY not in clean,
+        "surviving_keys_untouched": all(
+            _tensor_sha(value) == record["batch_tensors"][key]["sha256"]
+            for key, value in clean.items()
+        ),
+        "hashes_differ": (transform["raw_presentation_sha256"]
+                          != transform["effective_model_input_sha256"]),
+        "controls": {},
+    }
+    if not result["omitted_key_absent_from_effective"]:
+        failures.append(f"{OMITTED_KEY} survived the transform")
+    if not result["surviving_keys_untouched"]:
+        failures.append("the transform altered a tensor it was supposed to pass through")
+    if not result["hashes_differ"]:
+        failures.append(
+            "the raw and effective hashes are equal, so the record cannot "
+            "distinguish the two objects it exists to distinguish"
+        )
+
+    zeroed = {k: v.clone() for k, v in raw.items()}
+    zeroed[OMITTED_KEY][0, zeroed[OMITTED_KEY].shape[1] // 2] = 0
+    for label, candidate in (("one zero in the mask", zeroed),
+                             ("no mask at all",
+                              {k: v for k, v in raw.items() if k != OMITTED_KEY})):
+        try:
+            effective_batch(candidate, row_id=record["row_id"])
+            result["controls"][label] = {"refused": False}
+            failures.append(f"the transform accepted a batch with {label}")
+        except MaskNotNormalisable as exc:
+            result["controls"][label] = {"refused": True, "reason": str(exc)[:200]}
+            print(f"   refused '{label}': {str(exc).split(': ', 1)[-1][:110]}")
+    return result, failures
+
+
 def check_builder_disconnect(bundle: Path, manifest: dict) -> tuple[dict, list[str]]:
     """Feed the traced graph a batch the record does not describe.
 
@@ -646,6 +757,11 @@ def main() -> int:
 
     print("7. controls")
     report["controls"] = {}
+    report["controls"]["effective_input_transform"], f = check_effective_transform(
+        bundle, manifest
+    )
+    failures += f
+
     report["controls"]["text_only_row"], f = check_text_only_row(bundle, manifest)
     failures += f
     print(f"   text-only row against the vision trace: "

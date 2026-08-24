@@ -51,6 +51,7 @@ drift.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -68,6 +69,14 @@ REPO = BENCH.parent
 COMFY = REPO.parents[1]
 SCHEMA = "h3-crossstack-layer50-v1"
 H3_TAP_LAYER = 49
+
+sys.path.insert(0, str(BENCH))
+
+from h3_calibration_precision import (  # noqa: E402
+    POLICIES,
+    calibration_precision,
+    compute_dtype,
+)
 
 
 def _tensor_sha(tensor: torch.Tensor) -> str:
@@ -325,9 +334,68 @@ def _prompt_for(record: dict, bundle: Path) -> str:
 # Transformers arm
 
 
+def _sdpa_availability(dtype: torch.dtype, config) -> dict:
+    """Which fused SDPA backends exist for this model's attention shape.
+
+    Torch exposes availability but not which kernel a given call actually
+    selected, so this bounds the question rather than answering it: an arm
+    cannot have used a backend that is unavailable. Both the grouped-query
+    shape the model declares and the expanded shape a `repeat_kv` would produce
+    are reported, because which of the two reaches SDPA decides the answer and
+    is not visible from outside.
+    """
+    if not torch.cuda.is_available():
+        return {"available": None, "reason": "no CUDA"}
+    from torch.backends.cuda import (
+        SDPAParams,
+        can_use_efficient_attention,
+        can_use_flash_attention,
+    )
+
+    text = config.text_config
+    heads, kv_heads = text.num_attention_heads, text.num_key_value_heads
+    head_dim, seq = text.head_dim, 512
+    out = {}
+    for label, k_heads, gqa in (("grouped_query", kv_heads, True),
+                                ("expanded_kv", heads, False)):
+        q = torch.zeros(1, heads, seq, head_dim, dtype=dtype, device="cuda")
+        k = torch.zeros(1, k_heads, seq, head_dim, dtype=dtype, device="cuda")
+        params = SDPAParams(q, k, k, None, 0.0, True, gqa)
+        out[label] = {"flash": bool(can_use_flash_attention(params, False)),
+                      "efficient": bool(can_use_efficient_attention(params, False))}
+        del q, k
+    torch.cuda.empty_cache()
+    out["note"] = ("availability, not selection: torch does not expose which "
+                   "kernel a call chose")
+    return out
+
+
+@contextlib.contextmanager
+def _sdpa_backend(name: str):
+    """Pin SDPA's kernel, so a mask experiment is not also a kernel experiment.
+
+    Passing an all-ones `attention_mask` sends SDPA to its math backend;
+    omitting the mask lets it pick a memory-efficient one. Comparing those two
+    directly changes two things at once, and a difference from the kernel would
+    be attributed to the mask. Forcing the backend separates the questions.
+    """
+    if name == "auto":
+        yield {"requested": "auto"}
+        return
+    from torch.nn.attention import SDPBackend, sdpa_kernel
+
+    backends = {"math": [SDPBackend.MATH],
+                "efficient": [SDPBackend.EFFICIENT_ATTENTION]}
+    if name not in backends:
+        raise ValueError(f"unknown sdpa backend {name!r}")
+    with sdpa_kernel(backends[name]):
+        yield {"requested": name}
+
+
 def run_transformers_arm(bundle: Path, row_id: str | None, source: Path, out: Path,
-                         dtype: str, tap_layer: int, gpu_gib: float,
-                         perturb: str | None, keep_mask: bool) -> dict:
+                         policy: str, tap_layer: int, gpu_gib: float,
+                         perturb: str | None, keep_mask: bool,
+                         sdpa_backend: str = "auto") -> dict:
     from transformers import AutoConfig, Qwen3VLForConditionalGeneration
 
     manifest, record, tensors = _bundle_row(bundle, row_id)
@@ -339,7 +407,11 @@ def run_transformers_arm(bundle: Path, row_id: str | None, source: Path, out: Pa
     # taken by hook rather than from `output_hidden_states`, whose final entry
     # is post-norm and would not be the H3 boundary.
     config.text_config.num_hidden_layers = tap_layer + 1
-    torch_dtype = getattr(torch, dtype)
+    # The policy sets two things independently: the dtype the model loads in,
+    # which is the linear and residual compute, and the dtype the vision
+    # position interpolation runs at. `bench/h3_calibration_precision.py` owns
+    # that split and records which deployed behaviour each half models.
+    torch_dtype = compute_dtype(policy)
     started = time.time()
     # SDPA, explicitly. The config's default is eager, which materialises a
     # `seq x seq x heads` score matrix -- 9 GiB in float32 at 6,189 tokens, an
@@ -411,8 +483,10 @@ def run_transformers_arm(bundle: Path, row_id: str | None, source: Path, out: Pa
     if not dropped_mask:
         inputs["attention_mask"] = batch["attention_mask"].to(device)
     started = time.time()
-    with torch.no_grad():
-        model(**inputs, use_cache=False)
+    with calibration_precision(model, policy) as precision:
+        with _sdpa_backend(sdpa_backend) as backend:
+            with torch.no_grad():
+                model(**inputs, use_cache=False)
     forward_seconds = time.time() - started
     handle.remove()
     embed_handle.remove()
@@ -429,10 +503,13 @@ def run_transformers_arm(bundle: Path, row_id: str | None, source: Path, out: Pa
     manifest_out = {
         "schema": SCHEMA,
         "arm": "transformers",
-        "dtype": dtype,
+        "dtype": policy,
+        "precision_policy": precision,
         "attn_implementation": model.config._attn_implementation,
         "attention_mask_all_ones": all_ones,
         "attention_mask_passed": not dropped_mask,
+        "sdpa_backend": backend,
+        "sdpa_availability": _sdpa_availability(torch_dtype, config),
         "tap_layer": tap_layer,
         "tap": f"forward hook on language_model.layers[{tap_layer}], raw residual",
         "load_seconds": round(load_seconds, 1),
@@ -511,7 +588,8 @@ def _metrics(reference: torch.Tensor, candidate: torch.Tensor,
     }
 
 
-def compare(paths: list[Path], bundle: Path | None, out: Path) -> int:
+def compare(paths: list[Path], bundle: Path | None, out: Path,
+            reference_dir: Path | None = None) -> int:
     from safetensors.torch import load_file
 
     arms = []
@@ -521,29 +599,67 @@ def compare(paths: list[Path], bundle: Path | None, out: Path) -> int:
         hidden = loaded["hidden_state"]
         if _tensor_sha(hidden) != manifest["hidden_state"]["sha256"]:
             raise SystemExit(f"{path.name}: hidden state does not match its manifest")
-        arms.append((manifest, hidden, loaded.get("layer0_input")))
+        arms.append((manifest, hidden, loaded.get("layer0_input"), path.resolve()))
 
-    reference = next((a for a in arms if a[0]["arm"] == "comfy"), None)
-    if reference is None:
-        raise SystemExit("no ComfyUI arm among the captures; it is the reference")
+    if reference_dir is not None:
+        # Naming a reference makes this comparator usable for questions that are
+        # not "how far is Transformers from deployed ComfyUI" -- the
+        # mask-omission equivalence proof compares two Transformers arms to each
+        # other. The choice is recorded so such a report can never be misread as
+        # the default comparison.
+        resolved = reference_dir.resolve()
+        reference = next((a for a in arms if a[3] == resolved), None)
+        if reference is None:
+            raise SystemExit(
+                f"--reference {reference_dir.name} is not among the compared captures"
+            )
+    else:
+        reference = next((a for a in arms if a[0]["arm"] == "comfy"), None)
+        if reference is None:
+            raise SystemExit("no ComfyUI arm among the captures; it is the reference")
 
     report: dict = {
         "comparison": "ComfyUI versus Transformers at the H3 layer-50 boundary",
         "reference_arm": {k: v for k, v in reference[0].items()
                           if k not in ("bundle_provenance",)},
+        "reference_chosen_explicitly": reference_dir is not None,
         "arms": {},
         "refusals": [],
     }
-    base_manifest, base_hidden, base_embeddings = reference
+    base_manifest, base_hidden, base_embeddings, _base_path = reference
 
-    for manifest, hidden, embeddings in arms:
+    for manifest, hidden, embeddings, _path in arms:
         if manifest is base_manifest:
             continue
         label = f"{manifest['arm']}-{manifest['dtype']}-tap{manifest['tap_layer']}"
+        if manifest.get("arm") == "transformers":
+            label += ("-mask" if manifest.get("attention_mask_passed") else "-nomask")
+            label += f"-{manifest.get('sdpa_backend', {}).get('requested', '?')}"
         if manifest.get("perturbed_weight"):
             label += "-perturbed"
         entry: dict = {"manifest": {k: v for k, v in manifest.items()
                                     if k not in ("bundle_provenance",)}}
+        # Refuse on anything that would make the two arms answer different
+        # questions, not just on presentation. A backend experiment that also
+        # moved the policy, the tap or the weights would attribute the whole
+        # difference to the backend.
+        mismatched = [
+            field for field in ("dtype", "tap_layer")
+            if manifest.get(field) != base_manifest.get(field)
+        ]
+        if manifest.get("perturbed_weight") != base_manifest.get("perturbed_weight"):
+            mismatched.append("perturbed_weight")
+        if manifest.get("source", {}).get("logical_name") != \
+                base_manifest.get("source", {}).get("logical_name"):
+            mismatched.append("source")
+        if mismatched:
+            entry["refused"] = (
+                f"the arms differ on {mismatched} as well, so a difference "
+                f"could not be attributed to the field under test"
+            )
+            report["refusals"].append(f"{label}: {entry['refused']}")
+            report["arms"][label] = entry
+            continue
         if manifest["presentation"] != base_manifest["presentation"]:
             differing = sorted(
                 k for k, v in manifest["presentation"].items()
@@ -639,12 +755,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--arm", choices=("comfy", "transformers"))
     parser.add_argument("--compare", nargs="+", metavar="DIR")
+    parser.add_argument("--reference", metavar="DIR",
+                        help="use this capture as the reference instead of the "
+                             "ComfyUI arm; recorded in the report")
     parser.add_argument("--bundle")
     parser.add_argument("--row")
     parser.add_argument("--out", required=True)
     parser.add_argument("--source-dir", default=os.environ.get("H3_BF16_ENCODER_DIR"))
-    parser.add_argument("--dtype", default="float32",
-                        choices=("float32", "bfloat16"))
+    parser.add_argument("--dtype", default="float32", choices=sorted(POLICIES),
+                        help="calibration precision policy; see "
+                             "bench/h3_calibration_precision.py for what each models")
     parser.add_argument("--tap-layer", type=int, default=H3_TAP_LAYER,
                         help="control: tap a different decoder layer")
     parser.add_argument("--perturb-weight", default=None,
@@ -655,6 +775,10 @@ def main() -> int:
              "leaves room for SDPA's transient allocation, which at float32 is "
              "quadratic in sequence length and OOMs at 20 GiB on long rows",
     )
+    parser.add_argument("--sdpa-backend", default="auto",
+                        choices=("auto", "math", "efficient"),
+                        help="pin SDPA's kernel so a mask experiment is not "
+                             "also a kernel experiment")
     parser.add_argument("--keep-attention-mask", action="store_true",
                         help="pass the all-ones mask instead of dropping it; "
                              "measures the SDPA math-backend cost")
@@ -664,7 +788,8 @@ def main() -> int:
     if args.compare:
         return compare([Path(p).expanduser().resolve() for p in args.compare],
                        Path(args.bundle).expanduser().resolve() if args.bundle else None,
-                       Path(args.out).expanduser().resolve())
+                       Path(args.out).expanduser().resolve(),
+                       Path(args.reference).expanduser().resolve() if args.reference else None)
 
     if not args.arm or not args.bundle:
         parser.error("--arm and --bundle are required unless --compare is used")
@@ -682,7 +807,7 @@ def main() -> int:
     else:
         run_transformers_arm(bundle, args.row, source, out, args.dtype,
                              args.tap_layer, args.gpu_gib, args.perturb_weight,
-                             args.keep_attention_mask)
+                             args.keep_attention_mask, args.sdpa_backend)
     return 0
 
 

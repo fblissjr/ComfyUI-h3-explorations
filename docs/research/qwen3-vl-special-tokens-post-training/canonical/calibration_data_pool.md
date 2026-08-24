@@ -83,19 +83,26 @@ approved authoring plan. It is not part of this accepted pool.
 
 Producer:
 [`bench/build_h3_calibration_pool.py`](../../../../bench/build_h3_calibration_pool.py),
-SHA-256 `355599aab3e69ac842acc94ca661d4aee0d398f8a5ca526da24df6e698fab22f`.
+SHA-256 `2b609c96114791837c075eea2252be252eb01c22c7245d68eb2ee8450fbbae1a`.
 
 Outputs:
 
 - [`2026-08-24_h3_calibration_pool.jsonl`](../../../../bench/results/2026-08-24_h3_calibration_pool.jsonl),
-  SHA-256 `3a568ed6cb48744627b221e9c79384904b4c90e9cb0c416dc2ccf0c8b1a616f4`;
+  SHA-256 `00febc71610f53a2336020bc5157c6377b46b752922a573a6653458892701887`;
 - [`2026-08-24_h3_calibration_pool_excluded.jsonl`](../../../../bench/results/2026-08-24_h3_calibration_pool_excluded.jsonl),
-  SHA-256 `aad37fda883225f991d776c3127888e2925a3d61737c81ca85fa0b2cd35ae31d`;
+  SHA-256 `c7473fa6bf5113210a2732910bf1f78b5c40444c69ae10d390bb8383101bc86a`;
 - [`2026-08-24_h3_calibration_pool_summary.json`](../../../../bench/results/2026-08-24_h3_calibration_pool_summary.json),
-  SHA-256 `204a3bcb470d3e32ea8b298e09740307e9777a7f54f3b0e133de441c74bf60fd`.
+  SHA-256 `a661cba1fdf8f349be923adb290a1100edaa4286f073a62eb1664aeadc3a39b0`.
 
-The builder reads image dimensions from real cached files and pins the dataset
-revision through the cache reference. A 150-file audit recomputed 150 declared
-media hashes with zero missing files or mismatches. The accepted split/capture
-preflight must recompute all 3,101 media hashes rather than generalize from that
-sample.
+**MEASURED, repaired after an escaped video defect.** The builder now opens and
+SHA-256-verifies every declared image and video against the pinned snapshot
+before a row can enter the pool. Each output row carries its per-file
+`media_verification` record. The rebuilt pool contains 3,121 verified media
+references across 1,651 distinct files; no media-kind or primary-role exemption
+remains. [`check_pool_media_integrity.py`](../../../../bench/check_pool_media_integrity.py)
+re-verifies the emitted artifacts and demonstrates red controls for a deleted
+file, a corrupted file, a missing declared hash, and a mismatched video file.
+
+The eventual component split and capture preflight must recompute the same
+3,121 declarations from the pinned snapshot. A declared digest copied from a
+source row is not sufficient evidence by itself.

@@ -89,6 +89,11 @@ Codex owns canonical integration and review. Before a new Claude starts:
 
 ### Gate 1 — prove the exact calibration seam
 
+**Status:** Accepted for presentation, media, full-checkpoint mapping, the raw
+layer-49 tap, and hashed identity through the traced graph. The acceptance and
+its bounds are recorded in
+[`2026-08-24_gate1_seam_acceptance.md`](2026-08-24_gate1_seam_acceptance.md).
+
 The new Claude owns the v2 implementation. Its first deliverable is a compact
 audit plus an executable red/green seam proof, not a launcher.
 
@@ -111,11 +116,35 @@ timestamp drift, a missing temporal repeat, a grid change, media dropping,
 wrong token tags, missing multimodal token types, and a builder that is not the
 one handed to `oneshot`.
 
-### Gate 2 — run the bounded one-4090 feasibility pilot
+Token-tag mutations belong to the presentation gate. They are expected not to
+change the Qwen/`oneshot` batch because H3 consumes those tags downstream; the
+seam proof must record that specificity rather than pretend the traced graph can
+observe them.
 
-After Gate 1 passes, run the smallest experiment through the real pinned
-`llm-compressor` sequential path that reveals the relevant resource behavior
-without producing a launchable candidate.
+### Gate 1B — match the deployed precision configuration
+
+**Status:** Accepted. The calibration-only `comfy_exact` arm preserves released
+BF16 position-embedding values and coefficients, uses ComfyUI's explicit
+four-term reduction order, and uses FP32 active compute. It passed the
+predeclared comparison against deployed ComfyUI and the plain Transformers
+FP32/BF16 arms at the released vision output and raw layer-49 state, split into
+text and vision positions. The measurement and remaining residual are in
+[`2026-08-24_transformers_comfy_parity.md`](2026-08-24_transformers_comfy_parity.md).
+
+This is a calibration execution policy, not an embedding/vision storage change:
+the candidate still preserves the BF16 embedding, vision tower, and DeepStack
+tensors. Do not patch the deployed encoder or source checkpoint.
+
+Normalize attention masks only through the rule in the Gate 1 acceptance
+record: preserve and hash the raw mask, require it to be all ones, omit it from
+the effective model input, and refuse omission if any zero appears. All later
+dataloader/cache/trace identity assertions apply to that effective input.
+
+### Gate 2A — measure the no-modifier sequential floor
+
+Run the smallest no-modifier experiment through the real pinned
+`llm-compressor` sequential path that reveals cache, replay, offload, cleanup,
+and baseline resource behavior without producing a launchable candidate.
 
 Measure peak allocated and reserved VRAM, peak host RAM, activation/intermediate
 cache placement and growth, replay behavior, time by observable stage, temporary
@@ -124,12 +153,29 @@ mixed-keyframe/reference-, reference-video-, and 2048-upscale stress rows. The
 pilot must have a deliberate abort/failure control and mark every partial output
 non-launchable.
 
-The pilot sets the total-token budget and therefore the absolute calibration
-population. It does not change the accepted role partition.
+Use the accepted `comfy_exact` policy. Plain FP32, native BF16, and the earlier
+generic-sum hybrid remain comparison arms; lower cost alone cannot promote one
+to the candidate policy. The pilot must also prove that the effective
+all-ones-mask omission survives the real sequential dataloader and cache path.
+
+This no-modifier run is a floor measurement. It does not instantiate AWQ
+observers or modifier state and therefore cannot set the final token budget or
+absolute calibration population.
+
+### Gate 2B — measure a bounded real AWQ modifier
+
+Using the Gate 2A harness and accepted `comfy_exact` execution policy, run the
+smallest real AWQ-modifier experiment that exposes observer state, sequential
+layer calibration, cache/replay behavior, peak VRAM and host RAM, temporary
+disk use, and cleanup on intentional abort. It must remain incapable of
+producing or publishing a candidate checkpoint.
+
+Gate 2B sets the total-token budget and therefore the absolute calibration
+population. Neither Gate 2 arm changes the accepted role partition.
 
 ### Gate 3 — freeze the executable split and launch package
 
-Using Gate 2's measured budget:
+Using Gate 2B's measured budget:
 
 1. deterministically assign whole media components to calibration and holdout;
 2. emit calibration, holdout, and rejection manifests with achieved role and
