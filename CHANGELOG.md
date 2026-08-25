@@ -49,10 +49,21 @@ artifact.
   `--self-test` on every installed snapshot; the pre-fix line shown red, naming
   both snapshots.
 
+  **Who it would have reached, and who it would not.** Any arm that lets the
+  artifact's own processor run — the capture instrument's W4 arm — would have
+  produced a delta that was mostly a processor difference wearing a
+  weight-quantization label. An arm that replaces `preprocess_embed` to replay
+  a bundle's recorded patches is immune by construction, because the declared
+  bounds never execute; the layer-50 comparator's ComfyUI arm is built that way
+  deliberately, and guards it by requiring each row to reproduce the bundle's
+  recorded sequence length, which fires if the replacement did not take.
+
   Found by pointing the conversion path at a second candidate directory rather
   than by any check: the self-test stubs a CLIP directly and so never traversed
   the real load path. Recorded because that reachability gap is the lesson —
-  the control existed and its envelope did not include the defect.
+  the control existed and its envelope did not include the defect, and the
+  thing that found it was running against an input nobody wrote the code
+  against.
 
 ## 0.68.2
 
