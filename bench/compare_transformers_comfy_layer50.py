@@ -922,7 +922,7 @@ def main() -> int:
         # With --all-rows the directory holds one subdirectory per row and a
         # rerun skips the rows already captured; a single-row capture still
         # refuses to overwrite.
-        raise SystemExit(f"refuse to overwrite existing capture directory: {out}")
+        raise SystemExit(f"refuse to overwrite existing capture directory: {out.name}")
 
     if args.arm == "comfy":
         if args.all_rows and args.row:
