@@ -79,11 +79,9 @@ Sessions may or may not survive the night; the names and what each owns:
 - **mr_sparkles**: the v2 adapter/conversion/config-snapshot path
   (`bench/convert_h3_awq_candidate.py`, `config/` snapshots), the marker-arm
   nodes and the provenance stamp's `encoder_arm` block
-  (`docs/research/marker_arm_binding.md`), and the **checkpoint/resume build
-  for the pilot** (owner-directed, in progress; integration into
-  `bench/pilot_sequential_feasibility.py` only after the run has landed, and
-  accepted only when an interrupted-then-resumed probe run is bit-identical
-  to an uninterrupted one).
+  (`docs/research/marker_arm_binding.md`), and the checkpoint/resume module
+  for the pilot, built and proven at fixture scale, then parked by owner
+  decision (item 6 below).
 - **mr_data**: the calibration-set review harness
   (`bench/review_v2_calibration_bundle.py`), the near-duplicate adjudication
   and the corrected family map
