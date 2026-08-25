@@ -136,5 +136,9 @@ the deployed artifact, its symlink and the source are untouched).
   is a fraction of it, and the role coverage is what mr_data preferred over
   the 18-row alternative. A larger population needs the parent-argument cache
   off the host, which is a code change to the modifier, not a budget.
-- The 376 pool near-duplicate candidates nobody has ruled on. The split is
-  disjoint as far as the rulings reach; the map's own caveat names the rest.
+- A same-subject pair the Hamming-6 window never proposed. The pool-wide
+  near-duplicate review was completed later the same day (commit 329cad3:
+  every crossing candidate ruled, ten of the last 376 duplicates, 381
+  corrected families) and the launched split re-grades green under the
+  corrected map; what remains unexamined is whatever the window itself
+  cannot see, which the map's derived caveat now states.
