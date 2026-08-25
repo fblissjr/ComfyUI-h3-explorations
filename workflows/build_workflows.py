@@ -53,7 +53,7 @@ _OUR_NODES = {
 # used to live here in duplicate with the bench. Single source is
 # h3_config.py -- see its docstring for why that matters.
 from h3_config import (  # noqa: E402
-    ENCODER_V2, ENCODER_INT8, IMAGE_VAE, IMAGE_EDIT_BUDGET,
+    ENCODER_V2, ENCODER_INT8, CORE_LOADED_ENCODERS, IMAGE_VAE, IMAGE_EDIT_BUDGET,
     ASPECTS, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
     CACHE_NODE, CACHE_NODE_CLASS,
@@ -853,11 +853,15 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         "1": {"class_type": "UNETLoader",
               "inputs": {"unet_name": unet or MODELS["unet_ref2va" if ref else "unet_fl2va"],
                          "weight_dtype": "default"}},
-        # Core CLIPLoader lists this file because it lists the directory; it
-        # cannot recognize compressed-tensors packing or the full HF namespace.
-        "2": {"class_type": "MiniMaxH3AWQEncoderLoader",
-              "inputs": {"encoder_name": clip or MODELS["clip"],
-                         "device": "default"}},
+        # Core CLIPLoader lists every file in the directory but cannot open a
+        # compressed-tensors W4A16 artifact; the repo adapter opens only those.
+        # The file decides the loader (h3_config.CORE_LOADED_ENCODERS).
+        "2": ({"class_type": "CLIPLoader",
+               "inputs": {"clip_name": clip, "type": "minimax", "device": "default"}}
+              if clip in CORE_LOADED_ENCODERS else
+              {"class_type": "MiniMaxH3AWQEncoderLoader",
+               "inputs": {"encoder_name": clip or MODELS["clip"],
+                          "device": "default"}}),
         # The image VAE ONLY on the single-frame path. See h3_config: same
         # frozen encoder, decoder retrained for one temporal latent, and its
         # own README says it regresses multi-frame reconstruction -- so this
@@ -3911,12 +3915,20 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                       widgets=[unet or MODELS["unet_ref2va" if ref else "unet_fl2va"],
                                "default"],
                       outputs=[_out("MODEL", "MODEL")])
-    clip = g.add(
-        "MiniMaxH3AWQEncoderLoader", (-1500, 140), size=(560, 110),
-        widgets=[clip or MODELS["clip"], "default"],
-        outputs=[_out("CLIP", "CLIP")],
-        title="Load custom H3 W4A16 encoder (repo adapter)",
-    )
+    if clip in CORE_LOADED_ENCODERS:
+        clip = g.add(
+            "CLIPLoader", (-1500, 140), size=(560, 110),
+            widgets=[clip, "minimax", "default"],
+            outputs=[_out("CLIP", "CLIP")],
+            title="Load H3 encoder (core CLIPLoader, ComfyUI-native file)",
+        )
+    else:
+        clip = g.add(
+            "MiniMaxH3AWQEncoderLoader", (-1500, 140), size=(560, 110),
+            widgets=[clip or MODELS["clip"], "default"],
+            outputs=[_out("CLIP", "CLIP")],
+            title="Load custom H3 W4A16 encoder (repo adapter)",
+        )
     # Single-frame swaps the decoder, and the node TITLE carries the warning:
     # it is the only thing visible when someone copies this node into a video
     # graph, which is the mistake worth making hard to make.

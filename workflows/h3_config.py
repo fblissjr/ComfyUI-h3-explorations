@@ -74,6 +74,16 @@ ENCODER_V2 = "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"
 #: still load `MODELS["clip"]`; only the arms that measure wire this one.
 ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 
+#: Encoder files core's own `CLIPLoader` (type `minimax`) loads; everything
+#: else named as a graph's encoder goes through the repo's
+#: `MiniMaxH3AWQEncoderLoader`, which refuses a file that is not a W4A16
+#: compressed-tensors artifact. The generator picks the loader node from
+#: this set, so a graph never names a file its loader cannot open.
+CORE_LOADED_ENCODERS = frozenset({
+    ENCODER_INT8,
+    "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+})
+
 # `er_sde` / `simple`, the default since 2026-08-15. The owner's call, and a
 # default rather than a finding: `res_multistep` / `simple` were core's
 # base-template values carried unquestioned, and `er_sde` looked more

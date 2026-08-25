@@ -15,7 +15,12 @@ artifact.
   (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`), so it is
   the encoder of record for the ablation and the marker arms; the W4 lane
   continues as the small-host variant. `bench/gate6_refview_arms.json` says
-  how to patch a W4 artifact back in on every arm at once.
+  how to patch a W4 artifact back in on every arm at once. The generator
+  picks the loader node from the file (`h3_config.CORE_LOADED_ENCODERS`):
+  core's `CLIPLoader` with `type=minimax` for the ComfyUI-native files, the
+  repo's `MiniMaxH3AWQEncoderLoader` for W4A16 artifacts, which refuses
+  anything else; the first render of the switched arms hit exactly that
+  refusal.
 
 ## 0.70.10
 
