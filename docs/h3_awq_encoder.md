@@ -240,11 +240,18 @@ artifact is a combo change.
 
 Two things a v2 artifact does **not** get:
 
-- **Its FP32 vision patch embed does not survive the load.** ComfyUI builds the
-  H3 model at the decoder's dtype and `load_state_dict` casts on copy — an FP32
-  source tensor into a BF16 module comes back BF16 and is not an exact round
-  trip (executed, 2026-08-25). The calibration-time FP32 patch embed is a
-  property of how the scales were observed, not of how the artifact runs here.
+- **Its FP32 vision patch embed does not survive the load, and losing it costs
+  nothing.** ComfyUI builds the H3 model at the decoder's dtype and
+  `load_state_dict` casts on copy, which for an arbitrary FP32 tensor is not an
+  exact round trip. This one is: the candidate's FP32 patch embed is the
+  release's BF16 upcast, kept wide at calibration so the vision input is never
+  downcast, so the cast back is exact. Measured on the two-layer candidate,
+  2026-08-25: its `visual.patch_embed.proj.{weight,bias}` round-trip through
+  BF16 bit for bit, and equal the installed release BF16 encoder's own patch
+  embed bit for bit. `bench/check_h3_awq_encoder.py`'s candidate arm asserts the
+  round trip on whatever FP32 tensors an artifact carries, so a future recipe
+  that computes genuinely new FP32 values there goes red rather than having
+  them silently discarded.
 - **Reduced-depth artifacts cannot be constructed at all.** Core recognizes the
   H3 encoder by the presence of decoder layer 49 and builds a fixed 50-layer
   model, so a two-layer smoke artifact is detected as a different Qwen3-VL

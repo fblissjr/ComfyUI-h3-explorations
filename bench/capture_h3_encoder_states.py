@@ -44,8 +44,10 @@ import importlib.util
 import json
 import numbers
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import types
 from pathlib import Path
 from typing import Any
@@ -207,16 +209,67 @@ def _processor_policy_spec(name: str) -> tuple[dict, dict]:
     return effective, record
 
 
-def _activate_processor_policy(h3, clip, name: str) -> dict:
-    """Bind one policy through the adapter's public per-CLIP override seam."""
+def _artifact_declaration(h3, clip) -> dict | None:
+    """Which snapshot the loaded artifact resolved to, before any override.
+
+    Read off the CLIP the loader stamped, so it names the artifact actually
+    open rather than the adapter's default. ``None`` for a CLIP that carries no
+    stamp -- the BF16 arm before its processors are installed, and core's own
+    ``CLIPLoader``.
+    """
+    model = clip.cond_stage_model.qwen3vl_32b.transformer
+    source = getattr(model, "_h3_processor_source", None)
+    if not source:
+        return None
+    config_dir = Path(source)
+    if not config_dir.is_dir():
+        return {"snapshot": Path(source).name, "config_sha256": None}
+    return {
+        "snapshot": config_dir.name,
+        "config_sha256": _sha256(config_dir / "config.json"),
+        "declared_still_bounds": list(h3.source_image_pixel_bounds(config_dir)),
+        "declared_video_bounds": list(h3.source_video_pixel_bounds(config_dir)),
+    }
+
+
+def _activate_processor_policy(h3, clip, name: str) -> tuple[dict, dict | None]:
+    """Bind one policy through the adapter's public per-CLIP override seam.
+
+    Returns the shared policy record and, separately, what the loaded artifact
+    declared before the override. The policy is deliberately *shared*: an arm's
+    own declaration is overridden so the comparison stays weight-only. Since
+    2026-08-25 that override can be applied over an artifact whose declaration
+    differs from the snapshot the policy is built from, so what was overridden
+    is now recorded per arm instead of being invisible.
+    """
     if Path(h3.CONFIG_DIR).resolve() != CURRENT_CONFIG_DIR.resolve():
         raise ValueError(
             f"adapter config root {h3.CONFIG_DIR} != expected {CURRENT_CONFIG_DIR}"
         )
+    declaration = _artifact_declaration(h3, clip)
     effective, record = _processor_policy_spec(name)
     size = effective["size"]
     bounds = (int(size["shortest_edge"]), int(size["longest_edge"]))
     override = None if name == "current_w4" else bounds
+    # The shared policy replaces the still-image processor AND rebinds the video
+    # patchifier to the policy's own snapshot. It is only a still-image policy
+    # while the two snapshots agree about video; otherwise the arm differs in
+    # two places at once and is still labelled weight-only. The v1 and v2
+    # snapshots agree today, which is exactly when a silent assumption forms.
+    if declaration is not None and declaration.get("declared_video_bounds"):
+        artifact = Path(
+            clip.cond_stage_model.qwen3vl_32b.transformer._h3_processor_source
+        )
+        shared = (list(h3.source_video_pixel_bounds()),
+                  h3.source_video_patch_geometry())
+        theirs = (declaration["declared_video_bounds"],
+                  h3.source_video_patch_geometry(artifact))
+        if shared != theirs:
+            raise ValueError(
+                f"{artifact.name} declares a video view {theirs} where the "
+                f"shared policy binds {shared}; a shared still-image policy "
+                "cannot also move the video view"
+            )
     h3.install_source_processors(clip, image_bounds=override)
     model = clip.cond_stage_model.qwen3vl_32b.transformer
     actual = tuple(model._h3_image_bounds)
@@ -227,7 +280,7 @@ def _activate_processor_policy(h3, clip, name: str) -> dict:
         "bound_image_bounds": list(actual),
         "override_supplied": override is not None,
     }
-    return record
+    return record, declaration
 
 
 def _git_commit(directory: Path) -> str | None:
@@ -798,12 +851,97 @@ def _capture_one(clip, recorder: InputRecorder, fixture: dict) -> tuple[torch.Te
     return hidden, metadata
 
 
+def self_test() -> None:
+    """Exercise the per-arm snapshot record and its guard, CPU only, no model.
+
+    The capture itself needs the card. What is asserted here does not: whether
+    an arm records which artifact declaration the shared policy overrode, and
+    whether the guard fires when that artifact's video view disagrees with the
+    policy's. Both were introduced on 2026-08-25 for a second artifact
+    generation, and the guard is the kind that cannot be shown to work by the
+    real artifacts, because v1 and v2 agree about video.
+    """
+    h3 = _h3_module()
+    snapshots = h3._snapshot_dirs()
+    assert len(snapshots) >= 2, "need a second snapshot to tell arms apart"
+
+    def stub(source=None):
+        transformer = types.SimpleNamespace()
+        if source is not None:
+            transformer._h3_processor_source = str(source)
+        return types.SimpleNamespace(cond_stage_model=types.SimpleNamespace(
+            qwen3vl_32b=types.SimpleNamespace(transformer=transformer)))
+
+    # An unstamped CLIP -- core's loader, and the BF16 arm before its
+    # processors are installed -- declares nothing rather than the default.
+    assert _artifact_declaration(h3, stub()) is None
+
+    seen = {}
+    with tempfile.TemporaryDirectory(prefix="h3-capture-selftest-") as raw:
+        # A stand-in for the artifact, so the record path is exercised without
+        # streaming the real multi-gigabyte file through sha256 twice.
+        stand_in = Path(raw) / "stand_in.safetensors"
+        stand_in.write_bytes(b"")
+        for config_dir in snapshots:
+            clip = stub(config_dir)
+            record, declaration = _activate_processor_policy(
+                h3, clip, "current_w4_release_image_bounds")
+            assert declaration["snapshot"] == config_dir.name, declaration
+            model = _model_record("w4", stand_in, None, record, declaration)
+            assert model["artifact_declaration_overridden"] == declaration
+            # The point of the field: the shared policy record is identical
+            # across arms -- which is what the comparator requires -- while the
+            # model record says whose declaration was overridden to get there.
+            seen[config_dir.name] = (
+                record["effective_image_processor_config_sha256"],
+                tuple(clip.cond_stage_model.qwen3vl_32b.transformer
+                      ._h3_image_bounds),
+            )
+    assert len(set(seen.values())) == 1, (
+        f"the shared policy did not bind identically across snapshots: {seen}")
+    assert len(seen) == len(snapshots)
+
+    # Deliberate violation: an artifact whose video view differs from the
+    # policy's must stop the arm, not be labelled weight-only.
+    other = next(d for d in snapshots if d != CURRENT_CONFIG_DIR)
+    with tempfile.TemporaryDirectory(prefix="h3-capture-selftest-") as raw:
+        moved = Path(raw) / other.name
+        shutil.copytree(other, moved)
+        video_path = moved / "video_preprocessor_config.json"
+        video = json.loads(video_path.read_text())
+        video["size"]["longest_edge"] = int(video["size"]["longest_edge"]) // 2
+        video_path.write_text(json.dumps(video, indent=2) + "\n")
+        try:
+            _activate_processor_policy(h3, stub(moved), "current_w4")
+        except ValueError as exc:
+            assert "cannot also move the video view" in str(exc), exc
+        else:
+            raise AssertionError(
+                "an artifact declaring a different video view was accepted "
+                "into a shared still-image policy")
+
+    print(f"ok: {len(snapshots)} snapshot(s) bind one shared policy identically, "
+          "each arm records the declaration it overrode, and a divergent video "
+          "view is refused")
+
+
 def _model_record(
     arm: str,
     source: Path,
     inventory: dict | None,
     processor_policy: dict,
+    artifact_declaration: dict | None = None,
 ) -> dict:
+    """One arm's model identity, including whose declaration was overridden.
+
+    ``artifact_declaration`` belongs here and not in ``processor_policy_record``
+    on purpose. The comparator requires that record to be *equal* across arms
+    (`compare_h3_encoder_captures.py::compare`), which is what makes
+    "weight-only" mean anything; a per-artifact value in it would make every
+    BF16-versus-candidate run refuse itself. The model record is per-arm by
+    design, so this is where an arm says which artifact snapshot the shared
+    policy was applied over.
+    """
     if arm == "w4":
         resolved = source.resolve()
         print(f"hashing W4 artifact {resolved.name}", flush=True)
@@ -825,7 +963,7 @@ def _model_record(
             "selected_tensor_count": inventory["selected_tensor_count"],
             "mapped_shard_bytes": inventory["mapped_shard_bytes"],
         }
-    return {
+    record = {
         "arm": arm,
         "source": source_record,
         "files": files,
@@ -834,6 +972,9 @@ def _model_record(
             "effective_image_processor_config_sha256"
         ],
     }
+    if artifact_declaration is not None:
+        record["artifact_declaration_overridden"] = artifact_declaration
+    return record
 
 
 def _provenance() -> dict:
@@ -892,7 +1033,11 @@ def _fixture_inventory(fixtures: list[dict]) -> list[dict]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--arm", choices=("bf16", "w4"), required=True)
+    parser.add_argument("--arm", choices=("bf16", "w4"), required=False)
+    parser.add_argument(
+        "--self-test", action="store_true",
+        help="CPU-only: assert the per-arm snapshot record and its guard",
+    )
     parser.add_argument("--out", help="new capture directory; must not exist")
     parser.add_argument(
         "--bf16-dir",
@@ -935,6 +1080,11 @@ def main() -> int:
         ),
     )
     args = parser.parse_args()
+    if args.self_test:
+        self_test()
+        return 0
+    if not args.arm:
+        parser.error("--arm is required unless --self-test is used")
     if args.reserve_vram_gib < 0:
         parser.error("--reserve-vram-gib must be nonnegative")
 
@@ -1002,7 +1152,9 @@ def main() -> int:
         clip, inventory = _load_bf16(source, h3, embedding_directory)
     else:
         clip = _load_w4(source, h3, embedding_directory)
-    processor_policy = _activate_processor_policy(h3, clip, args.processor_policy)
+    processor_policy, artifact_declaration = _activate_processor_policy(
+        h3, clip, args.processor_policy
+    )
 
     vocab = clip.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
     vocab_sha = _json_sha(sorted((str(token), int(index)) for token, index in vocab.items()))
@@ -1049,7 +1201,8 @@ def main() -> int:
         "output_tap": "raw state after language layer index 49; no final norm or lm_head",
         "fixture_population": "controlled deterministic substrate; not corpus-representative",
         "tokenizer_vocab_sha256": vocab_sha,
-        "model": _model_record(args.arm, source, inventory, processor_policy),
+        "model": _model_record(args.arm, source, inventory, processor_policy,
+                               artifact_declaration),
         "provenance": _provenance(),
         "fixtures": fixture_records,
     }

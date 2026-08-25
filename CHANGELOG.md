@@ -4,6 +4,56 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.68.1
+
+### Added
+
+- `bench/capture_h3_encoder_states.py` records, per arm, which artifact
+  snapshot the shared processor policy was applied over
+  (`model.artifact_declaration_overridden`: snapshot name, its config digest,
+  and the still/video bounds it declared before the override). It goes in the
+  model record and not in `processor_policy_record`, which the comparator
+  requires to be *equal* across arms — that equality is what "weight-only"
+  means, and a per-artifact value there would make every BF16-versus-candidate
+  run refuse itself. `effective_image_processor_config_sha256` is untouched.
+- A guard on the same path: the shared policy rebinds the video patchifier as
+  well as the still-image processor, so an artifact declaring a different video
+  view is now refused rather than captured and labelled weight-only. v1 and v2
+  agree about video today, which is exactly when that assumption forms silently.
+- `bench/capture_h3_encoder_states.py --self-test`: CPU-only, no model, no
+  card. Asserts that every installed snapshot binds one shared policy
+  identically, that each arm records the declaration it overrode, that an
+  unstamped CLIP declares nothing, and — the deliberate violation — that a
+  divergent video view is refused.
+- `bench/check_h3_awq_encoder.py`'s candidate arm asserts that every FP32
+  tensor in a produced artifact round-trips through BF16 exactly, so a recipe
+  that computes genuinely new FP32 values where ComfyUI will downcast goes red
+  instead of losing them quietly. Shown red on a candidate with one patch-embed
+  element nudged by less than a BF16 ulp.
+
+### Measured
+
+- The candidate's FP32 vision patch embed is the release's BF16 upcast, kept
+  wide at calibration so the vision input is never downcast, so ComfyUI's cast
+  back to BF16 on load is exact. On the two-layer candidate its
+  `visual.patch_embed.proj.{weight,bias}` round-trip through BF16 bit for bit,
+  and equal the installed release BF16 encoder's own patch embed bit for bit.
+  This corrects the reading in 0.68.0, which recorded the cast as lossy in
+  general and did not say that for this artifact it costs nothing.
+
+## 0.68.0
+
+### Added
+
+- **`bench/instrument_render_occupancy.py`**: per-node GPU occupancy of one
+  render (`nvidia-smi --query-gpu` at 100 ms bracketed by the websocket's
+  node transitions), with a normative verdict on the sampler window:
+  launch-bound signal, compute/power-bound, or mixed, printed beside the
+  thresholds that decided it. Refuses beside another job. `--self-test`
+  pushes synthetic sample sets through the verdict; `--replay-dmon`
+  summarises the 2026-08-18 dmon log beside that record's own numbers, and
+  reproduces them.
+
 ## 0.67.1
 
 ### Changed

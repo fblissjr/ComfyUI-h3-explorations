@@ -90,7 +90,12 @@ pegged at the 450 W limit and core clocks pulled ~24% under their maximum.
 Sampling at that configuration is compute/power-bound, not host-bound; the
 streaming happens between phases. Heavier configurations are untested.
 `hwinfo.py` prints the resident figure; `nvidia-smi dmon -s pumt` shows the
-traffic.
+traffic. Since 2026-08-25 `bench/instrument_render_occupancy.py` takes the
+same reading per node of one render at 100 ms and states, with its
+thresholds, whether the sampler window was launch-bound or compute-bound;
+that verdict is the test for whether CUDA-graph replay could buy anything on
+a graph, and `docs/research/sglang_comparison.md` records why it is not
+expected to at video canvases.
 
 Anything reasoning from "the model is resident, so the sampling loop touches no
 host interface" is wrong here, and that assumption is easy to make because it

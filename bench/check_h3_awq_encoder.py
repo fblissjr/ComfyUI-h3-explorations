@@ -347,6 +347,23 @@ def candidate_directory_converts_to_a_loadable_artifact(candidate: Path):
         assert "model.norm.weight" not in adapted
         assert f"model.layers.{depth}." not in "".join(adapted)
 
+        # ComfyUI builds H3 at the decoder's dtype and `load_state_dict` casts
+        # on copy, so any FP32 tensor the recipe kept is downcast at load. That
+        # is lossless only while those tensors are BF16 values stored wide --
+        # which is what a recipe keeping the vision patch embed in FP32
+        # produces, because it upcast the release's BF16 to begin with. If a
+        # future recipe genuinely computes new FP32 values there, this goes red
+        # and says the load is discarding them.
+        import torch
+        wide = {name: t for name, t in adapted.items() if t.dtype == torch.float32}
+        assert wide, "no FP32 tensor in the artifact; this assertion checked nothing"
+        lossy = sorted(
+            name for name, t in wide.items()
+            if not torch.equal(t.to(torch.bfloat16).to(torch.float32), t)
+        )
+        assert not lossy, (
+            f"FP32 tensors that ComfyUI's BF16 cast would not preserve: {lossy[:3]}")
+
         if depth == H.H3_LAYERS:
             count = full_loader_contract(artifact)
             return f"{count} W4A16 linears, depth {depth}"
