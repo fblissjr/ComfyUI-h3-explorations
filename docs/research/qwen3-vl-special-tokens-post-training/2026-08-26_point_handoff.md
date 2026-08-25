@@ -122,7 +122,14 @@ above are what it needs.
    population or recipe is the suspect; do not rename a partial result.
 3. performance_and_refs reruns `bench/preflight_graph.py` on the three arms
    under the resolved v2 contract, patches mr_data's rows in, and prices
-   them; then their occupancy render.
+   them; then their occupancy render. **Server reserve: do not change
+   `start.sh default` on a guess.** The Gate 5 comparator needed
+   `--reserve-vram-gib 16` for a 21.7k-token BF16 row, but that is a
+   standalone process; the server unloads the encoder before the DiT runs.
+   If the occupancy instrument shows the encode step OOM on arm B or C
+   (about 18.7k encoder tokens on the W4 encoder), launch those graphs with
+   `./start.sh default --reserve-vram <GiB>`; if it does not, the default
+   stands.
 4. **Gate 6 blind pairs**: `bench/run_graph_arms.py --manifest
    bench/gate6_refview_arms.json` with matched seeds, then
    `bench/blind_batch.py`, the scoring app, `bench/score_session.py`. The
