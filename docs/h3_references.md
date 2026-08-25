@@ -386,18 +386,20 @@ precision and mean-versus-sample as two variables at once and has to separate
 them. And a rendered clip cannot answer it — `CLAUDE.md`'s different-sample
 rule applies, so the comparison has to be made at the latent, not the output.
 
-**The smart-resize bounds do not match the release, found 2026-08-21.** The
+**The smart-resize policies do not match the release, found 2026-08-21.** The
 patch geometry does: `patch_size=16`, `temporal_patch_size=2`, `merge_size=2`
 and the 0.5 mean/std are the same on both sides, and ComfyUI passes 16
 explicitly rather than inheriting Qwen2-VL's 14
 (`comfy/text_encoders/qwen3vl.py:62-68`). The **pixel bounds** do not. The
-release ships them in `processor/preprocessor_config.json` as
-`size.shortest_edge` / `size.longest_edge`, which is how the fast Qwen2-VL
-image processor spells min and max pixels. ComfyUI reads no such file: it
+release ships still bounds in `processor/preprocessor_config.json` and video
+bounds in `processor/video_preprocessor_config.json`, both as
+`size.shortest_edge` / `size.longest_edge`. ComfyUI reads neither file: it
 leaves `process_qwen2vl_images` on the signature defaults of the shared
-Qwen2-VL helper, and `process_video_block` carries the same pair. The model is
-Qwen3-VL-32B on both sides — this is one shared helper's defaults reaching a
-model it was not written for, not a wrong model.
+Qwen2-VL helper, and `process_video_block` carries the same pair for each
+two-frame block. The released video processor instead applies its pixel budget
+over the whole sampled clip. The model is Qwen3-VL-32B on both sides — this is
+one shared helper's defaults reaching a model it was not written for, not a
+wrong model.
 
 | bound | H3 release | ComfyUI |
 |---|---|---|
@@ -406,14 +408,23 @@ model it was not written for, not a wrong model.
 | video min pixels | 4,096 | 3,136 |
 | video max pixels | 25,165,824 | 12,845,056 |
 
-Both edges bite, in opposite directions, and only on reference images —
-nothing else in this path is near either bound. **Below:** the release
+The still-image edges bite in opposite directions. **Below:** the release
 *enlarges* anything under 65,536 pixels to reach that floor; ComfyUI's floor is
 twenty times lower, so a small reference is under-tokenized rather than raised.
 That is a second, independent way a small reference arrives smaller than the
 release intends, on top of the `min(1.0, ...)` clamp — and unlike the clamp,
 `MiniMaxH3ReferenceFit` does not close it, because it operates before the
 tokenizer.
+
+Reference video is a different failure shape. An individual canvas-sized frame
+is below either numeric maximum, but the release's 25,165,824-pixel maximum is
+clip-wide and becomes duration-sensitive. Native ComfyUI applies 12,845,056 to
+each two-frame block independently, so it never enforces that whole-clip row
+budget. The executed boundary is source-dependent: it starts at legal H3
+lengths of 311 frames for a 1344x768 input, but is outside the legal range for
+the measured 960x544 input. The locally shipped `encoder` policy applies the
+W4 artifact snapshot's duration-aware Qwen stage, whichever CLIP is loaded; `comfy` retains native behavior
+and `release` applies both vendor video stages.
 
 **Above, and this is measured rather than derived.**
 `bench/measure_qwen_bounds_bite.py` calls the real `process_qwen2vl_images`

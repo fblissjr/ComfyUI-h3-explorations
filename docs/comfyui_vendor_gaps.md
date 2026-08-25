@@ -82,13 +82,43 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 1 | Seven special tokens absent from the tokenizer | config | **fixed in the installed checkout by merged PR 15808** | local fallback retired; native behavior is required and audited |
 | 2 | Reference video frame rate assumed, not enforced | behavioural | open | typed nodes normalize from owned loader metadata; shipped graphs also retain and check `force_rate=24` |
 | 3 | Reference image floor (`min_pixels`) | config | open | preflight reports the divergence; no general runtime parity implementation |
-| 4 | Reference image ceiling (`max_pixels`) | config | open | custom fit nodes can opt in to keeping VAE and Qwen sizes matched; core remains unchanged |
+| 4 | Reference image ceiling (`max_pixels`) | config | open | `MiniMaxH3ReferenceConditioning.image_policy` can opt in to one declared ceiling for both towers, off by default; core remains unchanged. Under the shipped W4 encoder the binding ceiling is the artifact's 301,056 px, which nothing handles until v2 |
 | 5 | Reference soundtracks not truncated | behavioural | open | all shipped graphs now use typed internal caps; native socket graphs remain exposed unless they trim upstream |
 | 6 | Reference media never upscaled, and never reported | behavioural | sizing divergence remains; native path does not report the choice | fit nodes report it; the typed conditioner has an opt-in atomic release-video policy, while shipped defaults remain native-compatible |
 | 7 | Mono reference audio raises | behavioural | open | typed nodes upmix mono and refuse ambiguous multichannel input; legacy preflight reports it |
 | 8 | VAE encode precision, and mean vs sample | behavioural | open | measured only; no claimed fix |
 | 9 | H3 VAE tiling as a runtime branch | behavioural | **not a gap in the installed native implementation** | documented as fixed H3-owned policy; no custom-node fix claimed |
 | 10-13 | Partition gate, AdaLN cache, CUDA graphs, step caching | behavioural | architectural differences | researched or explicitly declined; no native-equivalence claim |
+
+### Processor-policy impact by conditioning role
+
+The processor rows above do not have one uniform consequence. **SOURCE unless
+explicitly marked MEASURED:** stock ComfyUI does not instantiate the released
+image or video processor configs for its native H3 encoder. It uses the shared
+Qwen helper's defaults for stills and independently for each two-frame video
+block. The practical boundary is:
+
+| input role | stock-versus-release consequence | present assessment |
+|---|---|---|
+| T2VA | no pixels enter Qwen | no image/video-processor exposure |
+| FL2VA keyframe | a legal H3 canvas is inside both still-image bounds and already on the required 32-pixel grid | the stock-versus-release config difference does not change keyframe geometry. Under the current W4 loader this row is not exempt: its `preprocess_embed` treats every image embed alike, so a 1344x768 keyframe reaches Qwen under the 200,704--301,056-pixel snapshot at roughly 294 merged tokens instead of 1,008 (SOURCE, `h3_awq_encoder.py::install_source_processors`). |
+| Ref2VA still inside the common interval | inputs from 65,536 through 12,845,056 pixels satisfy both numeric bounds | a processing-policy distinction, not malformed encoding; geometry changes only if another sizing stage acts |
+| tiny or extreme-aspect Ref2VA still | the release floor can enlarge what stock leaves small; stock can hit its lower ceiling before the release | grid and visual-token count can materially differ |
+| Ref2VA video, stock native path | the release has a clip-wide sampled-frame budget; stock budgets each two-frame block independently and never upscales a small source | **MEASURED bounded divergence:** the duration-aware resize begins only for canvas-sized sources at 311+ target frames; it cannot engage inside H3's legal range for the measured 960x544 source |
+| Ref2VA video, this repo's shipped graphs | 39 of 40 shipped graphs select `video_policy=encoder` on 2026-08-25; the one exception, `workflows/h3_probe_release_video_policy_api.json`, is the `release` probe arm | the W4 artifact snapshot's duration-aware Qwen stage is locally handled; the VAE view intentionally remains no-upscale, while `release` is the explicit full-parity option |
+| current compressed-tensors W4 artifact | its local loader replaces the stock still path with the artifact snapshot's 200,704--301,056-pixel budget | **MEASURED major reduction in Qwen input geometry and visual rows**, but this is an artifact-specific deployed-path gap, not a native-ComfyUI defect |
+
+No row above establishes malformed tensors or a perceptual failure. Patch size,
+temporal patch size, merge geometry, H3 normalization, odd-frame padding and
+the native two-frame presentation are aligned. The live differences are which
+pixels and grids reach that otherwise-correct structure, plus their cost and
+activation distribution.
+
+The stock float/bilinear path and the release/configured
+bicubic-through-uint8 path are also numerically different. Their contribution
+has **not** been isolated from the bounds at layer 49. Treating that difference
+as smaller than geometry is a reasonable expectation, not a measurement, and
+it remains a v1-versus-v2 variable as well as a stock-versus-release one.
 
 ---
 
@@ -339,9 +369,12 @@ contract as gap 7's mono gate.
 
 Owner: [`h3_references.md`](h3_references.md).
 
-ComfyUI leaves `min_pixels` / `max_pixels` on the shared Qwen2-VL helper's
-signature defaults and applies the same pair to stills and video blocks alike.
-The release ships different values, and different ones for each:
+Native ComfyUI does not load the released image or video preprocessor configs
+on the H3 path. It leaves `min_pixels` / `max_pixels` on the shared Qwen2-VL
+helper's signature defaults and applies the same pair to stills and to **each
+two-frame video block independently**. The release ships different values for
+images and video, and its video maximum is a **clip-wide** budget over the
+sampled frames rather than a per-block ceiling:
 
 | bound | H3 release | ComfyUI |
 |---|---|---|
@@ -353,7 +386,9 @@ The release ships different values, and different ones for each:
 The patch **geometry** is right on both sides — `patch_size=16`,
 `temporal_patch_size=2`, `merge_size=2`, 0.5 mean/std, and ComfyUI passes 16
 explicitly rather than inheriting Qwen2-VL's 14. Only the bounds were never
-wired to the release's files.
+wired to the release's files. The video rows in the table therefore compare
+different scopes as well as different numbers: stock applies its value to one
+pair; the release applies its value to the sampled clip.
 
 **Read these as pixel counts, not edge lengths.** 65,536 is 256x256;
 16,777,216 is 4096x4096. Reading them as edges makes every bound look absurd.
@@ -407,7 +442,9 @@ rounding to 32. The consequence worth holding is that the VAE's latent is finer
 than what Qwen extracted identity from, and nothing says so.
 
 [`bench/results/2026-08-21_shipped_reference_bounds.json`](../bench/results/2026-08-21_shipped_reference_bounds.json): **no shipped graph
-reaches it.**
+reaches it, against the native ceiling.** Against the shipped W4 encoder's
+301,056-pixel ceiling every reference graph reaches it; that case is the
+artifact's, below.
 
 **Native ComfyUI status: open. Handling in this repo:**
 `MiniMaxH3ReferenceConditioning.image_policy` selects WHOSE still-image ceiling
@@ -424,9 +461,27 @@ difference. `MiniMaxH3ReferenceVideoFit` keeps `keep_towers_matched` and keeps
 reading Comfy's default, which is correct there: it is a reporter for
 native-core paths.
 
-Video references are canvas-sized at around 1M pixels, far below either
-ceiling, so the video bounds do not bite in practice. That is derived from the
-geometry rather than measured.
+One reference-video **frame** at the H3 canvas is around 1M pixels and below
+either numeric maximum. That does **not** make the policies universally equal:
+the release ceiling accumulates over the sampled clip, while stock ComfyUI
+restarts its budget for every two-frame block. The executed boundary is narrow
+and source-dependent, not a blanket long-video defect: at 1344x768 the release
+first resizes at 26 sampled frames, corresponding to legal H3 lengths of 311
+frames and above; for the measured 960x544 source the first boundary would be
+outside H3's legal range. Section 2 owns those measurements.
+
+This repo's shipped reference graphs do not take that stock video path. All
+but the `release` probe arm select `video_policy=encoder`, retaining the
+cheaper no-upscale VAE view while applying the compressed-tensors W4 artifact's snapshotted video configuration (`config/qwen3vl_32b_minimax_h3_w4a16_awq`), read by `reference_conditioning.py::_qwen_video_settings` whichever CLIP the graph loaded, as its duration-aware Qwen stage. The
+`release` policy applies both vendor stages, and `comfy` remains the native
+control.
+
+Do not confuse either native policy with the current compressed-tensors W4
+artifact. Its adapter binds a separately snapshotted 200,704--301,056-pixel
+still-image processor to that CLIP instance. The layer-49 benchmark measured
+the resulting large reduction in reference visual rows and rejected widening
+that already-calibrated artifact as a config-only repair; see
+[`2026-08-24_layer50_processor_policy_benchmark.md`](research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_layer50_processor_policy_benchmark.md).
 
 ---
 
@@ -695,7 +750,7 @@ rendered clip cannot A/B a numerical change.
 | The node that was missing entirely | [`reference_video_fit.py`](../reference_video_fit.py) |
 | Holds its copy of core's sizing rule to core's real behaviour | [`bench/check_ref_video_prediction.py`](../bench/check_ref_video_prediction.py) |
 | Opt-in local release policy | `MiniMaxH3ReferenceConditioning.video_policy=release`, controlled by [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) and its red harness |
-| Shipped hybrid encoder policy | `video_policy=encoder`: native-compatible no-upscale VAE geometry plus the selected encoder artifact's snapshotted duration-aware Qwen stage, implemented locally and controlled against accidental release-config substitution by the same runtime check |
+| Shipped hybrid encoder policy | `video_policy=encoder`: native-compatible no-upscale VAE geometry plus the W4 artifact's snapshotted duration-aware Qwen stage (read whichever CLIP is loaded), implemented locally and controlled against accidental release-config substitution by the same runtime check |
 
 ### Custom W4A16 encoder format (adjacent, not a vendor-release gap)
 
@@ -763,5 +818,9 @@ A gap with no assertion behind it is a gap that will come back.
 | 8, VAE encode precision | open | **nothing enforces a choice**; measurement only |
 | 9, VAE tiling | not a gap in installed native H3 path | policy documented from native source; no custom fix |
 
-The image floor and the visual VAE mean-versus-sample question remain the
-highest-value unclosed conformance items. Neither blocks typed migration.
+For the stock native path, the image floor remains the most reachable still
+boundary and the clip-wide video policy remains a bounded source/length
+divergence. This repo locally handles or exposes the video choices; the current
+W4 artifact's narrow still snapshot remains the unhandled deployed-path issue
+that motivates v2. The visual VAE mean-versus-sample question is independent.
+None blocks typed migration.

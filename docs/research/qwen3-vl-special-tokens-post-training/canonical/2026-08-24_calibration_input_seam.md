@@ -175,8 +175,16 @@ installed native path and the release declaration are two, and they differ:
 | release declaration | 65,536 to 16,777,216 | processor's own | `vendor_config/preprocessor_config.json` |
 | current AWQ artifact | 200,704 to 301,056 | `Qwen2VLImageProcessor`, `resample: 3` bicubic, after a round-and-clamp to uint8 | the artifact's snapshot, installed by `h3_awq_encoder.py::install_source_processors` |
 
-The two still-image video policies remain as the contract describes: release
-4,096 to 25,165,824 and the encoder artifact's snapshot, which agree today.
+The two video policies remain separately owned as the contract describes:
+release 4,096 to 25,165,824 and the encoder artifact's snapshot, which agree
+today. Native ComfyUI is a third execution policy: it applies
+3,136--12,845,056 independently to each two-frame block, while the release and
+encoder configurations apply their maximum over the whole sampled clip before
+native two-frame presentation. This scope difference is bounded rather than
+universal: the measured release resize starts at legal target lengths of 311
+frames for 1344x768 input and cannot activate inside the legal range for the
+measured 960x544 input. Shipped reference graphs select the encoder policy, not
+the stock-native one, except the `release` probe arm.
 
 **INFERENCE.** The first two rows agree for any image between 65,536 and
 12,845,056 pixels, which is most production stills, so the divergence is a

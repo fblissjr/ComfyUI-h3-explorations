@@ -282,7 +282,7 @@ these dedicated ids or against legacy BPE fragments, which the canonical
 baseline keeps as UNKNOWN, and the fact that the seven rows themselves are
 untrained, measured above.
 
-### 2. The tokenizer's pixel bounds are Qwen2-VL's defaults
+### 2. The native processor's pixel bounds are Qwen2-VL's defaults
 
 Owned by [`h3_references.md`](../h3_references.md), which carries the table and
 the consequence. Recorded here only because it is the same class of defect
@@ -359,8 +359,8 @@ concerns on paths where they cannot bite.
 | divergence | t2v | first frame | last only | first+last | ref2v |
 |---|---|---|---|---|---|
 | the seven markers | dialogue prompts only | same | same | same | same |
-| processor pixel bounds | — | **inert** | **inert** | **inert** | **live past ~3.06:1** |
-| bilinear against the release's bicubic | — | **inert** | **inert** | **inert** | only where the ceiling fires |
+| processor pixel bounds | — | **inert** | **inert** | **inert** | live for small/extreme stills and the bounded duration-aware video regime |
+| bilinear against the release's processor resize | — | geometry-inert | geometry-inert | geometry-inert | live whenever the differing policy resizes; independent layer-49 contribution unmeasured |
 | VAE posterior mean against seed-42 sample | — | live | live | live, twice | live, every reference |
 | crop against stretch policy | — | — | **live** | — | — |
 | stretch to a fixed canvas | — | live without `KeyframeCanvas` | live, **not closable** | live without `KeyframeCanvas` | — |
@@ -411,9 +411,12 @@ little else.
 
 **ref2v collects everything**, and pays token-level differences roughly twice
 over because a reference image costs in the text segment as well as the
-reference segment. It is also the only mode where the pixel bounds fire;
-[`h3_references.md`](../h3_references.md) owns the measurement and the
-threshold.
+reference segment. It is the mode where both still-image boundary behavior and
+the separate clip-wide video-processor policy can be live;
+[`h3_references.md`](../h3_references.md) owns the measured thresholds. This
+repo's shipped typed graphs use `video_policy=encoder` (all but the `release`
+probe arm), so the native stock video exposure remains a vendor gap rather
+than their runtime path.
 
 ---
 

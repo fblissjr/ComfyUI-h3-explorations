@@ -68,7 +68,17 @@ cannot represent mixed keyframe-plus-reference requests.
   W4 artifact's constrained snapshot or ComfyUI function defaults.
 - **Qwen video processor:** snapshot and use the release video processor
   contract. Keep its ownership separate from the still processor even where
-  current values happen to agree.
+  current values happen to agree. Do not substitute stock ComfyUI's
+  per-two-frame-block defaults: the release/encoder maximum is clip-wide over
+  the sampled reference. The measured distinction activates only in its
+  source/length regime (311+ target frames at 1344x768; outside the legal range
+  for the measured 960x544 source), but calibration must preserve the declared
+  policy rather than infer whether a selected row will trigger it.
+
+The stock-versus-release resize kernel and float-versus-uint8 boundary have not
+been isolated at layer 49 independently of pixel bounds. v2 follows the release
+processor path because that is the accepted serving contract, not because a
+separate fidelity benefit from that numerical preprocessing has been measured.
 
 Control feasibility by manifest composition and total visual tokens. Do not
 silently shrink a row into the old constrained band, drop media from an accepted

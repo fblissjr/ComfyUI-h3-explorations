@@ -60,24 +60,43 @@ for correct H3 marker tokenization. The native-token arm in
 whether the embedding rows for these ids carry trained values, and what the
 markers are for. The release lists them and documents neither.
 
-## Defect 2: the pixel bounds. Detected, not patched.
+## Defect 2: processor policy. Detected, with opt-in local handling.
 
-The conditioner leaves `min_pixels` / `max_pixels` on a shared helper's
-signature defaults where the release declares its own; the table is owned by
-[`h3_references.md`](../h3_references.md).
+The native conditioner leaves `min_pixels` / `max_pixels` on a shared helper's
+signature defaults where the release declares separate image and video
+processor policies; the table and executed boundaries are owned by
+[`h3_references.md`](../h3_references.md). Stock ComfyUI applies its common
+defaults to a still or to each two-frame video block. The release video maximum
+is instead clip-wide over the sampled reference.
 
-**Neither bound binds on anything this repo ships.** `MiniMaxH3AppendRefImage`
-puts every reference at a 2048 short edge, which sits above the release's floor
-and below ComfyUI's ceiling until roughly 3:1. So the fix would be a monkeypatch
-guarding a case that does not occur.
+**The effect is role-dependent.** Legal FL2VA canvases stay inside both
+still-image bounds, so their geometry is unchanged between stock and release;
+under the W4 loader they are capped like any other still, see below. Most ordinary Ref2VA
+stills also lie in the overlap, while tiny and extreme-aspect stills can cross
+the floor or ceiling. The video duration-aware difference is bounded: it begins
+at 311+ target frames for canvas-sized inputs, while it cannot engage inside
+the legal H3 range for the measured 960x544 input.
 
-**Patched since 2026-08-24, without a monkeypatch.**
+**Selectable locally since 2026-08-24, without a monkeypatch.**
 `MiniMaxH3ReferenceConditioning.image_policy` selects which declared bounds
 apply and pre-applies them before the VAE, so the helper's defaults stop being
-the only answer. It is off by default (`comfy`), so the sentence above still
-describes the shipped graphs; what changed is that the other two answers are
-now reachable, and that under the AWQ adapter the binding ceiling is the
-artifact's 301,056 rather than the helper's signature default.
+the only answer. It is off by default (`comfy`) for still images, so the
+stock-image sentence above still describes graphs that retain that selection;
+what changed is that the other two answers are now reachable, and that under
+the AWQ adapter the binding ceiling is the artifact's 301,056 rather than the
+helper's signature default.
+
+Video is locally handled on every shipped reference graph but the `release`
+probe arm through `video_policy=encoder`: the VAE view remains no-upscale
+while the W4 artifact snapshot's duration-aware Qwen policy runs, whichever
+CLIP the graph loaded. `release` applies both vendor video
+stages; `comfy` remains the stock control.
+
+The current compressed-tensors W4 still-image ceiling is not the native defect
+described above. It is the selected artifact's own deployed processor contract,
+and it routinely binds reference stills. The measured layer-49 policy benchmark
+rejects changing that already-calibrated artifact's config as a repair; v2 is
+instead calibrated and served against its declared role-aware policy.
 
 The trace also priced the two halves differently, which is why they are not
 treated the same:
@@ -197,7 +216,7 @@ VAEs and no CUDA; `bench/red/show_red_reference_runtime.py` makes ignored fps,
 skipped audio normalization, foreign metadata, reversed order, and a release
 policy that reuses the VAE frames for Qwen go red. A sixth mutation makes the
 `encoder` policy read the release snapshot; it goes red even though the two
-checked-in configs agree today, proving that the selected encoder remains the
+checked-in configs agree today, proving that the artifact snapshot remains the
 authority if they diverge later.
 `bench/check_typed_reference_consumers.py` proves label discovery and preflight
 read the same validated chain.

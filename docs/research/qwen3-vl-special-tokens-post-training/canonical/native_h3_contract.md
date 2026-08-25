@@ -1,7 +1,7 @@
 # Canonical native-H3 presentation and comparison contract
 
 **Status:** Authoritative implementation contract
-**Last updated:** 2026-08-24
+**Last updated:** 2026-08-25
 
 ## Native presentation
 
@@ -88,13 +88,42 @@ Do not use one phrase such as “the H3 image/video processor” for all of thes
    round-and-clamp boundary and uses the snapshotted processor's resize path.
 4. **Release video policy.** Owned by the released video processor
    configuration and applied clip-wide before native two-frame presentation.
-5. **Encoder-artifact video policy.** Owned by the selected encoder's
-   snapshotted video configuration. The reference node exposes it as
-   `video_policy="encoder"`.
+5. **Encoder-artifact video policy.** Owned by the compressed-tensors W4 artifact's snapshotted video configuration (`config/qwen3vl_32b_minimax_h3_w4a16_awq`), read by `reference_conditioning.py::_qwen_video_settings` whichever CLIP the graph loaded. It is not bound to the loaded encoder: a stock `CLIPLoader` graph on `video_policy="encoder"` still applies this snapshot. The reference node exposes it as `video_policy="encoder"`.
 
 The current release and encoder video configurations may agree today. Their
 ownership remains separate so future divergence cannot silently change a
 comparison.
+
+**SOURCE.** Native ComfyUI does not construct either released processor from
+these config files. Its still path uses the shared Qwen helper's
+3,136--12,845,056-pixel defaults and float/bilinear resize; its native video
+path applies that same pair independently to every two-frame block. The release
+video processor instead owns a 4,096--25,165,824-pixel budget over the whole
+sampled clip before the same two-frame presentation. This is a policy and scope
+difference, not a patch-geometry defect.
+
+## Role-specific consequence
+
+Do not promote the processor differences into one blanket severity claim:
+
+| role | accepted consequence |
+|---|---|
+| T2VA | no vision-processor exposure |
+| FL2VA keyframe | legal H3 canvases remain inside both still policies and on the common 32-pixel grid; geometry is unchanged between stock and release. Under the current W4 loader this row is not exempt: its `preprocess_embed` treats every image embed alike, so a 1344x768 keyframe reaches Qwen under the 200,704--301,056-pixel snapshot at roughly 294 merged tokens instead of 1,008 (SOURCE, `h3_awq_encoder.py::install_source_processors`). |
+| Ref2VA still inside the common interval | installed and release bounds overlap from 65,536 through 12,845,056 pixels; the policies remain separately owned, but neither numeric bound changes geometry there |
+| tiny/extreme Ref2VA still | floor or ceiling can change the grid and visual-token count |
+| stock-native Ref2VA video | **MEASURED bounded divergence:** the release duration-aware resize starts at 311+ legal target frames for a 1344x768 input, but cannot activate inside H3's legal range for the measured 960x544 input |
+| this repo's shipped Ref2VA video | `video_policy="encoder"` (39 of 40 shipped graphs on 2026-08-25; the exception is the `release` probe arm) applies the W4 artifact snapshot's duration-aware Qwen stage while retaining the intentional no-upscale VAE view; `release` is the full-parity option and `comfy` the native control |
+| current W4 Ref2VA still | the artifact's 200,704--301,056-pixel snapshot is the binding Qwen constraint and is **MEASURED** to reduce input geometry and visual rows substantially; it is not a native-ComfyUI processor gap |
+
+The float/bilinear versus configured bicubic-through-uint8 difference has not
+been isolated at layer 49 independently of bounds. It remains a v1-versus-v2
+variable as well as a stock-versus-release variable; its effect must not be
+ranked as measured.
+
+The executed video boundary and the stock/shipped-path distinction are recorded
+in [`comfyui_vendor_gaps.md`](../../../comfyui_vendor_gaps.md) and owned in
+detail by [`h3_references.md`](../../../h3_references.md).
 
 The installed-native and release-declared still policies agree on pixel bounds
 for inputs between 65,536 and 12,845,056 pixels, but they are not one policy.

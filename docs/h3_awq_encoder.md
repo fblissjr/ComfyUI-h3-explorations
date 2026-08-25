@@ -214,6 +214,19 @@ H3, but Comfy's shared helper currently uses its own pixel bounds and bilinear
 interpolation. The local behavior is therefore artifact-config-driven rather
 than a claim that the native vision architecture is wrong.
 
+This snapshot is much narrower than either stock ComfyUI or the release. It is
+the binding Qwen constraint on reference stills under the current W4 loader;
+upstream `max` or 2048-short-edge preparation cannot make the encoder retain
+geometry that this stage removes. The measured layer-49 policy benchmark
+therefore keeps the deployed snapshot unchanged and treats v2 calibration—not
+an in-place config edit—as the repair path. This artifact-specific condition
+must not be reported as a stock-ComfyUI processor bug.
+
+The bicubic-through-uint8 path also differs numerically from stock ComfyUI's
+float/bilinear path. Its independent contribution to layer-49 drift has not
+been isolated from the pixel-bound change, so no fidelity ranking between the
+resize paths is established.
+
 Only the Qwen encoder view is owned here. Reference image/video geometry used
 by the H3 VAE remains the responsibility of the conditioning path and can
 intentionally differ.

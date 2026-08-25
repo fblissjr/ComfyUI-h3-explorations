@@ -1,6 +1,6 @@
 # How every H3 conditioning input is handled, end to end
 
-Last verified against the installed ComfyUI and this repo's nodes on 2026-08-24.
+Last verified against the installed ComfyUI and this repo's nodes on 2026-08-25.
 
 Five things can condition an H3 render: a **keyframe** (first frame, last frame,
 or any frame via `MiniMaxH3AddGuide`), a **reference still**, a **reference
@@ -44,6 +44,16 @@ quote a single number for reference geometry; read
 [`h3_references.md`](h3_references.md) for the knobs and
 [`2026-08-24_serving_geometry_composes.md`](research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_serving_geometry_composes.md)
 for how upstream sizing and the encoder cap compose.
+
+For Qwen's reference-video view, native stock ComfyUI and this repo's shipped
+graphs are also different paths. Stock applies shared bounds independently to
+each two-frame block. Shipped graphs other than the `release` probe arm select
+`video_policy=encoder`, which keeps the no-upscale VAE view but applies the W4
+artifact snapshot's clip-wide, duration-aware Qwen stage, whichever CLIP is
+loaded; `release` additionally applies vendor VAE sizing and
+`comfy` remains the native control. The source/length boundary where the stock
+and clip-wide grids actually separate is measured—not universal—and is owned
+by [`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md) section 2.
 
 ## 1. What Qwen3-VL sees
 
