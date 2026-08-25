@@ -4,8 +4,8 @@
  "producer": {
   "file": "probe_awq_recipe_boundary.py",
   "sha256": "62a8c3612a696890c67dced20fa48807296d7fafe654a241e9b6d9d4e7710d44",
-  "repository_commit": "7f5aca45012d4ec787e2861931fcb144d54bf2f1",
-  "dirty_against_commit": true
+  "repository_commit": "09bf8a27b560c1ab508ebb587872fd7ed2479413",
+  "dirty_against_commit": false
  },
  "environment": {
   "python": "3.13.9",
