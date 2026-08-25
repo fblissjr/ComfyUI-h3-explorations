@@ -16,6 +16,8 @@
     "strong/distinct": 28,
     "strong/duplicate": 36,
     "strong/uncertain": 1,
+    "video-review/duplicate": 1,
+    "video-review/uncertain": 1,
     "weak-stratified-sample/distinct": 14
   },
   "pairs": [
@@ -12126,7 +12128,51 @@
         "train-01780-f1a946a3a81c7129",
         "train-01823-a871eb4cc4e4f6f3"
       ]
+    },
+    {
+      "a": "media/images/image-ae7d1d9dd5257703172e.jpg",
+      "b": "media/videos/video-bfdb5a31248c7cd34674.mp4",
+      "hamming": 3,
+      "foreground_correlation": 0.7937,
+      "components_a": [
+        "train-00500-68f926b378a008b0"
+      ],
+      "components_b": [
+        "train-00007-684452a9fd4b19a7"
+      ],
+      "rows_a": [
+        "train-00500-68f926b378a008b0"
+      ],
+      "rows_b": [
+        "train-00007-684452a9fd4b19a7"
+      ],
+      "verdict": "duplicate",
+      "band": "video-review",
+      "reason": "the still is a frame of the video: same promotional card, same two actors, same phone-call composition and title treatment; the video is the animated version of the same asset"
+    },
+    {
+      "a": "media/videos/video-0e647dbc913c87b312cc.mp4",
+      "b": "media/videos/video-59dd90bac3f1e1570f90.mp4",
+      "hamming": 14,
+      "foreground_correlation": null,
+      "outside_window": true,
+      "verdict": "uncertain",
+      "band": "video-review",
+      "components_a": [
+        "train-01048-4e9be56bfe575769"
+      ],
+      "components_b": [
+        "train-01058-79bd50ae0faa0b21"
+      ],
+      "rows_a": [
+        "train-01048-4e9be56bfe575769"
+      ],
+      "rows_b": [
+        "train-01058-79bd50ae0faa0b21"
+      ],
+      "reason": "the same shot list rendered twice -- crystal rose with a golden butterfly on a cliff, the butterfly lifting off, a flower meadow, a castle-on-river reveal, in that order -- but different renders: different castle, different mountains, pink rose against white. Not the same pixels, so a holdout drawn from one would still measure different activations; the same brief, so the two rows are not independent samples of the source. Ruled uncertain, which is an edge, on the standing asymmetry: a coarser split costs less than a holdout that measures nothing. FOUND BY EXHAUSTIVE INSPECTION, not by the window -- at Hamming 14 it was never a candidate."
     }
   ],
-  "clustering": "Ruling a cluster is not ruling its pairs. A cluster is a candidate-graph component and can chain unrelated images through a shared template, so each cluster was inspected for duplicate SUBGROUPS rather than given one verdict; a pair is duplicate only when both its images sit in a named subgroup."
+  "clustering": "Ruling a cluster is not ruling its pairs. A cluster is a candidate-graph component and can chain unrelated images through a shared template, so each cluster was inspected for duplicate SUBGROUPS rather than given one verdict; a pair is duplicate only when both its images sit in a named subgroup.",
+  "video_coverage": "2026-08-25: the pool's 19 distinct video files were hashed as sampled frame sets and compared against each other AND against every still, then all 19 were inspected as a contact sheet. The earlier pass hashed images only."
 }

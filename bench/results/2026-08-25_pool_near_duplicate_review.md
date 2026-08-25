@@ -31,7 +31,15 @@ nothing here would show that. The map's `caveat` field says exactly this, and it
 changes text when the unruled count is non-zero rather than carrying a fixed
 sentence that could go stale.
 
-Every distinct pooled image was hashed; none failed. Inside the Hamming window,
+**Updated 2026-08-25, later: the first pass hashed images only.** The pool's
+video files were outside the candidate window entirely, and the sentence above
+said "every distinct pooled image", which was accurate and read as broader than
+it was. Videos are now hashed as sampled frame sets, compared against each other
+*and against every still*, and — because there are few enough — inspected
+exhaustively as a contact sheet rather than only through the window. What that
+found is below.
+
+Every distinct pooled image and video was hashed; none failed. Inside the Hamming window,
 the large majority of candidate pairs cross an exact-component boundary, so they
 are exactly the pairs that would change the map. Applying only the adjudicated
 edges merges components, moves rows into a different family, and grows the
@@ -100,6 +108,40 @@ symmetric: joining two families that were separable gives a slightly coarser
 split, while separating one family gives a holdout that measures nothing. The
 tie goes to joining — and the verdict stays visible as `uncertain` in the record
 rather than being laundered into `duplicate`.
+
+## What including video found
+
+Two things, neither reachable by an image-only scan:
+
+- **A reference still is a frame of a reference video.** Same promotional card,
+  same actors, same composition; one static, one animated. Byte-different, in
+  two different exact components, at a hash distance well inside the window
+  once videos were hashed at all. The still's row is in the running calibration
+  bundle and the video's row is in no holdout, so no split in flight is
+  violated — but a later split drawing that video's family would have been
+  contaminated with nothing to say so.
+- **Two videos are the same shot list rendered twice.** The same four beats in
+  the same order — a crystal rose with a golden butterfly on a cliff, the
+  butterfly lifting off, a flower meadow, a castle-on-river reveal — but
+  different renders: different castle, different mountains, a pink rose against
+  a white one. Not the same pixels; the same brief.
+
+**The second one is a limit on this whole method, not a finding about two
+files.** It sits at more than twice the Hamming threshold and was never a
+candidate; widening the window that far would swamp the list, since unrelated
+pairs already reach a fifth of a percent at Hamming 12. It was found only
+because nineteen files is small enough to look at exhaustively. **The equivalent
+among the images is unexamined and the population is too large to eyeball.**
+
+It is ruled `uncertain` rather than `duplicate`: a holdout drawn from one of
+those clips would still measure different activations, so calling them the same
+media would overstate it — but two rows generated from one brief are not
+independent samples of the source either. `uncertain` is an edge, on the
+standing asymmetry.
+
+A pair found this way has to be able to reach the map, so an adjudication entry
+may now carry `outside_window` and is applied on the strength of the ruling
+alone. The window generates candidates; it does not bound what is true.
 
 ## A verdict that was corrected, and why it is visible
 

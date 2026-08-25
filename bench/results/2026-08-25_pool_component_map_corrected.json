@@ -1,8 +1,8 @@
 {
-  "adjudicated_edges": 14,
+  "adjudicated_edges": 15,
   "adjudication": "2026-08-25_pool_near_duplicate_adjudication.json",
   "basis": "exact media SHA-256 components unioned with adjudicated perceptual duplicate and uncertain edges",
-  "caveat": "every candidate crossing a component boundary is ruled. What remains unexamined is everything the Hamming 6 window never proposed: two images of one subject far enough apart in hash to fall outside it are not in this map, and nothing here would show that",
+  "caveat": "every candidate crossing a component boundary is ruled, and the 19 video file(s) were additionally inspected exhaustively rather than through the window. What remains unexamined is the IMAGE population beyond Hamming 6: the video pass found a pair at more than twice that distance which is the same shot list rendered twice, so same-brief-different-render relatedness exists in this source and this window cannot reach it. That class is unexamined among the images, where the population is too large to inspect by eye",
   "corrected_component_by_row": {
     "train-00001-44c65e69cff6b334": "train-00001-44c65e69cff6b334",
     "train-00002-f631dbe673b72816": "train-00002-f631dbe673b72816",
@@ -223,7 +223,7 @@
     "train-00496-bc1cba383a1917ee": "train-00017-fec349556d78fad7",
     "train-00497-70c6e3ba78af3bc5": "train-00049-82dc729635ca7351",
     "train-00498-d457b8e437111f96": "train-00171-82305f7a5a4a9db5",
-    "train-00500-68f926b378a008b0": "train-00500-68f926b378a008b0",
+    "train-00500-68f926b378a008b0": "train-00007-684452a9fd4b19a7",
     "train-00501-c527a2cc70ef73f6": "train-00098-d38b067c975fb227",
     "train-00502-f1e43d1ce8ccba1f": "train-00502-f1e43d1ce8ccba1f",
     "train-00504-70b88adfe6455989": "train-00017-fec349556d78fad7",
@@ -545,7 +545,7 @@
     "train-01052-4106746547d87027": "train-01052-4106746547d87027",
     "train-01053-9f32e8c2c80a419e": "train-01053-9f32e8c2c80a419e",
     "train-01057-a8811c92c842a056": "train-01049-855a7372f82ec514",
-    "train-01058-79bd50ae0faa0b21": "train-01058-79bd50ae0faa0b21",
+    "train-01058-79bd50ae0faa0b21": "train-01048-4e9be56bfe575769",
     "train-01064-aaaa241d9713efc1": "train-01052-4106746547d87027",
     "train-01068-b774d7e05c73be0f": "train-01068-b774d7e05c73be0f",
     "train-01070-c63af6f788257cd0": "train-01036-b8b233cf5e2ca475",
@@ -1055,7 +1055,8 @@
       "train-00194-136a943c9b22476d"
     ],
     "train-00007-684452a9fd4b19a7": [
-      "train-00007-684452a9fd4b19a7"
+      "train-00007-684452a9fd4b19a7",
+      "train-00500-68f926b378a008b0"
     ],
     "train-00008-f420c0553bfeddd9": [
       "train-00008-f420c0553bfeddd9",
@@ -1631,9 +1632,6 @@
     "train-00491-ad4426bae290f835": [
       "train-00491-ad4426bae290f835"
     ],
-    "train-00500-68f926b378a008b0": [
-      "train-00500-68f926b378a008b0"
-    ],
     "train-00502-f1e43d1ce8ccba1f": [
       "train-00502-f1e43d1ce8ccba1f",
       "train-00790-0e6f804e5810171a"
@@ -1929,7 +1927,8 @@
       "train-01855-13ea897e564d3ff4"
     ],
     "train-01048-4e9be56bfe575769": [
-      "train-01048-4e9be56bfe575769"
+      "train-01048-4e9be56bfe575769",
+      "train-01058-79bd50ae0faa0b21"
     ],
     "train-01049-855a7372f82ec514": [
       "train-01049-855a7372f82ec514",
@@ -1980,9 +1979,6 @@
     ],
     "train-01053-9f32e8c2c80a419e": [
       "train-01053-9f32e8c2c80a419e"
-    ],
-    "train-01058-79bd50ae0faa0b21": [
-      "train-01058-79bd50ae0faa0b21"
     ],
     "train-01068-b774d7e05c73be0f": [
       "train-01068-b774d7e05c73be0f",
@@ -3894,6 +3890,7 @@
     "train-00458-4651d0f7d38bed30",
     "train-00474-634acc6f6a99e918",
     "train-00496-bc1cba383a1917ee",
+    "train-00500-68f926b378a008b0",
     "train-00501-c527a2cc70ef73f6",
     "train-00504-70b88adfe6455989",
     "train-00508-59139e4e6c98631b",
@@ -3975,6 +3972,7 @@
     "train-01005-f6c5d64c878a0729",
     "train-01007-7cfb04e1ddb81256",
     "train-01014-7def783bd89bddca",
+    "train-01058-79bd50ae0faa0b21",
     "train-01079-9c6b2798980981e5",
     "train-01110-b6cf8fc26ffb8fbf",
     "train-01315-13cc436dfcb5618a",

@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.7
+
+### Fixed
+
+- **`bench/review_pool_near_duplicates.py` hashed images only**, so the pool's
+  video files were never candidates in a near-duplicate review whose record read
+  as covering the pool's media. Videos are now hashed as sampled frame sets and
+  compared against each other *and against every still*; because there are few
+  enough, all of them were also inspected exhaustively rather than only through
+  the window. Two things followed that no image-only scan could reach: a
+  reference still that is a frame of a reference video, in two different exact
+  components; and two videos that are the same shot list rendered twice, at more
+  than twice the Hamming threshold.
+- **The second of those is a limit on the method, and the map now says so.**
+  Same-brief-different-render relatedness exists in this source and the window
+  cannot reach it -- widening that far would swamp the candidate list, since
+  unrelated pairs already reach a fifth of a percent at Hamming 12. It was found
+  only because nineteen files is small enough to look at; the equivalent among
+  the images is unexamined and the population is too large to eyeball. The
+  emitted map's caveat states both halves rather than the image half alone.
+- An adjudication entry may now carry `outside_window` and is applied to the
+  component map on the strength of the ruling alone. A pair a person found
+  outside the candidate window still has to be able to reach the map: the window
+  generates candidates, it does not bound what is true.
+- The corrected component map absorbs both new edges. The running calibration
+  bundle, both holdouts and the Gate 6 population re-verify green against it.
+
 ## 0.70.6
 
 ### Changed

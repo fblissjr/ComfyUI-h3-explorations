@@ -1,17 +1,17 @@
 {
-  "adjudicated_duplicate_pairs": 48,
+  "adjudicated_duplicate_pairs": 49,
   "adjudicated_uncertain_pairs": 4,
   "adjudication_scope": "EXAMINED: every crossing candidate. The strong band and the Hamming<=1 band were ruled pair by pair; the remainder cluster-first -- connected components over the candidate graph, each cluster looked at as a montage, duplicate subgroups named inside it. One cluster held 83 images and 285 pairs and is the turnaround-sheet template linking unrelated subjects; looking at 83 thumbnails found two real subgroups inside it. Nothing in the crossing set is unexamined.",
-  "candidates": 549,
-  "candidates_crossing_components": 482,
-  "candidates_crossing_components_strong": 65,
-  "candidates_strong": 97,
+  "candidates": 551,
+  "candidates_crossing_components": 483,
+  "candidates_crossing_components_strong": 66,
+  "candidates_strong": 98,
   "corrected_components": {
-    "components": 381,
-    "edges_applied": 14,
+    "components": 379,
+    "edges_applied": 15,
     "largest": 131,
-    "multi_row": 144,
-    "rows_in_multi_row": 791
+    "multi_row": 146,
+    "rows_in_multi_row": 795
   },
   "correlation_histogram": {
     "-0.4": 1,
@@ -19,14 +19,14 @@
     "-0.2": 31,
     "-0.1": 82,
     "0.0": 89,
-    "0.1": 53,
+    "0.1": 54,
     "0.2": 56,
     "0.3": 49,
     "0.4": 45,
     "0.5": 29,
     "0.6": 28,
     "0.7": 10,
-    "0.8": 14,
+    "0.8": 15,
     "0.9": 27,
     "1.0": 29
   },
@@ -891,6 +891,24 @@
       ],
       "rows_b": [
         "train-00567-3b1041374bb50a4f"
+      ]
+    },
+    {
+      "a": "media/images/image-ae7d1d9dd5257703172e.jpg",
+      "b": "media/videos/video-bfdb5a31248c7cd34674.mp4",
+      "components_a": [
+        "train-00500-68f926b378a008b0"
+      ],
+      "components_b": [
+        "train-00007-684452a9fd4b19a7"
+      ],
+      "foreground_correlation": 0.7937,
+      "hamming": 3,
+      "rows_a": [
+        "train-00500-68f926b378a008b0"
+      ],
+      "rows_b": [
+        "train-00007-684452a9fd4b19a7"
       ]
     },
     {
@@ -6559,6 +6577,24 @@
       ]
     },
     {
+      "a": "media/images/image-6f57711c1bc8b8a44a73.jpg",
+      "b": "media/images/image-780fde1745a4dfb00b73.jpg",
+      "components_a": [
+        "train-01381-cd9e2728f57f9391"
+      ],
+      "components_b": [
+        "train-00988-640a653f9139f553"
+      ],
+      "foreground_correlation": 0.029,
+      "hamming": 6,
+      "rows_a": [
+        "train-01739-38672416382b9016"
+      ],
+      "rows_b": [
+        "train-01235-c9e5544dfc73c4b1"
+      ]
+    },
+    {
       "a": "media/images/image-6bc3d236823b6eae299c.jpg",
       "b": "media/images/image-827b6efd2ec21bbac952.jpg",
       "components_a": [
@@ -6576,24 +6612,6 @@
         "train-00278-e0fe5b5a3f9b5915",
         "train-00427-ca3842b2164175ae",
         "train-00984-f82c553b34e81aa1"
-      ]
-    },
-    {
-      "a": "media/images/image-6f57711c1bc8b8a44a73.jpg",
-      "b": "media/images/image-780fde1745a4dfb00b73.jpg",
-      "components_a": [
-        "train-01381-cd9e2728f57f9391"
-      ],
-      "components_b": [
-        "train-00988-640a653f9139f553"
-      ],
-      "foreground_correlation": 0.029,
-      "hamming": 6,
-      "rows_a": [
-        "train-01739-38672416382b9016"
-      ],
-      "rows_b": [
-        "train-01235-c9e5544dfc73c4b1"
       ]
     },
     {
@@ -10696,15 +10714,18 @@
     }
   ],
   "distinct_images": 1632,
+  "distinct_videos": 19,
+  "edges_from_outside_the_window": 1,
   "hamming_threshold": 6,
   "pool_rows": 1028,
   "revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e",
   "threshold_pricing": {
     "components_sampled": 300,
-    "inside": 14,
+    "inside": 12,
     "pairs": 44850,
-    "rate": 0.000312
+    "rate": 0.000268
   },
   "unhashable": [],
-  "unruled_crossing_pairs": 0
+  "unruled_crossing_pairs": 0,
+  "video_correlation_note": "a video's correlation is computed from its middle frame, a weaker representative than the frame set its hash uses; read it as a second opinion on a video pair, not an equal one"
 }

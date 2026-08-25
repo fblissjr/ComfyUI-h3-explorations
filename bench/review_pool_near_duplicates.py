@@ -10,8 +10,15 @@ byte-different files. Exact hashing cannot see that. This script is the review.
 
 What it does, in order:
 
-1. Perceptually hash every distinct image the accepted pool declares, from the
-   pinned snapshot.
+1. Perceptually hash every distinct image AND every distinct video the accepted
+   pool declares, from the pinned snapshot. A video contributes several frame
+   hashes, and a still is compared against video frames as well as against
+   other stills -- a reference still that is a frame of a reference video is a
+   real way for two rows to share content, and one that no exact hash and no
+   image-only scan can see. **The first version of this file hashed images
+   only**, which left the pool's video files outside the candidate window
+   entirely; the record said "every distinct pooled image", which was accurate
+   and read as broader than it was.
 2. Bucket by that hash so the candidate search is not quadratic over the whole
    pool, then rank every within-window pair by a background-masked correlation.
 3. Report the candidate volume and its tiering *before* anybody rules on pairs,
@@ -48,6 +55,7 @@ BENCH = Path(__file__).resolve().parent
 sys.path.insert(0, str(BENCH))
 
 from review_v2_calibration_bundle import (  # noqa: E402
+    dhash_bits,
     foreground_correlation,
     hamming,
     perceptual_hashes,
@@ -74,31 +82,86 @@ def load_pool(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
-def hash_pool_images(pool: list[dict], root: Path) -> tuple[dict, list[str]]:
-    seen: dict[str, int] = {}
+def video_frame_hashes(path: Path, samples: int = 8) -> list[int]:
+    """dhash of frames sampled evenly across a clip.
+
+    Several frames, not one: two encodes of the same clip can differ in length
+    and in which frame lands where, so a single-frame hash makes the match
+    depend on alignment. Comparing the best-matching pair of frames removes
+    that dependence.
+    """
+    import av
+    import numpy as np
+    from PIL import Image
+
+    with av.open(str(path)) as container:
+        stream = container.streams.video[0]
+        total = stream.frames or 0
+        wanted = (sorted({round(i * (total - 1) / (samples - 1))
+                          for i in range(samples)})
+                  if total > 1 else [0])
+        out, target = [], set(wanted)
+        for index, frame in enumerate(container.decode(stream)):
+            if index in target:
+                grey = (Image.fromarray(frame.to_rgb().to_ndarray()).convert("L")
+                        .resize((9, 8), Image.Resampling.LANCZOS))
+                out.append(dhash_bits(grey))
+            if index >= max(wanted):
+                break
+    return out
+
+
+def hash_pool_media(pool: list[dict], root: Path) -> tuple[dict, dict, list[str]]:
+    """Every distinct image and video the pool declares.
+
+    Returns `(hashes, kinds, failures)`. An image maps to a one-element list so
+    images and videos share one comparison path; a video maps to its sampled
+    frame hashes.
+    """
+    seen: dict[str, list[int]] = {}
+    kinds: dict[str, str] = {}
     failed = []
     for row in pool:
         for rel in row.get("images") or []:
             if rel in seen:
                 continue
             try:
-                seen[rel] = perceptual_hashes(root / rel, "image")[0]
+                seen[rel] = [perceptual_hashes(root / rel, "image")[0]]
+                kinds[rel] = "image"
             except Exception as exc:
                 failed.append(f"{rel}: {exc}")
-    return seen, failed
+        for rel in row.get("videos") or []:
+            if rel in seen:
+                continue
+            try:
+                frames = video_frame_hashes(root / rel)
+                if not frames:
+                    failed.append(f"{rel}: decoded no frames")
+                    continue
+                seen[rel] = frames
+                kinds[rel] = "video"
+            except Exception as exc:
+                failed.append(f"{rel}: {exc}")
+    return seen, kinds, failed
+
+
+def best_distance(a: list[int], b: list[int]) -> int:
+    """Closest pair of hashes between two files, one or many each."""
+    return min(hamming(x, y) for x in a for y in b)
 
 
 def candidate_pairs(hashes: dict, threshold: int, bands: int) -> list[tuple]:
-    buckets: dict[tuple, list[str]] = defaultdict(list)
-    for rel, bits in hashes.items():
-        for key in bucket_keys(bits, bands):
-            buckets[key].append(rel)
+    buckets: dict[tuple, set] = defaultdict(set)
+    for rel, bits_list in hashes.items():
+        for bits in bits_list:
+            for key in bucket_keys(bits, bands):
+                buckets[key].add(rel)
     pairs = set()
     for members in buckets.values():
         if len(members) < 2:
             continue
         for a, b in itertools.combinations(sorted(members), 2):
-            distance = hamming(hashes[a], hashes[b])
+            distance = best_distance(hashes[a], hashes[b])
             if distance <= threshold:
                 pairs.add((a, b, distance))
     return sorted(pairs, key=lambda p: p[2])
@@ -109,7 +172,7 @@ def price_threshold(pool: list[dict], hashes: dict, threshold: int,
     """How often unrelated images land inside the window anyway."""
     by_component: dict[str, list[str]] = defaultdict(list)
     for row in pool:
-        for rel in row.get("images") or []:
+        for rel in (row.get("images") or []) + (row.get("videos") or []):
             if rel in hashes:
                 by_component[row["media_component"]].append(rel)
     rng = random.Random(seed)
@@ -120,7 +183,7 @@ def price_threshold(pool: list[dict], hashes: dict, threshold: int,
     for i in range(len(picked)):
         for j in range(i + 1, len(picked)):
             pairs += 1
-            if hamming(picked[i], picked[j]) <= threshold:
+            if best_distance(picked[i], picked[j]) <= threshold:
                 inside += 1
     return {"components_sampled": len(picked), "pairs": pairs, "inside": inside,
             "rate": round(inside / pairs, 6) if pairs else None}
@@ -147,7 +210,7 @@ def corrected_components(pool: list[dict], duplicate_pairs: list[tuple]) -> dict
     """Exact components unioned with adjudicated perceptual edges."""
     owner: dict[str, list[str]] = defaultdict(list)
     for row in pool:
-        for rel in row.get("images") or []:
+        for rel in (row.get("images") or []) + (row.get("videos") or []):
             owner[rel].append(row["id"])
     union = Union()
     for row in pool:
@@ -197,19 +260,48 @@ def main() -> int:
 
     root, revision = pinned_snapshot()
     pool = load_pool(args.pool)
-    hashes, failed = hash_pool_images(pool, root)
-    print(f"hashed {len(hashes)} distinct images from {len(pool)} pooled rows "
-          f"at {revision[:12]}; {len(failed)} unhashable")
+    hashes, kinds, failed = hash_pool_media(pool, root)
+    images = sum(1 for k in kinds.values() if k == "image")
+    videos = sum(1 for k in kinds.values() if k == "video")
+    print(f"hashed {images} image(s) and {videos} video(s) from {len(pool)} "
+          f"pooled rows at {revision[:12]}; {len(failed)} unhashable")
 
     pairs = candidate_pairs(hashes, args.threshold, args.bands)
     print(f"{len(pairs)} candidate pairs inside Hamming {args.threshold}")
 
     reductions: dict[str, object] = {}
+
+    def reduce_any(rel: str):
+        """A 96x96 RGB reduction for either kind.
+
+        A video is reduced through its middle frame. That is a weaker
+        representative than the frame-set the hash uses, so the correlation is
+        a second opinion on a video pair rather than an equal one, and the
+        record says so.
+        """
+        if kinds[rel] == "image":
+            return reduce_image(root / rel)
+        import av
+        import numpy as np
+        from PIL import Image
+
+        with av.open(str(root / rel)) as container:
+            stream = container.streams.video[0]
+            middle = max(0, (stream.frames or 1) // 2)
+            chosen = None
+            for index, frame in enumerate(container.decode(stream)):
+                chosen = frame
+                if index >= middle:
+                    break
+            image = Image.fromarray(chosen.to_rgb().to_ndarray()).convert("RGB")
+        return np.asarray(image.resize((96, 96), Image.Resampling.LANCZOS),
+                          dtype=np.float64)
+
     scored = []
     for rel_a, rel_b, distance in pairs:
         for rel in (rel_a, rel_b):
             if rel not in reductions:
-                reductions[rel] = reduce_image(root / rel)
+                reductions[rel] = reduce_any(rel)
         scored.append((round(foreground_correlation(reductions[rel_a],
                                                     reductions[rel_b]), 4),
                        distance, rel_a, rel_b))
@@ -225,7 +317,7 @@ def main() -> int:
 
     owner: dict[str, list[str]] = defaultdict(list)
     for row in pool:
-        for rel in row.get("images") or []:
+        for rel in (row.get("images") or []) + (row.get("videos") or []):
             owner[rel].append(row["id"])
     by_component = {row["id"]: row["media_component"] for row in pool}
 
@@ -243,7 +335,12 @@ def main() -> int:
     report = {
         "revision": revision,
         "pool_rows": len(pool),
-        "distinct_images": len(hashes),
+        "distinct_images": images,
+        "distinct_videos": videos,
+        "video_correlation_note": (
+            "a video's correlation is computed from its middle frame, a weaker "
+            "representative than the frame set its hash uses; read it as a "
+            "second opinion on a video pair, not an equal one"),
         "unhashable": failed,
         "hamming_threshold": args.threshold,
         "correlation_threshold": args.correlation_threshold,
@@ -276,6 +373,17 @@ def main() -> int:
         # as `uncertain` rather than being laundered into `duplicate`.
         adjudicated = [(a, b, d) for c, d, a, b in crossing
                        if ruled.get((a, b)) in ("duplicate", "uncertain")]
+        # A pair a person found outside the candidate window still has to be
+        # able to reach the map. The window is a generator, not the boundary of
+        # what is true, and the 2026-08-25 video review found a same-brief pair
+        # at more than twice the threshold that no widening would have surfaced
+        # without swamping the list. Such entries carry `outside_window` and are
+        # applied on the strength of the ruling alone.
+        outside = [e for e in loaded["pairs"]
+                   if e.get("outside_window")
+                   and e["verdict"] in ("duplicate", "uncertain")]
+        adjudicated += [(e["a"], e["b"], e.get("hamming", -1)) for e in outside]
+        report["edges_from_outside_the_window"] = len(outside)
         report["adjudicated_duplicate_pairs"] = sum(
             1 for c, d, a, b in crossing if ruled.get((a, b)) == "duplicate")
         report["adjudicated_uncertain_pairs"] = sum(
@@ -317,11 +425,16 @@ def main() -> int:
                   f"a component boundary carry no verdict, so rows may still "
                   f"share a visual family through one of them")
                  if report["unruled_crossing_pairs"] else
-                 (f"every candidate crossing a component boundary is ruled. "
-                  f"What remains unexamined is everything the Hamming "
-                  f"{args.threshold} window never proposed: two images of one "
-                  f"subject far enough apart in hash to fall outside it are not "
-                  f"in this map, and nothing here would show that")),
+                 (f"every candidate crossing a component boundary is ruled, "
+                  f"and the {videos} video file(s) were additionally inspected "
+                  f"exhaustively rather than through the window. What remains "
+                  f"unexamined is the IMAGE population beyond Hamming "
+                  f"{args.threshold}: the video pass found a pair at more than "
+                  f"twice that distance which is the same shot list rendered "
+                  f"twice, so same-brief-different-render relatedness exists in "
+                  f"this source and this window cannot reach it. That class is "
+                  f"unexamined among the images, where the population is too "
+                  f"large to inspect by eye")),
              "rows_that_changed_component": moved,
              "exact_component_by_row": exact,
              "corrected_component_by_row": corrected_by_row,
