@@ -284,10 +284,20 @@ def main() -> int:
         int(b["grid_thw"][0][1]) * int(b["grid_thw"][0][2])
         for r in manifest["rows"] for b in r["vision_blocks"]
     })
+    # Two text shapes per length. The grouped-query form is what the model
+    # declares and what transformers' sdpa integration passes (`enable_gqa`).
+    # The expanded form is what a `repeat_kv` before the call would produce;
+    # it is probed so the withdrawn KV-expansion lever can be judged on
+    # measured selection rather than on availability alone.
     shapes = [
         {"kind": "text", "length": length, "heads": text.num_attention_heads,
          "kv_heads": text.num_key_value_heads, "head_dim": text.head_dim,
          "is_causal": True}
+        for length in lengths
+    ] + [
+        {"kind": "text_expanded_kv", "length": length,
+         "heads": text.num_attention_heads, "kv_heads": text.num_attention_heads,
+         "head_dim": text.head_dim, "is_causal": True}
         for length in lengths
     ] + [
         {"kind": "vision", "length": count, "heads": vision.num_heads,
@@ -297,8 +307,8 @@ def main() -> int:
     ]
 
     print(f"policy {args.policy} -> compute dtype {dtype}")
-    print(f"{len(shapes)} real shapes: {len(lengths)} text lengths, "
-          f"{len(patches)} vision block sizes")
+    print(f"{len(shapes)} real shapes: {len(lengths)} text lengths, each in "
+          f"grouped-query and expanded-KV form, {len(patches)} vision block sizes")
 
     report: dict = {
         "probe": "which SDPA kernel the calibration path actually dispatches",
