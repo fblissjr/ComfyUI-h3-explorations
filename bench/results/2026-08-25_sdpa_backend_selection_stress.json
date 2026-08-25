@@ -1,0 +1,309 @@
+{
+  "probe": "which SDPA kernel the calibration path actually dispatches",
+  "separate_from": "the Gate 2A feasibility pilot, deliberately: the profiler's overhead would contaminate its peak and timing measurements",
+  "availability_is_not_selection": true,
+  "path_policy": "logical identifiers only",
+  "producer": {
+    "file": "probe_sdpa_backend_selection.py",
+    "sha256": "be395f48a2851f346f4673ff865cefbb546bffd19589155c0085e53b97c103a6",
+    "repository_commit": "15053552d17c9ee7364784d2d3d7daf4017b4ec9",
+    "dirty_against_commit": false
+  },
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "gpu": "NVIDIA GeForce RTX 4090"
+  },
+  "policy": "comfy_exact",
+  "compute_dtype": "float32",
+  "direct": [
+    {
+      "kind": "text",
+      "length": 1100,
+      "heads": 64,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "is_causal": true,
+      "enable_gqa": true,
+      "availability": {
+        "flash": false,
+        "efficient": false,
+        "cudnn": false
+      },
+      "auto_dispatched_ops": [
+        "aten::_scaled_dot_product_attention_math"
+      ],
+      "forced": {
+        "math": {
+          "ran": true,
+          "dispatched_ops": [
+            "aten::_scaled_dot_product_attention_math"
+          ],
+          "max_abs_delta_vs_auto": 0.0,
+          "bit_identical_to_auto": true
+        },
+        "flash": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        },
+        "efficient": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        },
+        "cudnn": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        }
+      },
+      "auto_matched_bit_for_bit_by": [
+        "math"
+      ],
+      "selection_evidence": "one forced backend reproduces auto exactly"
+    },
+    {
+      "kind": "text",
+      "length": 8981,
+      "heads": 64,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "is_causal": true,
+      "enable_gqa": true,
+      "availability": {
+        "flash": false,
+        "efficient": false,
+        "cudnn": false
+      },
+      "auto_dispatched_ops": [
+        "aten::_scaled_dot_product_attention_math"
+      ],
+      "auto": "OutOfMemoryError: CUDA out of memory. Tried to allocate 19.23 GiB. GPU 0 has a total capacity of 23.54 GiB of which 2.26 GiB is free. Including non-PyTorch memory, this process h",
+      "forced": {
+        "math": {
+          "ran": false,
+          "dispatched_ops": [
+            "aten::_scaled_dot_product_attention_math"
+          ],
+          "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 19.23 GiB. GPU 0 has a total capacity of 23.54 GiB of which 2.26 GiB is free. Including non-PyTorch memory, this process h"
+        },
+        "flash": {
+          "ran": false,
+          "dispatched_ops": [],
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        },
+        "efficient": {
+          "ran": false,
+          "dispatched_ops": [],
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        },
+        "cudnn": {
+          "ran": false,
+          "dispatched_ops": [],
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        }
+      },
+      "auto_matched_bit_for_bit_by": [],
+      "selection_evidence": "auto failed at this shape; selection rests on the dispatched op name alone"
+    },
+    {
+      "kind": "text_expanded_kv",
+      "length": 1100,
+      "heads": 64,
+      "kv_heads": 64,
+      "head_dim": 128,
+      "is_causal": true,
+      "enable_gqa": false,
+      "availability": {
+        "flash": false,
+        "efficient": true,
+        "cudnn": false
+      },
+      "auto_dispatched_ops": [
+        "aten::_scaled_dot_product_efficient_attention"
+      ],
+      "forced": {
+        "math": {
+          "ran": true,
+          "dispatched_ops": [
+            "aten::_scaled_dot_product_attention_math"
+          ],
+          "max_abs_delta_vs_auto": 0.0016775131225585938,
+          "bit_identical_to_auto": false
+        },
+        "flash": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        },
+        "efficient": {
+          "ran": true,
+          "dispatched_ops": [
+            "aten::_scaled_dot_product_efficient_attention"
+          ],
+          "max_abs_delta_vs_auto": 0.0,
+          "bit_identical_to_auto": true
+        },
+        "cudnn": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        }
+      },
+      "auto_matched_bit_for_bit_by": [
+        "efficient"
+      ],
+      "selection_evidence": "one forced backend reproduces auto exactly"
+    },
+    {
+      "kind": "text_expanded_kv",
+      "length": 8981,
+      "heads": 64,
+      "kv_heads": 64,
+      "head_dim": 128,
+      "is_causal": true,
+      "enable_gqa": false,
+      "availability": {
+        "flash": false,
+        "efficient": true,
+        "cudnn": false
+      },
+      "auto_dispatched_ops": [
+        "aten::_scaled_dot_product_efficient_attention"
+      ],
+      "forced": {
+        "math": {
+          "ran": false,
+          "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 19.23 GiB. GPU 0 has a total capacity of 23.54 GiB of which 1.79 GiB is free. Including non-PyTorch memory, this process h"
+        },
+        "flash": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        },
+        "efficient": {
+          "ran": true,
+          "dispatched_ops": [
+            "aten::_scaled_dot_product_efficient_attention"
+          ],
+          "max_abs_delta_vs_auto": 0.0,
+          "bit_identical_to_auto": true
+        },
+        "cudnn": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        }
+      },
+      "auto_matched_bit_for_bit_by": [
+        "efficient"
+      ],
+      "selection_evidence": "one forced backend reproduces auto exactly"
+    },
+    {
+      "kind": "vision",
+      "length": 1760,
+      "heads": 16,
+      "kv_heads": 16,
+      "head_dim": 72,
+      "is_causal": false,
+      "enable_gqa": false,
+      "availability": {
+        "flash": false,
+        "efficient": true,
+        "cudnn": false
+      },
+      "auto_dispatched_ops": [
+        "aten::_scaled_dot_product_efficient_attention"
+      ],
+      "forced": {
+        "math": {
+          "ran": true,
+          "dispatched_ops": [
+            "aten::_scaled_dot_product_attention_math"
+          ],
+          "max_abs_delta_vs_auto": 0.00026798248291015625,
+          "bit_identical_to_auto": false
+        },
+        "flash": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        },
+        "efficient": {
+          "ran": true,
+          "dispatched_ops": [
+            "aten::_scaled_dot_product_efficient_attention"
+          ],
+          "max_abs_delta_vs_auto": 0.0,
+          "bit_identical_to_auto": true
+        },
+        "cudnn": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        }
+      },
+      "auto_matched_bit_for_bit_by": [
+        "efficient"
+      ],
+      "selection_evidence": "one forced backend reproduces auto exactly"
+    },
+    {
+      "kind": "vision",
+      "length": 16384,
+      "heads": 16,
+      "kv_heads": 16,
+      "head_dim": 72,
+      "is_causal": false,
+      "enable_gqa": false,
+      "availability": {
+        "flash": false,
+        "efficient": true,
+        "cudnn": false
+      },
+      "auto_dispatched_ops": [
+        "aten::_scaled_dot_product_efficient_attention"
+      ],
+      "forced": {
+        "math": {
+          "ran": false,
+          "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 16.00 GiB. GPU 0 has a total capacity of 23.54 GiB of which 6.56 GiB is free. Including non-PyTorch memory, this process h"
+        },
+        "flash": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        },
+        "efficient": {
+          "ran": true,
+          "dispatched_ops": [
+            "aten::_scaled_dot_product_efficient_attention"
+          ],
+          "max_abs_delta_vs_auto": 0.0,
+          "bit_identical_to_auto": true
+        },
+        "cudnn": {
+          "ran": false,
+          "error": "RuntimeError: No available kernel. Aborting execution."
+        }
+      },
+      "auto_matched_bit_for_bit_by": [
+        "efficient"
+      ],
+      "selection_evidence": "one forced backend reproduces auto exactly"
+    }
+  ],
+  "in_situ": {
+    "row_id": "train-00973-d8cd5223d6ff1cac",
+    "sequence_tokens": 1100,
+    "vision_block_grids": [
+      [
+        44,
+        40
+      ]
+    ],
+    "decoder_layers_built": 2,
+    "released_head_dim": 128,
+    "released_heads": 64,
+    "released_kv_heads": 8,
+    "vision_heads": 16,
+    "dispatched_ops": [
+      "aten::_scaled_dot_product_attention_math",
+      "aten::_scaled_dot_product_efficient_attention"
+    ],
+    "error": null,
+    "note": "real released head_dim and head counts; a reduced-width model would change the answer because the backends gate on head dimension"
+  }
+}

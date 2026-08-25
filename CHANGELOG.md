@@ -4,6 +4,31 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.63.0
+
+### Added
+
+- **`bench/h3_producer_provenance.py`**: every Gate 2A pilot and backend-probe
+  report now names the commit, file hash and dirty state of the producer that
+  wrote it. The readiness record accepts a floor only from one committed
+  harness version, and nothing in a report said which.
+- **Gate 2A record from one harness version**, under `bench/results/` dated
+  2026-08-25: the abort control, the primary escalation, the 2048-upscale
+  stress arm behind a small trace row, and the backend-selection probe at
+  every real row length and vision-block size. The deliverable is
+  `docs/research/qwen3-vl-special-tokens-post-training/brainstorming/claude-encoder/2026-08-25-gate2a-corrected-floor.md`.
+
+### Changed
+
+- **`bench/pilot_sequential_feasibility.py`** reads the all-ones-mask
+  omission back from the dataloader, the intermediates cache and the traced
+  subgraphs; samples cache growth after every forward instead of reading the
+  end-of-run residual; times the trace as its own stage; and records host
+  memory before and after the bridge load.
+- **`bench/probe_sdpa_backend_selection.py`** keeps the dispatched op name when
+  a call runs out of memory, and sweeps the expanded-KV text shape beside the
+  grouped-query one.
+
 ## 0.62.0
 
 ### Fixed
