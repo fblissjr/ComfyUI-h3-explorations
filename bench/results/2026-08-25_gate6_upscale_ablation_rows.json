@@ -1,0 +1,1844 @@
+{
+  "purpose": "render population for the Gate 6 reference-upscale ablation: arms A no-upscale, B Qwen-only 2048, C full parity, matched seeds, judged blind as a distribution",
+  "producer": "select_gate6_ablation_rows.py",
+  "seed": 20260825,
+  "dataset": {
+    "repo_id": "StellarVoyager/H3-IR",
+    "revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e"
+  },
+  "component_map": "2026-08-25_pool_component_map_corrected.json",
+  "arms": {
+    "A_no_upscale": "size_policy=max, allow_upscale=False, one view for both towers",
+    "B_qwen_2048": "size_policy=max, allow_upscale=False for the VAE; qwen_short_edge=2048 gives the encoder its own view",
+    "C_full_parity": "size_policy=max, allow_upscale=True, one 2048 view for both towers"
+  },
+  "where_the_arms_differ": "if and only if a still's SHORT edge is below 2048. Computed from the shipped sizing code, not assumed: no-upscale clamps with min(1.0, 2048/short_edge), so a source at or past a 2048 short edge is untouched by every arm.",
+  "disjointness": {
+    "basis": "corrected visual family, not media file",
+    "calibration_rows_excluded": 29,
+    "holdout_rows_excluded": 26,
+    "families_blocked": 41,
+    "bundle_rows_absent_from_the_map": [],
+    "selected_families": [
+      "train-00053-c89d997c27c0faf8",
+      "train-00076-e8e84b23f174c74f",
+      "train-00103-f6e74baed402738b",
+      "train-00171-82305f7a5a4a9db5",
+      "train-00330-3de48fe49ccaf102",
+      "train-00413-ebb4fff1509c03b4",
+      "train-00632-e4cedb5a1a296f77",
+      "train-00866-aeaac5521f4c0715",
+      "train-01074-204db7c505dc10c9",
+      "train-01212-048b094f090f8a3f",
+      "train-01761-f27e7067db464789",
+      "train-01861-d8d0784ce5faf182"
+    ],
+    "shared_with_calibration_or_holdout": [],
+    "selected_families_are_distinct": true
+  },
+  "unfilled_slots": [],
+  "rows": [
+    {
+      "row_id": "train-00103-f6e74baed402738b",
+      "stratum": "extreme",
+      "null_control": false,
+      "primary_role": "multi-image-2-3",
+      "family": "train-00103-f6e74baed402738b",
+      "image_count": 2,
+      "prompt_sha256": "78fc48c7f96570cebe4080fb2a3e4715f58c6569b701ebbb15080186657dd101",
+      "prompt_bytes": 3825,
+      "overlays": {
+        "wide_or_tall": false,
+        "small_source": false,
+        "markers": {
+          "<d>": 4,
+          "</d>": 4
+        },
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "the 2048 view is mostly manufactured pixels: the shortest edge is 374, a 5.5x linear upscale.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-4f5e6eef34dd8166b23d.jpg",
+          "sha256": "56472b8b8a9523bbd7a074f51f7527a7842ab60eff563aa64b4eb6329e078a2b",
+          "source_size": [
+            374,
+            561
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                384,
+                576
+              ],
+              "qwen": [
+                384,
+                576
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                384,
+                576
+              ],
+              "qwen": [
+                2048,
+                3072
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                3072
+              ],
+              "qwen": [
+                2048,
+                3072
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 2>",
+          "role": "reference-still",
+          "path": "media/images/image-ed4439497acf8981f33e.jpg",
+          "sha256": "994df99e4149639cc8639ac416ea15c95953fba3d9c3a369a94a0625ec4302eb",
+          "source_size": [
+            1400,
+            2328
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1408,
+                2336
+              ],
+              "qwen": [
+                1408,
+                2336
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1408,
+                2336
+              ],
+              "qwen": [
+                2048,
+                3392
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                3392
+              ],
+              "qwen": [
+                2048,
+                3392
+              ]
+            }
+          },
+          "arms_identical": false
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 3428,
+        "B_qwen_2048": 12928,
+        "C_full_parity": 12928
+      }
+    },
+    {
+      "row_id": "train-00424-345e48a66b8cf6d4",
+      "stratum": "extreme",
+      "null_control": false,
+      "primary_role": "multi-image-4-9",
+      "family": "train-00053-c89d997c27c0faf8",
+      "image_count": 4,
+      "prompt_sha256": "059e2e01e3747211a554c6078c3ff54afa5271ddde3f3c86f8342b24d8bf3e69",
+      "prompt_bytes": 5624,
+      "overlays": {
+        "wide_or_tall": true,
+        "small_source": false,
+        "markers": {
+          "<d>": 3,
+          "</d>": 3
+        },
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "the 2048 view is mostly manufactured pixels: the shortest edge is 476, a 4.3x linear upscale.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-68c7a912f32e80ff4a92.jpg",
+          "sha256": "bdcf8b426f02d96acbbe0c050b9b26f31677c1da545bd91d23c10824f904be8f",
+          "source_size": [
+            562,
+            964
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                576,
+                960
+              ],
+              "qwen": [
+                576,
+                960
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                576,
+                960
+              ],
+              "qwen": [
+                2048,
+                3520
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                3520
+              ],
+              "qwen": [
+                2048,
+                3520
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 2>",
+          "role": "reference-still",
+          "path": "media/images/image-1fb9c1d85f933f28decb.jpg",
+          "sha256": "7dc8753b890ba2ac6cacbfc890803f137248b2bf76be14dce4d592830db225c5",
+          "source_size": [
+            476,
+            775
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                480,
+                768
+              ],
+              "qwen": [
+                480,
+                768
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                480,
+                768
+              ],
+              "qwen": [
+                2048,
+                3328
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                3328
+              ],
+              "qwen": [
+                2048,
+                3328
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 3>",
+          "role": "reference-still",
+          "path": "media/images/image-0b40b281c5628793f64f.jpg",
+          "sha256": "50941cf2f564670cc48615ad266b8e2d55e20365fc762aa7e5e95148b76ea521",
+          "source_size": [
+            1773,
+            2364
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1760,
+                2368
+              ],
+              "qwen": [
+                1760,
+                2368
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1760,
+                2368
+              ],
+              "qwen": [
+                2048,
+                2720
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2720
+              ],
+              "qwen": [
+                2048,
+                2720
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 4>",
+          "role": "reference-still",
+          "path": "media/images/image-7ec7f4cc2144a4845378.jpg",
+          "sha256": "7e48241027c6b3a3b8dcd744ff1dbd7c41f5969607e23913bdd7264e38816d82",
+          "source_size": [
+            1266,
+            710
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1280,
+                704
+              ],
+              "qwen": [
+                1280,
+                704
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1280,
+                704
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 5850,
+        "B_qwen_2048": 26432,
+        "C_full_parity": 26432
+      }
+    },
+    {
+      "row_id": "train-00976-4453c63d7d3dc037",
+      "stratum": "extreme",
+      "null_control": false,
+      "primary_role": "multi-image-2-3",
+      "family": "train-00866-aeaac5521f4c0715",
+      "image_count": 2,
+      "prompt_sha256": "0a06ac2187ce343ea29c771b8c92af50e87e475125def692a50336a9f081991e",
+      "prompt_bytes": 3854,
+      "overlays": {
+        "wide_or_tall": false,
+        "small_source": false,
+        "markers": {
+          "<d>": 2,
+          "</d>": 2
+        },
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "the 2048 view is mostly manufactured pixels: the shortest edge is 502, a 4.1x linear upscale.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-ef7f31f12653e9e60b19.jpg",
+          "sha256": "6f03cb618f4df416d17f218559d390b49c528d471e3217c45a848626beea28f8",
+          "source_size": [
+            5731,
+            3240
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                3616,
+                2048
+              ],
+              "qwen": [
+                3616,
+                2048
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                3616,
+                2048
+              ],
+              "qwen": [
+                3616,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3616,
+                2048
+              ],
+              "qwen": [
+                3616,
+                2048
+              ]
+            }
+          },
+          "arms_identical": true
+        },
+        {
+          "label": "<Picture 2>",
+          "role": "reference-still",
+          "path": "media/images/image-cdbec6e8f6b0eca97bb5.jpg",
+          "sha256": "ad90ba2c08fc21937252a7fcc8c99f88240e8bbde06de18b2a2fe9534d24e9c1",
+          "source_size": [
+            502,
+            741
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                512,
+                736
+              ],
+              "qwen": [
+                512,
+                736
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                512,
+                736
+              ],
+              "qwen": [
+                2048,
+                3008
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                3008
+              ],
+              "qwen": [
+                2048,
+                3008
+              ]
+            }
+          },
+          "arms_identical": false
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 7600,
+        "B_qwen_2048": 13248,
+        "C_full_parity": 13248
+      }
+    },
+    {
+      "row_id": "train-01743-aca57b36e88c3167",
+      "stratum": "moderate",
+      "null_control": false,
+      "primary_role": "single-image",
+      "family": "train-01212-048b094f090f8a3f",
+      "image_count": 1,
+      "prompt_sha256": "f96078f6e6deb349f214d8b7588fefe5e83c944976ffe5e80151551646750fe1",
+      "prompt_bytes": 3598,
+      "overlays": {
+        "wide_or_tall": false,
+        "small_source": false,
+        "markers": {},
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "a 2.9x linear upscale from a 705-pixel short edge, between the two extremes. Single reference: the identity question with nothing to average against.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-9108508f955ff284bd8a.jpg",
+          "sha256": "7ca806f935b74bd69419e3a87f89583fe9eef17e185bbea74ffc445846e76039",
+          "source_size": [
+            705,
+            803
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                704,
+                800
+              ],
+              "qwen": [
+                704,
+                800
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                704,
+                800
+              ],
+              "qwen": [
+                2048,
+                2336
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2336
+              ],
+              "qwen": [
+                2048,
+                2336
+              ]
+            }
+          },
+          "arms_identical": false
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 550,
+        "B_qwen_2048": 4672,
+        "C_full_parity": 4672
+      }
+    },
+    {
+      "row_id": "train-01761-f27e7067db464789",
+      "stratum": "moderate",
+      "null_control": false,
+      "primary_role": "multi-image-2-3",
+      "family": "train-01761-f27e7067db464789",
+      "image_count": 3,
+      "prompt_sha256": "b2dbfae0efbbbb8b38b6a8bd722cd24959d686826de4bef312e4ffbf3262f48d",
+      "prompt_bytes": 4632,
+      "overlays": {
+        "wide_or_tall": false,
+        "small_source": false,
+        "markers": {},
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "a 2.2x linear upscale from a 941-pixel short edge, between the two extremes.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-ddca70a914b8ebc7d046.jpg",
+          "sha256": "4fd0634b4824b43ba436665360af8abb9f573e0d707857036d34988f69057171",
+          "source_size": [
+            1672,
+            941
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1664,
+                928
+              ],
+              "qwen": [
+                1664,
+                928
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1664,
+                928
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 2>",
+          "role": "reference-still",
+          "path": "media/images/image-11058cd2734cd15496b8.jpg",
+          "sha256": "56b722f44fd63fa7e98a9ce40e467f8d8ff3a2fa4d3aeb4da805494beaf710d3",
+          "source_size": [
+            1672,
+            941
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1664,
+                928
+              ],
+              "qwen": [
+                1664,
+                928
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1664,
+                928
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 3>",
+          "role": "reference-still",
+          "path": "media/images/image-fb2ca95b1124929421da.jpg",
+          "sha256": "310f897067d310e365fac55437cedaa4c1e27f598d18d83fa8545ea957e13d75",
+          "source_size": [
+            1672,
+            941
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1664,
+                928
+              ],
+              "qwen": [
+                1664,
+                928
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1664,
+                928
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 4524,
+        "B_qwen_2048": 21888,
+        "C_full_parity": 21888
+      }
+    },
+    {
+      "row_id": "train-00740-9ca7944dc645dda4",
+      "stratum": "moderate",
+      "null_control": false,
+      "primary_role": "multi-image-4-9",
+      "family": "train-00632-e4cedb5a1a296f77",
+      "image_count": 6,
+      "prompt_sha256": "5c4cac971c44171d7cda5d89d80ca13cc743502dcab45b613243d9a7ed1c0cba",
+      "prompt_bytes": 5028,
+      "overlays": {
+        "wide_or_tall": false,
+        "small_source": false,
+        "markers": {},
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "a 2.6x linear upscale from a 800-pixel short edge, between the two extremes.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-87bdd427aa5463dc489c.jpg",
+          "sha256": "3bd23cc2d40b847eb947656c3ed935e49321cddffd45ec43adf30a6af8ee6363",
+          "source_size": [
+            800,
+            800
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                800,
+                800
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 2>",
+          "role": "reference-still",
+          "path": "media/images/image-4796ec484ac9641d6a0f.jpg",
+          "sha256": "5195c4e3b6df47b7cad606c9e41cc317bccad5356821f507284635752bd67fcd",
+          "source_size": [
+            800,
+            800
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                800,
+                800
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 3>",
+          "role": "reference-still",
+          "path": "media/images/image-edea88b8b0a84d7dca3b.jpg",
+          "sha256": "67f5a7a2899ca3029782946033d4f36deb79d3df275cb15426d72dea603623ea",
+          "source_size": [
+            800,
+            800
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                800,
+                800
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 4>",
+          "role": "reference-still",
+          "path": "media/images/image-a9dcbad8f10c219773c1.jpg",
+          "sha256": "78fd95b630738178dcf8cd224f648d3940d16e7052907883f173d3de2aea5cb5",
+          "source_size": [
+            800,
+            800
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                800,
+                800
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 5>",
+          "role": "reference-still",
+          "path": "media/images/image-b5c4d567431efdd2d67b.jpg",
+          "sha256": "4006d72ecf003c9c6e6e53f3532922fbad1c1a9c4ec2f37ef55dc36d95c00e17",
+          "source_size": [
+            800,
+            800
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                800,
+                800
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 6>",
+          "role": "reference-still",
+          "path": "media/images/image-debca3dc191532f237d8.jpg",
+          "sha256": "5ef911b90b5fbb402d0738463a19622f48745f22f4430102cf0002b13e728fe7",
+          "source_size": [
+            800,
+            800
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                800,
+                800
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                800,
+                800
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 3750,
+        "B_qwen_2048": 24576,
+        "C_full_parity": 24576
+      }
+    },
+    {
+      "row_id": "train-01877-e29da88c50248260",
+      "stratum": "moderate",
+      "null_control": false,
+      "primary_role": "keyframe-plus-reference",
+      "family": "train-01861-d8d0784ce5faf182",
+      "image_count": 6,
+      "prompt_sha256": "7cc79c81343ba46afce578dffac440371523eb5b063c708fbad0c98e53150d7d",
+      "prompt_bytes": 6223,
+      "overlays": {
+        "wide_or_tall": true,
+        "small_source": false,
+        "markers": {},
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "a 2.5x linear upscale from a 816-pixel short edge, between the two extremes. Mixed geometry: its keyframe takes the target canvas and is untouched by the still policy, so this row shows the arms moving one reference and not the other in a single request.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-43372d97277c3fb42327.jpg",
+          "sha256": "249009202cd692576160979d189a9b872d12e10f985619c61ef911c24380e1fa",
+          "source_size": [
+            1456,
+            816
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1472,
+                832
+              ],
+              "qwen": [
+                1472,
+                832
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1472,
+                832
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 2>",
+          "role": "reference-still",
+          "path": "media/images/image-4efc41701afa0681f3fe.jpg",
+          "sha256": "cb64cd266d1816fb1899c7c5c8121252999d292b4216cd743ba55f1e6c4014cd",
+          "source_size": [
+            2048,
+            2048
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            }
+          },
+          "arms_identical": true
+        },
+        {
+          "label": "<Picture 3>",
+          "role": "reference-still",
+          "path": "media/images/image-e821632b45e86fdbe7b9.jpg",
+          "sha256": "a6e92c505f982054fd0ca9122f7d515f612ce55eac01d7cbee60aa9155946ff4",
+          "source_size": [
+            928,
+            1232
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                928,
+                1216
+              ],
+              "qwen": [
+                928,
+                1216
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                928,
+                1216
+              ],
+              "qwen": [
+                2048,
+                2720
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2720
+              ],
+              "qwen": [
+                2048,
+                2720
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 4>",
+          "role": "reference-still",
+          "path": "media/images/image-677388f8c0221014c2fb.jpg",
+          "sha256": "4d61e84c4116e69e0e37db2ab34adfbf317590009751bb25bef7fcde94aded3b",
+          "source_size": [
+            5760,
+            3240
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": true
+        },
+        {
+          "label": "<Picture 5>",
+          "role": "reference-still",
+          "path": "media/images/image-3e65ee3a60c982472ae0.jpg",
+          "sha256": "178621575d648e5a0abf2b8cf31155873df69f3f1f882f5e9fd2f1a1771f2a92",
+          "source_size": [
+            2048,
+            2048
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2048
+              ],
+              "qwen": [
+                2048,
+                2048
+              ]
+            }
+          },
+          "arms_identical": true
+        },
+        {
+          "label": "<Picture 6>",
+          "role": "keyframe",
+          "path": "media/images/image-ec84a64a4479f1e121b0.jpg",
+          "sha256": "ca93823f9ef3d884f1879897afcccbace6f38303a78f0b4814db8d6a8ecadf7e",
+          "source_size": [
+            1080,
+            1882
+          ],
+          "note": "keyframe: takes the resolved target canvas, so no arm moves it"
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 17786,
+        "B_qwen_2048": 28224,
+        "C_full_parity": 28224
+      }
+    },
+    {
+      "row_id": "train-00802-99f14d6d55fdd88e",
+      "stratum": "mild",
+      "null_control": false,
+      "primary_role": "single-image",
+      "family": "train-00330-3de48fe49ccaf102",
+      "image_count": 1,
+      "prompt_sha256": "d6202bc8616684b9de94a6ff26cac8cd313af135a17dda72e105f1a7a9c4cf91",
+      "prompt_bytes": 4701,
+      "overlays": {
+        "wide_or_tall": false,
+        "small_source": false,
+        "markers": {},
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "the common serving case: a 1536-pixel short edge, a 1.3x upscale, which is what most shipped graphs actually feed. Single reference: the identity question with nothing to average against.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-eeb999c72600341b3894.jpg",
+          "sha256": "75ed0eaabdbb089aaa225eb673ecce9295accafe8e125279b77f5a365c9e054f",
+          "source_size": [
+            2752,
+            1536
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                2752,
+                1536
+              ],
+              "qwen": [
+                2752,
+                1536
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                2752,
+                1536
+              ],
+              "qwen": [
+                3680,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3680,
+                2048
+              ],
+              "qwen": [
+                3680,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 4128,
+        "B_qwen_2048": 7360,
+        "C_full_parity": 7360
+      }
+    },
+    {
+      "row_id": "train-00433-28004fbda1c49c58",
+      "stratum": "mild",
+      "null_control": false,
+      "primary_role": "multi-image-2-3",
+      "family": "train-00171-82305f7a5a4a9db5",
+      "image_count": 3,
+      "prompt_sha256": "a6fabcf2e2ec33ece2a6a45dc080eee7e153b25c6229dea4638b7cf2ea9078ec",
+      "prompt_bytes": 5245,
+      "overlays": {
+        "wide_or_tall": true,
+        "small_source": false,
+        "markers": {
+          "<d>": 2,
+          "</d>": 2
+        },
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "the common serving case: a 1536-pixel short edge, a 1.3x upscale, which is what most shipped graphs actually feed.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-fe484fe517a59c5e6d11.jpg",
+          "sha256": "30bd85a28b86f0ebf8438d6db58370281450a8c8aa02d38df06125de8480be10",
+          "source_size": [
+            1536,
+            2752
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1536,
+                2752
+              ],
+              "qwen": [
+                1536,
+                2752
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1536,
+                2752
+              ],
+              "qwen": [
+                2048,
+                3680
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                3680
+              ],
+              "qwen": [
+                2048,
+                3680
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 2>",
+          "role": "reference-still",
+          "path": "media/images/image-2c75adb1e55b38854ece.jpg",
+          "sha256": "57b595ec6375e801f40665e398f5dedb91bb8f81f7e98e9d9f58234ac384b9e0",
+          "source_size": [
+            1536,
+            2752
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1536,
+                2752
+              ],
+              "qwen": [
+                1536,
+                2752
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1536,
+                2752
+              ],
+              "qwen": [
+                2048,
+                3680
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                3680
+              ],
+              "qwen": [
+                2048,
+                3680
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 3>",
+          "role": "reference-still",
+          "path": "media/images/image-3dea46ed3908659d966e.jpg",
+          "sha256": "89e5f4a2c569e9867b9afa52ac58bf6635c2886609c69098a706bacbcd226579",
+          "source_size": [
+            2752,
+            1536
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                2752,
+                1536
+              ],
+              "qwen": [
+                2752,
+                1536
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                2752,
+                1536
+              ],
+              "qwen": [
+                3680,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3680,
+                2048
+              ],
+              "qwen": [
+                3680,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 12384,
+        "B_qwen_2048": 22080,
+        "C_full_parity": 22080
+      }
+    },
+    {
+      "row_id": "train-00092-80a366a31ce3d5ce",
+      "stratum": "mild",
+      "null_control": false,
+      "primary_role": "multi-image-4-9",
+      "family": "train-00076-e8e84b23f174c74f",
+      "image_count": 4,
+      "prompt_sha256": "4c2f3257420c0038eacb834a4a78d4c3afcac1f271d5efc05c22a90afcc4c361",
+      "prompt_bytes": 5083,
+      "overlays": {
+        "wide_or_tall": false,
+        "small_source": false,
+        "markers": {
+          "<d>": 1,
+          "</d>": 1
+        },
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "the common serving case: a 1534-pixel short edge, a 1.3x upscale, which is what most shipped graphs actually feed.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-c9480d6f425b1b27997f.jpg",
+          "sha256": "0b2ff5d64e2ccdcc237fde6bb4f073864f245867ba6ead7b23dc8788f3bdc0d9",
+          "source_size": [
+            2732,
+            1534
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                2720,
+                1536
+              ],
+              "qwen": [
+                2720,
+                1536
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                2720,
+                1536
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 2>",
+          "role": "reference-still",
+          "path": "media/images/image-f532751e4712e0de20d5.jpg",
+          "sha256": "050bf502fec91788aa5174d3a01f408bfc9bc94fd7bed474f84b737e95a5e189",
+          "source_size": [
+            1773,
+            2364
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                1760,
+                2368
+              ],
+              "qwen": [
+                1760,
+                2368
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                1760,
+                2368
+              ],
+              "qwen": [
+                2048,
+                2720
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2048,
+                2720
+              ],
+              "qwen": [
+                2048,
+                2720
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 3>",
+          "role": "reference-still",
+          "path": "media/images/image-1172059a4a6daa582620.jpg",
+          "sha256": "719831f8a2c508b37f63d1fff1109204c5d5aeb45d4726333f8135d497690ab5",
+          "source_size": [
+            2732,
+            1534
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                2720,
+                1536
+              ],
+              "qwen": [
+                2720,
+                1536
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                2720,
+                1536
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 4>",
+          "role": "reference-still",
+          "path": "media/images/image-91b97bae92fdb6abdc36.jpg",
+          "sha256": "06c80d7fa698072c492b1d3563ee286593a98423a488551d2957b11c9f40ccc3",
+          "source_size": [
+            2730,
+            1535
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                2720,
+                1536
+              ],
+              "qwen": [
+                2720,
+                1536
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                2720,
+                1536
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 16310,
+        "B_qwen_2048": 27328,
+        "C_full_parity": 27328
+      }
+    },
+    {
+      "row_id": "train-01074-204db7c505dc10c9",
+      "stratum": "mild",
+      "null_control": false,
+      "primary_role": "keyframe-plus-reference",
+      "family": "train-01074-204db7c505dc10c9",
+      "image_count": 3,
+      "prompt_sha256": "c6d6277cee7fd8f0b8d4f4d5a6aa8f7593078686c09486a83665ec6f89140070",
+      "prompt_bytes": 5193,
+      "overlays": {
+        "wide_or_tall": true,
+        "small_source": false,
+        "markers": {},
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "the common serving case: a 1152-pixel short edge, a 1.8x upscale, which is what most shipped graphs actually feed. Mixed geometry: its keyframe takes the target canvas and is untouched by the still policy, so this row shows the arms moving one reference and not the other in a single request.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-9383b590dd7c812bac24.jpg",
+          "sha256": "5a0190c0abdb3644f4995280c24ec16113e44bc2a03c7f00f067b84d211b43e9",
+          "source_size": [
+            2048,
+            1152
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                2048,
+                1152
+              ],
+              "qwen": [
+                2048,
+                1152
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                2048,
+                1152
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                3648,
+                2048
+              ],
+              "qwen": [
+                3648,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 2>",
+          "role": "reference-still",
+          "path": "media/images/image-b57642365d79dc9fc8e3.jpg",
+          "sha256": "b8456f5894cb0a5ef3ff5745b68fdd8809355b70553febe9ebb3dc0649e3c34f",
+          "source_size": [
+            3808,
+            1632
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                3808,
+                1632
+              ],
+              "qwen": [
+                3808,
+                1632
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                3808,
+                1632
+              ],
+              "qwen": [
+                4768,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                4768,
+                2048
+              ],
+              "qwen": [
+                4768,
+                2048
+              ]
+            }
+          },
+          "arms_identical": false
+        },
+        {
+          "label": "<Picture 3>",
+          "role": "keyframe",
+          "path": "media/images/image-a62e95fc21869341b7ef.jpg",
+          "sha256": "33be3d2e49a22a2b2c6e4d40c1056af2d3d1805be8a3a21908d9a4c3efe4e188",
+          "source_size": [
+            1152,
+            2048
+          ],
+          "note": "keyframe: takes the resolved target canvas, so no arm moves it"
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 8373,
+        "B_qwen_2048": 16832,
+        "C_full_parity": 16832
+      }
+    },
+    {
+      "row_id": "train-00413-ebb4fff1509c03b4",
+      "stratum": "control",
+      "null_control": true,
+      "primary_role": "single-image",
+      "family": "train-00413-ebb4fff1509c03b4",
+      "image_count": 1,
+      "prompt_sha256": "dbc23cd73e32292b6e31f18631af572a8411c7b9bea07e0a17b8624ed3277add",
+      "prompt_bytes": 4998,
+      "overlays": {
+        "wide_or_tall": false,
+        "small_source": false,
+        "markers": {
+          "<d>": 1,
+          "</d>": 1
+        },
+        "audio_label": false,
+        "video_audio_track": false
+      },
+      "why": "null control: every reference still already sits at or past a 2048 short edge (smallest is 2507), so all three arms build bit-identical conditioning. Any arm-labelled difference a judge reports here is a labelling or seeding error, not geometry.",
+      "media": [
+        {
+          "label": "<Picture 1>",
+          "role": "reference-still",
+          "path": "media/images/image-b7b3df1f53399f6c2fc3.jpg",
+          "sha256": "04d8556d610f24880b00f3e2f024598c3fb3d3dd74646dae07d8c48773707690",
+          "source_size": [
+            3482,
+            2507
+          ],
+          "arms": {
+            "A_no_upscale": {
+              "vae": [
+                2848,
+                2048
+              ],
+              "qwen": [
+                2848,
+                2048
+              ]
+            },
+            "B_qwen_2048": {
+              "vae": [
+                2848,
+                2048
+              ],
+              "qwen": [
+                2848,
+                2048
+              ]
+            },
+            "C_full_parity": {
+              "vae": [
+                2848,
+                2048
+              ],
+              "qwen": [
+                2848,
+                2048
+              ]
+            }
+          },
+          "arms_identical": true
+        }
+      ],
+      "qwen_visual_tokens_by_arm": {
+        "A_no_upscale": 5696,
+        "B_qwen_2048": 5696,
+        "C_full_parity": 5696
+      }
+    }
+  ]
+}
