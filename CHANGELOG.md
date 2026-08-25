@@ -8,6 +8,15 @@ artifact.
 
 ### Changed
 
+- `docs/checks.md` states a new standard: **a mutation control needs its own
+  precondition, and must fail rather than pass when it is not met.** Three
+  instances in one day, the same shape from three directions -- a mutation
+  written against decoded text where the record holds `U+0120`, a mutation that
+  picked a row whose mutated field is never exercised, and a control that read
+  `None == None` and reported the null result as a pass. In each the control did
+  not apply, and not applying looked exactly like applying and finding nothing.
+  What catches it is grading a mutation on the arm it targets gaining a problem
+  the unmutated baseline did not have, never on a process exit code.
 - `bench/pilot_sequential_feasibility.py`: the modifier-entered control reads
   a disk-tier weight through the offload cache's index instead of returning
   `None` for a meta tensor, and records the weight's tier, file and whether it
@@ -25,6 +34,36 @@ artifact.
 
 ### Added
 
+- `bench/review_v2_calibration_bundle.py`: an independent data review of a
+  native-H3 calibration bundle before a long run consumes it. It recomputes
+  rather than reads -- `adapt_canvas`, the still-policy scale, the 17n+5 frame
+  grid and the 2 fps walk are reimplemented from the release constants and
+  cross-checked against the installed nodes -- because grading a builder's own
+  record against that builder is the defect the rejected preflight shipped. Two
+  escaped instances earned it, both recorded in
+  `bench/results/2026-08-25_v2_calibration_set_review.md`: a holdout row that
+  was a shot-for-shot match of three calibration rows from one catalogue
+  series, and, after that repair, a split that was pairwise green yet shared a
+  visual family. The second is why the split is graded against the corrected
+  component map as well as by media file.
+- `bench/review_pool_near_duplicates.py`: the pool-wide near-duplicate review
+  `active_plan.md` requires before a split is frozen, and the corrected
+  component map it implies. A report and a human ruling, not a gate: neither a
+  perceptual hash nor a background-masked correlation discriminates alone on
+  this source, which was measured both ways, so the window only generates
+  candidates and every one is adjudicated. The record and the map are
+  `bench/results/2026-08-25_pool_near_duplicate_review.md`,
+  `..._adjudication.json` and `..._component_map_corrected.json`; the map
+  carries a derived caveat naming its own residual limit.
+- `bench/compile_marker_corpus.py`, `bench/check_marker_corpus.py` and
+  `bench/marker_corpus/`: the marker evaluation corpus of
+  `canonical/owner_authored_marker_corpus.md`, as a seed set. A scene is
+  serialized to prompt text exactly once and every arm is a declared
+  transformation of that one string, so the semantic drift between arms that
+  sank the rejected generator is unrepresentable rather than checked for. An
+  arm is a triple of prompt bytes, tokenizer identity and model transform,
+  which is what lets the mean-initialised-rows arm be declared without
+  anything here loading weights or writing a token row.
 - `bench/results/2026-08-25_gate2b_host_budget_prefix8_2layers.json` and
   `..._disk_tier.json`: the host-memory cost of the real AWQ recipe at 110k
   population tokens, weights resident and on the bridge's disk tier, the
