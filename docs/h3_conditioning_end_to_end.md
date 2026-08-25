@@ -112,6 +112,86 @@ this repo.
 Audio never reaches Qwen as a tensor at all. It contributes a text label and
 nothing else.
 
+## 1b. Qwen3-VL as a pipeline stage: inputs, transformations, outputs
+
+Section 1 is what the encoder is shown. This is what happens to it from there
+to the DiT, for the Ref2VA route, as the installed code does it. SOURCE unless
+marked; the two inferences are marked because the record refuses to promote
+them.
+
+```
+INPUTS (per request, in the order the references were listed)
+  reference still i ── stage 1 sizing, per reference (match | max | fit) ──────┐
+  reference video k ── 24 fps normalise, 17n+5 snap, canvas rule, 2 fps sample ┤
+  reference audio j ── nothing: a text label only ────────────────────────────┤
+  prompt text (the H3 prompt) ─────────────────────────────────────────────────┤
+                                                                               ▼
+PRESENTATION (comfy/text_encoders/minimax.py; raw, never chat-templated)
+  "<Picture 1>: " <vision>  "<Audio 1>: "  "<Video 1>: " "<0.2 seconds>" <2 frames> ...  prompt
+  labels are ordinary BPE, tag 1; every vision span with its start/end sentinels, tag 0
+                                                                               ▼
+STAGE 2, per vision block: the selected Qwen processor (release, v1 snapshot, or comfy)
+  resize to its pixel bounds; 16-pixel patches; temporal patch 2 (a still repeats its
+  frame); 2x2 merge -> grid_thw and a patch tensor; timestamps for video blocks
+                                                                               ▼
+QWEN3-VL
+  vision tower: 27 blocks, attention within one image, BF16 weights, FP32 compute
+     -> merged visual embeddings, plus three DeepStack taps (blocks 8, 16, 24)
+  token embedding of the text ids; image-pad positions replaced by the visual embeddings
+  M-RoPE positions: 3-D over vision spans, 1-D over text
+  decoder layers 0..49 of 64; DeepStack features added after layers 0, 1 and 2;
+  text tokens and image tokens attend to each other, causally, over one sequence
+                                                                               ▼
+OUTPUT TAP: the raw residual after layer 49; no final norm, no LM head
+  one 5120-wide vector per token of the whole presentation, images included,
+  travelling with the per-token tag the encoder never saw
+                                                                               ▼
+DiT ENTRY (comfy/ldm/minimax/model.py)
+  condition_proj 5120 -> 5376, a two-layer token refiner; the rows become the packed
+  sequence's text prefix, positioned 1-D, tag-selected AdaLN, attended by every target
+  row at every denoising step, never denoised
+```
+
+Beside it, the VAE branch takes the **stage-1** image, never the stage-2 view,
+encodes it with the video VAE, and packs those latents as reference rows with
+their own rotary slot and their own grid (sections 2 and 3). The two branches
+meet only inside the DiT's attention.
+
+Read as a pipeline:
+
+- **Sources.** Pixels from the reference files after stage-1 sizing; text from
+  the H3 prompt; timestamps derived from the 2 fps sample indices; nothing
+  from audio.
+- **Transformations inside Qwen.** Patchify and merge, which is geometry;
+  the vision tower and DeepStack, which are learned; then the decoder layers,
+  in which prompt tokens and image tokens condition each other. The only place
+  the words "`<Picture 1>`" and the pixels of picture 1 meet is that attention.
+  **INFERENCE:** that this is where prompt-to-picture binding happens; the
+  record keeps it unpromoted (section 1).
+- **What passes through untouched.** The token tags. Qwen never sees them;
+  they ride beside the sequence to the DiT.
+- **What it emits, and to where.** One vector per token from layer 49, the tap
+  the DiT's projection and refiner were trained against; layers 50 to 63 are
+  never used. There is no separate image embedding, no pooled vector, and no
+  spatial grid carried through: an image is a run of conditioning rows in text
+  order.
+- **Where the calibration geometry bites.** Stage 2 is the only place the v1
+  artifact and a v2 candidate differ for a still (the v1 snapshot's pixel cap
+  against release bounds), and the layer-49 vectors are the object AWQ's
+  per-channel scales are fitted to. The geometry Qwen sees during calibration
+  has to be the geometry it sees at serving time; the VAE branch does not enter
+  that choice.
+- **The two branches need not share a geometry.** Each is exact within itself
+  (Qwen's 32-pixel grid; the VAE's 32-pixel multiple and 17n+5 frames), and
+  nothing indexes a Qwen token against a latent patch. The deployed v1 path
+  has run "VAE fine, Qwen coarse" since it shipped, and video is "Qwen at
+  2 fps pairs, VAE at 24 fps" by design. A "Qwen at 2048, VAE at source"
+  serving mode therefore breaks no contract; what it changes is a quality
+  question. **INFERENCE:** appearance from the VAE rows, meaning and binding
+  from the Qwen rows, in some unmeasured proportion; the blind comparison
+  that would measure it has not been run
+  ([`eval_comparison.md`](eval_comparison.md) section 3).
+
 ## 2. What the VAE does
 
 Two VAEs, and which one runs depends only on the modality.
