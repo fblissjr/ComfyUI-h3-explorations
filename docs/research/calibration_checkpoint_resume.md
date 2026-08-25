@@ -38,7 +38,7 @@ rebuild. MEASURED, at every one of the four boundaries:
 | `AWQModifier._resolved_mappings` | present, rebuilt from the model in `on_calibration_start` | no |
 | `AWQModifier._error_metrics` | accumulates for the whole run, reporting only | yes, so a resumed run's report is not short |
 | completed layers' weights and qparams | on the modules | **yes** |
-| the pipeline's `IntermediatesCache` | holds the inputs to the next subgraph | **yes** |
+| the pipeline's `IntermediatesCache` | see the boundary section below | **yes** |
 
 The second row is the one worth having measured. The cache is a
 `dict[parent module, IntermediatesCache]` and it is **pre-populated for every
@@ -53,6 +53,29 @@ So the brief's reading holds, and now on evidence: resolved mappings are
 recomputable and per-layer activation state is transient. The one correction
 is that `_error_metrics` is neither — it is cheap to carry and a resumed run
 that drops it silently produces a shorter report than an uninterrupted one.
+
+## Where the boundary actually is
+
+Corrected 2026-08-25 after building it: the first version of this note said the
+cache holds the inputs to the *next* subgraph at a boundary. It does not, and
+the resume failed on exactly that.
+
+With `propagate_error` at its default, each iteration is: the calibration pass,
+then `sequential_epoch_end`, then the propagation pass that writes the
+subgraph's outputs into the cache. So at the top of subgraph `k`'s epoch end
+the cache still holds the inputs to subgraph `k`, not `k+1`, and layer `k-1`
+has not yet been smoothed. That instant is resumable at subgraph `k` with
+layers `0..k-2` complete, and it is where the checkpoint is taken.
+
+The placement relative to the callback has one consequence, measured, and it is
+not the one guessed first. Taking the snapshot *after* the callback does not
+double-smooth anything, because the layer that callback smooths is not among
+the ones restored either way — the weights come out identical. What it does is
+record `_error_metrics` that already include that layer while
+`completed_layers` excludes it, so the resumed run re-runs the layer and the
+report counts it twice. A mutation refuted the double-smoothing guess and
+`bench/check_calibration_checkpoint.py::the_report_covers_exactly_the_completed_layers`
+owns the real consequence.
 
 ## The completed layers' state
 
@@ -111,11 +134,27 @@ restored qparams should survive to the artifact. That is a read, not a result.
 
 ## Proof, and the red control
 
-An uninterrupted two- or four-layer probe produces candidate A. The same run
-killed after layer 1 and resumed produces candidate B. Packed weights, scales
-and zero points must be bit-identical, and the run record must say B was
-resumed, with both process ids and the boundary. This needs the card and runs
-after Gate 5.
+An uninterrupted probe produces A; the same run killed at a boundary and
+resumed produces B; every tensor must be bit-identical.
+
+**That proof now runs on CPU at fixture scale**, in
+`bench/check_calibration_checkpoint.py`, over the real pipeline and the real
+recipe on a small random model — 78 tensors identical, resuming at subgraph 3
+of 4 with 2 layers restored. It exercises every seam the card run uses:
+tracing, the subgraph slice, the restored cache, the layer restore, the
+observers. Four mutations of the module go red on it: the off-by-one in the
+boundary index, a restore that does not load the saved layers, a resume that
+does not slice, and one that rebuilds the cache from the dataloader.
+
+The fixture needed one deliberate property. Uniform random weights give AWQ
+nothing to do — every mapping reports `reduction: 1.0`, the grid picks the
+identity scale, and no weight moves — so the equivalence would hold even if
+resuming re-smoothed a layer, because re-applying the identity is idempotent.
+The fixture is therefore built with the per-channel imbalance AWQ exists to
+correct.
+
+The card run after Gate 5 is still required and is now checking scale and the
+real weights rather than the mechanism.
 
 The red control is cheap and CPU-only: a resume pointed at a checkpoint from a
 different bundle or a different recipe must refuse. The checkpoint therefore

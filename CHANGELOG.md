@@ -4,6 +4,59 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.5
+
+### Added
+
+- **`bench/h3_calibration_checkpoint.py`**: checkpoint a sequential AWQ
+  calibration at a subgraph boundary and resume from it, so a mid-run failure
+  costs one layer instead of the run. The resume is two seams the pipeline
+  already has -- `trace_subgraphs` wrapped to return `subgraphs[start:]`, and
+  `IntermediatesCache.from_dataloader` wrapped to hand back the restored cache
+  -- rather than a copy of the loop with a start index, which would have been a
+  second implementation drifting from the installed one on the first upstream
+  change. Writes are staged and renamed, so a kill during a write leaves the
+  previous checkpoint intact.
+- **`bench/check_calibration_checkpoint.py`**, six cases, built around the
+  proof: an uninterrupted run and a killed-then-resumed run must agree tensor
+  for tensor. It runs the real pipeline with the real recipe at fixture scale on
+  CPU, so the mechanism is settled before the card is free.
+- `docs/research/calibration_checkpoint_resume.md`, the design and the state
+  inventory it implements.
+
+### Measured
+
+- `AWQModifier._parent_args_cache` is pre-populated for every layer when hooks
+  are installed, so at a boundary it looks like live state crossing it. Counting
+  filled batches inside those caches gives zero, at every boundary, for every
+  surviving parent -- structure, not data, rebuilt by a fresh process. It is
+  therefore not checkpointed. `_smooth_activation_stats` is likewise empty at
+  every boundary; `_error_metrics` is not, and is the one piece of modifier
+  state the brief's inventory did not list.
+- Subgraph `k` smooths layer `k-1`, with a prologue subgraph that smooths
+  nothing, so checkpoints index by subgraph and derive the layer mapping.
+- **The resumable instant is the top of a subgraph's epoch end, not after it.**
+  With `propagate_error` at its default the propagation pass that writes a
+  subgraph's outputs runs after the callback, so at the callback the cache
+  still holds that subgraph's inputs. The first version of the design note said
+  otherwise and the resume failed on exactly that.
+- The recipe description is stable across builds but **not across
+  `session.initialize`**, which fills in mappings inferred from the model. An
+  identity taken afterwards never matches one taken by a fresh process, so
+  every resume would have refused itself.
+- The AWQ arm does not run on CPU at all: `_apply_smoothing` pins host memory.
+  The CPU cases neuter that call, which is legitimate for arithmetic that does
+  not depend on it and is why the card run is still required.
+
+### Fixed
+
+- A claim of my own, by mutation: moving the checkpoint snapshot to the other
+  side of the epoch-end callback does not double-smooth a layer, because that
+  layer is not restored either way and the weights come out identical. The real
+  consequence is a checkpoint whose error metrics describe a layer
+  `completed_layers` excludes, so the resumed run reports it twice. The comment
+  asserting the wrong consequence is corrected and a case now owns the right one.
+
 ## 0.70.4
 
 ### Added
