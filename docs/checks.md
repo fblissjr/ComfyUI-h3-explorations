@@ -35,6 +35,24 @@ there invents a threshold instead of testing one. On that class of check a
 `not recorded` cell is a description, not a debt -- and treating it as a debt
 is what made this standard cost more than it caught.
 
+**A mutation control needs its own precondition, and must fail rather than
+pass when it is not met.** Adopted 2026-08-25 after three instances in one day,
+all the same shape from different directions. A scaffold mutation written
+against the decoded text found nothing, because the raw record separates words
+with U+0120; a still-policy mutation picked whichever upscale row came first,
+which on one bundle was keyframe-only, where that field is never exercised; and
+a disk-tier control read `None == None` and reported the null result as a pass.
+In each case the control did not apply, and *not applying* looked exactly like
+*applying and finding nothing wrong*.
+
+So a control must assert that it reached its subject before grading the
+outcome: select on the property the arm actually reads, not on a property that
+usually accompanies it, and raise when no eligible subject exists rather than
+silently doing nothing. What caught all three is grading each mutation on **the
+arm it targets gaining a problem the unmutated baseline did not have**, instead
+of on a process exit code -- a distinction that also matters because a subject
+carrying known findings makes every exit-code comparison pass for free.
+
 What `CLAUDE.md` asks of every check regardless: one whose input already
 satisfies the expected outcome cannot fail, and one reporting red while the
 state is correct is worse than no check. The `shown red` column records which
