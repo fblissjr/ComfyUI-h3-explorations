@@ -4,6 +4,20 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.1
+
+### Added
+
+- **`docs/research/conditioning_cache.md`**, a design note and nothing built:
+  a persistent conditioning cache argued for the cross-session and
+  `--cache-none` bench cases only, since ComfyUI's own cache covers
+  same-session reuse. The key is the capture manifest's provenance record
+  (artifact digest, stamped contract, prompt and media hashes, every sizing
+  knob, both policies, canvas and length), with the rule that a missing field
+  refuses; the payload is what node 5 emits; the node shape is one wrapper
+  that computes the key from live inputs rather than a Save/Load pair. The
+  vision-tower cache is filed as the smaller second item.
+
 ## 0.70.0
 
 ### Added
