@@ -2,7 +2,7 @@
 
 Settings-preserving snapshot written by `bench/convert_h3_awq_candidate.py` on
 2026-08-25 from the candidate directory `qwen3-vl-32b-h3-w4a16-awq-v2-nativecal`. The weights themselves
-stay outside this repository; the adapter loads `qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors`.
+stay outside this repository; the adapter loads the single file this snapshot's converter produces.
 
 Every file here is a byte-for-byte copy of the candidate's own, so the digests
 in `sha256.json` are digests of the candidate's files as well as of these

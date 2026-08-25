@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.9
+
+### Changed
+
+- `bench/pilot_sequential_feasibility.py` captures the session's recipe as
+  YAML while the session is live and writes it as the candidate's
+  `recipe.yaml` at emit. The save wrapper writes that file from the *active*
+  session, and the pilot emits after its session has closed, so the first v2
+  candidate shipped `default_stage: {}`. The v2 candidate and its snapshot
+  were repaired from the same recipe constructor (`duo_scaling: true`,
+  `n_grid: 20`); the run record had carried the recipe throughout.
+- `bench/compare_transformers_comfy_layer50.py`: the ComfyUI arm takes
+  `--clip-path`, a ComfyUI-native encoder file through core's own
+  `load_clip` (the shipped `int8_convrot` and `nvfp4_awq` variants), so all
+  four encoders can be graded on one holdout against BF16. Text-only rows no
+  longer break the block splitter or the presentation record; a rerun with
+  `--all-rows` skips rows already captured and records the VRAM reserve per
+  row.
+
 ## 0.70.8
 
 ### Changed

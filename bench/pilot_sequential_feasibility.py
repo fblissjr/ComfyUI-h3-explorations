@@ -983,6 +983,7 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
     control_layer = model.model.language_model.layers[0].self_attn.q_proj
     weight_before = _offloaded_weight_sha(control_layer)
     location_before = _offloaded_weight_location(control_layer)
+    recipe_yaml = None
     cwd_before = sorted(str(p) for p in Path.cwd().iterdir())
     with instrumentation.install():
         try:
@@ -1001,6 +1002,12 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
                         from h3_awq_recipe import assert_decoder_only_boundary
 
                         modifiers = session.lifecycle.recipe.modifiers
+                        # The recipe as the session holds it, serialized while
+                        # the session is live: the save wrapper writes
+                        # `recipe.yaml` from the *active* session, and the
+                        # emit runs after this context has closed, which left
+                        # the first candidate's recipe file empty.
+                        recipe_yaml = session.lifecycle.recipe.yaml()
                         awq = next(m for m in modifiers if type(m).__name__ == "AWQModifier")
                         # Asserted after the session applied the config and
                         # before any forward: the boundary is what the
@@ -1109,6 +1116,7 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
         cwd_after = sorted(str(p) for p in Path.cwd().iterdir())
         modifier_record = modifier_record or {"boundary": None}
         modifier_record.update({
+            "recipe_yaml": recipe_yaml if recipe is not None else None,
             "smoothing_calls": instrumentation.awq_smoothing_calls,
             "seconds_in_awq_smoothing": round(instrumentation.awq_smoothing_seconds, 1),
             "parent_reruns": instrumentation.awq_parent_runs,
@@ -1216,6 +1224,13 @@ def emit_candidate(model, candidate_dir: Path, source: Path, report: dict) -> di
     modify_save_pretrained(model)
     candidate_dir.mkdir(parents=True, exist_ok=False)
     model.save_pretrained(str(candidate_dir), save_compressed=True)
+    # The wrapper's recipe.yaml is written from the active session, which has
+    # closed by now; write the recipe captured while it was live.
+    recipe_yaml = None
+    for step in report.get("steps", []):
+        recipe_yaml = (step.get("modifier") or {}).get("recipe_yaml") or recipe_yaml
+    if recipe_yaml:
+        (candidate_dir / "recipe.yaml").write_text(recipe_yaml)
     copied = []
     for name in ("preprocessor_config.json", "video_preprocessor_config.json",
                  "tokenizer_config.json", "tokenizer.json", "vocab.json",

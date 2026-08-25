@@ -1,1 +1,13 @@
-default_stage: {}
+default_stage:
+  default_modifiers:
+    AWQModifier:
+      requires_calibration_data: true
+      offload_device: !!python/object/apply:torch.device [cpu]
+      duo_scaling: true
+      n_grid: 20
+    QuantizationModifier:
+      targets: [Linear]
+      ignore: [lm_head, 're:model\.visual\..*']
+      scheme: W4A16
+      bypass_divisibility_checks: false
+      requires_calibration_data: false

@@ -236,7 +236,7 @@ def _artifact_record(path: Path, model) -> dict:
 
 def run_comfy_arm(bundle: Path, row_id: str | None, source: Path, out: Path,
                   reserve_gib: float, tap_layer: int, w4_path: Path | None = None,
-                  all_rows: bool = False) -> dict:
+                  all_rows: bool = False, clip_path: Path | None = None) -> dict:
     """The deployed stack on a bundle row: BF16 stored weights by default, or a
     W4 artifact through the same loader the capture instrument uses. With
     `all_rows` the model is loaded once and every row of the bundle is written
@@ -251,7 +251,21 @@ def run_comfy_arm(bundle: Path, row_id: str | None, source: Path, out: Path,
 
     model_management.EXTRA_RESERVED_VRAM = int(reserve_gib * 1024 * 1024 * 1024)
     embedding_directory = folder_paths.get_folder_paths("embeddings")
-    if w4_path is None:
+    if w4_path is not None and clip_path is not None:
+        raise SystemExit("--w4-path and --clip-path are exclusive")
+    if clip_path is not None:
+        # A ComfyUI-native encoder file (the shipped int8_convrot and nvfp4
+        # variants) through core's own loader, exactly as CLIPLoader would.
+        import comfy.sd
+        clip = comfy.sd.load_clip(ckpt_paths=[str(clip_path)],
+                                  embedding_directory=embedding_directory,
+                                  clip_type=comfy.sd.CLIPType.MINIMAX)
+        model = clip.cond_stage_model.qwen3vl_32b.transformer
+        stat = clip_path.stat()
+        source_record = {"logical_name": clip_path.name, "artifact": "comfy-native",
+                         "bytes": stat.st_size, "mtime": int(stat.st_mtime)}
+        dtype_label = "float32 compute, comfy-native stored weights"
+    elif w4_path is None:
         clip, inventory = capture._load_bf16(source, h3, embedding_directory)
         model = clip.cond_stage_model.qwen3vl_32b.transformer
         source_record = {"logical_name": source.name,
@@ -870,6 +884,9 @@ def main() -> int:
     parser.add_argument("--w4-path", default=None,
                         help="ComfyUI arm only: load this W4 artifact through the "
                              "capture instrument's loader instead of the BF16 shards")
+    parser.add_argument("--clip-path", default=None,
+                        help="ComfyUI arm only: load this ComfyUI-native encoder file "
+                             "through core's CLIP loader (int8_convrot, nvfp4)")
     parser.add_argument("--all-rows", action="store_true",
                         help="ComfyUI arm only: one model load, every bundle row "
                              "captured to OUT/<row_id>/")
@@ -932,10 +949,11 @@ def main() -> int:
         run_comfy_arm(bundle, args.row, source, out, args.reserve_vram_gib,
                       args.tap_layer,
                       Path(args.w4_path).expanduser().resolve() if args.w4_path else None,
-                      args.all_rows)
+                      args.all_rows,
+                      Path(args.clip_path).expanduser().resolve() if args.clip_path else None)
     else:
-        if args.w4_path or args.all_rows:
-            parser.error("--w4-path and --all-rows apply to the ComfyUI arm only")
+        if args.w4_path or args.all_rows or args.clip_path:
+            parser.error("--w4-path, --clip-path and --all-rows apply to the ComfyUI arm only")
         run_transformers_arm(bundle, args.row, source, out, args.dtype,
                              args.tap_layer, args.gpu_gib, args.perturb_weight,
                              args.keep_attention_mask, args.sdpa_backend,
