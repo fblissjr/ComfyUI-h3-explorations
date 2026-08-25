@@ -69,7 +69,30 @@ POLICIES = (
     "comfy_exact_corrupt_tap",
     "hybrid_fp32_posembed",
     "hybrid_bf16_linear",
+    "comfy_exact_bf16_store",
 )
+
+# `comfy_exact_bf16_store` is `comfy_exact` with the deployed *storage*
+# arrangement as well as the deployed arithmetic: the weights stay BF16 where
+# they are stored and offloaded, and every parameterised op computes with a
+# transient FP32 copy of its weight -- ComfyUI's `manual_cast`, done at the
+# functional layer so that it reaches the computation under any loader.
+# Instance- and class-level `forward` overrides do not: Accelerate's device
+# hooks and compressed-tensors' offload wrappers both capture the original
+# `forward` when they wrap a module, so a later override is never called.
+# `torch.nn.functional.linear` and friends are what every wrapped forward
+# ends up calling, and they are patched here only while this model's own
+# forward is running.
+#
+# Two places in transformers downcast the vision input to the tower's dtype
+# before any hook can see it: `get_image_features` casts `pixel_values` to
+# `visual.dtype`, and `Qwen3VLVisionPatchEmbed.forward` casts to its conv
+# weight's dtype. Both key off the patch-embed weight, and `visual.dtype` is
+# read from the first floating parameter, which is that weight. Keeping that
+# one module in FP32 at load time makes both casts no-ops. The policy refuses
+# to run unless it finds them so.
+MANUAL_CAST_POLICIES = ("comfy_exact_bf16_store",)
+KEEP_IN_FP32_MODULES = ("visual.patch_embed",)
 
 # What each policy claims to model, quoted back into every report so a number
 # cannot be read without the claim attached.
@@ -96,6 +119,12 @@ POLICY_INTENT = {
                             "interpolation reverted to FP32",
     "hybrid_bf16_linear": "control: the hybrid arm with the active linears and "
                           "residuals reverted to BF16",
+    "comfy_exact_bf16_store": "comfy_exact arithmetic over BF16-stored weights: "
+                              "every parameterised op computes with a transient "
+                              "FP32 copy of its weight, as ComfyUI's manual_cast "
+                              "does, while the stored and offloaded weights stay "
+                              "BF16. The patch-embed conv is kept FP32 at load so "
+                              "the vision input is never downcast",
 }
 
 _COMPUTE_DTYPE = {
@@ -107,7 +136,15 @@ _COMPUTE_DTYPE = {
     "comfy_exact_corrupt_tap": torch.float32,
     "hybrid_fp32_posembed": torch.float32,
     "hybrid_bf16_linear": torch.bfloat16,
+    "comfy_exact_bf16_store": torch.float32,
 }
+
+# The dtype the checkpoint is loaded and stored in. It equals the compute
+# dtype for every policy except the manual-cast one, where storage is BF16
+# and compute is FP32 -- the split that lets the 64-layer model sit in host
+# memory at half the size while the active arithmetic is unchanged.
+_STORAGE_DTYPE = {policy: dtype for policy, dtype in _COMPUTE_DTYPE.items()}
+_STORAGE_DTYPE["comfy_exact_bf16_store"] = torch.bfloat16
 
 # `None` means "leave the coefficients at whatever the library returns", which
 # is the only way to express native Transformers behaviour: its helper computes
@@ -121,14 +158,63 @@ _POSITION_DTYPE = {
     "comfy_exact_corrupt_tap": torch.bfloat16,
     "hybrid_fp32_posembed": torch.float32,
     "hybrid_bf16_linear": torch.bfloat16,
+    "comfy_exact_bf16_store": torch.bfloat16,
 }
 
 
 def compute_dtype(policy: str) -> torch.dtype:
-    """The dtype to load the model in: it sets the linear and residual compute."""
+    """The dtype the linears and residuals compute in.
+
+    For every policy but the manual-cast one this is also the dtype the model
+    loads in; `storage_dtype` is the one to pass to `from_pretrained`.
+    """
     if policy not in POLICIES:
         raise ValueError(f"unknown precision policy {policy!r}; expected {POLICIES}")
     return _COMPUTE_DTYPE[policy]
+
+
+def storage_dtype(policy: str) -> torch.dtype:
+    """The dtype to load and store the checkpoint in."""
+    if policy not in POLICIES:
+        raise ValueError(f"unknown precision policy {policy!r}; expected {POLICIES}")
+    return _STORAGE_DTYPE[policy]
+
+
+class PrecisionLeak(RuntimeError):
+    """An activation reached a parameterised op below the compute dtype.
+
+    Raised rather than cast: a silent upcast here would hide exactly the
+    defect the policy exists to exclude -- a downcast somewhere upstream that
+    the FP32 arithmetic then computes on faithfully.
+    """
+
+
+@contextlib.contextmanager
+def storage_policy(model_cls, policy: str):
+    """Make `from_pretrained` load the way the policy stores.
+
+    Wrap the `from_pretrained` call in this. For the manual-cast policy it
+    sets the class's `_keep_in_fp32_modules_strict` so the patch-embed conv
+    loads as FP32 under a BF16 `dtype`; for every other policy it changes
+    nothing. The class attribute is restored on exit either way, because it is
+    process-wide and a later load in the same process must not inherit it.
+    """
+    if policy not in POLICIES:
+        raise ValueError(f"unknown precision policy {policy!r}; expected {POLICIES}")
+    if policy not in MANUAL_CAST_POLICIES:
+        yield {"keep_in_fp32_modules": []}
+        return
+    attribute = "_keep_in_fp32_modules_strict"
+    had = attribute in vars(model_cls)
+    previous = getattr(model_cls, attribute, None)
+    setattr(model_cls, attribute, list(KEEP_IN_FP32_MODULES))
+    try:
+        yield {"keep_in_fp32_modules": list(KEEP_IN_FP32_MODULES)}
+    finally:
+        if had:
+            setattr(model_cls, attribute, previous)
+        else:
+            delattr(model_cls, attribute)
 
 
 def position_dtype(policy: str) -> torch.dtype:
@@ -207,9 +293,36 @@ def calibration_precision(model, policy: str):
         raise ValueError(f"unknown precision policy {policy!r}; expected {POLICIES}")
     vision = _vision_module(model)
     wanted = _POSITION_DTYPE[policy]
-    exact = policy in ("comfy_exact", "comfy_exact_corrupt_tap")
+    exact = policy in ("comfy_exact", "comfy_exact_corrupt_tap") or policy in MANUAL_CAST_POLICIES
+    manual_cast = policy in MANUAL_CAST_POLICIES
     reduction_source = _assert_supported_source() if exact else None
     original = vision.pos_embed.weight.dtype
+
+    if manual_cast:
+        # The whole model, not the tower: the gate has to open for the language
+        # stack's linears too, and the two vision-input downcasts are decided
+        # by attributes only a whole-model load sets.
+        if vision is model:
+            raise ValueError(
+                f"{policy!r} needs the whole Qwen3-VL model, not the vision tower: "
+                "its manual cast covers the language stack and it checks the "
+                "load-time dtype of the patch embed"
+            )
+        patch_dtype = vision.patch_embed.proj.weight.dtype
+        if patch_dtype != torch.float32:
+            raise PrecisionLeak(
+                f"{policy!r}: visual.patch_embed.proj.weight is {patch_dtype}, not "
+                "float32. transformers casts pixel_values to that dtype before "
+                "any hook can see them, so the vision input would be downcast. "
+                "Load under `storage_policy(model_cls, policy)`."
+            )
+        reported = vision.dtype
+        if reported != torch.float32:
+            raise PrecisionLeak(
+                f"{policy!r}: visual.dtype reports {reported}; get_image_features "
+                "casts pixel_values to it. The patch embed must be the first "
+                "floating parameter of the tower and must be float32."
+            )
 
     # Exactness check, not decoration. The released values are BF16, so casting
     # to BF16 must be a round trip. If it ever is not, the source is not what
@@ -222,6 +335,11 @@ def calibration_precision(model, policy: str):
 
     original_helper = modeling_qwen3_vl.get_vision_interpolation_indices_and_weights
     original_pos_forward = vision.pos_embed.forward
+    functional = torch.nn.functional
+    _original_embedding = functional.embedding
+    _original_linear = functional.linear
+    _original_layer_norm = functional.layer_norm
+    _original_conv3d = functional.conv3d
     # Whether `forward` was already an instance attribute decides how to put it
     # back: assigning the bound method would otherwise leave a permanent
     # instance attribute where the class method used to be found.
@@ -280,7 +398,10 @@ def calibration_precision(model, policy: str):
             return original_pos_forward(dummy_indices)
         indices, weights = state["indices"], state["weights"]
         table = vision.pos_embed.weight
-        taps = torch.nn.functional.embedding(indices, table) * weights[:, :, None]
+        # The unpatched embedding, deliberately: under the manual-cast policy
+        # `F.embedding` upcasts its result, and the four-term reduction below
+        # has to stay at BF16 to reproduce ComfyUI's.
+        taps = _original_embedding(indices, table) * weights[:, :, None]
         if policy == "comfy_exact_corrupt_tap":
             # The red control. One tap is scaled, so a comparison that cannot
             # see this cannot see a real substitution defect either.
@@ -305,6 +426,82 @@ def calibration_precision(model, policy: str):
             state.pop("weights", None)
         return None
 
+    # The manual-cast gate. Open only while the whole model's forward runs, on
+    # the entering thread, so the process-wide functional patches are inert
+    # for any other model in the process -- the same scoping the interpolation
+    # helper uses above, one level up.
+    cast_state: dict = {"depth": 0}
+    cast_counts: dict = {"linear": 0, "embedding": 0, "layer_norm": 0, "conv3d": 0,
+                         "already_float32": 0}
+
+    def _leak(op: str, dtype: torch.dtype) -> PrecisionLeak:
+        return PrecisionLeak(
+            f"{policy!r}: F.{op} received {dtype} activations, so something "
+            "upstream downcast them and FP32 arithmetic here would compute on a "
+            "rounded input. Refusing rather than upcasting."
+        )
+
+    def _fp32(tensor):
+        return None if tensor is None else tensor.float()
+
+    def cast_linear(input, weight, bias=None):
+        if cast_state["depth"] <= 0:
+            return _original_linear(input, weight, bias)
+        _require_owner("F.linear")
+        if input.dtype != torch.float32:
+            raise _leak("linear", input.dtype)
+        if weight.dtype == torch.float32:
+            cast_counts["already_float32"] += 1
+            return _original_linear(input, weight, bias)
+        cast_counts["linear"] += 1
+        return _original_linear(input, weight.float(), _fp32(bias))
+
+    def cast_embedding(input, weight, *args, **kwargs):
+        if cast_state["depth"] <= 0:
+            return _original_embedding(input, weight, *args, **kwargs)
+        _require_owner("F.embedding")
+        out = _original_embedding(input, weight, *args, **kwargs)
+        if out.dtype == torch.float32:
+            cast_counts["already_float32"] += 1
+            return out
+        # Gather the BF16 rows, then upcast: the same values as upcasting the
+        # whole table first, without a transient copy of the 151,936-row table.
+        cast_counts["embedding"] += 1
+        return out.float()
+
+    def cast_layer_norm(input, normalized_shape, weight=None, bias=None, eps=1e-5):
+        if cast_state["depth"] <= 0:
+            return _original_layer_norm(input, normalized_shape, weight, bias, eps)
+        _require_owner("F.layer_norm")
+        if input.dtype != torch.float32:
+            raise _leak("layer_norm", input.dtype)
+        if weight is None or weight.dtype == torch.float32:
+            cast_counts["already_float32"] += 1
+            return _original_layer_norm(input, normalized_shape, weight, bias, eps)
+        cast_counts["layer_norm"] += 1
+        return _original_layer_norm(input, normalized_shape, weight.float(), _fp32(bias), eps)
+
+    def cast_conv3d(input, weight, bias=None, *args, **kwargs):
+        if cast_state["depth"] <= 0:
+            return _original_conv3d(input, weight, bias, *args, **kwargs)
+        _require_owner("F.conv3d")
+        if input.dtype != torch.float32:
+            raise _leak("conv3d", input.dtype)
+        if weight.dtype == torch.float32:
+            cast_counts["already_float32"] += 1
+            return _original_conv3d(input, weight, bias, *args, **kwargs)
+        cast_counts["conv3d"] += 1
+        return _original_conv3d(input, weight.float(), _fp32(bias), *args, **kwargs)
+
+    def _cast_enter(_module, _args, _kwargs=None):
+        _require_owner("the model forward")
+        cast_state["depth"] += 1
+        return None
+
+    def _cast_exit(_module, _args, _output=None):
+        cast_state["depth"] = max(0, cast_state["depth"] - 1)
+        return None
+
     if wanted is not None:
         vision.pos_embed.to(wanted)
     modeling_qwen3_vl.get_vision_interpolation_indices_and_weights = helper
@@ -318,11 +515,27 @@ def calibration_precision(model, policy: str):
         vision.pos_embed.forward = types.MethodType(exact_pos_embed, vision.pos_embed)
     pre_handle = vision.register_forward_pre_hook(_enter)
     post_handle = vision.register_forward_hook(_exit, always_call=True)
+    cast_handles = []
+    if manual_cast:
+        functional.linear = cast_linear
+        functional.embedding = cast_embedding
+        functional.layer_norm = cast_layer_norm
+        functional.conv3d = cast_conv3d
+        cast_handles = [
+            model.register_forward_pre_hook(_cast_enter),
+            model.register_forward_hook(_cast_exit, always_call=True),
+        ]
     try:
         yield {
             "policy": policy,
             "intent": POLICY_INTENT[policy],
             "compute_dtype": str(_COMPUTE_DTYPE[policy]).removeprefix("torch."),
+            "storage_dtype": str(_STORAGE_DTYPE[policy]).removeprefix("torch."),
+            "manual_cast": manual_cast,
+            "manual_cast_ops": (["linear", "embedding", "layer_norm", "conv3d"]
+                                if manual_cast else []),
+            "manual_cast_counts": cast_counts if manual_cast else None,
+            "keep_in_fp32_modules": list(KEEP_IN_FP32_MODULES) if manual_cast else [],
             "position_interpolation_dtype": ("library default (float32 "
                                              "coefficients)" if wanted is None
                                              else str(wanted).removeprefix("torch.")),
@@ -344,6 +557,13 @@ def calibration_precision(model, policy: str):
             "modifies_installed_packages": False,
         }
     finally:
+        for handle in cast_handles:
+            handle.remove()
+        if manual_cast:
+            functional.linear = _original_linear
+            functional.embedding = _original_embedding
+            functional.layer_norm = _original_layer_norm
+            functional.conv3d = _original_conv3d
         pre_handle.remove()
         post_handle.remove()
         modeling_qwen3_vl.get_vision_interpolation_indices_and_weights = original_helper

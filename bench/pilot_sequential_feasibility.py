@@ -89,6 +89,8 @@ from h3_calibration_precision import (  # noqa: E402
     POLICY_INTENT,
     calibration_precision,
     compute_dtype,
+    storage_dtype,
+    storage_policy,
 )
 from h3_effective_batch import effective_batch  # noqa: E402
 from h3_producer_provenance import producer_provenance  # noqa: E402
@@ -517,13 +519,16 @@ def load_model(source: Path, policy: str, layers: int, gpu_gib: float,
 
     config = AutoConfig.from_pretrained(source)
     config.text_config.num_hidden_layers = layers
+    # Storage dtype, not compute dtype: they differ under the manual-cast
+    # policy, and `storage_policy` is what keeps the patch embed in FP32 there.
     kwargs = {
         "config": config,
-        "dtype": compute_dtype(policy),
+        "dtype": storage_dtype(policy),
         "attn_implementation": "sdpa",
     }
     if offload == "host":
-        return Qwen3VLForConditionalGeneration.from_pretrained(source, **kwargs).eval()
+        with storage_policy(Qwen3VLForConditionalGeneration, policy):
+            return Qwen3VLForConditionalGeneration.from_pretrained(source, **kwargs).eval()
 
     from llmcompressor.utils.dev import load_context
 
@@ -531,11 +536,12 @@ def load_model(source: Path, policy: str, layers: int, gpu_gib: float,
     # everything that is not model loading. That default is recorded rather
     # than accepted silently: Gate 2B adds the AWQ modifier's own host-side
     # state on top and will need an explicit larger reserve.
-    with load_context(Qwen3VLForConditionalGeneration):
-        model = Qwen3VLForConditionalGeneration.from_pretrained(
-            source, device_map="auto_offload", offload_folder=str(offload_dir),
-            **kwargs,
-        )
+    with storage_policy(Qwen3VLForConditionalGeneration, policy):
+        with load_context(Qwen3VLForConditionalGeneration):
+            model = Qwen3VLForConditionalGeneration.from_pretrained(
+                source, device_map="auto_offload", offload_folder=str(offload_dir),
+                **kwargs,
+            )
     return model.eval()
 
 
@@ -1037,8 +1043,9 @@ def main() -> int:
     source = Path(args.source_dir).expanduser().resolve()
     offload_dir = Path(tempfile.mkdtemp(prefix="h3-pilot-offload-"))
     print(f"policy {args.policy}: {POLICY_INTENT[args.policy]}")
-    print(f"loading {args.layers} decoder layers at "
-          f"{compute_dtype(args.policy)}; offload staging in a temporary directory")
+    print(f"loading {args.layers} decoder layers stored at "
+          f"{storage_dtype(args.policy)}, computing at {compute_dtype(args.policy)}; "
+          f"offload staging in a temporary directory")
 
     # Host memory before the load is what the bridge's `max_memory` is derived
     # from (`psutil.virtual_memory().available - extra_cpu_mem`), so the

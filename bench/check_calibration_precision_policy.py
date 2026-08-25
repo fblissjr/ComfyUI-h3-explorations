@@ -291,6 +291,225 @@ def check_corrupt_tap_control() -> list[str]:
     return failures
 
 
+# --------------------------------------------------------------------------
+# the manual-cast policy: BF16 storage, FP32 compute
+
+
+def tiny_full_model(seed: int = 0):
+    """A whole Qwen3-VL at the released shape ratios, scaled down.
+
+    Grouped-query heads, interleaved M-RoPE, a 27-block tower with three
+    DeepStack taps and a patch-merger: the parts whose dtype handling the
+    policy has to get right. Weights are seeded and rounded to BF16-exact
+    values so the same numbers can be loaded as FP32 and as BF16.
+    """
+    from transformers.models.qwen3_vl.configuration_qwen3_vl import Qwen3VLConfig
+    from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLForConditionalGeneration
+
+    config = Qwen3VLConfig(
+        text_config={
+            "vocab_size": 64, "hidden_size": 64, "intermediate_size": 128,
+            "num_hidden_layers": 2, "num_attention_heads": 4,
+            "num_key_value_heads": 2, "head_dim": 16,
+            "rope_parameters": {"rope_type": "default", "rope_theta": 5000000,
+                                "mrope_section": [4, 2, 2], "mrope_interleaved": True},
+        },
+        vision_config={"hidden_size": 32, "intermediate_size": 64, "num_heads": 2,
+                       "out_hidden_size": 64, **RELEASED_VISION},
+        image_token_id=5, video_token_id=6, vision_start_token_id=3,
+        vision_end_token_id=4, tie_word_embeddings=False,
+    )
+    generator = torch.Generator().manual_seed(seed)
+    model = Qwen3VLForConditionalGeneration(config).eval()
+    state = {
+        k: (torch.randn(v.shape, generator=generator) * 0.02).to(torch.bfloat16).float()
+        for k, v in model.state_dict().items()
+    }
+    model.load_state_dict(state, strict=True)
+    return model
+
+
+def tiny_batch(seed: int = 1) -> dict:
+    generator = torch.Generator().manual_seed(seed)
+    input_ids = torch.tensor([[1, 2, 3, 5, 5, 5, 5, 4, 7, 8, 9]])
+    return {
+        "input_ids": input_ids,
+        "mm_token_type_ids": (input_ids == 5).to(torch.int64),
+        "pixel_values": torch.randn(16, 3 * 2 * 16 * 16, generator=generator),
+        "image_grid_thw": torch.tensor([[1, 4, 4]]),
+    }
+
+
+def _last_layer_state(model, batch) -> torch.Tensor:
+    captured = []
+    layers = model.model.language_model.layers
+    handle = layers[-1].register_forward_hook(
+        lambda _m, _i, out: captured.append((out[0] if isinstance(out, tuple) else out).detach().clone())
+    )
+    try:
+        with torch.no_grad():
+            model(**batch, use_cache=False)
+    finally:
+        handle.remove()
+    if len(captured) != 1:
+        raise RuntimeError(f"the tap fired {len(captured)} times")
+    return captured[0]
+
+
+def _functional_snapshot() -> dict:
+    functional = torch.nn.functional
+    return {name: getattr(functional, name)
+            for name in ("linear", "embedding", "layer_norm", "conv3d")}
+
+
+def check_bf16_store_policy() -> list[str]:
+    """The manual-cast policy: load path, refusal, identity, leaks, restoration.
+
+    The claim under test is the one that was nearly stated as a fact: BF16
+    weights upcast per call give the same numbers as the same weights loaded
+    in FP32. It is measured as bit identity at the last decoder layer on a
+    real multimodal batch through `from_pretrained`, so the load-time
+    `_keep_in_fp32_modules_strict` path is the one exercised, not a hand cast.
+    """
+    import tempfile
+
+    from transformers.models.qwen3_vl.modeling_qwen3_vl import Qwen3VLForConditionalGeneration
+
+    from h3_calibration_precision import (
+        KEEP_IN_FP32_MODULES,
+        PrecisionLeak,
+        storage_dtype,
+        storage_policy,
+    )
+
+    failures = []
+    policy = "comfy_exact_bf16_store"
+    cls = Qwen3VLForConditionalGeneration
+    batch = tiny_batch()
+
+    with tempfile.TemporaryDirectory(prefix="h3-tiny-qwen3vl-") as tmp:
+        tiny_full_model().save_pretrained(tmp)
+        fp32 = cls.from_pretrained(tmp, dtype=torch.float32).eval()
+        attribute_before = vars(cls).get("_keep_in_fp32_modules_strict", "<inherited>")
+        with storage_policy(cls, policy) as loading:
+            bf16 = cls.from_pretrained(tmp, dtype=storage_dtype(policy)).eval()
+        attribute_after = vars(cls).get("_keep_in_fp32_modules_strict", "<inherited>")
+        # The library's own BF16 load, for the control: with the patch embed
+        # kept in FP32 the un-policied model is inconsistent by construction
+        # (`visual.dtype` reports float32, so FP32 activations reach BF16
+        # LayerNorm weights and torch refuses), so the plain forward has to
+        # come from a plain load.
+        plain = cls.from_pretrained(tmp, dtype=torch.bfloat16).eval()
+        if attribute_after != attribute_before:
+            failures.append(f"storage_policy did not restore the class attribute: "
+                            f"{attribute_before!r} -> {attribute_after!r}")
+        if loading["keep_in_fp32_modules"] != list(KEEP_IN_FP32_MODULES):
+            failures.append("storage_policy did not report the modules it kept in FP32")
+
+    # The load did what the policy needs, and nothing more.
+    patch = bf16.model.visual.patch_embed.proj.weight.dtype
+    if patch != torch.float32:
+        failures.append(f"patch_embed.proj.weight loaded as {patch}, not float32")
+    if bf16.model.visual.dtype != torch.float32:
+        failures.append(f"visual.dtype reports {bf16.model.visual.dtype}")
+    others = {name: p.dtype for name, p in bf16.named_parameters()
+              if not any(keep in name for keep in KEEP_IN_FP32_MODULES)}
+    not_bf16 = {n: d for n, d in others.items() if d != torch.bfloat16}
+    if not_bf16:
+        failures.append(f"parameters outside the keep set are not bf16: {list(not_bf16)[:5]}")
+    buffers = {n: b.dtype for n, b in bf16.named_buffers() if b.is_floating_point()}
+    not_fp32 = {n: d for n, d in buffers.items() if d != torch.float32}
+    if not_fp32:
+        failures.append(f"floating buffers are not float32 under BF16 storage: {not_fp32}")
+
+    # The tower alone is refused: the cast covers the language stack.
+    try:
+        with calibration_precision(bf16.model.visual, policy):
+            pass
+        failures.append("the policy accepted the vision tower alone")
+    except ValueError:
+        pass
+
+    # Identity against the FP32-stored arm under comfy_exact, and a record
+    # that says the cast actually happened.
+    functional_before = _functional_snapshot()
+    root_hooks_before = (len(bf16._forward_pre_hooks), len(bf16._forward_hooks))
+    with calibration_precision(fp32, "comfy_exact"):
+        reference = _last_layer_state(fp32, batch)
+    with calibration_precision(bf16, policy) as record:
+        candidate = _last_layer_state(bf16, batch)
+        counts = dict(record["manual_cast_counts"])
+    if candidate.dtype != torch.float32:
+        failures.append(f"the manual-cast state is {candidate.dtype}, not float32")
+    if not torch.equal(reference, candidate):
+        delta = float((reference - candidate).abs().max())
+        failures.append(f"BF16-stored / FP32-computed state is not bit-identical to the "
+                        f"FP32-stored state: max abs delta {delta:.3e}")
+    for op in ("linear", "embedding", "layer_norm"):
+        if counts.get(op, 0) == 0:
+            failures.append(f"the policy never cast an F.{op} weight; the gate did not open")
+    if counts.get("conv3d", 0) != 0:
+        failures.append("the patch-embed conv was cast at call time; it should have "
+                        "loaded as float32")
+    if counts.get("already_float32", 0) == 0:
+        failures.append("no op saw the kept-FP32 patch embed")
+    print(f"  bit-identical to the FP32-stored arm; casts {counts}")
+
+    # Restoration: the functional patches and root hooks are gone.
+    for name, fn in _functional_snapshot().items():
+        if fn is not functional_before[name]:
+            failures.append(f"torch.nn.functional.{name} was not restored")
+    if (len(bf16._forward_pre_hooks), len(bf16._forward_hooks)) != root_hooks_before:
+        failures.append("root hooks were not removed")
+    # After the patches are gone, the kept-FP32 model cannot run under the
+    # library's own functional layer: FP32 activations meet BF16 LayerNorm
+    # weights and torch refuses with a mixed-dtype error. That refusal is the
+    # proof the patches were removed; a PrecisionLeak here would mean the
+    # gate was still installed.
+    try:
+        _last_layer_state(bf16, batch)
+        failures.append("the kept-FP32 model ran without the policy, so a patch leaked")
+    except PrecisionLeak:
+        failures.append("the gate was still installed after the context exited")
+    except RuntimeError:
+        pass
+    # The control that the policy changed something: the library's plain BF16
+    # forward on a plain BF16 load differs from the manual-cast state.
+    native = _last_layer_state(plain, batch)
+    if native.dtype != torch.bfloat16:
+        failures.append(f"the plain BF16 load runs at {native.dtype}")
+    if torch.equal(native.float(), candidate):
+        failures.append("the plain BF16 forward equals the manual-cast state, so the "
+                        "policy changed nothing")
+
+    # Leak controls. A downcast upstream of any parameterised op must stop
+    # the run, at entry when it is the patch embed, and inside the forward
+    # when it is anywhere else.
+    leaked = bf16.model.language_model.layers[0].register_forward_pre_hook(
+        lambda _m, args: (args[0].to(torch.bfloat16),) + tuple(args[1:])
+    )
+    try:
+        with calibration_precision(bf16, policy):
+            try:
+                _last_layer_state(bf16, batch)
+                failures.append("a BF16 activation reached F.linear without a PrecisionLeak")
+            except PrecisionLeak:
+                pass
+    finally:
+        leaked.remove()
+    for name, fn in _functional_snapshot().items():
+        if fn is not functional_before[name]:
+            failures.append(f"torch.nn.functional.{name} was not restored after the leak")
+    bf16.model.visual.patch_embed.to(torch.bfloat16)
+    try:
+        with calibration_precision(bf16, policy):
+            pass
+        failures.append("a BF16 patch embed was accepted at entry")
+    except PrecisionLeak:
+        pass
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     for name, arm in (("restoration", check_restoration),
@@ -299,7 +518,8 @@ def main() -> int:
                       ("offload dispatch compatibility",
                        check_offload_dispatch_compatibility),
                       ("source guard", check_source_guard),
-                      ("corrupt-tap red control", check_corrupt_tap_control)):
+                      ("corrupt-tap red control", check_corrupt_tap_control),
+                      ("bf16-store manual cast", check_bf16_store_policy)):
         print(f"{name}:")
         found = arm()
         failures.extend(found)
@@ -310,7 +530,8 @@ def main() -> int:
         return 1
     print("GREEN: the policy is scoped to one instance, restores everything it "
           "touched including after an exception, refuses an unrecognised source, "
-          "and its red control moves the output")
+          "its red control moves the output, and the BF16-stored manual-cast "
+          "arm is bit-identical to FP32 storage and refuses a downcast")
     return 0
 
 

@@ -76,6 +76,8 @@ from h3_calibration_precision import (  # noqa: E402
     POLICIES,
     calibration_precision,
     compute_dtype,
+    storage_dtype,
+    storage_policy,
 )
 
 
@@ -421,11 +423,15 @@ def run_transformers_arm(bundle: Path, row_id: str | None, source: Path, out: Pa
     # `seq x seq x heads` score matrix -- 9 GiB in float32 at 6,189 tokens, an
     # OOM rather than a result. ComfyUI reaches SDPA through
     # `optimized_attention_for_device`, so this is also the closer match.
-    model = Qwen3VLForConditionalGeneration.from_pretrained(
-        source, config=config, dtype=torch_dtype, device_map="auto",
-        attn_implementation="sdpa",
-        max_memory={0: f"{gpu_gib:.0f}GiB", "cpu": "100GiB"},
-    ).eval()
+    # Loaded at the policy's storage dtype; `torch_dtype` above is the compute
+    # dtype the inputs are cast to. They differ only under the manual-cast
+    # policy, where `storage_policy` also keeps the patch embed in FP32.
+    with storage_policy(Qwen3VLForConditionalGeneration, policy):
+        model = Qwen3VLForConditionalGeneration.from_pretrained(
+            source, config=config, dtype=storage_dtype(policy), device_map="auto",
+            attn_implementation="sdpa",
+            max_memory={0: f"{gpu_gib:.0f}GiB", "cpu": "100GiB"},
+        ).eval()
     load_seconds = time.time() - started
 
     layers = model.model.language_model.layers

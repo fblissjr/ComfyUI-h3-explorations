@@ -55,7 +55,7 @@ BENCH = Path(__file__).resolve().parent
 sys.path.insert(0, str(BENCH))
 REPORT = BENCH / "results" / "2026-08-24_sdpa_backend_selection.json"
 
-from h3_calibration_precision import POLICIES, compute_dtype  # noqa: E402
+from h3_calibration_precision import POLICIES, compute_dtype, storage_dtype, storage_policy  # noqa: E402
 from h3_effective_batch import effective_batch  # noqa: E402
 from h3_producer_provenance import producer_provenance  # noqa: E402
 
@@ -220,9 +220,11 @@ def in_situ_arm(source: Path, bundle: Path, row_id: str | None, policy: str,
     config = AutoConfig.from_pretrained(source)
     config.text_config.num_hidden_layers = layers
     dtype = compute_dtype(policy)
-    model = Qwen3VLForConditionalGeneration.from_pretrained(
-        source, config=config, dtype=dtype, attn_implementation="sdpa",
-    ).eval().to("cuda")
+    with storage_policy(Qwen3VLForConditionalGeneration, policy):
+        model = Qwen3VLForConditionalGeneration.from_pretrained(
+            source, config=config, dtype=storage_dtype(policy),
+            attn_implementation="sdpa",
+        ).eval().to("cuda")
 
     inputs = {k: (v.to("cuda", dtype) if v.is_floating_point() else v.to("cuda"))
               for k, v in batch.items()}
