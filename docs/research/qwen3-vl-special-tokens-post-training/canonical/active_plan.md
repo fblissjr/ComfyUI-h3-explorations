@@ -73,7 +73,9 @@ also records who decided what and under which authority:
   costs about 430 KB of anonymous host memory per population token on top of
   whatever weights are resident, so the calibration runs with the weights on
   the bridge's disk tier under a cgroup cap, and the population is sized to
-  that. Record and numbers:
+  that. A 128 GB swap file is the safety net against a kill, not a budget;
+  a larger population needs the modifier's parent cache off host memory
+  (deferred work below). Record and numbers:
   [`2026-08-25_v2_launch_record.md`](2026-08-25_v2_launch_record.md).
 
 ### Role-aware geometry and processor contract
@@ -365,6 +367,17 @@ gradient checks plus measured RTX 4090 feasibility.
 If release IDs are already best, preserve them. If true legacy BPE is better,
 serving with that tokenizer is the lowest-risk first repair. If the arms overlap
 at the experiment's sensitivity, stop rather than train into noise.
+
+### A larger calibration population
+
+Deferred 2026-08-25. The host, not the card, bounds the population: AWQ's
+parent-argument cache costs about 430 KB per population token and is
+re-streamed on every grid pass, so swap does not help and a bigger box only
+moves the line. Growing past the launched 214k tokens means changing
+`AWQModifier` to keep that cache off anonymous memory or to make fewer passes
+over it. Take it up only if Gate 5 shows the candidate wanting more
+calibration mass; the measurement is in
+[`2026-08-25_v2_launch_record.md`](2026-08-25_v2_launch_record.md).
 
 ### Encoder-depth and structural-pruning ablations
 
