@@ -1,0 +1,2810 @@
+{
+  "purpose": "visual adjudication of pool-wide near-duplicate candidates that cross an exact-media component boundary; consumed by review_pool_near_duplicates.py to emit the corrected component map",
+  "recorded": "2026-08-25, by the reviewing session, from rendered side-by-side pairs",
+  "scope": "EXAMINED: all 65 crossing candidates clearing foreground correlation 0.6, and all 27 crossing candidates at Hamming 1 or less that the correlation missed, plus a 16-pair sample of the remaining weak band stratified by correlation. NOT EXAMINED: the rest of the weak band. It is unexamined, not clean.",
+  "verdicts": {
+    "duplicate": "same subject, scene or catalogue series; becomes a component edge",
+    "distinct": "different subjects; no edge",
+    "uncertain": "could not be told apart at review scale; treated as an edge, because for a split boundary over-joining is the cheaper error"
+  },
+  "counts": {
+    "low-hamming-weak/distinct": 22,
+    "low-hamming-weak/duplicate": 2,
+    "low-hamming-weak/uncertain": 3,
+    "strong/distinct": 28,
+    "strong/duplicate": 36,
+    "strong/uncertain": 1,
+    "weak-stratified-sample/distinct": 14
+  },
+  "pairs": [
+    {
+      "a": "media/images/image-16ddae9e52274561a33b.jpg",
+      "b": "media/images/image-c5833effd2d5dadade15.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.999,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-00879-7f6d4a657f454db2"
+      ],
+      "components_b": [
+        "train-00003-0c519774864ae265"
+      ],
+      "rows_a": [
+        "train-00879-7f6d4a657f454db2"
+      ],
+      "rows_b": [
+        "train-00003-0c519774864ae265"
+      ]
+    },
+    {
+      "a": "media/images/image-956554ffd7b7d3e56c6d.jpg",
+      "b": "media/images/image-fcf3579f5a07bdd9e178.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.9965,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01478-84580ff3c1dbc415"
+      ],
+      "components_b": [
+        "train-01474-86278bc09e246d45"
+      ],
+      "rows_a": [
+        "train-01478-84580ff3c1dbc415"
+      ],
+      "rows_b": [
+        "train-01474-86278bc09e246d45",
+        "train-01868-dddbc26bd7660550",
+        "train-01891-d2c71fee9b45f73f"
+      ]
+    },
+    {
+      "a": "media/images/image-2a47ec4ec01798dbcd18.jpg",
+      "b": "media/images/image-eeb8ec9c002165e25feb.jpg",
+      "hamming": 3,
+      "foreground_correlation": 0.9956,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01646-9eccc54061967768"
+      ],
+      "components_b": [
+        "train-01758-5bffad8ddacfa6f2"
+      ],
+      "rows_a": [
+        "train-01646-9eccc54061967768"
+      ],
+      "rows_b": [
+        "train-01758-5bffad8ddacfa6f2"
+      ]
+    },
+    {
+      "a": "media/images/image-673ba1ea7f01c600dfeb.jpg",
+      "b": "media/images/image-ec90e113149e51873265.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.9947,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01680-052860f6ef5b511f"
+      ],
+      "components_b": [
+        "train-01307-47f83c6862ddf10e"
+      ],
+      "rows_a": [
+        "train-01680-052860f6ef5b511f",
+        "train-01813-f4dd170a873f7729"
+      ],
+      "rows_b": [
+        "train-01307-47f83c6862ddf10e",
+        "train-01598-11adea20b13d5fa3"
+      ]
+    },
+    {
+      "a": "media/images/image-3cce7f2f6a42715a58af.jpg",
+      "b": "media/images/image-c30df9d6b3a789bf31fa.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.9893,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01879-277d35e6e6e7ec04"
+      ],
+      "components_b": [
+        "train-01874-d3af911c9e711a05"
+      ],
+      "rows_a": [
+        "train-01879-277d35e6e6e7ec04"
+      ],
+      "rows_b": [
+        "train-01874-d3af911c9e711a05"
+      ]
+    },
+    {
+      "a": "media/images/image-906861f899ae4d976cf4.jpg",
+      "b": "media/images/image-df618b7546ae195f8016.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.9877,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01874-d3af911c9e711a05"
+      ],
+      "components_b": [
+        "train-01863-66b58624d8c37934"
+      ],
+      "rows_a": [
+        "train-01874-d3af911c9e711a05"
+      ],
+      "rows_b": [
+        "train-01863-66b58624d8c37934"
+      ]
+    },
+    {
+      "a": "media/images/image-81ca0ac4c890ea92d35e.jpg",
+      "b": "media/images/image-b3d95c77bae2531c2015.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.9835,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00028-93503cf6093352f9"
+      ],
+      "rows_a": [
+        "train-00398-0071c6bedeaafabe",
+        "train-00523-6d380bca9414af4c",
+        "train-00578-618c8f5d6691a50f",
+        "train-00633-762de447bbabfd38",
+        "train-00839-305b1afd0f98ac29",
+        "train-00928-60d354ba60587fb8",
+        "train-00947-2ce9fda5e17425b1",
+        "train-00985-900c1466c2dd3928"
+      ],
+      "rows_b": [
+        "train-00656-0520dd475be9a92f",
+        "train-00659-a81604e90fdc6c28",
+        "train-00684-ebe76f82b6a95484"
+      ]
+    },
+    {
+      "a": "media/images/image-c30df9d6b3a789bf31fa.jpg",
+      "b": "media/images/image-df618b7546ae195f8016.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.9824,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01874-d3af911c9e711a05"
+      ],
+      "components_b": [
+        "train-01863-66b58624d8c37934"
+      ],
+      "rows_a": [
+        "train-01874-d3af911c9e711a05"
+      ],
+      "rows_b": [
+        "train-01863-66b58624d8c37934"
+      ]
+    },
+    {
+      "a": "media/images/image-3cce7f2f6a42715a58af.jpg",
+      "b": "media/images/image-df618b7546ae195f8016.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.9806,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01879-277d35e6e6e7ec04"
+      ],
+      "components_b": [
+        "train-01863-66b58624d8c37934"
+      ],
+      "rows_a": [
+        "train-01879-277d35e6e6e7ec04"
+      ],
+      "rows_b": [
+        "train-01863-66b58624d8c37934"
+      ]
+    },
+    {
+      "a": "media/images/image-3cce7f2f6a42715a58af.jpg",
+      "b": "media/images/image-906861f899ae4d976cf4.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.9799,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01879-277d35e6e6e7ec04"
+      ],
+      "components_b": [
+        "train-01874-d3af911c9e711a05"
+      ],
+      "rows_a": [
+        "train-01879-277d35e6e6e7ec04"
+      ],
+      "rows_b": [
+        "train-01874-d3af911c9e711a05"
+      ]
+    },
+    {
+      "a": "media/images/image-0d297ab08c62321a0aab.jpg",
+      "b": "media/images/image-2e0220ccd618a65d662d.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.979,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01005-f6c5d64c878a0729"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-01005-f6c5d64c878a0729"
+      ],
+      "rows_b": [
+        "train-00618-d8d52b421a12839c",
+        "train-00907-4fd61087dc91c88c",
+        "train-00955-4984ab60cd0acbfe",
+        "train-00980-7a8baf16a8708461"
+      ]
+    },
+    {
+      "a": "media/images/image-3cce7f2f6a42715a58af.jpg",
+      "b": "media/images/image-8b3dfc0cb1c97145c110.jpg",
+      "hamming": 2,
+      "foreground_correlation": 0.9788,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01879-277d35e6e6e7ec04"
+      ],
+      "components_b": [
+        "train-01874-d3af911c9e711a05"
+      ],
+      "rows_a": [
+        "train-01879-277d35e6e6e7ec04"
+      ],
+      "rows_b": [
+        "train-01874-d3af911c9e711a05"
+      ]
+    },
+    {
+      "a": "media/images/image-8b3dfc0cb1c97145c110.jpg",
+      "b": "media/images/image-df618b7546ae195f8016.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.9747,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01874-d3af911c9e711a05"
+      ],
+      "components_b": [
+        "train-01863-66b58624d8c37934"
+      ],
+      "rows_a": [
+        "train-01874-d3af911c9e711a05"
+      ],
+      "rows_b": [
+        "train-01863-66b58624d8c37934"
+      ]
+    },
+    {
+      "a": "media/images/image-0ac5b8059a9ec5db64ba.jpg",
+      "b": "media/images/image-cfdb769b4895bc94422f.jpg",
+      "hamming": 2,
+      "foreground_correlation": 0.9637,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01465-baee1c0b340a16d4"
+      ],
+      "components_b": [
+        "train-01715-30c367dfaaf1a5ee"
+      ],
+      "rows_a": [
+        "train-01465-baee1c0b340a16d4"
+      ],
+      "rows_b": [
+        "train-01715-30c367dfaaf1a5ee"
+      ]
+    },
+    {
+      "a": "media/images/image-07555d6a7196f21b7584.jpg",
+      "b": "media/images/image-7834874ffb89fb727fe9.jpg",
+      "hamming": 2,
+      "foreground_correlation": 0.9524,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01553-66cc53dedbaaa1d2"
+      ],
+      "components_b": [
+        "train-01755-1ff415ad59671566"
+      ],
+      "rows_a": [
+        "train-01553-66cc53dedbaaa1d2"
+      ],
+      "rows_b": [
+        "train-01755-1ff415ad59671566"
+      ]
+    },
+    {
+      "a": "media/images/image-3232d6060dff7b580376.jpg",
+      "b": "media/images/image-c16e904ec2b9590755e4.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.9438,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01189-969c4c3b25c1ad5b"
+      ],
+      "components_b": [
+        "train-01459-a0ff14ab5bf3ca62"
+      ],
+      "rows_a": [
+        "train-01189-969c4c3b25c1ad5b",
+        "train-01506-deb7823c30289409",
+        "train-01769-370196150d7e7c0b"
+      ],
+      "rows_b": [
+        "train-01459-a0ff14ab5bf3ca62"
+      ]
+    },
+    {
+      "a": "media/images/image-228bdb44063dcc4aca6c.jpg",
+      "b": "media/images/image-be4139aab0ecbb0a89dd.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.9326,
+      "verdict": "uncertain",
+      "reason": "men's tailoring turnarounds in the same colourway; I could not tell at review scale whether these are one garment or two, and say so rather than guess",
+      "band": "strong",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "rows_a": [
+        "train-00128-94767d98d9a1e961",
+        "train-00146-3e846e2d775825d7",
+        "train-00232-7c2b390b0fa834d5",
+        "train-00261-729bf7ed19e74a7f",
+        "train-00372-f12825a5eaa765d1",
+        "train-00405-8c5f5a1896c0ef82",
+        "train-00496-bc1cba383a1917ee",
+        "train-00545-6225dddd585def41",
+        "train-00773-d80bf5b408e26f64",
+        "train-00813-fcee4440121a0369",
+        "train-00819-b678cabb93f8be28",
+        "train-00999-68e472e51d65ca11",
+        "train-01007-7cfb04e1ddb81256"
+      ],
+      "rows_b": [
+        "train-00220-7730d79bd8c0d417",
+        "train-00576-2d295c75fd607c60",
+        "train-00824-6bd470bce4a0e71c"
+      ]
+    },
+    {
+      "a": "media/images/image-b15514ca7ec662f70b5f.jpg",
+      "b": "media/images/image-fdb149a2843679fc7b26.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.9307,
+      "verdict": "duplicate",
+      "reason": "the same subject rendered again: same three-view sheet, same figure, poses differ slightly",
+      "band": "strong",
+      "components_a": [
+        "train-00029-6ac01c04bae2c2a1"
+      ],
+      "components_b": [
+        "train-01403-55407797a95d4c3a"
+      ],
+      "rows_a": [
+        "train-00029-6ac01c04bae2c2a1",
+        "train-00303-e8797912dc5a8744",
+        "train-00430-0ed22ddeb8e4db22",
+        "train-00573-3d66284b8a8e0f22",
+        "train-00708-3c7757a59a44166e"
+      ],
+      "rows_b": [
+        "train-01403-55407797a95d4c3a"
+      ]
+    },
+    {
+      "a": "media/images/image-2283e82276bea3e7f49e.jpg",
+      "b": "media/images/image-43dc901e9b5c40367427.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.9298,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01381-cd9e2728f57f9391"
+      ],
+      "components_b": [
+        "train-01401-c89cab5a7ea72f42"
+      ],
+      "rows_a": [
+        "train-01699-d5b47f82e79183d3",
+        "train-01790-612896ccb736588d"
+      ],
+      "rows_b": [
+        "train-01401-c89cab5a7ea72f42",
+        "train-01594-76be89c778caab2b"
+      ]
+    },
+    {
+      "a": "media/images/image-ca0785fa1786e4cb9218.jpg",
+      "b": "media/images/image-ef9176cf60db4a90f792.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.9273,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-00586-49745bb272b9a0c7"
+      ],
+      "components_b": [
+        "train-01543-545e7b030289b895"
+      ],
+      "rows_a": [
+        "train-00586-49745bb272b9a0c7",
+        "train-00741-8a630e8fee6fb302"
+      ],
+      "rows_b": [
+        "train-01543-545e7b030289b895",
+        "train-01592-d49c19ade7a05981"
+      ]
+    },
+    {
+      "a": "media/images/image-6df7a909bc13df208aed.jpg",
+      "b": "media/images/image-e0fce72ba9cfdb82f81b.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.9201,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-01459-a0ff14ab5bf3ca62"
+      ],
+      "components_b": [
+        "train-01604-435e62817119d4a0"
+      ],
+      "rows_a": [
+        "train-01459-a0ff14ab5bf3ca62"
+      ],
+      "rows_b": [
+        "train-01604-435e62817119d4a0"
+      ]
+    },
+    {
+      "a": "media/images/image-723418fdcc3ec1596ffc.jpg",
+      "b": "media/images/image-9eb7588d9a6df978ac66.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.9073,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00561-2f488d3c2146ec86"
+      ],
+      "rows_b": [
+        "train-00117-4b1a80ee7b2297e9",
+        "train-00523-6d380bca9414af4c",
+        "train-00633-762de447bbabfd38",
+        "train-00839-305b1afd0f98ac29"
+      ]
+    },
+    {
+      "a": "media/images/image-b8d18391c149cb5922f7.jpg",
+      "b": "media/images/image-d2178c268225bcd4043e.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.8964,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "rows_a": [
+        "train-01004-313d9d75f946f233"
+      ],
+      "rows_b": [
+        "train-00017-fec349556d78fad7",
+        "train-00051-4e7b8eb8e1b9228b",
+        "train-00143-297fb778fa164393",
+        "train-00278-e0fe5b5a3f9b5915",
+        "train-00297-848b1fb5ea0839a8",
+        "train-00319-6b9a779a2d8a94cc",
+        "train-00391-4ebff75beffda402",
+        "train-00427-ca3842b2164175ae",
+        "train-00466-57b6274b997f1777",
+        "train-00575-3171beba3f9b4b7b",
+        "train-00646-1951e5c97e277c0e",
+        "train-00711-4ba20de60a6e0ce8",
+        "train-00808-64c596bd67c61724",
+        "train-00884-e858c7f0abf3fb02",
+        "train-00970-a64e8045e19f41b7",
+        "train-01003-b67231f2195286a4",
+        "train-01741-c4c0bbece2b6a760"
+      ]
+    },
+    {
+      "a": "media/images/image-4b144484692f63599388.jpg",
+      "b": "media/images/image-8d88f2f8f812217e8958.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.8959,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00313-567d2d2b2b4c776f"
+      ],
+      "components_b": [
+        "train-00098-d38b067c975fb227"
+      ],
+      "rows_a": [
+        "train-00313-567d2d2b2b4c776f",
+        "train-00795-cff93b01d353955c"
+      ],
+      "rows_b": [
+        "train-00098-d38b067c975fb227"
+      ]
+    },
+    {
+      "a": "media/images/image-046446271163988a0c54.jpg",
+      "b": "media/images/image-288581f2cf4f96d022d6.jpg",
+      "hamming": 3,
+      "foreground_correlation": 0.8943,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00501-c527a2cc70ef73f6"
+      ],
+      "components_b": [
+        "train-00313-567d2d2b2b4c776f"
+      ],
+      "rows_a": [
+        "train-00501-c527a2cc70ef73f6",
+        "train-00549-cab0ea44555c3fa9",
+        "train-00601-d42614d8189d88b4"
+      ],
+      "rows_b": [
+        "train-00313-567d2d2b2b4c776f",
+        "train-00795-cff93b01d353955c"
+      ]
+    },
+    {
+      "a": "media/images/image-09c8e1eeed612c257883.jpg",
+      "b": "media/images/image-288581f2cf4f96d022d6.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.8928,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00108-3381e5ffb404452c"
+      ],
+      "components_b": [
+        "train-00313-567d2d2b2b4c776f"
+      ],
+      "rows_a": [
+        "train-00108-3381e5ffb404452c",
+        "train-00508-59139e4e6c98631b",
+        "train-00534-c3a34046d15aa482",
+        "train-00690-29c16631a1416640"
+      ],
+      "rows_b": [
+        "train-00313-567d2d2b2b4c776f",
+        "train-00795-cff93b01d353955c"
+      ]
+    },
+    {
+      "a": "media/images/image-6fe3e0a5a1e7a3c25f00.jpg",
+      "b": "media/images/image-e0fce72ba9cfdb82f81b.jpg",
+      "hamming": 2,
+      "foreground_correlation": 0.8925,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-01282-a179b5ca16313c77"
+      ],
+      "components_b": [
+        "train-01604-435e62817119d4a0"
+      ],
+      "rows_a": [
+        "train-01640-965e46e31ff5131d"
+      ],
+      "rows_b": [
+        "train-01604-435e62817119d4a0"
+      ]
+    },
+    {
+      "a": "media/images/image-046446271163988a0c54.jpg",
+      "b": "media/images/image-09c8e1eeed612c257883.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.8897,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00501-c527a2cc70ef73f6"
+      ],
+      "components_b": [
+        "train-00108-3381e5ffb404452c"
+      ],
+      "rows_a": [
+        "train-00501-c527a2cc70ef73f6",
+        "train-00549-cab0ea44555c3fa9",
+        "train-00601-d42614d8189d88b4"
+      ],
+      "rows_b": [
+        "train-00108-3381e5ffb404452c",
+        "train-00508-59139e4e6c98631b",
+        "train-00534-c3a34046d15aa482",
+        "train-00690-29c16631a1416640"
+      ]
+    },
+    {
+      "a": "media/images/image-011d40ca6e6758351e6f.jpg",
+      "b": "media/images/image-99fb24f233b755c782cc.jpg",
+      "hamming": 3,
+      "foreground_correlation": 0.8841,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-00233-0454f4ff6e858752"
+      ],
+      "components_b": [
+        "train-00428-dfa46b45ea8e2b4e"
+      ],
+      "rows_a": [
+        "train-00233-0454f4ff6e858752",
+        "train-00918-5d4ac2f72c22d519"
+      ],
+      "rows_b": [
+        "train-00428-dfa46b45ea8e2b4e"
+      ]
+    },
+    {
+      "a": "media/images/image-608f942639172b07d8e9.jpg",
+      "b": "media/images/image-def416cad802000c76c7.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.8815,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00844-84b101194f0f3400"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00844-84b101194f0f3400"
+      ],
+      "rows_b": [
+        "train-00368-97c8476aa70dc40e",
+        "train-00910-6651d1008828c08b",
+        "train-01001-fb1c00056a74d2f9"
+      ]
+    },
+    {
+      "a": "media/images/image-6df7a909bc13df208aed.jpg",
+      "b": "media/images/image-6fe3e0a5a1e7a3c25f00.jpg",
+      "hamming": 3,
+      "foreground_correlation": 0.8755,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-01459-a0ff14ab5bf3ca62"
+      ],
+      "components_b": [
+        "train-01282-a179b5ca16313c77"
+      ],
+      "rows_a": [
+        "train-01459-a0ff14ab5bf3ca62"
+      ],
+      "rows_b": [
+        "train-01640-965e46e31ff5131d"
+      ]
+    },
+    {
+      "a": "media/images/image-288581f2cf4f96d022d6.jpg",
+      "b": "media/images/image-7e2a3567d102140de479.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.8532,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00313-567d2d2b2b4c776f"
+      ],
+      "components_b": [
+        "train-00098-d38b067c975fb227"
+      ],
+      "rows_a": [
+        "train-00313-567d2d2b2b4c776f",
+        "train-00795-cff93b01d353955c"
+      ],
+      "rows_b": [
+        "train-00098-d38b067c975fb227",
+        "train-00520-cc9cffa9caac4b89",
+        "train-00807-9745eeb6f06cd54e"
+      ]
+    },
+    {
+      "a": "media/images/image-5a5b734058088cff3f1c.jpg",
+      "b": "media/images/image-8d88f2f8f812217e8958.jpg",
+      "hamming": 3,
+      "foreground_correlation": 0.8505,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00501-c527a2cc70ef73f6"
+      ],
+      "components_b": [
+        "train-00098-d38b067c975fb227"
+      ],
+      "rows_a": [
+        "train-00501-c527a2cc70ef73f6",
+        "train-00549-cab0ea44555c3fa9",
+        "train-00601-d42614d8189d88b4"
+      ],
+      "rows_b": [
+        "train-00098-d38b067c975fb227"
+      ]
+    },
+    {
+      "a": "media/images/image-96461a61e70aa4a22603.jpg",
+      "b": "media/images/image-def416cad802000c76c7.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.8374,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00028-93503cf6093352f9"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00028-93503cf6093352f9",
+        "train-00287-faf94e1eab189553",
+        "train-00322-195ae7284958bd75",
+        "train-00421-5f5fb124480be0e7",
+        "train-00453-b99a1cb3bf2589cf",
+        "train-00458-4651d0f7d38bed30",
+        "train-00509-a9c7fd24015b4f77",
+        "train-00641-52c28c9a3a2b2ce1",
+        "train-00655-768c1068ec6a1033",
+        "train-00661-0d32f1fb5bd762f1",
+        "train-00774-48046847740276bb",
+        "train-00925-2405ad75ff49d6c9",
+        "train-00958-972334d90db401c0",
+        "train-01110-b6cf8fc26ffb8fbf"
+      ],
+      "rows_b": [
+        "train-00368-97c8476aa70dc40e",
+        "train-00910-6651d1008828c08b",
+        "train-01001-fb1c00056a74d2f9"
+      ]
+    },
+    {
+      "a": "media/images/image-abf2a32de44bcf134c6c.jpg",
+      "b": "media/images/image-ae7479d1dd7b3000b9fd.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.8306,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01435-d7ed04c80a5a79ca"
+      ],
+      "components_b": [
+        "train-01533-2dd3ac275aa195c6"
+      ],
+      "rows_a": [
+        "train-01435-d7ed04c80a5a79ca",
+        "train-01668-434bc5a468cf5b25"
+      ],
+      "rows_b": [
+        "train-01533-2dd3ac275aa195c6"
+      ]
+    },
+    {
+      "a": "media/images/image-4b144484692f63599388.jpg",
+      "b": "media/images/image-5a5b734058088cff3f1c.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.8268,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00313-567d2d2b2b4c776f"
+      ],
+      "components_b": [
+        "train-00501-c527a2cc70ef73f6"
+      ],
+      "rows_a": [
+        "train-00313-567d2d2b2b4c776f",
+        "train-00795-cff93b01d353955c"
+      ],
+      "rows_b": [
+        "train-00501-c527a2cc70ef73f6",
+        "train-00549-cab0ea44555c3fa9",
+        "train-00601-d42614d8189d88b4"
+      ]
+    },
+    {
+      "a": "media/images/image-9855fb661aa472e3f4fe.jpg",
+      "b": "media/images/image-f330d5cdff9c1cb5d0b3.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.8076,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00017-fec349556d78fad7",
+        "train-00051-4e7b8eb8e1b9228b",
+        "train-00143-297fb778fa164393",
+        "train-00278-e0fe5b5a3f9b5915",
+        "train-00297-848b1fb5ea0839a8",
+        "train-00319-6b9a779a2d8a94cc",
+        "train-00391-4ebff75beffda402",
+        "train-00427-ca3842b2164175ae",
+        "train-00466-57b6274b997f1777",
+        "train-00575-3171beba3f9b4b7b",
+        "train-00646-1951e5c97e277c0e",
+        "train-00711-4ba20de60a6e0ce8",
+        "train-00808-64c596bd67c61724",
+        "train-00884-e858c7f0abf3fb02",
+        "train-00970-a64e8045e19f41b7",
+        "train-01003-b67231f2195286a4",
+        "train-01741-c4c0bbece2b6a760"
+      ],
+      "rows_b": [
+        "train-00504-70b88adfe6455989",
+        "train-00574-c53a491aae9a1eff",
+        "train-00626-d051a34b851c9c42",
+        "train-00663-ad5369fa37f0e905",
+        "train-00833-6410b35aea330bee",
+        "train-00898-77c2d96c4e51686e",
+        "train-00981-1334ba81fdbfb1ff"
+      ]
+    },
+    {
+      "a": "media/images/image-96461a61e70aa4a22603.jpg",
+      "b": "media/images/image-f330d5cdff9c1cb5d0b3.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.8045,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00028-93503cf6093352f9"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00028-93503cf6093352f9",
+        "train-00287-faf94e1eab189553",
+        "train-00322-195ae7284958bd75",
+        "train-00421-5f5fb124480be0e7",
+        "train-00453-b99a1cb3bf2589cf",
+        "train-00458-4651d0f7d38bed30",
+        "train-00509-a9c7fd24015b4f77",
+        "train-00641-52c28c9a3a2b2ce1",
+        "train-00655-768c1068ec6a1033",
+        "train-00661-0d32f1fb5bd762f1",
+        "train-00774-48046847740276bb",
+        "train-00925-2405ad75ff49d6c9",
+        "train-00958-972334d90db401c0",
+        "train-01110-b6cf8fc26ffb8fbf"
+      ],
+      "rows_b": [
+        "train-00504-70b88adfe6455989",
+        "train-00574-c53a491aae9a1eff",
+        "train-00626-d051a34b851c9c42",
+        "train-00663-ad5369fa37f0e905",
+        "train-00833-6410b35aea330bee",
+        "train-00898-77c2d96c4e51686e",
+        "train-00981-1334ba81fdbfb1ff"
+      ]
+    },
+    {
+      "a": "media/images/image-15a097835d3f5320bca2.jpg",
+      "b": "media/images/image-b9b03d4f4af117010501.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.8021,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-01206-a56d596128bd5fdf"
+      ],
+      "components_b": [
+        "train-01179-a9c4909877487688"
+      ],
+      "rows_a": [
+        "train-01206-a56d596128bd5fdf"
+      ],
+      "rows_b": [
+        "train-01179-a9c4909877487688",
+        "train-01409-70ddc139518c9e40"
+      ]
+    },
+    {
+      "a": "media/images/image-7ec459aaea3733363acd.jpg",
+      "b": "media/images/image-ba74b396e13f8db698f3.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.7946,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00559-661153c0cc861266"
+      ],
+      "components_b": [
+        "train-00165-841d7b469bb3aa1c"
+      ],
+      "rows_a": [
+        "train-00664-d394a34b1408a381"
+      ],
+      "rows_b": [
+        "train-00567-3b1041374bb50a4f"
+      ]
+    },
+    {
+      "a": "media/images/image-046446271163988a0c54.jpg",
+      "b": "media/images/image-7e2a3567d102140de479.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.7867,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00501-c527a2cc70ef73f6"
+      ],
+      "components_b": [
+        "train-00098-d38b067c975fb227"
+      ],
+      "rows_a": [
+        "train-00501-c527a2cc70ef73f6",
+        "train-00549-cab0ea44555c3fa9",
+        "train-00601-d42614d8189d88b4"
+      ],
+      "rows_b": [
+        "train-00098-d38b067c975fb227",
+        "train-00520-cc9cffa9caac4b89",
+        "train-00807-9745eeb6f06cd54e"
+      ]
+    },
+    {
+      "a": "media/images/image-608f942639172b07d8e9.jpg",
+      "b": "media/images/image-9855fb661aa472e3f4fe.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.7816,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00844-84b101194f0f3400"
+      ],
+      "components_b": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "rows_a": [
+        "train-00844-84b101194f0f3400"
+      ],
+      "rows_b": [
+        "train-00017-fec349556d78fad7",
+        "train-00051-4e7b8eb8e1b9228b",
+        "train-00143-297fb778fa164393",
+        "train-00278-e0fe5b5a3f9b5915",
+        "train-00297-848b1fb5ea0839a8",
+        "train-00319-6b9a779a2d8a94cc",
+        "train-00391-4ebff75beffda402",
+        "train-00427-ca3842b2164175ae",
+        "train-00466-57b6274b997f1777",
+        "train-00575-3171beba3f9b4b7b",
+        "train-00646-1951e5c97e277c0e",
+        "train-00711-4ba20de60a6e0ce8",
+        "train-00808-64c596bd67c61724",
+        "train-00884-e858c7f0abf3fb02",
+        "train-00970-a64e8045e19f41b7",
+        "train-01003-b67231f2195286a4",
+        "train-01741-c4c0bbece2b6a760"
+      ]
+    },
+    {
+      "a": "media/images/image-09c8e1eeed612c257883.jpg",
+      "b": "media/images/image-7e2a3567d102140de479.jpg",
+      "hamming": 3,
+      "foreground_correlation": 0.767,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00108-3381e5ffb404452c"
+      ],
+      "components_b": [
+        "train-00098-d38b067c975fb227"
+      ],
+      "rows_a": [
+        "train-00108-3381e5ffb404452c",
+        "train-00508-59139e4e6c98631b",
+        "train-00534-c3a34046d15aa482",
+        "train-00690-29c16631a1416640"
+      ],
+      "rows_b": [
+        "train-00098-d38b067c975fb227",
+        "train-00520-cc9cffa9caac4b89",
+        "train-00807-9745eeb6f06cd54e"
+      ]
+    },
+    {
+      "a": "media/images/image-08670dd48e703c22ada7.jpg",
+      "b": "media/images/image-1e74c009ed0c1c4c9095.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.7663,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00501-c527a2cc70ef73f6"
+      ],
+      "components_b": [
+        "train-00313-567d2d2b2b4c776f"
+      ],
+      "rows_a": [
+        "train-00501-c527a2cc70ef73f6",
+        "train-00549-cab0ea44555c3fa9",
+        "train-00601-d42614d8189d88b4"
+      ],
+      "rows_b": [
+        "train-00313-567d2d2b2b4c776f",
+        "train-00795-cff93b01d353955c"
+      ]
+    },
+    {
+      "a": "media/images/image-9855fb661aa472e3f4fe.jpg",
+      "b": "media/images/image-def416cad802000c76c7.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.7549,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00017-fec349556d78fad7",
+        "train-00051-4e7b8eb8e1b9228b",
+        "train-00143-297fb778fa164393",
+        "train-00278-e0fe5b5a3f9b5915",
+        "train-00297-848b1fb5ea0839a8",
+        "train-00319-6b9a779a2d8a94cc",
+        "train-00391-4ebff75beffda402",
+        "train-00427-ca3842b2164175ae",
+        "train-00466-57b6274b997f1777",
+        "train-00575-3171beba3f9b4b7b",
+        "train-00646-1951e5c97e277c0e",
+        "train-00711-4ba20de60a6e0ce8",
+        "train-00808-64c596bd67c61724",
+        "train-00884-e858c7f0abf3fb02",
+        "train-00970-a64e8045e19f41b7",
+        "train-01003-b67231f2195286a4",
+        "train-01741-c4c0bbece2b6a760"
+      ],
+      "rows_b": [
+        "train-00368-97c8476aa70dc40e",
+        "train-00910-6651d1008828c08b",
+        "train-01001-fb1c00056a74d2f9"
+      ]
+    },
+    {
+      "a": "media/images/image-6df7a909bc13df208aed.jpg",
+      "b": "media/images/image-d05e09daad5dd0d87b2d.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.7335,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-01459-a0ff14ab5bf3ca62"
+      ],
+      "components_b": [
+        "train-01189-969c4c3b25c1ad5b"
+      ],
+      "rows_a": [
+        "train-01459-a0ff14ab5bf3ca62"
+      ],
+      "rows_b": [
+        "train-01189-969c4c3b25c1ad5b",
+        "train-01506-deb7823c30289409",
+        "train-01769-370196150d7e7c0b"
+      ]
+    },
+    {
+      "a": "media/images/image-96461a61e70aa4a22603.jpg",
+      "b": "media/images/image-9855fb661aa472e3f4fe.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.7165,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00028-93503cf6093352f9"
+      ],
+      "components_b": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "rows_a": [
+        "train-00028-93503cf6093352f9",
+        "train-00287-faf94e1eab189553",
+        "train-00322-195ae7284958bd75",
+        "train-00421-5f5fb124480be0e7",
+        "train-00453-b99a1cb3bf2589cf",
+        "train-00458-4651d0f7d38bed30",
+        "train-00509-a9c7fd24015b4f77",
+        "train-00641-52c28c9a3a2b2ce1",
+        "train-00655-768c1068ec6a1033",
+        "train-00661-0d32f1fb5bd762f1",
+        "train-00774-48046847740276bb",
+        "train-00925-2405ad75ff49d6c9",
+        "train-00958-972334d90db401c0",
+        "train-01110-b6cf8fc26ffb8fbf"
+      ],
+      "rows_b": [
+        "train-00017-fec349556d78fad7",
+        "train-00051-4e7b8eb8e1b9228b",
+        "train-00143-297fb778fa164393",
+        "train-00278-e0fe5b5a3f9b5915",
+        "train-00297-848b1fb5ea0839a8",
+        "train-00319-6b9a779a2d8a94cc",
+        "train-00391-4ebff75beffda402",
+        "train-00427-ca3842b2164175ae",
+        "train-00466-57b6274b997f1777",
+        "train-00575-3171beba3f9b4b7b",
+        "train-00646-1951e5c97e277c0e",
+        "train-00711-4ba20de60a6e0ce8",
+        "train-00808-64c596bd67c61724",
+        "train-00884-e858c7f0abf3fb02",
+        "train-00970-a64e8045e19f41b7",
+        "train-01003-b67231f2195286a4",
+        "train-01741-c4c0bbece2b6a760"
+      ]
+    },
+    {
+      "a": "media/images/image-24d8726120fd472bc575.jpg",
+      "b": "media/images/image-ba7bc5fea1a56e150346.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.6815,
+      "verdict": "duplicate",
+      "reason": "the same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner",
+      "band": "strong",
+      "components_a": [
+        "train-00313-567d2d2b2b4c776f"
+      ],
+      "components_b": [
+        "train-00098-d38b067c975fb227"
+      ],
+      "rows_a": [
+        "train-00313-567d2d2b2b4c776f",
+        "train-00795-cff93b01d353955c"
+      ],
+      "rows_b": [
+        "train-00098-d38b067c975fb227",
+        "train-00520-cc9cffa9caac4b89",
+        "train-00807-9745eeb6f06cd54e"
+      ]
+    },
+    {
+      "a": "media/images/image-ae4d1f3dd168e36b4785.jpg",
+      "b": "media/images/image-def416cad802000c76c7.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.6805,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00012-4bbe43dc3a3f95fe"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00012-4bbe43dc3a3f95fe",
+        "train-00087-06300b5c6581dbde",
+        "train-00321-94efc86317688644",
+        "train-00338-682ba5481fe8fccc",
+        "train-00687-55cda77f744bc976",
+        "train-00717-c20e143b80e68ac9",
+        "train-00905-1dbfd606f970ce0a",
+        "train-01008-96f8ae8927909cbb"
+      ],
+      "rows_b": [
+        "train-00368-97c8476aa70dc40e",
+        "train-00910-6651d1008828c08b",
+        "train-01001-fb1c00056a74d2f9"
+      ]
+    },
+    {
+      "a": "media/images/image-d648e6245261e934ddbc.jpg",
+      "b": "media/images/image-e7dd5e6e1928268d6e1a.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.6744,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-01209-786c8fe8dbecceaa"
+      ],
+      "components_b": [
+        "train-01030-b7355e53e6e8a0dc"
+      ],
+      "rows_a": [
+        "train-01209-786c8fe8dbecceaa",
+        "train-01393-453de213a3a1fb1c"
+      ],
+      "rows_b": [
+        "train-01780-f1a946a3a81c7129",
+        "train-01823-a871eb4cc4e4f6f3"
+      ]
+    },
+    {
+      "a": "media/images/image-a58adaa0a17579654375.jpg",
+      "b": "media/images/image-b3d0dc2c871d672c5852.jpg",
+      "hamming": 2,
+      "foreground_correlation": 0.6695,
+      "verdict": "duplicate",
+      "reason": "the same subject rendered again: same three-view sheet, same figure, poses differ slightly",
+      "band": "strong",
+      "components_a": [
+        "train-01091-9d3d38b94cf14a46"
+      ],
+      "components_b": [
+        "train-01788-2b26ab740d108818"
+      ],
+      "rows_a": [
+        "train-01091-9d3d38b94cf14a46"
+      ],
+      "rows_b": [
+        "train-01788-2b26ab740d108818"
+      ]
+    },
+    {
+      "a": "media/images/image-2693b55663c6bd9ee4de.jpg",
+      "b": "media/images/image-b32f6989c6d829fcb8c1.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.6678,
+      "verdict": "duplicate",
+      "reason": "the same image re-encoded or rescaled; byte-different, visually identical",
+      "band": "strong",
+      "components_a": [
+        "train-01251-074d6c189940c41c"
+      ],
+      "components_b": [
+        "train-01315-13cc436dfcb5618a"
+      ],
+      "rows_a": [
+        "train-01251-074d6c189940c41c"
+      ],
+      "rows_b": [
+        "train-01315-13cc436dfcb5618a"
+      ]
+    },
+    {
+      "a": "media/images/image-d7518f64dc9ff22047ab.jpg",
+      "b": "media/images/image-eb0a49022bb91cf5bf70.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.6485,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00257-08cf9ce768d2689e"
+      ],
+      "components_b": [
+        "train-01130-7b1f01e3fd28496b"
+      ],
+      "rows_a": [
+        "train-00257-08cf9ce768d2689e"
+      ],
+      "rows_b": [
+        "train-01130-7b1f01e3fd28496b"
+      ]
+    },
+    {
+      "a": "media/images/image-608f942639172b07d8e9.jpg",
+      "b": "media/images/image-ae4d1f3dd168e36b4785.jpg",
+      "hamming": 2,
+      "foreground_correlation": 0.6405,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00844-84b101194f0f3400"
+      ],
+      "components_b": [
+        "train-00012-4bbe43dc3a3f95fe"
+      ],
+      "rows_a": [
+        "train-00844-84b101194f0f3400"
+      ],
+      "rows_b": [
+        "train-00012-4bbe43dc3a3f95fe",
+        "train-00087-06300b5c6581dbde",
+        "train-00321-94efc86317688644",
+        "train-00338-682ba5481fe8fccc",
+        "train-00687-55cda77f744bc976",
+        "train-00717-c20e143b80e68ac9",
+        "train-00905-1dbfd606f970ce0a",
+        "train-01008-96f8ae8927909cbb"
+      ]
+    },
+    {
+      "a": "media/images/image-be874b5492cc98bbc59e.jpg",
+      "b": "media/images/image-d7518f64dc9ff22047ab.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.6395,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-01049-855a7372f82ec514"
+      ],
+      "components_b": [
+        "train-00257-08cf9ce768d2689e"
+      ],
+      "rows_a": [
+        "train-01408-1ebd07399b4657b5"
+      ],
+      "rows_b": [
+        "train-00257-08cf9ce768d2689e"
+      ]
+    },
+    {
+      "a": "media/images/image-96461a61e70aa4a22603.jpg",
+      "b": "media/images/image-ae4d1f3dd168e36b4785.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.6388,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00028-93503cf6093352f9"
+      ],
+      "components_b": [
+        "train-00012-4bbe43dc3a3f95fe"
+      ],
+      "rows_a": [
+        "train-00028-93503cf6093352f9",
+        "train-00287-faf94e1eab189553",
+        "train-00322-195ae7284958bd75",
+        "train-00421-5f5fb124480be0e7",
+        "train-00453-b99a1cb3bf2589cf",
+        "train-00458-4651d0f7d38bed30",
+        "train-00509-a9c7fd24015b4f77",
+        "train-00641-52c28c9a3a2b2ce1",
+        "train-00655-768c1068ec6a1033",
+        "train-00661-0d32f1fb5bd762f1",
+        "train-00774-48046847740276bb",
+        "train-00925-2405ad75ff49d6c9",
+        "train-00958-972334d90db401c0",
+        "train-01110-b6cf8fc26ffb8fbf"
+      ],
+      "rows_b": [
+        "train-00012-4bbe43dc3a3f95fe",
+        "train-00087-06300b5c6581dbde",
+        "train-00321-94efc86317688644",
+        "train-00338-682ba5481fe8fccc",
+        "train-00687-55cda77f744bc976",
+        "train-00717-c20e143b80e68ac9",
+        "train-00905-1dbfd606f970ce0a",
+        "train-01008-96f8ae8927909cbb"
+      ]
+    },
+    {
+      "a": "media/images/image-ae4d1f3dd168e36b4785.jpg",
+      "b": "media/images/image-f330d5cdff9c1cb5d0b3.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.6357,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00012-4bbe43dc3a3f95fe"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00012-4bbe43dc3a3f95fe",
+        "train-00087-06300b5c6581dbde",
+        "train-00321-94efc86317688644",
+        "train-00338-682ba5481fe8fccc",
+        "train-00687-55cda77f744bc976",
+        "train-00717-c20e143b80e68ac9",
+        "train-00905-1dbfd606f970ce0a",
+        "train-01008-96f8ae8927909cbb"
+      ],
+      "rows_b": [
+        "train-00504-70b88adfe6455989",
+        "train-00574-c53a491aae9a1eff",
+        "train-00626-d051a34b851c9c42",
+        "train-00663-ad5369fa37f0e905",
+        "train-00833-6410b35aea330bee",
+        "train-00898-77c2d96c4e51686e",
+        "train-00981-1334ba81fdbfb1ff"
+      ]
+    },
+    {
+      "a": "media/images/image-3dcc875a7d945d9c7310.jpg",
+      "b": "media/images/image-def416cad802000c76c7.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.6341,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00750-ed9d4db250e6553e"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00750-ed9d4db250e6553e"
+      ],
+      "rows_b": [
+        "train-00368-97c8476aa70dc40e",
+        "train-00910-6651d1008828c08b",
+        "train-01001-fb1c00056a74d2f9"
+      ]
+    },
+    {
+      "a": "media/images/image-a103d49433412f67f4e3.jpg",
+      "b": "media/images/image-d648e6245261e934ddbc.jpg",
+      "hamming": 3,
+      "foreground_correlation": 0.63,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00769-8335054374b750c4"
+      ],
+      "components_b": [
+        "train-01209-786c8fe8dbecceaa"
+      ],
+      "rows_a": [
+        "train-00769-8335054374b750c4"
+      ],
+      "rows_b": [
+        "train-01209-786c8fe8dbecceaa",
+        "train-01393-453de213a3a1fb1c"
+      ]
+    },
+    {
+      "a": "media/images/image-15a097835d3f5320bca2.jpg",
+      "b": "media/images/image-3009d05c2d2f39587f4b.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.6284,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-01206-a56d596128bd5fdf"
+      ],
+      "components_b": [
+        "train-01417-2e8fd635c7f5b72e"
+      ],
+      "rows_a": [
+        "train-01206-a56d596128bd5fdf"
+      ],
+      "rows_b": [
+        "train-01417-2e8fd635c7f5b72e"
+      ]
+    },
+    {
+      "a": "media/images/image-38598d64a98eeebcc6c2.jpg",
+      "b": "media/images/image-3dcc875a7d945d9c7310.jpg",
+      "hamming": 2,
+      "foreground_correlation": 0.6213,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00750-ed9d4db250e6553e"
+      ],
+      "rows_a": [
+        "train-00295-f3699c6b4da6d7b0",
+        "train-00443-c6868b3ca832aa9d",
+        "train-00618-d8d52b421a12839c",
+        "train-00657-5ce6e835e7498b31",
+        "train-00896-aae688b298f52470",
+        "train-00907-4fd61087dc91c88c"
+      ],
+      "rows_b": [
+        "train-00750-ed9d4db250e6553e"
+      ]
+    },
+    {
+      "a": "media/images/image-9855fb661aa472e3f4fe.jpg",
+      "b": "media/images/image-dc979b0b7c2fc253c519.jpg",
+      "hamming": 3,
+      "foreground_correlation": 0.6176,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00017-fec349556d78fad7",
+        "train-00051-4e7b8eb8e1b9228b",
+        "train-00143-297fb778fa164393",
+        "train-00278-e0fe5b5a3f9b5915",
+        "train-00297-848b1fb5ea0839a8",
+        "train-00319-6b9a779a2d8a94cc",
+        "train-00391-4ebff75beffda402",
+        "train-00427-ca3842b2164175ae",
+        "train-00466-57b6274b997f1777",
+        "train-00575-3171beba3f9b4b7b",
+        "train-00646-1951e5c97e277c0e",
+        "train-00711-4ba20de60a6e0ce8",
+        "train-00808-64c596bd67c61724",
+        "train-00884-e858c7f0abf3fb02",
+        "train-00970-a64e8045e19f41b7",
+        "train-01003-b67231f2195286a4",
+        "train-01741-c4c0bbece2b6a760"
+      ],
+      "rows_b": [
+        "train-00128-94767d98d9a1e961",
+        "train-00232-7c2b390b0fa834d5",
+        "train-00819-b678cabb93f8be28"
+      ]
+    },
+    {
+      "a": "media/images/image-578082e26540f377f136.jpg",
+      "b": "media/images/image-d7518f64dc9ff22047ab.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.6112,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00988-640a653f9139f553"
+      ],
+      "components_b": [
+        "train-00257-08cf9ce768d2689e"
+      ],
+      "rows_a": [
+        "train-01047-aab7c412accf7534",
+        "train-01361-cc3a126387514e9e"
+      ],
+      "rows_b": [
+        "train-00257-08cf9ce768d2689e"
+      ]
+    },
+    {
+      "a": "media/images/image-9855fb661aa472e3f4fe.jpg",
+      "b": "media/images/image-ae4d1f3dd168e36b4785.jpg",
+      "hamming": 2,
+      "foreground_correlation": 0.6096,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "components_b": [
+        "train-00012-4bbe43dc3a3f95fe"
+      ],
+      "rows_a": [
+        "train-00017-fec349556d78fad7",
+        "train-00051-4e7b8eb8e1b9228b",
+        "train-00143-297fb778fa164393",
+        "train-00278-e0fe5b5a3f9b5915",
+        "train-00297-848b1fb5ea0839a8",
+        "train-00319-6b9a779a2d8a94cc",
+        "train-00391-4ebff75beffda402",
+        "train-00427-ca3842b2164175ae",
+        "train-00466-57b6274b997f1777",
+        "train-00575-3171beba3f9b4b7b",
+        "train-00646-1951e5c97e277c0e",
+        "train-00711-4ba20de60a6e0ce8",
+        "train-00808-64c596bd67c61724",
+        "train-00884-e858c7f0abf3fb02",
+        "train-00970-a64e8045e19f41b7",
+        "train-01003-b67231f2195286a4",
+        "train-01741-c4c0bbece2b6a760"
+      ],
+      "rows_b": [
+        "train-00012-4bbe43dc3a3f95fe",
+        "train-00087-06300b5c6581dbde",
+        "train-00321-94efc86317688644",
+        "train-00338-682ba5481fe8fccc",
+        "train-00687-55cda77f744bc976",
+        "train-00717-c20e143b80e68ac9",
+        "train-00905-1dbfd606f970ce0a",
+        "train-01008-96f8ae8927909cbb"
+      ]
+    },
+    {
+      "a": "media/images/image-a0c4c1ad8371b936a3a4.jpg",
+      "b": "media/images/image-b9b03d4f4af117010501.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.6007,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "strong",
+      "components_a": [
+        "train-01206-a56d596128bd5fdf"
+      ],
+      "components_b": [
+        "train-01179-a9c4909877487688"
+      ],
+      "rows_a": [
+        "train-01206-a56d596128bd5fdf"
+      ],
+      "rows_b": [
+        "train-01179-a9c4909877487688",
+        "train-01409-70ddc139518c9e40"
+      ]
+    },
+    {
+      "a": "media/images/image-228bdb44063dcc4aca6c.jpg",
+      "b": "media/images/image-723418fdcc3ec1596ffc.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.5679,
+      "verdict": "uncertain",
+      "reason": "men's tailoring turnarounds in the same colourway; I could not tell at review scale whether these are one garment or two, and say so rather than guess",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "rows_a": [
+        "train-00128-94767d98d9a1e961",
+        "train-00146-3e846e2d775825d7",
+        "train-00232-7c2b390b0fa834d5",
+        "train-00261-729bf7ed19e74a7f",
+        "train-00372-f12825a5eaa765d1",
+        "train-00405-8c5f5a1896c0ef82",
+        "train-00496-bc1cba383a1917ee",
+        "train-00545-6225dddd585def41",
+        "train-00773-d80bf5b408e26f64",
+        "train-00813-fcee4440121a0369",
+        "train-00819-b678cabb93f8be28",
+        "train-00999-68e472e51d65ca11",
+        "train-01007-7cfb04e1ddb81256"
+      ],
+      "rows_b": [
+        "train-00561-2f488d3c2146ec86"
+      ]
+    },
+    {
+      "a": "media/images/image-9eb7588d9a6df978ac66.jpg",
+      "b": "media/images/image-be4139aab0ecbb0a89dd.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.5206,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "rows_a": [
+        "train-00117-4b1a80ee7b2297e9",
+        "train-00523-6d380bca9414af4c",
+        "train-00633-762de447bbabfd38",
+        "train-00839-305b1afd0f98ac29"
+      ],
+      "rows_b": [
+        "train-00220-7730d79bd8c0d417",
+        "train-00576-2d295c75fd607c60",
+        "train-00824-6bd470bce4a0e71c"
+      ]
+    },
+    {
+      "a": "media/images/image-578082e26540f377f136.jpg",
+      "b": "media/images/image-eb0a49022bb91cf5bf70.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.5163,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-00988-640a653f9139f553"
+      ],
+      "components_b": [
+        "train-01130-7b1f01e3fd28496b"
+      ],
+      "rows_a": [
+        "train-01047-aab7c412accf7534",
+        "train-01361-cc3a126387514e9e"
+      ],
+      "rows_b": [
+        "train-01130-7b1f01e3fd28496b"
+      ]
+    },
+    {
+      "a": "media/images/image-723418fdcc3ec1596ffc.jpg",
+      "b": "media/images/image-b87e9b8013cf72ae8552.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.501,
+      "verdict": "uncertain",
+      "reason": "men's tailoring turnarounds in the same colourway; I could not tell at review scale whether these are one garment or two, and say so rather than guess",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00561-2f488d3c2146ec86"
+      ],
+      "rows_b": [
+        "train-00059-c76911bf4a1688d4",
+        "train-00145-c5c9a4033408aabc",
+        "train-00152-fd367461cb58fabc",
+        "train-00386-e8f85d0ee8e2db7c",
+        "train-00443-c6868b3ca832aa9d",
+        "train-00515-0be7187fae00ea68",
+        "train-00574-c53a491aae9a1eff",
+        "train-00583-940594bc3113c3f4",
+        "train-00597-20d43a208ccd96dd",
+        "train-00663-ad5369fa37f0e905",
+        "train-00674-2fbf7bd968b4b9a5",
+        "train-00728-d8740d75331b09b5",
+        "train-00833-6410b35aea330bee",
+        "train-00870-ca8cc602fc57ded0",
+        "train-00903-eed258087d4b1dc2",
+        "train-00963-197280c625cf0fbc"
+      ]
+    },
+    {
+      "a": "media/images/image-105ab1168d033cde449a.jpg",
+      "b": "media/images/image-313b3768c01d292613f6.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.4319,
+      "verdict": "duplicate",
+      "reason": "the same subject rendered again: same three-view sheet, same figure, poses differ slightly",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00030-a1998655ef3b037c"
+      ],
+      "components_b": [
+        "train-00381-bf69ae9a00451818"
+      ],
+      "rows_a": [
+        "train-00030-a1998655ef3b037c",
+        "train-00259-92ca6b10881ce331",
+        "train-00403-92a92e39f311b7e5",
+        "train-00435-5dd88fa4a8b4088d",
+        "train-00564-ac7f1f23bd1101c8",
+        "train-00987-25798973fb2734d1"
+      ],
+      "rows_b": [
+        "train-00381-bf69ae9a00451818",
+        "train-00451-a095ae81c60af24a",
+        "train-00521-6502b83aa5478a09",
+        "train-00756-3e768cfc015e661d"
+      ]
+    },
+    {
+      "a": "media/images/image-3dd03c6c47b523e98dc5.jpg",
+      "b": "media/images/image-eeb999c72600341b3894.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.4072,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-01711-6c0f67da29856b0f"
+      ],
+      "components_b": [
+        "train-00330-3de48fe49ccaf102"
+      ],
+      "rows_a": [
+        "train-01711-6c0f67da29856b0f"
+      ],
+      "rows_b": [
+        "train-00330-3de48fe49ccaf102",
+        "train-00781-e746d4df38829ec7",
+        "train-00802-99f14d6d55fdd88e"
+      ]
+    },
+    {
+      "a": "media/images/image-a3bbae0c5a96df4abc84.jpg",
+      "b": "media/images/image-d648e6245261e934ddbc.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.3816,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-01860-6e1a436e1ea2270a"
+      ],
+      "components_b": [
+        "train-01209-786c8fe8dbecceaa"
+      ],
+      "rows_a": [
+        "train-01860-6e1a436e1ea2270a"
+      ],
+      "rows_b": [
+        "train-01209-786c8fe8dbecceaa",
+        "train-01393-453de213a3a1fb1c"
+      ]
+    },
+    {
+      "a": "media/images/image-780fde1745a4dfb00b73.jpg",
+      "b": "media/images/image-7b342517bbff5870236c.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.3779,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00988-640a653f9139f553"
+      ],
+      "components_b": [
+        "train-00014-c150c10f37c8c85f"
+      ],
+      "rows_a": [
+        "train-01235-c9e5544dfc73c4b1"
+      ],
+      "rows_b": [
+        "train-00122-417a488ed2ec1d43",
+        "train-00328-3db4c2c57fba4e07",
+        "train-00409-6e6d8733a6900547",
+        "train-00468-be47d4a20ff124a3",
+        "train-00631-ec84079e98322c2c",
+        "train-00714-df8547b5850baeee",
+        "train-00752-02e3ff713889c3e7",
+        "train-00842-0c115bcc68098370",
+        "train-00885-4bc83f61f2a07b28"
+      ]
+    },
+    {
+      "a": "media/images/image-723418fdcc3ec1596ffc.jpg",
+      "b": "media/images/image-dac06cb87cd40f582f29.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.3484,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00561-2f488d3c2146ec86"
+      ],
+      "rows_b": [
+        "train-00537-b3b0b285ed63cb7e",
+        "train-00681-8b7d040004ee0bc0",
+        "train-00700-7c599051a5d803fd"
+      ]
+    },
+    {
+      "a": "media/images/image-2343c21f9ef39d22245a.jpg",
+      "b": "media/images/image-62d584a11b8b70989e37.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.3002,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-01200-e5ed9d8f185c1a0d"
+      ],
+      "components_b": [
+        "train-00488-1be92193c92e581b"
+      ],
+      "rows_a": [
+        "train-01200-e5ed9d8f185c1a0d",
+        "train-01866-54f499b5cb50d9bc"
+      ],
+      "rows_b": [
+        "train-00488-1be92193c92e581b"
+      ]
+    },
+    {
+      "a": "media/images/image-2d7c2bd9969989a71ad6.jpg",
+      "b": "media/images/image-774aedd52acca7a69376.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.2807,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-01493-6492222fb76cf8d7"
+      ],
+      "components_b": [
+        "train-01391-d1ae0feb99fe8c83"
+      ],
+      "rows_a": [
+        "train-01493-6492222fb76cf8d7"
+      ],
+      "rows_b": [
+        "train-01391-d1ae0feb99fe8c83",
+        "train-01829-f4d15bf6c516a003"
+      ]
+    },
+    {
+      "a": "media/images/image-6c8c5e7cfaad7120b441.jpg",
+      "b": "media/images/image-eeb999c72600341b3894.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.1994,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-00381-bf69ae9a00451818"
+      ],
+      "components_b": [
+        "train-00330-3de48fe49ccaf102"
+      ],
+      "rows_a": [
+        "train-00756-3e768cfc015e661d"
+      ],
+      "rows_b": [
+        "train-00330-3de48fe49ccaf102",
+        "train-00781-e746d4df38829ec7",
+        "train-00802-99f14d6d55fdd88e"
+      ]
+    },
+    {
+      "a": "media/images/image-b87e9b8013cf72ae8552.jpg",
+      "b": "media/images/image-be4139aab0ecbb0a89dd.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.1637,
+      "verdict": "uncertain",
+      "reason": "men's tailoring turnarounds in the same colourway; I could not tell at review scale whether these are one garment or two, and say so rather than guess",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "rows_a": [
+        "train-00059-c76911bf4a1688d4",
+        "train-00145-c5c9a4033408aabc",
+        "train-00152-fd367461cb58fabc",
+        "train-00386-e8f85d0ee8e2db7c",
+        "train-00443-c6868b3ca832aa9d",
+        "train-00515-0be7187fae00ea68",
+        "train-00574-c53a491aae9a1eff",
+        "train-00583-940594bc3113c3f4",
+        "train-00597-20d43a208ccd96dd",
+        "train-00663-ad5369fa37f0e905",
+        "train-00674-2fbf7bd968b4b9a5",
+        "train-00728-d8740d75331b09b5",
+        "train-00833-6410b35aea330bee",
+        "train-00870-ca8cc602fc57ded0",
+        "train-00903-eed258087d4b1dc2",
+        "train-00963-197280c625cf0fbc"
+      ],
+      "rows_b": [
+        "train-00220-7730d79bd8c0d417",
+        "train-00576-2d295c75fd607c60",
+        "train-00824-6bd470bce4a0e71c"
+      ]
+    },
+    {
+      "a": "media/images/image-08a889fcd03245cb3ac5.jpg",
+      "b": "media/images/image-40e16e606c91c6dc3a50.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.1422,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-01164-7c8c7fbc63c69119"
+      ],
+      "components_b": [
+        "train-00988-640a653f9139f553"
+      ],
+      "rows_a": [
+        "train-01164-7c8c7fbc63c69119"
+      ],
+      "rows_b": [
+        "train-01171-8999bdfa4720e1c7",
+        "train-01477-8472da47a0767f38"
+      ]
+    },
+    {
+      "a": "media/images/image-1172059a4a6daa582620.jpg",
+      "b": "media/images/image-5376c7bc2366fe504fc4.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.1198,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00076-e8e84b23f174c74f"
+      ],
+      "components_b": [
+        "train-00393-f0af0cbf0f94402c"
+      ],
+      "rows_a": [
+        "train-00076-e8e84b23f174c74f",
+        "train-00092-80a366a31ce3d5ce",
+        "train-00116-e049e40b2fb386fe",
+        "train-00296-f8241e0bd59f1905",
+        "train-00349-9d8f8d2d096afc59",
+        "train-00370-d231d736ff2c1582",
+        "train-00442-b9337cab5fdb6675",
+        "train-00449-ed197651f29e89e4",
+        "train-00532-3ccf7a53c2ab9c4a",
+        "train-00538-1148e1cc7bb27be7",
+        "train-00540-2083d7b14c88fd35",
+        "train-00623-9ab385fa36488136",
+        "train-00755-053b3a4d984c9a7c",
+        "train-00765-2f7dce8d294ee216",
+        "train-00788-f568bc71f06015d0",
+        "train-00822-5fd1d321bd07c063",
+        "train-00901-8167e91b298db158"
+      ],
+      "rows_b": [
+        "train-00393-f0af0cbf0f94402c",
+        "train-00869-bfaf0a67ff2d2a31"
+      ]
+    },
+    {
+      "a": "media/images/image-9fb9a525cf88422ba48c.jpg",
+      "b": "media/images/image-fd0f08f837ace52caf91.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.1196,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-00024-4ea87e988fb3cd65"
+      ],
+      "components_b": [
+        "train-00107-056186f6419d29b1"
+      ],
+      "rows_a": [
+        "train-00024-4ea87e988fb3cd65",
+        "train-00414-35c99371334f86ed",
+        "train-00429-d74988ee183d8e47"
+      ],
+      "rows_b": [
+        "train-00107-056186f6419d29b1",
+        "train-00353-06daa8f6db0b0001",
+        "train-00358-6d776d8afee0ae64",
+        "train-00584-19a3ab9255f6e9f9",
+        "train-00653-c65eca57ac387ea1",
+        "train-00902-7decd205b9854b33",
+        "train-00994-bd01cb2a1f185d16"
+      ]
+    },
+    {
+      "a": "media/images/image-105ab1168d033cde449a.jpg",
+      "b": "media/images/image-6c8c5e7cfaad7120b441.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.0974,
+      "verdict": "duplicate",
+      "reason": "the same subject rendered again: same three-view sheet, same figure, poses differ slightly",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00030-a1998655ef3b037c"
+      ],
+      "components_b": [
+        "train-00381-bf69ae9a00451818"
+      ],
+      "rows_a": [
+        "train-00030-a1998655ef3b037c",
+        "train-00259-92ca6b10881ce331",
+        "train-00403-92a92e39f311b7e5",
+        "train-00435-5dd88fa4a8b4088d",
+        "train-00564-ac7f1f23bd1101c8",
+        "train-00987-25798973fb2734d1"
+      ],
+      "rows_b": [
+        "train-00756-3e768cfc015e661d"
+      ]
+    },
+    {
+      "a": "media/images/image-313b3768c01d292613f6.jpg",
+      "b": "media/images/image-820b3fbf2d323273093a.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.0935,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00381-bf69ae9a00451818"
+      ],
+      "components_b": [
+        "train-01192-be623116ac9fbeba"
+      ],
+      "rows_a": [
+        "train-00381-bf69ae9a00451818",
+        "train-00451-a095ae81c60af24a",
+        "train-00521-6502b83aa5478a09",
+        "train-00756-3e768cfc015e661d"
+      ],
+      "rows_b": [
+        "train-01345-c2c21d7d0903a34e"
+      ]
+    },
+    {
+      "a": "media/images/image-105ab1168d033cde449a.jpg",
+      "b": "media/images/image-820b3fbf2d323273093a.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.0878,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00030-a1998655ef3b037c"
+      ],
+      "components_b": [
+        "train-01192-be623116ac9fbeba"
+      ],
+      "rows_a": [
+        "train-00030-a1998655ef3b037c",
+        "train-00259-92ca6b10881ce331",
+        "train-00403-92a92e39f311b7e5",
+        "train-00435-5dd88fa4a8b4088d",
+        "train-00564-ac7f1f23bd1101c8",
+        "train-00987-25798973fb2734d1"
+      ],
+      "rows_b": [
+        "train-01345-c2c21d7d0903a34e"
+      ]
+    },
+    {
+      "a": "media/images/image-6c8c5e7cfaad7120b441.jpg",
+      "b": "media/images/image-820b3fbf2d323273093a.jpg",
+      "hamming": 0,
+      "foreground_correlation": 0.0602,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00381-bf69ae9a00451818"
+      ],
+      "components_b": [
+        "train-01192-be623116ac9fbeba"
+      ],
+      "rows_a": [
+        "train-00756-3e768cfc015e661d"
+      ],
+      "rows_b": [
+        "train-01345-c2c21d7d0903a34e"
+      ]
+    },
+    {
+      "a": "media/images/image-452391f73783bab45923.jpg",
+      "b": "media/images/image-6c8c5e7cfaad7120b441.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.0444,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00318-12454ba19d090fe4"
+      ],
+      "components_b": [
+        "train-00381-bf69ae9a00451818"
+      ],
+      "rows_a": [
+        "train-00318-12454ba19d090fe4"
+      ],
+      "rows_b": [
+        "train-00756-3e768cfc015e661d"
+      ]
+    },
+    {
+      "a": "media/images/image-452391f73783bab45923.jpg",
+      "b": "media/images/image-820b3fbf2d323273093a.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.0437,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00318-12454ba19d090fe4"
+      ],
+      "components_b": [
+        "train-01192-be623116ac9fbeba"
+      ],
+      "rows_a": [
+        "train-00318-12454ba19d090fe4"
+      ],
+      "rows_b": [
+        "train-01345-c2c21d7d0903a34e"
+      ]
+    },
+    {
+      "a": "media/images/image-2d38b3d0764587a73aee.jpg",
+      "b": "media/images/image-ffe5f0a17943ed4ff17c.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.0408,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00750-ed9d4db250e6553e"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00750-ed9d4db250e6553e"
+      ],
+      "rows_b": [
+        "train-00117-4b1a80ee7b2297e9",
+        "train-00447-64656572c1505ec5",
+        "train-00551-dbec3650525cf806",
+        "train-00742-2ae7ab957f9b56af",
+        "train-00771-2695b1f556c58c00",
+        "train-00794-1f562626f834eb18",
+        "train-00872-2167a944c217cc73",
+        "train-01014-7def783bd89bddca"
+      ]
+    },
+    {
+      "a": "media/images/image-1ac08ebdf4bb0439f71e.jpg",
+      "b": "media/images/image-2d38b3d0764587a73aee.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.0211,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00678-5a749852f276e71c"
+      ],
+      "components_b": [
+        "train-00750-ed9d4db250e6553e"
+      ],
+      "rows_a": [
+        "train-00678-5a749852f276e71c"
+      ],
+      "rows_b": [
+        "train-00750-ed9d4db250e6553e"
+      ]
+    },
+    {
+      "a": "media/images/image-86b77e5602f583f4854d.jpg",
+      "b": "media/images/image-b87e9b8013cf72ae8552.jpg",
+      "hamming": 1,
+      "foreground_correlation": 0.0119,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00014-c150c10f37c8c85f"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00014-c150c10f37c8c85f",
+        "train-00553-d907f8d613329f2b",
+        "train-00631-ec84079e98322c2c",
+        "train-00834-10d6c704ab3030d8"
+      ],
+      "rows_b": [
+        "train-00059-c76911bf4a1688d4",
+        "train-00145-c5c9a4033408aabc",
+        "train-00152-fd367461cb58fabc",
+        "train-00386-e8f85d0ee8e2db7c",
+        "train-00443-c6868b3ca832aa9d",
+        "train-00515-0be7187fae00ea68",
+        "train-00574-c53a491aae9a1eff",
+        "train-00583-940594bc3113c3f4",
+        "train-00597-20d43a208ccd96dd",
+        "train-00663-ad5369fa37f0e905",
+        "train-00674-2fbf7bd968b4b9a5",
+        "train-00728-d8740d75331b09b5",
+        "train-00833-6410b35aea330bee",
+        "train-00870-ca8cc602fc57ded0",
+        "train-00903-eed258087d4b1dc2",
+        "train-00963-197280c625cf0fbc"
+      ]
+    },
+    {
+      "a": "media/images/image-b87e9b8013cf72ae8552.jpg",
+      "b": "media/images/image-fac04302b2c8c5e27407.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.0003,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-01381-cd9e2728f57f9391"
+      ],
+      "rows_a": [
+        "train-00059-c76911bf4a1688d4",
+        "train-00145-c5c9a4033408aabc",
+        "train-00152-fd367461cb58fabc",
+        "train-00386-e8f85d0ee8e2db7c",
+        "train-00443-c6868b3ca832aa9d",
+        "train-00515-0be7187fae00ea68",
+        "train-00574-c53a491aae9a1eff",
+        "train-00583-940594bc3113c3f4",
+        "train-00597-20d43a208ccd96dd",
+        "train-00663-ad5369fa37f0e905",
+        "train-00674-2fbf7bd968b4b9a5",
+        "train-00728-d8740d75331b09b5",
+        "train-00833-6410b35aea330bee",
+        "train-00870-ca8cc602fc57ded0",
+        "train-00903-eed258087d4b1dc2",
+        "train-00963-197280c625cf0fbc"
+      ],
+      "rows_b": [
+        "train-01381-cd9e2728f57f9391"
+      ]
+    },
+    {
+      "a": "media/images/image-1ac08ebdf4bb0439f71e.jpg",
+      "b": "media/images/image-2e7f925ce3a14ff0448b.jpg",
+      "hamming": 1,
+      "foreground_correlation": -0.0106,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00678-5a749852f276e71c"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00678-5a749852f276e71c"
+      ],
+      "rows_b": [
+        "train-00043-18266bdaa3645407",
+        "train-00347-12a3276fe92a077b",
+        "train-00474-634acc6f6a99e918",
+        "train-00971-496c0adfc45b6bcb"
+      ]
+    },
+    {
+      "a": "media/images/image-827b6efd2ec21bbac952.jpg",
+      "b": "media/images/image-cb23ca49563f41b9283f.jpg",
+      "hamming": 6,
+      "foreground_correlation": -0.016,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "components_b": [
+        "train-00557-4374655c6ba76cbe"
+      ],
+      "rows_a": [
+        "train-00278-e0fe5b5a3f9b5915",
+        "train-00427-ca3842b2164175ae",
+        "train-00984-f82c553b34e81aa1"
+      ],
+      "rows_b": [
+        "train-00557-4374655c6ba76cbe"
+      ]
+    },
+    {
+      "a": "media/images/image-723418fdcc3ec1596ffc.jpg",
+      "b": "media/images/image-86b77e5602f583f4854d.jpg",
+      "hamming": 1,
+      "foreground_correlation": -0.0224,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "components_b": [
+        "train-00014-c150c10f37c8c85f"
+      ],
+      "rows_a": [
+        "train-00561-2f488d3c2146ec86"
+      ],
+      "rows_b": [
+        "train-00014-c150c10f37c8c85f",
+        "train-00553-d907f8d613329f2b",
+        "train-00631-ec84079e98322c2c",
+        "train-00834-10d6c704ab3030d8"
+      ]
+    },
+    {
+      "a": "media/images/image-2e7f925ce3a14ff0448b.jpg",
+      "b": "media/images/image-b77239d49a2e04dfbe34.jpg",
+      "hamming": 5,
+      "foreground_correlation": -0.0296,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-01189-969c4c3b25c1ad5b"
+      ],
+      "rows_a": [
+        "train-00043-18266bdaa3645407",
+        "train-00347-12a3276fe92a077b",
+        "train-00474-634acc6f6a99e918",
+        "train-00971-496c0adfc45b6bcb"
+      ],
+      "rows_b": [
+        "train-01189-969c4c3b25c1ad5b",
+        "train-01506-deb7823c30289409",
+        "train-01769-370196150d7e7c0b"
+      ]
+    },
+    {
+      "a": "media/images/image-1172059a4a6daa582620.jpg",
+      "b": "media/images/image-42205dab996131607913.jpg",
+      "hamming": 0,
+      "foreground_correlation": -0.0319,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00076-e8e84b23f174c74f"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00076-e8e84b23f174c74f",
+        "train-00092-80a366a31ce3d5ce",
+        "train-00116-e049e40b2fb386fe",
+        "train-00296-f8241e0bd59f1905",
+        "train-00349-9d8f8d2d096afc59",
+        "train-00370-d231d736ff2c1582",
+        "train-00442-b9337cab5fdb6675",
+        "train-00449-ed197651f29e89e4",
+        "train-00532-3ccf7a53c2ab9c4a",
+        "train-00538-1148e1cc7bb27be7",
+        "train-00540-2083d7b14c88fd35",
+        "train-00623-9ab385fa36488136",
+        "train-00755-053b3a4d984c9a7c",
+        "train-00765-2f7dce8d294ee216",
+        "train-00788-f568bc71f06015d0",
+        "train-00822-5fd1d321bd07c063",
+        "train-00901-8167e91b298db158"
+      ],
+      "rows_b": [
+        "train-00760-a75749c61b69b9b6",
+        "train-00839-305b1afd0f98ac29",
+        "train-00880-d1f1a32c25382c92",
+        "train-00947-2ce9fda5e17425b1"
+      ]
+    },
+    {
+      "a": "media/images/image-2d38b3d0764587a73aee.jpg",
+      "b": "media/images/image-2e7f925ce3a14ff0448b.jpg",
+      "hamming": 0,
+      "foreground_correlation": -0.0378,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00750-ed9d4db250e6553e"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00750-ed9d4db250e6553e"
+      ],
+      "rows_b": [
+        "train-00043-18266bdaa3645407",
+        "train-00347-12a3276fe92a077b",
+        "train-00474-634acc6f6a99e918",
+        "train-00971-496c0adfc45b6bcb"
+      ]
+    },
+    {
+      "a": "media/images/image-6bc3d236823b6eae299c.jpg",
+      "b": "media/images/image-95f04098b426c7e1376c.jpg",
+      "hamming": 0,
+      "foreground_correlation": -0.0391,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00769-8335054374b750c4"
+      ],
+      "components_b": [
+        "train-00014-c150c10f37c8c85f"
+      ],
+      "rows_a": [
+        "train-00769-8335054374b750c4"
+      ],
+      "rows_b": [
+        "train-00340-f4e96b45db1dea54",
+        "train-00752-02e3ff713889c3e7",
+        "train-00885-4bc83f61f2a07b28",
+        "train-00940-01f4e655e46b2c05"
+      ]
+    },
+    {
+      "a": "media/images/image-05c858b144ea47011517.jpg",
+      "b": "media/images/image-1172059a4a6daa582620.jpg",
+      "hamming": 0,
+      "foreground_correlation": -0.0452,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00076-e8e84b23f174c74f"
+      ],
+      "rows_a": [
+        "train-00813-fcee4440121a0369"
+      ],
+      "rows_b": [
+        "train-00076-e8e84b23f174c74f",
+        "train-00092-80a366a31ce3d5ce",
+        "train-00116-e049e40b2fb386fe",
+        "train-00296-f8241e0bd59f1905",
+        "train-00349-9d8f8d2d096afc59",
+        "train-00370-d231d736ff2c1582",
+        "train-00442-b9337cab5fdb6675",
+        "train-00449-ed197651f29e89e4",
+        "train-00532-3ccf7a53c2ab9c4a",
+        "train-00538-1148e1cc7bb27be7",
+        "train-00540-2083d7b14c88fd35",
+        "train-00623-9ab385fa36488136",
+        "train-00755-053b3a4d984c9a7c",
+        "train-00765-2f7dce8d294ee216",
+        "train-00788-f568bc71f06015d0",
+        "train-00822-5fd1d321bd07c063",
+        "train-00901-8167e91b298db158"
+      ]
+    },
+    {
+      "a": "media/images/image-86b77e5602f583f4854d.jpg",
+      "b": "media/images/image-9eb7588d9a6df978ac66.jpg",
+      "hamming": 1,
+      "foreground_correlation": -0.0815,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00014-c150c10f37c8c85f"
+      ],
+      "components_b": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "rows_a": [
+        "train-00014-c150c10f37c8c85f",
+        "train-00553-d907f8d613329f2b",
+        "train-00631-ec84079e98322c2c",
+        "train-00834-10d6c704ab3030d8"
+      ],
+      "rows_b": [
+        "train-00117-4b1a80ee7b2297e9",
+        "train-00523-6d380bca9414af4c",
+        "train-00633-762de447bbabfd38",
+        "train-00839-305b1afd0f98ac29"
+      ]
+    },
+    {
+      "a": "media/images/image-a103d49433412f67f4e3.jpg",
+      "b": "media/images/image-c91e2dee63409437e47a.jpg",
+      "hamming": 6,
+      "foreground_correlation": -0.0829,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-00769-8335054374b750c4"
+      ],
+      "components_b": [
+        "train-01358-4662b89eb01af6b7"
+      ],
+      "rows_a": [
+        "train-00769-8335054374b750c4"
+      ],
+      "rows_b": [
+        "train-01358-4662b89eb01af6b7",
+        "train-01689-f8e3b2d33c8185c6"
+      ]
+    },
+    {
+      "a": "media/images/image-cb23ca49563f41b9283f.jpg",
+      "b": "media/images/image-f1cab184b432af8f526f.jpg",
+      "hamming": 6,
+      "foreground_correlation": -0.0924,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "weak-stratified-sample",
+      "components_a": [
+        "train-00557-4374655c6ba76cbe"
+      ],
+      "components_b": [
+        "train-01455-1968a9d53b395d76"
+      ],
+      "rows_a": [
+        "train-00557-4374655c6ba76cbe"
+      ],
+      "rows_b": [
+        "train-01455-1968a9d53b395d76"
+      ]
+    },
+    {
+      "a": "media/images/image-228bdb44063dcc4aca6c.jpg",
+      "b": "media/images/image-86b77e5602f583f4854d.jpg",
+      "hamming": 1,
+      "foreground_correlation": -0.1277,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00014-c150c10f37c8c85f"
+      ],
+      "rows_a": [
+        "train-00128-94767d98d9a1e961",
+        "train-00146-3e846e2d775825d7",
+        "train-00232-7c2b390b0fa834d5",
+        "train-00261-729bf7ed19e74a7f",
+        "train-00372-f12825a5eaa765d1",
+        "train-00405-8c5f5a1896c0ef82",
+        "train-00496-bc1cba383a1917ee",
+        "train-00545-6225dddd585def41",
+        "train-00773-d80bf5b408e26f64",
+        "train-00813-fcee4440121a0369",
+        "train-00819-b678cabb93f8be28",
+        "train-00999-68e472e51d65ca11",
+        "train-01007-7cfb04e1ddb81256"
+      ],
+      "rows_b": [
+        "train-00014-c150c10f37c8c85f",
+        "train-00553-d907f8d613329f2b",
+        "train-00631-ec84079e98322c2c",
+        "train-00834-10d6c704ab3030d8"
+      ]
+    },
+    {
+      "a": "media/images/image-05c858b144ea47011517.jpg",
+      "b": "media/images/image-5376c7bc2366fe504fc4.jpg",
+      "hamming": 1,
+      "foreground_correlation": -0.1944,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00393-f0af0cbf0f94402c"
+      ],
+      "rows_a": [
+        "train-00813-fcee4440121a0369"
+      ],
+      "rows_b": [
+        "train-00393-f0af0cbf0f94402c",
+        "train-00869-bfaf0a67ff2d2a31"
+      ]
+    },
+    {
+      "a": "media/images/image-86b77e5602f583f4854d.jpg",
+      "b": "media/images/image-be4139aab0ecbb0a89dd.jpg",
+      "hamming": 0,
+      "foreground_correlation": -0.2099,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00014-c150c10f37c8c85f"
+      ],
+      "components_b": [
+        "train-00017-fec349556d78fad7"
+      ],
+      "rows_a": [
+        "train-00014-c150c10f37c8c85f",
+        "train-00553-d907f8d613329f2b",
+        "train-00631-ec84079e98322c2c",
+        "train-00834-10d6c704ab3030d8"
+      ],
+      "rows_b": [
+        "train-00220-7730d79bd8c0d417",
+        "train-00576-2d295c75fd607c60",
+        "train-00824-6bd470bce4a0e71c"
+      ]
+    },
+    {
+      "a": "media/images/image-42205dab996131607913.jpg",
+      "b": "media/images/image-5376c7bc2366fe504fc4.jpg",
+      "hamming": 1,
+      "foreground_correlation": -0.2129,
+      "verdict": "distinct",
+      "reason": "different subjects sharing the three-view turnaround-sheet template on a white field, which is what the hash matched",
+      "band": "low-hamming-weak",
+      "components_a": [
+        "train-00043-18266bdaa3645407"
+      ],
+      "components_b": [
+        "train-00393-f0af0cbf0f94402c"
+      ],
+      "rows_a": [
+        "train-00760-a75749c61b69b9b6",
+        "train-00839-305b1afd0f98ac29",
+        "train-00880-d1f1a32c25382c92",
+        "train-00947-2ce9fda5e17425b1"
+      ],
+      "rows_b": [
+        "train-00393-f0af0cbf0f94402c",
+        "train-00869-bfaf0a67ff2d2a31"
+      ]
+    }
+  ]
+}

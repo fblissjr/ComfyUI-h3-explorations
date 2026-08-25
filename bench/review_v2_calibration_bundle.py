@@ -757,12 +757,19 @@ def arm_split_disjointness(cal_digests: dict, holdouts: dict, root: Path,
                 f"unreviewed {strength} candidate: {hit['calibration']} vs "
                 f"{hit['holdout']} (Hamming {hit['hamming']}, foreground "
                 f"correlation {hit['foreground_correlation']})")
-    stale = sorted(set(adjudication) - {f"{c['calibration']}|{c['holdout']}"
-                                        for c in candidates})
-    for key in stale:
-        problems.append(f"adjudication names a pair the scan no longer produces: {key}")
+    # An entry the scan did not produce is NOT stale. A verdict is a property of
+    # two images, not of one bundle, so a rebuilt split legitimately stops
+    # exercising most of the file. Making that red once turned every rebuilt
+    # bundle red for carrying verdicts that were still true, which is the
+    # "red while the state is correct" failure. Report the coverage instead --
+    # what stays red is an unruled candidate, and a ruled duplicate.
+    exercised = {f"{c['calibration']}|{c['holdout']}" for c in candidates}
+    unexercised = sorted(set(adjudication) - exercised)
     return {"calibration_files": len(cal_digests), "holdout_files": len(hold_digests),
             "unhashable": failed, "candidates": candidates,
+            "adjudication_entries": len(adjudication),
+            "adjudication_exercised": len(exercised & set(adjudication)),
+            "adjudication_unexercised": len(unexercised),
             "hamming_threshold": near_threshold,
             "correlation_threshold": corr_threshold}, problems
 
