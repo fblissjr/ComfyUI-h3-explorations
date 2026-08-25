@@ -35,6 +35,18 @@ the session applies the config and before any forward: exactly the text
 decoder linears carry a weight scheme, nothing in the tower, mergers, embedding
 or head.
 
+**GPTQ mode** (`--modifier gptq`, or `--modifier awq_gptq` for AWQ smoothing
+followed by GPTQ) runs the same path with `bench/h3_gptq_recipe.py`'s recipe on
+the same decoder-only boundary. Everything that is not AWQ-specific is shared;
+what is AWQ-specific is skipped rather than faked, so a GPTQ run's record simply
+carries no smoothing, no parent re-runs and no scales sidecar. What it carries
+instead is the pair the host budget rests on: the Hessian bytes per device,
+censused at the moment the quantize step is entered and before it frees them,
+and the time spent in that step. It also captures the one failure that would be
+silent otherwise -- a Hessian the Cholesky cannot invert makes the installed
+code fall back to round-to-nearest **for that module** with only a log line, so
+a candidate could ship with layers that had no GPTQ at all.
+
 It answers, by measuring:
 
 - peak allocated and reserved VRAM, cumulative over cache construction and
@@ -359,6 +371,12 @@ class _Instrumentation:
         self.awq_parent_runs = 0
         self.awq_scales: list[dict] = []
         self.awq_scale_tensors: dict[str, torch.Tensor] = {}
+        self.gptq_quantize_seconds = 0.0
+        self.gptq_quantize_calls = 0
+        self.gptq_modules_quantized = 0
+        self.gptq_hessian_peak_bytes: dict[str, int] = {}
+        self.gptq_hessian_first_epoch: list[dict] = []
+        self.gptq_cholesky_fallbacks: list[str] = []
 
     @contextlib.contextmanager
     def instrument_awq(self, modifier):
@@ -414,6 +432,79 @@ class _Instrumentation:
             modifier._apply_smoothing = original_smooth
             modifier._run_samples = original_runs
             modifier._compute_best_scale = original_scale
+
+    @contextlib.contextmanager
+    def instrument_gptq(self, modifier):
+        """Size the GPTQ Hessians before they are freed, and time the quantize step.
+
+        `compress_module_list` is what the sequential pipeline reaches at the end
+        of each subgraph, and it pops each module's Hessian as it goes. So the
+        census has to be taken on entry: after the call there is nothing left to
+        measure, and "nothing is left" is exactly the property the GPTQ host
+        budget rests on -- the modifier's state is per layer, not per token.
+
+        **Patched on the class, unlike `instrument_awq`, and not by choice.**
+        These modifiers are pydantic models: assigning an attribute that is not a
+        declared field raises. `instrument_awq` gets away with instance-level
+        patching only because all three of its targets are private names, which
+        pydantic lets through; `compress_module_list` is not one, so the wrapper
+        goes on the class and is removed in the `finally`. Same arrangement as
+        `Subgraph.forward` in `install()`, and the same reason it is restored.
+
+        The loguru sink is the second half. A Hessian the Cholesky cannot invert
+        makes the installed `quantize_weight` fall back to round-to-nearest for
+        that module and only log a warning, so without this a candidate could
+        ship with layers that had no GPTQ at all and nothing in the record would
+        say which. The filter is narrow enough that an empty list is a claim.
+        """
+        from loguru import logger
+
+        instrumentation = self
+        modifier_class = type(modifier)
+        original = modifier_class.compress_module_list
+
+        def compress_module_list(self, module_list):
+            census, by_device = [], {}
+            for module in module_list:
+                hessian = modifier._hessians.get(module)
+                if hessian is None:
+                    continue
+                size = hessian.numel() * hessian.element_size()
+                device = str(hessian.device)
+                by_device[device] = by_device.get(device, 0) + size
+                census.append({
+                    "module": modifier._module_names.get(module),
+                    "columns": int(hessian.shape[0]),
+                    "bytes": size,
+                    "device": device,
+                })
+            for device, size in by_device.items():
+                instrumentation.gptq_hessian_peak_bytes[device] = max(
+                    instrumentation.gptq_hessian_peak_bytes.get(device, 0), size
+                )
+            if not instrumentation.gptq_hessian_first_epoch:
+                instrumentation.gptq_hessian_first_epoch = census
+            started = time.time()
+            try:
+                return original(self, module_list)
+            finally:
+                instrumentation.gptq_quantize_seconds += time.time() - started
+                instrumentation.gptq_quantize_calls += 1
+                instrumentation.gptq_modules_quantized += len(census)
+
+        sink = logger.add(
+            lambda message: instrumentation.gptq_cholesky_fallbacks.append(
+                " ".join(str(message).split())[:200]
+            ),
+            level="WARNING",
+            filter=lambda record: "Failed to invert hessian" in record["message"],
+        )
+        modifier_class.compress_module_list = compress_module_list
+        try:
+            yield
+        finally:
+            modifier_class.compress_module_list = original
+            logger.remove(sink)
 
     def _sample_cache(self) -> None:
         """Running maximum of the cache's bytes by device, one walk per call.
@@ -1008,18 +1099,38 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
                         # emit runs after this context has closed, which left
                         # the first candidate's recipe file empty.
                         recipe_yaml = session.lifecycle.recipe.yaml()
-                        awq = next(m for m in modifiers if type(m).__name__ == "AWQModifier")
+                        by_class = {type(m).__name__: m for m in modifiers}
                         # Asserted after the session applied the config and
                         # before any forward: the boundary is what the
                         # modifier will actually rewrite, read off the model.
                         modifier_record = {
                             "modifiers": [type(m).__name__ for m in modifiers],
                             "boundary": assert_decoder_only_boundary(model),
-                            "awq_offload_device": str(awq.offload_device),
-                            "awq_duo_scaling": awq.duo_scaling,
-                            "awq_n_grid": awq.n_grid,
                         }
-                        stack.enter_context(instrumentation.instrument_awq(awq))
+                        # Each modifier's own instrumentation, attached only
+                        # when that modifier is in the recipe. A GPTQ arm has
+                        # no smoothing to time and no scales to record, and a
+                        # record that carried those fields at zero would read
+                        # as a measurement.
+                        awq = by_class.get("AWQModifier")
+                        if awq is not None:
+                            modifier_record.update({
+                                "awq_offload_device": str(awq.offload_device),
+                                "awq_duo_scaling": awq.duo_scaling,
+                                "awq_n_grid": awq.n_grid,
+                            })
+                            stack.enter_context(instrumentation.instrument_awq(awq))
+                        gptq = by_class.get("GPTQModifier")
+                        if gptq is not None:
+                            modifier_record.update({
+                                "gptq_block_size": gptq.block_size,
+                                "gptq_dampening_frac": gptq.dampening_frac,
+                                "gptq_actorder": str(
+                                    getattr(gptq.actorder, "value", gptq.actorder)
+                                ),
+                                "gptq_offload_hessians": gptq.offload_hessians,
+                            })
+                            stack.enter_context(instrumentation.instrument_gptq(gptq))
                     sequential_pipeline.SequentialPipeline()(model, loader, dataset_args)
                 session.finalize()
         except DeliberateAbort as exc:
@@ -1112,16 +1223,12 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
     if availability is not None:
         measurement["sdpa_availability"] = availability
     if recipe is not None:
+        present = {type(m).__name__ for m in recipe}
         weight_after = _offloaded_weight_sha(control_layer)
         cwd_after = sorted(str(p) for p in Path.cwd().iterdir())
         modifier_record = modifier_record or {"boundary": None}
         modifier_record.update({
-            "recipe_yaml": recipe_yaml if recipe is not None else None,
-            "smoothing_calls": instrumentation.awq_smoothing_calls,
-            "seconds_in_awq_smoothing": round(instrumentation.awq_smoothing_seconds, 1),
-            "parent_reruns": instrumentation.awq_parent_runs,
-            "mappings_scaled": len(instrumentation.awq_scales),
-            "scales": instrumentation.awq_scales,
+            "recipe_yaml": recipe_yaml,
             "modifier_entered_control": {
                 "module": "language_model.layers.0.self_attn.q_proj",
                 "location_before": location_before,
@@ -1131,17 +1238,47 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
                 "weight_changed_in_offload_store": (
                     weight_before is not None and weight_before != weight_after
                 ),
-                "note": "read from the offload store without onloading; AWQ "
-                        "smoothing rewrites the stored weight, so a run that "
+                "note": "read from the offload store without onloading; every "
+                        "modifier here rewrites the stored weight -- AWQ when "
+                        "it smooths, GPTQ when it quantizes -- so a run that "
                         "entered the modifier path changes this hash",
             },
             "no_files_written": cwd_before == cwd_after,
-            "scales_file": None,
         })
-        if scales_out is not None and instrumentation.awq_scale_tensors:
-            save_file({k: v for k, v in instrumentation.awq_scale_tensors.items()},
-                      str(scales_out))
-            modifier_record["scales_file"] = scales_out.name
+        if "AWQModifier" in present:
+            modifier_record.update({
+                "smoothing_calls": instrumentation.awq_smoothing_calls,
+                "seconds_in_awq_smoothing": round(instrumentation.awq_smoothing_seconds, 1),
+                "parent_reruns": instrumentation.awq_parent_runs,
+                "mappings_scaled": len(instrumentation.awq_scales),
+                "scales": instrumentation.awq_scales,
+                "scales_file": None,
+            })
+            if scales_out is not None and instrumentation.awq_scale_tensors:
+                save_file({k: v for k, v in instrumentation.awq_scale_tensors.items()},
+                          str(scales_out))
+                modifier_record["scales_file"] = scales_out.name
+        if "GPTQModifier" in present:
+            peak = instrumentation.gptq_hessian_peak_bytes
+            modifier_record.update({
+                "quantize_calls": instrumentation.gptq_quantize_calls,
+                "modules_quantized": instrumentation.gptq_modules_quantized,
+                "seconds_in_gptq_quantize": round(instrumentation.gptq_quantize_seconds, 1),
+                "hessian_peak_bytes_by_device": peak,
+                "hessian_peak_gib_by_device": {
+                    k: round(v / 2**30, 3) for k, v in peak.items()
+                },
+                "hessian_first_epoch": instrumentation.gptq_hessian_first_epoch,
+                "hessian_note": "censused on entry to compress_module_list, "
+                                "which frees them as it goes; per layer, not "
+                                "per token, which is the whole difference from "
+                                "AWQ's parent-argument cache",
+                "cholesky_fallbacks": instrumentation.gptq_cholesky_fallbacks,
+                "cholesky_fallback_note": "a module here was quantized "
+                                          "round-to-nearest with no GPTQ error "
+                                          "compensation; an empty list is the "
+                                          "claim that none was",
+            })
         measurement["modifier"] = modifier_record
     if instrumentation.oom_message:
         measurement["oom"] = {
@@ -1286,13 +1423,25 @@ def main() -> int:
     )
     parser.add_argument("--abort-after", type=int,
                         help="control: raise inside the Nth subgraph forward")
-    parser.add_argument("--modifier", default="none", choices=("none", "awq"),
-                        help="Gate 2B: instantiate the real v2 recipe from "
-                             "bench/h3_awq_recipe.py and run with it. One "
-                             "prefix per process; nothing is saved")
+    parser.add_argument("--modifier", default="none",
+                        choices=("none", "awq", "gptq", "awq_gptq"),
+                        help="instantiate a real recipe and run with it: `awq` "
+                             "is the v2 recipe from bench/h3_awq_recipe.py, "
+                             "`gptq` and `awq_gptq` are bench/h3_gptq_recipe.py. "
+                             "One prefix per process; nothing is saved unless "
+                             "--emit-candidate")
     parser.add_argument("--awq-duo-scaling", default="false",
                         choices=("false", "true", "both"))
     parser.add_argument("--awq-n-grid", type=int, default=20)
+    parser.add_argument("--gptq-group-size", type=int, default=128)
+    parser.add_argument("--gptq-block-size", type=int, default=128)
+    parser.add_argument("--gptq-dampening-frac", type=float, default=0.01)
+    parser.add_argument("--gptq-actorder", default="static",
+                        choices=("static", "weight", "none"))
+    parser.add_argument("--gptq-offload-hessians", action="store_true",
+                        help="hold the Hessians on the CPU between forwards "
+                             "instead of on the execution device. The card "
+                             "probe decides this; see bench/h3_gptq_recipe.py")
     parser.add_argument("--emit-candidate", default=None, metavar="DIR",
                         help="the launch: after the modifier-bearing run, save the "
                              "compressed candidate to this NEW directory with the "
@@ -1330,8 +1479,9 @@ def main() -> int:
     recipe_description = None
     candidate_dir = None
     if args.emit_candidate:
-        if args.modifier != "awq":
-            raise SystemExit("--emit-candidate needs --modifier awq")
+        if args.modifier == "none":
+            raise SystemExit("--emit-candidate needs a --modifier; there is "
+                             "nothing to emit from a modifier-free floor run")
         candidate_dir = Path(args.emit_candidate).expanduser().resolve()
         if candidate_dir.exists():
             raise SystemExit(f"refuse to write into an existing directory: {candidate_dir.name}")
@@ -1341,19 +1491,38 @@ def main() -> int:
             if root == candidate_dir or root in candidate_dir.parents:
                 raise SystemExit("the candidate directory resolves under the source "
                                  "checkpoint or the deployed artifact's config; refused")
-    if args.modifier == "awq":
-        from h3_awq_recipe import build_recipe, describe_recipe
+    if args.modifier != "none":
+        from h3_awq_recipe import describe_recipe
 
         if args.offload != "auto_offload":
-            raise SystemExit("Gate 2B runs through the converted offload bridge only")
+            raise SystemExit("a modifier-bearing run goes through the converted "
+                             "offload bridge only")
         if len(set(min(max(1, n), len(order)) for n in (args.prefix or [1]))) != 1:
-            raise SystemExit("--modifier awq takes exactly one --prefix: AWQ mutates "
-                             "the weights, so a second prefix in the same process "
-                             "would calibrate on already-smoothed ones")
+            raise SystemExit(f"--modifier {args.modifier} takes exactly one "
+                             "--prefix: every modifier here mutates the weights, "
+                             "so a second prefix in the same process would "
+                             "calibrate on already-rewritten ones")
         duo = {"false": False, "true": True, "both": "both"}[args.awq_duo_scaling]
         # Constructed before the model loads, so a recipe defect fails here and
         # costs nothing.
-        recipe = build_recipe(offload_device="cpu", duo_scaling=duo, n_grid=args.awq_n_grid)
+        if args.modifier == "awq":
+            from h3_awq_recipe import build_recipe
+
+            recipe = build_recipe(offload_device="cpu", duo_scaling=duo,
+                                  n_grid=args.awq_n_grid)
+        else:
+            from h3_gptq_recipe import build_recipe as build_gptq_recipe
+
+            recipe = build_gptq_recipe(
+                args.modifier,
+                group_size=args.gptq_group_size,
+                block_size=args.gptq_block_size,
+                dampening_frac=args.gptq_dampening_frac,
+                actorder=None if args.gptq_actorder == "none" else args.gptq_actorder,
+                offload_hessians=args.gptq_offload_hessians,
+                awq_offload_device="cpu", awq_duo_scaling=duo,
+                awq_n_grid=args.awq_n_grid,
+            )
         recipe_description = describe_recipe(recipe)
         print(f"recipe: {[type(m).__name__ for m in recipe]}")
 
@@ -1411,8 +1580,8 @@ def main() -> int:
                                    "reserves this much host memory for "
                                    "non-loading work; Gate 2B needs an explicit "
                                    "larger reserve and a fresh model per "
-                                   "modifier arm, because AWQ mutates weights "
-                                   "and attaches state",
+                                   "modifier arm, because every modifier here "
+                                   "mutates weights and attaches state",
             "device_map_note": "raw device_map='auto' is incompatible with "
                                "SequentialPipeline in this pinned pair "
                                "(accelerate's functools.partial forward vs "
@@ -1424,16 +1593,17 @@ def main() -> int:
         "modifier": {
             "kind": args.modifier,
             "recipe": recipe_description if recipe is not None else None,
-            "note": ("the real v2 recipe, run without any save; the increment "
-                     "over the no-modifier floor is the measurement"
+            "note": (f"the real {args.modifier} recipe, run without any save; "
+                     "the increment over the no-modifier floor is the measurement"
                      if recipe is not None else
                      "no modifier: the floor beneath a calibration run"),
         },
         "steps": [],
     }
     if recipe is not None:
-        report["pilot"] = ("Gate 2B: llm-compressor SequentialPipeline over native-H3 "
-                           "batches with the real AWQ recipe, no artifact")
+        report["pilot"] = ("Gate 2B: llm-compressor SequentialPipeline over "
+                           f"native-H3 batches with the real {args.modifier} "
+                           "recipe, no artifact")
         report["gate"] = "2B"
 
     try:
@@ -1453,13 +1623,21 @@ def main() -> int:
                     args.abort_after if size == sizes[-1] else None,
                     offload_dir, model_config, recipe,
                     out_path.with_name(out_path.stem + "_awq_scales.safetensors")
-                    if recipe is not None else None,
+                    if args.modifier in ("awq", "awq_gptq") else None,
                 )
                 if measurement.get("modifier"):
                     mod = measurement["modifier"]
-                    print(f"  awq smoothing calls {mod['smoothing_calls']}  parent reruns "
-                          f"{mod['parent_reruns']}  mappings {mod['mappings_scaled']}  "
-                          f"{mod['seconds_in_awq_smoothing']}s  weight changed "
+                    if "smoothing_calls" in mod:
+                        print(f"  awq smoothing calls {mod['smoothing_calls']}  parent reruns "
+                              f"{mod['parent_reruns']}  mappings {mod['mappings_scaled']}  "
+                              f"{mod['seconds_in_awq_smoothing']}s")
+                    if "quantize_calls" in mod:
+                        print(f"  gptq quantize calls {mod['quantize_calls']}  modules "
+                              f"{mod['modules_quantized']}  "
+                              f"{mod['seconds_in_gptq_quantize']}s  hessian peak "
+                              f"{mod['hessian_peak_gib_by_device']}  cholesky fallbacks "
+                              f"{len(mod['cholesky_fallbacks'])}")
+                    print("  weight changed "
                           f"{mod['modifier_entered_control']['weight_changed_in_offload_store']}")
                 report["steps"].append(measurement)
                 print(f"  {measurement['outcome']}  tokens {measurement['sequence_tokens']}  "
