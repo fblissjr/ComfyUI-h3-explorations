@@ -185,32 +185,6 @@ artifact.
 
 ### Added
 
-- **`bench/instrument_render_occupancy.py`**: per-node GPU occupancy of one
-  render (`nvidia-smi --query-gpu` at 100 ms bracketed by the websocket's
-  node transitions), with a normative verdict on the sampler window:
-  launch-bound signal, compute/power-bound, or mixed, printed beside the
-  thresholds that decided it. Refuses beside another job. `--self-test`
-  pushes synthetic sample sets through the verdict; `--replay-dmon`
-  summarises the 2026-08-18 dmon log beside that record's own numbers, and
-  reproduces them.
-
-## 0.67.1
-
-### Changed
-
-- **`docs/research/sglang_comparison.md`, `docs/comfyui_vendor_gaps.md`**:
-  the breakable-CUDA-graph entry said ComfyUI had no equivalent. It does:
-  core captures per-block graphs inside the dynamic-VRAM prefetch queue,
-  replayed only on a matching weight placement, and enables them for decode
-  paths and MiniMax Music but not for the H3 DiT loop. Recorded with what
-  bounds the gain here (sampling measured at full SM occupancy and pegged
-  power on 2026-08-18), that sglang's own H3 path leaves attention eager under
-  its graphs, and the single-frame small-canvas case that is still untested.
-
-## 0.68.0
-
-### Added
-
 - **`bench/convert_h3_awq_candidate.py`**: one command from a compressed-tensors
   W4A16 H3 calibration output to what `MiniMaxH3AWQEncoderLoader` loads. It
   consolidates the candidate directory's shards into a single `.safetensors`
@@ -230,6 +204,14 @@ artifact.
   `H3_AWQ_CANDIDATE_DIR` arm that converts a real candidate directory,
   byte-compares the reproduced snapshot against the committed one, and drives
   the produced file.
+- **`bench/instrument_render_occupancy.py`**: per-node GPU occupancy of one
+  render (`nvidia-smi --query-gpu` at 100 ms bracketed by the websocket's
+  node transitions), with a normative verdict on the sampler window:
+  launch-bound signal, compute/power-bound, or mixed, printed beside the
+  thresholds that decided it. Refuses beside another job. `--self-test`
+  pushes synthetic sample sets through the verdict; `--replay-dmon`
+  summarises the 2026-08-18 dmon log beside that record's own numbers, and
+  reproduces them.
 
 ### Changed
 
@@ -277,6 +259,19 @@ artifact.
   `processor_config.json` construct the same slow `Qwen2VLImageProcessor` apart
   from `size`; the release file omits `resample` and the `do_*` flags and the
   class defaults supply v1's values.
+
+## 0.67.1
+
+### Changed
+
+- **`docs/research/sglang_comparison.md`, `docs/comfyui_vendor_gaps.md`**:
+  the breakable-CUDA-graph entry said ComfyUI had no equivalent. It does:
+  core captures per-block graphs inside the dynamic-VRAM prefetch queue,
+  replayed only on a matching weight placement, and enables them for decode
+  paths and MiniMax Music but not for the H3 DiT loop. Recorded with what
+  bounds the gain here (sampling measured at full SM occupancy and pegged
+  power on 2026-08-18), that sglang's own H3 path leaves attention eager under
+  its graphs, and the single-frame small-canvas case that is still untested.
 
 ## 0.67.0
 
