@@ -316,14 +316,18 @@ def _reference_media(inputs: dict, graph: dict):
             size_policy = _value("size_policy", "match")
             allow_upscale = _value("allow_upscale", False)
             short_edge = _value("short_edge", 2048)
+            qwen_short_edge = _value("qwen_short_edge", 0)
             image_policies[key] = {
                 "size_policy": size_policy,
                 "allow_upscale": (None if allow_upscale is None
                                   else bool(allow_upscale)),
                 "short_edge": None if short_edge is None else int(short_edge),
+                "qwen_short_edge": (None if qwen_short_edge is None
+                                    else int(qwen_short_edge)),
                 "linked": [n for n, v in (("size_policy", size_policy),
                                           ("allow_upscale", allow_upscale),
-                                          ("short_edge", short_edge))
+                                          ("short_edge", short_edge),
+                                          ("qwen_short_edge", qwen_short_edge))
                            if v is None],
             }
         elif kind == "video":
@@ -1247,6 +1251,7 @@ def price(node: dict, graph: dict) -> list[str]:
                  f"{per_frame:,}/frame at {w}x{h}, {snapped} frames)")
 
     ref_total = 0
+    qwen_total = 0
     for key, link in media_ins.items():
         if not key.startswith("ref_images.") or not isinstance(link, list):
             continue
@@ -1321,13 +1326,26 @@ def price(node: dict, graph: dict) -> list[str]:
         tw, th = fit_reference_image(
             stage_w, stage_h, size_policy=size_mode, short_edge=short_edge,
             allow_upscale=upscale, canvas_w=w, canvas_h=h)
-        # Stage two. The conditioner applies the selected still policy BEFORE
-        # the VAE, so under `encoder` or `release` the geometry the DiT gets is
-        # not the role size. Omitting this over-priced an `encoder` graph by
-        # more than 10x, on the tool whose job is to price the sequence.
+        # The Qwen view. 0 (or an unmanaged/legacy reference) means the
+        # encoder sees the VAE tensor; N means a separate view of the SOURCE
+        # at an N short edge for the encoder alone, the VAE keeping stage one.
+        qwen_edge = (policy or {}).get("qwen_short_edge") or 0
+        qwen_w, qwen_h = (tw, th)
+        # Stage two. With no Qwen view of its own, the conditioner applies the
+        # selected still policy BEFORE the VAE, so under `encoder` or
+        # `release` the geometry the DiT gets is not the role size. Omitting
+        # this over-priced an `encoder` graph by more than 10x, on the tool
+        # whose job is to price the sequence. With a Qwen view the VAE keeps
+        # the role size and stage two shapes the Qwen view only.
+        if qwen_edge:
+            qwen_w, qwen_h = _qwen_view_size(iw, ih, qwen_edge)
         if image_policy != "comfy":
             try:
-                tw, th = qwen_image_size(tw, th, image_policy, contract)
+                if qwen_edge:
+                    qwen_w, qwen_h = qwen_image_size(qwen_w, qwen_h, image_policy, contract)
+                else:
+                    tw, th = qwen_image_size(tw, th, image_policy, contract)
+                    qwen_w, qwen_h = tw, th
             except Exception as exc:
                 lines.append(f"  {key}: could not apply image_policy="
                              f"{image_policy!r} ({exc}); priced at the role size")
@@ -1335,7 +1353,7 @@ def price(node: dict, graph: dict) -> list[str]:
         r = latent_rows(tw, th)
         ref_total += r
         bound_notes = (_vision_bound_warnings(key, tw, th)
-                       if image_policy == "comfy" else [])
+                       if image_policy == "comfy" and not qwen_edge else [])
         if policy is None:
             note = "  (unmanaged: core clamps, never upscales)"
         elif scale == 1.0:
@@ -1346,9 +1364,29 @@ def price(node: dict, graph: dict) -> list[str]:
             note += f"  (image_policy={image_policy})"
         lines.append(f"  ref image {r:>8,}  {fname} {iw}x{ih} -> {tw}x{th}"
                      f"{note}")
+        # The encoder's own processor applies its bounds to whatever it is
+        # handed, so the Qwen rows are priced under the loaded encoder's
+        # contract when the graph declares one and under Comfy's defaults
+        # otherwise -- for every image_policy, `comfy` included.
+        priced = _qwen_tokens(qwen_w, qwen_h, contract)
+        if priced is None:
+            lines.append(f"      qwen view {qwen_w}x{qwen_h}: tokens NOT CALCULATED "
+                         f"(the stage-two bounds could not be read)")
+        else:
+            pw, ph, tokens, owner = priced
+            qwen_total += tokens
+            clamp = (f"  <- clamped by the {owner} bounds"
+                     if (pw, ph) != (qwen_w, qwen_h) else "")
+            view = (f"qwen_short_edge={qwen_edge}" if qwen_edge
+                    else "same tensor as the VAE view")
+            lines.append(f"      qwen view {qwen_w}x{qwen_h} -> {pw}x{ph}  "
+                         f"{tokens:>7,} tokens  ({view}){clamp}")
         lines.extend(bound_notes)
     if ref_total:
         lines.append(f"  refs      {ref_total:>8,}  total DiT reference rows")
+    if qwen_total:
+        lines.append(f"  qwen      {qwen_total:>8,}  total reference tokens in the "
+                     f"text segment, before the prompt")
 
     # Say what is NOT counted, loudly. A reference video is the most expensive
     # input in the model -- 52,020 rows for one 960x544 clip at 345 frames,
@@ -1608,6 +1646,44 @@ def _comfy_image_bounds():
         if lo and hi:
             return int(lo.group(1)), int(hi.group(1))
     return None
+
+
+def _qwen_view_size(source_w: int, source_h: int, qwen_short_edge: int):
+    """The conditioner's own view: the shared implementation, imported."""
+    _core_minimax_cpu()
+    from reference_geometry import snap_to_multiple
+    scale = qwen_short_edge / min(source_w, source_h)
+    return snap_to_multiple(source_w, scale), snap_to_multiple(source_h, scale)
+
+
+def _qwen_tokens(w: int, h: int, contract):
+    """`(w, h, merged_tokens, owner)` after the stage-two bounds, or None.
+
+    Under a stamped contract that is the loaded encoder's declaration; with
+    none, Comfy's shared helper defaults, which is what a native CLIP applies.
+    Executed through the shared `qwen_image_size` (the processor's own
+    `smart_resize`), not modelled. Under the current W4 artifact's snapshot
+    this is where a large Qwen view collapses back to about 265 tokens,
+    which is the loud caveat on the `qwen_short_edge` knob.
+    """
+    _core_minimax_cpu()
+    from reference_geometry import qwen_image_size
+    if contract is not None:
+        effective, owner = contract, f"encoder contract ({contract['source']})"
+    else:
+        bounds = _comfy_image_bounds()
+        if bounds is None:
+            return None
+        sys.path.insert(0, str(_REPO))
+        import vendor_config
+        effective = {"image_bounds": bounds,
+                     "image_geometry": vendor_config.patch_geometry()}
+        owner = "native ComfyUI"
+    try:
+        pw, ph = qwen_image_size(w, h, "encoder", effective)
+    except Exception:
+        return None
+    return pw, ph, (pw // 32) * (ph // 32), owner
 
 
 def _vision_bound_warnings(key, tw, th):

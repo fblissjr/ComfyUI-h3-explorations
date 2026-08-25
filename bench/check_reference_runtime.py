@@ -642,6 +642,112 @@ def encoder_policy_binds_to_the_loaded_clip():
         R.adapt_canvas = original_adapt_canvas
 
 
+def qwen_view_is_separate_from_the_vae_view():
+    """`qwen_short_edge` gives the encoder its own view; the VAE keeps stage one.
+
+    Arms on one 640x480 source, `size_policy=max`, no upscale, so the stage-one
+    role size is the source:
+
+    1. `qwen_short_edge=0`: one tensor, both consumers, the same object.
+    2. `qwen_short_edge=960`: the VAE encodes 640x480; the Qwen item is
+       1280x960 (scaled from the source, nearest 32).
+    3. Under `image_policy=encoder` with a contract whose ceiling admits it,
+       stage two shapes the Qwen view only; the VAE view is unclamped.
+    4. Under a contract whose ceiling does not admit it (the v1 snapshot's),
+       the Qwen view is clamped back and the VAE view still is not: the
+       knob's loud caveat, asserted rather than described.
+
+    The red harness feeds the Qwen view to the VAE (M9); arm 2's VAE-shape
+    assertion is what goes red.
+    """
+    source = _frames(1, 480, 640)
+
+    def compile_one(qwen_short_edge, image_policy="comfy", contract=None):
+        vae = _VideoVae()
+        record = R.RuntimeImageReference(source, "max", qwen_short_edge=qwen_short_edge)
+        items, blocks = R._compile_reference_records(
+            (record,), vae, _AudioVae(), 64, 64, 22,
+            image_policy=image_policy, contract=contract,
+        )
+        return vae.inputs[0], items[0]["data"], blocks[0]
+
+    vae_in, qwen_in, block = compile_one(0)
+    assert vae_in is qwen_in, "with qwen_short_edge=0 the two consumers must share one tensor"
+    assert tuple(vae_in.shape[1:3]) == (480, 640)
+
+    vae_in, qwen_in, block = compile_one(960)
+    assert tuple(vae_in.shape[1:3]) == (480, 640), (
+        f"the VAE received the Qwen view: {tuple(vae_in.shape[1:3])}")
+    assert tuple(qwen_in.shape[1:3]) == (960, 1280), (
+        f"the Qwen view is not the 960 short-edge view: {tuple(qwen_in.shape[1:3])}")
+    assert (block["latent_h"], block["latent_w"]) == (480 // 16, 640 // 16), (
+        "the reference-latent grid does not follow the VAE view")
+
+    wide = dict(_v1_contract(), image_bounds=(65536, 16777216), source="test-wide")
+    vae_in, qwen_in, _ = compile_one(960, "encoder", wide)
+    assert tuple(vae_in.shape[1:3]) == (480, 640), (
+        "encoder policy clamped the VAE view although a Qwen view exists")
+    assert tuple(qwen_in.shape[1:3]) == (960, 1280)
+
+    v1 = _v1_contract()
+    vae_in, qwen_in, _ = compile_one(960, "encoder", v1)
+    assert tuple(vae_in.shape[1:3]) == (480, 640)
+    qh, qw = qwen_in.shape[1:3]
+    assert qw * qh <= v1["image_bounds"][1], (
+        f"the v1 contract's ceiling did not clamp the Qwen view: {qw}x{qh}")
+
+    # The node refuses a sub-grid value and records the field.
+    try:
+        R.MiniMaxH3AppendRefImage.execute(source, "max", qwen_short_edge=16)
+    except ValueError as exc:
+        assert "qwen_short_edge" in str(exc), exc
+    else:
+        raise AssertionError("a sub-grid qwen_short_edge was accepted")
+    records = R.MiniMaxH3AppendRefImage.execute(source, "max", qwen_short_edge=960).args[0]
+    assert records[-1].qwen_short_edge == 960
+    assert R.MiniMaxH3AppendRefImage.execute(source, "max").args[0][-1].qwen_short_edge == 0
+
+
+def preflight_prices_the_two_views():
+    """The static reader prices reference-latent rows and Qwen tokens apart.
+
+    One 640x480 reference under the AWQ loader: the latent rows follow the
+    VAE view, the Qwen tokens follow the Qwen view, and under the v1 contract
+    the Qwen view is reported clamped -- the knob's caveat, in the report.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "preflight_graph", _REPO / "bench" / "preflight_graph.py")
+    P = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(P)
+
+    def graph(qwen_short_edge):
+        return {
+            "1": {"class_type": "MiniMaxH3AWQEncoderLoader",
+                  "inputs": {"encoder_name": "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors"}},
+            "2": {"class_type": "MiniMaxH3AppendRefImage",
+                  "inputs": {"image": ["9", 0], "size_policy": "max",
+                             "allow_upscale": False, "short_edge": 2048,
+                             "qwen_short_edge": qwen_short_edge}},
+            "3": {"class_type": "MiniMaxH3ReferenceConditioning",
+                  "inputs": {"clip": ["1", 0], "references": ["2", 0]}},
+        }
+    for edge in (0, 960):
+        media, policies, typed = P._reference_media(graph(edge)["3"]["inputs"], graph(edge))
+        assert typed and list(policies.values())[0]["qwen_short_edge"] == edge, policies
+
+    assert P._qwen_view_size(640, 480, 960) == (1280, 960)
+    v1 = _v1_contract()
+    priced = P._qwen_tokens(1280, 960, v1)
+    assert priced is not None
+    pw, ph, tokens, owner = priced
+    assert pw * ph <= v1["image_bounds"][1] and "encoder contract" in owner, priced
+    wide = dict(v1, image_bounds=(65536, 16777216))
+    assert P._qwen_tokens(1280, 960, wide)[:3] == (1280, 960, 1200)
+    native = P._qwen_tokens(1280, 960, None)
+    assert native is not None and native[3] == "native ComfyUI", native
+
+
 def preflight_resolves_encoder_from_the_loader_node():
     """The static reader binds `encoder` to the graph's loader, as the node does.
 
@@ -694,6 +800,8 @@ CHECKS = (
     image_policy_is_opt_in_and_the_three_differ,
     image_policy_reads_encoder_config,
     encoder_policy_binds_to_the_loaded_clip,
+    qwen_view_is_separate_from_the_vae_view,
+    preflight_prices_the_two_views,
     preflight_resolves_encoder_from_the_loader_node,
     conditioning_node_assembles_the_real_payload_shape,
 )

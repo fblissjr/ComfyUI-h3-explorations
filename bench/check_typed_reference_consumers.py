@@ -75,7 +75,7 @@ def main():
         # `linked` names any of the three that is wired to an input socket
         # rather than carrying a value; empty is the ordinary case.
         assert policies == {"ref_images.ref_image_0": {
-            "size_policy": "max", "allow_upscale": False, "short_edge": 2048,
+            "size_policy": "max", "allow_upscale": False, "short_edge": 2048, "qwen_short_edge": 0,
             "linked": [],
         }}, policies
 

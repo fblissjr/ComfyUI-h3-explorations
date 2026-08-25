@@ -674,6 +674,39 @@ call at v2 acceptance. The paragraph above this one still stands: none of
 this says the 2048 version looks better; it says which distribution the
 encoder was calibrated on.
 
+### A third knob, 2026-08-25: a Qwen view of its own
+
+`MiniMaxH3AppendRefImage.qwen_short_edge` (default 0) gives the text encoder a
+view of the reference that the video VAE does not encode. With 0, Qwen sees
+the same tensor the VAE encodes, which is every graph built before the knob
+existed. With N, the conditioner is shown the *source* scaled so its shorter
+side reaches N (nearest 32, one Lanczos resample, upscaling allowed, so a 4k
+source comes down to N as well), while the VAE keeps the stage-one view chosen
+by `size_policy` / `short_edge` / `allow_upscale`. Under `image_policy` of
+`encoder` or `release` the stage-two bounds are pre-applied to the Qwen view
+alone; the VAE view is no longer clamped when a Qwen view exists.
+
+Why this breaks no contract is section 1b of
+[`h3_conditioning_end_to_end.md`](h3_conditioning_end_to_end.md): nothing
+indexes a Qwen token against a latent patch, the deployed v1 path has always
+run VAE-fine / Qwen-coarse, and video is 2 fps pairs against 24 fps latents by
+design. What it changes is the cost split in the table above: only the Qwen
+column grows. A 640x480 reference at `qwen_short_edge=2048` costs the same 300
+reference-latent rows as choice A and the same 5,440 Qwen tokens as choice B,
+which is the B arm of the reference-view ablation (A: no upscale; B: Qwen-only
+2048; C: full parity). Whether B helps is unmeasured and is the owner's blind
+matched-seed comparison to judge after v2 lands.
+
+**The loud caveat.** The loaded encoder's own processor still applies its
+bounds afterwards. Under the current W4 artifact's 200,704--301,056-pixel
+snapshot a 2048 view is clamped back to about 265 tokens whatever N is, so the
+knob is inert for Qwen until an encoder whose bounds admit the view is loaded;
+`bench/preflight_graph.py` prices both views per reference and says on the
+line when the Qwen view was clamped and by whose bounds. Controlled by
+`bench/check_reference_runtime.py::qwen_view_is_separate_from_the_vae_view`
+and `preflight_prices_the_two_views`; the red harness's M9 feeds the Qwen view
+to the VAE and must go red.
+
 ### Should video and audio have fit nodes too?
 
 Both have the same kind of divergence from the reference pipeline. The answers

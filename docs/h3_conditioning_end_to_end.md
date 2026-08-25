@@ -187,7 +187,11 @@ Read as a pipeline:
   has run "VAE fine, Qwen coarse" since it shipped, and video is "Qwen at
   2 fps pairs, VAE at 24 fps" by design. A "Qwen at 2048, VAE at source"
   serving mode therefore breaks no contract; what it changes is a quality
-  question. **INFERENCE:** appearance from the VAE rows, meaning and binding
+  question. It exists since 2026-08-25 as
+  `MiniMaxH3AppendRefImage.qwen_short_edge`
+  ([`h3_references.md`](h3_references.md), "A third knob"): the VAE keeps
+  the stage-1 view, the encoder is shown the source at an N short edge, and
+  the loaded encoder's bounds still apply to that view afterwards. **INFERENCE:** appearance from the VAE rows, meaning and binding
   from the Qwen rows, in some unmeasured proportion; the blind comparison
   that would measure it has not been run
   ([`eval_comparison.md`](eval_comparison.md) section 3).

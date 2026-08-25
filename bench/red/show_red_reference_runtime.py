@@ -121,6 +121,19 @@ def build():
         ),
     )
     h.case(
+        "M9 the Qwen view is fed to the VAE",
+        MUTATION,
+        _under(
+            "_reference_views",
+            lambda original: (
+                lambda *args, **kwargs:
+                (lambda vae_view, qwen_view, info: (qwen_view, qwen_view, info))(
+                    *original(*args, **kwargs))
+            ),
+            C.qwen_view_is_separate_from_the_vae_view,
+        ),
+    )
+    h.case(
         "M8 encoder stays 'encoder' on a CLIP that declares nothing",
         MUTATION,
         _under(
@@ -159,6 +172,11 @@ def build():
         "G7 restored: encoder binds to the loaded CLIP",
         NEAR_MISS,
         lambda: _holds(C.encoder_policy_binds_to_the_loaded_clip),
+    )
+    h.case(
+        "G8 restored: the VAE keeps its own view",
+        NEAR_MISS,
+        lambda: _holds(C.qwen_view_is_separate_from_the_vae_view),
     )
     h.case(
         "G6 restored: encoder config owns encoder policy",

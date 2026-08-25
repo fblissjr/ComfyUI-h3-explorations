@@ -51,6 +51,7 @@ from .reference_geometry import (
     latent_rows,
     qwen_image_settings,
     qwen_image_size,
+    snap_to_multiple,
 )
 from .vendor_config import (
     image_pixel_bounds,
@@ -79,6 +80,12 @@ class RuntimeImageReference:
     size_policy: str
     short_edge: int = REF_IMAGE_SHORT_EDGE
     allow_upscale: bool = False
+    # A separate view for the encoder. 0 means Qwen sees the VAE view, which
+    # is every graph built before this field existed. N scales the SOURCE so
+    # its shorter side reaches N, for the conditioner alone; the VAE view is
+    # unchanged. `docs/h3_conditioning_end_to_end.md` section 1b is why the
+    # two branches need not share a geometry.
+    qwen_short_edge: int = 0
 
 
 @dataclass(frozen=True)
@@ -448,6 +455,68 @@ def _order_records(records) -> list[ImageRef | VideoRef | AudioRef]:
     return ordered
 
 
+def _view_or_source(image, source_w: int, source_h: int, w: int, h: int):
+    """One resize, or the source sliced to RGB when the size is unchanged.
+
+    The identity guard. `comfy/utils.py::lanczos` has no short-circuit and
+    round-trips through PIL uint8 unconditionally, so a no-op resize is not
+    free: it costs a full resample and a float32 -> uint8 -> float32
+    quantization for nothing. `[..., :3]` is NOT optional: `_resize` does it
+    on every other path, so a bare `image[:1]` would hand `vae.encode` a
+    4-channel RGBA reference that every pre-fold render had been sliced to RGB.
+    """
+    if (w, h) == (source_w, source_h):
+        return image[:1, ..., :3]
+    return _resize(image[:1], w, h, "disabled")
+
+
+def qwen_view_size(source_w: int, source_h: int, qwen_short_edge: int) -> tuple[int, int]:
+    """The encoder-only view: scale the SOURCE so its shorter side reaches N.
+
+    From the source, not from the stage-one output, so the view is one
+    resample from the pixels rather than two. Nearest 32 via the same snap the
+    stage-one policies use. Shared with `bench/preflight_graph.py`.
+    """
+    scale = qwen_short_edge / min(source_w, source_h)
+    return snap_to_multiple(source_w, scale), snap_to_multiple(source_h, scale)
+
+
+def _reference_views(image, source_w, source_h, role_w, role_h, record,
+                     image_policy, contract):
+    """Return `(vae_view, qwen_view, info)` for one still reference.
+
+    With `qwen_short_edge == 0` this is today's path byte for byte: one
+    tensor, sized at stage one and, under `encoder` or `release`, pre-clamped
+    to the stage-two bounds so both towers encode one size.
+
+    With `qwen_short_edge == N` the two branches part: the VAE encodes the
+    stage-one tensor unclamped, and the encoder is shown a second view of the
+    source at an N short edge, with the stage-two bounds pre-applied to that
+    view alone under `encoder` / `release`. Section 1b of
+    `docs/h3_conditioning_end_to_end.md` is why nothing indexes a Qwen token
+    against a latent patch, so this breaks no contract; what it changes is a
+    quality question the blind comparison owns.
+    """
+    info = {"role": (role_w, role_h), "separate": bool(record.qwen_short_edge)}
+    if not record.qwen_short_edge:
+        target_w, target_h = role_w, role_h
+        if image_policy != "comfy":
+            target_w, target_h = _configured_qwen_image_size(
+                role_w, role_h, image_policy, contract)
+        shared = _view_or_source(image, source_w, source_h, target_w, target_h)
+        info.update(vae=(target_w, target_h), qwen=(target_w, target_h))
+        return shared, shared, info
+
+    vae_view = _view_or_source(image, source_w, source_h, role_w, role_h)
+    qwen_w, qwen_h = qwen_view_size(source_w, source_h, record.qwen_short_edge)
+    if image_policy != "comfy":
+        qwen_w, qwen_h = _configured_qwen_image_size(
+            qwen_w, qwen_h, image_policy, contract)
+    qwen_view = _view_or_source(image, source_w, source_h, qwen_w, qwen_h)
+    info.update(vae=(role_w, role_h), qwen=(qwen_w, qwen_h))
+    return vae_view, qwen_view, info
+
+
 def _compile_reference_records(
     records, vae, audio_vae, width, height, frame_count,
     video_policy="encoder", image_policy="comfy", contract=None,
@@ -495,42 +564,37 @@ def _compile_reference_records(
                 allow_upscale=record.allow_upscale,
                 canvas_w=width, canvas_h=height,
             )
-            # Stage two: the selected Qwen still policy, applied BEFORE the VAE
-            # so both towers encode one size. `comfy` declines to have an
-            # opinion, which is what core does and what every graph built
-            # before this input existed must keep getting.
-            target_w, target_h = role_w, role_h
-            if image_policy != "comfy":
-                target_w, target_h = _configured_qwen_image_size(
-                    role_w, role_h, image_policy, contract)
-                if (target_w, target_h) != (role_w, role_h):
-                    logger.info(
-                        "[h3] reference %d: %s still policy moved %dx%d to "
-                        "%dx%d before the VAE, so the VAE and Qwen stay on one "
-                        "size.", index + 1, image_policy, role_w, role_h,
-                        target_w, target_h)
-            # The identity guard. `comfy/utils.py::lanczos` has no
-            # short-circuit and round-trips through PIL uint8 unconditionally,
-            # so a no-op resize is not free: it costs a full resample and a
-            # float32 -> uint8 -> float32 quantization for nothing.
-            if (target_w, target_h) == (source_w, source_h):
-                # `[..., :3]` is NOT optional: `_resize` does it on every other
-                # path (`image[..., :3].movedim(...)`), so a bare `image[:1]`
-                # here would hand `vae.encode` a 4-channel RGBA reference that
-                # every pre-fold render had already been sliced to RGB.
-                resized = image[:1, ..., :3]
-            else:
-                resized = _resize(image[:1], target_w, target_h, "disabled")
+            # Stage two, and the branch split. With no Qwen view of its own
+            # the selected still policy is applied BEFORE the VAE so both
+            # towers encode one size; `comfy` declines to have an opinion,
+            # which is what core does and what every graph built before this
+            # input existed must keep getting. With a Qwen view, the VAE keeps
+            # the stage-one tensor and only the encoder's view is shaped.
+            vae_view, qwen_view, views = _reference_views(
+                image, source_w, source_h, role_w, role_h, record,
+                image_policy, contract)
+            target_w, target_h = views["vae"]
+            if not views["separate"] and (target_w, target_h) != (role_w, role_h):
+                logger.info(
+                    "[h3] reference %d: %s still policy moved %dx%d to "
+                    "%dx%d before the VAE, so the VAE and Qwen stay on one "
+                    "size.", index + 1, image_policy, role_w, role_h,
+                    target_w, target_h)
+            qwen_w, qwen_h = views["qwen"]
             logger.info(
                 "[h3] reference %d: %dx%d source -> %dx%d role (%s, "
-                "short_edge=%d, allow_upscale=%s) -> %dx%d encoded "
-                "(image_policy=%s): %d latent rows",
+                "short_edge=%d, allow_upscale=%s) -> VAE %dx%d, %d latent rows; "
+                "Qwen view %dx%d (%s; image_policy=%s), about %d merged tokens "
+                "before the encoder's own processor",
                 index + 1, source_w, source_h, role_w, role_h,
                 record.size_policy, record.short_edge, record.allow_upscale,
-                target_w, target_h, image_policy,
-                latent_rows(target_w, target_h))
-            latent = vae.encode(resized)
-            ref_items.append({"type": "image", "data": resized})
+                target_w, target_h, latent_rows(target_w, target_h),
+                qwen_w, qwen_h,
+                (f"qwen_short_edge={record.qwen_short_edge}" if views["separate"]
+                 else "same tensor as the VAE view"),
+                image_policy, (qwen_w // 32) * (qwen_h // 32))
+            latent = vae.encode(vae_view)
+            ref_items.append({"type": "image", "data": qwen_view})
             # Read the grid off the tensor the VAE returned, not off the pixel
             # size. `target_*` is a multiple of 32 only because both installed
             # processor configs declare patch_size 16 / merge_size 2; stage two
@@ -684,13 +748,39 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                         "size_policy=match, which sizes from the canvas area."
                     ),
                 ),
+                # APPENDED after short_edge, for the positional-widget reason
+                # above. Default 0 reproduces every earlier graph exactly.
+                io.Int.Input(
+                    "qwen_short_edge", default=0, min=0, max=4096, step=32,
+                    optional=True,
+                    tooltip=(
+                        "A separate view of this reference for the TEXT "
+                        "ENCODER only. 0 (default): Qwen3-VL sees the same "
+                        "tensor the video VAE encodes. N: Qwen is shown the "
+                        "source scaled so its shorter side reaches N (nearest "
+                        "32, upscaling allowed), while the VAE still encodes "
+                        "the size_policy/short_edge/allow_upscale view above. "
+                        "This raises the identity signal reaching the "
+                        "conditioner without the reference-latent rows and "
+                        "the large VAE encode that a full 2048 upscale costs; "
+                        "only the Qwen rows grow. The loaded encoder's own "
+                        "processor still applies its pixel bounds afterwards: "
+                        "under the current W4 artifact's 200,704-301,056 px "
+                        "snapshot the view is clamped back to about 265 "
+                        "tokens whatever N is, so this knob is only "
+                        "meaningful on an encoder whose bounds admit it. "
+                        "Whether it helps is unmeasured; it is the B arm of "
+                        "the reference-view ablation."
+                    ),
+                ),
             ],
             outputs=[H3References.Output(display_name="references")],
         )
 
     @classmethod
     def execute(cls, image, size_policy="match", references=None,
-                allow_upscale=False, short_edge=REF_IMAGE_SHORT_EDGE):
+                allow_upscale=False, short_edge=REF_IMAGE_SHORT_EDGE,
+                qwen_short_edge=0):
         count, source_h, source_w = _image_shape(image, "image")
         if size_policy not in SIZE_POLICIES:
             raise ValueError(f"unknown image size policy {size_policy!r}")
@@ -720,11 +810,17 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                 "[h3] size_policy='match' sizes this reference from the canvas "
                 "area, so short_edge=%d and allow_upscale=%s are not read. Set "
                 "size_policy='max' to use them.", short_edge, allow_upscale)
+        qwen_short_edge = int(qwen_short_edge)
+        if qwen_short_edge and qwen_short_edge < CANVAS_MULTIPLE:
+            raise ValueError(
+                f"qwen_short_edge must be 0 or at least {CANVAS_MULTIPLE}, "
+                f"got {qwen_short_edge}")
         return io.NodeOutput(
             _reference_tuple(references)
             + (RuntimeImageReference(
                 image=image, size_policy=size_policy,
                 short_edge=int(short_edge), allow_upscale=bool(allow_upscale),
+                qwen_short_edge=qwen_short_edge,
             ),)
         )
 

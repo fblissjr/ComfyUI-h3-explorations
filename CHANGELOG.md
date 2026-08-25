@@ -4,6 +4,29 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.67.0
+
+### Added
+
+- **`MiniMaxH3AppendRefImage.qwen_short_edge`** (default 0, appended after
+  `short_edge` so saved graphs keep their positional widgets): a view of the
+  reference for the text encoder alone. 0 is today's path byte for byte, one
+  tensor for both consumers. N scales the source so its shorter side reaches
+  N, nearest 32, one Lanczos resample, for Qwen3-VL only; the video VAE keeps
+  the stage-one view, and under `image_policy` `encoder` / `release` the
+  stage-two bounds are pre-applied to the Qwen view alone. The B arm of the
+  reference-view ablation (A no upscale, B Qwen-only 2048, C full parity);
+  section 1b of `docs/h3_conditioning_end_to_end.md` records why the two
+  branches need not share a geometry. Under the current W4 snapshot the view
+  is clamped back to about 265 tokens, which the tooltip and preflight say.
+- **`bench/preflight_graph.py` prices the two views per reference**:
+  reference-latent rows from the VAE view and Qwen tokens from the Qwen view
+  under the loaded encoder's contract (or Comfy's defaults), with a total for
+  each and a note on the line when the Qwen view was clamped and by whom.
+- `bench/check_reference_runtime.py`: `qwen_view_is_separate_from_the_vae_view`
+  and `preflight_prices_the_two_views`; red harness M9 feeds the Qwen view to
+  the VAE.
+
 ## 0.66.0
 
 ### Added
