@@ -857,6 +857,58 @@ def arm_plan_requirements(presentation: dict, holdouts: dict, pool: list[dict],
             "prompt_overlap_top": ranked[:10]}, problems
 
 
+def arm_family_disjointness(presentation: dict, holdouts: dict,
+                            map_path: Path) -> tuple[dict, list[str]]:
+    """Disjointness by corrected visual family, not by media file.
+
+    **Earned by an escaped instance on 2026-08-25, the second of the day.** A
+    split that was component-disjoint under the exact-media map, and pairwise
+    green on this file's own cross-split arm, was not disjoint under the
+    corrected map: a holdout row and two calibration rows sat in one family,
+    joined by adjudicated edges that both live *inside* the pool rather than
+    across the split. The pairwise arm structurally cannot see that -- it
+    compares calibration media against holdout media, and neither joining edge
+    is such a pair. Only the family assignment shows it.
+
+    Absent map file is reported, never passed over: a disjointness claim nobody
+    could evaluate must not read like one that was evaluated.
+    """
+    if not map_path.is_file():
+        return ({"status": "no corrected component map; family disjointness "
+                           "was not evaluated"},
+                [f"corrected component map {map_path.name} is absent, so the "
+                 f"split was graded by media file only"])
+    loaded = json.loads(map_path.read_text())
+    family = loaded["corrected_component_by_row"]
+    cal = [r["row_id"] for r in presentation["rows"]]
+    hold = sorted({r["row_id"] for h in holdouts.values() for r in h["rows"]})
+    problems = []
+    unmapped = [r for r in cal + hold if r not in family]
+    for row_id in unmapped:
+        problems.append(f"{row_id} is not in the corrected component map")
+    cal_families = defaultdict(list)
+    for row_id in cal:
+        if row_id in family:
+            cal_families[family[row_id]].append(row_id)
+    hold_families = defaultdict(list)
+    for row_id in hold:
+        if row_id in family:
+            hold_families[family[row_id]].append(row_id)
+    shared = sorted(set(cal_families) & set(hold_families))
+    for group in shared:
+        problems.append(
+            f"calibration and holdout share visual family {group}: "
+            f"calibration {cal_families[group]} against holdout "
+            f"{hold_families[group]}")
+    return {"map": map_path.name,
+            "map_caveat": loaded.get("caveat"),
+            "unexamined_weak_candidates": loaded.get("unexamined_weak_candidates"),
+            "calibration_families": len(cal_families),
+            "holdout_families": len(hold_families),
+            "shared_families": shared,
+            "rows_unmapped": unmapped}, problems
+
+
 def arm_distribution(presentation: dict, pool: list[dict], selections: dict,
                      lengths: dict) -> tuple[dict, list[str]]:
     notes = []
@@ -1011,10 +1063,13 @@ MUTATIONS = {
                         "sequence_length no longer matches the batch tensors"),
     "split-overlap": ("split",
                       "a calibration row points at a holdout media file"),
+    "family-overlap": ("family_disjointness",
+                       "a calibration row sits in a holdout row's visual family"),
 }
 
 
-def _mutate(presentation: dict, kind: str, holdout_media: str | None) -> None:
+def _mutate(presentation: dict, kind: str, holdout_media: str | None,
+            holdout_row: str | None = None) -> None:
     rows = presentation["rows"]
 
     def first(predicate):
@@ -1043,7 +1098,17 @@ def _mutate(presentation: dict, kind: str, holdout_media: str | None) -> None:
         item["geometry"]["upstream"] = [
             item["geometry"]["upstream"][0] + 32, item["geometry"]["upstream"][1]]
     elif kind == "policy-swap":
-        row = next(r for r in rows if r["still_policy"] == "upscale_2048")
+        # The row must actually CARRY a reference still. A keyframe-only row's
+        # still policy is never exercised, so swapping it changes nothing
+        # observable and the mutation silently becomes a no-op -- which is
+        # exactly what happened, and why the escape was a defect in the control
+        # rather than in the arm.
+        row = next((r for r in rows
+                    if r["still_policy"] == "upscale_2048"
+                    and any(i.get("role") == "reference-still"
+                            for i in r["ordered_media"])), None)
+        if row is None:
+            raise LookupError("no upscale_2048 row carries a reference still")
         row["still_policy"] = "max_no_upscale"
     elif kind == "keyframe-crop":
         row, item = first(lambda r, i: (i.get("role") or "").startswith("keyframe-last"))
@@ -1061,6 +1126,10 @@ def _mutate(presentation: dict, kind: str, holdout_media: str | None) -> None:
         row["presentation_scaffold"] = scaffold
     elif kind == "sequence-length":
         rows[0]["sequence_length"] += 1
+    elif kind == "family-overlap":
+        if holdout_row is None:
+            raise LookupError("family-overlap needs a holdout row id to borrow")
+        rows[0]["row_id"] = holdout_row
     elif kind == "split-overlap":
         if holdout_media is None:
             raise LookupError("split-overlap needs a holdout to borrow a file from")
@@ -1118,6 +1187,11 @@ def violation_arm(bundle: Path, holdouts: list[Path], pool_path: Path,
             if holdout_media:
                 break
 
+    holdout_row = None
+    if holdouts:
+        hold_rows = load_presentation(holdouts[0])["rows"]
+        holdout_row = hold_rows[0]["row_id"] if hold_rows else None
+
     original = json.loads((bundle / "presentation.json").read_text())
     for kind, (arm, description) in MUTATIONS.items():
         with tempfile.TemporaryDirectory() as tmp:
@@ -1128,7 +1202,7 @@ def violation_arm(bundle: Path, holdouts: list[Path], pool_path: Path,
                     (scratch / path.name).symlink_to(path)
             mutated = json.loads(json.dumps(original))
             try:
-                _mutate(mutated, kind, holdout_media)
+                _mutate(mutated, kind, holdout_media, holdout_row)
             except LookupError as exc:
                 failures.append(f"{kind}: could not be applied ({exc})")
                 continue
@@ -1167,6 +1241,10 @@ def main() -> int:
     parser.add_argument("--adjudication", type=Path,
                         default=BENCH / "results" / "2026-08-25_v2_split_near_duplicate_adjudication.json",
                         help="recorded verdicts for cross-split perceptual candidates")
+    parser.add_argument("--component-map", type=Path,
+                        default=BENCH / "results" / "2026-08-25_pool_component_map_corrected.json",
+                        help="corrected component map; the split is graded by "
+                             "visual family against it as well as by media file")
     parser.add_argument("--null-sample", type=int, default=220,
                         help="components sampled to price the Hamming threshold")
     parser.add_argument("--out", type=Path, help="write the JSON record here")
@@ -1271,6 +1349,11 @@ def main() -> int:
             presentation, holdout_presentations, pool, root)
         report["arms"]["plan_requirements"] = requirements
         report["problems"]["plan_requirements"] = problems
+
+        families, problems = arm_family_disjointness(
+            presentation, holdout_presentations, args.component_map)
+        report["arms"]["family_disjointness"] = families
+        report["problems"]["family_disjointness"] = problems
 
     selections = {p.name: json.loads(p.read_text()) for p in args.selection}
     distribution, notes = arm_distribution(presentation, pool, selections, lengths)
