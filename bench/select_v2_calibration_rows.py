@@ -141,6 +141,10 @@ def main() -> int:
     parser.add_argument("--max-row-tokens", type=int, default=16000)
     parser.add_argument("--total-tokens", type=int, default=400000)
     parser.add_argument("--seed", type=int, default=20260825)
+    parser.add_argument("--exclude-selection", action="append", default=[],
+                        help="a previous selection file; every media component it "
+                             "used, in calibration or holdout, is excluded here so two "
+                             "selections can be merged into one disjoint bundle")
     parser.add_argument("--still-policy", choices=STILL_POLICIES, default="max_no_upscale",
                         help="the builder's reference-still policy the estimate follows")
     parser.add_argument("--source-dir", required=True,
@@ -183,6 +187,11 @@ def main() -> int:
 
     calibration, used_components, total = [], set(), 0
     skipped = collections.Counter()
+    for previous in args.exclude_selection:
+        prior = json.loads(Path(previous).expanduser().read_text())
+        for row in prior["calibration"] + prior["holdout"]:
+            used_components.add(row["media_component"])
+    order = [r for r in order if r["media_component"] not in used_components]
     # Fill every role in proportion to its quota, one row at a time, taking the
     # role whose share of its quota is furthest behind. The budget then
     # truncates all families proportionally instead of starving whichever one

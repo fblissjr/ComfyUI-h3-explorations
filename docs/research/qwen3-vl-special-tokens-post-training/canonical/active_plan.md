@@ -86,11 +86,26 @@ cannot represent mixed keyframe-plus-reference requests.
   whatever the information content of interpolated pixels. `max` with no
   upscale remains available as a comparison stratum. The cost is accepted:
   a 16:9 still is 7,296 visual tokens, so a token budget buys fewer rows.
-- **Serving parity:** a v2 artifact calibrated this way should be served with
-  reference stills upscaled the same way (`MiniMaxH3ReferenceFit`
-  `allow_upscale=True`, or an encoder policy bound to v2 that upscales) and
-  reference video under the `release` video policy; the reference-node lane
-  owns that binding.
+- **Calibration population, OWNER-DECISION 2026-08-25:** a mixed set, rows
+  under the 2048-upscale policy beside rows under `max`/no-upscale, in one
+  bundle with the policy recorded per row, component-disjoint from a holdout
+  built under both geometries. AWQ's scales are aggregates over everything the
+  calibration shows the encoder, and both geometries are real serving modes
+  (most shipped graphs run no-upscale; the Qwen-only upscale below is the
+  experiment), so the quant must not favour either arm. The holdout check
+  reports each geometry separately.
+- **Serving parity and the first render experiment:** the vendor pipeline
+  gives the same 2048 image to the encoder and to the VAE, which on a 24 GiB
+  card means reference-latent rows and a VAE encode that do not fit for
+  multi-reference graphs. The two branches share no geometry contract
+  ([`h3_conditioning_end_to_end.md`](../../../h3_conditioning_end_to_end.md)
+  section 1b), so the reference-node lane is building a per-reference Qwen
+  view size independent of the VAE view. The first Gate 6 experiment on v2 is
+  that ablation: (A) no-upscale on both paths, (B) Qwen view at 2048 with the
+  VAE at source, (C) full parity where the card allows, matched seeds, judged
+  blind as a distribution per [`eval_comparison.md`](../../../eval_comparison.md),
+  with the per-arm row and VRAM cost recorded beside the verdict. Whether the
+  DiT takes more identity from a finer Qwen view is **UNKNOWN** until then.
 - **Reference video:** use the release role policy: 768-pixel short edge,
   1,032,192-pixel upstream area budget, duration-aware Qwen processing, and the
   native two-frame block/timestamp presentation.
