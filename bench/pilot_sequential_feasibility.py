@@ -92,6 +92,7 @@ from h3_calibration_precision import (  # noqa: E402
     storage_dtype,
     storage_policy,
 )
+from h3_attention_kernel import ATTENTION_KINDS, attention_kernel  # noqa: E402
 from h3_effective_batch import effective_batch  # noqa: E402
 from h3_producer_provenance import producer_provenance  # noqa: E402
 
@@ -1008,6 +1009,9 @@ def main() -> int:
         help="defaults to the Gate 1B-accepted policy. A Gate 2 number measured "
              "under a rejected policy is not actionable",
     )
+    parser.add_argument("--attention", default="grouped_query", choices=ATTENTION_KINDS,
+                        help="which KV form reaches SDPA; the kernel axis. See "
+                             "bench/h3_attention_kernel.py")
     parser.add_argument("--layers", type=int, default=50,
                         help="decoder layers to build; 50 is the H3 window")
     parser.add_argument(
@@ -1115,8 +1119,10 @@ def main() -> int:
     }
 
     try:
-        with calibration_precision(model, args.policy) as precision:
+        with calibration_precision(model, args.policy) as precision, \
+                attention_kernel(model, args.attention) as kernel:
             report["precision_policy"].update(precision)
+            report["attention_kernel"] = kernel
             sizes = sorted({min(max(1, n), len(order))
                             for n in (args.prefix or [1, 3, len(order)])})
             for size in sizes:

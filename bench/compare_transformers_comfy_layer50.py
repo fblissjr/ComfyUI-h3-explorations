@@ -72,6 +72,7 @@ H3_TAP_LAYER = 49
 
 sys.path.insert(0, str(BENCH))
 
+from h3_attention_kernel import ATTENTION_KINDS, attention_kernel  # noqa: E402
 from h3_calibration_precision import (  # noqa: E402
     POLICIES,
     calibration_precision,
@@ -401,7 +402,8 @@ def _sdpa_backend(name: str):
 def run_transformers_arm(bundle: Path, row_id: str | None, source: Path, out: Path,
                          policy: str, tap_layer: int, gpu_gib: float,
                          perturb: str | None, keep_mask: bool,
-                         sdpa_backend: str = "auto") -> dict:
+                         sdpa_backend: str = "auto",
+                         attention: str = "grouped_query") -> dict:
     from transformers import AutoConfig, Qwen3VLForConditionalGeneration
 
     manifest, record, tensors = _bundle_row(bundle, row_id)
@@ -494,9 +496,10 @@ def run_transformers_arm(bundle: Path, row_id: str | None, source: Path, out: Pa
         inputs["attention_mask"] = batch["attention_mask"].to(device)
     started = time.time()
     with calibration_precision(model, policy) as precision:
-        with _sdpa_backend(sdpa_backend) as backend:
-            with torch.no_grad():
-                model(**inputs, use_cache=False)
+        with attention_kernel(model, attention) as kernel:
+            with _sdpa_backend(sdpa_backend) as backend:
+                with torch.no_grad():
+                    model(**inputs, use_cache=False)
     forward_seconds = time.time() - started
     handle.remove()
     embed_handle.remove()
@@ -519,6 +522,7 @@ def run_transformers_arm(bundle: Path, row_id: str | None, source: Path, out: Pa
         "attention_mask_all_ones": all_ones,
         "attention_mask_passed": not dropped_mask,
         "sdpa_backend": backend,
+        "attention_kernel": kernel,
         "sdpa_availability": _sdpa_availability(torch_dtype, config),
         "tap_layer": tap_layer,
         "tap": f"forward hook on language_model.layers[{tap_layer}], raw residual",
@@ -598,6 +602,20 @@ def _metrics(reference: torch.Tensor, candidate: torch.Tensor,
     }
 
 
+def _attention_kind(manifest: dict) -> str | None:
+    """Which KV form the arm's SDPA saw.
+
+    The ComfyUI arm has no such field: its attention is its own. A Transformers
+    capture from before the switch existed has none either, and could only
+    have been the library's grouped-query decision, which is what is returned
+    for it.
+    """
+    if manifest.get("arm") != "transformers":
+        return None
+    kernel = manifest.get("attention_kernel")
+    return kernel["kind"] if kernel else "grouped_query"
+
+
 def compare(paths: list[Path], bundle: Path | None, out: Path,
             reference_dir: Path | None = None,
             field_under_test: list[str] | None = None) -> int:
@@ -635,7 +653,7 @@ def compare(paths: list[Path], bundle: Path | None, out: Path,
     # for a backend or mask one. The declaration is recorded in the report.
     under_test = set(field_under_test or [])
     if reference[0]["arm"] == "comfy":
-        under_test.add("dtype")
+        under_test.update({"dtype", "attention"})
 
     report: dict = {
         "comparison": "ComfyUI versus Transformers at the H3 layer-50 boundary",
@@ -655,6 +673,7 @@ def compare(paths: list[Path], bundle: Path | None, out: Path,
         if manifest.get("arm") == "transformers":
             label += ("-mask" if manifest.get("attention_mask_passed") else "-nomask")
             label += f"-{manifest.get('sdpa_backend', {}).get('requested', '?')}"
+            label += f"-{_attention_kind(manifest)}"
         if manifest.get("perturbed_weight"):
             label += "-perturbed"
         entry: dict = {"manifest": {k: v for k, v in manifest.items()
@@ -670,6 +689,9 @@ def compare(paths: list[Path], bundle: Path | None, out: Path,
         ]
         if manifest.get("perturbed_weight") != base_manifest.get("perturbed_weight"):
             mismatched.append("perturbed_weight")
+        if (_attention_kind(manifest) != _attention_kind(base_manifest)
+                and "attention" not in under_test):
+            mismatched.append("attention")
         if manifest.get("source", {}).get("logical_name") != \
                 base_manifest.get("source", {}).get("logical_name"):
             mismatched.append("source")
@@ -779,7 +801,9 @@ def main() -> int:
     parser.add_argument("--reference", metavar="DIR",
                         help="use this capture as the reference instead of the "
                              "ComfyUI arm; recorded in the report")
-    parser.add_argument("--field-under-test", action="append", choices=("dtype",),
+    parser.add_argument("--attention", default="grouped_query", choices=ATTENTION_KINDS,
+                        help="which KV form reaches SDPA; see bench/h3_attention_kernel.py")
+    parser.add_argument("--field-under-test", action="append", choices=("dtype", "attention"),
                         help="declare which field the compared arms may differ "
                              "on; a policy comparison between two Transformers "
                              "arms needs `dtype`. Recorded in the report")
@@ -833,7 +857,8 @@ def main() -> int:
     else:
         run_transformers_arm(bundle, args.row, source, out, args.dtype,
                              args.tap_layer, args.gpu_gib, args.perturb_weight,
-                             args.keep_attention_mask, args.sdpa_backend)
+                             args.keep_attention_mask, args.sdpa_backend,
+                             args.attention)
     return 0
 
 
