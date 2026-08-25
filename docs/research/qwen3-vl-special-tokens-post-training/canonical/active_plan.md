@@ -43,9 +43,10 @@ is not a prerequisite for building the candidate.
   envelope, visual-block envelope, population/cache, runtime, host reserve --
   not from a preselected row count or a single total-token figure. Every
   eligible and excluded row receives a reason.
-- The interpolated 300x300-to-2048 stress row is evaluation-only, never a
-  calibration row. This is a decision about manufactured pixels; genuine
-  high-resolution references and the 2048 processor ceiling stay.
+- Superseded 2026-08-25 by the owner's still-policy decision above: the
+  2048-short-edge upscale is now the primary reference-still policy, so
+  interpolated rows are calibration rows. The earlier evaluation-only ruling
+  on the 300x300-to-2048 row is withdrawn with it.
 - Text-only T2VA rows are excluded from the vision-traced `oneshot` calibration
   run. They remain a deterministic held-out regression population. Dummy visual
   inputs and silent media dropping are forbidden. A second text-only trace is a
@@ -76,12 +77,20 @@ cannot represent mixed keyframe-plus-reference requests.
 
 - **Keyframes:** use the resolved H3 target-canvas geometry. Retain the original
   temporal-role prose because Qwen does not receive the resolved frame index.
-- **Ordinary Ref2VA stills, primary policy:** use `max` with upstream upscaling
-  disabled. This preserves real source detail up to the serving ceiling without
-  manufacturing pixels.
-- **Ordinary Ref2VA stills, stress policy:** keep a separately named
-  2048-short-edge, upscale-allowed stratum. It measures the serving convention
-  without allowing interpolated large references to dominate the primary mix.
+- **Ordinary Ref2VA stills, primary policy:** the vendor serving convention
+  sglang implements: a 2048-pixel short edge with upstream upscaling
+  **enabled**, nearest-32 geometry, no area cap (`upscale_2048` in the
+  builder). **OWNER-DECISION, 2026-08-25**, superseding the earlier
+  `max`/no-upscale primary: the DiT was trained on encoder states the vendor
+  pipeline produced, so the calibration distribution follows that geometry
+  whatever the information content of interpolated pixels. `max` with no
+  upscale remains available as a comparison stratum. The cost is accepted:
+  a 16:9 still is 7,296 visual tokens, so a token budget buys fewer rows.
+- **Serving parity:** a v2 artifact calibrated this way should be served with
+  reference stills upscaled the same way (`MiniMaxH3ReferenceFit`
+  `allow_upscale=True`, or an encoder policy bound to v2 that upscales) and
+  reference video under the `release` video policy; the reference-node lane
+  owns that binding.
 - **Reference video:** use the release role policy: 768-pixel short edge,
   1,032,192-pixel upstream area budget, duration-aware Qwen processing, and the
   native two-frame block/timestamp presentation.

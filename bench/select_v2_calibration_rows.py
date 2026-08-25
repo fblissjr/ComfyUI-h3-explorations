@@ -85,8 +85,18 @@ def _round32(value: float) -> int:
     return max(MULTIPLE, int(round(value / MULTIPLE)) * MULTIPLE)
 
 
-def reference_still_tokens(width: int, height: int) -> int:
-    scale = min(1.0, REF_SHORT_EDGE / min(width, height))
+STILL_POLICIES = ("max_no_upscale", "upscale_2048")
+
+
+def reference_still_tokens(width: int, height: int, policy: str = "max_no_upscale") -> int:
+    """Merged tokens of a reference still under the builder's two policies.
+
+    `upscale_2048` is the vendor serving convention sglang implements: every
+    reference still goes to a 2048 short edge, upscaling included, nearest 32,
+    no area cap. `max_no_upscale` is the same ceiling without the upscale.
+    """
+    ratio = REF_SHORT_EDGE / min(width, height)
+    scale = ratio if policy == "upscale_2048" else min(1.0, ratio)
     w, h = _round32(width * scale), _round32(height * scale)
     return (w // (PATCH * MERGE)) * (h // (PATCH * MERGE))
 
@@ -98,7 +108,8 @@ def keyframe_tokens(width: int, height: int) -> int:
     return (w // (PATCH * MERGE)) * (h // (PATCH * MERGE))
 
 
-def estimate_row(pool_row: dict, raw_row: dict, tokenizer) -> dict:
+def estimate_row(pool_row: dict, raw_row: dict, tokenizer,
+                 still_policy: str = "max_no_upscale") -> dict:
     # The encoder is presented the H3 prompt, which is the row's `target_ir`;
     # the user message is the request and only supplies the contract's duration.
     user = next(m for m in raw_row["messages"] if m["role"] == "user")["content"]
@@ -114,7 +125,7 @@ def estimate_row(pool_row: dict, raw_row: dict, tokenizer) -> dict:
         if roles.get(str(index)) == "keyframe":
             visual += keyframe_tokens(width, height)
         else:
-            visual += reference_still_tokens(width, height)
+            visual += reference_still_tokens(width, height, still_policy)
     for _ in pool_row.get("videos") or []:
         items += 1
         visual += int(math.ceil(duration)) * VIDEO_TOKENS_PER_SECOND
@@ -130,6 +141,8 @@ def main() -> int:
     parser.add_argument("--max-row-tokens", type=int, default=16000)
     parser.add_argument("--total-tokens", type=int, default=400000)
     parser.add_argument("--seed", type=int, default=20260825)
+    parser.add_argument("--still-policy", choices=STILL_POLICIES, default="max_no_upscale",
+                        help="the builder's reference-still policy the estimate follows")
     parser.add_argument("--source-dir", required=True,
                         help="released text encoder directory, for the tokenizer")
     parser.add_argument("--out", required=True)
@@ -147,7 +160,7 @@ def main() -> int:
 
     estimates = {}
     for row in pool:
-        estimates[row["id"]] = estimate_row(row, raw[row["id"]], tokenizer)
+        estimates[row["id"]] = estimate_row(row, raw[row["id"]], tokenizer, args.still_policy)
 
     rng = random.Random(args.seed)
     order = sorted(pool, key=lambda r: hashlib.sha256(f"{args.seed}:{r['id']}".encode()).hexdigest())
@@ -234,6 +247,7 @@ def main() -> int:
                    "builder's exact lengths",
         "producer": producer_provenance(__file__),
         "pool": {"file": POOL.name, "rows": len(pool), "dataset_revision": revision},
+        "still_policy": args.still_policy,
         "budgets": {"rows": args.rows, "holdout": args.holdout,
                     "max_row_tokens_est": args.max_row_tokens,
                     "total_tokens_est": args.total_tokens, "seed": args.seed},
@@ -248,7 +262,8 @@ def main() -> int:
         "calibration": describe(calibration),
         "holdout": describe(holdout),
         "estimate_rules": {
-            "reference_still": "min(1, 2048/short_edge), round to 32, tokens = (w/32)*(h/32)",
+            "reference_still": ("2048/short_edge, upscaling included" if args.still_policy == "upscale_2048"
+                                else "min(1, 2048/short_edge)") + ", round to 32, tokens = (w/32)*(h/32)",
             "keyframe": "adapt to the 1344x768 canvas area at source aspect, round to 32",
             "video": f"{VIDEO_TOKENS_PER_SECOND} tokens per second of contract duration",
             "text": "released tokenizer count of the row's target_ir, the H3 prompt, no special tokens",
