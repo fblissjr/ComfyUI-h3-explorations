@@ -4,6 +4,34 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.65.0
+
+### Added
+
+- **`comfy_exact_bf16_store`** in `bench/h3_calibration_precision.py`: the
+  `comfy_exact` arithmetic over BF16-stored weights, cast to FP32 per call at
+  the functional layer so it reaches the computation under Accelerate's hooks,
+  compressed-tensors' offload, and the sequential pipeline's traced subgraphs
+  alike. `storage_dtype` / `storage_policy` keep the patch-embed conv FP32 at
+  load; any activation below FP32 reaching a patched op raises. Measured
+  bit-identical to FP32 storage on four released-weight fixtures.
+- **`bench/h3_attention_kernel.py`** and **`bench/check_attention_kernel.py`**:
+  whether SDPA sees grouped-query or expanded key/value heads, as a scoped,
+  counted, revertible switch; `--attention` on the layer-49 comparison and the
+  pilot.
+- **`bench/check_calibration_precision_policy.py`** gained the manual-cast arm.
+- Results under `bench/results/` dated 2026-08-25: the storage axis, the
+  kernel matrix on four fixtures with an early-tap control, and the composed
+  path running the whole Gate 2A population through the bridge.
+
+### Changed
+
+- **`bench/compare_transformers_comfy_layer50.py`** loads at the policy's
+  storage dtype, takes `--attention`, and accepts `--field-under-test` so a
+  policy-versus-policy or kernel-versus-kernel comparison between two
+  Transformers arms is declared rather than refused; against the ComfyUI arm
+  both are exempt by construction.
+
 ## 0.64.0
 
 ### Added
