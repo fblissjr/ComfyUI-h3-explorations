@@ -92,6 +92,15 @@ are not on the critical path; the AWQ state is what the host is for.
    change to `llm-compressor`'s `AWQModifier`, named here as **deferred
    work**, to be taken up only if Gate 5 says more calibration mass is
    wanted; nothing about tonight's candidate depends on it.
+3. **OWNER-DECISION, 16:35 the same day: layer-boundary checkpoint and
+   resume for the pilot**, so a mid-run failure costs one layer instead of
+   the run. Today's run has no such thing: the staged files of completed
+   layers are keyed by tensor object id and nothing can re-enter the
+   sequential pipeline at layer N. Assigned to mr_sparkles as a separate
+   module, integrated into the pilot only after this run lands, and accepted
+   only when an interrupted-then-resumed probe run is bit-identical to an
+   uninterrupted one. Until that proof exists, a long run is still all or
+   nothing.
 
 ## The split, rebuilt
 
