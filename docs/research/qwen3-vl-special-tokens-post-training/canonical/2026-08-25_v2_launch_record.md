@@ -175,7 +175,11 @@ holdout rows, relative L2 against BF16 at layer 50:
 2. v2 is below v1 row by row on at least 10 of 13 rows;
 3. no v2 row's vision relative L2 exceeds v1's worst row of that geometry;
 4. text rows: v2's median within 2x of v1's (W4 text is already near-exact,
-   so this only guards a regression).
+   so this only guards a regression). The same criterion, and only that one,
+   applies to the text-only T2VA holdout (13 rows, no media, built by mr_data
+   at 16:10 the same day and graded through the same comparator), which is
+   the plan's held-out regression population for the rows calibration never
+   traced.
 
 All four on both geometries: **accept**, and the candidate goes into the
 graphs for Gate 6. Criterion 1 failing on either geometry: the calibration
