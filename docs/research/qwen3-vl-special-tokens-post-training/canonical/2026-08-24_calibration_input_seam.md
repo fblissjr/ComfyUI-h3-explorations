@@ -176,8 +176,9 @@ installed native path and the release declaration are two, and they differ:
 | current AWQ artifact | 200,704 to 301,056 | `Qwen2VLImageProcessor`, `resample: 3` bicubic, after a round-and-clamp to uint8 | the artifact's snapshot, installed by `h3_awq_encoder.py::install_source_processors` |
 
 The two video policies remain separately owned as the contract describes:
-release 4,096 to 25,165,824 and the encoder artifact's snapshot, which agree
-today. Native ComfyUI is a third execution policy: it applies
+release 4,096 to 25,165,824 and the loaded encoder's snapshot, which agree
+today (the encoder policy binds to the CLIP's stamped contract since 2026-08-25;
+see the contract's policy 5). Native ComfyUI is a third execution policy: it applies
 3,136--12,845,056 independently to each two-frame block, while the release and
 encoder configurations apply their maximum over the whole sampled clip before
 native two-frame presentation. This scope difference is bounded rather than

@@ -88,7 +88,14 @@ Do not use one phrase such as “the H3 image/video processor” for all of thes
    round-and-clamp boundary and uses the snapshotted processor's resize path.
 4. **Release video policy.** Owned by the released video processor
    configuration and applied clip-wide before native two-frame presentation.
-5. **Encoder-artifact video policy.** Owned by the compressed-tensors W4 artifact's snapshotted video configuration (`config/qwen3vl_32b_minimax_h3_w4a16_awq`), read by `reference_conditioning.py::_qwen_video_settings` whichever CLIP the graph loaded. It is not bound to the loaded encoder: a stock `CLIPLoader` graph on `video_policy="encoder"` still applies this snapshot. The reference node exposes it as `video_policy="encoder"`.
+5. **Encoder-artifact video policy.** Owned by the loaded encoder's own
+   snapshotted video configuration, stamped on the CLIP by
+   `h3_awq_encoder.install_source_processors` as `_h3_encoder_contract` and
+   read back by `reference_geometry.encoder_contract_from_clip`. The reference
+   node exposes it as `video_policy="encoder"`. A CLIP that declares nothing,
+   core's `CLIPLoader` included, resolves `encoder` to the native path; the
+   substitution is made once and logged. Until 2026-08-25 the policy read the
+   current W4 artifact's snapshot whichever CLIP was loaded; enforced by `bench/check_reference_runtime.py::encoder_policy_binds_to_the_loaded_clip` and its red mutations M7/M8.
 
 The current release and encoder video configurations may agree today. Their
 ownership remains separate so future divergence cannot silently change a
@@ -113,7 +120,7 @@ Do not promote the processor differences into one blanket severity claim:
 | Ref2VA still inside the common interval | installed and release bounds overlap from 65,536 through 12,845,056 pixels; the policies remain separately owned, but neither numeric bound changes geometry there |
 | tiny/extreme Ref2VA still | floor or ceiling can change the grid and visual-token count |
 | stock-native Ref2VA video | **MEASURED bounded divergence:** the release duration-aware resize starts at 311+ legal target frames for a 1344x768 input, but cannot activate inside H3's legal range for the measured 960x544 input |
-| this repo's shipped Ref2VA video | `video_policy="encoder"` (39 of 40 shipped graphs on 2026-08-25; the exception is the `release` probe arm) applies the W4 artifact snapshot's duration-aware Qwen stage while retaining the intentional no-upscale VAE view; `release` is the full-parity option and `comfy` the native control |
+| this repo's shipped Ref2VA video | `video_policy="encoder"` (39 of 40 shipped graphs on 2026-08-25; the exception is the `release` probe arm) applies the loaded encoder's duration-aware Qwen stage, bound to the CLIP's stamped contract, while retaining the intentional no-upscale VAE view; `release` is the full-parity option and `comfy` the native control |
 | current W4 Ref2VA still | the artifact's 200,704--301,056-pixel snapshot is the binding Qwen constraint and is **MEASURED** to reduce input geometry and visual rows substantially; it is not a native-ComfyUI processor gap |
 
 The float/bilinear versus configured bicubic-through-uint8 difference has not

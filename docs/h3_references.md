@@ -4,7 +4,7 @@
 is, what ComfyUI actually does to it, what it costs, and how to write the
 prompt so the model uses it the way you meant.
 
-last updated: 2026-08-23
+last updated: 2026-08-25
 
 Sources: MiniMax's official prompt guide, general prompting research, ComfyUI's
 own code, and **sglang's MiniMax H3 serving path** (`coderef/sglang`, read at
@@ -423,8 +423,9 @@ each two-frame block independently, so it never enforces that whole-clip row
 budget. The executed boundary is source-dependent: it starts at legal H3
 lengths of 311 frames for a 1344x768 input, but is outside the legal range for
 the measured 960x544 input. The locally shipped `encoder` policy applies the
-W4 artifact snapshot's duration-aware Qwen stage, whichever CLIP is loaded; `comfy` retains native behavior
-and `release` applies both vendor video stages.
+loaded encoder's duration-aware Qwen stage, read off the CLIP's stamped
+contract (a CLIP that declares nothing resolves to native); `comfy` retains
+native behavior and `release` applies both vendor video stages.
 
 **Above, and this is measured rather than derived.**
 `bench/measure_qwen_bounds_bite.py` calls the real `process_qwen2vl_images`

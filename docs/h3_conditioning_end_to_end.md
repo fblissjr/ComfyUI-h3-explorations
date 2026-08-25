@@ -48,9 +48,10 @@ for how upstream sizing and the encoder cap compose.
 For Qwen's reference-video view, native stock ComfyUI and this repo's shipped
 graphs are also different paths. Stock applies shared bounds independently to
 each two-frame block. Shipped graphs other than the `release` probe arm select
-`video_policy=encoder`, which keeps the no-upscale VAE view but applies the W4
-artifact snapshot's clip-wide, duration-aware Qwen stage, whichever CLIP is
-loaded; `release` additionally applies vendor VAE sizing and
+`video_policy=encoder`, which keeps the no-upscale VAE view but applies the
+loaded encoder's clip-wide, duration-aware Qwen stage, read off the CLIP's
+stamped contract (a CLIP that declares nothing resolves to native, logged);
+`release` additionally applies vendor VAE sizing and
 `comfy` remains the native control. The source/length boundary where the stock
 and clip-wide grids actually separate is measured—not universal—and is owned
 by [`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md) section 2.

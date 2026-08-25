@@ -1,6 +1,6 @@
 # Conditioning against the release: what was built, and what was not
 
-last updated: 2026-08-24
+last updated: 2026-08-25
 
 Two defects were found by reading the published release beside the code that
 consumes it ([`official_weights_metadata.md`](official_weights_metadata.md)).
@@ -88,9 +88,12 @@ helper's signature default.
 
 Video is locally handled on every shipped reference graph but the `release`
 probe arm through `video_policy=encoder`: the VAE view remains no-upscale
-while the W4 artifact snapshot's duration-aware Qwen policy runs, whichever
-CLIP the graph loaded. `release` applies both vendor video
-stages; `comfy` remains the stock control.
+while the loaded encoder's duration-aware Qwen policy runs. Both `encoder`
+stages bind to the CLIP the node was handed: the loader stamps its artifact's
+declaration and `encoder_contract_from_clip` reads it back; a CLIP that
+declares nothing resolves to the native path, once, logged. Until 2026-08-25
+they read the W4 snapshot whichever CLIP was loaded; enforced by `bench/check_reference_runtime.py::encoder_policy_binds_to_the_loaded_clip` and its red mutations M7/M8.
+`release` applies both vendor video stages; `comfy` remains the stock control.
 
 The current compressed-tensors W4 still-image ceiling is not the native defect
 described above. It is the selected artifact's own deployed processor contract,

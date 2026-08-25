@@ -136,8 +136,15 @@ Unconditionally replacing that native value with
 `h3_awq_encoder.source_image_pixel_bounds()` would create the inverse bug for a
 native or different encoder. The selected encoder's effective bound has to be
 carried to the point that owns both consumers, or the typed conditioner has to
-derive it from its actual `clip` before VAE encoding. This is enforced by
-nothing today and remains separate from the now-complete adapter accessor.
+derive it from its actual `clip` before VAE encoding.
+
+**Resolved on the conditioner, 2026-08-25.** `MiniMaxH3ReferenceConditioning`
+now derives it from its actual `clip`: the loader stamps the artifact's
+declaration on the CLIP and `image_policy` / `video_policy = encoder` read it
+back, so the typed path applies the loaded encoder's ceiling before VAE
+encoding whichever loader built the CLIP; enforced by `bench/check_reference_runtime.py::encoder_policy_binds_to_the_loaded_clip` and its red mutations M7/M8. `reference_fit.py::qwen_max_pixels()` is
+unchanged and still has no `clip`, so the fit node remains a native-path
+reporter and must not be read as the AWQ ceiling.
 
 ## Fixing the encoder cap, if that is decided
 

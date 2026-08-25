@@ -105,7 +105,7 @@ block. The practical boundary is:
 | Ref2VA still inside the common interval | inputs from 65,536 through 12,845,056 pixels satisfy both numeric bounds | a processing-policy distinction, not malformed encoding; geometry changes only if another sizing stage acts |
 | tiny or extreme-aspect Ref2VA still | the release floor can enlarge what stock leaves small; stock can hit its lower ceiling before the release | grid and visual-token count can materially differ |
 | Ref2VA video, stock native path | the release has a clip-wide sampled-frame budget; stock budgets each two-frame block independently and never upscales a small source | **MEASURED bounded divergence:** the duration-aware resize begins only for canvas-sized sources at 311+ target frames; it cannot engage inside H3's legal range for the measured 960x544 source |
-| Ref2VA video, this repo's shipped graphs | 39 of 40 shipped graphs select `video_policy=encoder` on 2026-08-25; the one exception, `workflows/h3_probe_release_video_policy_api.json`, is the `release` probe arm | the W4 artifact snapshot's duration-aware Qwen stage is locally handled; the VAE view intentionally remains no-upscale, while `release` is the explicit full-parity option |
+| Ref2VA video, this repo's shipped graphs | 39 of 40 shipped graphs select `video_policy=encoder` on 2026-08-25; the one exception, `workflows/h3_probe_release_video_policy_api.json`, is the `release` probe arm | the loaded encoder's duration-aware Qwen stage is locally handled, bound to the CLIP's stamped contract since 2026-08-25 (enforced by `bench/check_reference_runtime.py::encoder_policy_binds_to_the_loaded_clip` and its red mutations M7/M8); the VAE view intentionally remains no-upscale, while `release` is the explicit full-parity option |
 | current compressed-tensors W4 artifact | its local loader replaces the stock still path with the artifact snapshot's 200,704--301,056-pixel budget | **MEASURED major reduction in Qwen input geometry and visual rows**, but this is an artifact-specific deployed-path gap, not a native-ComfyUI defect |
 
 No row above establishes malformed tensors or a perceptual failure. Patch size,
@@ -472,9 +472,11 @@ outside H3's legal range. Section 2 owns those measurements.
 
 This repo's shipped reference graphs do not take that stock video path. All
 but the `release` probe arm select `video_policy=encoder`, retaining the
-cheaper no-upscale VAE view while applying the compressed-tensors W4 artifact's snapshotted video configuration (`config/qwen3vl_32b_minimax_h3_w4a16_awq`), read by `reference_conditioning.py::_qwen_video_settings` whichever CLIP the graph loaded, as its duration-aware Qwen stage. The
+cheaper no-upscale VAE view while applying the loaded encoder's stamped contract (`h3_awq_encoder.install_source_processors` stamps `_h3_encoder_contract` on the CLIP; `reference_geometry.encoder_contract_from_clip` reads it back), so `encoder` is whatever the CLIP the node was handed declares; a CLIP that declares nothing, core's `CLIPLoader` included, resolves to the native path and says so, as its duration-aware Qwen stage. Until 2026-08-25 this read the W4 artifact's snapshot whichever CLIP the graph loaded; enforced by `bench/check_reference_runtime.py::encoder_policy_binds_to_the_loaded_clip` and its red mutations M7/M8. The
 `release` policy applies both vendor stages, and `comfy` remains the native
-control.
+control. `bench/preflight_graph.py` resolves the same contract statically from
+the loader node feeding the conditioner's `clip` input and prices the encoder
+video grid from it.
 
 Do not confuse either native policy with the current compressed-tensors W4
 artifact. Its adapter binds a separately snapshotted 200,704--301,056-pixel
@@ -750,7 +752,7 @@ rendered clip cannot A/B a numerical change.
 | The node that was missing entirely | [`reference_video_fit.py`](../reference_video_fit.py) |
 | Holds its copy of core's sizing rule to core's real behaviour | [`bench/check_ref_video_prediction.py`](../bench/check_ref_video_prediction.py) |
 | Opt-in local release policy | `MiniMaxH3ReferenceConditioning.video_policy=release`, controlled by [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) and its red harness |
-| Shipped hybrid encoder policy | `video_policy=encoder`: native-compatible no-upscale VAE geometry plus the W4 artifact's snapshotted duration-aware Qwen stage (read whichever CLIP is loaded), implemented locally and controlled against accidental release-config substitution by the same runtime check |
+| Shipped hybrid encoder policy | `video_policy=encoder`: native-compatible no-upscale VAE geometry plus the loaded encoder's duration-aware Qwen stage, bound to the CLIP's stamped contract, implemented locally and controlled against accidental release-config substitution and against a module default by the same runtime check |
 
 ### Custom W4A16 encoder format (adjacent, not a vendor-release gap)
 

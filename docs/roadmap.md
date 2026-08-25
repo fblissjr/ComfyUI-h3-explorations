@@ -1,6 +1,6 @@
 # Roadmap: what we are trying to find out, and what would count as finding it
 
-Last updated: 2026-08-24.
+Last updated: 2026-08-25.
 
 ## What this is, and who it is for
 
@@ -67,8 +67,8 @@ The next policy slice is also complete:
    for both release-video stages: the full-rate VAE view is put on the release
    canvas, while the raw 2 fps Qwen samples go through the release's
    duration-aware video processor. Generated graphs now use `encoder`: the
-   selected encoder artifact's snapshotted Qwen stage with Comfy-compatible
-   no-upscale VAE sizing. The two snapshots agree today but remain separate
+   loaded encoder's snapshotted Qwen stage (bound to the CLIP's stamped
+   contract since 2026-08-25) with Comfy-compatible no-upscale VAE sizing. The two snapshots agree today but remain separate
    authorities and are tested by deliberate disagreement.
    `comfy` remains the native preprocessing control.
 6. Added `h3_probe_release_video_policy` against the otherwise-matched

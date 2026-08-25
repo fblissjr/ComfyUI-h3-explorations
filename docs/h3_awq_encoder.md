@@ -1,7 +1,7 @@
 # MiniMax H3 compressed-tensors W4A16 encoder adapter
 
 Last verified against the installed ComfyUI and comfy-kitchen checkouts on
-2026-08-24.
+2026-08-25.
 
 `MiniMaxH3AWQEncoderLoader` is a repo-local format adapter for a specific
 family of Qwen3-VL-32B MiniMax H3 encoders: full Hugging Face checkpoints
@@ -230,6 +230,26 @@ resize paths is established.
 Only the Qwen encoder view is owned here. Reference image/video geometry used
 by the H3 VAE remains the responsibility of the conditioning path and can
 intentionally differ.
+
+### The stamped contract, and who reads it
+
+`install_source_processors` stamps the artifact's declaration on the CLIP's
+transformer as `_h3_encoder_contract`: still and video bounds and patch
+geometry, with the still bounds being the ones that instance was bound with
+(measurement override included). `snapshot_contract()` builds it from this
+module's snapshot through `_config`, so the standalone build reaches its
+embedded configs the same way; `snapshot_contract(directory)` builds it from
+any artifact directory carrying the two processor files, which is how a
+candidate shipped as an HF directory declares itself with no table row.
+`reference_geometry.encoder_contract_from_clip` reads the stamp back, so the
+typed conditioner's `image_policy` / `video_policy = encoder` apply the loaded
+encoder's declaration and not this module's; a CLIP with no stamp resolves to
+the native path. `encoder_contract_from_artifact(name)` is the static twin for
+`bench/preflight_graph.py`, which sees a graph rather than a CLIP.
+Controlled by `bench/check_reference_runtime.py` (`encoder_policy_binds_to_the_loaded_clip`,
+`preflight_resolves_encoder_from_the_loader_node`) and by the standalone arm
+of `bench/check_h3_awq_encoder.py`, which requires `install_source_processors`
+to be source-identical in the one-file build.
 
 ### Reference video
 

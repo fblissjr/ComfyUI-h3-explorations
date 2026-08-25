@@ -98,6 +98,33 @@ artifact.
 - **`CLAUDE.md`** drops two passages of its own edit history and replaces the
   hand-maintained `coderef/` roster, which had drifted, with `ls -l coderef/`.
 
+## 0.64.0
+
+### Fixed
+
+- **`image_policy=encoder` and `video_policy=encoder` read the current W4
+  artifact's snapshot whichever CLIP the graph had loaded.** A stock-loader
+  graph on `encoder` was pre-sized and priced at bounds no loaded encoder
+  declared, and a v2 artifact would have been priced at v1 geometry. The
+  loader now stamps its artifact's own declaration on the CLIP it builds
+  (`_h3_encoder_contract`), the conditioner reads it back off the CLIP it was
+  handed, and a CLIP that declares nothing resolves to the native path once,
+  logged. `snapshot_contract(directory)` reads any artifact directory carrying
+  the two processor files, so a candidate shipped as an HF directory needs no
+  table row.
+- **`bench/preflight_graph.py` priced `encoder` graphs without knowing the
+  loader.** It now walks the conditioner's `clip` link to the loader node,
+  resolves the same contract statically, reports which one priced the rows,
+  and prices the encoder video grid from it instead of leaving that line out.
+
+### Added
+
+- `bench/check_reference_runtime.py`: `encoder_policy_binds_to_the_loaded_clip`
+  (bare CLIP resolves to native; a stamped contract applies; a different
+  stamped contract applies differently; a partial stamp is refused) and
+  `preflight_resolves_encoder_from_the_loader_node`. The red harness gains
+  M7 (module default whichever CLIP) and M8 (encoder kept on a bare CLIP).
+
 ## 0.63.0
 
 ### Added
