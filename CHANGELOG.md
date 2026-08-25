@@ -17,6 +17,77 @@ artifact.
   power on 2026-08-18), that sglang's own H3 path leaves attention eager under
   its graphs, and the single-frame small-canvas case that is still untested.
 
+## 0.68.0
+
+### Added
+
+- **`bench/convert_h3_awq_candidate.py`**: one command from a compressed-tensors
+  W4A16 H3 calibration output to what `MiniMaxH3AWQEncoderLoader` loads. It
+  consolidates the candidate directory's shards into a single `.safetensors`
+  carrying the contract metadata and writes the versioned config snapshot under
+  `config/` as byte-for-byte copies of the candidate's own files. The
+  single-file form was chosen over teaching the loader to read the directory:
+  one load path instead of two, indifferent to shard count, a distinctive name
+  in ComfyUI's combo rather than a generic `model.safetensors`, and the
+  existing full-file digest control stays meaningful. It costs one more copy of
+  the weights on disk.
+- **`config/qwen3vl_32b_minimax_h3_w4a16_awq_v2_smoke/`**: the snapshot of the
+  two-layer smoke candidate the conversion path was exercised on, so the
+  adapter carries a second artifact generation that a check can resolve, bind
+  and refuse against with no external file present.
+- `bench/check_h3_awq_encoder.py`: `snapshot_resolution_is_by_content`,
+  `every_snapshot_binds_its_own_processors_and_tokens`, and an opt-in
+  `H3_AWQ_CANDIDATE_DIR` arm that converts a real candidate directory,
+  byte-compares the reproduced snapshot against the committed one, and drives
+  the produced file.
+
+### Changed
+
+- **`h3_awq_encoder.py` recognizes an artifact by its embedded config, not by
+  a module default.** `_resolve_snapshot` matches the selected file against
+  every `config.json` under `config/`, and the resolved snapshot then drives
+  the quant contract, the still and video processors, the token list and the
+  stamped `_h3_encoder_contract`. A file matching no snapshot is refused by
+  name of what the adapter carries.
+- Four v1 details the adapter had only ever met once now branch on the
+  observable: the decoder dtype is read from `text_config` rather than the
+  checkpoint's top-level `dtype` (a candidate keeping the vision patch embed in
+  FP32 declares `float32` there); the truncation depth is the artifact's
+  declaration rather than a constant, with the quantized-linear count asserted
+  exactly against it; the still-image settings are read from
+  `processor_config.json` or `preprocessor_config.json` and from wherever they
+  sit inside it; and the 20 special tokens are read from
+  `extra_special_tokens` or `additional_special_tokens`.
+- The loader refuses a reduced-depth artifact by name of its declared depth
+  rather than handing core a state dict it will misdetect. Core recognizes the
+  H3 encoder by decoder layer 49 and builds a fixed 50-layer model, so a
+  reduced-depth candidate cannot be constructed at all; its adaptation is still
+  depth-parametric and can be inspected directly.
+- `bench/build_h3_awq_standalone.py` follows the split declaration and stops its
+  `_config` replacement at the next definition, so the snapshot readers and the
+  resolver survive into the generated one-file loader. The standalone has no
+  `config/` directory, which is the correct answer for a published loader that
+  answers for the artifact whose configs it embeds.
+- `docs/h3_awq_encoder.md` gains *Artifact generations, and how one is
+  recognized*, and `docs/checks.md` a row for the converter and one in the
+  uncontrolled-requirements table.
+
+### Measured
+
+- `safetensors` 0.8.0 does not write a byte-reproducible header: two writes of
+  one identical state dict differ in the header and agree on its length, with
+  and without sorted keys. A produced artifact's recorded digest is therefore
+  an integrity record of the file that was deployed, not a reproducibility
+  claim; the snapshot's small files do reproduce byte for byte.
+- An FP32 tensor loaded into a BF16 module comes back BF16 and is not an exact
+  round trip, so a candidate's FP32 vision patch embed does not survive
+  ComfyUI's H3 construction. It is a property of how the scales were observed,
+  not of how the artifact runs here.
+- The release's flat `preprocessor_config.json` and v1's nested
+  `processor_config.json` construct the same slow `Qwen2VLImageProcessor` apart
+  from `size`; the release file omits `resample` and the `do_*` flags and the
+  class defaults supply v1's values.
+
 ## 0.67.0
 
 ### Added

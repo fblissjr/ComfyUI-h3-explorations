@@ -35,9 +35,11 @@ operator.
 | Dynamic VRAM/offload scheduling | native ComfyUI; the loader only supplies a reconstruction callback for its custom representation |
 
 The implementation is [`h3_awq_encoder.py`](../h3_awq_encoder.py). The exact
-small source files it accepts are versioned under
-[`config/qwen3vl_32b_minimax_h3_w4a16_awq/`](../config/qwen3vl_32b_minimax_h3_w4a16_awq/).
-The multi-gigabyte checkpoint remains external.
+small source files it accepts are versioned under `config/`, one directory per
+artifact generation, of which
+[`config/qwen3vl_32b_minimax_h3_w4a16_awq/`](../config/qwen3vl_32b_minimax_h3_w4a16_awq/)
+is v1's; see *Artifact generations* below. The multi-gigabyte checkpoints
+remain external.
 
 ## Why stock `CLIPLoader` cannot load this representation
 
@@ -100,8 +102,9 @@ because of its basename.
 After selection, the loader validates:
 
 - safetensors metadata declaring `scheme=w4a16` and `quantization=awq`;
-- an embedded config exactly matching the versioned snapshot;
-- 64 source language layers at hidden size 5120;
+- an embedded config exactly matching one versioned snapshot, which is also how
+  the loader decides which artifact this is;
+- the decoder layer count that snapshot declares, at hidden size 5120;
 - symmetric, group-128, 4-bit packed weights with BF16 scales; and
 - the complete adapted tensor inventory and every expected shape.
 
@@ -118,8 +121,8 @@ model.language_model.* -> model.*
 model.visual.*          -> visual.*
 ```
 
-It drops source language layers 50–63, `model.language_model.norm.*`, and
-`lm_head.*`. The resulting state dict exactly targets native ComfyUI's H3
+It drops every source language layer past H3's depth — 50–63 in a 64-layer
+source — along with `model.language_model.norm.*` and `lm_head.*`. The resulting state dict exactly targets native ComfyUI's H3
 model. There are 350 quantized language linears: seven in each of the retained
 50 layers.
 
@@ -145,7 +148,9 @@ not literally allocation-free:
   normalization weights retain their source BF16 tensors. The full-Qwen final
   language norm is not among those retained tensors.
 
-No second multi-gigabyte checkpoint is written to disk.
+No second multi-gigabyte checkpoint is written to disk at load. Producing
+the artifact from a candidate directory does write one, once; see *Artifact
+generations* below.
 
 ### 4. Native Comfy model construction and strict inventory check
 
@@ -160,6 +165,101 @@ The tokenizer check is a compatibility assertion, not a tokenizer patch. It
 proves that the selected artifact's 20 declared special tokens, role ids, and
 the native tokenizer agree. The seven MiniMax-specific tokens are already
 provided by current ComfyUI.
+
+## Artifact generations, and how one is recognized
+
+Since 2026-08-25 this adapter serves more than one calibration of the same
+architecture. v1 is the deployed single file. A candidate calibrated on the
+release's own geometry arrives from `llm-compressor` as a Hugging Face
+*directory*: shards, `config.json`, the release `preprocessor_config.json` and
+`video_preprocessor_config.json`, tokenizer files, a recipe and a run record.
+
+**The adapter still accepts exactly one thing: a single `.safetensors` whose
+metadata declares `scheme=w4a16`, `quantization=awq` and the artifact's own
+`config.json` verbatim.**
+[`bench/convert_h3_awq_candidate.py`](../bench/convert_h3_awq_candidate.py)
+produces that file from a candidate directory, together with the versioned
+config snapshot under `config/`, in one pass. Teaching the loader to read the
+directory instead was the alternative and was rejected: the single file keeps
+one load path and one contract rather than two, is indifferent to how many
+shards the candidate was saved in, gives the artifact a distinctive name in
+ComfyUI's combo rather than a generic `model.safetensors` inside a directory,
+and keeps the existing full-file digest control meaningful. It costs one more
+copy of the weights on disk, and one host-memory-sized consolidation pass.
+
+The conversion is faithful. Decoder layers past H3's depth, the final language
+norm and the LM head are all kept, so the artifact stays re-derivable from the
+calibration output and comparable to it; the adapter drops them at load, as it
+always has.
+
+### Recognition is by content, not by name
+
+`_resolve_snapshot` compares the selected file's embedded config against every
+`config.json` under `config/` and takes the one that matches exactly. Nothing
+resolves by filename. That is what refuses a v2 file selected while only the v1
+snapshot is installed, and — the case worth naming, because it is the tempting
+repair when a candidate is refused — what refuses it against a v1 snapshot
+somebody widened to "match" it. Both are red controls in
+[`bench/check_h3_awq_encoder.py`](../bench/check_h3_awq_encoder.py)
+(`snapshot_resolution_is_by_content`), and every installed snapshot is hashed
+against its own `sha256.json` on every run.
+
+Each snapshot's files are byte-for-byte copies of the candidate's own, so those
+digests are statements about the artifact as well as about the copies. The
+digest of the produced `.safetensors` is not: `safetensors` 0.8.0 does not
+write a byte-reproducible header — measured 2026-08-25, two writes of one
+identical state dict differ in the header and agree on its length, with and
+without sorted keys. Read it as an integrity record of the file that was
+deployed, never as a reproducibility claim.
+
+### What a second generation changed in the contract
+
+Each of these was a v1 detail this adapter had only ever met once. The
+replacement branches on the observable instead:
+
+| v1's shape | what a release-geometry candidate carries | what the adapter reads |
+|---|---|---|
+| top-level `dtype: bfloat16` | `dtype: float32`, because the recipe keeps the vision patch embed in FP32 | the **decoder's** dtype from `text_config`, which is bfloat16 in both; the top-level value is recorded and allowed to be either |
+| `num_hidden_layers: 64`, pinned as a constant | the same 64, but a reduced-layer smoke artifact carries fewer | the artifact's declared depth, with the H3 depth derived as the smaller of that and native's, and the quantized-linear count asserted exactly against it |
+| `processor_config.json`, still settings nested under `image_processor` | `preprocessor_config.json`, the same settings flat | whichever file is present, and the settings from wherever they sit inside it |
+| 20 special tokens under `extra_special_tokens` | the same 20, same order, under `additional_special_tokens`; `added_tokens_decoder` stops before the H3 ids | whichever key carries the list, with the list itself and the native tokenizer's realized ids asserted as before |
+
+The release and v1 processor settings construct the *same* slow
+`Qwen2VLImageProcessor` apart from `size`: the release file omits `resample`
+and the `do_*` flags and the class defaults supply v1's values. Measured on the
+installed transformers, 2026-08-25.
+
+### What it changes for a graph, and what it does not
+
+Nothing in a graph. The still-image ceiling a v2 artifact declares is the
+release's, far above v1's, and the loader stamps whichever the loaded artifact
+declares on the CLIP as `_h3_encoder_contract`. `image_policy=encoder` therefore
+prices a reference against the encoder actually loaded, and
+`bench/preflight_graph.py` resolves the same contract statically. Swapping the
+artifact is a combo change.
+
+Two things a v2 artifact does **not** get:
+
+- **Its FP32 vision patch embed does not survive the load.** ComfyUI builds the
+  H3 model at the decoder's dtype and `load_state_dict` casts on copy — an FP32
+  source tensor into a BF16 module comes back BF16 and is not an exact round
+  trip (executed, 2026-08-25). The calibration-time FP32 patch embed is a
+  property of how the scales were observed, not of how the artifact runs here.
+- **Reduced-depth artifacts cannot be constructed at all.** Core recognizes the
+  H3 encoder by the presence of decoder layer 49 and builds a fixed 50-layer
+  model, so a two-layer smoke artifact is detected as a different Qwen3-VL
+  entirely. The loader refuses it by name of its declared depth rather than
+  handing core a state dict it will misdetect, which is the shape of the
+  2026-08-23 escape. Its adaptation is still depth-parametric and can be
+  inspected directly, which is how the conversion path is exercised without the
+  full candidate.
+
+`config/qwen3vl_32b_minimax_h3_w4a16_awq_v2_smoke/` is that two-layer smoke
+candidate's snapshot, committed so the adapter carries a second generation a
+check can resolve, bind and refuse against with nothing external present. Its
+weights are a disposable fixture; the artifact digest in its `sha256.json`
+records the file the converter wrote on the day, and no deployed file matches
+it.
 
 ## W4A16 execution
 

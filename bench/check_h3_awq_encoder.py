@@ -33,6 +33,7 @@ import hashlib
 import inspect
 import json
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -43,6 +44,7 @@ REPO = Path(__file__).resolve().parent.parent
 COMFY = REPO.parents[1]
 sys.path.insert(0, str(COMFY))
 sys.path.insert(0, str(REPO / "workflows"))
+sys.path.insert(0, str(REPO / "bench"))
 
 import comfy.cli_args  # noqa: E402
 from build_h3_awq_standalone import (  # noqa: E402
@@ -129,15 +131,241 @@ def core_natively_recognizes_nvfp4_awq(path: Path):
 
 
 def source_config_snapshot_matches_digests():
-    recorded = json.loads((H.CONFIG_DIR / "sha256.json").read_text())
-    expected = {
-        "config.json", "tokenizer_config.json", "processor_config.json",
-        "video_preprocessor_config.json", "recipe.yaml",
-    }
-    assert expected <= recorded.keys(), recorded.keys()
-    for name in expected:
-        digest = hashlib.sha256((H.CONFIG_DIR / name).read_bytes()).hexdigest()
-        assert digest == recorded[name], (name, digest, recorded[name])
+    """Every installed snapshot hashes to what its own sha256.json records.
+
+    Widened from the single v1 directory on 2026-08-25. A second artifact
+    generation means a second snapshot, and a snapshot nothing hashes is a
+    snapshot somebody can widen -- which is exactly how a v2 file would come to
+    load against v1's still-image ceiling.
+    """
+    snapshots = H._snapshot_dirs()
+    assert H.CONFIG_DIR in snapshots, (
+        f"the v1 snapshot is not under {H.SNAPSHOT_ROOT}: {snapshots}")
+    for config_dir in snapshots:
+        recorded = json.loads((config_dir / "sha256.json").read_text())
+        required = {"config.json", "tokenizer_config.json",
+                    "video_preprocessor_config.json"}
+        still = {n for n in H.STILL_CONFIG_NAMES if (config_dir / n).is_file()}
+        assert still, (config_dir.name, "carries no still-image processor config")
+        required |= still
+        assert required <= recorded.keys(), (config_dir.name, recorded.keys())
+        # Every copied file, not only the required ones: recipe.yaml and a run
+        # record are provenance, and a provenance file nothing hashes can be
+        # edited to describe a run that did not happen.
+        for name, expected in recorded.items():
+            path = config_dir / name
+            if not path.is_file():
+                continue  # the external multi-gigabyte artifact
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            assert digest == expected, (config_dir.name, name, digest, expected)
+        for path in sorted(config_dir.iterdir()):
+            if path.name in ("sha256.json", "README.md"):
+                continue
+            assert path.name in recorded, (
+                f"{config_dir.name}/{path.name} is in the snapshot and not in "
+                "sha256.json")
+
+
+def snapshot_resolution_is_by_content():
+    """An artifact resolves to its own snapshot, and to no other.
+
+    The control this owns: on 2026-08-25 a second artifact generation appeared
+    with the release's much wider still-image bounds. Loading it against the v1
+    snapshot -- or against a v1 snapshot somebody widened to "match" it -- would
+    bind the wrong processor ceiling with nothing failing, because the tensors
+    are shaped identically. Recognition is therefore by the artifact's own
+    config, and both wrong pairings are shown red here.
+    """
+    snapshots = H._snapshot_dirs()
+    assert len(snapshots) >= 2, (
+        "only one snapshot is installed, so this cannot distinguish "
+        "content-addressed resolution from a module default")
+
+    with tempfile.TemporaryDirectory(prefix="h3-awq-snapshots-") as raw:
+        root = Path(raw)
+        for config_dir in snapshots:
+            shutil.copytree(config_dir, root / config_dir.name)
+            own = json.loads((config_dir / "config.json").read_text())
+            resolved = H._resolve_snapshot(own, root=root)
+            assert resolved == root / config_dir.name, (config_dir.name, resolved)
+
+        # Red control 1: the newer artifact against a root holding only v1.
+        v1_only = root / "_v1_only"
+        v1_only.mkdir()
+        shutil.copytree(H.CONFIG_DIR, v1_only / H.CONFIG_DIR.name)
+        others = [d for d in snapshots if d != H.CONFIG_DIR]
+        for config_dir in others:
+            newer = json.loads((config_dir / "config.json").read_text())
+            try:
+                H._resolve_snapshot(newer, root=v1_only)
+            except ValueError as exc:
+                assert "matches no versioned config snapshot" in str(exc), exc
+            else:
+                raise AssertionError(
+                    f"{config_dir.name} resolved against a v1-only snapshot set")
+
+        # Red control 2: a v1 snapshot widened to the newer artifact's
+        # still-image bounds still does not accept the newer artifact, and its
+        # own digests go red. Widening the processor is the tempting "fix" when
+        # a candidate is refused; it must not become one.
+        widened_root = root / "_widened"
+        widened = widened_root / H.CONFIG_DIR.name
+        widened_root.mkdir()
+        shutil.copytree(H.CONFIG_DIR, widened)
+        newer_dir = others[0]
+        newer_bounds = H.snapshot_contract(newer_dir)["image_bounds"]
+        still_name = next(n for n in H.STILL_CONFIG_NAMES
+                          if (widened / n).is_file())
+        still = json.loads((widened / still_name).read_text())
+        container = still.get("image_processor", still)
+        container["size"] = {"shortest_edge": newer_bounds[0],
+                             "longest_edge": newer_bounds[1]}
+        (widened / still_name).write_text(json.dumps(still, indent=2) + "\n")
+        assert H.snapshot_contract(widened)["image_bounds"] == tuple(newer_bounds), (
+            "the widening control did not actually widen anything")
+        try:
+            H._resolve_snapshot(
+                json.loads((newer_dir / "config.json").read_text()),
+                root=widened_root,
+            )
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(
+                f"{newer_dir.name} resolved against a widened v1 snapshot")
+        recorded = json.loads((widened / "sha256.json").read_text())
+        digest = hashlib.sha256((widened / still_name).read_bytes()).hexdigest()
+        assert digest != recorded[still_name], (
+            "the widened snapshot still matches its recorded digest, so the "
+            "digest pass could not have caught the edit")
+
+
+def every_snapshot_binds_its_own_processors_and_tokens():
+    """Each installed snapshot drives the preprocessing and token contract.
+
+    Runs without weights, so the newer generation's *config shapes* are covered
+    whether or not its multi-gigabyte artifact is on this machine: the release
+    writes the still-image settings flat in `preprocessor_config.json` where v1
+    nests them, and writes the same 20 special tokens under
+    `additional_special_tokens` where v1 uses `extra_special_tokens`. Reading
+    only v1's spelling refuses a correct artifact; that is the shape of failure
+    this case exists for.
+    """
+    import comfy.text_encoders.minimax
+
+    tokenizer = comfy.text_encoders.minimax.MiniMaxH3Tokenizer()
+    seen_bounds = set()
+    for config_dir in H._snapshot_dirs():
+        clip = types.SimpleNamespace(
+            cond_stage_model=types.SimpleNamespace(
+                qwen3vl_32b=types.SimpleNamespace(
+                    transformer=types.SimpleNamespace())),
+            tokenizer=tokenizer,
+        )
+        H.install_source_processors(clip, snapshot=config_dir)
+        model = clip.cond_stage_model.qwen3vl_32b.transformer
+        contract = model._h3_encoder_contract
+        assert contract["source"] == config_dir.name, contract
+        assert model._h3_processor_source == str(config_dir)
+        assert callable(model.preprocess_embed)
+        # The processor the artifact's own settings construct, at the artifact's
+        # own bounds -- built here so a settings shape transformers rejects
+        # fails as a red case rather than at the first reference render.
+        processor = H._image_processor(config_dir)
+        assert (processor.size.shortest_edge, processor.size.longest_edge) == \
+            contract["image_bounds"], (config_dir.name, processor.size)
+        assert int(processor.patch_size) == contract["image_geometry"]["patch_size"]
+        H._validate_native_tokenizer(clip, config_dir)
+        source_layers, depth = H.artifact_depth(config_dir)
+        assert 1 <= depth <= H.H3_LAYERS and depth == min(H.H3_LAYERS, source_layers)
+        seen_bounds.add(tuple(contract["image_bounds"]))
+    assert len(seen_bounds) > 1, (
+        f"every installed snapshot declares the same still bounds {seen_bounds}; "
+        "this case cannot tell a per-artifact binding from a module default")
+
+
+def candidate_directory_converts_to_a_loadable_artifact(candidate: Path):
+    """Convert a real candidate directory and drive the produced file.
+
+    Opt-in, because it needs a candidate on disk and writes a transient copy of
+    its weights. Reproduces the committed snapshot from the candidate's own
+    files and byte-compares -- so a snapshot edited by hand, or a converter that
+    stopped copying verbatim, goes red -- then adapts the produced artifact at
+    its own depth.
+    """
+    import convert_h3_awq_candidate as convert
+
+    name = os.environ.get("H3_AWQ_CANDIDATE_SNAPSHOT",
+                          "qwen3vl_32b_minimax_h3_w4a16_awq_v2_smoke")
+    committed = H.SNAPSHOT_ROOT / name
+    assert committed.is_dir(), f"no committed snapshot named {name}"
+    with tempfile.TemporaryDirectory(prefix="h3-awq-candidate-") as raw:
+        work = Path(raw)
+        artifact = work / f"{name}-comfy.safetensors"
+        assert convert.main([
+            "--candidate-dir", str(candidate),
+            "--snapshot-name", name,
+            "--snapshot-root", str(work / "config"),
+            "--output", str(artifact),
+            "--date", "1970-01-01",
+        ]) == 0
+        produced = work / "config" / name
+        for path in sorted(produced.iterdir()):
+            if path.name == "README.md":
+                continue  # carries the run date; sha256.json covers the rest
+            if path.name == "sha256.json":
+                # The small files reproduce byte for byte; the artifact digest
+                # does not, and must not be compared. `safetensors` 0.8.0 does
+                # not write a byte-reproducible header -- measured 2026-08-25,
+                # two writes of one identical state dict differ in the header
+                # and agree in its length, with and without sorted keys. The
+                # recorded artifact digest is therefore an integrity record of
+                # the file that was written, not a reproducibility claim.
+                mine = json.loads(path.read_text())
+                theirs = json.loads((committed / path.name).read_text())
+                artifacts = {k for k in theirs if k.endswith(".safetensors")}
+                assert artifacts, f"{committed.name}/sha256.json records no artifact"
+                assert set(mine) == set(theirs), (set(mine), set(theirs))
+                assert {k: v for k, v in mine.items() if k not in artifacts} == \
+                    {k: v for k, v in theirs.items() if k not in artifacts}, (
+                        mine, theirs)
+                continue
+            assert path.read_bytes() == (committed / path.name).read_bytes(), (
+                f"{path.name} reproduced from the candidate differs from the "
+                "committed snapshot")
+
+        import comfy.utils
+        state, metadata = comfy.utils.load_torch_file(
+            str(artifact), safe_load=True, return_metadata=True)
+        resolved = H._validate_metadata(metadata)
+        assert resolved == committed, (resolved, committed)
+        source_layers, depth = H.artifact_depth(resolved)
+        adapted = H.adapt_compressed_state_dict(state, metadata)
+        quantized = [k for k in adapted if k.endswith(".comfy_quant")]
+        assert len(quantized) == depth * 7, (len(quantized), depth)
+        assert not any(k.startswith(("lm_head.", "model.lm_head.")) for k in adapted)
+        assert "model.norm.weight" not in adapted
+        assert f"model.layers.{depth}." not in "".join(adapted)
+
+        if depth == H.H3_LAYERS:
+            count = full_loader_contract(artifact)
+            return f"{count} W4A16 linears, depth {depth}"
+        # Core detects the H3 encoder by decoder layer 49 and builds a fixed
+        # 50-layer model, so a reduced-depth candidate cannot be constructed at
+        # all. The loader must say that instead of handing core a state dict it
+        # will misdetect -- which is the 2026-08-23 escape's failure mode.
+        import comfy.sd
+        detected = comfy.sd.detect_te_model(adapted)
+        assert detected != comfy.sd.TEModel.QWEN3VL_32B, detected
+        try:
+            H._load_clip(str(artifact), [], device="cpu")
+        except ValueError as exc:
+            assert "decoder layers" in str(exc), exc
+        else:
+            raise AssertionError(
+                f"a {source_layers}-layer artifact was constructed as native H3")
+        return (f"{len(quantized)} W4A16 linears at depth {depth}; construction "
+                f"refused, core detects {detected.name}")
 
 
 def standalone_distribution_contract():
@@ -486,7 +714,13 @@ def full_loader_contract(path: Path, module=H):
     assert len(linears) == module.EXPECTED_QUANTIZED_LINEARS, len(linears)
     assert all(m.weight._params.group_size == module.GROUP_SIZE for m in linears)
     assert model.num_layers == module.H3_LAYERS
-    assert model._h3_processor_source == module.CONFIG_SOURCE
+    # Whichever snapshot this artifact resolved to, not the module default: a
+    # v2 file must report v2's directory here, and reporting the default would
+    # mean it had been preprocessed under v1's still-image ceiling.
+    assert Path(model._h3_processor_source).is_dir() or \
+        model._h3_processor_source == module.CONFIG_SOURCE
+    assert model._h3_encoder_contract["source"] == \
+        Path(model._h3_processor_source).name
     vocab = clip.tokenizer.qwen3vl_32b.tokenizer.get_vocab()
     assert [vocab[t] for t in (
         "<d>", "</d>", "<|cutoff|>", "<|lyrics_start|>",
@@ -517,6 +751,9 @@ def main(argv=None) -> int:
 
     cases = [
         ("source config snapshot", source_config_snapshot_matches_digests),
+        ("snapshot resolution by content", snapshot_resolution_is_by_content),
+        ("per-snapshot processors/tokens",
+         every_snapshot_binds_its_own_processors_and_tokens),
         ("standalone loader/workflows", standalone_case),
         ("core format control", lambda: core_still_misdetects_the_real_format(path)),
         ("core load boundary", lambda: core_loader_still_rejects_the_real_format(path)),
@@ -533,6 +770,19 @@ def main(argv=None) -> int:
                       lambda: external_model_digest_matches(path)))
     else:
         print("  SKIP  external model sha256: use --verify-model-hash for the ~19 GB pass")
+    candidate_raw = os.environ.get("H3_AWQ_CANDIDATE_DIR")
+    candidate = Path(os.path.expanduser(candidate_raw)) if candidate_raw else None
+    if candidate is not None and candidate.is_dir():
+        cases.append((
+            "candidate directory conversion",
+            lambda: print(
+                "        " + candidate_directory_converts_to_a_loadable_artifact(
+                    candidate)
+            ),
+        ))
+    else:
+        print("  SKIP  candidate directory conversion: set H3_AWQ_CANDIDATE_DIR "
+              "to a compressed-tensors W4A16 H3 candidate directory")
     native = _native_path()
     if native.exists():
         cases.insert(

@@ -1,0 +1,9 @@
+{
+  "config.json": "3101384dfd7c7e9589dab70c1c7e3a57ed687d8ca4a6b932f312b60c1eadd6f8",
+  "h3_v2_run_record.json": "48ff7a105ee6acff4c74d588b213d213e44e0ffdc3c599f0343274d3282ce2a9",
+  "preprocessor_config.json": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+  "qwen3vl_32b_minimax_h3_w4a16_awq_v2_smoke-comfy.safetensors": "6fcdc85f0f814f2048b0e51009f8df28fe30df0f4b0b8bd9c599eca57bf56c42",
+  "recipe.yaml": "1a2fef3e4350104eef6363a622106b416cca2732907bbfc0eb8e58e0bccbf620",
+  "tokenizer_config.json": "a07e942ac874baa13758de8d1fbdb186683cc03416b5589e1b6671c6b3057c68",
+  "video_preprocessor_config.json": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+}

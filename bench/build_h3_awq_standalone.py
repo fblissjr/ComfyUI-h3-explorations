@@ -78,8 +78,8 @@ overall_soundscape: Quiet location ambience matched to the reference scene, with
 
 non_diegetic_music: A minimal sustained cinematic underscore at low volume, resolving gently at the final frame."""
 
-_CONFIG_DECLARATION = '''CONFIG_DIR = (Path(__file__).resolve().parent / "config" /
-              "qwen3vl_32b_minimax_h3_w4a16_awq")
+_CONFIG_DECLARATION = '''SNAPSHOT_ROOT = Path(__file__).resolve().parent / "config"
+CONFIG_DIR = SNAPSHOT_ROOT / "qwen3vl_32b_minimax_h3_w4a16_awq"
 CONFIG_SOURCE = str(CONFIG_DIR)
 '''
 
@@ -161,7 +161,16 @@ def render_standalone_loader() -> str:
         combined.update(texts[name].encode())
         combined.update(b"\0")
 
-    embedded = ["_EMBEDDED_CONFIG_TEXT = {"]
+    # `_snapshot_dirs()` is copied verbatim and reads SNAPSHOT_ROOT, so the
+    # standalone needs the name. Beside a single downloaded .py there is no
+    # `config` directory, which is the correct answer: the published one-file
+    # loader answers for the artifact whose configs it embeds and refuses any
+    # other by that artifact's own config.
+    embedded = [
+        'SNAPSHOT_ROOT = Path(__file__).resolve().parent / "config"',
+        "",
+        "_EMBEDDED_CONFIG_TEXT = {",
+    ]
     for name in RUNTIME_CONFIGS:
         embedded.append(f"    {name!r}: {texts[name]!r},")
     embedded.extend(["}", "", "_EMBEDDED_CONFIG_SHA256 = {"])
@@ -178,7 +187,10 @@ def render_standalone_loader() -> str:
     config_decl = "\n".join(embedded)
 
     config_function_start = source.index("@functools.lru_cache(maxsize=None)\ndef _config")
-    config_function_end = source.index("\n\ndef _quant_contract()", config_function_start)
+    # Ends at the next definition, not at `_quant_contract`: everything between
+    # them -- the snapshot readers and the resolver -- is copied verbatim and
+    # must survive this replacement.
+    config_function_end = source.index("\n\ndef _snapshot_json(", config_function_start)
     source = (
         source[:config_function_start]
         + "@functools.lru_cache(maxsize=None)\n"
