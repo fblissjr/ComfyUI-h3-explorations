@@ -1,0 +1,131 @@
+{
+  "spec_id": "cut-rampart-en",
+  "split": "evaluation",
+  "stratum": "cutoff-at-boundary",
+  "marker_families": [
+    "dialogue",
+    "cutoff"
+  ],
+  "task": {
+    "mode": "ref2va",
+    "input_mode": "reference",
+    "generation_kind": "reference generation",
+    "summary": "The target video is a night sequence on a castle rampart. <Subject 1> begins an order to the ranks below and the video ends while he is still speaking, so the line is deliberately incomplete at the boundary. Two shots: a close on <Subject 1> turning to the drop, and a wide from behind him over the parapet toward <Setting 1> as the line is cut short by the end of the video."
+  },
+  "canvas": {
+    "width": 1344,
+    "height": 768,
+    "duration_seconds": 5.1667,
+    "frame_count": 124,
+    "still_policy": "max_no_upscale"
+  },
+  "media": [
+    {
+      "label": "<Picture 1>",
+      "role": "reference-still",
+      "path": "media/images/image-e5fe2b46326a0509ef5d.jpg",
+      "sha256": "93ebbbac2953eb5ab832ab0b80370461b4b22a6dde3bd4fe1e668c6d8ab8a6e4",
+      "source_size": [
+        2048,
+        1152
+      ],
+      "geometry_stage_1": {
+        "rule": "min(1.0, 2048/short_edge), round to 32",
+        "upstream": [
+          2048,
+          1152
+        ]
+      },
+      "geometry_stage_2": {
+        "resolved_by": "the release Qwen still processor at batch build",
+        "recorded_by": "bench/build_native_h3_calibration_batch.py"
+      }
+    },
+    {
+      "label": "<Picture 2>",
+      "role": "keyframe-last",
+      "keyframe_time": 5.1667,
+      "path": "media/images/image-a3b6e65687656b1ee73b.jpg",
+      "sha256": "cca3b2682818564bd91189ef6d5256a489b06010368d141bf5494ec21ee2032a",
+      "source_size": [
+        4096,
+        2304
+      ],
+      "geometry_stage_1": {
+        "rule": "adapt_canvas at the resolved target canvas, centre crop for a last frame",
+        "upstream": [
+          1344,
+          768
+        ]
+      },
+      "geometry_stage_2": {
+        "resolved_by": "the release Qwen still processor at batch build",
+        "recorded_by": "bench/build_native_h3_calibration_batch.py"
+      }
+    }
+  ],
+  "subjects": [
+    {
+      "id": "<Subject 1>",
+      "definition": "the officer at the head of the column in <Picture 1>: pale skin, dark hair swept back, a black high-collared military coat with silver frogging across the chest, and a long black cape lined in deep red worn from the left shoulder. Retain the face, the high collar, the silver frogging and the red-lined cape; the ranks behind him in the reference are not part of him.",
+      "appears_in": [
+        1,
+        2
+      ],
+      "retention": "partially_preserved - face, coat, collar, frogging and the red-lined cape are held exactly; his pose, the rampart around him and the night light follow the shot description"
+    },
+    {
+      "id": "<Setting 1>",
+      "definition": "the fortress shown in <Picture 2>: a many-towered stone castle on a sheer cliff above cloud, reached by a long arched bridge, under a broken sky with light breaking behind the towers. Retain the silhouette of the towers, the bridge and the cliff.",
+      "appears_in": [
+        2
+      ],
+      "retention": "fully_preserved - <Picture 2> is the final frame of the target video, so the fortress silhouette, the bridge and the sky at the end of the sequence are exactly the supplied image"
+    }
+  ],
+  "shots": [
+    {
+      "index": 1,
+      "start_seconds": 0.0,
+      "camera": "close single on <Subject 1> from slightly below, night, cold blue key from the left with torchlight flickering warm on his right cheek",
+      "action": "<Subject 1> stands at the parapet of a high rampart, the red lining of his cape lifting in the wind, and turns his head sharply toward the drop below.",
+      "events": [
+        {
+          "kind": "silence",
+          "requirement": "He does not speak in this shot and his lips remain closed as he turns."
+        }
+      ],
+      "closing": "Torch smoke tears sideways past him and the wind takes the cape out flat."
+    },
+    {
+      "index": 2,
+      "start_seconds": 3.0,
+      "camera": "cut to a wide from behind his shoulder, over the parapet, <Setting 1> filling the far side of the gorge as the camera settles into the final framing",
+      "action": "<Subject 1> raises one gloved hand toward the ranks massed on the bridge far below and begins to give an order.",
+      "events": [
+        {
+          "kind": "dialogue",
+          "speaker": "<Subject 1>",
+          "language": "English",
+          "words": "Hold the bridge until the second bell, and do not let them",
+          "delivery": "begins to call out hard and carrying over the wind",
+          "mouth": "his mouth still open and mid-word as the video ends",
+          "lead": "Raising his hand to the ranks below, <Subject 1> begins to call out hard and carrying over the wind",
+          "cutoff": true
+        }
+      ],
+      "closing": "The video ends on this framing with the order unfinished, on the last frame supplied as <Picture 2>."
+    }
+  ],
+  "sound": {
+    "overall": "High exposed wind across stone dominates, with torch flame snapping close on the left and the distant shift of massed armour far below. One hard called English line begins late in the sequence and is still in progress when the audio ends; it is not resolved, faded or completed.",
+    "non_diegetic": "A low brass swell rising under the second shot, still rising when the sequence ends."
+  },
+  "render": {
+    "seed_set_id": "marker-corpus-seedset-A",
+    "sampler": "er_sde",
+    "steps": 30,
+    "matched_seeds": "the whole seed set is rendered for every arm"
+  },
+  "_notes": "The incomplete line and the end timing are identical in every arm; only the cutoff marker itself is removed by the stripped arm, per the brief."
+}

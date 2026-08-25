@@ -1,0 +1,149 @@
+{
+  "spec_id": "dlg-atelier-fr-en",
+  "split": "evaluation",
+  "stratum": "dialogue-plus-translated-caption",
+  "marker_families": [
+    "dialogue",
+    "caption"
+  ],
+  "task": {
+    "mode": "ref2va",
+    "input_mode": "reference",
+    "generation_kind": "reference generation",
+    "summary": "The target video is a handheld documentary sequence in a glassblowing atelier at dusk. <Subject 1> speaks one line in French to <Subject 2> across a cooling bench while the furnace glow moves across both faces; an English subtitle carries the translation. Three shots: a two-shot establishing the bench, a close single on <Subject 1> as she speaks, and a reverse on <Subject 2> listening in silence."
+  },
+  "canvas": {
+    "width": 1344,
+    "height": 768,
+    "duration_seconds": 5.1667,
+    "frame_count": 124,
+    "still_policy": "max_no_upscale"
+  },
+  "media": [
+    {
+      "label": "<Picture 1>",
+      "role": "reference-still",
+      "path": "media/images/image-ad41f88f5b62a80b2274.jpg",
+      "sha256": "a1ded800e2123fb54bd27dea3606d002d790133d056027c2866264841673a81a",
+      "source_size": [
+        2048,
+        1152
+      ],
+      "geometry_stage_1": {
+        "rule": "min(1.0, 2048/short_edge), round to 32",
+        "upstream": [
+          2048,
+          1152
+        ]
+      },
+      "geometry_stage_2": {
+        "resolved_by": "the release Qwen still processor at batch build",
+        "recorded_by": "bench/build_native_h3_calibration_batch.py"
+      }
+    },
+    {
+      "label": "<Picture 2>",
+      "role": "reference-still",
+      "path": "media/images/image-f9e397452ace4987d1a4.jpg",
+      "sha256": "2e740c55c7cefe47c2a3da84e0355df966642d7d8763e7018b13c2ed095b067f",
+      "source_size": [
+        2048,
+        1152
+      ],
+      "geometry_stage_1": {
+        "rule": "min(1.0, 2048/short_edge), round to 32",
+        "upstream": [
+          2048,
+          1152
+        ]
+      },
+      "geometry_stage_2": {
+        "resolved_by": "the release Qwen still processor at batch build",
+        "recorded_by": "bench/build_native_h3_calibration_batch.py"
+      }
+    }
+  ],
+  "subjects": [
+    {
+      "id": "<Subject 1>",
+      "definition": "the young woman defined jointly by the four views in <Picture 1>: silver-blonde hair worn in damp-looking braided strands past the shoulder, pale grey-blue eyes, and a floor-length ivory gown of layered translucent panels with a beaded bodice. Retain the hair colour, the braid structure and the layered ivory gown; the background of the reference sheet is not part of her.",
+      "appears_in": [
+        1,
+        2
+      ],
+      "retention": "partially_preserved - hair colour, braid structure, eye colour and the layered ivory gown are held exactly; her pose, framing and the light falling on her follow the shot description rather than the reference sheet"
+    },
+    {
+      "id": "<Subject 2>",
+      "definition": "the young man defined jointly by the four views in <Picture 2>: tousled black hair to the jaw, dark brows, an off-white loose linen shirt with sleeves pushed to the elbow, and a long dark grey work apron tied at the waist over wide dark trousers. Retain the hair, the linen shirt and the dark apron; the plain backdrop of the reference sheet is not part of him.",
+      "appears_in": [
+        1,
+        3
+      ],
+      "retention": "partially_preserved - hair, facial structure, the linen shirt and the dark apron are held exactly; his pose, framing and the light falling on him follow the shot description"
+    }
+  ],
+  "shots": [
+    {
+      "index": 1,
+      "start_seconds": 0.0,
+      "camera": "handheld medium two-shot, slight breathing motion, the camera settling as it finds the bench",
+      "action": "<Subject 1> stands at the left of a long steel cooling bench in a dim workshop, <Subject 2> opposite her at the right, a row of cooling glass vessels between them catching orange light from an open furnace mouth in the deep background.",
+      "events": [
+        {
+          "kind": "silence",
+          "requirement": "Neither figure speaks in this shot and both keep their lips closed; the only sound is the room."
+        }
+      ],
+      "closing": "Heat shimmer rises off the bench between them and warm light crawls across the vessels."
+    },
+    {
+      "index": 2,
+      "start_seconds": 1.75,
+      "camera": "cut to a handheld close single on <Subject 1>, shallow focus, the furnace glow warm on the left side of her face",
+      "action": "<Subject 1> lifts her eyes from the glass and looks directly across the bench.",
+      "events": [
+        {
+          "kind": "dialogue",
+          "speaker": "<Subject 1>",
+          "language": "French",
+          "words": "Il faut le laisser refroidir jusqu'a demain.",
+          "delivery": "speaks quietly and evenly, barely above the furnace noise",
+          "mouth": "her lips moving clearly with the words",
+          "lead": "Facing <Subject 2> across the bench, <Subject 1> speaks quietly and evenly"
+        },
+        {
+          "kind": "caption",
+          "prose_request": "A single-line English subtitle is burned into the lower third of the frame, centred, in a plain white sans-serif with a soft dark drop shadow, appearing as she begins to speak and clearing as she finishes.",
+          "text": "We have to let it cool until tomorrow.",
+          "layout": "lower third, centred, plain white sans-serif with a soft dark shadow, one line"
+        }
+      ],
+      "closing": "She lowers her eyes back to the glass as the line ends."
+    },
+    {
+      "index": 3,
+      "start_seconds": 3.5,
+      "camera": "cut to a handheld reverse close single on <Subject 2>, the furnace behind him thrown far out of focus",
+      "action": "<Subject 2> listens without answering, then gives a single slow nod and reaches to draw a cloth over the nearest vessel.",
+      "events": [
+        {
+          "kind": "silence",
+          "requirement": "<Subject 2> does not speak and his lips remain completely closed throughout the shot."
+        }
+      ],
+      "closing": "The cloth settles and the orange light on his face dims as the furnace mouth swings shut."
+    }
+  ],
+  "sound": {
+    "overall": "A low continuous furnace roar sits under the whole sequence, close and slightly muffled, with the fine tick of cooling glass in the near foreground. One line of quiet French speech sits clearly above the room tone in the middle of the sequence. A soft cloth drag and the heavy swing of an iron door close the sequence.",
+    "non_diegetic": "None. The sequence carries room sound only."
+  },
+  "render": {
+    "seed_set_id": "marker-corpus-seedset-A",
+    "sampler": "er_sde",
+    "steps": 30,
+    "matched_seeds": "the whole seed set is rendered for every arm"
+  },
+  "_notes": "Media chosen from pool families untouched by any v2 calibration or holdout bundle, so a v2 evaluation on this corpus is not reading its own calibration data back."
+}

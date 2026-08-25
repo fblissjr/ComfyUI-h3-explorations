@@ -1,0 +1,101 @@
+{
+  "spec_id": "lyr-tide-en",
+  "split": "evaluation",
+  "stratum": "lyrics-sung-run",
+  "marker_families": [
+    "dialogue",
+    "lyrics"
+  ],
+  "task": {
+    "mode": "ref2va",
+    "input_mode": "reference",
+    "generation_kind": "reference generation",
+    "summary": "The target video is a slow underwater drift around <Subject 1>, who sings one sustained line into the water. The identical line is sung, not spoken, and the sequence is judged against that sung brief. Two shots: a wide drifting orbit, and a close on her face through rising bubbles as she sings."
+  },
+  "canvas": {
+    "width": 1344,
+    "height": 768,
+    "duration_seconds": 5.1667,
+    "frame_count": 124,
+    "still_policy": "max_no_upscale"
+  },
+  "media": [
+    {
+      "label": "<Picture 1>",
+      "role": "reference-still",
+      "path": "media/images/image-0186b585ce51968834f6.jpg",
+      "sha256": "11f5f9262308540f1ccec97abed087d3d12d98b9e3c0a52f9c97e54cae000ef7",
+      "source_size": [
+        2048,
+        1152
+      ],
+      "geometry_stage_1": {
+        "rule": "min(1.0, 2048/short_edge), round to 32",
+        "upstream": [
+          2048,
+          1152
+        ]
+      },
+      "geometry_stage_2": {
+        "resolved_by": "the release Qwen still processor at batch build",
+        "recorded_by": "bench/build_native_h3_calibration_batch.py"
+      }
+    }
+  ],
+  "subjects": [
+    {
+      "id": "<Subject 1>",
+      "definition": "the figure defined jointly by the four views in <Picture 1>: pale luminous skin, long silver-white hair falling in wet strands, and a long tail of overlapping iridescent pale-blue scales ending in translucent fanned fins, with matching fin membranes at the forearms. Retain the hair colour, the scale colour and the fin structure; the plain sheet background is not part of her.",
+      "appears_in": [
+        1,
+        2
+      ],
+      "retention": "partially_preserved - hair, skin tone, scale colour and fin structure are held exactly; her pose, the water around her and the light follow the shot description rather than the reference sheet"
+    }
+  ],
+  "shots": [
+    {
+      "index": 1,
+      "start_seconds": 0.0,
+      "camera": "wide slow orbit, the camera drifting left to right as though carried by the current, shafts of pale surface light falling from above",
+      "action": "<Subject 1> hangs suspended in deep blue-green water, tail curling slowly beneath her, silver hair lifting and spreading around her head.",
+      "events": [
+        {
+          "kind": "silence",
+          "requirement": "She does not sing while the orbit holds wide and her lips stay closed."
+        }
+      ],
+      "closing": "A slow column of bubbles rises past her from somewhere below the frame."
+    },
+    {
+      "index": 2,
+      "start_seconds": 2.25,
+      "camera": "the orbit tightens to a close single on her face, the surface light rippling across her cheek",
+      "action": "<Subject 1> tips her head back and opens her mouth to sing, bubbles streaming upward past her jaw.",
+      "events": [
+        {
+          "kind": "dialogue",
+          "speaker": "<Subject 1>",
+          "language": "English",
+          "words": "The tide will carry me home again",
+          "delivery": "sings one sustained legato phrase, clear and unhurried, held across the whole shot",
+          "mouth": "her mouth open and shaping the sung vowels throughout",
+          "lead": "Tipping her head back, <Subject 1> sings one sustained legato phrase, clear and unhurried",
+          "sung": true
+        }
+      ],
+      "closing": "The last vowel sustains as the bubbles thin and the light on her face dims toward the end of the phrase."
+    }
+  ],
+  "sound": {
+    "overall": "A dense underwater ambience of low pressure rumble and the fine rush of rising bubbles. A single sustained sung female phrase carries across the second half, close and slightly reverberant as though heard underwater, with no spoken narration anywhere in the sequence.",
+    "non_diegetic": "A sparse sustained string pad well under the voice, entering with the sung phrase and holding one chord to the end."
+  },
+  "render": {
+    "seed_set_id": "marker-corpus-seedset-A",
+    "sampler": "er_sde",
+    "steps": 30,
+    "matched_seeds": "the whole seed set is rendered for every arm"
+  },
+  "_notes": "The contrast for this row is the same SUNG brief with the lyrics pair removed, never a spoken-narration brief; the brief is explicit that lyrics must be compared against sung delivery."
+}

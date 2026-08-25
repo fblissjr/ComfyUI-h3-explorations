@@ -1,0 +1,104 @@
+{
+  "spec_id": "dlg-meadow-en",
+  "split": "evaluation",
+  "stratum": "dialogue-only",
+  "marker_families": [
+    "dialogue"
+  ],
+  "task": {
+    "mode": "i2va",
+    "input_mode": "keyframe",
+    "generation_kind": "keyframe generation",
+    "summary": "The target video opens on the supplied first frame and runs forward from it. <Subject 1> crouches in a summer meadow with a magnifying glass, speaks one delighted line in English to somebody off-frame, then goes quiet as a butterfly settles. Two shots: the opening wide from the keyframe, and a low push-in as she speaks."
+  },
+  "canvas": {
+    "width": 1344,
+    "height": 768,
+    "duration_seconds": 5.1667,
+    "frame_count": 124,
+    "still_policy": "max_no_upscale"
+  },
+  "media": [
+    {
+      "label": "<Picture 1>",
+      "role": "keyframe-first",
+      "keyframe_time": 0.0,
+      "path": "media/images/image-93007d4929a782d61595.jpg",
+      "sha256": "8fa9f2af10ea8968b226d49a038805ac44496c677b03321610b9c8cc088cd11b",
+      "source_size": [
+        2048,
+        1152
+      ],
+      "geometry_stage_1": {
+        "rule": "adapt_canvas at the resolved target canvas, no crop for a first frame",
+        "upstream": [
+          1344,
+          768
+        ]
+      },
+      "geometry_stage_2": {
+        "resolved_by": "the release Qwen still processor at batch build",
+        "recorded_by": "bench/build_native_h3_calibration_batch.py"
+      }
+    }
+  ],
+  "subjects": [
+    {
+      "id": "<Subject 1>",
+      "definition": "the child shown in <Picture 1>: about eight years old, brown hair in two low pigtails, round dark-rimmed glasses, a short-sleeved rainbow tie-dye t-shirt, crouched among tall cosmos and daisies holding a magnifying glass up in her right hand. Retain her face, glasses, pigtails and the tie-dye shirt.",
+      "appears_in": [
+        1,
+        2
+      ],
+      "retention": "fully_preserved - <Picture 1> is the first frame of the target video, so her appearance, the meadow and the framing at time zero are exactly the supplied image and the sequence moves forward from it"
+    }
+  ],
+  "shots": [
+    {
+      "index": 1,
+      "start_seconds": 0.0,
+      "camera": "the supplied first frame held, a wide low-angle among the flower heads, bright midday sun",
+      "action": "<Subject 1> crouches among the cosmos with the magnifying glass raised, an orange monarch butterfly hovering just past the lens and bees working the blooms around her.",
+      "events": [
+        {
+          "kind": "silence",
+          "requirement": "She does not speak while the opening frame holds and her lips stay closed."
+        }
+      ],
+      "closing": "The flower heads sway and the butterfly drifts a hand's width closer."
+    },
+    {
+      "index": 2,
+      "start_seconds": 2.0,
+      "camera": "the camera pushes in slowly from the low angle to a tight single, the flowers sliding out of focus in the foreground",
+      "action": "<Subject 1> turns her head toward somebody off-frame to her left, eyes wide behind the glasses.",
+      "events": [
+        {
+          "kind": "dialogue",
+          "speaker": "<Subject 1>",
+          "language": "English",
+          "words": "Come look, it has got tiny orange spots on its wings!",
+          "delivery": "calls out brightly and quickly, half-whispering so as not to startle it",
+          "mouth": "her lips moving clearly with the words",
+          "lead": "Turning to somebody off-frame, <Subject 1> calls out brightly and quickly"
+        },
+        {
+          "kind": "silence",
+          "requirement": "After the line she presses her lips shut and holds completely still as the butterfly settles on the rim of the magnifying glass."
+        }
+      ],
+      "closing": "The butterfly opens and closes its wings once on the lens rim and the push-in stops."
+    }
+  ],
+  "sound": {
+    "overall": "A warm open-field ambience of wind through tall stems and steady bee hum in the near foreground. One bright half-whispered English line sits above it in the second half, followed by a held quiet in which only the wind and a single close wingbeat remain.",
+    "non_diegetic": "None. The sequence carries field sound only."
+  },
+  "render": {
+    "seed_set_id": "marker-corpus-seedset-A",
+    "sampler": "er_sde",
+    "steps": 30,
+    "matched_seeds": "the whole seed set is rendered for every arm"
+  },
+  "_notes": "Keyframe role, so stage-one geometry is the target canvas rather than the still policy; the still policy field still applies to any reference still the scene might gain."
+}

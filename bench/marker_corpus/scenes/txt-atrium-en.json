@@ -1,0 +1,75 @@
+{
+  "spec_id": "txt-atrium-en",
+  "split": "evaluation",
+  "stratum": "dialogue-only",
+  "marker_families": [
+    "dialogue"
+  ],
+  "task": {
+    "mode": "t2va",
+    "input_mode": "text",
+    "generation_kind": "text generation",
+    "summary": "Text-only regression control. The target video is a single unbroken shot in a glass office atrium at first light, in which one woman speaks a single line of English to a colleague and then falls silent. No reference media is supplied; every element is described in prose."
+  },
+  "canvas": {
+    "width": 1344,
+    "height": 768,
+    "duration_seconds": 5.1667,
+    "frame_count": 124,
+    "still_policy": "max_no_upscale"
+  },
+  "media": [],
+  "subjects": [
+    {
+      "id": "<Subject 1>",
+      "definition": "a woman in her thirties with dark hair pulled back, a charcoal blazer over a pale grey shirt, carrying a closed laptop against her hip.",
+      "appears_in": [
+        1
+      ],
+      "retention": "not applicable - no reference media is supplied and the subject is established entirely by this description"
+    },
+    {
+      "id": "<Subject 2>",
+      "definition": "a man in his fifties with close-cropped grey hair, in a navy overcoat still buttoned, holding a paper cup in both hands.",
+      "appears_in": [
+        1
+      ],
+      "retention": "not applicable - no reference media is supplied and the subject is established entirely by this description"
+    }
+  ],
+  "shots": [
+    {
+      "index": 1,
+      "start_seconds": 0.0,
+      "camera": "one unbroken slow dolly right across a glass atrium at first light, cold daylight raking in through the full-height glazing",
+      "action": "<Subject 1> crosses the empty atrium floor from the left and slows as she draws level with <Subject 2>, who is standing at the foot of the stairs with his paper cup.",
+      "events": [
+        {
+          "kind": "dialogue",
+          "speaker": "<Subject 1>",
+          "language": "English",
+          "words": "They moved it to nine, so you have got about four minutes.",
+          "delivery": "says flatly and without stopping, half over her shoulder",
+          "mouth": "her lips moving clearly with the words",
+          "lead": "Drawing level with <Subject 2>, <Subject 1> says flatly and without stopping"
+        },
+        {
+          "kind": "silence",
+          "requirement": "<Subject 2> does not answer and his lips remain closed; <Subject 1> says nothing further after the line."
+        }
+      ],
+      "closing": "She continues out of frame right and <Subject 2> looks down at the cup as the dolly settles."
+    }
+  ],
+  "sound": {
+    "overall": "A large hard-surfaced room tone with a distant ventilation hum and two sets of footsteps on stone, one crossing and one stationary. A single flat English line sits close in the middle of the sequence, followed by footsteps alone.",
+    "non_diegetic": "None."
+  },
+  "render": {
+    "seed_set_id": "marker-corpus-seedset-A",
+    "sampler": "er_sde",
+    "steps": 30,
+    "matched_seeds": "the whole seed set is rendered for every arm"
+  },
+  "_notes": "Retained as the text-only regression stratum the brief requires; it carries no reference media by design, which is what makes it the control for the reference-bearing rows."
+}
