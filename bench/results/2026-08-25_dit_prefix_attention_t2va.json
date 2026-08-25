@@ -1,0 +1,1729 @@
+{
+  "measurement": "latent-video query attention mass by key class, per captured DiT block and sampler step",
+  "produced_by": {
+    "file": "measure_dit_prefix_attention.py",
+    "sha256": "cc7c0f17dc378f60d86880fbc9f14554d25a2f23a8ca5db7fb2f2ed3d0a75ca2",
+    "repository_commit": "9dc2225fefa6c391e98d6339eb00907c1c20b7c5",
+    "dirty_against_commit": true
+  },
+  "capture": {
+    "directory_name": "2026-08-20_t2v_362f_1344x768_sla",
+    "files": [
+      "qkv_L109375_S109375_b0_s1.pt",
+      "qkv_L109375_S109375_b0_s2.pt",
+      "qkv_L109375_S109375_b24_s1.pt",
+      "qkv_L109375_S109375_b24_s2.pt",
+      "qkv_L109375_S109375_b49_s1.pt",
+      "qkv_L109375_S109375_b49_s2.pt"
+    ],
+    "sequence_length": 109375,
+    "manifest_agreement": {
+      "status": "DISAGREES: the manifest does not describe these tensors; the layout above comes from the graph and the filenames, not from it",
+      "disagreements": [
+        "workload.canvas.width says 1024, the graph and the tensors say 1344",
+        "token_accounting.total_sequence_length says 91,093, the layout says 109,375",
+        "token_accounting.text_tokens says 7,711, the layout says 313",
+        "token_accounting.video_tokens says 82,176, the layout says 107,856"
+      ]
+    }
+  },
+  "layout": {
+    "segments": [
+      [
+        0,
+        313,
+        "text"
+      ],
+      [
+        313,
+        1519,
+        "audio"
+      ],
+      [
+        1519,
+        109375,
+        "video"
+      ]
+    ],
+    "canvas": {
+      "width": 1344,
+      "height": 768,
+      "length": 362,
+      "source": "workflow_api.json beside the tensors"
+    },
+    "latent_t": 107,
+    "audio_t": 603,
+    "image_references": 0,
+    "prefix_length_cross_check": {
+      "residual_prefix_len": 313,
+      "tokenised_prefix_len": 313,
+      "agreement": "two independent routes agree"
+    },
+    "derivation": "comfy/ldm/minimax/model.py::PackedLayout via bench/count_packed_rows.py::_layout; temporal grid via comfy_extras/nodes_minimax_h3.py::temporal_shape"
+  },
+  "classes": {
+    "names": [
+      "prefix_section_key",
+      "prefix_x_shot_header",
+      "prefix_text_other",
+      "prefix_x_cut_time",
+      "seg_audio",
+      "seg_video"
+    ],
+    "position_counts": {
+      "prefix_section_key": 17,
+      "prefix_x_shot_header": 20,
+      "prefix_text_other": 243,
+      "prefix_x_cut_time": 33,
+      "seg_audio": 1206,
+      "seg_video": 107856
+    },
+    "prefix_tag_source": "UNKNOWN (not derivable from the capture)",
+    "prefix_evidence": {
+      "marker_tokens": {},
+      "labels": [],
+      "section_keys": [
+        [
+          "integrated_multimodal_description",
+          7
+        ],
+        [
+          "non_diegetic_music",
+          5
+        ],
+        [
+          "overall_soundscape",
+          5
+        ]
+      ],
+      "operator_spans": {
+        "shot_header": {
+          "pattern": "\\[Shot \\d+\\]",
+          "positions": 20
+        },
+        "cut_time": {
+          "pattern": "At \\d\\d:\\d\\d\\.\\d+",
+          "positions": 33
+        }
+      },
+      "marker_spans": [],
+      "char_span_placement": "exact"
+    },
+    "operator_defined": [
+      "shot_header",
+      "cut_time"
+    ],
+    "special_token_ids": {
+      "<|im_start|>": 151644,
+      "<|im_end|>": 151645,
+      "<|object_ref_start|>": 151646,
+      "<|object_ref_end|>": 151647,
+      "<|box_start|>": 151648,
+      "<|box_end|>": 151649,
+      "<|quad_start|>": 151650,
+      "<|quad_end|>": 151651,
+      "<|vision_start|>": 151652,
+      "<|vision_end|>": 151653,
+      "<|vision_pad|>": 151654,
+      "<|image_pad|>": 151655,
+      "<|video_pad|>": 151656,
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+    },
+    "derivation": "non-prefix classes are PackedLayout segment kinds; prefix classes are token ids resolved through the loaded tokenizer's vocabulary against vendor_config/tokenizer_config.json, plus the label forms in comfy/text_encoders/minimax.py"
+  },
+  "sampling": {
+    "query_segment": "video",
+    "query_span": [
+      1519,
+      109375
+    ],
+    "rows": 256,
+    "strata": 8,
+    "row_indices_first_last": [
+      1519,
+      108944
+    ],
+    "derivation": "bench/grade_sage_on_capture.py::sample_rows, offset into the video segment"
+  },
+  "numerics": {
+    "score_dtype": "float32",
+    "softmax_and_accumulation_dtype": "float64",
+    "device": "cpu",
+    "head_chunk": 4
+  },
+  "prompt_source": "workflow_api.json",
+  "records": [
+    {
+      "file": "qkv_L109375_S109375_b0_s1.pt",
+      "block": 0,
+      "step": 1,
+      "render": 0,
+      "heads": 56,
+      "head_dim": 128,
+      "seconds": 4.9,
+      "per_query_class_mass_sum": {
+        "min": 0.9999999999999467,
+        "max": 1.0000000000000306
+      },
+      "fp32_vs_fp64_score_path_max_abs_class_mass_delta": 1.4313217278072443e-11,
+      "class_mass_sums_to": 0.9999999999999993,
+      "mass_by_class": {
+        "prefix_section_key": 0.00023518660539960083,
+        "prefix_x_shot_header": 0.00016206643026622742,
+        "prefix_text_other": 0.0015497227155635454,
+        "prefix_x_cut_time": 0.00013036935841136019,
+        "seg_audio": 0.0031213206331733266,
+        "seg_video": 0.9948013342571854
+      },
+      "top_level": {
+        "prefix": 0.0020773451096407335,
+        "latent_video": 0.9948013342571854,
+        "latent_audio": 0.0031213206331733266,
+        "conditioning_latents": 0.0
+      },
+      "within_prefix": {
+        "prefix_section_key": 0.1132149898002625,
+        "prefix_x_shot_header": 0.0780161319917883,
+        "prefix_text_other": 0.7460111987995881,
+        "prefix_x_cut_time": 0.06275767940836124
+      },
+      "per_head_prefix_fraction": [
+        4.083e-05,
+        3.345e-05,
+        3.539e-05,
+        8.242e-05,
+        0.0015097,
+        7.399e-05,
+        0.00035508,
+        0.00017416,
+        0.00109588,
+        8.174e-05,
+        5.363e-05,
+        1.871e-05,
+        3.8e-05,
+        0.00098287,
+        0.00016787,
+        7.54e-06,
+        6.143e-05,
+        5.353e-05,
+        4.443e-05,
+        0.0010303,
+        9.54e-06,
+        0.00183098,
+        1.128e-05,
+        6.389e-05,
+        1.53e-05,
+        2.366e-05,
+        0.00049709,
+        4.988e-05,
+        4.821e-05,
+        3.047e-05,
+        1.412e-05,
+        3.783e-05,
+        7.951e-05,
+        9.929e-05,
+        3.167e-05,
+        0.00013322,
+        5.765e-05,
+        0.00014262,
+        5.588e-05,
+        1.072e-05,
+        2.249e-05,
+        5.796e-05,
+        1.228e-05,
+        0.05212116,
+        0.00013775,
+        2.2e-06,
+        0.00080147,
+        0.03041487,
+        2.07e-06,
+        0.00271513,
+        0.00030611,
+        7.378e-05,
+        0.01839588,
+        0.00198204,
+        9.271e-05,
+        9.69e-06
+      ],
+      "per_head_prefix_summary": {
+        "min": 2.0698699413595125e-06,
+        "max": 0.05212116285276552,
+        "mean": 0.0020773451096407335,
+        "median": 5.795584074182933e-05
+      },
+      "top_prefix_positions": [
+        {
+          "position": 0,
+          "mass": 0.00012719188717443824,
+          "token": "int"
+        },
+        {
+          "position": 309,
+          "mass": 3.6761869469472104e-05,
+          "token": "_music"
+        },
+        {
+          "position": 156,
+          "mass": 3.358111504244228e-05,
+          "token": " pans"
+        },
+        {
+          "position": 70,
+          "mass": 3.252387248569119e-05,
+          "token": " tracks"
+        },
+        {
+          "position": 107,
+          "mass": 3.0567265546567436e-05,
+          "token": " cuts"
+        },
+        {
+          "position": 210,
+          "mass": 2.6782729499639846e-05,
+          "token": " changes"
+        },
+        {
+          "position": 111,
+          "mass": 2.5060435003239898e-05,
+          "token": " tracking"
+        },
+        {
+          "position": 71,
+          "mass": 2.5005785866760005e-05,
+          "token": " right"
+        },
+        {
+          "position": 3,
+          "mass": 2.3053905933231086e-05,
+          "token": "im"
+        },
+        {
+          "position": 108,
+          "mass": 2.2805479451706374e-05,
+          "token": " to"
+        },
+        {
+          "position": 157,
+          "mass": 2.110777978626806e-05,
+          "token": " up"
+        },
+        {
+          "position": 112,
+          "mass": 2.0660362852579985e-05,
+          "token": " shot"
+        },
+        {
+          "position": 139,
+          "mass": 2.0466832967130377e-05,
+          "token": "3"
+        },
+        {
+          "position": 17,
+          "mass": 2.04443551850827e-05,
+          "token": " handheld"
+        },
+        {
+          "position": 19,
+          "mass": 1.9532080281499163e-05,
+          "token": " shallow"
+        },
+        {
+          "position": 114,
+          "mass": 1.8833887721554873e-05,
+          "token": " alongside"
+        },
+        {
+          "position": 91,
+          "mass": 1.774813588090714e-05,
+          "token": "2"
+        },
+        {
+          "position": 194,
+          "mass": 1.7707266577357087e-05,
+          "token": "4"
+        },
+        {
+          "position": 22,
+          "mass": 1.7621209305185484e-05,
+          "token": " field"
+        },
+        {
+          "position": 110,
+          "mass": 1.737484922442548e-05,
+          "token": " low"
+        },
+        {
+          "position": 158,
+          "mass": 1.7106559499207915e-05,
+          "token": " to"
+        },
+        {
+          "position": 69,
+          "mass": 1.6295418292316253e-05,
+          "token": " camera"
+        },
+        {
+          "position": 161,
+          "mass": 1.6118961002542484e-05,
+          "token": " shot"
+        },
+        {
+          "position": 87,
+          "mass": 1.6032301066962832e-05,
+          "token": ".\n"
+        },
+        {
+          "position": 92,
+          "mass": 1.5518087274772983e-05,
+          "token": "]"
+        },
+        {
+          "position": 15,
+          "mass": 1.5374865722391837e-05,
+          "token": " cinematic"
+        },
+        {
+          "position": 202,
+          "mass": 1.461174603086186e-05,
+          "token": "1"
+        },
+        {
+          "position": 26,
+          "mass": 1.4538418382380248e-05,
+          "token": " shot"
+        },
+        {
+          "position": 106,
+          "mass": 1.4272544420332832e-05,
+          "token": " shot"
+        },
+        {
+          "position": 308,
+          "mass": 1.4017582111265103e-05,
+          "token": "getic"
+        },
+        {
+          "position": 135,
+          "mass": 1.3840341700437415e-05,
+          "token": ".\n"
+        },
+        {
+          "position": 8,
+          "mass": 1.3801887583452994e-05,
+          "token": "Shot"
+        }
+      ]
+    },
+    {
+      "file": "qkv_L109375_S109375_b0_s2.pt",
+      "block": 0,
+      "step": 2,
+      "render": 0,
+      "heads": 56,
+      "head_dim": 128,
+      "seconds": 5.0,
+      "per_query_class_mass_sum": {
+        "min": 0.999999999999936,
+        "max": 1.000000000000037
+      },
+      "fp32_vs_fp64_score_path_max_abs_class_mass_delta": 1.3192669179318273e-11,
+      "class_mass_sums_to": 0.9999999999999994,
+      "mass_by_class": {
+        "prefix_section_key": 0.00026402020374390983,
+        "prefix_x_shot_header": 0.00016368686331426317,
+        "prefix_text_other": 0.0014969128189423167,
+        "prefix_x_cut_time": 0.00014033775966876296,
+        "seg_audio": 0.0037609052377765373,
+        "seg_video": 0.9941741371165537
+      },
+      "top_level": {
+        "prefix": 0.002064957645669253,
+        "latent_video": 0.9941741371165537,
+        "latent_audio": 0.0037609052377765373,
+        "conditioning_latents": 0.0
+      },
+      "within_prefix": {
+        "prefix_section_key": 0.12785744264422472,
+        "prefix_x_shot_header": 0.0792688720069182,
+        "prefix_text_other": 0.7249121172445002,
+        "prefix_x_cut_time": 0.06796156810435668
+      },
+      "per_head_prefix_fraction": [
+        3.358e-05,
+        3.055e-05,
+        3.288e-05,
+        6.395e-05,
+        0.00175371,
+        6.157e-05,
+        0.00022161,
+        0.00016048,
+        0.00063685,
+        6.909e-05,
+        3.495e-05,
+        1.45e-05,
+        2.996e-05,
+        0.00042194,
+        8.8e-05,
+        3.95e-06,
+        4.552e-05,
+        3.441e-05,
+        3.029e-05,
+        0.00089672,
+        1.058e-05,
+        0.00171753,
+        8.45e-06,
+        6.201e-05,
+        1.687e-05,
+        1.977e-05,
+        0.00079876,
+        4.818e-05,
+        3.419e-05,
+        2.44e-05,
+        1.164e-05,
+        3.103e-05,
+        4.842e-05,
+        8.237e-05,
+        1.901e-05,
+        7.453e-05,
+        4.623e-05,
+        9.251e-05,
+        4.619e-05,
+        8.83e-06,
+        1.179e-05,
+        4.5e-05,
+        9.64e-06,
+        0.05055676,
+        9.64e-05,
+        2.11e-06,
+        0.00063469,
+        0.03160606,
+        1.23e-06,
+        0.00279961,
+        0.00027962,
+        4.679e-05,
+        0.02006101,
+        0.00151517,
+        9.529e-05,
+        1.047e-05
+      ],
+      "per_head_prefix_summary": {
+        "min": 1.2251475545130312e-06,
+        "max": 0.05055675786423196,
+        "mean": 0.002064957645669253,
+        "median": 4.623021628458768e-05
+      },
+      "top_prefix_positions": [
+        {
+          "position": 0,
+          "mass": 0.00014863444724812807,
+          "token": "int"
+        },
+        {
+          "position": 309,
+          "mass": 4.0135820758658026e-05,
+          "token": "_music"
+        },
+        {
+          "position": 107,
+          "mass": 3.3745572644757096e-05,
+          "token": " cuts"
+        },
+        {
+          "position": 156,
+          "mass": 3.076201807635139e-05,
+          "token": " pans"
+        },
+        {
+          "position": 210,
+          "mass": 2.9593146821953042e-05,
+          "token": " changes"
+        },
+        {
+          "position": 70,
+          "mass": 2.6702147098891803e-05,
+          "token": " tracks"
+        },
+        {
+          "position": 3,
+          "mass": 2.546748507396232e-05,
+          "token": "im"
+        },
+        {
+          "position": 108,
+          "mass": 2.4182890828692774e-05,
+          "token": " to"
+        },
+        {
+          "position": 111,
+          "mass": 2.1336419088440014e-05,
+          "token": " tracking"
+        },
+        {
+          "position": 139,
+          "mass": 2.0664491686887437e-05,
+          "token": "3"
+        },
+        {
+          "position": 19,
+          "mass": 1.989250419279248e-05,
+          "token": " shallow"
+        },
+        {
+          "position": 157,
+          "mass": 1.9655712480635658e-05,
+          "token": " up"
+        },
+        {
+          "position": 71,
+          "mass": 1.866191658288368e-05,
+          "token": " right"
+        },
+        {
+          "position": 91,
+          "mass": 1.845246717525196e-05,
+          "token": "2"
+        },
+        {
+          "position": 112,
+          "mass": 1.8246375548049402e-05,
+          "token": " shot"
+        },
+        {
+          "position": 110,
+          "mass": 1.7931480323392857e-05,
+          "token": " low"
+        },
+        {
+          "position": 22,
+          "mass": 1.7703369260889267e-05,
+          "token": " field"
+        },
+        {
+          "position": 17,
+          "mass": 1.7595270176274633e-05,
+          "token": " handheld"
+        },
+        {
+          "position": 194,
+          "mass": 1.7584296720906624e-05,
+          "token": "4"
+        },
+        {
+          "position": 69,
+          "mass": 1.7182343372711303e-05,
+          "token": " camera"
+        },
+        {
+          "position": 158,
+          "mass": 1.671480294819454e-05,
+          "token": " to"
+        },
+        {
+          "position": 202,
+          "mass": 1.6292814783770424e-05,
+          "token": "1"
+        },
+        {
+          "position": 15,
+          "mass": 1.603942283069077e-05,
+          "token": " cinematic"
+        },
+        {
+          "position": 161,
+          "mass": 1.5332069816486995e-05,
+          "token": " shot"
+        },
+        {
+          "position": 114,
+          "mass": 1.532565047119257e-05,
+          "token": " alongside"
+        },
+        {
+          "position": 147,
+          "mass": 1.5017601269600895e-05,
+          "token": "8"
+        },
+        {
+          "position": 135,
+          "mass": 1.491269989468689e-05,
+          "token": ".\n"
+        },
+        {
+          "position": 92,
+          "mass": 1.4567059539180631e-05,
+          "token": "]"
+        },
+        {
+          "position": 308,
+          "mass": 1.4349161791368517e-05,
+          "token": "getic"
+        },
+        {
+          "position": 87,
+          "mass": 1.4328391345870043e-05,
+          "token": ".\n"
+        },
+        {
+          "position": 106,
+          "mass": 1.4314489985380922e-05,
+          "token": " shot"
+        },
+        {
+          "position": 26,
+          "mass": 1.4075606623792938e-05,
+          "token": " shot"
+        }
+      ]
+    },
+    {
+      "file": "qkv_L109375_S109375_b24_s1.pt",
+      "block": 24,
+      "step": 1,
+      "render": 0,
+      "heads": 56,
+      "head_dim": 128,
+      "seconds": 5.1,
+      "per_query_class_mass_sum": {
+        "min": 0.9999999999999554,
+        "max": 1.0000000000000413
+      },
+      "fp32_vs_fp64_score_path_max_abs_class_mass_delta": 1.2620552797271145e-09,
+      "class_mass_sums_to": 0.9999999999999999,
+      "mass_by_class": {
+        "prefix_section_key": 0.006523583115728565,
+        "prefix_x_shot_header": 0.0011287593072588226,
+        "prefix_text_other": 0.01587144911682774,
+        "prefix_x_cut_time": 0.0011398739320625947,
+        "seg_audio": 0.017037625040865496,
+        "seg_video": 0.9582987094872567
+      },
+      "top_level": {
+        "prefix": 0.024663665471877722,
+        "latent_video": 0.9582987094872567,
+        "latent_audio": 0.017037625040865496,
+        "conditioning_latents": 0.0
+      },
+      "within_prefix": {
+        "prefix_section_key": 0.26450176771846656,
+        "prefix_x_shot_header": 0.04576608081819262,
+        "prefix_text_other": 0.6435154229173624,
+        "prefix_x_cut_time": 0.04621672854597847
+      },
+      "per_head_prefix_fraction": [
+        0.0047606,
+        0.00959644,
+        0.02596797,
+        0.00114709,
+        0.0294813,
+        0.03535572,
+        0.00933566,
+        0.02925154,
+        0.00942316,
+        0.00207084,
+        0.00208726,
+        4.069e-05,
+        0.01075313,
+        0.00304199,
+        0.00194336,
+        0.00070808,
+        0.01044064,
+        0.00135847,
+        0.02618607,
+        5.054e-05,
+        0.01001369,
+        0.01472314,
+        0.0049725,
+        0.01525947,
+        0.01796478,
+        0.00038784,
+        0.0415019,
+        0.01076415,
+        0.00285174,
+        0.10365128,
+        0.0005473,
+        0.09819062,
+        0.04823629,
+        0.01580979,
+        0.00508488,
+        0.00234843,
+        0.03395891,
+        0.0536176,
+        0.00514442,
+        7.803e-05,
+        0.00120152,
+        0.05595936,
+        0.00043326,
+        3.061e-05,
+        0.04820406,
+        0.03115222,
+        0.00014022,
+        0.0021361,
+        0.02868357,
+        0.00276553,
+        0.16646317,
+        0.1176557,
+        0.10160963,
+        0.04917147,
+        0.07709839,
+        0.00035316
+      ],
+      "per_head_prefix_summary": {
+        "min": 3.0605117578449936e-05,
+        "max": 0.16646316690629687,
+        "mean": 0.024663665471877722,
+        "median": 0.00959644336004156
+      },
+      "top_prefix_positions": [
+        {
+          "position": 0,
+          "mass": 0.0022033844917577683,
+          "token": "int"
+        },
+        {
+          "position": 248,
+          "mass": 0.0016185406565230784,
+          "token": "cape"
+        },
+        {
+          "position": 4,
+          "mass": 0.0013283064061640798,
+          "token": "odal"
+        },
+        {
+          "position": 38,
+          "mass": 0.0010142823219100496,
+          "token": " bicycle"
+        },
+        {
+          "position": 47,
+          "mass": 0.0006370357557041739,
+          "token": " rain"
+        },
+        {
+          "position": 274,
+          "mass": 0.0005952979331535951,
+          "token": " bicycle"
+        },
+        {
+          "position": 71,
+          "mass": 0.0005655275022613729,
+          "token": " right"
+        },
+        {
+          "position": 32,
+          "mass": 0.0004594815340158618,
+          "token": " soaked"
+        },
+        {
+          "position": 41,
+          "mass": 0.00045037464814252323,
+          "token": " city"
+        },
+        {
+          "position": 34,
+          "mass": 0.0004460752283630636,
+          "token": " jacket"
+        },
+        {
+          "position": 116,
+          "mass": 0.00041119440942420426,
+          "token": " bicycle"
+        },
+        {
+          "position": 114,
+          "mass": 0.00039828189473548005,
+          "token": " alongside"
+        },
+        {
+          "position": 98,
+          "mass": 0.00032341764567379335,
+          "token": "0"
+        },
+        {
+          "position": 3,
+          "mass": 0.00031573939711672643,
+          "token": "im"
+        },
+        {
+          "position": 46,
+          "mass": 0.0003114333026491549,
+          "token": " evening"
+        },
+        {
+          "position": 242,
+          "mass": 0.00030070913086188553,
+          "token": " breathing"
+        },
+        {
+          "position": 45,
+          "mass": 0.00029029823310482746,
+          "token": " heavy"
+        },
+        {
+          "position": 254,
+          "mass": 0.0002868493937527835,
+          "token": " rain"
+        },
+        {
+          "position": 222,
+          "mass": 0.0002719914462699444,
+          "token": " rain"
+        },
+        {
+          "position": 309,
+          "mass": 0.0002626905949781098,
+          "token": "_music"
+        },
+        {
+          "position": 9,
+          "mass": 0.0002581253914350845,
+          "token": " "
+        },
+        {
+          "position": 49,
+          "mass": 0.00023476875305462438,
+          "token": " wet"
+        },
+        {
+          "position": 29,
+          "mass": 0.00021429960687246595,
+          "token": " courier"
+        },
+        {
+          "position": 82,
+          "mass": 0.00020328056687496563,
+          "token": " helmet"
+        },
+        {
+          "position": 297,
+          "mass": 0.00019763546256413138,
+          "token": " breathing"
+        },
+        {
+          "position": 220,
+          "mass": 0.00019723390071629197,
+          "token": " helmet"
+        },
+        {
+          "position": 115,
+          "mass": 0.00019568124662914374,
+          "token": " the"
+        },
+        {
+          "position": 235,
+          "mass": 0.00018366932033038878,
+          "token": " her"
+        },
+        {
+          "position": 89,
+          "mass": 0.00017761294488382166,
+          "token": "Shot"
+        },
+        {
+          "position": 107,
+          "mass": 0.00017580339607386474,
+          "token": " cuts"
+        },
+        {
+          "position": 17,
+          "mass": 0.0001716249577182501,
+          "token": " handheld"
+        },
+        {
+          "position": 308,
+          "mass": 0.0001677188939772474,
+          "token": "getic"
+        }
+      ]
+    },
+    {
+      "file": "qkv_L109375_S109375_b24_s2.pt",
+      "block": 24,
+      "step": 2,
+      "render": 0,
+      "heads": 56,
+      "head_dim": 128,
+      "seconds": 5.2,
+      "per_query_class_mass_sum": {
+        "min": 0.9999999999999437,
+        "max": 1.0000000000000366
+      },
+      "fp32_vs_fp64_score_path_max_abs_class_mass_delta": 1.6353418619274862e-10,
+      "class_mass_sums_to": 0.9999999999999999,
+      "mass_by_class": {
+        "prefix_section_key": 0.006737351101387753,
+        "prefix_x_shot_header": 0.0011590123947720012,
+        "prefix_text_other": 0.012747168320843725,
+        "prefix_x_cut_time": 0.0013762731158458144,
+        "seg_audio": 0.015733107178929836,
+        "seg_video": 0.9622470878882208
+      },
+      "top_level": {
+        "prefix": 0.02201980493284929,
+        "latent_video": 0.9622470878882208,
+        "latent_audio": 0.015733107178929836,
+        "conditioning_latents": 0.0
+      },
+      "within_prefix": {
+        "prefix_section_key": 0.3059677922639963,
+        "prefix_x_shot_header": 0.05263499828025174,
+        "prefix_text_other": 0.5788956060109058,
+        "prefix_x_cut_time": 0.06250160344484619
+      },
+      "per_head_prefix_fraction": [
+        0.00451184,
+        0.01649923,
+        0.03699812,
+        0.00052751,
+        0.02395009,
+        0.01783738,
+        0.01089322,
+        0.0484054,
+        0.00485718,
+        0.00254238,
+        0.00152045,
+        3.018e-05,
+        0.00615236,
+        0.00798688,
+        0.00025782,
+        0.00148644,
+        0.01118028,
+        0.00109631,
+        0.01498383,
+        0.0001283,
+        0.00486721,
+        0.01435742,
+        0.00791146,
+        0.01057885,
+        0.02586049,
+        0.00066017,
+        0.02574588,
+        0.0102568,
+        0.0010126,
+        0.07268014,
+        0.00042494,
+        0.07771111,
+        0.04061726,
+        0.02420001,
+        0.01162399,
+        0.0022905,
+        0.01726647,
+        0.05283418,
+        0.00605635,
+        3.8e-05,
+        0.00098882,
+        0.03454395,
+        0.00141934,
+        1.689e-05,
+        0.03550578,
+        0.033388,
+        4.569e-05,
+        0.00261846,
+        0.0333496,
+        0.00349814,
+        0.17630845,
+        0.08267477,
+        0.05419268,
+        0.07587966,
+        0.07966377,
+        0.00017605
+      ],
+      "per_head_prefix_summary": {
+        "min": 1.6891025365367645e-05,
+        "max": 0.1763084457718138,
+        "mean": 0.022019804932849295,
+        "median": 0.010256800358073963
+      },
+      "top_prefix_positions": [
+        {
+          "position": 0,
+          "mass": 0.00238946966151143,
+          "token": "int"
+        },
+        {
+          "position": 248,
+          "mass": 0.0015381747384736323,
+          "token": "cape"
+        },
+        {
+          "position": 4,
+          "mass": 0.0014238931116286842,
+          "token": "odal"
+        },
+        {
+          "position": 38,
+          "mass": 0.000902129046310239,
+          "token": " bicycle"
+        },
+        {
+          "position": 274,
+          "mass": 0.0006464452845506122,
+          "token": " bicycle"
+        },
+        {
+          "position": 116,
+          "mass": 0.0004508605359488541,
+          "token": " bicycle"
+        },
+        {
+          "position": 41,
+          "mass": 0.00039378185632712705,
+          "token": " city"
+        },
+        {
+          "position": 98,
+          "mass": 0.0003669073061340604,
+          "token": "0"
+        },
+        {
+          "position": 34,
+          "mass": 0.00036365639191983514,
+          "token": " jacket"
+        },
+        {
+          "position": 71,
+          "mass": 0.00034053180485239625,
+          "token": " right"
+        },
+        {
+          "position": 32,
+          "mass": 0.0003207106165110961,
+          "token": " soaked"
+        },
+        {
+          "position": 47,
+          "mass": 0.00031144653469498994,
+          "token": " rain"
+        },
+        {
+          "position": 3,
+          "mass": 0.0002925053328341573,
+          "token": "im"
+        },
+        {
+          "position": 9,
+          "mass": 0.00027533409517005203,
+          "token": " "
+        },
+        {
+          "position": 309,
+          "mass": 0.00024780718985807057,
+          "token": "_music"
+        },
+        {
+          "position": 114,
+          "mass": 0.00024041789206619507,
+          "token": " alongside"
+        },
+        {
+          "position": 242,
+          "mass": 0.00023180286861178685,
+          "token": " breathing"
+        },
+        {
+          "position": 89,
+          "mass": 0.00019943434414934828,
+          "token": "Shot"
+        },
+        {
+          "position": 45,
+          "mass": 0.00019445913925155968,
+          "token": " heavy"
+        },
+        {
+          "position": 308,
+          "mass": 0.0001905081419199982,
+          "token": "getic"
+        },
+        {
+          "position": 163,
+          "mass": 0.00018984612106111323,
+          "token": " the"
+        },
+        {
+          "position": 17,
+          "mass": 0.00016912514705594747,
+          "token": " handheld"
+        },
+        {
+          "position": 142,
+          "mass": 0.0001674013724967332,
+          "token": " "
+        },
+        {
+          "position": 137,
+          "mass": 0.0001629712725242672,
+          "token": "Shot"
+        },
+        {
+          "position": 46,
+          "mass": 0.00015889772184768145,
+          "token": " evening"
+        },
+        {
+          "position": 49,
+          "mass": 0.00015832266434479903,
+          "token": " wet"
+        },
+        {
+          "position": 235,
+          "mass": 0.00015199425390734954,
+          "token": " her"
+        },
+        {
+          "position": 297,
+          "mass": 0.00015146451786170965,
+          "token": " breathing"
+        },
+        {
+          "position": 254,
+          "mass": 0.00015144100642934855,
+          "token": " rain"
+        },
+        {
+          "position": 306,
+          "mass": 0.0001511507920942383,
+          "token": "non"
+        },
+        {
+          "position": 220,
+          "mass": 0.00014138787992116719,
+          "token": " helmet"
+        },
+        {
+          "position": 29,
+          "mass": 0.0001411319394601166,
+          "token": " courier"
+        }
+      ]
+    },
+    {
+      "file": "qkv_L109375_S109375_b49_s1.pt",
+      "block": 49,
+      "step": 1,
+      "render": 0,
+      "heads": 56,
+      "head_dim": 128,
+      "seconds": 5.2,
+      "per_query_class_mass_sum": {
+        "min": 0.9999999999998502,
+        "max": 1.0000000000000644
+      },
+      "fp32_vs_fp64_score_path_max_abs_class_mass_delta": 1.4494485611749042e-09,
+      "class_mass_sums_to": 0.9999999999999931,
+      "mass_by_class": {
+        "prefix_section_key": 0.05215982249523101,
+        "prefix_x_shot_header": 0.007268562806096392,
+        "prefix_text_other": 0.05488605736893859,
+        "prefix_x_cut_time": 0.01260174592395401,
+        "seg_audio": 0.0012035261191097224,
+        "seg_video": 0.8718802852866634
+      },
+      "top_level": {
+        "prefix": 0.12691618859422002,
+        "latent_video": 0.8718802852866634,
+        "latent_audio": 0.0012035261191097224,
+        "conditioning_latents": 0.0
+      },
+      "within_prefix": {
+        "prefix_section_key": 0.4109784817285827,
+        "prefix_x_shot_header": 0.05727057270318481,
+        "prefix_text_other": 0.43245907379413845,
+        "prefix_x_cut_time": 0.09929187177409388
+      },
+      "per_head_prefix_fraction": [
+        0.01652762,
+        0.37074391,
+        2.861e-05,
+        0.04980246,
+        0.06430724,
+        0.04246654,
+        0.04799639,
+        0.0334941,
+        0.65118485,
+        0.03906024,
+        0.0,
+        0.42575348,
+        0.6823054,
+        0.31986524,
+        0.06394066,
+        0.00167602,
+        0.00215535,
+        0.0,
+        0.06924152,
+        0.30287533,
+        0.10401952,
+        0.53027258,
+        0.0,
+        0.00010377,
+        2.68e-06,
+        0.02734379,
+        0.05181445,
+        0.43773665,
+        0.63716829,
+        3e-07,
+        0.04296873,
+        1e-08,
+        0.00063912,
+        0.02474469,
+        2.039e-05,
+        0.36707273,
+        0.13882076,
+        0.00077033,
+        0.0001098,
+        0.00029761,
+        0.0887815,
+        0.02360211,
+        0.11711559,
+        0.00772752,
+        0.0431517,
+        0.16526415,
+        0.06199765,
+        0.21159195,
+        0.03980781,
+        0.02243352,
+        5e-08,
+        0.08844095,
+        0.5197428,
+        0.0,
+        0.16675107,
+        0.00356703
+      ],
+      "per_head_prefix_summary": {
+        "min": 7.357669193754472e-295,
+        "max": 0.6823054023156481,
+        "mean": 0.12691618859422002,
+        "median": 0.04246654106530119
+      },
+      "top_prefix_positions": [
+        {
+          "position": 0,
+          "mass": 0.019532359385525274,
+          "token": "int"
+        },
+        {
+          "position": 305,
+          "mass": 0.014867121922176275,
+          "token": ".\n\n"
+        },
+        {
+          "position": 249,
+          "mass": 0.010140393685288952,
+          "token": ":\n"
+        },
+        {
+          "position": 17,
+          "mass": 0.006017136655810914,
+          "token": " handheld"
+        },
+        {
+          "position": 198,
+          "mass": 0.005518680584562298,
+          "token": "0"
+        },
+        {
+          "position": 4,
+          "mass": 0.005490844007538251,
+          "token": "odal"
+        },
+        {
+          "position": 307,
+          "mass": 0.005093062957082423,
+          "token": "_die"
+        },
+        {
+          "position": 16,
+          "mass": 0.00421095179570983,
+          "token": ","
+        },
+        {
+          "position": 248,
+          "mass": 0.004210266151841465,
+          "token": "cape"
+        },
+        {
+          "position": 245,
+          "mass": 0.004064643063390432,
+          "token": "overall"
+        },
+        {
+          "position": 210,
+          "mass": 0.0026942836512868587,
+          "token": " changes"
+        },
+        {
+          "position": 297,
+          "mass": 0.002106646990478339,
+          "token": " breathing"
+        },
+        {
+          "position": 154,
+          "mass": 0.002072730298764386,
+          "token": " camera"
+        },
+        {
+          "position": 306,
+          "mass": 0.0016758407337969198,
+          "token": "non"
+        },
+        {
+          "position": 192,
+          "mass": 0.001429338448982009,
+          "token": "Shot"
+        },
+        {
+          "position": 308,
+          "mass": 0.0013497382745763942,
+          "token": "getic"
+        },
+        {
+          "position": 9,
+          "mass": 0.0013302078973000812,
+          "token": " "
+        },
+        {
+          "position": 142,
+          "mass": 0.0012808223244170117,
+          "token": " "
+        },
+        {
+          "position": 89,
+          "mass": 0.0012601863163384855,
+          "token": "Shot"
+        },
+        {
+          "position": 137,
+          "mass": 0.0012495100890668946,
+          "token": "Shot"
+        },
+        {
+          "position": 94,
+          "mass": 0.001226265182770574,
+          "token": " "
+        },
+        {
+          "position": 107,
+          "mass": 0.0011974296347792674,
+          "token": " cuts"
+        },
+        {
+          "position": 203,
+          "mass": 0.0010934242602458173,
+          "token": "."
+        },
+        {
+          "position": 69,
+          "mass": 0.0010310500961638977,
+          "token": " camera"
+        },
+        {
+          "position": 76,
+          "mass": 0.0009374308372372458,
+          "token": " moderate"
+        },
+        {
+          "position": 251,
+          "mass": 0.0006990630397125783,
+          "token": "ead"
+        },
+        {
+          "position": 33,
+          "mass": 0.0006689332754074367,
+          "token": " red"
+        },
+        {
+          "position": 8,
+          "mass": 0.0006460935147108699,
+          "token": "Shot"
+        },
+        {
+          "position": 312,
+          "mass": 0.0005350398790637549,
+          "token": "/A"
+        },
+        {
+          "position": 259,
+          "mass": 0.0005346669498908186,
+          "token": ","
+        },
+        {
+          "position": 202,
+          "mass": 0.0005013543459826515,
+          "token": "1"
+        },
+        {
+          "position": 99,
+          "mass": 0.000497597422085819,
+          "token": "4"
+        }
+      ]
+    },
+    {
+      "file": "qkv_L109375_S109375_b49_s2.pt",
+      "block": 49,
+      "step": 2,
+      "render": 0,
+      "heads": 56,
+      "head_dim": 128,
+      "seconds": 5.1,
+      "per_query_class_mass_sum": {
+        "min": 0.9999999999998568,
+        "max": 1.0000000000000622
+      },
+      "fp32_vs_fp64_score_path_max_abs_class_mass_delta": 1.0186292937613972e-09,
+      "class_mass_sums_to": 0.9999999999999932,
+      "mass_by_class": {
+        "prefix_section_key": 0.052757300548229684,
+        "prefix_x_shot_header": 0.006840753629902067,
+        "prefix_text_other": 0.06920602015874937,
+        "prefix_x_cut_time": 0.004146468926069021,
+        "seg_audio": 0.0009698459594117661,
+        "seg_video": 0.8660796107776313
+      },
+      "top_level": {
+        "prefix": 0.13295054326295014,
+        "latent_video": 0.8660796107776313,
+        "latent_audio": 0.0009698459594117661,
+        "conditioning_latents": 0.0
+      },
+      "within_prefix": {
+        "prefix_section_key": 0.3968189918854718,
+        "prefix_x_shot_header": 0.05145337102062378,
+        "prefix_text_other": 0.5205395815636,
+        "prefix_x_cut_time": 0.031188055530304362
+      },
+      "per_head_prefix_fraction": [
+        0.00377554,
+        0.44542372,
+        7.9e-06,
+        0.04767184,
+        0.01895126,
+        0.05285772,
+        0.03148576,
+        0.01872801,
+        0.4084299,
+        0.0390625,
+        0.0,
+        0.42578125,
+        0.7902653,
+        0.44675843,
+        0.00430452,
+        0.00104799,
+        0.00148257,
+        0.0,
+        0.02401595,
+        0.40087961,
+        0.10772553,
+        0.66069234,
+        0.0,
+        4.052e-05,
+        4.7e-07,
+        0.02734375,
+        0.02918458,
+        0.58133355,
+        0.79601112,
+        1.679e-05,
+        0.04264657,
+        0.0,
+        0.00026036,
+        0.03440666,
+        8.19e-06,
+        0.43046508,
+        0.04772876,
+        0.00054894,
+        0.00014865,
+        0.00023024,
+        0.0976582,
+        0.01884626,
+        0.15443382,
+        0.00173313,
+        0.06154525,
+        0.04999196,
+        0.12303281,
+        0.21484375,
+        0.04783328,
+        0.02117854,
+        8e-08,
+        0.06770002,
+        0.58049723,
+        0.0,
+        0.08543092,
+        0.0007833
+      ],
+      "per_head_prefix_summary": {
+        "min": 0.0,
+        "max": 0.7960111196208054,
+        "mean": 0.13295054326295017,
+        "median": 0.029184578449697716
+      },
+      "top_prefix_positions": [
+        {
+          "position": 0,
+          "mass": 0.020891981008606612,
+          "token": "int"
+        },
+        {
+          "position": 305,
+          "mass": 0.017946165286428756,
+          "token": ".\n\n"
+        },
+        {
+          "position": 249,
+          "mass": 0.010487326664732635,
+          "token": ":\n"
+        },
+        {
+          "position": 16,
+          "mass": 0.006266165154708956,
+          "token": ","
+        },
+        {
+          "position": 4,
+          "mass": 0.0059934863687805965,
+          "token": "odal"
+        },
+        {
+          "position": 17,
+          "mass": 0.0057160885122233985,
+          "token": " handheld"
+        },
+        {
+          "position": 248,
+          "mass": 0.005408531240252901,
+          "token": "cape"
+        },
+        {
+          "position": 245,
+          "mass": 0.004936890164216115,
+          "token": "overall"
+        },
+        {
+          "position": 109,
+          "mass": 0.0038404897097176665,
+          "token": " a"
+        },
+        {
+          "position": 153,
+          "mass": 0.00356972950431616,
+          "token": " the"
+        },
+        {
+          "position": 307,
+          "mass": 0.0031694111842519245,
+          "token": "_die"
+        },
+        {
+          "position": 297,
+          "mass": 0.0027354431464239074,
+          "token": " breathing"
+        },
+        {
+          "position": 15,
+          "mass": 0.002602022016599378,
+          "token": " cinematic"
+        },
+        {
+          "position": 156,
+          "mass": 0.0025662610247730792,
+          "token": " pans"
+        },
+        {
+          "position": 9,
+          "mass": 0.0024824212790404304,
+          "token": " "
+        },
+        {
+          "position": 154,
+          "mass": 0.002230716609756166,
+          "token": " camera"
+        },
+        {
+          "position": 137,
+          "mass": 0.0019723905777853175,
+          "token": "Shot"
+        },
+        {
+          "position": 21,
+          "mass": 0.0016899443622546727,
+          "token": " of"
+        },
+        {
+          "position": 69,
+          "mass": 0.0014551542078421347,
+          "token": " camera"
+        },
+        {
+          "position": 203,
+          "mass": 0.0014345354702976869,
+          "token": "."
+        },
+        {
+          "position": 76,
+          "mass": 0.0013518504974113573,
+          "token": " moderate"
+        },
+        {
+          "position": 256,
+          "mass": 0.0012294106902788471,
+          "token": " asphalt"
+        },
+        {
+          "position": 8,
+          "mass": 0.0011372927380275222,
+          "token": "Shot"
+        },
+        {
+          "position": 308,
+          "mass": 0.0010596571451252999,
+          "token": "getic"
+        },
+        {
+          "position": 33,
+          "mass": 0.0008871209322708334,
+          "token": " red"
+        },
+        {
+          "position": 142,
+          "mass": 0.000850327731576239,
+          "token": " "
+        },
+        {
+          "position": 271,
+          "mass": 0.0007934134120323955,
+          "token": "attle"
+        },
+        {
+          "position": 312,
+          "mass": 0.0007216071350358665,
+          "token": "/A"
+        },
+        {
+          "position": 202,
+          "mass": 0.0006845078938478682,
+          "token": "1"
+        },
+        {
+          "position": 47,
+          "mass": 0.000657365783169499,
+          "token": " rain"
+        },
+        {
+          "position": 89,
+          "mass": 0.0006546162424775979,
+          "token": "Shot"
+        },
+        {
+          "position": 44,
+          "mass": 0.0006322058646788051,
+          "token": " in"
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.10
+
+### Added
+
+- `bench/measure_dit_prefix_attention.py`: how much of a latent-video query's
+  attention mass the H3 DiT puts on the Qwen3-VL prefix rather than on the
+  latents, per captured block and sampler step, and where inside the prefix it
+  lands. Writes a per-prefix-position importance vector as safetensors, usable
+  later as a loss weight. A capture records no segment table, so the packed
+  layout is rebuilt from `PackedLayout` through
+  `bench/count_packed_rows.py` and the capture's own graph; the prefix length
+  is agreed by two independent routes -- the geometric residual and the
+  tokenised prompt -- before any number is reported.
+- `bench/check_dit_prefix_attention.py`: the controls, on a synthetic capture
+  of a few hundred rows, CPU only. The class map is a total partition; the
+  prefix-versus-latent split survives a shuffle of the prefix labels while the
+  within-prefix split does not; a prefix boundary wrong by one row is refused.
+  Each of the three carries a negative arm. The tag-derived check that would confirm
+  each prefix position's modality **cannot be built from a capture** --
+  `h3_capture.py` writes q/k/v and nothing else -- so the record says `UNKNOWN`
+  and a case asserts that it does.
+- `bench/results/2026-08-25_dit_prefix_attention_t2va.json` and its importance
+  vectors, measured on the 2026-08-20 T2VA capture. The record also carries the
+  finding that that capture's `manifest.json` `workload` and `token_accounting`
+  blocks describe a different render from the tensors beside them, while its
+  `prompt` and `captured_tensors` blocks are correct.
+
 ## 0.70.9
 
 ### Changed
