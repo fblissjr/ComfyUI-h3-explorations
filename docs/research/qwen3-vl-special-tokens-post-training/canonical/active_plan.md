@@ -15,10 +15,11 @@ The current W4 checkpoint remains deployed while the candidate is built and
 evaluated. Do not edit its processor snapshot, repoint its symlink, publish a
 candidate, or begin special-token training as part of this work.
 
-The immediate milestone is acceptance of one corrected no-modifier Gate 2A
-record, followed by a bounded, non-exporting real-AWQ-modifier Gate 2B. Only
-then can the plan freeze an absolute calibration population and reviewed launch
-package. The first full expensive milestone is the corrected v2 quantization.
+The immediate milestone was acceptance of one corrected no-modifier Gate 2A
+record, followed by a bounded real-AWQ-modifier Gate 2B; both are done, and
+the corrected v2 quantization launched on 2026-08-25
+([`2026-08-25_v2_launch_record.md`](2026-08-25_v2_launch_record.md)). The
+next milestone is Gate 5's numerical acceptance of that candidate.
 The no-training marker render evaluation follows on the accepted candidate; it
 is not a prerequisite for building the candidate.
 
@@ -68,6 +69,12 @@ also records who decided what and under which authority:
 - **Depth:** all 64 decoder layers remain the artifact target.
 - **Host:** ComfyUI is stopped by the owner's arrangement before any bridge
   load and restarted afterwards.
+- **Host budget (measured 2026-08-25, after the first launch died):** AWQ
+  costs about 430 KB of anonymous host memory per population token on top of
+  whatever weights are resident, so the calibration runs with the weights on
+  the bridge's disk tier under a cgroup cap, and the population is sized to
+  that. Record and numbers:
+  [`2026-08-25_v2_launch_record.md`](2026-08-25_v2_launch_record.md).
 
 ### Role-aware geometry and processor contract
 
@@ -244,7 +251,12 @@ must be kept distinct from population-wide host-cache growth.
 
 ### Gate 2B — measure a bounded real AWQ modifier
 
-**Status:** Not started. Entry contract, item by item, in
+**Status:** Measured 2026-08-25 in sprint form (smoke, one-row and three-row
+AWQ arms, the observer kernel-sensitivity control, then two 2-layer
+110k-token host-budget probes). Its population/cache dimension was dropped by
+the sprint decision and reinstated the same day after the first launch was
+OOM-killed; see [`2026-08-25_v2_launch_record.md`](2026-08-25_v2_launch_record.md).
+Entry contract, item by item, in
 [`2026-08-25_gate2_arrangement.md`](2026-08-25_gate2_arrangement.md).
 
 Using the Gate 2A harness, the `comfy_exact_bf16_store` storage arrangement
@@ -268,6 +280,14 @@ shapes and leaves a declared operating reserve. Otherwise it narrows the next
 pilot. Neither Gate 2 arm changes the accepted role partition.
 
 ### Gate 3 — freeze the executable split and launch package
+
+**Status:** Executed 2026-08-25 in sprint form: component-disjoint split by
+the selector, mr_data's independent review of the calibration set and the
+rebuilt holdout, the corrected family map, the committed recipe with its
+boundary asserted, a new output path. Codex's independent review is replaced
+by that harness and the acting-point record; the owner approved the launch.
+Items 2 (rejection manifests) and the pool-wide near-duplicate remainder are
+open and named in the launch record.
 
 Using Gate 2B's measured budget:
 

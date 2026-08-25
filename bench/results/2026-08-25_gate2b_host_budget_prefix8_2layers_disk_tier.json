@@ -1,0 +1,1301 @@
+{
+  "pilot": "Gate 2B: llm-compressor SequentialPipeline over native-H3 batches with the real AWQ recipe, no artifact",
+  "gate": "2B",
+  "sets_population_budget": false,
+  "budget_requires": "Gate 2B, a bounded disposable modifier-bearing run that measures the AWQ increment",
+  "boundary": "no recipe instantiated, no quantization, no candidate directory, nothing saved. Measures the floor beneath a calibration run, not the whole of one",
+  "path_policy": "logical identifiers only",
+  "producer": {
+    "file": "pilot_sequential_feasibility.py",
+    "sha256": "a0b0c7c9d7c12a0b6a0ffc82c02756fb58f71a2abcdf05b405e41fe8d31be163",
+    "repository_commit": "92b4374aa9e3ce7c3154e1adaf264377372fb943",
+    "dirty_against_commit": true
+  },
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.1",
+    "llmcompressor": "0.13.1.dev38+g501f432bf",
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "gpu_total_gib": 23.5
+  },
+  "precision_policy": {
+    "policy": "comfy_exact_bf16_store",
+    "intent": "comfy_exact arithmetic over BF16-stored weights: every parameterised op computes with a transient FP32 copy of its weight, as ComfyUI's manual_cast does, while the stored and offloaded weights stay BF16. The patch-embed conv is kept FP32 at load so the vision input is never downcast",
+    "compute_dtype": "float32",
+    "storage_dtype": "bfloat16",
+    "manual_cast": true,
+    "manual_cast_ops": [
+      "linear",
+      "embedding",
+      "layer_norm",
+      "conv3d"
+    ],
+    "manual_cast_counts": {
+      "linear": 4768,
+      "embedding": 17,
+      "layer_norm": 928,
+      "conv3d": 0,
+      "already_float32": 16,
+      "gated_modules": 192
+    },
+    "keep_in_fp32_modules": [
+      "visual.patch_embed"
+    ],
+    "position_interpolation_dtype": "bfloat16",
+    "position_reduction": "comfy four-term add",
+    "position_embedding_source_dtype": "bfloat16",
+    "position_cast_is_round_trip_exact": true,
+    "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+    "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+    "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+    "forward_substitution_is_bound_method": true,
+    "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+    "modifies_checkpoint_or_deployment": false,
+    "modifies_installed_packages": false
+  },
+  "model": {
+    "logical_name": "qwen3-vl-32b-bf16",
+    "decoder_layers_built": 2,
+    "offload_topology": {
+      "offloaded_tensors": 379,
+      "resident_tensors": 0,
+      "bytes_by_offload_device": {
+        "cpu": 1194075432,
+        "disk": 5062052864
+      },
+      "gib_by_offload_device": {
+        "cpu": 1.11,
+        "disk": 4.71
+      },
+      "tensors_by_dtype": {
+        "float32": 5,
+        "bfloat16": 374
+      },
+      "accelerate_hooks_remaining": [],
+      "accelerate_hook_count": 0,
+      "hf_device_map_present": false,
+      "conversion_clean": true,
+      "summary": "379 offloaded + 0 resident tensors, dtypes ['bfloat16', 'float32'], {'cpu': 1.1, 'disk': 4.7}",
+      "read_without_onloading": true
+    },
+    "load_seconds": 0.2,
+    "host_memory_before_load": {
+      "peak_rss_gib": 0.86,
+      "current_rss_gib": 0.87,
+      "system_mem_available_gib": 117.2
+    },
+    "host_memory_after_load": {
+      "peak_rss_gib": 0.91,
+      "current_rss_gib": 0.91,
+      "system_mem_available_gib": 117.18
+    },
+    "staging_after_load": {
+      "physical_bytes": 2175,
+      "files": 0,
+      "symlinks": 25,
+      "unique_symlink_targets": 2,
+      "unique_symlink_target_bytes_not_staged": 8203025952
+    },
+    "gpu_weight_budget_gib_recorded_not_enforced": 14.0,
+    "offload_arrangement": "auto_offload",
+    "bridge_extra_cpu_mem_default_bytes": 5000000000.0,
+    "bridge_extra_cpu_mem_used_bytes": 122406567936,
+    "host_reserve_declared": true,
+    "bridge_reserve_note": "compressed_tensors load_offloaded_model reserves this much host memory for non-loading work; Gate 2B needs an explicit larger reserve and a fresh model per modifier arm, because AWQ mutates weights and attaches state",
+    "device_map_note": "raw device_map='auto' is incompatible with SequentialPipeline in this pinned pair (accelerate's functools.partial forward vs compressed_tensors reading forward.__func__). `auto_offload` goes through load_context, which converts those hooks, and is a different claim"
+  },
+  "bundle_provenance": {
+    "schema": "h3-native-calibration-bundle-v1",
+    "path_policy": "logical identifiers only; no machine-local paths",
+    "dataset": {
+      "repo_id": "StellarVoyager/H3-IR",
+      "revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e"
+    },
+    "repository_commit": "af91c87a858ab5337735ce8aa7fb1143c14e9188",
+    "comfyui_commit": "a1079ba16f2674734b065eb036fbfdddaa321a4d",
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0",
+    "processors": {
+      "image": {
+        "declared_type": "Qwen2VLImageProcessorFast",
+        "resolved_class": "Qwen2VLImageProcessor",
+        "resolved_backend": "TorchvisionBackend",
+        "size": {
+          "longest_edge": 16777216,
+          "shortest_edge": 65536
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+      },
+      "video": {
+        "declared_type": "Qwen3VLVideoProcessor",
+        "resolved_class": "Qwen3VLVideoProcessor",
+        "size": {
+          "longest_edge": 25165824,
+          "shortest_edge": 4096
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+      }
+    },
+    "geometry_substitution": "vision tower and token embedding run at released patch/merge/depth/DeepStack geometry with a reduced hidden width; no presentation field depends on that width and no weight-dependent claim is made",
+    "still_policy_default": "max_no_upscale",
+    "still_policy_by_row": {
+      "train-01746-11cc659e3dde9843": "upscale_2048",
+      "train-00491-ad4426bae290f835": "upscale_2048",
+      "train-01610-252bf32da40fe6fc": "upscale_2048",
+      "train-01575-92b8d283b1ab59f6": "upscale_2048",
+      "train-01758-5bffad8ddacfa6f2": "upscale_2048",
+      "train-01043-dfed57d53f243524": "upscale_2048",
+      "train-01360-7314bc7d049f719a": "upscale_2048",
+      "train-00559-661153c0cc861266": "upscale_2048",
+      "train-01307-47f83c6862ddf10e": "upscale_2048",
+      "train-01900-e17172d6aea4545a": "upscale_2048",
+      "train-00819-b678cabb93f8be28": "upscale_2048",
+      "train-01669-83fa05055924cb70": "upscale_2048",
+      "train-00995-a3104e2d172fcf4d": "upscale_2048",
+      "train-00315-0e6e0c0d1c58c9bc": "upscale_2048",
+      "train-01798-9e13c30a9af28e7f": "upscale_2048",
+      "train-01020-9e218a9ce482aae9": "upscale_2048",
+      "train-01044-80726621c3119978": "upscale_2048",
+      "train-00468-be47d4a20ff124a3": "upscale_2048",
+      "train-00500-68f926b378a008b0": "upscale_2048",
+      "train-01855-13ea897e564d3ff4": "max_no_upscale",
+      "train-00397-a4678247f01b07f7": "max_no_upscale",
+      "train-00672-7869a840c0d05f7f": "max_no_upscale",
+      "train-01270-9bc6cb7ee546de2a": "max_no_upscale",
+      "train-00049-82dc729635ca7351": "max_no_upscale",
+      "train-01030-b7355e53e6e8a0dc": "max_no_upscale",
+      "train-00453-b99a1cb3bf2589cf": "max_no_upscale",
+      "train-01197-b82d242662203292": "max_no_upscale",
+      "train-01863-66b58624d8c37934": "max_no_upscale",
+      "train-00643-5a1baaa3c2bbcec5": "max_no_upscale",
+      "train-01445-f575902595b76ec1": "max_no_upscale",
+      "train-00395-b4139d5e8d6784ef": "max_no_upscale",
+      "train-01358-4662b89eb01af6b7": "max_no_upscale",
+      "train-01602-8e3f848134828883": "max_no_upscale",
+      "train-00179-75394404cb8c637a": "max_no_upscale",
+      "train-00692-09e8c125638148a3": "max_no_upscale",
+      "train-01373-bd47e445714764a4": "max_no_upscale",
+      "train-00790-0e6f804e5810171a": "max_no_upscale",
+      "train-00112-bbe5f70548c2f6d5": "max_no_upscale",
+      "train-00869-bfaf0a67ff2d2a31": "max_no_upscale",
+      "train-01070-c63af6f788257cd0": "max_no_upscale",
+      "train-01820-e65d06ad83b5f69d": "max_no_upscale",
+      "train-00528-a0503aea332a9357": "max_no_upscale",
+      "train-00303-e8797912dc5a8744": "max_no_upscale",
+      "train-00653-c65eca57ac387ea1": "max_no_upscale",
+      "train-01684-44a6caf4464dfbfb": "max_no_upscale",
+      "train-00795-cff93b01d353955c": "max_no_upscale",
+      "train-01697-3d56ab1e1fc1705b": "max_no_upscale",
+      "train-00802-99f14d6d55fdd88e": "max_no_upscale",
+      "train-01676-d2cc296e3e0c3a87": "max_no_upscale",
+      "train-01500-c0f1dc71763dd991": "max_no_upscale",
+      "train-00378-7f28cb1cdaa8f48e": "max_no_upscale",
+      "train-01160-eec65060f08044bd": "max_no_upscale",
+      "train-00659-a81604e90fdc6c28": "max_no_upscale",
+      "train-00161-9cf73ce77d9033e7": "max_no_upscale",
+      "train-00302-f84a2242a0a998ac": "max_no_upscale"
+    },
+    "mutation": null,
+    "mutation_intent": null
+  },
+  "modifier": {
+    "kind": "awq",
+    "recipe": [
+      {
+        "class": "AWQModifier",
+        "module": "llmcompressor.modifiers.transform.awq.base",
+        "fields": {
+          "requires_calibration_data": true,
+          "index": null,
+          "group": null,
+          "start": null,
+          "end": null,
+          "update": null,
+          "initialized_": false,
+          "finalized_": false,
+          "started_": false,
+          "ended_": false,
+          "mappings": null,
+          "offload_device": "cpu",
+          "duo_scaling": true,
+          "n_grid": 20
+        }
+      },
+      {
+        "class": "QuantizationModifier",
+        "module": "llmcompressor.modifiers.quantization.quantization.base",
+        "fields": {
+          "config_groups": null,
+          "targets": [
+            "Linear"
+          ],
+          "ignore": [
+            "lm_head",
+            "re:model\\.visual\\..*"
+          ],
+          "scheme": "W4A16",
+          "kv_cache_scheme": null,
+          "weight_observer": null,
+          "input_observer": null,
+          "output_observer": null,
+          "observer": null,
+          "bypass_divisibility_checks": false,
+          "requires_calibration_data": false,
+          "index": null,
+          "group": null,
+          "start": null,
+          "end": null,
+          "update": null,
+          "initialized_": false,
+          "finalized_": false,
+          "started_": false,
+          "ended_": false
+        },
+        "resolved_quantization_config": {
+          "config_groups": {
+            "group_0": {
+              "targets": [
+                "Linear"
+              ],
+              "weights": {
+                "num_bits": 4,
+                "type": "int",
+                "symmetric": true,
+                "group_size": 128,
+                "strategy": "group",
+                "block_structure": null,
+                "dynamic": false,
+                "actorder": null,
+                "scale_dtype": null,
+                "zp_dtype": null,
+                "observer": "memoryless_minmax",
+                "observer_kwargs": {}
+              },
+              "input_activations": null,
+              "output_activations": null,
+              "format": null
+            }
+          },
+          "quant_method": "compressed-tensors",
+          "kv_cache_scheme": null,
+          "format": "fakequant",
+          "quantization_status": "initialized",
+          "global_compression_ratio": null,
+          "ignore": [
+            "lm_head",
+            "re:model\\.visual\\..*"
+          ]
+        }
+      }
+    ],
+    "note": "the real v2 recipe, run without any save; the increment over the no-modifier floor is the measurement"
+  },
+  "steps": [
+    {
+      "rows": 8,
+      "row_ids": [
+        "train-01746-11cc659e3dde9843",
+        "train-00491-ad4426bae290f835",
+        "train-01610-252bf32da40fe6fc",
+        "train-01575-92b8d283b1ab59f6",
+        "train-01758-5bffad8ddacfa6f2",
+        "train-01043-dfed57d53f243524",
+        "train-01360-7314bc7d049f719a",
+        "train-00559-661153c0cc861266"
+      ],
+      "sequence_tokens": 110331,
+      "longest_row_tokens": 23015,
+      "visual_tokens": 102328,
+      "rows_detail": [
+        {
+          "row_id": "train-01746-11cc659e3dde9843",
+          "sequence_tokens": 15560,
+          "visual_tokens": 14596,
+          "vision_blocks": 2,
+          "largest_block_patches": 29184,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 15560,
+              "nominal_gib": 57.72
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  128,
+                  228
+                ],
+                [
+                  128,
+                  228
+                ]
+              ],
+              "block_patches": [
+                29184,
+                29184
+              ],
+              "largest_block_patches": 29184,
+              "nominal_gib": 50.77
+            }
+          }
+        },
+        {
+          "row_id": "train-00491-ad4426bae290f835",
+          "sequence_tokens": 17289,
+          "visual_tokens": 16392,
+          "vision_blocks": 4,
+          "largest_block_patches": 16384,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 17289,
+              "nominal_gib": 71.27
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  128,
+                  128
+                ],
+                [
+                  128,
+                  128
+                ],
+                [
+                  128,
+                  128
+                ],
+                [
+                  128,
+                  128
+                ]
+              ],
+              "block_patches": [
+                16384,
+                16384,
+                16384,
+                16384
+              ],
+              "largest_block_patches": 16384,
+              "nominal_gib": 16.0
+            }
+          }
+        },
+        {
+          "row_id": "train-01610-252bf32da40fe6fc",
+          "sequence_tokens": 1809,
+          "visual_tokens": 818,
+          "vision_blocks": 1,
+          "largest_block_patches": 3264,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 1809,
+              "nominal_gib": 0.78
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  68,
+                  48
+                ]
+              ],
+              "block_patches": [
+                3264
+              ],
+              "largest_block_patches": 3264,
+              "nominal_gib": 0.64
+            }
+          }
+        },
+        {
+          "row_id": "train-01575-92b8d283b1ab59f6",
+          "sequence_tokens": 10585,
+          "visual_tokens": 9666,
+          "vision_blocks": 1,
+          "largest_block_patches": 38656,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 10585,
+              "nominal_gib": 26.71
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  128,
+                  302
+                ]
+              ],
+              "block_patches": [
+                38656
+              ],
+              "largest_block_patches": 38656,
+              "nominal_gib": 89.07
+            }
+          }
+        },
+        {
+          "row_id": "train-01758-5bffad8ddacfa6f2",
+          "sequence_tokens": 9160,
+          "visual_tokens": 8308,
+          "vision_blocks": 2,
+          "largest_block_patches": 29184,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 9160,
+              "nominal_gib": 20.0
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  48,
+                  84
+                ],
+                [
+                  128,
+                  228
+                ]
+              ],
+              "block_patches": [
+                4032,
+                29184
+              ],
+              "largest_block_patches": 29184,
+              "nominal_gib": 50.77
+            }
+          }
+        },
+        {
+          "row_id": "train-01043-dfed57d53f243524",
+          "sequence_tokens": 11332,
+          "visual_tokens": 10100,
+          "vision_blocks": 10,
+          "largest_block_patches": 4032,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 11332,
+              "nominal_gib": 30.62
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  84,
+                  48
+                ],
+                [
+                  84,
+                  48
+                ],
+                [
+                  84,
+                  48
+                ],
+                [
+                  84,
+                  48
+                ],
+                [
+                  84,
+                  48
+                ],
+                [
+                  84,
+                  48
+                ],
+                [
+                  84,
+                  48
+                ],
+                [
+                  84,
+                  48
+                ],
+                [
+                  84,
+                  48
+                ],
+                [
+                  84,
+                  48
+                ]
+              ],
+              "block_patches": [
+                4032,
+                4032,
+                4032,
+                4032,
+                4032,
+                4032,
+                4032,
+                4032,
+                4032,
+                4032
+              ],
+              "largest_block_patches": 4032,
+              "nominal_gib": 0.97
+            }
+          }
+        },
+        {
+          "row_id": "train-01360-7314bc7d049f719a",
+          "sequence_tokens": 23015,
+          "visual_tokens": 21958,
+          "vision_blocks": 3,
+          "largest_block_patches": 29440,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 23015,
+              "nominal_gib": 126.29
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  128,
+                  230
+                ],
+                [
+                  228,
+                  128
+                ],
+                [
+                  128,
+                  228
+                ]
+              ],
+              "block_patches": [
+                29440,
+                29184,
+                29184
+              ],
+              "largest_block_patches": 29440,
+              "nominal_gib": 51.66
+            }
+          }
+        },
+        {
+          "row_id": "train-00559-661153c0cc861266",
+          "sequence_tokens": 21581,
+          "visual_tokens": 20490,
+          "vision_blocks": 5,
+          "largest_block_patches": 16384,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 21581,
+              "nominal_gib": 111.04
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  128,
+                  128
+                ],
+                [
+                  128,
+                  128
+                ],
+                [
+                  128,
+                  128
+                ],
+                [
+                  128,
+                  128
+                ],
+                [
+                  128,
+                  128
+                ]
+              ],
+              "block_patches": [
+                16384,
+                16384,
+                16384,
+                16384,
+                16384
+              ],
+              "largest_block_patches": 16384,
+              "nominal_gib": 16.0
+            }
+          }
+        }
+      ],
+      "note_on_attribution": "total tokens govern the host-side cache; GPU peak is governed by the longest single row and its largest vision block, because rows are processed one at a time",
+      "precision_policy": "comfy_exact_bf16_store",
+      "propagate_error": true,
+      "outcome": "completed",
+      "error": null,
+      "seconds_total": 389.8,
+      "seconds_trace": 1.7,
+      "seconds_cache_build": 3.8,
+      "seconds_in_subgraph_forwards": 181.0,
+      "subgraph_forward_calls": 48,
+      "trace": {
+        "subgraphs": 3,
+        "sample_input_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "first_subgraph_input_names": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_any_subgraph_inputs": false,
+        "pixel_values_in_first_subgraph_inputs": true,
+        "image_grid_thw_in_first_subgraph_inputs": true
+      },
+      "effective_input": {
+        "rows": {
+          "train-01746-11cc659e3dde9843": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "dbec425550d1519707cc4b2cf177984ababc5c9c2c9471a9edda31feb4589da0",
+            "effective_model_input_sha256": "d5cdd2353a3cc7d9176870173aa3b6bf0d3febfa64c615f9a37614ba22c68f5e",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-00491-ad4426bae290f835": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "2852afb2c92c52dc31c8e0c3b7c12df1673d9bbcf93e24851fb9d178186a55a4",
+            "effective_model_input_sha256": "4457fc22994c3cad6cf0b7b0d1dd9b1b195c9996d65e1b1135451b4061b3eff4",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-01610-252bf32da40fe6fc": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "5542d4ce612223b13cd08b0cd6ea1c5a042d2f7f08c3ec9dab7386aabcef9581",
+            "effective_model_input_sha256": "280934c3b9f1066221d885d8c09895b3fe2c6076dbfba07643d37a7f6fb4668a",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-01575-92b8d283b1ab59f6": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "d0f94b4dee255b59f2a4ed1632011ca114d63b2eb43b120665bfb6b04d03d2c4",
+            "effective_model_input_sha256": "c37f2dd956035601631ba9a63e82fab47e5bff5595c65b5e069b9973fc3921be",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-01758-5bffad8ddacfa6f2": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "deea0336a50ae092e033c99aa3bf70334f7a7787078237406eb9466a566835cc",
+            "effective_model_input_sha256": "3790f57bc4208eb9199cd1ccea0411466b05b4d8ddf5f6f230378228313f86de",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-01043-dfed57d53f243524": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "567c14e9e64ca0f0642e233966bbbe87c16d6ab3d5b4977e00a72a2613020c07",
+            "effective_model_input_sha256": "df7846f454e36940f1bbc719b21d89afb9e3e2202c2fcee4fc929a7be4c07d72",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-01360-7314bc7d049f719a": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "0e57187771f8e3b2deca38f947af90b5a97b9f2d6d00851faa1bb24e442b8986",
+            "effective_model_input_sha256": "6206bb1394373a7e0bf05c746e13ff8225230e7f06904d480c13190ccd6d61c2",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-00559-661153c0cc861266": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "57cead69b880f7b2cf0dadaa710f0a8a83adb2da28ddd64e261eec5fbc68f9c0",
+            "effective_model_input_sha256": "fb36eca6c968c5414097d15411f0161112ecb7577c24cb7f518aefb711f9b606",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          }
+        },
+        "every_row_transformed_with_assertion": true,
+        "cache_keys_at_first_forward": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_cache_at_first_forward": false,
+        "attention_mask_in_traced_subgraph_inputs": false,
+        "omission_survives_dataloader_cache_and_trace": true,
+        "note": "None means that observation point was never reached in this step, which is not the same as the mask being absent"
+      },
+      "peak_cuda": {
+        "allocated_gib": 14.428,
+        "reserved_gib": 19.564,
+        "note": "cumulative across cache construction and every subgraph forward, not the last reset window"
+      },
+      "host_memory": {
+        "peak_rss_gib": 46.2,
+        "current_rss_gib": 31.06,
+        "system_mem_available_gib": 88.81
+      },
+      "peak_host_rss_gib": 46.2,
+      "host_rss_growth_gib": 45.19,
+      "offload_dir_physical_bytes_before": 2175,
+      "offload_dir": {
+        "physical_bytes": 1805481055,
+        "files": 44,
+        "symlinks": 9,
+        "unique_symlink_targets": 2,
+        "unique_symlink_target_bytes_not_staged": 8203025952
+      },
+      "per_subgraph": {
+        "calls": 48,
+        "cold_calls": 3,
+        "max_allocated_before_gib": 7.43,
+        "max_transient_gib": 7.463,
+        "warm_max_allocated_before_gib": 7.43,
+        "warm_max_transient_gib": 7.463,
+        "note": "a subgraph's weights are onloaded lazily inside its first forward, so only the warmed figures can be read as weight residency; the cold ones understate it"
+      },
+      "sdpa_availability": {
+        "text_attention": {
+          "1809": {
+            "sequence_tokens": 1809,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "9160": {
+            "sequence_tokens": 9160,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "10585": {
+            "sequence_tokens": 10585,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "11332": {
+            "sequence_tokens": 11332,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "15560": {
+            "sequence_tokens": 15560,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "17289": {
+            "sequence_tokens": 17289,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "21581": {
+            "sequence_tokens": 21581,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "23015": {
+            "sequence_tokens": 23015,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "vision_attention": {
+          "3264": {
+            "block_patches": 3264,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "4032": {
+            "block_patches": 4032,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "16384": {
+            "block_patches": 16384,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "29184": {
+            "block_patches": 29184,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "29440": {
+            "block_patches": 29440,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "38656": {
+            "block_patches": 38656,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "probed_at_real_row_shapes": true,
+        "note": "availability, not selection: this API reports what could run. probe_sdpa_backend_selection.py names what did"
+      },
+      "modifier": {
+        "modifiers": [
+          "AWQModifier",
+          "QuantizationModifier"
+        ],
+        "boundary": {
+          "vision_tower_module": "model.visual",
+          "text_decoder_layers": 2,
+          "linears_per_decoder_layer": 7,
+          "ignore_patterns": [
+            "lm_head",
+            "re:model\\.visual\\..*"
+          ],
+          "linear_counts": {
+            "text_decoder": 14,
+            "vision_block": 108,
+            "vision_merger": 2,
+            "vision_deepstack_merger": 6,
+            "vision_other": 0,
+            "lm_head": 1,
+            "unclassified": 0
+          },
+          "linears_total": 131,
+          "targeted_linears": 14,
+          "ignored_linears": 117,
+          "scheme": {
+            "num_bits": 4,
+            "group_size": 128,
+            "symmetric": true,
+            "strategy": "group",
+            "type": "int",
+            "observer": "memoryless_minmax",
+            "dynamic": false,
+            "actorder": null
+          }
+        },
+        "awq_offload_device": "cpu",
+        "awq_duo_scaling": true,
+        "awq_n_grid": 20,
+        "smoothing_calls": 3,
+        "seconds_in_awq_smoothing": 195.0,
+        "parent_reruns": 126,
+        "mappings_scaled": 6,
+        "scales": [
+          {
+            "smooth": "model.language_model.layers.0.input_layernorm",
+            "balance": [
+              "model.language_model.layers.0.self_attn.q_proj",
+              "model.language_model.layers.0.self_attn.k_proj",
+              "model.language_model.layers.0.self_attn.v_proj"
+            ],
+            "channels": 5120,
+            "mean": 1.2589682340621948,
+            "min": 0.533959686756134,
+            "max": 1.8728004693984985,
+            "sha256": "2f4d24b5de2fe814963d3cbbfd063cb4887403aad7bc75ad0e0339e779fb50a5"
+          },
+          {
+            "smooth": "model.language_model.layers.0.post_attention_layernorm",
+            "balance": [
+              "model.language_model.layers.0.mlp.gate_proj",
+              "model.language_model.layers.0.mlp.up_proj"
+            ],
+            "channels": 5120,
+            "mean": 0.8180770874023438,
+            "min": 0.3662746250629425,
+            "max": 2.730191946029663,
+            "sha256": "ecced8ae60f5daea6ee37d083088bc888695c6f52cf4fc8c57aa28746a23bddd"
+          },
+          {
+            "smooth": "model.language_model.layers.0.mlp.up_proj",
+            "balance": [
+              "model.language_model.layers.0.mlp.down_proj"
+            ],
+            "channels": 25600,
+            "mean": 0.5859949588775635,
+            "min": 0.4055240750312805,
+            "max": 2.465944766998291,
+            "sha256": "c91e638960be41ff78da82eba8541ca70c4b3cbd10a4f88c7dd72f5e1bd15f06"
+          },
+          {
+            "smooth": "model.language_model.layers.1.input_layernorm",
+            "balance": [
+              "model.language_model.layers.1.self_attn.q_proj",
+              "model.language_model.layers.1.self_attn.k_proj",
+              "model.language_model.layers.1.self_attn.v_proj"
+            ],
+            "channels": 5120,
+            "mean": 2.1747286319732666,
+            "min": 0.20009982585906982,
+            "max": 4.9975056648254395,
+            "sha256": "9d35b37821b9e5ae1644f05b91327a14b98cd02a903b4b7c17cf13544f73fe9b"
+          },
+          {
+            "smooth": "model.language_model.layers.1.post_attention_layernorm",
+            "balance": [
+              "model.language_model.layers.1.mlp.gate_proj",
+              "model.language_model.layers.1.mlp.up_proj"
+            ],
+            "channels": 5120,
+            "mean": 1.3989417552947998,
+            "min": 0.2085695117712021,
+            "max": 4.794564247131348,
+            "sha256": "1c4389ef67baea37aac059f10049448e44e68be03784cdee2a84809827c7b88c"
+          },
+          {
+            "smooth": "model.language_model.layers.1.mlp.up_proj",
+            "balance": [
+              "model.language_model.layers.1.mlp.down_proj"
+            ],
+            "channels": 25600,
+            "mean": 1.0,
+            "min": 1.0,
+            "max": 1.0,
+            "sha256": "b86df98dc6d4470622f3a8da9d5ef1858a7c1249d3e6b5c16c58ec9de19f85d1"
+          }
+        ],
+        "modifier_entered_control": {
+          "module": "language_model.layers.0.self_attn.q_proj",
+          "location_before": {
+            "tier": "disk",
+            "file": "ct_disk_cache_0_132688643021296.safetensors",
+            "weight_name": "model.language_model.layers.0.self_attn.q_proj.weight",
+            "symlink_into_checkpoint": true,
+            "staged": false
+          },
+          "location_after": {
+            "tier": "disk",
+            "file": "ct_disk_cache_0_132688643021296.safetensors",
+            "weight_name": "model.language_model.layers.0.self_attn.q_proj.weight",
+            "symlink_into_checkpoint": false,
+            "staged": true
+          },
+          "weight_sha256_before": "6c05678f50852a7c0f9d8ac56fbc1537a058730a14af40bf5ac4953c8dcf98ff",
+          "weight_sha256_after": "bd429ce5f6fb42f1407ad45c458b935b4a322a8e1da30d34b2d8345a89700f7e",
+          "weight_changed_in_offload_store": true,
+          "note": "read from the offload store without onloading; AWQ smoothing rewrites the stored weight, so a run that entered the modifier path changes this hash"
+        },
+        "no_files_written": true,
+        "scales_file": "2026-08-25_gate2b_host_budget_prefix8_2layers_disk_tier_awq_scales.safetensors"
+      },
+      "intermediates_cache": {
+        "declared_offload_device": "cpu",
+        "initial": {
+          "note": "as materialised by from_dataloader, before any subgraph",
+          "tensors": 32,
+          "gib_by_device": {
+            "cpu": 2.342
+          },
+          "keys": [
+            "image_grid_thw",
+            "input_ids",
+            "mm_token_type_ids",
+            "pixel_values"
+          ]
+        },
+        "peak": {
+          "note": "maximum over samples taken after cache construction and after every subgraph forward; this is the growth figure, the residual below is not",
+          "tensors": 56,
+          "bytes_by_device": {
+            "cpu": 8656259835
+          },
+          "gib_by_device": {
+            "cpu": 8.062
+          },
+          "bytes_per_token": 78457.2
+        },
+        "residual_after_run": {
+          "note": "what the cache still held when the pipeline returned: the last subgraph's inputs, because consumed names are deleted as the run proceeds",
+          "tensors": 56,
+          "gib_by_device": {
+            "cpu": 8.062
+          },
+          "keys": [
+            "getitem_13",
+            "getitem_21",
+            "getitem_27",
+            "getitem_28",
+            "model_language_model_rotary_emb",
+            "wrapped_10"
+          ]
+        }
+      },
+      "cuda_allocated_after_cleanup_gib": 0.011,
+      "cuda_reserved_after_cleanup_gib": 0.041
+    }
+  ],
+  "attention_kernel": {
+    "kind": "expanded_kv",
+    "intent": "repeat_kv before SDPA, unconditionally: SDPA sees the full head count and no enable_gqa, which at FP32 on this card selects the memory-efficient kernel. A measured candidate, not an accepted arithmetic",
+    "counts": {
+      "decisions_governed": 368,
+      "expanded": 368,
+      "left_to_library": 0,
+      "governed_modules": 2
+    },
+    "patched": "transformers.integrations.sdpa_attention.use_gqa_in_sdpa, gated by this model's attention modules on the entering thread",
+    "expansion_is_assumed_numerically_free": false,
+    "modifies_checkpoint_or_deployment": false,
+    "modifies_installed_packages": false
+  },
+  "candidate": {
+    "emitted": true,
+    "logical_name": "candidate_probe_disk",
+    "files": 12,
+    "bytes": 4820201675,
+    "processor_files_copied_from_source": [
+      "preprocessor_config.json",
+      "video_preprocessor_config.json",
+      "tokenizer_config.json",
+      "tokenizer.json",
+      "vocab.json",
+      "merges.txt",
+      "chat_template.json"
+    ],
+    "note": "a new directory; the deployed artifact, its symlink and the source checkpoint were not touched. Not deployed by this step."
+  },
+  "offload_dir_at_exit": {
+    "physical_bytes": 502870657,
+    "files": 46,
+    "symlinks": 7,
+    "unique_symlink_targets": 2,
+    "unique_symlink_target_bytes_not_staged": 8203025952
+  },
+  "sequential_floor_envelope": {
+    "largest_completed_sequence_tokens": 110331,
+    "largest_completed_rows": 8,
+    "is_a_budget": false,
+    "note": "a token total this MODIFIER-FREE path completed on this box. It is the floor beneath a calibration run: tracing, the intermediates cache and two forwards per subgraph per row, with no AWQ modifier observing or rewriting anything. It is not a chosen population, not a manifest, and it cannot set the final budget, which needs a modifier-bearing pass"
+  }
+}

@@ -4,6 +4,34 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.69.0
+
+### Changed
+
+- `bench/pilot_sequential_feasibility.py`: the modifier-entered control reads
+  a disk-tier weight through the offload cache's index instead of returning
+  `None` for a meta tensor, and records the weight's tier, file and whether it
+  is staged before and after the modifier. Under the disk tier the old control
+  compared `None` with `None` and reported the weight unchanged on a run whose
+  staged files proved otherwise, which would have refused to emit the
+  candidate; it had only ever met the CPU tier.
+- `bench/select_v2_calibration_rows.py`: the holdout reserves small-source
+  components first (`--holdout-small-source`, the locked "at least two",
+  reference stills ahead of keyframes because only reference stills are
+  upscaled), and a holdout can be rebuilt around a consumed calibration set
+  (`--rows 0`, `--keep-holdout`, `--exclude-row`, `--exclude-component`,
+  `--exclude-prompt-term`). The first rebuild dropped a holdout row that was a
+  shot-for-shot match of three calibration rows from one catalogue series.
+
+### Added
+
+- `bench/results/2026-08-25_gate2b_host_budget_prefix8_2layers.json` and
+  `..._disk_tier.json`: the host-memory cost of the real AWQ recipe at 110k
+  population tokens, weights resident and on the bridge's disk tier, the
+  latter emitting a packed candidate. The first v2 launch was OOM-killed on
+  the host; these set the budget the relaunch was sized from. The record is
+  `docs/research/qwen3-vl-special-tokens-post-training/canonical/2026-08-25_v2_launch_record.md`.
+
 ## 0.68.1
 
 ### Added

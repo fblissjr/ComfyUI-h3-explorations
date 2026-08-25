@@ -171,4 +171,6 @@ system memory and the server exited during it.
 - Acceptance of expanded-KV attention as anything other than a calibration
   execution policy under the reading stated.
 - Any render, fidelity or quality claim.
-- An absolute calibration population.
+- An absolute calibration population. Set later the same day, from a
+  measured host budget this record did not have:
+  [`2026-08-25_v2_launch_record.md`](2026-08-25_v2_launch_record.md).

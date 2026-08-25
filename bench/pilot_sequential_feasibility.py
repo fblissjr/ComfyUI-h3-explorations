@@ -885,16 +885,58 @@ def effective_input_record(transforms: dict[str, dict], row_ids: list[str],
     }
 
 
+def _offloaded_weight_location(module) -> dict:
+    """Where a weight sits in the offload store: its tier and, on disk, its file.
+
+    The CPU tier holds the tensor itself; the disk tier holds a meta tensor
+    whose data is in the file its cache's index names. That file is a symlink
+    into the checkpoint until the first update, which unlinks it and writes a
+    staged file in the offload directory, so `staged` is the observable that a
+    disk-tier weight has been rewritten.
+    """
+    from compressed_tensors.offload.cache import DiskCache, OffloadCache
+
+    store = module._parameters
+    if not isinstance(store, OffloadCache):
+        tensor = store.get("weight")
+        return {"tier": "resident", "device": None if tensor is None else str(tensor.device)}
+    tensor = store.offloaded_values.get("weight")
+    if tensor is None:
+        return {"tier": "absent"}
+    if tensor.device.type != "meta":
+        return {"tier": "cpu", "device": str(tensor.device)}
+    if isinstance(store, DiskCache) and tensor in store.index:
+        info = store.index[tensor]
+        path = Path(info["safetensors_file"])
+        return {"tier": "disk", "file": path.name, "weight_name": info["weight_name"],
+                "symlink_into_checkpoint": path.is_symlink(), "staged": not path.is_symlink()}
+    return {"tier": "meta-unindexed"}
+
+
 def _offloaded_weight_sha(module) -> str | None:
-    """Hash a weight as it sits in the offload store, without onloading it."""
-    from compressed_tensors.offload.cache import OffloadCache
+    """Hash a weight as it sits in the offload store, without onloading it to
+    the accelerator. A CPU-tier tensor is hashed in place; a disk-tier tensor
+    is read from the file its cache's index names, staged or symlinked, on the
+    CPU. Returns None only when there is no weight to hash, so a control
+    comparing two of these cannot report "unchanged" for a tier it cannot read
+    (the first disk-tier run did exactly that: None == None).
+    """
+    from compressed_tensors.offload.cache import DiskCache, OffloadCache
+    from safetensors import safe_open
 
     store = module._parameters
     tensor = (store.offloaded_values.get("weight") if isinstance(store, OffloadCache)
               else store.get("weight"))
-    if tensor is None or tensor.device.type == "meta":
+    if tensor is None:
         return None
-    return tensor_sha(tensor.detach())
+    if tensor.device.type != "meta":
+        return tensor_sha(tensor.detach())
+    if isinstance(store, DiskCache) and tensor in store.index:
+        info = store.index[tensor]
+        with safe_open(info["safetensors_file"], framework="pt", device="cpu") as handle:
+            return tensor_sha(handle.get_tensor(info["weight_name"]))
+    raise RuntimeError("weight is a meta tensor the offload store does not index; "
+                       "the modifier-entered control cannot read it")
 
 
 def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: str,
@@ -940,6 +982,7 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
     modifier_record: dict | None = None
     control_layer = model.model.language_model.layers[0].self_attn.q_proj
     weight_before = _offloaded_weight_sha(control_layer)
+    location_before = _offloaded_weight_location(control_layer)
     cwd_before = sorted(str(p) for p in Path.cwd().iterdir())
     with instrumentation.install():
         try:
@@ -1073,6 +1116,8 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
             "scales": instrumentation.awq_scales,
             "modifier_entered_control": {
                 "module": "language_model.layers.0.self_attn.q_proj",
+                "location_before": location_before,
+                "location_after": _offloaded_weight_location(control_layer),
                 "weight_sha256_before": weight_before,
                 "weight_sha256_after": weight_after,
                 "weight_changed_in_offload_store": (
