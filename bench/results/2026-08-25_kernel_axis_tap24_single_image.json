@@ -1,0 +1,691 @@
+{
+  "comparison": "ComfyUI versus Transformers at the H3 layer-50 boundary",
+  "reference_arm": {
+    "schema": "h3-crossstack-layer50-v1",
+    "arm": "comfy",
+    "dtype": "float32 compute, bfloat16 stored weights",
+    "tap_layer": 24,
+    "seconds": 4.2,
+    "presentation": {
+      "row_id": "train-00973-d8cd5223d6ff1cac",
+      "prompt_sha256": "7acb0ed4d2dee796ed95acae15fdca67f7025442017e54b48bcea90ff1f1b037",
+      "sequence_length": 1100,
+      "input_ids_sha256": "211ceae1d0eab7c24319267f2b9637480629629e5c1c514915f811a5f7fc5336",
+      "attention_mask_sha256": "1d4ddd6cbc6c4ec735081f5d621563b38c56aa3c39d61a1d5068d1bf41f5f3fc",
+      "mm_token_type_ids_sha256": "e4308160040f1d56ac732629e95da58ef804028acb356a957503589a29b07ded",
+      "pixel_values_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229",
+      "image_grid_thw_sha256": "9a49d9f3e9f22920ffd6f74505c36dd6ccac8d4e415df05e45ed4b6a25ec7d2f",
+      "grids": [
+        [
+          1,
+          44,
+          40
+        ]
+      ],
+      "token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+      "comfy_position_ids_sha256": "3d2c9fe6ae5d9813d2876b1a9a646318deda7770da5a3cd4500c48ca717a4a22"
+    },
+    "comfy_sequence_length": 1100,
+    "comfy_token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+    "consumed_vision_blocks": [
+      {
+        "grid_thw": [
+          [
+            1,
+            44,
+            40
+          ]
+        ],
+        "patches_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229"
+      }
+    ],
+    "hidden_state": {
+      "shape": [
+        1100,
+        5120
+      ],
+      "dtype": "float32",
+      "sha256": "2b656f0fa6bbcf4fb21561ec04bfa5d1f1f53959297d2fa7c79659cac4c64796"
+    },
+    "layer0_input": {
+      "shape": [
+        1100,
+        5120
+      ],
+      "dtype": "float32",
+      "sha256": "ea2ffeaf0d96d988eeaa74476e8ee984501434e042e08763698bff296aef9ec6"
+    },
+    "source": {
+      "logical_name": "qwen3-vl-32b-bf16",
+      "mapped_tensors": 902
+    },
+    "environment": {
+      "python": "3.13.9",
+      "torch": "2.13.0+cu132",
+      "transformers": "5.15.0"
+    }
+  },
+  "reference_chosen_explicitly": false,
+  "field_under_test": [
+    "attention",
+    "dtype"
+  ],
+  "arms": {
+    "transformers-comfy_exact_bf16_store-tap24-nomask-auto-grouped_query": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "comfy_exact_bf16_store",
+        "precision_policy": {
+          "policy": "comfy_exact_bf16_store",
+          "intent": "comfy_exact arithmetic over BF16-stored weights: every parameterised op computes with a transient FP32 copy of its weight, as ComfyUI's manual_cast does, while the stored and offloaded weights stay BF16. The patch-embed conv is kept FP32 at load so the vision input is never downcast",
+          "compute_dtype": "float32",
+          "storage_dtype": "bfloat16",
+          "manual_cast": true,
+          "manual_cast_ops": [
+            "linear",
+            "embedding",
+            "layer_norm",
+            "conv3d"
+          ],
+          "manual_cast_counts": {
+            "linear": 292,
+            "embedding": 1,
+            "layer_norm": 58,
+            "conv3d": 0,
+            "already_float32": 1,
+            "gated_modules": 353
+          },
+          "keep_in_fp32_modules": [
+            "visual.patch_embed"
+          ],
+          "position_interpolation_dtype": "bfloat16",
+          "position_reduction": "comfy four-term add",
+          "position_embedding_source_dtype": "bfloat16",
+          "position_cast_is_round_trip_exact": true,
+          "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+          "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+          "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+          "forward_substitution_is_bound_method": true,
+          "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "sdpa_backend": {
+          "requested": "auto"
+        },
+        "attention_kernel": {
+          "kind": "grouped_query",
+          "intent": "the library's own decision: enable_gqa=True with no mask, which at FP32 on this card selects the math backend and materialises the full logit tensor",
+          "counts": {
+            "decisions_governed": 25,
+            "expanded": 0,
+            "left_to_library": 25,
+            "governed_modules": 25
+          },
+          "patched": "transformers.integrations.sdpa_attention.use_gqa_in_sdpa, gated by this model's attention modules on the entering thread",
+          "expansion_is_assumed_numerically_free": false,
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "sdpa_availability": {
+          "grouped_query": {
+            "flash": false,
+            "efficient": false,
+            "cudnn": false
+          },
+          "expanded_kv": {
+            "flash": false,
+            "efficient": true,
+            "cudnn": false
+          },
+          "note": "availability, not selection: torch does not expose which kernel a call chose"
+        },
+        "tap_layer": 24,
+        "tap": "forward hook on language_model.layers[24], raw residual",
+        "load_seconds": 1.5,
+        "forward_seconds": 3.4,
+        "presentation": {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "prompt_sha256": "7acb0ed4d2dee796ed95acae15fdca67f7025442017e54b48bcea90ff1f1b037",
+          "sequence_length": 1100,
+          "input_ids_sha256": "211ceae1d0eab7c24319267f2b9637480629629e5c1c514915f811a5f7fc5336",
+          "attention_mask_sha256": "1d4ddd6cbc6c4ec735081f5d621563b38c56aa3c39d61a1d5068d1bf41f5f3fc",
+          "mm_token_type_ids_sha256": "e4308160040f1d56ac732629e95da58ef804028acb356a957503589a29b07ded",
+          "pixel_values_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229",
+          "image_grid_thw_sha256": "9a49d9f3e9f22920ffd6f74505c36dd6ccac8d4e415df05e45ed4b6a25ec7d2f",
+          "grids": [
+            [
+              1,
+              44,
+              40
+            ]
+          ],
+          "token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+          "comfy_position_ids_sha256": "3d2c9fe6ae5d9813d2876b1a9a646318deda7770da5a3cd4500c48ca717a4a22"
+        },
+        "transformers_sequence_length": 1100,
+        "layers_built": 25,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "c4a6990f7f555b313709b8aaa808f64e28c566323296d164d390a708d3abc7e6"
+        },
+        "layer0_input": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "b5c01eb3525d125924e849236a9275f3f945eb1642705292d1697b86963edef8"
+        },
+        "source": {
+          "logical_name": "qwen3-vl-32b-bf16"
+        },
+        "peak_cuda_gib": 17.56,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        }
+      },
+      "all": {
+        "rows": 1100,
+        "flattened_cosine": 0.9999999675835944,
+        "relative_l2": 0.00025462393430971856,
+        "mse": 3.1888685517262228e-06,
+        "rmse": 0.0017857403371504556,
+        "reference_activation_rms": 7.01324618987561,
+        "candidate_activation_rms": 7.013240412890921,
+        "tokenwise_cosine_mean": 0.9999997101707756,
+        "tokenwise_cosine_min": 0.999976148665957,
+        "tokenwise_cosine_p01": 0.9999955104261128,
+        "tokenwise_cosine_p50": 0.9999999217811264
+      },
+      "text_rows": {
+        "rows": 658,
+        "flattened_cosine": 0.9999999965006457,
+        "relative_l2": 8.365855485777524e-05,
+        "mse": 5.393223230511317e-07,
+        "rmse": 0.0007343856773188947,
+        "reference_activation_rms": 8.778369152651015,
+        "candidate_activation_rms": 8.778365458863268,
+        "tokenwise_cosine_mean": 0.999999929584784,
+        "tokenwise_cosine_min": 0.9999997947435226,
+        "tokenwise_cosine_p01": 0.9999998266081487,
+        "tokenwise_cosine_p50": 0.9999999358736712
+      },
+      "vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9999995362053881,
+        "relative_l2": 0.0009631351635005476,
+        "mse": 7.133215652333033e-06,
+        "rmse": 0.0026708080523191917,
+        "reference_activation_rms": 2.7730355546474628,
+        "candidate_activation_rms": 2.773016601041354,
+        "tokenwise_cosine_mean": 0.9999993835318222,
+        "tokenwise_cosine_min": 0.999976148665957,
+        "tokenwise_cosine_p01": 0.9999922705974692,
+        "tokenwise_cosine_p50": 0.9999998589871475
+      },
+      "layer0_input": {
+        "rows": 1100,
+        "flattened_cosine": 0.9999992122881333,
+        "relative_l2": 0.0012551673554693583,
+        "mse": 8.897432229116247e-07,
+        "rmse": 0.0009432620118035205,
+        "reference_activation_rms": 0.7515029830034934,
+        "candidate_activation_rms": 0.7515057217478922,
+        "tokenwise_cosine_mean": 0.9999996048223195,
+        "tokenwise_cosine_min": 0.999936339235875,
+        "tokenwise_cosine_p01": 0.9999936585613542,
+        "tokenwise_cosine_p50": 0.9999999999999999
+      },
+      "layer0_input_text_rows": {
+        "rows": 658,
+        "flattened_cosine": 1.0000000000000062,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021601424685009623,
+        "candidate_activation_rms": 0.021601424685009623,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999998,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9999992118973363,
+        "relative_l2": 0.0012554776465131617,
+        "mse": 2.214293088694089e-06,
+        "rmse": 0.0014880500961641343,
+        "reference_activation_rms": 1.1852461892064918,
+        "candidate_activation_rms": 1.185250510801438,
+        "tokenwise_cosine_mean": 0.9999990165261343,
+        "tokenwise_cosine_min": 0.999936339235875,
+        "tokenwise_cosine_p01": 0.9999881074585426,
+        "tokenwise_cosine_p50": 0.9999997309333205
+      }
+    },
+    "transformers-comfy_exact_bf16_store-tap24-nomask-math-expanded_kv": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "comfy_exact_bf16_store",
+        "precision_policy": {
+          "policy": "comfy_exact_bf16_store",
+          "intent": "comfy_exact arithmetic over BF16-stored weights: every parameterised op computes with a transient FP32 copy of its weight, as ComfyUI's manual_cast does, while the stored and offloaded weights stay BF16. The patch-embed conv is kept FP32 at load so the vision input is never downcast",
+          "compute_dtype": "float32",
+          "storage_dtype": "bfloat16",
+          "manual_cast": true,
+          "manual_cast_ops": [
+            "linear",
+            "embedding",
+            "layer_norm",
+            "conv3d"
+          ],
+          "manual_cast_counts": {
+            "linear": 292,
+            "embedding": 1,
+            "layer_norm": 58,
+            "conv3d": 0,
+            "already_float32": 1,
+            "gated_modules": 353
+          },
+          "keep_in_fp32_modules": [
+            "visual.patch_embed"
+          ],
+          "position_interpolation_dtype": "bfloat16",
+          "position_reduction": "comfy four-term add",
+          "position_embedding_source_dtype": "bfloat16",
+          "position_cast_is_round_trip_exact": true,
+          "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+          "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+          "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+          "forward_substitution_is_bound_method": true,
+          "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "sdpa_backend": {
+          "requested": "math"
+        },
+        "attention_kernel": {
+          "kind": "expanded_kv",
+          "intent": "repeat_kv before SDPA, unconditionally: SDPA sees the full head count and no enable_gqa, which at FP32 on this card selects the memory-efficient kernel. A measured candidate, not an accepted arithmetic",
+          "counts": {
+            "decisions_governed": 25,
+            "expanded": 25,
+            "left_to_library": 0,
+            "governed_modules": 25
+          },
+          "patched": "transformers.integrations.sdpa_attention.use_gqa_in_sdpa, gated by this model's attention modules on the entering thread",
+          "expansion_is_assumed_numerically_free": false,
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "sdpa_availability": {
+          "grouped_query": {
+            "flash": false,
+            "efficient": false,
+            "cudnn": false
+          },
+          "expanded_kv": {
+            "flash": false,
+            "efficient": true,
+            "cudnn": false
+          },
+          "note": "availability, not selection: torch does not expose which kernel a call chose"
+        },
+        "tap_layer": 24,
+        "tap": "forward hook on language_model.layers[24], raw residual",
+        "load_seconds": 1.6,
+        "forward_seconds": 3.4,
+        "presentation": {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "prompt_sha256": "7acb0ed4d2dee796ed95acae15fdca67f7025442017e54b48bcea90ff1f1b037",
+          "sequence_length": 1100,
+          "input_ids_sha256": "211ceae1d0eab7c24319267f2b9637480629629e5c1c514915f811a5f7fc5336",
+          "attention_mask_sha256": "1d4ddd6cbc6c4ec735081f5d621563b38c56aa3c39d61a1d5068d1bf41f5f3fc",
+          "mm_token_type_ids_sha256": "e4308160040f1d56ac732629e95da58ef804028acb356a957503589a29b07ded",
+          "pixel_values_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229",
+          "image_grid_thw_sha256": "9a49d9f3e9f22920ffd6f74505c36dd6ccac8d4e415df05e45ed4b6a25ec7d2f",
+          "grids": [
+            [
+              1,
+              44,
+              40
+            ]
+          ],
+          "token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+          "comfy_position_ids_sha256": "3d2c9fe6ae5d9813d2876b1a9a646318deda7770da5a3cd4500c48ca717a4a22"
+        },
+        "transformers_sequence_length": 1100,
+        "layers_built": 25,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "47697e2aee8b577f453cb627e204027c2d6c74bc6b859f887696274b59c68c68"
+        },
+        "layer0_input": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "ed36fbac8acaf2addf9ebfe6bb75e644735afc9aba41c73c04d1edbf9f1cb698"
+        },
+        "source": {
+          "logical_name": "qwen3-vl-32b-bf16"
+        },
+        "peak_cuda_gib": 17.56,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        }
+      },
+      "all": {
+        "rows": 1100,
+        "flattened_cosine": 0.9999999391162459,
+        "relative_l2": 0.0003489555180423793,
+        "mse": 5.989330921971039e-06,
+        "rmse": 0.0024473109573511574,
+        "reference_activation_rms": 7.01324618987561,
+        "candidate_activation_rms": 7.013257003568062,
+        "tokenwise_cosine_mean": 0.999999435228815,
+        "tokenwise_cosine_min": 0.9999674100818348,
+        "tokenwise_cosine_p01": 0.999990924019265,
+        "tokenwise_cosine_p50": 0.9999999138582497
+      },
+      "text_rows": {
+        "rows": 658,
+        "flattened_cosine": 0.9999999964497702,
+        "relative_l2": 8.426446413032345e-05,
+        "mse": 5.471628547051365e-07,
+        "rmse": 0.0007397045725863376,
+        "reference_activation_rms": 8.778369152651015,
+        "candidate_activation_rms": 8.778365726476174,
+        "tokenwise_cosine_mean": 0.9999999282945213,
+        "tokenwise_cosine_min": 0.9999997224513817,
+        "tokenwise_cosine_p01": 0.9999998182987971,
+        "tokenwise_cosine_p50": 0.9999999342640602
+      },
+      "vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.999999084264963,
+        "relative_l2": 0.0013536792700127877,
+        "mse": 1.4091020035683625e-05,
+        "rmse": 0.0037538007453358025,
+        "reference_activation_rms": 2.7730355546474628,
+        "candidate_activation_rms": 2.773119762191657,
+        "tokenwise_cosine_mean": 0.999998701207922,
+        "tokenwise_cosine_min": 0.9999674100818348,
+        "tokenwise_cosine_p01": 0.9999769949798706,
+        "tokenwise_cosine_p50": 0.9999997460622396
+      },
+      "layer0_input": {
+        "rows": 1100,
+        "flattened_cosine": 0.9999986613972092,
+        "relative_l2": 0.0016378118195578104,
+        "mse": 1.514919024437061e-06,
+        "rmse": 0.0012308204679956623,
+        "reference_activation_rms": 0.7515029830034934,
+        "candidate_activation_rms": 0.7515562802435011,
+        "tokenwise_cosine_mean": 0.9999993183300538,
+        "tokenwise_cosine_min": 0.9999435629928104,
+        "tokenwise_cosine_p01": 0.9999865653766293,
+        "tokenwise_cosine_p50": 0.9999999999999999
+      },
+      "layer0_input_text_rows": {
+        "rows": 658,
+        "flattened_cosine": 1.0000000000000062,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021601424685009623,
+        "candidate_activation_rms": 0.021601424685009623,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999998,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9999986607352918,
+        "relative_l2": 0.0016382167044815851,
+        "mse": 3.770160468056034e-06,
+        "rmse": 0.001941690106081821,
+        "reference_activation_rms": 1.1852461892064918,
+        "candidate_activation_rms": 1.1853302894530562,
+        "tokenwise_cosine_mean": 0.9999983035363332,
+        "tokenwise_cosine_min": 0.9999435629928104,
+        "tokenwise_cosine_p01": 0.9999745815009715,
+        "tokenwise_cosine_p50": 0.9999995220447372
+      }
+    },
+    "transformers-comfy_exact_bf16_store-tap24-nomask-efficient-expanded_kv": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "comfy_exact_bf16_store",
+        "precision_policy": {
+          "policy": "comfy_exact_bf16_store",
+          "intent": "comfy_exact arithmetic over BF16-stored weights: every parameterised op computes with a transient FP32 copy of its weight, as ComfyUI's manual_cast does, while the stored and offloaded weights stay BF16. The patch-embed conv is kept FP32 at load so the vision input is never downcast",
+          "compute_dtype": "float32",
+          "storage_dtype": "bfloat16",
+          "manual_cast": true,
+          "manual_cast_ops": [
+            "linear",
+            "embedding",
+            "layer_norm",
+            "conv3d"
+          ],
+          "manual_cast_counts": {
+            "linear": 292,
+            "embedding": 1,
+            "layer_norm": 58,
+            "conv3d": 0,
+            "already_float32": 1,
+            "gated_modules": 353
+          },
+          "keep_in_fp32_modules": [
+            "visual.patch_embed"
+          ],
+          "position_interpolation_dtype": "bfloat16",
+          "position_reduction": "comfy four-term add",
+          "position_embedding_source_dtype": "bfloat16",
+          "position_cast_is_round_trip_exact": true,
+          "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+          "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+          "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+          "forward_substitution_is_bound_method": true,
+          "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "sdpa_backend": {
+          "requested": "efficient"
+        },
+        "attention_kernel": {
+          "kind": "expanded_kv",
+          "intent": "repeat_kv before SDPA, unconditionally: SDPA sees the full head count and no enable_gqa, which at FP32 on this card selects the memory-efficient kernel. A measured candidate, not an accepted arithmetic",
+          "counts": {
+            "decisions_governed": 25,
+            "expanded": 25,
+            "left_to_library": 0,
+            "governed_modules": 25
+          },
+          "patched": "transformers.integrations.sdpa_attention.use_gqa_in_sdpa, gated by this model's attention modules on the entering thread",
+          "expansion_is_assumed_numerically_free": false,
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "sdpa_availability": {
+          "grouped_query": {
+            "flash": false,
+            "efficient": false,
+            "cudnn": false
+          },
+          "expanded_kv": {
+            "flash": false,
+            "efficient": true,
+            "cudnn": false
+          },
+          "note": "availability, not selection: torch does not expose which kernel a call chose"
+        },
+        "tap_layer": 24,
+        "tap": "forward hook on language_model.layers[24], raw residual",
+        "load_seconds": 1.5,
+        "forward_seconds": 3.1,
+        "presentation": {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "prompt_sha256": "7acb0ed4d2dee796ed95acae15fdca67f7025442017e54b48bcea90ff1f1b037",
+          "sequence_length": 1100,
+          "input_ids_sha256": "211ceae1d0eab7c24319267f2b9637480629629e5c1c514915f811a5f7fc5336",
+          "attention_mask_sha256": "1d4ddd6cbc6c4ec735081f5d621563b38c56aa3c39d61a1d5068d1bf41f5f3fc",
+          "mm_token_type_ids_sha256": "e4308160040f1d56ac732629e95da58ef804028acb356a957503589a29b07ded",
+          "pixel_values_sha256": "99dca2115e8dcbe3f76f6a56d66de01fbc46c8763c7a55eb97d8ca1a76b6e229",
+          "image_grid_thw_sha256": "9a49d9f3e9f22920ffd6f74505c36dd6ccac8d4e415df05e45ed4b6a25ec7d2f",
+          "grids": [
+            [
+              1,
+              44,
+              40
+            ]
+          ],
+          "token_tags_sha256": "a387b533a3140d2bd9f27d1a0c136b6c8dc5634a187f2dcdb9abf049a5d57b66",
+          "comfy_position_ids_sha256": "3d2c9fe6ae5d9813d2876b1a9a646318deda7770da5a3cd4500c48ca717a4a22"
+        },
+        "transformers_sequence_length": 1100,
+        "layers_built": 25,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "ed8bfd78e54adf8e2a3fd1705f1c00bc456fbcd1e271a8539c1a8c99980dfd97"
+        },
+        "layer0_input": {
+          "shape": [
+            1100,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "b5c01eb3525d125924e849236a9275f3f945eb1642705292d1697b86963edef8"
+        },
+        "source": {
+          "logical_name": "qwen3-vl-32b-bf16"
+        },
+        "peak_cuda_gib": 17.56,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        }
+      },
+      "all": {
+        "rows": 1100,
+        "flattened_cosine": 0.99999996989159,
+        "relative_l2": 0.00024539182328010996,
+        "mse": 2.9618178341723177e-06,
+        "rmse": 0.0017209932696475945,
+        "reference_activation_rms": 7.01324618987561,
+        "candidate_activation_rms": 7.013241451760904,
+        "tokenwise_cosine_mean": 0.9999997368615711,
+        "tokenwise_cosine_min": 0.9999762633893536,
+        "tokenwise_cosine_p01": 0.9999955772528395,
+        "tokenwise_cosine_p50": 0.9999999568652211
+      },
+      "text_rows": {
+        "rows": 658,
+        "flattened_cosine": 0.9999999983362212,
+        "relative_l2": 5.769040272427771e-05,
+        "mse": 2.564689663849468e-07,
+        "rmse": 0.0005064276516788422,
+        "reference_activation_rms": 8.778369152651015,
+        "candidate_activation_rms": 8.778361838058844,
+        "tokenwise_cosine_mean": 0.999999967111459,
+        "tokenwise_cosine_min": 0.9999997517433282,
+        "tokenwise_cosine_p01": 0.9999999158439236,
+        "tokenwise_cosine_p50": 0.9999999705616096
+      },
+      "vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9999995455490766,
+        "relative_l2": 0.0009533655743269125,
+        "mse": 6.989237641873878e-06,
+        "rmse": 0.002643716634186402,
+        "reference_activation_rms": 2.7730355546474628,
+        "candidate_activation_rms": 2.773040203304381,
+        "tokenwise_cosine_mean": 0.999999394091376,
+        "tokenwise_cosine_min": 0.9999762633893536,
+        "tokenwise_cosine_p01": 0.9999922700213852,
+        "tokenwise_cosine_p50": 0.9999998671286249
+      },
+      "layer0_input": {
+        "rows": 1100,
+        "flattened_cosine": 0.9999992122881333,
+        "relative_l2": 0.0012551673554693583,
+        "mse": 8.897432229116247e-07,
+        "rmse": 0.0009432620118035205,
+        "reference_activation_rms": 0.7515029830034934,
+        "candidate_activation_rms": 0.7515057217478922,
+        "tokenwise_cosine_mean": 0.9999996048223195,
+        "tokenwise_cosine_min": 0.999936339235875,
+        "tokenwise_cosine_p01": 0.9999936585613542,
+        "tokenwise_cosine_p50": 0.9999999999999999
+      },
+      "layer0_input_text_rows": {
+        "rows": 658,
+        "flattened_cosine": 1.0000000000000062,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021601424685009623,
+        "candidate_activation_rms": 0.021601424685009623,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999998,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 442,
+        "flattened_cosine": 0.9999992118973363,
+        "relative_l2": 0.0012554776465131617,
+        "mse": 2.214293088694089e-06,
+        "rmse": 0.0014880500961641343,
+        "reference_activation_rms": 1.1852461892064918,
+        "candidate_activation_rms": 1.185250510801438,
+        "tokenwise_cosine_mean": 0.9999990165261343,
+        "tokenwise_cosine_min": 0.999936339235875,
+        "tokenwise_cosine_p01": 0.9999881074585426,
+        "tokenwise_cosine_p50": 0.9999997309333205
+      }
+    }
+  },
+  "refusals": []
+}
