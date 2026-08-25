@@ -1,7 +1,7 @@
 # Canonical baseline: facts, observations, and unknowns
 
 **Status:** Authoritative baseline
-**Last updated:** 2026-08-24
+**Last updated:** 2026-08-25
 
 ## Owner objective
 
@@ -36,6 +36,14 @@
   | 151674 | `<|caption_start|>` |
   | 151675 | `<|caption_end|>` |
 
+- **MEASURED, 2026-08-25:** The released text encoder is byte-identical to
+  stock `Qwen/Qwen3-VL-32B-Instruct`: all 14 `text_encoder/` shards of the
+  release carry the same Hub LFS SHA-256 and size as the 14 stock shards, so
+  every tensor, the embedding table included, is the stock release and no
+  post-training of the encoder shipped. What MiniMax runs behind its API is
+  not observable from the release. Producer and record:
+  [`check_released_encoder_is_stock.py`](../../../../bench/check_released_encoder_is_stock.py),
+  [`2026-08-25_released_encoder_is_stock.json`](../../../../bench/results/2026-08-25_released_encoder_is_stock.json).
 - **MEASURED:** Those seven embedding rows match the corresponding unused stock
   Qwen3-VL tail rows and fall on the untrained control distribution. The
   release did not language-model-train those rows. Evidence and controls are in

@@ -1,0 +1,195 @@
+{
+  "question": "is the released H3 text encoder byte-identical to stock Qwen3-VL-32B-Instruct",
+  "method": "Hub LFS SHA-256 and size per shard, compared by shard name; no download",
+  "release": {
+    "repo": "MiniMaxAI/MiniMax-H3",
+    "prefix": "text_encoder/",
+    "revision": "42ed227ee7df40d41602854ae760620d6eb651fe",
+    "shards": 14
+  },
+  "stock": {
+    "repo": "Qwen/Qwen3-VL-32B-Instruct",
+    "revision": "0cfaf48183f594c314753d30a4c4974bc75f3ccb",
+    "shards": 14
+  },
+  "shards": [
+    {
+      "shard": "model-00001-of-00014.safetensors",
+      "release": {
+        "sha256": "6b9dfbc930e505402ae9d7e5091a9d7d656cda5f34614f01cfe70bfb0cca27cb",
+        "size": 4932328944
+      },
+      "stock": {
+        "sha256": "6b9dfbc930e505402ae9d7e5091a9d7d656cda5f34614f01cfe70bfb0cca27cb",
+        "size": 4932328944
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00002-of-00014.safetensors",
+      "release": {
+        "sha256": "d8bb44b4ff303fe76fe9e894022fb3dc71b15a2e716592790fe0e3c3e60478fa",
+        "size": 4875990528
+      },
+      "stock": {
+        "sha256": "d8bb44b4ff303fe76fe9e894022fb3dc71b15a2e716592790fe0e3c3e60478fa",
+        "size": 4875990528
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00003-of-00014.safetensors",
+      "release": {
+        "sha256": "54f22e8b3168f8dc962fac0d313607ebf52a12b433d4cf3098a0d82d9f042940",
+        "size": 4875990552
+      },
+      "stock": {
+        "sha256": "54f22e8b3168f8dc962fac0d313607ebf52a12b433d4cf3098a0d82d9f042940",
+        "size": 4875990552
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00004-of-00014.safetensors",
+      "release": {
+        "sha256": "ad09c74d3c13ee29b5d0d84548fd8a3424a651564eaccd519946c296e59c557f",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "ad09c74d3c13ee29b5d0d84548fd8a3424a651564eaccd519946c296e59c557f",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00005-of-00014.safetensors",
+      "release": {
+        "sha256": "fc993c8a0e2a5b0570f383e1a95dc3a1281d1b224b6f3ee908f4827941e1dfc2",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "fc993c8a0e2a5b0570f383e1a95dc3a1281d1b224b6f3ee908f4827941e1dfc2",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00006-of-00014.safetensors",
+      "release": {
+        "sha256": "82f05620d1f718a90c362b221d6a184ff1a0f53301d706882d3df49695fa1974",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "82f05620d1f718a90c362b221d6a184ff1a0f53301d706882d3df49695fa1974",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00007-of-00014.safetensors",
+      "release": {
+        "sha256": "fb91da8cb01ff4de3eef0eab1c3e769a734b3a1aafc61734068638a0d6c86934",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "fb91da8cb01ff4de3eef0eab1c3e769a734b3a1aafc61734068638a0d6c86934",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00008-of-00014.safetensors",
+      "release": {
+        "sha256": "431ca56535c8781944ce3801f5eb61c45531e853ecc5846d936ebaf4761b764f",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "431ca56535c8781944ce3801f5eb61c45531e853ecc5846d936ebaf4761b764f",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00009-of-00014.safetensors",
+      "release": {
+        "sha256": "3825e3f4302f4d2f7d76aa7430d2ce0864fde6b9e540a5806bf0d8e38e4d9f47",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "3825e3f4302f4d2f7d76aa7430d2ce0864fde6b9e540a5806bf0d8e38e4d9f47",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00010-of-00014.safetensors",
+      "release": {
+        "sha256": "aded5a4d1d5e22dbd8b6f79266b6eb88c840411b09527c53917a1419ace22e2f",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "aded5a4d1d5e22dbd8b6f79266b6eb88c840411b09527c53917a1419ace22e2f",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00011-of-00014.safetensors",
+      "release": {
+        "sha256": "3820ffe8d8d6477f6fe8d614ef3c87abb264ee39accebf43a1507b970d80946f",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "3820ffe8d8d6477f6fe8d614ef3c87abb264ee39accebf43a1507b970d80946f",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00012-of-00014.safetensors",
+      "release": {
+        "sha256": "05ad2d08ce71963121c9b03f1d9ec5d7641052f4b23c6c12b80d71065eb8e98e",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "05ad2d08ce71963121c9b03f1d9ec5d7641052f4b23c6c12b80d71065eb8e98e",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00013-of-00014.safetensors",
+      "release": {
+        "sha256": "b64f2289871261fdd1abbd3b78bcd66011b341de3dc8eeb2ed1a473ee7c8d95c",
+        "size": 4875990584
+      },
+      "stock": {
+        "sha256": "b64f2289871261fdd1abbd3b78bcd66011b341de3dc8eeb2ed1a473ee7c8d95c",
+        "size": 4875990584
+      },
+      "identical": true
+    },
+    {
+      "shard": "model-00014-of-00014.safetensors",
+      "release": {
+        "sha256": "e45b6c9998c77ee5a6577f9f47bc76416c1d4d387169e50c4c9d3134ea51b13b",
+        "size": 3270697008
+      },
+      "stock": {
+        "sha256": "e45b6c9998c77ee5a6577f9f47bc76416c1d4d387169e50c4c9d3134ea51b13b",
+        "size": 3270697008
+      },
+      "identical": true
+    }
+  ],
+  "all_shards_identical": true,
+  "consequence_if_identical": "every tensor of the released encoder, the embedding table and the seven H3 token rows included, is the stock release; no post-training shipped",
+  "not_established": "what runs behind the MiniMax API",
+  "local": null,
+  "producer": {
+    "file": "check_released_encoder_is_stock.py",
+    "sha256": "64db4ba18c86ca4c74a352e2850c4d7887344c7b30d90dce84fd0c583efad3b1",
+    "repository_commit": "898406367be46e69ad9347d7700638da5c6830db",
+    "dirty_against_commit": true
+  }
+}

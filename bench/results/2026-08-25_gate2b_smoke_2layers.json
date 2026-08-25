@@ -1,0 +1,633 @@
+{
+  "pilot": "Gate 2B: llm-compressor SequentialPipeline over native-H3 batches with the real AWQ recipe, no artifact",
+  "gate": "2B",
+  "sets_population_budget": false,
+  "budget_requires": "Gate 2B, a bounded disposable modifier-bearing run that measures the AWQ increment",
+  "boundary": "no recipe instantiated, no quantization, no candidate directory, nothing saved. Measures the floor beneath a calibration run, not the whole of one",
+  "path_policy": "logical identifiers only",
+  "producer": {
+    "file": "pilot_sequential_feasibility.py",
+    "sha256": "6899ef683586d9929a3f9e0a59f303f4d71009dc84eac2b70a1306337e2287da",
+    "repository_commit": "898406367be46e69ad9347d7700638da5c6830db",
+    "dirty_against_commit": true
+  },
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.1",
+    "llmcompressor": "0.13.1.dev38+g501f432bf",
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "gpu_total_gib": 23.5
+  },
+  "precision_policy": {
+    "policy": "comfy_exact_bf16_store",
+    "intent": "comfy_exact arithmetic over BF16-stored weights: every parameterised op computes with a transient FP32 copy of its weight, as ComfyUI's manual_cast does, while the stored and offloaded weights stay BF16. The patch-embed conv is kept FP32 at load so the vision input is never downcast",
+    "compute_dtype": "float32",
+    "storage_dtype": "bfloat16",
+    "manual_cast": true,
+    "manual_cast_ops": [
+      "linear",
+      "embedding",
+      "layer_norm",
+      "conv3d"
+    ],
+    "manual_cast_counts": {
+      "linear": 596,
+      "embedding": 3,
+      "layer_norm": 116,
+      "conv3d": 0,
+      "already_float32": 2,
+      "gated_modules": 192
+    },
+    "keep_in_fp32_modules": [
+      "visual.patch_embed"
+    ],
+    "position_interpolation_dtype": "bfloat16",
+    "position_reduction": "comfy four-term add",
+    "position_embedding_source_dtype": "bfloat16",
+    "position_cast_is_round_trip_exact": true,
+    "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+    "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+    "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+    "forward_substitution_is_bound_method": true,
+    "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+    "modifies_checkpoint_or_deployment": false,
+    "modifies_installed_packages": false
+  },
+  "model": {
+    "logical_name": "qwen3-vl-32b-bf16",
+    "decoder_layers_built": 2,
+    "offload_topology": {
+      "offloaded_tensors": 379,
+      "resident_tensors": 0,
+      "bytes_by_offload_device": {
+        "cpu": 6256128296
+      },
+      "gib_by_offload_device": {
+        "cpu": 5.83
+      },
+      "tensors_by_dtype": {
+        "float32": 5,
+        "bfloat16": 374
+      },
+      "accelerate_hooks_remaining": [],
+      "accelerate_hook_count": 0,
+      "hf_device_map_present": false,
+      "conversion_clean": true,
+      "summary": "379 offloaded + 0 resident tensors, dtypes ['bfloat16', 'float32'], {'cpu': 5.8}",
+      "read_without_onloading": true
+    },
+    "load_seconds": 0.1,
+    "host_memory_before_load": {
+      "peak_rss_gib": 0.87,
+      "current_rss_gib": 0.88,
+      "system_mem_available_gib": 120.76
+    },
+    "host_memory_after_load": {
+      "peak_rss_gib": 0.92,
+      "current_rss_gib": 0.93,
+      "system_mem_available_gib": 120.73
+    },
+    "staging_after_load": {
+      "physical_bytes": 0,
+      "files": 0,
+      "symlinks": 0,
+      "unique_symlink_targets": 0,
+      "unique_symlink_target_bytes_not_staged": 0
+    },
+    "gpu_weight_budget_gib_recorded_not_enforced": 14.0,
+    "offload_arrangement": "auto_offload",
+    "bridge_extra_cpu_mem_default_bytes": 5000000000.0,
+    "bridge_extra_cpu_mem_used_bytes": 34359738368,
+    "host_reserve_declared": true,
+    "bridge_reserve_note": "compressed_tensors load_offloaded_model reserves this much host memory for non-loading work; Gate 2B needs an explicit larger reserve and a fresh model per modifier arm, because AWQ mutates weights and attaches state",
+    "device_map_note": "raw device_map='auto' is incompatible with SequentialPipeline in this pinned pair (accelerate's functools.partial forward vs compressed_tensors reading forward.__func__). `auto_offload` goes through load_context, which converts those hooks, and is a different claim"
+  },
+  "bundle_provenance": {
+    "schema": "h3-native-calibration-bundle-v1",
+    "path_policy": "logical identifiers only; no machine-local paths",
+    "dataset": {
+      "repo_id": "StellarVoyager/H3-IR",
+      "revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e"
+    },
+    "repository_commit": "46646bd50c4931d329b83db50a7e80fbe0c58621",
+    "comfyui_commit": "a1079ba16f2674734b065eb036fbfdddaa321a4d",
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0",
+    "processors": {
+      "image": {
+        "declared_type": "Qwen2VLImageProcessorFast",
+        "resolved_class": "Qwen2VLImageProcessor",
+        "resolved_backend": "TorchvisionBackend",
+        "size": {
+          "longest_edge": 16777216,
+          "shortest_edge": 65536
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+      },
+      "video": {
+        "declared_type": "Qwen3VLVideoProcessor",
+        "resolved_class": "Qwen3VLVideoProcessor",
+        "size": {
+          "longest_edge": 25165824,
+          "shortest_edge": 4096
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+      }
+    },
+    "geometry_substitution": "vision tower and token embedding run at released patch/merge/depth/DeepStack geometry with a reduced hidden width; no presentation field depends on that width and no weight-dependent claim is made",
+    "still_policy_default": "max_no_upscale",
+    "still_policy_by_row": {
+      "train-00973-d8cd5223d6ff1cac": "max_no_upscale",
+      "train-00500-68f926b378a008b0": "max_no_upscale",
+      "train-00012-4bbe43dc3a3f95fe": "max_no_upscale",
+      "train-00002-f631dbe673b72816": "max_no_upscale",
+      "train-00006-e3f6d45e7ec76432": "max_no_upscale"
+    },
+    "mutation": null,
+    "mutation_intent": null
+  },
+  "modifier": {
+    "kind": "awq",
+    "recipe": [
+      {
+        "class": "AWQModifier",
+        "module": "llmcompressor.modifiers.transform.awq.base",
+        "fields": {
+          "requires_calibration_data": true,
+          "index": null,
+          "group": null,
+          "start": null,
+          "end": null,
+          "update": null,
+          "initialized_": false,
+          "finalized_": false,
+          "started_": false,
+          "ended_": false,
+          "mappings": null,
+          "offload_device": "cpu",
+          "duo_scaling": true,
+          "n_grid": 20
+        }
+      },
+      {
+        "class": "QuantizationModifier",
+        "module": "llmcompressor.modifiers.quantization.quantization.base",
+        "fields": {
+          "config_groups": null,
+          "targets": [
+            "Linear"
+          ],
+          "ignore": [
+            "lm_head",
+            "re:model\\.visual\\..*"
+          ],
+          "scheme": "W4A16",
+          "kv_cache_scheme": null,
+          "weight_observer": null,
+          "input_observer": null,
+          "output_observer": null,
+          "observer": null,
+          "bypass_divisibility_checks": false,
+          "requires_calibration_data": false,
+          "index": null,
+          "group": null,
+          "start": null,
+          "end": null,
+          "update": null,
+          "initialized_": false,
+          "finalized_": false,
+          "started_": false,
+          "ended_": false
+        },
+        "resolved_quantization_config": {
+          "config_groups": {
+            "group_0": {
+              "targets": [
+                "Linear"
+              ],
+              "weights": {
+                "num_bits": 4,
+                "type": "int",
+                "symmetric": true,
+                "group_size": 128,
+                "strategy": "group",
+                "block_structure": null,
+                "dynamic": false,
+                "actorder": null,
+                "scale_dtype": null,
+                "zp_dtype": null,
+                "observer": "memoryless_minmax",
+                "observer_kwargs": {}
+              },
+              "input_activations": null,
+              "output_activations": null,
+              "format": null
+            }
+          },
+          "quant_method": "compressed-tensors",
+          "kv_cache_scheme": null,
+          "format": "fakequant",
+          "quantization_status": "initialized",
+          "global_compression_ratio": null,
+          "ignore": [
+            "lm_head",
+            "re:model\\.visual\\..*"
+          ]
+        }
+      }
+    ],
+    "note": "the real v2 recipe, run without any save; the increment over the no-modifier floor is the measurement"
+  },
+  "steps": [
+    {
+      "rows": 1,
+      "row_ids": [
+        "train-00973-d8cd5223d6ff1cac"
+      ],
+      "sequence_tokens": 1100,
+      "longest_row_tokens": 1100,
+      "visual_tokens": 442,
+      "rows_detail": [
+        {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "sequence_tokens": 1100,
+          "visual_tokens": 442,
+          "vision_blocks": 1,
+          "largest_block_patches": 1760,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 1100,
+              "nominal_gib": 0.29
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  44,
+                  40
+                ]
+              ],
+              "block_patches": [
+                1760
+              ],
+              "largest_block_patches": 1760,
+              "nominal_gib": 0.18
+            }
+          }
+        }
+      ],
+      "note_on_attribution": "total tokens govern the host-side cache; GPU peak is governed by the longest single row and its largest vision block, because rows are processed one at a time",
+      "precision_policy": "comfy_exact_bf16_store",
+      "propagate_error": true,
+      "outcome": "completed",
+      "error": null,
+      "seconds_total": 7.5,
+      "seconds_trace": 0.2,
+      "seconds_cache_build": 0.0,
+      "seconds_in_subgraph_forwards": 1.2,
+      "subgraph_forward_calls": 6,
+      "trace": {
+        "subgraphs": 3,
+        "sample_input_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "first_subgraph_input_names": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_any_subgraph_inputs": false,
+        "pixel_values_in_first_subgraph_inputs": true,
+        "image_grid_thw_in_first_subgraph_inputs": true
+      },
+      "effective_input": {
+        "rows": {
+          "train-00973-d8cd5223d6ff1cac": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "7562f0960c35732779c16f0c090b7d4c6c7aa9c4e320335a6906ec26d7b5fcb2",
+            "effective_model_input_sha256": "df62ee67f71ec7a8ca3fd4c3a1c709c3bf3e3704abf4e0d865e9147f8a4f50b1",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          }
+        },
+        "every_row_transformed_with_assertion": true,
+        "cache_keys_at_first_forward": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_cache_at_first_forward": false,
+        "attention_mask_in_traced_subgraph_inputs": false,
+        "omission_survives_dataloader_cache_and_trace": true,
+        "note": "None means that observation point was never reached in this step, which is not the same as the mask being absent"
+      },
+      "peak_cuda": {
+        "allocated_gib": 3.279,
+        "reserved_gib": 5.719,
+        "note": "cumulative across cache construction and every subgraph forward, not the last reset window"
+      },
+      "host_memory": {
+        "peak_rss_gib": 8.93,
+        "current_rss_gib": 7.86,
+        "system_mem_available_gib": 117.4
+      },
+      "peak_host_rss_gib": 8.93,
+      "host_rss_growth_gib": 7.91,
+      "offload_dir_physical_bytes_before": 0,
+      "offload_dir": {
+        "physical_bytes": 0,
+        "files": 0,
+        "symlinks": 0,
+        "unique_symlink_targets": 0,
+        "unique_symlink_target_bytes_not_staged": 0
+      },
+      "per_subgraph": {
+        "calls": 6,
+        "cold_calls": 3,
+        "max_allocated_before_gib": 2.626,
+        "max_transient_gib": 2.74,
+        "warm_max_allocated_before_gib": 2.626,
+        "warm_max_transient_gib": 0.741,
+        "note": "a subgraph's weights are onloaded lazily inside its first forward, so only the warmed figures can be read as weight residency; the cold ones understate it"
+      },
+      "sdpa_availability": {
+        "text_attention": {
+          "1100": {
+            "sequence_tokens": 1100,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "vision_attention": {
+          "1760": {
+            "block_patches": 1760,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "probed_at_real_row_shapes": true,
+        "note": "availability, not selection: this API reports what could run. probe_sdpa_backend_selection.py names what did"
+      },
+      "modifier": {
+        "modifiers": [
+          "AWQModifier",
+          "QuantizationModifier"
+        ],
+        "boundary": {
+          "vision_tower_module": "model.visual",
+          "text_decoder_layers": 2,
+          "linears_per_decoder_layer": 7,
+          "ignore_patterns": [
+            "lm_head",
+            "re:model\\.visual\\..*"
+          ],
+          "linear_counts": {
+            "text_decoder": 14,
+            "vision_block": 108,
+            "vision_merger": 2,
+            "vision_deepstack_merger": 6,
+            "vision_other": 0,
+            "lm_head": 1,
+            "unclassified": 0
+          },
+          "linears_total": 131,
+          "targeted_linears": 14,
+          "ignored_linears": 117,
+          "scheme": {
+            "num_bits": 4,
+            "group_size": 128,
+            "symmetric": true,
+            "strategy": "group",
+            "type": "int",
+            "observer": "memoryless_minmax",
+            "dynamic": false,
+            "actorder": null
+          }
+        },
+        "awq_offload_device": "cpu",
+        "awq_duo_scaling": true,
+        "awq_n_grid": 20,
+        "smoothing_calls": 3,
+        "seconds_in_awq_smoothing": 5.9,
+        "parent_reruns": 126,
+        "mappings_scaled": 6,
+        "scales": [
+          {
+            "smooth": "model.language_model.layers.0.input_layernorm",
+            "balance": [
+              "model.language_model.layers.0.self_attn.q_proj",
+              "model.language_model.layers.0.self_attn.k_proj",
+              "model.language_model.layers.0.self_attn.v_proj"
+            ],
+            "channels": 5120,
+            "mean": 1.2747291326522827,
+            "min": 0.48962000012397766,
+            "max": 2.0424001216888428,
+            "sha256": "031630b50af827619c071614e153872841ed4c0ee546f3adb36f279555755a80"
+          },
+          {
+            "smooth": "model.language_model.layers.0.post_attention_layernorm",
+            "balance": [
+              "model.language_model.layers.0.mlp.gate_proj",
+              "model.language_model.layers.0.mlp.up_proj"
+            ],
+            "channels": 5120,
+            "mean": 1.0,
+            "min": 1.0,
+            "max": 1.0,
+            "sha256": "65d65e303e586d60923eea902a29ad2e24c13cb5a21ec6d6c745cb1298bf1f9f"
+          },
+          {
+            "smooth": "model.language_model.layers.0.mlp.up_proj",
+            "balance": [
+              "model.language_model.layers.0.mlp.down_proj"
+            ],
+            "channels": 25600,
+            "mean": 0.5379602909088135,
+            "min": 0.37025055289268494,
+            "max": 2.700873851776123,
+            "sha256": "a3b08612bfcff10c88f10e128a1a4004d8f0e9d8e10d3f51a592d37a29b7beff"
+          },
+          {
+            "smooth": "model.language_model.layers.1.input_layernorm",
+            "balance": [
+              "model.language_model.layers.1.self_attn.q_proj",
+              "model.language_model.layers.1.self_attn.k_proj",
+              "model.language_model.layers.1.self_attn.v_proj"
+            ],
+            "channels": 5120,
+            "mean": 2.2253530025482178,
+            "min": 0.11806338280439377,
+            "max": 8.470026016235352,
+            "sha256": "15543bddefca3d3a50e6598d3d820d52fa2c30e0b3d1622fac6cd7394bcf4e18"
+          },
+          {
+            "smooth": "model.language_model.layers.1.post_attention_layernorm",
+            "balance": [
+              "model.language_model.layers.1.mlp.gate_proj",
+              "model.language_model.layers.1.mlp.up_proj"
+            ],
+            "channels": 5120,
+            "mean": 1.2141350507736206,
+            "min": 0.21315468847751617,
+            "max": 4.6914286613464355,
+            "sha256": "86d27313a854a931120d54ed7aa9fea11fe0942278793276561bbf4291c85473"
+          },
+          {
+            "smooth": "model.language_model.layers.1.mlp.up_proj",
+            "balance": [
+              "model.language_model.layers.1.mlp.down_proj"
+            ],
+            "channels": 25600,
+            "mean": 1.3346531391143799,
+            "min": 0.3332158327102661,
+            "max": 3.0010578632354736,
+            "sha256": "e61dfb43cbd8132ffe74ef50e6e4c8e5ca4976e224620526966375bc38a4ee2a"
+          }
+        ],
+        "modifier_entered_control": {
+          "module": "language_model.layers.0.self_attn.q_proj",
+          "weight_sha256_before": "6c05678f50852a7c0f9d8ac56fbc1537a058730a14af40bf5ac4953c8dcf98ff",
+          "weight_sha256_after": "15990f72e4ad695245d9ed5fa99f6fd8ee1c809406470ed3909e8feecd99880b",
+          "weight_changed_in_offload_store": true,
+          "note": "read from the offload store without onloading; AWQ smoothing rewrites the stored weight, so a run that entered the modifier path changes this hash"
+        },
+        "no_files_written": true,
+        "scales_file": "2026-08-25_gate2b_smoke_2layers_awq_scales.safetensors"
+      },
+      "intermediates_cache": {
+        "declared_offload_device": "cpu",
+        "initial": {
+          "note": "as materialised by from_dataloader, before any subgraph",
+          "tensors": 4,
+          "gib_by_device": {
+            "cpu": 0.01
+          },
+          "keys": [
+            "image_grid_thw",
+            "input_ids",
+            "mm_token_type_ids",
+            "pixel_values"
+          ]
+        },
+        "peak": {
+          "note": "maximum over samples taken after cache construction and after every subgraph forward; this is the growth figure, the residual below is not",
+          "tensors": 7,
+          "bytes_by_device": {
+            "cpu": 50689100
+          },
+          "gib_by_device": {
+            "cpu": 0.047
+          },
+          "bytes_per_token": 46081.0
+        },
+        "residual_after_run": {
+          "note": "what the cache still held when the pipeline returned: the last subgraph's inputs, because consumed names are deleted as the run proceeds",
+          "tensors": 7,
+          "gib_by_device": {
+            "cpu": 0.047
+          },
+          "keys": [
+            "getitem_13",
+            "getitem_21",
+            "getitem_27",
+            "getitem_28",
+            "model_language_model_rotary_emb",
+            "wrapped_10"
+          ]
+        }
+      },
+      "cuda_allocated_after_cleanup_gib": 0.008,
+      "cuda_reserved_after_cleanup_gib": 0.043
+    }
+  ],
+  "attention_kernel": {
+    "kind": "expanded_kv",
+    "intent": "repeat_kv before SDPA, unconditionally: SDPA sees the full head count and no enable_gqa, which at FP32 on this card selects the memory-efficient kernel. A measured candidate, not an accepted arithmetic",
+    "counts": {
+      "decisions_governed": 46,
+      "expanded": 46,
+      "left_to_library": 0,
+      "governed_modules": 2
+    },
+    "patched": "transformers.integrations.sdpa_attention.use_gqa_in_sdpa, gated by this model's attention modules on the entering thread",
+    "expansion_is_assumed_numerically_free": false,
+    "modifies_checkpoint_or_deployment": false,
+    "modifies_installed_packages": false
+  },
+  "offload_dir_at_exit": {
+    "physical_bytes": 0,
+    "files": 0,
+    "symlinks": 0,
+    "unique_symlink_targets": 0,
+    "unique_symlink_target_bytes_not_staged": 0
+  },
+  "sequential_floor_envelope": {
+    "largest_completed_sequence_tokens": 1100,
+    "largest_completed_rows": 1,
+    "is_a_budget": false,
+    "note": "a token total this MODIFIER-FREE path completed on this box. It is the floor beneath a calibration run: tracing, the intermediates cache and two forwards per subgraph per row, with no AWQ modifier observing or rewriting anything. It is not a chosen population, not a manifest, and it cannot set the final budget, which needs a modifier-bearing pass"
+  }
+}

@@ -18,8 +18,22 @@ increment. Reading this file's output as a budget would understate the real
 cost by an unmeasured margin.
 
 **A pilot that emitted a checkpoint would be a launch**, and this one has
-nothing to emit: no recipe is instantiated, no save is called, no output
-directory is created.
+nothing to emit: no save is called and no output directory is created, under
+either mode below.
+
+**Gate 2B mode** (`--modifier awq`) instantiates the real v2 recipe from
+`bench/h3_awq_recipe.py` -- the AWQ modifier with its activation cache on the
+CPU, and the W4A16 quantization modifier bounded to the decoder linears -- and
+runs the same sequential path with the modifier observing, searching and
+rewriting weights in the offload store. It measures the increment over the
+floor: smoothing time, parent re-runs per mapping, scale records per mapping
+(saved beside the report so two arms can be compared), the modifier's cache
+placement, and a control that a balance-layer weight actually changed in the
+store. One prefix per process, because AWQ mutates the weights and a second
+prefix would calibrate on already-smoothed ones. The boundary is asserted after
+the session applies the config and before any forward: exactly the text
+decoder linears carry a weight scheme, nothing in the tower, mergers, embedding
+or head.
 
 It answers, by measuring:
 
@@ -79,6 +93,7 @@ from llmcompressor.core import create_session
 from llmcompressor.datasets.utils import get_calibration_dataloader
 from llmcompressor.pipelines.sequential import pipeline as sequential_pipeline
 from llmcompressor.pipelines.sequential.helpers import Subgraph
+from safetensors.torch import save_file
 
 BENCH = Path(__file__).resolve().parent
 sys.path.insert(0, str(BENCH))
@@ -93,7 +108,7 @@ from h3_calibration_precision import (  # noqa: E402
     storage_policy,
 )
 from h3_attention_kernel import ATTENTION_KINDS, attention_kernel  # noqa: E402
-from h3_effective_batch import effective_batch  # noqa: E402
+from h3_effective_batch import effective_batch, tensor_sha  # noqa: E402
 from h3_producer_provenance import producer_provenance  # noqa: E402
 
 SEQUENTIAL_TARGETS = ["Qwen3VLTextDecoderLayer"]
@@ -339,6 +354,66 @@ class _Instrumentation:
         self.cache_keys_at_first_forward: list[str] | None = None
         self.cache_peak_bytes: dict[str, int] = {}
         self.cache_peak_tensors = 0
+        self.awq_smoothing_seconds = 0.0
+        self.awq_smoothing_calls = 0
+        self.awq_parent_runs = 0
+        self.awq_scales: list[dict] = []
+        self.awq_scale_tensors: dict[str, torch.Tensor] = {}
+
+    @contextlib.contextmanager
+    def instrument_awq(self, modifier):
+        """Count and time what the AWQ modifier actually does, on its own methods.
+
+        `_apply_smoothing` is what the sequential pipeline calls at the end of
+        each subgraph's calibration pass; `_run_samples` is the parent-module
+        re-run the grid search pays once per grid point; `_compute_best_scale`
+        returns the per-channel scales for one mapping. Wrapping the bound
+        methods on this instance leaves the class alone and gives the count of
+        parent re-runs -- the AWQ multiplier over the floor -- as a measurement
+        rather than a source-read estimate.
+        """
+        instrumentation = self
+        original_smooth = modifier._apply_smoothing
+        original_runs = modifier._run_samples
+        original_scale = modifier._compute_best_scale
+
+        def apply_smoothing(model):
+            started = time.time()
+            try:
+                return original_smooth(model)
+            finally:
+                instrumentation.awq_smoothing_seconds += time.time() - started
+                instrumentation.awq_smoothing_calls += 1
+                instrumentation._sample_cache()
+
+        def run_samples(module):
+            instrumentation.awq_parent_runs += 1
+            return original_runs(module)
+
+        def compute_best_scale(mapping, fp16_outputs, orig_layer_weights):
+            scales = original_scale(mapping, fp16_outputs, orig_layer_weights)
+            flat = scales.detach().float().cpu().contiguous()
+            key = mapping.smooth_name
+            instrumentation.awq_scale_tensors[key] = flat
+            instrumentation.awq_scales.append({
+                "smooth": key,
+                "balance": list(getattr(mapping, "balance_names", [])),
+                "channels": int(flat.numel()),
+                "mean": float(flat.mean()), "min": float(flat.min()),
+                "max": float(flat.max()),
+                "sha256": tensor_sha(flat),
+            })
+            return scales
+
+        modifier._apply_smoothing = apply_smoothing
+        modifier._run_samples = run_samples
+        modifier._compute_best_scale = compute_best_scale
+        try:
+            yield
+        finally:
+            modifier._apply_smoothing = original_smooth
+            modifier._run_samples = original_runs
+            modifier._compute_best_scale = original_scale
 
     def _sample_cache(self) -> None:
         """Running maximum of the cache's bytes by device, one walk per call.
@@ -492,7 +567,7 @@ class DeliberateAbort(RuntimeError):
 
 
 def load_model(source: Path, policy: str, layers: int, gpu_gib: float,
-               offload_dir: Path, offload: str):
+               offload_dir: Path, offload: str, host_reserve_gib: float | None = None):
     """Load the calibration model under one of two offload arrangements.
 
     `host` loads plainly on the CPU and lets `SequentialPipeline` move each
@@ -531,14 +606,21 @@ def load_model(source: Path, policy: str, layers: int, gpu_gib: float,
         with storage_policy(Qwen3VLForConditionalGeneration, policy):
             return Qwen3VLForConditionalGeneration.from_pretrained(source, **kwargs).eval()
 
-    from llmcompressor.utils.dev import load_context
+    from compressed_tensors.offload import load_offloaded_model
+    from llmcompressor.modeling.moe.linearize import load_quantizable_moe
 
-    # The bridge reserves `extra_cpu_mem` (default 5 GB) of host memory for
-    # everything that is not model loading. That default is recorded rather
-    # than accepted silently: Gate 2B adds the AWQ modifier's own host-side
-    # state on top and will need an explicit larger reserve.
+    # `load_context` is `load_offloaded_model` composed with
+    # `load_quantizable_moe`, with the bridge's default host reserve
+    # (`extra_cpu_mem`, 5 GB) for everything that is not model loading. The
+    # same composition is used here so an explicit reserve can be passed: the
+    # Gate 2B contract requires the reserve to be a declared number in the run
+    # record, not the bridge default.
+    reserve = None if host_reserve_gib is None else int(host_reserve_gib * 2**30)
+    bridge = (load_offloaded_model(Qwen3VLForConditionalGeneration)
+              if reserve is None else
+              load_offloaded_model(Qwen3VLForConditionalGeneration, extra_cpu_mem=reserve))
     with storage_policy(Qwen3VLForConditionalGeneration, policy):
-        with load_context(Qwen3VLForConditionalGeneration):
+        with bridge, load_quantizable_moe(Qwen3VLForConditionalGeneration):
             model = Qwen3VLForConditionalGeneration.from_pretrained(
                 source, device_map="auto_offload", offload_folder=str(offload_dir),
                 **kwargs,
@@ -803,9 +885,22 @@ def effective_input_record(transforms: dict[str, dict], row_ids: list[str],
     }
 
 
+def _offloaded_weight_sha(module) -> str | None:
+    """Hash a weight as it sits in the offload store, without onloading it."""
+    from compressed_tensors.offload.cache import OffloadCache
+
+    store = module._parameters
+    tensor = (store.offloaded_values.get("weight") if isinstance(store, OffloadCache)
+              else store.get("weight"))
+    if tensor is None or tensor.device.type == "meta":
+        return None
+    return tensor_sha(tensor.detach())
+
+
 def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: str,
              propagate_error: bool, abort_after: int | None,
-             offload_dir: Path, config=None) -> dict:
+             offload_dir: Path, config=None, recipe=None,
+             scales_out: Path | None = None) -> dict:
     """One population size through the real pipeline. Returns its measurements."""
     loader = build_loader(bundle, manifest, row_ids)
     tokens = sum(
@@ -842,13 +937,40 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
     instrumentation.abort_after = abort_after
     outcome, error = "completed", None
 
+    modifier_record: dict | None = None
+    control_layer = model.model.language_model.layers[0].self_attn.q_proj
+    weight_before = _offloaded_weight_sha(control_layer)
+    cwd_before = sorted(str(p) for p in Path.cwd().iterdir())
     with instrumentation.install():
         try:
             with create_session() as session:
-                session.initialize(model=model, start=-1, recipe=None,
-                                   calib_data=loader,
-                                   sequential_targets=SEQUENTIAL_TARGETS)
-                sequential_pipeline.SequentialPipeline()(model, loader, dataset_args)
+                from llmcompressor.modeling.offset_norm import norm_calibration_context
+
+                # `oneshot` wraps calibration in this; Qwen3-VL's RMSNorm is a
+                # standard norm so it converts nothing, and it is entered here
+                # so the pilot runs the same context a real run would.
+                with contextlib.ExitStack() as stack:
+                    stack.enter_context(norm_calibration_context(model))
+                    session.initialize(model=model, start=-1, recipe=recipe,
+                                       calib_data=loader,
+                                       sequential_targets=SEQUENTIAL_TARGETS)
+                    if recipe is not None:
+                        from h3_awq_recipe import assert_decoder_only_boundary
+
+                        modifiers = session.lifecycle.recipe.modifiers
+                        awq = next(m for m in modifiers if type(m).__name__ == "AWQModifier")
+                        # Asserted after the session applied the config and
+                        # before any forward: the boundary is what the
+                        # modifier will actually rewrite, read off the model.
+                        modifier_record = {
+                            "modifiers": [type(m).__name__ for m in modifiers],
+                            "boundary": assert_decoder_only_boundary(model),
+                            "awq_offload_device": str(awq.offload_device),
+                            "awq_duo_scaling": awq.duo_scaling,
+                            "awq_n_grid": awq.n_grid,
+                        }
+                        stack.enter_context(instrumentation.instrument_awq(awq))
+                    sequential_pipeline.SequentialPipeline()(model, loader, dataset_args)
                 session.finalize()
         except DeliberateAbort as exc:
             outcome, error = "deliberate_abort", str(exc)
@@ -939,6 +1061,35 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
         }
     if availability is not None:
         measurement["sdpa_availability"] = availability
+    if recipe is not None:
+        weight_after = _offloaded_weight_sha(control_layer)
+        cwd_after = sorted(str(p) for p in Path.cwd().iterdir())
+        modifier_record = modifier_record or {"boundary": None}
+        modifier_record.update({
+            "smoothing_calls": instrumentation.awq_smoothing_calls,
+            "seconds_in_awq_smoothing": round(instrumentation.awq_smoothing_seconds, 1),
+            "parent_reruns": instrumentation.awq_parent_runs,
+            "mappings_scaled": len(instrumentation.awq_scales),
+            "scales": instrumentation.awq_scales,
+            "modifier_entered_control": {
+                "module": "language_model.layers.0.self_attn.q_proj",
+                "weight_sha256_before": weight_before,
+                "weight_sha256_after": weight_after,
+                "weight_changed_in_offload_store": (
+                    weight_before is not None and weight_before != weight_after
+                ),
+                "note": "read from the offload store without onloading; AWQ "
+                        "smoothing rewrites the stored weight, so a run that "
+                        "entered the modifier path changes this hash",
+            },
+            "no_files_written": cwd_before == cwd_after,
+            "scales_file": None,
+        })
+        if scales_out is not None and instrumentation.awq_scale_tensors:
+            save_file({k: v for k, v in instrumentation.awq_scale_tensors.items()},
+                      str(scales_out))
+            modifier_record["scales_file"] = scales_out.name
+        measurement["modifier"] = modifier_record
     if instrumentation.oom_message:
         measurement["oom"] = {
             "allocator_message": instrumentation.oom_message,
@@ -997,6 +1148,40 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
     return measurement
 
 
+def emit_candidate(model, candidate_dir: Path, source: Path, report: dict) -> dict:
+    """The launch: save the compressed candidate, and only the candidate.
+
+    New directory, refused if it exists, refused under the source checkpoint or
+    the deployed artifact's config. `save_compressed=True` is what packs the
+    W4 weights; the release processor, video processor and tokenizer files are
+    copied beside the weights so the candidate declares the release bounds it
+    was calibrated at rather than inheriting anything from the deployed
+    artifact's constrained snapshot. The pilot report is written beside it as
+    the run record.
+    """
+    candidate_dir.mkdir(parents=True, exist_ok=False)
+    model.save_pretrained(str(candidate_dir), save_compressed=True)
+    copied = []
+    for name in ("preprocessor_config.json", "video_preprocessor_config.json",
+                 "tokenizer_config.json", "tokenizer.json", "vocab.json",
+                 "merges.txt", "chat_template.json"):
+        path = source / name
+        if path.exists():
+            shutil.copyfile(path, candidate_dir / name)
+            copied.append(name)
+    (candidate_dir / "h3_v2_run_record.json").write_text(json.dumps(report, indent=2) + "\n")
+    files = [p for p in candidate_dir.rglob("*") if p.is_file()]
+    return {
+        "emitted": True,
+        "logical_name": candidate_dir.name,
+        "files": len(files),
+        "bytes": sum(p.stat().st_size for p in files),
+        "processor_files_copied_from_source": copied,
+        "note": "a new directory; the deployed artifact, its symlink and the "
+                "source checkpoint were not touched. Not deployed by this step.",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--bundle", required=True)
@@ -1031,6 +1216,22 @@ def main() -> int:
     )
     parser.add_argument("--abort-after", type=int,
                         help="control: raise inside the Nth subgraph forward")
+    parser.add_argument("--modifier", default="none", choices=("none", "awq"),
+                        help="Gate 2B: instantiate the real v2 recipe from "
+                             "bench/h3_awq_recipe.py and run with it. One "
+                             "prefix per process; nothing is saved")
+    parser.add_argument("--awq-duo-scaling", default="false",
+                        choices=("false", "true", "both"))
+    parser.add_argument("--awq-n-grid", type=int, default=20)
+    parser.add_argument("--emit-candidate", default=None, metavar="DIR",
+                        help="the launch: after the modifier-bearing run, save the "
+                             "compressed candidate to this NEW directory with the "
+                             "release processor/tokenizer files beside it. Refused "
+                             "if the directory exists or resolves anywhere under "
+                             "the deployed artifact or the source checkpoint")
+    parser.add_argument("--host-reserve-gib", type=float, default=None,
+                        help="explicit host-memory reserve passed to the bridge "
+                             "instead of its 5 GB default; recorded either way")
     parser.add_argument("--out", default=str(REPORT))
     args = parser.parse_args()
     if not args.source_dir:
@@ -1055,9 +1256,40 @@ def main() -> int:
     # from (`psutil.virtual_memory().available - extra_cpu_mem`), so the
     # CPU/disk split it chose can only be read against this figure.
     host_before_load = host_memory()
+    recipe = None
+    recipe_description = None
+    candidate_dir = None
+    if args.emit_candidate:
+        if args.modifier != "awq":
+            raise SystemExit("--emit-candidate needs --modifier awq")
+        candidate_dir = Path(args.emit_candidate).expanduser().resolve()
+        if candidate_dir.exists():
+            raise SystemExit(f"refuse to write into an existing directory: {candidate_dir.name}")
+        forbidden = [Path(args.source_dir).expanduser().resolve(),
+                     (BENCH.parent / "config").resolve()]
+        for root in forbidden:
+            if root == candidate_dir or root in candidate_dir.parents:
+                raise SystemExit("the candidate directory resolves under the source "
+                                 "checkpoint or the deployed artifact's config; refused")
+    if args.modifier == "awq":
+        from h3_awq_recipe import build_recipe, describe_recipe
+
+        if args.offload != "auto_offload":
+            raise SystemExit("Gate 2B runs through the converted offload bridge only")
+        if len(set(min(max(1, n), len(order)) for n in (args.prefix or [1]))) != 1:
+            raise SystemExit("--modifier awq takes exactly one --prefix: AWQ mutates "
+                             "the weights, so a second prefix in the same process "
+                             "would calibrate on already-smoothed ones")
+        duo = {"false": False, "true": True, "both": "both"}[args.awq_duo_scaling]
+        # Constructed before the model loads, so a recipe defect fails here and
+        # costs nothing.
+        recipe = build_recipe(offload_device="cpu", duo_scaling=duo, n_grid=args.awq_n_grid)
+        recipe_description = describe_recipe(recipe)
+        print(f"recipe: {[type(m).__name__ for m in recipe]}")
+
     started = time.time()
     model = load_model(source, args.policy, args.layers, args.gpu_gib, offload_dir,
-                       args.offload)
+                       args.offload, args.host_reserve_gib)
     load_seconds = time.time() - started
     host_after_load = host_memory()
     staging_after_load = directory_bytes(offload_dir)
@@ -1101,6 +1333,10 @@ def main() -> int:
             "gpu_weight_budget_gib_recorded_not_enforced": args.gpu_gib,
             "offload_arrangement": args.offload,
             "bridge_extra_cpu_mem_default_bytes": 5e9,
+            "bridge_extra_cpu_mem_used_bytes": (
+                5e9 if args.host_reserve_gib is None else int(args.host_reserve_gib * 2**30)
+            ),
+            "host_reserve_declared": args.host_reserve_gib is not None,
             "bridge_reserve_note": "compressed_tensors load_offloaded_model "
                                    "reserves this much host memory for "
                                    "non-loading work; Gate 2B needs an explicit "
@@ -1115,8 +1351,20 @@ def main() -> int:
                                "converts those hooks, and is a different claim",
         },
         "bundle_provenance": manifest["provenance"],
+        "modifier": {
+            "kind": args.modifier,
+            "recipe": recipe_description if recipe is not None else None,
+            "note": ("the real v2 recipe, run without any save; the increment "
+                     "over the no-modifier floor is the measurement"
+                     if recipe is not None else
+                     "no modifier: the floor beneath a calibration run"),
+        },
         "steps": [],
     }
+    if recipe is not None:
+        report["pilot"] = ("Gate 2B: llm-compressor SequentialPipeline over native-H3 "
+                           "batches with the real AWQ recipe, no artifact")
+        report["gate"] = "2B"
 
     try:
         with calibration_precision(model, args.policy) as precision, \
@@ -1128,12 +1376,21 @@ def main() -> int:
             for size in sizes:
                 rows = order[:size]
                 print(f"\nstep {size}: {rows[-1]}")
+                out_path = Path(args.out).expanduser().resolve()
                 measurement = run_step(
                     model, bundle, manifest, rows, args.policy,
                     not args.no_propagate_error,
                     args.abort_after if size == sizes[-1] else None,
-                    offload_dir, model_config,
+                    offload_dir, model_config, recipe,
+                    out_path.with_name(out_path.stem + "_awq_scales.safetensors")
+                    if recipe is not None else None,
                 )
+                if measurement.get("modifier"):
+                    mod = measurement["modifier"]
+                    print(f"  awq smoothing calls {mod['smoothing_calls']}  parent reruns "
+                          f"{mod['parent_reruns']}  mappings {mod['mappings_scaled']}  "
+                          f"{mod['seconds_in_awq_smoothing']}s  weight changed "
+                          f"{mod['modifier_entered_control']['weight_changed_in_offload_store']}")
                 report["steps"].append(measurement)
                 print(f"  {measurement['outcome']}  tokens {measurement['sequence_tokens']}  "
                       f"cuda {measurement['peak_cuda']}  host peak "
@@ -1147,6 +1404,15 @@ def main() -> int:
                 if measurement["outcome"] not in ("completed", "deliberate_abort"):
                     print(f"  stopping the escalation here: {measurement['error']}")
                     break
+        if candidate_dir is not None and report["steps"] \
+                and report["steps"][-1]["outcome"] == "completed" \
+                and report["steps"][-1].get("modifier", {}).get(
+                    "modifier_entered_control", {}).get("weight_changed_in_offload_store"):
+            report["candidate"] = emit_candidate(model, candidate_dir, source, report)
+            print(f"candidate emitted to {candidate_dir.name}: "
+                  f"{report['candidate']['bytes'] / 2**30:.2f} GiB in "
+                  f"{report['candidate']['files']} files")
+            candidate_dir = None
     finally:
         del model
         gc.collect()
@@ -1155,6 +1421,11 @@ def main() -> int:
         report["offload_dir_at_exit"] = directory_bytes(offload_dir)
         shutil.rmtree(offload_dir, ignore_errors=True)
 
+    if candidate_dir is not None:
+        report["candidate"] = {"emitted": False,
+                               "reason": "the modifier-bearing step did not complete "
+                                         "with a changed weight; nothing was saved"}
+        print("candidate NOT emitted: the run did not complete cleanly")
     completed = [s for s in report["steps"] if s["outcome"] == "completed"]
     report["sequential_floor_envelope"] = {
         "largest_completed_sequence_tokens": (
