@@ -80,8 +80,10 @@ are not on the critical path; the AWQ state is what the host is for.
    parent-argument cache is re-streamed about 63 times per layer (21 grid
    passes x 3 mappings), so any part of it that lives in swap is pulled
    through NVMe on every pass; at the 55-row size that is a day, not a night.
-   **Status: pending the owner's execution; this line is updated when
-   `swapon --show` lists it.**
+   **Status: executed by the owner at 16:00 on 2026-08-25; `swapon --show`
+   lists `/swap2.img`, 128G, and `fstab` carries it at priority -2 (this
+   session shows it at -1 beside the original; the priorities equalise until
+   the next boot, which changes nothing about what it is for).**
 2. **The real fix for a larger population is in the modifier, not the host.**
    AWQ holds every batch's FP32 inputs for all three parents of a layer at
    once so the scale search can re-run the parents. A larger calibration
