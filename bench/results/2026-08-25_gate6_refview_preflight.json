@@ -1,0 +1,58 @@
+{
+  "measured": "2026-08-25",
+  "produced_by": "bench/preflight_graph.py on each Gate 6 arm as generated (placeholder stills: the capture request's three)",
+  "note": "the encoder contract could not be resolved because the v2 artifact is not on disk yet, so the Qwen views are priced under Comfy's native bounds; under the v1 snapshot arm B's and C's Qwen views clamp back to about 265 tokens each, which preflight will print once a resolvable file is named",
+  "arms": {
+    "A": {
+      "graph": "workflows/h3_probe_refview_a_source_api.json",
+      "video_rows": "video       78,336  (102 latent frames x 768/frame at 1024x768, 345 frames)",
+      "reference_rows": "refs         7,405  total DiT reference rows",
+      "qwen_reference_tokens": "qwen         7,405  total reference tokens in the text segment, before the prompt",
+      "text": "text           282  prompt tokens (exact) + ~7,505 vision blocks",
+      "audio_rows": "audio        1,150  target audio rows (always present, soundtrack or not)",
+      "total": "TOTAL    ~  94,678  packed sequence",
+      "qwen_views": [
+        "qwen view 672x1184 -> 672x1184      777 tokens  (same tensor as the VAE view)",
+        "qwen view 1600x1600 -> 1600x1600    2,500 tokens  (same tensor as the VAE view)",
+        "qwen view 2752x1536 -> 2752x1536    4,128 tokens  (same tensor as the VAE view)"
+      ],
+      "warnings": [
+        "WARN  detailed_description is 45 words; the guide asks 350-500 for generation tasks (ref-en.txt:242)"
+      ]
+    },
+    "B": {
+      "graph": "workflows/h3_probe_refview_b_qwen2048_api.json",
+      "video_rows": "video       78,336  (102 latent frames x 768/frame at 1024x768, 345 frames)",
+      "reference_rows": "refs         7,405  total DiT reference rows",
+      "qwen_reference_tokens": "qwen        18,752  total reference tokens in the text segment, before the prompt",
+      "text": "text           282  prompt tokens (exact) + ~7,505 vision blocks",
+      "audio_rows": "audio        1,150  target audio rows (always present, soundtrack or not)",
+      "total": "TOTAL    ~  94,678  packed sequence",
+      "qwen_views": [
+        "qwen view 2048x3648 -> 2048x3648    7,296 tokens  (qwen_short_edge=2048)",
+        "qwen view 2048x2048 -> 2048x2048    4,096 tokens  (qwen_short_edge=2048)",
+        "qwen view 3680x2048 -> 3680x2048    7,360 tokens  (qwen_short_edge=2048)"
+      ],
+      "warnings": [
+        "WARN  detailed_description is 45 words; the guide asks 350-500 for generation tasks (ref-en.txt:242)"
+      ]
+    },
+    "C": {
+      "graph": "workflows/h3_probe_refview_c_parity_api.json",
+      "video_rows": "video       78,336  (102 latent frames x 768/frame at 1024x768, 345 frames)",
+      "reference_rows": "refs        18,752  total DiT reference rows",
+      "qwen_reference_tokens": "qwen        18,752  total reference tokens in the text segment, before the prompt",
+      "text": "text           282  prompt tokens (exact) + ~18,852 vision blocks",
+      "audio_rows": "audio        1,150  target audio rows (always present, soundtrack or not)",
+      "total": "TOTAL    ~ 117,372  packed sequence",
+      "qwen_views": [
+        "qwen view 2048x3648 -> 2048x3648    7,296 tokens  (same tensor as the VAE view)",
+        "qwen view 2048x2048 -> 2048x2048    4,096 tokens  (same tensor as the VAE view)",
+        "qwen view 3680x2048 -> 3680x2048    7,360 tokens  (same tensor as the VAE view)"
+      ],
+      "warnings": [
+        "WARN  detailed_description is 45 words; the guide asks 350-500 for generation tasks (ref-en.txt:242)"
+      ]
+    }
+  }
+}

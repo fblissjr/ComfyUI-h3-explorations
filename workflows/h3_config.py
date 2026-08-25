@@ -57,6 +57,15 @@ MODELS = dict(
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
 )
 
+#: The v2 encoder artifact by the name the loader recognizes
+#: (`h3_awq_encoder.py`'s snapshot registry; `bench/convert_h3_awq_candidate.py`
+#: writes it). Not in `MODELS` on purpose: `MODELS` is what every shipped graph
+#: loads today, and `check_model_files` holds each of those names to the live
+#: server. This one names a file that lands when the v2 calibration does, and
+#: only the Gate 6 reference-view arms wire it, so v1/v2 swap at that combo
+#: without a graph edit. Until the file exists those graphs read red there.
+ENCODER_V2 = "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"
+
 # `er_sde` / `simple`, the default since 2026-08-15. The owner's call, and a
 # default rather than a finding: `res_multistep` / `simple` were core's
 # base-template values carried unquestioned, and `er_sde` looked more

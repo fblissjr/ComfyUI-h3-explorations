@@ -1,0 +1,18 @@
+{
+  "what": "Gate 6 reference-view ablation: three ref2va arms from one base graph, differing only in how each still reaches the video VAE and Qwen3-VL. A: source size for both. B: Qwen view alone at the vendor short edge (qwen_short_edge), VAE at source. C: allow_upscale on, one upscaled view for both.",
+  "generated_by": "workflows/build_workflows.py (the h3_probe_refview_* family); regenerate there, never edit the graphs",
+  "arms": {
+    "A": "workflows/h3_probe_refview_a_source_api.json",
+    "B": "workflows/h3_probe_refview_b_qwen2048_api.json",
+    "C": "workflows/h3_probe_refview_c_parity_api.json"
+  },
+  "patches": [],
+  "how_to_patch_rows": {
+    "stills": "the three LoadImage nodes are ids 15, 16 and 34 in every arm; patch the same file into all arms: --set A:15.image=<file> --set B:15.image=<file> --set C:15.image=<file>, and likewise 16 and 34",
+    "prompt": "node 5 (MiniMaxH3ReferenceConditioning) input `prompt`; the prompt must name exactly the Pictures the graph wires (check_ref_prompt_labels)",
+    "seeds": "--seed N --runs K gives every arm the same K seeds, which is what blind_batch.py pairs on",
+    "encoder": "node 2 names ENCODER_V2 (h3_config); to run the same arms on v1 patch --set <arm>:2.encoder_name=<v1 file> on every arm, never on one"
+  },
+  "run": "python bench/run_graph_arms.py --manifest bench/gate6_refview_arms.json --seed <base> --runs <K> --warmup A --out bench/results/<date>_gate6_refview_arms.jsonl [--set ...row patches...]; then bench/blind_batch.py on that JSONL with --pairs A,B --pairs A,C --pairs B,C",
+  "priced": "bench/results/2026-08-25_gate6_refview_preflight.json, from bench/preflight_graph.py on each arm as generated; rerun preflight after any row patch, the stills decide the token counts"
+}

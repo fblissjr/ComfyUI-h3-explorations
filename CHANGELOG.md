@@ -4,6 +4,28 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.0
+
+### Added
+
+- **The Gate 6 reference-view ablation arms**, `workflows/h3_probe_refview_{a_source,b_qwen2048,c_parity}.json`
+  and their API twins: three ref2va arms from the capture request, differing
+  only in how each still reaches the video VAE and Qwen3-VL. A leaves every
+  still at source size for both; B rescales the Qwen view alone to the vendor
+  short edge through `qwen_short_edge` with the VAE at source; C turns
+  `allow_upscale` on so one upscaled view feeds both. Every arm names the v2
+  encoder artifact (`h3_config.ENCODER_V2`) so v1/v2 swap at the combo, sets
+  `video_policy=release`, and keeps Sol on. `bench/gate6_refview_arms.json`
+  is the arm manifest; `bench/results/2026-08-25_gate6_refview_preflight.json`
+  is each arm priced as generated (A and B share the DiT sequence, B's encoder
+  sequence grows by the Qwen views, C grows both).
+- `workflows/build_workflows.py`: `clip=` and `ref_qwen_short_edge=` on both
+  builders. `qwen_short_edge` is written only when set, so no shipped graph
+  changed on regeneration.
+- `bench/run_graph_arms.py --manifest ARMS.json`: an arm set as a file
+  (`{"arms": {label: repo-relative graph}, "patches": [...]}`), appended after
+  any `--arm`/`--set` on the line.
+
 ## 0.69.3
 
 ### Added

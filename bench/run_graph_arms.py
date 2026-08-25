@@ -149,9 +149,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--arm", action="append", required=True,
+    ap.add_argument("--arm", action="append", default=[],
                     metavar="LABEL=GRAPH.json",
                     help="an arm: label=path to an API-format graph")
+    ap.add_argument("--manifest", metavar="ARMS.json",
+                    help="a JSON arm set: {\"arms\": {LABEL: repo-relative "
+                         "graph path}, \"patches\": [LABEL:NODE.FIELD=VALUE, "
+                         "...]} -- appended after any --arm/--set given here. "
+                         "`bench/gate6_refview_arms.json` is one")
     ap.add_argument("--set", action="append", default=[], dest="patches",
                     metavar="LABEL:NODE.FIELD=VALUE",
                     help="widget patch for one arm; NODE is an id or a "
@@ -182,9 +187,17 @@ def main() -> int:
                     help="JSONL output path, appended to")
     args = ap.parse_args()
 
+    repo = Path(__file__).resolve().parents[1]
+    if args.manifest:
+        man = json.loads(Path(args.manifest).read_text())
+        for label, rel in man.get("arms", {}).items():
+            args.arm.append(f"{label}={repo / rel}")
+        args.patches = list(man.get("patches", [])) + list(args.patches)
+    if not args.arm:
+        ap.error("no arms: pass --arm LABEL=GRAPH.json or --manifest ARMS.json")
+
     arms: dict[str, dict] = {}
     order: list[str] = []
-    repo = Path(__file__).resolve().parents[1]
     for spec in args.arm:
         label, _, path = spec.partition("=")
         if not path:

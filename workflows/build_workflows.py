@@ -53,7 +53,7 @@ _OUR_NODES = {
 # used to live here in duplicate with the bench. Single source is
 # h3_config.py -- see its docstring for why that matters.
 from h3_config import (  # noqa: E402
-    IMAGE_VAE, IMAGE_EDIT_BUDGET,
+    ENCODER_V2, IMAGE_VAE, IMAGE_EDIT_BUDGET,
     ASPECTS, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
     CACHE_NODE, CACHE_NODE_CLASS,
@@ -790,6 +790,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               head_chunks: int | None = None, ref_upscale: bool = True,
               ref_video_policy: str = "encoder",
               ref_image_policy: str = "comfy",
+              ref_qwen_short_edge: int = 0,
               ref_video: bool = False, ref_video_audio: bool = True,
               ref_images_on: bool = True, ref_image_count: int = 2,
               ref_images: tuple[str, ...] | None = None,
@@ -801,6 +802,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               cache: dict | None = None,
               sla_router: float | None = None,
               vae_encoder: str | None = None,
+              clip: str | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
     """API-format graph, submittable as {"prompt": <this>} to POST /prompt.
 
@@ -854,7 +856,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # Core CLIPLoader lists this file because it lists the directory; it
         # cannot recognize compressed-tensors packing or the full HF namespace.
         "2": {"class_type": "MiniMaxH3AWQEncoderLoader",
-              "inputs": {"encoder_name": MODELS["clip"],
+              "inputs": {"encoder_name": clip or MODELS["clip"],
                          "device": "default"}},
         # The image VAE ONLY on the single-frame path. See h3_config: same
         # frozen encoder, decoder retrained for one temporal latent, and its
@@ -993,6 +995,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # a saved graph maps widget values by.
             append_inputs["allow_upscale"] = ref_upscale
             append_inputs["short_edge"] = _ref_short_edge()
+            # Only when set: 0 is the node's default and the byte-for-byte
+            # one-view path, and writing it into every graph would touch every
+            # shipped reference graph for nothing.
+            if ref_qwen_short_edge:
+                append_inputs["qwen_short_edge"] = ref_qwen_short_edge
             g[append_id] = {"class_type": "MiniMaxH3AppendRefImage",
                             "inputs": append_inputs}
             chain = [append_id, 0]
@@ -3849,6 +3856,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              head_chunks: int | None = None, ref_upscale: bool = True,
              ref_video_policy: str = "encoder",
              ref_image_policy: str = "comfy",
+             ref_qwen_short_edge: int = 0,
              ref_video: bool = False, ref_video_audio: bool = True,
              ref_images_on: bool = True, ref_image_count: int = 2,
              ref_images: tuple[str, ...] | None = None,
@@ -3867,6 +3875,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              out_prefix: str | None = None, title: str | None = None,
              sla_router: float | None = None,
              vae_encoder: str | None = None,
+             clip: str | None = None,
              **canvas) -> dict:
     ref = task == "r2v"
     # The same consistency guard `build_api` carries, and it has to be here
@@ -3904,7 +3913,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                       outputs=[_out("MODEL", "MODEL")])
     clip = g.add(
         "MiniMaxH3AWQEncoderLoader", (-1500, 140), size=(560, 110),
-        widgets=[MODELS["clip"], "default"],
+        widgets=[clip or MODELS["clip"], "default"],
         outputs=[_out("CLIP", "CLIP")],
         title="Load custom H3 W4A16 encoder (repo adapter)",
     )
@@ -4128,7 +4137,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                            # positional: size_policy, allow_upscale,
                            # short_edge. `references` is a socket and consumes
                            # no widget slot.
-                           widgets=["max", ref_upscale, _ref_short_edge()],
+                           widgets=["max", ref_upscale, _ref_short_edge()]
+                           + ([ref_qwen_short_edge] if ref_qwen_short_edge else []),
                            inputs=append_inputs,
                            outputs=[_out("references", "MINIMAX_H3_REFERENCES")],
                            title=f"Append Picture {i + 1}")
@@ -5370,6 +5380,55 @@ def main():
               sol_on=False, unet=MODELS["unet_fl2va"],
               out_prefix="Video/h3_probe_capture_ref3_fl2va"),
          "the capture twin on fl2va with no LoRA; the missing block-49 control"),
+
+        # Gate 6, the reference-view ablation: three ref2va arms from one base
+        # graph (the capture request, three stills spanning 0.78-4.23 MP at
+        # the vendor row), differing only in how each still reaches its two
+        # consumers. `docs/h3_conditioning_end_to_end.md` section 1b is why the
+        # VAE view and the Qwen view need not share a geometry;
+        # `docs/h3_references.md` prices the two stages. The encoder is the v2
+        # artifact BY NAME (`ENCODER_V2`), so v1/v2 swap at the combo without
+        # a graph edit; until that file lands `check_model_files` reads these
+        # red and `preflight_graph.py` prices the Qwen view under Comfy's
+        # bounds. `video_policy=release` is set with no video reference wired,
+        # so a video row patched in through `run_graph_arms --set` inherits the
+        # release sizing rather than a policy nobody chose. Sol on, as in every
+        # shipped video graph. `bench/gate6_refview_arms.json` is the manifest
+        # `run_graph_arms.py --manifest` consumes for matched-seed pairs.
+        *[
+            (f"h3_probe_refview_{tag}.json", f"r2v-refview-{tag}", "r2v",
+             _ref_prompt(images=("character", "garment", "environment")),
+             dict(**{**REF_VIDEO_BUDGET, "ref_upscale": upscale},
+                  ref_images=CAPTURE_REF_IMAGES, clip=ENCODER_V2,
+                  ref_video_policy="release",
+                  ref_qwen_short_edge=qwen,
+                  out_prefix=f"Video/h3_probe_refview_{tag}",
+                  variant_note=note),
+             what)
+            for tag, upscale, qwen, what, note in (
+                ("a_source", False, 0,
+                 "arm A: every still at source size for both consumers, no upscale",
+                 "Reference-view ablation, arm A. Stage one leaves each still at "
+                 "its source size (allow_upscale off) and one view feeds both the "
+                 "video VAE and Qwen3-VL. The no-upscale baseline the other two "
+                 "arms are judged against, blind, as a distribution of seeds."),
+                ("b_qwen2048", False, _ref_short_edge(),
+                 "arm B: the Qwen view alone scaled to the vendor short edge; the VAE keeps the source",
+                 "Reference-view ablation, arm B. The VAE view is arm A's; the "
+                 "Qwen view alone is rescaled so its shorter side reaches the "
+                 "vendor short edge (`qwen_short_edge`, one Lanczos resample). "
+                 "Answers whether the encoder wants the upscale when the VAE "
+                 "does not pay for it. Under the v1 snapshot the encoder's own "
+                 "bounds clamp this view back; the v2 artifact admits it."),
+                ("c_parity", True, 0,
+                 "arm C: full vendor parity, both consumers at the upscaled view where the canvas allows",
+                 "Reference-view ablation, arm C. allow_upscale on: stage one "
+                 "scales each still toward the vendor short edge as the canvas "
+                 "allows and the same view feeds the VAE and Qwen3-VL, which is "
+                 "the release pipeline's geometry and the reference-latent rows "
+                 "it costs. Priced by preflight; judged against A and B blind."),
+            )
+        ],
 
         ("h3_ref_video_edit.json", "r2v-edit", "r2v",
          _ref_prompt(images=False, video=True, video_audio=True, video_role="edit"),
