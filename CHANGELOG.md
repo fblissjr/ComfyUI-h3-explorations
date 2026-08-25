@@ -4,6 +4,27 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.4
+
+### Added
+
+- `bench/compare_transformers_comfy_layer50.py`: the ComfyUI arm takes
+  `--w4-path` (a W4 artifact through the capture instrument's loader, its
+  stamped contract recorded as the source) and `--all-rows` (one model load,
+  every bundle row to `OUT/<row_id>/`), and `--field-under-test encoder` lets
+  a W4 arm compare against the BF16 ComfyUI arm on the same replayed rows.
+  A guard requires each captured row to be exactly the bundle's recorded
+  sequence length: it proves the `preprocess_embed` replacement held, not
+  anything about the artifact's bounds. First real run is Gate 5 on the v2
+  candidate; until then it has met only its syntax check.
+- `bench/summarize_h3_holdout_captures.py`: folds the comparator's per-row
+  reports over a `<geometry>/<row_id>.json` tree into one holdout record
+  (distributions of relative L2 and cosine per arm and geometry, per-row
+  values, refusals verbatim; exits red on any refusal). Computes nothing new;
+  tested on a synthetic tree, first real run is Gate 5.
+- `docs/research/qwen3-vl-special-tokens-post-training/2026-08-26_point_handoff.md`:
+  the brief for the next point session.
+
 ## 0.70.3
 
 ### Added
@@ -206,7 +227,8 @@ artifact.
   instances in one day, the same shape from three directions -- a mutation
   written against decoded text where the record holds `U+0120`, a mutation that
   picked a row whose mutated field is never exercised, and a control that read
-  `None == None` and reported the null result as a pass. In each the control did
+  `None == None` and reported a verdict on a reading it had not taken (that
+  one failed closed: it refused the emit). In each the control did
   not apply, and not applying looked exactly like applying and finding nothing.
   What catches it is grading a mutation on the arm it targets gaining a problem
   the unmutated baseline did not have, never on a process exit code.
