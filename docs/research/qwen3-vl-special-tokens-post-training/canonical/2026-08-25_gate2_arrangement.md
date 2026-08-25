@@ -3,10 +3,10 @@
 **Status:** Authoritative execution boundary
 **Recorded:** 2026-08-25
 **Authority note:** Codex accepted Gate 2A on 2026-08-25 and then went
-offline. The owner named the encoder Claude acting technical point the same
-day. Decisions below marked **ACTING-POINT DECISION** were made under that
-authority, on the measurements cited, and are reversible by the owner or by
-Codex on return; none of them launches anything.
+offline; later that day the owner confirmed Codex is not returning and named
+the encoder Claude technical point. Decisions below marked **ACTING-POINT
+DECISION** were made under that authority, on the measurements cited, and are
+reversible by the owner; none of them launches anything.
 **Boundary:** no AWQ recipe, candidate checkpoint, deployment change, or
 launch authorization.
 

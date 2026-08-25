@@ -364,13 +364,14 @@ independent axis and stays outside this v2 run.
 - **Encoder Claude, v2 technical lead:** exact seam, full-load validation,
   feasibility pilot, split/trace integration, recipe and launcher, run
   supervision, and candidate artifact audit.
-- **Codex:** canonical authority, independent preflight review, privacy and
-  provenance gates, BF16/W4 capture and comparison, and the go/no-go
-  recommendation to the owner. **Offline since 2026-08-25.** While offline,
-  the encoder Claude is acting technical point by the owner's instruction;
-  its acceptance decisions are labelled as such in the canonical records and
-  are reversible by the owner or by Codex on return. The owner's launch
-  approval is unchanged.
+- **Codex:** retired from this effort on 2026-08-25 by the owner's
+  decision; its accepted records stand. Its former duties (canonical
+  authority, independent review, capture and comparison, the go/no-go
+  recommendation) pass to the technical point below, with independent review
+  supplied by separately briefed sessions where a second reader is needed.
+- **Encoder Claude, technical point (session "v2-lead"):** owns the plan and
+  its acceptances, labelled in canonical and reversible by the owner. The
+  owner's launch approval is unchanged.
 - **Repository owner:** final launch approval, GPU scheduling, and perceptual
   evaluation decisions.
 - **Gemini:** paused. It may later receive a bounded tactical task with an

@@ -2,8 +2,8 @@
 
 **Status:** Authoritative index
 **Created:** 2026-08-24
-**Maintainers:** repository owner and Codex, with reviewed contributions from
-the active technical lanes
+**Maintainers:** repository owner and the technical point (session
+"v2-lead") since 2026-08-25; Codex's accepted records stand
 
 This directory is the shared source of truth for the Qwen3-VL special-token and
 AWQ calibration work. A statement is not authoritative merely because it
