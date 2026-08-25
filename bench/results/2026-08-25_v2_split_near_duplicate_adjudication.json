@@ -1,0 +1,358 @@
+{
+  "purpose": "visual adjudication of every cross-split perceptual candidate for the 2026-08-25 mixed-geometry v2 calibration bundle and its two holdout geometries; consumed by review_v2_calibration_bundle.py",
+  "recorded": "2026-08-25, by the reviewing session, from rendered side-by-side pairs",
+  "method": "64-bit dhash over every calibration/holdout media pair, candidates at Hamming <= 12, ranked by a background-masked foreground correlation, each pair then looked at",
+  "standing": "a candidate this file does not name is reported as unreviewed rather than passed; a verdict of duplicate is reported as a defect",
+  "pairs": [
+    {
+      "calibration": "media/images/image-288581f2cf4f96d022d6.jpg",
+      "holdout": "media/images/image-09c8e1eeed612c257883.jpg",
+      "hamming": 6,
+      "foreground_correlation": 0.8928,
+      "verdict": "duplicate",
+      "reason": "same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner; the products differ but the frames are matched shot for shot",
+      "calibration_rows": [
+        "train-00795-cff93b01d353955c"
+      ],
+      "holdout_rows": [
+        "train-00508-59139e4e6c98631b"
+      ]
+    },
+    {
+      "calibration": "media/images/image-4b144484692f63599388.jpg",
+      "holdout": "media/images/image-c3179e4f1d41c2961226.jpg",
+      "hamming": 7,
+      "foreground_correlation": 0.8041,
+      "verdict": "duplicate",
+      "reason": "same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner; the products differ but the frames are matched shot for shot",
+      "calibration_rows": [
+        "train-00795-cff93b01d353955c"
+      ],
+      "holdout_rows": [
+        "train-00508-59139e4e6c98631b"
+      ]
+    },
+    {
+      "calibration": "media/images/image-13d9c43f86deec80d1e7.jpg",
+      "holdout": "media/images/image-09c8e1eeed612c257883.jpg",
+      "hamming": 10,
+      "foreground_correlation": 0.798,
+      "verdict": "duplicate",
+      "reason": "same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner; the products differ but the frames are matched shot for shot",
+      "calibration_rows": [
+        "train-00559-661153c0cc861266"
+      ],
+      "holdout_rows": [
+        "train-00508-59139e4e6c98631b"
+      ]
+    },
+    {
+      "calibration": "media/images/image-1e74c009ed0c1c4c9095.jpg",
+      "holdout": "media/images/image-47f0e326026667eb40b2.jpg",
+      "hamming": 8,
+      "foreground_correlation": 0.7703,
+      "verdict": "duplicate",
+      "reason": "same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner; the products differ but the frames are matched shot for shot",
+      "calibration_rows": [
+        "train-00795-cff93b01d353955c"
+      ],
+      "holdout_rows": [
+        "train-00508-59139e4e6c98631b"
+      ]
+    },
+    {
+      "calibration": "media/images/image-b76ba6242584722b32c0.jpg",
+      "holdout": "media/images/image-47f0e326026667eb40b2.jpg",
+      "hamming": 10,
+      "foreground_correlation": 0.766,
+      "verdict": "duplicate",
+      "reason": "same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner; the products differ but the frames are matched shot for shot",
+      "calibration_rows": [
+        "train-00559-661153c0cc861266"
+      ],
+      "holdout_rows": [
+        "train-00508-59139e4e6c98631b"
+      ]
+    },
+    {
+      "calibration": "media/images/image-bb56d7680cf04b3f7925.jpg",
+      "holdout": "media/images/image-47f0e326026667eb40b2.jpg",
+      "hamming": 8,
+      "foreground_correlation": 0.7491,
+      "verdict": "duplicate",
+      "reason": "same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner; the products differ but the frames are matched shot for shot",
+      "calibration_rows": [
+        "train-00315-0e6e0c0d1c58c9bc"
+      ],
+      "holdout_rows": [
+        "train-00508-59139e4e6c98631b"
+      ]
+    },
+    {
+      "calibration": "media/images/image-96461a61e70aa4a22603.jpg",
+      "holdout": "media/images/image-9855fb661aa472e3f4fe.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.7165,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00453-b99a1cb3bf2589cf"
+      ],
+      "holdout_rows": [
+        "train-00808-64c596bd67c61724"
+      ]
+    },
+    {
+      "calibration": "media/images/image-131fca5a9c30831e0361.jpg",
+      "holdout": "media/images/image-f6c3a85bfa0cc9c62968.jpg",
+      "hamming": 8,
+      "foreground_correlation": 0.6713,
+      "verdict": "duplicate",
+      "reason": "same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner; the products differ but the frames are matched shot for shot",
+      "calibration_rows": [
+        "train-00315-0e6e0c0d1c58c9bc"
+      ],
+      "holdout_rows": [
+        "train-00508-59139e4e6c98631b"
+      ]
+    },
+    {
+      "calibration": "media/images/image-dc979b0b7c2fc253c519.jpg",
+      "holdout": "media/images/image-9855fb661aa472e3f4fe.jpg",
+      "hamming": 3,
+      "foreground_correlation": 0.6176,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00819-b678cabb93f8be28"
+      ],
+      "holdout_rows": [
+        "train-00808-64c596bd67c61724"
+      ]
+    },
+    {
+      "calibration": "media/images/image-6aa479a0a4c8f29d8b5e.jpg",
+      "holdout": "media/images/image-d7518f64dc9ff22047ab.jpg",
+      "hamming": 11,
+      "foreground_correlation": 0.537,
+      "verdict": "distinct",
+      "reason": "a dark stone corridor against a lightning bolt on black; the dhash matched the dark field",
+      "calibration_rows": [
+        "train-01855-13ea897e564d3ff4"
+      ],
+      "holdout_rows": [
+        "train-00257-08cf9ce768d2689e"
+      ]
+    },
+    {
+      "calibration": "media/images/image-24d8726120fd472bc575.jpg",
+      "holdout": "media/images/image-f6c3a85bfa0cc9c62968.jpg",
+      "hamming": 10,
+      "foreground_correlation": 0.4277,
+      "verdict": "duplicate",
+      "reason": "same JOSINY footwear catalogue series: one studio, one model, one shot list, brand mark in the same corner; the products differ but the frames are matched shot for shot",
+      "calibration_rows": [
+        "train-00795-cff93b01d353955c"
+      ],
+      "holdout_rows": [
+        "train-00508-59139e4e6c98631b"
+      ]
+    },
+    {
+      "calibration": "media/images/image-7b342517bbff5870236c.jpg",
+      "holdout": "media/images/image-105ab1168d033cde449a.jpg",
+      "hamming": 4,
+      "foreground_correlation": 0.4227,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00468-be47d4a20ff124a3"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-e8eeaa01939f003b3765.jpg",
+      "holdout": "media/images/image-105ab1168d033cde449a.jpg",
+      "hamming": 12,
+      "foreground_correlation": 0.3084,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00397-a4678247f01b07f7"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-b3f2adb9106f199d4df1.jpg",
+      "holdout": "media/images/image-105ab1168d033cde449a.jpg",
+      "hamming": 7,
+      "foreground_correlation": 0.1609,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00468-be47d4a20ff124a3"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-eeb999c72600341b3894.jpg",
+      "holdout": "media/images/image-105ab1168d033cde449a.jpg",
+      "hamming": 5,
+      "foreground_correlation": 0.0798,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00802-99f14d6d55fdd88e"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-5dce82c6f63260b14c18.jpg",
+      "holdout": "media/images/image-ca0785fa1786e4cb9218.jpg",
+      "hamming": 12,
+      "foreground_correlation": 0.0762,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00692-09e8c125638148a3"
+      ],
+      "holdout_rows": [
+        "train-00741-8a630e8fee6fb302"
+      ]
+    },
+    {
+      "calibration": "media/images/image-228bdb44063dcc4aca6c.jpg",
+      "holdout": "media/images/image-105ab1168d033cde449a.jpg",
+      "hamming": 8,
+      "foreground_correlation": 0.0202,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00819-b678cabb93f8be28"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-228bdb44063dcc4aca6c.jpg",
+      "holdout": "media/images/image-9855fb661aa472e3f4fe.jpg",
+      "hamming": 10,
+      "foreground_correlation": -0.0287,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00819-b678cabb93f8be28"
+      ],
+      "holdout_rows": [
+        "train-00808-64c596bd67c61724"
+      ]
+    },
+    {
+      "calibration": "media/images/image-94fa447ecb12026a1d11.jpg",
+      "holdout": "media/images/image-105ab1168d033cde449a.jpg",
+      "hamming": 11,
+      "foreground_correlation": -0.0629,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00869-bfaf0a67ff2d2a31"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-c91e2dee63409437e47a.jpg",
+      "holdout": "media/images/image-105ab1168d033cde449a.jpg",
+      "hamming": 5,
+      "foreground_correlation": -0.0798,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-01358-4662b89eb01af6b7"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-228bdb44063dcc4aca6c.jpg",
+      "holdout": "media/images/image-7eefd1fe50959d3bded0.jpg",
+      "hamming": 11,
+      "foreground_correlation": -0.1298,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00819-b678cabb93f8be28"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-ecb3f78219756902da4a.jpg",
+      "holdout": "media/images/image-105ab1168d033cde449a.jpg",
+      "hamming": 11,
+      "foreground_correlation": -0.134,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00397-a4678247f01b07f7"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-b15514ca7ec662f70b5f.jpg",
+      "holdout": "media/images/image-7eefd1fe50959d3bded0.jpg",
+      "hamming": 11,
+      "foreground_correlation": -0.2303,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00303-e8797912dc5a8744"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    },
+    {
+      "calibration": "media/images/image-d0b048a2fcdf638daab1.jpg",
+      "holdout": "media/images/image-2ac2883cf1608de904fa.jpg",
+      "hamming": 11,
+      "foreground_correlation": -0.2719,
+      "verdict": "distinct",
+      "reason": "both are footwear on white but different products from different shoots; no shared frame",
+      "calibration_rows": [
+        "train-00161-9cf73ce77d9033e7"
+      ],
+      "holdout_rows": [
+        "train-00238-34c95f96c87858ad"
+      ]
+    },
+    {
+      "calibration": "media/images/image-d9e0982370fe3e0cfbec.jpg",
+      "holdout": "media/images/image-105ab1168d033cde449a.jpg",
+      "hamming": 11,
+      "foreground_correlation": -0.303,
+      "verdict": "distinct",
+      "reason": "both files are three-view character/garment turnaround sheets on a white field, which is what the dhash matched; the subjects are unrelated",
+      "calibration_rows": [
+        "train-00049-82dc729635ca7351"
+      ],
+      "holdout_rows": [
+        "train-00259-92ca6b10881ce331"
+      ]
+    }
+  ]
+}
