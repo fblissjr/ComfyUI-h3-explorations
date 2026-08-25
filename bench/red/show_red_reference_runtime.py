@@ -106,9 +106,27 @@ def build():
         _under(
             "_qwen_video_settings",
             lambda original: (
-                lambda _policy: original("release")
+                lambda _policy, contract=None: original("release")
             ),
             C.encoder_policy_reads_encoder_config,
+        ),
+    )
+    h.case(
+        "M7 encoder contract is the module default, whichever CLIP is loaded",
+        MUTATION,
+        _under(
+            "encoder_contract_from_clip",
+            lambda _original: lambda _clip: C._v1_contract(),
+            C.encoder_policy_binds_to_the_loaded_clip,
+        ),
+    )
+    h.case(
+        "M8 encoder stays 'encoder' on a CLIP that declares nothing",
+        MUTATION,
+        _under(
+            "effective_policy",
+            lambda _original: lambda policy, _contract: policy,
+            C.encoder_policy_binds_to_the_loaded_clip,
         ),
     )
 
@@ -136,6 +154,11 @@ def build():
         "G5 restored: distinct release Qwen view",
         NEAR_MISS,
         lambda: _holds(C.release_video_policy_is_opt_in_and_two_stage),
+    )
+    h.case(
+        "G7 restored: encoder binds to the loaded CLIP",
+        NEAR_MISS,
+        lambda: _holds(C.encoder_policy_binds_to_the_loaded_clip),
     )
     h.case(
         "G6 restored: encoder config owns encoder policy",

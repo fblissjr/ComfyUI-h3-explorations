@@ -45,16 +45,12 @@ from .reference_order import AudioRef, ImageRef, VideoRef, assign_labels
 from .reference_geometry import (
     IMAGE_POLICIES,
     SIZE_POLICIES,
+    effective_policy,
+    encoder_contract_from_clip,
     fit_reference_image,
     latent_rows,
     qwen_image_settings,
     qwen_image_size,
-)
-from .h3_awq_encoder import (
-    source_image_patch_geometry,
-    source_image_pixel_bounds,
-    source_video_patch_geometry,
-    source_video_pixel_bounds,
 )
 from .vendor_config import (
     image_pixel_bounds,
@@ -242,29 +238,45 @@ def _prepare_reference_video(frames, loaded_fps: float, frame_count: int):
     return frames[:n]
 
 
-def _qwen_image_settings(image_policy: str) -> tuple[tuple[int, int], dict]:
+def _qwen_image_settings(
+    image_policy: str, contract: dict | None = None,
+) -> tuple[tuple[int, int], dict]:
     """Delegate to `reference_geometry`, which the static readers share."""
-    return qwen_image_settings(image_policy)
+    return qwen_image_settings(image_policy, contract)
 
 
 def _configured_qwen_image_size(
-    width: int, height: int, image_policy: str,
+    width: int, height: int, image_policy: str, contract: dict | None = None,
 ) -> tuple[int, int]:
     """Delegate to `reference_geometry`, which the static readers share."""
-    return qwen_image_size(width, height, image_policy)
+    return qwen_image_size(width, height, image_policy, contract)
 
 
-def _qwen_video_settings(video_policy: str) -> tuple[tuple[int, int], dict]:
-    """Return the settings owned by the selected Qwen preprocessing policy."""
+def _qwen_video_settings(
+    video_policy: str, contract: dict | None = None,
+) -> tuple[tuple[int, int], dict]:
+    """Return the settings owned by the selected Qwen preprocessing policy.
+
+    `encoder` is the loaded encoder's declaration, handed in as the contract
+    `encoder_contract_from_clip` read off the CLIP. It is not a module
+    default: until 2026-08-25 this read the current W4 artifact's snapshot
+    whichever CLIP was loaded, so a stock-loader graph on `encoder` ran a
+    processor no loaded encoder declared.
+    """
     if video_policy == "release":
         return video_pixel_bounds(), video_patch_geometry()
     if video_policy == "encoder":
-        return source_video_pixel_bounds(), source_video_patch_geometry()
+        if contract is None:
+            raise ValueError(
+                "the encoder video policy needs the loaded encoder's contract; "
+                "with none, resolve the policy through effective_policy first")
+        return tuple(contract["video_bounds"]), dict(contract["video_geometry"])
     raise ValueError(f"no configured Qwen processor for policy {video_policy!r}")
 
 
 def _configured_qwen_video_size(
     sampled_count: int, width: int, height: int, video_policy: str,
+    contract: dict | None = None,
 ) -> tuple[int, int]:
     """Return a configured processor's Qwen view as ``(width, height)``.
 
@@ -279,7 +291,7 @@ def _configured_qwen_video_size(
     """
     from transformers.models.qwen3_vl.video_processing_qwen3_vl import smart_resize
 
-    (min_pixels, max_pixels), geometry = _qwen_video_settings(video_policy)
+    (min_pixels, max_pixels), geometry = _qwen_video_settings(video_policy, contract)
     # `smart_resize` needs a full temporal patch, not merely one frame: it
     # raises `t:1 must be larger than temporal_factor:2` from inside
     # transformers, which names neither the reference nor the policy. The bound
@@ -324,15 +336,16 @@ def _release_qwen_video_size(
 
 
 def _encoder_qwen_video_size(
-    sampled_count: int, width: int, height: int
+    sampled_count: int, width: int, height: int, contract: dict,
 ) -> tuple[int, int]:
-    """Size with the selected encoder artifact's snapshotted settings."""
+    """Size with the LOADED encoder's declared settings."""
     return _configured_qwen_video_size(
-        sampled_count, width, height, video_policy="encoder"
+        sampled_count, width, height, video_policy="encoder", contract=contract,
     )
 
 
-def _configured_qwen_video_frames(frames, video_policy: str):
+def _configured_qwen_video_frames(frames, video_policy: str,
+                                  contract: dict | None = None):
     """Resize one raw sampled clip with the policy's bicubic processor.
 
     Only the sampled Qwen view reaches this function. The full-rate frames for
@@ -341,7 +354,7 @@ def _configured_qwen_video_frames(frames, video_policy: str):
     """
     sampled_count, height, width = _image_shape(frames, "sampled Qwen video")
     target_w, target_h = _configured_qwen_video_size(
-        sampled_count, width, height, video_policy
+        sampled_count, width, height, video_policy, contract
     )
     if (target_w, target_h) == (width, height):
         return frames
@@ -349,7 +362,7 @@ def _configured_qwen_video_frames(frames, video_policy: str):
     # The processor's resize method is the pixel authority as well as
     # `smart_resize` being the geometry authority: it preserves the release's
     # bicubic kernel instead of substituting Comfy's bilinear video-block path.
-    processor = _qwen_video_processor(video_policy)
+    processor = _qwen_video_processor(video_policy, contract)
     # The released serving path decodes media into uint8 and the HF processor
     # resizes those pixels before its 1/255 rescale. Comfy IMAGE values arrive
     # as floats in [0, 1], so temporarily restore that uint8 boundary; running
@@ -384,19 +397,35 @@ def _release_qwen_video_frames(frames):
     return _configured_qwen_video_frames(frames, video_policy="release")
 
 
-def _encoder_qwen_video_frames(frames):
-    """Resize with the selected encoder artifact's processor configuration."""
-    return _configured_qwen_video_frames(frames, video_policy="encoder")
+def _encoder_qwen_video_frames(frames, contract: dict):
+    """Resize with the LOADED encoder's declared processor configuration."""
+    return _configured_qwen_video_frames(frames, video_policy="encoder",
+                                         contract=contract)
 
 
-@functools.lru_cache(maxsize=2)
-def _qwen_video_processor(video_policy: str):
-    """Construct a configured processor once, and only when its policy runs."""
+def _qwen_video_processor(video_policy: str, contract: dict | None = None):
+    """A configured processor, built once per distinct configuration.
+
+    Cached on the configuration it is built from rather than on the policy
+    name, because `encoder` names whichever contract the loaded CLIP carries
+    and two loaders in one session can carry two.
+    """
+    (min_pixels, max_pixels), geometry = _qwen_video_settings(video_policy, contract)
+    frozen = tuple(sorted(
+        (key, tuple(value) if isinstance(value, list) else value)
+        for key, value in geometry.items()
+    ))
+    return _build_qwen_video_processor(min_pixels, max_pixels, frozen)
+
+
+@functools.lru_cache(maxsize=4)
+def _build_qwen_video_processor(min_pixels: int, max_pixels: int, frozen: tuple):
     from transformers.models.qwen3_vl.video_processing_qwen3_vl import (
         Qwen3VLVideoProcessor,
     )
 
-    (min_pixels, max_pixels), geometry = _qwen_video_settings(video_policy)
+    geometry = {key: list(value) if isinstance(value, tuple) else value
+                for key, value in frozen}
     return Qwen3VLVideoProcessor(
         size={"shortest_edge": min_pixels, "longest_edge": max_pixels},
         **geometry,
@@ -421,9 +450,16 @@ def _order_records(records) -> list[ImageRef | VideoRef | AudioRef]:
 
 def _compile_reference_records(
     records, vae, audio_vae, width, height, frame_count,
-    video_policy="encoder", image_policy="comfy",
+    video_policy="encoder", image_policy="comfy", contract=None,
 ):
-    """Compile one ordered record list into Qwen items and DiT blocks."""
+    """Compile one ordered record list into Qwen items and DiT blocks.
+
+    `contract` is what the loaded encoder declares
+    (`encoder_contract_from_clip`), or `None` for a CLIP that declares
+    nothing. `encoder` resolves against it here, once, for both stages, and
+    the substitution is logged: a native CLIP under `encoder` runs the native
+    path, which is the truth of what it was handed, not a fallback.
+    """
     if video_policy not in VIDEO_POLICIES:
         raise ValueError(
             f"unknown reference video policy {video_policy!r}; "
@@ -434,6 +470,14 @@ def _compile_reference_records(
             f"unknown reference image policy {image_policy!r}; "
             f"expected one of {IMAGE_POLICIES}"
         )
+    requested = (video_policy, image_policy)
+    video_policy = effective_policy(video_policy, contract)
+    image_policy = effective_policy(image_policy, contract)
+    if (video_policy, image_policy) != requested:
+        logger.info(
+            "[h3] encoder policy resolved to native ComfyUI preprocessing: the "
+            "loaded CLIP declares no processor contract (requested "
+            "video_policy=%s, image_policy=%s)", *requested)
     ref_items = []
     ref_blocks = []
     duration = frame_count / FPS
@@ -458,7 +502,7 @@ def _compile_reference_records(
             target_w, target_h = role_w, role_h
             if image_policy != "comfy":
                 target_w, target_h = _configured_qwen_image_size(
-                    role_w, role_h, image_policy)
+                    role_w, role_h, image_policy, contract)
                 if (target_w, target_h) != (role_w, role_h):
                     logger.info(
                         "[h3] reference %d: %s still policy moved %dx%d to "
@@ -545,7 +589,7 @@ def _compile_reference_records(
             if video_policy == "release":
                 qwen_frames = _release_qwen_video_frames(qwen_frames)
             elif video_policy == "encoder":
-                qwen_frames = _encoder_qwen_video_frames(qwen_frames)
+                qwen_frames = _encoder_qwen_video_frames(qwen_frames, contract)
             ref_items.append({
                 "type": "video",
                 "data": qwen_frames,
@@ -835,9 +879,14 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
                 "condition on a pad token in core and are refused here"
             )
         latent, frame_count = _empty_av_latent(width, height, length)
+        # What `encoder` means is read off the CLIP this node was handed, not
+        # off a module: the loader stamps its artifact's declaration, and a
+        # CLIP without one is the native path.
+        contract = encoder_contract_from_clip(clip)
         ref_items, ref_blocks = _compile_reference_records(
             records, vae, audio_vae, width, height, frame_count,
             video_policy=video_policy, image_policy=image_policy,
+            contract=contract,
         )
         tokens = clip.tokenize(prompt, minimax_ref_items=ref_items)
         conditioning = clip.encode_from_tokens_scheduled(tokens)
@@ -848,8 +897,10 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
         labels = assign_labels(_order_records(records))
         logger.info(
             "[h3] ordered reference conditioning: %dx%d, %d frames, %d "
-            "record(s), presentation=%s, video_policy=%s",
+            "record(s), presentation=%s, video_policy=%s, image_policy=%s, "
+            "encoder contract=%s",
             width, height, frame_count, len(records), labels,
-            video_policy,
+            video_policy, image_policy,
+            contract["source"] if contract else "none (native)",
         )
         return io.NodeOutput(conditioning, latent)

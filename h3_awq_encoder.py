@@ -136,6 +136,84 @@ def source_video_patch_geometry() -> dict:
     return geometry
 
 
+def _bounds_from(cfg: dict, what: str) -> tuple[int, int]:
+    size = cfg.get("size") or {}
+    lo, hi = size.get("shortest_edge"), size.get("longest_edge")
+    if not isinstance(lo, int) or not isinstance(hi, int) or not 0 < lo < hi:
+        raise ValueError(f"{what} processor has invalid size bounds: {size!r}")
+    return lo, hi
+
+
+def _geometry_from(cfg: dict, what: str) -> dict:
+    keys = ("patch_size", "temporal_patch_size", "merge_size",
+            "image_mean", "image_std")
+    geometry = {key: cfg[key] for key in keys if key in cfg}
+    if set(geometry) != set(keys):
+        raise ValueError(f"{what} processor is missing patch or normalization settings")
+    return geometry
+
+
+def snapshot_contract(config_dir: Path | None = None) -> dict:
+    """The processor contract one artifact declares, as one record.
+
+    This is what the loader stamps on the CLIP it builds, and what
+    `reference_geometry.encoder_contract_from_clip` reads back. It is a
+    property of the *artifact*, read from the artifact's own
+    `processor_config.json` and `video_preprocessor_config.json`: the current
+    W4 file carries its snapshot under `config/`, and a candidate shipped as
+    an HF directory carries the same two files beside its weights. Neither
+    the conditioner nor the preflight needs to know which, and neither may
+    fall back to this module's default when handed a CLIP that declares
+    nothing -- that silent substitution is what this record exists to end.
+
+    `None` means this module's own snapshot, read through `_config` so the
+    standalone build, which embeds the configs and has no directory, resolves
+    it the same way.
+    """
+    if config_dir is None:
+        image = _config("processor_config.json")
+        video = _config("video_preprocessor_config.json")
+        source = Path(CONFIG_SOURCE).name
+    else:
+        config_dir = Path(config_dir)
+        image = json.loads((config_dir / "processor_config.json").read_text())
+        video = json.loads((config_dir / "video_preprocessor_config.json").read_text())
+        source = config_dir.name
+    image = image.get("image_processor", image)
+    return {
+        "source": source,
+        "image_bounds": _bounds_from(image, "source image"),
+        "image_geometry": _geometry_from(image, "source image"),
+        "video_bounds": _bounds_from(video, "source video"),
+        "video_geometry": _geometry_from(video, "source video"),
+    }
+
+
+# Which single-file artifact this module's own snapshot describes. `None` is
+# "this snapshot"; a candidate shipped as a directory needs no row, because
+# `encoder_contract_from_artifact` reads the directory's own files. A name
+# absent from both resolves to `None`, never to a guess.
+ARTIFACT_SNAPSHOTS: dict[str, Path | None] = {
+    "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors": None,
+}
+
+
+def encoder_contract_from_artifact(encoder_name: str) -> dict | None:
+    """Resolve the contract for a loader's `encoder_name` without loading it.
+
+    For the static readers (`bench/preflight_graph.py`), which see a graph and
+    not a CLIP. Returns `None` for a name this adapter does not know, so the
+    caller reports "no contract" rather than pricing somebody else's bounds.
+    """
+    name = str(encoder_name)
+    if Path(name).name in ARTIFACT_SNAPSHOTS:
+        return snapshot_contract(ARTIFACT_SNAPSHOTS[Path(name).name])
+    candidate = Path(name)
+    if candidate.is_dir() and (candidate / "processor_config.json").exists():
+        return snapshot_contract(candidate)
+    return None
+
+
 def _validate_metadata(metadata: dict | None) -> None:
     metadata = metadata or {}
     if metadata.get("scheme") != "w4a16" or metadata.get("quantization") != "awq":
@@ -568,6 +646,12 @@ def install_source_processors(clip, image_bounds: tuple[int, int] | None = None)
     model.preprocess_embed = types.MethodType(preprocess_embed, model)
     model._h3_processor_source = CONFIG_SOURCE
     model._h3_image_bounds = bounds
+    # The contract the conditioner and the static readers bind to. The image
+    # bounds are the ones this INSTANCE was bound with, override included, so
+    # a capture at overridden bounds is priced at the bounds it actually ran.
+    contract = snapshot_contract()
+    contract["image_bounds"] = tuple(bounds)
+    model._h3_encoder_contract = contract
     if image_bounds is not None:
         logger.info(
             "[h3-awq] still-image budget overridden to %d..%d px for this CLIP "

@@ -585,23 +585,74 @@ def _release_qwen_grid(n_raw: int, w: int, h: int):
     padded count reproduces a number that is wrong by 8%.
     """
     try:
-        import torch
-        from transformers.models.qwen3_vl.video_processing_qwen3_vl import (
-            Qwen3VLVideoProcessor,
-        )
         cfg = json.loads((_REPO / "vendor_config"
                           / "video_preprocessor_config.json").read_text())
-        proc = Qwen3VLVideoProcessor(
-            **{k: v for k, v in cfg.items()
-               if k not in ("processor_class", "video_processor_type")})
-        out = proc(videos=[torch.zeros(n_raw, 3, h, w, dtype=torch.uint8)],
-                   do_sample_frames=False, input_data_format="channels_first",
-                   return_tensors="pt")
-        g = out["video_grid_thw"][0].tolist()
-        merge = int(proc.merge_size) ** 2
-        return g, g[1] * g[2] // merge
+        return _qwen_grid_from(n_raw, w, h, cfg)
     except Exception:
         return None
+
+
+def _qwen_grid_from(n_raw: int, w: int, h: int, cfg: dict):
+    """One configured video processor's grid, executed. Raises on failure."""
+    import torch
+    from transformers.models.qwen3_vl.video_processing_qwen3_vl import (
+        Qwen3VLVideoProcessor,
+    )
+    proc = Qwen3VLVideoProcessor(
+        **{k: v for k, v in cfg.items()
+           if k not in ("processor_class", "video_processor_type")})
+    out = proc(videos=[torch.zeros(n_raw, 3, h, w, dtype=torch.uint8)],
+               do_sample_frames=False, input_data_format="channels_first",
+               return_tensors="pt")
+    g = out["video_grid_thw"][0].tolist()
+    merge = int(proc.merge_size) ** 2
+    return g, g[1] * g[2] // merge
+
+
+def _contract_qwen_grid(n_raw: int, w: int, h: int, contract: dict):
+    """The loaded encoder's Qwen video grid, from its stamped contract.
+
+    Same executed processor as `_release_qwen_grid`, configured from the
+    contract rather than the release file, so a v2 directory carrying the
+    release bounds and the v1 snapshot carrying its own both price at what
+    they declare. Returns None when it cannot be computed; the caller says so.
+    """
+    try:
+        lo, hi = contract["video_bounds"]
+        cfg = {"size": {"shortest_edge": lo, "longest_edge": hi},
+               **contract["video_geometry"]}
+        return _qwen_grid_from(n_raw, w, h, cfg)
+    except Exception:
+        return None
+
+
+def _encoder_contract_for(ins: dict, graph: dict):
+    """Resolve the conditioner's `encoder` policy from the node feeding `clip`.
+
+    Static counterpart of `reference_geometry.encoder_contract_from_clip`: the
+    preflight sees a graph, not a loaded CLIP, so it walks the `clip` link to
+    the loader node and asks the adapter what that artifact declares. Core's
+    `CLIPLoader` declares nothing, and so does a name the adapter does not
+    know; both come back `None` with the reason, and the caller prices
+    `encoder` as the native path it will actually run.
+    """
+    link = ins.get("clip")
+    if not (isinstance(link, list) and link and str(link[0]) in graph):
+        return None, "clip input is not linked, so no encoder contract"
+    src = graph[str(link[0])]
+    kind = src.get("class_type")
+    if kind != "MiniMaxH3AWQEncoderLoader":
+        return None, f"{kind} declares no processor contract; encoder = native"
+    name = src.get("inputs", {}).get("encoder_name")
+    if not isinstance(name, str):
+        return None, ("MiniMaxH3AWQEncoderLoader.encoder_name is linked, not a "
+                      "literal; encoder contract unresolved")
+    _core_minimax_cpu()
+    import h3_awq_encoder
+    contract = h3_awq_encoder.encoder_contract_from_artifact(name)
+    if contract is None:
+        return None, f"{name!r} is not an artifact this adapter knows; encoder = native"
+    return contract, f"encoder contract from {name!r} ({contract['source']})"
 
 
 def _comfy_pair_grid(w: int, h: int, max_pixels: int = 12845056):
@@ -622,7 +673,8 @@ def _comfy_pair_grid(w: int, h: int, max_pixels: int = 12845056):
 
 
 def reference_video_report(
-    ins: dict, graph: dict, length, video_policy: str = "native-comfy"
+    ins: dict, graph: dict, length, video_policy: str = "native-comfy",
+    contract: dict | None = None,
 ) -> list[str]:
     """Both towers, both policies, per reference video.
 
@@ -668,15 +720,20 @@ def reference_video_report(
         c_grid, c_per = _comfy_pair_grid(*comfy_vae)
         hyb_grid, hyb_per = _comfy_pair_grid(*rel_vae)
         rel = _release_qwen_grid(raw, *rel_vae)
+        enc = (_contract_qwen_grid(raw, *comfy_vae, contract)
+               if video_policy == "encoder" and contract else None)
 
         out.append(f"  {label}: {name}")
         out.append(f"      source                {w}x{h}")
         comfy_active = video_policy in ("comfy", "native-comfy")
         active_kind = ("native core" if video_policy == "native-comfy"
                        else "local typed policy")
+        # The encoder policy keeps the no-upscale VAE view and runs the
+        # contract's processor on it, so its VAE line is comfy's.
+        vae_comfy_active = comfy_active or video_policy == "encoder"
         out.append(f"      VAE-prepared, comfy   {comfy_vae[0]}x{comfy_vae[1]}"
                    f"{'   (gap 6: not upscaled)' if comfy_vae != rel_vae else ''}"
-                   f"{'   <- ACTIVE (' + active_kind + ')' if comfy_active else ''}")
+                   f"{'   <- ACTIVE (' + active_kind + ')' if vae_comfy_active else ''}")
         out.append(f"      VAE-prepared, release {rel_vae[0]}x{rel_vae[1]}"
                    f"{'   <- ACTIVE (local typed policy)' if video_policy == 'release' else ''}")
         out.append(f"      sampled at 2 fps      {raw} raw -> {padded} emitted "
@@ -693,6 +750,17 @@ def reference_video_report(
             out.append(f"      Qwen, release         {g[2] * 16}x{g[1] * 16}  "
                        f"{per * g[0]:>7,} rows"
                        f"{'   <- ACTIVE (local typed policy)' if video_policy == 'release' else ''}")
+        if video_policy == "encoder":
+            if enc is None:
+                out.append(f"      Qwen, encoder         NOT CALCULATED -- "
+                           f"{'no encoder contract resolved from the graph' if not contract else 'the contract processor could not be run'}; "
+                           f"the encoder policy on this graph runs the native "
+                           f"per-pair path above unless a loader declares one")
+            else:
+                g, per = enc
+                out.append(f"      Qwen, encoder         {g[2] * 16}x{g[1] * 16}  "
+                           f"{per * g[0]:>7,} rows   <- ACTIVE (local typed "
+                           f"policy; contract {(contract or {}).get('source')})")
         out.append(f"      Qwen, gap-6 only      {hyb_grid[0]}x{hyb_grid[1]}  "
                    f"{hyb_per * blocks:>7,} rows   <- upscale WITHOUT the "
                    f"clip-wide budget")
@@ -1114,6 +1182,18 @@ def price(node: dict, graph: dict) -> list[str]:
     w, h = ins.get("width"), ins.get("height")
     length = ins.get("length")
     lines = []
+    # `encoder` means whatever the loaded encoder declares, and the graph
+    # says which encoder that is. Resolved once here and used for both the
+    # still and the video stage, the way the conditioner does at runtime.
+    contract, contract_note = (_encoder_contract_for(ins, graph)
+                               if typed_references else (None, None))
+    requested_image_policy = image_policy
+    if image_policy == "encoder" and contract is None:
+        image_policy = "comfy"
+    if typed_references and contract_note and (
+            requested_image_policy == "encoder"
+            or ins.get("video_policy") == "encoder"):
+        lines.append(f"  encoder policy: {contract_note}")
     # An input that is LINKED carries a list, not a literal, and the link is
     # what executes. Follow it to the source node rather than guessing which
     # node feeds it: assuming MiniMaxH3Resolution AND assuming its `wide` shape
@@ -1247,7 +1327,7 @@ def price(node: dict, graph: dict) -> list[str]:
         # more than 10x, on the tool whose job is to price the sequence.
         if image_policy != "comfy":
             try:
-                tw, th = qwen_image_size(tw, th, image_policy)
+                tw, th = qwen_image_size(tw, th, image_policy, contract)
             except Exception as exc:
                 lines.append(f"  {key}: could not apply image_policy="
                              f"{image_policy!r} ({exc}); priced at the role size")
@@ -1289,8 +1369,15 @@ def price(node: dict, graph: dict) -> list[str]:
                      f"345f, so the total below is a FLOOR, not a budget.")
     video_policy = (ins.get("video_policy", "comfy") if typed_references
                     else "native-comfy")
+    if isinstance(video_policy, list):
+        video_policy = "comfy"
+    if video_policy == "encoder" and contract is None:
+        # The same substitution the conditioner makes: a CLIP that declares
+        # nothing runs the native per-pair path under `encoder`.
+        video_policy = "comfy"
     lines.extend(reference_video_report(
-        media_ins, graph, length, video_policy=video_policy))
+        media_ins, graph, length, video_policy=video_policy,
+        contract=contract))
     lines.extend(audio_reference_notes(
         media_ins, graph, length, typed_boundary=typed_references))
 

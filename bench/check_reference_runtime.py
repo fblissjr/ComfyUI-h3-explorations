@@ -32,6 +32,28 @@ import comfy.cli_args  # noqa: E402
 comfy.cli_args.args.cpu = True
 
 R = importlib.import_module(f"{_REPO.name}.reference_conditioning")
+G = importlib.import_module(f"{_REPO.name}.reference_geometry")
+A = importlib.import_module(f"{_REPO.name}.h3_awq_encoder")
+
+
+def _v1_contract():
+    """The current W4 artifact's declaration, read from its checked-in snapshot."""
+    return A.snapshot_contract(A.CONFIG_DIR)
+
+
+def _stub_clip(contract=None):
+    """A CLIP-shaped object carrying (or not carrying) a stamped contract.
+
+    Shaped like what the loader stamps: `clip.cond_stage_model.qwen3vl_32b
+    .transformer._h3_encoder_contract`. `None` builds the transformer with no
+    such attribute at all, which is what core's `CLIPLoader` produces.
+    """
+    from types import SimpleNamespace
+    transformer = SimpleNamespace()
+    if contract is not None:
+        transformer._h3_encoder_contract = contract
+    return SimpleNamespace(cond_stage_model=SimpleNamespace(
+        qwen3vl_32b=SimpleNamespace(transformer=transformer)))
 
 
 def _audio(seconds=2.0, channels=1, sample_rate=32000):
@@ -252,7 +274,7 @@ def release_video_policy_is_opt_in_and_two_stage():
         encoder_vae = _VideoVae()
         encoder_items, _ = R._compile_reference_records(
             records, encoder_vae, _AudioVae(), 64, 64, 22,
-            video_policy="encoder",
+            video_policy="encoder", contract=_v1_contract(),
         )
         assert tuple(encoder_vae.inputs[0].shape[1:3]) == (32, 32)
         assert tuple(encoder_items[0]["data"].shape[1:3]) == (64, 64)
@@ -341,34 +363,35 @@ def release_policy_floor_is_two_sampled_frames():
 
 
 def encoder_policy_reads_encoder_config():
-    """Encoder policy is governed by the encoder snapshot, not release data.
+    """Encoder policy is governed by the loaded encoder's contract, not release data.
 
-    The two checked-in processors happen to agree today. Make their temporal
-    factors disagree in memory so this case proves which authority is read;
-    comparing their current values would go green even if the wrong one won.
+    The checked-in snapshot and the release happen to agree today. Make the
+    contract's temporal factor disagree so this case proves which authority
+    is read; comparing their current values would go green even if the wrong
+    one won.
     """
-    original_source_geometry = R.source_video_patch_geometry
-    original_release_geometry = R.video_patch_geometry
+    contract = _v1_contract()
+    contract["video_geometry"] = dict(contract["video_geometry"],
+                                      temporal_patch_size=4)
     try:
-        source = dict(original_source_geometry())
-        release = dict(original_release_geometry())
-        source["temporal_patch_size"] = 4
-        release["temporal_patch_size"] = 2
-        R.source_video_patch_geometry = lambda: source
-        R.video_patch_geometry = lambda: release
+        R._encoder_qwen_video_size(2, 960, 544, contract)
+    except ValueError as exc:
+        assert "encoder video policy needs at least 4" in str(exc), exc
+    else:
+        raise AssertionError("encoder policy ignored its contract's temporal factor")
 
-        try:
-            R._encoder_qwen_video_size(2, 960, 544)
-        except ValueError as exc:
-            assert "encoder video policy needs at least 4" in str(exc), exc
-        else:
-            raise AssertionError("encoder policy ignored its source temporal factor")
+    assert R._release_qwen_video_size(2, 960, 544), (
+        "release policy incorrectly inherited the encoder's test geometry")
 
-        assert R._release_qwen_video_size(2, 960, 544), (
-            "release policy incorrectly inherited the encoder's test geometry")
-    finally:
-        R.source_video_patch_geometry = original_source_geometry
-        R.video_patch_geometry = original_release_geometry
+    # And with no contract at all the encoder settings are refused, not
+    # defaulted: the substitution to native happens in effective_policy, in
+    # one place, where it is logged.
+    try:
+        R._qwen_video_settings("encoder")
+    except ValueError as exc:
+        assert "loaded encoder's contract" in str(exc), exc
+    else:
+        raise AssertionError("encoder video settings were invented without a contract")
 
 
 def conditioning_node_assembles_the_real_payload_shape():
@@ -466,8 +489,9 @@ def image_policy_is_opt_in_and_the_three_differ():
     under BOTH floors, which is the half `keep_towers_matched` never modelled.
     """
     role = (3648, 2048)
+    contract = _v1_contract()
     release = R._configured_qwen_image_size(*role, "release")
-    encoder = R._configured_qwen_image_size(*role, "encoder")
+    encoder = R._configured_qwen_image_size(*role, "encoder", contract)
     assert release == role, (
         f"the release still policy resized a reference inside its own "
         f"ceiling: {role} -> {release}")
@@ -483,7 +507,7 @@ def image_policy_is_opt_in_and_the_three_differ():
     # would pass everything above and go green here.
     small = (224, 224)
     for policy in ("release", "encoder"):
-        out = R._configured_qwen_image_size(*small, policy)
+        out = R._configured_qwen_image_size(*small, policy, contract)
         assert out[0] * out[1] > small[0] * small[1], (
             f"{policy} still policy left {small} below its own floor: {out}")
 
@@ -498,33 +522,162 @@ def image_policy_is_opt_in_and_the_three_differ():
 
 
 def image_policy_reads_encoder_config():
-    """The encoder still policy is governed by the encoder snapshot.
+    """The encoder still policy is governed by the contract it is handed.
 
-    The two checked-in still processors agree on patch geometry today, so
-    comparing their current values would go green even if the wrong authority
-    won. Make them disagree in memory instead, and assert the bounds each
-    policy actually applies come from its own config.
+    The checked-in still processor and the release agree on patch geometry
+    today, so comparing their current values would go green even if the wrong
+    authority won. Hand in a contract with a ceiling nothing else declares
+    and assert the bounds each policy applies come from its own source.
     """
-    import importlib as _il
-    G = _il.import_module(f"{_REPO.name}.reference_geometry")
-    original = G._policy_config
-    vendor_config, h3_awq_encoder = original()
-
-    class _Encoder:
-        # A deliberately tiny encoder ceiling nothing else declares.
-        source_image_pixel_bounds = staticmethod(lambda: (1024, 4096))
-        source_image_patch_geometry = staticmethod(
-            h3_awq_encoder.source_image_patch_geometry)
-
+    contract = _v1_contract()
+    contract["image_bounds"] = (1024, 4096)
+    out = G.qwen_image_size(3648, 2048, "encoder", contract)
+    assert out[0] * out[1] <= 4096, (
+        f"encoder still policy ignored the contract's ceiling: {out}")
+    assert G.qwen_image_size(3648, 2048, "release") == (3648, 2048), (
+        "release still policy inherited the contract's test bounds")
     try:
-        G._policy_config = lambda: (vendor_config, _Encoder)
-        out = G.qwen_image_size(3648, 2048, "encoder")
-        assert out[0] * out[1] <= 4096, (
-            f"encoder still policy ignored its own ceiling: {out}")
-        assert G.qwen_image_size(3648, 2048, "release") == (3648, 2048), (
-            "release still policy inherited the encoder's test bounds")
+        G.qwen_image_settings("encoder")
+    except ValueError as exc:
+        assert "loaded encoder's contract" in str(exc), exc
+    else:
+        raise AssertionError("encoder still settings were invented without a contract")
+
+
+def encoder_policy_binds_to_the_loaded_clip():
+    """`encoder` is whatever the CLIP this node was handed declares.
+
+    Three arms on one 640x640 reference, which the current W4 snapshot's
+    301,056-pixel ceiling shrinks and the native path leaves alone:
+
+    1. a CLIP with no stamped contract (core's `CLIPLoader`) resolves
+       `encoder` to native for both stages, so the VAE sees 640x640 and the
+       Qwen video item is the untouched sample;
+    2. a CLIP stamped with the W4 contract shrinks the still to its ceiling;
+    3. a CLIP stamped with a different ceiling shrinks it differently.
+
+    The third arm is the one that matters: it is only true if the resolver
+    reads the INSTANCE it was given. Reading a module default passes the
+    first two.
+    """
+    still = (R.RuntimeImageReference(_frames(1, 640, 640), "max"),)
+
+    def encoded_still_size(contract):
+        vae = _VideoVae()
+        R._compile_reference_records(
+            still, vae, _AudioVae(), 64, 64, 22,
+            video_policy="encoder", image_policy="encoder", contract=contract,
+        )
+        return tuple(vae.inputs[0].shape[1:3])
+
+    # Through the names the NODE binds (`R.`), so a mutation of the node's
+    # resolver reaches this check; the geometry module is the implementation,
+    # not the seam under test.
+    assert R.encoder_contract_from_clip(_stub_clip(None)) is None, (
+        "a CLIP with no stamped contract reported one")
+    assert R.effective_policy("encoder", None) == "comfy"
+    assert R.effective_policy("release", None) == "release"
+    try:
+        native = encoded_still_size(R.encoder_contract_from_clip(_stub_clip(None)))
+    except ValueError as exc:
+        raise AssertionError(
+            f"encoder on a CLIP that declares nothing raised instead of "
+            f"resolving to the native path: {exc}") from exc
+    assert native == (640, 640), (
+        f"encoder on a CLIP that declares nothing resized the still: {native}")
+
+    v1 = _v1_contract()
+    stamped = R.encoder_contract_from_clip(_stub_clip(v1))
+    assert stamped == v1, "the stamped contract did not come back intact"
+    w4 = encoded_still_size(stamped)
+    assert w4[0] * w4[1] <= v1["image_bounds"][1], (
+        f"encoder on the W4 contract left {w4} above its ceiling")
+
+    other = dict(v1, image_bounds=(1024, 4096), source="test-artifact")
+    tiny = encoded_still_size(R.encoder_contract_from_clip(_stub_clip(other)))
+    assert tiny[0] * tiny[1] <= 4096 and tiny != w4, (
+        f"a different stamped contract produced the W4 result {tiny}: the "
+        "resolver is reading a module, not the CLIP")
+
+    # A partial stamp is refused, not partially applied.
+    partial = {"source": "broken", "image_bounds": (1, 2)}
+    try:
+        R.encoder_contract_from_clip(_stub_clip(partial))
+    except ValueError as exc:
+        assert "missing" in str(exc), exc
+    else:
+        raise AssertionError("a partial contract was accepted")
+
+    # The video stage binds to the same contract: a contract whose temporal
+    # factor cannot be met makes the encoder video stage refuse, where the
+    # native resolution runs the raw sample through untouched.
+    frames = _frames(22, 32, 32)
+    video = (R.RuntimeVideoReference(frames, 24.0, None),)
+    original_adapt_canvas = R.adapt_canvas
+    try:
+        R.adapt_canvas = lambda w, h: (w, h)
+        try:
+            items, _ = R._compile_reference_records(
+                video, _VideoVae(), _AudioVae(), 32, 32, 22,
+                video_policy="encoder", contract=None,
+            )
+        except ValueError as exc:
+            raise AssertionError(
+                f"encoder video on a native CLIP raised instead of resolving "
+                f"to the native path: {exc}") from exc
+        assert tuple(items[0]["data"].shape[1:3]) == (32, 32), (
+            "encoder on a native CLIP resized the Qwen video sample")
+        strict = dict(v1, video_geometry=dict(v1["video_geometry"],
+                                              temporal_patch_size=8))
+        try:
+            R._compile_reference_records(
+                video, _VideoVae(), _AudioVae(), 32, 32, 22,
+                video_policy="encoder", contract=strict,
+            )
+        except ValueError as exc:
+            assert "encoder video policy needs at least 8" in str(exc), exc
+        else:
+            raise AssertionError("the video stage did not read the stamped contract")
     finally:
-        G._policy_config = original
+        R.adapt_canvas = original_adapt_canvas
+
+
+def preflight_resolves_encoder_from_the_loader_node():
+    """The static reader binds `encoder` to the graph's loader, as the node does.
+
+    Same conditioner inputs, two loaders: core's `CLIPLoader` yields no
+    contract and the reason; the adapter's loader yields the artifact's
+    contract. An unknown artifact name yields none, never a guess.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "preflight_graph", _REPO / "bench" / "preflight_graph.py")
+    P = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(P)
+
+    def graph(loader_type, **loader_inputs):
+        return {
+            "1": {"class_type": loader_type, "inputs": loader_inputs},
+            "2": {"class_type": "MiniMaxH3ReferenceConditioning",
+                  "inputs": {"clip": ["1", 0]}},
+        }
+
+    native = graph("CLIPLoader", clip_name="qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors")
+    contract, note = P._encoder_contract_for(native["2"]["inputs"], native)
+    assert contract is None and "CLIPLoader" in note, (contract, note)
+
+    awq = graph("MiniMaxH3AWQEncoderLoader",
+                encoder_name="qwen3vl_32b_minimax_h3_w4a16_awq.safetensors")
+    contract, note = P._encoder_contract_for(awq["2"]["inputs"], awq)
+    assert contract == _v1_contract(), (contract, note)
+
+    unknown = graph("MiniMaxH3AWQEncoderLoader", encoder_name="nobody.safetensors")
+    contract, note = P._encoder_contract_for(unknown["2"]["inputs"], unknown)
+    assert contract is None and "not an artifact" in note, (contract, note)
+
+    unlinked = {"2": {"class_type": "MiniMaxH3ReferenceConditioning", "inputs": {}}}
+    contract, note = P._encoder_contract_for(unlinked["2"]["inputs"], unlinked)
+    assert contract is None and "not linked" in note, (contract, note)
 
 
 CHECKS = (
@@ -540,6 +693,8 @@ CHECKS = (
     append_sizing_reaches_the_encoded_geometry,
     image_policy_is_opt_in_and_the_three_differ,
     image_policy_reads_encoder_config,
+    encoder_policy_binds_to_the_loaded_clip,
+    preflight_resolves_encoder_from_the_loader_node,
     conditioning_node_assembles_the_real_payload_shape,
 )
 

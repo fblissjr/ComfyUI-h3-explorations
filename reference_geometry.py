@@ -14,12 +14,22 @@ author tried.
 
 **Stage one of two.** This is *upstream role sizing*: what geometry the
 reference is prepared at before any Qwen processor sees it. The second stage --
-what the selected Qwen still-image policy then does to it -- belongs to
-`reference_conditioning._qwen_image_settings`, because it depends on which
-encoder artifact is loaded and that is knowable only where the CLIP is in
-scope. Keeping the two in separate modules is deliberate: they were conflated
-in `reference_fit.py`, which read Comfy's native `process_qwen2vl_images`
-default as though it were the ceiling for every deployment.
+what the selected Qwen still-image policy then does to it -- is
+`qwen_image_settings` below, and its `encoder` branch depends on which
+encoder artifact is loaded. That is knowable only where the CLIP is in scope,
+which is why the branch takes an explicit *contract* rather than reading a
+module: until 2026-08-25 it read the current W4 artifact's snapshot whichever
+CLIP the graph had loaded, so a stock `CLIPLoader` graph on `encoder` was
+priced and pre-sized at bounds no loaded encoder declared. Keeping the two
+stages in separate modules is deliberate: they were conflated in
+`reference_fit.py`, which read Comfy's native `process_qwen2vl_images` default
+as though it were the ceiling for every deployment.
+
+**The contract.** `h3_awq_encoder.install_source_processors` stamps the
+loaded artifact's declaration on the CLIP's transformer as
+`_h3_encoder_contract`; `encoder_contract_from_clip` reads it back and
+`effective_policy` says what `encoder` means when there is none: the native
+path, because that is what a CLIP that declares nothing actually runs.
 """
 
 from __future__ import annotations
@@ -30,17 +40,58 @@ from comfy_extras.nodes_minimax_h3 import CANVAS_MULTIPLE, REF_IMAGE_SHORT_EDGE
 
 SIZE_POLICIES = ("match", "max")
 
+ENCODER_CONTRACT_KEYS = ("source", "image_bounds", "image_geometry",
+                         "video_bounds", "video_geometry")
+
 __all__ = [
     "CANVAS_MULTIPLE",
     "REF_IMAGE_SHORT_EDGE",
+    "ENCODER_CONTRACT_KEYS",
     "IMAGE_POLICIES",
     "SIZE_POLICIES",
+    "effective_policy",
+    "encoder_contract_from_clip",
     "fit_reference_image",
     "qwen_image_settings",
     "qwen_image_size",
     "latent_rows",
     "snap_to_multiple",
 ]
+
+
+def encoder_contract_from_clip(clip) -> dict | None:
+    """What the LOADED encoder declares, read off the CLIP. `None` is native.
+
+    Branches on the observable, not on which loader node the user picked:
+    the adapter stamps `_h3_encoder_contract` on the transformer it builds,
+    and a CLIP from core's `CLIPLoader` carries no such attribute. A stamped
+    contract missing a key is refused rather than partially applied.
+    """
+    model = clip
+    for attribute in ("cond_stage_model", "qwen3vl_32b", "transformer"):
+        model = getattr(model, attribute, None)
+        if model is None:
+            return None
+    contract = getattr(model, "_h3_encoder_contract", None)
+    if contract is None:
+        return None
+    missing = [key for key in ENCODER_CONTRACT_KEYS if key not in contract]
+    if missing:
+        raise ValueError(
+            f"the loaded encoder's processor contract is missing {missing}; "
+            "refusing to apply a partial declaration")
+    return dict(contract)
+
+
+def effective_policy(policy: str, contract: dict | None) -> str:
+    """`encoder` on a CLIP that declares nothing IS the native path.
+
+    Every other policy is its own answer. This is the only place that
+    substitution is made, so a caller can log that it happened.
+    """
+    if policy == "encoder" and contract is None:
+        return "comfy"
+    return policy
 
 
 def snap_to_multiple(value: float, scale: float = 1.0) -> int:
@@ -104,28 +155,29 @@ def fit_reference_image(
 IMAGE_POLICIES = ("comfy", "release", "encoder")
 
 
-def _policy_config():
-    """The two declared still-image processor configs, imported lazily.
+def _vendor_config():
+    """The release's declared processor configs, imported lazily.
 
     Lazily and both ways: this module is imported as a package member by the
     nodes and as a top-level module by `bench/preflight_graph.py` and
-    `bench/count_packed_rows.py`. `h3_awq_encoder` also pulls in `comfy_api`,
-    which a caller that only wants `fit_reference_image` should not pay for.
+    `bench/count_packed_rows.py`, and a caller that only wants
+    `fit_reference_image` should not pay for the import.
     """
     try:
-        from . import h3_awq_encoder, vendor_config
+        from . import vendor_config
     except ImportError:  # pragma: no cover - top-level import for the tools
-        import h3_awq_encoder  # type: ignore[no-redef]
         import vendor_config  # type: ignore[no-redef]
-    return vendor_config, h3_awq_encoder
+    return vendor_config
 
 
-def qwen_image_settings(image_policy: str) -> tuple[tuple[int, int], dict]:
+def qwen_image_settings(
+    image_policy: str, contract: dict | None = None,
+) -> tuple[tuple[int, int], dict]:
     """Return the bounds and geometry owned by the selected STILL policy.
 
     One ceiling has three live values and nothing could select between them:
     the installed ComfyUI code path's `process_qwen2vl_images` defaults, the
-    loaded encoder artifact's snapshot, and the release's declaration.
+    loaded encoder artifact's declaration, and the release's declaration.
     `reference_fit.py` read the first by introspection and applied it as though
     it were universal, which is right for a native BF16 graph and wrong by
     orders of magnitude under the AWQ adapter.
@@ -133,21 +185,33 @@ def qwen_image_settings(image_policy: str) -> tuple[tuple[int, int], dict]:
     `comfy` returns nothing to apply: it is the passthrough that leaves the
     still exactly as core would, which is what every graph got before this
     existed and therefore what the default has to be.
+
+    `encoder` needs the loaded encoder's `contract`
+    (`encoder_contract_from_clip`), and refuses without one. A CLIP that
+    declares nothing is resolved to `comfy` by `effective_policy` before this
+    is reached; asking for encoder settings with no contract is a caller
+    that skipped that step, not a case to paper over with a default.
     """
     if image_policy == "comfy":
         raise ValueError(
             "the comfy still policy has no configured processor; callers must "
             "skip the Qwen stage entirely rather than ask for its settings")
-    vendor_config, h3_awq_encoder = _policy_config()
     if image_policy == "release":
+        vendor_config = _vendor_config()
         return vendor_config.image_pixel_bounds(), vendor_config.patch_geometry()
     if image_policy == "encoder":
-        return (h3_awq_encoder.source_image_pixel_bounds(),
-                h3_awq_encoder.source_image_patch_geometry())
+        if contract is None:
+            raise ValueError(
+                "the encoder still policy needs the loaded encoder's contract "
+                "(reference_geometry.encoder_contract_from_clip); with none, "
+                "resolve the policy through effective_policy first")
+        return tuple(contract["image_bounds"]), dict(contract["image_geometry"])
     raise ValueError(f"no configured Qwen processor for policy {image_policy!r}")
 
 
-def qwen_image_size(width: int, height: int, image_policy: str) -> tuple[int, int]:
+def qwen_image_size(
+    width: int, height: int, image_policy: str, contract: dict | None = None,
+) -> tuple[int, int]:
     """Return the selected still policy's Qwen view as ``(width, height)``.
 
     Pre-applying this is what puts both towers on one size. Core hands ONE
@@ -163,7 +227,7 @@ def qwen_image_size(width: int, height: int, image_policy: str) -> tuple[int, in
     """
     from transformers.models.qwen2_vl.image_processing_qwen2_vl import smart_resize
 
-    (min_pixels, max_pixels), geometry = qwen_image_settings(image_policy)
+    (min_pixels, max_pixels), geometry = qwen_image_settings(image_policy, contract)
     factor = int(geometry["patch_size"]) * int(geometry["merge_size"])
     target_h, target_w = smart_resize(
         height=height, width=width, factor=factor,
