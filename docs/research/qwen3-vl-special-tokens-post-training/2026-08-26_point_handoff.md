@@ -188,10 +188,11 @@ modifier's parent-argument cache off host memory (a change to
   same launcher): v2b close to v1 means the data did not matter at this bit
   width; v2b better than v1 means duo scaling hurt. Fix the emit path to
   write the recipe before that run so the artifact carries it.
-- **Overfit test, 20 minutes on the card:** capture v1 and v2 against BF16
-  on `bundle_v2_Bp2` (v2's own calibration rows) with the same driver; if
-  v2 beats v1 clearly there and not on the holdout, the population is too
-  small or too specific.
+- **Overfit test: done 18:25** (`bench/results/2026-08-25_v2_calibration_rows_layer50.json`):
+  v2 11% better than v1 on its own rows, 7% worse on the holdout; leaning
+  overfit, but the floor (0.33 to 0.38 for both, everywhere) is the story.
+  Recipe first: AWQ+GPTQ or more bits on the sensitive layers, on a
+  token-balanced stratified population with a per-stratum bar.
 - **Then, if v2's population is the suspect:** the modifier-cache change is
   what a larger population needs (deferred work in the plan); a recipe
   variant (smoothing `o_proj`, a smaller group) is the cheaper experiment

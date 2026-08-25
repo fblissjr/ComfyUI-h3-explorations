@@ -259,6 +259,18 @@ closed, so the artifact does not carry its recipe. The run record
 (`bench/results/2026-08-25_v2_calibration_run.json`) does, and is the
 provenance until the emit path is fixed. Both go to the next point.
 
+**Overfit test, MEASURED 18:25** (`bench/results/2026-08-25_v2_calibration_rows_layer50.json`,
+same comparator, v2's own 29 calibration rows): v2's median relative L2 is
+11% below v1's there (0.336 vs 0.378; better on 18 of 29 rows, text 24 of
+29) against 7% above it on the unseen holdout. Reading, stated before the
+number under the rule "at least 15% better on its own rows is the overfit
+signature, within 5% means the data barely moved the scales": in between,
+leaning overfit. The scales followed the calibration rows' statistics. The
+finding that matters more is the floor: both artifacts sit at 0.33 to 0.38
+on every population and the data moves that by about a tenth either way, so
+at this recipe the ceiling of any data improvement is small. The recipe owns
+the result; the data decides the sign of a ten-percent term.
+
 What v2 is still for: it declares the release image bounds and accepts the
 2048 view that v1 clamps, at fidelity comparable to v1 on identical replayed
 inputs, so the Gate 6 ablation can run on it as the encoder that takes the
