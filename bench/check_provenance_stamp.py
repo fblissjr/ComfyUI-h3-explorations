@@ -169,7 +169,8 @@ def main() -> int:
         except Exception:  # noqa: BLE001, S112
             continue
     report("version_bump_has_no_consumer", not readers,
-           "nothing reads the stamp, so v1 -> v2 protects a future reader only"
+           "nothing reads the stamp, so every bump so far protects a future "
+           "reader only"
            if not readers else
            f"a consumer appeared and must handle the version: {readers}")
 

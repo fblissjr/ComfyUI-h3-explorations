@@ -82,6 +82,16 @@
       "length"
     ]
   },
+  "MiniMaxH3MarkerArm": {
+    "inputs": [
+      "clip",
+      "arm"
+    ],
+    "node_id": "MiniMaxH3MarkerArm",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3Preflight": {
     "inputs": [
       "conditioning",
@@ -100,7 +110,8 @@
       "latent",
       "model",
       "sigmas",
-      "note"
+      "note",
+      "clip"
     ],
     "node_id": "MiniMaxH3ProvenanceStamp",
     "outputs": [

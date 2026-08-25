@@ -4,6 +4,45 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.2
+
+### Added
+
+- **`marker_arms.py` and `MiniMaxH3MarkerArm` (bench)**: binds one arm of
+  `bench/marker_corpus/compiled.json` to a CLIP. `release` binds nothing and is
+  what the `release_id` and `stripped` arms use, since their difference is
+  prompt bytes and the corpus owns those. `legacy_bpe` swaps in a freshly built
+  pre-fix tokenizer. `mean_init_rows` replaces the seven H3 marker embedding
+  rows with the table mean. Both transforms attach to a CLONE -- a fresh
+  tokenizer and an offset-keyed patch on the cloned patcher -- because
+  `CLIP.clone()` shares `cond_stage_model` and the tokenizer by reference and
+  the encoder loader caches its patcher, so an in-place change would be
+  inherited by every later render that reuses the model. Nothing is written to
+  disk and the deployed artifact is untouched.
+- **`MiniMaxH3ProvenanceStamp` records an `encoder_arm` block** from an
+  optional CLIP input, appended last so saved graphs keep their widget
+  positions. Three states: no CLIP is "not detected", a CLIP that never met the
+  arm node still reports what its tokenizer and rows actually are with a null
+  `declared_arm`, and an armed CLIP adds the label. The block is read off the
+  live CLIP -- which markers the tokenizer resolves, and what the patcher makes
+  of the marker rows through ComfyUI's own `calculate_weight` -- never from the
+  arm name. Schema version 3.
+- **`bench/check_marker_arms.py`**, ten cases, every one of the shape "the
+  declaration and the value read back must agree". The governing case builds
+  all three arms from one fixture and requires their records to differ once the
+  label is stripped; the non-self-referential one requires this repo's legacy
+  reconstruction to reproduce token ids recorded by a compiler that shares no
+  code with it. Runs on a synthetic embedding at the real vocabulary height, no
+  artifact and no CUDA, with the real key re-read off the installed encoder so
+  the fixture cannot pass by construction.
+
+### Changed
+
+- `bench/node_id_manifest.json` records the appended provenance input and the
+  new node. Written entry by entry rather than by `--write`, which regenerates
+  the whole file and would have swept in another lane's pending
+  `qwen_short_edge` record as though it were deliberate here.
+
 ## 0.70.1
 
 ### Added

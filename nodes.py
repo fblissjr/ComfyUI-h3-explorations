@@ -12,6 +12,7 @@ from comfy_api.latest import ComfyExtension, io
 
 from .assert_chain import SageChainAssert
 from .keyframe_canvas import MiniMaxH3KeyframeCanvas
+from .marker_arms import MiniMaxH3MarkerArm
 from .conditioning import MiniMaxH3Conditioning
 from .h3_awq_encoder import MiniMaxH3AWQEncoderLoader
 from .preflight import MiniMaxH3Preflight
@@ -307,7 +308,7 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3ReferenceVideoFit,
                 MiniMaxH3AppendRefImage, MiniMaxH3AppendRefVideo,
                 MiniMaxH3AppendRefAudio, MiniMaxH3ReferenceConditioning,
-                MiniMaxH3AWQEncoderLoader]
+                MiniMaxH3AWQEncoderLoader, MiniMaxH3MarkerArm]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

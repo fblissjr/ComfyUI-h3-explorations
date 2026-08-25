@@ -71,7 +71,7 @@ from comfy_api.latest import io
 
 logger = logging.getLogger(__name__)
 
-STAMP_SCHEMA_VERSION = 2
+STAMP_SCHEMA_VERSION = 3
 
 # Every Sol setting that exists only inside the override closure. Anything here
 # that introspection cannot reach becomes an explicit "not detected" IN THE
@@ -234,6 +234,13 @@ class MiniMaxH3ProvenanceStamp(io.ComfyNode):
                     "From BasicScheduler. Without it n_sparse cannot be computed, "
                     "which is the one field this node exists for.")),
                 io.String.Input("note", default="", multiline=False, optional=True),
+                io.Clip.Input("clip", optional=True, tooltip=(
+                    "Optional. With it the record carries an encoder_arm block "
+                    "read off this CLIP -- which of the seven H3 markers its "
+                    "tokenizer resolves, and what its patcher makes of the "
+                    "marker embedding rows. Readable from any CLIP, including "
+                    "one that never passed through MiniMaxH3MarkerArm, so a "
+                    "render that forgot the arm still records what it ran.")),
             ],
             outputs=[io.Latent.Output(display_name="latent")],
             hidden=[io.Hidden.prompt],
@@ -241,7 +248,7 @@ class MiniMaxH3ProvenanceStamp(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, latent, model, sigmas=None, note="") -> io.NodeOutput:
+    def execute(cls, latent, model, clip=None, sigmas=None, note="") -> io.NodeOutput:
         to = (model.model_options or {}).get("transformer_options", {}) or {}
         sol = _sol_state(to, sigmas)
 
@@ -266,6 +273,12 @@ class MiniMaxH3ProvenanceStamp(io.ComfyNode):
                 "sageattention": cls._sage_version(),
             },
             "resolved": cls._geometry(latent),
+            # Three states, not two. No CLIP wired is "not detected"; a CLIP
+            # that never met the arm node still reports what its tokenizer and
+            # rows actually are, with a null declared_arm; an armed CLIP adds
+            # the label. The label is never the evidence -- see
+            # `marker_arms.encoder_arm_record`.
+            "encoder_arm": cls._encoder_arm(clip),
         }
 
         prompt = getattr(cls.hidden, "prompt", None)
@@ -337,6 +350,20 @@ class MiniMaxH3ProvenanceStamp(io.ComfyNode):
             return f"{ver}@{_git_head(src)}"
         except Exception:
             return NOT_DETECTED
+
+    @staticmethod
+    def _encoder_arm(clip):
+        """What the wired CLIP's tokenizer and marker rows actually are."""
+        if clip is None:
+            return NOT_DETECTED
+        try:
+            try:
+                from .marker_arms import encoder_arm_record
+            except ImportError:  # loaded by path, not as a package member
+                from marker_arms import encoder_arm_record
+            return encoder_arm_record(clip)
+        except Exception as exc:  # noqa: BLE001
+            return {"error": type(exc).__name__}
 
     @staticmethod
     def _geometry(latent):
