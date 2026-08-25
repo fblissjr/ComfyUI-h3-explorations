@@ -99,8 +99,11 @@ are not on the critical path; the AWQ state is what the host is for.
    sequential pipeline at layer N. Assigned to mr_sparkles as a separate
    module, integrated into the pilot only after this run lands, and accepted
    only when an interrupted-then-resumed probe run is bit-identical to an
-   uninterrupted one. Until that proof exists, a long run is still all or
-   nothing.
+   uninterrupted one. **Parked at 17:00 the same day by owner decision:**
+   the mechanism was proven at fixture scale on CPU (commit 1c427bd) and the
+   pilot integration and real-weight proof were judged not worth their cost
+   for a five-hour run; a long run is still all or nothing until a longer
+   one is planned.
 
 ## The split, rebuilt
 

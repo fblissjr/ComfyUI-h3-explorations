@@ -129,9 +129,13 @@ above are what it needs.
    block as evidence; the arms are release IDs, legacy BPE, stripped, and
    mean-initialised rows (a patched clone, never written). Training is off
    the table unless the ID arm loses and re-init does not help.
-6. **Checkpoint/resume proof** on the 2-layer fixture, after the card is
-   free: uninterrupted versus killed-and-resumed, bit-identical packed
-   weights.
+6. **Checkpoint/resume: parked by owner decision at 17:00 on 2026-08-25.**
+   The module, design note and check exist (`bench/h3_calibration_checkpoint.py`,
+   `bench/check_calibration_checkpoint.py`, proven bit-identical at fixture
+   scale on CPU); the pilot integration and the real-weight card proof are
+   deliberately not done. Bring it back only for a run longer than tonight's
+   (the larger population after the modifier-cache change), at a cadence of
+   every 4 layers.
 
 Deferred, named in the plan: a larger calibration population needs the
 modifier's parent-argument cache off host memory (a change to
