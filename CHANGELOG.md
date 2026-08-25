@@ -4,6 +4,37 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.64.0
+
+### Added
+
+- **`ALLOW: (none)` in the `retraction-consumers` ledger**: the row shape for a
+  claim deleted repo-wide rather than caveated. Such a claim has no consumer to
+  enumerate, so the row becomes a tripwire -- any occurrence in any file is a
+  reintroduction. A bare empty `ALLOW:` still fails the parse, so the state is
+  opt-in and a truncated line is still caught.
+
+### Fixed
+
+- **`bench/check_retraction_consumers.py` printed advice that could not be
+  followed.** Its `stale_allowlist` warning said to drop the named file from
+  the row; when that file was the row's only entry, doing so emptied the row
+  and turned the warning into `FAIL parses_the_ledger`. The warning now names
+  the sentinel in that case. The row for the withdrawn adaln figure's second
+  spelling had been warning since 2026-08-20 with no reachable remedy, and is
+  now `(none)`.
+
+### Changed
+
+- **`docs/evidence.md`** records two retractions moved out of `CLAUDE.md`: any
+  A/B of a numerical knob resting on one rendered clip per arm, including the
+  2026-08-13 comparison that chose `fp16 (most accurate)`, and the 2026-08-15
+  ordering arms, whose per-clip seeds differ so they were never a matched pair.
+  The rule stays in `CLAUDE.md`; the retraction records now sit in the file
+  that owns retractions.
+- **`CLAUDE.md`** drops two passages of its own edit history and replaces the
+  hand-maintained `coderef/` roster, which had drifted, with `ls -l coderef/`.
+
 ## 0.63.0
 
 ### Added

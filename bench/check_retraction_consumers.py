@@ -56,6 +56,26 @@ Claims, i.e. what breaks if a case is deleted:
                               drifted is no longer an enumeration, so it is
                               surfaced rather than swallowed.
 
+## `ALLOW: (none)` -- the phrase must appear nowhere
+
+A claim deleted repo-wide rather than caveated has no consumers left, and its
+row cannot name one. Until 2026-08-25 the only ways to express that were to
+delete the row, which throws the tripwire away, or to plant a deliberate
+mention in the ledger's own prose so the row had something to match --
+`docs/evidence.md` does exactly that for `2.7x more accurate` and for
+`bypassed_for_capture`, each spelled once and saying so.
+
+`ALLOW: (none)` says it directly: this phrase belongs in no file, and any
+occurrence is an unlisted consumer. It is spelled out rather than left as an
+empty `ALLOW:` so that a typo or a truncated line still fails the parse
+instead of quietly becoming the strictest row in the ledger.
+
+What made this worth building rather than working around a third time: the
+`replaced rather than adjusted` row warned from 2026-08-20, and the remedy the
+warning itself printed -- drop the file from the row -- would have emptied the
+row's only entry and turned the warn into `FAIL parses_the_ledger`. The advice
+was unreachable for exactly the case that produces it most often.
+
 Needs no ComfyUI, no CUDA, no model. Runs in well under a second.
 """
 
@@ -77,6 +97,10 @@ SUFFIXES = (".md", ".py")
 # believed at the time on purpose, and holding it to the current retraction
 # state would make every postmortem fail the moment it was superseded.
 SKIP_DIRS = {".git", "internal", "__pycache__", "coderef", "vendor", "archive"}
+
+# Spelled out rather than an empty `ALLOW:`, so a truncated or mistyped line
+# still fails the parse instead of silently becoming a must-appear-nowhere row.
+NOWHERE = "(none)"
 
 
 def iter_files():
@@ -139,12 +163,19 @@ def parse_ledger(text):
     rows, cur = [], None
     for line in m.group(1).splitlines():
         if line.startswith("PHRASE:"):
-            cur = {"phrase": line.split(":", 1)[1].strip(), "allow": [], "why": ""}
+            cur = {
+                "phrase": line.split(":", 1)[1].strip(),
+                "allow": [],
+                "nowhere": False,
+                "why": "",
+            }
             rows.append(cur)
         elif line.startswith("ALLOW:"):
             if cur is None:
                 raise SystemExit("FAIL parses_the_ledger: ALLOW before PHRASE")
-            cur["allow"] = line.split(":", 1)[1].split()
+            names = line.split(":", 1)[1].split()
+            cur["nowhere"] = names == [NOWHERE]
+            cur["allow"] = [] if cur["nowhere"] else names
         elif line.startswith("WHY:"):
             if cur is None:
                 raise SystemExit("FAIL parses_the_ledger: WHY before PHRASE")
@@ -152,17 +183,20 @@ def parse_ledger(text):
     if not rows:
         raise SystemExit("FAIL parses_the_ledger: block present but empty")
     for row in rows:
-        if not row["allow"]:
+        if not row["allow"] and not row["nowhere"]:
             raise SystemExit(
                 f"FAIL parses_the_ledger: {row['phrase']!r} lists no files. "
-                "An empty allowlist would pass trivially."
+                f"Write `ALLOW: {NOWHERE}` if the phrase is meant to appear "
+                "nowhere; a bare empty ALLOW is treated as a typo."
             )
     return rows
 
 
 def main():
     rows = parse_ledger(LEDGER.read_text(encoding="utf-8"))
-    print(f"  ok    parses_the_ledger   {len(rows)} retracted phrase(s)")
+    nowhere = sum(1 for row in rows if row["nowhere"])
+    print(f"  ok    parses_the_ledger   {len(rows)} retracted phrase(s), "
+          f"{nowhere} of them must appear nowhere")
 
     contents = {}
     for path in iter_files():
@@ -180,11 +214,19 @@ def main():
         for name in sorted(found - allowed):
             unlisted.append((row["phrase"], name))
         for name in sorted(allowed - found):
-            stale.append((row["phrase"], name))
+            stale.append((row["phrase"], name, len(allowed) == 1))
 
-    for phrase, name in stale:
+    for phrase, name, only in stale:
+        # Telling someone to drop the last file on a row would empty it, and an
+        # empty ALLOW fails the parse. That advice was unreachable for the case
+        # that produces this warning most often.
+        remedy = (
+            f"it was the only file on that row, so write `ALLOW: {NOWHERE}` "
+            "to keep the tripwire"
+            if only else "drop it from that row"
+        )
         print(f"  warn  stale_allowlist    {name} no longer contains "
-              f"{phrase!r} -- drop it from that row")
+              f"{phrase!r} -- {remedy}")
     if not stale:
         print("  ok    stale_allowlist     every allowlisted file still has its phrase")
 

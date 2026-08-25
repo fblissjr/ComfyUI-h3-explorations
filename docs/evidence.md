@@ -73,6 +73,8 @@ attached to the number.
 | **any bench progress read from its own stdout mid-run** | The warmup `print` lacks `flush=True`, and `tee` makes stdout block-buffered, so finished lines sit in the buffer. Read ComfyUI's progress lines instead | add `flush=True` |
 | **Morton is "worth 1.16x alone", at "94% GPU utilisation"** | Retracted 2026-08-16. Triton, 362 frames, stacked on int8 — correct for what it measured, and not a description of the CUDA backend, where the permutation is free. It had been the standing argument for `morton=False` in `h3_config.py` and in `docs/SOLATTN.md`'s Configuration findings, and the two disagreed for several hours | a CUDA Morton arm at fixed tau, if anyone wants a cost number at all |
 | **the CUDA replacement, "0.8 s of 861, or 1.0009x"** | **Do not quote this either**, and it is the more instructive of the two. It is one arm of a two-arm control presented as the isolated number: the dense pair moved +0.8 s and the sparse pair moved −1.2 s, i.e. opposite signs, both at or under the bench's measured run-to-run spread on one run per arm. Morton-on cannot be faster, so the pair is measuring noise. The correct claim is unquantified — **free** | more runs per arm, if the cost is ever worth pinning. Nothing currently depends on it |
+| **any A/B of a numerical knob that rests on one rendered clip per arm**, including the 2026-08-13 comparison that chose `fp16 (most accurate)` | **Not controlled evidence about the knob.** The sampling trajectory diverges completely from any perturbation on any sampler, so the changed arm is a *different sample*, not a degraded version of the same one. Sound as a preference between two outputs; never a result about the kernel. Ranked against it, the call-level measurement from `bench/grade_sage_on_capture.py` is the stronger claim, which is the opposite of how the two were weighted at the time | many seeds per arm judged blind in aggregate, or a call-level comparison on captured activations |
+| **the 2026-08-15 ordering arms read as a matched pair** | **They were never paired.** The arms carry a different seed per clip, so the comparison was two unrelated samples before the divergence argument above even applies. Check the seed before trusting any pair at all | re-render the arms on matched seeds |
 
 **362 is the max length, and every "345 is legal / 362 is illegal" claim is
 withdrawn. Owner decision, 2026-08-16.** 345 is the largest count the
@@ -176,6 +178,11 @@ than it appears to. That fails closed -- the missing files show up as
 unlisted consumers -- but it wastes a run, which is how it was found on
 2026-08-16.
 
+`ALLOW: (none)` means the phrase must appear in NO file: the claim was deleted
+repo-wide rather than caveated, so it has no consumers and any occurrence is a
+reintroduction. Spelled out rather than left empty, because a bare `ALLOW:`
+is treated as a truncated line and fails the parse.
+
 PHRASE: 2.7x more accurate
 ALLOW: docs/evidence.md
 WHY: the figure was DELETED repo-wide on 2026-08-16, not caveated, so the
@@ -232,9 +239,13 @@ WHY: the 1.92 `final_layer.adaln_proj` figure, withdrawn 2026-08-20 as a
      parenthesis that withdraws it; CHANGELOG.md records it as history.
 
 PHRASE: replaced rather than adjusted
-ALLOW: docs/evidence.md
-WHY: the same figure in its other spelling, carried by h3_config.py and
-     analyze_ref_lora.py until 2026-08-20; both now say so without the phrase.
+ALLOW: (none)
+WHY: the same figure in its other spelling, carried by h3_config.py and by
+     bench/analyze_ref_lora.py until 2026-08-20; h3_config.py now says so
+     without the phrase, and analyze_ref_lora.py was deleted 2026-08-21 with
+     the rest of the reference LoRA. No consumer is left, so this row is a
+     tripwire rather than an enumeration: it went `(none)` on 2026-08-25,
+     having warned as a stale allowlist since the cleanup.
 
 PHRASE: 94% GPU utilisation
 ALLOW: docs/evidence.md docs/morton.md docs/SOLATTN.md docs/open_experiments.md CHANGELOG.md

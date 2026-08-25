@@ -6,12 +6,12 @@ This file is only what would cost you a session to rediscover — the operative
 rule, not the story behind it. Stories live in `docs/` and the postmortems.
 
 ## Guiding Principles
-- **Before writing a number into prose, substitute a different plausible value. If the reader's next action is unchanged, the number is decorative — delete it.** "Sixteen rows claim calibration" and "seventeen rows claim calibration" prompt the same next step, so the count is liability carrying no information. This replaced a volatility test on 2026-08-17, which kept accurate-but-useless counts and cut useful ones.
+- **Before writing a number into prose, substitute a different plausible value. If the reader's next action is unchanged, the number is decorative — delete it.** "Sixteen rows claim calibration" and "seventeen rows claim calibration" prompt the same next step, so the count is liability carrying no information.
   - A number that survives the test is one of two things. **Normative** — a limit you are setting, an exit code, a threshold — which cannot drift, because the world moves toward it. Or **descriptive**, in which case it needs an observation point: a date, a commit, an attribution, or past tense. Descriptive counts belong only in dated records.
   - **Generating a decorative number is not a lesser fix than deleting it.** It makes the claim permanently true and permanently useless, and still charges every reader a reconciliation against what they can see. Delete first; generate only what passed the test.
   - Auditing prose already written rather than prose being written: `claim-audit`.
 - DO NOT write meaningless tests - if something can't be tested or be a simple red/green, then find another way to make sure you're measuring and testing what you think you are
-- **Sol-Attn is ALWAYS ON by default in every shipped video workflow.** Bypassing is reserved for explicit testing / comparative experiments. Three kinds of graph legitimately do not wire it, and all of them wire `MiniMaxH3SageAttention` instead: `workflows/image/` (single-frame, Sol does not apply), `workflows/bench/*_stamped_api.json` (dense baselines — the thing Sol is measured against), and the two capture graphs `workflows/h3_probe_capture_ref3_api.json` / `workflows/h3_probe_capture_ref3_fl2va_api.json` (activation capture, which must record the true attention inputs rather than Sol's output). A fourth kind, since 2026-08-20, wires neither sage nor Sol: `workflows/h3_probe_turbo_768p_sla_router_api.json` runs `MiniMaxH3SLARouter`, the sparse top-k router the Turbo-SLA LoRA was distilled under, as a comparative arm. **Enforced by `bench/check_attention_defaults.py` since 2026-08-18**: it grades every graph's Sol and sage values against `h3_config`, by reachability from the output node rather than node presence, and asserts each exemption above is *necessary* (an exempt graph with live Sol goes red). Until then this rule was enforced on one graph by accident — `check_bench_matches_shipped.py` reads `h3_probe_sol_on_api.json` for a different purpose — and this paragraph said so until 2026-08-20, two days after the check landed. The **Uncontrolled requirements** table in [`docs/checks.md`](docs/checks.md) records the handover.
+- **Sol-Attn is ALWAYS ON by default in every shipped video workflow.** Bypassing is reserved for explicit testing / comparative experiments. Three kinds of graph legitimately do not wire it, and all of them wire `MiniMaxH3SageAttention` instead: `workflows/image/` (single-frame, Sol does not apply), `workflows/bench/*_stamped_api.json` (dense baselines — the thing Sol is measured against), and the two capture graphs `workflows/h3_probe_capture_ref3_api.json` / `workflows/h3_probe_capture_ref3_fl2va_api.json` (activation capture, which must record the true attention inputs rather than Sol's output). A fourth kind, since 2026-08-20, wires neither sage nor Sol: `workflows/h3_probe_turbo_768p_sla_router_api.json` runs `MiniMaxH3SLARouter`, the sparse top-k router the Turbo-SLA LoRA was distilled under, as a comparative arm. **Enforced by `bench/check_attention_defaults.py` since 2026-08-18**: it grades every graph's Sol and sage values against `h3_config`, by reachability from the output node rather than node presence, and asserts each exemption above is *necessary* (an exempt graph with live Sol goes red).
 
 ## What is where
 
@@ -150,24 +150,16 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
     cannot support it however carefully it is stacked, and
     `docs/eval_comparison.md`'s blind tooling does not change that; it controls
     who knows which arm, not whether the arms are comparable.
-  - **This retro-applies.** The 2026-08-13 A/B that chose
-    `fp16 (most accurate)` was one clip per arm, so it compared two samples.
-    Sound as a preference between two outputs; never controlled evidence about
-    the kernel. Ranked against it, the call-level measurement is the stronger
-    claim, which is the opposite of how the two were weighted at the time.
   - **A weight-level difference** — LoRA against checkpoint — diverges for the
     same reason and was always answering "does each arm satisfy the brief".
     Read those as briefs met, never as clips matched.
-  - **Check the seed before trusting any pair at all.** The 2026-08-15 ordering
-    arms carry a different seed per clip and were never paired to begin with.
 
 ## Reference implementations
 
-`coderef/` (gitignored) symlinks the sister checkouts — diffusers,
-DiffSynth-Studio, comfy-kitchen, sage-fork, triton, LightX2V, Minimax-H3-Turbo
-— plus real clones of MiniMax-H3, Sana, MiniMax-Music3, h3-turbo-eval and
-**`comfy-kitchen-sol`**, which is the one most cited here: `docs/morton.md` and
-`docs/sol_upstream.md` quote its `.cu` files by path, and those ship in no wheel.
+`coderef/` (gitignored) holds the sister checkouts, some symlinked and some
+real clones; `ls -l coderef/` is the list. **`comfy-kitchen-sol`** is the one
+most cited here: `docs/morton.md` and `docs/sol_upstream.md` quote its `.cu`
+files by path, and those ship in no wheel.
 
 **Do not import Python from it.** The built branch is installed
 (`comfy_kitchen_version: 0.2.31+sol.23d1a66`), so
