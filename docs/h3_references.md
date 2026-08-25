@@ -616,6 +616,64 @@ Nothing here says the 2048 version looks better. That is
 2048 "is a good reason to offer it and a weaker reason to default to it,
 because upscaling adds tokens rather than detail."
 
+### Both stages on three real sizes, and what the v2 decision changes
+
+The table above is the DiT half. A reference is sized twice, and the second
+stage is the encoder's own processor bounds, which can only shrink what Qwen
+sees. Computed 2026-08-25 through the shipped functions rather than the
+formulas: `reference_geometry.fit_reference_image` for stage one,
+`reference_geometry.qwen_image_size` under the loaded encoder's stamped
+contract for stage two (`bench/check_reference_runtime.py` holds both to the
+installed processors). "v1" is the current W4 artifact's 200,704--301,056-pixel
+snapshot; "v2" is the release declaration, 65,536--16,777,216, which the v2
+candidate is calibrated and served at.
+
+| source | choice | stage 1 (VAE and Qwen input) | DiT rows | Qwen tokens, v1 | Qwen tokens, v2 |
+|---|---|---|---:|---:|---:|
+| 640x480 | A: `max`, no upscale | 640x480 | 300 | 266 | 300 |
+| | B: 2048 short edge, upscale | 2720x2048 | 5,440 | 266 | 5,440 |
+| 1920x1080 | A | 1920x1088 | 2,040 | 264 | 2,040 |
+| | B | 3648x2048 | 7,296 | 264 | 7,296 |
+| 3024x4032 | A | 2048x2720 | 5,440 | 266 | 5,440 |
+| | B | 2048x2720 | 5,440 | 266 | 5,440 |
+
+Four things to read off it:
+
+- **A and B differ only for sources below a 2048 short edge.** The portrait
+  is already past it, so both choices cap it at 2048 and the rows are
+  identical; the crop and the 1080p photo are where the choice exists.
+- **Under v1, A versus B changes only the DiT.** Stage two crushes Qwen to
+  about 265 tokens either way, so B buys 5,440 DiT rows for the crop instead
+  of 300 and the conditioner never sees the extra pixels. That asymmetry is
+  why no-upscale was the sound default while v1 was the encoder.
+- **Under v2, B multiplies what Qwen sees.** The crop goes from 300 to 5,440
+  Qwen tokens, every one interpolated from 640x480; the photo from 2,040 to
+  7,296. A reference pays twice, as DiT rows and as Qwen tokens in the text
+  segment, and both sit inside Sol-Attn's exact sink
+  ([`SOLATTN.md`](SOLATTN.md)), attended every step.
+- **The choice is distribution against information.** A feeds the encoder
+  real pixels only and is far cheaper. B feeds it the geometry the vendor's
+  serving pipeline produces (the sglang rule at the top of this section),
+  which is what the DiT was trained to read layer-50 states of.
+
+**OWNER-DECISION, 2026-08-25:** v2 calibrates reference stills at B, the
+vendor's 2048 upscale, as the primary policy, cost accepted; `max` with no
+upscale stays as a comparison stratum. Recorded in
+[`canonical/active_plan.md`](research/qwen3-vl-special-tokens-post-training/canonical/active_plan.md).
+The consequence for graphs: a v2 parity graph needs the upscale at stage one
+(`allow_upscale=True` on the fit or append) and `video_policy=release` for
+video references, in addition to the encoder contract the loader stamps. On
+2026-08-25 the shipped graphs are 6 upscale-on to 28 off and 39 of 40 on
+`video_policy=encoder`, so most of them would run v2 at A geometry: the AWQ
+scales chosen from B-sized activations applied to A-sized inputs. That is the
+same class of mismatch measured for v1 in the other direction (vision cosine
+0.966 at its calibration geometry, 0.832 served wider;
+[`2026-08-24_layer50_processor_policy_benchmark.md`](research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_layer50_processor_policy_benchmark.md)),
+not yet measured in this one. Which graphs flip, and when, is the owner's
+call at v2 acceptance. The paragraph above this one still stands: none of
+this says the 2048 version looks better; it says which distribution the
+encoder was calibrated on.
+
 ### Should video and audio have fit nodes too?
 
 Both have the same kind of divergence from the reference pipeline. The answers

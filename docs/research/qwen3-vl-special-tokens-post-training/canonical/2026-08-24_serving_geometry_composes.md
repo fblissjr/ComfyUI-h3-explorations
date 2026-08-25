@@ -39,6 +39,12 @@ actually receives:
 input they do the same nothing; `match` discards real pixels above about 1 MP;
 only `allow_upscale` ever enlarges.
 
+The same composition worked through stage two as well, for three real sizes
+under the v1 cap and the v2 release bounds, with the 2026-08-25 owner
+decision on the upscale, is in
+[`h3_references.md`](../../../h3_references.md), "Both stages on three real
+sizes".
+
 **Stage 2, the encoder cap.** Owned by the artifact.
 `h3_awq_encoder.py::_image_processor()` builds a `Qwen2VLImageProcessor` from the
 artifact's `processor_config.json` snapshot and
