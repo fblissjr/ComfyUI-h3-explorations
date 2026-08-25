@@ -66,6 +66,14 @@ MODELS = dict(
 #: without a graph edit. Until the file exists those graphs read red there.
 ENCODER_V2 = "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"
 
+#: The ComfyUI-native INT8 ConvRot encoder, the encoder of record for the
+#: Gate 6 reference-view arms and the marker arms since 2026-08-25: on the
+#: 13-row holdout it sits about fifteen times closer to the BF16 release at
+#: layer 50 than either W4A16 artifact (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`).
+#: Not in `MODELS` for the same reason as `ENCODER_V2`: the shipped graphs
+#: still load `MODELS["clip"]`; only the arms that measure wire this one.
+ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+
 # `er_sde` / `simple`, the default since 2026-08-15. The owner's call, and a
 # default rather than a finding: `res_multistep` / `simple` were core's
 # base-template values carried unquestioned, and `er_sde` looked more

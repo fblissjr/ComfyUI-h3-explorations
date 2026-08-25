@@ -4,6 +4,19 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.11
+
+### Changed
+
+- The three Gate 6 reference-view arms (`workflows/h3_probe_refview_*`) load
+  the ComfyUI-native INT8 ConvRot encoder (`h3_config.ENCODER_INT8`) instead
+  of the W4A16 v2 artifact. On the 13-row holdout INT8 sits about fifteen
+  times closer to the BF16 release at layer 50 than either W4A16 artifact
+  (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`), so it is
+  the encoder of record for the ablation and the marker arms; the W4 lane
+  continues as the small-host variant. `bench/gate6_refview_arms.json` says
+  how to patch a W4 artifact back in on every arm at once.
+
 ## 0.70.10
 
 ### Added

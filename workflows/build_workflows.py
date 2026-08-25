@@ -53,7 +53,7 @@ _OUR_NODES = {
 # used to live here in duplicate with the bench. Single source is
 # h3_config.py -- see its docstring for why that matters.
 from h3_config import (  # noqa: E402
-    ENCODER_V2, IMAGE_VAE, IMAGE_EDIT_BUDGET,
+    ENCODER_V2, ENCODER_INT8, IMAGE_VAE, IMAGE_EDIT_BUDGET,
     ASPECTS, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
     CACHE_NODE, CACHE_NODE_CLASS,
@@ -5386,11 +5386,13 @@ def main():
         # the vendor row), differing only in how each still reaches its two
         # consumers. `docs/h3_conditioning_end_to_end.md` section 1b is why the
         # VAE view and the Qwen view need not share a geometry;
-        # `docs/h3_references.md` prices the two stages. The encoder is the v2
-        # artifact BY NAME (`ENCODER_V2`), so v1/v2 swap at the combo without
-        # a graph edit; until that file lands `check_model_files` reads these
-        # red and `preflight_graph.py` prices the Qwen view under Comfy's
-        # bounds. `video_policy=release` is set with no video reference wired,
+        # `docs/h3_references.md` prices the two stages. The encoder is the
+        # ComfyUI-native INT8 ConvRot file BY NAME (`ENCODER_INT8`), the
+        # encoder of record since the four-encoder holdout table of
+        # 2026-08-25; the W4 artifacts (`MODELS["clip"]`, `ENCODER_V2`) swap in
+        # at the combo without a graph edit for the small-host variant. The
+        # native file takes the 2048 Qwen view directly (core's own sizing),
+        # where the v1 artifact clamps. `video_policy=release` is set with no video reference wired,
         # so a video row patched in through `run_graph_arms --set` inherits the
         # release sizing rather than a policy nobody chose. Sol on, as in every
         # shipped video graph. `bench/gate6_refview_arms.json` is the manifest
@@ -5399,7 +5401,7 @@ def main():
             (f"h3_probe_refview_{tag}.json", f"r2v-refview-{tag}", "r2v",
              _ref_prompt(images=("character", "garment", "environment")),
              dict(**{**REF_VIDEO_BUDGET, "ref_upscale": upscale},
-                  ref_images=CAPTURE_REF_IMAGES, clip=ENCODER_V2,
+                  ref_images=CAPTURE_REF_IMAGES, clip=ENCODER_INT8,
                   ref_video_policy="release",
                   ref_qwen_short_edge=qwen,
                   out_prefix=f"Video/h3_probe_refview_{tag}",

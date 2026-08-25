@@ -11,7 +11,7 @@
     "stills": "the three LoadImage nodes are ids 15, 16 and 34 in every arm; patch the same file into all arms: --set A:15.image=<file> --set B:15.image=<file> --set C:15.image=<file>, and likewise 16 and 34",
     "prompt": "node 5 (MiniMaxH3ReferenceConditioning) input `prompt`; the prompt must name exactly the Pictures the graph wires (check_ref_prompt_labels)",
     "seeds": "--seed N --runs K gives every arm the same K seeds, which is what blind_batch.py pairs on",
-    "encoder": "node 2 names ENCODER_V2 (h3_config); to run the same arms on v1 patch --set <arm>:2.encoder_name=<v1 file> on every arm, never on one"
+    "encoder": "node 2 names ENCODER_INT8 (h3_config), the ComfyUI-native INT8 ConvRot file, the encoder of record since the 2026-08-25 four-encoder holdout table; to run the same arms on a W4 artifact patch --set <arm>:2.encoder_name=<file> on every arm, never on one"
   },
   "run": "python bench/run_graph_arms.py --manifest bench/gate6_refview_arms.json --seed <base> --runs <K> --warmup A --out bench/results/<date>_gate6_refview_arms.jsonl [--set ...row patches...]; then bench/blind_batch.py on that JSONL with --pairs A,B --pairs A,C --pairs B,C",
   "priced": "bench/results/2026-08-25_gate6_refview_preflight.json, from bench/preflight_graph.py on each arm as generated; rerun preflight after any row patch, the stills decide the token counts"
