@@ -37,21 +37,37 @@ is what made this standard cost more than it caught.
 
 **A mutation control needs its own precondition, and must fail rather than
 pass when it is not met.** Adopted 2026-08-25 after three instances in one day,
-all the same shape from different directions. A scaffold mutation written
-against the decoded text found nothing, because the raw record separates words
-with U+0120; a still-policy mutation picked whichever upscale row came first,
-which on one bundle was keyframe-only, where that field is never exercised; and
-a disk-tier control read `None == None` and reported the null result as a pass.
-In each case the control did not apply, and *not applying* looked exactly like
-*applying and finding nothing wrong*.
+all the same shape: **a reading whose precondition was not met produced a
+verdict anyway.** A scaffold mutation written against the decoded text found
+nothing, because the raw record separates words with U+0120; a still-policy
+mutation picked whichever upscale row came first, which on one bundle was
+keyframe-only, where that field is never exercised; and a disk-tier control
+compared a weight hash it could not read on that tier.
+
+**The direction differed, and that matters.** The first two failed open: the
+control did not apply, and *not applying* looked exactly like *applying and
+finding nothing wrong*. The third failed closed -- its guard yields "unchanged"
+on a null read, which refuses to emit the candidate. A shared shape is not a
+shared failure mode, and a claim that these controls "pass when they should
+fail" is true of two of them.
 
 So a control must assert that it reached its subject before grading the
 outcome: select on the property the arm actually reads, not on a property that
 usually accompanies it, and raise when no eligible subject exists rather than
-silently doing nothing. What caught all three is grading each mutation on **the
-arm it targets gaining a problem the unmutated baseline did not have**, instead
-of on a process exit code -- a distinction that also matters because a subject
-carrying known findings makes every exit-code comparison pass for free.
+silently doing nothing. The two mutation controls were caught by grading each
+mutation on **the arm it targets gaining a problem the unmutated baseline did
+not have**, instead of on a process exit code -- a distinction that matters
+because a subject carrying known findings makes every exit-code comparison pass
+for free. The third was caught by running on a tier it had never met, which no
+grading rule would have found: an assumption that has only ever met one
+implementation is not a tested assumption.
+
+**Audited 2026-08-25 and found not to generalise.** Every violation arm under
+`bench/` was classified in
+[`bench/results/2026-08-25_violation_arm_grading_audit.md`](../bench/results/2026-08-25_violation_arm_grading_audit.md);
+none grades on the exit code of a check that could return non-zero for an
+unrelated reason, and `bench/red/harness.py` already fails *closed* on a red
+baseline. The rule stands for new arms. It earned no rework of existing ones.
 
 What `CLAUDE.md` asks of every check regardless: one whose input already
 satisfies the expected outcome cannot fail, and one reporting red while the
@@ -289,3 +305,10 @@ One line each. The narrative behind items marked *(pm)* is in
    `sol_curves.verify_adjacency` was the clearest, fixed 2026-08-16. *(pm)*
 7. **The uncontrolled-requirement audit is one pass deep.** The table above
    covers `CLAUDE.md` only; `docs/` is unswept. *(pm)*
+8. **A whole-check baseline can mis-attribute a mutation.** The nine
+   `bench/red/` harnesses grade a mutation on the *check's* verdict moving, so
+   one aimed at arm X is satisfied by arm Y firing. Not a free pass -- the
+   verdict moved and a defect exists -- but weaker than the named-effect
+   grading eight other arms already achieve. **Known and un-earned:** no
+   observed instance, so by this repo's own bar it buys no rework. Prefer
+   named-effect grading in new arms, where it costs nothing at authoring time.
