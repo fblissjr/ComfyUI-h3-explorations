@@ -125,6 +125,13 @@ def _split_blocks(record: dict, batch: dict) -> list[tuple[torch.Tensor, torch.T
     what the record claims and what the tensor holds fails here rather than
     silently misaligning a block.
     """
+    if not record["vision_blocks"]:
+        # A text-only row: no patches to split, and a batch that carries some
+        # anyway is a builder defect, not a row to grade.
+        if "pixel_values" in batch:
+            raise ValueError("the record declares no vision block but the batch "
+                             "carries pixel_values")
+        return []
     patches, grids = batch["pixel_values"], batch["image_grid_thw"]
     blocks, offset = [], 0
     for index, block in enumerate(record["vision_blocks"]):
@@ -154,9 +161,13 @@ def _presentation_hashes(record: dict, batch: dict) -> dict:
         "input_ids_sha256": _tensor_sha(batch["input_ids"]),
         "attention_mask_sha256": _tensor_sha(batch["attention_mask"]),
         "mm_token_type_ids_sha256": _tensor_sha(batch["mm_token_type_ids"]),
-        "pixel_values_sha256": _tensor_sha(batch["pixel_values"]),
-        "image_grid_thw_sha256": _tensor_sha(batch["image_grid_thw"]),
-        "grids": batch["image_grid_thw"].tolist(),
+        # A text-only row carries no patches; the absence is part of the
+        # presentation both arms must agree on, so it is recorded as such.
+        "pixel_values_sha256": (_tensor_sha(batch["pixel_values"])
+                                if "pixel_values" in batch else None),
+        "image_grid_thw_sha256": (_tensor_sha(batch["image_grid_thw"])
+                                  if "image_grid_thw" in batch else None),
+        "grids": batch["image_grid_thw"].tolist() if "image_grid_thw" in batch else [],
         "token_tags_sha256": record["token_tags_sha256"],
         "comfy_position_ids_sha256": record["position_ids_sha256"],
     }
@@ -261,6 +272,12 @@ def run_comfy_arm(bundle: Path, row_id: str | None, source: Path, out: Path,
 
     last: dict = {}
     for rid in row_ids:
+        if all_rows and (out / rid / "manifest.json").exists():
+            # A rerun after a failed row: rows already captured are kept, since
+            # the model and the bundle are the same and the capture is
+            # deterministic; the manifest records the reserve used per row.
+            print(f"skip {rid}: already captured")
+            continue
         manifest, record, tensors = _bundle_row(bundle, rid)
         batch, media = tensors["batch"], tensors["media"]
         blocks = _split_blocks(record, batch)
@@ -331,6 +348,7 @@ def run_comfy_arm(bundle: Path, row_id: str | None, source: Path, out: Path,
             "dtype": dtype_label,
             "tap_layer": tap_layer,
             "row_id": rid,
+            "reserve_vram_gib": reserve_gib,
             "seconds": round(elapsed, 1),
             "presentation": _presentation_hashes(record, batch),
             "comfy_sequence_length": int(hidden.shape[0]),
@@ -900,7 +918,10 @@ def main() -> int:
     bundle = Path(args.bundle).expanduser().resolve()
     source = Path(args.source_dir).expanduser().resolve()
     out = Path(args.out).expanduser().resolve()
-    if out.exists():
+    if out.exists() and not (args.arm == "comfy" and args.all_rows):
+        # With --all-rows the directory holds one subdirectory per row and a
+        # rerun skips the rows already captured; a single-row capture still
+        # refuses to overwrite.
         raise SystemExit(f"refuse to overwrite existing capture directory: {out}")
 
     if args.arm == "comfy":

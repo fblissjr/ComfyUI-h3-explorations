@@ -155,6 +155,39 @@ modifier's parent-argument cache off host memory (a change to
 
 ## Filled in after the run
 
-_(to be completed by the outgoing point once the candidate lands and Gate 5
-has run; until then the state is: run launched 13:37:42, expected to finish
-about 18:20, no errors)_
+- **The run landed at 16:59:54** (exit 0, 3 h 22 min, host peak 82 GiB,
+  controls green); candidate 19.01 GiB in 14 files; run record committed
+  (acc4fd5). Converted to the single file and its snapshot
+  (`config/qwen3vl_32b_minimax_h3_w4a16_awq_v2/`, committed fcda1f7);
+  acceptance check green on every case except the fixture case, which
+  compares the real candidate against the *smoke* snapshot by design and is
+  red on any real candidate.
+- **Gate 5: reject against the pre-registered bar.** v2's median relative L2
+  against BF16 is above v1's on both geometries (0.333 vs 0.312 at 2048,
+  0.367 vs 0.359 at no-upscale), v2 wins only 8 and 6 of 13 rows, its worst
+  rows are better than v1's, text is marginally better. Numbers, the
+  per-row reading and the suspects are in the launch record's Gate 5
+  section; the record is `bench/results/2026-08-25_v2_holdout_layer50.json`
+  and the per-row captures are under `internal/v2_run_2026-08-25/gate5_*`.
+- **v2 does not replace v1.** It stays on disk and in its snapshot; the
+  deployed artifact is unchanged. It can carry the ablation as the encoder
+  that accepts the 2048 view, which v1 clamps.
+- **First thing tomorrow, before the ablation:** extend
+  `bench/compare_transformers_comfy_layer50.py`'s ComfyUI arm with
+  `--clip-path` (core's own CLIP loader, for the ComfyUI-native
+  `qwen3vl_32b_minimax_h3_int8_convrot` and `..._nvfp4_awq` encoders), then
+  grade all four encoders on the same holdout against BF16. That table
+  decides which encoder the ablation and the marker arms run on, and closes
+  the open item from `internal/postmortems/2026-08-23_session_h3_awq_hf_workflows_and_encoder_ab.md`.
+- **Then, if v2's population is the suspect:** the modifier-cache change is
+  what a larger population needs (deferred work in the plan); a recipe
+  variant (smoothing `o_proj`, a smaller group) is the cheaper experiment
+  and runs at today's population in the same 3.5 hours.
+- One text-only row is bad under both W4 artifacts (relative L2 0.74 / 0.89
+  where the median is 0.06); find which and why before reading the text
+  criterion as clean.
+- Instrument notes from today's first real run: the ComfyUI arm needs
+  `--reserve-vram-gib 16` for rows above about 20k tokens; a rerun skips
+  captured rows (`--all-rows`); text-only rows are handled. The
+  `bench/check_no_owner_paths.py` red from the converter's print is fixed
+  (a5ff7b3).

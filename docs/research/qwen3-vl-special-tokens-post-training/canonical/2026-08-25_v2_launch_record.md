@@ -211,12 +211,59 @@ Not answered by Gate 5: anything perceptual (Gate 6, blind pairs, the
 owner's judgement), the marker question (the corpus arms on v2), and a guard
 refusal, which is an instrument fault to fix and rerun, never a verdict.
 
+## Gate 5 result, 2026-08-25 17:36: reject against the bar
+
+**MEASURED.** `bench/results/2026-08-25_v2_holdout_layer50.json`, the
+comparator's ComfyUI arm on the 13-row holdout in both geometries and the
+13-row text-only bundle, BF16 the reference, v1 and v2 the candidates, all
+captures in one session (the 21.7k-token row needed `--reserve-vram-gib 16`;
+the rest ran at 10). No refusals. Relative L2 at layer 50 against BF16:
+
+| population | v1 median / max | v2 median / max | v2 better, rows |
+|---|---:|---:|---:|
+| `upscale_2048`, all rows | 0.312 / 0.776 | 0.333 / 0.634 | 8 of 13 |
+| `upscale_2048`, vision positions | 0.330 / 0.894 | 0.351 / 0.729 | 8 of 13 |
+| `max_no_upscale`, all rows | 0.359 / 0.919 | 0.367 / 0.843 | 6 of 13 |
+| `max_no_upscale`, vision positions | 0.391 / 1.321 | 0.403 / 0.930 | 6 of 13 |
+| text positions, either geometry | 0.064 / 0.086 | 0.063 / 0.083 | 12 and 11 of 13 |
+| text-only T2VA bundle | 0.067 / 0.741 | 0.061 / 0.892 | -- |
+
+Against the pre-registered bar: criterion 1 (v2's median below v1's) fails on
+both geometries; criterion 2 (10 of 13 rows) fails on both; criterion 3 (no
+v2 row worse than v1's worst) passes on both; criterion 4 (text within 2x)
+passes, v2 marginally better on text everywhere. **Reject: v2 does not
+replace v1.**
+
+What the rows say, **INFERENCE** from the per-row values: v2 improves the
+rows v1 was worst on (four rows by more than 0.1 at no-upscale, two at 2048)
+and regresses rows v1 was good on by as much (the video-only row 0.158 to
+0.357 in both geometries; two no-upscale stills from 0.13 to 0.37). The same
+error, redistributed, not reduced. Both artifacts sit at median cosine
+0.93 to 0.95 against BF16 on vision rows, so the 4-bit grid is the dominant
+term and the calibration moved where it lands. The suspects, in the order
+the record supports: the population (29 rows; the observer control had
+already shown 14 of 192 mappings flipping their ratio on a one-row set), then
+the recipe (`o_proj` unsmoothed under GQA, group 128), then the metric (raw
+layer-49 state, where a few high-norm tokens can dominate relative L2;
+tokenwise cosine minima are 0.5 to 0.7 for both).
+
+What v2 is still for: it declares the release image bounds and accepts the
+2048 view that v1 clamps, at fidelity comparable to v1 on identical replayed
+inputs, so the Gate 6 ablation can run on it as the encoder that takes the
+view. That is not an acceptance.
+
+**The comparison nobody had run.** The 2026-08-23 record compared W4A16,
+INT8 ConvRot and NVFP4 encoders by render time only; its open item was this
+layer-50 comparison. Today's instrument grades a W4 artifact; the two
+ComfyUI-native encoders need a `--clip-path` through core's own loader. That
+is the next measurement: four encoders, one holdout, one reference, and the
+answer to which is closest to the release.
+
 ## What this record does not establish
 
-- Anything about the candidate's numerical or perceptual quality. Gate 5's
-  acceptance against BF16 on the rebuilt holdout is unchanged and is the next
-  thing that runs on the candidate, all three arms in one session because the
-  adapter hash is part of capture provenance.
+- Anything perceptual. The numerical result is above; whether the
+  redistribution is visible in a render is Gate 6's question, and a rendered
+  clip cannot A/B a numerical change.
 - Whether 214k tokens is enough calibration. It is what fits; the AWQ default
   is a fraction of it, and the role coverage is what mr_data preferred over
   the 18-row alternative. A larger population needs the parent-argument cache
