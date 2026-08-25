@@ -32,6 +32,28 @@ artifact.
   the host; these set the budget the relaunch was sized from. The record is
   `docs/research/qwen3-vl-special-tokens-post-training/canonical/2026-08-25_v2_launch_record.md`.
 
+## 0.68.3
+
+### Fixed
+
+- **A W4 CLIP loaded through `bench/capture_h3_encoder_states.py::_load_w4`
+  was rebound to the adapter's default snapshot immediately after loading.**
+  The re-install called `install_source_processors(clip)` bare, which was
+  correct while one artifact existed and became wrong in 0.68.0: on a CLIP the
+  loader had resolved to a second generation it silently rebound the still-image
+  processor to the first generation's ceiling *and* overwrote the stamp saying
+  which artifact it was. An arm would then have recorded and preprocessed as v1
+  while holding v2's weights, and the stamp that would have exposed it is the
+  thing that got overwritten. `_rebind_source_processors` reads the stamp and
+  re-installs against it, then asserts the artifact did not move. Covered in
+  `--self-test` on every installed snapshot; the pre-fix line shown red, naming
+  both snapshots.
+
+  Found by pointing the conversion path at a second candidate directory rather
+  than by any check: the self-test stubs a CLIP directly and so never traversed
+  the real load path. Recorded because that reachability gap is the lesson —
+  the control existed and its envelope did not include the defect.
+
 ## 0.68.2
 
 ### Changed

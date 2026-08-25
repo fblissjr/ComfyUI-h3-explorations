@@ -611,6 +611,31 @@ def _load_bf16(root: Path, h3, embedding_directory):
     return clip, inventory
 
 
+def _rebind_source_processors(h3, clip):
+    """Re-install the artifact's processors WITHOUT losing which artifact it is.
+
+    ``install_source_processors`` defaults to the adapter's own snapshot, which
+    was harmless while one artifact existed and is not any more: called bare on
+    a CLIP the loader resolved to a second generation, it silently rebinds that
+    CLIP to the first generation's processor bounds and overwrites the stamp
+    saying so. Read the stamp the loader left and re-install against it.
+    """
+    model = clip.cond_stage_model.qwen3vl_32b.transformer
+    stamped = getattr(model, "_h3_processor_source", None)
+    resolved = None
+    if stamped and Path(stamped).is_dir() and \
+            Path(stamped).resolve() != Path(h3.CONFIG_SOURCE).resolve():
+        resolved = Path(stamped)
+    h3.install_source_processors(clip, snapshot=resolved)
+    after = getattr(model, "_h3_processor_source", None)
+    if after != stamped:
+        raise ValueError(
+            f"re-installing processors moved the artifact from {stamped} to "
+            f"{after}; the CLIP would preprocess under another artifact's config"
+        )
+    return clip
+
+
 def _load_w4(path: Path, h3, embedding_directory):
     if not path.is_file():
         raise ValueError(f"W4 artifact absent: {path}")
@@ -620,10 +645,10 @@ def _load_w4(path: Path, h3, embedding_directory):
         disable_dynamic=False,
         install_cache=False,
     )
-    # _load_clip already installs these. Reinstalling from the same module makes
-    # the shared-policy choice explicit and gives BF16/W4 one callable owner.
-    h3.install_source_processors(clip)
-    return clip
+    # _load_clip already installs these. Reinstalling makes the shared-policy
+    # choice explicit and gives BF16/W4 one callable owner -- through the helper
+    # above, so it cannot also change which artifact's config is bound.
+    return _rebind_source_processors(h3, clip)
 
 
 class InputRecorder:
@@ -875,6 +900,24 @@ def self_test() -> None:
     # An unstamped CLIP -- core's loader, and the BF16 arm before its
     # processors are installed -- declares nothing rather than the default.
     assert _artifact_declaration(h3, stub()) is None
+
+    # The re-install on the W4 load path must not move the CLIP to another
+    # artifact's config. It did until 2026-08-25, by calling
+    # `install_source_processors` bare: a second-generation CLIP came back
+    # bound to v1's still-image ceiling with the stamp overwritten to match, so
+    # the arm would have recorded v1 and preprocessed at v1's bounds while
+    # holding v2's weights. Nothing downstream could have seen it, because the
+    # stamp it would have been caught by is the thing that got overwritten.
+    for config_dir in snapshots:
+        clip = stub(config_dir)
+        h3.install_source_processors(clip, snapshot=config_dir)
+        _rebind_source_processors(h3, clip)
+        model = clip.cond_stage_model.qwen3vl_32b.transformer
+        assert Path(model._h3_processor_source) == config_dir, (
+            f"re-install moved {config_dir.name} to {model._h3_processor_source}")
+        assert model._h3_encoder_contract["source"] == config_dir.name
+        assert tuple(model._h3_image_bounds) == tuple(
+            h3.source_image_pixel_bounds(config_dir))
 
     seen = {}
     with tempfile.TemporaryDirectory(prefix="h3-capture-selftest-") as raw:
