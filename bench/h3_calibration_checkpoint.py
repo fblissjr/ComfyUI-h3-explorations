@@ -26,6 +26,22 @@ upstream change. `bench/pilot_sequential_feasibility.py` already patches these
 same two names for its instrumentation, so the seams are load-bearing and
 observed, not invented here.
 
+## Cadence, and why the default is not every layer
+
+MEASURED 2026-08-25. Writing safetensors to this filesystem and syncing runs at
+2.7 GB/s; the 6.0 GB/s an unsynced write reports is the page cache, not the
+device. At the population's roughly 16 GiB cache a checkpoint is about 6 s, so
+every-layer cadence costs under 7 minutes of writing across 64 layers --
+nothing against ten hours.
+
+Time is not what decides it. Overwriting one checkpoint 64 times writes about
+1.1 TB per run, which is drive endurance, so the default is **every 4 layers**:
+at most four layers lost on a failure, about 18 minutes at the measured rate,
+and roughly 280 GB written. `every=1` stays available for a run that has
+already failed once and should not lose four more. The staged-then-renamed
+write means a second cache-sized copy exists on disk at the moment of the
+rename, and that is the same size at any cadence.
+
 ## What refuses
 
 A checkpoint carries the recipe description, the bundle identity and the model
@@ -404,8 +420,15 @@ def resume_at(start_subgraph: int, cache):
 @contextlib.contextmanager
 def checkpoint_each_boundary(store: CheckpointStore, *, model, identity,
                              modifiers, cache_holder, first_subgraph: int = 0,
-                             extra: dict | None = None, on_write=None):
-    """Write a checkpoint after every subgraph's epoch end.
+                             extra: dict | None = None, on_write=None,
+                             every: int = 4):
+    """Write a checkpoint every `every` completed layers.
+
+    `every` is a cadence in LAYERS, not subgraphs, because that is the unit of
+    lost work: a failure costs at most `every` layers. The default trades a
+    little more redone work for a lot less disk written; see the cadence
+    section above for the measurement behind it. `every=1` writes at every
+    boundary.
 
     `cache_holder` is a one-element list the caller fills with the live
     `IntermediatesCache`; the pipeline builds it internally, so it is captured
@@ -420,7 +443,9 @@ def checkpoint_each_boundary(store: CheckpointStore, *, model, identity,
 
     original_end = sp.LifecycleCallbacks.sequential_epoch_end
     awq = next((m for m in modifiers if hasattr(m, "_error_metrics")), None)
-    state = {"index": first_subgraph, "written": []}
+    if int(every) < 1:
+        raise ValueError(f"checkpoint cadence must be at least 1 layer, got {every!r}")
+    state = {"index": first_subgraph, "written": [], "every": int(every)}
 
     def sequential_epoch_end(modules, **kwargs):
         # BEFORE the callback, not after. Measured on the installed pipeline:
@@ -439,7 +464,9 @@ def checkpoint_each_boundary(store: CheckpointStore, *, model, identity,
         # `bench/check_calibration_checkpoint.py` now owns the real one.
         index = state["index"]
         cache = cache_holder[0] if cache_holder else None
-        if cache is not None and index >= 1:
+        completed = index - 1
+        due = completed >= 1 and completed % max(1, int(every)) == 0
+        if cache is not None and index >= 1 and due:
             manifest = store.save(
                 model=model, cache=cache, next_subgraph=index,
                 completed_layers=index - 1, identity=identity,

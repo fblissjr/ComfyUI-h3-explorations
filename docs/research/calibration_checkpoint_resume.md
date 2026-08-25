@@ -2,6 +2,13 @@
 
 last updated: 2026-08-25
 
+**Status: parked, by owner decision on 2026-08-25.** The module, this note and
+the check are committed and green; nothing is wired into
+`bench/pilot_sequential_feasibility.py` and the card proof on real weights has
+not been run. It returns when a run longer than that evening's is planned --
+the larger population after the modifier-cache change. Read the proof section
+as "verified at fixture scale on CPU, unverified at scale".
+
 Design note. A mid-run failure on a ten-hour calibration currently costs the
 run; the goal is that it costs one layer. This records **what state actually
 exists at a layer boundary**, verified against the installed pipeline rather

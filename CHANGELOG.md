@@ -4,6 +4,44 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.6
+
+### Changed
+
+- **Checkpoint cadence is a parameter, defaulting to every 4 layers.** Time was
+  never the constraint: every-layer cadence costs under 7 minutes across 64
+  layers. Disk written is, at roughly 1.1 TB per run, so the default trades at
+  most four layers of redone work -- about 18 minutes at the measured rate --
+  for roughly 280 GB. `every=1` remains available for a run that has already
+  failed once. The transient second copy at the rename is the same size at any
+  cadence.
+- `bench/check_calibration_checkpoint.py` gains the two cases the cadence
+  needs. `resuming_from_an_older_checkpoint_is_still_exact` is the one that
+  licenses a coarse default: it resumes from the FIRST checkpoint rather than
+  the newest, so the run redoes a completed layer, and the result is still
+  identical to never having failed. `cadence_is_a_parameter_and_the_default_is_coarse`
+  pins the shipped default by exercising it -- on a three-layer fixture the
+  default correctly writes nothing, which is the assertion rather than a defect,
+  because a test quietly running at `every=1` would leave the shipped value
+  unexercised.
+
+### Fixed
+
+- The cadence guard was validating nothing. `checkpoint_each_boundary` is a
+  context manager, so its body does not run until `__enter__` and a bare call
+  with `every=0` raised nothing; the case asserting the refusal passed while
+  the refusal did not happen. The case now enters the context.
+
+### Parked
+
+- **Checkpoint and resume is parked by owner decision, 2026-08-25.** The
+  module, the design note and the check stay committed and green; nothing is
+  wired into `bench/pilot_sequential_feasibility.py` and the card proof on real
+  weights has not run. It returns when a run longer than that evening's is
+  planned. `docs/research/calibration_checkpoint_resume.md` and the
+  `docs/checks.md` row both say so, so a green check cannot be read as evidence
+  that any real run checkpointed.
+
 ## 0.70.5
 
 ### Added

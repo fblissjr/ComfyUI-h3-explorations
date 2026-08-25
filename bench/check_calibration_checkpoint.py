@@ -163,7 +163,8 @@ class _Killed(RuntimeError):
     pass
 
 
-def _run_until(store, kill_after_boundary: int, bundle="fixture-A"):
+def _run_until(store, kill_after_boundary: int, bundle="fixture-A",
+               every: int = 1, snapshot_first_to: Path | None = None):
     """Checkpoint at every boundary and die after one, like a real failure."""
     from llmcompressor.pipelines.sequential import pipeline as sp
 
@@ -175,20 +176,27 @@ def _run_until(store, kill_after_boundary: int, bundle="fixture-A"):
     _fresh_session(model, recipe)
     holder: list = []
 
+    seen_writes: list = []
+
     def on_write(manifest):
+        seen_writes.append(manifest["next_subgraph"])
+        if snapshot_first_to is not None and len(seen_writes) == 1:
+            import shutil
+            shutil.copytree(store.root, snapshot_first_to)
         if manifest["next_subgraph"] > kill_after_boundary:
             raise _Killed(f"killed after subgraph {kill_after_boundary}")
 
     with C.capture_cache(holder), C.checkpoint_each_boundary(
             store, model=model, identity=identity, modifiers=recipe,
-            cache_holder=holder, on_write=on_write):
+            cache_holder=holder, on_write=on_write, every=every):
         try:
             sp.SequentialPipeline()(model, _loader(), _dataset_args())
         except _Killed:
             pass
         else:
-            raise AssertionError("the run was not interrupted; nothing to resume")
-    return identity
+            if kill_after_boundary < 99:
+                raise AssertionError("the run was not interrupted; nothing to resume")
+    return identity, seen_writes
 
 
 def _run_resumed(store, bundle="fixture-A"):
@@ -311,7 +319,7 @@ def a_resumed_run_equals_an_uninterrupted_one():
     reference = _run_uninterrupted()
     with tempfile.TemporaryDirectory(prefix="h3-ckpt-") as raw:
         store = C.CheckpointStore(Path(raw) / "ckpt")
-        _run_until(store, kill_after_boundary=2)
+        _run_until(store, kill_after_boundary=2, every=1)
         manifest = store.read_manifest()
         candidate, restored_manifest, seen = _run_resumed(store)
 
@@ -341,7 +349,7 @@ def a_partial_resume_is_not_a_whole_one():
     reference = _run_uninterrupted()
     with tempfile.TemporaryDirectory(prefix="h3-ckpt-wrong-") as raw:
         store = C.CheckpointStore(Path(raw) / "ckpt")
-        _run_until(store, kill_after_boundary=2)
+        _run_until(store, kill_after_boundary=2, every=1)
         manifest = store.read_manifest()
         model, recipe = _model(), _recipe()
         identity = _identity(store, recipe, LAYERS + 1)
@@ -384,7 +392,7 @@ def the_report_covers_exactly_the_completed_layers():
     """
     with tempfile.TemporaryDirectory(prefix="h3-ckpt-report-") as raw:
         store = C.CheckpointStore(Path(raw) / "ckpt")
-        _run_until(store, kill_after_boundary=2)
+        _run_until(store, kill_after_boundary=2, every=1)
         manifest = store.read_manifest()
     metrics = manifest["error_metrics"]
     assert metrics, "no error metrics were carried; this case checked nothing"
@@ -401,6 +409,83 @@ def the_report_covers_exactly_the_completed_layers():
         "on the wrong side of the epoch-end callback")
     return (f"{len(metrics)} metric(s) covering layers {indices}, matching "
             f"completed_layers={manifest['completed_layers']}")
+
+
+def cadence_is_a_parameter_and_the_default_is_coarse():
+    """`every` skips boundaries, and the shipped default is not every layer.
+
+    The default trades redone work for disk written; the measurement is in the
+    module docstring. This fixture has fewer layers than the default cadence,
+    so the default writes nothing here -- which is the point being asserted,
+    not a defect. A test that quietly ran at every=1 would leave the shipped
+    default unexercised.
+    """
+    import inspect
+
+    default = inspect.signature(C.checkpoint_each_boundary).parameters["every"].default
+    assert default > 1, f"the shipped cadence default is {default}, not coarse"
+
+    counts = {}
+    for every in (1, 2, default):
+        with tempfile.TemporaryDirectory(prefix=f"h3-cad-{every}-") as raw:
+            store = C.CheckpointStore(Path(raw) / "ckpt")
+            _, writes = _run_until(store, kill_after_boundary=99, every=every)
+            counts[every] = writes
+    assert counts[1] == [2, 3], counts[1]
+    assert counts[2] == [3], counts[2]
+    assert counts[default] == [], (
+        f"the default cadence wrote {counts[default]} on a {LAYERS}-layer "
+        "fixture; it is not coarser than this fixture and the assertion above "
+        "is not testing the shipped value")
+    try:
+        # Entered, not merely called: the body of a contextmanager does not run
+        # until __enter__, so a bare call validates nothing. Getting that wrong
+        # is how this assertion passed while accepting a cadence of 0.
+        with C.checkpoint_each_boundary(None, model=None, identity={},
+                                        modifiers=[], cache_holder=[], every=0):
+            pass
+    except ValueError as exc:
+        assert "at least 1" in str(exc), exc
+    else:
+        raise AssertionError("a cadence of 0 was accepted")
+    return (f"default {default}; writes at every=1 {counts[1]}, "
+            f"every=2 {counts[2]}, default {counts[default]}")
+
+
+def resuming_from_an_older_checkpoint_is_still_exact():
+    """A coarse cadence means redoing layers, and redoing them must be exact.
+
+    The cadence default only makes sense if resuming from a checkpoint several
+    layers behind the failure gives the same answer as never failing. Here the
+    resume deliberately uses the FIRST checkpoint rather than the newest, so
+    the run redoes a layer it had already completed once.
+    """
+    import torch
+
+    reference = _run_uninterrupted()
+    with tempfile.TemporaryDirectory(prefix="h3-ckpt-old-") as raw:
+        store = C.CheckpointStore(Path(raw) / "ckpt")
+        early = Path(raw) / "early"
+        # Killed at the write of the SECOND checkpoint, so the store's newest
+        # is that one and `early` is the first -- a real gap to resume across.
+        _run_until(store, kill_after_boundary=2, every=1, snapshot_first_to=early)
+        newest = store.read_manifest()
+        old_store = C.CheckpointStore(early)
+        older = old_store.read_manifest()
+        assert older["next_subgraph"] < newest["next_subgraph"], (
+            f"the snapshot is not older ({older['next_subgraph']} vs "
+            f"{newest['next_subgraph']}); this case redoes nothing")
+        candidate, manifest, seen = _run_resumed(old_store)
+    moved = sorted(k for k in reference
+                   if not torch.equal(reference[k].float(), candidate[k].float()))
+    assert not moved, (
+        f"resuming from a checkpoint {newest['next_subgraph'] - older['next_subgraph']} "
+        f"boundary/-ies older moved {len(moved)} tensor(s), first {moved[:3]}; "
+        "redoing a completed layer is not exact, so a coarse cadence is unsafe")
+    return (f"resumed from subgraph {older['next_subgraph']} rather than "
+            f"{newest['next_subgraph']}, redoing "
+            f"{newest['completed_layers'] - older['completed_layers']} layer(s), "
+            f"{len(reference)} tensors identical")
 
 
 def a_foreign_checkpoint_is_refused():
@@ -449,7 +534,7 @@ def an_interrupted_write_leaves_the_previous_checkpoint():
     """A half-written checkpoint is worse than none, so writes are atomic."""
     with tempfile.TemporaryDirectory(prefix="h3-ckpt-atomic-") as raw:
         store = C.CheckpointStore(Path(raw) / "ckpt")
-        _run_until(store, kill_after_boundary=2)
+        _run_until(store, kill_after_boundary=2, every=1)
         good = store.read_manifest()
         assert not store.root.with_name(store.root.name + ".partial").exists(), (
             "a staging directory survived a clean write")
@@ -476,6 +561,8 @@ def main() -> int:
         ("resumed equals uninterrupted", a_resumed_run_equals_an_uninterrupted_one),
         ("wrong entry point differs", a_partial_resume_is_not_a_whole_one),
         ("report matches completed layers", the_report_covers_exactly_the_completed_layers),
+        ("cadence is a parameter", cadence_is_a_parameter_and_the_default_is_coarse),
+        ("older checkpoint still exact", resuming_from_an_older_checkpoint_is_still_exact),
         ("foreign checkpoint refused", a_foreign_checkpoint_is_refused),
         ("write is atomic", an_interrupted_write_leaves_the_previous_checkpoint),
     ]
