@@ -44,6 +44,12 @@ artifact.
   `session.initialize`**, which fills in mappings inferred from the model. An
   identity taken afterwards never matches one taken by a fresh process, so
   every resume would have refused itself.
+- Checkpoint cadence, the open question from the brief: a 16 GiB cache writes
+  in about 6 s per boundary, under 7 minutes across 64 layers, so every-layer
+  cadence is affordable. The honest figure needs an fsync -- 2.7 GB/s synced
+  against 6.0 GB/s unsynced, which is the page cache rather than the device.
+  The cost that is not time is endurance: overwriting one checkpoint 64 times
+  still writes roughly 1.1 TB per run.
 - The AWQ arm does not run on CPU at all: `_apply_smoothing` pins host memory.
   The CPU cases neuter that call, which is legitimate for arithmetic that does
   not depend on it and is why the card run is still required.

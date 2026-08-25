@@ -161,6 +161,29 @@ different bundle or a different recipe must refuse. The checkpoint therefore
 carries the recipe's description and the bundle's identity, and the resume
 compares before it loads anything.
 
+## Cadence: every layer, and what that costs
+
+MEASURED 2026-08-25, the open question from the brief. A fixture checkpoint
+takes 1 to 2 ms and its store is a couple of megabytes, so at fixture scale the
+write is free and tells you nothing about the real one. The real cost is the
+cache, and the honest number needs an fsync: writing safetensors to this
+filesystem and syncing it runs at 2.7 GB/s, against 6.0 GB/s unsynced, which is
+the page cache and not the device.
+
+At the population's roughly 16 GiB cache that is about **6 s per boundary**,
+so **under 7 minutes of writing across 64 layers** — negligible against ten
+hours, and every-layer cadence is affordable. Two things worth saying out loud
+rather than leaving in the arithmetic:
+
+- Overwriting one checkpoint 64 times still writes roughly **1.1 TB** per run.
+  That is drive endurance, not time, and it is the only argument against
+  every-layer cadence.
+- The write is staged and renamed, so the cost is paid twice in space for the
+  moment both directories exist — a full extra cache-sized checkpoint on disk
+  at the instant of the rename.
+
+Neither changes the recommendation. Every layer, overwriting.
+
 ## What this note does not establish
 
 - That the AWQ arm runs on CPU. It does not: `_apply_smoothing` calls
@@ -168,8 +191,7 @@ compares before it loads anything.
   was obtained with that call neutered, which is legitimate for reading state —
   pinning is a host-to-device transfer optimisation — and is why the numerical
   proof needs the card.
-- Any claim about the candidate, the run in flight, or timing. Checkpoint
-  cadence is a measurement to make on the fixture, not a number to pick here.
+- Any claim about the candidate or the run in flight.
 - That smoothing moves a norm weight in a real run. On the fixture it did not,
   for the reason given, and the design deliberately does not depend on either
   answer.
