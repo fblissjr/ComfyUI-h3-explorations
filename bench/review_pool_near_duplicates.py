@@ -312,8 +312,16 @@ def main() -> int:
              "adjudication": args.adjudication.name if args.adjudication else None,
              "adjudicated_edges": corrected["edges_applied"],
              "unexamined_weak_candidates": report["unruled_crossing_pairs"],
-             "caveat": "rows may still share a visual family through a candidate "
-                       "pair nobody has ruled on; see the adjudication's scope",
+             "caveat": (
+                 (f"{report['unruled_crossing_pairs']} candidate pairs crossing "
+                  f"a component boundary carry no verdict, so rows may still "
+                  f"share a visual family through one of them")
+                 if report["unruled_crossing_pairs"] else
+                 (f"every candidate crossing a component boundary is ruled. "
+                  f"What remains unexamined is everything the Hamming "
+                  f"{args.threshold} window never proposed: two images of one "
+                  f"subject far enough apart in hash to fall outside it are not "
+                  f"in this map, and nothing here would show that")),
              "rows_that_changed_component": moved,
              "exact_component_by_row": exact,
              "corrected_component_by_row": corrected_by_row,

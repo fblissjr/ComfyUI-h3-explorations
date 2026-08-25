@@ -1,17 +1,17 @@
 {
-  "adjudicated_duplicate_pairs": 38,
+  "adjudicated_duplicate_pairs": 48,
   "adjudicated_uncertain_pairs": 4,
-  "adjudication_scope": "EXAMINED: all 65 crossing candidates clearing foreground correlation 0.6, and all 27 crossing candidates at Hamming 1 or less that the correlation missed, plus a 16-pair sample of the remaining weak band stratified by correlation. NOT EXAMINED: the rest of the weak band. It is unexamined, not clean.",
+  "adjudication_scope": "EXAMINED: every crossing candidate. The strong band and the Hamming<=1 band were ruled pair by pair; the remainder cluster-first -- connected components over the candidate graph, each cluster looked at as a montage, duplicate subgroups named inside it. One cluster held 83 images and 285 pairs and is the turnaround-sheet template linking unrelated subjects; looking at 83 thumbnails found two real subgroups inside it. Nothing in the crossing set is unexamined.",
   "candidates": 549,
   "candidates_crossing_components": 482,
   "candidates_crossing_components_strong": 65,
   "candidates_strong": 97,
   "corrected_components": {
-    "components": 386,
-    "edges_applied": 12,
+    "components": 381,
+    "edges_applied": 14,
     "largest": 131,
-    "multi_row": 148,
-    "rows_in_multi_row": 790
+    "multi_row": 144,
+    "rows_in_multi_row": 791
   },
   "correlation_histogram": {
     "-0.4": 1,
@@ -10706,5 +10706,5 @@
     "rate": 0.000312
   },
   "unhashable": [],
-  "unruled_crossing_pairs": 376
+  "unruled_crossing_pairs": 0
 }

@@ -331,14 +331,15 @@
       "holdout": "media/images/image-2ac2883cf1608de904fa.jpg",
       "hamming": 11,
       "foreground_correlation": -0.2719,
-      "verdict": "distinct",
-      "reason": "both are footwear on white but different products from different shoots; no shared frame",
+      "verdict": "duplicate",
+      "reason": "same JOSINY footwear catalogue, different products and a different backdrop from the beige series; CORRECTED 2026-08-25 from an earlier 'distinct' that read the frames rather than the series",
       "calibration_rows": [
         "train-00161-9cf73ce77d9033e7"
       ],
       "holdout_rows": [
         "train-00238-34c95f96c87858ad"
-      ]
+      ],
+      "correction": "first ruled distinct because the two frames share nothing; re-ruled once the pool-wide review adopted a series-level reading, since a holdout drawn from one brand's catalogue is not independent of calibration drawn from the same catalogue, whatever the individual frames show"
     },
     {
       "calibration": "media/images/image-d9e0982370fe3e0cfbec.jpg",
@@ -354,5 +355,6 @@
         "train-00259-92ca6b10881ce331"
       ]
     }
-  ]
+  ],
+  "correction_note": "One pair was re-ruled from distinct to duplicate on 2026-08-25 when the pool-wide review adopted a series-level reading of catalogue imagery. The earlier verdict is recorded on the entry rather than overwritten silently: a rule change that quietly rewrites past judgements hides that the standard moved."
 }

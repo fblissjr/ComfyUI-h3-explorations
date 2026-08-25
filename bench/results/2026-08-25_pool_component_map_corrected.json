@@ -1,8 +1,8 @@
 {
-  "adjudicated_edges": 12,
+  "adjudicated_edges": 14,
   "adjudication": "2026-08-25_pool_near_duplicate_adjudication.json",
   "basis": "exact media SHA-256 components unioned with adjudicated perceptual duplicate and uncertain edges",
-  "caveat": "rows may still share a visual family through a candidate pair nobody has ruled on; see the adjudication's scope",
+  "caveat": "every candidate crossing a component boundary is ruled. What remains unexamined is everything the Hamming 6 window never proposed: two images of one subject far enough apart in hash to fall outside it are not in this map, and nothing here would show that",
   "corrected_component_by_row": {
     "train-00001-44c65e69cff6b334": "train-00001-44c65e69cff6b334",
     "train-00002-f631dbe673b72816": "train-00002-f631dbe673b72816",
@@ -46,7 +46,7 @@
     "train-00096-8e28b7949926e5a0": "train-00096-8e28b7949926e5a0",
     "train-00098-d38b067c975fb227": "train-00098-d38b067c975fb227",
     "train-00099-2ad9e611a41fad25": "train-00099-2ad9e611a41fad25",
-    "train-00101-4550bc94421b7d1e": "train-00101-4550bc94421b7d1e",
+    "train-00101-4550bc94421b7d1e": "train-00098-d38b067c975fb227",
     "train-00103-f6e74baed402738b": "train-00103-f6e74baed402738b",
     "train-00105-e037a17373079e67": "train-00105-e037a17373079e67",
     "train-00106-582d05ad88f944aa": "train-00106-582d05ad88f944aa",
@@ -81,7 +81,7 @@
     "train-00179-75394404cb8c637a": "train-00016-8d26742c999457fb",
     "train-00194-136a943c9b22476d": "train-00006-e3f6d45e7ec76432",
     "train-00195-af97d87632d47f88": "train-00014-c150c10f37c8c85f",
-    "train-00197-ef558f6cf89498f8": "train-00197-ef558f6cf89498f8",
+    "train-00197-ef558f6cf89498f8": "train-00163-9d0aae4d13cdc444",
     "train-00198-27601e22972f235d": "train-00198-27601e22972f235d",
     "train-00199-f6cb2bc93463068c": "train-00199-f6cb2bc93463068c",
     "train-00200-e3e8c0f88c1248ad": "train-00049-82dc729635ca7351",
@@ -171,7 +171,7 @@
     "train-00398-0071c6bedeaafabe": "train-00017-fec349556d78fad7",
     "train-00400-e7ee569cae1b6224": "train-00400-e7ee569cae1b6224",
     "train-00403-92a92e39f311b7e5": "train-00030-a1998655ef3b037c",
-    "train-00404-db1be5dc2415e16d": "train-00101-4550bc94421b7d1e",
+    "train-00404-db1be5dc2415e16d": "train-00098-d38b067c975fb227",
     "train-00405-8c5f5a1896c0ef82": "train-00017-fec349556d78fad7",
     "train-00407-53d8cc11d4a6f800": "train-00407-53d8cc11d4a6f800",
     "train-00409-6e6d8733a6900547": "train-00014-c150c10f37c8c85f",
@@ -282,7 +282,7 @@
     "train-00600-c1caf29a9658465b": "train-00600-c1caf29a9658465b",
     "train-00601-d42614d8189d88b4": "train-00098-d38b067c975fb227",
     "train-00602-ad00fa63ee07a341": "train-00602-ad00fa63ee07a341",
-    "train-00604-dd851b9cee221654": "train-00101-4550bc94421b7d1e",
+    "train-00604-dd851b9cee221654": "train-00098-d38b067c975fb227",
     "train-00608-007dcd6d24e5a362": "train-00035-8d7c8ebbd01a6459",
     "train-00610-3eaf65d8166f3738": "train-00610-3eaf65d8166f3738",
     "train-00612-a5a972178d117f5e": "train-00029-6ac01c04bae2c2a1",
@@ -329,7 +329,7 @@
     "train-00684-ebe76f82b6a95484": "train-00017-fec349556d78fad7",
     "train-00685-125fa3f03433f623": "train-00685-125fa3f03433f623",
     "train-00687-55cda77f744bc976": "train-00012-4bbe43dc3a3f95fe",
-    "train-00689-30140f55e6ffc678": "train-00197-ef558f6cf89498f8",
+    "train-00689-30140f55e6ffc678": "train-00163-9d0aae4d13cdc444",
     "train-00690-29c16631a1416640": "train-00098-d38b067c975fb227",
     "train-00691-7161bcea04802796": "train-00691-7161bcea04802796",
     "train-00692-09e8c125638148a3": "train-00692-09e8c125638148a3",
@@ -351,7 +351,7 @@
     "train-00728-d8740d75331b09b5": "train-00017-fec349556d78fad7",
     "train-00730-20a7d708b997c366": "train-00017-fec349556d78fad7",
     "train-00731-b0db393f0b3c83fa": "train-00284-37ff6ab5c960ae94",
-    "train-00732-f3eee067cc70abc3": "train-00732-f3eee067cc70abc3",
+    "train-00732-f3eee067cc70abc3": "train-00238-34c95f96c87858ad",
     "train-00736-60e5beb53d83be5f": "train-00008-f420c0553bfeddd9",
     "train-00737-ab8829001db19891": "train-00035-8d7c8ebbd01a6459",
     "train-00739-ec362da24e469987": "train-00739-ec362da24e469987",
@@ -553,7 +553,7 @@
     "train-01074-204db7c505dc10c9": "train-01074-204db7c505dc10c9",
     "train-01076-c54e9a7eb7f4fd33": "train-01076-c54e9a7eb7f4fd33",
     "train-01078-793f29cb68ffe079": "train-01078-793f29cb68ffe079",
-    "train-01079-9c6b2798980981e5": "train-01079-9c6b2798980981e5",
+    "train-01079-9c6b2798980981e5": "train-01044-80726621c3119978",
     "train-01081-e79199b32fe142ce": "train-01081-e79199b32fe142ce",
     "train-01084-bd887f3cad1e89a5": "train-01084-bd887f3cad1e89a5",
     "train-01085-2c08fea7bc537bea": "train-01085-2c08fea7bc537bea",
@@ -792,12 +792,12 @@
     "train-01546-0cf5ff52f709f2fb": "train-01106-b571f5f26006bff3",
     "train-01547-c14eb198bb4e86c4": "train-01072-c123e77be9495148",
     "train-01549-3276ae4ff258d64c": "train-01049-855a7372f82ec514",
-    "train-01553-66cc53dedbaaa1d2": "train-01553-66cc53dedbaaa1d2",
+    "train-01553-66cc53dedbaaa1d2": "train-01474-86278bc09e246d45",
     "train-01554-b72a0c055a5e833d": "train-01128-1ce2320ce06f0324",
-    "train-01557-d124b9f05b94944e": "train-01079-9c6b2798980981e5",
+    "train-01557-d124b9f05b94944e": "train-01044-80726621c3119978",
     "train-01558-b3e7f6e6446d8d22": "train-01270-9bc6cb7ee546de2a",
     "train-01561-28f82cc1942b8afd": "train-01049-855a7372f82ec514",
-    "train-01562-489f20f9f436abb1": "train-01553-66cc53dedbaaa1d2",
+    "train-01562-489f20f9f436abb1": "train-01474-86278bc09e246d45",
     "train-01564-071f5e49b23d20c7": "train-01035-e11869d6b9954def",
     "train-01565-26d5515639435722": "train-01365-dd5f88689cd743bb",
     "train-01566-d1abe0a2822e4881": "train-01566-d1abe0a2822e4881",
@@ -864,7 +864,7 @@
     "train-01684-44a6caf4464dfbfb": "train-01091-9d3d38b94cf14a46",
     "train-01685-b95e8b2a0937f046": "train-01474-86278bc09e246d45",
     "train-01687-ed9d5615950f37bf": "train-01343-128349fe776c6e99",
-    "train-01688-3b9c33177c3b6b18": "train-01553-66cc53dedbaaa1d2",
+    "train-01688-3b9c33177c3b6b18": "train-01474-86278bc09e246d45",
     "train-01689-f8e3b2d33c8185c6": "train-01358-4662b89eb01af6b7",
     "train-01690-7dcd23a117c0ac3f": "train-01229-7c75bf9793911df0",
     "train-01691-ce57014b9dbc0b9a": "train-01145-6dccdb5d517d91f7",
@@ -908,7 +908,7 @@
     "train-01751-593bb95e3832aa16": "train-01270-9bc6cb7ee546de2a",
     "train-01753-bfd25f7bf7707693": "train-01753-bfd25f7bf7707693",
     "train-01754-76751a52ab8860d8": "train-01754-76751a52ab8860d8",
-    "train-01755-1ff415ad59671566": "train-01553-66cc53dedbaaa1d2",
+    "train-01755-1ff415ad59671566": "train-01474-86278bc09e246d45",
     "train-01757-16783a28e7ba693e": "train-01757-16783a28e7ba693e",
     "train-01758-5bffad8ddacfa6f2": "train-01646-9eccc54061967768",
     "train-01759-72f1cee284b56711": "train-01759-72f1cee284b56711",
@@ -973,7 +973,7 @@
     "train-01841-38b05f2421c9aa8b": "train-01128-1ce2320ce06f0324",
     "train-01842-b6bba09f1f809454": "train-01049-855a7372f82ec514",
     "train-01843-f62314a1c065032b": "train-01843-f62314a1c065032b",
-    "train-01845-7325be5cc14f7c21": "train-01553-66cc53dedbaaa1d2",
+    "train-01845-7325be5cc14f7c21": "train-01474-86278bc09e246d45",
     "train-01846-bbe3604fc76b2021": "train-01166-43b30317ad20cb3e",
     "train-01847-b2bafca79a884b5e": "train-01030-b7355e53e6e8a0dc",
     "train-01848-f9ff7d0c3cc91be3": "train-01848-f9ff7d0c3cc91be3",
@@ -983,7 +983,7 @@
     "train-01852-f7aee490489e5fbd": "train-01134-720aaffe543e317a",
     "train-01853-f38f9f0a5fd35cd9": "train-01128-1ce2320ce06f0324",
     "train-01854-e8ae422f4e2443d2": "train-01854-e8ae422f4e2443d2",
-    "train-01855-13ea897e564d3ff4": "train-01079-9c6b2798980981e5",
+    "train-01855-13ea897e564d3ff4": "train-01044-80726621c3119978",
     "train-01856-0d80aacae2a42b5e": "train-01502-c0d4c38f55407110",
     "train-01857-1e4541bbaf144ce1": "train-01068-b774d7e05c73be0f",
     "train-01860-6e1a436e1ea2270a": "train-01860-6e1a436e1ea2270a",
@@ -1386,25 +1386,23 @@
     ],
     "train-00098-d38b067c975fb227": [
       "train-00098-d38b067c975fb227",
+      "train-00101-4550bc94421b7d1e",
       "train-00108-3381e5ffb404452c",
       "train-00313-567d2d2b2b4c776f",
+      "train-00404-db1be5dc2415e16d",
       "train-00501-c527a2cc70ef73f6",
       "train-00508-59139e4e6c98631b",
       "train-00520-cc9cffa9caac4b89",
       "train-00534-c3a34046d15aa482",
       "train-00549-cab0ea44555c3fa9",
       "train-00601-d42614d8189d88b4",
+      "train-00604-dd851b9cee221654",
       "train-00690-29c16631a1416640",
       "train-00795-cff93b01d353955c",
       "train-00807-9745eeb6f06cd54e"
     ],
     "train-00099-2ad9e611a41fad25": [
       "train-00099-2ad9e611a41fad25"
-    ],
-    "train-00101-4550bc94421b7d1e": [
-      "train-00101-4550bc94421b7d1e",
-      "train-00404-db1be5dc2415e16d",
-      "train-00604-dd851b9cee221654"
     ],
     "train-00103-f6e74baed402738b": [
       "train-00103-f6e74baed402738b"
@@ -1451,7 +1449,9 @@
     ],
     "train-00163-9d0aae4d13cdc444": [
       "train-00163-9d0aae4d13cdc444",
-      "train-00307-c3d8c158bf24612a"
+      "train-00197-ef558f6cf89498f8",
+      "train-00307-c3d8c158bf24612a",
+      "train-00689-30140f55e6ffc678"
     ],
     "train-00165-841d7b469bb3aa1c": [
       "train-00165-841d7b469bb3aa1c",
@@ -1483,10 +1483,6 @@
     "train-00177-c1aa071e45286a9c": [
       "train-00177-c1aa071e45286a9c"
     ],
-    "train-00197-ef558f6cf89498f8": [
-      "train-00197-ef558f6cf89498f8",
-      "train-00689-30140f55e6ffc678"
-    ],
     "train-00198-27601e22972f235d": [
       "train-00198-27601e22972f235d"
     ],
@@ -1507,7 +1503,8 @@
     ],
     "train-00238-34c95f96c87858ad": [
       "train-00238-34c95f96c87858ad",
-      "train-00476-c1f9f0a8901161ec"
+      "train-00476-c1f9f0a8901161ec",
+      "train-00732-f3eee067cc70abc3"
     ],
     "train-00257-08cf9ce768d2689e": [
       "train-00257-08cf9ce768d2689e"
@@ -1738,9 +1735,6 @@
       "train-00726-4e347a8c4418c4a8",
       "train-00932-beae458aa9b4b1c7"
     ],
-    "train-00732-f3eee067cc70abc3": [
-      "train-00732-f3eee067cc70abc3"
-    ],
     "train-00739-ec362da24e469987": [
       "train-00739-ec362da24e469987"
     ],
@@ -1918,6 +1912,7 @@
     ],
     "train-01044-80726621c3119978": [
       "train-01044-80726621c3119978",
+      "train-01079-9c6b2798980981e5",
       "train-01097-0ff2b09359e43ccc",
       "train-01269-ac588d744dc631fd",
       "train-01300-88c6b7320cee33ce",
@@ -1925,11 +1920,13 @@
       "train-01405-2deba5fe405d4c3b",
       "train-01431-a99a30b007c40f7f",
       "train-01472-b00660fdfb8c7893",
+      "train-01557-d124b9f05b94944e",
       "train-01567-b56e9b4997b6e653",
       "train-01619-c2bccba914eaada5",
       "train-01682-a4b46f68bffc1315",
       "train-01702-c08eb59ed118febc",
-      "train-01849-4e44f1deb0b15469"
+      "train-01849-4e44f1deb0b15469",
+      "train-01855-13ea897e564d3ff4"
     ],
     "train-01048-4e9be56bfe575769": [
       "train-01048-4e9be56bfe575769"
@@ -2013,11 +2010,6 @@
     ],
     "train-01078-793f29cb68ffe079": [
       "train-01078-793f29cb68ffe079"
-    ],
-    "train-01079-9c6b2798980981e5": [
-      "train-01079-9c6b2798980981e5",
-      "train-01557-d124b9f05b94944e",
-      "train-01855-13ea897e564d3ff4"
     ],
     "train-01081-e79199b32fe142ce": [
       "train-01081-e79199b32fe142ce"
@@ -2461,8 +2453,13 @@
       "train-01474-86278bc09e246d45",
       "train-01478-84580ff3c1dbc415",
       "train-01532-01b655f2cfe4a279",
+      "train-01553-66cc53dedbaaa1d2",
+      "train-01562-489f20f9f436abb1",
       "train-01685-b95e8b2a0937f046",
+      "train-01688-3b9c33177c3b6b18",
+      "train-01755-1ff415ad59671566",
       "train-01830-01b61b969fa7a2fa",
+      "train-01845-7325be5cc14f7c21",
       "train-01868-dddbc26bd7660550",
       "train-01891-d2c71fee9b45f73f"
     ],
@@ -2531,13 +2528,6 @@
     ],
     "train-01538-5324ed2f3ca88359": [
       "train-01538-5324ed2f3ca88359"
-    ],
-    "train-01553-66cc53dedbaaa1d2": [
-      "train-01553-66cc53dedbaaa1d2",
-      "train-01562-489f20f9f436abb1",
-      "train-01688-3b9c33177c3b6b18",
-      "train-01755-1ff415ad59671566",
-      "train-01845-7325be5cc14f7c21"
     ],
     "train-01566-d1abe0a2822e4881": [
       "train-01566-d1abe0a2822e4881"
@@ -3871,6 +3861,7 @@
     "train-00028-93503cf6093352f9",
     "train-00043-18266bdaa3645407",
     "train-00059-c76911bf4a1688d4",
+    "train-00101-4550bc94421b7d1e",
     "train-00108-3381e5ffb404452c",
     "train-00115-3aa89074b78c9e4d",
     "train-00117-4b1a80ee7b2297e9",
@@ -3878,6 +3869,7 @@
     "train-00145-c5c9a4033408aabc",
     "train-00146-3e846e2d775825d7",
     "train-00152-fd367461cb58fabc",
+    "train-00197-ef558f6cf89498f8",
     "train-00232-7c2b390b0fa834d5",
     "train-00261-729bf7ed19e74a7f",
     "train-00287-faf94e1eab189553",
@@ -3891,6 +3883,7 @@
     "train-00381-bf69ae9a00451818",
     "train-00386-e8f85d0ee8e2db7c",
     "train-00398-0071c6bedeaafabe",
+    "train-00404-db1be5dc2415e16d",
     "train-00405-8c5f5a1896c0ef82",
     "train-00421-5f5fb124480be0e7",
     "train-00428-dfa46b45ea8e2b4e",
@@ -3920,6 +3913,7 @@
     "train-00593-6bd4639133184ca9",
     "train-00597-20d43a208ccd96dd",
     "train-00601-d42614d8189d88b4",
+    "train-00604-dd851b9cee221654",
     "train-00618-d8d52b421a12839c",
     "train-00626-d051a34b851c9c42",
     "train-00633-762de447bbabfd38",
@@ -3935,10 +3929,12 @@
     "train-00674-2fbf7bd968b4b9a5",
     "train-00681-8b7d040004ee0bc0",
     "train-00684-ebe76f82b6a95484",
+    "train-00689-30140f55e6ffc678",
     "train-00690-29c16631a1416640",
     "train-00700-7c599051a5d803fd",
     "train-00705-cb568333969bd761",
     "train-00728-d8740d75331b09b5",
+    "train-00732-f3eee067cc70abc3",
     "train-00742-2ae7ab957f9b56af",
     "train-00756-3e768cfc015e661d",
     "train-00760-a75749c61b69b9b6",
@@ -3979,6 +3975,7 @@
     "train-01005-f6c5d64c878a0729",
     "train-01007-7cfb04e1ddb81256",
     "train-01014-7def783bd89bddca",
+    "train-01079-9c6b2798980981e5",
     "train-01110-b6cf8fc26ffb8fbf",
     "train-01315-13cc436dfcb5618a",
     "train-01401-c89cab5a7ea72f42",
@@ -3987,17 +3984,23 @@
     "train-01478-84580ff3c1dbc415",
     "train-01533-2dd3ac275aa195c6",
     "train-01543-545e7b030289b895",
+    "train-01553-66cc53dedbaaa1d2",
+    "train-01557-d124b9f05b94944e",
+    "train-01562-489f20f9f436abb1",
     "train-01592-d49c19ade7a05981",
     "train-01594-76be89c778caab2b",
     "train-01680-052860f6ef5b511f",
+    "train-01688-3b9c33177c3b6b18",
     "train-01715-30c367dfaaf1a5ee",
     "train-01746-11cc659e3dde9843",
     "train-01755-1ff415ad59671566",
     "train-01758-5bffad8ddacfa6f2",
     "train-01788-2b26ab740d108818",
     "train-01813-f4dd170a873f7729",
+    "train-01845-7325be5cc14f7c21",
+    "train-01855-13ea897e564d3ff4",
     "train-01874-d3af911c9e711a05",
     "train-01879-277d35e6e6e7ec04"
   ],
-  "unexamined_weak_candidates": 376
+  "unexamined_weak_candidates": 0
 }
