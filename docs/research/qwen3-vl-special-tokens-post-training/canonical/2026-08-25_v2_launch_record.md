@@ -283,6 +283,38 @@ ComfyUI-native encoders need a `--clip-path` through core's own loader. That
 is the next measurement: four encoders, one holdout, one reference, and the
 answer to which is closest to the release.
 
+## Four encoders on one holdout, 18:45: INT8 ConvRot is the encoder
+
+**MEASURED** (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`;
+the two ComfyUI-native files captured through core's own `load_clip` via the
+comparator's `--clip-path`, same rows, same replayed inputs, same BF16
+reference, no refusals). Median relative L2 at layer 50 against BF16:
+
+| encoder | `upscale_2048` | `max_no_upscale` | text-only |
+|---|---:|---:|---:|
+| `int8_convrot` (ComfyUI-native) | 0.021 (cos 0.9998) | 0.027 | 0.006 |
+| `nvfp4_awq` (ComfyUI-native) | 0.147 | 0.374 | 0.039 |
+| W4A16 AWQ v1 | 0.312 | 0.359 | 0.067 |
+| W4A16 AWQ v2 | 0.333 | 0.367 | 0.061 |
+
+The rule stated before the table: INT8 well inside half of v1's band on
+vision rows makes INT8 the encoder for Gate 6 and the marker arms, with W4
+continuing only as the small-host variant. It is fifteen times inside.
+
+**OWNER-DECISION, 2026-08-25 evening:** move to INT8 for the encoder where it
+fits. **ACTING-POINT DECISION:** `qwen3vl_32b_minimax_h3_int8_convrot` is the
+encoder of record for the Gate 6 ablation and the marker-corpus arms; the
+W4A16 lane continues as the small-host variant only, with one GPTQ run on
+the same 29 rows as its method check and no further calibration-data work
+unless that run changes the floor by more than half. What remains to
+measure for INT8 is cost, not fidelity: encode time per prompt and host
+residency on the real graphs (the occupancy instrument), since the 26 GB
+file streams through dynamic offload on a 24 GB card. The
+`duo_scaling false` attribution rerun is parked as superseded.
+
+This closes the open item of the 2026-08-23 record: the encoders were
+compared by render time then and by layer-50 fidelity now.
+
 ## What this record does not establish
 
 - Anything perceptual. The numerical result is above; whether the

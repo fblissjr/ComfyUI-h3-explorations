@@ -172,7 +172,25 @@ modifier's parent-argument cache off host memory (a change to
 - **v2 does not replace v1.** It stays on disk and in its snapshot; the
   deployed artifact is unchanged. It can carry the ablation as the encoder
   that accepts the 2048 view, which v1 clamps.
-- **First thing tomorrow, before the ablation:** extend
+- **Four-encoder table done 18:45 (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`):
+  INT8 ConvRot is ~15x closer to BF16 than either W4 artifact on every
+  population; NVFP4 between. Owner decision: INT8 is the encoder for the
+  ablation and the marker arms. First thing tomorrow: switch the three
+  ablation graphs' encoder combo to `qwen3vl_32b_minimax_h3_int8_convrot`
+  in `workflows/build_workflows.py` (h3_config's encoder constant), rebuild,
+  keep `check_attention_defaults` and `check_model_files` green, rerun
+  preflight, then the occupancy render to price INT8's encode time per
+  prompt. The W4 lane is the small-host variant only.
+- **Prefix-attention instrument landed (4592072):** `bench/measure_dit_prefix_attention.py`
+  and its check. On the T2VA capture the DiT reads the prompt late (13% of
+  attention at block 49 against a 0.29% share; 0.2% at block 0), through a
+  minority of heads, over-reads section keys and under-reads cut
+  timestamps. The ref2va version needs the capture path to dump the
+  encoder's token tags and vision spans, then one captured render
+  (`workflows/h3_probe_capture_ref3_api.json`). Also found: that capture's
+  `manifest.json` describes a different render than its tensors and
+  `check_capture_manifest.py` passes it; ungated.
+- **(superseded) First thing tomorrow, before the ablation:** extend
   `bench/compare_transformers_comfy_layer50.py`'s ComfyUI arm with
   `--clip-path` (core's own CLIP loader, for the ComfyUI-native
   `qwen3vl_32b_minimax_h3_int8_convrot` and `..._nvfp4_awq` encoders), then
