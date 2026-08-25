@@ -1159,6 +1159,16 @@ def emit_candidate(model, candidate_dir: Path, source: Path, report: dict) -> di
     artifact's constrained snapshot. The pilot report is written beside it as
     the run record.
     """
+    from llmcompressor.transformers.compression.compressed_tensors_utils import (
+        modify_save_pretrained,
+    )
+
+    # `oneshot` installs this wrapper when it loads the model; the pilot loads
+    # manually, so it is installed here. Without it the plain transformers
+    # `save_pretrained` writes the weights as they are and no
+    # `quantization_config`, which the first emit test produced: a 6 GiB
+    # two-layer "candidate" that was not quantized at all.
+    modify_save_pretrained(model)
     candidate_dir.mkdir(parents=True, exist_ok=False)
     model.save_pretrained(str(candidate_dir), save_compressed=True)
     copied = []
