@@ -1128,7 +1128,9 @@ def main() -> int:
                       f"forwards {measurement['subgraph_forward_calls']}  "
                       f"{measurement['seconds_total']}s")
                 if measurement.get("intermediates_cache"):
-                    print(f"  cache {measurement['intermediates_cache']['gib_by_device']}")
+                    cache = measurement["intermediates_cache"]
+                    print(f"  cache peak {cache['peak']['gib_by_device']}  "
+                          f"residual {cache['residual_after_run']['gib_by_device']}")
                 if measurement["outcome"] not in ("completed", "deliberate_abort"):
                     print(f"  stopping the escalation here: {measurement['error']}")
                     break
