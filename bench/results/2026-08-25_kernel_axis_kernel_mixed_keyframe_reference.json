@@ -1,0 +1,348 @@
+{
+  "comparison": "ComfyUI versus Transformers at the H3 layer-50 boundary",
+  "reference_arm": {
+    "schema": "h3-crossstack-layer50-v1",
+    "arm": "transformers",
+    "dtype": "comfy_exact_bf16_store",
+    "precision_policy": {
+      "policy": "comfy_exact_bf16_store",
+      "intent": "comfy_exact arithmetic over BF16-stored weights: every parameterised op computes with a transient FP32 copy of its weight, as ComfyUI's manual_cast does, while the stored and offloaded weights stay BF16. The patch-embed conv is kept FP32 at load so the vision input is never downcast",
+      "compute_dtype": "float32",
+      "storage_dtype": "bfloat16",
+      "manual_cast": true,
+      "manual_cast_ops": [
+        "linear",
+        "embedding",
+        "layer_norm",
+        "conv3d"
+      ],
+      "manual_cast_counts": {
+        "linear": 467,
+        "embedding": 1,
+        "layer_norm": 58,
+        "conv3d": 0,
+        "already_float32": 1,
+        "gated_modules": 528
+      },
+      "keep_in_fp32_modules": [
+        "visual.patch_embed"
+      ],
+      "position_interpolation_dtype": "bfloat16",
+      "position_reduction": "comfy four-term add",
+      "position_embedding_source_dtype": "bfloat16",
+      "position_cast_is_round_trip_exact": true,
+      "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+      "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+      "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+      "forward_substitution_is_bound_method": true,
+      "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+      "modifies_checkpoint_or_deployment": false,
+      "modifies_installed_packages": false
+    },
+    "attn_implementation": "sdpa",
+    "attention_mask_all_ones": true,
+    "attention_mask_passed": false,
+    "sdpa_backend": {
+      "requested": "math"
+    },
+    "attention_kernel": {
+      "kind": "expanded_kv",
+      "intent": "repeat_kv before SDPA, unconditionally: SDPA sees the full head count and no enable_gqa, which at FP32 on this card selects the memory-efficient kernel. A measured candidate, not an accepted arithmetic",
+      "counts": {
+        "decisions_governed": 50,
+        "expanded": 50,
+        "left_to_library": 0,
+        "governed_modules": 50
+      },
+      "patched": "transformers.integrations.sdpa_attention.use_gqa_in_sdpa, gated by this model's attention modules on the entering thread",
+      "expansion_is_assumed_numerically_free": false,
+      "modifies_checkpoint_or_deployment": false,
+      "modifies_installed_packages": false
+    },
+    "sdpa_availability": {
+      "grouped_query": {
+        "flash": false,
+        "efficient": false,
+        "cudnn": false
+      },
+      "expanded_kv": {
+        "flash": false,
+        "efficient": true,
+        "cudnn": false
+      },
+      "note": "availability, not selection: torch does not expose which kernel a call chose"
+    },
+    "tap_layer": 49,
+    "tap": "forward hook on language_model.layers[49], raw residual",
+    "load_seconds": 1.6,
+    "forward_seconds": 9.6,
+    "presentation": {
+      "row_id": "train-00500-68f926b378a008b0",
+      "prompt_sha256": "8a193e02ca17ff50d2ba85bea461231d7c0fe793ea7540116e77975355a9022a",
+      "sequence_length": 1746,
+      "input_ids_sha256": "0729f04e5e9db838647aba680483886a924d522b059f49867f603d19f5cd1841",
+      "attention_mask_sha256": "c09ae5eff8dbba0f96e8332be5977ccc4b9b299f37ac8bbef88bfa6cd79f8469",
+      "mm_token_type_ids_sha256": "10b66e834a43da5f974a563c6c739133f21b7ce3faff9c097f741342345c7ad9",
+      "pixel_values_sha256": "254cbba3c2997b91d1054e19ce575899a58ef08d44299c72d1ed682851e2ea29",
+      "image_grid_thw_sha256": "17b12e694d1528e689c218f7ac361b910227320e68f9b139a42c921856b4a2b2",
+      "grids": [
+        [
+          1,
+          84,
+          48
+        ],
+        [
+          1,
+          22,
+          22
+        ]
+      ],
+      "token_tags_sha256": "0f9f4b909c78931e2d951e1111152e57e37c5802048bd9eaa90a55d49bd79f63",
+      "comfy_position_ids_sha256": "bd6a47cd81969293ba1bb3d2cf43f57e738603927fb1bca800e8ec4051de3bd9"
+    },
+    "transformers_sequence_length": 1746,
+    "layers_built": 50,
+    "deepstack_mergers": 3,
+    "perturbed_weight": null,
+    "hidden_state": {
+      "shape": [
+        1746,
+        5120
+      ],
+      "dtype": "float32",
+      "sha256": "7d931d4c593a4b5277d650e96b05e81177f43130fd5c4447157b68e49d3127c9"
+    },
+    "layer0_input": {
+      "shape": [
+        1746,
+        5120
+      ],
+      "dtype": "float32",
+      "sha256": "0a8e45e5813b5f4eacb1954fd5efc3dcafc2f1d7d6a27e3ff662d546c03c0b42"
+    },
+    "source": {
+      "logical_name": "qwen3-vl-32b-bf16"
+    },
+    "peak_cuda_gib": 17.95,
+    "environment": {
+      "python": "3.13.9",
+      "torch": "2.13.0+cu132",
+      "transformers": "5.15.1"
+    }
+  },
+  "reference_chosen_explicitly": true,
+  "field_under_test": [],
+  "arms": {
+    "transformers-comfy_exact_bf16_store-tap49-nomask-efficient-expanded_kv": {
+      "manifest": {
+        "schema": "h3-crossstack-layer50-v1",
+        "arm": "transformers",
+        "dtype": "comfy_exact_bf16_store",
+        "precision_policy": {
+          "policy": "comfy_exact_bf16_store",
+          "intent": "comfy_exact arithmetic over BF16-stored weights: every parameterised op computes with a transient FP32 copy of its weight, as ComfyUI's manual_cast does, while the stored and offloaded weights stay BF16. The patch-embed conv is kept FP32 at load so the vision input is never downcast",
+          "compute_dtype": "float32",
+          "storage_dtype": "bfloat16",
+          "manual_cast": true,
+          "manual_cast_ops": [
+            "linear",
+            "embedding",
+            "layer_norm",
+            "conv3d"
+          ],
+          "manual_cast_counts": {
+            "linear": 467,
+            "embedding": 1,
+            "layer_norm": 58,
+            "conv3d": 0,
+            "already_float32": 1,
+            "gated_modules": 528
+          },
+          "keep_in_fp32_modules": [
+            "visual.patch_embed"
+          ],
+          "position_interpolation_dtype": "bfloat16",
+          "position_reduction": "comfy four-term add",
+          "position_embedding_source_dtype": "bfloat16",
+          "position_cast_is_round_trip_exact": true,
+          "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+          "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+          "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+          "forward_substitution_is_bound_method": true,
+          "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "attn_implementation": "sdpa",
+        "attention_mask_all_ones": true,
+        "attention_mask_passed": false,
+        "sdpa_backend": {
+          "requested": "efficient"
+        },
+        "attention_kernel": {
+          "kind": "expanded_kv",
+          "intent": "repeat_kv before SDPA, unconditionally: SDPA sees the full head count and no enable_gqa, which at FP32 on this card selects the memory-efficient kernel. A measured candidate, not an accepted arithmetic",
+          "counts": {
+            "decisions_governed": 50,
+            "expanded": 50,
+            "left_to_library": 0,
+            "governed_modules": 50
+          },
+          "patched": "transformers.integrations.sdpa_attention.use_gqa_in_sdpa, gated by this model's attention modules on the entering thread",
+          "expansion_is_assumed_numerically_free": false,
+          "modifies_checkpoint_or_deployment": false,
+          "modifies_installed_packages": false
+        },
+        "sdpa_availability": {
+          "grouped_query": {
+            "flash": false,
+            "efficient": false,
+            "cudnn": false
+          },
+          "expanded_kv": {
+            "flash": false,
+            "efficient": true,
+            "cudnn": false
+          },
+          "note": "availability, not selection: torch does not expose which kernel a call chose"
+        },
+        "tap_layer": 49,
+        "tap": "forward hook on language_model.layers[49], raw residual",
+        "load_seconds": 1.6,
+        "forward_seconds": 7.9,
+        "presentation": {
+          "row_id": "train-00500-68f926b378a008b0",
+          "prompt_sha256": "8a193e02ca17ff50d2ba85bea461231d7c0fe793ea7540116e77975355a9022a",
+          "sequence_length": 1746,
+          "input_ids_sha256": "0729f04e5e9db838647aba680483886a924d522b059f49867f603d19f5cd1841",
+          "attention_mask_sha256": "c09ae5eff8dbba0f96e8332be5977ccc4b9b299f37ac8bbef88bfa6cd79f8469",
+          "mm_token_type_ids_sha256": "10b66e834a43da5f974a563c6c739133f21b7ce3faff9c097f741342345c7ad9",
+          "pixel_values_sha256": "254cbba3c2997b91d1054e19ce575899a58ef08d44299c72d1ed682851e2ea29",
+          "image_grid_thw_sha256": "17b12e694d1528e689c218f7ac361b910227320e68f9b139a42c921856b4a2b2",
+          "grids": [
+            [
+              1,
+              84,
+              48
+            ],
+            [
+              1,
+              22,
+              22
+            ]
+          ],
+          "token_tags_sha256": "0f9f4b909c78931e2d951e1111152e57e37c5802048bd9eaa90a55d49bd79f63",
+          "comfy_position_ids_sha256": "bd6a47cd81969293ba1bb3d2cf43f57e738603927fb1bca800e8ec4051de3bd9"
+        },
+        "transformers_sequence_length": 1746,
+        "layers_built": 50,
+        "deepstack_mergers": 3,
+        "perturbed_weight": null,
+        "hidden_state": {
+          "shape": [
+            1746,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "8c88ed0484120c43669d4ee71403f3b79f50b9eb276d4369a4f69a5272aa5b16"
+        },
+        "layer0_input": {
+          "shape": [
+            1746,
+            5120
+          ],
+          "dtype": "float32",
+          "sha256": "378ab1baba2aee33a0179b0fa195a96d8a5a0d2563b66af8e6744bec3fb6adda"
+        },
+        "source": {
+          "logical_name": "qwen3-vl-32b-bf16"
+        },
+        "peak_cuda_gib": 17.95,
+        "environment": {
+          "python": "3.13.9",
+          "torch": "2.13.0+cu132",
+          "transformers": "5.15.1"
+        }
+      },
+      "all": {
+        "rows": 1746,
+        "flattened_cosine": 0.9964113270509787,
+        "relative_l2": 0.09743468546444399,
+        "mse": 1.1570094731465947,
+        "rmse": 1.0756437482487382,
+        "reference_activation_rms": 11.03963894501847,
+        "candidate_activation_rms": 11.53279689832898,
+        "tokenwise_cosine_mean": 0.9995892771740127,
+        "tokenwise_cosine_min": 0.6587030569884698,
+        "tokenwise_cosine_p01": 0.9971178343469707,
+        "tokenwise_cosine_p50": 0.9999979060869092
+      },
+      "text_rows": {
+        "rows": 613,
+        "flattened_cosine": 0.999999576399235,
+        "relative_l2": 0.0009204363976570486,
+        "mse": 8.366493982022788e-05,
+        "rmse": 0.00914685409418057,
+        "reference_activation_rms": 9.937518895875305,
+        "candidate_activation_rms": 9.937500494357867,
+        "tokenwise_cosine_mean": 0.9999957841894678,
+        "tokenwise_cosine_min": 0.9986776033018381,
+        "tokenwise_cosine_p01": 0.9999754424746291,
+        "tokenwise_cosine_p50": 0.9999992844799779
+      },
+      "vision_rows": {
+        "rows": 1133,
+        "flattened_cosine": 0.9955576612050522,
+        "relative_l2": 0.11518589765274088,
+        "mse": 1.7829543278957145,
+        "rmse": 1.3352731285754667,
+        "reference_activation_rms": 11.592331663734704,
+        "candidate_activation_rms": 12.310031692642859,
+        "tokenwise_cosine_mean": 0.999369340015607,
+        "tokenwise_cosine_min": 0.6587030569884698,
+        "tokenwise_cosine_p01": 0.9927394142938222,
+        "tokenwise_cosine_p50": 0.9999946465384142
+      },
+      "layer0_input": {
+        "rows": 1746,
+        "flattened_cosine": 0.9999974010524348,
+        "relative_l2": 0.002281130067363491,
+        "mse": 5.539864924979178e-06,
+        "rmse": 0.0023536917650744285,
+        "reference_activation_rms": 1.031809539819245,
+        "candidate_activation_rms": 1.0317292291473503,
+        "tokenwise_cosine_mean": 0.9999977261039856,
+        "tokenwise_cosine_min": 0.9995271027848018,
+        "tokenwise_cosine_p01": 0.9999518161902087,
+        "tokenwise_cosine_p50": 0.9999997733611302
+      },
+      "layer0_input_text_rows": {
+        "rows": 613,
+        "flattened_cosine": 1.0000000000000062,
+        "relative_l2": 0.0,
+        "mse": 0.0,
+        "rmse": 0.0,
+        "reference_activation_rms": 0.021638111809506668,
+        "candidate_activation_rms": 0.021638111809506668,
+        "tokenwise_cosine_mean": 1.0,
+        "tokenwise_cosine_min": 0.9999999999999998,
+        "tokenwise_cosine_p01": 0.9999999999999998,
+        "tokenwise_cosine_p50": 1.0
+      },
+      "layer0_input_vision_rows": {
+        "rows": 1133,
+        "flattened_cosine": 0.9999974006485143,
+        "relative_l2": 0.002281306194477599,
+        "mse": 8.537161658440994e-06,
+        "rmse": 0.0029218421686396743,
+        "reference_activation_rms": 1.2807759763717426,
+        "candidate_activation_rms": 1.2806762720559708,
+        "tokenwise_cosine_mean": 0.9999964958319144,
+        "tokenwise_cosine_min": 0.9995271027848018,
+        "tokenwise_cosine_p01": 0.9999316190851121,
+        "tokenwise_cosine_p50": 0.9999995567283559
+      }
+    }
+  },
+  "refusals": []
+}

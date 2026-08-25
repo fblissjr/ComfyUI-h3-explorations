@@ -73,6 +73,14 @@ POLICIES = (
     "comfy_exact_bf16_store",
 )
 
+# "FP32 active compute" is literal for the linears and not quite for the
+# patch-embed conv, under both implementations: `torch.backends.cudnn.allow_tf32`
+# defaults to True in both virtualenvs and ComfyUI's `ops.py` passes
+# `allow_tf32=True` to `cudnn_convolution` explicitly, while matmul TF32 is off
+# on both sides (`torch.get_float32_matmul_precision() == "highest"`, nothing
+# set by ComfyUI). Read from source on 2026-08-25; consistent between the two
+# stacks and therefore not a divergence, but not literally FP32 either.
+#
 # `comfy_exact_bf16_store` is `comfy_exact` with the deployed *storage*
 # arrangement as well as the deployed arithmetic: the weights stay BF16 where
 # they are stored and offloaded, and every parameterised op computes with a
