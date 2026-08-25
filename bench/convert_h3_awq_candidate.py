@@ -388,8 +388,14 @@ def main(argv=None) -> int:
     print(f"wrote snapshot {out_dir.name}: {len(files)} files")
 
     if not args.configs_only:
-        resolved = verify_output(Path(args.output).expanduser(), adapter, out_dir)
-        print(f"adapter accepts the produced file; snapshot resolved to {resolved}")
+        resolved = Path(verify_output(Path(args.output).expanduser(), adapter, out_dir))
+        # Repo-relative when it is inside the repo: this line gets pasted into
+        # records, and an absolute path names the machine.
+        try:
+            shown = resolved.resolve().relative_to(REPO)
+        except ValueError:
+            shown = resolved.name
+        print(f"adapter accepts the produced file; snapshot resolved to {shown}")
     return 0
 
 

@@ -4,6 +4,15 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.8
+
+### Changed
+
+- `bench/convert_h3_awq_candidate.py` prints the resolved snapshot as a
+  repo-relative path. The absolute form landed in a gitignored log and turned
+  `bench/check_no_owner_paths.py` red on a correct tree; that line is the kind
+  that gets pasted into a record.
+
 ## 0.70.7
 
 ### Fixed
