@@ -9,6 +9,15 @@ file locally from the two parents on disk, with the cut as an argument, so a
 hybrid nobody published -- every block plus the final layer -- is one command
 rather than an 84 GB download that does not exist.
 
+## The shared curve table stays fl2va's, and that is measurable
+`adaln_t_table` is one tensor serving every block, so a partial hybrid must
+keep one parent's table under the other parent's linears. Measured 2026-08-25
+(`bench/compare_dit_checkpoints.py`, `bench/results/2026-08-25_dit_fl2va_hybrid_*.json`):
+the two partitions' tables span nearly the same subspace but are not equal,
+and the `adaln_all` build's modulation sits 0.1-0.2% from ref2va's own at
+every block. An all-blocks build could copy ref2va's table too; this script
+does not, and `docs/evidence.md` carries the entry.
+
 ## The control comes before the build
 
 A builder that writes a plausible 21 GB safetensors is the shape of tool whose

@@ -4,6 +4,26 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.69.2
+
+### Added
+
+- **`bench/compare_dit_checkpoints.py`**: compares two H3 DiT safetensors by
+  header and range-fetched samples, local or `https://`, with two tests a
+  plain diff cannot settle: which fused-qkv row order each file holds, and
+  whether two pruned files' AdaLN factorisations produce the same modulation.
+  Records local files by basename. Eight records under
+  `bench/results/2026-08-25_dit_fl2va_*.json`.
+
+### Measured
+
+- `DeepBeepMeep/MiniMax-H3`'s FL2VA int8 files are Comfy's bytes; its bf16
+  files keep the release qkv order and are not ComfyUI-loadable as-is; its
+  `pruned_rank8` is Comfy's pruning in another basis, and its `pruned` is a
+  rank-64 variant Comfy does not publish. The `adaln_all` hybrid runs
+  ref2va's AdaLN linears on fl2va's curve table, 0.1-0.2% from ref2va's own
+  modulation. `docs/evidence.md` carries both entries.
+
 ## 0.69.1
 
 ### Added

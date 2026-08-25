@@ -1,0 +1,241 @@
+{
+  "measured": "2026-08-25",
+  "produced_by": "bench/compare_dit_checkpoints.py (header read + HTTP range samples)",
+  "a": {
+    "label": "hybrid_adaln_all_int8",
+    "ref": "minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors"
+  },
+  "b": {
+    "label": "comfy_fl2va_pruned_int8",
+    "ref": "minimax_h3_fl2va_pruned_int8_convrot.safetensors"
+  },
+  "header_diff": {
+    "tensors": [
+      932,
+      932
+    ],
+    "dtypes": [
+      {
+        "F32": 210,
+        "F16": 102,
+        "BF16": 220,
+        "U8": 200,
+        "I8": 200
+      },
+      {
+        "F32": 210,
+        "BF16": 220,
+        "F16": 102,
+        "I8": 200,
+        "U8": 200
+      }
+    ],
+    "tensor_bytes": [
+      20970284192,
+      20970284192
+    ],
+    "header_bytes": [
+      97840,
+      95416
+    ],
+    "only_in_a": [],
+    "only_in_b": [],
+    "dtype_or_shape_changed": [],
+    "metadata": [
+      {
+        "built_by": "bench/build_hybrid.py",
+        "fl2va": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "ref2va": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "adaln_from_ref2va_blocks": "0-49",
+        "final_layer_adaln_from_ref2va": "true",
+        "adaln_t_table": "fl2va"
+      },
+      null
+    ]
+  },
+  "samples": [
+    {
+      "key": "blocks.0.norm1.weight",
+      "dtype": [
+        "BF16",
+        "BF16"
+      ],
+      "shape": [
+        5376
+      ],
+      "bytes_compared": 10752,
+      "whole_tensor": true,
+      "result": "identical"
+    },
+    {
+      "key": "video_patch_proj.weight",
+      "dtype": [
+        "F32",
+        "F32"
+      ],
+      "shape": [
+        5376,
+        96
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    },
+    {
+      "key": "adaln_t_table",
+      "dtype": [
+        "F32",
+        "F32"
+      ],
+      "shape": [
+        1025,
+        8
+      ],
+      "bytes_compared": 32800,
+      "whole_tensor": true,
+      "result": "identical"
+    },
+    {
+      "key": "final_layer.video_out.weight",
+      "dtype": [
+        "F32",
+        "F32"
+      ],
+      "shape": [
+        96,
+        5376
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    },
+    {
+      "key": "blocks.0.attn.qkv_proj.weight",
+      "dtype": [
+        "I8",
+        "I8"
+      ],
+      "shape": [
+        21504,
+        5376
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    },
+    {
+      "key": "blocks.0.attn.qkv_proj.weight_scale",
+      "dtype": [
+        "F32",
+        "F32"
+      ],
+      "shape": [
+        21504,
+        1
+      ],
+      "bytes_compared": 86016,
+      "whole_tensor": true,
+      "result": "identical"
+    },
+    {
+      "key": "blocks.0.attn.qkv_proj.comfy_quant",
+      "dtype": [
+        "U8",
+        "U8"
+      ],
+      "shape": [
+        72
+      ],
+      "bytes_compared": 72,
+      "whole_tensor": true,
+      "result": "identical"
+    },
+    {
+      "key": "blocks.25.attn.out_proj.weight",
+      "dtype": [
+        "I8",
+        "I8"
+      ],
+      "shape": [
+        5376,
+        7168
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    },
+    {
+      "key": "blocks.49.mlp.fc1.weight",
+      "dtype": [
+        "I8",
+        "I8"
+      ],
+      "shape": [
+        28672,
+        5376
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    }
+  ],
+  "qkv_order": {
+    "key": "blocks.0.attn.qkv_proj.weight",
+    "heads": 56,
+    "head_dim": 128,
+    "a_rows_0_3dh_equal_b": true,
+    "verdict": "same layout (head-0 rows identical)"
+  },
+  "adaln": {
+    "table_shape": [
+      [
+        1025,
+        8
+      ],
+      [
+        1025,
+        8
+      ]
+    ],
+    "blocks": {
+      "blocks.0": {
+        "modulation_rel_diff": 0.03058667480945587,
+        "bias_rel_diff": 0.030085407197475433,
+        "weight_dtypes": [
+          "F16",
+          "F16"
+        ]
+      },
+      "blocks.25": {
+        "modulation_rel_diff": 0.039711032062768936,
+        "bias_rel_diff": 0.03924860432744026,
+        "weight_dtypes": [
+          "F16",
+          "F16"
+        ]
+      },
+      "blocks.49": {
+        "modulation_rel_diff": 0.018720580264925957,
+        "bias_rel_diff": 0.018300017341971397,
+        "weight_dtypes": [
+          "F16",
+          "F16"
+        ]
+      },
+      "final_layer": {
+        "modulation_rel_diff": 0.03311098366975784,
+        "bias_rel_diff": 0.03264947980642319,
+        "weight_dtypes": [
+          "F16",
+          "F16"
+        ]
+      }
+    },
+    "table_identical": true,
+    "basis_change_residual": 0.0
+  },
+  "bytes_read": [
+    19022088,
+    19022088
+  ]
+}

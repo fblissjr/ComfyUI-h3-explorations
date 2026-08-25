@@ -145,6 +145,28 @@ instrument that has been shown red.
   both quantizations equally; reordered, it reads the same ~0.9% as every
   other int8 linear. `analyze_quant_delta.py` measures both readings and
   refuses to run if the reordering is not the better one.
+- **`DeepBeepMeep/MiniMax-H3`'s FL2VA files against `Comfy-Org/MiniMax-H3`'s,
+  measured 2026-08-25** by `bench/compare_dit_checkpoints.py` on headers and
+  range-fetched samples (records `bench/results/2026-08-25_dit_fl2va_*.json`).
+  The int8_convrot files, pruned and unpruned, are Comfy's bytes under a
+  different header. The bf16 files are Comfy's bytes except `qkv_proj`, which
+  DBM stores in the **release order** above; head 0's k rows sit where
+  ComfyUI's split expects head 1's q, so a DBM bf16 file is a WanGP file and
+  not ComfyUI-loadable as-is. DBM `pruned_rank8` and Comfy `pruned` are the
+  same rank-8 AdaLN factorisation in a sign-flipped basis (basis-change
+  residual 3e-7), with the modulation agreeing to 2e-4 relative, which is
+  Comfy storing the factors in F16 where DBM keeps F32. DBM `pruned` with no
+  suffix is a **rank-64** factorisation on a 1,001-point grid that Comfy does
+  not publish; against rank-8 its modulation differs by 1e-5 to 7e-5 across t.
+- **The `adaln_all` hybrid applies ref2va's AdaLN linears to fl2va's curve
+  table, measured 2026-08-25** with the same tool. `bench/build_hybrid.py`
+  copies `blocks.*.adaln_proj.linear.*` and leaves the shared `adaln_t_table`
+  on fl2va; the two partitions' tables span nearly the same subspace (residual
+  5e-5) but are not the same table, so the hybrid's modulation sits 0.1-0.2%
+  from ref2va's own at every block, an order above the rank-8 truncation and
+  an order below the 2-4% by which ref2va's AdaLN differs from fl2va's. A
+  partial hybrid cannot avoid this (one table serves both parents' blocks); the
+  all-blocks build could copy ref2va's table and has not been rebuilt.
 - **The node is vendored, symlinked and hash-pinned**, so the file ComfyUI
   loads cannot drift from the tracked one, and an unrecorded hash fails rather
   than warns.

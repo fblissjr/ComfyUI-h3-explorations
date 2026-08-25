@@ -1,0 +1,1128 @@
+{
+  "measured": "2026-08-25",
+  "produced_by": "bench/compare_dit_checkpoints.py (header read + HTTP range samples)",
+  "a": {
+    "label": "dbm_pruned_rank64_bf16",
+    "ref": "https://huggingface.co/DeepBeepMeep/MiniMax-H3/resolve/main/MiniMax-H3-FL2VA-pruned_bf16.safetensors"
+  },
+  "b": {
+    "label": "dbm_pruned_rank8_bf16",
+    "ref": "https://huggingface.co/DeepBeepMeep/MiniMax-H3/resolve/main/MiniMax-H3-FL2VA-pruned_rank8_bf16.safetensors"
+  },
+  "header_diff": {
+    "tensors": [
+      532,
+      532
+    ],
+    "dtypes": [
+      {
+        "F32": 112,
+        "BF16": 420
+      },
+      {
+        "F32": 112,
+        "BF16": 420
+      }
+    ],
+    "tensor_bytes": [
+      41399386432,
+      40312952928
+    ],
+    "header_bytes": [
+      56216,
+      56152
+    ],
+    "only_in_a": [],
+    "only_in_b": [],
+    "dtype_or_shape_changed": [
+      {
+        "key": "adaln_t_table",
+        "a": [
+          "F32",
+          [
+            1001,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            1025,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.0.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.1.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.10.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.11.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.12.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.13.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.14.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.15.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.16.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.17.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.18.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.19.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.2.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.20.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.21.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.22.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.23.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.24.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.25.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.26.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.27.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.28.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.29.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.3.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.30.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.31.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.32.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.33.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.34.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.35.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.36.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.37.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.38.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.39.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.4.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.40.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.41.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.42.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.43.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.44.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.45.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.46.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.47.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.48.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.49.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.5.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.6.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.7.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.8.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "blocks.9.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            96768,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            96768,
+            8
+          ]
+        ]
+      },
+      {
+        "key": "final_layer.adaln_proj.linear.weight",
+        "a": [
+          "F32",
+          [
+            10752,
+            64
+          ]
+        ],
+        "b": [
+          "F32",
+          [
+            10752,
+            8
+          ]
+        ]
+      }
+    ],
+    "metadata": [
+      {
+        "format": "pt",
+        "repo_id": "MiniMaxAI/MiniMax-H3",
+        "source_revision": "73372e6cf53e414edd3ab03e357717fb0602e758",
+        "partition": "FL2VA",
+        "precision": "bf16",
+        "adaln_curve_grid": "1001",
+        "adaln_curve_rank": "64",
+        "adaln_curve_centered": "true"
+      },
+      {
+        "format": "pt",
+        "repo_id": "MiniMaxAI/MiniMax-H3",
+        "source_revision": "73372e6cf53e414edd3ab03e357717fb0602e758",
+        "partition": "FL2VA",
+        "precision": "bf16",
+        "adaln_curve_grid": "1025",
+        "adaln_curve_rank": "8",
+        "adaln_curve_centered": "true"
+      }
+    ]
+  },
+  "samples": [
+    {
+      "key": "blocks.0.norm1.weight",
+      "dtype": [
+        "BF16",
+        "BF16"
+      ],
+      "shape": [
+        5376
+      ],
+      "bytes_compared": 10752,
+      "whole_tensor": true,
+      "result": "identical"
+    },
+    {
+      "key": "video_patch_proj.weight",
+      "dtype": [
+        "F32",
+        "F32"
+      ],
+      "shape": [
+        5376,
+        96
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    },
+    {
+      "key": "adaln_t_table",
+      "dtype": [
+        "F32",
+        "F32"
+      ],
+      "shape": [
+        1001,
+        64
+      ],
+      "bytes_compared": 32800,
+      "whole_tensor": true,
+      "result": "dtype differs",
+      "max_abs_diff": 0.6623215675354004,
+      "rel_diff": 1.1248196363449097
+    },
+    {
+      "key": "final_layer.video_out.weight",
+      "dtype": [
+        "F32",
+        "F32"
+      ],
+      "shape": [
+        96,
+        5376
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    },
+    {
+      "key": "blocks.0.attn.qkv_proj.weight",
+      "dtype": [
+        "BF16",
+        "BF16"
+      ],
+      "shape": [
+        21504,
+        5376
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    },
+    {
+      "key": "blocks.25.attn.out_proj.weight",
+      "dtype": [
+        "BF16",
+        "BF16"
+      ],
+      "shape": [
+        5376,
+        7168
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    },
+    {
+      "key": "blocks.49.mlp.fc1.weight",
+      "dtype": [
+        "BF16",
+        "BF16"
+      ],
+      "shape": [
+        28672,
+        5376
+      ],
+      "bytes_compared": 2000000,
+      "whole_tensor": false,
+      "result": "identical"
+    }
+  ],
+  "qkv_order": {
+    "key": "blocks.0.attn.qkv_proj.weight",
+    "heads": 56,
+    "head_dim": 128,
+    "a_rows_0_3dh_equal_b": true,
+    "verdict": "same layout (head-0 rows identical)"
+  },
+  "adaln": {
+    "table_shape": [
+      [
+        1001,
+        64
+      ],
+      [
+        1025,
+        8
+      ]
+    ],
+    "blocks": {
+      "blocks.0": {
+        "grids_differ": true,
+        "rel_diff_at_9_fractions": [
+          7.082652155077085e-05,
+          1.1831345545942895e-05,
+          1.117106330639217e-05,
+          8.540379894839134e-06,
+          8.32082332635764e-06,
+          1.4183670828060713e-05,
+          1.2139544196543284e-05,
+          1.0620304237818345e-05,
+          4.8134759708773345e-05
+        ]
+      },
+      "blocks.25": {
+        "grids_differ": true,
+        "rel_diff_at_9_fractions": [
+          8.276933658635244e-05,
+          1.1406164958316367e-05,
+          1.0740470315795392e-05,
+          9.117828085436486e-06,
+          1.1299239304207731e-05,
+          1.4499330063699745e-05,
+          1.1435061423981097e-05,
+          9.980472896131687e-06,
+          4.85260461573489e-05
+        ]
+      },
+      "blocks.49": {
+        "grids_differ": true,
+        "rel_diff_at_9_fractions": [
+          7.436652958858758e-05,
+          9.397238500241656e-06,
+          8.882610927685164e-06,
+          6.56514521324425e-06,
+          1.036522735375911e-05,
+          1.3575244338426273e-05,
+          9.600527846487239e-06,
+          8.381221050512977e-06,
+          4.715135946753435e-05
+        ]
+      },
+      "final_layer": {
+        "grids_differ": true,
+        "rel_diff_at_9_fractions": [
+          6.995147850830108e-05,
+          1.1865289707202464e-05,
+          1.1308504326734692e-05,
+          7.290924713743152e-06,
+          7.329235359065933e-06,
+          1.432134104106808e-05,
+          1.1772361176554114e-05,
+          1.0138817742699757e-05,
+          4.707385232904926e-05
+        ]
+      }
+    }
+  },
+  "bytes_read": [
+    95679104,
+    27795648
+  ]
+}
