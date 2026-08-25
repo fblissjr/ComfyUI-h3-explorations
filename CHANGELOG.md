@@ -4,6 +4,72 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.3
+
+### Added
+
+- **`bench/select_gate6_ablation_rows.py`** and
+  `bench/results/2026-08-25_gate6_upscale_ablation_rows.json`: the render
+  population for the Gate 6 reference-upscale ablation. Computed from the
+  shipped sizing code before selecting anything, because the population follows
+  from it: **the three arms differ if and only if a still's short edge is below
+  2048.** `max`/no-upscale clamps with `min(1.0, 2048/short_edge)`, so a source
+  already at or past that boundary is untouched by every arm. Source *size* is
+  not the discriminator and a large-source stratum would have been a guaranteed
+  null, so rows are stratified by upscale factor, computed over reference
+  stills only -- a keyframe takes the target canvas and no arm moves it.
+  Keyframe-only rows are excluded for the same reason. One row is a deliberate
+  null control past the boundary: its arms receive bit-identical conditioning,
+  so any arm-labelled difference reported on it is a labelling or seeding
+  error. Per-arm visual token cost is recorded per row, and every family is
+  disjoint from the calibration bundle and both holdouts under the corrected
+  component map.
+- **`bench/select_t2va_holdout_rows.py`** and its bundle record: the
+  deterministic text-only T2VA regression population `active_plan.md` names.
+  **Its disjointness is not the vision holdout's**, and claiming it was would
+  be the emptiest kind of green -- these rows carry no media, so media and
+  visual-family disjointness are true by construction. The informative axis is
+  the prompt, and the near-duplicate review is reported against the
+  population's own background level rather than a threshold, because every
+  `target_ir` shares a section skeleton and a bare floor is high for unrelated
+  rows.
+- **`bench/results/2026-08-25_violation_arm_grading_audit.md`**: every
+  violation arm under `bench/` classified by how it is graded. None grades on
+  the exit code of a check that could return non-zero for an unrelated reason;
+  the one place an exit code is read is the red spine's own control, where the
+  subject *is* a harness and both directions are asserted. `bench/red/
+  harness.py` already fails **closed** on a red baseline. The precondition rule
+  therefore stands for new arms and earned no rework of existing ones.
+
+### Changed
+
+- `bench/build_native_h3_calibration_batch.py` gains `--population text-only`,
+  reading the pool's exclusion complement. The two populations cannot mix and
+  that is asserted rather than assumed: the mode refuses a bundle carrying any
+  vision-bearing row, and `--family` is refused outright because it names a
+  vision role. The vision path is unchanged.
+- `bench/review_v2_calibration_bundle.py`: **correctly absent is not broken.**
+  A text-only bundle turned every row red twice on a bundle that was correct,
+  because `bundle_files` demanded a media file and `family_disjointness`
+  demanded a component-map entry from rows that have neither by construction.
+  Both now key on whether the row carries a media tensor, so a vision row that
+  lost either stays red -- two new mutations assert exactly that. The family
+  arm declares itself vacuous on a media-free bundle rather than reporting a
+  green that asserts nothing. Separately, three mutations selected their
+  subject with a bare `next(...)`, so the violation arm *crashed* on a
+  population that could not satisfy them instead of reporting that they did not
+  apply; every mutation now names its precondition and refuses by name.
+- `docs/checks.md` corrects the precondition rule it adopted the same day. The
+  rule said a disk-tier control "reported the null result as a pass"; it did
+  not -- its guard yields "unchanged" on a null read, which refuses to emit the
+  candidate. Two of the three instances failed open, one failed closed. The
+  shared shape is a reading whose precondition was not met producing a verdict
+  anyway, and the direction differed. It also corrected what caught them: the
+  per-arm baseline caught the two mutation controls, while the third was found
+  by running on a tier it had never met. Gap 8 records the one real residual --
+  a whole-check baseline lets a mutation aimed at one arm be satisfied by
+  another firing, known and un-earned.
+
 ## 0.70.2
 
 ### Added
