@@ -1,0 +1,245 @@
+{
+  "measured": "2026-08-25",
+  "produced_by": "bench/compare_lora_files.py (header read + range-fetched tensors)",
+  "a": {
+    "label": "local_turbo_v4_step600_ema",
+    "ref": "minimax_h3_turbo_v4_step600_ema.safetensors",
+    "tensors": 518,
+    "metadata": {
+      "application": "W_eff = W + lora_B @ lora_A",
+      "base_model": "MiniMax-H3"
+    }
+  },
+  "b": {
+    "label": "dbm_larryvrh_v4_step600_ema",
+    "ref": "https://huggingface.co/DeepBeepMeep/MiniMax-H3/resolve/main/loras/minimax_h3_larryvrh_v4_step600_ema.safetensors",
+    "tensors": 518,
+    "metadata": {
+      "application": "W_eff = W + lora_B @ lora_A",
+      "base_model": "MiniMax-H3"
+    }
+  },
+  "modules": [
+    259,
+    259,
+    259
+  ],
+  "only_in_a": [],
+  "only_in_b": [],
+  "alphas": {
+    "a": {
+      "tensor_values": {},
+      "metadata_alpha": null
+    },
+    "b": {
+      "tensor_values": {},
+      "metadata_alpha": null
+    }
+  },
+  "samples": [
+    {
+      "module": "blocks.0.adaln_proj.linear",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            16,
+            2688
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.adaln_proj.linear",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            96768,
+            16
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc1",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            64,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc1",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            28672,
+            64
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc2",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            64,
+            14336
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc2",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            5376,
+            64
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.out_proj",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            64,
+            7168
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.out_proj",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            5376,
+            64
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.qkv_proj",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            64,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.qkv_proj",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            21504,
+            64
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    }
+  ],
+  "bytes_read": [
+    15110144,
+    15110144
+  ]
+}

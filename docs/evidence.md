@@ -167,6 +167,23 @@ instrument that has been shown red.
   an order below the 2-4% by which ref2va's AdaLN differs from fl2va's. A
   partial hybrid cannot avoid this (one table serves both parents' blocks); the
   all-blocks build could copy ref2va's table and has not been rebuilt.
+- **The H3 Turbo LoRAs across `lightx2v/Minimax-h3-Turbo` and
+  `DeepBeepMeep/MiniMax-H3/loras`, measured 2026-08-25** by
+  `bench/compare_lora_files.py` (records `bench/results/2026-08-25_lora_*.json`;
+  whole sampled tensors per module kind, every alpha scalar read). DBM's five
+  `lightx2v_*` files are lightx2v's diffusers files byte for byte plus one
+  `.alpha` scalar per module, equal to lightx2v's metadata alpha where one
+  exists (128 for v1.0 and v1.1, 8 for 8-step and ref2v). **v0.1 declares no
+  alpha anywhere and DBM assigned 16**; its origin is in neither file, and
+  against rank 128 it is an 8x smaller scale than v1.0's. lightx2v's
+  `comfyui_bf16` variants are exact conversions: q, k, v fused block-diagonally
+  into one rank-384 `qkv_proj` LoRA (each band byte-identical to its source),
+  `fc1` lora_B halves swapped as the file's `swi_glu_mapping` declares,
+  everything else byte-identical, fused alpha scaled with the rank so the
+  effective scale is unchanged. The shipped `minimax_h3_turbo_v4_step600_ema`
+  is DBM's `larryvrh_v4_step600_ema`, identical on every sampled tensor; DBM's
+  `turbo_4step_ema_ckpt850` shares its modules and metadata and differs on
+  every tensor, so it is another checkpoint of that recipe, not a re-save.
 - **The node is vendored, symlinked and hash-pinned**, so the file ComfyUI
   loads cannot drift from the tracked one, and an unrecorded hash fails rather
   than warns.

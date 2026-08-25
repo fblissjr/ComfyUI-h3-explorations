@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.69.3
+
+### Added
+
+- **`bench/compare_lora_files.py`**: byte comparison of H3 LoRA files across
+  the diffusers, diffusers-plus-alpha and ComfyUI-native key conventions,
+  local or `https://`. Maps modules between conventions, checks the fused
+  `qkv_proj` and SwiGLU `fc1` structure band by band, tests the row
+  permutations a SwiGLU re-layout produces before calling a mismatch a
+  difference, and reads every alpha scalar beside the metadata alpha. Eleven
+  records under `bench/results/2026-08-25_lora_*.json`.
+
+### Measured
+
+- DBM's lightx2v LoRAs are lightx2v's bytes plus alpha tensors; v0.1's alpha
+  of 16 is DBM's, declared nowhere else. lightx2v's `comfyui_bf16` files are
+  exact conversions. The shipped turbo pack is DBM's `larryvrh_v4_step600_ema`.
+  `docs/evidence.md` carries the entry.
+
 ## 0.69.2
 
 ### Added

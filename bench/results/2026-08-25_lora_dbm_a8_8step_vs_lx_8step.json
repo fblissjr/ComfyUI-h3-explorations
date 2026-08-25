@@ -1,0 +1,481 @@
+{
+  "measured": "2026-08-25",
+  "produced_by": "bench/compare_lora_files.py (header read + range-fetched tensors)",
+  "a": {
+    "label": "dbm_8step_a8",
+    "ref": "https://huggingface.co/DeepBeepMeep/MiniMax-H3/resolve/main/loras/minimax_h3_lightx2v_fl2v_turbo_8step_alpha8_v1.0_bf16.safetensors",
+    "tensors": 936,
+    "metadata": {
+      "format": "pt",
+      "floating_dtype": "bfloat16",
+      "alpha": "8"
+    }
+  },
+  "b": {
+    "label": "lx_8step",
+    "ref": "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_fl2v_turbo_8step_v1.0_bf16.safetensors",
+    "tensors": 624,
+    "metadata": {
+      "format": "pt",
+      "floating_dtype": "bfloat16",
+      "alpha": "8"
+    }
+  },
+  "modules": [
+    208,
+    208,
+    208
+  ],
+  "only_in_a": [],
+  "only_in_b": [],
+  "alphas": {
+    "a": {
+      "tensor_values": {
+        "8.0": 312
+      },
+      "metadata_alpha": "8"
+    },
+    "b": {
+      "tensor_values": {},
+      "metadata_alpha": "8"
+    }
+  },
+  "samples": [
+    {
+      "module": "blocks.0.mlp.fc1",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": 0,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc1",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": 0,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            28672,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.32.mlp.fc1",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": 0,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.32.mlp.fc1",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": 0,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            28672,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc2",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            14336
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc2",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            5376,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.32.mlp.fc2",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            14336
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.32.mlp.fc2",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            5376,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.out_proj",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            7168
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.out_proj",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            5376,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.32.attn.out_proj",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            7168
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.32.attn.out_proj",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            5376,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.qkv_proj",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": 1,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 0,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 2,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.qkv_proj",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": 1,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            7168,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 0,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            7168,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 2,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            7168,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.32.attn.qkv_proj",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": 1,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 0,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 2,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            5376
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.32.attn.qkv_proj",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": 1,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            7168,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 0,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            7168,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 2,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            7168,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    }
+  ],
+  "bytes_read": [
+    53216480,
+    53215232
+  ]
+}

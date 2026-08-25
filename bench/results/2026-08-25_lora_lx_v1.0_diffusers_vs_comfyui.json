@@ -1,0 +1,270 @@
+{
+  "measured": "2026-08-25",
+  "produced_by": "bench/compare_lora_files.py (header read + range-fetched tensors)",
+  "a": {
+    "label": "lx_v1.0_768p",
+    "ref": "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_fl2v_turbo_4step_v1.0_768p_bf16.safetensors",
+    "tensors": 624,
+    "metadata": {
+      "alpha": "128",
+      "key_format": "minimax-h3-diffusers",
+      "format": "pt",
+      "floating_dtype": "bfloat16"
+    }
+  },
+  "b": {
+    "label": "lx_v1.0_768p_comfyui",
+    "ref": "https://huggingface.co/lightx2v/Minimax-h3-Turbo/resolve/main/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
+    "tensors": 624,
+    "metadata": {
+      "swi_glu_mapping": "Diffusers [value;gate] -> ComfyUI [gate;value]",
+      "training_rank": "128",
+      "target_format": "ComfyUI generic LoRA",
+      "training_alpha": "128.0",
+      "training_scale": "1.0",
+      "format": "pt",
+      "base_model": "Comfy-Org/MiniMax-H3 minimax_h3_fl2va_bf16.safetensors",
+      "qkv_fusion": "block diagonal B; concat A; alpha multiplied by 3",
+      "source_format": "Diffusers PEFT LoRA"
+    }
+  },
+  "modules": [
+    208,
+    208,
+    208
+  ],
+  "only_in_a": [],
+  "only_in_b": [],
+  "alphas": {
+    "a": {
+      "tensor_values": {},
+      "metadata_alpha": "128"
+    },
+    "b": {
+      "tensor_values": {
+        "128.0": 156,
+        "384.0": 52
+      },
+      "metadata_alpha": "128.0"
+    }
+  },
+  "samples": [
+    {
+      "module": "blocks.0.mlp.fc1",
+      "part": "lora_A",
+      "fused_side": "b",
+      "results": [
+        {
+          "band": 0,
+          "shape_src": [
+            128,
+            5376
+          ],
+          "shape_fused": [
+            128,
+            5376
+          ],
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc1",
+      "part": "lora_B",
+      "fused_side": "b",
+      "results": [
+        {
+          "band": 0,
+          "shape_src": [
+            28672,
+            128
+          ],
+          "shape_fused": [
+            28672,
+            128
+          ],
+          "identical": false,
+          "rel_diff": 1.4136580228805542,
+          "permutation_match": "halves_swapped"
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc2",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            14336
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.mlp.fc2",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            5376,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.out_proj",
+      "part": "lora_A",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            128,
+            7168
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.out_proj",
+      "part": "lora_B",
+      "results": [
+        {
+          "band": null,
+          "dtype": [
+            "BF16",
+            "BF16"
+          ],
+          "shape": [
+            5376,
+            128
+          ],
+          "whole": true,
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.qkv_proj",
+      "part": "lora_A",
+      "fused_side": "b",
+      "results": [
+        {
+          "band": 0,
+          "shape_src": [
+            128,
+            5376
+          ],
+          "shape_fused": [
+            384,
+            5376
+          ],
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 1,
+          "shape_src": [
+            128,
+            5376
+          ],
+          "shape_fused": [
+            384,
+            5376
+          ],
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 2,
+          "shape_src": [
+            128,
+            5376
+          ],
+          "shape_fused": [
+            384,
+            5376
+          ],
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    },
+    {
+      "module": "blocks.0.attn.qkv_proj",
+      "part": "lora_B",
+      "fused_side": "b",
+      "results": [
+        {
+          "band": 0,
+          "shape_src": [
+            7168,
+            128
+          ],
+          "shape_fused": [
+            21504,
+            384
+          ],
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 1,
+          "shape_src": [
+            7168,
+            128
+          ],
+          "shape_fused": [
+            21504,
+            384
+          ],
+          "identical": true,
+          "rel_diff": 0.0
+        },
+        {
+          "band": 2,
+          "shape_src": [
+            7168,
+            128
+          ],
+          "shape_fused": [
+            21504,
+            384
+          ],
+          "identical": true,
+          "rel_diff": 0.0
+        }
+      ]
+    }
+  ],
+  "bytes_read": [
+    26607616,
+    37618496
+  ]
+}
