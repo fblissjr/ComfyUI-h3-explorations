@@ -631,8 +631,11 @@ carries the reasoning. Summarised only so the list is complete:
   not a defect.
 - **Exact AdaLN cache.** Buys unpruned accuracy at pruned memory, not speed.
   Downstream of `open_experiments.md` #22.
-- **Breakable CUDA graphs.** No equivalent here. Their own quality gate requires
-  it off.
+- **Breakable CUDA graphs.** Their own quality gate requires it off, and
+  under it H3's attention runs eager anyway. ComfyUI core has a per-block
+  equivalent (`comfy/model_prefetch.py`, keyed on dynamic-VRAM placement) that
+  the H3 DiT loop does not enable; `sglang_comparison.md` records why it is
+  not worth asking for on this box, and the one small-canvas case untested.
 - **Step caching.** Priced and declined 2026-08-20: their speedup came from
   skipping steps on a 16-step schedule at 50 steps on four H200s. At 4 steps
   there is nothing to skip.

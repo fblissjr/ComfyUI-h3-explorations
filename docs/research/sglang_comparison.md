@@ -115,8 +115,35 @@ or scheduled.
 pads the packed prompt to the model's sequence alignment and rewrites
 `cu_seqlens_q`, `max_seqlen_q` and the position ids so one captured graph
 serves varying lengths. That padding layer is the part that makes graph
-capture possible for a packed-sequence model at all. ComfyUI has no equivalent
-for H3. Note again that their own quality gate requires this off.
+capture possible for a packed-sequence model at all. Note again that their own
+quality gate requires this off, and that under it H3's attention core and
+`_embed` are marked `eager_on_graph(True)`
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py`,
+read 2026-08-25): the captured region excludes the phase that dominates
+sampling time on this box.
+
+**Corrected 2026-08-25: ComfyUI does have an equivalent, and it is off for H3
+by construction.** Source read, not run: `comfy/model_prefetch.py` captures one
+`torch.cuda.CUDAGraph` per block inside the dynamic-VRAM prefetch queue and
+replays it only when the allocator's placement signature for that block's
+weights matches the capture (`vbar_signature_compare`), which is the
+streaming-weights problem answered per block rather than avoided. It is wired
+for LLaMA-family decode (`fixed_kv_decode` only, so never for a prompt encode),
+Gemma4 decode and MiniMax Music; the H3 DiT loop
+(`comfy/ldm/minimax/model.py`, the `prefetch_queue_pop` calls) passes neither
+`core` nor `enable_graph`, so no H3 block is captured. `TorchCompileModel`'s
+`cudagraphs` backend is the other route and it clones the model with
+`disable_dynamic=True`, which on a card the DiT does not fit
+([`hardware.md`](../hardware.md), measured 2026-08-17) is not a route.
+What is left to gain is bounded by
+`bench/results/2026-08-18_phase0_instrument.json`: sampling at 1024x768 with
+three references ran at 100% SM occupancy with power pegged at the limit, and
+graph replay removes launch gaps only. Untested and the one place it could
+still pay: a single-frame `workflows/image/` render at a small canvas, where
+the same instrument reading SM occupancy well under 100% would be the signal.
+The technique is also available outside sglang as `meta-pytorch/breakable-cuda-graphs`
+(BSD-3; README read 2026-08-25: `@no_graph` regions may not return CUDA
+tensors, and it says nothing about weights that move between replays).
 
 ### Refusals at admission rather than degraded service
 

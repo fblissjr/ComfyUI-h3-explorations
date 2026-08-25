@@ -4,6 +4,19 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.67.1
+
+### Changed
+
+- **`docs/research/sglang_comparison.md`, `docs/comfyui_vendor_gaps.md`**:
+  the breakable-CUDA-graph entry said ComfyUI had no equivalent. It does:
+  core captures per-block graphs inside the dynamic-VRAM prefetch queue,
+  replayed only on a matching weight placement, and enables them for decode
+  paths and MiniMax Music but not for the H3 DiT loop. Recorded with what
+  bounds the gain here (sampling measured at full SM occupancy and pegged
+  power on 2026-08-18), that sglang's own H3 path leaves attention eager under
+  its graphs, and the single-frame small-canvas case that is still untested.
+
 ## 0.67.0
 
 ### Added
