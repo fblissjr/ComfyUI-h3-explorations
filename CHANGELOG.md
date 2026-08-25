@@ -32,6 +32,33 @@ artifact.
   the host; these set the budget the relaunch was sized from. The record is
   `docs/research/qwen3-vl-special-tokens-post-training/canonical/2026-08-25_v2_launch_record.md`.
 
+## 0.68.2
+
+### Changed
+
+- `bench/check_h3_awq_encoder.py`'s candidate arm distinguishes the two ways
+  its snapshot reproduction can go red, because they need different responses.
+  A *contract* file differing means the converter stopped copying verbatim or
+  the snapshot was edited; only *provenance* differing means the candidate is a
+  different calibration run that happens to share the contract, which the
+  loader accepts and this comparison cannot. Both branches shown red.
+
+### Measured
+
+- A snapshot pins the contract, not the calibration. Two independently produced
+  two-layer candidates, 2026-08-25: `config.json`, both processor configs and
+  `tokenizer_config.json` byte-identical; run record and weights different.
+  Both resolve to the same snapshot and both load, correctly — the artifact
+  digest in `sha256.json` and the copied run record describe the candidate the
+  snapshot was written from, not every candidate that resolves to it. This is a
+  live case rather than a hypothetical: relaunching a calibration with a
+  different row set produces exactly that pair. Recorded in
+  `docs/h3_awq_encoder.md`, with the guidance to give a re-run its own snapshot
+  name rather than `--force` over one a deployed artifact still matches.
+- The conversion path runs unchanged on a second, independently produced
+  candidate directory, which is the first time it has met an input it was not
+  written against.
+
 ## 0.68.1
 
 ### Added

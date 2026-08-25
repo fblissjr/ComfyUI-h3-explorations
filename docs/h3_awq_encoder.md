@@ -204,6 +204,19 @@ somebody widened to "match" it. Both are red controls in
 (`snapshot_resolution_is_by_content`), and every installed snapshot is hashed
 against its own `sha256.json` on every run.
 
+**A snapshot pins the contract, not the calibration.** Two candidates from
+different runs of the same recipe carry the same `config.json` and the same
+processor and tokenizer files, so both resolve here and both load — correctly,
+because the contract is what the loader validates and it is identical. What
+distinguishes them is the artifact digest in `sha256.json` and the copied
+`h3_v2_run_record.json`, and those describe the candidate this snapshot was
+written from, not every candidate that resolves to it. Measured 2026-08-25 on
+two independently produced two-layer candidates: every contract file identical,
+run record and weights different. So give a re-run its own snapshot name rather
+than `--force`-ing over one a deployed artifact still matches;
+`bench/check_h3_awq_encoder.py`'s candidate arm distinguishes the two cases and
+says which it found.
+
 Each snapshot's files are byte-for-byte copies of the candidate's own, so those
 digests are statements about the artifact as well as about the copies. The
 digest of the produced `.safetensors` is not: `safetensors` 0.8.0 does not

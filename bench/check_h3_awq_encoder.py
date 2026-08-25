@@ -310,6 +310,15 @@ def candidate_directory_converts_to_a_loadable_artifact(candidate: Path):
             "--date", "1970-01-01",
         ]) == 0
         produced = work / "config" / name
+        # Two ways this comparison can go red, and they need different
+        # responses, so the message says which. A *contract* file differing
+        # means the converter stopped copying verbatim or the snapshot was
+        # edited by hand. Only *provenance* differing means this candidate is
+        # a different calibration run that happens to share the contract --
+        # which the loader will accept, because the contract is what it
+        # validates, and which is a live case on this lane: relaunching a run
+        # with a different row set produces exactly that.
+        differed = []
         for path in sorted(produced.iterdir()):
             if path.name == "README.md":
                 continue  # carries the run date; sha256.json covers the rest
@@ -326,13 +335,31 @@ def candidate_directory_converts_to_a_loadable_artifact(candidate: Path):
                 artifacts = {k for k in theirs if k.endswith(".safetensors")}
                 assert artifacts, f"{committed.name}/sha256.json records no artifact"
                 assert set(mine) == set(theirs), (set(mine), set(theirs))
-                assert {k: v for k, v in mine.items() if k not in artifacts} == \
-                    {k: v for k, v in theirs.items() if k not in artifacts}, (
-                        mine, theirs)
+                mine = {k: v for k, v in mine.items() if k not in artifacts}
+                theirs = {k: v for k, v in theirs.items() if k not in artifacts}
+                if mine != theirs:
+                    differed.append("sha256.json")
                 continue
-            assert path.read_bytes() == (committed / path.name).read_bytes(), (
-                f"{path.name} reproduced from the candidate differs from the "
-                "committed snapshot")
+            if path.read_bytes() != (committed / path.name).read_bytes():
+                differed.append(path.name)
+        if differed:
+            provenance = set(convert.PROVENANCE_FILES) | {"sha256.json"}
+            contract = [n for n in differed if n not in provenance]
+            if contract:
+                raise AssertionError(
+                    f"contract files reproduced from {candidate.name} differ "
+                    f"from the committed snapshot: {contract}. Either the "
+                    "converter stopped copying verbatim, or the snapshot was "
+                    "edited after it was written."
+                )
+            raise AssertionError(
+                f"{candidate.name} reproduces this snapshot's contract exactly "
+                f"but not its provenance: {differed}. It is a different "
+                "calibration run sharing the contract, which the loader accepts "
+                "and this comparison cannot; point H3_AWQ_CANDIDATE_DIR at the "
+                "candidate the snapshot was written from, or give this one its "
+                "own snapshot name."
+            )
 
         import comfy.utils
         state, metadata = comfy.utils.load_torch_file(
