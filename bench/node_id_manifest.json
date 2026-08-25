@@ -25,7 +25,8 @@
       "size_policy",
       "references",
       "allow_upscale",
-      "short_edge"
+      "short_edge",
+      "qwen_short_edge"
     ],
     "node_id": "MiniMaxH3AppendRefImage",
     "outputs": [
