@@ -1,0 +1,529 @@
+{
+ "probe": "which modules the W4A16 AWQ v2 candidate recipe quantizes, graded before any weights are loaded",
+ "path_policy": "logical identifiers only",
+ "producer": {
+  "file": "probe_awq_recipe_boundary.py",
+  "sha256": "62a8c3612a696890c67dced20fa48807296d7fafe654a241e9b6d9d4e7710d44",
+  "repository_commit": "7f5aca45012d4ec787e2861931fcb144d54bf2f1",
+  "dirty_against_commit": true
+ },
+ "environment": {
+  "python": "3.13.9",
+  "torch": "2.13.0+cu132",
+  "transformers": "5.15.1",
+  "llmcompressor": "0.13.1.dev38+g501f432bf",
+  "compressed-tensors": "0.18.1a20260821",
+  "llm_compressor_commit": "8357e9459228be5831ff43f9449cdd7733d3d877",
+  "llm_compressor_dirty": false
+ },
+ "cuda_used": false,
+ "recipe": [
+  {
+   "class": "AWQModifier",
+   "module": "llmcompressor.modifiers.transform.awq.base",
+   "fields": {
+    "requires_calibration_data": true,
+    "index": null,
+    "group": null,
+    "start": null,
+    "end": null,
+    "update": null,
+    "initialized_": false,
+    "finalized_": false,
+    "started_": false,
+    "ended_": false,
+    "mappings": null,
+    "offload_device": "cpu",
+    "duo_scaling": false,
+    "n_grid": 20
+   }
+  },
+  {
+   "class": "QuantizationModifier",
+   "module": "llmcompressor.modifiers.quantization.quantization.base",
+   "fields": {
+    "config_groups": null,
+    "targets": [
+     "Linear"
+    ],
+    "ignore": [
+     "lm_head",
+     "re:model\\.visual\\..*"
+    ],
+    "scheme": "W4A16",
+    "kv_cache_scheme": null,
+    "weight_observer": null,
+    "input_observer": null,
+    "output_observer": null,
+    "observer": null,
+    "bypass_divisibility_checks": false,
+    "requires_calibration_data": false,
+    "index": null,
+    "group": null,
+    "start": null,
+    "end": null,
+    "update": null,
+    "initialized_": false,
+    "finalized_": false,
+    "started_": false,
+    "ended_": false
+   },
+   "resolved_quantization_config": {
+    "config_groups": {
+     "group_0": {
+      "targets": [
+       "Linear"
+      ],
+      "weights": {
+       "num_bits": 4,
+       "type": "int",
+       "symmetric": true,
+       "group_size": 128,
+       "strategy": "group",
+       "block_structure": null,
+       "dynamic": false,
+       "actorder": null,
+       "scale_dtype": null,
+       "zp_dtype": null,
+       "observer": "memoryless_minmax",
+       "observer_kwargs": {}
+      },
+      "input_activations": null,
+      "output_activations": null,
+      "format": null
+     }
+    },
+    "quant_method": "compressed-tensors",
+    "kv_cache_scheme": null,
+    "format": "fakequant",
+    "quantization_status": "initialized",
+    "global_compression_ratio": null,
+    "ignore": [
+     "lm_head",
+     "re:model\\.visual\\..*"
+    ]
+   }
+  }
+ ],
+ "arms": {
+  "tiny_full_model": {
+   "model": "reduced-width Qwen3-VL from bench/check_calibration_precision_policy.py::tiny_full_model",
+   "note": "the reduced-width text stack is narrower than the group size, so compressed-tensors warns that the group does not divide the weight columns. That is a warning about the reduced widths, not about the recipe; the released arm has no such warning and the boundary this probe grades does not depend on it",
+   "boundary": {
+    "vision_tower_module": "model.visual",
+    "text_decoder_layers": 2,
+    "linears_per_decoder_layer": 7,
+    "ignore_patterns": [
+     "lm_head",
+     "re:model\\.visual\\..*"
+    ],
+    "linear_counts": {
+     "text_decoder": 14,
+     "vision_block": 108,
+     "vision_merger": 2,
+     "vision_deepstack_merger": 6,
+     "vision_other": 0,
+     "lm_head": 1,
+     "unclassified": 0
+    },
+    "linears_total": 131,
+    "targeted_linears": 14,
+    "ignored_linears": 117,
+    "scheme": {
+     "num_bits": 4,
+     "group_size": 128,
+     "symmetric": true,
+     "strategy": "group",
+     "type": "int",
+     "observer": "memoryless_minmax",
+     "dynamic": false,
+     "actorder": null
+    }
+   },
+   "awq_mapping_census": {
+    "declared": [
+     {
+      "smooth_layer": "re:.*input_layernorm$",
+      "balance_layers": [
+       "re:.*q_proj$",
+       "re:.*k_proj$",
+       "re:.*v_proj$"
+      ]
+     },
+     {
+      "smooth_layer": "re:.*v_proj$",
+      "balance_layers": [
+       "re:.*o_proj$"
+      ]
+     },
+     {
+      "smooth_layer": "re:.*post_attention_layernorm$",
+      "balance_layers": [
+       "re:.*gate_proj$",
+       "re:.*up_proj$"
+      ]
+     },
+     {
+      "smooth_layer": "re:.*up_proj$",
+      "balance_layers": [
+       "re:.*down_proj$"
+      ]
+     }
+    ],
+    "declared_but_never_resolved": [
+     "re:.*v_proj$"
+    ],
+    "total": 6,
+    "per_decoder_layer": 3,
+    "layers_covered": 2,
+    "outside_decoder_layers": [],
+    "shapes": {
+     "input_layernorm -> self_attn.q_proj, self_attn.k_proj, self_attn.v_proj": 2,
+     "post_attention_layernorm -> mlp.gate_proj, mlp.up_proj": 2,
+     "mlp.up_proj -> mlp.down_proj": 2
+    },
+    "why_some_declared_shapes_are_absent": "source read of the pinned resolver, corroborated by its own skipped count: a declared smooth layer ending in `.v_proj` is dropped when its out_features differ from the balance layer's in_features. Under grouped-query attention v_proj is narrower than o_proj by the head-to-kv-head ratio, so the v_proj -> o_proj mapping never resolves and o_proj is quantized without being smoothed"
+   },
+   "resolved_awq_mappings_first_layer": [
+    {
+     "smooth_layer": "model.language_model.layers.0.input_layernorm",
+     "balance_layers": [
+      "model.language_model.layers.0.self_attn.q_proj",
+      "model.language_model.layers.0.self_attn.k_proj",
+      "model.language_model.layers.0.self_attn.v_proj"
+     ],
+     "parent": "model.language_model.layers.0.self_attn",
+     "activation_hook_target": null
+    },
+    {
+     "smooth_layer": "model.language_model.layers.0.post_attention_layernorm",
+     "balance_layers": [
+      "model.language_model.layers.0.mlp.gate_proj",
+      "model.language_model.layers.0.mlp.up_proj"
+     ],
+     "parent": "model.language_model.layers.0.mlp",
+     "activation_hook_target": null
+    },
+    {
+     "smooth_layer": "model.language_model.layers.0.mlp.up_proj",
+     "balance_layers": [
+      "model.language_model.layers.0.mlp.down_proj"
+     ],
+     "parent": "model.language_model.layers.0.mlp.down_proj",
+     "activation_hook_target": null
+    }
+   ],
+   "serialised_ignore_len": 117,
+   "serialised_ignore": [
+    "model.visual.blocks.0.attn.qkv",
+    "model.visual.blocks.0.attn.proj",
+    "model.visual.blocks.0.mlp.linear_fc1",
+    "model.visual.blocks.0.mlp.linear_fc2",
+    "model.visual.blocks.1.attn.qkv",
+    "model.visual.blocks.1.attn.proj",
+    "model.visual.blocks.1.mlp.linear_fc1",
+    "model.visual.blocks.1.mlp.linear_fc2",
+    "model.visual.blocks.2.attn.qkv",
+    "model.visual.blocks.2.attn.proj",
+    "model.visual.blocks.2.mlp.linear_fc1",
+    "model.visual.blocks.2.mlp.linear_fc2",
+    "model.visual.blocks.3.attn.qkv",
+    "model.visual.blocks.3.attn.proj",
+    "model.visual.blocks.3.mlp.linear_fc1",
+    "model.visual.blocks.3.mlp.linear_fc2",
+    "model.visual.blocks.4.attn.qkv",
+    "model.visual.blocks.4.attn.proj",
+    "model.visual.blocks.4.mlp.linear_fc1",
+    "model.visual.blocks.4.mlp.linear_fc2",
+    "model.visual.blocks.5.attn.qkv",
+    "model.visual.blocks.5.attn.proj",
+    "model.visual.blocks.5.mlp.linear_fc1",
+    "model.visual.blocks.5.mlp.linear_fc2",
+    "model.visual.blocks.6.attn.qkv",
+    "model.visual.blocks.6.attn.proj",
+    "model.visual.blocks.6.mlp.linear_fc1",
+    "model.visual.blocks.6.mlp.linear_fc2",
+    "model.visual.blocks.7.attn.qkv",
+    "model.visual.blocks.7.attn.proj",
+    "model.visual.blocks.7.mlp.linear_fc1",
+    "model.visual.blocks.7.mlp.linear_fc2",
+    "model.visual.blocks.8.attn.qkv",
+    "model.visual.blocks.8.attn.proj",
+    "model.visual.blocks.8.mlp.linear_fc1",
+    "model.visual.blocks.8.mlp.linear_fc2",
+    "model.visual.blocks.9.attn.qkv",
+    "model.visual.blocks.9.attn.proj",
+    "model.visual.blocks.9.mlp.linear_fc1",
+    "model.visual.blocks.9.mlp.linear_fc2",
+    "model.visual.blocks.10.attn.qkv",
+    "model.visual.blocks.10.attn.proj",
+    "model.visual.blocks.10.mlp.linear_fc1",
+    "model.visual.blocks.10.mlp.linear_fc2",
+    "model.visual.blocks.11.attn.qkv",
+    "model.visual.blocks.11.attn.proj",
+    "model.visual.blocks.11.mlp.linear_fc1",
+    "model.visual.blocks.11.mlp.linear_fc2",
+    "model.visual.blocks.12.attn.qkv",
+    "model.visual.blocks.12.attn.proj",
+    "model.visual.blocks.12.mlp.linear_fc1",
+    "model.visual.blocks.12.mlp.linear_fc2",
+    "model.visual.blocks.13.attn.qkv",
+    "model.visual.blocks.13.attn.proj",
+    "model.visual.blocks.13.mlp.linear_fc1",
+    "model.visual.blocks.13.mlp.linear_fc2",
+    "model.visual.blocks.14.attn.qkv",
+    "model.visual.blocks.14.attn.proj",
+    "model.visual.blocks.14.mlp.linear_fc1",
+    "model.visual.blocks.14.mlp.linear_fc2",
+    "model.visual.blocks.15.attn.qkv",
+    "model.visual.blocks.15.attn.proj",
+    "model.visual.blocks.15.mlp.linear_fc1",
+    "model.visual.blocks.15.mlp.linear_fc2",
+    "model.visual.blocks.16.attn.qkv",
+    "model.visual.blocks.16.attn.proj",
+    "model.visual.blocks.16.mlp.linear_fc1",
+    "model.visual.blocks.16.mlp.linear_fc2",
+    "model.visual.blocks.17.attn.qkv",
+    "model.visual.blocks.17.attn.proj",
+    "model.visual.blocks.17.mlp.linear_fc1",
+    "model.visual.blocks.17.mlp.linear_fc2",
+    "model.visual.blocks.18.attn.qkv",
+    "model.visual.blocks.18.attn.proj",
+    "model.visual.blocks.18.mlp.linear_fc1",
+    "model.visual.blocks.18.mlp.linear_fc2",
+    "model.visual.blocks.19.attn.qkv",
+    "model.visual.blocks.19.attn.proj",
+    "model.visual.blocks.19.mlp.linear_fc1",
+    "model.visual.blocks.19.mlp.linear_fc2",
+    "model.visual.blocks.20.attn.qkv",
+    "model.visual.blocks.20.attn.proj",
+    "model.visual.blocks.20.mlp.linear_fc1",
+    "model.visual.blocks.20.mlp.linear_fc2",
+    "model.visual.blocks.21.attn.qkv",
+    "model.visual.blocks.21.attn.proj",
+    "model.visual.blocks.21.mlp.linear_fc1",
+    "model.visual.blocks.21.mlp.linear_fc2",
+    "model.visual.blocks.22.attn.qkv",
+    "model.visual.blocks.22.attn.proj",
+    "model.visual.blocks.22.mlp.linear_fc1",
+    "model.visual.blocks.22.mlp.linear_fc2",
+    "model.visual.blocks.23.attn.qkv",
+    "model.visual.blocks.23.attn.proj",
+    "model.visual.blocks.23.mlp.linear_fc1",
+    "model.visual.blocks.23.mlp.linear_fc2",
+    "model.visual.blocks.24.attn.qkv",
+    "model.visual.blocks.24.attn.proj",
+    "model.visual.blocks.24.mlp.linear_fc1",
+    "model.visual.blocks.24.mlp.linear_fc2",
+    "model.visual.blocks.25.attn.qkv",
+    "model.visual.blocks.25.attn.proj",
+    "model.visual.blocks.25.mlp.linear_fc1",
+    "model.visual.blocks.25.mlp.linear_fc2",
+    "model.visual.blocks.26.attn.qkv",
+    "model.visual.blocks.26.attn.proj",
+    "model.visual.blocks.26.mlp.linear_fc1",
+    "model.visual.blocks.26.mlp.linear_fc2",
+    "model.visual.merger.linear_fc1",
+    "model.visual.merger.linear_fc2",
+    "model.visual.deepstack_merger_list.0.linear_fc1",
+    "model.visual.deepstack_merger_list.0.linear_fc2",
+    "model.visual.deepstack_merger_list.1.linear_fc1",
+    "model.visual.deepstack_merger_list.1.linear_fc2",
+    "model.visual.deepstack_merger_list.2.linear_fc1",
+    "model.visual.deepstack_merger_list.2.linear_fc2",
+    "lm_head"
+   ]
+  },
+  "released_config_meta": {
+   "model": "released config under init_empty_weights (meta tensors, no weights)",
+   "config_source": "coderef/llm-compressor/models/qwen3-vl-32b-bf16 (config only; gitignored sister checkout)",
+   "declared_text_layers": 64,
+   "declared_vision_blocks": 27,
+   "declared_deepstack_taps": 3,
+   "tie_word_embeddings": false,
+   "boundary": {
+    "vision_tower_module": "model.visual",
+    "text_decoder_layers": 64,
+    "linears_per_decoder_layer": 7,
+    "ignore_patterns": [
+     "lm_head",
+     "re:model\\.visual\\..*"
+    ],
+    "linear_counts": {
+     "text_decoder": 448,
+     "vision_block": 108,
+     "vision_merger": 2,
+     "vision_deepstack_merger": 6,
+     "vision_other": 0,
+     "lm_head": 1,
+     "unclassified": 0
+    },
+    "linears_total": 565,
+    "targeted_linears": 448,
+    "ignored_linears": 117,
+    "scheme": {
+     "num_bits": 4,
+     "group_size": 128,
+     "symmetric": true,
+     "strategy": "group",
+     "type": "int",
+     "observer": "memoryless_minmax",
+     "dynamic": false,
+     "actorder": null
+    }
+   },
+   "awq_mapping_census": {
+    "declared": [
+     {
+      "smooth_layer": "re:.*input_layernorm$",
+      "balance_layers": [
+       "re:.*q_proj$",
+       "re:.*k_proj$",
+       "re:.*v_proj$"
+      ]
+     },
+     {
+      "smooth_layer": "re:.*v_proj$",
+      "balance_layers": [
+       "re:.*o_proj$"
+      ]
+     },
+     {
+      "smooth_layer": "re:.*post_attention_layernorm$",
+      "balance_layers": [
+       "re:.*gate_proj$",
+       "re:.*up_proj$"
+      ]
+     },
+     {
+      "smooth_layer": "re:.*up_proj$",
+      "balance_layers": [
+       "re:.*down_proj$"
+      ]
+     }
+    ],
+    "declared_but_never_resolved": [
+     "re:.*v_proj$"
+    ],
+    "total": 192,
+    "per_decoder_layer": 3,
+    "layers_covered": 64,
+    "outside_decoder_layers": [],
+    "shapes": {
+     "input_layernorm -> self_attn.q_proj, self_attn.k_proj, self_attn.v_proj": 64,
+     "post_attention_layernorm -> mlp.gate_proj, mlp.up_proj": 64,
+     "mlp.up_proj -> mlp.down_proj": 64
+    },
+    "why_some_declared_shapes_are_absent": "source read of the pinned resolver, corroborated by its own skipped count: a declared smooth layer ending in `.v_proj` is dropped when its out_features differ from the balance layer's in_features. Under grouped-query attention v_proj is narrower than o_proj by the head-to-kv-head ratio, so the v_proj -> o_proj mapping never resolves and o_proj is quantized without being smoothed"
+   },
+   "resolved_awq_mappings_first_layer": [
+    {
+     "smooth_layer": "model.language_model.layers.0.input_layernorm",
+     "balance_layers": [
+      "model.language_model.layers.0.self_attn.q_proj",
+      "model.language_model.layers.0.self_attn.k_proj",
+      "model.language_model.layers.0.self_attn.v_proj"
+     ],
+     "parent": "model.language_model.layers.0.self_attn",
+     "activation_hook_target": null
+    },
+    {
+     "smooth_layer": "model.language_model.layers.0.post_attention_layernorm",
+     "balance_layers": [
+      "model.language_model.layers.0.mlp.gate_proj",
+      "model.language_model.layers.0.mlp.up_proj"
+     ],
+     "parent": "model.language_model.layers.0.mlp",
+     "activation_hook_target": null
+    },
+    {
+     "smooth_layer": "model.language_model.layers.0.mlp.up_proj",
+     "balance_layers": [
+      "model.language_model.layers.0.mlp.down_proj"
+     ],
+     "parent": "model.language_model.layers.0.mlp.down_proj",
+     "activation_hook_target": null
+    }
+   ],
+   "serialised_ignore_len": 117
+  }
+ },
+ "deployed_comparison": {
+  "deployed_config": "config/qwen3vl_32b_minimax_h3_w4a16_awq/config.json",
+  "deployed_ignore_len": 117,
+  "candidate_ignore_len": 117,
+  "ignore_identical": true,
+  "ignore_only_in_candidate": [],
+  "ignore_only_in_deployed": [],
+  "deployed_targets": [
+   "Linear"
+  ],
+  "candidate_targets": [
+   "Linear"
+  ],
+  "compared_scheme_fields": [
+   "num_bits",
+   "type",
+   "symmetric",
+   "group_size",
+   "strategy",
+   "observer",
+   "dynamic",
+   "actorder"
+  ],
+  "scheme_field_deltas": {},
+  "not_compared": {
+   "format": {
+    "deployed": "pack-quantized",
+    "candidate": null,
+    "why": "set when the checkpoint is compressed and saved, which this probe never does"
+   },
+   "quantization_status": {
+    "deployed": "compressed",
+    "candidate": "initialized",
+    "why": "the deployed artifact is a finished checkpoint; this model has only had the config applied"
+   }
+  },
+  "scheme_fields_identical": true
+ },
+ "red_controls": [
+  {
+   "control": "nonexistent AWQModifier field",
+   "constructed": "AWQModifier(duality=False)",
+   "fired": true,
+   "exception": "ValidationError",
+   "message": "1 validation error for AWQModifier duality Extra inputs are not permitted [type=extra_forbidden, input_value=False, input_type=bool] For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden"
+  },
+  {
+   "control": "scheme and config_groups together",
+   "constructed": "QuantizationModifier(scheme=..., config_groups=...)",
+   "fired": true,
+   "exception": "ValidationError",
+   "message": "1 validation error for QuantizationModifier Value error, Please specify either `scheme` or `config_groups` [type=value_error, input_value={'scheme': 'W4A16', 'targ... 'strategy': 'group'}}}}, input_type=dict] For further information visit https://errors.pydantic.dev/2.13/v/value_error"
+  },
+  {
+   "control": "ignore list missing the DeepStack mergers",
+   "ignore": [
+    "lm_head",
+    "re:model\\.visual\\.blocks\\..*",
+    "re:model\\.visual\\.merger\\..*"
+   ],
+   "fired": true,
+   "exception": "BoundaryViolation",
+   "message": "the quantized population is not the text decoder projections. Quantized outside the decoder (6): ['model.visual.deepstack_merger_list.0.linear_fc1', 'model.visual.deepstack_merger_list.0.linear_fc2', 'model.visual.deepstack_merger_list.1.linear_fc1', 'model.visual.deepstack_merger_list.1.linear_fc2', 'model.visual.deepstack_merger_list.2.linear_fc1', 'model.visual.deepstack_merger_list.2.linear_fc",
+   "serialised_ignore_len": 111,
+   "serialised_ignore_matches_deployed": false
+  }
+ ],
+ "filesystem": {
+  "claim": "the session initialize/finalize path used here writes no file",
+  "checked": "entries of the process working directory and of the repository root, snapshotted before any llmcompressor import and again after every session, before this probe writes its result",
+  "working_directory_created": [],
+  "working_directory_removed": [],
+  "repository_root_created": [],
+  "repository_root_removed": [],
+  "nothing_written": true
+ },
+ "failures": [],
+ "verdict": "green"
+}

@@ -4,6 +4,41 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.66.0
+
+### Added
+
+- **`bench/h3_awq_recipe.py`**: the W4A16 AWQ v2 candidate recipe as a
+  constructible object, and `assert_decoder_only_boundary`, which grades a model
+  the quantization config has already been applied to rather than grading the
+  patterns that produced it. The ignore list is two anchored module-name
+  patterns that also hold for a reduced-width model; the assertion does not
+  consult them, recovering the vision tower, the decoder layers and the output
+  head from the model itself, so an upstream rename goes red naming the modules
+  instead of quietly quantizing the vision side. The input embedding needs no
+  ignore entry because it is not a `Linear`, and the assertion says so rather
+  than the docstring. `describe_recipe` and `resolved_awq_mappings` put the
+  modifier fields and AWQ's smooth-to-balance resolution into a report.
+- **`bench/probe_awq_recipe_boundary.py`** and
+  **`bench/results/2026-08-25_awq_recipe_boundary.json`**: the candidate driven
+  through the pinned session's own `initialize` path -- the call `oneshot`
+  makes, not a reimplementation of config application -- against the
+  reduced-width Qwen3-VL and against the released config instantiated on meta
+  tensors. No weights, no download, no GPU, and the working directory's entries
+  identical before and after. The released arm quantizes 448 Linears, seven in
+  each decoder layer and nothing else; its resolved ignore list and weight
+  scheme are identical to the deployed artifact's, element for element and field
+  for field, compared through the compressed-tensors serializer that wrote that
+  file. Three red controls ran and each failed as required: an ignore list
+  without the DeepStack mergers, the rejected preflight's `scheme` alongside
+  `config_groups`, and a nonexistent `AWQModifier` field.
+- **AWQ resolves three of its four default mappings per decoder layer**,
+  recorded in that result. Under grouped-query attention the declared
+  `v_proj -> o_proj` mapping never resolves, because the resolver drops a
+  `.v_proj` smooth layer whose `out_features` differ from the balance layer's
+  `in_features`. `o_proj` is therefore quantized without being smoothed, on the
+  released shape and on the reduced-width one alike.
+
 ## 0.65.0
 
 ### Added
