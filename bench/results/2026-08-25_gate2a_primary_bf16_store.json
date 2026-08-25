@@ -1,0 +1,1244 @@
+{
+  "pilot": "Gate 2A: llm-compressor SequentialPipeline over native-H3 batches, no modifiers, no artifact",
+  "gate": "2A",
+  "sets_population_budget": false,
+  "budget_requires": "Gate 2B, a bounded disposable modifier-bearing run that measures the AWQ increment",
+  "boundary": "no recipe instantiated, no quantization, no candidate directory, nothing saved. Measures the floor beneath a calibration run, not the whole of one",
+  "path_policy": "logical identifiers only",
+  "producer": {
+    "file": "pilot_sequential_feasibility.py",
+    "sha256": "716828a0af5fdbdea26b180a782a11582a176f6c1bbe3a32dd204c65c508f947",
+    "repository_commit": "456627ffb4aaa2ed0109c6bd7aece26186bb74c2",
+    "dirty_against_commit": false
+  },
+  "environment": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.1",
+    "llmcompressor": "0.13.1.dev38+g501f432bf",
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "gpu_total_gib": 23.5
+  },
+  "precision_policy": {
+    "policy": "comfy_exact_bf16_store",
+    "intent": "comfy_exact arithmetic over BF16-stored weights: every parameterised op computes with a transient FP32 copy of its weight, as ComfyUI's manual_cast does, while the stored and offloaded weights stay BF16. The patch-embed conv is kept FP32 at load so the vision input is never downcast",
+    "compute_dtype": "float32",
+    "storage_dtype": "bfloat16",
+    "manual_cast": true,
+    "manual_cast_ops": [
+      "linear",
+      "embedding",
+      "layer_norm",
+      "conv3d"
+    ],
+    "manual_cast_counts": {
+      "linear": 5464,
+      "embedding": 19,
+      "layer_norm": 928,
+      "conv3d": 0,
+      "already_float32": 16,
+      "gated_modules": 626
+    },
+    "keep_in_fp32_modules": [
+      "visual.patch_embed"
+    ],
+    "position_interpolation_dtype": "bfloat16",
+    "position_reduction": "comfy four-term add",
+    "position_embedding_source_dtype": "bfloat16",
+    "position_cast_is_round_trip_exact": true,
+    "substituted_expression": "(self.pos_embed(interp_indices) * interp_weights[:, :, None]).sum(1)",
+    "scoped_to": "this vision instance only, gated by its own forward hooks, on the thread that entered the context",
+    "concurrency": "single-threaded forward execution only; a forward on another thread raises rather than silently running under the wrong policy",
+    "forward_substitution_is_bound_method": true,
+    "applied_to": "pos_embed weight, its forward, and the interpolation coefficients bound inside transformers' qwen3_vl modeling module",
+    "modifies_checkpoint_or_deployment": false,
+    "modifies_installed_packages": false
+  },
+  "model": {
+    "logical_name": "qwen3-vl-32b-bf16",
+    "decoder_layers_built": 64,
+    "offload_topology": {
+      "offloaded_tensors": 1061,
+      "resident_tensors": 0,
+      "bytes_by_offload_device": {
+        "cpu": 66718321960
+      },
+      "gib_by_offload_device": {
+        "cpu": 62.14
+      },
+      "tensors_by_dtype": {
+        "float32": 5,
+        "bfloat16": 1056
+      },
+      "accelerate_hooks_remaining": [],
+      "accelerate_hook_count": 0,
+      "hf_device_map_present": false,
+      "conversion_clean": true,
+      "summary": "1061 offloaded + 0 resident tensors, dtypes ['bfloat16', 'float32'], {'cpu': 62.1}",
+      "read_without_onloading": true
+    },
+    "load_seconds": 0.2,
+    "host_memory_before_load": {
+      "peak_rss_gib": 0.87,
+      "current_rss_gib": 0.88,
+      "system_mem_available_gib": 121.3
+    },
+    "host_memory_after_load": {
+      "peak_rss_gib": 0.96,
+      "current_rss_gib": 0.96,
+      "system_mem_available_gib": 121.26
+    },
+    "staging_after_load": {
+      "physical_bytes": 0,
+      "files": 0,
+      "symlinks": 0,
+      "unique_symlink_targets": 0,
+      "unique_symlink_target_bytes_not_staged": 0
+    },
+    "gpu_weight_budget_gib_recorded_not_enforced": 14.0,
+    "offload_arrangement": "auto_offload",
+    "bridge_extra_cpu_mem_default_bytes": 5000000000.0,
+    "bridge_reserve_note": "compressed_tensors load_offloaded_model reserves this much host memory for non-loading work; Gate 2B needs an explicit larger reserve and a fresh model per modifier arm, because AWQ mutates weights and attaches state",
+    "device_map_note": "raw device_map='auto' is incompatible with SequentialPipeline in this pinned pair (accelerate's functools.partial forward vs compressed_tensors reading forward.__func__). `auto_offload` goes through load_context, which converts those hooks, and is a different claim"
+  },
+  "bundle_provenance": {
+    "schema": "h3-native-calibration-bundle-v1",
+    "path_policy": "logical identifiers only; no machine-local paths",
+    "dataset": {
+      "repo_id": "StellarVoyager/H3-IR",
+      "revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e"
+    },
+    "repository_commit": "46646bd50c4931d329b83db50a7e80fbe0c58621",
+    "comfyui_commit": "a1079ba16f2674734b065eb036fbfdddaa321a4d",
+    "python": "3.13.9",
+    "torch": "2.13.0+cu132",
+    "transformers": "5.15.0",
+    "processors": {
+      "image": {
+        "declared_type": "Qwen2VLImageProcessorFast",
+        "resolved_class": "Qwen2VLImageProcessor",
+        "resolved_backend": "TorchvisionBackend",
+        "size": {
+          "longest_edge": 16777216,
+          "shortest_edge": 65536
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+      },
+      "video": {
+        "declared_type": "Qwen3VLVideoProcessor",
+        "resolved_class": "Qwen3VLVideoProcessor",
+        "size": {
+          "longest_edge": 25165824,
+          "shortest_edge": 4096
+        },
+        "patch_size": 16,
+        "temporal_patch_size": 2,
+        "merge_size": 2,
+        "image_mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "image_std": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "resample": 3,
+        "config_sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+      }
+    },
+    "geometry_substitution": "vision tower and token embedding run at released patch/merge/depth/DeepStack geometry with a reduced hidden width; no presentation field depends on that width and no weight-dependent claim is made",
+    "still_policy_default": "max_no_upscale",
+    "still_policy_by_row": {
+      "train-00973-d8cd5223d6ff1cac": "max_no_upscale",
+      "train-00500-68f926b378a008b0": "max_no_upscale",
+      "train-00012-4bbe43dc3a3f95fe": "max_no_upscale",
+      "train-00002-f631dbe673b72816": "max_no_upscale",
+      "train-00006-e3f6d45e7ec76432": "max_no_upscale"
+    },
+    "mutation": null,
+    "mutation_intent": null
+  },
+  "steps": [
+    {
+      "rows": 1,
+      "row_ids": [
+        "train-00973-d8cd5223d6ff1cac"
+      ],
+      "sequence_tokens": 1100,
+      "longest_row_tokens": 1100,
+      "visual_tokens": 442,
+      "rows_detail": [
+        {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "sequence_tokens": 1100,
+          "visual_tokens": 442,
+          "vision_blocks": 1,
+          "largest_block_patches": 1760,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 1100,
+              "nominal_gib": 0.29
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  44,
+                  40
+                ]
+              ],
+              "block_patches": [
+                1760
+              ],
+              "largest_block_patches": 1760,
+              "nominal_gib": 0.18
+            }
+          }
+        }
+      ],
+      "note_on_attribution": "total tokens govern the host-side cache; GPU peak is governed by the longest single row and its largest vision block, because rows are processed one at a time",
+      "precision_policy": "comfy_exact_bf16_store",
+      "propagate_error": true,
+      "outcome": "completed",
+      "error": null,
+      "seconds_total": 20.1,
+      "seconds_trace": 0.3,
+      "seconds_cache_build": 0.0,
+      "seconds_in_subgraph_forwards": 17.1,
+      "subgraph_forward_calls": 130,
+      "trace": {
+        "subgraphs": 65,
+        "sample_input_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "first_subgraph_input_names": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_any_subgraph_inputs": false,
+        "pixel_values_in_first_subgraph_inputs": true,
+        "image_grid_thw_in_first_subgraph_inputs": true
+      },
+      "effective_input": {
+        "rows": {
+          "train-00973-d8cd5223d6ff1cac": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "7562f0960c35732779c16f0c090b7d4c6c7aa9c4e320335a6906ec26d7b5fcb2",
+            "effective_model_input_sha256": "df62ee67f71ec7a8ca3fd4c3a1c709c3bf3e3704abf4e0d865e9147f8a4f50b1",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          }
+        },
+        "every_row_transformed_with_assertion": true,
+        "cache_keys_at_first_forward": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_cache_at_first_forward": false,
+        "attention_mask_in_traced_subgraph_inputs": false,
+        "omission_survives_dataloader_cache_and_trace": true,
+        "note": "None means that observation point was never reached in this step, which is not the same as the mask being absent"
+      },
+      "peak_cuda": {
+        "allocated_gib": 2.797,
+        "reserved_gib": 2.84,
+        "note": "cumulative across cache construction and every subgraph forward, not the last reset window"
+      },
+      "host_memory": {
+        "peak_rss_gib": 63.93,
+        "current_rss_gib": 63.94,
+        "system_mem_available_gib": 120.28
+      },
+      "peak_host_rss_gib": 63.93,
+      "host_rss_growth_gib": 62.88,
+      "offload_dir_physical_bytes_before": 0,
+      "offload_dir": {
+        "physical_bytes": 0,
+        "files": 0,
+        "symlinks": 0,
+        "unique_symlink_targets": 0,
+        "unique_symlink_target_bytes_not_staged": 0
+      },
+      "per_subgraph": {
+        "calls": 130,
+        "cold_calls": 65,
+        "max_allocated_before_gib": 2.626,
+        "max_transient_gib": 2.74,
+        "warm_max_allocated_before_gib": 2.626,
+        "warm_max_transient_gib": 0.818,
+        "note": "a subgraph's weights are onloaded lazily inside its first forward, so only the warmed figures can be read as weight residency; the cold ones understate it"
+      },
+      "sdpa_availability": {
+        "text_attention": {
+          "1100": {
+            "sequence_tokens": 1100,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "vision_attention": {
+          "1760": {
+            "block_patches": 1760,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "probed_at_real_row_shapes": true,
+        "note": "availability, not selection: this API reports what could run. probe_sdpa_backend_selection.py names what did"
+      },
+      "intermediates_cache": {
+        "declared_offload_device": "cpu",
+        "initial": {
+          "note": "as materialised by from_dataloader, before any subgraph",
+          "tensors": 4,
+          "gib_by_device": {
+            "cpu": 0.01
+          },
+          "keys": [
+            "image_grid_thw",
+            "input_ids",
+            "mm_token_type_ids",
+            "pixel_values"
+          ]
+        },
+        "peak": {
+          "note": "maximum over samples taken after cache construction and after every subgraph forward; this is the growth figure, the residual below is not",
+          "tensors": 7,
+          "bytes_by_device": {
+            "cpu": 50689100
+          },
+          "gib_by_device": {
+            "cpu": 0.047
+          },
+          "bytes_per_token": 46081.0
+        },
+        "residual_after_run": {
+          "note": "what the cache still held when the pipeline returned: the last subgraph's inputs, because consumed names are deleted as the run proceeds",
+          "tensors": 7,
+          "gib_by_device": {
+            "cpu": 0.047
+          },
+          "keys": [
+            "getitem_13",
+            "getitem_21",
+            "getitem_27",
+            "getitem_90",
+            "model_language_model_rotary_emb",
+            "wrapped_10"
+          ]
+        }
+      },
+      "cuda_allocated_after_cleanup_gib": 0.008,
+      "cuda_reserved_after_cleanup_gib": 0.043
+    },
+    {
+      "rows": 3,
+      "row_ids": [
+        "train-00973-d8cd5223d6ff1cac",
+        "train-00500-68f926b378a008b0",
+        "train-00012-4bbe43dc3a3f95fe"
+      ],
+      "sequence_tokens": 8703,
+      "longest_row_tokens": 5857,
+      "visual_tokens": 6519,
+      "rows_detail": [
+        {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "sequence_tokens": 1100,
+          "visual_tokens": 442,
+          "vision_blocks": 1,
+          "largest_block_patches": 1760,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 1100,
+              "nominal_gib": 0.29
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  44,
+                  40
+                ]
+              ],
+              "block_patches": [
+                1760
+              ],
+              "largest_block_patches": 1760,
+              "nominal_gib": 0.18
+            }
+          }
+        },
+        {
+          "row_id": "train-00500-68f926b378a008b0",
+          "sequence_tokens": 1746,
+          "visual_tokens": 1133,
+          "vision_blocks": 2,
+          "largest_block_patches": 4032,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 1746,
+              "nominal_gib": 0.73
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  84,
+                  48
+                ],
+                [
+                  22,
+                  22
+                ]
+              ],
+              "block_patches": [
+                4032,
+                484
+              ],
+              "largest_block_patches": 4032,
+              "nominal_gib": 0.97
+            }
+          }
+        },
+        {
+          "row_id": "train-00012-4bbe43dc3a3f95fe",
+          "sequence_tokens": 5857,
+          "visual_tokens": 4944,
+          "vision_blocks": 2,
+          "largest_block_patches": 16224,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 5857,
+              "nominal_gib": 8.18
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  156,
+                  104
+                ],
+                [
+                  52,
+                  68
+                ]
+              ],
+              "block_patches": [
+                16224,
+                3536
+              ],
+              "largest_block_patches": 16224,
+              "nominal_gib": 15.69
+            }
+          }
+        }
+      ],
+      "note_on_attribution": "total tokens govern the host-side cache; GPU peak is governed by the longest single row and its largest vision block, because rows are processed one at a time",
+      "precision_policy": "comfy_exact_bf16_store",
+      "propagate_error": true,
+      "outcome": "completed",
+      "error": null,
+      "seconds_total": 54.3,
+      "seconds_trace": 0.2,
+      "seconds_cache_build": 0.3,
+      "seconds_in_subgraph_forwards": 14.2,
+      "subgraph_forward_calls": 390,
+      "trace": {
+        "subgraphs": 65,
+        "sample_input_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "first_subgraph_input_names": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_any_subgraph_inputs": false,
+        "pixel_values_in_first_subgraph_inputs": true,
+        "image_grid_thw_in_first_subgraph_inputs": true
+      },
+      "effective_input": {
+        "rows": {
+          "train-00973-d8cd5223d6ff1cac": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "7562f0960c35732779c16f0c090b7d4c6c7aa9c4e320335a6906ec26d7b5fcb2",
+            "effective_model_input_sha256": "df62ee67f71ec7a8ca3fd4c3a1c709c3bf3e3704abf4e0d865e9147f8a4f50b1",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-00500-68f926b378a008b0": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "15d553dcb142c331c4b98b68d80725404e68c6e080738d03015c9cb0c5b94a08",
+            "effective_model_input_sha256": "e7ca91a60745f0fe1c401c4014cd99453ad8faa976ec7646f6ddd7313ec6353f",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-00012-4bbe43dc3a3f95fe": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "676328a4c8c5e7536140f0f35040edaa08dca19e6aac26ce00c0455be993a875",
+            "effective_model_input_sha256": "c99c0c976d4d7910e6ed5055f6b1147138cb4a528f0d11bdfa951a9e6acc0d92",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          }
+        },
+        "every_row_transformed_with_assertion": true,
+        "cache_keys_at_first_forward": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_cache_at_first_forward": false,
+        "attention_mask_in_traced_subgraph_inputs": false,
+        "omission_survives_dataloader_cache_and_trace": true,
+        "note": "None means that observation point was never reached in this step, which is not the same as the mask being absent"
+      },
+      "peak_cuda": {
+        "allocated_gib": 21.199,
+        "reserved_gib": 22.82,
+        "note": "cumulative across cache construction and every subgraph forward, not the last reset window"
+      },
+      "host_memory": {
+        "peak_rss_gib": 64.63,
+        "current_rss_gib": 64.46,
+        "system_mem_available_gib": 119.76
+      },
+      "peak_host_rss_gib": 64.63,
+      "host_rss_growth_gib": 0.7,
+      "offload_dir_physical_bytes_before": 0,
+      "offload_dir": {
+        "physical_bytes": 0,
+        "files": 0,
+        "symlinks": 0,
+        "unique_symlink_targets": 0,
+        "unique_symlink_target_bytes_not_staged": 0
+      },
+      "per_subgraph": {
+        "calls": 390,
+        "cold_calls": 65,
+        "max_allocated_before_gib": 3.182,
+        "max_transient_gib": 19.402,
+        "warm_max_allocated_before_gib": 3.182,
+        "warm_max_transient_gib": 19.402,
+        "note": "a subgraph's weights are onloaded lazily inside its first forward, so only the warmed figures can be read as weight residency; the cold ones understate it"
+      },
+      "sdpa_availability": {
+        "text_attention": {
+          "1100": {
+            "sequence_tokens": 1100,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "1746": {
+            "sequence_tokens": 1746,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "5857": {
+            "sequence_tokens": 5857,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "vision_attention": {
+          "484": {
+            "block_patches": 484,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "1760": {
+            "block_patches": 1760,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "3536": {
+            "block_patches": 3536,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "4032": {
+            "block_patches": 4032,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "16224": {
+            "block_patches": 16224,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "probed_at_real_row_shapes": true,
+        "note": "availability, not selection: this API reports what could run. probe_sdpa_backend_selection.py names what did"
+      },
+      "intermediates_cache": {
+        "declared_offload_device": "cpu",
+        "initial": {
+          "note": "as materialised by from_dataloader, before any subgraph",
+          "tensors": 12,
+          "gib_by_device": {
+            "cpu": 0.149
+          },
+          "keys": [
+            "image_grid_thw",
+            "input_ids",
+            "mm_token_type_ids",
+            "pixel_values"
+          ]
+        },
+        "peak": {
+          "note": "maximum over samples taken after cache construction and after every subgraph forward; this is the growth figure, the residual below is not",
+          "tensors": 21,
+          "bytes_by_device": {
+            "cpu": 587070975
+          },
+          "gib_by_device": {
+            "cpu": 0.547
+          },
+          "bytes_per_token": 67456.2
+        },
+        "residual_after_run": {
+          "note": "what the cache still held when the pipeline returned: the last subgraph's inputs, because consumed names are deleted as the run proceeds",
+          "tensors": 21,
+          "gib_by_device": {
+            "cpu": 0.547
+          },
+          "keys": [
+            "getitem_13",
+            "getitem_21",
+            "getitem_27",
+            "getitem_90",
+            "model_language_model_rotary_emb",
+            "wrapped_10"
+          ]
+        }
+      },
+      "cuda_allocated_after_cleanup_gib": 0.009,
+      "cuda_reserved_after_cleanup_gib": 0.045
+    },
+    {
+      "rows": 4,
+      "row_ids": [
+        "train-00973-d8cd5223d6ff1cac",
+        "train-00500-68f926b378a008b0",
+        "train-00012-4bbe43dc3a3f95fe",
+        "train-00002-f631dbe673b72816"
+      ],
+      "sequence_tokens": 14892,
+      "longest_row_tokens": 6189,
+      "visual_tokens": 11569,
+      "rows_detail": [
+        {
+          "row_id": "train-00973-d8cd5223d6ff1cac",
+          "sequence_tokens": 1100,
+          "visual_tokens": 442,
+          "vision_blocks": 1,
+          "largest_block_patches": 1760,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 1100,
+              "nominal_gib": 0.29
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  44,
+                  40
+                ]
+              ],
+              "block_patches": [
+                1760
+              ],
+              "largest_block_patches": 1760,
+              "nominal_gib": 0.18
+            }
+          }
+        },
+        {
+          "row_id": "train-00500-68f926b378a008b0",
+          "sequence_tokens": 1746,
+          "visual_tokens": 1133,
+          "vision_blocks": 2,
+          "largest_block_patches": 4032,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 1746,
+              "nominal_gib": 0.73
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  84,
+                  48
+                ],
+                [
+                  22,
+                  22
+                ]
+              ],
+              "block_patches": [
+                4032,
+                484
+              ],
+              "largest_block_patches": 4032,
+              "nominal_gib": 0.97
+            }
+          }
+        },
+        {
+          "row_id": "train-00012-4bbe43dc3a3f95fe",
+          "sequence_tokens": 5857,
+          "visual_tokens": 4944,
+          "vision_blocks": 2,
+          "largest_block_patches": 16224,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 5857,
+              "nominal_gib": 8.18
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  156,
+                  104
+                ],
+                [
+                  52,
+                  68
+                ]
+              ],
+              "block_patches": [
+                16224,
+                3536
+              ],
+              "largest_block_patches": 16224,
+              "nominal_gib": 15.69
+            }
+          }
+        },
+        {
+          "row_id": "train-00002-f631dbe673b72816",
+          "sequence_tokens": 6189,
+          "visual_tokens": 5050,
+          "vision_blocks": 5,
+          "largest_block_patches": 4032,
+          "nominal_attention_logit_footprints": {
+            "kind": "nominal one-attention-logit tensor footprints",
+            "is_a_predicted_allocator_request": false,
+            "caveat": "A nominal footprint matching the captured allocator request supports an attribution; it does not prove one. These are single-tensor sizes, not predicted allocator requests: the selected SDPA backend may allocate additional buffers, choose a different internal layout, or split the computation -- cuDNN and memory-efficient attention need workspace too, and which backend runs is deliberately still unknown here. Read this only together with the captured allocator message, the failure stage, and the backend availability above.",
+            "element_bytes": 4,
+            "language": {
+              "heads": 64,
+              "sequence_tokens": 6189,
+              "nominal_gib": 9.13
+            },
+            "vision": {
+              "heads": 16,
+              "block_grids": [
+                [
+                  48,
+                  84
+                ],
+                [
+                  48,
+                  84
+                ],
+                [
+                  48,
+                  84
+                ],
+                [
+                  48,
+                  84
+                ],
+                [
+                  48,
+                  84
+                ]
+              ],
+              "block_patches": [
+                4032,
+                4032,
+                4032,
+                4032,
+                4032
+              ],
+              "largest_block_patches": 4032,
+              "nominal_gib": 0.97
+            }
+          }
+        }
+      ],
+      "note_on_attribution": "total tokens govern the host-side cache; GPU peak is governed by the longest single row and its largest vision block, because rows are processed one at a time",
+      "precision_policy": "comfy_exact_bf16_store",
+      "propagate_error": true,
+      "outcome": "cuda_oom",
+      "error": "Sequential pipeline ran out of memory. Please consider choosing a smaller module for `sequential_targets`, ex. 'Linear' for dense models. For MoE models with untraceable attention, use the attention m",
+      "seconds_total": 9.5,
+      "seconds_trace": 0.2,
+      "seconds_cache_build": 0.4,
+      "seconds_in_subgraph_forwards": 8.3,
+      "subgraph_forward_calls": 12,
+      "trace": {
+        "subgraphs": 65,
+        "sample_input_keys": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "first_subgraph_input_names": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_any_subgraph_inputs": false,
+        "pixel_values_in_first_subgraph_inputs": true,
+        "image_grid_thw_in_first_subgraph_inputs": true
+      },
+      "effective_input": {
+        "rows": {
+          "train-00973-d8cd5223d6ff1cac": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "7562f0960c35732779c16f0c090b7d4c6c7aa9c4e320335a6906ec26d7b5fcb2",
+            "effective_model_input_sha256": "df62ee67f71ec7a8ca3fd4c3a1c709c3bf3e3704abf4e0d865e9147f8a4f50b1",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-00500-68f926b378a008b0": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "15d553dcb142c331c4b98b68d80725404e68c6e080738d03015c9cb0c5b94a08",
+            "effective_model_input_sha256": "e7ca91a60745f0fe1c401c4014cd99453ad8faa976ec7646f6ddd7313ec6353f",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-00012-4bbe43dc3a3f95fe": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "676328a4c8c5e7536140f0f35040edaa08dca19e6aac26ce00c0455be993a875",
+            "effective_model_input_sha256": "c99c0c976d4d7910e6ed5055f6b1147138cb4a528f0d11bdfa951a9e6acc0d92",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          },
+          "train-00002-f631dbe673b72816": {
+            "transform": "omit-all-ones-attention-mask",
+            "assertion_holds": true,
+            "attention_mask_non_one_elements": 0,
+            "raw_presentation_sha256": "75afaad69739514da8918ec953c8736a2b9f7a18ef10878180eb7d1992099278",
+            "effective_model_input_sha256": "edff422b738da400debf008f184aaf6f89fa7a86a86ecd973de73939c96e94da",
+            "omitted_keys": [
+              "attention_mask"
+            ],
+            "effective_keys": [
+              "image_grid_thw",
+              "input_ids",
+              "mm_token_type_ids",
+              "pixel_values"
+            ]
+          }
+        },
+        "every_row_transformed_with_assertion": true,
+        "cache_keys_at_first_forward": [
+          "image_grid_thw",
+          "input_ids",
+          "mm_token_type_ids",
+          "pixel_values"
+        ],
+        "attention_mask_in_cache_at_first_forward": false,
+        "attention_mask_in_traced_subgraph_inputs": false,
+        "omission_survives_dataloader_cache_and_trace": true,
+        "note": "None means that observation point was never reached in this step, which is not the same as the mask being absent"
+      },
+      "peak_cuda": {
+        "allocated_gib": 21.629,
+        "reserved_gib": 22.312,
+        "note": "cumulative across cache construction and every subgraph forward, not the last reset window"
+      },
+      "host_memory": {
+        "peak_rss_gib": 64.96,
+        "current_rss_gib": 64.85,
+        "system_mem_available_gib": 119.48
+      },
+      "peak_host_rss_gib": 64.96,
+      "host_rss_growth_gib": 0.33,
+      "offload_dir_physical_bytes_before": 0,
+      "offload_dir": {
+        "physical_bytes": 0,
+        "files": 0,
+        "symlinks": 0,
+        "unique_symlink_targets": 0,
+        "unique_symlink_target_bytes_not_staged": 0
+      },
+      "per_subgraph": {
+        "calls": 12,
+        "cold_calls": 2,
+        "max_allocated_before_gib": 3.611,
+        "max_transient_gib": 19.402,
+        "warm_max_allocated_before_gib": 3.611,
+        "warm_max_transient_gib": 19.402,
+        "note": "a subgraph's weights are onloaded lazily inside its first forward, so only the warmed figures can be read as weight residency; the cold ones understate it"
+      },
+      "sdpa_availability": {
+        "text_attention": {
+          "1100": {
+            "sequence_tokens": 1100,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "1746": {
+            "sequence_tokens": 1746,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "5857": {
+            "sequence_tokens": 5857,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "6189": {
+            "sequence_tokens": 6189,
+            "is_causal": true,
+            "grouped_query": {
+              "flash": false,
+              "efficient": false,
+              "cudnn": false
+            },
+            "expanded_kv": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "vision_attention": {
+          "484": {
+            "block_patches": 484,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "1760": {
+            "block_patches": 1760,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "3536": {
+            "block_patches": 3536,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "4032": {
+            "block_patches": 4032,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          },
+          "16224": {
+            "block_patches": 16224,
+            "is_causal": false,
+            "full_attention": {
+              "flash": false,
+              "efficient": true,
+              "cudnn": false
+            }
+          }
+        },
+        "probed_at_real_row_shapes": true,
+        "note": "availability, not selection: this API reports what could run. probe_sdpa_backend_selection.py names what did"
+      },
+      "oom": {
+        "allocator_message": "CUDA out of memory. Tried to allocate 2.28 GiB. GPU 0 has a total capacity of 23.54 GiB of which 1.24 GiB is free. Including non-PyTorch memory, this process has 22.24 GiB memory in use. Of the allocated memory 21.63 GiB is allocated by PyTorch, and 160.33 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments",
+        "stage": "subgraph_forward",
+        "on_cold_call": false,
+        "note": "the allocator's own message, kept because the pipeline's wrapper replaces it and a failed allocation never appears in max_memory_allocated",
+        "compare_against": "rows_detail[].nominal_attention_logit_footprints and sdpa_availability, both in this step"
+      },
+      "intermediates_cache": {
+        "declared_offload_device": "cpu",
+        "initial": {
+          "note": "as materialised by from_dataloader, before any subgraph",
+          "tensors": 16,
+          "gib_by_device": {
+            "cpu": 0.265
+          },
+          "keys": [
+            "image_grid_thw",
+            "input_ids",
+            "mm_token_type_ids",
+            "pixel_values"
+          ]
+        },
+        "peak": {
+          "note": "maximum over samples taken after cache construction and after every subgraph forward; this is the growth figure, the residual below is not",
+          "tensors": 28,
+          "bytes_by_device": {
+            "cpu": 1029823020
+          },
+          "gib_by_device": {
+            "cpu": 0.959
+          },
+          "bytes_per_token": 69152.8
+        },
+        "residual_after_run": {
+          "note": "what the cache still held when the pipeline returned: the last subgraph's inputs, because consumed names are deleted as the run proceeds",
+          "tensors": 28,
+          "gib_by_device": {
+            "cpu": 0.959
+          },
+          "keys": [
+            "getitem_13",
+            "getitem_21",
+            "getitem_23",
+            "getitem_27",
+            "model_language_model_rotary_emb",
+            "wrapped_10"
+          ]
+        }
+      },
+      "cuda_allocated_after_cleanup_gib": 0.009,
+      "cuda_reserved_after_cleanup_gib": 0.045
+    }
+  ],
+  "offload_dir_at_exit": {
+    "physical_bytes": 0,
+    "files": 0,
+    "symlinks": 0,
+    "unique_symlink_targets": 0,
+    "unique_symlink_target_bytes_not_staged": 0
+  },
+  "sequential_floor_envelope": {
+    "largest_completed_sequence_tokens": 8703,
+    "largest_completed_rows": 3,
+    "is_a_budget": false,
+    "note": "a token total this MODIFIER-FREE path completed on this box. It is the floor beneath a calibration run: tracing, the intermediates cache and two forwards per subgraph per row, with no AWQ modifier observing or rewriting anything. It is not a chosen population, not a manifest, and it cannot set the final budget, which needs a modifier-bearing pass"
+  }
+}
