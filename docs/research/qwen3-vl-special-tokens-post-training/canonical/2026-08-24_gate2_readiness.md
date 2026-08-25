@@ -1,6 +1,9 @@
 # Gate 2 readiness and resume point
 
-**Status:** Authoritative execution boundary; final Gate 2A measurement pending
+**Status:** Authoritative for the requirements it states; the pending Gate 2A
+measurement was accepted on 2026-08-25 and its result, together with the
+Gate 2B arrangement, is owned by
+[`2026-08-25_gate2_arrangement.md`](2026-08-25_gate2_arrangement.md)
 **Recorded:** 2026-08-24
 **Corrected producer commit:** `745d916`
 **Boundary:** no AWQ recipe, candidate checkpoint, deployment change, or launch

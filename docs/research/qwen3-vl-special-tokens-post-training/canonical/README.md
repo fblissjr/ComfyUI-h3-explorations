@@ -50,16 +50,17 @@ not override a conflicting statement in this directory.
 | [`2026-08-24_layer50_processor_policy_benchmark.md`](2026-08-24_layer50_processor_policy_benchmark.md) | Measured BF16-versus-current-W4 layer-50 baseline and the decision not to widen the deployed artifact's image budget as a config-only repair. |
 | [`2026-08-24_transformers_comfy_parity.md`](2026-08-24_transformers_comfy_parity.md) | Measured M-RoPE and vision/DeepStack arithmetic parity, the released-weight precision gap, and the accepted calibration-only `comfy_exact` policy. |
 | [`2026-08-24_gate1_seam_acceptance.md`](2026-08-24_gate1_seam_acceptance.md) | Accepted native-H3-to-`llm-compressor` Gate 1/1B evidence, the fail-closed effective attention-mask rule, and the Gate 2 boundary. |
-| [`2026-08-24_gate2_readiness.md`](2026-08-24_gate2_readiness.md) | End-of-day Gate 2 boundary: closed substrate findings, superseded diagnostics, corrected Gate 2A acceptance requirements, and the Gate 2B entry contract. |
+| [`2026-08-24_gate2_readiness.md`](2026-08-24_gate2_readiness.md) | End-of-day Gate 2 boundary: closed substrate findings, superseded diagnostics, corrected Gate 2A acceptance requirements. Its pending part is closed by the next row. |
+| [`2026-08-25_gate2_arrangement.md`](2026-08-25_gate2_arrangement.md) | Gate 2A accepted; the storage and kernel axes measured; the arrangement Gate 2B runs on, its entry contract, and which decisions were made under acting-point authority while Codex is offline. |
 | [`owner_authored_marker_corpus.md`](owner_authored_marker_corpus.md) | Accepted construction contract for new multimodal marker evaluation and candidate training/development corpora compiled from semantically fixed scene specifications. |
 | [`calibration_data_pool.md`](calibration_data_pool.md) | Accepted H3-IR candidate-pool partition, overlay coverage, exact-media component constraint, rights boundary, and remaining split checks. |
 
 No post-training recipe is canonical yet. The first proposed v2 calibration
 manifest and launcher were independently rejected; no v2 checkpoint exists.
-Gate 1 and Gate 1B are accepted. Gate 2A is the active measurement boundary,
-and its first resource table is not a population budget. Resume from
-[`2026-08-24_gate2_readiness.md`](2026-08-24_gate2_readiness.md); a replacement
-launcher can be promoted only after the stated gates pass.
+Gate 1, Gate 1B and Gate 2A are accepted. Gate 2B is the active boundary and
+has not started. Resume from
+[`2026-08-25_gate2_arrangement.md`](2026-08-25_gate2_arrangement.md); a
+replacement launcher can be promoted only after the stated gates pass.
 
 ## Evidence labels
 

@@ -1,7 +1,7 @@
 # Canonical active plan
 
 **Status:** Owner-accepted execution plan
-**Last updated:** 2026-08-24
+**Last updated:** 2026-08-25
 
 ## Outcome and next milestone
 
@@ -39,12 +39,34 @@ is not a prerequisite for building the candidate.
   holdout. Verify every declared local media hash and complete a near-duplicate
   review before accepting the split.
 - Absolute calibration population size is deliberately open. Set it from the
-  measured feasibility pilot and a total-token budget, not from a preselected
-  row count. Every eligible and excluded row receives a reason.
+  measured modifier-bearing pilot as separate budget dimensions -- row
+  envelope, visual-block envelope, population/cache, runtime, host reserve --
+  not from a preselected row count or a single total-token figure. Every
+  eligible and excluded row receives a reason.
+- The interpolated 300x300-to-2048 stress row is evaluation-only, never a
+  calibration row. This is a decision about manufactured pixels; genuine
+  high-resolution references and the 2048 processor ceiling stay.
 - Text-only T2VA rows are excluded from the vision-traced `oneshot` calibration
   run. They remain a deterministic held-out regression population. Dummy visual
   inputs and silent media dropping are forbidden. A second text-only trace is a
   future experiment only if v2 materially regresses the held-out T2VA arm.
+
+### Execution arrangement
+
+Decided 2026-08-25 on the measurements in
+[`2026-08-25_gate2_arrangement.md`](2026-08-25_gate2_arrangement.md), which
+also records who decided what and under which authority:
+
+- **Storage:** `comfy_exact_bf16_store` -- weights BF16 where stored and
+  offloaded, every parameterised op computed with a transient FP32 copy of
+  its weight. Bit-identical to the accepted `comfy_exact` on the released
+  weights; leaves the host free for a modifier.
+- **Kernel:** expanded-KV memory-efficient attention, accepted as a
+  calibration execution policy under the mid-stack reading, with a
+  kernel-sensitivity control on the AWQ observer required in Gate 2B.
+- **Depth:** all 64 decoder layers remain the artifact target.
+- **Host:** ComfyUI is stopped by the owner's arrangement before any bridge
+  load and restarted afterwards.
 
 ### Role-aware geometry and processor contract
 
@@ -154,10 +176,11 @@ dataloader/cache/trace identity assertions apply to that effective input.
 
 ### Gate 2A — measure the no-modifier sequential floor
 
-**Status:** In progress. The supported converted offload substrate has executed
-all 64 decoder layers, but the first resource table is diagnostic rather than
-budget-setting. Accept only the corrected single-version rerun specified in
-[`2026-08-24_gate2_readiness.md`](2026-08-24_gate2_readiness.md).
+**Status:** Accepted by Codex on 2026-08-25 from one committed harness version.
+The record, the two prerequisite axes measured after it, and the corrections
+consumed are in
+[`2026-08-25_gate2_arrangement.md`](2026-08-25_gate2_arrangement.md). The
+requirements below remain the standard the record was held to.
 
 Run the smallest no-modifier experiment through the real pinned
 `llm-compressor` sequential path that reveals cache, replay, offload, cleanup,
@@ -197,23 +220,28 @@ must be kept distinct from population-wide host-cache growth.
 
 ### Gate 2B — measure a bounded real AWQ modifier
 
-Using the Gate 2A harness and accepted `comfy_exact` execution policy, run the
-smallest real AWQ-modifier experiment that exposes observer state, sequential
-layer calibration, cache/replay behavior, peak VRAM and host RAM, temporary
-disk use, and cleanup on intentional abort. It must remain incapable of
-producing or publishing a candidate checkpoint.
+**Status:** Not started. Entry contract, item by item, in
+[`2026-08-25_gate2_arrangement.md`](2026-08-25_gate2_arrangement.md).
 
-Every modifier arm starts from a fresh full model load. Use the supported
-converted offload bridge with an explicit host-memory reserve derived from Gate
-2A, explicitly place AWQ observer offload on CPU, and verify the decoder-only
-target boundary before execution. Include a control proving that the modifier
-path was entered. Do not create an output directory, serializer, symlink action,
-or publishing step.
+Using the Gate 2A harness, the `comfy_exact_bf16_store` storage arrangement
+and expanded-KV attention, run the smallest real AWQ-modifier experiment that
+exposes observer state, sequential layer calibration, cache/replay behavior,
+peak VRAM and host RAM, temporary disk use, and cleanup on intentional abort.
+It must remain incapable of producing or publishing a candidate checkpoint.
 
-Gate 2B sets the total-token budget and therefore the absolute calibration
-population only if its measured arms cover the accepted workload shapes and
-leave a declared operating reserve. Otherwise it narrows the next pilot.
-Neither Gate 2 arm changes the accepted role partition.
+Every modifier arm starts from a fresh full model load of all 64 layers. Use
+the supported converted offload bridge with an explicit host-memory reserve
+declared in the run record, explicitly place AWQ observer offload on CPU, and
+verify the decoder-only target boundary before execution. Include a control
+proving that the modifier path was entered, and the kernel-sensitivity control
+on the observer's scales. Do not create an output directory, serializer,
+symlink action, or publishing step.
+
+Gate 2B sets the budget as separate dimensions -- row envelope, visual-block
+envelope, population/cache, runtime, host reserve -- and fixes an absolute
+calibration population only if its measured arm covers the accepted workload
+shapes and leaves a declared operating reserve. Otherwise it narrows the next
+pilot. Neither Gate 2 arm changes the accepted role partition.
 
 ### Gate 3 — freeze the executable split and launch package
 
@@ -314,7 +342,11 @@ independent axis and stays outside this v2 run.
   supervision, and candidate artifact audit.
 - **Codex:** canonical authority, independent preflight review, privacy and
   provenance gates, BF16/W4 capture and comparison, and the go/no-go
-  recommendation to the owner.
+  recommendation to the owner. **Offline since 2026-08-25.** While offline,
+  the encoder Claude is acting technical point by the owner's instruction;
+  its acceptance decisions are labelled as such in the canonical records and
+  are reversible by the owner or by Codex on return. The owner's launch
+  approval is unchanged.
 - **Repository owner:** final launch approval, GPU scheduling, and perceptual
   evaluation decisions.
 - **Gemini:** paused. It may later receive a bounded tactical task with an
