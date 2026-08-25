@@ -247,6 +247,18 @@ the recipe (`o_proj` unsmoothed under GQA, group 128), then the metric (raw
 layer-49 state, where a few high-norm tokens can dominate relative L2;
 tokenwise cosine minima are 0.5 to 0.7 for both).
 
+**Two confounds found after the verdict, SOURCE, 17:50.** (1) v1's snapshot
+recipe (`config/qwen3vl_32b_minimax_h3_w4a16_awq/recipe.yaml`) records
+`duo_scaling: false`; v2 ran with `duo_scaling: true` (the run record's
+recipe). v2 therefore differs from v1 in the calibration data *and* in the
+scale-search rule, so this comparison cannot attribute its result to the
+native-H3 data. Nobody checked recipe parity against v1 before the launch.
+(2) The candidate's own `recipe.yaml`, and the snapshot copied from it, is
+empty (`default_stage: {}`): the emit path saved after the session had
+closed, so the artifact does not carry its recipe. The run record
+(`bench/results/2026-08-25_v2_calibration_run.json`) does, and is the
+provenance until the emit path is fixed. Both go to the next point.
+
 What v2 is still for: it declares the release image bounds and accepts the
 2048 view that v1 clamps, at fidelity comparable to v1 on identical replayed
 inputs, so the Gate 6 ablation can run on it as the encoder that takes the

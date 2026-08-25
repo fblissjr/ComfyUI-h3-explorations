@@ -179,6 +179,19 @@ modifier's parent-argument cache off host memory (a change to
   grade all four encoders on the same holdout against BF16. That table
   decides which encoder the ablation and the marker arms run on, and closes
   the open item from `internal/postmortems/2026-08-23_session_h3_awq_hf_workflows_and_encoder_ab.md`.
+- **Two confounds, found after the verdict (launch record, Gate 5
+  section):** v1 was calibrated with `duo_scaling: false`, v2 with `true`,
+  so data and scale rule changed together; and the candidate's `recipe.yaml`
+  is empty because the emit path saves after the session closes (the run
+  record carries the recipe). The cheapest attribution experiment is a
+  rerun on the same 29 rows with `--awq-duo-scaling false` (about 3.5 h,
+  same launcher): v2b close to v1 means the data did not matter at this bit
+  width; v2b better than v1 means duo scaling hurt. Fix the emit path to
+  write the recipe before that run so the artifact carries it.
+- **Overfit test, 20 minutes on the card:** capture v1 and v2 against BF16
+  on `bundle_v2_Bp2` (v2's own calibration rows) with the same driver; if
+  v2 beats v1 clearly there and not on the holdout, the population is too
+  small or too specific.
 - **Then, if v2's population is the suspect:** the modifier-cache change is
   what a larger population needs (deferred work in the plan); a recipe
   variant (smoothing `o_proj`, a smaller group) is the cheaper experiment
