@@ -242,13 +242,37 @@ def blankness(path: Path, kind: str) -> dict:
 # arms
 
 
+def carries_media(row: dict) -> bool:
+    """Does this row have a media item that becomes a tensor?
+
+    An audio label is text only and produces no tensor, so a row whose entire
+    ordered media is audio labels has no media file and is not missing one.
+    """
+    return any(item.get("type") in ("image", "video")
+               for item in row.get("ordered_media", []))
+
+
 def arm_bundle_files(bundle: Path, presentation: dict) -> list[str]:
-    """Every bundled tensor file present, hash-correct, and accounted for."""
+    """Every bundled tensor file present, hash-correct, and accounted for.
+
+    **A text-only row has no media file and is not missing one.** Requiring one
+    unconditionally made every row of the T2VA regression holdout red on a
+    bundle that was correct -- `CLAUDE.md`'s rule that a thing gaining an
+    "absent" state gives every assertion about it a third case, and that
+    "correctly absent" is not "broken". So the media file is required exactly
+    where the row carries a media tensor, which keeps a vision row that lost
+    its media file red.
+    """
     problems = []
     named = set()
     for row in presentation["rows"]:
-        for key, digest_key in (("batch_file", "batch_file_sha256"),
-                                ("media_file", "media_file_sha256")):
+        required = ("batch_file", "media_file") if carries_media(row) else ("batch_file",)
+        if not carries_media(row) and row.get("media_file"):
+            problems.append(
+                f"{row['row_id']}: carries no media tensor yet names "
+                f"{row['media_file']}")
+        for key in required:
+            digest_key = f"{key}_sha256"
             name = row.get(key)
             if not name:
                 problems.append(f"{row['row_id']}: no {key} recorded")
@@ -883,9 +907,20 @@ def arm_family_disjointness(presentation: dict, holdouts: dict,
     cal = [r["row_id"] for r in presentation["rows"]]
     hold = sorted({r["row_id"] for h in holdouts.values() for r in h["rows"]})
     problems = []
+    # The map is built over the vision-bearing pool, so a text-only row is
+    # absent from it by construction and its absence is not a finding. A row
+    # that CARRIES media and is still unmapped is, because then the map cannot
+    # say which family it belongs to.
+    media_bearing = {r["row_id"] for r in presentation["rows"] if carries_media(r)}
+    for h in holdouts.values():
+        media_bearing |= {r["row_id"] for r in h["rows"] if carries_media(r)}
     unmapped = [r for r in cal + hold if r not in family]
     for row_id in unmapped:
-        problems.append(f"{row_id} is not in the corrected component map")
+        if row_id in media_bearing:
+            problems.append(
+                f"{row_id} carries media but is not in the corrected component "
+                f"map, so its family cannot be checked")
+    vacuous = not (media_bearing & set(cal))
     cal_families = defaultdict(list)
     for row_id in cal:
         if row_id in family:
@@ -901,6 +936,12 @@ def arm_family_disjointness(presentation: dict, holdouts: dict,
             f"calibration {cal_families[group]} against holdout "
             f"{hold_families[group]}")
     return {"map": map_path.name,
+            "applicability": (
+                "vacuous: no row of this bundle carries media, so family "
+                "disjointness is true by construction and asserts nothing"
+                if vacuous else "graded"),
+            "rows_correctly_unmapped_because_they_carry_no_media":
+                sorted(set(unmapped) - media_bearing),
             "map_caveat": loaded.get("caveat"),
             "unexamined_weak_candidates": loaded.get("unexamined_weak_candidates"),
             "calibration_families": len(cal_families),
@@ -1065,6 +1106,10 @@ MUTATIONS = {
                       "a calibration row points at a holdout media file"),
     "family-overlap": ("family_disjointness",
                        "a calibration row sits in a holdout row's visual family"),
+    "missing-media-file": ("bundle_files",
+                           "a row carrying media declares no media file"),
+    "unmapped-media-row": ("family_disjointness",
+                           "a row carrying media is absent from the component map"),
 }
 
 
@@ -1077,7 +1122,7 @@ def _mutate(presentation: dict, kind: str, holdout_media: str | None,
             for item in row["ordered_media"]:
                 if predicate(row, item):
                     return row, item
-        raise LookupError(f"no row satisfies {kind}")
+        raise LookupError(f"no row and item satisfies the {kind} precondition")
 
     if kind == "declared-hash":
         row, item = first(lambda r, i: i.get("declared_sha256"))
@@ -1087,10 +1132,14 @@ def _mutate(presentation: dict, kind: str, holdout_media: str | None,
     elif kind == "user-request-prompt":
         rows[0]["prompt_sha256"] = "0" * 64
     elif kind == "reordered-labels":
-        row = next(r for r in rows if len(r["labels_in_order"]) > 1)
+        row = next((r for r in rows if len(r["labels_in_order"]) > 1), None)
+        if row is None:
+            raise LookupError("no row carries more than one label to reorder")
         row["labels_in_order"] = list(reversed(row["labels_in_order"]))
     elif kind == "relabelled-media":
-        row = next(r for r in rows if len(r["ordered_media"]) > 1)
+        row = next((r for r in rows if len(r["ordered_media"]) > 1), None)
+        if row is None:
+            raise LookupError("no row carries two media items to swap")
         a, b = row["ordered_media"][0], row["ordered_media"][1]
         a["media_path"], b["media_path"] = b["media_path"], a["media_path"]
     elif kind == "still-geometry":
@@ -1114,8 +1163,11 @@ def _mutate(presentation: dict, kind: str, holdout_media: str | None,
         row, item = first(lambda r, i: (i.get("role") or "").startswith("keyframe-last"))
         item["geometry"]["crop"] = "disabled"
     elif kind == "timestamp-shift":
-        row = next(r for r in rows
-                   if any(i["type"] == "video" for i in r["ordered_media"]))
+        row = next((r for r in rows
+                    if any(i["type"] == "video" for i in r["ordered_media"])), None)
+        if row is None:
+            raise LookupError("no row carries a video, so there is no scaffold "
+                              "timestamp to shift")
         # The raw scaffold separates words with U+0120, not a space. Writing the
         # mutation against the decoded form made it a silent no-op and the arm
         # looked green; mutate the bytes the record actually holds.
@@ -1126,6 +1178,13 @@ def _mutate(presentation: dict, kind: str, holdout_media: str | None,
         row["presentation_scaffold"] = scaffold
     elif kind == "sequence-length":
         rows[0]["sequence_length"] += 1
+    elif kind == "missing-media-file":
+        row, _ = first(lambda r, i: i.get("type") in ("image", "video"))
+        row.pop("media_file", None)
+        row.pop("media_file_sha256", None)
+    elif kind == "unmapped-media-row":
+        row, _ = first(lambda r, i: i.get("type") in ("image", "video"))
+        row["row_id"] = row["row_id"] + "-absent-from-the-map"
     elif kind == "family-overlap":
         if holdout_row is None:
             raise LookupError("family-overlap needs a holdout row id to borrow")

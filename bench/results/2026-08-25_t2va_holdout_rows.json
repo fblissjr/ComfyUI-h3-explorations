@@ -1,0 +1,318 @@
+{
+  "purpose": "the deterministic text-only T2VA regression holdout named by active_plan.md; built as a bundle with build_native_h3_calibration_batch.py --population text-only so the layer-50 comparator grades text rows the same way as the vision holdout",
+  "producer": "select_t2va_holdout_rows.py",
+  "seed": 20260825,
+  "dataset": {
+    "repo_id": "StellarVoyager/H3-IR",
+    "revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e"
+  },
+  "population": {
+    "file": "2026-08-24_h3_calibration_pool_excluded.jsonl",
+    "rows": 82,
+    "role": "no-vision"
+  },
+  "disjointness": {
+    "note": "these rows carry no media, so media and visual-family disjointness are true by construction and assert nothing. The informative axis is the prompt.",
+    "compared_against": {
+      "bundle_v2_Bp2": [
+        "train-01610-252bf32da40fe6fc",
+        "train-01575-92b8d283b1ab59f6",
+        "train-01758-5bffad8ddacfa6f2",
+        "train-01057-a8811c92c842a056",
+        "train-00643-5a1baaa3c2bbcec5",
+        "train-01358-4662b89eb01af6b7",
+        "train-01798-9e13c30a9af28e7f",
+        "train-01020-9e218a9ce482aae9",
+        "train-00909-0c27d5db3aa07c9d",
+        "train-01855-13ea897e564d3ff4",
+        "train-01197-b82d242662203292",
+        "train-00672-7869a840c0d05f7f",
+        "train-01270-9bc6cb7ee546de2a",
+        "train-00869-bfaf0a67ff2d2a31",
+        "train-01030-b7355e53e6e8a0dc",
+        "train-01044-80726621c3119978",
+        "train-01445-f575902595b76ec1",
+        "train-00395-b4139d5e8d6784ef",
+        "train-00491-ad4426bae290f835",
+        "train-01373-bd47e445714764a4",
+        "train-00790-0e6f804e5810171a",
+        "train-00303-e8797912dc5a8744",
+        "train-00179-75394404cb8c637a",
+        "train-00692-09e8c125638148a3",
+        "train-01820-e65d06ad83b5f69d",
+        "train-00653-c65eca57ac387ea1",
+        "train-00747-1d3fceda9a6ff86d",
+        "train-00500-68f926b378a008b0",
+        "train-01034-de472b470afd253d"
+      ],
+      "bundle_v2_holdout_v2b_up2048": [
+        "train-00259-92ca6b10881ce331",
+        "train-00808-64c596bd67c61724",
+        "train-00741-8a630e8fee6fb302",
+        "train-00696-0eb3f1e5b87ee0af",
+        "train-00257-08cf9ce768d2689e",
+        "train-01018-1e159f9fa3ecb66b",
+        "train-01006-ab560382e0ec64fb",
+        "train-01856-0d80aacae2a42b5e",
+        "train-01053-9f32e8c2c80a419e",
+        "train-01048-4e9be56bfe575769",
+        "train-00959-6bd60d114e786362",
+        "train-00973-d8cd5223d6ff1cac",
+        "train-00739-ec362da24e469987"
+      ]
+    },
+    "exact_prompt_hashes_unique_within_selection": true,
+    "normalised_prompt_hashes_unique_within_selection": true,
+    "exact_prompt_shared_with_other_bundles": [],
+    "row_ids_shared_with_other_bundles": [],
+    "near_duplicate_prompt_background": {
+      "pairs": 780,
+      "median": 0.0,
+      "max": 0.01178
+    },
+    "top_prompt_overlap_across_the_split": [
+      {
+        "holdout": "train-00150-6375b3befe1f0186",
+        "other": "train-00747-1d3fceda9a6ff86d",
+        "jaccard": 0.00088
+      },
+      {
+        "holdout": "train-00138-eec8852ac3a9a20e",
+        "other": "train-00959-6bd60d114e786362",
+        "jaccard": 0.00087
+      },
+      {
+        "holdout": "train-01032-574232225514e9f3",
+        "other": "train-00491-ad4426bae290f835",
+        "jaccard": 0.00074
+      },
+      {
+        "holdout": "train-01032-574232225514e9f3",
+        "other": "train-00808-64c596bd67c61724",
+        "jaccard": 0.00073
+      },
+      {
+        "holdout": "train-01032-574232225514e9f3",
+        "other": "train-00790-0e6f804e5810171a",
+        "jaccard": 0.00062
+      }
+    ],
+    "top_prompt_overlap_within_the_selection": [
+      {
+        "a": "train-00144-121b8d9f8ba39a51",
+        "b": "train-01032-574232225514e9f3",
+        "jaccard": 0.00536
+      },
+      {
+        "a": "train-00055-0e29e91f7cb05725",
+        "b": "train-00144-121b8d9f8ba39a51",
+        "jaccard": 0.00329
+      },
+      {
+        "a": "train-00255-451a41676a1a6f28",
+        "b": "train-01032-574232225514e9f3",
+        "jaccard": 0.00326
+      },
+      {
+        "a": "train-00244-8db1c37286e4decc",
+        "b": "train-00255-451a41676a1a6f28",
+        "jaccard": 0.00182
+      },
+      {
+        "a": "train-00150-6375b3befe1f0186",
+        "b": "train-01083-d7b04de2f5b9d8bf",
+        "jaccard": 0.00177
+      },
+      {
+        "a": "train-00150-6375b3befe1f0186",
+        "b": "train-00255-451a41676a1a6f28",
+        "jaccard": 0.00109
+      },
+      {
+        "a": "train-00144-121b8d9f8ba39a51",
+        "b": "train-00255-451a41676a1a6f28",
+        "jaccard": 0.00085
+      },
+      {
+        "a": "train-00144-121b8d9f8ba39a51",
+        "b": "train-00244-8db1c37286e4decc",
+        "jaccard": 0.00084
+      }
+    ]
+  },
+  "achieved": {
+    "rows": 13,
+    "with_dialogue_markers": 7,
+    "by_length_band": {
+      "long": 5,
+      "medium": 4,
+      "short": 4
+    },
+    "by_duration_seconds": {
+      "5": 2,
+      "7": 1,
+      "9": 1,
+      "15": 1,
+      "6": 1,
+      "4": 2,
+      "10": 1,
+      "11": 1,
+      "12": 1,
+      "8": 1,
+      "13": 1
+    }
+  },
+  "rows": [
+    {
+      "row_id": "train-00255-451a41676a1a6f28",
+      "duration_seconds": "5",
+      "prompt_bytes": 3999,
+      "length_band": "long",
+      "dialogue_markers": {
+        "<d>": 13,
+        "</d>": 13
+      },
+      "audio_label": false,
+      "prompt_sha256": "1c7b374c3d6c56f2928a1cc75d2493703c4200d56178019766bb8e08ac1abdbf",
+      "normalized_prompt_sha256": "aa6f00a6633015d676de7496d089de639edd95d2fd43056ff6d32b193deb457b"
+    },
+    {
+      "row_id": "train-00147-c423f0c65fb75594",
+      "duration_seconds": "7",
+      "prompt_bytes": 2348,
+      "length_band": "medium",
+      "dialogue_markers": {
+        "<d>": 1,
+        "</d>": 1
+      },
+      "audio_label": false,
+      "prompt_sha256": "95b4db2761d04a52fa8690051e49478d3aaf41682298ab0bb4170ee4923ca0b2",
+      "normalized_prompt_sha256": "205721c792df96857c0bbfcdefdd2a9f0a43a87932ea2c69614e2f026baf4389"
+    },
+    {
+      "row_id": "train-00218-3f6ce3ee8bce799b",
+      "duration_seconds": "9",
+      "prompt_bytes": 1768,
+      "length_band": "short",
+      "dialogue_markers": {
+        "<d>": 1,
+        "</d>": 1
+      },
+      "audio_label": false,
+      "prompt_sha256": "c769cd7b0384400e4e32f9b2493ae320183e31641688552781b209158198ef87",
+      "normalized_prompt_sha256": "b46ec26eb1a91b8511a16987583ff9bd33c0f45d84e1b58a7b3fd666e6722305"
+    },
+    {
+      "row_id": "train-01032-574232225514e9f3",
+      "duration_seconds": "15",
+      "prompt_bytes": 4191,
+      "length_band": "long",
+      "dialogue_markers": {},
+      "audio_label": false,
+      "prompt_sha256": "11c6362b0a52cf89a43875b787a09d7ae2afb8f3cfaadbabb0bfebf0cbd751d5",
+      "normalized_prompt_sha256": "c8968c38137defde42df94c5398c9c7a18a790eac86e127b62b224cfb694fdc9"
+    },
+    {
+      "row_id": "train-00138-eec8852ac3a9a20e",
+      "duration_seconds": "6",
+      "prompt_bytes": 2826,
+      "length_band": "medium",
+      "dialogue_markers": {},
+      "audio_label": false,
+      "prompt_sha256": "ad3b7cf3efce393b97d60896923e4beaef7f84db44746698fbe0da2037bdb3bb",
+      "normalized_prompt_sha256": "8d18fb5994464951cba4883bc6f77a64edcd82b9c4b42637f64a1739cbbc7011"
+    },
+    {
+      "row_id": "train-00201-922a5773d12ab133",
+      "duration_seconds": "4",
+      "prompt_bytes": 1573,
+      "length_band": "short",
+      "dialogue_markers": {},
+      "audio_label": false,
+      "prompt_sha256": "3268f79466d8dc200d6cf390c92af7e50fb5fdb5c791f6669d20a8420f06a151",
+      "normalized_prompt_sha256": "8cb0313a2fa1f8c61f7901bbfeeeed413a153e16a83295ad6bd545ec663e7843"
+    },
+    {
+      "row_id": "train-00244-8db1c37286e4decc",
+      "duration_seconds": "10",
+      "prompt_bytes": 3371,
+      "length_band": "long",
+      "dialogue_markers": {
+        "<d>": 3,
+        "</d>": 3
+      },
+      "audio_label": false,
+      "prompt_sha256": "58f4de839ad26b95941e9a006f6cfbf8cf5163d91d1b8413a19f30e255cafef5",
+      "normalized_prompt_sha256": "0313e0072674d6ff17c7f0b9016f3c8222860ceb7b452141983557c4c62111ca"
+    },
+    {
+      "row_id": "train-00009-bb5cb1b36165f7b4",
+      "duration_seconds": "11",
+      "prompt_bytes": 2793,
+      "length_band": "medium",
+      "dialogue_markers": {
+        "<d>": 3,
+        "</d>": 3
+      },
+      "audio_label": false,
+      "prompt_sha256": "e3709d4f75b7f8ecc6583339121ca2dfbe7eccb5df1f7d6f6db879ef862d4e96",
+      "normalized_prompt_sha256": "d2ccbf8a2de4820e7e9b8d26371e57525cc95c1548e6f71bb32c2b9e42e87af7"
+    },
+    {
+      "row_id": "train-00055-0e29e91f7cb05725",
+      "duration_seconds": "5",
+      "prompt_bytes": 1819,
+      "length_band": "short",
+      "dialogue_markers": {
+        "<d>": 1,
+        "</d>": 1
+      },
+      "audio_label": false,
+      "prompt_sha256": "be3a0cd84f1a2cdc92b6c533836f5ab209eff12f854062cc97fe02eb64c485ad",
+      "normalized_prompt_sha256": "5f6dc42f66910cb95103ba714e658acc741f2bd4de1e0443ff202681386f0f93"
+    },
+    {
+      "row_id": "train-01083-d7b04de2f5b9d8bf",
+      "duration_seconds": "12",
+      "prompt_bytes": 4537,
+      "length_band": "long",
+      "dialogue_markers": {},
+      "audio_label": false,
+      "prompt_sha256": "e049e8f270b67a7cef6e72c06abc3ce38edbe6a17ceca9947f4ffd83253a4ff5",
+      "normalized_prompt_sha256": "3a65fbe6040952ef91ac76a270e164531756af0052037b91a441e78d4ba15f1e"
+    },
+    {
+      "row_id": "train-00150-6375b3befe1f0186",
+      "duration_seconds": "8",
+      "prompt_bytes": 2316,
+      "length_band": "medium",
+      "dialogue_markers": {},
+      "audio_label": false,
+      "prompt_sha256": "8c5cfca09051270390426fdbdaf4617f7f5f68e0222c4c5083611c3d32bd1af2",
+      "normalized_prompt_sha256": "ed33f4f85483927f9f62d92fe37113179edc13384f462c9cdc0a95b037edce34"
+    },
+    {
+      "row_id": "train-00038-b27f7386c3f828e7",
+      "duration_seconds": "4",
+      "prompt_bytes": 1698,
+      "length_band": "short",
+      "dialogue_markers": {},
+      "audio_label": false,
+      "prompt_sha256": "b8fb3ebc4648669f1bfad105a29c6dd6b7314f5bf2a674fcce041d775dcb9b58",
+      "normalized_prompt_sha256": "139e3be03dfa41d663f556a29d8abe3aa1c25cced25db7800f7c94d5439516a2"
+    },
+    {
+      "row_id": "train-00144-121b8d9f8ba39a51",
+      "duration_seconds": "13",
+      "prompt_bytes": 4363,
+      "length_band": "long",
+      "dialogue_markers": {
+        "<d>": 7,
+        "</d>": 7
+      },
+      "audio_label": false,
+      "prompt_sha256": "eb2cb5f4fa39b52440104746e071faf388f28c963b42635bec724aa745e4c763",
+      "normalized_prompt_sha256": "21b9ddab17b8ea4d744fdb18091999575ca3e1a343543794d24b2d16608ae9ad"
+    }
+  ]
+}

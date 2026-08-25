@@ -63,6 +63,7 @@ COMFY = REPO.parents[1]
 
 DATASET_REPO = "StellarVoyager/H3-IR"
 POOL = BENCH / "results" / "2026-08-24_h3_calibration_pool.jsonl"
+EXCLUDED = BENCH / "results" / "2026-08-24_h3_calibration_pool_excluded.jsonl"
 BUNDLE_SCHEMA = "h3-native-calibration-bundle-v1"
 
 IMAGE_PAD = 151655
@@ -1054,6 +1055,15 @@ def main() -> int:
         "--mutate", choices=sorted(MUTATIONS),
         help="build a deliberately defective bundle; see MUTATIONS",
     )
+    parser.add_argument(
+        "--population", choices=("pool", "text-only"), default="pool",
+        help="`pool` is the vision-bearing calibration population. `text-only` "
+             "builds from the pool's no-vision exclusions instead -- the "
+             "deterministic T2VA regression holdout `active_plan.md` names. The "
+             "two never mix: a text-only row inside a vision bundle is the "
+             "silent modality drop the plan forbids, so each mode asserts every "
+             "row it was given belongs to it.",
+    )
     args = parser.parse_args()
 
     out = Path(args.out).expanduser().resolve()
@@ -1061,8 +1071,18 @@ def main() -> int:
         raise SystemExit(f"refuse to overwrite existing bundle directory: {out}")
 
     root, revision = _dataset_root()
-    pool = [json.loads(line) for line in POOL.read_text().splitlines()]
+    source_file = POOL if args.population == "pool" else EXCLUDED
+    pool = [json.loads(line) for line in source_file.read_text().splitlines()]
     by_id = {r["id"]: r for r in pool}
+    if args.population == "text-only":
+        if args.family:
+            raise SystemExit(
+                "--family selects a vision primary role and means nothing for "
+                "the text-only population; name rows with --row")
+        stray = sorted(r["id"] for r in pool if r["primary_role"] != "no-vision")
+        if stray:
+            raise SystemExit(
+                f"the exclusion file carries vision-bearing rows: {stray[:5]}")
 
     wanted: list[str] = []
     row_policy: dict[str, str] = {}
@@ -1070,7 +1090,9 @@ def main() -> int:
         for spec in args.row:
             row_id, _, policy = spec.partition(":")
             if row_id not in by_id:
-                raise SystemExit(f"row {row_id} is not in the accepted pool")
+                raise SystemExit(
+                    f"row {row_id} is not in {source_file.name}; the "
+                    f"{args.population!r} population is the one being built")
             if policy and policy not in STILL_POLICIES:
                 raise SystemExit(
                     f"unknown still policy {policy!r} for {row_id}; "
@@ -1087,6 +1109,10 @@ def main() -> int:
                 )
             wanted.append(row_id)
             row_policy[row_id] = policy or args.still_policy
+    if args.population == "text-only" and not args.row:
+        raise SystemExit(
+            "the text-only population has one role, so there is no family to "
+            "sample by; name its rows with --row")
     families = args.family or list(DEFAULT_FAMILIES)
     if not args.row:
         for family in families:
@@ -1151,10 +1177,22 @@ def main() -> int:
         )
 
     provenance = _provenance(revision, image_record, video_record)
-    provenance["still_policy_default"] = args.still_policy
-    provenance["still_policy_by_row"] = {
-        row_id: row_policy.get(row_id, args.still_policy) for row_id in wanted
-    }
+    provenance["population"] = args.population
+    if args.population == "text-only":
+        provenance["population_note"] = (
+            "the deterministic T2VA regression holdout: pool rows excluded from "
+            "the vision-traced calibration because a sequential trace admits one "
+            "modality envelope. Not calibration input. Every row carries no "
+            "media by construction, so no visual block, no pixel_values and no "
+            "image_grid_thw appear -- their absence is the population, not a "
+            "dropped input.")
+        provenance["still_policy_default"] = None
+        provenance["still_policy_by_row"] = {}
+    else:
+        provenance["still_policy_default"] = args.still_policy
+        provenance["still_policy_by_row"] = {
+            row_id: row_policy.get(row_id, args.still_policy) for row_id in wanted
+        }
     provenance["mutation"] = args.mutate
     provenance["mutation_intent"] = MUTATIONS.get(args.mutate) if args.mutate else None
     manifest = {"provenance": provenance, "order": wanted, "rows": records}
