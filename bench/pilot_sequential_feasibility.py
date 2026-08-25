@@ -23,13 +23,18 @@ directory is created.
 
 It answers, by measuring:
 
-- peak allocated and reserved VRAM, per stage;
-- peak host RAM, as the kernel's own high-water mark;
-- where the intermediates cache lives and how it grows with tokens;
+- peak allocated and reserved VRAM, cumulative over cache construction and
+  every subgraph forward, with per-call entry residency and transient growth;
+- host RAM three ways: the kernel's high-water mark, current RSS, and what the
+  system still reports available, before the load, after it, and per step;
+- where the intermediates cache lives and how it grows, sampled after every
+  forward rather than read off the residual at the end;
 - whether the replay pass really runs, counted at `Subgraph.forward`;
-- time by observable stage;
-- temporary disk use under the offload directory; and
-- what is left behind after a deliberate abort.
+- time by observable stage: trace, cache build, subgraph forwards;
+- that the declared all-ones-mask omission survives the real dataloader, the
+  cache and the traced graph, read from each of those objects;
+- physical staging under the offload directory, symlinks deduplicated; and
+- what is left behind after completion, a deliberate abort, and an OOM.
 
 And the question the full-forward OOM cannot answer: **whether an active
 subgraph can be promoted to FP32 while the inactive weights stay BF16 and
@@ -86,6 +91,7 @@ from h3_calibration_precision import (  # noqa: E402
     compute_dtype,
 )
 from h3_effective_batch import effective_batch  # noqa: E402
+from h3_producer_provenance import producer_provenance  # noqa: E402
 
 SEQUENTIAL_TARGETS = ["Qwen3VLTextDecoderLayer"]
 
@@ -204,14 +210,8 @@ def directory_bytes(path: Path) -> dict:
             "unique_symlink_target_bytes_not_staged": sum(targets.values())}
 
 
-def cache_footprint(cache) -> dict:
-    """Where the intermediates cache actually lives, and how large it is.
-
-    Read off the cache's own structure rather than inferred from row count:
-    `IntermediatesCache` stores an `IntermediateValue` per key per batch, and
-    the offload device is a property of how it was constructed, so a run that
-    silently kept activations on the accelerator would show up here.
-    """
+def _cache_bytes(cache) -> tuple[int, dict[str, int]]:
+    """Tensor count and bytes by device, walked without moving anything."""
     by_device: dict[str, int] = {}
     tensors = 0
 
@@ -232,11 +232,37 @@ def cache_footprint(cache) -> dict:
     for batch in cache.batch_intermediates:
         for value in batch.values():
             walk(value)
+    return tensors, by_device
+
+
+def cache_keys(cache) -> list[str]:
+    """Every key any batch currently holds. The effective-input proof reads this."""
+    keys: set[str] = set()
+    for batch in cache.batch_intermediates:
+        keys.update(batch.keys())
+    return sorted(keys)
+
+
+def cache_footprint(cache) -> dict:
+    """Where the intermediates cache actually lives, and how large it is.
+
+    Read off the cache's own structure rather than inferred from row count:
+    `IntermediatesCache` stores an `IntermediateValue` per key per batch, and
+    the offload device is a property of how it was constructed, so a run that
+    silently kept activations on the accelerator would show up here.
+
+    **A footprint read after the run is the residual, not the growth.** The
+    pipeline deletes each subgraph's consumed inputs as it goes, so what is
+    left at the end is the last subgraph's inputs. The peak is sampled inside
+    the forward wrapper instead and reported beside this.
+    """
+    tensors, by_device = _cache_bytes(cache)
     return {
         "tensors": tensors,
         "bytes_by_device": by_device,
         "gib_by_device": {k: round(v / 2**30, 3) for k, v in by_device.items()},
         "declared_offload_device": str(cache.offload_device),
+        "keys": cache_keys(cache),
     }
 
 
@@ -304,18 +330,72 @@ class _Instrumentation:
         self.oom_stage: str | None = None
         self.oom_on_cold_call: bool | None = None
         self.abort_after: int | None = None
+        self.trace_seconds = 0.0
+        self.trace: dict | None = None
+        self.cache_initial: dict | None = None
+        self.cache_keys_at_first_forward: list[str] | None = None
+        self.cache_peak_bytes: dict[str, int] = {}
+        self.cache_peak_tensors = 0
+
+    def _sample_cache(self) -> None:
+        """Running maximum of the cache's bytes by device, one walk per call.
+
+        Cheap: a handful of tensors per row and no data movement. This is the
+        only way to see growth, because the pipeline deletes consumed inputs
+        as it goes and the end-of-run footprint is a residual.
+        """
+        if self.cache is None:
+            return
+        tensors, by_device = _cache_bytes(self.cache)
+        self.cache_peak_tensors = max(self.cache_peak_tensors, tensors)
+        for device, size in by_device.items():
+            self.cache_peak_bytes[device] = max(self.cache_peak_bytes.get(device, 0), size)
 
     @contextlib.contextmanager
     def install(self):
         original_forward = Subgraph.forward
         original_cache = sequential_pipeline.IntermediatesCache.from_dataloader
+        original_trace = sequential_pipeline.trace_subgraphs
         instrumentation = self
+
+        def trace_subgraphs(model, sample_input, *args, **kwargs):
+            # The trace is its own observable stage, and the one place the
+            # effective-input rule can be checked against the graph `oneshot`
+            # executes: a key absent from the sample batch becomes a constant
+            # with no placeholder, so `attention_mask` must not be an input
+            # of any subgraph, and `pixel_values` must be one of the first.
+            started = time.time()
+            subgraphs = original_trace(model, sample_input, *args, **kwargs)
+            instrumentation.trace_seconds = time.time() - started
+            names = [sorted(s.input_names) for s in subgraphs]
+            instrumentation.trace = {
+                "subgraphs": len(subgraphs),
+                "sample_input_keys": (sorted(sample_input) if isinstance(sample_input, dict)
+                                      else None),
+                "first_subgraph_input_names": names[0] if names else [],
+                "attention_mask_in_any_subgraph_inputs": any(
+                    "attention_mask" in n for n in names
+                ),
+                "pixel_values_in_first_subgraph_inputs": (
+                    "pixel_values" in names[0] if names else False
+                ),
+                "image_grid_thw_in_first_subgraph_inputs": (
+                    "image_grid_thw" in names[0] if names else False
+                ),
+            }
+            return subgraphs
 
         def forward(self, *args, **kwargs):
             if (instrumentation.abort_after is not None
                     and instrumentation.forward_calls >= instrumentation.abort_after):
                 raise DeliberateAbort(
                     f"aborting after {instrumentation.forward_calls} subgraph forwards"
+                )
+            if instrumentation.forward_calls == 0 and instrumentation.cache is not None:
+                # Before anything is consumed: the keys the cache handed the
+                # first subgraph are the effective batch as `oneshot` saw it.
+                instrumentation.cache_keys_at_first_forward = cache_keys(
+                    instrumentation.cache
                 )
             started = time.time()
             allocated_before = (
@@ -346,6 +426,7 @@ class _Instrumentation:
             finally:
                 instrumentation.forward_calls += 1
                 instrumentation.forward_seconds += time.time() - started
+                instrumentation._sample_cache()
                 peak = cuda_peak()
                 if instrumentation.peak is not None:
                     instrumentation.peak.observe(peak)
@@ -385,15 +466,19 @@ class _Instrumentation:
             if instrumentation.peak is not None:
                 instrumentation.peak.observe()
             instrumentation.cache = cache
+            instrumentation.cache_initial = cache_footprint(cache)
+            instrumentation._sample_cache()
             return cache
 
         Subgraph.forward = forward
         sequential_pipeline.IntermediatesCache.from_dataloader = staticmethod(from_dataloader)
+        sequential_pipeline.trace_subgraphs = trace_subgraphs
         try:
             yield self
         finally:
             Subgraph.forward = original_forward
             sequential_pipeline.IntermediatesCache.from_dataloader = original_cache
+            sequential_pipeline.trace_subgraphs = original_trace
 
 
 class DeliberateAbort(RuntimeError):
@@ -660,6 +745,57 @@ def nominal_attention_logit_footprints(record: dict, config,
     }
 
 
+def effective_input_record(transforms: dict[str, dict], row_ids: list[str],
+                           instrumentation: "_Instrumentation") -> dict:
+    """Did the declared mask omission survive the real dataloader, cache and trace?
+
+    `active_plan.md` Gate 2A: "the pilot must also prove that the effective
+    all-ones-mask omission survives the real sequential dataloader and cache
+    path". Three independent observation points, each read from the object
+    that owns it rather than from the transform's own record:
+
+    1. the transform record every `__getitem__` produced -- the assertion that
+       the raw mask was all ones, and both hashes;
+    2. the keys the `IntermediatesCache` held when the first subgraph ran; and
+    3. the placeholder names of every traced subgraph.
+
+    `attention_mask` must be absent from 2 and 3, and every row in 1 must have
+    passed its assertion. A run that rebuilt the mask somewhere between the
+    dataset and the graph would show it at 2 or 3.
+    """
+    rows = {}
+    for row_id in row_ids:
+        record = transforms.get(row_id)
+        rows[row_id] = None if record is None else {
+            "transform": record["transform"],
+            "assertion_holds": record["assertion_holds"],
+            "attention_mask_non_one_elements": record["attention_mask_non_one_elements"],
+            "raw_presentation_sha256": record["raw_presentation_sha256"],
+            "effective_model_input_sha256": record["effective_model_input_sha256"],
+            "omitted_keys": record["omitted_keys"],
+            "effective_keys": record["effective_keys"],
+        }
+    cache_keys_seen = instrumentation.cache_keys_at_first_forward
+    trace = instrumentation.trace
+    in_cache = (None if cache_keys_seen is None
+                else "attention_mask" in cache_keys_seen)
+    in_trace = (None if trace is None
+                else trace["attention_mask_in_any_subgraph_inputs"])
+    every_row = all(r is not None and r["assertion_holds"] for r in rows.values())
+    return {
+        "rows": rows,
+        "every_row_transformed_with_assertion": every_row,
+        "cache_keys_at_first_forward": cache_keys_seen,
+        "attention_mask_in_cache_at_first_forward": in_cache,
+        "attention_mask_in_traced_subgraph_inputs": in_trace,
+        "omission_survives_dataloader_cache_and_trace": (
+            every_row and in_cache is False and in_trace is False
+        ),
+        "note": "None means that observation point was never reached in this "
+                "step, which is not the same as the mask being absent",
+    }
+
+
 def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: str,
              propagate_error: bool, abort_after: int | None,
              offload_dir: Path, config=None) -> dict:
@@ -761,9 +897,14 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
         "outcome": outcome,
         "error": error,
         "seconds_total": round(elapsed, 1),
+        "seconds_trace": round(instrumentation.trace_seconds, 1),
         "seconds_cache_build": round(instrumentation.cache_build_seconds, 1),
         "seconds_in_subgraph_forwards": round(instrumentation.forward_seconds, 1),
         "subgraph_forward_calls": instrumentation.forward_calls,
+        "trace": instrumentation.trace,
+        "effective_input": effective_input_record(
+            loader.dataset.transforms, row_ids, instrumentation
+        ),
         "peak_cuda": peak.as_dict(),
         "host_memory": host_memory(),
         "peak_host_rss_gib": round(host_peak_kib() / 2**20, 2),
@@ -803,10 +944,35 @@ def run_step(model, bundle: Path, manifest: dict, row_ids: list[str], policy: st
                                "and sdpa_availability, both in this step",
         }
     if instrumentation.cache is not None:
-        measurement["intermediates_cache"] = cache_footprint(instrumentation.cache)
-        if tokens:
-            total = sum(measurement["intermediates_cache"]["bytes_by_device"].values())
-            measurement["intermediates_cache"]["bytes_per_token"] = round(total / tokens, 1)
+        residual = cache_footprint(instrumentation.cache)
+        peak_bytes = instrumentation.cache_peak_bytes
+        measurement["intermediates_cache"] = {
+            "declared_offload_device": residual["declared_offload_device"],
+            "initial": {
+                "note": "as materialised by from_dataloader, before any subgraph",
+                "tensors": (instrumentation.cache_initial or {}).get("tensors"),
+                "gib_by_device": (instrumentation.cache_initial or {}).get("gib_by_device"),
+                "keys": (instrumentation.cache_initial or {}).get("keys"),
+            },
+            "peak": {
+                "note": "maximum over samples taken after cache construction "
+                        "and after every subgraph forward; this is the growth "
+                        "figure, the residual below is not",
+                "tensors": instrumentation.cache_peak_tensors,
+                "bytes_by_device": peak_bytes,
+                "gib_by_device": {k: round(v / 2**30, 3) for k, v in peak_bytes.items()},
+                "bytes_per_token": (round(sum(peak_bytes.values()) / tokens, 1)
+                                    if tokens else None),
+            },
+            "residual_after_run": {
+                "note": "what the cache still held when the pipeline returned: "
+                        "the last subgraph's inputs, because consumed names are "
+                        "deleted as the run proceeds",
+                "tensors": residual["tensors"],
+                "gib_by_device": residual["gib_by_device"],
+                "keys": residual["keys"],
+            },
+        }
 
     # Cleanup state after the step, whichever way it ended. A run that leaves
     # the accelerator full is a different problem from one that OOMs.
@@ -874,13 +1040,22 @@ def main() -> int:
     print(f"loading {args.layers} decoder layers at "
           f"{compute_dtype(args.policy)}; offload staging in a temporary directory")
 
+    # Host memory before the load is what the bridge's `max_memory` is derived
+    # from (`psutil.virtual_memory().available - extra_cpu_mem`), so the
+    # CPU/disk split it chose can only be read against this figure.
+    host_before_load = host_memory()
     started = time.time()
     model = load_model(source, args.policy, args.layers, args.gpu_gib, offload_dir,
                        args.offload)
     load_seconds = time.time() - started
+    host_after_load = host_memory()
+    staging_after_load = directory_bytes(offload_dir)
     topology = offload_topology(model)
     model_config = model.config
     print(f"  loaded in {load_seconds:.1f}s, {topology['summary']}")
+    print(f"  host before {host_before_load} after {host_after_load}")
+    print(f"  staged {staging_after_load['physical_bytes'] / 2**30:.1f} GiB in "
+          f"{staging_after_load['files']} files")
 
     report: dict = {
         "pilot": "Gate 2A: llm-compressor SequentialPipeline over native-H3 "
@@ -893,6 +1068,7 @@ def main() -> int:
                     "directory, nothing saved. Measures the floor beneath a "
                     "calibration run, not the whole of one",
         "path_policy": "logical identifiers only",
+        "producer": producer_provenance(__file__),
         "environment": {
             "python": platform.python_version(),
             "torch": torch.__version__,
@@ -908,6 +1084,9 @@ def main() -> int:
             "decoder_layers_built": args.layers,
             "offload_topology": topology,
             "load_seconds": round(load_seconds, 1),
+            "host_memory_before_load": host_before_load,
+            "host_memory_after_load": host_after_load,
+            "staging_after_load": staging_after_load,
             "gpu_weight_budget_gib_recorded_not_enforced": args.gpu_gib,
             "offload_arrangement": args.offload,
             "bridge_extra_cpu_mem_default_bytes": 5e9,

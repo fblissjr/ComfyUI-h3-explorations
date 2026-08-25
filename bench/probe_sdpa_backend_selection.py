@@ -57,6 +57,7 @@ REPORT = BENCH / "results" / "2026-08-24_sdpa_backend_selection.json"
 
 from h3_calibration_precision import POLICIES, compute_dtype  # noqa: E402
 from h3_effective_batch import effective_batch  # noqa: E402
+from h3_producer_provenance import producer_provenance  # noqa: E402
 
 FORCED = ("math", "flash", "efficient", "cudnn")
 
@@ -88,18 +89,29 @@ def availability(query, key, is_causal: bool, gqa: bool) -> dict:
     }
 
 
-def profiled_ops(fn) -> list[str]:
-    """The `aten::_scaled_dot_product_*` operations one call dispatched."""
+def profiled_ops(fn) -> tuple[list[str], str | None]:
+    """The `aten::_scaled_dot_product_*` operations one call dispatched.
+
+    The call is allowed to fail. Dispatch happens before the selected kernel
+    allocates its workspace, so an out-of-memory call still names the backend
+    that was chosen -- and the shapes that fail are exactly the ones whose
+    selection this probe exists to establish. The error is returned beside the
+    names rather than discarding them with it.
+    """
     from torch.profiler import ProfilerActivity, profile
 
+    error = None
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        fn()
-        torch.cuda.synchronize()
+        try:
+            fn()
+            torch.cuda.synchronize()
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {str(exc).splitlines()[0][:160]}"
     names = {
         event.name for event in prof.events()
         if "_scaled_dot_product" in event.name
     }
-    return sorted(names)
+    return sorted(names), error
 
 
 def direct_arm(shapes: list[dict], dtype: torch.dtype) -> list[dict]:
@@ -123,11 +135,30 @@ def direct_arm(shapes: list[dict], dtype: torch.dtype) -> list[dict]:
             "availability": availability(q, k, shape["is_causal"], gqa),
         }
         call = lambda: torch.nn.functional.scaled_dot_product_attention(q, k, v, **kwargs)  # noqa: E731
-        try:
-            entry["auto_dispatched_ops"] = profiled_ops(call)
-            reference = call().double()
-        except Exception as exc:
-            entry["auto"] = f"{type(exc).__name__}: {str(exc).splitlines()[0][:160]}"
+        entry["auto_dispatched_ops"], auto_error = profiled_ops(call)
+        reference = None
+        if auto_error is None:
+            try:
+                reference = call().double()
+            except Exception as exc:
+                auto_error = f"{type(exc).__name__}: {str(exc).splitlines()[0][:160]}"
+        if auto_error is not None:
+            # The dispatched op is still named above; what is missing is a
+            # reference output to compare forced arms against, so the forced
+            # sweep is recorded for what ran and cannot claim bit identity.
+            entry["auto"] = auto_error
+            entry["forced"] = {}
+            for name in FORCED:
+                from torch.nn.attention import sdpa_kernel
+
+                torch.cuda.empty_cache()
+                with sdpa_kernel([_backend(name)]):
+                    ops, error = profiled_ops(call)
+                entry["forced"][name] = {"ran": error is None, "dispatched_ops": ops,
+                                         **({"error": error} if error else {})}
+            entry["auto_matched_bit_for_bit_by"] = []
+            entry["selection_evidence"] = ("auto failed at this shape; selection "
+                                           "rests on the dispatched op name alone")
             results.append(entry)
             del q, k, v
             torch.cuda.empty_cache()
@@ -140,7 +171,9 @@ def direct_arm(shapes: list[dict], dtype: torch.dtype) -> list[dict]:
             try:
                 with sdpa_kernel([_backend(name)]):
                     out = call().double()
-                    ops = profiled_ops(call)
+                    ops, error = profiled_ops(call)
+                if error:
+                    raise RuntimeError(error)
                 delta = float((reference - out).abs().max())
                 entry["forced"][name] = {
                     "ran": True,
@@ -199,7 +232,7 @@ def in_situ_arm(source: Path, bundle: Path, row_id: str | None, policy: str,
             model(**inputs, use_cache=False)
 
     with calibration_precision(model, policy):
-        ops = profiled_ops(call)
+        ops, error = profiled_ops(call)
     result = {
         "row_id": record["row_id"],
         "sequence_tokens": record["sequence_length"],
@@ -210,6 +243,7 @@ def in_situ_arm(source: Path, bundle: Path, row_id: str | None, policy: str,
         "released_kv_heads": config.text_config.num_key_value_heads,
         "vision_heads": config.vision_config.num_heads,
         "dispatched_ops": ops,
+        "error": error,
         "note": "real released head_dim and head counts; a reduced-width model "
                 "would change the answer because the backends gate on head "
                 "dimension",
@@ -273,6 +307,7 @@ def main() -> int:
                          "timing measurements",
         "availability_is_not_selection": True,
         "path_policy": "logical identifiers only",
+        "producer": producer_provenance(__file__),
         "environment": {
             "python": platform.python_version(),
             "torch": torch.__version__,
