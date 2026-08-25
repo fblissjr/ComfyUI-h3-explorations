@@ -20,6 +20,15 @@ re-read. `bench/check_doc_links.py` confirms every cited line still exists,
 which is not the same as confirming it still says the same thing. Re-read
 before quoting an older section as current.
 
+**The pipeline itself, before the comparison.** Since 2026-08-25
+[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) is the stage-by-stage walk of
+sglang's H3 path: request, time grid and canvas, media ingestion, the Qwen3-VL
+encode, the VAE encodes, the packed sequence, the DiT forward, the denoise
+loop, decode and output, the runtime around it, and a numbered insights
+section. It compares nothing; this file does. Read it first when the question
+is "what does sglang actually do", and this one when it is "how does that
+differ from here".
+
 **Scope, and what the index is for.** This file owns the *optimization and
 runtime* comparison. The reference-conditioning comparison — sizing, patchify,
 presentation, packing, condition timestep — is owned by

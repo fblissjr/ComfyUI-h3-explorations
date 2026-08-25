@@ -254,6 +254,23 @@ artifact.
   the whole file and would have swept in another lane's pending
   `qwen_short_edge` record as though it were deliberate here.
 
+## 0.70.2
+
+### Added
+
+- **`docs/research/sglang_h3_pipeline.md`**: sglang's MiniMax-H3 pipeline end
+  to end at the source level, read at `coderef/sglang` commit `6569125e3a`
+  by five scoped readers whose citations were verified line by line, then
+  synthesised: request and admission, time grid and canvas formulas, media
+  ingestion, the raw Qwen3-VL presentation and the layer-50 tap, both VAE
+  encode paths and their seeds, the packed layout with its position grid and
+  timestep plans, the DiT forward with its bf16 rounding points, the Euler
+  loop, decode and output validation, the runtime, parallelism and the
+  `high` quality gate, sglang's own ComfyUI node, and 27 numbered insights
+  including four contradictions inside sglang's own tree. Nothing was run.
+  `sglang_comparison.md` points at it as the walk that precedes the
+  comparison; indexed from `CLAUDE.md`.
+
 ## 0.70.1
 
 ### Added
