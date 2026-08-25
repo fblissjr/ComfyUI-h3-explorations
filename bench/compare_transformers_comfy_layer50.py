@@ -211,11 +211,27 @@ def _embedding_tap(layer) -> tuple[object, list]:
     return layer.register_forward_pre_hook(hook, with_kwargs=True), captured
 
 
+def _artifact_record(path: Path, model) -> dict:
+    """Name a W4 artifact without reading its 19 GB: path, size, mtime, and
+    the contract the loader stamped on the model, which is what identifies the
+    artifact's snapshot. Bit-level identity is the check's job at convert time."""
+    stat = path.stat()
+    contract = getattr(model, "_h3_encoder_contract", None)
+    if contract is not None and not isinstance(contract, (dict, str, int, float, list)):
+        contract = str(contract)
+    return {"logical_name": path.name, "artifact": "w4a16", "bytes": stat.st_size,
+            "mtime": int(stat.st_mtime), "encoder_contract": contract}
+
+
 def run_comfy_arm(bundle: Path, row_id: str | None, source: Path, out: Path,
-                  reserve_gib: float, tap_layer: int) -> dict:
-    manifest, record, tensors = _bundle_row(bundle, row_id)
-    batch, media = tensors["batch"], tensors["media"]
-    blocks = _split_blocks(record, batch)
+                  reserve_gib: float, tap_layer: int, w4_path: Path | None = None,
+                  all_rows: bool = False) -> dict:
+    """The deployed stack on a bundle row: BF16 stored weights by default, or a
+    W4 artifact through the same loader the capture instrument uses. With
+    `all_rows` the model is loaded once and every row of the bundle is written
+    to `out/<row_id>/`, which is how a holdout is graded."""
+    bundle_manifest = json.loads((bundle / "presentation.json").read_text())
+    row_ids = [r["row_id"] for r in bundle_manifest["rows"]] if all_rows else [row_id]
 
     capture = _capture_module()
     h3 = capture._h3_module()
@@ -224,8 +240,17 @@ def run_comfy_arm(bundle: Path, row_id: str | None, source: Path, out: Path,
 
     model_management.EXTRA_RESERVED_VRAM = int(reserve_gib * 1024 * 1024 * 1024)
     embedding_directory = folder_paths.get_folder_paths("embeddings")
-    clip, inventory = capture._load_bf16(source, h3, embedding_directory)
-    model = clip.cond_stage_model.qwen3vl_32b.transformer
+    if w4_path is None:
+        clip, inventory = capture._load_bf16(source, h3, embedding_directory)
+        model = clip.cond_stage_model.qwen3vl_32b.transformer
+        source_record = {"logical_name": source.name,
+                         "mapped_tensors": inventory["selected_tensor_count"]}
+        dtype_label = "float32 compute, bfloat16 stored weights"
+    else:
+        clip = capture._load_w4(w4_path, h3, embedding_directory)
+        model = clip.cond_stage_model.qwen3vl_32b.transformer
+        source_record = _artifact_record(w4_path, model)
+        dtype_label = "float32 compute, w4a16 stored weights"
 
     if tap_layer != H3_TAP_LAYER:
         # The wrong-layer control. ComfyUI builds exactly 50 layers, so the tap
@@ -234,76 +259,94 @@ def run_comfy_arm(bundle: Path, row_id: str | None, source: Path, out: Path,
         # actually have produced.
         model.model.layers = model.model.layers[: tap_layer + 1]
 
-    replay = list(blocks)
-    consumed: list[dict] = []
+    last: dict = {}
+    for rid in row_ids:
+        manifest, record, tensors = _bundle_row(bundle, rid)
+        batch, media = tensors["batch"], tensors["media"]
+        blocks = _split_blocks(record, batch)
+        replay = list(blocks)
+        consumed: list[dict] = []
 
-    def preprocess_embed(this, embed, device):
-        """Replay the bundle's patches; recompute nothing."""
-        if embed.get("type") != "image":
-            return None, None
-        if not replay:
-            raise ValueError("the presentation asked for more vision blocks than "
-                             "the bundle recorded")
-        patches, grid = replay.pop(0)
-        consumed.append({"grid_thw": grid.tolist(),
-                         "patches_sha256": _tensor_sha(patches)})
-        merged, deepstack = this.visual(
-            patches.to(device=device, dtype=torch.float32), grid.to(device)
-        )
-        return merged, {"grid": grid.to(device), "deepstack": deepstack}
+        def preprocess_embed(this, embed, device, _replay=replay, _consumed=consumed):
+            """Replay the bundle's patches; recompute nothing."""
+            if embed.get("type") != "image":
+                return None, None
+            if not _replay:
+                raise ValueError("the presentation asked for more vision blocks than "
+                                 "the bundle recorded")
+            patches, grid = _replay.pop(0)
+            _consumed.append({"grid_thw": grid.tolist(),
+                              "patches_sha256": _tensor_sha(patches)})
+            merged, deepstack = this.visual(
+                patches.to(device=device, dtype=torch.float32), grid.to(device)
+            )
+            return merged, {"grid": grid.to(device), "deepstack": deepstack}
 
-    model.preprocess_embed = types.MethodType(preprocess_embed, model)
+        model.preprocess_embed = types.MethodType(preprocess_embed, model)
 
-    ref_items = []
-    for item in record["ordered_media"]:
-        if item["type"] == "audio":
-            ref_items.append({"type": "audio"})
-            continue
-        pixels = media[item["upstream_media_key"]].float() / 255.0
-        if item["type"] == "image":
-            ref_items.append({"type": "image", "data": pixels})
-        else:
-            ref_items.append({"type": "video", "data": pixels,
-                              "timestamps": list(item["timestamps"])})
+        ref_items = []
+        for item in record["ordered_media"]:
+            if item["type"] == "audio":
+                ref_items.append({"type": "audio"})
+                continue
+            pixels = media[item["upstream_media_key"]].float() / 255.0
+            if item["type"] == "image":
+                ref_items.append({"type": "image", "data": pixels})
+            else:
+                ref_items.append({"type": "video", "data": pixels,
+                                  "timestamps": list(item["timestamps"])})
 
-    prompt = _prompt_for(record, bundle)
-    embed_handle, embed_captured = _embedding_tap(model.model.layers[0])
-    started = time.time()
-    tokens = clip.tokenize(prompt, minimax_ref_items=ref_items)
-    output = clip.encode_from_tokens(tokens, return_dict=True)
-    elapsed = time.time() - started
-    embed_handle.remove()
+        prompt = _prompt_for(record, bundle)
+        embed_handle, embed_captured = _embedding_tap(model.model.layers[0])
+        started = time.time()
+        tokens = clip.tokenize(prompt, minimax_ref_items=ref_items)
+        output = clip.encode_from_tokens(tokens, return_dict=True)
+        elapsed = time.time() - started
+        embed_handle.remove()
 
-    hidden = output["cond"].detach().float().cpu()[0].contiguous()
-    tags = [int(x) for x in output["minimax_token_tags"].detach().cpu().flatten().tolist()]
-    if replay:
-        raise ValueError(f"{len(replay)} recorded vision blocks were never consumed")
-    if len(embed_captured) != 1:
-        raise ValueError(f"the layer-0 tap fired {len(embed_captured)} times")
-    embeddings = embed_captured[0][0].contiguous()
+        hidden = output["cond"].detach().float().cpu()[0].contiguous()
+        tags = [int(x) for x in output["minimax_token_tags"].detach().cpu().flatten().tolist()]
+        # The arm replays the bundle's patches through the replaced
+        # `preprocess_embed`, so the artifact's own processor bounds never run
+        # and cannot reach what is graded. What this guards is the replacement
+        # itself: a `preprocess_embed` that silently did not take (wrong
+        # attribute path, a later overwrite) would let the stack build its own
+        # view of the media, and the count would differ from the bundle's. A
+        # green run says the replacement held, not anything about bounds.
+        if int(hidden.shape[0]) != int(record["sequence_length"]):
+            raise ValueError(
+                f"{rid}: the stack built {int(hidden.shape[0])} tokens, the bundle "
+                f"recorded {record['sequence_length']}; the arm is not grading the "
+                f"bundle's presentation"
+            )
+        if replay:
+            raise ValueError(f"{len(replay)} recorded vision blocks were never consumed")
+        if len(embed_captured) != 1:
+            raise ValueError(f"the layer-0 tap fired {len(embed_captured)} times")
+        embeddings = embed_captured[0][0].contiguous()
 
-    manifest_out = {
-        "schema": SCHEMA,
-        "arm": "comfy",
-        "dtype": "float32 compute, bfloat16 stored weights",
-        "tap_layer": tap_layer,
-        "seconds": round(elapsed, 1),
-        "presentation": _presentation_hashes(record, batch),
-        "comfy_sequence_length": int(hidden.shape[0]),
-        "comfy_token_tags_sha256": _json_sha(tags),
-        "consumed_vision_blocks": consumed,
-        "hidden_state": {"shape": list(hidden.shape),
-                         "dtype": "float32", "sha256": _tensor_sha(hidden)},
-        "layer0_input": {"shape": list(embeddings.shape),
-                         "dtype": "float32", "sha256": _tensor_sha(embeddings)},
-        "bundle_provenance": manifest["provenance"],
-        "source": {"logical_name": source.name,
-                   "mapped_tensors": inventory["selected_tensor_count"]},
-        "environment": _environment(),
-    }
-    _write_arm(out, hidden, manifest_out, embeddings)
-    return manifest_out
-
+        manifest_out = {
+            "schema": SCHEMA,
+            "arm": "comfy",
+            "dtype": dtype_label,
+            "tap_layer": tap_layer,
+            "row_id": rid,
+            "seconds": round(elapsed, 1),
+            "presentation": _presentation_hashes(record, batch),
+            "comfy_sequence_length": int(hidden.shape[0]),
+            "comfy_token_tags_sha256": _json_sha(tags),
+            "consumed_vision_blocks": consumed,
+            "hidden_state": {"shape": list(hidden.shape),
+                             "dtype": "float32", "sha256": _tensor_sha(hidden)},
+            "layer0_input": {"shape": list(embeddings.shape),
+                             "dtype": "float32", "sha256": _tensor_sha(embeddings)},
+            "bundle_provenance": manifest["provenance"],
+            "source": source_record,
+            "environment": _environment(),
+        }
+        _write_arm(out / rid if all_rows else out, hidden, manifest_out, embeddings)
+        last = manifest_out
+    return last
 
 def _prompt_for(record: dict, bundle: Path) -> str:
     """The row's raw prompt, from the pinned dataset, checked against the record.
@@ -676,6 +719,8 @@ def compare(paths: list[Path], bundle: Path | None, out: Path,
             label += f"-{_attention_kind(manifest)}"
         if manifest.get("perturbed_weight"):
             label += "-perturbed"
+        if manifest.get("arm") == "comfy" and "encoder" in under_test:
+            label += "-" + str(manifest.get("source", {}).get("logical_name"))
         entry: dict = {"manifest": {k: v for k, v in manifest.items()
                                     if k not in ("bundle_provenance",)}}
         # Refuse on anything that would make the two arms answer different
@@ -693,7 +738,8 @@ def compare(paths: list[Path], bundle: Path | None, out: Path,
                 and "attention" not in under_test):
             mismatched.append("attention")
         if manifest.get("source", {}).get("logical_name") != \
-                base_manifest.get("source", {}).get("logical_name"):
+                base_manifest.get("source", {}).get("logical_name") \
+                and "encoder" not in under_test:
             mismatched.append("source")
         if mismatched:
             entry["refused"] = (
@@ -803,7 +849,13 @@ def main() -> int:
                              "ComfyUI arm; recorded in the report")
     parser.add_argument("--attention", default="grouped_query", choices=ATTENTION_KINDS,
                         help="which KV form reaches SDPA; see bench/h3_attention_kernel.py")
-    parser.add_argument("--field-under-test", action="append", choices=("dtype", "attention"),
+    parser.add_argument("--w4-path", default=None,
+                        help="ComfyUI arm only: load this W4 artifact through the "
+                             "capture instrument's loader instead of the BF16 shards")
+    parser.add_argument("--all-rows", action="store_true",
+                        help="ComfyUI arm only: one model load, every bundle row "
+                             "captured to OUT/<row_id>/")
+    parser.add_argument("--field-under-test", action="append", choices=("dtype", "attention", "encoder"),
                         help="declare which field the compared arms may differ "
                              "on; a policy comparison between two Transformers "
                              "arms needs `dtype`. Recorded in the report")
@@ -852,9 +904,17 @@ def main() -> int:
         raise SystemExit(f"refuse to overwrite existing capture directory: {out}")
 
     if args.arm == "comfy":
+        if args.all_rows and args.row:
+            parser.error("--all-rows and --row are exclusive")
+        if not args.all_rows and args.row is None:
+            parser.error("the ComfyUI arm needs --row or --all-rows")
         run_comfy_arm(bundle, args.row, source, out, args.reserve_vram_gib,
-                      args.tap_layer)
+                      args.tap_layer,
+                      Path(args.w4_path).expanduser().resolve() if args.w4_path else None,
+                      args.all_rows)
     else:
+        if args.w4_path or args.all_rows:
+            parser.error("--w4-path and --all-rows apply to the ComfyUI arm only")
         run_transformers_arm(bundle, args.row, source, out, args.dtype,
                              args.tap_layer, args.gpu_gib, args.perturb_weight,
                              args.keep_attention_mask, args.sdpa_backend,
