@@ -4,6 +4,19 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.69.1
+
+### Added
+
+- **`docs/research/technique_transfer.md`**: the translation table from LLM
+  and ViT serving techniques to H3 (prefix caches, speculative decoding, step
+  caching, sparse attention, token merging, weight quantisation, CUDA graphs,
+  parallelism), each with the model property it needs, what it becomes for a
+  bidirectional DiT with a prefill-only encoder, and the repo's status on it.
+  Names the two borrows still open (token merging on the video rows, W4 DiT
+  weights) beside the capture-graded measurement that would decide each.
+  Indexed from `CLAUDE.md`.
+
 ## 0.69.0
 
 ### Changed
