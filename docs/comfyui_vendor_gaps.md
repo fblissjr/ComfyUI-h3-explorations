@@ -1,6 +1,6 @@
 # Where ComfyUI's H3 path differs from the vendor's
 
-last updated: 2026-08-24
+last updated: 2026-08-25
 
 Every known divergence between this ComfyUI install and the MiniMax H3 release,
 in one place, with what each one costs a working user.
@@ -149,6 +149,13 @@ configuration. They do not reach the tower:
 The assertion that closes it: over two images, an odd-frame video and an audio
 reference, a **marker-free prompt tokenizes byte-identically with and without
 the fix, vision structure included**. Had any vision id moved, that arm fails.
+
+Why the ids cannot move, and why the tower has no vocabulary to align in the
+first place (the seven are appended above every existing id; native ComfyUI
+splices vision features by list position and never materialises
+`<|image_pad|>`), is walked through the installed code in
+[`research/official_weights_metadata.md`](research/official_weights_metadata.md),
+"How the fixed install realises them".
 
 **The useful reframe.** `processor/` bundles two different things, because HF's
 `AutoProcessor` wraps both halves: a tokenizer config, and the image and video

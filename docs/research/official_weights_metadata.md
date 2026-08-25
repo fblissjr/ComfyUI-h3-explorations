@@ -1,6 +1,6 @@
 # What the official release ships, against what ComfyUI does with it
 
-last updated: 2026-08-24
+last updated: 2026-08-25
 
 The MiniMax H3 release as published, read from the repo on the `Storage` side
 on **2026-08-21**: `model_index.json`, both partition entry points, and every
@@ -219,6 +219,68 @@ enforcing the syntax of a marker the tokenizer downstream cannot express.
 **Still not known:** what the other six markers are *for*. The lyrics and
 caption pairs suggest structured audio-and-caption conditioning, and no prompt
 here reaches for them.
+
+### How the fixed install realises them, and why the vision side cannot shift
+
+Read from the installed checkout and exercised once on 2026-08-25, because
+the question "don't the tokenizer, the embedding and the vision tower all have
+to agree on `<d>`'s id" has a precise answer and the intuitive one is wrong.
+
+**The ids are assigned by append order, not by the constants.**
+`MiniMaxQwenSDTokenizer` (`comfy/text_encoders/minimax.py`) takes the stock
+bundled tokenizer and calls `add_special_tokens({"additional_special_tokens":
+[the seven]})`; HF gives appended special tokens the next free ids in list
+order. Observed: the stock tokenizer has length 151,669 with `</think>` at
+151,668; after the call it has 151,676, with `<d>` at 151669 through
+`<|caption_end|>` at 151675. The `MINIMAX_EXTRA_TOKENS` dict in that file
+records this outcome; nothing assigns from it. The release lands on the same
+ids because it performed the same append. Every existing id, the four vision
+sentinels included, keeps its number, which is what "the ids do not shift"
+means. A prompt through it: `<d>[English] Hello there.</d><|cutoff|>` becomes
+`[151669, 58, 22574, 60, 21927, 1052, 13, 151670, 151671]`, one id per marker
+and the full stop kept as its own token.
+
+**The picture is never a token.** `MiniMaxH3Tokenizer.tokenize_with_weights`
+builds a flat list: text segments as ids, and each image or two-frame video
+block as three entries, the int `151652`, a dict holding the pixels, the int
+`151653`. Labels such as `<Picture 1>: ` and `<0.5 seconds>` are ordinary BPE
+text; the prompt comes last.
+
+**Ids become rows; pictures become vectors; they are spliced by position.**
+`comfy/sd1_clip.py::process_tokens` looks the integer entries up in the
+`[151936, 5120]` table (`<d>` reads row 151669, the sentinels rows 151652 and
+151653) and hands each dict to `preprocess_embed`, which runs the image
+processor and the vision tower and returns merged `[N, 5120]` features plus
+DeepStack features. Those features are concatenated into the embedding
+sequence at the dict's list position, between the two sentinel rows, and
+`embeds_info` records the span. **Native ComfyUI's H3 path never materialises
+`<|image_pad|>` (151655) at all**: there are no pad ids to scatter into. The
+Transformers path the calibration lane drives does the opposite, expanding real
+pad ids and scattering features into them; Gate 1
+(`docs/research/qwen3-vl-special-tokens-post-training/canonical/2026-08-24_gate1_seam_acceptance.md`)
+proved the two produce identical token streams and vision spans. The repo's
+AWQ loader keeps the native splice and replaces only `preprocess_embed`.
+
+**The model consumes positions, not ids.** `Qwen3VL.build_image_inputs`
+derives M-RoPE position ids and a boolean `visual_pos_masks` from
+`embeds_info`; after decoder layers 0, 1 and 2, `comfy/text_encoders/llama.py`
+adds the DeepStack features at `x[visual_pos_masks]`. The vision tower has no
+vocabulary to align. It needs its output spliced at the right positions, and
+the positions come from the list.
+
+**So what has to agree, and what asserts it.** The two hardcoded sentinel ids
+must be the rows the release trained as vision start and end, and the seven
+appended ids must land on the seven rows the release names. Both hold by
+construction, because the seven were appended above everything that existed,
+and both are checked: `bench/audit_h3_marker_tokenization.py`'s marker-free
+control shows the vision structure byte-identical with and without the fix
+over two images, an odd-frame video and an audio reference, and
+`h3_awq_encoder.py::_validate_native_tokenizer` refuses a load whose ids or
+config sentinel roles disagree. **Nothing here is broken.** What id agreement
+cannot settle is upstream of ComfyUI: whether MiniMax trained the DiT against
+these dedicated ids or against legacy BPE fragments, which the canonical
+baseline keeps as UNKNOWN, and the fact that the seven rows themselves are
+untrained, measured above.
 
 ### 2. The tokenizer's pixel bounds are Qwen2-VL's defaults
 
