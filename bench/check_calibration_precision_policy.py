@@ -455,12 +455,35 @@ def check_bf16_store_policy() -> list[str]:
         failures.append("no op saw the kept-FP32 patch embed")
     print(f"  bit-identical to the FP32-stored arm; casts {counts}")
 
-    # Restoration: the functional patches and root hooks are gone.
+    # The gate must open without the root forward: the sequential pipeline
+    # calls submodules directly from traced subgraphs. A decoder layer called
+    # on its own under the policy must compute, and in FP32.
+    layer0 = bf16.model.language_model.layers[0]
+    hidden = torch.randn(1, 11, 64)
+    position_ids = torch.arange(11).view(1, 1, 11).expand(3, 1, 11)
+    rotary = bf16.model.language_model.rotary_emb(hidden, position_ids)
+    with calibration_precision(bf16, policy) as record:
+        try:
+            with torch.no_grad():
+                direct = layer0(hidden, position_embeddings=rotary)
+            direct = direct[0] if isinstance(direct, tuple) else direct
+            if direct.dtype != torch.float32:
+                failures.append(f"a directly called decoder layer returned {direct.dtype}")
+        except RuntimeError as exc:
+            failures.append(f"a directly called decoder layer failed under the policy: "
+                            f"{str(exc).splitlines()[0][:100]}")
+        if record["manual_cast_counts"].get("gated_modules", 0) == 0:
+            failures.append("no modules were gated")
+
+    # Restoration: the functional patches and hooks are gone.
     for name, fn in _functional_snapshot().items():
         if fn is not functional_before[name]:
             failures.append(f"torch.nn.functional.{name} was not restored")
     if (len(bf16._forward_pre_hooks), len(bf16._forward_hooks)) != root_hooks_before:
         failures.append("root hooks were not removed")
+    sample = bf16.model.language_model.layers[0].mlp.down_proj
+    if sample._forward_pre_hooks or sample._forward_hooks:
+        failures.append("module gate hooks were not removed")
     # After the patches are gone, the kept-FP32 model cannot run under the
     # library's own functional layer: FP32 activations meet BF16 LayerNorm
     # weights and torch refuses with a mixed-dtype error. That refusal is the

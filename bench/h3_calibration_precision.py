@@ -24,6 +24,7 @@ property of a dtype flag:
 | `comfy_exact_corrupt_tap` | BF16, one tap scaled | four-term add | FP32 |
 | `hybrid_fp32_posembed` | FP32 | `.sum(1)` | FP32 |
 | `hybrid_bf16_linear` | BF16 | `.sum(1)` | BF16 |
+| `comfy_exact_bf16_store` | BF16 | four-term add | FP32, over BF16-stored weights cast per call |
 
 **`bfloat16_native` and `bfloat16` are different arms and the distinction is
 load-bearing.** Transformers' helper computes the interpolation coefficients in
@@ -521,10 +522,21 @@ def calibration_precision(model, policy: str):
         functional.embedding = cast_embedding
         functional.layer_norm = cast_layer_norm
         functional.conv3d = cast_conv3d
-        cast_handles = [
-            model.register_forward_pre_hook(_cast_enter),
-            model.register_forward_hook(_cast_exit, always_call=True),
-        ]
+        # The gate is on the parameterised modules themselves, not on the
+        # root. `llm-compressor`'s sequential pipeline never calls the root
+        # forward: it executes traced subgraphs whose `call_module` nodes
+        # invoke the submodules directly, so a root-level gate stays shut and
+        # BF16 weights meet FP32 activations at the first linear -- which is
+        # exactly how the first bridge run under this policy failed. A hook
+        # on every Linear, Embedding, LayerNorm and Conv3d opens the gate for
+        # precisely the call that needs it, however the graph is executed.
+        gated_types = (torch.nn.Linear, torch.nn.Embedding,
+                       torch.nn.LayerNorm, torch.nn.Conv3d)
+        gated = [m for m in model.modules() if isinstance(m, gated_types)]
+        for module in gated:
+            cast_handles.append(module.register_forward_pre_hook(_cast_enter))
+            cast_handles.append(module.register_forward_hook(_cast_exit, always_call=True))
+        cast_counts["gated_modules"] = len(gated)
     try:
         yield {
             "policy": policy,

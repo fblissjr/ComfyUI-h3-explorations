@@ -599,7 +599,8 @@ def _metrics(reference: torch.Tensor, candidate: torch.Tensor,
 
 
 def compare(paths: list[Path], bundle: Path | None, out: Path,
-            reference_dir: Path | None = None) -> int:
+            reference_dir: Path | None = None,
+            field_under_test: list[str] | None = None) -> int:
     from safetensors.torch import load_file
 
     arms = []
@@ -628,11 +629,20 @@ def compare(paths: list[Path], bundle: Path | None, out: Path,
         if reference is None:
             raise SystemExit("no ComfyUI arm among the captures; it is the reference")
 
+    # Which field the arms are allowed to differ on. Against the ComfyUI arm
+    # the policy is the question by construction; between two Transformers
+    # arms it has to be declared, so a policy comparison cannot be mistaken
+    # for a backend or mask one. The declaration is recorded in the report.
+    under_test = set(field_under_test or [])
+    if reference[0]["arm"] == "comfy":
+        under_test.add("dtype")
+
     report: dict = {
         "comparison": "ComfyUI versus Transformers at the H3 layer-50 boundary",
         "reference_arm": {k: v for k, v in reference[0].items()
                           if k not in ("bundle_provenance",)},
         "reference_chosen_explicitly": reference_dir is not None,
+        "field_under_test": sorted(under_test),
         "arms": {},
         "refusals": [],
     }
@@ -656,6 +666,7 @@ def compare(paths: list[Path], bundle: Path | None, out: Path,
         mismatched = [
             field for field in ("dtype", "tap_layer")
             if manifest.get(field) != base_manifest.get(field)
+            and field not in under_test
         ]
         if manifest.get("perturbed_weight") != base_manifest.get("perturbed_weight"):
             mismatched.append("perturbed_weight")
@@ -768,6 +779,10 @@ def main() -> int:
     parser.add_argument("--reference", metavar="DIR",
                         help="use this capture as the reference instead of the "
                              "ComfyUI arm; recorded in the report")
+    parser.add_argument("--field-under-test", action="append", choices=("dtype",),
+                        help="declare which field the compared arms may differ "
+                             "on; a policy comparison between two Transformers "
+                             "arms needs `dtype`. Recorded in the report")
     parser.add_argument("--bundle")
     parser.add_argument("--row")
     parser.add_argument("--out", required=True)
@@ -799,7 +814,8 @@ def main() -> int:
         return compare([Path(p).expanduser().resolve() for p in args.compare],
                        Path(args.bundle).expanduser().resolve() if args.bundle else None,
                        Path(args.out).expanduser().resolve(),
-                       Path(args.reference).expanduser().resolve() if args.reference else None)
+                       Path(args.reference).expanduser().resolve() if args.reference else None,
+                       args.field_under_test)
 
     if not args.arm or not args.bundle:
         parser.error("--arm and --bundle are required unless --compare is used")
