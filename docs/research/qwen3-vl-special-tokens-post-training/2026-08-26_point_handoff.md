@@ -88,6 +88,13 @@ Sessions may or may not survive the night; the names and what each owns:
   (`bench/results/2026-08-25_pool_component_map_corrected.json`), the marker
   corpus (`bench/marker_corpus/`), the Gate 6 render population
   (stratified by upscale factor, one null-control row), the T2VA bundle.
+  **Read the family map's own `caveat` field before relying on its count.**
+  Added after this handoff was written: the pool's videos were reviewed and
+  turned up two rows that are the same shot list rendered twice at more than
+  twice the perceptual threshold, so same-brief-different-render relatedness is
+  real in this source and the window cannot reach it. The count is a floor on
+  relatedness, not a measurement of it, and the image population is too large
+  to inspect the way the nineteen videos were.
 - **performance_and_refs**: the reference nodes, `qwen_short_edge`, the three
   ablation graphs `workflows/h3_probe_refview_{a_source,b_qwen2048,c_parity}`
   with `bench/gate6_refview_arms.json`, the conditioning-cache design note
