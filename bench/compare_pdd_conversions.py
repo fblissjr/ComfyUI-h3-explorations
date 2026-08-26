@@ -57,7 +57,19 @@ from safetensors.torch import load_file
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
-from pdd_math import fuse_heads  # noqa: E402
+from pdd_math import fuse_heads, silu_temb_grid  # noqa: E402
+
+
+def silu_temb_grid_from(checkpoint: Path, rows: int = 1025):
+    """`silu(t_emb)` over the grid, from an unpruned checkpoint's time embedder."""
+    with safe_open(checkpoint, framework="pt") as f:
+        w = {k: f.get_tensor(k).float() for k in
+             ("time_embedder.proj_in.weight", "time_embedder.proj_in.bias",
+              "time_embedder.proj_out.weight", "time_embedder.proj_out.bias")}
+    return silu_temb_grid(w["time_embedder.proj_in.weight"],
+                          w["time_embedder.proj_in.bias"],
+                          w["time_embedder.proj_out.weight"],
+                          w["time_embedder.proj_out.bias"], rows=rows)
 
 LORAS = Path.home() / "ComfyUI" / "models" / "loras" / "h3"
 DIFFUSION = Path.home() / "ComfyUI" / "models" / "diffusion_models"
@@ -112,21 +124,36 @@ def main(argv=None) -> int:
         backbone[mod] = worst
     report["backbone_vs_kijai"] = backbone
 
-    # --- the head bank: his raw stack must fuse to our precomputed heads ----
-    bank = kij["diffusion_model.final_layer.video_out.set_weight"].reshape(32, -1, 5376)
-    report["kijai_bank_is_the_published_stack"] = rel(bank, src["proj_out.weight"])
-    report["our_fused_heads_from_his_bank"] = rel(
-        ours["h3_pdd.head.video.weight"], fuse_heads(bank, 12.0, 32, 4))
+    # --- the head bank: both ship the published stack, ours fuses at load ---
+    # Ours stored 8 precomputed heads until 2026-08-26 and this compared those.
+    # It now ships the bank itself and fuses at load for whatever nfe is asked,
+    # so the comparison is bank-to-bank, and the fusion is checked separately at
+    # every step count the grid divides by -- which is the property that
+    # replaced the precompute.
+    kij_bank = kij["diffusion_model.final_layer.video_out.set_weight"].reshape(32, -1, 5376)
+    report["kijai_bank_is_the_published_stack"] = rel(kij_bank, src["proj_out.weight"])
+    report["our_bank_is_the_published_stack"] = rel(
+        ours["h3_pdd.bank.video.weight"], src["proj_out.weight"])
+    report["fusion_from_either_bank_agrees"] = {
+        str(nfe): rel(fuse_heads(ours["h3_pdd.bank.video.weight"], 12.0, 32, 32 // nfe),
+                      fuse_heads(kij_bank, 12.0, 32, 32 // nfe))
+        for nfe in (8, 4, 2)}
 
     # --- adaln bake: two approximations, both scored against ground truth ---
-    grid = ours["h3_pdd.silu_temb_grid"].double()
+    # The 2688-dim pairs and the grid live in the UNPRUNED conversion now: a
+    # `--pruned` file carries the baked form only. Ground truth for the adaln
+    # comparison comes from the published source either way, which is the
+    # better source anyway -- it does not depend on what our converter chose to
+    # keep.
+    grid = silu_temb_grid_from(DIFFUSION / "diffusion_models" /
+                               f"minimax_h3_{part}_int8_convrot.safetensors").double()
     with safe_open(DIFFUSION / f"minimax_h3_{part}_pruned_int8_convrot.safetensors",
                    framework="pt") as f:
         table = f.get_tensor("adaln_t_table").double()
     adaln = {}
     for i in BLOCKS:
-        A = ours[f"h3_pdd.adaln.blocks.{i}.lora_A"].double()
-        B = ours[f"h3_pdd.adaln.blocks.{i}.lora_B"].double()
+        A = src[f"transformer_blocks.{i}.adaln_proj.linear.lora_down"].double()
+        B = src[f"transformer_blocks.{i}.adaln_proj.linear.lora_up"].double()
         true = (grid @ A.T) @ B.T
         k = f"diffusion_model.blocks.{i}.adaln_proj.linear"
         adaln[str(i)] = {
@@ -146,10 +173,13 @@ def main(argv=None) -> int:
     print("backbone against Kijai's independent conversion (exact transforms):")
     for k, v in backbone.items():
         print(f"  {k:16s} {v:.2e}")
-    print(f"his head bank is the published 32-stack : "
+    print(f"his bank is the published 32-stack     : "
           f"{report['kijai_bank_is_the_published_stack']:.2e}")
-    print(f"our fused heads, reproduced from his bank: "
-          f"{report['our_fused_heads_from_his_bank']:.2e}")
+    print(f"our bank is the published 32-stack     : "
+          f"{report['our_bank_is_the_published_stack']:.2e}")
+    print("fusing either bank agrees, per step count:")
+    for k, v in report["fusion_from_either_bank_agrees"].items():
+        print(f"  nfe {k:>2}  {v:.2e}")
     print("adaln bake, each against ground truth:")
     print(f"  {'block':>6} {'ours':>12} {'kijai':>12}")
     for i, row in adaln.items():

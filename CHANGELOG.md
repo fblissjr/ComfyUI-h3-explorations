@@ -100,6 +100,58 @@ artifact.
   recommendations are marked open for the owner; nothing in it supersedes a
   decision or changes the card order.
 
+## 0.72.0
+
+### Changed
+
+- **The PDD head selector matches block boundaries directly.** It built a `t`
+  from the 1025-row curve table and bucketed it, which is how a `t` sitting
+  exactly on a boundary selected the previous block; the first fix was a snap
+  tolerance that then had to be justified against the table's quantisation. It
+  now matches the timestep embedding against the `nfe + 1` boundary
+  embeddings, built at load from the model's own arithmetic. No intermediate
+  `t` to quantise, exactly `nfe` answers to choose between, and **no tolerance
+  in the selection path at all**. `pdd_math.step_for_t` and
+  `boundary_residual` are deleted rather than left: two selectors for one
+  question is how the wrong one gets called.
+
+- **The converter ships the published head bank and the node fuses at load.**
+  One file is every step count the 32-point grid divides by -- 8 and 4 are both
+  counts the vendor's README reports rendering at, and 2 and 16 come free from
+  the same divisibility. Fusing at setup rather than per forward is the paper's
+  own recommendation (3.1: "we only need to hold one fused linear layer per
+  block in memory"); the vendor adapter and the independent conversion both
+  fuse inside the forward.
+
+- **A converted file carries one adaln form.** `--pruned` names the base, so it
+  also says which form to emit. Both together was ~40% of the file dead in the
+  only configuration this repo renders, and two representations of one update
+  with nothing recording which the node used. With the fp16 bake the file is
+  1.12 GB against 1.82 before, and against 1.70 for the independent conversion
+  at the same information for this base.
+
+### Added
+
+- Six canonical PDD arms -- t2v, fl2v and ref2v at 8 and 4 evaluations -- with
+  sage ON and Sol ABSENT. Sol skips attention adaptively per step, which is
+  incoherent against a fixed fused block schedule, and a bypassed node is an
+  invitation to switch it on. The dense probes stay as the reference
+  configuration, which is what the vendor's own pipeline runs.
+
+- `bench/compare_pdd_conversions.py`: grades our conversion against the paper,
+  the vendor adapter and an independent conversion, which fail differently.
+  Backbone transforms are bit-identical to the independent one including the
+  block-diagonal qkv fusion and the SwiGLU half-swap; both banks fuse to the
+  same heads at every step count; and the adaln bake, which each arrived at
+  separately, is scored against ground truth rather than against the other.
+
+### Fixed
+
+- `bench/check_distill_settings.py` and `bench/check_distill_grid.py` graded a
+  PDD arm's step count against the FILE's `pdd_nfe` and failed a correct 4-step
+  arm the hour it landed. With load-time fusion the file records a default and
+  the graph records what runs, so both read the graph first.
+
 ## 0.71.1
 
 ### Fixed

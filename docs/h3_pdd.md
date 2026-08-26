@@ -38,7 +38,7 @@ three different surfaces:
 | | what | surface here |
 |---|---|---|
 | backbone | attn + MLP LoRA, 50 blocks and 2 refiner blocks | weight patch |
-| adaln | `adaln_proj.linear` LoRA, per block | weight patch when unpruned; runtime injection when pruned |
+| adaln | `adaln_proj.linear` LoRA, per block | weight patch either way: in the 2688-dim time space on an unpruned base, pre-solved into the curve basis on a pruned one |
 | heads | the per-interval output heads | per-step swap of two `final_layer` linears |
 
 ---
@@ -77,7 +77,14 @@ a bad LoRA rather than an unapplied one.
 
 Everything that can be decided once, offline. Emits one file holding the
 backbone in ComfyUI generic-LoRA naming, the adaln pairs in a neutral
-namespace, the fused heads, a partition-matched time grid, and a fingerprint.
+namespace, the published per-interval head bank, and a fingerprint.
+
+**One file carries one adaln form.** `--pruned` names the base it is for, so it
+also decides which form to emit: the baked curve-basis patch for a pruned
+checkpoint, or the 2688-dim pairs plus the `silu(t_emb)` grid for a full-width
+one. Shipping both was around 40% of the file dead in the only configuration
+this repo renders, and two representations of one update with nothing saying
+which the node used.
 
 Four backbone transforms, each verified numerically against the release
 weights before the script existed (2026-08-26, block 0 of the fl2va partition,
@@ -126,12 +133,22 @@ the video and audio streams**, and PDD runs those on separate schedules, so the
 per-stream split falls out of the model's own signature instead of being
 threaded through.
 
-Selection is by **interval membership**, not nearest boundary, so a run at a
-step count or shift the file was not fused for degrades to the closest
-available head rather than an arbitrary one. `boundary_residual` then says so
-in the log, once — on the schedule the heads were fused for it is ~1e-9, and
-the tightest boundary gap at 32/4 shift 12 is 0.0118, so the tolerance sits
-well inside "wrong schedule" and well outside float noise.
+Selection matches `t_emb` against the **`nfe + 1` block-boundary embeddings**,
+built once at load from the model's own arithmetic. The nearest boundary is the
+block, directly. A run at a step count the file was not fused for lands between
+boundaries, takes the closest available head, and is reported once in the log.
+
+**This replaced a selector that recovered a `t` and bucketed it, and the
+replacement is why that bug class is gone rather than guarded.** The old one
+read the nearest row of the 1025-row curve table, which quantises `t` to about
+1e-3, so a `t` sitting exactly ON a boundary came back a fraction below it and
+membership returned the previous block — wrong at two of eight steps, silent,
+and it shipped four renders before a deliberate drive against real inputs found
+it. The first fix was a snap tolerance, which then had to be justified against
+the table's own quantisation. Matching the boundaries removes the question:
+there is no intermediate `t` to quantise and exactly `nfe` answers to choose
+between, so **selection needs no tolerance at all**. The tolerance that remains
+guards a different question — whether this render is on the fused schedule.
 
 **This is the only reason the node patches `final_layer.forward` at all.** That
 patch is pure bookkeeping and delegates to the stock forward; the actual head
@@ -200,7 +217,7 @@ Three references, and they fail differently, which is why all three were used.
 which is `pdd_math.fusion_plan` term for term, and Algorithm 1 gives the
 consumer: `u = student(x_n, t[n])` then `x_n += einsum('k,k...', h_n, u_n)` --
 evaluated at the block-START time, deterministic, no noise. That is what the
-`euler` sampler and the boundary-snapped head selection implement.
+`euler` sampler and the boundary-matched head selection implement.
 
 It also settles a design question rather than leaving it to taste: *"during
 inference we can avoid the extra compute of an enlarged final layer and we only
@@ -216,7 +233,8 @@ arrived at without reference to ours. Measured 2026-08-26:
 |---|---|
 | `attn.qkv_proj`, `out_proj`, `mlp.fc1`, `mlp.fc2` | 0.0, except 6.7e-20 on qkv |
 | his head bank against the published 32-stack | 0.0 |
-| our fused heads, recomputed from his raw bank | 0.0 |
+| our bank against the published 32-stack | 0.0 |
+| fusing either bank, at 8 / 4 / 2 evaluations | 0.0 |
 
 Bit-identical on every backbone transform, including the two that are easy to
 get wrong -- the block-diagonal qkv fusion and the SwiGLU half-swap.
@@ -284,10 +302,12 @@ comparing the stored table against the loaded checkpoint's own, at a tolerance
 that has to sit above a dtype cast (0.00164) and below the partition gap
 (0.01835).
 
-The runtime injection remains as the fallback for a file converted without
-`--pruned`. It is partition-specific for the same reason: the fl2va and ref2va
-time curves differ by 7.8% relative, so its grid is derived from the same
-checkpoint that supplies the fingerprint rather than bundled once and reused.
+A file converted WITHOUT `--pruned` carries the 2688-dim pairs and the
+`silu(t_emb)` grid instead, for a full-width base, and the node injects at run
+time. That grid is partition-specific for the same reason the bake is: the
+fl2va and ref2va time curves differ by 7.8% relative, so it is derived from the
+same checkpoint that supplies the fingerprint rather than bundled once and
+reused.
 
 ---
 
@@ -361,11 +381,12 @@ Two readings follow, and both are predictions rather than results:
   to** beyond the partition fingerprint. A checkpoint layout change would be
   caught by `load_lora` matching nothing, which the node raises on, but a
   *partial* match would not be.
-- **The boundary-residual warning has never fired in a real render.** It is
-  exercised only by `bench/check_pdd_head_selection.py`, on a synthetic
-  off-schedule drive. Its threshold is reasoned, not calibrated -- and the
-  head-selection defect above is proof that a silent residual is not evidence
-  the selection is right.
+- **The off-schedule warning has never fired in a real render.** It is
+  exercised only by `bench/check_pdd_head_selection.py`, on a synthetic drive.
+  Its threshold is reasoned, not calibrated. It now guards only "is this render
+  on the fused schedule" -- selection itself no longer depends on a tolerance --
+  but the head-selection defect above is still the reminder that a silent
+  warning is not evidence the selection is right.
 
 ---
 
