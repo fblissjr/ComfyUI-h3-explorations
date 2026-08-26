@@ -113,6 +113,20 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
   an inference.** Say which kind of evidence you have *inside* the claim —
   "reported, not verified: a source read, not a build" survives being quoted,
   where a trailing "(unverified)" reads as hedging and gets trimmed.
+- **Two models live in this repo, and the words for their parts do not
+  disambiguate the stage.** "Attention" and "capture" each name something at the
+  DiT and at the Qwen3-VL encoder; a fact about one is not a fact about the
+  other. Three instances on 2026-08-26, every one carrying a DiT-side fact to an
+  encoder-side conclusion: a per-module quant-delta table read as encoder
+  evidence (its modules are `blocks.N.`, the DiT's); `h3_capture.py` being
+  DiT-only read as "no encoder capture exists"
+  (`bench/capture_h3_encoder_states.py` does, tapping the layer-0 input and the
+  layer-49 output); and "these graphs wire no attention patching" read as an
+  encoder property (sage, SLA and Sol all take `io.Model.Input`, and the encoder
+  resolves its own `optimized_attention_for_device` inside its decoder forward).
+  **The tell every time was a type or a prefix — what input the node takes,
+  what a module name starts with — never the vocabulary of the claim.** Check
+  which stage a thing attaches to before carrying a claim across.
 - **When you reverse a decision, update the document that argued for it.** That
   is the one you will forget, and it is how three files ended up describing a
   directory that had been deleted.
