@@ -252,13 +252,32 @@ Two readings follow, and both are predictions rather than results:
 
 ---
 
+## What the renders established, 2026-08-26
+
+Four arms at 1344x768 -- ref2va PDD at 243 frames, its head-free control, and
+243/345/192-frame lengths. All completed; boundary-residual warnings silent
+throughout. Three md5 comparisons across the pre-fix and post-fix runs settle
+what the logs could not, because every arm is seeded and the pipeline is
+deterministic:
+
+| comparison | result | what it establishes |
+|---|---|---|
+| head-free arm, before and after the boundary fix | **bit-identical** | the fix is confined to the head-selection path; it moved nothing else |
+| full arm, before and after the fix | differs | the wrong-head defect was live in a render, not only in the offline drive that found it |
+| full against head-free, after the fix | differs | the head patch reaches the output at all |
+
+The first row is the one worth keeping. A fix that changes the arm it targets
+and leaves the arm that does not use that path untouched has demonstrated its
+own scope, which no amount of reading the diff can.
+
 ## Not measured
 
 - **Whether the fused heads change the output in a way anyone can see.** They
-  reach it: the full and head-free arms produce different clips from the same
-  seed. That is reachability, not quality, and CLAUDE.md's rule stands -- two
-  arms differing in a numerical knob are different samples, not a degraded
-  version of one sample, so a pair cannot answer "better".
+  reach it -- the table above -- but reachability is not quality, and
+  CLAUDE.md's rule stands: two arms differing in a numerical knob are
+  different samples, not a degraded version of one sample, so a pair cannot
+  answer "better". That needs the blind multi-seed process in
+  `docs/eval_comparison.md`, and nobody has run it.
 - Whether the head-free arm is worth running, which is the first thing to find
   out and the reason the head deltas above were measured.
 - Whether PDD transfers the ref2v difficulty `docs/h3_ref2v_distillation.md`
