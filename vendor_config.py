@@ -59,6 +59,31 @@ def additional_special_tokens() -> list[str]:
     return list(toks)
 
 
+def h3_markers() -> list[str]:
+    """The markers the release appends past the stock vocabulary, in order.
+
+    Derived from the vendored declaration rather than typed: a declared
+    `additional_special_tokens` entry with no `added_tokens_decoder` entry is
+    one the release adds past the last stock Qwen id. That is the observable --
+    the release's own two lists disagreeing -- rather than a name, a count or a
+    hardcoded string list, so a release that renames one or adds an eighth is
+    read correctly instead of matching what somebody expected. The same
+    derivation is what `bench/check_native_h3_presentation.py` uses to compute
+    the ids; this is the token list half of it.
+    """
+    cfg = _load("tokenizer_config.json")
+    decoder = cfg.get("added_tokens_decoder") or {}
+    stock = {entry.get("content") for entry in decoder.values()}
+    markers = [tok for tok in additional_special_tokens() if tok not in stock]
+    if not markers:
+        raise ValueError(
+            "vendored tokenizer_config declares no special token past its own "
+            "added_tokens_decoder; either the copy is stale or the release "
+            "stopped appending markers"
+        )
+    return markers
+
+
 def _pixels(cfg: dict, label: str) -> tuple[int, int]:
     size = cfg.get("size") or {}
     lo, hi = size.get("shortest_edge"), size.get("longest_edge")

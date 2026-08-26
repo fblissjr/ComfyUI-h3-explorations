@@ -1,0 +1,2833 @@
+{
+  "purpose": "sprint selection of the v2 calibration rows and a component-disjoint holdout; estimates, superseded by the builder's exact lengths",
+  "producer": {
+    "file": "select_v2_calibration_rows.py",
+    "sha256": "d1ce3d4f00a13faebb849dfaa6648ede0d1d1984ab8b96c1b63ba8bf94988795",
+    "repository_commit": "60910b0e5fe95730c66e759a36cd0b19daa247cf",
+    "dirty_against_commit": true
+  },
+  "pool": {
+    "file": "2026-08-24_h3_calibration_pool.jsonl",
+    "rows": 1028,
+    "dataset_revision": "460db3256f19dc70d0def2068a22e6e0dca87e8e"
+  },
+  "still_policy": "max_no_upscale",
+  "budgets": {
+    "rows": 400,
+    "holdout": 0,
+    "max_row_tokens_est": 16000,
+    "total_tokens_est": 300000,
+    "seed": 20260825
+  },
+  "quotas": {
+    "multi-image-2-3": 0,
+    "multi-image-4-9": 0,
+    "keyframe-only": 0,
+    "single-image": 0,
+    "keyframe-plus-reference": 0,
+    "video-reference": 0
+  },
+  "achieved": {
+    "rows": 82,
+    "by_role": {
+      "keyframe-only": 34,
+      "keyframe-plus-reference": 5,
+      "multi-image-2-3": 14,
+      "multi-image-4-9": 4,
+      "single-image": 22,
+      "video-reference": 3
+    },
+    "tokens_est_total": 265922,
+    "longest_row_tokens_est": 7095,
+    "skipped": {
+      "over_vision_cap": 438,
+      "over_row_cap": 180,
+      "unit_already_used": 105
+    },
+    "components": 82
+  },
+  "component_disjoint": true,
+  "exclusions": {
+    "components": {
+      "train-00098-d38b067c975fb227": "prompt term 'josiny'",
+      "train-00112-bbe5f70548c2f6d5": "prompt term 'josiny'",
+      "train-00165-841d7b469bb3aa1c": "prompt term 'josiny'",
+      "train-00163-9d0aae4d13cdc444": "prompt term 'josiny'",
+      "train-00339-23731c09ac1dafd2": "prompt term 'josiny'",
+      "train-00238-34c95f96c87858ad": "prompt term 'josiny'",
+      "train-00161-9cf73ce77d9033e7": "prompt term 'josiny'",
+      "train-00632-e4cedb5a1a296f77": "prompt term 'josiny'",
+      "train-00594-7314ac75d1854393": "prompt term 'josiny'",
+      "train-00814-db7f64fb017af63a": "prompt term 'josiny'"
+    },
+    "rows_excluded": 45,
+    "previous_selections": [],
+    "kept_holdout_from": null
+  },
+  "holdout_small_source_components": [],
+  "calibration": [
+    {
+      "id": "train-00741-8a630e8fee6fb302",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00586-49745bb272b9a0c7",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00586-49745bb272b9a0c7",
+      "text_tokens_est": 893,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1909,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01610-252bf32da40fe6fc",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01610-252bf32da40fe6fc",
+      "image_dimensions": [
+        [
+          1054,
+          1492
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01610-252bf32da40fe6fc",
+      "text_tokens_est": 985,
+      "visual_tokens_est": 1026,
+      "tokens_est": 2019,
+      "duration_seconds": 6.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01758-5bffad8ddacfa6f2",
+      "primary_role": "keyframe-plus-reference",
+      "media_component": "train-01758-5bffad8ddacfa6f2",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ],
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-plus-reference|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01646-9eccc54061967768",
+      "text_tokens_est": 840,
+      "visual_tokens_est": 3312,
+      "tokens_est": 4168,
+      "duration_seconds": 4.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01856-0d80aacae2a42b5e",
+      "primary_role": "keyframe-plus-reference",
+      "media_component": "train-01502-c0d4c38f55407110",
+      "image_dimensions": [
+        [
+          1456,
+          816
+        ],
+        [
+          1080,
+          1920
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-plus-reference|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01502-c0d4c38f55407110",
+      "text_tokens_est": 851,
+      "visual_tokens_est": 2204,
+      "tokens_est": 3071,
+      "duration_seconds": 4.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-00259-92ca6b10881ce331",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-00030-a1998655ef3b037c",
+      "image_dimensions": [
+        [
+          1672,
+          941
+        ],
+        [
+          1536,
+          1024
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00030-a1998655ef3b037c",
+      "text_tokens_est": 1101,
+      "visual_tokens_est": 3044,
+      "tokens_est": 4161,
+      "duration_seconds": 5.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01746-11cc659e3dde9843",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-01680-052860f6ef5b511f",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ],
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01307-47f83c6862ddf10e",
+      "text_tokens_est": 952,
+      "visual_tokens_est": 4608,
+      "tokens_est": 5576,
+      "duration_seconds": 5.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-00424-345e48a66b8cf6d4",
+      "primary_role": "multi-image-4-9",
+      "media_component": "train-00053-c89d997c27c0faf8",
+      "image_dimensions": [
+        [
+          562,
+          964
+        ],
+        [
+          476,
+          775
+        ],
+        [
+          1773,
+          2364
+        ],
+        [
+          1266,
+          710
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-4-9|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00053-c89d997c27c0faf8",
+      "text_tokens_est": 1213,
+      "visual_tokens_est": 5850,
+      "tokens_est": 7095,
+      "duration_seconds": 13.0,
+      "media_items": 4
+    },
+    {
+      "id": "train-00491-ad4426bae290f835",
+      "primary_role": "multi-image-4-9",
+      "media_component": "train-00491-ad4426bae290f835",
+      "image_dimensions": [
+        [
+          800,
+          800
+        ],
+        [
+          800,
+          800
+        ],
+        [
+          800,
+          800
+        ],
+        [
+          800,
+          800
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-4-9|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00491-ad4426bae290f835",
+      "text_tokens_est": 873,
+      "visual_tokens_est": 2500,
+      "tokens_est": 3405,
+      "duration_seconds": 5.0,
+      "media_items": 4
+    },
+    {
+      "id": "train-01020-9e218a9ce482aae9",
+      "primary_role": "single-image",
+      "media_component": "train-01020-9e218a9ce482aae9",
+      "image_dimensions": [
+        [
+          1402,
+          1122
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01020-9e218a9ce482aae9",
+      "text_tokens_est": 1593,
+      "visual_tokens_est": 1540,
+      "tokens_est": 3141,
+      "duration_seconds": 15.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01575-92b8d283b1ab59f6",
+      "primary_role": "single-image",
+      "media_component": "train-01575-92b8d283b1ab59f6",
+      "image_dimensions": [
+        [
+          1712,
+          728
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01575-92b8d283b1ab59f6",
+      "text_tokens_est": 913,
+      "visual_tokens_est": 1242,
+      "tokens_est": 2163,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01034-de472b470afd253d",
+      "primary_role": "video-reference",
+      "media_component": "train-01034-de472b470afd253d",
+      "image_dimensions": [],
+      "videos": 1,
+      "small_source": false,
+      "stratum": "video-reference|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01034-de472b470afd253d",
+      "text_tokens_est": 901,
+      "visual_tokens_est": 4032,
+      "tokens_est": 4941,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00002-f631dbe673b72816",
+      "primary_role": "video-reference",
+      "media_component": "train-00002-f631dbe673b72816",
+      "image_dimensions": [],
+      "videos": 1,
+      "small_source": false,
+      "stratum": "video-reference|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00002-f631dbe673b72816",
+      "text_tokens_est": 1098,
+      "visual_tokens_est": 5040,
+      "tokens_est": 6146,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00696-0eb3f1e5b87ee0af",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00696-0eb3f1e5b87ee0af",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00696-0eb3f1e5b87ee0af",
+      "text_tokens_est": 829,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1845,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01798-9e13c30a9af28e7f",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01798-9e13c30a9af28e7f",
+      "image_dimensions": [
+        [
+          1080,
+          1920
+        ],
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01798-9e13c30a9af28e7f",
+      "text_tokens_est": 898,
+      "visual_tokens_est": 2016,
+      "tokens_est": 2930,
+      "duration_seconds": 4.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-00257-08cf9ce768d2689e",
+      "primary_role": "single-image",
+      "media_component": "train-00257-08cf9ce768d2689e",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00257-08cf9ce768d2689e",
+      "text_tokens_est": 911,
+      "visual_tokens_est": 2304,
+      "tokens_est": 3223,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01270-9bc6cb7ee546de2a",
+      "primary_role": "single-image",
+      "media_component": "train-01270-9bc6cb7ee546de2a",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01270-9bc6cb7ee546de2a",
+      "text_tokens_est": 769,
+      "visual_tokens_est": 2304,
+      "tokens_est": 3081,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00179-75394404cb8c637a",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00016-8d26742c999457fb",
+      "image_dimensions": [
+        [
+          1290,
+          1647
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00016-8d26742c999457fb",
+      "text_tokens_est": 1077,
+      "visual_tokens_est": 1008,
+      "tokens_est": 2093,
+      "duration_seconds": 10.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00808-64c596bd67c61724",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-00017-fec349556d78fad7",
+      "image_dimensions": [
+        [
+          1672,
+          2508
+        ],
+        [
+          1265,
+          711
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00017-fec349556d78fad7",
+      "text_tokens_est": 921,
+      "visual_tokens_est": 4936,
+      "tokens_est": 5873,
+      "duration_seconds": 5.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-00672-7869a840c0d05f7f",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00672-7869a840c0d05f7f",
+      "image_dimensions": [
+        [
+          2733,
+          1534
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00672-7869a840c0d05f7f",
+      "text_tokens_est": 839,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1855,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01018-1e159f9fa3ecb66b",
+      "primary_role": "single-image",
+      "media_component": "train-00012-4bbe43dc3a3f95fe",
+      "image_dimensions": [
+        [
+          1265,
+          711
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00012-4bbe43dc3a3f95fe",
+      "text_tokens_est": 763,
+      "visual_tokens_est": 880,
+      "tokens_est": 1651,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01669-83fa05055924cb70",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-01378-cf43156893fbac22",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ],
+        [
+          1672,
+          941
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01378-cf43156893fbac22",
+      "text_tokens_est": 940,
+      "visual_tokens_est": 3812,
+      "tokens_est": 4768,
+      "duration_seconds": 4.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-00909-0c27d5db3aa07c9d",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00291-6129cb43d593a5d7",
+      "image_dimensions": [
+        [
+          742,
+          1396
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00291-6129cb43d593a5d7",
+      "text_tokens_est": 703,
+      "visual_tokens_est": 1012,
+      "tokens_est": 1723,
+      "duration_seconds": 9.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01341-de251c69d13e1c14",
+      "primary_role": "single-image",
+      "media_component": "train-01341-de251c69d13e1c14",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01341-de251c69d13e1c14",
+      "text_tokens_est": 516,
+      "visual_tokens_est": 2304,
+      "tokens_est": 2828,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01697-3d56ab1e1fc1705b",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01102-8017357392930cc8",
+      "image_dimensions": [
+        [
+          2304,
+          4096
+        ],
+        [
+          2304,
+          4096
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01102-8017357392930cc8",
+      "text_tokens_est": 825,
+      "visual_tokens_est": 2016,
+      "tokens_est": 2857,
+      "duration_seconds": 4.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-00692-09e8c125638148a3",
+      "primary_role": "single-image",
+      "media_component": "train-00692-09e8c125638148a3",
+      "image_dimensions": [
+        [
+          1773,
+          2364
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00692-09e8c125638148a3",
+      "text_tokens_est": 758,
+      "visual_tokens_est": 4070,
+      "tokens_est": 4836,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00962-ea26656d7271c591",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00962-ea26656d7271c591",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00962-ea26656d7271c591",
+      "text_tokens_est": 980,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1996,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00500-68f926b378a008b0",
+      "primary_role": "keyframe-plus-reference",
+      "media_component": "train-00500-68f926b378a008b0",
+      "image_dimensions": [
+        [
+          941,
+          1672
+        ],
+        [
+          360,
+          359
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-plus-reference|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00007-684452a9fd4b19a7",
+      "text_tokens_est": 601,
+      "visual_tokens_est": 1129,
+      "tokens_est": 1746,
+      "duration_seconds": 5.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01828-e8ac12ed41d48776",
+      "primary_role": "single-image",
+      "media_component": "train-01828-e8ac12ed41d48776",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01828-e8ac12ed41d48776",
+      "text_tokens_est": 774,
+      "visual_tokens_est": 2304,
+      "tokens_est": 3086,
+      "duration_seconds": 6.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00001-44c65e69cff6b334",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00001-44c65e69cff6b334",
+      "image_dimensions": [
+        [
+          1024,
+          576
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00001-44c65e69cff6b334",
+      "text_tokens_est": 986,
+      "visual_tokens_est": 1008,
+      "tokens_est": 2002,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00783-cf31ea7668d21e97",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00783-cf31ea7668d21e97",
+      "image_dimensions": [
+        [
+          4096,
+          2304
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00783-cf31ea7668d21e97",
+      "text_tokens_est": 1088,
+      "visual_tokens_est": 1008,
+      "tokens_est": 2104,
+      "duration_seconds": 6.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01894-8028dccf92939a99",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-01894-8028dccf92939a99",
+      "image_dimensions": [
+        [
+          1456,
+          816
+        ],
+        [
+          928,
+          1232
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01894-8028dccf92939a99",
+      "text_tokens_est": 1028,
+      "visual_tokens_est": 2298,
+      "tokens_est": 3342,
+      "duration_seconds": 8.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01044-80726621c3119978",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-01044-80726621c3119978",
+      "image_dimensions": [
+        [
+          3168,
+          1344
+        ],
+        [
+          1678,
+          937
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01044-80726621c3119978",
+      "text_tokens_est": 933,
+      "visual_tokens_est": 5666,
+      "tokens_est": 6615,
+      "duration_seconds": 4.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-00743-452c7053175f7f42",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00119-8f7a2f4330ae3212",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00119-8f7a2f4330ae3212",
+      "text_tokens_est": 541,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1557,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01753-bfd25f7bf7707693",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01753-bfd25f7bf7707693",
+      "image_dimensions": [
+        [
+          1100,
+          1902
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01753-bfd25f7bf7707693",
+      "text_tokens_est": 816,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1832,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00802-99f14d6d55fdd88e",
+      "primary_role": "single-image",
+      "media_component": "train-00330-3de48fe49ccaf102",
+      "image_dimensions": [
+        [
+          2752,
+          1536
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00330-3de48fe49ccaf102",
+      "text_tokens_est": 955,
+      "visual_tokens_est": 4128,
+      "tokens_est": 5091,
+      "duration_seconds": 10.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01444-0d715a9557d6c669",
+      "primary_role": "single-image",
+      "media_component": "train-01305-7c46b2e39cb3e721",
+      "image_dimensions": [
+        [
+          2752,
+          1536
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01305-7c46b2e39cb3e721",
+      "text_tokens_est": 721,
+      "visual_tokens_est": 4128,
+      "tokens_est": 4857,
+      "duration_seconds": 6.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01076-c54e9a7eb7f4fd33",
+      "primary_role": "keyframe-plus-reference",
+      "media_component": "train-01076-c54e9a7eb7f4fd33",
+      "image_dimensions": [
+        [
+          1152,
+          1530
+        ],
+        [
+          1080,
+          1920
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-plus-reference|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01076-c54e9a7eb7f4fd33",
+      "text_tokens_est": 1352,
+      "visual_tokens_est": 3076,
+      "tokens_est": 4444,
+      "duration_seconds": 7.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-00932-beae458aa9b4b1c7",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00726-4e347a8c4418c4a8",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00726-4e347a8c4418c4a8",
+      "text_tokens_est": 745,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1761,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01089-e323b2a08a049a8b",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-01035-e11869d6b9954def",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ],
+        [
+          1672,
+          941
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01035-e11869d6b9954def",
+      "text_tokens_est": 1051,
+      "visual_tokens_est": 3812,
+      "tokens_est": 4879,
+      "duration_seconds": 9.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01730-f69d63d3c66d13bb",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01730-f69d63d3c66d13bb",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01730-f69d63d3c66d13bb",
+      "text_tokens_est": 1367,
+      "visual_tokens_est": 1008,
+      "tokens_est": 2383,
+      "duration_seconds": 13.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01278-3928eed1b4b26c1b",
+      "primary_role": "multi-image-4-9",
+      "media_component": "train-01278-3928eed1b4b26c1b",
+      "image_dimensions": [
+        [
+          941,
+          1672
+        ],
+        [
+          1152,
+          2048
+        ],
+        [
+          720,
+          1280
+        ],
+        [
+          720,
+          1280
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-4-9|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01278-3928eed1b4b26c1b",
+      "text_tokens_est": 1203,
+      "visual_tokens_est": 5572,
+      "tokens_est": 6807,
+      "duration_seconds": 10.0,
+      "media_items": 4
+    },
+    {
+      "id": "train-00930-bd91d4d2ff8f3c86",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00930-bd91d4d2ff8f3c86",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00930-bd91d4d2ff8f3c86",
+      "text_tokens_est": 916,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1932,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00214-53f959d7a85fcccc",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00214-53f959d7a85fcccc",
+      "image_dimensions": [
+        [
+          1290,
+          2796
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00214-53f959d7a85fcccc",
+      "text_tokens_est": 1084,
+      "visual_tokens_est": 1034,
+      "tokens_est": 2126,
+      "duration_seconds": 10.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00893-98eea003e5d8a24e",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00893-98eea003e5d8a24e",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00893-98eea003e5d8a24e",
+      "text_tokens_est": 857,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1873,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00468-be47d4a20ff124a3",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-00014-c150c10f37c8c85f",
+      "image_dimensions": [
+        [
+          872,
+          776
+        ],
+        [
+          3134,
+          1298
+        ],
+        [
+          1266,
+          710
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00014-c150c10f37c8c85f",
+      "text_tokens_est": 990,
+      "visual_tokens_est": 5546,
+      "tokens_est": 6560,
+      "duration_seconds": 10.0,
+      "media_items": 3
+    },
+    {
+      "id": "train-01531-7a4df190c67d9072",
+      "primary_role": "single-image",
+      "media_component": "train-01531-7a4df190c67d9072",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01531-7a4df190c67d9072",
+      "text_tokens_est": 794,
+      "visual_tokens_est": 2304,
+      "tokens_est": 3106,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00400-e7ee569cae1b6224",
+      "primary_role": "single-image",
+      "media_component": "train-00400-e7ee569cae1b6224",
+      "image_dimensions": [
+        [
+          1536,
+          864
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00400-e7ee569cae1b6224",
+      "text_tokens_est": 1642,
+      "visual_tokens_est": 1296,
+      "tokens_est": 2946,
+      "duration_seconds": 15.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01862-200eae2d29a897b4",
+      "primary_role": "video-reference",
+      "media_component": "train-01862-200eae2d29a897b4",
+      "image_dimensions": [],
+      "videos": 1,
+      "small_source": false,
+      "stratum": "video-reference|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01862-200eae2d29a897b4",
+      "text_tokens_est": 916,
+      "visual_tokens_est": 4032,
+      "tokens_est": 4956,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01651-37d2a047b47a29a6",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01651-37d2a047b47a29a6",
+      "image_dimensions": [
+        [
+          495,
+          879
+        ]
+      ],
+      "videos": 0,
+      "small_source": true,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01651-37d2a047b47a29a6",
+      "text_tokens_est": 766,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1782,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01902-38527bf3db968b95",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-01861-d8d0784ce5faf182",
+      "image_dimensions": [
+        [
+          1456,
+          816
+        ],
+        [
+          2752,
+          1536
+        ],
+        [
+          496,
+          864
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01861-d8d0784ce5faf182",
+      "text_tokens_est": 1283,
+      "visual_tokens_est": 5756,
+      "tokens_est": 7063,
+      "duration_seconds": 5.0,
+      "media_items": 3
+    },
+    {
+      "id": "train-01096-6c3ac7569b5d3481",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01096-6c3ac7569b5d3481",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01096-6c3ac7569b5d3481",
+      "text_tokens_est": 1083,
+      "visual_tokens_est": 1008,
+      "tokens_est": 2099,
+      "duration_seconds": 7.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00919-fa5efdb26bd905a0",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00919-fa5efdb26bd905a0",
+      "image_dimensions": [
+        [
+          1280,
+          2774
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00919-fa5efdb26bd905a0",
+      "text_tokens_est": 1076,
+      "visual_tokens_est": 1034,
+      "tokens_est": 2118,
+      "duration_seconds": 10.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01770-7d3f72837bf8f7e3",
+      "primary_role": "single-image",
+      "media_component": "train-01770-7d3f72837bf8f7e3",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01770-7d3f72837bf8f7e3",
+      "text_tokens_est": 838,
+      "visual_tokens_est": 2304,
+      "tokens_est": 3150,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01759-72f1cee284b56711",
+      "primary_role": "single-image",
+      "media_component": "train-01759-72f1cee284b56711",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01759-72f1cee284b56711",
+      "text_tokens_est": 671,
+      "visual_tokens_est": 2304,
+      "tokens_est": 2983,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00707-8ae7a8cf828d5316",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00507-441997f1166940f8",
+      "image_dimensions": [
+        [
+          2048,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00507-441997f1166940f8",
+      "text_tokens_est": 1229,
+      "visual_tokens_est": 1024,
+      "tokens_est": 2261,
+      "duration_seconds": 13.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01812-eae479c78ca2a446",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01812-eae479c78ca2a446",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01812-eae479c78ca2a446",
+      "text_tokens_est": 683,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1699,
+      "duration_seconds": 6.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00719-1343d3d6ccdd777f",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00719-1343d3d6ccdd777f",
+      "image_dimensions": [
+        [
+          333,
+          587
+        ]
+      ],
+      "videos": 0,
+      "small_source": true,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00719-1343d3d6ccdd777f",
+      "text_tokens_est": 847,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1863,
+      "duration_seconds": 8.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01002-84650d0ac51d25c1",
+      "primary_role": "single-image",
+      "media_component": "train-01002-84650d0ac51d25c1",
+      "image_dimensions": [
+        [
+          1376,
+          768
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01002-84650d0ac51d25c1",
+      "text_tokens_est": 773,
+      "visual_tokens_est": 1032,
+      "tokens_est": 1813,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00413-ebb4fff1509c03b4",
+      "primary_role": "single-image",
+      "media_component": "train-00413-ebb4fff1509c03b4",
+      "image_dimensions": [
+        [
+          3482,
+          2507
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00413-ebb4fff1509c03b4",
+      "text_tokens_est": 1053,
+      "visual_tokens_est": 5696,
+      "tokens_est": 6757,
+      "duration_seconds": 10.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01648-432c2ad2ce6794fa",
+      "primary_role": "keyframe-plus-reference",
+      "media_component": "train-01648-432c2ad2ce6794fa",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ],
+        [
+          2112,
+          1408
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-plus-reference|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01648-432c2ad2ce6794fa",
+      "text_tokens_est": 1041,
+      "visual_tokens_est": 3912,
+      "tokens_est": 4969,
+      "duration_seconds": 5.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01863-66b58624d8c37934",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-01863-66b58624d8c37934",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ],
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01863-66b58624d8c37934",
+      "text_tokens_est": 1092,
+      "visual_tokens_est": 4608,
+      "tokens_est": 5716,
+      "duration_seconds": 15.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01174-33cd9d403888329a",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01174-33cd9d403888329a",
+      "image_dimensions": [
+        [
+          1080,
+          1920
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01174-33cd9d403888329a",
+      "text_tokens_est": 1020,
+      "visual_tokens_est": 1008,
+      "tokens_est": 2036,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01452-4c01f62d734b9eb7",
+      "primary_role": "single-image",
+      "media_component": "train-01452-4c01f62d734b9eb7",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01452-4c01f62d734b9eb7",
+      "text_tokens_est": 777,
+      "visual_tokens_est": 2304,
+      "tokens_est": 3089,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01479-32aa1db51bc7cdde",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01479-32aa1db51bc7cdde",
+      "image_dimensions": [
+        [
+          705,
+          1254
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01479-32aa1db51bc7cdde",
+      "text_tokens_est": 841,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1857,
+      "duration_seconds": 10.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01906-c6f0e017b5f09c31",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-01906-c6f0e017b5f09c31",
+      "image_dimensions": [
+        [
+          1456,
+          816
+        ],
+        [
+          928,
+          1232
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01906-c6f0e017b5f09c31",
+      "text_tokens_est": 1288,
+      "visual_tokens_est": 2298,
+      "tokens_est": 3602,
+      "duration_seconds": 13.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01765-5a20972a1004b318",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01765-5a20972a1004b318",
+      "image_dimensions": [
+        [
+          1600,
+          2848
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01765-5a20972a1004b318",
+      "text_tokens_est": 928,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1944,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00199-f6cb2bc93463068c",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00199-f6cb2bc93463068c",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00199-f6cb2bc93463068c",
+      "text_tokens_est": 791,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1807,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00739-ec362da24e469987",
+      "primary_role": "multi-image-4-9",
+      "media_component": "train-00739-ec362da24e469987",
+      "image_dimensions": [
+        [
+          800,
+          800
+        ],
+        [
+          800,
+          800
+        ],
+        [
+          800,
+          800
+        ],
+        [
+          800,
+          800
+        ],
+        [
+          800,
+          800
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-4-9|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00739-ec362da24e469987",
+      "text_tokens_est": 1168,
+      "visual_tokens_est": 3125,
+      "tokens_est": 4333,
+      "duration_seconds": 12.0,
+      "media_items": 5
+    },
+    {
+      "id": "train-01831-82c557606bcf5f8a",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01831-82c557606bcf5f8a",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ],
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01831-82c557606bcf5f8a",
+      "text_tokens_est": 1011,
+      "visual_tokens_est": 2016,
+      "tokens_est": 3043,
+      "duration_seconds": 6.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01011-113da431cefdbbc5",
+      "primary_role": "single-image",
+      "media_component": "train-00883-c58731e520d2a72e",
+      "image_dimensions": [
+        [
+          2056,
+          1144
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-00883-c58731e520d2a72e",
+      "text_tokens_est": 726,
+      "visual_tokens_est": 2304,
+      "tokens_est": 3038,
+      "duration_seconds": 8.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00471-c8e605540f6a62ad",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00471-c8e605540f6a62ad",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00471-c8e605540f6a62ad",
+      "text_tokens_est": 918,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1934,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00302-f84a2242a0a998ac",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-00302-f84a2242a0a998ac",
+      "image_dimensions": [
+        [
+          300,
+          300
+        ],
+        [
+          300,
+          300
+        ]
+      ],
+      "videos": 0,
+      "small_source": true,
+      "stratum": "multi-image-2-3|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00302-f84a2242a0a998ac",
+      "text_tokens_est": 773,
+      "visual_tokens_est": 162,
+      "tokens_est": 951,
+      "duration_seconds": 5.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01373-bd47e445714764a4",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-01373-bd47e445714764a4",
+      "image_dimensions": [
+        [
+          1672,
+          941
+        ],
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01373-bd47e445714764a4",
+      "text_tokens_est": 891,
+      "visual_tokens_est": 3812,
+      "tokens_est": 4719,
+      "duration_seconds": 4.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01404-618080328a7530c4",
+      "primary_role": "single-image",
+      "media_component": "train-01404-618080328a7530c4",
+      "image_dimensions": [
+        [
+          2752,
+          1536
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01404-618080328a7530c4",
+      "text_tokens_est": 507,
+      "visual_tokens_est": 4128,
+      "tokens_est": 4643,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00941-e4a72be69254562c",
+      "primary_role": "multi-image-2-3",
+      "media_component": "train-00602-ad00fa63ee07a341",
+      "image_dimensions": [
+        [
+          601,
+          1034
+        ],
+        [
+          1907,
+          2197
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "multi-image-2-3|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00602-ad00fa63ee07a341",
+      "text_tokens_est": 1153,
+      "visual_tokens_est": 4748,
+      "tokens_est": 5917,
+      "duration_seconds": 12.0,
+      "media_items": 2
+    },
+    {
+      "id": "train-01641-f2209c99981228e7",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01641-f2209c99981228e7",
+      "image_dimensions": [
+        [
+          1152,
+          2048
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-01641-f2209c99981228e7",
+      "text_tokens_est": 734,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1750,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01870-cbd09c65f6dca683",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01870-cbd09c65f6dca683",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01870-cbd09c65f6dca683",
+      "text_tokens_est": 715,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1731,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01261-da10b08260266699",
+      "primary_role": "single-image",
+      "media_component": "train-01261-da10b08260266699",
+      "image_dimensions": [
+        [
+          2048,
+          1152
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01261-da10b08260266699",
+      "text_tokens_est": 741,
+      "visual_tokens_est": 2304,
+      "tokens_est": 3053,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00350-ea3eb9bbba1afbf9",
+      "primary_role": "keyframe-only",
+      "media_component": "train-00350-ea3eb9bbba1afbf9",
+      "image_dimensions": [
+        [
+          824,
+          360
+        ]
+      ],
+      "videos": 0,
+      "small_source": true,
+      "stratum": "keyframe-only|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00350-ea3eb9bbba1afbf9",
+      "text_tokens_est": 918,
+      "visual_tokens_est": 1008,
+      "tokens_est": 1934,
+      "duration_seconds": 5.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01442-efffa2677f537310",
+      "primary_role": "keyframe-only",
+      "media_component": "train-01442-efffa2677f537310",
+      "image_dimensions": [
+        [
+          1984,
+          3456
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "keyframe-only|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01442-efffa2677f537310",
+      "text_tokens_est": 1004,
+      "visual_tokens_est": 1008,
+      "tokens_est": 2020,
+      "duration_seconds": 4.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-01683-f88b4420e1c953f3",
+      "primary_role": "single-image",
+      "media_component": "train-01683-f88b4420e1c953f3",
+      "image_dimensions": [
+        [
+          719,
+          1234
+        ]
+      ],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "single-image|no-markers",
+      "markers_present": [],
+      "corrected_family": "train-01683-f88b4420e1c953f3",
+      "text_tokens_est": 923,
+      "visual_tokens_est": 858,
+      "tokens_est": 1789,
+      "duration_seconds": 7.0,
+      "media_items": 1
+    },
+    {
+      "id": "train-00973-d8cd5223d6ff1cac",
+      "primary_role": "single-image",
+      "media_component": "train-00973-d8cd5223d6ff1cac",
+      "image_dimensions": [
+        [
+          646,
+          712
+        ]
+      ],
+      "videos": 0,
+      "small_source": true,
+      "stratum": "single-image|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": "train-00973-d8cd5223d6ff1cac",
+      "text_tokens_est": 652,
+      "visual_tokens_est": 440,
+      "tokens_est": 1100,
+      "duration_seconds": 15.0,
+      "media_items": 1
+    }
+  ],
+  "holdout": [],
+  "estimate_rules": {
+    "reference_still": "min(1, 2048/short_edge), round to 32, tokens = (w/32)*(h/32)",
+    "keyframe": "adapt to the 1344x768 canvas area at source aspect, round to 32",
+    "video": "1008 tokens per second of contract duration",
+    "text": "released tokenizer count of the row's target_ir, the H3 prompt, no special tokens",
+    "labels": "8 tokens per media item"
+  },
+  "token_composition": {
+    "rows": 82,
+    "tokens_est": 265922,
+    "text_tokens_est": 76216,
+    "visual_tokens_est": 188754,
+    "label_tokens_est": 952,
+    "text_share": 0.2866,
+    "visual_share": 0.7098
+  },
+  "strata": {
+    "axes": "primary_role x marker presence in target_ir",
+    "markers": [
+      "<d>",
+      "</d>",
+      "<|cutoff|>",
+      "<|lyrics_start|>",
+      "<|lyrics_end|>",
+      "<|caption_start|>",
+      "<|caption_end|>"
+    ],
+    "markers_observed_in_pool": {
+      "<d>": 505,
+      "</d>": 505,
+      "<|cutoff|>": 0,
+      "<|lyrics_start|>": 0,
+      "<|lyrics_end|>": 0,
+      "<|caption_start|>": 0,
+      "<|caption_end|>": 0
+    },
+    "markers_source": "vendor_config.h3_markers(): declared additional_special_tokens with no added_tokens_decoder entry, i.e. the ones the release appends past the stock vocabulary",
+    "axis_reach": "the marker axis separates only the markers this pool actually carries; see markers_observed_in_pool. A marker at zero rows is one no selection from this pool can put weight on, whatever the stratum is called",
+    "language_overlay": "skipped: the pool row schema records channel, primary_role, picture_roles and overlays (wide_or_tall/small_source/markers/audio_label/video_audio_track) and no language field. A language tag is observable inside the <d>[...] blocks of target_ir; deriving it here would be this selector inventing a pool field",
+    "floor_share": 0.02,
+    "explicit_shares": {
+      "keyframe-plus-reference|markers": 0.036,
+      "keyframe-plus-reference|no-markers": 0.05,
+      "multi-image-4-9|markers": 0.064,
+      "multi-image-4-9|no-markers": 0.035,
+      "video-reference|markers": 0.035,
+      "video-reference|no-markers": 0.022
+    },
+    "vision_token_budget": 285000,
+    "unspent_tokens": 19078,
+    "materially_short_threshold": 0.9,
+    "strata_materially_short": [
+      "keyframe-plus-reference|markers",
+      "multi-image-4-9|no-markers"
+    ],
+    "strata_whose_queue_ran_out": [
+      "keyframe-only|markers",
+      "keyframe-only|no-markers",
+      "keyframe-plus-reference|markers",
+      "multi-image-2-3|markers",
+      "multi-image-2-3|no-markers",
+      "multi-image-4-9|markers",
+      "multi-image-4-9|no-markers",
+      "single-image|markers",
+      "single-image|no-markers",
+      "video-reference|markers",
+      "video-reference|no-markers"
+    ],
+    "rows_ceiling_bound": false,
+    "targets": {
+      "keyframe-only|markers": {
+        "share": 0.12633333333333333,
+        "tokens": 36005
+      },
+      "keyframe-only|no-markers": {
+        "share": 0.12633333333333333,
+        "tokens": 36005
+      },
+      "keyframe-plus-reference|markers": {
+        "share": 0.036,
+        "tokens": 10260
+      },
+      "keyframe-plus-reference|no-markers": {
+        "share": 0.05,
+        "tokens": 14250
+      },
+      "multi-image-2-3|markers": {
+        "share": 0.12633333333333333,
+        "tokens": 36005
+      },
+      "multi-image-2-3|no-markers": {
+        "share": 0.12633333333333333,
+        "tokens": 36005
+      },
+      "multi-image-4-9|markers": {
+        "share": 0.064,
+        "tokens": 18240
+      },
+      "multi-image-4-9|no-markers": {
+        "share": 0.035,
+        "tokens": 9975
+      },
+      "single-image|markers": {
+        "share": 0.12633333333333333,
+        "tokens": 36005
+      },
+      "single-image|no-markers": {
+        "share": 0.12633333333333333,
+        "tokens": 36005
+      },
+      "video-reference|markers": {
+        "share": 0.035,
+        "tokens": 9975
+      },
+      "video-reference|no-markers": {
+        "share": 0.022,
+        "tokens": 6270
+      }
+    },
+    "target_below_cheapest_eligible_row": [],
+    "achieved": {
+      "keyframe-only|markers": {
+        "rows": 18,
+        "tokens_est": 34196,
+        "text_tokens_est": 15888,
+        "visual_tokens_est": 18164,
+        "label_tokens_est": 144,
+        "text_share": 0.4646,
+        "visual_share": 0.5312,
+        "target_tokens": 36005,
+        "target_share": 0.1263,
+        "achieved_share_of_budget": 0.12,
+        "cheapest_eligible_row_tokens_est": 1557
+      },
+      "keyframe-only|no-markers": {
+        "rows": 16,
+        "tokens_est": 34479,
+        "text_tokens_est": 15105,
+        "visual_tokens_est": 19222,
+        "label_tokens_est": 152,
+        "text_share": 0.4381,
+        "visual_share": 0.5575,
+        "target_tokens": 36005,
+        "target_share": 0.1263,
+        "achieved_share_of_budget": 0.121,
+        "cheapest_eligible_row_tokens_est": 1562
+      },
+      "keyframe-plus-reference|markers": {
+        "rows": 1,
+        "tokens_est": 4168,
+        "text_tokens_est": 840,
+        "visual_tokens_est": 3312,
+        "label_tokens_est": 16,
+        "text_share": 0.2015,
+        "visual_share": 0.7946,
+        "target_tokens": 10260,
+        "target_share": 0.036,
+        "achieved_share_of_budget": 0.0146,
+        "cheapest_eligible_row_tokens_est": 4168
+      },
+      "keyframe-plus-reference|no-markers": {
+        "rows": 4,
+        "tokens_est": 14230,
+        "text_tokens_est": 3845,
+        "visual_tokens_est": 10321,
+        "label_tokens_est": 64,
+        "text_share": 0.2702,
+        "visual_share": 0.7253,
+        "target_tokens": 14250,
+        "target_share": 0.05,
+        "achieved_share_of_budget": 0.0499,
+        "cheapest_eligible_row_tokens_est": 1746
+      },
+      "multi-image-2-3|markers": {
+        "rows": 8,
+        "tokens_est": 35788,
+        "text_tokens_est": 8598,
+        "visual_tokens_est": 27054,
+        "label_tokens_est": 136,
+        "text_share": 0.2402,
+        "visual_share": 0.756,
+        "target_tokens": 36005,
+        "target_share": 0.1263,
+        "achieved_share_of_budget": 0.1256,
+        "cheapest_eligible_row_tokens_est": 951
+      },
+      "multi-image-2-3|no-markers": {
+        "rows": 6,
+        "tokens_est": 33954,
+        "text_tokens_est": 5798,
+        "visual_tokens_est": 28052,
+        "label_tokens_est": 104,
+        "text_share": 0.1708,
+        "visual_share": 0.8262,
+        "target_tokens": 36005,
+        "target_share": 0.1263,
+        "achieved_share_of_budget": 0.1191,
+        "cheapest_eligible_row_tokens_est": 2725
+      },
+      "multi-image-4-9|markers": {
+        "rows": 3,
+        "tokens_est": 18235,
+        "text_tokens_est": 3584,
+        "visual_tokens_est": 14547,
+        "label_tokens_est": 104,
+        "text_share": 0.1965,
+        "visual_share": 0.7978,
+        "target_tokens": 18240,
+        "target_share": 0.064,
+        "achieved_share_of_budget": 0.064,
+        "cheapest_eligible_row_tokens_est": 4333
+      },
+      "multi-image-4-9|no-markers": {
+        "rows": 1,
+        "tokens_est": 3405,
+        "text_tokens_est": 873,
+        "visual_tokens_est": 2500,
+        "label_tokens_est": 32,
+        "text_share": 0.2564,
+        "visual_share": 0.7342,
+        "target_tokens": 9975,
+        "target_share": 0.035,
+        "achieved_share_of_budget": 0.0119,
+        "cheapest_eligible_row_tokens_est": 3405
+      },
+      "single-image|markers": {
+        "rows": 10,
+        "tokens_est": 35589,
+        "text_tokens_est": 9065,
+        "visual_tokens_est": 26444,
+        "label_tokens_est": 80,
+        "text_share": 0.2547,
+        "visual_share": 0.743,
+        "target_tokens": 36005,
+        "target_share": 0.1263,
+        "achieved_share_of_budget": 0.1249,
+        "cheapest_eligible_row_tokens_est": 1100
+      },
+      "single-image|no-markers": {
+        "rows": 12,
+        "tokens_est": 35835,
+        "text_tokens_est": 9705,
+        "visual_tokens_est": 26034,
+        "label_tokens_est": 96,
+        "text_share": 0.2708,
+        "visual_share": 0.7265,
+        "target_tokens": 36005,
+        "target_share": 0.1263,
+        "achieved_share_of_budget": 0.1257,
+        "cheapest_eligible_row_tokens_est": 1297
+      },
+      "video-reference|markers": {
+        "rows": 2,
+        "tokens_est": 9897,
+        "text_tokens_est": 1817,
+        "visual_tokens_est": 8064,
+        "label_tokens_est": 16,
+        "text_share": 0.1836,
+        "visual_share": 0.8148,
+        "target_tokens": 9975,
+        "target_share": 0.035,
+        "achieved_share_of_budget": 0.0347,
+        "cheapest_eligible_row_tokens_est": 4941
+      },
+      "video-reference|no-markers": {
+        "rows": 1,
+        "tokens_est": 6146,
+        "text_tokens_est": 1098,
+        "visual_tokens_est": 5040,
+        "label_tokens_est": 8,
+        "text_share": 0.1787,
+        "visual_share": 0.82,
+        "target_tokens": 6270,
+        "target_share": 0.022,
+        "achieved_share_of_budget": 0.0216,
+        "cheapest_eligible_row_tokens_est": 5660
+      }
+    }
+  },
+  "selection_mode": "token-balanced strata",
+  "max_vision_tokens_per_row": {
+    "cap": 6000,
+    "applies_to": "calibration only; a vision cap on the holdout would choose which geometries the holdout grades",
+    "rows_skipped": 438,
+    "note": "rows over the cap are skipped, never truncated: a truncated presentation is not what the deployed path emits"
+  },
+  "component_map": {
+    "file": "2026-08-25_pool_component_map_corrected.json",
+    "caveat": "every candidate crossing a component boundary is ruled, and the 19 video file(s) were additionally inspected exhaustively rather than through the window. What remains unexamined is the IMAGE population beyond Hamming 6: the video pass found a pair at more than twice that distance which is the same shot list rendered twice, so same-brief-different-render relatedness exists in this source and this window cannot reach it. That class is unexamined among the images, where the population is too large to inspect by eye",
+    "basis": "exact media SHA-256 components unioned with adjudicated perceptual duplicate and uncertain edges",
+    "adjudicated_edges": 15,
+    "unexamined_weak_candidates": 0,
+    "rows_mapped": 1028,
+    "families": 379,
+    "assignment": "corrected visual family, not exact media component",
+    "widens": [
+      "--exclude-row",
+      "--exclude-component",
+      "--exclude-prompt-term",
+      "--exclude-selection"
+    ],
+    "calibration_families": 82,
+    "holdout_families": 0,
+    "one_calibration_row_per_family": true
+  },
+  "text_only": [
+    {
+      "id": "train-00004-a0453df28009e8bd",
+      "primary_role": "no-vision",
+      "media_component": "train-00004-a0453df28009e8bd",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 2024,
+      "visual_tokens_est": 0,
+      "tokens_est": 2024,
+      "duration_seconds": 15.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00045-6e7bc4d703e631bd",
+      "primary_role": "no-vision",
+      "media_component": "train-00045-6e7bc4d703e631bd",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 766,
+      "visual_tokens_est": 0,
+      "tokens_est": 766,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00123-aeb7ae0f2895eb37",
+      "primary_role": "no-vision",
+      "media_component": "train-00123-aeb7ae0f2895eb37",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 627,
+      "visual_tokens_est": 0,
+      "tokens_est": 627,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00266-c13c5a79995190b5",
+      "primary_role": "no-vision",
+      "media_component": "train-00266-c13c5a79995190b5",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 324,
+      "visual_tokens_est": 0,
+      "tokens_est": 324,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00150-6375b3befe1f0186",
+      "primary_role": "no-vision",
+      "media_component": "train-00150-6375b3befe1f0186",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 527,
+      "visual_tokens_est": 0,
+      "tokens_est": 527,
+      "duration_seconds": 8.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-01077-9bce2d35a6ae03c3",
+      "primary_role": "no-vision",
+      "media_component": "train-01077-9bce2d35a6ae03c3",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 791,
+      "visual_tokens_est": 0,
+      "tokens_est": 791,
+      "duration_seconds": 7.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-01027-423276c519ae9207",
+      "primary_role": "no-vision",
+      "media_component": "train-01027-423276c519ae9207",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 658,
+      "visual_tokens_est": 0,
+      "tokens_est": 658,
+      "duration_seconds": 7.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00244-8db1c37286e4decc",
+      "primary_role": "no-vision",
+      "media_component": "train-00244-8db1c37286e4decc",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 801,
+      "visual_tokens_est": 0,
+      "tokens_est": 801,
+      "duration_seconds": 10.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00154-c217c49f97f9fa4e",
+      "primary_role": "no-vision",
+      "media_component": "train-00154-c217c49f97f9fa4e",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 323,
+      "visual_tokens_est": 0,
+      "tokens_est": 323,
+      "duration_seconds": 4.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00192-7687e052f2364f10",
+      "primary_role": "no-vision",
+      "media_component": "train-00192-7687e052f2364f10",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 839,
+      "visual_tokens_est": 0,
+      "tokens_est": 839,
+      "duration_seconds": 15.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00242-8461871910a613c1",
+      "primary_role": "no-vision",
+      "media_component": "train-00242-8461871910a613c1",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 1262,
+      "visual_tokens_est": 0,
+      "tokens_est": 1262,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00205-73577b54d37d94aa",
+      "primary_role": "no-vision",
+      "media_component": "train-00205-73577b54d37d94aa",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 447,
+      "visual_tokens_est": 0,
+      "tokens_est": 447,
+      "duration_seconds": 15.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-01021-f72b95a732af60be",
+      "primary_role": "no-vision",
+      "media_component": "train-01021-f72b95a732af60be",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 274,
+      "visual_tokens_est": 0,
+      "tokens_est": 274,
+      "duration_seconds": 4.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00023-e67e8693ad59b88c",
+      "primary_role": "no-vision",
+      "media_component": "train-00023-e67e8693ad59b88c",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 374,
+      "visual_tokens_est": 0,
+      "tokens_est": 374,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00094-97dd49c25a8d7baf",
+      "primary_role": "no-vision",
+      "media_component": "train-00094-97dd49c25a8d7baf",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 318,
+      "visual_tokens_est": 0,
+      "tokens_est": 318,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00064-e381b5a81bb3e903",
+      "primary_role": "no-vision",
+      "media_component": "train-00064-e381b5a81bb3e903",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 321,
+      "visual_tokens_est": 0,
+      "tokens_est": 321,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00263-19a313033620665d",
+      "primary_role": "no-vision",
+      "media_component": "train-00263-19a313033620665d",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 520,
+      "visual_tokens_est": 0,
+      "tokens_est": 520,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00212-4cc5b201c87ac79e",
+      "primary_role": "no-vision",
+      "media_component": "train-00212-4cc5b201c87ac79e",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 678,
+      "visual_tokens_est": 0,
+      "tokens_est": 678,
+      "duration_seconds": 10.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00075-bdcf2246f0cb5a9d",
+      "primary_role": "no-vision",
+      "media_component": "train-00075-bdcf2246f0cb5a9d",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 410,
+      "visual_tokens_est": 0,
+      "tokens_est": 410,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00055-0e29e91f7cb05725",
+      "primary_role": "no-vision",
+      "media_component": "train-00055-0e29e91f7cb05725",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 396,
+      "visual_tokens_est": 0,
+      "tokens_est": 396,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00111-a5f9a5f0215edfe0",
+      "primary_role": "no-vision",
+      "media_component": "train-00111-a5f9a5f0215edfe0",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 296,
+      "visual_tokens_est": 0,
+      "tokens_est": 296,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00176-4dcf42e89dd044c3",
+      "primary_role": "no-vision",
+      "media_component": "train-00176-4dcf42e89dd044c3",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 304,
+      "visual_tokens_est": 0,
+      "tokens_est": 304,
+      "duration_seconds": 4.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00218-3f6ce3ee8bce799b",
+      "primary_role": "no-vision",
+      "media_component": "train-00218-3f6ce3ee8bce799b",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 359,
+      "visual_tokens_est": 0,
+      "tokens_est": 359,
+      "duration_seconds": 9.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00234-c27b37fae8043197",
+      "primary_role": "no-vision",
+      "media_component": "train-00234-c27b37fae8043197",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 501,
+      "visual_tokens_est": 0,
+      "tokens_est": 501,
+      "duration_seconds": 10.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-01038-127a1f196850605d",
+      "primary_role": "no-vision",
+      "media_component": "train-01038-127a1f196850605d",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|markers",
+      "markers_present": [
+        "</d>",
+        "<d>"
+      ],
+      "corrected_family": null,
+      "text_tokens_est": 439,
+      "visual_tokens_est": 0,
+      "tokens_est": 439,
+      "duration_seconds": 5.0,
+      "media_items": 0
+    },
+    {
+      "id": "train-00160-20ef7168f39f9062",
+      "primary_role": "no-vision",
+      "media_component": "train-00160-20ef7168f39f9062",
+      "image_dimensions": [],
+      "videos": 0,
+      "small_source": false,
+      "stratum": "no-vision|no-markers",
+      "markers_present": [],
+      "corrected_family": null,
+      "text_tokens_est": 230,
+      "visual_tokens_est": 0,
+      "tokens_est": 230,
+      "duration_seconds": 7.0,
+      "media_items": 0
+    }
+  ],
+  "text_only_selection": {
+    "share_of_total_tokens": 0.05,
+    "token_budget": 15000,
+    "source": "2026-08-24_h3_calibration_pool_excluded.jsonl",
+    "constraint": "MEASURED, 2026-08-24_calibration_input_seam.md Q1a/Q1b: one `oneshot` call traces the model once and that trace fixes the modality envelope for the whole run. A text-only row after a vision trace raises; a vision row after a text-only trace loses its media silently. These rows are therefore a SEPARATE bundle and a separate run -- `build_native_h3_calibration_batch.py --population text-only` -- or they need a second traced graph, which is a change to llm-compressor's sequential pipeline. They are not merged into `calibration` here so the choice is made rather than inherited",
+    "targets": {
+      "no-vision|markers": {
+        "share": 0.5,
+        "tokens": 7500
+      },
+      "no-vision|no-markers": {
+        "share": 0.5,
+        "tokens": 7500
+      }
+    },
+    "achieved": {
+      "rows": 26,
+      "tokens_est": 14809,
+      "text_tokens_est": 14809,
+      "visual_tokens_est": 0,
+      "label_tokens_est": 0,
+      "text_share": 1.0,
+      "visual_share": 0.0,
+      "skipped": {
+        "over_total_budget": 56
+      }
+    }
+  }
+}

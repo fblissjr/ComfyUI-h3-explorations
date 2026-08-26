@@ -4,6 +4,88 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.70.13
+
+### Added
+
+- `bench/h3_gptq_recipe.py`: a W4A16 GPTQ recipe on the same decoder-only
+  boundary as the AWQ one, which it imports rather than copies, plus the
+  AWQ-then-GPTQ composition and an `overrides` map so a later
+  W8-on-named-layers variant needs no new file. Gate 5 rejected v2 against v1
+  with both artifacts sitting at the same error and the calibration data moving
+  it by about a tenth either way, so the recipe is the axis nobody has varied:
+  AWQ moves rounding error between channels, GPTQ compensates it against the
+  layer's own input covariance. The docstring carries the field-by-field
+  justification read off the pinned source, the seam in the composition (GPTQ's
+  Hessian is built from the activations of forwards that precede AWQ's
+  smoothing of the same layer, and nothing rescales it), and the host and
+  device budget as arithmetic that is explicitly unmeasured until the card
+  probe runs.
+- `bench/check_h3_gptq_recipe.py`: the CPU red control for it. It drives the
+  whole modifier lifecycle on a reduced-width Qwen3-VL rather than stopping at
+  config application, so the per-layer Hessian free -- the property the host
+  budget rests on, and the whole difference from AWQ -- is observed rather than
+  read out of a docstring. Its mutations must each fire *and* name what they
+  broke.
+
+### Changed
+
+- `bench/pilot_sequential_feasibility.py` takes `--modifier gptq` and
+  `--modifier awq_gptq` beside `awq`, sharing everything that is not
+  AWQ-specific. The smoothing instrumentation and the scales sidecar are
+  skipped rather than emitted at zero, because a record carrying those fields
+  empty reads as a measurement. GPTQ contributes the two numbers the budget
+  question needs -- Hessian bytes per device, censused at the entry to the
+  quantize step because that step frees them as it goes, and the time spent
+  there -- plus the failure that is otherwise silent: a Hessian the Cholesky
+  cannot invert degrades that one module to round-to-nearest with nothing but a
+  log line to say so. The GPTQ wrapper patches the class rather than the
+  instance, because these modifiers are pydantic models and refuse an attribute
+  that is not a declared field; the AWQ wrapper escapes that only because all
+  three of its targets are private names.
+
+## 0.70.12
+
+### Added
+
+- `bench/select_v2_calibration_rows.py` gained four selection paths, each off
+  unless its flag is given. **`--stratum`** replaces the role row-quota with a
+  token-balanced design over `primary role | marker presence`, marker presence
+  read against the markers the release appends past the stock vocabulary
+  (`vendor_config.h3_markers()`, new, derived from the vendored declaration
+  rather than typed). `--stratum-token-share NAME=SHARE` names one stratum's
+  share of the token budget and the rest split what is left equally, with
+  `--stratum-floor-share` as the minimum any occupied stratum may be given.
+  The reason is that AWQ's statistics are per token and a row quota says
+  nothing about where the token mass goes: the 2026-08-25 run was 29 rows and
+  214k tokens with roughly nine tenths of them visual, so the H3 schema
+  positions were about a tenth of what the scales were fitted on.
+  **`--max-vision-tokens-per-row`** caps a row's estimated visual tokens; a row
+  over it is skipped, never truncated, and the cap reaches calibration only
+  because a vision cap on the holdout would choose which geometries the holdout
+  grades. **`--component-map`** assigns by corrected visual family instead of
+  exact media component -- every exclusion widens to the family, no two
+  calibration rows may share one, and the split assertion moves with it -- and
+  refuses a map carrying no `caveat`. **`--text-only-share`** admits the pool's
+  text-only T2VA rows into their own `text_only` list, never merged into
+  `calibration`, because one `oneshot` call traces the model once and that
+  trace fixes the modality envelope for the whole run. `--pool`,
+  `--text-only-pool` and `--dataset-root` exist so a control can drive a
+  synthetic population. The record now carries the achieved text/visual split
+  per stratum, which is the number that decides whether the schema positions
+  had weight.
+- `bench/check_calibration_selector.py` and its red harness
+  `bench/red/show_red_check_calibration_selector.py`. The arm that matters
+  holds the untouched role-quota path to the last committed revision of the
+  selector before this change, run out of a scratch mirror of `bench/`, rather
+  than to an expectation written beside it.
+- `bench/results/2026-08-25_v3_selection_{max_no_upscale,upscale_2048}.json`: a
+  v3 candidate population selected with the new flags, family-disjoint across
+  the two still-policy arms, at an assumed 400k-token budget that is UNKNOWN
+  until the GPTQ host probe. The union carries 93 rows in 93 corrected
+  families, all twelve strata occupied, and the estimated visual share falls
+  from the 2026-08-25 run's nine tenths to about three quarters.
+
 ## 0.70.11
 
 ### Changed
