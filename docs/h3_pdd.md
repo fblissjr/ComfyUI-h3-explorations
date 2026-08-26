@@ -371,12 +371,14 @@ Two readings follow, and both are predictions rather than results:
 
 ## Enforced by nothing
 
-- **No graph ships a PDD arm yet**, so `bench/check_distill_settings.py` has no
-  PDD row. It fails unrecognised LoRA filenames by design, so the row has to
-  land *before* the first graph does, not after.
-- **The `strength` semantics are asserted nowhere.** The node interpolates all
-  three mechanisms together and 0.0 returns the base model exactly, including
-  the heads. Nothing checks that claim.
+Doc-local, and deliberately not merged into `docs/checks.md`'s standing audit:
+that table sweeps the imperatives in `CLAUDE.md` and says so, and widening its
+scope silently is how a table stops meaning what its header claims.
+
+- **The `strength` semantics are asserted nowhere.** The node scales all three
+  mechanisms and 0.0 installs nothing at all, so it is exactly the base model.
+  Nothing checks that, and a check would need a loaded model to be worth
+  anything -- asserting it against a stub would grade the stub.
 - **Nothing verifies the converted file against the model it will be applied
   to** beyond the partition fingerprint. A checkpoint layout change would be
   caught by `load_lora` matching nothing, which the node raises on, but a
