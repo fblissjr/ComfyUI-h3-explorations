@@ -310,19 +310,34 @@ def extract_from_workflow(wf: dict, input_base: Path):
                 # -- they ship at different quantizations, so one field cannot
                 # describe both.
                 models["vae_quantization"] = infer_quantization(vae_name)
-        elif ct == "LoraLoaderModelOnly":
-            # `rank` was the literal 256 until 2026-08-17: right for the one
-            # LoRA this repo ships, silently wrong for any other, and written
-            # into a manifest as though it had been read. Inferred from the
-            # filename now, and null when the filename does not say -- which is
-            # a fact, where a defaulted 256 is a fabrication.
+        elif ct in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
+                    "MiniMaxH3PDDLoRA"):
+            # EVERY loader class, not just the stock one. Matching only
+            # `LoraLoaderModelOnly` recorded `loras: []` for a graph that was
+            # demonstrably running one -- a manifest asserting no LoRA was
+            # loaded, which is worse than an absent field because it reads as
+            # a measurement. Found 2026-08-26 for the PDD loader; the turbo
+            # pack's node had the same hole and had had it longer.
+            #
+            # The strength input is not called the same thing on all three:
+            # the stock loader has `strength_model`, the other two `strength`.
+            # Defaulting the missing one to 1.0 would silently record the
+            # vendor default for whatever the graph actually set.
             lora_name = str(inputs.get("lora_name", ""))
             rank_match = re.search(r"rank[_-]?(\d+)", lora_name)
-            models["loras"].append({
+            raw = inputs.get("strength_model", inputs.get("strength"))
+            record = {
                 "name": lora_name,
-                "strength": float(inputs.get("strength_model", 1.0)),
+                "strength": float(raw) if isinstance(raw, (int, float)) else None,
                 "rank": int(rank_match.group(1)) if rank_match else None,
-            })
+                "loader": ct,
+            }
+            if ct == "MiniMaxH3PDDLoRA":
+                # A PDD arm with the heads off is a different experiment from
+                # one with them on, and nothing else in the manifest would say
+                # which was rendered.
+                record["pdd_patch_heads"] = bool(inputs.get("patch_heads", True))
+            models["loras"].append(record)
         elif ct == "KSamplerSelect":
             sampling["sampler_name"] = str(inputs.get("sampler_name", "er_sde"))
         elif ct == "BasicScheduler":

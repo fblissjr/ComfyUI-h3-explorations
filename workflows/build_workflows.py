@@ -5686,7 +5686,10 @@ def main():
         # now graded per graph against pdd_math.block_bounds rather than
         # assumed.
         #
-        # NO ATTENTION PATCHING on any of these: no sage, no Sol. Both change
+        # NO DiT SELF-ATTENTION PATCHING on any of these: no sage, no Sol.
+        # A DiT-side statement only -- the Qwen3-VL encoder resolves its own
+        # attention inside its decoder forward and neither node reaches it,
+        # since both take io.Model.Input. Both DiT patches change
         # attention numerics, and the subject of every arm here is a numerical
         # mechanism in the output head. Leaving them wired puts two
         # approximations in the path of an experiment about a third, and the
@@ -6113,7 +6116,8 @@ def main():
         # node, no Sol node, and the chain assert warn-only. One graph kind,
         # exempted by mechanism in check_attention_defaults.
         router = extra.get("sla_router") is not None
-        # An arm that patches attention NOT AT ALL: no sage, no Sol, whatever
+        # An arm that patches the DiT's self-attention not at all: no sage,
+        # no Sol, whatever
         # kernel ComfyUI resolves on its own. Distinct from the repo's usual
         # "dense" (sage alone) and from the router arm. It exists for probes
         # whose subject is a numerical mechanism somewhere else in the model:

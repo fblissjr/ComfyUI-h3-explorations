@@ -159,8 +159,10 @@ until 2026-08-26 because `is_turbo` is false for a PDD filename; it now grades
 them against `pdd_math.block_bounds`, which is analytic ground truth rather
 than a vendor table, on both the video and audio streams.
 
-**Dense attention is the reference configuration**, not a handicap. Their
-pipeline is Diffusers' `ModularPipeline` on stock SDPA. It costs about 2.4x on
+**Dense DiT attention is the reference configuration**, not a handicap. Their
+pipeline is Diffusers' `ModularPipeline` on stock SDPA. This is a DiT-side
+statement: the Qwen3-VL encoder resolves its own attention and is untouched by
+sage, Sol or the SLA router, all of which take a `MODEL` input. It costs about 2.4x on
 this workload -- 70.3 s/it against 28.7 with sage+Sol -- because at ~90k packed
 tokens attention is quadratic and dominates everything else. Worth stating
 plainly: **that makes a dense 8-step PDD render slower than a sage+Sol 16-step
