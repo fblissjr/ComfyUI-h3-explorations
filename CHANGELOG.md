@@ -48,6 +48,24 @@ artifact.
   measured -- and a second reason to spend trace data on the bit allocation,
   which can be propagated to layer 49, rather than on another population.
 
+- Reconciliation of that record after a peer session filed its own section 5 on
+  the same subject from a session that could not see this one: three additive
+  cross-references binding section 5's GPTQ consolidation by the local-objective
+  finding, naming `bench/capture_h3_encoder_states.py` as the harness its first
+  measurement extends rather than a hook to build, and pointing section 3
+  forward so the two treatments are not found independently. A fourth records
+  that a graph's attention arm cannot be a selection criterion for an encoder
+  trace -- sage, the SLA router and the Sol curve node all take a MODEL input,
+  and the encoder resolves its own `optimized_attention_for_device` inside its
+  decoder forward -- so the criterion is schema coverage and the candidate set
+  is every shipped graph, not the four unpatched PDD arms.
+
+- A rule in `CLAUDE.md` under "How this repo decides something is true": two
+  models live here and the words for their parts do not disambiguate the stage.
+  Three instances on 2026-08-26 across two sessions, every one carrying a
+  DiT-side fact to an encoder-side conclusion, and the tell was a type or a
+  prefix each time rather than the vocabulary of the claim.
+
 - `canonical/2026-08-26_encoder_choice_and_marker_measurement.md` under the
   Qwen3-VL research tree: why no AWQ calibration population could have reached
   the marker, prompt-structure or vision-encoding questions -- the holdout

@@ -163,6 +163,18 @@ because that recommendation has not been accepted; do not reorder it on the
 strength of the record alone. If the small-host variant is a live deployment
 target, items 1 and 2 stand as written.
 
+**And read it against section 5 of the same record, which argues the other
+direction and was written later.** Section 5 proposes running GPTQ **on** an
+in-schema pool as a single arm -- the method check and the trace-calibration
+idea consolidated into one run rather than two, separating cleanly from the
+v1/v2 pair, which varied neither. That is compatible with the note above rather
+than opposed to it: the note is scoped to a 24 GB card where INT8 already wins,
+while the consolidation is about how to spend the GPTQ run if it happens. Both
+are bounded by the same ceiling section 3 names -- GPTQ's objective is
+layer-local too, so it changes how a layer's error is minimised without
+introducing a term for the layer-49 state. Decide the two together; they are one
+question, not two.
+
 1. **GPTQ probe**, ~10 min: `internal/v2_run_2026-08-25/run_gptq_probe.sh`
    (2 layers, 8 rows, disk tier, cgroup cap, emits to scratch). Read the
    record for `hessian_peak_gib_by_device` (decides
