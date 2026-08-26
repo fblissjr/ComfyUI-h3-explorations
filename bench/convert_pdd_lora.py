@@ -59,6 +59,21 @@ that `MiniMaxH3PDDLoRA` reads.
     means our result is not bit-identical to theirs; it is closer to the
     intended arithmetic, not further.
 
+`h3_pdd.bank.{video,audio}.{weight,bias}`   [32, out, in] / [32, out]
+    The published per-interval head stack, verbatim and at its published bf16.
+    The node fuses it at LOAD time for whatever `nfe` it is asked for, so one
+    file serves every block size the grid divides by -- 8 NFE at block 4, 4 NFE
+    at block 8, both of which the vendor's README reports rendering at -- with
+    no reconversion.
+
+    Fusing at load rather than per forward is the paper's own recommendation
+    (section 3.1: "during inference we can avoid the extra compute of an
+    enlarged final layer and we only need to hold one fused linear layer per
+    block in memory"). The vendor's adapter and Kijai's conversion both fuse
+    inside the forward, which is the enlarged final layer the paper says to
+    avoid; storing 8 precomputed heads instead, as this converter first did,
+    hits the paper's form but pins the step count into the file.
+
 `h3_pdd.adaln_baked.blocks.{i}.diff` / `.diff_b`   [96768, 8] / [96768]
     The adaln update pre-solved into the pruned checkpoint's OWN rank-8 time
     basis, so it becomes an ordinary weight patch instead of a runtime
@@ -305,20 +320,19 @@ def main(argv=None) -> int:
                          "ordinary weight patch instead of a runtime "
                          "injection. Without it the file still works, through "
                          "the slower injection path.")
-    ap.add_argument("--block-size", type=int, default=None,
-                    help="override the fused block size. The published grid is "
-                         "32 points at block 4 (8 NFE); block 8 gives 4 NFE, "
-                         "which the vendor's own README reports rendering at. "
-                         "Every divisor of the grid lands exactly on the plain "
-                         "shifted schedule for its step count.")
+    ap.add_argument("--drop-unpruned-adaln", action="store_true",
+                    help="omit the 2688-dim adaln pairs, which only a "
+                         "full-width checkpoint can use. Halves the file. Only "
+                         "safe if you will never load this onto an unpruned "
+                         "base -- the node raises rather than rendering "
+                         "without them.")
     ap.add_argument("--shift-video", type=float, default=DEFAULT_SHIFT_VIDEO)
     ap.add_argument("--shift-audio", type=float, default=DEFAULT_SHIFT_AUDIO)
     args = ap.parse_args(argv)
 
     meta = read_metadata(args.pdd)
     num_steps = int(meta["pdd_num_steps"])
-    block_size = int(args.block_size or meta["pdd_block_size"])
-    trained_block = int(meta["pdd_block_size"])
+    block_size = int(meta["pdd_block_size"])
     rank = int(meta["lora_rank"])
     alpha = float(meta["lora_alpha"])
     targets = [t for t in str(meta["lora_targets"]).split(",") if t]
@@ -376,14 +390,14 @@ def main(argv=None) -> int:
             f"{leftover[:4]}. Every key must reach the backbone, the adaln "
             f"sidecar or the fused heads.")
 
-    out["h3_pdd.head.video.weight"] = fuse_heads(
-        src["proj_out.weight"], args.shift_video, num_steps, block_size)
-    out["h3_pdd.head.video.bias"] = fuse_heads(
-        src["proj_out.bias"], args.shift_video, num_steps, block_size)
-    out["h3_pdd.head.audio.weight"] = fuse_heads(
-        src["audio_proj_out.weight"], args.shift_audio, num_steps, block_size)
-    out["h3_pdd.head.audio.bias"] = fuse_heads(
-        src["audio_proj_out.bias"], args.shift_audio, num_steps, block_size)
+    # The raw bank, so the node can fuse for any block size the grid divides
+    # by. Kept at the published bf16: the fusion runs in float64 from these
+    # exact values either way, so widening here would store precision the
+    # source never had.
+    out["h3_pdd.bank.video.weight"] = src["proj_out.weight"]
+    out["h3_pdd.bank.video.bias"] = src["proj_out.bias"]
+    out["h3_pdd.bank.audio.weight"] = src["audio_proj_out.weight"]
+    out["h3_pdd.bank.audio.bias"] = src["audio_proj_out.bias"]
 
     grid = derive_silu_temb_grid(args.base)
     out["h3_pdd.silu_temb_grid"] = grid
@@ -409,8 +423,12 @@ def main(argv=None) -> int:
             b = out[f"h3_pdd.adaln.blocks.{i}.lora_B"].to(torch.float64)
             curve = grid.to(torch.float64) @ a.T          # [rows, rank]
             coef = torch.linalg.lstsq(design, curve).solution   # [9, rank]
+            # fp16: `blocks.N.adaln_proj.linear.weight` is F16 in the pruned
+            # checkpoints, so this is the dtype it will be added to. Storing
+            # fp32 was half this file's growth for precision the target
+            # discards on contact.
             out[f"h3_pdd.adaln_baked.blocks.{i}.diff"] = \
-                (b @ coef[:-1].T).to(torch.float32)
+                (b @ coef[:-1].T).to(torch.float16)
             out[f"h3_pdd.adaln_baked.blocks.{i}.diff_b"] = \
                 (b @ coef[-1]).to(torch.float32)
             # Graded per block against the delta it replaces, not assumed.
@@ -465,12 +483,6 @@ def main(argv=None) -> int:
     if err > 1e-6:
         raise SystemExit(f"fc1 swap self-check failed: rel {err:.3e}")
 
-    # The fused heads must be a convex combination of the source heads: each
-    # plan sums to 1, so every fused head sits inside the stack's own range.
-    hv = out["h3_pdd.head.video.weight"]
-    lo, hi = src["proj_out.weight"].float().min(), src["proj_out.weight"].float().max()
-    if not (hv.min() >= lo - 1e-3 and hv.max() <= hi + 1e-3):
-        raise SystemExit("fused video heads fall outside the source stack's range")
 
     metadata = {
         "format": "pt",
@@ -483,7 +495,6 @@ def main(argv=None) -> int:
             out["h3_pdd.base_video_out"].contiguous().numpy().tobytes()).hexdigest(),
         "pdd_num_steps": str(num_steps),
         "pdd_block_size": str(block_size),
-        "pdd_trained_block_size": str(trained_block),
         "adaln_baked_blocks": str(baked),
         "h3_pdd_pruned_base": args.pruned.name if args.pruned else "",
         "pdd_nfe": str(nfe),

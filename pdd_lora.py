@@ -110,9 +110,11 @@ import torch.nn.functional as F
 from comfy_api.latest import io
 
 try:                                     # loaded as a package by ComfyUI
-    from .pdd_math import block_bounds, boundary_residual, silu_temb_grid, step_for_t
+    from .pdd_math import (block_bounds, boundary_residual, fuse_heads,
+                           silu_temb_grid, step_for_t)
 except ImportError:                      # loaded as a bare module by a script
-    from pdd_math import block_bounds, boundary_residual, silu_temb_grid, step_for_t
+    from pdd_math import (block_bounds, boundary_residual, fuse_heads,
+                          silu_temb_grid, step_for_t)
 
 logger = logging.getLogger(__name__)
 
@@ -385,13 +387,32 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "a fallback."
                     ),
                 ),
+                # APPENDED. See the note on patch_heads.
+                io.Int.Input(
+                    "nfe", default=0, min=0, max=64, optional=True,
+                    tooltip=(
+                        "Transformer evaluations, i.e. the sampler's step "
+                        "count. 0 means the count the file was converted for.\n\n"
+                        "The published grid is 32 points, so ANY divisor is a "
+                        "legal arm from the same weights: 8 (block 4) is what "
+                        "the file records, and 4 (block 8) is the other count "
+                        "the vendor's README reports rendering at. Every "
+                        "divisor lands exactly on the plain shifted schedule "
+                        "for its own step count, so changing this changes the "
+                        "sampler's steps and nothing else -- not the shift, not "
+                        "the scheduler.\n\n"
+                        "The heads are fused here, at load, for whichever "
+                        "count you ask. Set BasicScheduler to the same number: "
+                        "a mismatch is what the boundary warning reports."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output()],
         )
 
     @classmethod
     def execute(cls, model, lora_name, strength=1.0,
-                patch_heads=True) -> io.NodeOutput:
+                patch_heads=True, nfe=0) -> io.NodeOutput:
         import comfy.lora
         import comfy.utils
         import folder_paths
@@ -418,9 +439,15 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 f"alibaba-pai files must be converted first; loading one "
                 f"directly applies nothing at all.")
 
-        nfe = int(meta["pdd_nfe"])
         num_steps = int(meta["pdd_num_steps"])
-        block_size = int(meta["pdd_block_size"])
+        nfe = int(nfe) or int(meta["pdd_nfe"])
+        if nfe < 1 or num_steps % nfe:
+            raise RuntimeError(
+                f"nfe={nfe} does not divide the file's {num_steps}-point grid. "
+                f"A block has to tile the grid exactly or the fused heads "
+                f"decode intervals that are not the ones being stepped over. "
+                f"Legal here: {sorted(n for n in range(1, num_steps + 1) if num_steps % n == 0)}.")
+        block_size = num_steps // nfe
         shift_v = float(meta["pdd_shift_video"])
         shift_a = float(meta["pdd_shift_audio"])
 
@@ -566,8 +593,22 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             live = getattr(final_layer, out_name)
             base_w = live.weight.detach().to(torch.float32).cpu()
             base_b = live.bias.detach().to(torch.float32).cpu()
-            fused_w = sd[f"h3_pdd.head.{stream}.weight"]
-            fused_b = sd[f"h3_pdd.head.{stream}.bias"]
+            # Fused HERE, from the published per-interval bank, for whatever
+            # nfe was asked for. The paper's section 3.1 is explicit that this
+            # belongs at inference setup rather than inside the forward:
+            # "we only need to hold one fused linear layer per block in
+            # memory". Doing it at load also means one file serves every legal
+            # step count, where precomputing pinned it into the artifact.
+            bank_w = sd.get(f"h3_pdd.bank.{stream}.weight")
+            if bank_w is None:
+                raise RuntimeError(
+                    f"{lora_name} carries no per-interval head bank. It was "
+                    f"converted before the bank was stored; reconvert with "
+                    f"bench/convert_pdd_lora.py.")
+            shift = shift_v if stream == "video" else shift_a
+            fused_w = fuse_heads(bank_w, shift, num_steps, block_size)
+            fused_b = fuse_heads(sd[f"h3_pdd.bank.{stream}.bias"], shift,
+                                 num_steps, block_size)
             # strength interpolates toward the fused head, so 0.0 is the base
             # head exactly rather than a zeroed projection.
             w = base_w[None] + strength * (fused_w - base_w[None])

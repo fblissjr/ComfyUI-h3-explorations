@@ -239,6 +239,73 @@ def _sol_attn_state(wf: dict) -> str:
     return state
 
 
+class _Unset:
+    """A default nobody derived, distinguishable from a value somebody did.
+
+    This function has now shipped the same defect five times, always the same
+    shape: a dict of PLAUSIBLE literals where some keys get overwritten
+    downstream and some silently do not, so an underived field emits a value
+    that reads as a measurement.
+
+        sol_attn = "bypassed_for_capture"      fixed 2026-08-17
+        weight_quantization / vae_quantization = "int8_convrot"
+        "rank": 256 for every LoRA
+        sage_mode = "fp16 (most accurate)"     fixed 2026-08-26
+        loras: [] by presence                  fixed 2026-08-26
+
+    `bench/check_capture_manifest.py` was green through every one, because it
+    grades presence and type and cannot see whether a value was ever derived.
+    Fixing them one at a time is what produced a nine-day gap between the first
+    and its siblings, so this converts the class instead: a field left at a
+    sentinel emits `null` and is NAMED in `workload.underived`, and the few
+    that must always be derived raise instead.
+
+    Credit: the pattern across all five was spotted from outside this file by
+    the peer session holding the v2 lane, 2026-08-26.
+    """
+
+    def __repr__(self):
+        return "<underived>"
+
+
+UNSET = _Unset()
+
+#: Fields whose absence is a bug rather than a fact. Every graph this repo
+#: emits has the nodes that set them, so a sentinel surviving to emit means the
+#: scan stopped recognising a node class -- the failure mode that produced the
+#: `loras: []` defect. Kept deliberately short: a required field that CAN
+#: legitimately be absent turns this into a check that goes red on correct
+#: state, which CLAUDE.md rates worse than no check.
+REQUIRED_DERIVED = ("models.unet", "sampling.sampler_name",
+                    "sampling.scheduler", "sampling.steps")
+
+
+def resolve_unset(sections: dict) -> list[str]:
+    """Replace every sentinel with `None`; return the dotted names it hit.
+
+    Mutates in place and returns the list for `workload.underived`, so the
+    manifest records what it did NOT observe rather than leaving the reader to
+    infer it from a plausible-looking default.
+    """
+    underived = []
+    for section, body in sections.items():
+        if not isinstance(body, dict):
+            continue
+        for key, value in list(body.items()):
+            if isinstance(value, _Unset):
+                body[key] = None
+                underived.append(f"{section}.{key}")
+    missing = [n for n in REQUIRED_DERIVED if n in underived]
+    if missing:
+        raise SystemExit(
+            f"these manifest fields were never derived from the graph: "
+            f"{missing}. Every graph this repo emits sets them, so this means "
+            f"the scan no longer recognises a node class it used to. Emitting "
+            f"a default here is how `loras: []` came to assert that no LoRA "
+            f"was loaded.")
+    return sorted(underived)
+
+
 def _class_state(wf: dict, *class_types: str):
     """`(state, [inputs of each wired node])` for one or more class names.
 
@@ -314,7 +381,10 @@ def extract_from_workflow(wf: dict, input_base: Path):
         "vae_quantization": None,
         "loras": [],
     }
-    sampling = {"sampler_name": "er_sde", "scheduler": "simple", "steps": 16, "denoise": 1.0, "seed": 0, "cfg": 1.0}
+    for _k in ("unet", "clip", "video_vae", "audio_vae"):
+        models[_k] = UNSET
+    sampling = {"sampler_name": UNSET, "scheduler": UNSET, "steps": UNSET,
+                "denoise": UNSET, "seed": UNSET, "cfg": UNSET}
     # `sol_attn` was the literal string "bypassed_for_capture" here from this
     # function's first version until 2026-08-17, and nothing ever reassigned it
     # -- this file did not mention SolAttn anywhere. So it reported a capture as
@@ -394,8 +464,18 @@ def extract_from_workflow(wf: dict, input_base: Path):
             # leaving every other build mislabelled. One implementation, in
             # `substrate.infer_quantization`.
             models["weight_quantization"] = infer_quantization(models["unet"])
-        elif ct == "CLIPLoader":
-            models["clip"] = str(inputs.get("clip_name", ""))
+        elif ct in ("CLIPLoader", "MiniMaxH3AWQEncoderLoader"):
+            # Both loader classes. Only `CLIPLoader` was matched, and no graph
+            # this repo ships uses it -- every one loads the encoder through
+            # `MiniMaxH3AWQEncoderLoader` -- so `models.clip` emitted "" on
+            # every manifest ever generated here, asserting no text encoder.
+            # Found 2026-08-26 by the sentinel above on its first run, which is
+            # the sixth instance of this defect and the first one nobody had to
+            # notice by hand. The input is named differently on each.
+            models["clip"] = str(_scalar(inputs.get("clip_name"), str,
+                                         missing=None)
+                                 or _scalar(inputs.get("encoder_name"), str,
+                                            missing="") or "")
         elif ct == "VAELoader":
             vae_name = str(inputs.get("vae_name", ""))
             if "audio" in vae_name:
@@ -443,7 +523,9 @@ def extract_from_workflow(wf: dict, input_base: Path):
                 "fit_settings": {"allow_upscale": False, "short_edge": 2048, "lift_downstream_clamp": False},
             })
 
-    return canvas, models, sampling, attention, prompt_text, references
+    underived = resolve_unset({"canvas": canvas, "models": models,
+                               "sampling": sampling, "attention": attention})
+    return canvas, models, sampling, attention, prompt_text, references, underived
 
 
 def main():
@@ -467,7 +549,7 @@ def main():
     if not wf_in_dir.is_file() and wf_path.is_file():
         wf_in_dir.write_text(json.dumps(wf, indent=2) + "\n")
 
-    canvas, models, sampling, attention, prompt_text, references = extract_from_workflow(wf, input_base)
+    canvas, models, sampling, attention, prompt_text, references, underived = extract_from_workflow(wf, input_base)
 
     # Calculate token accounting dynamically
     tokens_per_frame = (canvas["width"] // 32) * (canvas["height"] // 32)
@@ -557,6 +639,10 @@ def main():
             "models": models,
             "sampling": sampling,
             "attention": attention,
+            # Named, not inferred. A reader can tell a field nobody derived
+            # from one somebody did, which is the whole of what five rounds of
+            # this defect cost. Empty on a normal graph.
+            "underived": underived,
         },
         "prompt": {
             "full_prompt_text": prompt_text,
