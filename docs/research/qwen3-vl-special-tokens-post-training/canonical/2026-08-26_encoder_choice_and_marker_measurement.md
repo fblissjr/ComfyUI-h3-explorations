@@ -356,6 +356,19 @@ larger distribution shift than pool-versus-pool, but it is the same *kind* of
 lever, so a tenth is the order to expect and a result far outside it should be
 distrusted before it is believed.
 
+**The prior now rests on a mechanism and not only on that analogy.** Section 3
+establishes that the objective being minimised is layer-local: AWQ's loss
+compares one mapping's parent module against its quantized self, with no term
+anywhere for the layer-49 state H3 actually reads. GPTQ is the same shape --
+[`bench/h3_gptq_recipe.py`](../../../../bench/h3_gptq_recipe.py) describes it as
+compensating against "the inverse Hessian of the layer's own input covariance",
+which is a *different* solver for the same local objective, not a wider one.
+So changing the calibration distribution changes **where** each layer's local
+error lands, and no calibration change of any kind introduces a term for the
+state the DiT consumes. That bounds this idea and the one-arm GPTQ
+consolidation below by the same ceiling, and it is the reason a tenth is the
+order to expect rather than merely the last thing that happened.
+
 ### The cheapest form of it is not a new mechanism
 
 llm-compressor already runs the model over the calibration set and collects each
@@ -396,12 +409,15 @@ compare. If they are close, the idea cannot move much and the reasoning above is
 wrong somewhere. If they are far apart at the layers W4 hurts most, that
 locates the gain before any calibration run is spent.
 
-**UNMEASURED and unbuilt.** `h3_capture.py` captures DiT activations, not
-encoder ones, so the encoder-side hook does not exist yet. Nothing here has been
-run.
+**UNMEASURED.** Nothing here has been run.
 
-**Added after 52d5916: there is a harness to extend rather than a thing to
-build.** [`bench/capture_h3_encoder_states.py`](../../../../bench/capture_h3_encoder_states.py)
+**Corrected in place, 2026-08-26.** This paragraph claimed the encoder-side
+hook did not exist, reasoning from `h3_capture.py` -- which does only capture
+DiT activations -- to the whole repo. That inference was wrong and the
+annotation below, written independently within the hour, contradicted it three
+lines later. Reasoning from one file to a repo is how the claim was made; the
+correction is left visible because a section that argues both ways is worse
+than either. [`bench/capture_h3_encoder_states.py`](../../../../bench/capture_h3_encoder_states.py)
 already runs the encoder arm and taps two points -- the layer-0 input and the
 raw state after language layer index 49 -- with the presentation hashing and the
 refusal-on-mismatch its comparator needs. What it does not have is a tap on
