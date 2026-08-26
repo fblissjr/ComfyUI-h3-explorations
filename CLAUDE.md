@@ -74,6 +74,26 @@ rule, not the story behind it. Stories live in `docs/` and the postmortems.
 - **A check whose input already satisfies the expected outcome cannot fail**,
   and it is most convincing when it is emptiest. Ask what the input would have
   to look like for it to fail.
+- **Proving a check can go red earns its cost when the outcome is genuinely
+  open, and is ceremony when you have just measured it.** The rule above is
+  about how a check is *designed*; it is not a demand to stage a
+  demonstration for every one. Both shapes happened on 2026-08-26. The one
+  that paid: `bench/convert_pdd_lora.py`'s fit assertion was *expected* to
+  catch a bake solved against the wrong partition's basis, a deliberate
+  violation showed it did not -- both bases span nearly the same subspace, so
+  a residual is blind to which one was used -- and that moved the guard to a
+  different comparison and corrected what two files claimed. The ones that did
+  not pay: cases whose red-proof restated a measurement taken minutes earlier
+  in the same session, and found nothing, because the answer was already on
+  screen.
+  - **The test is whether you can predict the outcome.** If you can, write the
+    case and move on. If you cannot -- you believe a guard covers something and
+    have not seen it fail -- that is the one to run, and it is where the escaped
+    instances come from.
+  - Judgement, not a gate. Build the control when it is load-bearing and cheap;
+    skip the theatre when it is neither. Practical and reliable beats
+    ritually complete, and a session spent proving things you already knew is a
+    session not spent finding what you did not.
 - **A check reporting red while the state is correct trains you to ignore red,
   which is worse than no check.** `bench/check_retraction_consumers.py` and
   `bench/check_doc_links.py` both cite this rule to justify an allowlist over a
