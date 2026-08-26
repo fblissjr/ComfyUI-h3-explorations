@@ -48,6 +48,28 @@ artifact.
   measured -- and a second reason to spend trace data on the bit allocation,
   which can be propagated to layer 49, rather than on another population.
 
+- Two owner decisions on 2026-08-26 recorded where they reverse things already
+  written. The W4A16 artifacts are **published for the community**, not built
+  for this box, so the encoder record's "no further own-calibration quants"
+  recommendation is superseded in scope and the GPTQ items on the point handoff
+  stand: their users cannot run a 25 GiB encoder, and an INT8 build ships
+  alongside if it earns one. With it, a distinction both documents had blurred
+  -- the tenth-order prior sizes a *data* change, and GPTQ is a *solver* change,
+  so that prior does not bound it. And a mixed-precision encoder is not wanted
+  unless INT8 can be reduced for this task at no quality cost, which it cannot:
+  the only lossless reduction is the embedding table at 0.724 GiB, landing the
+  H3 path at 24.553 GiB, still above what a 24 GB card reports usable and
+  before any activation.
+
+- An annotation on the v2 launch record beside the Gate 5 table: v2's medians
+  moved against v1 while the means at `upscale_2048` were a wash and its worst
+  row was better, so v2 cut the tail and lifted the middle where the bar
+  rewarded the opposite shape. The verdict is unchanged -- criterion 1 was
+  pre-registered, which is what makes it legible rather than post-hoc
+  rescuable -- and the annotation is filed against the metric, which that record
+  already names as this result's third suspect. It carries the forward
+  instruction: decide before a run whether tail or median is what a bar buys.
+
 - Reconciliation of that record after a peer session filed its own section 5 on
   the same subject from a session that could not see this one: three additive
   cross-references binding section 5's GPTQ consolidation by the local-objective
