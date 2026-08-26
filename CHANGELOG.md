@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.72.0
+
+### Added
+
+- `bench/measure_encoder_footprint.py` and its record: what each H3
+  conditioning encoder costs to hold resident, by component. The four-encoder
+  fidelity table said nothing about cost, and file size answers that wrongly
+  twice -- the W4A16 files carry all 64 layers plus an `lm_head` H3 never uses,
+  and equal-sized files split their bytes very differently between the decoder,
+  the embedding table and the vision tower. Safetensors headers only, no tensor
+  data, either virtualenv. The layer sum is exact rather than a per-layer
+  average, because a mixed-precision candidate is the reason to measure this at
+  all; a layout whose layers are not a contiguous run from zero, or that has
+  fewer than the fifty H3 consumes, is refused with the reason rather than
+  reported as a number.
+
+- `canonical/2026-08-26_encoder_choice_and_marker_measurement.md` under the
+  Qwen3-VL research tree: why no AWQ calibration population could have reached
+  the marker, prompt-structure or vision-encoding questions -- the holdout
+  captures already record `layer0_input` relative L2 of exactly zero, so both
+  the embedding table and the whole vision path are byte-identical across the
+  BF16 reference and both W4 artifacts. Also the footprint table above read
+  beside the fidelity one, and how the marker question is answered by selecting
+  among representations that already exist rather than by a trainer. Its two
+  recommendations are marked open for the owner; nothing in it supersedes a
+  decision or changes the card order.
+
 ## 0.71.0
 
 ### Added

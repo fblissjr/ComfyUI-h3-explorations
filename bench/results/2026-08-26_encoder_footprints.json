@@ -1,0 +1,185 @@
+{
+  "question": "what does each H3 conditioning encoder cost to hold resident, by component",
+  "method": "safetensors header only; tensor bytes bucketed by component; the H3 path is decoder layers 0..49 plus the embedding table, the vision tower and any remaining tensor, with later layers and the output head dropped as `comfy/text_encoders/minimax.py` drops them on load",
+  "path_policy": "logical identifiers only; encoders named by file name",
+  "h3_layers": 50,
+  "encoders": [
+    {
+      "file": "qwen3vl_32b_minimax_h3_bf16.safetensors",
+      "tensors": 1058,
+      "bytes_total": 66714780128,
+      "bytes_by_component": {
+        "decoder_layers": 62412587008,
+        "embeddings": 1555824640,
+        "output_head": 1555824640,
+        "vision_tower": 1190533600,
+        "other": 10240
+      },
+      "bytes_by_dtype": {
+        "BF16": 66714780128
+      },
+      "decoder_layer_indices": {
+        "min": 0,
+        "max": 63,
+        "count": 64
+      },
+      "decoder_layers_contiguous_from_zero": true,
+      "h3_path": {
+        "layers_kept": 50,
+        "layers_dropped": 14,
+        "bytes_decoder_kept": 48759833600,
+        "bytes_dropped_layers": 13652753408,
+        "bytes_dropped_output_head": 1555824640,
+        "bytes_resident": 51506202080,
+        "gib_resident": 47.969,
+        "note": "weights only: activations, the offload staging copy and the allocator's overhead are not in this number",
+        "gib_under_budget": -23.969
+      }
+    },
+    {
+      "file": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "tensors": 1602,
+      "bytes_total": 27141161040,
+      "bytes_by_component": {
+        "decoder_layers": 24394802800,
+        "embeddings": 1555824640,
+        "vision_tower": 1190533600
+      },
+      "bytes_by_dtype": {
+        "I8": 24379392000,
+        "BF16": 2747407840,
+        "F32": 14336000,
+        "U8": 25200
+      },
+      "decoder_layer_indices": {
+        "min": 0,
+        "max": 49,
+        "count": 50
+      },
+      "decoder_layers_contiguous_from_zero": true,
+      "h3_path": {
+        "layers_kept": 50,
+        "layers_dropped": 0,
+        "bytes_decoder_kept": 24394802800,
+        "bytes_dropped_layers": 0,
+        "bytes_dropped_output_head": 0,
+        "bytes_resident": 27141161040,
+        "gib_resident": 25.277,
+        "note": "weights only: activations, the offload staging copy and the allocator's overhead are not in this number",
+        "gib_under_budget": -1.277
+      }
+    },
+    {
+      "file": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "tensors": 2054,
+      "bytes_total": 15686911143,
+      "bytes_by_component": {
+        "decoder_layers": 13717857450,
+        "vision_tower": 1190533600,
+        "embeddings": 778520093
+      },
+      "bytes_by_dtype": {
+        "U8": 12189715279,
+        "F8_E4M3": 1523712000,
+        "BF16": 1194962400,
+        "I8": 777912320,
+        "F32": 609144
+      },
+      "decoder_layer_indices": {
+        "min": 0,
+        "max": 49,
+        "count": 50
+      },
+      "decoder_layers_contiguous_from_zero": true,
+      "h3_path": {
+        "layers_kept": 50,
+        "layers_dropped": 0,
+        "bytes_decoder_kept": 13717857450,
+        "bytes_dropped_layers": 0,
+        "bytes_dropped_output_head": 0,
+        "bytes_resident": 15686911143,
+        "gib_resident": 14.61,
+        "note": "weights only: activations, the offload staging copy and the allocator's overhead are not in this number",
+        "gib_under_budget": 9.39
+      }
+    },
+    {
+      "file": "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
+      "tensors": 1954,
+      "bytes_total": 20393942496,
+      "bytes_by_component": {
+        "decoder_layers": 16091749376,
+        "output_head": 1555824640,
+        "embeddings": 1555824640,
+        "vision_tower": 1190533600,
+        "other": 10240
+      },
+      "bytes_by_dtype": {
+        "I32": 15602810880,
+        "BF16": 4791124448,
+        "I64": 7168
+      },
+      "decoder_layer_indices": {
+        "min": 0,
+        "max": 63,
+        "count": 64
+      },
+      "decoder_layers_contiguous_from_zero": true,
+      "h3_path": {
+        "layers_kept": 50,
+        "layers_dropped": 14,
+        "bytes_decoder_kept": 12571679200,
+        "bytes_dropped_layers": 3520070176,
+        "bytes_dropped_output_head": 1555824640,
+        "bytes_resident": 15318047680,
+        "gib_resident": 14.266,
+        "note": "weights only: activations, the offload staging copy and the allocator's overhead are not in this number",
+        "gib_under_budget": 9.734
+      }
+    },
+    {
+      "file": "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors",
+      "tensors": 1954,
+      "bytes_total": 20397483744,
+      "bytes_by_component": {
+        "decoder_layers": 16091749376,
+        "output_head": 1555824640,
+        "embeddings": 1555824640,
+        "vision_tower": 1194074848,
+        "other": 10240
+      },
+      "bytes_by_dtype": {
+        "I32": 15602810880,
+        "BF16": 4787583200,
+        "F32": 7082496,
+        "I64": 7168
+      },
+      "decoder_layer_indices": {
+        "min": 0,
+        "max": 63,
+        "count": 64
+      },
+      "decoder_layers_contiguous_from_zero": true,
+      "h3_path": {
+        "layers_kept": 50,
+        "layers_dropped": 14,
+        "bytes_decoder_kept": 12571679200,
+        "bytes_dropped_layers": 3520070176,
+        "bytes_dropped_output_head": 1555824640,
+        "bytes_resident": 15321588928,
+        "gib_resident": 14.269,
+        "note": "weights only: activations, the offload staging copy and the allocator's overhead are not in this number",
+        "gib_under_budget": 9.731
+      }
+    }
+  ],
+  "encoders_not_found": [],
+  "not_established": "runtime peak, which adds activations, offload staging and allocator overhead, and which `bench/instrument_render_occupancy.py` measures on a real render",
+  "producer": {
+    "file": "measure_encoder_footprint.py",
+    "sha256": "da00375138b02bd0a14cd0bea44145813675a43da0a766683ff278d51a74a254",
+    "repository_commit": "ddc2ac99c6865edccef076cfa6a6e429bef22a7c",
+    "dirty_against_commit": true
+  },
+  "budget_gib": 24.0
+}

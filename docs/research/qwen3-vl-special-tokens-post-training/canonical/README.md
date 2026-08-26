@@ -55,6 +55,7 @@ not override a conflicting statement in this directory.
 | [`2026-08-25_v2_launch_record.md`](2026-08-25_v2_launch_record.md) | The first v2 launch's host OOM and the measured per-token host budget; the disk-tier arrangement and the control it exposed; the rebuilt split and the family map's catch; what launched. |
 | [`owner_authored_marker_corpus.md`](owner_authored_marker_corpus.md) | Accepted construction contract for new multimodal marker evaluation and candidate training/development corpora compiled from semantically fixed scene specifications. |
 | [`calibration_data_pool.md`](calibration_data_pool.md) | Accepted H3-IR candidate-pool partition, overlay coverage, exact-media component constraint, rights boundary, and remaining split checks. |
+| [`2026-08-26_encoder_choice_and_marker_measurement.md`](2026-08-26_encoder_choice_and_marker_measurement.md) | Why no calibration population could have reached the marker or vision-encoding question; what each encoder costs to hold resident, by component; and how the marker question is answered by selecting among existing representations rather than by a trainer. Its two recommendations are open for the owner. |
 
 No post-training recipe is canonical yet. The first proposed v2 calibration
 manifest and launcher were independently rejected. Gate 1, Gate 1B and Gate
