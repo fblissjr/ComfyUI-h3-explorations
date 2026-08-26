@@ -104,122 +104,101 @@ Sessions may or may not survive the night; the names and what each owns:
 If a session is gone, a fresh one takes the role with its files; the records
 above are what it needs.
 
-## Card order, and what runs next
+## Where the lane stands at the end of 2026-08-25
 
-1. **Gate 5** (`internal/v2_run_2026-08-25/run_gate5.sh all`, ComfyUI
-   stopped first): converts the candidate to
-   `qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors` under the ComfyUI
-   install's `models/text_encoders/` with snapshot
-   `config/qwen3vl_32b_minimax_h3_w4a16_awq_v2/` (commit that directory; it
-   cannot exist before the real candidate), runs the acceptance check, then
-   captures BF16 / v1 / v2 on all three bundles in one session and grades
-   per row. Output `bench/results/2026-08-25_v2_holdout_layer50.json`. The
-   comparator's `--w4-path` / `--all-rows` and the summarizer are new today
-   and get their first real run here; if the sequence-length guard trips,
-   that is an instrument fault, not a verdict.
-2. Grade against the bar in the launch record. Accept: v2 into the ablation
-   graphs (the encoder combo already names the v2 file). Reject: the
-   population or recipe is the suspect; do not rename a partial result.
-3. performance_and_refs reruns `bench/preflight_graph.py` on the three arms
-   under the resolved v2 contract, patches mr_data's rows in, and prices
-   them; then their occupancy render. **Server reserve: do not change
-   `start.sh default` on a guess.** The Gate 5 comparator needed
-   `--reserve-vram-gib 16` for a 21.7k-token BF16 row, but that is a
-   standalone process; the server unloads the encoder before the DiT runs.
-   If the occupancy instrument shows the encode step OOM on arm B or C
-   (about 18.7k encoder tokens on the W4 encoder), launch those graphs with
-   `./start.sh default --reserve-vram <GiB>`; if it does not, the default
-   stands.
-4. **Gate 6 blind pairs**: `bench/run_graph_arms.py --manifest
-   bench/gate6_refview_arms.json` with matched seeds, then
-   `bench/blind_batch.py`, the scoring app, `bench/score_session.py`. The
-   process is `docs/eval_comparison.md` section 3; the owner judges. The
-   arms differ only where a still's short edge is below 2048; the null
-   control row must read as identical.
-5. **Marker arms on v2**: the corpus (`bench/marker_corpus/compiled.json`)
-   rendered through `MiniMaxH3MarkerArm` with the stamp's `encoder_arm`
-   block as evidence; the arms are release IDs, legacy BPE, stripped, and
-   mean-initialised rows (a patched clone, never written). Training is off
-   the table unless the ID arm loses and re-init does not help.
-6. **Checkpoint/resume: parked by owner decision at 17:00 on 2026-08-25.**
-   The module, design note and check exist (`bench/h3_calibration_checkpoint.py`,
-   `bench/check_calibration_checkpoint.py`, proven bit-identical at fixture
-   scale on CPU); the pilot integration and the real-weight card proof are
-   deliberately not done. Bring it back only for a run longer than tonight's
-   (the larger population after the modifier-cache change), at a cadence of
-   every 4 layers.
+Read the launch record's last three sections
+(`canonical/2026-08-25_v2_launch_record.md`: Gate 5 result, overfit test,
+four-encoder table) before anything below; they carry the numbers and the
+decisions. The short form:
 
-Deferred, named in the plan: a larger calibration population needs the
-modifier's parent-argument cache off host memory (a change to
-`AWQModifier`), not a bigger box.
+- **v2 (W4A16 AWQ, native-H3 calibration) was rejected** against the
+  pre-registered bar: it redistributed the 4-bit error between rows rather
+  than reducing it, and it leaned overfit on its own 29 rows. Two confounds
+  are recorded (v1 ran `duo_scaling false`, v2 `true`; the emit path shipped
+  an empty `recipe.yaml`, since repaired at the source and in the snapshot).
+- **INT8 ConvRot is the encoder of record** (owner decision on the
+  four-encoder table: about fifteen times closer to BF16 than either W4
+  artifact on every population). The three ablation graphs now load it
+  through core's `CLIPLoader` (`h3_config.ENCODER_INT8`,
+  `CORE_LOADED_ENCODERS` picks the loader node). Its encode cost on the real
+  arm B graph: about 60 s for ~19k encoder tokens against 600 s of sampling
+  (`bench/results/2026-08-25_refview_b_qwen2048_int8_occupancy.json`,
+  compute-bound, not streaming-bound). Arm A's render was stopped before it
+  wrote; rerun it for the cheap-view number if wanted.
+- **The W4 lane continues only as the small-host variant**, with GPTQ as its
+  method check: `bench/h3_gptq_recipe.py`, the pilot's
+  `--modifier gptq | awq_gptq`, and `bench/check_h3_gptq_recipe.py` are
+  committed. GPTQ alone runs first (AWQ-then-GPTQ has a Hessian seam, read
+  the recipe docstring). Nothing has run on the card yet.
+- **The DiT reads the prompt late and through few heads**
+  (`bench/measure_dit_prefix_attention.py`, T2VA capture): 13% of
+  attention on the prefix at block 49 against a 0.29% share, 0.2% at block
+  0; section keys over-read, cut timestamps under-read. The ref2va version
+  needs the capture path to dump token tags and vision spans, then one
+  captured render.
+- **The pool cannot weight the schema**: of the seven H3 markers only
+  `<d>`/`</d>` occur in H3-IR (536 rows); the other five and every timestamp
+  tag occur zero times (`bench/results/2026-08-25_v3_selection_*.json`,
+  `markers_observed_in_pool`). A token-balanced selection moves text from
+  14% to 24% of tokens but strict schema positions stay near 1%. Weight on
+  markers is a corpus question (`bench/marker_corpus/`), not a selector one.
 
-## Filled in after the run
+## What runs next, in order (card work; ComfyUI stopped first, restarted after)
 
-- **The run landed at 16:59:54** (exit 0, 3 h 22 min, host peak 82 GiB,
-  controls green); candidate 19.01 GiB in 14 files; run record committed
-  (acc4fd5). Converted to the single file and its snapshot
-  (`config/qwen3vl_32b_minimax_h3_w4a16_awq_v2/`, committed fcda1f7);
-  acceptance check green on every case except the fixture case, which
-  compares the real candidate against the *smoke* snapshot by design and is
-  red on any real candidate.
-- **Gate 5: reject against the pre-registered bar.** v2's median relative L2
-  against BF16 is above v1's on both geometries (0.333 vs 0.312 at 2048,
-  0.367 vs 0.359 at no-upscale), v2 wins only 8 and 6 of 13 rows, its worst
-  rows are better than v1's, text is marginally better. Numbers, the
-  per-row reading and the suspects are in the launch record's Gate 5
-  section; the record is `bench/results/2026-08-25_v2_holdout_layer50.json`
-  and the per-row captures are under `internal/v2_run_2026-08-25/gate5_*`.
-- **v2 does not replace v1.** It stays on disk and in its snapshot; the
-  deployed artifact is unchanged. It can carry the ablation as the encoder
-  that accepts the 2048 view, which v1 clamps.
-- **Four-encoder table done 18:45 (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`):
-  INT8 ConvRot is ~15x closer to BF16 than either W4 artifact on every
-  population; NVFP4 between. Owner decision: INT8 is the encoder for the
-  ablation and the marker arms. First thing tomorrow: switch the three
-  ablation graphs' encoder combo to `qwen3vl_32b_minimax_h3_int8_convrot`
-  in `workflows/build_workflows.py` (h3_config's encoder constant), rebuild,
-  keep `check_attention_defaults` and `check_model_files` green, rerun
-  preflight, then the occupancy render to price INT8's encode time per
-  prompt. The W4 lane is the small-host variant only.
-- **Prefix-attention instrument landed (4592072):** `bench/measure_dit_prefix_attention.py`
-  and its check. On the T2VA capture the DiT reads the prompt late (13% of
-  attention at block 49 against a 0.29% share; 0.2% at block 0), through a
-  minority of heads, over-reads section keys and under-reads cut
-  timestamps. The ref2va version needs the capture path to dump the
-  encoder's token tags and vision spans, then one captured render
-  (`workflows/h3_probe_capture_ref3_api.json`). Also found: that capture's
-  `manifest.json` describes a different render than its tensors and
-  `check_capture_manifest.py` passes it; ungated.
-- **(superseded) First thing tomorrow, before the ablation:** extend
-  `bench/compare_transformers_comfy_layer50.py`'s ComfyUI arm with
-  `--clip-path` (core's own CLIP loader, for the ComfyUI-native
-  `qwen3vl_32b_minimax_h3_int8_convrot` and `..._nvfp4_awq` encoders), then
-  grade all four encoders on the same holdout against BF16. That table
-  decides which encoder the ablation and the marker arms run on, and closes
-  the open item from `internal/postmortems/2026-08-23_session_h3_awq_hf_workflows_and_encoder_ab.md`.
-- **Two confounds, found after the verdict (launch record, Gate 5
-  section):** v1 was calibrated with `duo_scaling: false`, v2 with `true`,
-  so data and scale rule changed together; and the candidate's `recipe.yaml`
-  is empty because the emit path saves after the session closes (the run
-  record carries the recipe). The cheapest attribution experiment is a
-  rerun on the same 29 rows with `--awq-duo-scaling false` (about 3.5 h,
-  same launcher): v2b close to v1 means the data did not matter at this bit
-  width; v2b better than v1 means duo scaling hurt. Fix the emit path to
-  write the recipe before that run so the artifact carries it.
-- **Overfit test: done 18:25** (`bench/results/2026-08-25_v2_calibration_rows_layer50.json`):
-  v2 11% better than v1 on its own rows, 7% worse on the holdout; leaning
-  overfit, but the floor (0.33 to 0.38 for both, everywhere) is the story.
-  Recipe first: AWQ+GPTQ or more bits on the sensitive layers, on a
-  token-balanced stratified population with a per-stratum bar.
-- **Then, if v2's population is the suspect:** the modifier-cache change is
-  what a larger population needs (deferred work in the plan); a recipe
-  variant (smoothing `o_proj`, a smaller group) is the cheaper experiment
-  and runs at today's population in the same 3.5 hours.
-- One text-only row is bad under both W4 artifacts (relative L2 0.74 / 0.89
-  where the median is 0.06); find which and why before reading the text
-  criterion as clean.
-- Instrument notes from today's first real run: the ComfyUI arm needs
-  `--reserve-vram-gib 16` for rows above about 20k tokens; a rerun skips
-  captured rows (`--all-rows`); text-only rows are handled. The
-  `bench/check_no_owner_paths.py` red from the converter's print is fixed
-  (a5ff7b3).
+1. **GPTQ probe**, ~10 min: `internal/v2_run_2026-08-25/run_gptq_probe.sh`
+   (2 layers, 8 rows, disk tier, cgroup cap, emits to scratch). Read the
+   record for `hessian_peak_gib_by_device` (decides
+   `--gptq-offload-hessians`), `cholesky_fallbacks` (must be empty, else
+   raise `--gptq-dampening-frac`), `seconds_in_gptq_quantize` per layer, and
+   whether the emitted candidate carries `actorder: static` and the adapter
+   accepts it (`probe_awq_recipe_boundary.py` compares `actorder` with the
+   deployed artifact and will differ by design).
+2. **GPTQ full run on the same 29 rows** (`run_gptq_full.sh`, pass the
+   offload flag if the probe says so): the method check against v2, same
+   holdout, same bar. Then the Gate 5 pass with `run_gate5.sh` pointed at the
+   new candidate name (edit `CAND`/`V2`/snapshot name; a new suffix, never
+   `--force` over a snapshot an artifact matches). Accept for the small-host
+   variant only if it beats v1 on the bar; INT8 stays the encoder of record
+   regardless.
+3. **Gate 6 blind pairs on INT8**: `bench/run_graph_arms.py --manifest
+   bench/gate6_refview_arms.json` with mr_data's population patched in
+   (their selection file under their results; the arms differ only where a
+   still's short edge is below 2048; the null-control row must read as
+   identical), then `bench/blind_batch.py`, the scoring app,
+   `bench/score_session.py`; the owner judges (`docs/eval_comparison.md`
+   section 3).
+4. **Marker arms on INT8**: the corpus (`bench/marker_corpus/compiled.json`)
+   through `MiniMaxH3MarkerArm` with the stamp's `encoder_arm` block as
+   evidence; arms release IDs, legacy BPE, stripped, mean-initialised rows.
+5. **Prefix attention on ref2va**: capture-side change (dump
+   `minimax_token_tags` and `embeds_info` beside the tensors), one captured
+   render of `workflows/h3_probe_capture_ref3_api.json`, then the measurement
+   with the label-span classes. Also gate the capture manifest against its
+   own tensors (`check_capture_manifest.py` passed a manifest describing a
+   different render).
+6. **v3 population**, only if GPTQ earns it: re-run the two v3 selections
+   with `--exclude-selection internal/v2_run_2026-08-25/selections/selection_holdout_v2b.json`
+   (they excluded the catalogue series but not the holdout), decide the
+   vision cap rather than inherit 6,000, build two bundles (the 26 text-only
+   rows need their own bundle and run: the trace fixes the modality
+   envelope), review with mr_data's harness, then run.
+7. Parked by owner decision: checkpoint/resume (module and check exist;
+   integrate only for a run longer than five hours); the `duo_scaling false`
+   attribution rerun (superseded by the method change).
+
+## Loose ends found tonight, none blocking
+
+- The generator warns that three `h3_image_probe_format_*` graphs carry
+  three widget values for four `MiniMaxH3AppendRefImage` widgets (from the
+  `qwen_short_edge` addition); rebuild and check before touching those
+  graphs.
+- One text-only holdout row is bad under both W4 artifacts (relative L2 0.74
+  and 0.89 where the median is 0.06); find which and why before reading the
+  text criterion as clean.
+- `report["boundary"]` in the pilot still says "no recipe instantiated" on
+  modifier-bearing runs; existing records carry it; a separate decision.
+- The `server reserve` rule from earlier stands: measured on the ablation
+  arms before any `start.sh` default changes; the owner also wants the other
+  defaults in that script audited, by measurement.
+- Peer sessions ended tonight; fresh ones take the roles with the files
+  named above.

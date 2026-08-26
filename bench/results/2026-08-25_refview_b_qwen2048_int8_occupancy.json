@@ -1,0 +1,330 @@
+{
+  "measured": "2026-08-25",
+  "produced_by": "bench/instrument_render_occupancy.py, nvidia-smi --query-gpu at 100 ms (raw log beside this file: 2026-08-25_refview_b_qwen2048_int8_occupancy_query.log)",
+  "what": "per-node GPU occupancy of one render; the sampler verdict is the launch-bound test for CUDA-graph replay",
+  "graph": {
+    "path": "workflows/h3_probe_refview_b_qwen2048_api.json",
+    "sha256_16": "fef2243c3710f70f",
+    "seed": 7,
+    "label": "refview_b_qwen2048_int8"
+  },
+  "render": {
+    "prompt_id": "d2ef1022-3f5a-4f6e-8f68-50ebbde15f02",
+    "error": null,
+    "total_seconds": 691.18
+  },
+  "sampler": {
+    "node_ids": [
+      "10"
+    ],
+    "n": 5604,
+    "util_pct": {
+      "mean": 99.3,
+      "p50": 100.0,
+      "min": 1.0
+    },
+    "power_w": {
+      "mean": 446.6,
+      "p50": 448.18,
+      "limit": 450.0,
+      "mean_pct_of_limit": 99.2
+    },
+    "mem_interface_pct": {
+      "mean": 35.2,
+      "p50": 2.0,
+      "p95": 100.0
+    },
+    "fb_mib_max": 18978.0,
+    "pclk_mhz": {
+      "p50": 2400.0,
+      "max_rated": 3105.0
+    },
+    "verdict": "COMPUTE/POWER-BOUND",
+    "evidence": "mean utilization.gpu 99.3% (launch signal < 80.0, bound >= 95.0); mean power 446.6 W = 99.2% of limit (launch signal < 90.0, bound >= 95.0)"
+  },
+  "phases": {
+    "50": {
+      "class_type": "MiniMaxH3AppendRefImage",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "51": {
+      "class_type": "MiniMaxH3AppendRefImage",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "52": {
+      "class_type": "MiniMaxH3AppendRefImage",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "2": {
+      "class_type": "CLIPLoader",
+      "seconds": 0.27,
+      "n": 3,
+      "util_pct": {
+        "mean": 0.0,
+        "p50": 0.0,
+        "min": 0.0
+      },
+      "power_w": {
+        "mean": 16.7,
+        "p50": 16.66,
+        "limit": 450.0,
+        "mean_pct_of_limit": 3.7
+      },
+      "mem_interface_pct": {
+        "mean": 10.0,
+        "p50": 10.0,
+        "p95": 10.0
+      },
+      "fb_mib_max": 440.0,
+      "pclk_mhz": {
+        "p50": 210.0,
+        "max_rated": 3105.0
+      }
+    },
+    "5": {
+      "class_type": "MiniMaxH3ReferenceConditioning",
+      "seconds": 59.56,
+      "n": 571,
+      "util_pct": {
+        "mean": 95.8,
+        "p50": 100.0,
+        "min": 0.0
+      },
+      "power_w": {
+        "mean": 337.1,
+        "p50": 364.79,
+        "limit": 450.0,
+        "mean_pct_of_limit": 74.9
+      },
+      "mem_interface_pct": {
+        "mean": 22.3,
+        "p50": 26.0,
+        "p95": 42.5
+      },
+      "fb_mib_max": 20470.0,
+      "pclk_mhz": {
+        "p50": 2685.0,
+        "max_rated": 3105.0
+      }
+    },
+    "26": {
+      "class_type": "MiniMaxH3Preflight",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "1": {
+      "class_type": "UNETLoader",
+      "seconds": 0.12,
+      "n": 1,
+      "util_pct": {
+        "mean": 100.0,
+        "p50": 100.0,
+        "min": 100.0
+      },
+      "power_w": {
+        "mean": 384.6,
+        "p50": 384.63,
+        "limit": 450.0,
+        "mean_pct_of_limit": 85.5
+      },
+      "mem_interface_pct": {
+        "mean": 42.0,
+        "p50": 42.0,
+        "p95": 42.0
+      },
+      "fb_mib_max": 5172.0,
+      "pclk_mhz": {
+        "p50": 2685.0,
+        "max_rated": 3105.0
+      }
+    },
+    "19": {
+      "class_type": "MiniMaxH3SigmaShift",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "20": {
+      "class_type": "MiniMaxH3SageAttention",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "21": {
+      "class_type": "SolAttnMiniMax",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "23": {
+      "class_type": "SageChainAssert",
+      "seconds": 0.03,
+      "n": 0
+    },
+    "8": {
+      "class_type": "BasicScheduler",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "7": {
+      "class_type": "KSamplerSelect",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "9": {
+      "class_type": "BasicGuider",
+      "seconds": 0.0,
+      "n": 0
+    },
+    "6": {
+      "class_type": "RandomNoise",
+      "seconds": 0.0,
+      "n": 1,
+      "util_pct": {
+        "mean": 100.0,
+        "p50": 100.0,
+        "min": 100.0
+      },
+      "power_w": {
+        "mean": 384.6,
+        "p50": 384.63,
+        "limit": 450.0,
+        "mean_pct_of_limit": 85.5
+      },
+      "mem_interface_pct": {
+        "mean": 42.0,
+        "p50": 42.0,
+        "p95": 42.0
+      },
+      "fb_mib_max": 5172.0,
+      "pclk_mhz": {
+        "p50": 2685.0,
+        "max_rated": 3105.0
+      }
+    },
+    "10": {
+      "class_type": "SamplerCustomAdvanced",
+      "seconds": 600.18,
+      "n": 5604,
+      "util_pct": {
+        "mean": 99.3,
+        "p50": 100.0,
+        "min": 1.0
+      },
+      "power_w": {
+        "mean": 446.6,
+        "p50": 448.18,
+        "limit": 450.0,
+        "mean_pct_of_limit": 99.2
+      },
+      "mem_interface_pct": {
+        "mean": 35.2,
+        "p50": 2.0,
+        "p95": 100.0
+      },
+      "fb_mib_max": 18978.0,
+      "pclk_mhz": {
+        "p50": 2400.0,
+        "max_rated": 3105.0
+      }
+    },
+    "12": {
+      "class_type": "VAEDecodeAudio",
+      "seconds": 0.55,
+      "n": 5,
+      "util_pct": {
+        "mean": 44.0,
+        "p50": 30.0,
+        "min": 30.0
+      },
+      "power_w": {
+        "mean": 351.3,
+        "p50": 326.59,
+        "limit": 450.0,
+        "mean_pct_of_limit": 78.1
+      },
+      "mem_interface_pct": {
+        "mean": 14.6,
+        "p50": 3.0,
+        "p95": 49.39999999999999
+      },
+      "fb_mib_max": 1574.0,
+      "pclk_mhz": {
+        "p50": 2415.0,
+        "max_rated": 3105.0
+      }
+    },
+    "11": {
+      "class_type": "VAEDecode",
+      "seconds": 27.57,
+      "n": 261,
+      "util_pct": {
+        "mean": 85.0,
+        "p50": 100.0,
+        "min": 10.0
+      },
+      "power_w": {
+        "mean": 388.3,
+        "p50": 441.97,
+        "limit": 450.0,
+        "mean_pct_of_limit": 86.3
+      },
+      "mem_interface_pct": {
+        "mean": 32.8,
+        "p50": 39.0,
+        "p95": 40.0
+      },
+      "fb_mib_max": 6610.0,
+      "pclk_mhz": {
+        "p50": 2445.0,
+        "max_rated": 3105.0
+      }
+    },
+    "13": {
+      "class_type": "VHS_VideoCombine",
+      "seconds": 2.88,
+      "n": 28,
+      "util_pct": {
+        "mean": 12.0,
+        "p50": 0.0,
+        "min": 0.0
+      },
+      "power_w": {
+        "mean": 175.8,
+        "p50": 98.99,
+        "limit": 450.0,
+        "mean_pct_of_limit": 39.1
+      },
+      "mem_interface_pct": {
+        "mean": 3.9,
+        "p50": 0.0,
+        "p95": 22.0
+      },
+      "fb_mib_max": 5906.0,
+      "pclk_mhz": {
+        "p50": 2700.0,
+        "max_rated": 3105.0
+      }
+    }
+  },
+  "substrate": {
+    "raw": "NVIDIA GeForce RTX 4090, 610.57.04, 450.00 W, 450.00 W, 24564 MiB, P2",
+    "gpu": "NVIDIA GeForce RTX 4090",
+    "driver": "610.57.04",
+    "power_limit": "450.00 W",
+    "power_default_limit": "450.00 W",
+    "memory_total": "24564 MiB",
+    "power_limit_is_stock": true,
+    "torch": "2.13.0+cu132",
+    "comfy_kitchen": "0.2.31+sol.23d1a66",
+    "sageattention": "2.2.0",
+    "git_commit": "a013f2da98c1e1ca9b1f1dffdde94724af678fc6",
+    "git_dirty": true
+  },
+  "rule": {
+    "launch_util_below": 80.0,
+    "launch_power_below_pct": 90.0,
+    "bound_util_at_least": 95.0,
+    "bound_power_at_least_pct": 95.0
+  }
+}
