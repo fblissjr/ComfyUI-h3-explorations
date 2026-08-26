@@ -140,6 +140,51 @@ stays upstream's and cannot silently diverge from it.
 
 ---
 
+## Replicating the reference
+
+The vendor ships `predict_ref2v.py` and a scheduler, and three things about
+how they consume the fused heads are worth matching rather than approximating.
+
+**Euler, not `er_sde`.** `coderef/diffusers/src/diffusers/schedulers/scheduling_minimax_h3.py::step` says it takes "one
+Euler (`eta = 0`) step", and their adapter defines the fused head as "the mean
+velocity of one block, which an Euler step over the block boundaries consumes".
+`er_sde` injects noise and uses a different update rule, so the heads would be
+consumed by something they were never distilled against. The PDD arms carry
+`euler` for that reason and no other.
+
+**The sigma grid already matches, and is now graded.** `simple` is EXACT at 4
+and 8 steps -- it reads the discrete 1,000-entry table and both divide 1,000,
+measured in `bench/check_distill_grid.py`. That check skipped every PDD graph
+until 2026-08-26 because `is_turbo` is false for a PDD filename; it now grades
+them against `pdd_math.block_bounds`, which is analytic ground truth rather
+than a vendor table, on both the video and audio streams.
+
+**Dense attention is the reference configuration**, not a handicap. Their
+pipeline is Diffusers' `ModularPipeline` on stock SDPA. It costs about 2.4x on
+this workload -- 70.3 s/it against 28.7 with sage+Sol -- because at ~90k packed
+tokens attention is quadratic and dominates everything else. Worth stating
+plainly: **that makes a dense 8-step PDD render slower than a sage+Sol 16-step
+base render.** The step count was never the expensive part at this sequence
+length. These arms pay it to be comparable to the reference; it is not the
+configuration to render production clips in.
+
+### The `p` axis they ship and never use
+
+`MiniMaxH3ParallelHead.forward` builds `einsum("pn,noi->poi", plan, W)` and
+flattens, so one forward can emit `p` separate velocity fields, and `set_plan`
+accepts any `p`. `pdd_sampling_plan` only ever builds `p=1`.
+
+That is correct, and the reason is worth recording so nobody "improves" it:
+every head in a block reads the SAME hidden state, so the block has no internal
+feedback and `sum(dt_n * v_n)` is identically `sum(dt) * weighted_mean(v)`.
+Measured 2026-08-26 at 3.7e-16 relative -- floating-point noise. Taking four
+sub-steps buys exactly nothing over one mean-velocity step.
+
+It stops being redundant only if something nonlinear happens between sub-steps,
+which is what a stochastic sampler does. So the latent capability is a 32-step
+stochastic trajectory at 8 NFE. That is off-distribution from how the heads
+were distilled and nothing here has tried it.
+
 ## Two traps that are silent in both directions
 
 ### The partitions have identical key sets
@@ -165,12 +210,32 @@ Our default checkpoints are pruned, and a pruned checkpoint replaces the
 adaln LoRA's input space does not exist there, so `load_lora` would drop all 50
 modules with a log line and apply the other 208.
 
-The node re-injects them at run time from a grid of `silu(t_emb)`, recovering
-the row per timestep from the model's own table. **The grid is
-partition-specific**: the fl2va and ref2va time curves differ by 7.8% relative
-(measured 2026-08-26 against both release partitions), so ours is derived at
-conversion time from the same checkpoint that supplies the fingerprint, rather
-than bundled once and reused.
+**It turns out the delta fits that basis.** `convert_pdd_lora.py --pruned`
+pre-solves it there -- an affine fit, basis plus a constant column, because the
+pruned form is an SVD of the CENTRED time curve and the mean lives in the bias
+-- so the update becomes an ordinary `diff` / `diff_b` weight patch. Measured
+per block over the 1025-row grid: **worst 1.1e-4 relative**, roughly thirty
+times below bf16's own resolution, and refused at conversion time above 1e-3.
+That removes 50 forward patches, a `cdist` per forward, the per-call casts, and
+lets strength compose through ComfyUI's own patch path.
+
+The first version of that measurement omitted the centring and reported
+0.93-0.99, i.e. "cannot be baked". The positive control caught it: the BASE
+adaln curve scored just as badly, which cannot be true of a basis fitted to it.
+
+**The bake is basis-specific, and a fit residual cannot tell you so.** Baking
+ref2va's delta against fl2va's table fits just as well and writes without
+complaint -- both bases are SVDs of very similar smooth curves, so they span
+nearly the same subspace and differ in their COORDINATES. That bake is 0.0205
+wrong at runtime against 0.0001 for the right one. The guard is the node
+comparing the stored table against the loaded checkpoint's own, at a tolerance
+that has to sit above a dtype cast (0.00164) and below the partition gap
+(0.01835).
+
+The runtime injection remains as the fallback for a file converted without
+`--pruned`. It is partition-specific for the same reason: the fl2va and ref2va
+time curves differ by 7.8% relative, so its grid is derived from the same
+checkpoint that supplies the fingerprint rather than bundled once and reused.
 
 ---
 

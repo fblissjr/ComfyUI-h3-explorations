@@ -59,6 +59,30 @@ that `MiniMaxH3PDDLoRA` reads.
     means our result is not bit-identical to theirs; it is closer to the
     intended arithmetic, not further.
 
+`h3_pdd.adaln_baked.blocks.{i}.diff` / `.diff_b`   [96768, 8] / [96768]
+    The adaln update pre-solved into the pruned checkpoint's OWN rank-8 time
+    basis, so it becomes an ordinary weight patch instead of a runtime
+    injection. Emitted only with `--pruned`, because the basis is that
+    checkpoint's.
+
+    This is possible because the delta's time curve turns out to lie in that
+    basis. Measured 2026-08-26 over the 1025-row grid, reconstructed against
+    the true delta: **1.2e-5 to 6.1e-5 relative**, roughly fifty times below
+    bf16's own resolution. The projection is affine -- the basis plus a
+    constant column -- because the pruned form is an SVD of the CENTRED time
+    curve and the mean lives in the bias.
+
+    The first version of that measurement omitted the centring and reported
+    0.93-0.99, i.e. "cannot be baked". What caught it was projecting the BASE
+    adaln curve too: it scored just as badly, which cannot be true of a basis
+    fitted to it. A positive control is the only reason this exists.
+
+`h3_pdd.adaln_table`  [1025, 8]
+    The table the bake was solved against, so the node can confirm the loaded
+    checkpoint carries the same one before using the baked path. Verified
+    identical between a partition's `int8_convrot` and `fp8_scaled` builds and
+    different between partitions, so one bake serves a partition's variants.
+
 `h3_pdd.silu_temb_grid`  [1025, 2688]
     silu(time_embedder(t)) over `linspace(0, 1, 1025)`, derived from `--base`.
     Consumed ONLY on a pruned checkpoint, where it is what mechanism 2 above
@@ -274,13 +298,27 @@ def main(argv=None) -> int:
                          "partition; supplies the time grid and the "
                          "partition fingerprint")
     ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--pruned", type=Path, default=None,
+                    help="pruned checkpoint of the SAME partition. Supplies "
+                         "`adaln_t_table`, which lets the adaln update be "
+                         "pre-solved into that basis and applied as an "
+                         "ordinary weight patch instead of a runtime "
+                         "injection. Without it the file still works, through "
+                         "the slower injection path.")
+    ap.add_argument("--block-size", type=int, default=None,
+                    help="override the fused block size. The published grid is "
+                         "32 points at block 4 (8 NFE); block 8 gives 4 NFE, "
+                         "which the vendor's own README reports rendering at. "
+                         "Every divisor of the grid lands exactly on the plain "
+                         "shifted schedule for its step count.")
     ap.add_argument("--shift-video", type=float, default=DEFAULT_SHIFT_VIDEO)
     ap.add_argument("--shift-audio", type=float, default=DEFAULT_SHIFT_AUDIO)
     args = ap.parse_args(argv)
 
     meta = read_metadata(args.pdd)
     num_steps = int(meta["pdd_num_steps"])
-    block_size = int(meta["pdd_block_size"])
+    block_size = int(args.block_size or meta["pdd_block_size"])
+    trained_block = int(meta["pdd_block_size"])
     rank = int(meta["lora_rank"])
     alpha = float(meta["lora_alpha"])
     targets = [t for t in str(meta["lora_targets"]).split(",") if t]
@@ -347,8 +385,61 @@ def main(argv=None) -> int:
     out["h3_pdd.head.audio.bias"] = fuse_heads(
         src["audio_proj_out.bias"], args.shift_audio, num_steps, block_size)
 
-    out["h3_pdd.silu_temb_grid"] = derive_silu_temb_grid(args.base)
+    grid = derive_silu_temb_grid(args.base)
+    out["h3_pdd.silu_temb_grid"] = grid
     out["h3_pdd.base_video_out"] = base_video_out(args.base)
+
+    baked = 0
+    if args.pruned is not None:
+        with safe_open(args.pruned, framework="pt") as f:
+            if "adaln_t_table" not in set(f.keys()):
+                raise SystemExit(
+                    f"{args.pruned.name} carries no adaln_t_table, so it is not "
+                    f"a pruned/curve-form checkpoint and there is no basis to "
+                    f"solve into. Pass the pruned build of this partition.")
+            table = f.get_tensor("adaln_t_table").to(torch.float64)
+        out["h3_pdd.adaln_table"] = table.to(torch.float32)
+        # Affine design matrix: the basis, plus a constant column for the mean
+        # the pruned form keeps in its bias rather than in the basis.
+        design = torch.cat([table, torch.ones(table.shape[0], 1,
+                                              dtype=torch.float64)], dim=1)
+        worst = 0.0
+        for i in range(n_blocks):
+            a = out[f"h3_pdd.adaln.blocks.{i}.lora_A"].to(torch.float64)
+            b = out[f"h3_pdd.adaln.blocks.{i}.lora_B"].to(torch.float64)
+            curve = grid.to(torch.float64) @ a.T          # [rows, rank]
+            coef = torch.linalg.lstsq(design, curve).solution   # [9, rank]
+            out[f"h3_pdd.adaln_baked.blocks.{i}.diff"] = \
+                (b @ coef[:-1].T).to(torch.float32)
+            out[f"h3_pdd.adaln_baked.blocks.{i}.diff_b"] = \
+                (b @ coef[-1]).to(torch.float32)
+            # Graded per block against the delta it replaces, not assumed.
+            #
+            # This asks "does this curve fit a rank-8 smooth-time basis at
+            # all", and it is NOT a partition check -- measured 2026-08-26 by
+            # deliberately baking ref2va's delta against fl2va's table, which
+            # fit just as well and was written without complaint. Both bases
+            # are SVDs of very similar smooth time curves, so they span nearly
+            # the same subspace; what differs is the COORDINATES, and a fit is
+            # blind to that by construction. The wrong-basis bake is 0.0205
+            # wrong at runtime against 0.0001 for the right one.
+            #
+            # The guard for that is `MiniMaxH3PDDLoRA`'s comparison of
+            # `h3_pdd.adaln_table` against the loaded checkpoint's own, which
+            # is why this file stores the table rather than trusting the fit.
+            true = curve @ b.T
+            got = (design @ coef) @ b.T
+            err = float((got - true).norm() / true.norm())
+            worst = max(worst, err)
+            if err > 1e-3:
+                raise SystemExit(
+                    f"block {i}: the adaln delta does not fit the pruned "
+                    f"checkpoint's rank-8 time basis (rel {err:.2e}). Baking it "
+                    f"would misapply the modulation at every timestep. Convert "
+                    f"without --pruned to keep the runtime injection.")
+            baked += 1
+        print(f"  baked {baked} adaln modules into {args.pruned.name}'s basis, "
+              f"worst reconstruction {worst:.2e}")
 
     # --- self-check: the emitted delta must equal the source delta ----------
     # Not a restatement of the code above: it reconstructs B @ A on both sides
@@ -392,6 +483,9 @@ def main(argv=None) -> int:
             out["h3_pdd.base_video_out"].contiguous().numpy().tobytes()).hexdigest(),
         "pdd_num_steps": str(num_steps),
         "pdd_block_size": str(block_size),
+        "pdd_trained_block_size": str(trained_block),
+        "adaln_baked_blocks": str(baked),
+        "h3_pdd_pruned_base": args.pruned.name if args.pruned else "",
         "pdd_nfe": str(nfe),
         "pdd_shift_video": repr(args.shift_video),
         "pdd_shift_audio": repr(args.shift_audio),

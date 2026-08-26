@@ -34,7 +34,7 @@
   "7": {
     "class_type": "KSamplerSelect",
     "inputs": {
-      "sampler_name": "er_sde"
+      "sampler_name": "euler"
     }
   },
   "8": {

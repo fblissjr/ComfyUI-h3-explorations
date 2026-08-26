@@ -125,8 +125,10 @@ WORKFLOWS = REPO / "workflows"
 VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 
 from h3_config import graph_paths  # noqa: E402
+from pdd_math import block_bounds  # noqa: E402
 from check_distill_settings import (  # noqa: E402
-    LEGAL, OWNER_RECIPE, PACK_STEPS, classify, classify_pack, is_turbo,
+    LEGAL, OWNER_RECIPE, PACK_STEPS, classify, classify_pack, classify_pdd,
+    pdd_nfe, is_turbo,
     read_api, read_ui,
 )
 
@@ -563,6 +565,61 @@ def main() -> int:
           recipe_arms_are_declared_and_simple_is_nearest)
     check("split arms share one shift", split_arms_share_one_shift)
     check("divisor regime holds", divisor_regime_holds)
+    def pdd_graphs_on_their_fused_grid():
+        """A PDD graph samples exactly where its fused heads were built.
+
+        Graded against ANALYTIC ground truth, not a vendor table. A PDD file
+        records the shifts and the grid its heads were fused at, and
+        `pdd_math.block_bounds` turns those into the exact times the sampler
+        must land on -- so unlike the turbo rows above there is no published
+        list to parse and no tolerance to negotiate. Off those boundaries the
+        fused output heads decode intervals the sampler never visits, and the
+        node's own runtime warning is the only other thing that would say so.
+
+        Not covered by the cases above: `is_turbo` is false for a PDD
+        filename, so every one of these graphs was skipped there.
+        """
+        bad, seen = [], 0
+        for path in graph_paths(WORKFLOWS):
+            doc = json.loads(path.read_text())
+            found = read_ui(doc) if isinstance(doc.get("nodes"), list) else read_api(doc)
+            names = [n for n in found.loras if classify_pdd(n)]
+            if not names:
+                continue
+            seen += 1
+            rel = path.relative_to(REPO)
+            if found.shift is None or found.steps is None or found.scheduler is None:
+                bad.append(f"{rel}: loads a PDD LoRA but its shift, steps or "
+                           f"scheduler could not be read")
+                continue
+            nfe = pdd_nfe(names[0])
+            if nfe is None:
+                bad.append(f"{rel}: could not read pdd_nfe from {names[0]}")
+                continue
+            sv, sa = found.shift
+            video, audio = comfy_grid(sv, sa, found.scheduler, found.steps)
+            for label, got, shift in (("video", video, sv), ("audio", audio, sa)):
+                want = [1.0 - float(t) for t in
+                        block_bounds(shift, nfe * 4, 4).tolist()]
+                dev = deviation(got, want)
+                if dev > 1e-6:
+                    bad.append(
+                        f"{rel}: {label} sigmas deviate {dev:.5f} from the "
+                        f"boundaries its heads were fused at "
+                        f"(scheduler={found.scheduler}, steps={found.steps}, "
+                        f"shift={shift})")
+        assert not bad, "\n         ".join(bad)
+        # A case whose input is empty passes for the wrong reason. PDD arms are
+        # shipped, so zero here means the scanner stopped recognising the
+        # loader -- which is how `is_turbo` silently excluded these graphs from
+        # every case above until 2026-08-26.
+        assert seen, ("no graph was recognised as loading a PDD LoRA, so this "
+                      "case graded nothing and passed. Check that read_api / "
+                      "read_ui still see MiniMaxH3PDDLoRA.")
+        return f"{seen} PDD graph(s), exact on both streams"
+
+    check("pdd graphs on their fused grid", pdd_graphs_on_their_fused_grid)
+
     check("graphs on grid", graphs_on_grid)
     check("exemptions necessary", exemptions_necessary)
     print(f"        ({len(graded)} distilled graph(s), "

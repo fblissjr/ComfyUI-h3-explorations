@@ -5671,6 +5671,21 @@ def main():
         # differ from a base ref2va arm in the loader and the step count and in
         # nothing else. Every other accelerator here moves at least two things.
         #
+        # EULER, not the repo's er_sde default. This is replication, not
+        # preference: alibaba-pai's own scheduler takes "one Euler (eta = 0)
+        # step" and their adapter defines the fused head as "the mean velocity
+        # of one block, which an Euler step over the block boundaries
+        # consumes". er_sde injects noise and uses a different update rule, so
+        # the heads would be consumed by something they were not distilled
+        # against.
+        #
+        # The scheduler stays `simple`, which bench/check_distill_grid.py
+        # measures as EXACT at 4 and 8 steps -- it reads the discrete
+        # 1,000-entry table and both divide 1,000 -- so these graphs already
+        # sample precisely on the boundaries the heads were fused at. That is
+        # now graded per graph against pdd_math.block_bounds rather than
+        # assumed.
+        #
         # NO ATTENTION PATCHING on any of these: no sage, no Sol. Both change
         # attention numerics, and the subject of every arm here is a numerical
         # mechanism in the output head. Leaving them wired puts two
@@ -5678,12 +5693,19 @@ def main():
         # head-selection defect of 2026-08-26 is exactly the kind of thing they
         # would have made unattributable. Owner decision, 2026-08-26.
         #
+        # It is also what the reference runs: their pipeline is Diffusers'
+        # ModularPipeline on stock SDPA, so dense here IS the vendor
+        # configuration rather than a handicap. It costs about 2.4x on this
+        # workload -- 70.3 s/it against 28.7 -- because at ~90k packed tokens
+        # attention is quadratic and dominates. That price is for replication;
+        # it is not the configuration to render production clips in.
+        #
         # Trained on transformer_ref itself, so docs/h3_ref2v_distillation.md's
         # Fact B -- an fl2v distill aimed at the wrong weights -- does not
         # apply to this one. Facts A and C do not follow from that and are
         # untouched.
         ("h3_probe_ref2v_pdd.json", "r2v-pdd", "r2v", _ref_prompt(images=True),
-         dict(pdd=True, dense_attn=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+         dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=243, out_prefix="Video/h3_probe_r2v_pdd",
               variant_note=_probe_note(
                   "does PDD hold ref2va identity at 8 steps",
@@ -5705,7 +5727,7 @@ def main():
         # perceptible or merely real.
         ("h3_probe_ref2v_pdd_headfree.json", "r2v-pdd-headfree", "r2v",
          _ref_prompt(images=True),
-         dict(pdd=True, dense_attn=True, pdd_heads=False,
+         dict(pdd=True, dense_attn=True, sampler_name="euler", pdd_heads=False,
               lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=243, out_prefix="Video/h3_probe_r2v_pdd_headfree",
               variant_note=_probe_note(
@@ -5724,7 +5746,7 @@ def main():
         # assuming, because it is the one that would break silently.
         ("h3_probe_ref2v_pdd_345.json", "r2v-pdd-345", "r2v",
          _ref_prompt(images=True),
-         dict(pdd=True, dense_attn=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+         dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=345, out_prefix="Video/h3_probe_r2v_pdd_345",
               variant_note=_probe_note(
                   "does PDD hold at the long end of the trained range",
@@ -5738,7 +5760,7 @@ def main():
 
         ("h3_probe_ref2v_pdd_8s.json", "r2v-pdd-8s", "r2v",
          _ref_prompt(images=True),
-         dict(pdd=True, dense_attn=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+         dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=192, out_prefix="Video/h3_probe_r2v_pdd_8s",
               variant_note=_probe_note(
                   "PDD at eight seconds",

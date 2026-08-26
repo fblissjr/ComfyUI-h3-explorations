@@ -7,8 +7,9 @@ that can be done offline; this node does the rest, which is the part that needs
 the loaded checkpoint in front of it.
 
     backbone   208 modules   weight patch, through comfy.lora
-    adaln       50 modules   weight patch on an unpruned base;
-                             runtime injection on a pruned one
+    adaln       50 modules   weight patch on an unpruned base; a weight patch
+                             in the curve basis on a pruned one when the file
+                             carries a bake; runtime injection otherwise
     heads        8 pairs     per-step swap of final_layer's two output linears
 
 ## Why the head swap is keyed on the timestep
@@ -46,23 +47,58 @@ keeps them off the offload bookkeeping entirely. They are cast to the
 activation's device and dtype per call, which is also what makes the
 CPU-offload case work while the projection runs on GPU.
 
-**The adaln injection is partition-specific.** On a pruned checkpoint the
-2688-dim time-embedding space the adaln delta lives in has been replaced by an
-8-column curve, so the update is re-injected at run time from a grid of
-`silu(t_emb)`. That grid differs between fl2va and ref2va by 7.8% relative --
-which is why ours is derived at conversion time from the same checkpoint that
-supplies the partition fingerprint, rather than bundled once. The turbo pack
-ships a single fl2va grid; reusing it for ref2va would feed the injection a
-7.8%-wrong input and render without complaint.
+**The adaln path is partition-specific, and usually is not an injection at
+all.** On a pruned checkpoint the 2688-dim space the adaln delta lives in has
+been replaced by an 8-column curve. `bench/convert_pdd_lora.py --pruned`
+pre-solves the delta into that same basis, so it becomes an ordinary weight
+patch and this node installs no adaln forward patches whatever -- no per-forward
+`cdist`, no per-call casts, and strength composes through ComfyUI's own `diff`
+path instead of a closure. The delta's time curve fits that basis to about
+1e-4, measured per block at conversion time and refused there if it does not.
 
-## Strength
+The runtime injection below is the fallback for a file converted without
+`--pruned`, or one whose bake was solved against a different table. It is
+partition-specific for the same reason the bake is: the fl2va and ref2va time
+curves differ by 7.8% relative, which is why our grid is derived from the same
+checkpoint that supplies the partition fingerprint rather than bundled once.
+The turbo pack ships a single fl2va grid; reusing it for ref2va would feed the
+injection a 7.8%-wrong input and render without complaint.
 
-Interpolates all three mechanisms together: the backbone and adaln deltas scale
-linearly, and each fused head is `base + strength * (fused - base)` against the
-checkpoint's own head. So `strength=0.0` is exactly the base model on every
-surface, which is what makes it a usable control here -- unlike the weight-patch
-path, where 0.0 short-circuits the dequantise/add/requantise round trip and is
-therefore not like-for-like (see `workflows/h3_config.py`).
+## Strength, and how it composes
+
+Every surface scales through the path that owns it, so nothing here reimplements
+weighting that ComfyUI already does:
+
+  backbone       `add_patches(..., strength)`  -- native
+  adaln, baked   `diff` / `diff_b` in the same dict -- native
+  adaln, injected  captured in the closure and applied to the delta
+  heads          `base + strength * (fused - base)`
+
+`strength=0.0` installs nothing on any of them, so it is exactly the base
+model. That is deliberately a different control from the one
+`workflows/h3_config.py` recommends for plain LoRAs, where 0.0 short-circuits
+the dequantise/add/requantise round trip and 0.01 is the like-for-like
+baseline -- use 0.01 here to price the backbone's numerical cost, 0.0 to get
+the base model back.
+
+## What the timestep keying buys downstream
+
+Deriving the step from `t_emb` rather than counting forwards is not only
+robustness against an extra evaluation. It is what lets this node sit in the
+graphs the repo already ships:
+
+  * **the step cache** skips forwards on reused steps. A counter would drift by
+    exactly the number of skips and never recover; a time lookup simply reads
+    whatever step the next real forward is at.
+  * **`split_at` two-pass sampling** runs part of the trajectory on one model
+    and part on another. A pass covering only the tail still selects the heads
+    for the tail, because the heads are indexed by time and not by how many
+    calls this particular model object has seen.
+  * **CFG**, if a graph ever runs it, doubles the forwards per step without
+    moving time at all.
+
+None of those needed special handling. They are the reason not to port the
+vendor's forward-hook counter, stated as capabilities rather than as hazards.
 """
 
 from __future__ import annotations
@@ -80,6 +116,22 @@ except ImportError:                      # loaded as a bare module by a script
 
 logger = logging.getLogger(__name__)
 
+# Dtypes, and why each is what it is. They are not interchangeable here.
+#
+#   fused heads, baked adaln diffs   fp32 on disk. `final_layer`'s two output
+#       projections are the checkpoint's fp32 island -- `comfy/ldm/minimax/
+#       model.py` builds them with an explicit `dtype=torch.float32` while the
+#       rest of the block is model dtype -- and the vendor's own fusion loses
+#       ~1.7e-3 by casting its plan to bf16 before the einsum. Storing fp32
+#       keeps the precision the island exists for.
+#   backbone / adaln LoRA pairs      bf16, as published. `calculate_weight`
+#       casts them itself, so nothing is gained by widening on disk.
+#   curve table and time grid        fp32, and compared in fp32. The step
+#       lookup is a `cdist` against 1025 rows spanning [0, 1]; in bf16 the row
+#       spacing would be at the edge of representable and the recovered `t`
+#       would quantise further than the 1e-3 the boundary snap already has to
+#       absorb.
+
 #: Log a warning once per patch when the recovered `t` sits this far from any
 #: block boundary. On the schedule the heads were fused for the residual is
 #: ~1e-9; the tightest boundary gap at 32/4 shift 12 is 0.0118, so this is well
@@ -93,6 +145,27 @@ BOUNDARY_TOLERANCE = 2e-3
 #: thousandths, so anything in between is unambiguous. Set an order of
 #: magnitude below the partition gap and an order above a cast.
 PARTITION_TOLERANCE = 0.015
+
+#: Relative distance allowed between the loaded checkpoint's `adaln_t_table`
+#: and the one a bake was solved against. A partition's `int8_convrot` and
+#: `fp8_scaled` builds carry byte-identical tables (verified 2026-08-26), so
+#: this only has to separate a dtype cast from a different partition's basis.
+#: Measured the same day: a bf16 cast of a table is 0.00164 away, and the fl2va
+#: and ref2va tables are 0.01835 apart. This sits between them -- three times
+#: above the cast, three and a half below the gap.
+#:
+#: It was 1e-3 for about an hour, which is BELOW the cast. That would have
+#: rejected every correct bake the moment the loader cast the buffer and fallen
+#: back to the injection -- slower, and silent, because the fallback is correct.
+#: The same shape as hashing `video_out`: a tolerance under the noise it has to
+#: tolerate.
+#:
+#: A mismatch FALLS BACK rather than raising. The injection is correct on any
+#: pruned base, so refusing the render would be worse than taking the slow path.
+#: What it must not do is bake anyway: a bake solved against the wrong basis is
+#: 0.0205 wrong at runtime against 0.0001 for the right one, and nothing
+#: downstream would say so.
+TABLE_TOLERANCE = 5e-3
 
 
 def _is_minimax_h3(diffusion_model) -> bool:
@@ -277,12 +350,20 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 io.Float.Input(
                     "strength", default=1.0, min=-10.0, max=10.0, step=0.01,
                     tooltip=(
-                        "Scales all three mechanisms together. 1.0 is the "
-                        "vendor's own default and what their demo clips were "
-                        "rendered at. 0.0 is exactly the base model here -- "
-                        "the heads fall back to the checkpoint's own, not just "
-                        "the weight deltas to zero -- so unlike the plain LoRA "
-                        "path it is a real control."
+                        "Scales all three mechanisms together, and each one "
+                        "through the path that owns it: the backbone and the "
+                        "adaln update are ordinary ComfyUI weight patches, so "
+                        "they take strength natively, and each fused head is "
+                        "base + strength * (fused - base) against the "
+                        "checkpoint's own head. 1.0 is the vendor's default "
+                        "and what their published clips were rendered at.\n\n"
+                        "0.0 installs nothing at all and is exactly the base "
+                        "model, heads included. Note that is a DIFFERENT "
+                        "control from the one h3_config recommends for plain "
+                        "LoRAs: there 0.0 short-circuits the "
+                        "dequantise/add/requantise round trip and 0.01 is the "
+                        "like-for-like baseline. Use 0.01 to isolate the "
+                        "backbone's numerical cost, 0.0 to get the base model."
                     ),
                 ),
                 # APPENDED, not inserted. Saved graphs match widget values by
@@ -314,6 +395,13 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         import comfy.lora
         import comfy.utils
         import folder_paths
+
+        # Coerced, not assumed. The schema declares FLOAT and BOOLEAN and the
+        # generator writes 1.0 / True, but an API prompt is JSON a person can
+        # hand-write, and `strength` reaches tensor arithmetic and an equality
+        # against 0.0 that decides whether anything is installed at all.
+        strength = float(strength)
+        patch_heads = bool(patch_heads)
 
         dm = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(dm):
@@ -372,14 +460,46 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         adaln = {k: v for k, v in sd.items() if k.startswith("h3_pdd.adaln.")}
         n_adaln = len({k.rsplit(".", 1)[0] for k in adaln})
 
+        # Which of the three adaln paths this checkpoint gets. Branching on
+        # `use_adaln_curves` and on the live table -- observables of the loaded
+        # model -- rather than on anything in the filename.
+        baked = None
+        if pruned and "h3_pdd.adaln_table" in sd:
+            live_table = dm.adaln_t_table.detach().to(torch.float32).cpu()
+            ref_table = sd["h3_pdd.adaln_table"].to(torch.float32)
+            if live_table.shape == ref_table.shape:
+                d = float((live_table - ref_table).norm() / ref_table.norm())
+                if d <= TABLE_TOLERANCE:
+                    baked = d
+                else:
+                    logger.warning(
+                        "[h3-pdd] %s was baked against a different curve table "
+                        "(%.5f away, tolerance %g); falling back to the runtime "
+                        "adaln injection, which is correct on any pruned base.",
+                        lora_name, d, TABLE_TOLERANCE)
+
         if not pruned:
-            # Unpruned base: the adaln update is an ordinary weight patch, so
-            # hand it to comfy.lora with the rest rather than injecting it.
+            # Unpruned base: the adaln update is an ordinary weight patch in the
+            # 2688-dim time space, so hand it to comfy.lora with the rest.
+            # The baked tensors are NOT offered here -- they are 8 columns wide
+            # and `calculate_weight` only WARNS on a shape mismatch before
+            # skipping, so a wrong-width diff would drop 50 modules with a log
+            # line rather than an error.
             for k, v in adaln.items():
                 i = k.split(".")[3]
                 slot = "lora_A" if k.endswith("lora_A") else "lora_B"
                 backbone[f"diffusion_model.blocks.{i}.adaln_proj.linear."
                          f"{slot}.weight"] = v
+        elif baked is not None:
+            # Pruned, with a bake solved against this checkpoint's own basis.
+            # `diff` / `diff_b` are comfy.lora's own patch kinds and take
+            # strength like any other patch.
+            for i in range(n_adaln):
+                base_key = f"diffusion_model.blocks.{i}.adaln_proj.linear"
+                backbone[f"{base_key}.diff"] = \
+                    sd[f"h3_pdd.adaln_baked.blocks.{i}.diff"]
+                backbone[f"{base_key}.diff_b"] = \
+                    sd[f"h3_pdd.adaln_baked.blocks.{i}.diff_b"]
 
         key_map = comfy.lora.model_lora_keys_unet(model.model, {})
         loaded = comfy.lora.load_lora(backbone, key_map, log_missing=True)
@@ -392,10 +512,26 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         m = model.clone()
         m.add_patches(loaded, strength)
 
-        # --- the two runtime surfaces ---------------------------------------
+        # --- the runtime surfaces -------------------------------------------
+        # The step tracker needs a table in whatever space `t_emb` lives in,
+        # and that follows `pruned` alone -- NOT whether the adaln update was
+        # baked. Those two were briefly conflated while adding the bake, which
+        # left `step_table` unset on the pruned-and-baked path, i.e. on the
+        # default configuration.
         if pruned:
-            grid = sd["h3_pdd.silu_temb_grid"]
             table = dm.adaln_t_table
+            step_table = table
+        else:
+            te = dm.time_embedder
+            step_table = silu_temb_grid(
+                te.proj_in.weight, te.proj_in.bias,
+                te.proj_out.weight, te.proj_out.bias,
+                rows=int(meta.get("pdd_grid_rows", 1025)), apply_silu=False)
+
+        if pruned and baked is None:
+            # Fallback only: a file with no bake, or one solved against another
+            # table. Installs 50 forward patches the baked path does not need.
+            grid = sd["h3_pdd.silu_temb_grid"]
             for i in range(n_adaln):
                 base = m.get_model_object(f"diffusion_model.blocks.{i}.adaln_proj")
                 m.add_object_patch(
@@ -405,13 +541,6 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         sd[f"h3_pdd.adaln.blocks.{i}.lora_A"],
                         sd[f"h3_pdd.adaln.blocks.{i}.lora_B"],
                         grid, table, strength))
-            step_table = table
-        else:
-            te = dm.time_embedder
-            step_table = silu_temb_grid(
-                te.proj_in.weight, te.proj_in.bias,
-                te.proj_out.weight, te.proj_out.bias,
-                rows=int(meta.get("pdd_grid_rows", 1025)), apply_silu=False)
 
         tracker = _StepTracker(
             step_table,
@@ -420,13 +549,20 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             nfe, lora_name)
 
         final_layer = m.get_model_object("diffusion_model.final_layer")
-        if patch_heads:
+        # strength 0 installs NOTHING on the head path. Interpolating to the
+        # base head would be arithmetically identical, but it would still route
+        # the projection through this module's `F.linear` instead of the
+        # checkpoint's own `operations.Linear`, which owns the casting and
+        # offload handling. "Exactly the base model" has to mean the base
+        # model's own code, or the claim is only nearly true and the control
+        # arm is only nearly a control.
+        if patch_heads and strength != 0.0:
             m.add_object_patch(
                 "diffusion_model.final_layer.forward",
                 _make_final_layer_forward(final_layer.forward, tracker))
         for stream, out_name in (
                 (("video", "video_out"), ("audio", "audio_out"))
-                if patch_heads else ()):
+                if (patch_heads and strength != 0.0) else ()):
             live = getattr(final_layer, out_name)
             base_w = live.weight.detach().to(torch.float32).cpu()
             base_b = live.bias.detach().to(torch.float32).cpu()
@@ -444,8 +580,11 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             "[h3-pdd] %s at strength %.3f: %d backbone modules patched, "
             "%d adaln %s, %s (grid %d/%d -> nfe %d, shifts %g/%g). Base is %s.",
             lora_name, strength, len(loaded), n_adaln,
-            "re-injected at run time (pruned base)" if pruned
-            else "applied as weight patches (unpruned base)",
+            ("baked into the curve basis, applied as weight patches"
+             if baked is not None else
+             "re-injected at run time (pruned base, no bake in this file)"
+             if pruned else
+             "applied as weight patches (unpruned base)"),
             f"{nfe} fused head pairs per stream" if patch_heads
             else "HEADS NOT PATCHED (control arm: the checkpoint's own heads)",
             num_steps, block_size, nfe, shift_v, shift_a,
