@@ -117,23 +117,74 @@ What to do instead, in the order I would do it:
    prompt and reference set, the encode happens once rather than per render and
    the whole VRAM question stops mattering for that workflow. Design note:
    [`conditioning_cache.md`](../../conditioning_cache.md).
-2. **Mixed precision chosen by measured per-module sensitivity.** The format
-   supports it already -- group size is read from each tensor's own
+2. **Mixed precision chosen by per-module sensitivity measured on captured
+   activations**, not on the weights -- see the subsection below for why the
+   distinction decides whether the allocation is worth anything. The format
+   supports the artifact already: group size is read from each tensor's own
    `comfy_quant` marker, so one file can carry I8 on some linears and 4-bit on
    others. Shaving INT8's H3 path to fit needs about 2.8 GiB, of which the
    embedding table at I8 is 0.72.
 3. **Leave the vision tower alone**, per the table above.
 
-**The measurement that is missing, and it is cheap.** No encoder-side
-per-module weight-error record was found under `bench/results/` on 2026-08-26.
-`analyze_quant_delta.py`'s per-module work is on the **DiT**
+### The measurement that is missing, and why it must be activation-aware
+
+No encoder-side per-module sensitivity record was found under `bench/results/`
+on 2026-08-26. `analyze_quant_delta.py`'s per-module work is on the **DiT**
 (`blocks.N.attn.qkv_proj`, `mlp.fc1/fc2`), and the four-encoder table is
-whole-encoder layer-50 only. Per-module sensitivity for Qwen's decoder is
-weights-only -- no renders, no calibration, no GPU time -- and it is what turns
-step 2 from a guess into a knapsack: minimise predicted layer-50 error under a
-byte budget. Anyone picking that up should also check whether the widest MLP
-input (`down_proj`, the same tensor family that dominated AWQ's host cache)
-tolerates 4 bits, because it is where the bytes are.
+whole-encoder layer-50 only. So step 2 currently has nothing to allocate bits
+with.
+
+**Measure it on captured activations, not on the weights.** The cheap version
+of this measurement ranks modules by weight error, `||W - W_hat||`. That is the
+wrong quantity and it is worth saying why before somebody builds it: a large
+perturbation in a direction the real activations never excite costs nothing
+downstream, and a small one in a heavily excited direction costs a lot. The
+quantity that predicts output error is `||Wx - W_hat x||` on the `x` that
+actually occurs. Same bit budget, sensitivity ranked on the distribution that
+occurs rather than on the weights in isolation.
+
+This repo already has the pattern:
+[`bench/grade_sage_on_capture.py`](../../../../bench/grade_sage_on_capture.py)
+grades a kernel against an exact reference on captured activations, which
+`CLAUDE.md` names as the only controlled comparison available here about a
+numerical knob. The same shape applied to a quantized linear instead of an
+attention kernel is the instrument step 2 needs. It requires captured
+activations and matrix multiplies -- no calibration run, no `llm-compressor`,
+no host budget, no ComfyUI downtime.
+
+**A second use for the same trace data: the objective.** Relative L2 over the
+raw layer-50 state weights all 5,120 dimensions and every position equally, and
+the DiT does not:
+[`bench/measure_dit_prefix_attention.py`](../../../../bench/measure_dit_prefix_attention.py)
+measured 13% of attention on the prefix at block 49 against 0.2% at block 0,
+with section keys over-read and cut timestamps under-read. The launch record
+already lists the metric as its own third suspect for the Gate 5 result. Trace
+data is what would let encoder error be weighted by what the DiT actually
+reads, which is a better objective for the knapsack than undifferentiated L2 --
+and the same criticism applies to every number in the four-encoder table, which
+is why that table decides *which file*, not *which module*.
+
+Whoever picks this up should check the widest MLP input (`down_proj`, the same
+tensor family that dominated AWQ's host cache) first, because that is where the
+bytes are.
+
+**What this does not change: AWQ already calibrates per layer on propagated
+real activations.** Raised as a proposal on 2026-08-26 and checked rather than
+assumed. `propagate_error` defaults to true
+(`coderef/llm-compressor/src/llmcompressor/args/dataset_arguments.py`), and the
+sequential pipeline runs each subgraph twice -- once with modifier hooks live
+to collect statistics and quantize, then again with hooks disabled to capture
+the **quantized** outputs and feed those forward as the next subgraph's inputs.
+The v2 run's activations were real: the bundle carries genuine H3 presentation
+built through ComfyUI's own tokenizer and reference-conditioning path, and the
+forward ran the real BF16 32B weights. (`build_native_h3_calibration_batch.py`
+loads no 32B weights and runs a reduced hidden width, but it is only the bundle
+*builder*, and its provenance says no presentation field depends on that width.)
+The only thing not drawn from a real render is prompt provenance -- H3-IR rows
+rather than prompts written against the owner's own references -- and that is a
+lever on the ten-percent term the overfit test already sized, in an unknown
+direction. Use trace data for the allocation above, not for another
+calibration.
 
 ## 4. Recommendation: no encoder fine-tune or LoRA before the marker arms run
 

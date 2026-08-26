@@ -20,6 +20,20 @@ artifact.
   fewer than the fifty H3 consumes, is refused with the reason rather than
   reported as a number.
 
+- The same record's bit-allocation section, rewritten the same day after the
+  owner proposed calibrating each layer on real render traces. Two of the three
+  parts of that proposal already hold -- `propagate_error` defaults to true, so
+  the sequential pipeline already quantizes each layer against the propagated
+  outputs of the layers above it, and the v2 bundle already carried genuine H3
+  presentation through real 32B weights. The part that does not is worth more
+  applied to the allocation than to another calibration: rank modules by
+  `||Wx - W_hat x||` on captured activations rather than by weight error alone,
+  since a large perturbation in a direction the activations never excite costs
+  nothing downstream. The record now says so, names `grade_sage_on_capture.py`
+  as the existing instrument of that shape, and carries the second use for the
+  same trace data -- weighting encoder error by what the DiT actually reads,
+  which is the metric criticism the launch record already made of itself.
+
 - `canonical/2026-08-26_encoder_choice_and_marker_measurement.md` under the
   Qwen3-VL research tree: why no AWQ calibration population could have reached
   the marker, prompt-structure or vision-encoding questions -- the holdout
