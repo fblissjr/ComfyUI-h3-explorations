@@ -121,6 +121,16 @@ SOL_EXEMPT_STEMS = {
         "comparative arm: the Turbo-SLA LoRA under the sparse top-k router it "
         "was distilled with (MiniMaxH3SLARouter), which replaces the sage+Sol "
         "chain outright; a Sol node after it would route a second time",
+    **{stem: (
+        "numerical probe: the PDD arms patch attention NOT AT ALL -- no sage "
+        "and no Sol, unlike the sla_dense arm which is sage-only. Both change "
+        "attention numerics and the subject of these graphs is a numerical "
+        "mechanism in the output head, so either one wired in puts a second "
+        "approximation in the path of an experiment about the first. Owner "
+        "decision 2026-08-26, after a wrong-head defect that these would have "
+        "made unattributable")
+       for stem in ("h3_probe_ref2v_pdd", "h3_probe_ref2v_pdd_headfree",
+                    "h3_probe_ref2v_pdd_345", "h3_probe_ref2v_pdd_8s")},
 }
 
 

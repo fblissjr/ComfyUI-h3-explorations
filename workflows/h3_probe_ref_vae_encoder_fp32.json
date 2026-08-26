@@ -663,7 +663,8 @@
       "widgets_values": [
         "max",
         false,
-        2048
+        2048,
+        0
       ],
       "title": "Append Picture 1"
     },
@@ -709,7 +710,8 @@
       "widgets_values": [
         "max",
         false,
-        2048
+        2048,
+        0
       ],
       "title": "Append Picture 2"
     },
@@ -755,7 +757,8 @@
       "widgets_values": [
         "max",
         false,
-        2048
+        2048,
+        0
       ],
       "title": "Append Picture 3"
     },

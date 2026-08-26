@@ -97,7 +97,8 @@
     "inputs": [
       "model",
       "lora_name",
-      "strength"
+      "strength",
+      "patch_heads"
     ],
     "node_id": "MiniMaxH3PDDLoRA",
     "outputs": [

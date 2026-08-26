@@ -4175,10 +4175,23 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             append = g.add("MiniMaxH3AppendRefImage", (-760, row_y(i)),
                            size=(280, 150),
                            # positional: size_policy, allow_upscale,
-                           # short_edge. `references` is a socket and consumes
-                           # no widget slot.
-                           widgets=["max", ref_upscale, _ref_short_edge()]
-                           + ([ref_qwen_short_edge] if ref_qwen_short_edge else []),
+                           # short_edge, qwen_short_edge. `references` is a
+                           # socket and consumes no widget slot.
+                           #
+                           # ALWAYS emit qwen_short_edge, even at 0. build_api
+                           # omits it at 0 on the reasoning that 0 is the
+                           # node's default and writing it would touch every
+                           # reference graph for nothing -- which is correct
+                           # THERE, because the API form is keyed by name and
+                           # an absent key takes the schema default. It is
+                           # invalid here: the UI form matches widget values
+                           # BY POSITION, so an omitted value does not default,
+                           # it shifts every later widget up one slot. That
+                           # reasoning was copied across the format boundary on
+                           # 2026-08-25 and corrupted 40 UI graphs until
+                           # 2026-08-26.
+                           widgets=["max", ref_upscale, _ref_short_edge(),
+                                    ref_qwen_short_edge],
                            inputs=append_inputs,
                            outputs=[_out("references", "MINIMAX_H3_REFERENCES")],
                            title=f"Append Picture {i + 1}")
@@ -5658,12 +5671,19 @@ def main():
         # differ from a base ref2va arm in the loader and the step count and in
         # nothing else. Every other accelerator here moves at least two things.
         #
+        # NO ATTENTION PATCHING on any of these: no sage, no Sol. Both change
+        # attention numerics, and the subject of every arm here is a numerical
+        # mechanism in the output head. Leaving them wired puts two
+        # approximations in the path of an experiment about a third, and the
+        # head-selection defect of 2026-08-26 is exactly the kind of thing they
+        # would have made unattributable. Owner decision, 2026-08-26.
+        #
         # Trained on transformer_ref itself, so docs/h3_ref2v_distillation.md's
         # Fact B -- an fl2v distill aimed at the wrong weights -- does not
         # apply to this one. Facts A and C do not follow from that and are
         # untouched.
         ("h3_probe_ref2v_pdd.json", "r2v-pdd", "r2v", _ref_prompt(images=True),
-         dict(pdd=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+         dict(pdd=True, dense_attn=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=243, out_prefix="Video/h3_probe_r2v_pdd",
               variant_note=_probe_note(
                   "does PDD hold ref2va identity at 8 steps",
@@ -5685,7 +5705,7 @@ def main():
         # perceptible or merely real.
         ("h3_probe_ref2v_pdd_headfree.json", "r2v-pdd-headfree", "r2v",
          _ref_prompt(images=True),
-         dict(pdd=True, pdd_heads=False,
+         dict(pdd=True, dense_attn=True, pdd_heads=False,
               lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=243, out_prefix="Video/h3_probe_r2v_pdd_headfree",
               variant_note=_probe_note(
@@ -5704,7 +5724,7 @@ def main():
         # assuming, because it is the one that would break silently.
         ("h3_probe_ref2v_pdd_345.json", "r2v-pdd-345", "r2v",
          _ref_prompt(images=True),
-         dict(pdd=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+         dict(pdd=True, dense_attn=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=345, out_prefix="Video/h3_probe_r2v_pdd_345",
               variant_note=_probe_note(
                   "does PDD hold at the long end of the trained range",
@@ -5718,7 +5738,7 @@ def main():
 
         ("h3_probe_ref2v_pdd_8s.json", "r2v-pdd-8s", "r2v",
          _ref_prompt(images=True),
-         dict(pdd=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+         dict(pdd=True, dense_attn=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=192, out_prefix="Video/h3_probe_r2v_pdd_8s",
               variant_note=_probe_note(
                   "PDD at eight seconds",
@@ -6071,17 +6091,24 @@ def main():
         # node, no Sol node, and the chain assert warn-only. One graph kind,
         # exempted by mechanism in check_attention_defaults.
         router = extra.get("sla_router") is not None
-        sol_on = False if (is_image or router) else bool(extra.get("sol_on", True))
-        rest = {k: v for k, v in extra.items() if k != "sol_on"}
-        wf = build_ui(task, sage=not router, preview=True,
-                      sol=SOL_RECOMMENDED_CUDA if not (is_image or router) else None,
+        # An arm that patches attention NOT AT ALL: no sage, no Sol, whatever
+        # kernel ComfyUI resolves on its own. Distinct from the repo's usual
+        # "dense" (sage alone) and from the router arm. It exists for probes
+        # whose subject is a numerical mechanism somewhere else in the model:
+        # both sage and Sol change attention numerics, so leaving them in puts
+        # two approximations in the path of an experiment about a third.
+        dense = bool(extra.get("dense_attn", False))
+        sol_on = False if (is_image or router or dense) else bool(extra.get("sol_on", True))
+        rest = {k: v for k, v in extra.items()
+                if k not in ("sol_on", "dense_attn")}
+        wf = build_ui(task, sage=not (router or dense), preview=True,
+                      sol=(SOL_RECOMMENDED_CUDA
+                           if not (is_image or router or dense) else None),
                       sol_enabled=sol_on, prompt=prompt,
                       title=f"h3-{label}-" + ("sla-router" if router else
                                               "sage" + ("-sol" if sol_on else "")),
                       **{"length": LONG_LENGTH, **rest})
         p = _graph_dir(out, extra) / fname
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((label, "ui", p, wf))
         print(f"  {p.name}: {note}")
 
@@ -6091,15 +6118,14 @@ def main():
     for fname, label, task, prompt, extra, _note in GRAPHS:
         is_image = bool(extra.get("single_frame", False))
         router = extra.get("sla_router") is not None
-        sol_on = False if (is_image or router) else bool(extra.get("sol_on", True))
+        dense = bool(extra.get("dense_attn", False))
+        sol_on = False if (is_image or router or dense) else bool(extra.get("sol_on", True))
         api_extra = {k: v for k, v in extra.items()
-                     if k not in ("variant_note", "sol_on")}
-        wf = build_api(task, sage=not router, prompt=prompt,
+                     if k not in ("variant_note", "sol_on", "dense_attn")}
+        wf = build_api(task, sage=not (router or dense), prompt=prompt,
                        sol=SOL_RECOMMENDED_CUDA if sol_on else None,
                        **{"length": LONG_LENGTH, **api_extra})
         p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((label, "api", p, wf))
 
     # Bench copies carrying MiniMaxH3ProvenanceStamp. Deliberately NOT the
@@ -6116,11 +6142,26 @@ def main():
         wf = build_api(task, sage=True, length=LONG_LENGTH,
                        sol=None, prompt=prompt, stamp=True)
         p = bench / fname
-        p.write_text(json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
         written.append((f"{task}-stamped", "api", p, wf))
 
-    for _t, _f, p, _w in written:
-        print(f"wrote {p.name}")
+    def flush():
+        """Write every graph. Called only once nothing has objected.
+
+        Writes used to happen inline, as each graph was built, and validation
+        ran afterwards over what was already on disk. So a red build still
+        SHIPPED its graphs and merely reported a nonzero exit -- which is how
+        `MiniMaxH3AppendRefImage` corrupted 40 UI graphs on 2026-08-25 and
+        stayed corrupted: the failure was printed every time anyone
+        regenerated, and the bad files were already written by then.
+
+        Nothing is written now until the cross-check, the validators and the
+        staleness verdict have all passed. A failed build leaves the tree
+        exactly as it found it.
+        """
+        for _t, _f, path, doc in written:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
+            print(f"wrote {path.name}")
 
     # Cross-check the two formats of each task describe the same graph. The
     # per-format validators below only prove each is well-formed against
@@ -6136,13 +6177,14 @@ def main():
     print("UI/API cross-check: same node counts and settings")
 
     if args.no_validate:
+        flush()
         return 0
     oi = load_object_info(args.object_info)
     errs = []
     for task, fmt, p, wf in written:
         errs += (validate_api if fmt == "api" else validate_ui)(wf, oi, p.name)
     if errs:
-        print("\nvalidation FAILED:")
+        print("\nvalidation FAILED -- NOTHING WRITTEN, the tree is unchanged:")
         for x in errs:
             print("  " + x)
         return 1
@@ -6161,6 +6203,7 @@ def main():
         for x in details:
             print("  " + x)
         return 1
+    flush()
     note = ("served schema matches this pack's code on disk" if verdict == "matches"
             else details[0])
     print(f"\nvalidated {len(written)} graphs against {args.object_info}: ok "
