@@ -17,6 +17,14 @@ filled in after the calibration run lands.
    Gate 5 bar**. Grade the candidate against that bar and nothing else.
 4. `canonical/2026-08-25_gate2_arrangement.md` for the storage and kernel
    decisions the run used.
+5. **Added 2026-08-26, read before touching the card:**
+   `canonical/2026-08-26_encoder_choice_and_marker_measurement.md`. Why no
+   calibration population could have reached the marker, prompt-structure or
+   vision-encoding questions (the holdout captures already carry the proof);
+   what each encoder costs to hold, by component; and how the marker question
+   is answered by selecting among representations that already exist rather
+   than by a trainer. It bears directly on items 1, 2 and 4 below and its
+   recommendations are open, not decided.
 
 ## Authority
 
@@ -144,6 +152,16 @@ decisions. The short form:
   markers is a corpus question (`bench/marker_corpus/`), not a selector one.
 
 ## What runs next, in order (card work; ComfyUI stopped first, restarted after)
+
+**Open question against items 1 and 2, raised 2026-08-26, owner's call.**
+`canonical/2026-08-26_encoder_choice_and_marker_measurement.md` recommends
+dropping the GPTQ runs if the 24 GB card is the target: the four-encoder table
+already answered which encoder to use, the 4-bit floor is measured, and NVFP4
+beats W4A16 at the 2048 short edge -- the primary reference-still policy --
+in a smaller file that is already on the box. The order below is unchanged
+because that recommendation has not been accepted; do not reorder it on the
+strength of the record alone. If the small-host variant is a live deployment
+target, items 1 and 2 stand as written.
 
 1. **GPTQ probe**, ~10 min: `internal/v2_run_2026-08-25/run_gptq_probe.sh`
    (2 layers, 8 rows, disk tier, cgroup cap, emits to scratch). Read the
