@@ -11,7 +11,8 @@ describes *their* design is read from that file, not inferred.
 
 Written 2026-08-26 against the published weights, ComfyUI's
 `comfy/ldm/minimax/model.py`, and the checkpoints in
-`models/diffusion_models/`.
+`models/diffusion_models/`. Four arms have rendered at 1344x768; see
+`bench/check_pdd_head_selection.py` for the defect the first four exposed.
 
 ---
 
@@ -243,14 +244,21 @@ Two readings follow, and both are predictions rather than results:
   to** beyond the partition fingerprint. A checkpoint layout change would be
   caught by `load_lora` matching nothing, which the node raises on, but a
   *partial* match would not be.
-- **The boundary-residual warning has never fired in a real render**, because
-  no real render has happened. Its threshold is reasoned, not calibrated.
+- **The boundary-residual warning has never fired in a real render.** It is
+  exercised only by `bench/check_pdd_head_selection.py`, on a synthetic
+  off-schedule drive. Its threshold is reasoned, not calibrated -- and the
+  head-selection defect above is proof that a silent residual is not evidence
+  the selection is right.
 
 ---
 
 ## Not measured
 
-- Whether any of this renders. Nothing here has been through a sampler.
+- **Whether the fused heads change the output in a way anyone can see.** They
+  reach it: the full and head-free arms produce different clips from the same
+  seed. That is reachability, not quality, and CLAUDE.md's rule stands -- two
+  arms differing in a numerical knob are different samples, not a degraded
+  version of one sample, so a pair cannot answer "better".
 - Whether the head-free arm is worth running, which is the first thing to find
   out and the reason the head deltas above were measured.
 - Whether PDD transfers the ref2v difficulty `docs/h3_ref2v_distillation.md`

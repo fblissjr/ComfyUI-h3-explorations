@@ -114,22 +114,46 @@ def silu_temb_grid(proj_in_w: torch.Tensor, proj_in_b: torch.Tensor,
     return torch.nn.functional.silu(o) if apply_silu else o
 
 
-def step_for_t(t: float, bounds: torch.Tensor, nfe: int) -> int:
+def step_for_t(t: float, bounds: torch.Tensor, nfe: int,
+               snap: float = 0.0) -> int:
     """Which fused head the time `t` belongs to.
 
-    Interval membership, not a call counter and not nearest-boundary. The
-    vendor arms its heads from a forward hook that increments once per forward
-    and wraps at `nfe`, so any extra evaluation -- a CFG uncond pass, a warmup,
-    a shape probe, compile tracing -- desyncs it from the schedule permanently
-    and silently, and wrapping hides it rather than raising. Deriving the step
-    from `t` cannot desync, because `t` is what the model was actually called
-    with.
+    Two regimes, and the first one is not an optimisation -- it is the fix for
+    a real off-by-one.
 
-    Membership also degrades sanely off-schedule: a run at a step count or
-    shift the file was not fused for still picks the interval containing `t`,
-    which is the closest available head, rather than an arbitrary one. The
-    caller is expected to warn in that case -- see `boundary_residual`.
+    **On schedule** (`|t - nearest boundary| <= snap`): the model is being
+    evaluated AT a block boundary, so boundary `k` means head `k`. Snap to it.
+    Plain interval membership is wrong here, because `t` does not arrive
+    exact: it is recovered by a nearest-row lookup against a 1025-row curve
+    table, which quantises to ~1e-3. A `t` sitting exactly on a boundary comes
+    back a fraction BELOW it half the time, and membership then returns the
+    previous block. Measured 2026-08-26 against the real `adaln_t_table` and
+    the real 8-step shift-12 schedule: heads came out
+    `[0, 0, 2, 3, 4, 5, 6, 6]` instead of `[0..7]` -- wrong at step 1 and at
+    step 7, which is the largest jump in the schedule and where the fused
+    heads differ most from each other.
+
+    That failure is silent in every direction. The recovered `t` is correct to
+    4e-5, so `boundary_residual` reports ~0 and no warning fires; the render
+    completes; only the output is wrong. Snapping is what makes the residual
+    check and the selection agree about what "on schedule" means.
+
+    **Off schedule**: fall back to interval membership, which picks the
+    interval containing `t` -- the closest available head -- rather than an
+    arbitrary one. The caller is expected to warn; see `boundary_residual`.
+
+    `snap=0.0` keeps pure membership, which is what the unit tests of the
+    membership branch want.
+
+    Deriving the step from `t` at all -- rather than from a call counter, as
+    the vendor's forward hook does -- is what makes this recoverable. A counter
+    cannot be checked against anything.
     """
+    if snap > 0.0:
+        d = (bounds - t).abs()
+        j = int(d.argmin())
+        if float(d[j]) <= snap:
+            return max(0, min(j, nfe - 1))
     k = int(torch.searchsorted(bounds, torch.tensor(t, dtype=bounds.dtype),
                                right=True)) - 1
     return max(0, min(k, nfe - 1))

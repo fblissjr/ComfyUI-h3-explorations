@@ -86,6 +86,14 @@ logger = logging.getLogger(__name__)
 #: inside "wrong schedule" and well outside "float noise".
 BOUNDARY_TOLERANCE = 2e-3
 
+#: Relative-Frobenius distance allowed between the loaded checkpoint's
+#: `final_layer.video_out` and the one the LoRA was converted against. The
+#: fl2va and ref2va partitions sit ~0.05 apart (measured 2026-08-26 across the
+#: six H3 checkpoints on this box) and a dtype cast on load moves it a few
+#: thousandths, so anything in between is unambiguous. Set an order of
+#: magnitude below the partition gap and an order above a cast.
+PARTITION_TOLERANCE = 0.015
+
 
 def _is_minimax_h3(diffusion_model) -> bool:
     try:
@@ -139,8 +147,10 @@ class _StepTracker:
     def update(self, t_emb, video_seg, audio_seg) -> None:
         tv = self._t(t_emb, video_seg[2])
         ta = self._t(t_emb, audio_seg[2])
-        self.video = step_for_t(tv, self.bounds_v, self.nfe)
-        self.audio = step_for_t(ta, self.bounds_a, self.nfe)
+        # Snap at the same tolerance the residual check calls "on schedule",
+        # so the two cannot disagree about which regime this render is in.
+        self.video = step_for_t(tv, self.bounds_v, self.nfe, BOUNDARY_TOLERANCE)
+        self.audio = step_for_t(ta, self.bounds_a, self.nfe, BOUNDARY_TOLERANCE)
         if not self.warned:
             rv = boundary_residual(tv, self.bounds_v)
             ra = boundary_residual(ta, self.bounds_a)
@@ -275,12 +285,32 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "path it is a real control."
                     ),
                 ),
+                # APPENDED, not inserted. Saved graphs match widget values by
+                # index, so a new widget ahead of `strength` would land an old
+                # graph's float on this boolean. Same rule as the head_chunks
+                # input on MiniMaxH3SageAttention.
+                io.Boolean.Input(
+                    "patch_heads", default=True, optional=True,
+                    tooltip=(
+                        "Off runs the backbone and adaln updates against the "
+                        "checkpoint's OWN output heads -- PDD's whole "
+                        "mechanism disabled, everything else applied. That is "
+                        "the control for whether the per-interval heads earn "
+                        "their complexity: measured against the base head the "
+                        "fused heads sit 0.005 apart early and 0.015 apart at "
+                        "the last step, so if this arm is indistinguishable "
+                        "the head machinery is not what is doing the work. "
+                        "On by default; turning it off is an experiment, not "
+                        "a fallback."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output()],
         )
 
     @classmethod
-    def execute(cls, model, lora_name, strength=1.0) -> io.NodeOutput:
+    def execute(cls, model, lora_name, strength=1.0,
+                patch_heads=True) -> io.NodeOutput:
         import comfy.lora
         import comfy.utils
         import folder_paths
@@ -308,25 +338,33 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
 
         # Partition check. fl2va and ref2va ship identical key sets, so a
         # mismatched pair loads with zero unmatched keys and renders -- the
-        # silent-success failure docs/h3_ref2v_distillation.md records. This
-        # tensor is fp32-unquantised and bit-identical across pruned/unpruned
-        # and across int8_convrot/fp8_scaled, so one value names the partition
-        # for every variant we ship.
-        want = meta.get("base_video_out_sha256")
-        if want:
-            import hashlib
-            live = dm.final_layer.video_out.weight
-            got = hashlib.sha256(
-                live.detach().to(torch.float32).cpu().contiguous()
-                .numpy().tobytes()).hexdigest()
-            if got != want:
+        # silent-success failure docs/h3_ref2v_distillation.md records.
+        #
+        # Compared BY DISTANCE, not by hash. The first version hashed this
+        # tensor and fired on the first real render against the correct
+        # checkpoint: ComfyUI casts on load, and a cast changes every bit while
+        # moving the value a fraction of a percent. The two partitions are 5%
+        # apart and a cast is a few tenths of one, so the separation is an
+        # order of magnitude and the threshold does not need to be delicate --
+        # but an exact hash had no separation at all.
+        ref = sd.get("h3_pdd.base_video_out")
+        if ref is not None:
+            live = dm.final_layer.video_out.weight.detach().to(torch.float32).cpu()
+            dist = float((live - ref.to(torch.float32)).norm() / ref.norm())
+            if dist > PARTITION_TOLERANCE:
                 raise RuntimeError(
                     f"{lora_name} was converted against a different checkpoint "
-                    f"partition than the one loaded (final_layer.video_out "
-                    f"fingerprint {got[:16]} != {want[:16]}, converted against "
-                    f"{meta.get('h3_pdd_base', '?')}). fl2va and ref2va have "
-                    f"identical key sets, so this would otherwise render "
-                    f"without a single unmatched key and merely be wrong.")
+                    f"partition than the one loaded: final_layer.video_out is "
+                    f"{dist:.4f} away from the one it was built against "
+                    f"({meta.get('h3_pdd_base', '?')}), tolerance "
+                    f"{PARTITION_TOLERANCE}. The fl2va and ref2va partitions "
+                    f"sit about 0.05 apart and a dtype cast moves this a few "
+                    f"thousandths, so this is a partition mismatch and not a "
+                    f"loader artifact. Their key sets are identical, so this "
+                    f"would otherwise render without one unmatched key and "
+                    f"merely be wrong.")
+            logger.info("[h3-pdd] partition check ok: final_layer.video_out is "
+                        "%.5f from %s", dist, meta.get("h3_pdd_base", "?"))
 
         pruned = bool(getattr(dm, "use_adaln_curves", False))
 
@@ -382,9 +420,13 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             nfe, lora_name)
 
         final_layer = m.get_model_object("diffusion_model.final_layer")
-        m.add_object_patch("diffusion_model.final_layer.forward",
-                           _make_final_layer_forward(final_layer.forward, tracker))
-        for stream, out_name in (("video", "video_out"), ("audio", "audio_out")):
+        if patch_heads:
+            m.add_object_patch(
+                "diffusion_model.final_layer.forward",
+                _make_final_layer_forward(final_layer.forward, tracker))
+        for stream, out_name in (
+                (("video", "video_out"), ("audio", "audio_out"))
+                if patch_heads else ()):
             live = getattr(final_layer, out_name)
             base_w = live.weight.detach().to(torch.float32).cpu()
             base_b = live.bias.detach().to(torch.float32).cpu()
@@ -400,11 +442,12 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
 
         logger.info(
             "[h3-pdd] %s at strength %.3f: %d backbone modules patched, "
-            "%d adaln %s, %d fused head pairs per stream "
-            "(grid %d/%d -> nfe %d, shifts %g/%g). Base is %s.",
+            "%d adaln %s, %s (grid %d/%d -> nfe %d, shifts %g/%g). Base is %s.",
             lora_name, strength, len(loaded), n_adaln,
             "re-injected at run time (pruned base)" if pruned
             else "applied as weight patches (unpruned base)",
-            nfe, num_steps, block_size, nfe, shift_v, shift_a,
+            f"{nfe} fused head pairs per stream" if patch_heads
+            else "HEADS NOT PATCHED (control arm: the checkpoint's own heads)",
+            num_steps, block_size, nfe, shift_v, shift_a,
             "pruned/curve-form" if pruned else "full-width")
         return io.NodeOutput(m)

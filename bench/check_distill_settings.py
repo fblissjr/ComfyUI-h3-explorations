@@ -226,6 +226,68 @@ def note_versions(doc) -> list[str]:
     return out
 
 
+# Parallel Decoding Distillation, converted by bench/convert_pdd_lora.py.
+# Graded differently from every turbo row and deliberately so: PDD carries no
+# shift of its own to inherit, because its block boundaries ARE the base
+# checkpoint's own schedule -- so the shift must be the BASE one, and the step
+# count must be the `nfe` the converted artifact was actually fused for.
+#
+# That step count is read from the FILE, not from h3_config. A PDD arm at the
+# wrong step count evaluates the model off the boundaries its fused heads were
+# built for, and the only other thing that would notice is a runtime warning
+# in a log nobody reads. Grading it against our own constant would be the
+# check deriving its expectation from the thing it is checking.
+_PDD_NAME = re.compile(r"_pdd_(\d+)step_", re.IGNORECASE)
+
+
+def classify_pdd(lora_name):
+    return bool(_PDD_NAME.search(lora_name.replace("-", "_")))
+
+
+def lora_path(name):
+    """Absolute path for a LoRA a graph names, or None.
+
+    Prefers ComfyUI's own resolver so `extra_model_paths.yaml` is honoured,
+    and falls back to the stock directory. Same shape as
+    `bench/check_lora_alpha.py`'s resolver; kept local rather than imported
+    because this file otherwise needs no ComfyUI at all and a shared helper
+    would drag that requirement into every case here.
+    """
+    comfy_root = HERE.parents[2]
+    try:
+        sys.path.insert(0, str(comfy_root))
+        import folder_paths  # noqa: WPS433
+        found = folder_paths.get_full_path("loras", name)
+        if found:
+            return Path(found)
+    except Exception:
+        pass
+    candidate = comfy_root / "models" / "loras" / name
+    return candidate if candidate.exists() else None
+
+
+def pdd_nfe(lora_name):
+    """`pdd_nfe` from the converted file's own metadata, or None if unreadable.
+
+    None is not a pass: the caller fails on it. A PDD arm whose artifact cannot
+    be read is one whose schedule cannot be graded, and the filename's own
+    `_8step_` is not evidence -- the converter writes both, and only the
+    metadata is what the node actually consumes.
+    """
+    import json as _json
+    import struct as _struct
+    path = lora_path(lora_name)
+    if path is None:
+        return None
+    try:
+        with open(path, "rb") as handle:
+            n = _struct.unpack("<Q", handle.read(8))[0]
+            meta = _json.loads(handle.read(n)).get("__metadata__") or {}
+        return int(meta["pdd_nfe"])
+    except Exception:
+        return None
+
+
 def classify_pack(lora_name):
     """The pack family, or None. Deliberately separate from `classify`: these
     are graded against a step RANGE and a fixed shift, not a single row."""
@@ -272,13 +334,16 @@ def read_api(doc) -> Found:
     strengths: dict[str, float] = {}
     for node in doc.values():
         ct, inp = node.get("class_type"), node.get("inputs", {})
-        if ct in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA"):
+        if ct in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
+                  "MiniMaxH3PDDLoRA"):
             # The pack node is a turbo loader too. Matching only the stock
             # one made its graphs read as BASE graphs -- policed for shift,
             # which they happened to satisfy, and never graded on steps.
             # A pass for the wrong reason is what this file exists to stop.
             loras.append(inp.get("lora_name", ""))
             s = _literal(inp.get("strength_model"))
+            if s is None:
+                s = _literal(inp.get("strength"))     # MiniMaxH3PDDLoRA
             if s is not None:
                 strengths[str(inp.get("lora_name", ""))] = float(s)
         elif ct == "MiniMaxH3SigmaShift":
@@ -306,7 +371,8 @@ def read_ui(doc) -> Found:
     strengths: dict[str, float] = {}
     for node in doc.get("nodes", []):
         t, w = node.get("type"), node.get("widgets_values") or []
-        if t in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA") and w:
+        if t in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
+                 "MiniMaxH3PDDLoRA") and w:
             loras.append(w[0])
             if len(w) >= 2 and isinstance(w[1], (int, float)):
                 strengths[str(w[0])] = float(w[1])
@@ -546,7 +612,7 @@ def main():
         for path in graph_paths(WORKFLOWS):
             doc = json.loads(path.read_text(encoding="utf-8"))
             found = read_api(doc) if "nodes" not in doc else read_ui(doc)
-            turbo = [l for l in found.loras if is_turbo(l)]
+            turbo = [l for l in found.loras if is_turbo(l) or classify_pdd(l)]
 
             if not turbo:
                 # A base graph is still policed: it must sit at the base
@@ -562,6 +628,25 @@ def main():
 
             turbo_graphs[path.name] = (found, turbo)
             for lora in turbo:
+                # PDD: base shift, and the step count the artifact was fused
+                # for. Not a turbo row and not the pack range.
+                if classify_pdd(lora):
+                    assert found.shift == BASE_SHIFT, (
+                        f"{path.name}: {lora} is a PDD arm, whose block "
+                        f"boundaries ARE the base schedule -- it must sit at "
+                        f"{BASE_SHIFT[0]}/{BASE_SHIFT[1]}, has {found.shift}")
+                    nfe = pdd_nfe(lora)
+                    assert nfe is not None, (
+                        f"{path.name}: could not read `pdd_nfe` from {lora}. "
+                        "A PDD arm whose artifact cannot be read is one whose "
+                        "schedule cannot be graded; the filename is not "
+                        "evidence.")
+                    assert found.steps == nfe, (
+                        f"{path.name}: {lora} was fused for {nfe} steps and "
+                        f"the graph runs {found.steps}. Off its boundaries the "
+                        "fused output heads decode intervals the sampler never "
+                        "visits, and nothing but a log line would say so.")
+                    continue
                 # The third-party family is graded against a step RANGE and
                 # the unchanged base shift, not against a single vendor row.
                 if classify_pack(lora):

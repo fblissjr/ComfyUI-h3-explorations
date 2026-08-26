@@ -68,14 +68,24 @@ that `MiniMaxH3PDDLoRA` reads.
     from the same checkpoint that supplies the fingerprint below, is what makes
     that impossible rather than merely documented.
 
-`base_video_out_sha256` (metadata)
-    sha256 of `final_layer.video_out.weight` in `--base`. The partition check.
-    fl2va and ref2va ship IDENTICAL key sets -- the whole silent-success
+`h3_pdd.base_video_out`  [96, 5376]
+    `final_layer.video_out.weight` from `--base`, verbatim. The partition
+    check. fl2va and ref2va ship IDENTICAL key sets -- the whole silent-success
     failure `docs/h3_ref2v_distillation.md` records -- so a Ref2VA LoRA loads
     onto an fl2va checkpoint with zero unmatched keys and renders. This tensor
-    distinguishes them (5.0% apart) and is fp32-unquantised and bit-identical
-    across pruned/unpruned and across int8_convrot/fp8_scaled, so one value
-    identifies the partition for every variant we ship.
+    distinguishes them: 5.0% apart, and unquantised in every checkpoint variant
+    we ship.
+
+    **Stored as a tensor and compared by distance, not hashed.** The first
+    version put a sha256 of it in the metadata, and it fired on the first real
+    render against the RIGHT checkpoint: ComfyUI casts on load, and a cast
+    changes every bit while moving the value a fraction of a percent. An exact
+    hash of a tensor the loader is allowed to transform cannot distinguish
+    "wrong partition" from "loaded normally", which makes it a control that
+    reports red on correct state -- the thing CLAUDE.md says is worse than no
+    control. A relative-Frobenius comparison separates a cast (~0.3%) from a
+    partition swap (5%) with an order of magnitude to spare, and it can say how
+    far off it was.
 
 ## Borrowed patterns
 
@@ -186,12 +196,12 @@ def derive_silu_temb_grid(base: Path, rows: int = GRID_ROWS) -> torch.Tensor:
                           rows=rows, apply_silu=True)
 
 
-def base_fingerprint(base: Path) -> str:
+def base_video_out(base: Path) -> torch.Tensor:
+    """`final_layer.video_out.weight` from the checkpoint, for the partition check."""
     with safe_open(base, framework="pt") as f:
         if "final_layer.video_out.weight" not in set(f.keys()):
             raise SystemExit(f"{base.name} has no final_layer.video_out.weight.")
-        t = f.get_tensor("final_layer.video_out.weight")
-    return hashlib.sha256(t.to(torch.float32).contiguous().numpy().tobytes()).hexdigest()
+        return f.get_tensor("final_layer.video_out.weight").to(torch.float32)
 
 
 def convert_backbone(src: dict, prefix_in: str, prefix_out: str, index: int,
@@ -338,6 +348,7 @@ def main(argv=None) -> int:
         src["audio_proj_out.bias"], args.shift_audio, num_steps, block_size)
 
     out["h3_pdd.silu_temb_grid"] = derive_silu_temb_grid(args.base)
+    out["h3_pdd.base_video_out"] = base_video_out(args.base)
 
     # --- self-check: the emitted delta must equal the source delta ----------
     # Not a restatement of the code above: it reconstructs B @ A on both sides
@@ -375,7 +386,10 @@ def main(argv=None) -> int:
         "h3_pdd_converter_version": CONVERTER_VERSION,
         "h3_pdd_source": args.pdd.name,
         "h3_pdd_base": args.base.name,
-        "base_video_out_sha256": base_fingerprint(args.base),
+        # Informational only. The node compares the TENSOR by distance; this
+        # is here so two converted files can be told apart by eye.
+        "base_video_out_sha256": hashlib.sha256(
+            out["h3_pdd.base_video_out"].contiguous().numpy().tobytes()).hexdigest(),
         "pdd_num_steps": str(num_steps),
         "pdd_block_size": str(block_size),
         "pdd_nfe": str(nfe),

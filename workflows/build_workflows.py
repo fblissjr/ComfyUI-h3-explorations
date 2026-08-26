@@ -67,6 +67,7 @@ from h3_config import (  # noqa: E402
     CAPTURE_REF_IMAGES,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
+    PDD_REF2VA_LORA, PDD_STEPS, PDD_STRENGTH,
 )
 
 
@@ -795,6 +796,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               ref_images_on: bool = True, ref_image_count: int = 2,
               ref_images: tuple[str, ...] | None = None,
               turbo_pack: bool = False,
+              pdd: bool = False,
+              pdd_heads: bool = True,
               ref_audio: bool = False,
               split_at: int | None = None,
               split_base_last: bool = True,
@@ -1122,14 +1125,27 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # base is PRUNED, and this LoRA's time conditioning has to be
         # re-injected at run time from a grid the pack ships. The stock loader
         # applies the weights, skips that, and reports nothing.
-        g["18"] = ({"class_type": "MiniMaxH3TurboLoRA",
-                    "inputs": {"model": model_src, "lora_name": lora[0],
-                               "strength": lora[1],
-                               "low_vram": TURBO_PACK_LOW_VRAM}}
-                   if turbo_pack else
-                   {"class_type": "LoraLoaderModelOnly",
-                    "inputs": {"model": model_src, "lora_name": lora[0],
-                               "strength_model": lora[1]}})
+        # A third loader, and it is not interchangeable with either of the
+        # others. A PDD file reaches the model on three surfaces and only one
+        # of them is a weight patch: the adaln update is a runtime injection
+        # on our pruned base, and the per-interval output heads are not a
+        # delta at all. `LoraLoaderModelOnly` would apply the 208 backbone
+        # modules, skip the rest with a log line, and render -- the same
+        # silent-partial shape the pack note above describes.
+        if pdd:
+            g["18"] = {"class_type": "MiniMaxH3PDDLoRA",
+                       "inputs": {"model": model_src, "lora_name": lora[0],
+                                  "strength": lora[1],
+                                  "patch_heads": pdd_heads}}
+        else:
+            g["18"] = ({"class_type": "MiniMaxH3TurboLoRA",
+                        "inputs": {"model": model_src, "lora_name": lora[0],
+                                   "strength": lora[1],
+                                   "low_vram": TURBO_PACK_LOW_VRAM}}
+                       if turbo_pack else
+                       {"class_type": "LoraLoaderModelOnly",
+                        "inputs": {"model": model_src, "lora_name": lora[0],
+                                   "strength_model": lora[1]}})
         model_src = ["18", 0]
     # Always present, at the base checkpoint's own 12/3, so it changes nothing
     # by default. It is here to be edited: the turbo LoRAs carry their own
@@ -3865,6 +3881,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              ref_images_on: bool = True, ref_image_count: int = 2,
              ref_images: tuple[str, ...] | None = None,
              turbo_pack: bool = False,
+             pdd: bool = False,
+             pdd_heads: bool = True,
              ref_audio: bool = False,
              split_at: int | None = None,
              split_base_last: bool = True,
@@ -3963,18 +3981,28 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         # (lora_name, strength, low_vram) -- the pack's own shipped example
         # graph carries only two, because low_vram was added after it was
         # written, so that example is not the thing to copy the shape from.
-        lora_node = (
-            g.add("MiniMaxH3TurboLoRA", (-1500, 560), size=(560, 140),
-                  widgets=[lora[0], lora[1], TURBO_PACK_LOW_VRAM],
-                  inputs=[_in("model", "MODEL")],
-                  outputs=[_out("MODEL", "MODEL")],
-                  title=f"Turbo LoRA (pack node, strength {lora[1]})")
-            if turbo_pack else
-            g.add("LoraLoaderModelOnly", (-1500, 560), size=(560, 110),
-                  widgets=[lora[0], lora[1]],
-                  inputs=[_in("model", "MODEL")],
-                  outputs=[_out("MODEL", "MODEL")],
-                  title=f"Load LoRA (ref delta, strength {lora[1]})"))
+        if pdd:
+            lora_node = g.add(
+                "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 140),
+                widgets=[lora[0], lora[1], pdd_heads],
+                inputs=[_in("model", "MODEL")],
+                outputs=[_out("MODEL", "MODEL")],
+                title=(f"PDD LoRA (strength {lora[1]}"
+                       + ("" if pdd_heads else ", HEADS OFF -- control arm")
+                       + ")"))
+        else:
+            lora_node = (
+                g.add("MiniMaxH3TurboLoRA", (-1500, 560), size=(560, 140),
+                      widgets=[lora[0], lora[1], TURBO_PACK_LOW_VRAM],
+                      inputs=[_in("model", "MODEL")],
+                      outputs=[_out("MODEL", "MODEL")],
+                      title=f"Turbo LoRA (pack node, strength {lora[1]})")
+                if turbo_pack else
+                g.add("LoraLoaderModelOnly", (-1500, 560), size=(560, 110),
+                      widgets=[lora[0], lora[1]],
+                      inputs=[_in("model", "MODEL")],
+                      outputs=[_out("MODEL", "MODEL")],
+                      title=f"Load LoRA (ref delta, strength {lora[1]})"))
         g.link(unet_node, 0, lora_node, "model", "MODEL")
         model_src = lora_node
 
@@ -5618,6 +5646,90 @@ def main():
         # this arm is OUR experiment, not the author's claim. Settings are the
         # pack's own; the graph differs from its twin in the two nodes the
         # pack requires, not in shift, canvas, seed or prompt.
+
+        # --- Parallel Decoding Distillation -----------------------------
+        # Not a step distillation. The trajectory stays a 32-point grid; the
+        # final output head is replicated per interval and each step decodes a
+        # block of four as one mean velocity, so 8 evaluations cover it. See
+        # docs/h3_pdd.md.
+        #
+        # The shift does NOT move, and that is the point: the block boundaries
+        # are the plain 8-step shifted schedule bit for bit, so these graphs
+        # differ from a base ref2va arm in the loader and the step count and in
+        # nothing else. Every other accelerator here moves at least two things.
+        #
+        # Trained on transformer_ref itself, so docs/h3_ref2v_distillation.md's
+        # Fact B -- an fl2v distill aimed at the wrong weights -- does not
+        # apply to this one. Facts A and C do not follow from that and are
+        # untouched.
+        ("h3_probe_ref2v_pdd.json", "r2v-pdd", "r2v", _ref_prompt(images=True),
+         dict(pdd=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              length=243, out_prefix="Video/h3_probe_r2v_pdd",
+              variant_note=_probe_note(
+                  "does PDD hold ref2va identity at 8 steps",
+                  "h3_probe_ref2v_pdd_headfree.json",
+                  "the per-interval output heads are ON, which is the whole "
+                  "PDD mechanism; the twin runs the same backbone and adaln "
+                  "updates against the checkpoint's own heads.",
+                  "identity on the reference subject, and texture in the last "
+                  "third of the clip, where this schedule takes its biggest "
+                  "jumps and where the fused heads differ most from the base.",
+                  "if the two are indistinguishable, the heads are not what is "
+                  "doing the work and the backbone LoRA alone is the cheaper "
+                  "arm.")),
+         "ref2va at 8 steps via Parallel Decoding Distillation"),
+
+        # The control for the arm above. The measured gap between a fused head
+        # and the checkpoint's own is 0.005 early and 0.015 at the last step
+        # (docs/h3_pdd.md), so this is the arm that says whether that gap is
+        # perceptible or merely real.
+        ("h3_probe_ref2v_pdd_headfree.json", "r2v-pdd-headfree", "r2v",
+         _ref_prompt(images=True),
+         dict(pdd=True, pdd_heads=False,
+              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              length=243, out_prefix="Video/h3_probe_r2v_pdd_headfree",
+              variant_note=_probe_note(
+                  "is the parallel-head machinery worth its complexity",
+                  "h3_probe_ref2v_pdd.json",
+                  "`patch_heads` is OFF, so the backbone and adaln updates "
+                  "apply and the output heads stay the checkpoint's own.",
+                  "the same places as its twin.",
+                  "a visible loss here justifies the head machinery; no "
+                  "visible loss says the backbone LoRA is the whole story.")),
+         "PDD backbone only, the checkpoint's own output heads"),
+
+        # Length sweep. The fused heads are indexed by time, not by call
+        # count, so a longer clip changes the token budget and not the
+        # schedule -- which is the property worth confirming rather than
+        # assuming, because it is the one that would break silently.
+        ("h3_probe_ref2v_pdd_345.json", "r2v-pdd-345", "r2v",
+         _ref_prompt(images=True),
+         dict(pdd=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              length=345, out_prefix="Video/h3_probe_r2v_pdd_345",
+              variant_note=_probe_note(
+                  "does PDD hold at the long end of the trained range",
+                  "h3_probe_ref2v_pdd.json",
+                  "345 frames instead of 243. Same schedule, more tokens.",
+                  "drift late in the clip, and whether the boundary-residual "
+                  "warning stays silent in the log.",
+                  "the head selection is keyed on time, so length should not "
+                  "move it at all; if it does, the keying is wrong.")),
+         "PDD ref2va at the long end of the trained frame range"),
+
+        ("h3_probe_ref2v_pdd_8s.json", "r2v-pdd-8s", "r2v",
+         _ref_prompt(images=True),
+         dict(pdd=True, lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              length=192, out_prefix="Video/h3_probe_r2v_pdd_8s",
+              variant_note=_probe_note(
+                  "PDD at eight seconds",
+                  "h3_probe_ref2v_pdd.json",
+                  "192 frames, which is exactly 8.0 s on the 17k+5 grid at "
+                  "24 fps, instead of 243.",
+                  "the same places as its twin.",
+                  "a length the grid hits exactly, so nothing is snapped and "
+                  "the comparison is clean.")),
+         "PDD ref2va at exactly eight seconds"),
+
         ("h3_probe_ref2v_turbo_pack.json", "r2v-turbo-pack", "r2v",
          _ref_prompt(images=True, video=True, video_audio=True,
                      video_role="swap", audio_role="copy"),

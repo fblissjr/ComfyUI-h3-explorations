@@ -8,6 +8,13 @@ artifact.
 
 ### Added
 
+- Four PDD arms in the generator (`h3_probe_ref2v_pdd`, its `_headfree`
+  control, and `_345` / `_8s` length variants), a PDD branch in both graph
+  builders, and PDD grading in `bench/check_distill_settings.py`. That grading
+  is not optional: `is_turbo()` is false for a PDD filename, so without it a
+  PDD arm reads as a base graph -- policed for shift, which it satisfies, and
+  never graded on steps. The same trap the pack loader's own comment records.
+
 - `bench/convert_pdd_lora.py`, `pdd_math.py` and `MiniMaxH3PDDLoRA`
   (`pdd_lora.py`): end-to-end support for alibaba-pai's Parallel Decoding
   Distillation acceleration LoRAs, which are not step distillations and load
@@ -42,6 +49,30 @@ artifact.
   `PDD_STRENGTH`, `PDD_SHIFT`. Named with the `_LORA` suffix deliberately --
   that suffix is `bench/check_lora_alpha.py`'s selector, and the first draft
   named them `PDD_LORA_*`, which resolved and graded nothing.
+
+### Fixed
+
+- `pdd_math.step_for_t`: a PDD render decoded the wrong fused head at two of
+  its eight steps. `t` is recovered by a nearest-row lookup against the
+  1025-row curve table, which quantises to ~1e-3, so a `t` sitting exactly on
+  a block boundary came back a fraction below it and interval membership
+  returned the previous block. Video heads went `[0, 0, 2, 3, 4, 5, 6, 6]`,
+  audio `[0, 1, 1, 3, 4, 5, 6, 7]` -- wrong at step 1 and at step 7, the
+  largest jump in this schedule and where the fused heads differ most.
+
+  It shipped four renders before anything noticed, and nothing could have: the
+  recovered `t` was correct to 4e-5, so the node's own boundary-residual
+  warning is silent by construction. On-schedule times now snap to the nearest
+  boundary, with interval membership kept for the off-schedule fallback, and
+  both regimes use one tolerance so they cannot disagree about which applies.
+
+### Added
+
+- `bench/check_pdd_head_selection.py`: the control for the above, driving the
+  real `_StepTracker` with a real `adaln_t_table` read off a shipped
+  checkpoint and the real 8-step boundaries, video and audio separately. Its
+  red case reproduces the escaped selection with snapping disabled, so it
+  cannot go green on a tracker that lost the fix.
 
 ## 0.70.13
 
