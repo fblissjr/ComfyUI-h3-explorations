@@ -124,19 +124,6 @@ SOL_EXEMPT_STEMS = {
         "comparative arm: the Turbo-SLA LoRA under the sparse top-k router it "
         "was distilled with (MiniMaxH3SLARouter), which replaces the sage+Sol "
         "chain outright; a Sol node after it would route a second time",
-    **{stem: (
-        "numerical probe: the PDD arms patch the DiT's self-attention not at "
-        "all -- no sage and no Sol, unlike the sla_dense arm which is "
-        "sage-only. This says nothing about the Qwen3-VL encoder, which "
-        "resolves its own attention inside its decoder forward and is "
-        "untouched either way. Both DiT patches change attention numerics and "
-        "the subject of these graphs is a numerical mechanism in the DiT's "
-        "output head, so either one wired in puts a second approximation in "
-        "the path of an experiment about the first. Owner decision "
-        "2026-08-26, after a wrong-head defect that these would have made "
-        "unattributable")
-       for stem in ("h3_probe_ref2v_pdd", "h3_probe_ref2v_pdd_headfree",
-                    "h3_probe_ref2v_pdd_345", "h3_probe_ref2v_pdd_8s")},
 }
 
 
@@ -236,6 +223,31 @@ def single_frame_dirs():
     return {d for d in h3_config.GRAPH_DIRS if d}
 
 
+def loads_pdd(graph) -> bool:
+    """Whether this graph loads a Parallel Decoding Distillation LoRA.
+
+    A MECHANISM, not a list of filenames. The PDD arms replicate the vendor's
+    reference path, which runs Diffusers' stock SDPA -- so they wire neither
+    sage nor Sol, and they are a class rather than four graphs. Listing their
+    stems is the shape this file's own header argues against, and it went stale
+    within hours: the four ref2va arms were listed on 2026-08-26 and the two
+    fl2va ones added the same day turned the check red.
+
+    Decided by the loader class, so a fifth PDD arm is exempt the moment it
+    exists and a graph that stops loading one stops being exempt. The
+    necessity assertion still applies -- an exempt graph with live Sol is a
+    failure, not a pass.
+    """
+    nodes = (graph.get("nodes") if isinstance(graph.get("nodes"), list)
+             else graph.values())
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        if (node.get("type") or node.get("class_type")) == "MiniMaxH3PDDLoRA":
+            return True
+    return False
+
+
 def main() -> int:
     paths = h3_config.graph_paths(WORKFLOWS)
     img_dirs = single_frame_dirs()
@@ -247,6 +259,12 @@ def main() -> int:
         stem = p.stem[:-4] if p.stem.endswith("_api") else p.stem
         in_image = p.parent.name in img_dirs
         exempt_reason = SOL_EXEMPT_STEMS.get(stem)
+        if exempt_reason is None and loads_pdd(g):
+            exempt_reason = (
+                "PDD arm: replicates the vendor reference path, which runs "
+                "Diffusers' stock SDPA, so it wires neither sage nor Sol. "
+                "Derived from the loader class rather than listed, so a new "
+                "PDD arm is covered the moment it exists")
         if exempt_reason:
             exempt_seen[stem] = True
         checked["graphs"] += 1

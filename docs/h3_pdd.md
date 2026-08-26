@@ -189,6 +189,54 @@ which is what a stochastic sampler does. So the latent capability is a 32-step
 stochastic trajectory at 8 NFE. That is off-distribution from how the heads
 were distilled and nothing here has tried it.
 
+## Validated against the paper and an independent conversion
+
+Three references, and they fail differently, which is why all three were used.
+`bench/compare_pdd_conversions.py` re-runs the numeric half;
+`bench/results/2026-08-26_pdd_conversion_*.json` records it.
+
+**The paper.** Section 3.1 gives the fused layer as
+`W_{n:n+L} = sum_k D_k W_k` with `D_k = (t_{k+1} - t_k) / (t_{n+L} - t_n)`,
+which is `pdd_math.fusion_plan` term for term, and Algorithm 1 gives the
+consumer: `u = student(x_n, t[n])` then `x_n += einsum('k,k...', h_n, u_n)` --
+evaluated at the block-START time, deterministic, no noise. That is what the
+`euler` sampler and the boundary-snapped head selection implement.
+
+It also settles a design question rather than leaving it to taste: *"during
+inference we can avoid the extra compute of an enlarged final layer and we only
+need to hold one fused linear layer per block in memory."* Precomputing the
+fused heads is the paper's own recommendation, not our optimisation of it --
+and the shipped adapter's per-forward einsum over all 32 heads is the form the
+paper says can be avoided.
+
+**Kijai's converted files**, an independent conversion of the same weights
+arrived at without reference to ours. Measured 2026-08-26:
+
+| | ours against his |
+|---|---|
+| `attn.qkv_proj`, `out_proj`, `mlp.fc1`, `mlp.fc2` | 0.0, except 6.7e-20 on qkv |
+| his head bank against the published 32-stack | 0.0 |
+| our fused heads, recomputed from his raw bank | 0.0 |
+
+Bit-identical on every backbone transform, including the two that are easy to
+get wrong -- the block-diagonal qkv fusion and the SwiGLU half-swap.
+
+**His pruned build projects the adaln update into the curve basis too**, which
+is the part this repo worked out alone and most wanted a second opinion on.
+Two independent solutions of the same projection, each scored against ground
+truth rather than against each other:
+
+| block | ours | his |
+|---|---|---|
+| 0 | 2.3e-05 | 8.3e-05 |
+| 25 | 6.1e-05 | 7.8e-05 |
+| 49 | 1.2e-05 | 3.7e-05 |
+
+Same method, both far below bf16 resolution. The gap is storage precision and
+nothing else: he keeps bf16 factors, we store the fp32 product, which is also
+the smaller of the two because the projected rank is 8 and the factored rank is
+64.
+
 ## Two traps that are silent in both directions
 
 ### The partitions have identical key sets

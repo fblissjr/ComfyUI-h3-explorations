@@ -67,7 +67,7 @@ from h3_config import (  # noqa: E402
     CAPTURE_REF_IMAGES,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
-    PDD_REF2VA_LORA, PDD_STEPS, PDD_STRENGTH,
+    PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STRENGTH,
 )
 
 
@@ -5707,6 +5707,50 @@ def main():
         # Fact B -- an fl2v distill aimed at the wrong weights -- does not
         # apply to this one. Facts A and C do not follow from that and are
         # untouched.
+
+        # The fl2va partition's PDD arms. That partition serves BOTH t2va and
+        # fl2va (vendor_config/fl2va_model_index.json declares the task list),
+        # so one converted file covers text-to-video and first/last-frame --
+        # which is the larger half of how this model gets used and had no PDD
+        # arm at all until 2026-08-26, while the weights sat converted on disk.
+        #
+        # Same three replication settings as the ref2va arms: euler because the
+        # vendor steps with Euler, dense DiT attention because their pipeline
+        # runs stock SDPA, and the base 12/3 shift because PDD's block
+        # boundaries ARE the base schedule.
+        ("h3_text_to_video_pdd.json", "t2v-pdd", "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, dense_attn=True, sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              out_prefix="Video/h3_t2v_pdd",
+              variant_note=_probe_note(
+                  "does PDD hold prompt adherence at 8 steps on t2v",
+                  "h3_text_to_video.json",
+                  "the fl2va PDD LoRA at 8 steps instead of the base "
+                  "checkpoint at 16, with euler and no DiT attention patching.",
+                  "whether the scripted shots still happen on schedule -- the "
+                  "failure h3_config records for 12 base steps, where the "
+                  "third shot never arrives.",
+                  "the step count is the only thing this LoRA is supposed to "
+                  "move; the shift and scheduler are the base's own.")),
+         "text -> video + audio at 8 steps via Parallel Decoding Distillation"),
+
+        ("h3_first_last_frame_to_video_pdd.json", "fl2v-pdd", "i2v", None,
+         dict(last_frame=True, **FL2V_CANVAS,
+              pdd=True, dense_attn=True, sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              out_prefix="Video/h3_flf2v_pdd",
+              variant_note=_probe_note(
+                  "does PDD hold the keyframe endpoints at 8 steps",
+                  "h3_first_last_frame_to_video.json",
+                  "the fl2va PDD LoRA at 8 steps instead of the base "
+                  "checkpoint at 16.",
+                  "the last frame, which is the one the schedule reaches with "
+                  "its largest jump.",
+                  "fl2v hands the model a free zero-offset alignment prior "
+                  "that ref2v does not have, so if PDD degrades anywhere it "
+                  "should degrade here least.")),
+         "first+last frame -> video + audio at 8 steps via PDD"),
+
         ("h3_probe_ref2v_pdd.json", "r2v-pdd", "r2v", _ref_prompt(images=True),
          dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               length=243, out_prefix="Video/h3_probe_r2v_pdd",

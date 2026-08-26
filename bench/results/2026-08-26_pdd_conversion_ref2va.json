@@ -1,0 +1,41 @@
+{
+  "date": "2026-08-26",
+  "partition": "ref2va",
+  "files": {
+    "ours": "minimax_h3_ref2va_pdd_8step_comfy.safetensors",
+    "kijai": "MiniMax-H3-Ref2VA-Acc-8Step_comfy.safetensors",
+    "kijai_pruned": "MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors",
+    "source": "MiniMax-H3-Ref2VA-Acc-8Step.safetensors"
+  },
+  "backbone_vs_kijai": {
+    "attn.qkv_proj": 6.702493247283352e-20,
+    "attn.out_proj": 0.0,
+    "mlp.fc1": 0.0,
+    "mlp.fc2": 0.0
+  },
+  "kijai_bank_is_the_published_stack": 0.0,
+  "our_fused_heads_from_his_bank": 0.0,
+  "adaln_bake_vs_truth": {
+    "0": {
+      "ours": 2.260237707341413e-05,
+      "kijai": 8.265868815371668e-05
+    },
+    "12": {
+      "ours": 4.4777795862437376e-05,
+      "kijai": 0.0001563878718636202
+    },
+    "25": {
+      "ours": 6.070677426860061e-05,
+      "kijai": 7.768707223229026e-05
+    },
+    "37": {
+      "ours": 7.721046131638005e-05,
+      "kijai": 0.00018188734226755915
+    },
+    "49": {
+      "ours": 1.1733033698172836e-05,
+      "kijai": 3.6775856384081446e-05
+    }
+  },
+  "note": "Kijai stores the projection as bf16 factors and we store the fp32 product, which is the whole of the difference between the two adaln columns. Both are the same projection and both are far below bf16 resolution."
+}

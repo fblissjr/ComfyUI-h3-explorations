@@ -96,8 +96,30 @@ at most that 59.6 s.
 
 ## 3. Recommendation: no further own-calibration quants for this card
 
-**RECOMMENDATION, owner's call open.** For a 24 GB target, stop building AWQ
-candidates. The reading:
+> **OWNER-DECISION, 2026-08-26, and it reverses the scope of this section.**
+> The W4 artifacts are **published for the community**, not built for this box;
+> an INT8 build can ship alongside them if it earns one. So "this card" was the
+> wrong frame: W4 quality matters for people who cannot run a 25 GiB encoder,
+> and the GPTQ run on the 2026-08-26 handoff **stands**. What survives below
+> unchanged is the local frame -- on a 4090, INT8 is the encoder of record and
+> no new W4 candidate improves anything you can run here. What is superseded is
+> the inference that W4 has no remaining audience.
+>
+> **A distinction this section originally blurred, and it matters for GPTQ.**
+> Section 5's local-objective finding bounds a *data* change: no population
+> aims the run at layer 49, and the overfit test sized that lever at about a
+> tenth. GPTQ is not a data change, it is a **solver** change -- AWQ rescales
+> then rounds each weight independently, GPTQ compensates by pushing each
+> column's error into the columns it has not reached. Both minimise a local
+> objective, so neither introduces a layer-49 term, but GPTQ can be
+> substantially better *at that local objective*, and a local improvement
+> compounds through fifty layers. **The tenth-order prior therefore does not
+> bound GPTQ**, and this record said so too loosely before this annotation.
+> That is the axis Gate 5 never varied, and it is now the reason to vary it.
+
+**RECOMMENDATION as written 2026-08-26, superseded in scope by the decision
+above; the reading still holds for a 24 GB target.** For this card, stop
+building AWQ candidates. The reading:
 
 - The 4-bit grid is the floor and the launch record measured it: both W4
   artifacts sit at 0.33--0.38 median relative L2 on every population and
@@ -128,6 +150,19 @@ What to do instead, in the order I would do it:
    others. Shaving INT8's H3 path to fit needs about 2.8 GiB, of which the
    embedding table at I8 is 0.72.
 3. **Leave the vision tower alone**, per the table above.
+
+**Asked 2026-08-26: is there a reduction of INT8 specific to this task that
+costs no quality? MEASURED answer: no, not enough to matter.** H3 already
+consumes only layers 0--49 and the file already carries only those, so there is
+no depth slack. The one genuinely lossless reduction is the embedding table,
+BF16 at 1.449 GiB where NVFP4 already ships it at I8 for 0.725 -- a per-row
+scaled lookup table is close to exact. That saves **0.724 GiB and lands the H3
+path at 24.553 GiB**, still above what the card reports usable and before a
+single activation. Everything else is decoder (22.72 GiB), where reduction *is*
+the quality cost, or the vision tower (1.11 GiB), which is what the lane cares
+about. So INT8 cannot be made resident on a 24 GB card without giving up
+decoder precision, and the embedding win alone buys nothing measurable because
+the encode is compute-bound rather than streaming-bound.
 
 ### The measurement that is missing, and why it must be activation-aware
 

@@ -228,6 +228,22 @@ the rest ran at 10). No refusals. Relative L2 at layer 50 against BF16:
 | text positions, either geometry | 0.064 / 0.086 | 0.063 / 0.083 | 12 and 11 of 13 |
 | text-only T2VA bundle | 0.067 / 0.741 | 0.061 / 0.892 | -- |
 
+> **Annotation, 2026-08-26, owner-approved: the verdict stands and the metric
+> is the thing it exposed.** Re-deriving the aggregates from the record above
+> shows the **means** at `upscale_2048` are a wash -- v1 0.3088, v2 0.3073, v2
+> marginally ahead -- while the medians move against v2, and v2's max is 0.634
+> against v1's 0.776. At `max_no_upscale` the means favour v1 (0.3991 vs
+> 0.4067). So v2 did not degrade uniformly: it cut the tail and lifted the
+> middle, and the bar was written on medians and row-win counts, both of which
+> reward "improve most rows slightly" and punish exactly that shape. **This
+> does not reopen the verdict** -- criterion 1 was pre-registered, it is what
+> makes the result legible rather than post-hoc rescuable, and criterion 3
+> passed precisely because of the tail behaviour. It is recorded because the
+> metric is already named below as this result's third suspect, and this is
+> what that suspicion looks like in the numbers. Anyone re-registering a bar
+> for a W4 candidate should decide **before the run** whether tail or median is
+> the thing being bought.
+
 Against the pre-registered bar: criterion 1 (v2's median below v1's) fails on
 both geometries; criterion 2 (10 of 13 rows) fails on both; criterion 3 (no
 v2 row worse than v1's worst) passes on both; criterion 4 (text within 2x)

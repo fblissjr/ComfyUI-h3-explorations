@@ -153,7 +153,18 @@ decisions. The short form:
 
 ## What runs next, in order (card work; ComfyUI stopped first, restarted after)
 
-**Open question against items 1 and 2, raised 2026-08-26, owner's call.**
+**SETTLED 2026-08-26 by the owner: items 1 and 2 stand. Run the GPTQ probe and
+the full run.** The W4 artifacts are published for the community, not built for
+this box, so "does it beat INT8 on a 4090" was never the question they have to
+answer -- an INT8 build can ship alongside them. GPTQ is also a **solver**
+change, not a data change, so the tenth-order prior that bounds a new
+calibration population does not bound it: AWQ rescales and rounds
+independently, GPTQ compensates, and a local improvement compounds through
+fifty layers. That is the axis Gate 5 never varied. The note below is kept for
+the reading it carries about the local frame, and is no longer a
+recommendation.
+
+**Superseded note, raised 2026-08-26, kept for its reading.**
 `canonical/2026-08-26_encoder_choice_and_marker_measurement.md` recommends
 dropping the GPTQ runs if the 24 GB card is the target: the four-encoder table
 already answered which encoder to use, the 4-bit floor is measured, and NVFP4

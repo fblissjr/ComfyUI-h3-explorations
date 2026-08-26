@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""A PDD render selects the fused head its sampling step was fused for.
+"""The PDD node's runtime guards do what they claim, on real artifacts.
+
+Two subjects, both about `pdd_lora.py` deciding something at load or step time
+that nothing downstream would contradict.
+
+## 1. A PDD render selects the fused head its sampling step was fused for.
 
 ## The escaped defect that earns this check
 
@@ -216,6 +221,82 @@ def membership_survives():
 
 
 check("interval membership survives the fix", membership_survives)
+
+
+# --- 2. the two tolerances, against the noise each has to straddle ---------
+# Both were set by hand from a measurement taken once, and one of them was set
+# WRONG: TABLE_TOLERANCE started at 1e-3, below the 1.6e-3 a bf16 cast of the
+# table costs, so every correct bake would have been rejected into the slow
+# injection path -- silently, because that path is correct. The other,
+# PARTITION_TOLERANCE, replaced a sha256 that fired on the RIGHT checkpoint for
+# the same reason: an exact test against a value the loader is allowed to cast.
+#
+# A tolerance is only meaningful between two numbers. These cases pin both.
+def _tolerances():
+    import torch as _t
+    from safetensors import safe_open
+    root = HERE.parents[2] / "models" / "diffusion_models"
+    want = ("minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            "minimax_h3_fl2va_pruned_int8_convrot.safetensors")
+    got = {}
+    for name in want:
+        for cand in (root / name, root / "diffusion_models" / name):
+            if cand.exists():
+                with safe_open(cand, framework="pt") as f:
+                    got[name] = (f.get_tensor("adaln_t_table").float(),
+                                 f.get_tensor("final_layer.video_out.weight").float())
+                break
+    return got
+
+
+_ck = _tolerances()
+if len(_ck) < 2:
+    skipped.append("both pruned partitions needed to bound the tolerances")
+    print("  SKIP  need both partitions on disk; a tolerance graded against "
+          "only one side is not graded")
+else:
+    import torch as _t
+    (_ref_tab, _ref_vo), (_fl_tab, _fl_vo) = (_ck[k] for k in _ck)
+
+    def _rel(a, b):
+        return float((a - b).norm() / b.norm())
+
+    def table_tolerance_straddles():
+        cast = _rel(_ref_tab.to(_t.bfloat16).float(), _ref_tab)
+        cross = _rel(_fl_tab, _ref_tab)
+        assert cast <= P.TABLE_TOLERANCE, (
+            f"a bf16 cast of the curve table is {cast:.5f} away, above "
+            f"TABLE_TOLERANCE={P.TABLE_TOLERANCE}. Every correct bake would be "
+            f"rejected into the runtime injection -- slower, and silent, "
+            f"because the injection is correct. This is the value it shipped "
+            f"with for an hour on 2026-08-26.")
+        assert cross > P.TABLE_TOLERANCE, (
+            f"the other partition's table is {cross:.5f} away, within "
+            f"TABLE_TOLERANCE={P.TABLE_TOLERANCE}. A bake solved against the "
+            f"wrong basis would be accepted, and it is 0.02 wrong at runtime "
+            f"against 0.0001 for the right one -- which a fit residual cannot "
+            f"detect, so this comparison is the only thing standing there.")
+        return f"cast {cast:.5f} < {P.TABLE_TOLERANCE} < cross-partition {cross:.5f}"
+
+    def partition_tolerance_straddles():
+        cast = _rel(_ref_vo.to(_t.bfloat16).float(), _ref_vo)
+        cross = _rel(_fl_vo, _ref_vo)
+        assert cast <= P.PARTITION_TOLERANCE, (
+            f"a bf16 cast of final_layer.video_out is {cast:.5f} away, above "
+            f"PARTITION_TOLERANCE={P.PARTITION_TOLERANCE}. The loader casts on "
+            f"load, so this rejects the CORRECT checkpoint -- which is what the "
+            f"sha256 this replaced actually did, on the first real render.")
+        assert cross > P.PARTITION_TOLERANCE, (
+            f"the other partition is {cross:.5f} away, within "
+            f"PARTITION_TOLERANCE={P.PARTITION_TOLERANCE}. fl2va and ref2va "
+            f"ship identical key sets, so a mismatched pair renders without one "
+            f"unmatched key and is merely wrong.")
+        return f"cast {cast:.5f} < {P.PARTITION_TOLERANCE} < cross-partition {cross:.5f}"
+
+    check("table tolerance sits between a cast and a partition swap",
+          table_tolerance_straddles)
+    check("partition tolerance sits between a cast and a partition swap",
+          partition_tolerance_straddles)
 
 print()
 if failures:
