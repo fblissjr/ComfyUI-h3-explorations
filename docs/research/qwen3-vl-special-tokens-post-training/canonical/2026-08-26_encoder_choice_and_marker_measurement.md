@@ -231,7 +231,9 @@ measured on; it cannot change what is being minimised. An allocation measured
 as `||Wx - W_hat x||` on captured activations **can** be propagated to layer
 49's output and ranked on that, which is the objective AWQ structurally cannot
 express -- a second reason to spend trace data there rather than on another
-calibration population.
+calibration population. **Section 5 records the owner's trace-calibration idea
+against this same boundary**; it was filed before this paragraph existed, and
+the annotation there carries what this finding does to its GPTQ argument.
 
 ## 4. Recommendation: no encoder fine-tune or LoRA before the marker arms run
 
@@ -373,6 +375,18 @@ closer to the same experiment than they look, and running them as one arm --
 GPTQ **on** an in-schema pool -- costs one run rather than two and separates
 cleanly from the v1/v2 pair, which varied neither.
 
+**Added after 52d5916, and it bounds the paragraph above rather than refuting
+it.** GPTQ's objective is layer-local too. Its own recipe module says so:
+[`bench/h3_gptq_recipe.py`](../../../../bench/h3_gptq_recipe.py) describes GPTQ
+as pushing each column's error into the columns it has not reached yet "using
+the inverse Hessian of **the layer's own input covariance**". So GPTQ changes
+*how* a layer's local error is minimised where AWQ only moves it between
+channels -- a real difference, and the axis Gate 5 never varied -- but neither
+carries a term for the layer-49 state H3 reads. See section 3's objective
+paragraph. The consequence for the one-arm proposal: an in-schema pool and a
+compensating solver both act on the same bounded term, which is consistent with
+the tenth-order prior stated above and is a second, independent reason for it.
+
 ### What would confirm or refute it
 
 The first measurement is free of the card and should come first: **how far apart
@@ -385,6 +399,16 @@ locates the gain before any calibration run is spent.
 **UNMEASURED and unbuilt.** `h3_capture.py` captures DiT activations, not
 encoder ones, so the encoder-side hook does not exist yet. Nothing here has been
 run.
+
+**Added after 52d5916: there is a harness to extend rather than a thing to
+build.** [`bench/capture_h3_encoder_states.py`](../../../../bench/capture_h3_encoder_states.py)
+already runs the encoder arm and taps two points -- the layer-0 input and the
+raw state after language layer index 49 -- with the presentation hashing and the
+refusal-on-mismatch its comparator needs. What it does not have is a tap on
+every layer's *input*. Adding one is an extension of an existing arm rather than
+a new capture path, and
+[`compare_transformers_comfy_layer50.py`](../../../../bench/compare_transformers_comfy_layer50.py)'s
+`_embedding_tap` is the shape to copy.
 
 ## What this record does not establish
 
