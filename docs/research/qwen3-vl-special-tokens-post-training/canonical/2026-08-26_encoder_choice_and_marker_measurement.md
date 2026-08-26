@@ -426,6 +426,26 @@ a new capture path, and
 [`compare_transformers_comfy_layer50.py`](../../../../bench/compare_transformers_comfy_layer50.py)'s
 `_embedding_tap` is the shape to copy.
 
+**Which graph to trace, added 2026-08-26 after a peer proposed the four
+no-attention-patching PDD arms as the cleanest source.** **SOURCE, verified:**
+no attention patching in this repo reaches the Qwen3-VL encoder at all.
+`MiniMaxH3SageAttention` and `MiniMaxH3SolAttnCurve` both take
+`io.Model.Input("model")` and the sage node's own description says to connect it
+between the model loader and the sampler; its `patch_token_refiner` option
+patches the DiT's text token-refiner blocks, not the encoder. The encoder
+resolves its own `optimized_attention_for_device` inside
+`comfy/text_encoders/llama.py`'s decoder forward, independent of
+`transformer_options`, and `attention.py` contains no reference to a CLIP or
+text encoder. So sage, Sol, the SLA router and PDD arms all produce **the same
+encoder activations** for the same prompt and references, and a graph's
+attention arm is not a selection criterion for this measurement. What is: schema
+coverage -- markers, the `<Picture i>:` and timestamp scaffold, reference roles,
+still policy -- which is the gap this section already names. That widens the
+candidate set from four arms to every shipped graph. (The peer's reasoning does
+hold one stage down: for a **DiT**-side capture, such as the ref2va prefix
+attention on the handoff's card, a graph wiring no attention patching is the
+cleanest source and the PDD arms are the only ones.)
+
 ## What this record does not establish
 
 - Anything perceptual. Every recommendation here rests on weights and encoder
