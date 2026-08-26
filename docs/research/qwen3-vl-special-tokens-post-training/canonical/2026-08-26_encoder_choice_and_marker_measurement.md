@@ -218,8 +218,11 @@ is satisfied -- `propagate_error` gives each layer inputs from the already
 quantized layers above it -- while the output half is not: the run minimised
 four-by-sixty-four local reconstruction errors and never knew which layer's
 state is the deliverable. Fourteen of those sixty-four are layers H3 never
-reads. That does not corrupt layers 0--49, which are upstream of them, but it
-is where about a fifth of the grid search went.
+reads, which does not corrupt layers 0--49 because they are upstream of them.
+**INFERENCE, from the layer count and not from a timing:** if AWQ's per-layer
+cost is near-uniform -- the decoder layers are architecturally identical -- that
+is about a fifth of the grid search spent on outputs nothing reads. The v2 run
+record carries no per-layer modifier timing to confirm it.
 
 **Consequence, and it is why section 1's ten-percent ceiling is not surprising.**
 No choice of calibration data can make a local per-mapping objective into a
