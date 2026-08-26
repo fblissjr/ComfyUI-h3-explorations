@@ -320,12 +320,7 @@ def main(argv=None) -> int:
                          "ordinary weight patch instead of a runtime "
                          "injection. Without it the file still works, through "
                          "the slower injection path.")
-    ap.add_argument("--drop-unpruned-adaln", action="store_true",
-                    help="omit the 2688-dim adaln pairs, which only a "
-                         "full-width checkpoint can use. Halves the file. Only "
-                         "safe if you will never load this onto an unpruned "
-                         "base -- the node raises rather than rendering "
-                         "without them.")
+
     ap.add_argument("--shift-video", type=float, default=DEFAULT_SHIFT_VIDEO)
     ap.add_argument("--shift-audio", type=float, default=DEFAULT_SHIFT_AUDIO)
     args = ap.parse_args(argv)
@@ -400,11 +395,21 @@ def main(argv=None) -> int:
     out["h3_pdd.bank.audio.bias"] = src["audio_proj_out.bias"]
 
     grid = derive_silu_temb_grid(args.base)
-    out["h3_pdd.silu_temb_grid"] = grid
     out["h3_pdd.base_video_out"] = base_video_out(args.base)
 
+    # The output targets the base you named, and carries one adaln form only.
+    #
+    # Both were shipped together for a few hours and it was 637 MB of pairs a
+    # pruned checkpoint cannot use plus 11 MB of grid the bake makes redundant
+    # -- around 40% of the file, dead in the only configuration this repo
+    # renders. `--pruned` says which base this is for, so it also says which
+    # form to emit; a second flag would have been a way to get them out of step.
     baked = 0
-    if args.pruned is not None:
+    if args.pruned is None:
+        # No pruned base named: the update stays in the 2688-dim time space and
+        # the grid comes with it, for the runtime injection.
+        out["h3_pdd.silu_temb_grid"] = grid
+    else:
         with safe_open(args.pruned, framework="pt") as f:
             if "adaln_t_table" not in set(f.keys()):
                 raise SystemExit(
@@ -456,8 +461,15 @@ def main(argv=None) -> int:
                     f"would misapply the modulation at every timestep. Convert "
                     f"without --pruned to keep the runtime injection.")
             baked += 1
+        for i in range(n_blocks):
+            # The 2688-dim pairs are what the bake replaces. Keeping them would
+            # be two representations of one update in one file, and nothing
+            # would say which the node used.
+            out.pop(f"h3_pdd.adaln.blocks.{i}.lora_A", None)
+            out.pop(f"h3_pdd.adaln.blocks.{i}.lora_B", None)
         print(f"  baked {baked} adaln modules into {args.pruned.name}'s basis, "
-              f"worst reconstruction {worst:.2e}")
+              f"worst reconstruction {worst:.2e}; dropped the 2688-dim pairs "
+              f"and the grid this base cannot use")
 
     # --- self-check: the emitted delta must equal the source delta ----------
     # Not a restatement of the code above: it reconstructs B @ A on both sides

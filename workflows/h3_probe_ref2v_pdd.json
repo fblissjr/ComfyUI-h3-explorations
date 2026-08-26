@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "7aee8faa-dae2-5f0c-a450-ca9bacb67d5f",
+  "id": "2286aaab-446c-563d-aabc-0d36bb6a09f9",
   "revision": 0,
   "last_node_id": 27,
   "last_link_id": 30,
@@ -180,7 +180,8 @@
       "widgets_values": [
         "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors",
         1.0,
-        true
+        true,
+        0
       ],
       "title": "PDD LoRA (strength 1.0)"
     },

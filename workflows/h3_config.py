@@ -895,7 +895,14 @@ LORA_LOADER_CLASSES = ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
 
 PDD_FL2VA_LORA = "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors"
 PDD_REF2VA_LORA = "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors"
+# The step counts one converted file serves. The published grid is 32 points,
+# so any divisor is a legal arm from the same weights and each lands exactly on
+# the plain shifted schedule for its own count -- the node fuses the heads at
+# load for whichever is asked. 8 is what the file records; 4 is the other count
+# the vendor's README reports rendering at. Both, not one, because the pair IS
+# the parallel-decoding claim: one weight set, two step counts, both exact.
 PDD_STEPS = 8
+PDD_STEPS_FAST = 4
 PDD_STRENGTH = 1.0
 PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 

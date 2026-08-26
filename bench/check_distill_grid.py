@@ -128,7 +128,7 @@ from h3_config import graph_paths  # noqa: E402
 from pdd_math import block_bounds  # noqa: E402
 from check_distill_settings import (  # noqa: E402
     LEGAL, OWNER_RECIPE, PACK_STEPS, classify, classify_pack, classify_pdd,
-    pdd_nfe, is_turbo,
+    pdd_grid, pdd_nfe, is_turbo,
     read_api, read_ui,
 )
 
@@ -592,15 +592,19 @@ def main() -> int:
                 bad.append(f"{rel}: loads a PDD LoRA but its shift, steps or "
                            f"scheduler could not be read")
                 continue
-            nfe = pdd_nfe(names[0])
-            if nfe is None:
-                bad.append(f"{rel}: could not read pdd_nfe from {names[0]}")
+            # The graph's nfe when it sets one; the file's is only a default
+            # now that the heads are fused at load.
+            nfe = found.pdd_nfe or pdd_nfe(names[0])
+            grid = pdd_grid(names[0])
+            if nfe is None or grid is None:
+                bad.append(f"{rel}: no nfe on the graph and none readable "
+                           f"from {names[0]}")
                 continue
             sv, sa = found.shift
             video, audio = comfy_grid(sv, sa, found.scheduler, found.steps)
             for label, got, shift in (("video", video, sv), ("audio", audio, sa)):
                 want = [1.0 - float(t) for t in
-                        block_bounds(shift, nfe * 4, 4).tolist()]
+                        block_bounds(shift, grid, grid // nfe).tolist()]
                 dev = deviation(got, want)
                 if dev > 1e-6:
                     bad.append(

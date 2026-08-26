@@ -45,7 +45,7 @@
         0
       ],
       "scheduler": "simple",
-      "steps": 8,
+      "steps": 4,
       "denoise": 1.0
     }
   },
@@ -126,7 +126,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/text_to_video_pdd",
+      "filename_prefix": "Video/text_to_video_pdd_4step",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -181,7 +181,7 @@
       "lora_name": "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors",
       "strength": 1.0,
       "patch_heads": true,
-      "nfe": 0
+      "nfe": 4
     }
   },
   "19": {

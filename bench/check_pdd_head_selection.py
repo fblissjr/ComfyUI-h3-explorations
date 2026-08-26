@@ -124,19 +124,14 @@ def time_shift_sigma(sigma, from_shift, to_shift):
     return to_shift * base / (1.0 + (to_shift - 1.0) * base)
 
 
-def drive(table, bounds_v, bounds_a, nfe, snap_on=True):
-    """Run the tracker over one full sampling schedule. Returns (video, audio)."""
-    tracker = P._StepTracker(table, bounds_v, bounds_a, nfe, "check")
-    if not snap_on:
-        # Reproduce the pre-fix selector without editing the module: pure
-        # interval membership, which is what `snap=0.0` still means.
-        def update(t_emb, video_seg, audio_seg, _t=tracker):
-            tv = _t._t(t_emb, video_seg[2])
-            ta = _t._t(t_emb, audio_seg[2])
-            _t.video = M.step_for_t(tv, _t.bounds_v, _t.nfe)
-            _t.audio = M.step_for_t(ta, _t.bounds_a, _t.nfe)
-        tracker.update = update
-
+def drive(table, nfe):
+    """Run the real tracker over one full schedule at `nfe`. Returns (video, audio)."""
+    block = NUM_STEPS // nfe
+    bounds_v = M.block_bounds(SHIFT_V, NUM_STEPS, block)
+    bounds_a = M.block_bounds(SHIFT_A, NUM_STEPS, block)
+    tracker = P._StepTracker(P.boundary_embeddings(bounds_v, table),
+                             P.boundary_embeddings(bounds_a, table),
+                             bounds_v, bounds_a, nfe, f"nfe={nfe}")
     rows = table.shape[0]
 
     def emb(t):
@@ -147,9 +142,9 @@ def drive(table, bounds_v, bounds_a, nfe, snap_on=True):
     video, audio = [], []
     for boundary in bounds_v[:-1]:
         sigma_v = 1.0 - float(boundary)
-        t_v = 1.0 - sigma_v
         t_a = 1.0 - time_shift_sigma(sigma_v, SHIFT_V, SHIFT_A)
-        tracker.update(torch.stack([emb(t_v), emb(t_a)]), (0, 1, 0), (1, 2, 1))
+        tracker.update(torch.stack([emb(1.0 - sigma_v), emb(t_a)]),
+                       (0, 1, 0), (1, 2, 1))
         video.append(tracker.video)
         audio.append(tracker.audio)
     return video, audio, tracker
@@ -171,56 +166,51 @@ else:
     bounds_a = M.block_bounds(SHIFT_A, NUM_STEPS, BLOCK)
     want = list(range(NFE))
 
-    def real_schedule():
-        video, audio, tracker = drive(table, bounds_v, bounds_a, NFE)
-        assert video == want, (
-            f"video heads {video}, want {want}. A step that decodes another "
-            f"block's interval is silent: the residual stays ~0 and the render "
-            f"completes.")
-        assert audio == want, (
-            f"audio heads {audio}, want {want}. Audio runs shift {SHIFT_A} and "
-            f"is selected independently, so a video-only fix passes without it.")
-        assert not tracker.warned, "on-schedule run raised the off-schedule warning"
-        return f"video and audio both {want[0]}..{want[-1]}, from {source}"
+    def every_legal_nfe():
+        """One file, every step count the 32-point grid divides by.
 
-    def old_bug_is_red():
-        video, audio, _ = drive(table, bounds_v, bounds_a, NFE, snap_on=False)
-        assert video != want or audio != want, (
-            "pure interval membership selected the right heads, so this check "
-            "would pass a tracker that had lost its boundary snap. Either the "
-            "table stopped quantising or the drive is not reaching the "
-            "selector -- both make the case above meaningless.")
-        return f"membership alone gives video {video}"
+        This is the parallel-decoding claim in the form the node has to get
+        right: the same weights fused at load for 8, 4, 2 or 16 evaluations,
+        each landing on its own block boundaries. The vendor's README reports
+        rendering at 8 and 4; the other two come free from the same divisibility
+        and are here because a selector that only ever sees one block size is
+        not evidence about the others.
+        """
+        rows = []
+        for nfe in (n for n in (16, 8, 4, 2) if NUM_STEPS % n == 0):
+            video, audio, tracker = drive(table, nfe)
+            want = list(range(nfe))
+            assert video == want, f"nfe={nfe}: video heads {video}, want {want}"
+            assert audio == want, (
+                f"nfe={nfe}: audio heads {audio}, want {want}. Audio runs "
+                f"shift {SHIFT_A} and is selected independently, so a "
+                f"video-only fix passes a video-only case.")
+            assert not tracker.warned, f"nfe={nfe}: on-schedule run warned"
+            rows.append(str(nfe))
+        return f"nfe {', '.join(rows)} each select 0..n-1 on both streams"
 
     def off_schedule_warns():
-        wrong = M.block_bounds(SHIFT_V, NUM_STEPS * 2, BLOCK)
-        tracker = P._StepTracker(table, bounds_v, bounds_a, NFE, "off-schedule")
+        """A step count the heads were not fused for is reported, once."""
+        block = NUM_STEPS // NFE
+        bounds_v = M.block_bounds(SHIFT_V, NUM_STEPS, block)
+        bounds_a = M.block_bounds(SHIFT_A, NUM_STEPS, block)
+        tracker = P._StepTracker(P.boundary_embeddings(bounds_v, table),
+                                 P.boundary_embeddings(bounds_a, table),
+                                 bounds_v, bounds_a, NFE, "off-schedule")
         rows = table.shape[0]
-        for boundary in wrong[1:5]:
+        for boundary in M.block_bounds(SHIFT_V, NUM_STEPS * 2, block)[1:5]:
             pos = min(max(float(boundary), 0.0), 1.0) * (rows - 1)
             i0 = min(int(pos), rows - 2)
             e = torch.lerp(table[i0], table[i0 + 1], pos - i0)
             tracker.update(torch.stack([e, e]), (0, 1, 0), (1, 2, 1))
         assert tracker.warned, (
-            "a run off the fused schedule did not warn. The snap tolerance and "
-            "the residual tolerance must agree on what 'on schedule' means, or "
-            "snapping quietly absorbs the case the warning exists for.")
-        return "a 16-step grid against 8-step heads is reported"
+            "a run off the fused schedule did not warn. Selection degrades to "
+            "the nearest boundary by design, so this warning is the only thing "
+            "that distinguishes a deliberate arm from a misconfigured one.")
+        return "a 16-step sampler against 8-step heads is reported"
 
-    check("real schedule selects every head in order", real_schedule)
-    check("the escaped selection is still red without snapping", old_bug_is_red)
+    check("every legal nfe selects its own blocks", every_legal_nfe)
     check("off the fused schedule warns", off_schedule_warns)
-
-
-def membership_survives():
-    bounds = M.block_bounds(SHIFT_V, NUM_STEPS, BLOCK)
-    got = [M.step_for_t(t, bounds, NFE) for t in (0.0, 0.005, 0.2, 0.37, 1.0)]
-    assert got == [0, 0, 6, 7, 7], (
-        f"plain membership returned {got}; the off-schedule fallback moved")
-    return "unsnapped membership unchanged"
-
-
-check("interval membership survives the fix", membership_survives)
 
 
 # --- 2. the two tolerances, against the noise each has to straddle ---------

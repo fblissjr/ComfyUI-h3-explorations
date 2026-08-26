@@ -109,6 +109,13 @@ class Found(NamedTuple):
     # strength is a different arm, and three of four fields staying right is
     # exactly how the fourth drifts unnoticed.
     strengths: dict[str, float] | None = None
+    # The evaluation count a PDD graph asks its loader for, or None when it
+    # takes the file's own. Added 2026-08-26 when the node started fusing the
+    # heads at load: one converted file now serves every divisor of the
+    # 32-point grid, so `pdd_nfe` in the FILE is a default and the GRAPH is
+    # what a render actually runs. Grading the file alone failed a correct
+    # 4-step arm the hour it landed.
+    pdd_nfe: int | None = None
 
 
 # Keyed by the distinguishing fragment of the ComfyUI filename.
@@ -267,6 +274,11 @@ def lora_path(name):
     return candidate if candidate.exists() else None
 
 
+def pdd_grid(lora_name):
+    """`pdd_num_steps` from the converted file, or None."""
+    return _pdd_meta(lora_name, "pdd_num_steps")
+
+
 def pdd_nfe(lora_name):
     """`pdd_nfe` from the converted file's own metadata, or None if unreadable.
 
@@ -275,6 +287,10 @@ def pdd_nfe(lora_name):
     `_8step_` is not evidence -- the converter writes both, and only the
     metadata is what the node actually consumes.
     """
+    return _pdd_meta(lora_name, "pdd_nfe")
+
+
+def _pdd_meta(lora_name, key):
     import json as _json
     import struct as _struct
     path = lora_path(lora_name)
@@ -284,7 +300,7 @@ def pdd_nfe(lora_name):
         with open(path, "rb") as handle:
             n = _struct.unpack("<Q", handle.read(8))[0]
             meta = _json.loads(handle.read(n)).get("__metadata__") or {}
-        return int(meta["pdd_nfe"])
+        return int(meta[key])
     except Exception:
         return None
 
@@ -333,6 +349,7 @@ def read_api(doc) -> Found:
     scheduler: str | None = None
     shifts: list[tuple[float, float]] = []
     strengths: dict[str, float] = {}
+    pdd_nfe: int | None = None
     for node in doc.values():
         ct, inp = node.get("class_type"), node.get("inputs", {})
         if ct in LORA_LOADER_CLASSES:
@@ -344,6 +361,8 @@ def read_api(doc) -> Found:
             s = _literal(inp.get("strength_model"))
             if s is None:
                 s = _literal(inp.get("strength"))     # MiniMaxH3PDDLoRA
+            if ct == "MiniMaxH3PDDLoRA":
+                pdd_nfe = _literal(inp.get("nfe")) or None
             if s is not None:
                 strengths[str(inp.get("lora_name", ""))] = float(s)
         elif ct == "MiniMaxH3SigmaShift":
@@ -356,7 +375,7 @@ def read_api(doc) -> Found:
             steps = None if n is None else int(n)
             sched = _literal(inp.get("scheduler"))
             scheduler = None if sched is None else str(sched)
-    return Found(loras, shift, steps, scheduler, tuple(shifts), strengths)
+    return Found(loras, shift, steps, scheduler, tuple(shifts), strengths, pdd_nfe)
 
 
 def read_ui(doc) -> Found:
@@ -369,19 +388,23 @@ def read_ui(doc) -> Found:
     scheduler: str | None = None
     shifts: list[tuple[float, float]] = []
     strengths: dict[str, float] = {}
+    pdd_nfe: int | None = None
     for node in doc.get("nodes", []):
         t, w = node.get("type"), node.get("widgets_values") or []
         if t in LORA_LOADER_CLASSES and w:
             loras.append(w[0])
             if len(w) >= 2 and isinstance(w[1], (int, float)):
                 strengths[str(w[0])] = float(w[1])
+            # MiniMaxH3PDDLoRA widgets: [name, strength, patch_heads, nfe]
+            if t == "MiniMaxH3PDDLoRA" and len(w) >= 4 and isinstance(w[3], int):
+                pdd_nfe = w[3] or None
         elif t == "MiniMaxH3SigmaShift" and len(w) >= 2:
             shift = (float(w[0]), float(w[1]))
             shifts.append(shift)
         elif t == "BasicScheduler" and len(w) >= 2:
             steps = int(w[1])
             scheduler = str(w[0])
-    return Found(loras, shift, steps, scheduler, tuple(shifts), strengths)
+    return Found(loras, shift, steps, scheduler, tuple(shifts), strengths, pdd_nfe)
 
 
 def parse_vendor_table(text):
@@ -634,12 +657,19 @@ def main():
                         f"{path.name}: {lora} is a PDD arm, whose block "
                         f"boundaries ARE the base schedule -- it must sit at "
                         f"{BASE_SHIFT[0]}/{BASE_SHIFT[1]}, has {found.shift}")
-                    nfe = pdd_nfe(lora)
+                    # The GRAPH's nfe when it sets one, the FILE's otherwise.
+                    # The heads are fused at load, so the file records a default
+                    # and the graph records what runs.
+                    grid = pdd_grid(lora)
+                    nfe = found.pdd_nfe or pdd_nfe(lora)
                     assert nfe is not None, (
-                        f"{path.name}: could not read `pdd_nfe` from {lora}. "
-                        "A PDD arm whose artifact cannot be read is one whose "
-                        "schedule cannot be graded; the filename is not "
+                        f"{path.name}: could not read `pdd_nfe` from {lora} and "
+                        "the graph sets none. A PDD arm whose schedule cannot "
+                        "be read cannot be graded; the filename is not "
                         "evidence.")
+                    assert grid and grid % nfe == 0, (
+                        f"{path.name}: nfe={nfe} does not divide the file's "
+                        f"{grid}-point grid, so the blocks do not tile it.")
                     assert found.steps == nfe, (
                         f"{path.name}: {lora} was fused for {nfe} steps and "
                         f"the graph runs {found.steps}. Off its boundaries the "

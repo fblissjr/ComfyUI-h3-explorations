@@ -98,7 +98,8 @@
       "model",
       "lora_name",
       "strength",
-      "patch_heads"
+      "patch_heads",
+      "nfe"
     ],
     "node_id": "MiniMaxH3PDDLoRA",
     "outputs": [

@@ -67,7 +67,8 @@ from h3_config import (  # noqa: E402
     CAPTURE_REF_IMAGES,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
-    PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STRENGTH,
+    PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
+    PDD_STRENGTH,
 )
 
 
@@ -798,6 +799,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               turbo_pack: bool = False,
               pdd: bool = False,
               pdd_heads: bool = True,
+              pdd_nfe: int = 0,
               ref_audio: bool = False,
               split_at: int | None = None,
               split_base_last: bool = True,
@@ -1136,7 +1138,8 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             g["18"] = {"class_type": "MiniMaxH3PDDLoRA",
                        "inputs": {"model": model_src, "lora_name": lora[0],
                                   "strength": lora[1],
-                                  "patch_heads": pdd_heads}}
+                                  "patch_heads": pdd_heads,
+                                  "nfe": pdd_nfe}}
         else:
             g["18"] = ({"class_type": "MiniMaxH3TurboLoRA",
                         "inputs": {"model": model_src, "lora_name": lora[0],
@@ -3883,6 +3886,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              turbo_pack: bool = False,
              pdd: bool = False,
              pdd_heads: bool = True,
+             pdd_nfe: int = 0,
              ref_audio: bool = False,
              split_at: int | None = None,
              split_base_last: bool = True,
@@ -3984,10 +3988,11 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         if pdd:
             lora_node = g.add(
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 140),
-                widgets=[lora[0], lora[1], pdd_heads],
+                widgets=[lora[0], lora[1], pdd_heads, pdd_nfe],
                 inputs=[_in("model", "MODEL")],
                 outputs=[_out("MODEL", "MODEL")],
                 title=(f"PDD LoRA (strength {lora[1]}"
+                       + (f", {pdd_nfe} NFE" if pdd_nfe else "")
                        + ("" if pdd_heads else ", HEADS OFF -- control arm")
                        + ")"))
         else:
@@ -5708,48 +5713,105 @@ def main():
         # apply to this one. Facts A and C do not follow from that and are
         # untouched.
 
-        # The fl2va partition's PDD arms. That partition serves BOTH t2va and
-        # fl2va (vendor_config/fl2va_model_index.json declares the task list),
-        # so one converted file covers text-to-video and first/last-frame --
-        # which is the larger half of how this model gets used and had no PDD
-        # arm at all until 2026-08-26, while the weights sat converted on disk.
+        # --- PDD, the arms to actually render with ------------------------
+        # sage ON and Sol ABSENT. Sol skips attention adaptively per step,
+        # which is incoherent against a fixed fused block schedule, and a
+        # bypassed node in the graph is an invitation to switch it on. sage is
+        # a kernel swap at fixed numerics and buys ~2.4x here, which at ~90k
+        # packed tokens is worth more than halving the steps.
         #
-        # Same three replication settings as the ref2va arms: euler because the
-        # vendor steps with Euler, dense DiT attention because their pipeline
-        # runs stock SDPA, and the base 12/3 shift because PDD's block
-        # boundaries ARE the base schedule.
-        ("h3_text_to_video_pdd.json", "t2v-pdd", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, dense_attn=True, sampler_name="euler",
+        # Their dense twins under h3_probe_ref2v_pdd* are the reference
+        # configuration -- Diffusers' stock SDPA, what the vendor runs -- and
+        # exist to be compared against, not rendered with.
+        ("h3_text_to_video_pdd.json", "texttovideopdd", "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, dense_attn="sage", sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/h3_t2v_pdd",
+              out_prefix="Video/text_to_video_pdd",
               variant_note=_probe_note(
-                  "does PDD hold prompt adherence at 8 steps on t2v",
-                  "h3_text_to_video.json",
-                  "the fl2va PDD LoRA at 8 steps instead of the base "
-                  "checkpoint at 16, with euler and no DiT attention patching.",
-                  "whether the scripted shots still happen on schedule -- the "
-                  "failure h3_config records for 12 base steps, where the "
-                  "third shot never arrives.",
-                  "the step count is the only thing this LoRA is supposed to "
-                  "move; the shift and scheduler are the base's own.")),
-         "text -> video + audio at 8 steps via Parallel Decoding Distillation"),
+                  "text to video at 8 steps via PDD",
+                  "h3_text_to_video_pdd.json",
+                  "the PDD LoRA at 8 evaluations, sage on, Sol absent.",
+                  "identity and texture in the last third, where this "
+                  "schedule takes its largest jump.",
+                  "one converted file serves both step counts; the heads "
+                  "are fused at load for whichever is asked.")),
+         "text -> video + audio at 8 steps via PDD, sage on"),
 
-        ("h3_first_last_frame_to_video_pdd.json", "fl2v-pdd", "i2v", None,
-         dict(last_frame=True, **FL2V_CANVAS,
-              pdd=True, dense_attn=True, sampler_name="euler",
-              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
-              out_prefix="Video/h3_flf2v_pdd",
+        ("h3_text_to_video_pdd_4step.json", "texttovideopdd4step", "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, dense_attn="sage", sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
+              pdd_nfe=PDD_STEPS_FAST,
+              out_prefix="Video/text_to_video_pdd_4step",
               variant_note=_probe_note(
-                  "does PDD hold the keyframe endpoints at 8 steps",
-                  "h3_first_last_frame_to_video.json",
-                  "the fl2va PDD LoRA at 8 steps instead of the base "
-                  "checkpoint at 16.",
-                  "the last frame, which is the one the schedule reaches with "
-                  "its largest jump.",
-                  "fl2v hands the model a free zero-offset alignment prior "
-                  "that ref2v does not have, so if PDD degrades anywhere it "
-                  "should degrade here least.")),
-         "first+last frame -> video + audio at 8 steps via PDD"),
+                  "text to video at 4 steps via PDD",
+                  "h3_text_to_video_pdd.json",
+                  "the PDD LoRA at 4 evaluations, sage on, Sol absent.",
+                  "identity and texture in the last third, where this "
+                  "schedule takes its largest jump.",
+                  "one converted file serves both step counts; the heads "
+                  "are fused at load for whichever is asked.")),
+         "text -> video + audio at 4 steps via PDD, sage on"),
+
+        ("h3_first_last_frame_to_video_pdd.json", "firstlastframetovideopdd", "i2v", None,
+         dict(last_frame=True, **FL2V_CANVAS,
+              pdd=True, dense_attn="sage", sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              out_prefix="Video/first_last_frame_to_video_pdd",
+              variant_note=_probe_note(
+                  "first+last frame to video at 8 steps via PDD",
+                  "h3_first_last_frame_to_video_pdd.json",
+                  "the PDD LoRA at 8 evaluations, sage on, Sol absent.",
+                  "identity and texture in the last third, where this "
+                  "schedule takes its largest jump.",
+                  "one converted file serves both step counts; the heads "
+                  "are fused at load for whichever is asked.")),
+         "first+last frame -> video + audio at 8 steps via PDD, sage on"),
+
+        ("h3_first_last_frame_to_video_pdd_4step.json", "firstlastframetovideopdd4step", "i2v", None,
+         dict(last_frame=True, **FL2V_CANVAS,
+              pdd=True, dense_attn="sage", sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
+              pdd_nfe=PDD_STEPS_FAST,
+              out_prefix="Video/first_last_frame_to_video_pdd_4step",
+              variant_note=_probe_note(
+                  "first+last frame to video at 4 steps via PDD",
+                  "h3_first_last_frame_to_video_pdd.json",
+                  "the PDD LoRA at 4 evaluations, sage on, Sol absent.",
+                  "identity and texture in the last third, where this "
+                  "schedule takes its largest jump.",
+                  "one converted file serves both step counts; the heads "
+                  "are fused at load for whichever is asked.")),
+         "first+last frame -> video + audio at 4 steps via PDD, sage on"),
+
+        ("h3_image_ref_plus_text_to_video_pdd.json", "imagerefplustexttovideopdd", "r2v", _ref_prompt(images=True),
+         dict(pdd=True, dense_attn="sage", sampler_name="euler",
+              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              out_prefix="Video/image_ref_plus_text_to_video_pdd",
+              variant_note=_probe_note(
+                  "image references to video at 8 steps via PDD",
+                  "h3_image_ref_plus_text_to_video_pdd.json",
+                  "the PDD LoRA at 8 evaluations, sage on, Sol absent.",
+                  "identity and texture in the last third, where this "
+                  "schedule takes its largest jump.",
+                  "one converted file serves both step counts; the heads "
+                  "are fused at load for whichever is asked.")),
+         "image references -> video + audio at 8 steps via PDD, sage on"),
+
+        ("h3_image_ref_plus_text_to_video_pdd_4step.json", "imagerefplustexttovideopdd4step", "r2v", _ref_prompt(images=True),
+         dict(pdd=True, dense_attn="sage", sampler_name="euler",
+              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
+              pdd_nfe=PDD_STEPS_FAST,
+              out_prefix="Video/image_ref_plus_text_to_video_pdd_4step",
+              variant_note=_probe_note(
+                  "image references to video at 4 steps via PDD",
+                  "h3_image_ref_plus_text_to_video_pdd.json",
+                  "the PDD LoRA at 4 evaluations, sage on, Sol absent.",
+                  "identity and texture in the last third, where this "
+                  "schedule takes its largest jump.",
+                  "one converted file serves both step counts; the heads "
+                  "are fused at load for whichever is asked.")),
+         "image references -> video + audio at 4 steps via PDD, sage on"),
+
 
         ("h3_probe_ref2v_pdd.json", "r2v-pdd", "r2v", _ref_prompt(images=True),
          dict(pdd=True, dense_attn=True, sampler_name="euler", lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
@@ -6167,15 +6229,22 @@ def main():
         # whose subject is a numerical mechanism somewhere else in the model:
         # both sage and Sol change attention numerics, so leaving them in puts
         # two approximations in the path of an experiment about a third.
-        dense = bool(extra.get("dense_attn", False))
-        sol_on = False if (is_image or router or dense) else bool(extra.get("sol_on", True))
+        # "none" wires neither sage nor Sol; "sage" wires sage with Sol ABSENT.
+        # Absent rather than bypassed, for PDD: Sol skips attention adaptively
+        # per step, which is incoherent against a fixed fused block schedule,
+        # and a bypassed node in the graph is an invitation to switch it on.
+        dense = extra.get("dense_attn", False)
+        dense_mode = ("none" if dense is True else dense) or None
+        sol_on = False if (is_image or router or dense_mode) else bool(extra.get("sol_on", True))
         rest = {k: v for k, v in extra.items()
                 if k not in ("sol_on", "dense_attn")}
-        wf = build_ui(task, sage=not (router or dense), preview=True,
+        wf = build_ui(task, sage=(dense_mode == "sage") if dense_mode else not router,
+                      preview=True,
                       sol=(SOL_RECOMMENDED_CUDA
-                           if not (is_image or router or dense) else None),
+                           if not (is_image or router or dense_mode) else None),
                       sol_enabled=sol_on, prompt=prompt,
                       title=f"h3-{label}-" + ("sla-router" if router else
+                                              "dense" if dense_mode == "none" else
                                               "sage" + ("-sol" if sol_on else "")),
                       **{"length": LONG_LENGTH, **rest})
         p = _graph_dir(out, extra) / fname
@@ -6188,11 +6257,13 @@ def main():
     for fname, label, task, prompt, extra, _note in GRAPHS:
         is_image = bool(extra.get("single_frame", False))
         router = extra.get("sla_router") is not None
-        dense = bool(extra.get("dense_attn", False))
-        sol_on = False if (is_image or router or dense) else bool(extra.get("sol_on", True))
+        dense = extra.get("dense_attn", False)
+        dense_mode = ("none" if dense is True else dense) or None
+        sol_on = False if (is_image or router or dense_mode) else bool(extra.get("sol_on", True))
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("variant_note", "sol_on", "dense_attn")}
-        wf = build_api(task, sage=not (router or dense), prompt=prompt,
+        wf = build_api(task, sage=(dense_mode == "sage") if dense_mode else not router,
+                       prompt=prompt,
                        sol=SOL_RECOMMENDED_CUDA if sol_on else None,
                        **{"length": LONG_LENGTH, **api_extra})
         p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")

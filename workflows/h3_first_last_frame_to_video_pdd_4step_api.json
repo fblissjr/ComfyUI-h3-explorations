@@ -45,7 +45,7 @@
         0
       ],
       "scheduler": "simple",
-      "steps": 8,
+      "steps": 4,
       "denoise": 1.0
     }
   },
@@ -126,7 +126,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/text_to_video_pdd",
+      "filename_prefix": "Video/first_last_frame_to_video_pdd_4step",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -136,12 +136,16 @@
       "save_output": true
     }
   },
-  "27": {
-    "class_type": "MiniMaxH3Resolution",
+  "15": {
+    "class_type": "LoadImage",
     "inputs": {
-      "shape": "wide",
-      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
-      "length": 362
+      "image": "1-man.png"
+    }
+  },
+  "16": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "2-mountain_landscape.png"
     }
   },
   "5": {
@@ -155,20 +159,19 @@
         "3",
         0
       ],
-      "prompt": "integrated_multimodal_description:\n[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera tracks left at medium amplitude and moderate speed as a young porter (S2) steps into frame behind her shoulder.\n[Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter, a lean man in his twenties with a quick, bright tenor (S2), answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and coins clatter one after another into a metal tin on the counter.\n[Shot 3] At 00:09.000, the camera whip pans to a wide shot of the aisle as he carries both crates away between the stalls, shoppers stepping aside around him, while the stallholder turns back and stacks fruit into a pyramid with both hands, her lips closed.\n\noverall_soundscape:\nLoose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, and the dry crackle of paper bags shaken open.\n\nnon_diegetic_music:\nN/A",
-      "width": [
-        "27",
+      "prompt": "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 15.08-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.\n\noverall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.\n\nnon_diegetic_music: N/A",
+      "width": 1152,
+      "height": 768,
+      "length": 362,
+      "canvas": "from_keyframe",
+      "first_frame": [
+        "15",
         0
       ],
-      "height": [
-        "27",
-        1
-      ],
-      "length": [
-        "27",
-        2
-      ],
-      "canvas": "explicit"
+      "last_frame": [
+        "16",
+        0
+      ]
     }
   },
   "18": {
@@ -181,7 +184,7 @@
       "lora_name": "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors",
       "strength": 1.0,
       "patch_heads": true,
-      "nfe": 0
+      "nfe": 4
     }
   },
   "19": {

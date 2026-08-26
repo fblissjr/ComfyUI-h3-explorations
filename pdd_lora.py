@@ -110,11 +110,9 @@ import torch.nn.functional as F
 from comfy_api.latest import io
 
 try:                                     # loaded as a package by ComfyUI
-    from .pdd_math import (block_bounds, boundary_residual, fuse_heads,
-                           silu_temb_grid, step_for_t)
+    from .pdd_math import block_bounds, fuse_heads, silu_temb_grid
 except ImportError:                      # loaded as a bare module by a script
-    from pdd_math import (block_bounds, boundary_residual, fuse_heads,
-                          silu_temb_grid, step_for_t)
+    from pdd_math import block_bounds, fuse_heads, silu_temb_grid
 
 logger = logging.getLogger(__name__)
 
@@ -134,11 +132,13 @@ logger = logging.getLogger(__name__)
 #       would quantise further than the 1e-3 the boundary snap already has to
 #       absorb.
 
-#: Log a warning once per patch when the recovered `t` sits this far from any
-#: block boundary. On the schedule the heads were fused for the residual is
-#: ~1e-9; the tightest boundary gap at 32/4 shift 12 is 0.0118, so this is well
-#: inside "wrong schedule" and well outside "float noise".
-BOUNDARY_TOLERANCE = 2e-3
+#: Warn once per patch when the timestep embedding sits this far from every
+#: block boundary, in EMBEDDING distance rather than in `t`. Selection no
+#: longer needs a tolerance -- the nearest boundary is the answer -- so this
+#: guards one thing only: whether the render is on the schedule the heads were
+#: fused for at all. On schedule the distance is ~0; a step count the file was
+#: not fused for puts it orders of magnitude above this.
+BOUNDARY_TOLERANCE = 1e-2
 
 #: Relative-Frobenius distance allowed between the loaded checkpoint's
 #: `final_layer.video_out` and the one the LoRA was converted against. The
@@ -195,16 +195,35 @@ def _row_index(row) -> int:
 
 
 class _StepTracker:
-    """Recovers the sampling step from `t_emb`, per stream, per forward.
+    """Which fused head each stream wants, from the embedding it was called with.
 
-    Holds the `[rows, D]` table `t_emb` is drawn from -- the model's own
-    `adaln_t_table` when pruned, the time embedder's output grid when not -- so
-    a nearest-row lookup turns an embedding back into a `t`. The table is the
-    live model's, so this cannot be pointed at the wrong partition.
+    Matches `t_emb` against the `nfe + 1` BLOCK BOUNDARY embeddings, not against
+    the 1025-row curve table. That is the whole selector: the nearest boundary
+    is the block, directly.
+
+    The earlier version recovered a `t` by nearest row of the full table and
+    then bucketed it, which is how a `t` sitting exactly ON a boundary came back
+    a fraction below it and selected the previous block -- wrong at two of eight
+    steps, silent, and it took a deliberate drive against real inputs to find.
+    It was fixed by snapping, i.e. by a tolerance that then had to be justified
+    against the table's own quantisation.
+
+    Matching the boundaries directly deletes that problem rather than guarding
+    it. There is no intermediate `t`, so nothing to quantise; there are exactly
+    `nfe` answers, so nothing to fall between; and the selector needs no
+    tolerance at all. The tolerance that remains is only for the WARNING, which
+    is a different question -- is this render even on the schedule the heads
+    were fused for.
+
+    Costs `nfe + 1` distances per stream per forward against 1025 before, which
+    is not why: at ~70 s a step neither is measurable. It is smaller and it
+    cannot be wrong in the way the other one was.
     """
 
-    def __init__(self, table, bounds_v, bounds_a, nfe, label):
-        self.table = table
+    def __init__(self, boundary_emb_v, boundary_emb_a, bounds_v, bounds_a,
+                 nfe, label):
+        self.emb_v = boundary_emb_v          # [nfe+1, D]
+        self.emb_a = boundary_emb_a
         self.bounds_v = bounds_v
         self.bounds_a = bounds_a
         self.nfe = nfe
@@ -213,33 +232,46 @@ class _StepTracker:
         self.audio = 0
         self.warned = False
 
-    def _t(self, t_emb, row) -> float:
+    def _pick(self, t_emb, row, table):
         e = t_emb[_row_index(row)].detach().float().reshape(1, -1)
-        table = self.table.to(e.device, torch.float32)
-        j = int(torch.cdist(e, table).argmin())
-        return j / (table.shape[0] - 1)
+        d = torch.cdist(e, table.to(e.device, torch.float32))[0]
+        j = int(d.argmin())
+        return min(j, self.nfe - 1), float(d[j])
 
     def update(self, t_emb, video_seg, audio_seg) -> None:
-        tv = self._t(t_emb, video_seg[2])
-        ta = self._t(t_emb, audio_seg[2])
-        # Snap at the same tolerance the residual check calls "on schedule",
-        # so the two cannot disagree about which regime this render is in.
-        self.video = step_for_t(tv, self.bounds_v, self.nfe, BOUNDARY_TOLERANCE)
-        self.audio = step_for_t(ta, self.bounds_a, self.nfe, BOUNDARY_TOLERANCE)
-        if not self.warned:
-            rv = boundary_residual(tv, self.bounds_v)
-            ra = boundary_residual(ta, self.bounds_a)
-            if max(rv, ra) > BOUNDARY_TOLERANCE:
-                self.warned = True
-                logger.warning(
-                    "[h3-pdd] %s: this render is NOT on the schedule the heads "
-                    "were fused for. video t=%.5f is %.4f from the nearest "
-                    "block boundary, audio t=%.5f is %.4f (tolerance %.4f). "
-                    "The fused output heads assume %d steps at the shifts "
-                    "recorded in the file; check the sampler's step count and "
-                    "MiniMaxH3SigmaShift, or reconvert at the shifts you want. "
-                    "Sampling continues on the nearest available head.",
-                    self.label, tv, rv, ta, ra, BOUNDARY_TOLERANCE, self.nfe)
+        self.video, dv = self._pick(t_emb, video_seg[2], self.emb_v)
+        self.audio, da = self._pick(t_emb, audio_seg[2], self.emb_a)
+        if not self.warned and max(dv, da) > BOUNDARY_TOLERANCE:
+            self.warned = True
+            logger.warning(
+                "[h3-pdd] %s: this render is NOT on the schedule the heads "
+                "were fused for. The timestep embedding sits %.4f (video) and "
+                "%.4f (audio) from the nearest block boundary, tolerance "
+                "%.4f. The heads assume %d evaluations at the shifts recorded "
+                "in the file; set the sampler's step count to %d, or "
+                "reconvert. Sampling continues on the nearest boundary.",
+                self.label, dv, da, BOUNDARY_TOLERANCE, self.nfe, self.nfe)
+
+
+def boundary_embeddings(bounds, table, time_embedder=None, rows=1025):
+    """The `t_emb` the model will produce AT each block boundary.
+
+    Built the same two ways the model builds `t_emb`, chosen by the same
+    observable the rest of this node branches on -- a curve table when the
+    checkpoint is pruned, the time embedder when it is not -- so the thing being
+    matched against is constructed by the model's own arithmetic rather than
+    approximated.
+    """
+    out = []
+    for t in bounds.tolist():
+        if time_embedder is None:
+            pos = min(max(float(t), 0.0), 1.0) * (table.shape[0] - 1)
+            i0 = min(int(pos), table.shape[0] - 2)
+            out.append(torch.lerp(table[i0].float(), table[i0 + 1].float(),
+                                  pos - i0))
+        else:
+            out.append(table[min(int(round(float(t) * (rows - 1))), rows - 1)])
+    return torch.stack(out)
 
 
 def _make_final_layer_forward(base_forward, tracker):
@@ -569,11 +601,17 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         sd[f"h3_pdd.adaln.blocks.{i}.lora_B"],
                         grid, table, strength))
 
+        bounds_v = block_bounds(shift_v, num_steps, block_size)
+        bounds_a = block_bounds(shift_a, num_steps, block_size)
+        # Built once at load, from the model's own arithmetic, for the nfe this
+        # render will use. The two streams run different shifts, so they get
+        # different boundary times and therefore different embeddings.
         tracker = _StepTracker(
-            step_table,
-            block_bounds(shift_v, num_steps, block_size),
-            block_bounds(shift_a, num_steps, block_size),
-            nfe, lora_name)
+            boundary_embeddings(bounds_v, step_table,
+                                None if pruned else dm.time_embedder),
+            boundary_embeddings(bounds_a, step_table,
+                                None if pruned else dm.time_embedder),
+            bounds_v, bounds_a, nfe, lora_name)
 
         final_layer = m.get_model_object("diffusion_model.final_layer")
         # strength 0 installs NOTHING on the head path. Interpolating to the

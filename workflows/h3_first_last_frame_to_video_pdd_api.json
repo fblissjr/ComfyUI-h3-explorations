@@ -126,7 +126,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_flf2v_pdd",
+      "filename_prefix": "Video/first_last_frame_to_video_pdd",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -183,7 +183,8 @@
       ],
       "lora_name": "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors",
       "strength": 1.0,
-      "patch_heads": true
+      "patch_heads": true,
+      "nfe": 0
     }
   },
   "19": {
@@ -197,17 +198,29 @@
       "shift_audio": 3.0
     }
   },
-  "23": {
-    "class_type": "SageChainAssert",
+  "20": {
+    "class_type": "MiniMaxH3SageAttention",
     "inputs": {
       "model": [
         "19",
         0
       ],
-      "require_override": false,
-      "require_forward_patch": false,
-      "exercise": false,
-      "warn_only": true
+      "mode": "auto",
+      "patch_token_refiner": false,
+      "head_chunks": 1
+    }
+  },
+  "23": {
+    "class_type": "SageChainAssert",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "require_override": true,
+      "require_forward_patch": true,
+      "exercise": true,
+      "warn_only": false
     }
   },
   "26": {
