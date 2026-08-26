@@ -160,15 +160,17 @@ them against `pdd_math.block_bounds`, which is analytic ground truth rather
 than a vendor table, on both the video and audio streams.
 
 **Dense DiT attention is the reference configuration**, not a handicap. Their
-pipeline is Diffusers' `ModularPipeline` on stock SDPA. This is a DiT-side
-statement: the Qwen3-VL encoder resolves its own attention and is untouched by
-sage, Sol or the SLA router, all of which take a `MODEL` input. It costs about 2.4x on
-this workload -- 70.3 s/it against 28.7 with sage+Sol -- because at ~90k packed
+pipeline is Diffusers' `ModularPipeline` on stock SDPA, and running dense costs
+about 2.4x on this workload -- 70.3 s/it against 28.7 with sage+Sol -- because at ~90k packed
 tokens attention is quadratic and dominates everything else. Worth stating
 plainly: **that makes a dense 8-step PDD render slower than a sage+Sol 16-step
 base render.** The step count was never the expensive part at this sequence
 length. These arms pay it to be comparable to the reference; it is not the
 configuration to render production clips in.
+
+That is a DiT-side statement throughout. The Qwen3-VL encoder resolves its own
+attention inside its decoder forward and is untouched either way -- sage, Sol
+and the SLA router all take a `MODEL` input and cannot reach it.
 
 ### The `p` axis they ship and never use
 

@@ -78,6 +78,64 @@ artifact.
   recommendations are marked open for the owner; nothing in it supersedes a
   decision or changes the card order.
 
+## 0.71.1
+
+### Fixed
+
+Found by an xhigh `/code-review` that caught this tree mid-flight and was
+relayed by a peer session. All confirmed against the code before acting; none
+were taken on the relay alone.
+
+- `bench/generate_capture_manifest.py`: `attention.sage_mode` was the hardcoded
+  string `"fp16 (most accurate)"`, overwritten only when a sage node happened
+  to exist. Every PDD arm runs no sage, so their manifests would have reported
+  a mode for a kernel that never ran -- and the constant did not even match
+  `h3_config.SAGE_NODE["mode"]`. That is the identical "a value that cannot
+  fail" defect the comment directly above it records for `sol_attn`, left
+  behind in the same dict literal when that one was fixed. Derived now, with
+  `absent` / `orphaned` as real states.
+
+- Same file: LoRAs were recorded by PRESENCE. An active-but-unconsumed loader
+  would be written as a LoRA that ran -- the exact failure `_sol_attn_state`
+  was built to stop for Sol. Latent in the shipped graphs and reachable through
+  `--workflow`, which takes hand-built ones. `_sol_attn_state`'s reasoning is
+  now `_class_state`, used by all three consumers.
+
+- Same file: `bool(inputs.get("patch_heads", True))` returned True for a linked
+  widget, fabricating the heads-ON arm in the one field that distinguishes a
+  PDD arm from its control; and `isinstance(raw, (int, float))` recorded null
+  for a string strength that `pdd_lora.py` explicitly coerces and runs.
+  `_scalar` now separates four cases -- number, string, missing (the node's own
+  default, a fact) and linked (unknowable, so null rather than invented).
+
+- Same file: `MiniMaxH3TurboLoRA`'s `low_vram` was dropped, though it selects
+  merge-vs-bypass. Two numerically different renders produced byte-identical
+  manifests.
+
+- The loader class list existed in three copies with nothing red on divergence,
+  and the manifest's copy was already a class behind. One list now, in
+  `workflows/h3_config.py`, whose stated rule is that nothing there may have a
+  second copy. Its docstring names the stronger shape it is not:
+  `substrate.weights()` matches on the value looking like a weight file, which
+  cannot go quietly incomplete.
+
+- `docs/capture_manifest_schema.md`: the lora record's shape changed
+  (`strength` nullable, `loader`, `pdd_patch_heads`, `low_vram`) and
+  `sage_mode` gained non-mode states. Schema stamped 1.3.0 and
+  `SCHEMA_VERSIONS` accepts it -- two manifests at one version with different
+  shapes defeats the version-gated assertion pattern the checker is built on.
+
+- `bench/check_attention_defaults.py` said "Three kinds of graph legitimately
+  ship without Sol", which the PDD arms made wrong. It points at
+  `SOL_EXEMPT_STEMS` now instead of counting.
+
+- `substrate.py::_infer_rank` cited a literal `"rank": 256` in
+  `generate_capture_manifest.py:133` that has been false since 2026-08-17, at a
+  line number that had become something else. Past tense, no line number.
+
+- `docs/h3_pdd.md`: an encoder-scoping sentence inserted earlier that day
+  orphaned "It costs about 2.4x" from its antecedent.
+
 ## 0.71.0
 
 ### Added

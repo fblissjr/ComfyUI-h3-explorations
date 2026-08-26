@@ -103,7 +103,7 @@ def assert_substrate(block: dict, keys: set, where: str) -> None:
 # schema and the only existing manifest were both 1.1.0, so it would have kept
 # claiming 1.0.0 through every future bump. One constant for the accepted set,
 # and the report states the versions it actually saw rather than a fixed string.
-SCHEMA_VERSIONS = ("1.0.0", "1.1.0", "1.2.0")
+SCHEMA_VERSIONS = ("1.0.0", "1.1.0", "1.2.0", "1.3.0")
 
 #: Model-file hashes were added in 1.2.0, gated the same way and for the same
 #: reason as the substrate keys above: a 1.1.0 manifest that never carried them

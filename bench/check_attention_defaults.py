@@ -42,7 +42,10 @@ not a defect. Only an active-but-unreachable node is.
 
 ## Why the exemption list cannot rot
 
-Three kinds of graph legitimately ship without Sol. A hand-written list of
+Several kinds of graph legitimately ship without Sol -- `SOL_EXEMPT_STEMS`
+is the list and counting them here would be a second copy that goes stale the
+next time one is added, which is what happened when the PDD arms landed. A
+hand-written list of
 exempt filenames is the shape that goes stale silently, which is the objection
 `docs/checks.md` raised against this check existing at all. So:
 

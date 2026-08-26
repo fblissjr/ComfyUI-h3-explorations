@@ -408,10 +408,14 @@ def _node_sort_key(item):
 def _infer_rank(filename):
     """LoRA rank, if the filename states it. Inferred, and named as inferred.
 
-    Deliberately NOT defaulted. `bench/generate_capture_manifest.py:133` writes
-    `"rank": 256` as a literal for every LoRA it finds, which is correct for the
-    one LoRA this repo currently ships and silently wrong for any other -- a
-    constant presented as a recorded observation. None here means the filename
+    Deliberately NOT defaulted. `bench/generate_capture_manifest.py` wrote
+    `"rank": 256` as a literal for every LoRA it found -- correct for the one
+    LoRA this repo shipped at the time and silently wrong for any other, a
+    constant presented as a recorded observation. **Fixed there on 2026-08-17**;
+    this paragraph still described it as current until 2026-08-26, and cited a
+    line number that had since become something else entirely. Kept in the past
+    tense because the reasoning is why this function refuses a default, not a
+    report on that file. None here means the filename
     does not say, which is a fact; a number means the filename said so, which is
     a different and weaker fact than reading the tensor shapes.
     """

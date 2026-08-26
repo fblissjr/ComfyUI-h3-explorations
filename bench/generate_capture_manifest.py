@@ -31,6 +31,9 @@ if str(_REPO) not in sys.path:
 
 from substrate import infer_quantization  # noqa: E402
 
+sys.path.insert(0, str(_REPO / "workflows"))
+from h3_config import LORA_LOADER_CLASSES  # noqa: E402
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _paths  # noqa: E402
 
@@ -232,18 +235,63 @@ def _sol_attn_state(wf: dict) -> str:
     stated an intent; this states what the graph does, and the two are only the
     same while somebody keeps them so.
     """
-    sol_ids = {nid for nid, node in wf.items()
-               if isinstance(node, dict) and node.get("class_type") == "SolAttnMiniMax"}
-    if not sol_ids:
-        return "absent"
+    state, _ = _class_state(wf, "SolAttnMiniMax")
+    return state
+
+
+def _class_state(wf: dict, *class_types: str):
+    """`(state, [inputs of each wired node])` for one or more class names.
+
+    The generalisation of what `_sol_attn_state` worked out for Sol, because
+    the reasoning was never Sol-specific: a node nothing consumes does not run,
+    so presence answers a question nobody asked. It was written once for Sol
+    and every later reader of this file wrote presence tests again -- the sage
+    mode below and the LoRA records were both doing it as of 2026-08-26.
+
+    Returns `absent` / `orphaned` / `wired`, and the inputs of the wired nodes
+    only, so a caller cannot accidentally record an orphan's settings.
+    """
+    ids = {nid for nid, node in wf.items()
+           if isinstance(node, dict) and node.get("class_type") in class_types}
+    if not ids:
+        return "absent", []
     consumed = set()
     for node in wf.values():
         if not isinstance(node, dict):
             continue
         for val in (node.get("inputs") or {}).values():
-            if isinstance(val, list) and val and str(val[0]) in sol_ids:
+            if isinstance(val, list) and val and str(val[0]) in ids:
                 consumed.add(str(val[0]))
-    return "wired" if consumed else "orphaned"
+    if not consumed:
+        return "orphaned", []
+    return "wired", [(nid, wf[nid].get("inputs") or {}) for nid in wf
+                     if nid in consumed]
+
+
+def _scalar(value, cast, missing=None, unknown=None):
+    """A widget's literal value, distinguishing four cases that are not the same.
+
+    NUMBER or STRING -> cast. A string is a literal a hand-written prompt may
+    legitimately carry and the nodes coerce it (`pdd_lora.py` runs
+    `float(strength)`), so dropping it would record null for a value that ran.
+
+    MISSING -> `missing`. The node applies its own schema default, so that
+    default IS what ran and recording it is a fact.
+
+    LINK (`["25", 0]`) -> `unknown`. Computed upstream; this file cannot know
+    it and anything it writes is a fabrication. Deliberately NOT the same as
+    missing: `bool(["25", 0])` is True, so the first version of this recorded
+    the heads-ON arm for a graph whose value it could not read -- in the one
+    field that exists to tell the two experiments apart.
+    """
+    if isinstance(value, list):
+        return unknown
+    if value is None:
+        return missing
+    try:
+        return cast(value)
+    except (TypeError, ValueError):
+        return unknown
 
 
 def extract_from_workflow(wf: dict, input_base: Path):
@@ -274,8 +322,56 @@ def extract_from_workflow(wf: dict, input_base: Path):
     # as evidence that a specific capture was clean. A record whose value is a
     # constant cannot fail, which is the defect `CLAUDE.md` names. Now derived;
     # see `_sol_attn_state`.
-    attention = {"sage_mode": "fp16 (most accurate)",
-                 "sol_attn": _sol_attn_state(wf), "head_chunks": 1}
+    # sage_mode was the constant "fp16 (most accurate)" until 2026-08-26,
+    # overwritten only when a sage node happened to exist. So a graph that runs
+    # no sage at all -- every PDD arm -- reported a mode for a kernel that never
+    # ran, and the constant did not even match `h3_config.SAGE_NODE['mode']`.
+    # That is the identical defect the paragraph above records for `sol_attn`,
+    # in the same dict literal, left behind when that one was fixed.
+    _sage_state, _sage_nodes = _class_state(wf, "MiniMaxH3SageAttention")
+    attention = {
+        "sage_mode": (str(_scalar(_sage_nodes[0][1].get("mode"), str, missing="auto"))
+                      if _sage_state == "wired" else _sage_state),
+        "sol_attn": _sol_attn_state(wf),
+        "head_chunks": (_scalar(_sage_nodes[0][1].get("head_chunks"), int, missing=1)
+                        if _sage_state == "wired" else 1),
+    }
+    # LoRAs, by REACHABILITY and across every loader class. Two defects fixed
+    # together on 2026-08-26:
+    #   * only `LoraLoaderModelOnly` was matched, so a graph running a PDD or
+    #     turbo-pack LoRA recorded `loras: []` -- a manifest asserting none was
+    #     loaded, which reads as a measurement rather than a gap;
+    #   * it matched on presence, so an active-but-unconsumed loader would be
+    #     written as a LoRA that ran. No shipped graph has one, but `--workflow`
+    #     takes hand-built graphs and that is where the Sol counterexample came
+    #     from too.
+    # The class list is `h3_config.LORA_LOADER_CLASSES`, not a fourth copy.
+    _lora_state, _lora_nodes = _class_state(wf, *LORA_LOADER_CLASSES)
+    for _nid, _inp in _lora_nodes:
+        _name = str(_scalar(_inp.get("lora_name"), str, missing="") or "")
+        _rank = re.search(r"rank[_-]?(\d+)", _name)
+        # `strength_model` on the stock loader, `strength` on both of ours.
+        _raw = _inp.get("strength_model")
+        if _raw is None:
+            _raw = _inp.get("strength")
+        _record = {
+            "name": _name,
+            "strength": _scalar(_raw, float),
+            "rank": int(_rank.group(1)) if _rank else None,
+            "loader": str(wf[_nid].get("class_type", "")),
+        }
+        if _record["loader"] == "MiniMaxH3PDDLoRA":
+            # heads-on and heads-off are different experiments and nothing else
+            # in the manifest distinguishes them.
+            _record["pdd_patch_heads"] = _scalar(_inp.get("patch_heads"), bool,
+                                                missing=True, unknown=None)
+        if _record["loader"] == "MiniMaxH3TurboLoRA":
+            # Selects merge-vs-bypass, which is two numerically different
+            # renders; without it both produce identical manifests.
+            _record["low_vram"] = _scalar(_inp.get("low_vram"), bool,
+                                          missing=False, unknown=None)
+        models["loras"].append(_record)
+
     prompt_text = ""
     references = []
 
@@ -310,34 +406,6 @@ def extract_from_workflow(wf: dict, input_base: Path):
                 # -- they ship at different quantizations, so one field cannot
                 # describe both.
                 models["vae_quantization"] = infer_quantization(vae_name)
-        elif ct in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
-                    "MiniMaxH3PDDLoRA"):
-            # EVERY loader class, not just the stock one. Matching only
-            # `LoraLoaderModelOnly` recorded `loras: []` for a graph that was
-            # demonstrably running one -- a manifest asserting no LoRA was
-            # loaded, which is worse than an absent field because it reads as
-            # a measurement. Found 2026-08-26 for the PDD loader; the turbo
-            # pack's node had the same hole and had had it longer.
-            #
-            # The strength input is not called the same thing on all three:
-            # the stock loader has `strength_model`, the other two `strength`.
-            # Defaulting the missing one to 1.0 would silently record the
-            # vendor default for whatever the graph actually set.
-            lora_name = str(inputs.get("lora_name", ""))
-            rank_match = re.search(r"rank[_-]?(\d+)", lora_name)
-            raw = inputs.get("strength_model", inputs.get("strength"))
-            record = {
-                "name": lora_name,
-                "strength": float(raw) if isinstance(raw, (int, float)) else None,
-                "rank": int(rank_match.group(1)) if rank_match else None,
-                "loader": ct,
-            }
-            if ct == "MiniMaxH3PDDLoRA":
-                # A PDD arm with the heads off is a different experiment from
-                # one with them on, and nothing else in the manifest would say
-                # which was rendered.
-                record["pdd_patch_heads"] = bool(inputs.get("patch_heads", True))
-            models["loras"].append(record)
         elif ct == "KSamplerSelect":
             sampling["sampler_name"] = str(inputs.get("sampler_name", "er_sde"))
         elif ct == "BasicScheduler":
@@ -348,9 +416,6 @@ def extract_from_workflow(wf: dict, input_base: Path):
             sampling["seed"] = int(inputs.get("noise_seed", 0))
         elif ct == "BasicGuider":
             sampling["cfg"] = float(inputs.get("cfg", 1.0))
-        elif ct == "MiniMaxH3SageAttention":
-            attention["sage_mode"] = str(inputs.get("mode", "auto"))
-            attention["head_chunks"] = int(inputs.get("head_chunks", 1))
         elif "prompt" in inputs and isinstance(inputs["prompt"], str) and len(inputs["prompt"]) > len(prompt_text):
             prompt_text = inputs["prompt"]
         elif "text" in inputs and isinstance(inputs["text"], str) and len(inputs["text"]) > len(prompt_text):
@@ -474,7 +539,7 @@ def main():
     models["sha256"] = hash_model_files(models)
 
     manifest = {
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "provenance": {
             "git_commit": get_git_commit(),

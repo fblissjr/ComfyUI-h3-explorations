@@ -79,7 +79,8 @@ VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 # Graphs live in more than one directory since 2026-08-16; a bare
 # `WORKFLOWS.glob` is non-recursive and would quietly stop covering the image
 # path. See h3_config.GRAPH_DIRS.
-from h3_config import graph_paths, turbo_label  # noqa: E402
+from h3_config import (LORA_LOADER_CLASSES, graph_paths,  # noqa: E402
+                        turbo_label)
 
 
 class Row(NamedTuple):
@@ -334,8 +335,7 @@ def read_api(doc) -> Found:
     strengths: dict[str, float] = {}
     for node in doc.values():
         ct, inp = node.get("class_type"), node.get("inputs", {})
-        if ct in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
-                  "MiniMaxH3PDDLoRA"):
+        if ct in LORA_LOADER_CLASSES:
             # The pack node is a turbo loader too. Matching only the stock
             # one made its graphs read as BASE graphs -- policed for shift,
             # which they happened to satisfy, and never graded on steps.
@@ -371,8 +371,7 @@ def read_ui(doc) -> Found:
     strengths: dict[str, float] = {}
     for node in doc.get("nodes", []):
         t, w = node.get("type"), node.get("widgets_values") or []
-        if t in ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
-                 "MiniMaxH3PDDLoRA") and w:
+        if t in LORA_LOADER_CLASSES and w:
             loras.append(w[0])
             if len(w) >= 2 and isinstance(w[1], (int, float)):
                 strengths[str(w[0])] = float(w[1])

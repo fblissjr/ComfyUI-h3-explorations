@@ -77,9 +77,13 @@ The manifest makes a captured tensor traceable to the prompt, reference images a
                 "type": "object",
                 "properties": {
                   "name": { "type": "string" },
-                  "strength": { "type": "number" },
-                  "rank": { "type": ["integer", "null"] }
-                }
+                  "strength": { "type": ["number", "null"] },
+                  "rank": { "type": ["integer", "null"] },
+                  "loader": { "type": "string" },
+                  "pdd_patch_heads": { "type": ["boolean", "null"] },
+                  "low_vram": { "type": ["boolean", "null"] }
+                },
+                "description": "One entry per REACHABLE loader node, across every class in h3_config.LORA_LOADER_CLASSES. `strength` is nullable because a linked widget is computed upstream and unknowable from the graph -- null there is the honest value and a number would be invented. `loader` names the class, because the three do not mean the same thing: the pack node merges or bypasses per `low_vram`, and `pdd_patch_heads` distinguishes a PDD arm running its parallel heads from the control that is not, which nothing else in this record would show."
               }
             },
             "sha256": {
@@ -112,7 +116,7 @@ The manifest makes a captured tensor traceable to the prompt, reference images a
           "type": "object",
           "required": ["sage_mode", "sol_attn", "head_chunks"],
           "properties": {
-            "sage_mode": { "type": "string" },
+            "sage_mode": { "type": "string", "description": "the wired sage node's mode, or the literal 'absent' / 'orphaned' when no sage node runs. It was a hardcoded 'fp16 (most accurate)' until 2026-08-26, so a render with no sage at all reported a mode for a kernel that never ran -- the same defect this file records for sol_attn, in the same dict literal." },
             "sol_attn": { "type": "string" },
             "head_chunks": { "type": "integer" }
           }

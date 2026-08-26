@@ -880,6 +880,19 @@ TURBO_PACK_LOW_VRAM = False
 # clips were rendered at (README, "LoRA weight of 1.0 at both 4 and 8 NFE").
 # Unlike the plain LoRA path, 0.0 IS a valid control here: the node falls the
 # output heads back to the checkpoint's own rather than merely zeroing a delta.
+#: Every node class that loads a LoRA onto the model. ONE list: three copies
+#: existed as of 2026-08-26 (two in check_distill_settings.py, one in
+#: generate_capture_manifest.py) with nothing red when they diverged, and the
+#: manifest's copy was already a class behind -- it recorded `loras: []` for
+#: every graph running one of ours.
+#:
+#: A class-name list is the weaker of the two shapes available. `substrate.py`
+#: matches on the VALUE looking like a weight filename instead, which cannot go
+#: quietly incomplete when a new loader appears. This list is used where the
+#: node's other inputs are needed too, which that approach does not give.
+LORA_LOADER_CLASSES = ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
+                       "MiniMaxH3PDDLoRA")
+
 PDD_FL2VA_LORA = "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors"
 PDD_REF2VA_LORA = "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors"
 PDD_STEPS = 8
