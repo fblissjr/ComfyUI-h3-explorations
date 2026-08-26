@@ -855,6 +855,37 @@ TURBO_PACK_STRENGTH = 1.0
 TURBO_PACK_SCHEDULER = "simple"
 TURBO_PACK_LOW_VRAM = False
 
+# Parallel Decoding Distillation (alibaba-pai), the acceleration LoRA that is
+# not a step distillation. The trajectory stays a 32-point grid; what changes
+# is that the final output head is replicated per interval and each sampling
+# step decodes a block of four of them as one mean velocity, so 8 transformer
+# evaluations cover a 32-step trajectory.
+#
+# **The block boundaries ARE the plain 8-step shifted schedule.** Not close to
+# it -- bit-identical, because `linspace(1, 0, 33)[::4]` is `linspace(1, 0, 9)`
+# and the shift is pointwise. So this is the only accelerator here that moves
+# nothing but the step count: shift stays at the base 12/3, scheduler stays
+# where it is, and `MiniMaxH3SigmaShift` does not budge. Contrast the 768p
+# turbo, which needs 6/3 and therefore changes two things at once.
+#
+# **The published files do not load.** Their keys are diffusers-side with bare
+# `lora_down`/`lora_up` suffixes, which no ComfyUI weight adapter matches, so
+# all 728 tensors are skipped with a log line and the render comes out as an
+# undistilled 8-step pass that looks like the LoRA is bad. These names are the
+# CONVERTED files from `bench/convert_pdd_lora.py`, loaded by
+# `MiniMaxH3PDDLoRA` -- `LoraLoaderModelOnly` cannot carry them either, because
+# two of the three mechanisms are not weight patches.
+#
+# Strength 1.0 is the vendor's own default and what their published comparison
+# clips were rendered at (README, "LoRA weight of 1.0 at both 4 and 8 NFE").
+# Unlike the plain LoRA path, 0.0 IS a valid control here: the node falls the
+# output heads back to the checkpoint's own rather than merely zeroing a delta.
+PDD_FL2VA_LORA = "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors"
+PDD_REF2VA_LORA = "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors"
+PDD_STEPS = 8
+PDD_STRENGTH = 1.0
+PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
+
 # `CHAIN` was here and is gone as of 2026-08-14. It listed the node order --
 # Load Diffusion Model, MiniMax H3 SageAttention, SolAttnMiniMax -- and nothing
 # imported it. Node order IS load-bearing (Sol composes with the attention

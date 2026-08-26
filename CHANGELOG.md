@@ -4,6 +4,45 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.71.0
+
+### Added
+
+- `bench/convert_pdd_lora.py`, `pdd_math.py` and `MiniMaxH3PDDLoRA`
+  (`pdd_lora.py`): end-to-end support for alibaba-pai's Parallel Decoding
+  Distillation acceleration LoRAs, which are not step distillations and load
+  nowhere in ComfyUI as published. One file reaches the model on three
+  surfaces -- a 208-module backbone LoRA, 50 adaln modules that are a weight
+  patch on an unpruned base and a runtime injection on a pruned one, and the
+  per-interval output heads, which are not a delta at all. The converter does
+  every transform that can be decided offline and fuses the 32-head stack to
+  the entries a run can actually ask for; the node does the three runtime
+  surfaces. `pdd_math.py` holds the schedule arithmetic both consume, because a
+  drift between what the converter fused and what the node selects is a silent
+  wrong-head.
+
+  Two properties are worth stating because they decide how the arm is wired.
+  The block boundaries are the plain 8-step shifted schedule bit for bit, so a
+  PDD arm moves the step count and nothing else -- the shift stays at the
+  checkpoint's own 12/3. And the step index is derived from `t_emb` rather than
+  from a call counter, so it cannot desync from the schedule the way the
+  vendor's forward-hook counter does on any extra evaluation.
+
+  The partition check is a fingerprint of `final_layer.video_out.weight`, which
+  is bit-identical across pruned/unpruned and across quantisation formats and
+  differs between fl2va and ref2va -- an observable, not a filename, against
+  the identical-key-set trap `docs/h3_ref2v_distillation.md` records.
+
+- `docs/h3_pdd.md`: the mechanism, the mapping measurements, what was borrowed
+  from `ComfyUI-MiniMax-H3-Turbo` and `ComfyUI-MiniMaxH3-PDD-Mamad8` and where
+  each is credited in the source, and what is enforced by nothing. Nothing here
+  has been through a sampler yet, and the doc says so.
+
+- `workflows/h3_config.py`: `PDD_FL2VA_LORA`, `PDD_REF2VA_LORA`, `PDD_STEPS`,
+  `PDD_STRENGTH`, `PDD_SHIFT`. Named with the `_LORA` suffix deliberately --
+  that suffix is `bench/check_lora_alpha.py`'s selector, and the first draft
+  named them `PDD_LORA_*`, which resolved and graded nothing.
+
 ## 0.70.13
 
 ### Added

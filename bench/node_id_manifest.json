@@ -93,6 +93,17 @@
       "Output"
     ]
   },
+  "MiniMaxH3PDDLoRA": {
+    "inputs": [
+      "model",
+      "lora_name",
+      "strength"
+    ],
+    "node_id": "MiniMaxH3PDDLoRA",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3Preflight": {
     "inputs": [
       "conditioning",

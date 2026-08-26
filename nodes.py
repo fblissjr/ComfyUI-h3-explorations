@@ -15,6 +15,7 @@ from .keyframe_canvas import MiniMaxH3KeyframeCanvas
 from .marker_arms import MiniMaxH3MarkerArm
 from .conditioning import MiniMaxH3Conditioning
 from .h3_awq_encoder import MiniMaxH3AWQEncoderLoader
+from .pdd_lora import MiniMaxH3PDDLoRA
 from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
 from .reference_fit import MiniMaxH3ReferenceFit
@@ -308,7 +309,8 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3ReferenceVideoFit,
                 MiniMaxH3AppendRefImage, MiniMaxH3AppendRefVideo,
                 MiniMaxH3AppendRefAudio, MiniMaxH3ReferenceConditioning,
-                MiniMaxH3AWQEncoderLoader, MiniMaxH3MarkerArm]
+                MiniMaxH3AWQEncoderLoader, MiniMaxH3MarkerArm,
+                MiniMaxH3PDDLoRA]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:
