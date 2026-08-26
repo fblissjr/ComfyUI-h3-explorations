@@ -219,6 +219,75 @@ them:
 speaker; reference video with a soundtrack). The arms can run on what exists; a
 quotable claim wants the coverage the brief names.
 
+## 5. Calibrating on a real render's own activations
+
+**Owner's idea, 2026-08-26, recorded before anything was built or measured.**
+Calibrate each layer against the activations that actually occur during a real
+H3 render, rather than against a constructed pool.
+
+### What it cannot reach, so it is not proposed as one
+
+Section 1 stands unchanged and is not weakened by this. `layer0_input` relative
+L2 is exactly 0.0 across BF16, v1 and v2, so **no** calibration population --
+traced, constructed, or otherwise -- reaches the token embedding table, the
+seven marker rows or the vision path. This idea is aimed at the other target
+section 1 names: where the 4-bit approximation error *lands* on the decoder
+linears. Those two objectives were conflated once already in this lane, which is
+why the distinction is restated rather than assumed.
+
+### The gap it would actually close, and its size
+
+**MEASURED**, already in section 1 and repeated here because it is this idea's
+whole case: the pool's label scaffold is **952 of 265,922 tokens**, and five of
+the seven H3 markers occur in **zero** rows. A trace is by construction 100%
+H3-schema-shaped -- the real packed sequence, the real `<Picture i>:` scaffold,
+the real reference stills at the sizes the graph feeds them.
+
+**MEASURED, and it argues the other way on modality.** The pool is not
+text-heavy: `2026-08-25_v3_selection_max_no_upscale.json` records **188,754
+visual against 76,216 text** tokens, so it already approximates a render's
+composition. The gap is prompt *structure*, not modality. Any argument for this
+idea that rests on "calibration never sees images" is wrong.
+
+**PRIOR, stated before the run so it cannot be fitted to the result.** v1 to v2
+was two different constructed pools and moved the error by about a tenth either
+way (Gate 5, `2026-08-25_v2_launch_record.md`). Trace-versus-constructed is a
+larger distribution shift than pool-versus-pool, but it is the same *kind* of
+lever, so a tenth is the order to expect and a result far outside it should be
+distrusted before it is believed.
+
+### The cheapest form of it is not a new mechanism
+
+llm-compressor already runs the model over the calibration set and collects each
+layer's activations; that is how AWQ's scale search and GPTQ's Hessian are both
+fed. So "calibrate on trace data" reduces, in its cheapest form, to **replacing
+the pool with real H3 render inputs** -- our own prompts and reference stills,
+in schema, at graph geometry -- and changing no code in the recipe at all.
+[`bench/select_v2_calibration_rows.py`](../../../../bench/select_v2_calibration_rows.py)'s stratified draw would be replaced by an enumeration
+of shipped graphs rather than a stratified draw from a public dataset.
+
+The stronger reading -- per-layer solve against that layer's own observed input
+statistics -- is **already what GPTQ does**, and
+[`bench/h3_gptq_recipe.py`](../../../../bench/h3_gptq_recipe.py) exists. GPTQ
+compensates rounding against the layer's own input covariance, which is the
+traced quantity. So this idea and the GPTQ card on the 2026-08-26 handoff are
+closer to the same experiment than they look, and running them as one arm --
+GPTQ **on** an in-schema pool -- costs one run rather than two and separates
+cleanly from the v1/v2 pair, which varied neither.
+
+### What would confirm or refute it
+
+The first measurement is free of the card and should come first: **how far apart
+are the two activation distributions?** Capture the encoder's per-layer input
+statistics once on a pool row and once on a shipped graph's real prompt, and
+compare. If they are close, the idea cannot move much and the reasoning above is
+wrong somewhere. If they are far apart at the layers W4 hurts most, that
+locates the gain before any calibration run is spent.
+
+**UNMEASURED and unbuilt.** `h3_capture.py` captures DiT activations, not
+encoder ones, so the encoder-side hook does not exist yet. Nothing here has been
+run.
+
 ## What this record does not establish
 
 - Anything perceptual. Every recommendation here rests on weights and encoder
@@ -229,3 +298,5 @@ quotable claim wants the coverage the brief names.
   and answers it nowhere.
 - Any change to the deployed artifact, the encoder of record, or the card order
   in the 2026-08-26 point handoff. Nothing here supersedes an owner decision.
+- Anything about section 5. It is an idea with a stated prior and a named first
+  measurement, and not one line of it has been run.
