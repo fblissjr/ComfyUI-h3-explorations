@@ -55,9 +55,10 @@ artifact.
   measurement extends rather than a hook to build, and pointing section 3
   forward so the two treatments are not found independently. A fourth records
   that a graph's attention arm cannot be a selection criterion for an encoder
-  trace -- sage, the SLA router and the Sol curve node all take a MODEL input,
-  and the encoder resolves its own `optimized_attention_for_device` inside its
-  decoder forward -- so the criterion is schema coverage and the candidate set
+  trace -- `MiniMaxH3SageAttention`, `MiniMaxH3SLARouter` and the vendored
+  `SolAttnMiniMax` the graphs actually wire all take a MODEL input, and the
+  encoder resolves its own `optimized_attention_for_device` inside its decoder
+  forward -- so the criterion is schema coverage and the candidate set
   is every shipped graph, not the four unpatched PDD arms.
 
 - A rule in `CLAUDE.md` under "How this repo decides something is true": two

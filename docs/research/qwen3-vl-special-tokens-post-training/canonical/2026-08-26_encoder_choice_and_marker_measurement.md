@@ -428,11 +428,20 @@ a new capture path, and
 
 **Which graph to trace, added 2026-08-26 after a peer proposed the four
 no-attention-patching PDD arms as the cleanest source.** **SOURCE, verified:**
-no attention patching in this repo reaches the Qwen3-VL encoder at all.
-`MiniMaxH3SageAttention` and `MiniMaxH3SolAttnCurve` both take
-`io.Model.Input("model")` and the sage node's own description says to connect it
-between the model loader and the sampler; its `patch_token_refiner` option
-patches the DiT's text token-refiner blocks, not the encoder. The encoder
+no attention patching in this repo reaches the Qwen3-VL encoder at all. The
+node the shipped graphs actually wire for Sol is
+[`SolAttnMiniMax`](../../../../vendor/sol_attn_minimax.py) (`node_id`
+"SolAttnMiniMax", the vendored patcher), and it takes `io.Model.Input("model")`;
+its whole file contains no case-insensitive reference to a clip, text encoder or
+qwen. `MiniMaxH3SageAttention` and `MiniMaxH3SLARouter` take the same MODEL
+input, and the sage node's own description says to connect it between the model
+loader and the sampler; its `patch_token_refiner` option patches the DiT's text
+token-refiner blocks, not the encoder. (An earlier draft of this paragraph named
+this repo's `MiniMaxH3SolAttnCurve` instead. That is a real node but it appears
+in **zero** shipped graphs, so it could not support a claim about what the
+graphs do; corrected 2026-08-26 after a code review caught it, which is the
+CLAUDE.md tell -- check what the thing attaches to, and here also whether any
+graph wires it -- applied to the paragraph that cites the rule.) The encoder
 resolves its own `optimized_attention_for_device` inside
 `comfy/text_encoders/llama.py`'s decoder forward, independent of
 `transformer_options`, and `attention.py` contains no reference to a CLIP or
