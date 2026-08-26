@@ -101,7 +101,10 @@ candidates. The reading:
 
 - The 4-bit grid is the floor and the launch record measured it: both W4
   artifacts sit at 0.33--0.38 median relative L2 on every population and
-  calibration data moves that by about a tenth either way.
+  calibration data moves that by about a tenth either way. The subsection below
+  gives the mechanism for that ceiling: AWQ's objective is local to each
+  mapping, so no calibration population can aim it at the layer-49 state H3
+  consumes.
 - NVFP4 already dominates W4A16 at the policy that ships. `active_plan.md` makes
   the 2048 short edge the primary reference-still policy; NVFP4 reads 0.147
   there against W4's 0.312, at 14.61 GiB against 14.27. It loses marginally at
@@ -185,6 +188,47 @@ rather than prompts written against the owner's own references -- and that is a
 lever on the ten-percent term the overfit test already sized, in an unknown
 direction. Use trace data for the allocation above, not for another
 calibration.
+
+**The shape was the encoding, and it was checked, not assumed.** **SOURCE.**
+ComfyUI's H3 encode is one causal forward over the whole packed sequence:
+`comfy/text_encoders/llama.py` builds a `triu_(1)` causal mask whenever
+`seq_len > 1`, and `MiniMaxH3ClipModel` sets `enable_attention_masks=False`, so
+there is no padding mask over it. It is not a bidirectional encoder and it is
+not a decode loop; the single-token KV-cache branch is never reached.
+**MEASURED.** The calibration was matched to that deliberately: Gate 1's
+effective attention-mask rule
+([`2026-08-24_gate1_seam_acceptance.md`](2026-08-24_gate1_seam_acceptance.md))
+found keeping versus omitting an all-ones mask bit-identical at the raw
+layer-49 state, and its decision asserts every element is one before omitting
+the mask from the traced graph, with a red control that inserts a zero and
+proves omission is refused. No generation happened at any point -- AWQ collects
+statistics from forward passes and the pilot calls no `generate()`. v1's
+`add_generation_prompt=True` put `<|im_start|>assistant\n` in the token stream
+and nothing was ever decoded from it; v2 has no chat template. The cross-stack
+check exists for exactly this question and read relative L2 0.0020 against a
+wrong-tap control at 0.0506.
+
+**What was *not* the encoding is the objective, and this is the finding that
+matters.** **SOURCE**, `AWQModifier._compute_loss`: the loss compares the fp16
+output against the quantized-weight output of **one mapping's parent module**,
+MSE, and `_error_metrics` is recorded per `smooth_name`/`parent_name`. Four
+mappings per layer, each grid-searched independently. **There is no term
+anywhere for the error at layer 49.** So the compounding half of the question
+is satisfied -- `propagate_error` gives each layer inputs from the already
+quantized layers above it -- while the output half is not: the run minimised
+four-by-sixty-four local reconstruction errors and never knew which layer's
+state is the deliverable. Fourteen of those sixty-four are layers H3 never
+reads. That does not corrupt layers 0--49, which are upstream of them, but it
+is where about a fifth of the grid search went.
+
+**Consequence, and it is why section 1's ten-percent ceiling is not surprising.**
+No choice of calibration data can make a local per-mapping objective into a
+layer-49 objective. Data decides which activations the local errors are
+measured on; it cannot change what is being minimised. An allocation measured
+as `||Wx - W_hat x||` on captured activations **can** be propagated to layer
+49's output and ranked on that, which is the objective AWQ structurally cannot
+express -- a second reason to spend trace data there rather than on another
+calibration population.
 
 ## 4. Recommendation: no encoder fine-tune or LoRA before the marker arms run
 

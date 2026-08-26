@@ -34,6 +34,20 @@ artifact.
   same trace data -- weighting encoder error by what the DiT actually reads,
   which is the metric criticism the launch record already made of itself.
 
+- The same record again, on whether the calibration measured the encoding H3
+  actually uses or ordinary inference. It measured the encoding, and that was
+  checked rather than assumed: ComfyUI's encode is one causal forward with no
+  padding mask, Gate 1 already found the all-ones mask bit-identical at the raw
+  layer-49 state and omits it from the traced graph behind a red control, and no
+  `generate()` is called anywhere in the pilot. The finding underneath is that
+  the objective was never the encoding's: `AWQModifier._compute_loss` compares
+  one mapping's parent module against its quantized self, four mappings per
+  layer across all sixty-four, with no term for the layer-49 state H3 reads.
+  Compounding is handled on the input side and nothing is handled on the output
+  side, which is the mechanism behind the ten-percent ceiling the overfit test
+  measured -- and a second reason to spend trace data on the bit allocation,
+  which can be propagated to layer 49, rather than on another population.
+
 - `canonical/2026-08-26_encoder_choice_and_marker_measurement.md` under the
   Qwen3-VL research tree: why no AWQ calibration population could have reached
   the marker, prompt-structure or vision-encoding questions -- the holdout
