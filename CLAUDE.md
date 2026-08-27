@@ -30,12 +30,24 @@ repeating work.
   sensitivity. The discriminator is `release_id` against `mean_init_rows` and
   it has not been run. **Do not read "untrained" as "the fixed tokenizer is
   wrong"** — a session did exactly that on 2026-08-27 and had to retract it.
-- **The release declares those seven in `additional_special_tokens` and gives
-  none of them an id.** All thirteen other specials have one; zero of seven do.
-  Core's 151669-151675 are *derived* — append in declaration order after the
-  highest existing added token — not read off the release, though
-  `comfy/text_encoders/minimax.py` describes them as "fixed by the released
-  tokenizer". Treat the numbering as an inference, because it is one.
+- **The seven marker ids ARE fixed by the release, and no JSON literal assigns
+  them.** Both halves matter, because the second half has now caused two
+  sessions to conclude the first is false. Grep the release for `151669` and you
+  get nothing: they are absent from `vocab.json`, from `tokenizer.json`'s
+  `model.vocab` and `added_tokens`, and from every `added_tokens_decoder`. They
+  appear only as strings in `additional_special_tokens`. That is not a gap —
+  loading the directory resolves them deterministically, and anyone who loads
+  it, MiniMax included, gets the same numbers:
+
+      AutoTokenizer.from_pretrained(<release>/tokenizer)  -> Qwen2Tokenizer
+      len(tokenizer) 151676   =  151643 base + 26 added + 7
+      <d> 151669 … <|caption_end|> 151675, and `<d>` round-trips as ONE token
+
+  So `comfy/text_encoders/minimax.py`'s "ids fixed by the released tokenizer" is
+  correct, and `release_id` addresses the rows the vendor's own pipeline
+  addresses. Verified by loading, not by reading:
+  `bench/results/2026-08-27_marker_tokenization_alignment.json`. **Do not
+  re-raise the missing literal as a finding.**
 - **The DiT was trained on MiniMax's own prompt-writing structure, and it
   differs by mode.** `internal/official_prompt_guides/` holds the base and ref
   guides. Prompt structure is not a free parameter you may restructure to chase
