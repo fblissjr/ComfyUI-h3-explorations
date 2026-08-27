@@ -68,6 +68,7 @@ from h3_config import (  # noqa: E402
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
     DIALOGUE_REF_IMAGES,
+    SOL_END_PERCENT_BY_STEPS,
     TURBO_REF2VA_LORA, TURBO_REF2VA_STEPS, TURBO_REF2VA_SHIFT,
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
     PDD_STRENGTH,
@@ -145,6 +146,24 @@ def _sol_widgets(sol):
         raise KeyError(f"Sol config is missing {missing}; widgets are positional "
                        f"and a short list re-points every later one")
     return [sol[k] for k in order]
+
+
+def sol_for_steps(sol, steps):
+    """`sol`, with `end_percent` lowered so the final sampling step runs dense.
+
+    A graph's step count decides which steps fall inside Sol's sigma band, so
+    the band has to move with it or the dense tail disappears -- which is what
+    happened when the PDD arms halved the steps. See
+    `h3_config.SOL_END_PERCENT_BY_STEPS` for the derivation and why this one is
+    ours rather than the vendor's.
+
+    Untouched at step counts not in the table: 16 and 20 already put their last
+    step below the band, so there is nothing to restore and nothing to pay for.
+    """
+    if sol is None:
+        return None
+    end = SOL_END_PERCENT_BY_STEPS.get(steps)
+    return sol if end is None else dict(sol, end_percent=end)
 
 
 def sol_api_inputs(sol):
@@ -6401,7 +6420,8 @@ def main():
                 if k not in ("sol_on", "dense_attn")}
         wf = build_ui(task, sage=(dense_mode == "sage") if dense_mode else not router,
                       preview=True,
-                      sol=(SOL_RECOMMENDED_CUDA
+                      sol=(sol_for_steps(SOL_RECOMMENDED_CUDA,
+                                         extra.get("steps", SAMPLING["steps"]))
                            if not (is_image or router or dense_mode) else None),
                       sol_enabled=sol_on, prompt=prompt,
                       title=f"h3-{label}-" + ("sla-router" if router else
@@ -6425,7 +6445,9 @@ def main():
                      if k not in ("variant_note", "sol_on", "dense_attn")}
         wf = build_api(task, sage=(dense_mode == "sage") if dense_mode else not router,
                        prompt=prompt,
-                       sol=SOL_RECOMMENDED_CUDA if sol_on else None,
+                       sol=(sol_for_steps(SOL_RECOMMENDED_CUDA,
+                                          extra.get("steps", SAMPLING["steps"]))
+                            if sol_on else None),
                        **{"length": LONG_LENGTH, **api_extra})
         p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")
         written.append((label, "api", p, wf))

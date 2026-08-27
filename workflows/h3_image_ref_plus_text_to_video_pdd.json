@@ -300,7 +300,7 @@
         "adaptive tau",
         1.0,
         0.2,
-        0.9,
+        0.87,
         4096,
         "exact_kv_and_rows",
         false,
@@ -308,7 +308,7 @@
         true,
         false,
         false,
-        ""
+        "0-1"
       ],
       "title": "Patch Sol-Attn"
     },

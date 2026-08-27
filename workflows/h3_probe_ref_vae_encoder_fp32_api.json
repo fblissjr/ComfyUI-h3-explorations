@@ -294,7 +294,7 @@
       "centroid_tail": true,
       "reuse_qkv_memory": false,
       "verbose": false,
-      "dense_blocks": ""
+      "dense_blocks": "0-1"
     }
   },
   "23": {

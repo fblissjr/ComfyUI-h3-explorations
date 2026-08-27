@@ -237,6 +237,23 @@ def wires_sage(graph) -> bool:
                for n in nodes)
 
 
+def _steps_of(graph):
+    """The graph's BasicScheduler step count, or None."""
+    nodes = (graph.get("nodes") if isinstance(graph.get("nodes"), list)
+             else graph.values())
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        if (n.get("type") or n.get("class_type")) == "BasicScheduler":
+            w = n.get("widgets_values")
+            if isinstance(w, list) and len(w) >= 2:
+                return int(w[1])
+            v = (n.get("inputs") or {}).get("steps")
+            if isinstance(v, (int, float)):
+                return int(v)
+    return None
+
+
 def loads_pdd(graph) -> bool:
     """Whether this graph loads a Parallel Decoding Distillation LoRA.
 
@@ -321,14 +338,26 @@ def main() -> int:
                 f"is a new exception, add it to SOL_EXEMPT_STEMS with a mechanism.")
 
         # --- sol_values ----------------------------------------------------
+        # `end_percent` is the one Sol value that legitimately varies per graph:
+        # the window is a sigma band, so which steps fall inside it depends on
+        # the step count, and the band has to move with it or the dense tail
+        # disappears (h3_config.SOL_END_PERCENT_BY_STEPS). Graded against the
+        # value that step count is SUPPOSED to carry, so a graph at 8 steps
+        # carrying 0.9 -- the state every PDD arm shipped in until 2026-08-26 --
+        # is still caught.
+        graph_steps = _steps_of(g)
+        expected = dict(h3_config.SOL_RECOMMENDED_CUDA)
+        if graph_steps in h3_config.SOL_END_PERCENT_BY_STEPS:
+            expected["end_percent"] = h3_config.SOL_END_PERCENT_BY_STEPS[graph_steps]
         for nid, vals, state in sol:
             if state != "live":
                 continue
-            for k, want in h3_config.SOL_RECOMMENDED_CUDA.items():
+            for k, want in expected.items():
                 if k in vals and vals[k] != want:
                     problems.append(
                         f"{p.relative_to(_REPO)}: node {nid} {SOL}.{k} is "
-                        f"{vals[k]!r}, h3_config.SOL_RECOMMENDED_CUDA says {want!r}")
+                        f"{vals[k]!r}, h3_config says {want!r}"
+                        + (f" at {graph_steps} steps" if k == "end_percent" else ""))
 
         # --- sage_values ---------------------------------------------------
         dev_field, _dev_why = DEVIATIONS.get(stem, (None, None))

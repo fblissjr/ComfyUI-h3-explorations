@@ -379,6 +379,32 @@ SOL_BASELINE_124F = dict(
 #                     and upstream reports it drops attention's peak below the
 #                     FFN's. Left off only because it is a separate question
 #                     from the migration. Cheap win when someone measures it.
+#: `end_percent` per sampler step count, so the FINAL step runs dense.
+#:
+#: **This one is ours, not the vendor's, and it is a fix for something that
+#: broke silently.** Sol's window is a sigma band, so which steps land inside
+#: it depends on the step count. At 16 steps the last step sits at sigma 0.447,
+#: below the band, and sage takes it dense. At 8 steps the last step is 0.632
+#: -- still INSIDE the band -- so it runs sparse. Halving the steps for PDD
+#: therefore removed the dense tail without anyone choosing to.
+#:
+#: That is the worst step to lose. At shift 12 the final step covers sigma
+#: 0.632 -> 0, the largest jump in the schedule and where high-frequency detail
+#: resolves, and it is also where PDD's fused heads deviate most from the base
+#: (0.0146 against 0.0047 at the first step). Two approximations were stacking
+#: on the one step that can least afford either.
+#:
+#: Derived by walking `comfy.samplers.calculate_sigmas` at shift 12 and finding
+#: the largest `end_percent` whose sigma still exceeds the final step's, so the
+#: last step falls outside the band. Costs one sparse step of six at 8, one of
+#: three at 4.
+#:
+#: NVLabs express the same intent as a COUNT (`SOL_ATTN_FIRST_DENSE_STEPS=10`
+#: of 50), which does not survive a step-count change either -- ten dense steps
+#: of eight is all of them. Neither recipe covers 8 steps, because their
+#: reference config runs 50. This restores what 16 steps gave us.
+SOL_END_PERCENT_BY_STEPS = {4: 0.74, 6: 0.83, 8: 0.87}
+
 SOL_RECOMMENDED_CUDA = dict(
     # "adaptive tau" since the v3 node (2026-08-22). It is the threshold
     # selection every Sol number here was measured under, so it is the
@@ -419,7 +445,26 @@ SOL_RECOMMENDED_CUDA = dict(
     # the experiment that separates them. Nothing is at risk while
     # `morton=False`; the exposure is the next person who turns it on.
     morton_curve="3d", centroid_tail=True,
-    reuse_qkv_memory=False, verbose=False, dense_blocks="",
+    reuse_qkv_memory=False, verbose=False,
+    # "0-1" since 2026-08-26, and it is the vendor's number rather than ours.
+    # NVLabs ships `SOL_ATTN_FIRST_DENSE_LAYERS = 2` on BOTH their H3 configs --
+    # the 8xGB200 rack one and the single-card RTX 5090 one -- and every sparse
+    # config in their tree carries `stage2_dense_layers = "0-1"`. That it is
+    # identical on a consumer single card and on a rack is what makes it
+    # portable: it is a statement about where this model is numerically
+    # fragile, not about hardware. Ulysses degree, VAE sharding and compile
+    # settings differ between those two configs; the Sol policy does not.
+    #
+    # We shipped "" until today, which was the one place our recipe was less
+    # conservative than the vendor's tested one. Costs 2 of 50 blocks on the
+    # sparse steps. The node logs `keeping blocks [0, 1] dense of 50` when it
+    # takes, and warns loudly if it cannot index blocks, so this is verifiable
+    # from the log rather than assumed.
+    #
+    # Their `SOL_ATTN_THRESH_TYPE = "diag"` is deliberately NOT copied: no such
+    # input exists on our node or in `comfy_kitchen.sol_attn`, so there is
+    # nothing to map it onto.
+    dense_blocks="0-1",
 )
 
 # `selection` is the v3 node's DynamicCombo: it picks HOW exact key blocks are
