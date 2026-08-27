@@ -1256,6 +1256,7 @@ def price(node: dict, graph: dict) -> list[str]:
 
     ref_total = 0
     qwen_total = 0
+    qwen_priced = qwen_refs = 0
     for key, link in media_ins.items():
         if not key.startswith("ref_images.") or not isinstance(link, list):
             continue
@@ -1372,6 +1373,7 @@ def price(node: dict, graph: dict) -> list[str]:
         # handed, so the Qwen rows are priced under the loaded encoder's
         # contract when the graph declares one and under Comfy's defaults
         # otherwise -- for every image_policy, `comfy` included.
+        qwen_refs += 1
         priced = _qwen_tokens(qwen_w, qwen_h, contract)
         if priced is None:
             lines.append(f"      qwen view {qwen_w}x{qwen_h}: tokens NOT CALCULATED "
@@ -1379,6 +1381,7 @@ def price(node: dict, graph: dict) -> list[str]:
         else:
             pw, ph, tokens, owner = priced
             qwen_total += tokens
+            qwen_priced += 1
             clamp = (f"  <- clamped by the {owner} bounds"
                      if (pw, ph) != (qwen_w, qwen_h) else "")
             view = (f"qwen_short_edge={qwen_edge}" if qwen_edge
@@ -1430,9 +1433,25 @@ def price(node: dict, graph: dict) -> list[str]:
     # the rows charges for both, contradicting the citation below. Strip the
     # literals first, then add the rows they stand for.
     tt, kind = text_tokens(_EMBEDDING_REF.sub("", prompt))
-    twin = ref_total + 100 if ref_total else 0
+    # The vision blocks in the TEXT segment are the QWEN view, not the DiT
+    # reference rows. Those two are equal only while `qwen_short_edge` is 0 --
+    # which was every graph ever shipped, because under the v1 encoder's
+    # snapshot bounds the knob could not do anything. v2 (2026-08-27) made it
+    # live, and this line still read `ref_total`, so the `qwen` line above
+    # honoured the knob while the TOTAL ignored it: at a 512 short edge on two
+    # upscaled references they differ by 8,816 tokens and the total did not
+    # move. A pricing tool that cannot see the one input that reduces the
+    # segment is worse than none, because it reads as evidence the knob is inert.
+    #
+    # Falls back to `ref_total` only when a reference could not be priced at
+    # all, and says so rather than quietly reporting a smaller number.
+    qwen_incomplete = qwen_refs and qwen_priced < qwen_refs
+    twin = (ref_total if qwen_incomplete else qwen_total)
+    twin = twin + 100 if twin else 0
     lines.append(f"  text      {tt:>8,}  prompt tokens ({kind})"
-                 + (f" + ~{twin:,} vision blocks" if twin else ""))
+                 + (f" + ~{twin:,} vision blocks" if twin else "")
+                 + ("  (vision blocks fell back to the DiT row count: a "
+                    "reference could not be priced)" if qwen_incomplete else ""))
 
     # A resolved `embedding:` reference is expanded into the sequence one row
     # per token by `comfy/sd1_clip.py` (`emb.view(1, -1, D)`, then
