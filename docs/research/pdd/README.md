@@ -29,6 +29,11 @@ accelerations are buying time from overlapping budgets. Every number on it was
 computed from `pdd_math.py` rather than quoted, and it shows the trace lines of
 a real 4-step render so the diagrams can be checked against a log.
 
+[`queued_arms.md`](queued_arms.md) — the arms waiting on the GPU, each with
+what it decides. A session queue rather than a roadmap: `docs/roadmap.md` and
+`docs/open_experiments.md` own those, and nothing in this file is deliberately
+unmeasured. Delete an entry when it runs.
+
 **A teaching surface, not a source.** Every number on those pages is owned by
 [`docs/h3_pdd.md`](../../h3_pdd.md), and where a page disagrees with it that
 document is right. Nothing generates them and no check reads them, so they are
