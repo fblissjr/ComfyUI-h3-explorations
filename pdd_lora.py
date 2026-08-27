@@ -104,6 +104,7 @@ vendor's forward-hook counter, stated as capabilities rather than as hazards.
 from __future__ import annotations
 
 import logging
+import os
 
 import torch
 import torch.nn.functional as F
@@ -139,6 +140,21 @@ logger = logging.getLogger(__name__)
 #: fused for at all. On schedule the distance is ~0; a step count the file was
 #: not fused for puts it orders of magnitude above this.
 BOUNDARY_TOLERANCE = 1e-2
+
+#: `H3_PDD_TRACE=1` logs one line per sampling step naming the fused head each
+#: stream selected and how far the timestep embedding sat from its boundary.
+#:
+#: Off by default because a normal render does not want eight extra lines. On
+#: when you are asking whether the mechanism is doing what it claims, which is
+#: exactly the window the node was previously silent through: everything it
+#: reports lands BEFORE sampling starts, and the sampling loop -- the longest
+#: part of the render -- shows a progress bar and nothing else.
+#:
+#: That silence is not hypothetical. Two of this node's three shipped defects
+#: were per-step behaviour: a head index that walked wrong at two of eight
+#: steps, and 50 modulation patches that were never installed. Neither was
+#: visible while a render was running.
+TRACE = os.environ.get("H3_PDD_TRACE", "") not in ("", "0")
 
 #: Relative-Frobenius distance allowed between the loaded checkpoint's
 #: `final_layer.video_out` and the one the LoRA was converted against. The
@@ -231,6 +247,7 @@ class _StepTracker:
         self.video = 0
         self.audio = 0
         self.warned = False
+        self.seen = 0
 
     def _pick(self, t_emb, row, table):
         e = t_emb[_row_index(row)].detach().float().reshape(1, -1)
@@ -241,6 +258,12 @@ class _StepTracker:
     def update(self, t_emb, video_seg, audio_seg) -> None:
         self.video, dv = self._pick(t_emb, video_seg[2], self.emb_v)
         self.audio, da = self._pick(t_emb, audio_seg[2], self.emb_a)
+        if TRACE:
+            self.seen += 1
+            logger.info(
+                "[h3-pdd] step %d/%d: video head %d (%.5f from its boundary), "
+                "audio head %d (%.5f)", self.seen, self.nfe,
+                self.video, dv, self.audio, da)
         if not self.warned and max(dv, da) > BOUNDARY_TOLERANCE:
             self.warned = True
             logger.warning(
