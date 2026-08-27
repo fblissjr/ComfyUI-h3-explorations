@@ -75,10 +75,12 @@ CANVAS_MULTIPLE = 32
 
 # One frame is the single length that is not a video, and it is the only
 # exception to the 17n+5 grid. It exists because H3 is a capable single-image
-# edit model at exactly one frame; see `single_frame.py`, which lifts core's
-# floor to reach it, and note that ComfyUI's own VAE already carries a `t == 1`
-# branch (`comfy/ldm/minimax/vae.py`) -- this is a mode the stack anticipated,
-# not one bolted on here.
+# edit model at exactly one frame. ComfyUI's own VAE already carries a `t == 1`
+# branch (`comfy/ldm/minimax/vae.py`), so this is a mode the stack anticipated,
+# not one bolted on here -- which is why these predicates stay correct with the
+# lane parked. What is parked is the pack's shim over core's 5-frame FLOOR
+# (`archive/single_frame.py`, 2026-08-27) and the graphs that needed it; the
+# arithmetic below is core's and is unaffected. See `docs/h3_image_editing.md`.
 #
 # **Every duration rule below is about VIDEO and none of them applies to it.**
 # A single frame is 0.042s, so a naive reading of the 5-15s window calls it
@@ -114,8 +116,8 @@ def snap_length(length):
     # Matches core exactly, which is the whole contract of this function:
     # `temporal_shape` clamps with `max(1, length)` and `align_frame_count`
     # returns 1 unchanged, so anything at or below 1 is one frame and not a
-    # 5-frame clip. Before the single-frame path existed core clamped at 5 and
-    # so did this; the two moved together, deliberately.
+    # 5-frame clip -- which is what core's own `align_frame_count` does, so
+    # this tracks core and not the parked shim.
     if length <= SINGLE_FRAME:
         return SINGLE_FRAME
     if length < FRAME_REMAINDER:

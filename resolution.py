@@ -128,11 +128,12 @@ def _core_supports_single_frame():
     `comfy_extras` module (see CLAUDE.md) and the copy this file imports is not
     always the copy that runs.
 
-    Deliberately a behaviour probe on CORE, not a question about this pack's
-    `single_frame.py`. The property that matters is "does the stack support one
-    frame", which is equally true of our shim, of an upstream fix, and of a
-    hand-patched file -- and this keeps the node free of a dependency on a
-    module whose whole purpose is to be deleted.
+    Deliberately a behaviour probe on CORE, not a question about any shim.
+    The property that matters is "does the stack support one frame", which is
+    equally true of an upstream fix and of a hand-patched file. That framing is
+    why this function still works now that the pack's own shim is parked
+    (`archive/single_frame.py`, 2026-08-27): it never depended on the shim, so
+    on a stock ComfyUI it simply answers False and the caller refuses.
     """
     import sys
 
@@ -197,12 +198,15 @@ class MiniMaxH3Resolution(io.ComfyNode):
                         "portrait mirrors (identical cost, since tokens go as "
                         "(h//32)*(w//32) and that is symmetric), or custom."
                     )),
-                # min=1, not 5, and only because this pack lifts core's floor
-                # to match (single_frame.py). If that shim is ever disabled,
-                # core rejects a length of 1 at prompt validation and this
-                # widget's floor becomes a promise the graph cannot keep --
+                # min=1, not 5, and the floor is deliberately kept wider than
+                # what stock ComfyUI accepts. The pack's single-frame shim is
+                # parked (`archive/single_frame.py`, 2026-08-27), so on an
+                # unpatched core a length of 1 is rejected at prompt validation
+                # and this widget's floor is a promise the graph cannot keep --
                 # which is the right failure, since it names the node that has
-                # to change rather than silently rendering five frames.
+                # to change rather than silently rendering five frames. The
+                # execute path refuses first, with the better message; see
+                # `_core_supports_single_frame`.
                 io.Int.Input(
                     "length", default=124, min=1, max=3600, step=1, tooltip=(
                         "Frame count at 24 fps, rounded UP to the video VAE's "
@@ -213,9 +217,11 @@ class MiniMaxH3Resolution(io.ComfyNode):
                         "345, which is a fact about that pipeline and not a "
                         "limit on the model. This node warns rather than refusing. "
                         "1 is the single exception to the grid: it renders ONE "
-                        "frame for the single-image edit path, needs the "
-                        "single-image H3 VAE to decode, and none of the "
-                        "duration rules above apply to it."
+                        "frame, needs the single-image H3 VAE to decode, and "
+                        "none of the duration rules above apply to it. The "
+                        "single-frame path is PARKED (docs/h3_image_editing.md) "
+                        "-- stock ComfyUI floors these nodes at 5 frames and "
+                        "this node refuses rather than degrade."
                     )),
             ],
             outputs=[
@@ -284,17 +290,19 @@ class MiniMaxH3Resolution(io.ComfyNode):
                     "frame, and this one floors them at 5. Without that, "
                     "core clamps 1 up to 5 and the graph renders a 5-frame "
                     "clip -- through a VAE meant for one frame, which is the "
-                    "grid-artifact case -- with nothing said. Either leave "
-                    "this pack's single_frame shim enabled (it is OFF unless "
-                    "H3_EXPLORATIONS_SINGLE_FRAME=1 is set), or use a "
-                    "length of at least 5 and the video VAE."
+                    "grid-artifact case -- with nothing said. This pack no "
+                    "longer patches core: the single-frame path is PARKED, "
+                    "see docs/h3_image_editing.md. Use a length of at least 5 "
+                    "and the video VAE, or run a ComfyUI that accepts one "
+                    "frame on its own."
                 )
             notes.append(
                 "single-frame mode: one image, not a clip. Decode with the "
                 "single-image H3 VAE (the stock video VAE is the wrong decoder "
                 "here), and leave the audio decoder out -- the audio stream is "
-                "0.04s of nothing. Needs this pack's single_frame shim, or a "
-                "ComfyUI that has taken the same change upstream.")
+                "0.04s of nothing. Your ComfyUI accepts one frame, so this "
+                "renders; this pack ships no graphs for it -- the lane is "
+                "PARKED, see docs/h3_image_editing.md.")
         elif not duration_in_range(snapped):
             notes.append(
                 f"WARNING {describe_length(snapped)} is outside H3's trained "

@@ -1363,7 +1363,13 @@ CAPTURE_REF_IMAGES = (
 # `bench/` and `archive/` are deliberately NOT here. The stamped bench graphs
 # read another pack's closure internals and are expected to break; the archive
 # is history. Neither should be graded against the live SCHEMA.
-GRAPH_DIRS: tuple[str, ...] = ("", "image")
+#: **`image` was removed 2026-08-27 when the single-frame path was parked.**
+#: The graphs are `archive/workflows/image/` and are no longer generated,
+#: discovered, or graded. Anything deriving a single-frame class from this
+#: tuple now derives an EMPTY one -- that is the correct answer, and
+#: `bench/check_attention_defaults.py` was checked against it rather than
+#: left to pass vacuously.
+GRAPH_DIRS: tuple[str, ...] = ("",)
 
 # What `bench/` is exempt from is schema grading, and only that. A bench graph
 # naming a model file that no longer exists is not schema drift -- it is the

@@ -66,8 +66,12 @@ def collect():
     # `import nodes` inside comfy_extras then finds this pack and dies on a
     # relative import. So load `nodes.py` as a member of a synthetic package
     # instead, which also gives its `from .assert_chain import ...` a parent to
-    # resolve against. Going through `__init__.py` would work too and is worse:
-    # it imports `single_frame`, which patches `comfy_extras` at import.
+    # resolve against. Going through `__init__.py` would work too and is still
+    # the wider surface -- it runs whatever registration the pack grows next.
+    # The concrete objection until 2026-08-27 was that it imported
+    # `single_frame`, which patched `comfy_extras` at import; that shim is
+    # parked (`archive/single_frame.py`) and the pack no longer patches core at all,
+    # so what remains is the `import nodes` trap above, which is reason enough.
     import asyncio
     import importlib.util
     import types

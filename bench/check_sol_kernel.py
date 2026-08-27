@@ -21,8 +21,10 @@ numerically different and nothing reports it, which is the same shape as the
 
 ## Presence and gating
 
-Sol-Attn is enabled ON by default across all shipped video workflows (pure
-single-frame image workflows omit it; `docs/SOLATTN.md` owns its knobs).
+Sol-Attn is enabled ON by default across all shipped video workflows
+(`docs/SOLATTN.md` owns its knobs, and `bench/check_attention_defaults.py` owns
+the exempt set -- the single-frame image workflows that used to omit it are
+parked as of 2026-08-27 and ship no longer).
 
 So presence is gated by "does a graph wire the node that needs *this
 dependency*". `SolAttnPatch` (kijai's Triton pack) also does Sol-Attn and does
@@ -174,9 +176,10 @@ failures = []
 skipped = []
 
 # Graph discovery, shared with every other walker. A bare non-recursive glob
-# here would have stopped covering `workflows/image/` on 2026-08-16 and the
-# "no shipped graph wires the Triton node" case would still have printed a
-# confident count. See h3_config.GRAPH_DIRS.
+# here stops covering any directory `GRAPH_DIRS` routes to -- demonstrated by
+# `workflows/image/` between 2026-08-16 and 2026-08-27 -- while the "no shipped
+# graph wires the Triton node" case still prints a confident count. See
+# h3_config.GRAPH_DIRS.
 sys.path.insert(0, str(_REPO / "workflows"))
 from h3_config import graph_paths  # noqa: E402
 

@@ -2,16 +2,16 @@
 """Grade a graph's prompt and price its sequence, BEFORE you press Queue.
 
     python bench/preflight_graph.py internal/refs/test.json
-    python bench/preflight_graph.py workflows/*_api.json workflows/image/*_api.json
+    python bench/preflight_graph.py workflows/*_api.json
 
-**Both directories, and that is not a style choice.** `workflows/*_api.json` is
-non-recursive, and the single-frame image graphs live in `workflows/image/`
-since 2026-08-16 -- eight of them, all wiring references, including the
-three-reference scene that is the most expensive thing on that path. The
-documented one-directory invocation silently priced 20 graphs and missed 8,
-which is the same shape as the bug that had `check_ref_prompt_labels` exiting 0
-over 20 ref graphs instead of 28 that morning: no error, no warning, just a
-smaller number nobody had a prior for.
+**One glob per graph directory, and that is not a style choice.**
+`workflows/*_api.json` is non-recursive, so it prices exactly the graphs sitting
+directly in `workflows/` and silently skips any subdirectory. That currently
+misses nothing -- `h3_config.GRAPH_DIRS` is `("",)` since the single-frame lane
+was parked on 2026-08-27 -- and it missed the image graphs for the eleven days
+`workflows/image/` existed before that: a one-directory invocation priced a
+subset with no error, no warning, just a smaller number nobody had a prior for.
+Check `GRAPH_DIRS` before trusting a single glob, or pass the paths explicitly.
 
 This script takes paths from `sys.argv` and never globs on its own, so it is
 explicit rather than blind. If it ever grows a default corpus, route that
@@ -927,8 +927,8 @@ def text_tokens(prompt: str) -> tuple[int, str]:
 def _single_frame(node: dict, graph: dict) -> bool:
     """True when this graph renders one frame. Read off the graph, never a name.
 
-    `length` is usually LINKED (image graphs carry `['27', 2]`), so a literal
-    read misses every one of them.
+    `length` is usually LINKED rather than a literal (the parked image graphs
+    carried `['27', 2]`), so a literal-only read misses the graphs that matter.
     """
     val = node["inputs"].get("length")
     if isinstance(val, int):
@@ -1141,8 +1141,9 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
                 out.append(("note", "single frame: the image path deviates "
                                     "here on purpose (a still has no shot "
                                     "timing, camera-over-time or chronology "
-                                    "to describe). See docs/h3_image_editing.md "
-                                    "-- deliberate, not an oversight"))
+                                    "to describe) -- deliberate, not an "
+                                    "oversight. That path is PARKED and ships "
+                                    "no graphs; see docs/h3_image_editing.md"))
 
     # base-en's Part One. The exact instruction is parsed from the guide, then
     # its N and S.SS placeholders are resolved from this graph. Presence alone
@@ -1238,12 +1239,15 @@ def price(node: dict, graph: dict) -> list[str]:
     # gives 91 latent steps at 362 frames against the real 107, an 18%
     # under-count that makes an OOM-prone arm look affordable.
     #
-    # **The `<= 1` branch is OUR runtime, not core's.** Core returns 2 for any
-    # frame_count <= 5, because core clamps to a 5-frame floor and never sees
-    # 1. `single_frame.py` lifts that floor, and its own retirement condition
-    # asserts `video_latent_t(1) == 1` (`single_frame.py:247`). Every graph in
-    # `workflows/image/` is length=1, so copying core's function verbatim into
-    # a tool would price all eight of them at double.
+    # **The `<= 1` branch is NOT core's.** Core returns 2 for any frame_count
+    # <= 5, because it clamps to a 5-frame floor and never sees 1. The pack's
+    # shim lifted that floor and asserted `video_latent_t(1) == 1` as its own
+    # retirement condition; it is parked (`archive/single_frame.py`,
+    # 2026-08-27) along with the length=1 graphs it served, so no SHIPPED graph
+    # reaches this branch today. It stays because this tool reads whatever path
+    # it is handed -- an archived graph, a hand-built one, a patched core --
+    # and copying core's function verbatim would price a one-frame graph at
+    # double.
     latent_t = 1 if snapped <= 1 else (snapped - 5) // 17 * 5 + 2
     per_frame = rows(w, h)
     video = latent_t * per_frame
@@ -1506,8 +1510,8 @@ def price(node: dict, graph: dict) -> list[str]:
 # same graph with the chain closed, the orphan cost 1.54x on the sampler.
 #
 # Nothing could have caught it. Every graph-walking check goes through
-# `graph_paths()`, which covers `workflows/` and `workflows/image/`; the graph
-# lived outside both. And no *node* can see it either: an orphaned node is
+# `graph_paths()`, which covers only what `GRAPH_DIRS` names; the graph lived
+# outside it. And no *node* can see it either: an orphaned node is
 # never executed, so there is no runtime moment at which to complain. It is a
 # graph-topology defect and a static reader is the only thing that can see it.
 #

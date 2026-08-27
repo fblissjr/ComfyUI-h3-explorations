@@ -24,11 +24,13 @@ Claims, i.e. what breaks if a case is deleted:
                       it says.
                       Two qualifications, both narrower than they sound.
                       (1) `overall_soundscape` and `non_diegetic_music` are
-                      not required of a graph with no `VAEDecodeAudio` -- the
-                      single-frame image path -- because they describe a track
-                      that structurally cannot exist there. Read off the graph,
-                      not off a list of names. The other four are required of
-                      it exactly as of any clip.
+                      not required of a graph with no `VAEDecodeAudio`,
+                      because they describe a track that structurally cannot
+                      exist there. Read off the graph, not off a list of
+                      names -- which is why the rule survives its only
+                      population (the single-frame image path) being parked
+                      on 2026-08-27. No shipped graph claims it today and the
+                      run prints that.
                       (2) ORDER is now actually checked. Until 2026-08-16 the
                       case was named "in order" and compared against a list
                       built by iterating the guide's own sections, so it could
@@ -119,8 +121,11 @@ def guide_of(inputs: dict) -> str:
         else "base"
 
 # The node that decodes the audio half of the packed AV latent. A graph
-# without it has no audio track at all -- the single-frame image path deletes
-# it, because one frame is 0.04s of nothing to decode.
+# without it has no audio track at all. The single-frame image path used to be
+# the case that mattered -- one frame is 0.04s of nothing to decode -- and it
+# is parked (2026-08-27), so this currently exempts nothing. Kept because it is
+# read off the graph rather than off a name: a video graph that lost its audio
+# decoder is the same situation and would still be handled.
 AUDIO_DECODE_NODE = "VAEDecodeAudio"
 
 # The two of the guide's six sections that describe the audio track. Spelled
@@ -150,30 +155,30 @@ GUIDE_NODE = "MiniMaxH3AddGuide"
 # Every run prints what it waived. An exemption nobody sees is an exemption
 # that grows.
 #
-# h3_image_probe_format_flat is the same experiment on the image path: the
-# `style` scene in one unbroken paragraph against the same scene in sections,
-# same references and same seed. Waiving it costs nothing that graph is not
-# deliberately giving up.
+# **Currently empty, and that is a state rather than an oversight.** The only
+# member was `h3_image_probe_format_flat_api`, the same experiment on the image
+# path, and the single-frame lane was parked on 2026-08-27
+# (`docs/h3_image_editing.md`); `h3_ref_video_swap_concise` was retired before
+# it. So every shipped prompt is graded structurally, with nothing waived --
+# which the run prints, because "waived nothing" and "forgot to waive" are the
+# pair this file exists to keep apart.
 #
-# **The other image graphs are NOT waived, and that changed on 2026-08-16.**
-# There used to be a blanket exemption for `h3_image_edit_api` on the argument
-# that the guide is a video guide -- true of two sections and false of the
-# other four. The narrower rule below (`_audio_sections_optional`) says which
-# two and why, so an image prompt is still graded on section order, task
-# types, markers and dialogue placement. A whole-file waiver was buying
-# silence on four cases to excuse two.
-_STRUCTURE_PROBES = {"h3_image_probe_format_flat_api"}
+# An entry naming a graph that no longer ships is rot, not a safe leftover: it
+# waives nothing while reading as coverage. `probes_are_necessary` below asserts
+# that, so restoring one and then dropping its graph goes red.
+_STRUCTURE_PROBES: set[str] = set()
 
 
 def _audio_sections_optional(wf: dict) -> bool:
     """True when a graph has no audio track for the audio sections to describe.
 
     `overall_soundscape` and `non_diegetic_music` are two of the guide's six
-    required sections, and on the single-frame image path they describe
-    something that structurally cannot exist: the graph has no
-    `VAEDecodeAudio`, so there is no audio output to condition. Requiring them
-    would mean writing a soundscape for a still image to satisfy a checker,
-    which is worse than not conforming.
+    required sections, and on a graph with no `VAEDecodeAudio` they describe
+    something that structurally cannot exist: there is no audio output to
+    condition. Requiring them would mean writing a soundscape for a still image
+    to satisfy a checker, which is worse than not conforming. The single-frame
+    image path was the population; it is parked, so this returns False for
+    every shipped graph today.
 
     **Read off the GRAPH, not off a list of graph names**, because "has an
     audio decoder" is the actual reason and a name is a proxy for it that goes
@@ -445,12 +450,24 @@ def main() -> int:
             if "<d>" in text and sec != main_field[guide]:
                 bad_dialogue.append(f"{name}: <d> in {sec}")
 
-    # Name the waiver on every run, pass or fail. A silent exemption is how a
-    # check quietly stops covering the thing it was written for.
-    note = f"  ({len(waived)} structure probe waived: {', '.join(waived)})" if waived else ""
+    # Name the waiver on every run, pass or fail, INCLUDING when it is empty.
+    # A silent exemption is how a check quietly stops covering the thing it was
+    # written for, and an exemption printed only when non-empty makes "nothing
+    # waived" indistinguishable from "the waiver list was never consulted".
+    note = (f"  ({len(waived)} structure probe waived: {', '.join(waived)})"
+            if waived else "  (no structure probe waived)")
+    audio_note = (f"  ({len(no_audio)} graph(s) with no audio decoder: the "
+                  f"two audio sections are not required of them)" if no_audio
+                  else "  (every shipped graph decodes audio: no section waived)")
+    stale = sorted(_STRUCTURE_PROBES - set(prompts))
+    ok("every structure probe still ships",
+       [f"_STRUCTURE_PROBES names {s!r}, which matches no shipped prompt -- "
+        f"remove the entry, it waives nothing while reading as coverage"
+        for s in stale])
     base_note = (f"  ({len(base_skipped)} base-format graph(s) exempt: the "
                  f"section does not exist in base-en)" if base_skipped else "")
-    ok("each prompt has its guide's sections, in order" + note, bad_sections)
+    ok("each prompt has its guide's sections, in order" + note + audio_note,
+       bad_sections)
     ok("legal task types" + note + base_note, bad_types)
     ok("keyframe completion only where a guide node is wired" + base_note,
        bad_keyframe)

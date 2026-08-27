@@ -50,7 +50,11 @@ exempt filenames is the shape that goes stale silently, which is the objection
 `docs/checks.md` raised against this check existing at all. So:
 
   * the single-frame class is taken from `h3_config.GRAPH_DIRS`, not from
-    filenames — it is whatever the generator routes to `image/`;
+    filenames — it is whatever the generator routes to a subdirectory. That
+    class is **empty while the single-frame lane is parked** (2026-08-27), and
+    the run says so on its own line rather than leaving it to be inferred from
+    an exemption nothing printed: correctly-empty and never-computed have to
+    look different from a green run;
   * every exemption is asserted **necessary**. If an exempt graph turns out to
     have live Sol, that is a failure, not a pass. So an exemption that stops
     being true goes red instead of quietly covering a graph nobody checks.
@@ -219,7 +223,14 @@ def attn_nodes(g, want):
 
 
 def single_frame_dirs():
-    """The image class, from the generator's own routing rather than filenames."""
+    """The image class, from the generator's own routing rather than filenames.
+
+    Empty while the single-frame lane is parked, which is the CORRECT answer
+    and not a broken derivation -- `GRAPH_DIRS` is `("",)`, so no graph sits in
+    a subdirectory and nothing is exempted on this ground. `main` prints the
+    size either way; an exemption class that silently covers nothing is the
+    shape this file's header argues against.
+    """
     return {d for d in h3_config.GRAPH_DIRS if d}
 
 
@@ -282,7 +293,7 @@ def loads_pdd(graph) -> bool:
 def main() -> int:
     paths = h3_config.graph_paths(WORKFLOWS)
     img_dirs = single_frame_dirs()
-    problems, checked = [], {"sol": 0, "sage": 0, "graphs": 0}
+    problems, checked = [], {"sol": 0, "sage": 0, "graphs": 0, "single_frame": 0}
     exempt_seen = {k: False for k in SOL_EXEMPT_STEMS}
 
     for p in paths:
@@ -306,6 +317,7 @@ def main() -> int:
         if exempt_reason:
             exempt_seen[stem] = True
         checked["graphs"] += 1
+        checked["single_frame"] += int(in_image)
 
         sol = attn_nodes(g, SOL)
         sage = attn_nodes(g, SAGE)
@@ -384,6 +396,12 @@ def main() -> int:
     print(f"  declared: sage mode {h3_config.SAGE_NODE['mode']!r}, "
           f"sol tau {h3_config.SOL_RECOMMENDED_CUDA['tau']}, "
           f"min_tokens {h3_config.SOL_RECOMMENDED_CUDA['min_tokens']}")
+    print("  single-frame class: "
+          + (f"{checked['single_frame']} graph(s) from GRAPH_DIRS "
+             f"{sorted(img_dirs)}" if img_dirs else
+             "EMPTY -- h3_config.GRAPH_DIRS routes no graph to a "
+             "subdirectory, so nothing is exempted on single-frame grounds "
+             "(the lane is parked; docs/h3_image_editing.md)"))
     print(f"  out of scope: workflows/bench/*_stamped_api.json are the dense "
           f"baselines and are outside graph_paths()")
     if problems:

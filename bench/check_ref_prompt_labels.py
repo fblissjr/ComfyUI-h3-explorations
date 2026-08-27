@@ -149,7 +149,11 @@ def main():
         `bench/` and `archive/` are excluded ON PURPOSE and are named here so
         the exclusion is visible: the stamped bench graphs read another pack's
         internals and are expected to break, and the archive is history.
-        Neither should be graded against the live schema.
+        Neither should be graded against the live schema. `archive` is retained
+        for a `workflows/archive/` that does not currently exist -- the parked
+        image graphs went to the repo-root `archive/workflows/image/` on
+        2026-08-27, which is outside `WORKFLOWS` and so outside this walk
+        already.
         """
         excluded = {"bench", "archive", "__pycache__"}
         on_disk = set()
@@ -328,21 +332,15 @@ def main():
                                     images=imgs, video=vid, video_audio=vaud,
                                     audio=aud, video_role=vrole, audio_role=arole))
 
-        # The single-frame image prompts. A second generator rather than a mode
-        # of `_ref_prompt` because the content differs in kind -- no shot
-        # timing, no camera path over time, no audio layer -- but the drift
-        # guard covers them exactly like every other prompt. What is waived for
-        # the image graphs is the guide's STRUCTURE (and only in
-        # check_prompt_guide_conformance); never the requirement that the
-        # shipped text came from the generator.
-        #
-        # **Enumerated from the generator's own tables, not from a list here.**
-        # A hardcoded set of scene names would stop covering a scene the moment
-        # one was added, and would report the new graph as a hand-edit -- the
-        # same mistake `VIDEO_ROLES` is imported above to avoid.
-        for scene_name in bw._IMAGE_SCENES:
-            for image_fmt in bw.IMAGE_FORMATS:
-                legal.add(bw._image_prompt(scene_name, image_fmt))
+        # The single-frame image prompts USED to be enumerated here from
+        # `bw._IMAGE_SCENES` x `bw.IMAGE_FORMATS`. Dropped 2026-08-27 with the
+        # lane: `build_workflows.py` no longer calls `_image_graphs()`, so no
+        # shipped graph can legitimately carry one of those prompts, and adding
+        # them to `legal` would widen the accept set to cover text that cannot
+        # appear -- an image prompt pasted into a video graph would pass as
+        # generated. The generator still defines the tables, so restoring this
+        # is un-parking the lane plus these three lines. See
+        # `docs/h3_image_editing.md`.
         # Authored ref2v prompts, named one at a time on purpose.
         #
         # This case exists to catch a GENERATED graph whose prompt was

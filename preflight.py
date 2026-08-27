@@ -154,10 +154,13 @@ class MiniMaxH3Preflight(io.ComfyNode):
         if derived and latent_t:
             # inverse of video_latent_t: latent_t = ((n - 5) // 17) * 5 + 2,
             # with one temporal step meaning one frame rather than five. That
-            # case became reachable when this pack lifted core's 5-frame floor
-            # (single_frame.py); before it, `latent_t == 1` could not happen and
-            # the else-branch's 5 was right for every latent that existed. It is
-            # wrong for exactly one, and it is the one the image-edit path uses.
+            # case is reachable only on a stack that accepts one frame; on a
+            # stock core, which clamps to a 5-frame floor, `latent_t == 1`
+            # cannot happen and the else-branch's 5 is right for every latent
+            # that exists. Kept because this reads a latent it did not build:
+            # the pack's floor shim is parked (`archive/single_frame.py`) but a
+            # patched core or a hand-built graph still produces the case, and
+            # pricing it at 5 would be wrong by 5x on the one that matters.
             frames = (1 if latent_t == 1 else
                       ((latent_t - 2) // 5) * 17 + 5 if latent_t > 2 else 5)
 

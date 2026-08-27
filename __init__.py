@@ -5,29 +5,11 @@ and chain-assert nodes. See README.md.
 """
 
 from .nodes import comfy_entrypoint
-from . import single_frame
 
-# ---------------------------------------------------------------------------
-# TEMPORARY, AND OFF UNLESS ASKED FOR. Patches ComfyUI core in memory so
-# `length=1` reaches the single-image edit path. Does nothing at all unless
-# `H3_EXPLORATIONS_SINGLE_FRAME=1` is set, and says nothing when it does
-# nothing. DELETE THIS CALL AND single_frame.py once ComfyUI ships the change
-# itself (Comfy-Org/ComfyUI#15644) -- the shim detects that, does nothing, and
-# says so at startup, so the console tells you when.
-#
-# Opt-in since 2026-08-27, by owner decision: the patch is process-global, so
-# leaving it on by default charged every install for a path most never use.
-#
-# Called here rather than from inside a node because a node cannot do it. The
-# floor is enforced by `execution.py::validate_inputs`, which raises
-# `value_smaller_than_min` before any node executes -- a node placed in the
-# graph would be rejected along with the graph it exists to enable. The
-# environment is read at import, which is before registration builds the
-# schema. `apply()` never raises, and refuses to install anything that would
-# move an answer at `length >= 2`. See single_frame.py for scope and
-# retirement, and bench/check_single_frame.py for the control that shows the
-# refusal working.
-# ---------------------------------------------------------------------------
-single_frame.apply()
+# The single-frame shim that used to be applied here is archived, and with it
+# the last thing in this pack that modified ComfyUI core. Nothing here patches
+# core now, at import or otherwise; model changes go through ModelPatcher's own
+# `add_object_patch`. See `archive/single_frame.py` for what it was and
+# `docs/h3_image_editing.md` for why the path it served is parked.
 
-__all__ = ["comfy_entrypoint", "single_frame"]
+__all__ = ["comfy_entrypoint"]

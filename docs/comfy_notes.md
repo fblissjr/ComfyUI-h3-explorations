@@ -31,9 +31,8 @@ server *you* started; one that was already running when you arrived is not yours
 to stop.
 
 **No `check_*.py` submits a prompt** — they all reason about graphs.
-`smoke_h3.py` is the fast one that does; `bench_e2e_h3.py` and
-`bench_image_edit_refs.py` submit real renders. A static check cannot catch a
-bug whose cause is the static check, so **run the smoke after any generator
+`smoke_h3.py` is the fast one that does, and `bench_e2e_h3.py` submits real
+renders. A static check cannot catch a bug whose cause is the static check, so **run the smoke after any generator
 change and after any ComfyUI or node-pack update**, and treat a green
 validator on an unsubmitted graph as unverified.
 
@@ -52,9 +51,10 @@ so when the power limit is not stock.
 3. Read the changed default back out of `/object_info` before regenerating. A
    stale server bakes in the exact mismatch the validation exists to catch.
 4. `uv run python workflows/build_workflows.py`
-5. `uv run python bench/check_workflow_schema.py workflows/*.json workflows/image/*.json`,
-   then the smoke. That glob is the one place a directory has to be typed --
-   the script takes paths from the CLI, so it cannot read `GRAPH_DIRS`.
+5. `uv run python bench/check_workflow_schema.py`, then the smoke. With no
+   paths it walks `graph_paths(include_bench=True)`, so no directory is typed
+   here; pass paths only to narrow it. It exits 2, not 0, when no server
+   answered -- nothing validated is not nothing wrong.
 
 ## Settings not to change without measuring
 
@@ -105,7 +105,8 @@ and `comfy_extras/` has no `__init__.py`, so a dotted
 `import comfy_extras.nodes_minimax_h3` builds a **second, independent module
 object**. `keyframe_canvas.py` and `reference_fit.py` do this at module scope;
 `resolution.py`, `preflight.py` and `build_workflows.py` do it inside
-functions. On 2026-08-15 `single_frame.py` patched only the dotted copy: it
+functions. On 2026-08-15 `single_frame.py` -- parked since 2026-08-27 and now
+`archive/single_frame.py` -- patched only the dotted copy: it
 logged success, an in-process check agreed, and the server served the unpatched
 one. **Resolve by identity, not by name** — start from
 `nodes.NODE_CLASS_MAPPINGS`, then collect every `sys.modules` entry whose

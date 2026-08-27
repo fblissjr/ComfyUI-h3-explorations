@@ -25,8 +25,13 @@ the metric values beside the thresholds.
 
 Usage (needs a live server and an idle card; refuses if the card is busy):
 
-    python bench/instrument_render_occupancy.py --graph workflows/image/h3_image_edit_api.json \\
-        --label image_edit --seed 7 --out bench/results/2026-08-26_image_edit_occupancy.json
+    python bench/instrument_render_occupancy.py --graph workflows/h3_text_to_video_api.json \\
+        --label t2v --seed 7 --out bench/results/2026-08-27_t2v_occupancy.json
+
+(The example named `workflows/image/h3_image_edit_api.json` until 2026-08-27;
+that lane is parked and the graph is under `archive/`, so the invocation no
+longer resolves. Nothing about the instrument changed -- it takes any graph
+path, including one under `archive/`.)
 
 Controls that need no card:
 

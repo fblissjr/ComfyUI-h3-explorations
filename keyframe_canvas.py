@@ -253,22 +253,24 @@ def resolve_keyframe_geometry(first_frame=None, last_frame=None,
     # the request instead passes 346 and then renders 362.
     if length:
         snapped = snap_length(length)
-        # Single frame is refused HERE and allowed on the reference path,
-        # and that asymmetry is deliberate rather than an oversight. This
-        # node feeds MiniMaxH3ImageToVideo, which pins a `last_frame` at
+        # Single frame is refused HERE and left to the reference path, and
+        # that asymmetry is deliberate rather than an oversight. This node
+        # feeds MiniMaxH3ImageToVideo, which pins a `last_frame` at
         # `frame_count - 1` -- frame 0 in a one-frame video, i.e. on top of
         # `first_frame`. Nobody has established what fl2va does at one
-        # frame, so the shipped single-image path is ref2v. If that gets
-        # measured, this branch is the thing to delete.
+        # frame, so this refusal stands on its own reason and does not
+        # depend on the single-frame lane being live. If fl2va at one frame
+        # ever gets measured, this branch is the thing to delete.
         if is_single_frame(snapped):
             raise RuntimeError(
                 "length=1 (single-frame image mode) is not supported on "
                 "the keyframe path. MiniMaxH3ImageToVideo anchors a "
                 "last_frame at the final frame, which in a one-frame video "
                 "is the first frame, and fl2va at one frame is unmeasured. "
-                "Use MiniMaxH3ReferenceToVideo with reference images for "
-                "single-image edits -- that is the path this repo ships "
-                "and renders."
+                "The single-frame lane runs on MiniMaxH3ReferenceToVideo, "
+                "and it is PARKED -- this pack ships no graphs for it and "
+                "no longer patches core's 5-frame floor. See "
+                "docs/h3_image_editing.md. Use a length of at least 5."
             )
         if not duration_in_range(length):
             raise RuntimeError(

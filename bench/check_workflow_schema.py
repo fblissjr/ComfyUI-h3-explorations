@@ -53,8 +53,9 @@ live ComfyUI), and no UI graph among the paths given. Both used to be
 indistinguishable from a verdict -- the first exited 1 like a genuine schema
 violation, the second exited 0 after validating nothing. A check that says
 "pass" when it looked at nothing, or "fail" when it could not look, teaches you
-to disbelieve it either way. Same convention as `check_single_frame.py` and
-`check_distill_settings.py`.
+to disbelieve it either way. Same convention as `check_distill_settings.py`
+(and as `archive/bench/check_single_frame.py`, parked with the single-frame
+lane on 2026-08-27, which is where the convention was first written down).
 """
 
 from __future__ import annotations

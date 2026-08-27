@@ -38,8 +38,10 @@ core's menu contains it. Symlinks into other volumes remain normal.
 
 ## Scope
 
-Discovery is `h3_config.graph_paths(include_bench=True)`: `workflows/`,
-`workflows/image/` AND `workflows/bench/`. The bench directory sits outside
+Discovery is `h3_config.graph_paths(include_bench=True)`: every directory in
+`GRAPH_DIRS` AND `workflows/bench/`. Naming them here would be a second copy;
+`GRAPH_DIRS` is `("",)` since the single-frame lane was parked on 2026-08-27,
+and it was `("", "image")` before that. The bench directory sits outside
 `GRAPH_DIRS` because it is exempt from *schema* grading -- its stamped graphs
 read another pack's closure internals and are expected to break against the
 live schema. That exemption does not extend here. A bench graph naming a file
@@ -193,7 +195,7 @@ def main() -> int:
     failures = grade(items, oi) + grade_format_owner(items)
     print(f"{len(items)} model reference(s) from "
           f"{len(graph_paths(WORKFLOWS, include_bench=True))} graph(s) "
-          f"(shipped, image and bench) and h3_config")
+          f"(shipped and bench) and h3_config")
 
     both_forms = {"X": {"input": {
         "required": {"legacy": [["legacy_only.safetensors"], {}]},

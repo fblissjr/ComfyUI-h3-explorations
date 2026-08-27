@@ -29,6 +29,49 @@ artifact.
   met was CPU-resident, which is why nothing caught it until a real encoder
   did. `MiniMaxH3MarkerArm` would have hit the same wall in a live graph.
 
+## 0.75.0
+
+### Changed
+
+- **The single-frame image path is parked.** Owner decision: it was an
+  experimental lane resting on a temporary patch to a module ComfyUI owns, and
+  it is not worth carrying for now. `workflows/image/`, `single_frame.py`,
+  `bench/check_single_frame.py` and `bench/bench_image_edit_refs.py` moved to
+  `archive/`; `h3_config.GRAPH_DIRS` dropped `image`; the generator still
+  defines `_image_graphs()` but its one call site is commented out, so
+  un-parking is that line plus reversing the moves.
+  [`docs/h3_image_editing.md`](docs/h3_image_editing.md) carries the record and
+  everything below its banner is now past tense.
+
+  **A consequence worth stating on its own: this pack no longer modifies
+  ComfyUI core at all**, at import or otherwise. The shim was the last thing
+  that did, and it is archived rather than merely switched off. Model changes
+  go through `ModelPatcher.add_object_patch`.
+
+- **Two exemptions became vacuous when the graphs left, and both are fixed
+  rather than left to pass.** This is the "off, parked or absent" rule earning
+  its place a third time. `bench/check_attention_defaults.py` derives its
+  single-frame class from `GRAPH_DIRS`, which now yields an empty set; it says
+  so on its own line, because correctly-empty and never-computed had become
+  indistinguishable. `bench/check_prompt_guide_conformance.py` was worse: its
+  `_STRUCTURE_PROBES` still named an archived graph, so it waived nothing while
+  reading as coverage, and the waiver line only printed when non-empty. The set
+  is empty, the line always prints, and a new case asserts every structure
+  probe still ships -- red-proved with a bogus entry.
+
+  The class stays *derived* rather than deleted in both, so a directory added
+  back to `GRAPH_DIRS` re-arms the exemption without anyone remembering to.
+
+- **User-facing guidance that had quietly become wrong advice.**
+  `resolution.py` told anyone asking for `length=1` to enable a shim that no
+  longer exists, and `keyframe_canvas.py` pointed at "the path this repo ships
+  and renders". Both rewritten. `_core_supports_single_frame()` is unchanged
+  and still correct: it always probed *core*, never the shim.
+
+- `docs/checks.md` re-keyed the archived check and dropped two counts that were
+  stale independently of this change -- an audit count the run itself reports,
+  and a waiver count the code contradicted.
+
 ## 0.74.0
 
 ### Changed

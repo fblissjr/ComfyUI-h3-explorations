@@ -6375,7 +6375,14 @@ def main():
         # `h3_refs/` library instead of the two root placeholders, so a result
         # is attributable to a subject somebody can look up in
         # `internal/reference_library.md`.
-        *_image_graphs(),
+        # **The single-frame image graphs are parked, 2026-08-27.** Not emitted,
+        # not discovered, not graded; the last generated set is
+        # `archive/workflows/image/` and the shim they need is
+        # `archive/single_frame.py`. `_image_graphs()` and everything it reaches
+        # is left intact rather than deleted so restoring the lane is
+        # un-parking this one line -- but nothing downstream may assume the
+        # directory exists while it is parked. See `docs/h3_image_editing.md`.
+        # *_image_graphs(),
 
         ("h3_probe_head_chunks.json", "t2v-chunk4", "t2v", LONG_T2V_PROMPT,
          dict(head_chunks=4, out_prefix="Video/h3_probe_chunk4",

@@ -2,6 +2,32 @@
 
 Last updated: 2026-08-16.
 
+> ## PARKED — 2026-08-27
+>
+> **The single-frame image path is not shipped and not maintained.** The owner
+> moved away from it; this file is kept as the record of what it was, in the
+> past tense, and nothing in the live tree should be read as depending on it.
+>
+> What moved, and where:
+>
+> | was | now |
+> |---|---|
+> | `workflows/image/` (18 graphs) | `archive/workflows/image/`, no longer generated |
+> | `single_frame.py` (the core patch) | `archive/single_frame.py`, no longer imported |
+> | `bench/check_single_frame.py` | `archive/bench/check_single_frame.py` |
+> | `bench/bench_image_edit_refs.py` | `archive/bench/bench_image_edit_refs.py` |
+>
+> `h3_config.GRAPH_DIRS` no longer carries `image`, so the graphs are neither
+> discovered nor graded, and anything deriving a single-frame class from it
+> derives an empty one. The generator still contains `_image_graphs()`; its one
+> call site is commented out, so un-parking is that line plus the moves above.
+>
+> **A consequence worth having on purpose:** this pack no longer modifies
+> ComfyUI core at all. The shim was the last thing that did, and it is archived
+> rather than merely off.
+>
+> Everything below describes the path as it stood when it was live.
+
 Video is this repo's primary use case. This one is **experimental**: H3 renders
 a single frame if you ask it for one, and at one frame it behaves like a
 capable reference-driven image editor. It rests on a temporary patch, it is
@@ -22,7 +48,7 @@ exists to enable.
 
 **Everything else about the mechanism** -- the 5-frame floor, what the patch
 does and refuses to do, the single-image VAE, and how the shim retires itself
--- is the module docstring of [`single_frame.py`](../single_frame.py), which
+-- is the module docstring of [`archive/single_frame.py`](../archive/single_frame.py), which
 owns it, plus the note drawn on `workflows/image/h3_image_edit.json` itself.
 This file is about the **prompts** and the **layout**.
 

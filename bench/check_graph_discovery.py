@@ -3,9 +3,17 @@
 
 CLAUDE.md: "**every check that walks graphs must go through `graph_paths()`** --
 a bare non-recursive glob passes green over a subset". That is the failure this
-guards: `workflows/*.json` misses `workflows/image/`, so a check that globs
-reports success over part of the set and looks identical to one that passed
-over all of it.
+guards: `workflows/*.json` is non-recursive, so it misses every directory
+`GRAPH_DIRS` routes to, and a check that globs reports success over part of the
+set and looks identical to one that passed over all of it.
+
+**This holds while `GRAPH_DIRS` is `("",)` and a glob happens to see everything,
+which it is since the single-frame lane was parked on 2026-08-27.** The
+demonstrated instance was `workflows/image/` (2026-08-16 to 2026-08-27), and it
+is precisely the state of "the convention is currently satisfied by accident"
+that this file exists for: the next subdirectory reintroduces the hole silently,
+and a glob written today would be wrong the day it appears rather than the day
+it is written.
 
 **The convention currently holds across every graph-walking check.** That is
 exactly when it is cheapest to lock in, and exactly when nothing would notice
@@ -16,7 +24,7 @@ gap: a convention satisfied by everyone and enforced by nothing.
 
 ## Why this parses rather than greps
 
-`bench/check_ref_prompt_labels.py:66` contains the string
+`bench/check_ref_prompt_labels.py:68` contains the string
 `WORKFLOWS.glob("*.json")` **in a comment explaining not to do it**. A regex
 over source flags that line and the first fix anyone reaches for is to reword
 the comment, which teaches the opposite lesson. So this walks the AST and only
@@ -66,9 +74,12 @@ EXEMPT: dict[str, str] = {
 ENUMERATORS = {"glob", "rglob", "iterdir"}
 
 #: Receiver names that mean "this is a graph directory". Checked because
-#: `pathlib.Path("/proc").iterdir()` in `check_single_frame.py` is process
-#: enumeration, and a rule that cannot tell it from graph discovery reports a
-#: correct file as broken -- which trains people to ignore this check.
+#: `pathlib.Path("/proc").iterdir()` in `check_single_frame.py` was process
+#: enumeration, not graph discovery, and a rule that cannot tell the two apart
+#: reports a correct file as broken -- which trains people to ignore this check.
+#: That file is now `archive/bench/check_single_frame.py` and outside the audit
+#: corpus, so the receiver filter currently has no live case to distinguish;
+#: it is kept because the distinction it draws is about the rule, not that file.
 GRAPH_RECEIVERS = ("workflow", "graph_dir", "graph_root")
 
 
@@ -126,10 +137,11 @@ def audit(files) -> list[str]:
         for line, what in sites:
             errs.append(
                 f"{name}:{line} enumerates with {what} instead of "
-                f"`h3_config.graph_paths()`. A bare glob over `workflows/` "
-                f"misses `workflows/image/`, so this check would pass green "
-                f"over a subset. Route it through graph_paths(), or add an "
-                f"EXEMPT entry stating the mechanism that makes it safe.")
+                f"`h3_config.graph_paths()`. A bare glob over `workflows/` is "
+                f"non-recursive and misses every directory GRAPH_DIRS routes "
+                f"to, so this check would pass green over a subset. Route it "
+                f"through graph_paths(), or add an EXEMPT entry stating the "
+                f"mechanism that makes it safe.")
     return errs
 
 

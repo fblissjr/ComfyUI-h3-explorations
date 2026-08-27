@@ -76,9 +76,9 @@ sys.path.insert(0, str(REPO / "workflows"))
 WORKFLOWS = REPO / "workflows"
 VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 
-# Graphs live in more than one directory since 2026-08-16; a bare
-# `WORKFLOWS.glob` is non-recursive and would quietly stop covering the image
-# path. See h3_config.GRAPH_DIRS.
+# A bare `WORKFLOWS.glob` is non-recursive and quietly stops covering any
+# directory `GRAPH_DIRS` routes to -- as `workflows/image/` was from 2026-08-16
+# until the single-frame lane was parked on 2026-08-27. See h3_config.GRAPH_DIRS.
 from h3_config import (LORA_LOADER_CLASSES, graph_paths,  # noqa: E402
                         turbo_label)
 

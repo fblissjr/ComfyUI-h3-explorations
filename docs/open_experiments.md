@@ -661,8 +661,20 @@ seconds" filed as if the tradeoff had been priced.
 
 ## 16. The single-frame path: four questions the first render did not answer
 
+> **PARKED 2026-08-27 with the path itself.** 16a-16g are closed as *will not
+> be measured*, which is not the same as answered. The owner moved off this
+> lane; the graphs are `archive/workflows/image/`, the core patch is
+> `archive/single_frame.py`, and nothing generates, walks or grades any of it.
+> [`h3_image_editing.md`](h3_image_editing.md) is the parking record.
+>
+> **Everything below is left as it was written** -- registrations, blockers
+> and results in their original tense -- because it is the record of what was
+> measured and what was not. Read every "blocker", "still open" and "next
+> arms" line as superseded by this banner: the arms they name are archived,
+> and running one means un-parking first.
+
 Added 2026-08-15, when `length=1` became reachable and
-`workflows/image/h3_image_edit.json` shipped (it was `workflows/h3_image_edit.json` until the image graphs were foldered by use case on 2026-08-16). The path works end to end and the VAE
+`workflows/image/h3_image_edit.json` shipped (it was `workflows/h3_image_edit.json` until the image graphs were foldered by use case on 2026-08-16; both paths are now under `archive/`). The path worked end to end and the VAE
 question is settled with ground truth (37.27 dB against 22.04 dB on a `T=1`
 round trip, in `CHANGELOG.md`). These four are not.
 
@@ -694,9 +706,11 @@ of paired renders; there is no automatic instrument for this (see #14).
 **16c. fl2va at one frame is unmeasured, and we refuse it rather than know.**
 `MiniMaxH3ImageToVideo` pins a `last_frame` keyframe at `frame_count - 1`,
 which in a one-frame video is frame 0 -- on top of `first_frame`.
-`keyframe_canvas.py` therefore refuses `length=1` outright and the shipped
-image path is ref2v. Whether fl2va with only a `first_frame` does something
-useful at one frame (a true img2img) is unknown. **Why it matters:** it is a
+`keyframe_canvas.py` therefore refuses `length=1` outright -- **still true and
+now the only trace of this lane on the live tree**, and its error message says
+the lane is parked -- and the image path that shipped was ref2v. Whether
+fl2va with only a `first_frame` does something useful at one frame (a true
+img2img) is unknown. **Why it matters:** it is a
 different edit modality from reference conditioning, and the refusal is a
 guess wearing an error message. **Blocker:** one render, plus deciding what a
 `last_frame` should mean at one frame.
@@ -785,9 +799,9 @@ on a second subject and seed -- `h3_image_style`, two references, 89.1s with
 the fit upscale against 18.1s without, and the pair compared against the source
 reference rather than against each other: same identity, freckle pattern, head
 angle, expression and hairstyle, with the graphite medium transferring in both.
-So `ref_upscale=False` is now the default for every graph in
-`workflows/image/` (`h3_config.IMAGE_EDIT_BUDGET`), and the whole eight-graph
-set renders in about two minutes against about eleven.
+So `ref_upscale=False` became the default for every graph on that path
+(`workflows/h3_config.py`'s `IMAGE_EDIT_BUDGET`, which outlived the graphs),
+and the set rendered in about two minutes against about eleven.
 
 **Two subjects and two seeds is still a small n**, and none of it transfers to
 the video path, which keeps `ref_upscale=True`: a 124-frame render is minutes,
@@ -898,7 +912,8 @@ on `h3_image_multiperson`, where three references and two identities give the
 model more to confuse; and repeat at 2-3 seeds, since one seed cannot separate
 a format effect from a sample.
 
-**Blocker: none. The next arms are cheap and specified above.**
+**Blocker: the path is parked.** It was none, and the next arms are specified
+above; they were never run and now sit in `archive/workflows/image/`.
 
 **Two follow-ups it would open, not close.** If the structured arms win,
 whether the `<Subject N>` indirection specifically is what did it (the flat arm
