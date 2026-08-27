@@ -18,6 +18,17 @@ separate — that pack fails closed on several things ours only warns about, and
 on one row (a partial patch-key match) it enforces what `docs/h3_pdd.md` lists
 under "Enforced by nothing".
 
+[`thirty_two_intervals.html`](thirty_two_intervals.html) — what an NFE is, what
+PDD does while a render is running, and what moves when the step count does.
+Three diagrams: the fixed 32-interval grid grouped at 8 and at 4, the ragged
+blocks 5 and 6 produce because they do not divide 32, and each step's share of
+the sigma path with Sol's sparse steps marked on it. That last one carries the
+finding worth keeping — the final evaluation is 44% of the path at 16 NFE and
+80% at 4, while Sol's coverage falls from 11 of 16 steps to 2 of 4, so the two
+accelerations are buying time from overlapping budgets. Every number on it was
+computed from `pdd_math.py` rather than quoted, and it shows the trace lines of
+a real 4-step render so the diagrams can be checked against a log.
+
 **A teaching surface, not a source.** Every number on those pages is owned by
 [`docs/h3_pdd.md`](../../h3_pdd.md), and where a page disagrees with it that
 document is right. Nothing generates them and no check reads them, so they are

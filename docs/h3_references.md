@@ -66,6 +66,21 @@ API, `coderef/MiniMax-H3/README.md:85`. That table also carries per-clip
 2-15 s and aggregate 15 s duration limits for video and audio references, which
 nothing in ComfyUI enforces either.
 
+**A fourth implementation states them per type, and calls them the
+checkpoint's.** `aigc-apps/VideoX-Fun` PR #508 (merged; not in `coderef/`, read
+from the diff 2026-08-27) adds `examples/minimax_h3/predict_ref2va.py`, whose
+comment reads: "Budgets of the released checkpoint: at most 9 images, 3 videos,
+3 audios and 12 references in total, and an audio reference cannot stand alone."
+Same 12 and same audio rule diffusers raises on, plus a per-type split nothing
+else here records -- from the org that published the PDD LoRAs.
+
+Weigh it as a claim, not a control: it is a comment in an example script, so
+that repo documents the budgets rather than enforcing them, and it does not say
+where the per-type numbers come from. It does move the open question above --
+whether these are vendor-wide or one validator's transcription -- because the
+publisher's own example now asserts them of the checkpoint. Nothing in ComfyUI
+enforces any of it either way.
+
 A reference video is an **IMAGE batch, not a VIDEO** — it arrives through a
 frame loader, which is why the frame rate is your problem (below).
 
