@@ -10,7 +10,7 @@
   },
   "id": "1e0a0014-2530-5e66-9850-132dc70104a0",
   "revision": 0,
-  "last_node_id": 28,
+  "last_node_id": 29,
   "last_link_id": 33,
   "nodes": [
     {
@@ -224,6 +224,30 @@
     },
     {
       "id": 7,
+      "type": "MarkdownNote",
+      "pos": [
+        -880,
+        -660
+      ],
+      "size": [
+        560,
+        480
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "## What this node does that the UI does not show\n\n**`end_percent` is computed per step count by the generator, not by this\nnode.** The node turns a percent into a sigma when it is patched, which\nhappens before the step count exists. Edit `steps` by hand and this value goes\nstale, the wrong steps run sparse, and nothing at run time says so. Change\nsteps in `workflows/h3_config.py` and regenerate.\n\n**The window is a sigma band, so fewer steps means less of the run is\nsparse** -- most of it at 16 steps, about half at 4. The final step is always\ndense: it covers the largest jump in the schedule.\n\n**The packed conditioning rows always run dense** (`sink_conditioning`). They\nare a few hundred rows in a ~90k sequence and are the first thing a\nblock-sparse router drops; dropping them is what breaks generated audio.\n\n**Blocks 0-1 stay dense**, matching NVLabs' own H3 configs.\n\n**It composes onto the sage patch rather than replacing it**, which is why it\nmust sit after it. See the node-order note.\n"
+      ],
+      "title": "Sol-Attn: what runs that the widgets do not show"
+    },
+    {
+      "id": 8,
       "type": "SolAttnMiniMax",
       "pos": [
         -880,
@@ -234,7 +258,7 @@
         330
       ],
       "flags": {},
-      "order": 6,
+      "order": 7,
       "mode": 0,
       "inputs": [
         {
@@ -272,7 +296,7 @@
       "title": "Patch Sol-Attn"
     },
     {
-      "id": 8,
+      "id": 9,
       "type": "ModelPreviewOverrideKJ",
       "pos": [
         -460,
@@ -283,7 +307,7 @@
         200
       ],
       "flags": {},
-      "order": 7,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -321,7 +345,7 @@
       "title": "Preview (taeh3)"
     },
     {
-      "id": 9,
+      "id": 10,
       "type": "MiniMaxH3Resolution",
       "pos": [
         -1900,
@@ -332,7 +356,7 @@
         200
       ],
       "flags": {},
-      "order": 8,
+      "order": 9,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -389,7 +413,7 @@
       "title": "Resolution: shape, and what it costs"
     },
     {
-      "id": 10,
+      "id": 11,
       "type": "MiniMaxH3ReferenceConditioning",
       "pos": [
         -460,
@@ -400,7 +424,7 @@
         620
       ],
       "flags": {},
-      "order": 20,
+      "order": 21,
       "mode": 0,
       "inputs": [
         {
@@ -478,7 +502,7 @@
       ]
     },
     {
-      "id": 11,
+      "id": 12,
       "type": "LoadImage",
       "pos": [
         -1420,
@@ -489,7 +513,7 @@
         330
       ],
       "flags": {},
-      "order": 9,
+      "order": 10,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -515,7 +539,7 @@
       ]
     },
     {
-      "id": 12,
+      "id": 13,
       "type": "MiniMaxH3AppendRefImage",
       "pos": [
         -760,
@@ -526,7 +550,7 @@
         150
       ],
       "flags": {},
-      "order": 10,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
@@ -556,7 +580,7 @@
       "title": "Append Picture 1"
     },
     {
-      "id": 13,
+      "id": 14,
       "type": "VHS_LoadVideo",
       "pos": [
         -1420,
@@ -567,7 +591,7 @@
         500
       ],
       "flags": {},
-      "order": 11,
+      "order": 12,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -614,7 +638,7 @@
       "title": "Reference video (force_rate 24)"
     },
     {
-      "id": 14,
+      "id": 15,
       "type": "MiniMaxH3AppendRefVideo",
       "pos": [
         -760,
@@ -625,7 +649,7 @@
         150
       ],
       "flags": {},
-      "order": 12,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -666,7 +690,7 @@
       "title": "Append video + owned soundtrack"
     },
     {
-      "id": 15,
+      "id": 16,
       "type": "RandomNoise",
       "pos": [
         40,
@@ -677,7 +701,7 @@
         110
       ],
       "flags": {},
-      "order": 13,
+      "order": 14,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -698,7 +722,7 @@
       ]
     },
     {
-      "id": 16,
+      "id": 17,
       "type": "KSamplerSelect",
       "pos": [
         40,
@@ -709,7 +733,7 @@
         60
       ],
       "flags": {},
-      "order": 14,
+      "order": 15,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -729,7 +753,7 @@
       ]
     },
     {
-      "id": 17,
+      "id": 18,
       "type": "BasicScheduler",
       "pos": [
         40,
@@ -740,7 +764,7 @@
         130
       ],
       "flags": {},
-      "order": 21,
+      "order": 22,
       "mode": 0,
       "inputs": [
         {
@@ -768,7 +792,7 @@
       ]
     },
     {
-      "id": 18,
+      "id": 19,
       "type": "BasicGuider",
       "pos": [
         40,
@@ -779,7 +803,7 @@
         70
       ],
       "flags": {},
-      "order": 23,
+      "order": 24,
       "mode": 0,
       "inputs": [
         {
@@ -807,7 +831,7 @@
       }
     },
     {
-      "id": 19,
+      "id": 20,
       "type": "SamplerCustomAdvanced",
       "pos": [
         400,
@@ -818,7 +842,7 @@
         150
       ],
       "flags": {},
-      "order": 24,
+      "order": 25,
       "mode": 0,
       "inputs": [
         {
@@ -867,7 +891,7 @@
       }
     },
     {
-      "id": 20,
+      "id": 21,
       "type": "VAEDecode",
       "pos": [
         780,
@@ -878,7 +902,7 @@
         60
       ],
       "flags": {},
-      "order": 25,
+      "order": 26,
       "mode": 0,
       "inputs": [
         {
@@ -906,7 +930,7 @@
       }
     },
     {
-      "id": 21,
+      "id": 22,
       "type": "VAEDecodeAudio",
       "pos": [
         780,
@@ -917,7 +941,7 @@
         60
       ],
       "flags": {},
-      "order": 26,
+      "order": 27,
       "mode": 0,
       "inputs": [
         {
@@ -945,7 +969,7 @@
       }
     },
     {
-      "id": 22,
+      "id": 23,
       "type": "VHS_VideoCombine",
       "pos": [
         1080,
@@ -956,7 +980,7 @@
         520
       ],
       "flags": {},
-      "order": 27,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
@@ -1007,7 +1031,7 @@
       }
     },
     {
-      "id": 23,
+      "id": 24,
       "type": "SageChainAssert",
       "pos": [
         -480,
@@ -1018,7 +1042,7 @@
         130
       ],
       "flags": {},
-      "order": 15,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -1049,7 +1073,7 @@
       "title": "Assert the attention chain composed"
     },
     {
-      "id": 24,
+      "id": 25,
       "type": "MiniMaxH3Preflight",
       "pos": [
         -60,
@@ -1060,7 +1084,7 @@
         260
       ],
       "flags": {},
-      "order": 22,
+      "order": 23,
       "mode": 0,
       "inputs": [
         {
@@ -1106,7 +1130,7 @@
       "title": "Preflight: what this render costs"
     },
     {
-      "id": 25,
+      "id": 26,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1117,7 +1141,7 @@
         620
       ],
       "flags": {},
-      "order": 16,
+      "order": 17,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1130,7 +1154,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 26,
+      "id": 27,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1141,7 +1165,7 @@
         560
       ],
       "flags": {},
-      "order": 17,
+      "order": 18,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1149,12 +1173,12 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Node order is load-bearing\n\n```\nLoad Diffusion Model\n  -> ModelSamplingMiniMaxH3       (sigma shift; anywhere before the fork)\n  -> MiniMax H3 SageAttention     (this repo)\n  -> SolAttnMiniMax               (must be AFTER)\n  -> BasicScheduler + BasicGuider (MODEL forks to BOTH)\n```\n\n**Sol-Attn must come second.** It composes with the attention patch it\nfinds; reversed, it overwrites ours and you silently get sage only, with no\nerror and no log line saying so.\n\n**The sigma shift is here to be changed, not because it does anything at\n12/3.** Those are the base checkpoint's training shifts, so the node is a\nno-op as shipped. The turbo LoRAs inherit the sampler's shift instead of\ncarrying their own, and the 4-step v1.1 768p one was\ndistilled at video shift **6** -- and that is the variant trained at 1344x768,\nthis canvas. Load it without changing this and you sample it off a schedule it\nnever saw.\nSteps move with it too: 16 is a base-model number, these want 4 or 8. The\n4-step v0.1 and 8-step v1.0 were both distilled at 12/3 and need no change\nhere.\n\n**MODEL forks to two consumers.** Rewiring only the guider leaves the\nscheduler reading sigmas off the unpatched model, and the render still\nsucceeds -- which is why that mistake survives.\n\n## Check it is actually running, once per graph change\n\nTurn `verbose` on in Patch Sol-Attn (MiniMax) for one render, then off. You want three\nlines. **Read them in the terminal** -- piping or redirecting block-buffers\nthe output and they may not appear even when everything is fine.\n\n```\nsage routing: arch=sm89 ... pv_accum=fp32+fp16 -> fp8_cuda++\n[sol_attn] chaining onto an existing attention override\n[sol_attn] sparse (1, ..., 56, 128) tau=1.3 int8 pointer\n```\n\nLine 1: sage engaged on the fast kernel. Line 3: sparse engaged at your tau.\n**Line 2 is the order check** -- it only prints when Sol-Attn finds sage's\noverride already installed. Missing means the nodes are backwards and you\nare paying full price for a render that otherwise looks fine.\n\n## What each node is here for\n\n- **ModelPreviewOverrideKJ** -- taeh3 preview, and it is arguably the\n  largest optimization here rather than a convenience. Killing a bad seed at\n  90s instead of 11 minutes saves ~9.5 min; the entire kernel and sparsity\n  stack saves ~7 min per render. If one render in three is a bad seed the\n  preview beats everything else combined -- and they compound rather than\n  compete.\n- **MiniMax H3 SageAttention** -- INT8-QK / FP8-PV kernel on all 50 DiT\n  attention forwards, plus an `optimized_attention_override` registration.\n  That second part is what lets Sol-Attn compose instead of bypassing sage.\n- **Patch Sol-Attn (MiniMax)** -- block-sparse attention, on the CUDA\n  kernel (`comfy_kitchen.sol_attn`). Settings are pinned from\n  `workflows/h3_config.py`; edit there and regenerate, not here.\n\n## Deliberately absent\n\n- **MiniMaxH3MemoryEfficientSageAttentionPatch** (KJNodes) -- same job as\n  our node, patches the same key, so they conflict. Ours also registers the\n  override.\n- **MiniMaxLowVRAMAttention** -- head chunking. ~3227 MiB saved at 4 groups\n  (measured; three times the ~1070 this note carried before 2026-08-13), but\n  1000 attention calls become 4000. On 24GB freed VRAM converts to wall-clock\n  at a ~2.6% ceiling. Take it only if you are actually hitting OOM.\n- **MiniMaxChunkFeedForward** -- at 362 frames attention peaks ~17.8 GiB\n  against FFN's 9-12, so it chunks a peak that is not binding. Short-clip\n  feature.\n- **PathchSageAttentionKJ** -- global no-guard sage switch. Prefer the\n  per-workflow node.\n"
+        "## Node order is load-bearing\n\n```\nLoad Diffusion Model\n  -> ModelSamplingMiniMaxH3       (sigma shift; anywhere before the fork)\n  -> MiniMax H3 SageAttention     (this repo)\n  -> SolAttnMiniMax               (must be AFTER)\n  -> BasicScheduler + BasicGuider (MODEL forks to BOTH)\n```\n\n**Sol-Attn must come second.** It composes with the attention patch it\nfinds; reversed, it overwrites ours and you silently get sage only, with no\nerror and no log line saying so.\n\n**The sigma shift is here to be changed, not because it does anything at\n12/3.** Those are the base checkpoint's training shifts, so the node is a\nno-op as shipped. The turbo LoRAs inherit the sampler's shift instead of\ncarrying their own, and the 4-step v1.1 768p one was\ndistilled at video shift **6** -- and that is the variant trained at 1344x768,\nthis canvas. Load it without changing this and you sample it off a schedule it\nnever saw.\nSteps move with it too: 16 is a base-model number, these want 4 or 8. The\n4-step v0.1 and 8-step v1.0 were both distilled at 12/3 and need no change\nhere.\n\n**MODEL forks to two consumers.** Rewiring only the guider leaves the\nscheduler reading sigmas off the unpatched model, and the render still\nsucceeds -- which is why that mistake survives.\n\n## Check it is actually running, once per graph change\n\nTurn `verbose` on in Patch Sol-Attn (MiniMax) for one render, then off. You want three\nlines. **Read them in the terminal** -- piping or redirecting block-buffers\nthe output and they may not appear even when everything is fine.\n\n```\nsage routing: arch=sm89 ... pv_accum=fp32+fp16 -> fp8_cuda++\n[sol_attn] chaining onto an existing attention override\n[sol_attn] sparse (1, ..., 56, 128) tau=1.0 int8 pointer\n```\n\nLine 1: sage engaged on the fast kernel. Line 3: sparse engaged at your tau.\n**Line 2 is the order check** -- it only prints when Sol-Attn finds sage's\noverride already installed. Missing means the nodes are backwards and you\nare paying full price for a render that otherwise looks fine.\n\n## What each node is here for\n\n- **ModelPreviewOverrideKJ** -- taeh3 preview, and it is arguably the\n  largest optimization here rather than a convenience. Killing a bad seed at\n  90s instead of 11 minutes saves ~9.5 min; the entire kernel and sparsity\n  stack saves ~7 min per render. If one render in three is a bad seed the\n  preview beats everything else combined -- and they compound rather than\n  compete.\n- **MiniMax H3 SageAttention** -- INT8-QK / FP8-PV kernel on all 50 DiT\n  attention forwards, plus an `optimized_attention_override` registration.\n  That second part is what lets Sol-Attn compose instead of bypassing sage.\n- **Patch Sol-Attn (MiniMax)** -- block-sparse attention, on the CUDA\n  kernel (`comfy_kitchen.sol_attn`). Settings are pinned from\n  `workflows/h3_config.py`; edit there and regenerate, not here.\n\n## Deliberately absent\n\n- **MiniMaxH3MemoryEfficientSageAttentionPatch** (KJNodes) -- same job as\n  our node, patches the same key, so they conflict. Ours also registers the\n  override.\n- **MiniMaxLowVRAMAttention** -- head chunking. ~3227 MiB saved at 4 groups\n  (measured; three times the ~1070 this note carried before 2026-08-13), but\n  1000 attention calls become 4000. On 24GB freed VRAM converts to wall-clock\n  at a ~2.6% ceiling. Take it only if you are actually hitting OOM.\n- **MiniMaxChunkFeedForward** -- at 362 frames attention peaks ~17.8 GiB\n  against FFN's 9-12, so it chunks a peak that is not binding. Short-clip\n  feature.\n- **PathchSageAttentionKJ** -- global no-guard sage switch. Prefer the\n  per-workflow node.\n"
       ],
       "title": "Which nodes, and the order that matters"
     },
     {
-      "id": 27,
+      "id": 28,
       "type": "MarkdownNote",
       "pos": [
         -2860,
@@ -1165,7 +1189,7 @@
         900
       ],
       "flags": {},
-      "order": 18,
+      "order": 19,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1178,7 +1202,7 @@
       "title": "Resolution, references, and reading the preflight"
     },
     {
-      "id": 28,
+      "id": 29,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1189,7 +1213,7 @@
         760
       ],
       "flags": {},
-      "order": 19,
+      "order": 20,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1223,15 +1247,15 @@
       3,
       6,
       0,
-      7,
+      8,
       0,
       "MODEL"
     ],
     [
       4,
-      7,
-      0,
       8,
+      0,
+      9,
       0,
       "MODEL"
     ],
@@ -1239,7 +1263,7 @@
       5,
       3,
       0,
-      10,
+      11,
       1,
       "VAE"
     ],
@@ -1247,55 +1271,55 @@
       6,
       4,
       0,
-      10,
+      11,
       2,
       "VAE"
     ],
     [
       7,
-      11,
-      0,
       12,
+      0,
+      13,
       0,
       "IMAGE"
     ],
     [
       8,
-      13,
-      0,
       14,
+      0,
+      15,
       0,
       "IMAGE"
     ],
     [
       9,
-      13,
-      3,
       14,
+      3,
+      15,
       1,
       "VHS_VIDEOINFO"
     ],
     [
       10,
-      13,
-      2,
       14,
+      2,
+      15,
       2,
       "AUDIO"
     ],
     [
       11,
-      12,
+      13,
       0,
-      14,
+      15,
       3,
       "MINIMAX_H3_REFERENCES"
     ],
     [
       12,
-      14,
+      15,
       0,
-      10,
+      11,
       3,
       "MINIMAX_H3_REFERENCES"
     ],
@@ -1303,127 +1327,127 @@
       13,
       2,
       0,
-      10,
+      11,
       0,
       "CLIP"
     ],
     [
       14,
-      8,
+      9,
       0,
-      23,
+      24,
       0,
       "MODEL"
     ],
     [
       15,
-      23,
+      24,
       0,
-      17,
+      18,
       0,
       "MODEL"
     ],
     [
       16,
-      23,
+      24,
       0,
-      18,
+      19,
       0,
       "MODEL"
     ],
     [
       17,
-      9,
-      0,
       10,
+      0,
+      11,
       4,
       "INT"
     ],
     [
       18,
-      9,
-      1,
       10,
+      1,
+      11,
       5,
       "INT"
     ],
     [
       19,
-      9,
-      2,
       10,
+      2,
+      11,
       6,
       "INT"
     ],
     [
       20,
-      10,
+      11,
       0,
-      24,
+      25,
       0,
       "CONDITIONING"
     ],
     [
       21,
-      10,
+      11,
       1,
-      24,
+      25,
       1,
       "LATENT"
     ],
     [
       22,
-      24,
+      25,
       0,
-      18,
+      19,
       1,
       "CONDITIONING"
     ],
     [
       23,
-      24,
+      25,
       1,
-      19,
+      20,
       4,
       "LATENT"
     ],
     [
       24,
-      15,
+      16,
       0,
-      19,
+      20,
       0,
       "NOISE"
     ],
     [
       25,
-      18,
-      0,
       19,
+      0,
+      20,
       1,
       "GUIDER"
     ],
     [
       26,
-      16,
+      17,
       0,
-      19,
+      20,
       2,
       "SAMPLER"
     ],
     [
       27,
-      17,
+      18,
       0,
-      19,
+      20,
       3,
       "SIGMAS"
     ],
     [
       28,
-      19,
-      0,
       20,
+      0,
+      21,
       0,
       "LATENT"
     ],
@@ -1431,15 +1455,15 @@
       29,
       3,
       0,
-      20,
+      21,
       1,
       "VAE"
     ],
     [
       30,
-      19,
+      20,
       0,
-      21,
+      22,
       0,
       "LATENT"
     ],
@@ -1447,23 +1471,23 @@
       31,
       4,
       0,
-      21,
+      22,
       1,
       "VAE"
     ],
     [
       32,
-      20,
+      21,
       0,
-      22,
+      23,
       0,
       "IMAGE"
     ],
     [
       33,
-      21,
-      0,
       22,
+      0,
+      23,
       1,
       "AUDIO"
     ]

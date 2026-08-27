@@ -1674,7 +1674,7 @@ the output and they may not appear even when everything is fine.
 ```
 sage routing: arch=sm89 ... pv_accum=fp32+fp16 -> fp8_cuda++
 [sol_attn] chaining onto an existing attention override
-[sol_attn] sparse (1, ..., 56, 128) tau=1.3 int8 pointer
+[sol_attn] sparse (1, ..., 56, 128) tau=1.0 int8 pointer
 ```
 
 Line 1: sage engaged on the fast kernel. Line 3: sparse engaged at your tau.
@@ -1712,6 +1712,56 @@ are paying full price for a render that otherwise looks fine.
 - **PathchSageAttentionKJ** -- global no-guard sage switch. Prefer the
   per-workflow node.
 """
+
+_NOTE_PDD_NODE = """\
+## What this node does that the UI does not show
+
+**The step count is not set here.** It is read from the sampler's own sigma
+schedule while the render runs. To change the arm, change `steps` on
+BasicScheduler; `nfe` here is an override and stays 0.
+
+**Three surfaces are patched, and only one is a normal LoRA:**
+
+- backbone attention and MLP weights
+- the adaln modulation update, pre-solved into this checkpoint's curve basis
+- the two output projections in `final_layer`
+
+**The output heads are swapped every sampling step.** The file carries a
+32-interval bank; the block a step spans is fused on first use and cached.
+
+**It refuses rather than renders** when the file was converted against the
+other partition -- fl2va and ref2va share every tensor name, so a mismatch
+would otherwise load with nothing unmatched and simply be wrong -- or when
+another node already owns the output heads.
+
+`patch_heads` off applies the backbone and adaln updates against the
+checkpoint's own heads. That is the control arm for whether the head
+machinery is what is doing the work.
+"""
+
+_NOTE_SOL_NODE = """\
+## What this node does that the UI does not show
+
+**`end_percent` is computed per step count by the generator, not by this
+node.** The node turns a percent into a sigma when it is patched, which
+happens before the step count exists. Edit `steps` by hand and this value goes
+stale, the wrong steps run sparse, and nothing at run time says so. Change
+steps in `workflows/h3_config.py` and regenerate.
+
+**The window is a sigma band, so fewer steps means less of the run is
+sparse** -- most of it at 16 steps, about half at 4. The final step is always
+dense: it covers the largest jump in the schedule.
+
+**The packed conditioning rows always run dense** (`sink_conditioning`). They
+are a few hundred rows in a ~90k sequence and are the first thing a
+block-sparse router drops; dropping them is what breaks generated audio.
+
+**Blocks 0-1 stay dense**, matching NVLabs' own H3 configs.
+
+**It composes onto the sage patch rather than replacing it**, which is why it
+must sit after it. See the node-order note.
+"""
+
 
 def _probe_note(subject, companion, changed, compare, expect,
                 held="same prompt, same canvas"):
@@ -3784,12 +3834,14 @@ the `fl2va` arm is informative rather than a bug.
 _NOTE_TURBO_OWNER = f"""\
 ## The owner's recipe, not the vendor's row
 
-This is `h3_text_to_video_turbo_4step_768p.json` with **three** things moved,
+This is `h3_text_to_video_turbo_4step_768p.json` with **two** things moved,
 all at once, to the settings the owner arrived at in their own t2v trials on
-2026-08-20: sampler `er_sde` -> `{TURBO_SAMPLER}`, scheduler `simple` ->
-`{TURBO_OWNER_SCHEDULER}`, LoRA strength 1.0 -> {TURBO_OWNER_STRENGTH:g}.
-Because three knobs move, a difference against the vendor graph is not
-attributable to any one of them; this graph is a recipe, and it is judged as a
+2026-08-20: scheduler `simple` -> `{TURBO_OWNER_SCHEDULER}`, LoRA strength
+1.0 -> {TURBO_OWNER_STRENGTH:g}. The sampler was the third until 2026-08-27,
+when `{TURBO_SAMPLER}` became the default for every distilled arm and the
+baseline moved to meet this graph.
+Because two knobs move together, a difference against the vendor graph is not
+attributable to either one; this graph is a recipe, and it is judged as a
 recipe against the vendor-recipe arm in the same blind session.
 
 Two costs the recipe carries, stated up front:
@@ -4137,6 +4189,11 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         # graph carries only two, because low_vram was added after it was
         # written, so that example is not the thing to copy the shape from.
         if pdd:
+            # Directly above the loader column, where someone reading the node
+            # will see it. UI-only, like every MarkdownNote here.
+            g.add("MarkdownNote", (-1500, -660), size=(560, 480),
+                  widgets=[_NOTE_PDD_NODE],
+                  title="PDD LoRA: what runs that the widgets do not show")
             lora_node = g.add(
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 140),
                 widgets=[lora[0], lora[1], pdd_heads, pdd_nfe],
@@ -4209,6 +4266,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         # passes MODEL straight through, so a graph carrying a disabled
         # Sol-Attn node still loads and renders without the node installed.
         # The error-prone part is the ordering above, not the toggle.
+        g.add("MarkdownNote", (-880, -660), size=(560, 480),
+              widgets=[_NOTE_SOL_NODE],
+              title="Sol-Attn: what runs that the widgets do not show")
         sol_node = g.add(SOL_NODE, (-880, 190), size=(360, 330),
                          widgets=_sol_widgets(sol),
                          # tau_profile, added by Sol-Attn 0e334dc: per-block tau
@@ -5285,10 +5345,11 @@ def main():
          "text -> video + audio, via the 4-step 768p turbo LoRA at shift 6"),
 
         # The recipe the 2026-08-20 blind session supports: the vendor row with
-        # the vendor's sampler. Differs from h3_text_to_video_turbo_4step_768p
-        # in one widget (er_sde -> euler); differs from the owner graph below in
-        # scheduler and strength, which the session found indistinguishable at
-        # 20% more sampler time. Ships whatever TURBO_768P_LORA names, which
+        # the vendor's sampler. It differed from h3_text_to_video_turbo_4step_768p
+        # in one widget (er_sde -> euler) until 2026-08-27, when euler became the
+        # default for every distilled arm and the two converged; it still differs
+        # from the owner graph below in scheduler and strength, which the session
+        # found indistinguishable at 20% more sampler time. Ships whatever TURBO_768P_LORA names, which
         # has been v1.1 since 2026-08-23 -- this comment said it ships v1.0
         # "because only v1.0 has an attested row", which was the argument for
         # not adopting v1.1 and is no longer the state.  The row is now
@@ -5791,8 +5852,10 @@ def main():
         # differ from a base ref2va arm in the loader and the step count and in
         # nothing else. Every other accelerator here moves at least two things.
         #
-        # EULER, not the repo's er_sde default. This is replication, not
-        # preference: alibaba-pai's own scheduler takes "one Euler (eta = 0)
+        # EULER. Since 2026-08-27 that is the default for every distilled arm
+        # (h3_config.DISTILL_SAMPLING), but PDD required it before the policy
+        # existed and would require it if the policy changed: alibaba-pai's own
+        # scheduler takes "one Euler (eta = 0)
         # step" and their adapter defines the fused head as "the mean velocity
         # of one block, which an Euler step over the block boundaries
         # consumes". er_sde injects noise and uses a different update rule, so

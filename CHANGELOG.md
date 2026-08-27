@@ -4,6 +4,38 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.79.0
+
+### Added
+
+- **The two nodes that do the most invisible work now explain themselves in the
+  graph.** `MarkdownNote` panels sit directly above `MiniMaxH3PDDLoRA` and
+  `SolAttnMiniMax` in every UI graph that wires them, covering only what the
+  widgets cannot say: that PDD reads its step count off the sampler's schedule
+  rather than from the `nfe` widget, that it patches three surfaces and swaps
+  the output heads every step, and that it refuses a wrong-partition file or a
+  second owner of the heads; and that Sol's `end_percent` is derived per step
+  count by the generator, so editing `steps` by hand leaves it stale with
+  nothing at run time to say so. `MarkdownNote` is in `_UI_ONLY`, so neither
+  reaches the API form.
+
+### Fixed
+
+- **Four pieces of generated text still described yesterday's sampler defaults.**
+  `_NOTE_TURBO_OWNER` said the owner recipe moves **three** knobs from the
+  vendor row; the sampler stopped being one of them when euler became the
+  default for every distilled arm, so it moves two. The comment above that
+  graph still called out a one-widget `er_sde -> euler` difference that no
+  longer exists. `_NOTE_NODES` showed `tau=1.3` in its sample `[sol_attn]` log
+  line, a value the config stopped shipping on 2026-08-20. And the PDD block
+  comment framed euler as a deviation from "the repo's er_sde default" when it
+  is now the default -- rewritten to say PDD required it before the policy and
+  would require it without one.
+
+  Checked and deliberately left alone: `h3_probe_euler` and its twin. That pair
+  is a **base** workload, where `_distill` does not apply and `er_sde` is still
+  the default, so the euler-against-`er_sde` comparison it exists for is intact.
+
 ## 0.78.0
 
 ### Changed
