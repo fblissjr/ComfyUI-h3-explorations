@@ -39,14 +39,18 @@ The release's `tokenizer/tokenizer_config.json` declares twenty
 `additional_special_tokens`. ComfyUI's bundled `comfy/text_encoders/qwen25_tokenizer/tokenizer_config.json`
 declares thirteen. ComfyUI's H3 tokenizer resolves to that bundled directory
 (`comfy/text_encoders/qwen3vl.py:149`), so this is the file in play for every
-H3 prompt. **Present in the release and absent from ComfyUI: `<d>`, `</d>`,
-`<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`, `<|caption_start|>`,
-`<|caption_end|>`.**
+H3 prompt. **The seven the release adds on top of stock Qwen3-VL: `<d>`,
+`</d>`, `<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`,
+`<|caption_start|>`, `<|caption_end|>`.** They were absent from ComfyUI when
+this section was written and are native now, owned by `MiniMaxH3Tokenizer`; the
+paragraphs below describe the gap and are kept for why it existed, not as
+current state.
 
 This is what the model card means when it says the tokenizer and configuration
 files provided in the H3 repository are required.
 
-**The damage is not confined to the marker**, measured 2026-08-22. BPE has no
+**The damage is not confined to the marker** — historical, measured
+2026-08-22, before the tokens were native. BPE has no
 reason to stop at the angle bracket, so the fragments fuse with the text on
 either side: the release emits `<d>` then `[`, ComfyUI emits `>[` as one token,
 and a sentence-final `.` is dragged forward into `.</`. Ordinary prose tokens
@@ -92,11 +96,22 @@ the model card's sentence is aimed at exactly it. The native
 `MiniMaxH3Tokenizer` subclass is now the answer; the retired local node does
 not alter tokenizers.
 
-**What happens instead.** None of the seven is in the base vocab or in
-`added_tokens_decoder`, so the release's loader appends them past the end of
-the vocabulary. ComfyUI never appends them, so a prompt containing `<d>` is
-tokenized as ordinary text — the angle brackets and the letter, as several BPE
-pieces — rather than as one marker.
+**What happens instead — REMOVED 2026-08-26, it disagreed with the rest of
+this section and with the code.** It said ComfyUI never appends the seven, so
+`<d>` tokenized as ordinary BPE pieces. `comfy/text_encoders/minimax.py:32`
+defines `MINIMAX_EXTRA_TOKENS` with all seven at the release's own ids, and
+`MiniMaxH3Tokenizer` is the class in play. Measured the same day through that
+tokenizer, which is the observable the rule says to check rather than a branch
+name or a commit:
+
+```
+"<d>[English] Then I will take two.</d>"
+  -> [151669, 58, 22574, 60, 5005, 358, 686, 1896, 1378, 13, 151670]
+      <d>     [  English ]  Then  I   will  take  two  .   </d>
+```
+
+One id each, and no fusion with the neighbouring text. **Dialogue markers work;
+write them.**
 
 **The weights can hold them.** The release's `text_encoder/config.json`
 declares

@@ -67,6 +67,7 @@ from h3_config import (  # noqa: E402
     CAPTURE_REF_IMAGES,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
+    DIALOGUE_REF_IMAGES,
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
     PDD_STRENGTH,
 )
@@ -2012,6 +2013,81 @@ def _scene_description(scene: str, image_roles, defs) -> str:
             f"for, or the scene needs a beat for it -- do not ship a defined "
             f"subject the description never mentions.")
     return body
+
+
+#: **The dialogue probe, and the one arm here built to be JUDGED rather than to
+#: look good.** Rendered 2026-08-08 as `marker_arm_vendortokens`
+#: (`internal/refs/marker_arm_vendortokens_api.json`, clips under the owner's
+#: `Video/20260808-stock-vs-vendortokens/`) and kept because it worked, so it
+#: is reproduced verbatim rather than rewritten.
+#:
+#: What makes it a good test, as opposed to a good clip:
+#:
+#: * **Eight short lines instead of two long ones**, across three shots, so the
+#:   clip carries seven speaker changes in fifteen seconds. Lip sync has to be
+#:   right repeatedly and at speed; a model that drifts is caught on the next
+#:   line rather than at the end.
+#: * **The pacing is written, not hoped for.** "answers immediately", "says at
+#:   once", and a soundscape line that says the two voices trade "short clipped
+#:   lines with almost no gap between them". Remove those and the same lines
+#:   come out spaced and unjudgeable.
+#: * **Every line is `<d>[English] ...</d>`**, which the prompt guide requires
+#:   for all dialogue. The marker is the subject: if the tokenizer is not
+#:   emitting 151669/151670 the model hears angle brackets and the word
+#:   "English" as prose, and the tell is AUDIBLE -- it speaks them or slurs the
+#:   line start. Being able to hear that is why this arm exists.
+#: * **Two voices described by register** (measured female S1, lower gravelled
+#:   male S2), so a swapped or blended speaker is obvious without a spectrogram.
+#:
+#: Do not "improve" it without rendering the result beside this one.
+DIALOGUE_T2V_PROMPT = """integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames a woman with dark shoulder-length hair in a charcoal wool coat facing a man with a close-cropped beard in a navy jacket on a concrete stairwell landing, lit hard from a caged bulb overhead. The woman with the low measured voice (S1) says, <d>[English] You said tomorrow.</d> The man with the lower gravelled voice (S2) answers immediately, <d>[English] It moved.</d> She says at once, <d>[English] To when?</d> He says, <d>[English] Tonight.</d> Her jaw tightens and the camera drifts a few degrees with the operator's breathing. [Shot 2] At 00:06.000, the camera cuts to a close-up of the woman against painted cinderblock, the bulb throwing a hard edge down one cheek. She (S1) says, <d>[English] Who else knows?</d> Off screen he (S2) answers immediately, <d>[English] Nobody.</d> She says at once, <d>[English] Keep it that way.</d> She looks past the camera toward the stairs below. [Shot 3] At 00:11.000, the camera cuts to a close-up of the man, rain noise faint through a window well behind him. He (S2) says, <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder, and holds still until the final frame.
+
+overall_soundscape: Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead. Two speaking voices, a measured adult female voice and a lower adult male voice, trading short clipped lines with almost no gap between them.
+
+non_diegetic_music: N/A
+"""
+
+#: The ref2va twin. **Same eight lines, same three shots, same cut times, same
+#: pacing language** -- the only thing that changes is where the two people come
+#: from, which is the axis this arm is for.
+#:
+#: The format changes with it and that is not cosmetic. t2v takes
+#: `integrated_multimodal_description`; ref2va takes subject definitions,
+#: retention markers and a shot list, and the external system prompts take
+#: OPPOSITE corrections across that boundary -- so this is a rewrite into the
+#: ref2va form, not the t2v string with pictures bolted on.
+#:
+#: The two references are deliberately far apart: an elderly man in a navy suit
+#: against a brown studio backdrop, and a woman in a red dress in daylight. A
+#: blended or swapped identity shows up in one frame instead of needing a crop.
+#: Both `... is not present in the target video` lines are load-bearing -- each
+#: still carries a background the stairwell must not inherit.
+DIALOGUE_REF2V_PROMPT = """subject_definitions:
+<Subject 1> (S1) is the woman shown in <Picture 2>, preserving her facial identity, shoulder-length dark brown hair, and warm features. She wears a charcoal wool coat in the target video. The daylight park background of <Picture 2> is not present in the target video.
+<Subject 2> (S2) is the elderly man shown in <Picture 1>, preserving his facial identity, white swept-back hair, and deeply lined face. He wears a navy jacket in the target video. The brown studio backdrop of <Picture 1> is not present in the target video.
+
+summary:
+[reference generation] In three shots on a concrete stairwell landing, <Subject 1> and <Subject 2> trade eight short clipped lines with almost no gap between them, about a plan that has moved.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1] and [Shot 2]): fully_preserved - retain the same face, shoulder-length dark brown hair and features in every frame she appears in.
+<Subject 2> (appears in [Shot 1] and [Shot 3]): fully_preserved - retain the same face, white swept-back hair and deeply lined face in every frame he appears in.
+
+detailed_description:
+Photorealistic live-action, 16:9, handheld on 35mm with visible grain, shallow depth of field, lit hard and from above by a single caged bulb on the stairwell ceiling so both faces carry a bright top edge and a deep shadow under the brow and jaw. The stairwell is poured concrete with painted cinderblock walls in a flat institutional green, a steel handrail running down out of frame, and a scuffed landing floor. The air is cold enough to be visible faintly on the breath at the end of the longer lines. The camera stays handheld throughout with small continuous drift from the operator's breathing, never a deliberate move. Each speaker's lips move only on their own line and are closed and still while the other speaks. Both faces stay in focus whenever they are in frame. No other people, no readable text, no signage, no costume changes, no music.
+
+[Shot 1, 00:00.000-00:06.000] A medium two-shot frames <Subject 1> in a charcoal wool coat, collar turned up, facing <Subject 2> in a navy jacket on the stairwell landing, the two of them a little closer than is comfortable. <Subject 1>, with a low measured voice (S1), says: <d>[English] You said tomorrow.</d> <Subject 2>, with a lower gravelled voice (S2), answers immediately: <d>[English] It moved.</d> She says at once: <d>[English] To when?</d> He says: <d>[English] Tonight.</d> Her jaw tightens, she does not step back, and the camera drifts a few degrees with the operator's breathing while the bulb hums overhead.
+
+[Shot 2, 00:06.000-00:11.000] The camera cuts to a close-up of <Subject 1> against the painted cinderblock, the bulb throwing a hard edge down one cheek and leaving the other in shadow, a few strands of hair lit at the crown. She (S1) says: <d>[English] Who else knows?</d> Off screen he (S2) answers immediately: <d>[English] Nobody.</d> She says at once: <d>[English] Keep it that way.</d> She holds his eyeline a moment longer than the line needs, then looks past the camera and down toward the stairs below, her breath just visible.
+
+[Shot 3, 00:11.000-00:15.000] The camera cuts to a close-up of <Subject 2>, the same hard overhead light picking out the lines around his eyes and mouth, rain noise faint through a window well behind him and a wet grey rectangle of light on the wall past his shoulder. He (S2) says: <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder with one hand, exhales once, and holds still with his lips closed until the final frame.
+
+overall_soundscape:
+Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead. Two speaking voices, a measured adult female voice and a lower adult male voice, trading short clipped lines with almost no gap between them.
+
+non_diegetic_music:
+N/A
+"""
 
 
 def _ref_prompt(*, images: bool | tuple[str, ...] = True,
@@ -5712,6 +5788,46 @@ def main():
         # Fact B -- an fl2v distill aimed at the wrong weights -- does not
         # apply to this one. Facts A and C do not follow from that and are
         # untouched.
+
+        # --- the dialogue probe, t2v and ref2v -----------------------------
+        # Eight short lines over three shots with the pacing written in. The
+        # pair exists because they differ on exactly one axis: where the two
+        # people come from. Everything judgeable -- the lines, the cut times,
+        # the speaker order, the soundscape -- is identical, so anything that
+        # separates them is the reference conditioning and not the script.
+        #
+        # 362 frames, which is the longest length H3 was trained on and the
+        # last shot needs it: shot 3 starts at 00:11.000.
+        ("h3_text_to_video_dialogue.json", "t2v-dialogue", "t2v",
+         DIALOGUE_T2V_PROMPT,
+         dict(length=362, out_prefix="Video/h3_t2v_dialogue",
+              variant_note=_probe_note(
+                  "does the dialogue marker survive at speed",
+                  "h3_image_ref_plus_text_to_video_dialogue.json",
+                  "no references: both speakers are described in prose.",
+                  "whether either voice speaks the marker or the word "
+                  "English aloud, and whether the seven turn boundaries land "
+                  "on the right mouth.",
+                  "the ref2v twin runs the same eight lines from two stills, "
+                  "so the two are readable against each other.")),
+         "two speakers, eight clipped lines, dialogue markers throughout"),
+
+        ("h3_image_ref_plus_text_to_video_dialogue.json", "r2v-dialogue", "r2v",
+         DIALOGUE_REF2V_PROMPT,
+         dict(length=362, ref_image_count=2, ref_images=DIALOGUE_REF_IMAGES,
+              out_prefix="Video/h3_r2v_dialogue",
+              variant_note=_probe_note(
+                  "does reference identity hold across seven turn changes",
+                  "h3_text_to_video_dialogue.json",
+                  "the same eight lines, with both speakers supplied as "
+                  "stills instead of described.",
+                  "identity on each cut -- the two references are far apart in "
+                  "age, dress and palette, so a blend shows in one frame.",
+                  "socket order is the label: <Picture 1> is the man and "
+                  "<Picture 2> is the woman, so swapping them swaps who "
+                  "speaks which lines.")),
+         "the same exchange, both speakers from reference stills"),
+
 
         # --- PDD, the arms to actually render with ------------------------
         # sage ON and Sol ABSENT. Sol skips attention adaptively per step,

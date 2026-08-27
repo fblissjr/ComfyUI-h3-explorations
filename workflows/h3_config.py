@@ -1204,6 +1204,15 @@ REF_VIDEO_BUDGET = dict(length=REF_VIDEO_LENGTH, **REF_VIDEO_CANVAS,
 #
 # `product_soccer_jersey` carries real brand marks. Internal capture artifact
 # only -- see the flags section of `internal/reference_library.md`.
+#: The two stills the dialogue ref2v arm wires, in the order its prompt names
+#: them: <Picture 1> is the man, <Picture 2> is the woman. Socket order IS the
+#: label, so swapping these swaps who speaks which lines.
+#:
+#: Chosen to be far apart -- different age, sex, dress, palette and lighting --
+#: so a blended or swapped identity is visible in one frame instead of needing
+#: a 100% crop on a face. `1-man.png` is already the repo's reference still.
+DIALOGUE_REF_IMAGES = ("1-man.png", "5-woman.png")
+
 CAPTURE_REF_IMAGES = (
     "h3_refs/subject_performer_stage_662x1177.png",
     "h3_refs/product_soccer_jersey_1600x1600.png",
