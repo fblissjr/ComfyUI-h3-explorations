@@ -75,6 +75,7 @@ attached to the number.
 | **Morton is "worth 1.16x alone", at "94% GPU utilisation"** | Retracted 2026-08-16. Triton, 362 frames, stacked on int8 — correct for what it measured, and not a description of the CUDA backend, where the permutation is free. It had been the standing argument for `morton=False` in `h3_config.py` and in `docs/SOLATTN.md`'s Configuration findings, and the two disagreed for several hours | a CUDA Morton arm at fixed tau, if anyone wants a cost number at all |
 | **the CUDA replacement, "0.8 s of 861, or 1.0009x"** | **Do not quote this either**, and it is the more instructive of the two. It is one arm of a two-arm control presented as the isolated number: the dense pair moved +0.8 s and the sparse pair moved −1.2 s, i.e. opposite signs, both at or under the bench's measured run-to-run spread on one run per arm. Morton-on cannot be faster, so the pair is measuring noise. The correct claim is unquantified — **free** | more runs per arm, if the cost is ever worth pinning. Nothing currently depends on it |
 | **any A/B of a numerical knob that rests on one rendered clip per arm**, including the 2026-08-13 comparison that chose `fp16 (most accurate)` | **Not controlled evidence about the knob.** The sampling trajectory diverges completely from any perturbation on any sampler, so the changed arm is a *different sample*, not a degraded version of the same one. Sound as a preference between two outputs; never a result about the kernel. Ranked against it, the call-level measurement from `bench/grade_sage_on_capture.py` is the stronger claim, which is the opposite of how the two were weighted at the time | many seeds per arm judged blind in aggregate, or a call-level comparison on captured activations |
+| **"the DiT is sensitive to the seven H3 marker rows"**, and the 0.135 relative-L2 figure in [`bench/results/2026-08-27_marker_epsilon.json`](../bench/results/2026-08-27_marker_epsilon.json) read as evidence about markers | **Withdrawn 2026-08-27, the same day, by the control it never had.** Replacing the seven marker embedding rows with the table mean moves the DiT's denoised prediction 0.135 video / 0.148 audio at step 8, at fixed noise, latents and sigma. That number has no null distribution, and a peer session caught it before it was quoted anywhere. The control ([`2026-08-27_marker_epsilon_control.json`](../bench/results/2026-08-27_marker_epsilon_control.json)) applies the SAME substitution to non-marker rows, matched on what the marker arm actually perturbs -- **16 of 408 prefix positions, not seven rows**, because only two of the seven occur in the prompt and each occurs eight times. At step 8: markers 0.135/0.148, `arb_profile` (2 ids, 16 positions) 0.116/0.212, `arb_draw_1` (11 ids) 0.241/0.430, `arb_draw_2` (8 ids) 0.289/0.418. **The markers sit at the bottom of the control range, not above it.** Two things make this a clean negative rather than a weak one. The controls were perturbed about **6% less hard per row** (0.987 against 1.050 mean relative L2 on the INT8 table -- relative L2 divides by the row's own norm and the untrained marker rows have small norms), so the bias ran the markers' way and they still lost. And the effect tracks the number of **distinct ids** rather than positions: the two-id arms cluster, the eight- and eleven-id arms are two to three times higher at the same sixteen positions, because perturbing eleven words damages more of a prompt than perturbing one word eight times. The markers are two ids, which is why they are at the floor. **The measurement stands; only the reading is withdrawn** -- the DiT plainly responds to those rows, and so it does to any comparable sixteen | **nothing at the prediction level restores it, and the natural next arm was cancelled by this row**: `release_id` vs `mean_init_rows` judged blind was going to cost about seven hours of card time and an hour of the owner's judging, motivated by the rows being load-bearing. It would take evidence on an axis this does not measure -- outsized attention mass on marker positions from `bench/measure_dit_prefix_attention.py`, whose `prefix_marker_token` class has never fired because the only capture carries no markers, or a perceptual separation nobody has looked for |
 | **the 2026-08-15 ordering arms read as a matched pair** | **They were never paired.** The arms carry a different seed per clip, so the comparison was two unrelated samples before the divergence argument above even applies. Check the seed before trusting any pair at all | re-render the arms on matched seeds |
 
 **362 is the max length, and every "345 is legal / 362 is illegal" claim is
@@ -104,6 +105,32 @@ on thin evidence, not a measurement — do not quote it as one.
 Kept short on purpose — every row is something a second reader confirmed or an
 instrument that has been shown red.
 
+- **The marker ids are the release's own, fixed by construction rather than by
+  literal.** No file in the release assigns `<d>`..`<|caption_end|>` an id --
+  checked across all 27 tokenizer/vocab files -- which has now generated the
+  same false finding twice ("core derived them and may have guessed"). Loading
+  the release's own tokenizer directory with the standard loader assigns
+  **151669-151675** and tokenizes all seven as single tokens, `len(tokenizer)`
+  151676 against a 151643 base plus 26 added. Core's "ids fixed by the released
+  tokenizer" is correct. Recorded in
+  [`2026-08-27_marker_tokenization_alignment.json`](../bench/results/2026-08-27_marker_tokenization_alignment.json)
+  so the third reader finds the answer instead of re-raising it.
+- **Two of the seven markers reach anything we render or calibrate.** `<d>` and
+  `</d>` appear in shipped graphs, in the v2 calibration bundle and in all three
+  holdouts; `<|cutoff|>`, `<|lyrics_start|>`, `<|lyrics_end|>`,
+  `<|caption_start|>` and `<|caption_end|>` appear in **zero** graphs and zero
+  rows of the pool the selection drew from. So every encoder measurement here --
+  Gate 5, the overfit test, the four-encoder table -- covers two of seven.
+  `bench/marker_corpus/` is the only surface that reaches all of them.
+- **The prefix length is a coordinate origin, not just a length.**
+  `comfy/ldm/minimax/model.py::PackedLayout.__init__` sets
+  `cursor = float(text_len)` and hands it to `_audio_grid` and `_video_grid` as
+  their temporal origin, so any arm that changes token count moves the whole
+  target timeline in RoPE t-space. The prefix-end to target-start gap is
+  invariant; what moves is the relative distance from early prefix rows,
+  graded to zero at the boundary. An arm that changes tokenization is therefore
+  never prefix-local, and a "few tokens in a large sequence" argument about one
+  is measuring the wrong thing.
 - **The CUDA seam works.** Live render, `cuda-int8` in the log, override
   chained, 50 forwards composed. Not a source read.
 - **One `optimized_attention` call in source**, `comfy/ldm/minimax/model.py`,

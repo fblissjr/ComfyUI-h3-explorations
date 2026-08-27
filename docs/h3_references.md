@@ -567,9 +567,18 @@ a batch, so upscaling is decided per reference. Five references means five
 nodes and five independent decisions. The retired `MiniMaxH3ReferenceFit` did
 the same and still does, for saved graphs that wire it.
 
-### The four combinations
+### The four combinations — PRE-FOLD WIRING ONLY
 
-| ReferenceFit | conditioning node | what happens |
+**Scope, added 2026-08-27 because this table was applied to the shipped path
+and produced a wrong conclusion.** Everything in this subsection describes
+**two** nodes: `MiniMaxH3ReferenceFit`'s `allow_upscale` feeding **core's**
+`MiniMaxH3ReferenceToVideo.ref_image_size`. Two nodes means two resizes, which
+is where row two's wasted work comes from. **No shipped graph is wired this
+way** — see the subsection below for what the typed path does. The table is
+kept because saved graphs outside this repo still wire `MiniMaxH3ReferenceFit`,
+which is the only reason that node is still registered.
+
+| ReferenceFit | core conditioning node | what happens |
 |---|---|---|
 | `allow_upscale=True` | `max` | 2048 survives. **The working combination.** |
 | `allow_upscale=True` | `match` | upscale **undone** — core re-shrinks to the generation's pixel area, and you paid two lanczos resamples for nothing |
@@ -578,10 +587,43 @@ the same and still does, for saved graphs that wire it.
 
 Row two is why the node inspects its consumer at run time
 (`reference_fit.py:199-206`) and warns. Row three is the state **10 of the 18
-shipped graphs that wire ReferenceFit are in**, deliberately — `REF_VIDEO_BUDGET`
+graphs that wire ReferenceFit are in**, deliberately — `REF_VIDEO_BUDGET`
 holds `allow_upscale=False` to fit 24 GB. As of 2026-08-16 the node says "NO
 CHANGE" in the log when it lands there, because its presence in a graph
 otherwise reads as "the references were fitted".
+
+### What the shipped path does instead, and why row two cannot happen on it
+
+`MiniMaxH3AppendRefImage` carries `size_policy`, `short_edge` and
+`allow_upscale` itself, and `MiniMaxH3ReferenceConditioning` performs **one**
+resize with the canvas in scope. `reference_fit.py`'s own docstring records the
+fold: "On the typed reference path this node is no longer needed."
+
+So the two knobs above are no longer on two nodes, and the `match` branch does
+not read `allow_upscale` at all
+([`reference_geometry.py::fit_reference_image`](../reference_geometry.py)):
+
+```python
+if size_policy == "match":
+    # allow_upscale is never read here
+    scale = min(1.0, math.sqrt((canvas_w * canvas_h) / (source_w * source_h)))
+else:
+    full  = short_edge / min(source_w, source_h)
+    scale = full if allow_upscale else min(1.0, full)
+```
+
+`match` + `allow_upscale=True` on the shipped path is therefore **ignored with
+a warning, not a double resample** — `reference_conditioning.py` logs
+"size_policy='match' sizes this reference from the canvas area, so short_edge=N
+and allow_upscale=X are not read." One resize either way, and no wasted
+lanczos pass.
+
+**The reason to prefer `max` for a vendor-matching arm is the one this page
+already gives above and not row two**: `match` sizes from the generation's
+pixel area, so its ceiling moves with the canvas, where sglang's is a fixed
+2048 short edge with no area cap. That is a divergence in a different
+direction, and it is what makes `match` the wrong policy for parity — not a
+resample it does not perform.
 
 ### Worked examples
 
