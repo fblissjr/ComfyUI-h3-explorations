@@ -1,0 +1,240 @@
+{
+ "measurement": "alignment between the release and pre-fix H3 tokenizers on one prompt",
+ "graph": "h3_text_to_video_dialogue_api.json",
+ "release_ids": 408,
+ "legacy_ids": 416,
+ "longest_common_subsequence": 368,
+ "content_shared_fraction": 0.902,
+ "release_ids_outside_lcs": 40,
+ "legacy_ids_outside_lcs": 48,
+ "max_cumulative_displacement": 8,
+ "edit_sites": [
+  {
+   "op": "replace",
+   "release_span": [
+    83,
+    86
+   ],
+   "legacy_span": [
+    83,
+    86
+   ],
+   "release_ids": 3,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 0
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    91,
+    93
+   ],
+   "legacy_span": [
+    91,
+    94
+   ],
+   "release_ids": 2,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 1
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    108,
+    111
+   ],
+   "legacy_span": [
+    109,
+    112
+   ],
+   "release_ids": 3,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 1
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    115,
+    117
+   ],
+   "legacy_span": [
+    116,
+    119
+   ],
+   "release_ids": 2,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 2
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    122,
+    125
+   ],
+   "legacy_span": [
+    124,
+    127
+   ],
+   "release_ids": 3,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 2
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    129,
+    131
+   ],
+   "legacy_span": [
+    131,
+    134
+   ],
+   "release_ids": 2,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 3
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    134,
+    137
+   ],
+   "legacy_span": [
+    137,
+    140
+   ],
+   "release_ids": 3,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 3
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    140,
+    142
+   ],
+   "legacy_span": [
+    143,
+    146
+   ],
+   "release_ids": 2,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 4
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    210,
+    213
+   ],
+   "legacy_span": [
+    214,
+    217
+   ],
+   "release_ids": 3,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 4
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    218,
+    220
+   ],
+   "legacy_span": [
+    222,
+    225
+   ],
+   "release_ids": 2,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 5
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    230,
+    233
+   ],
+   "legacy_span": [
+    235,
+    238
+   ],
+   "release_ids": 3,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 5
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    236,
+    238
+   ],
+   "legacy_span": [
+    241,
+    244
+   ],
+   "release_ids": 2,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 6
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    243,
+    246
+   ],
+   "legacy_span": [
+    249,
+    252
+   ],
+   "release_ids": 3,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 6
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    252,
+    254
+   ],
+   "legacy_span": [
+    258,
+    261
+   ],
+   "release_ids": 2,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 7
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    309,
+    312
+   ],
+   "legacy_span": [
+    316,
+    319
+   ],
+   "release_ids": 3,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 7
+  },
+  {
+   "op": "replace",
+   "release_span": [
+    316,
+    318
+   ],
+   "legacy_span": [
+    323,
+    326
+   ],
+   "release_ids": 2,
+   "legacy_ids": 3,
+   "cumulative_shift_after": 8
+  }
+ ],
+ "index_wise_mismatches": 316,
+ "index_wise_is_misleading": "reported only to retire it. An insertion shifts every later index, so this counts displacement as if it were content change. Use longest_common_subsequence. A record of this repo's carried the index-wise number alone and it read as 'the tokenizations are wildly different', which the alignment refutes.",
+ "what_it_does_not_settle": "whether legacy_bpe's prediction delta comes from the changed content or from the displacement. Both are present and this sizes them; separating them needs a padding arm that reproduces the displacement with content untouched, specified by edit_sites."
+}
