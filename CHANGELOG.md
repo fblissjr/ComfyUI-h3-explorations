@@ -8,6 +8,41 @@ artifact.
 
 ### Changed
 
+- **The single-frame shim is opt-in.** `single_frame.apply()` patches
+  `comfy_extras.nodes_minimax_h3` in memory to lift core's 5-frame `length`
+  floor, and it did that on every import. It now does nothing unless
+  `H3_EXPLORATIONS_SINGLE_FRAME=1` is set, and says nothing when it does
+  nothing -- patching nothing is stock behaviour with nothing to announce, and
+  a banner at every startup for a path most installs never use is how a console
+  stops being read. Owner decision, prompted by outside feedback that a pack
+  should not monkey-patch core at startup: the patch is process-global, so the
+  default charged every install for a feature it had not asked for.
+
+  **A node cannot replace it, and that was checked rather than conceded.** The
+  floor is enforced by `execution.py::validate_inputs`, which raises
+  `value_smaller_than_min` *before* any node executes. A node placed in the
+  graph is therefore rejected along with the graph it exists to enable, and
+  could only affect later prompts -- so the first queue would always fail. An
+  environment variable is read at import, which is before registration builds
+  the schema. That is the whole reason this is not a node.
+
+  Consequence: every graph in `workflows/image/` needs the variable set, at
+  render time and on any server the generator validates against. Without it
+  they fail validation with "Value 1 smaller than min of 5".
+
+  `bench/check_single_frame.py` sets the variable for itself, in one place and
+  after reading the default, because its subject is the patch rather than the
+  deployment: none of "is it equivalent off length=1", "does the guard refuse a
+  wrong rewrite", "does a second apply rewrap" is reachable through a closed
+  gate, and inheriting the operator's shell would make the suite pass or fail
+  on how the terminal was configured. It gained a case for the new default that
+  asserts the *reason* as well as the outcome, because "nothing to patch" would
+  otherwise pass it for the wrong reason.
+
+- `docs/h3_image_editing.md` pointed at a README section that does not exist --
+  that file is five lines. It now points at `single_frame.py`, which actually
+  owns the mechanism, and states the opt-in.
+
 - **The shipped text encoder is the v2 W4A16 AWQ artifact.** `MODELS["clip"]`
   now names `ENCODER_V2`, defined above it so the string still has one copy,
   and every graph is rebuilt onto it. The two artifacts differ in one setting

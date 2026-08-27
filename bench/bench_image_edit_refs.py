@@ -36,7 +36,7 @@ measure that subject. The 662x1177 performer is the interesting size case: at
 detail, which is the exact worry `docs/open_experiments.md` #1 parks on.
 
 Needs a live ComfyUI **with the single-frame shim active** -- if it was started
-with `H3_EXPLORATIONS_NO_SINGLE_FRAME=1` every arm renders 5 frames instead of
+without `H3_EXPLORATIONS_SINGLE_FRAME=1` every arm renders 5 frames instead of
 1, and this script refuses rather than producing a table of the wrong thing.
 
     python bench/bench_image_edit_refs.py --list
@@ -386,7 +386,7 @@ def main():
     if floor != 1:
         print(f"the server reports a length floor of {floor}, so length=1 is "
               f"not available and every arm here would render 5 frames.\n"
-              f"Restart ComfyUI without H3_EXPLORATIONS_NO_SINGLE_FRAME.")
+              f"Restart ComfyUI with H3_EXPLORATIONS_SINGLE_FRAME=1.")
         return 2
 
     print(f"| arm | refs | canvas | sizing | fit | ref rows | seq | secs | status |")

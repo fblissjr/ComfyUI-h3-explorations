@@ -285,8 +285,8 @@ class MiniMaxH3Resolution(io.ComfyNode):
                     "core clamps 1 up to 5 and the graph renders a 5-frame "
                     "clip -- through a VAE meant for one frame, which is the "
                     "grid-artifact case -- with nothing said. Either leave "
-                    "this pack's single_frame shim enabled (it is on unless "
-                    "H3_EXPLORATIONS_NO_SINGLE_FRAME is set), or use a "
+                    "this pack's single_frame shim enabled (it is OFF unless "
+                    "H3_EXPLORATIONS_SINGLE_FRAME=1 is set), or use a "
                     "length of at least 5 and the video VAE."
                 )
             notes.append(

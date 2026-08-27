@@ -73,6 +73,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import os
 import pathlib
 import re
 import sys
@@ -151,7 +152,11 @@ def _restore(mod, snap):
 
 
 def _server_shim_disabled():
-    """True when a local ComfyUI is running with the shim's kill switch set.
+    """True when a local ComfyUI is running WITHOUT the shim's opt-in set.
+
+    Inverted 2026-08-27 with the shim itself: the switch went from a kill
+    switch to an enable, so "disabled" is now the absence of a variable rather
+    than the presence of one, and the default server has it off.
 
     Decidable only for a local server, by reading the serving process's own
     environment: `/object_info` reports the same floor of 5 whether the shim
@@ -170,7 +175,7 @@ def _server_shim_disabled():
                 env = (proc / "environ").read_bytes()
             except OSError:
                 continue
-            if b"H3_EXPLORATIONS_NO_SINGLE_FRAME=1" in env:
+            if b"H3_EXPLORATIONS_SINGLE_FRAME=1" not in env:
                 return True
     except Exception:
         pass
@@ -189,6 +194,7 @@ class _Skipped(Exception):
 def main():
     failures, skipped = [], []
 
+
     def check(name, fn):
         try:
             fn()
@@ -202,7 +208,34 @@ def main():
 
     print("single-frame shim: length=1 enabled, everything else identical")
 
+
     shim = _load_shim()
+
+    # **The opt-in belongs to the deployment, not to this check.** Since
+    # 2026-08-27 `apply()` does nothing unless `H3_EXPLORATIONS_SINGLE_FRAME`
+    # is set, and this file's subject is the PATCH -- whether it is equivalent
+    # off length=1, whether the guard refuses a bad rewrite, whether a second
+    # apply rewraps. None of that is reachable through a gate that is closed,
+    # and inheriting the operator's environment would make the suite pass or
+    # fail on how the shell happened to be configured. So the default is read
+    # first, then the variable is set here, deliberately and in one place.
+    default_off = shim.apply(module=None, log=False)
+    os.environ[shim.ENABLE_ENV] = "1"
+
+    def off_unless_asked_for():
+        """The default patches nothing, and the reason is the opt-in.
+
+        Taken BEFORE this process sets the variable, so it reads the
+        environment a user actually starts ComfyUI in. It would also pass for
+        the wrong reason -- an unimported module reports "nothing to patch" --
+        so it asserts the reason, not just the outcome.
+        """
+        assert not default_off.applied, (
+            f"shim applied without {shim.ENABLE_ENV}: {default_off.line()}")
+        assert shim.ENABLE_ENV in default_off.reason, (
+            f"default did not decline for the opt-in reason: {default_off.reason}")
+
+    check("off unless asked for", off_unless_asked_for)
     import comfy_extras.nodes_minimax_h3 as core
 
     assert not getattr(core, "_h3_explorations_single_frame", False), (

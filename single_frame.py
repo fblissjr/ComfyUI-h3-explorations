@@ -7,7 +7,7 @@
     #    ends when: `/object_info` reports length min=1 without us,
     #               at which point `apply()` retires itself and the
     #               startup log says to delete this file.
-    #    disable:   H3_EXPLORATIONS_NO_SINGLE_FRAME=1
+    #    OPT-IN:    off unless H3_EXPLORATIONS_SINGLE_FRAME=1 is set
     #  Nothing else in this repo may grow a dependency on it: it is a
     #  patch to somebody else's module, not an interface of ours.
     ############################################################
@@ -61,8 +61,18 @@ you are reading is not.
 be deleted for that to be correct -- delete it when the log line has been saying
 "already supports single frames" for a while.
 
-**Escape hatch.** Set `H3_EXPLORATIONS_NO_SINGLE_FRAME=1` in the environment and
-this module does nothing at all, leaving core exactly as shipped.
+**Off by default.** Set `H3_EXPLORATIONS_SINGLE_FRAME=1` in the environment to
+turn it on; without it this module does nothing at all and core is exactly as
+shipped, silently. Opt-in since 2026-08-27, by owner decision: the patch is
+process-global and most installs never render a single frame, so the cost fell
+on people who had not asked for the feature.
+
+**A node cannot do this instead**, and that was checked rather than assumed.
+The floor is enforced by `execution.py::validate_inputs`, which raises
+`value_smaller_than_min` before any node executes -- so a node placed in the
+graph is rejected together with the graph it exists to enable, and could only
+affect later prompts. The environment is read at import, which is before
+registration builds the schema.
 """
 
 from __future__ import annotations
@@ -75,7 +85,12 @@ from typing import NamedTuple
 logger = logging.getLogger(__name__)
 
 MODULE = "comfy_extras.nodes_minimax_h3"
-DISABLE_ENV = "H3_EXPLORATIONS_NO_SINGLE_FRAME"
+ENABLE_ENV = "H3_EXPLORATIONS_SINGLE_FRAME"
+#: Reason string for the default path. `_done` matches on it to stay SILENT:
+#: patching nothing is stock behaviour and has nothing to announce, and a line
+#: printed at every startup for a path most installs never use is how a console
+#: stops being read.
+_OPT_OUT_REASON = f"not enabled; set {ENABLE_ENV}=1 for the single-frame path"
 
 # The three stock nodes that take `length`. Order is display order, not
 # significance; a missing one is skipped rather than fatal.
@@ -421,8 +436,20 @@ def apply(module=None, log=True) -> Report:
     not always the same object, and for the day this distinction cost.
     """
     try:
-        if os.environ.get(DISABLE_ENV):
-            return _done(Report(False, f"disabled by {DISABLE_ENV}"), log)
+        # **Opt-in since 2026-08-27, and the default is to touch nothing.**
+        # This patches a module ComfyUI owns, in a process shared with every
+        # other pack, so the cost lands on people who never asked for the
+        # single-frame path. Owner decision: not worth a default.
+        #
+        # A node cannot replace this, which was checked before giving up on it:
+        # the floor is enforced in `execution.py::validate_inputs`, which RAISES
+        # `value_smaller_than_min` and runs before any node executes. A node
+        # inside the graph is therefore rejected along with the graph it was
+        # meant to enable, and could only affect LATER prompts -- so the first
+        # queue would always fail. An environment variable is read before
+        # registration, which is when the schema is built.
+        if not os.environ.get(ENABLE_ENV):
+            return _done(Report(False, _OPT_OUT_REASON), log)
 
         copies = module_copies(module)
         if not copies:
@@ -532,7 +559,7 @@ _ACTIVE_BANNER = (
     "    ENDS   when ComfyUI ships this upstream (Comfy-Org/ComfyUI#15644). "
     "This shim then retires itself automatically and logs that instead;\n"
     "           when you see that line, DELETE single_frame.py and its call in "
-    "__init__.py. Set H3_EXPLORATIONS_NO_SINGLE_FRAME=1 to disable it now."
+    "__init__.py. Unset H3_EXPLORATIONS_SINGLE_FRAME to disable it now."
 )
 
 _RETIRED_BANNER = (
@@ -547,6 +574,8 @@ def _done(report: Report, log: bool) -> Report:
         if report.applied and report.healthy and report.functions:
             logger.info("[h3] single-frame shim: %s\n    (%s)",
                         _ACTIVE_BANNER, report.line())
+        elif report.reason == _OPT_OUT_REASON:
+            pass  # stock behaviour; see _OPT_OUT_REASON
         elif "retired" in report.reason:
             logger.info("[h3] single-frame shim: %s", _RETIRED_BANNER)
         else:

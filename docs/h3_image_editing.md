@@ -8,11 +8,23 @@ capable reference-driven image editor. It rests on a temporary patch, it is
 moving fast upstream, and it gets its own folder so the two cases do not blur
 into each other.
 
-**Everything about the mechanism** -- the 5-frame floor, the shim, the
-single-image VAE and the 15.2 dB that settles it -- is in `README.md` under
-"One frame: H3 as an image editor" and in the note drawn on
-`workflows/image/h3_image_edit.json` itself. This file is about the **prompts**
-and the **layout**.
+**The shim is OFF by default, and every graph in this folder needs it.**
+Start ComfyUI with `H3_EXPLORATIONS_SINGLE_FRAME=1` or these graphs fail
+validation with "Value 1 smaller than min of 5" before any node runs. Opt-in
+since 2026-08-27, by owner decision: the patch is process-global, so a default
+charged every install for a path most never use. Without the variable the pack
+patches nothing and says nothing.
+
+**A node cannot replace it**, which was checked rather than assumed:
+`execution.py::validate_inputs` raises `value_smaller_than_min` before
+execution, so a node placed in the graph is rejected along with the graph it
+exists to enable.
+
+**Everything else about the mechanism** -- the 5-frame floor, what the patch
+does and refuses to do, the single-image VAE, and how the shim retires itself
+-- is the module docstring of [`single_frame.py`](../single_frame.py), which
+owns it, plus the note drawn on `workflows/image/h3_image_edit.json` itself.
+This file is about the **prompts** and the **layout**.
 
 ---
 
