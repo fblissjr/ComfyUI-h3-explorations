@@ -264,6 +264,44 @@ def sol_api_inputs(sol):
 # `<d>` blocks, `<|caption_start|>`/`<|caption_end|>` and `<|cutoff|>` in the
 # clinic scene. Patterns follow `bench/audit_h3_marker_tokenization.py`'s
 # scenes, which are the only worked examples of the five the guide omits.
+# **The five guide rules a prompt here has broken, found 2026-08-27.** Every one
+# of them was in the prompt below, every one is in the official base-en guide,
+# and **`bench/preflight_graph.py` graded that prompt GREEN.** Nothing mechanical
+# checks any of these, so they are written down here, where prompts are written,
+# rather than left to be rediscovered from a bad render. Enforced by nothing --
+# see the row in `docs/checks.md`.
+#
+#   1. USE THE GUIDE'S MOTION VOCABULARY, AND DO NOT CONFLATE A CUT WITH A
+#      CAMERA MOVE. "the camera whip pans to a wide shot" is two errors: `whip
+#      pan` is not in section 4.3's vocabulary, and a `[Shot N]` carrying a
+#      timestamp IS the cut, so the sentence asked for a cut and a move at once.
+#      Write the cut, then the move: "the shot cuts to a wide shot. The camera
+#      pans right with large amplitude at fast speed to follow him."
+#   2. OMIT DEFAULT AMPLITUDE AND SPEED. The guide says medium amplitude and
+#      normal speed are assumed, so "tracks left at medium amplitude and
+#      moderate speed" is three words of noise around one instruction, and
+#      `Truck Left` is the named motion. Write "the camera trucks left".
+#   3. ESTABLISH A SPEAKER'S IDENTITY WHERE THEY FIRST APPEAR (section 4.4).
+#      S2 entered Shot 1 as "a young porter (S2)" and did not get "a lean man in
+#      his twenties with a quick, bright tenor" until Shot 2, so the model was
+#      asked to render a person before it was told who.
+#   4. SOUNDSCAPES ARE 1-4 SENTENCES OF SEQUENCED PROSE (section 4.6), not one
+#      sentence listing concurrent sources. The guide's own example connects and
+#      orders them: "The entrance bell rings once, followed by wet footsteps and
+#      the soft scrape of a chair."
+#   5. DO NOT PUT THE SAME SOUND IN BOTH FIELDS. Coins appeared as "coins
+#      clatter one after another" in the shot description and "coins dropping
+#      one by one" in the soundscape. Physical action sounds belong to the
+#      soundscape.
+#
+# **This prompt was disqualified as a SAMPLE by the owner on 2026-08-27** after
+# it rendered badly at 4 evaluations -- "maybe the prompt just sucked. anyway you
+# can not use that one". Four mechanisms were fitted to that render and all four
+# were refuted the same evening; `docs/research/pdd/queued_arms.md` records them
+# and why none is written down as a finding. A conformant rewrite holding the
+# scene constant is under test as the `F_market_v2` arms. **Do not read a render
+# of this prompt as evidence about anything but this prompt.**
+
 LONG_T2V_PROMPT = """integrated_multimodal_description:
 [Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera tracks left at medium amplitude and moderate speed as a young porter (S2) steps into frame behind her shoulder.
 [Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter, a lean man in his twenties with a quick, bright tenor (S2), answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and coins clatter one after another into a metal tin on the counter.
