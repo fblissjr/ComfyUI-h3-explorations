@@ -343,6 +343,18 @@ def main():
         for scene_name in bw._IMAGE_SCENES:
             for image_fmt in bw.IMAGE_FORMATS:
                 legal.add(bw._image_prompt(scene_name, image_fmt))
+        # Authored ref2v prompts, named one at a time on purpose.
+        #
+        # This case exists to catch a GENERATED graph whose prompt was
+        # hand-edited away from `_ref_prompt`. A prompt that is a module-level
+        # constant cannot drift from `_ref_prompt` because it never came from
+        # it -- but it is also not something the loop above can enumerate, so
+        # it has to be declared. Listed individually rather than swept up by a
+        # `*_PROMPT` glob: a glob would make every future constant legal
+        # silently, and the point of this list is that adding one is a
+        # deliberate act somebody can see in a diff.
+        for authored in (bw.DIALOGUE_REF2V_PROMPT,):
+            legal.add(authored)
         bad = [name for name, inputs, _doc in graphs
                if isinstance(inputs.get("prompt"), str)
                and inputs["prompt"] not in legal]

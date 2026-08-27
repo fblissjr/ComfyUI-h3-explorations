@@ -148,6 +148,25 @@ def _sol_widgets(sol):
     return [sol[k] for k in order]
 
 
+def _sol_title(sol, sol_enabled):
+    """Node title, naming `end_percent` when it was derived rather than default.
+
+    The value is picked by the generator from the step count and cannot be
+    recomputed by the node -- it converts percent to sigma at patch time, before
+    the scheduler downstream has said how many steps there will be. So the
+    widget is static and the only place a reader can learn it was derived is
+    here.
+    """
+    if not sol_enabled:
+        return "Patch Sol-Attn (bypassed)"
+    end = sol.get("end_percent")
+    base = SOL_RECOMMENDED_CUDA.get("end_percent")
+    if end is None or end == base:
+        return "Patch Sol-Attn"
+    return (f"Patch Sol-Attn (end_percent {end:g} - derived from the step "
+            f"count so the LAST step stays dense; default is {base:g})")
+
+
 def sol_for_steps(sol, steps):
     """`sol`, with `end_percent` lowered so the final sampling step runs dense.
 
@@ -2082,9 +2101,19 @@ non_diegetic_music: N/A
 #: blended or swapped identity shows up in one frame instead of needing a crop.
 #: Both `... is not present in the target video` lines are load-bearing -- each
 #: still carries a background the stairwell must not inherit.
+#:
+#: **Subject definitions are BARE -- no `(Sx)` on the definition line.** The
+#: speaker id belongs in the description, where the speech happens, and in an
+#: `<Audio N>` definition when one maps to a subject. That is the guide's own
+#: usage: its definitions read `<Subject 3> is the young blonde woman in
+#: <Video 1>` while its description reads `<Subject 2> (S1) turns toward the
+#: woman and says` (ref_en guide, lines 103 and 314-316). This prompt carried
+#: `(S1)`/`(S2)` on the definition lines until 2026-08-26;
+#: `bench/check_ref_prompt_labels.py` caught it, and the guide agreed with the
+#: check rather than with the prompt.
 DIALOGUE_REF2V_PROMPT = """subject_definitions:
-<Subject 1> (S1) is the woman shown in <Picture 2>, preserving her facial identity, shoulder-length dark brown hair, and warm features. She wears a charcoal wool coat in the target video. The daylight park background of <Picture 2> is not present in the target video.
-<Subject 2> (S2) is the elderly man shown in <Picture 1>, preserving his facial identity, white swept-back hair, and deeply lined face. He wears a navy jacket in the target video. The brown studio backdrop of <Picture 1> is not present in the target video.
+<Subject 1> is the woman shown in <Picture 2>, preserving her facial identity, shoulder-length dark brown hair, and warm features. She wears a charcoal wool coat in the target video. The daylight park background of <Picture 2> is not present in the target video.
+<Subject 2> is the elderly man shown in <Picture 1>, preserving his facial identity, white swept-back hair, and deeply lined face. He wears a navy jacket in the target video. The brown studio backdrop of <Picture 1> is not present in the target video.
 
 summary:
 [reference generation] In three shots on a concrete stairwell landing, <Subject 1> and <Subject 2> trade eight short clipped lines with almost no gap between them, about a plan that has moved.
@@ -4179,8 +4208,16 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                          # was unconnected under the old name too.
                          inputs=[_in("model", "MODEL")],
                          outputs=[_out("MODEL", "MODEL")],
-                         title=("Patch Sol-Attn" if sol_enabled
-                                else "Patch Sol-Attn (bypassed)"))
+                         # Titled with the derived value when there is one, for
+                         # the same reason MiniMaxH3SigmaShift is titled with
+                         # its shifts: `end_percent` is populated from the
+                         # graph's STEP COUNT, and a node showing "Patch
+                         # Sol-Attn" and a bare 0.87 does not prompt anyone to
+                         # ask why it is not 0.9 -- or warn them that editing
+                         # `steps` by hand leaves it stale, which nothing at
+                         # run time will say. See
+                         # h3_config.SOL_END_PERCENT_BY_STEPS.
+                         title=_sol_title(sol, sol_enabled))
         if not sol_enabled:
             g._node(sol_node)["mode"] = 4
         g.link(model_src, 0, sol_node, "model", "MODEL")
