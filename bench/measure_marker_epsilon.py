@@ -144,6 +144,11 @@ from h3_config import ENCODER_INT8, SAMPLING, SIGMA_SHIFT  # noqa: E402
 # arm the same token stream and the null control by accident.
 GRAPH = REPO / "workflows" / "h3_text_to_video_dialogue_api.json"
 
+#: first of the seven contiguous H3 marker ids. Not retyped from prose:
+#: verified against the release tokenizer in
+#: bench/results/2026-08-27_marker_tokenization_alignment.json.
+FIRST_MARKER_ID = 151669
+
 # An unrelated scene, for the ceiling row. Deliberately not a variation of the
 # dialogue prompt: the ceiling's job is to say what a large prediction change
 # looks like, so it must not be a near-neighbour of the treatment.
@@ -214,7 +219,12 @@ def encode_arms(prompt: str, stripped: str, encoder: str, rows: list[dict]) -> N
         clip_type=comfy.sd.CLIPType.MINIMAX,
     )
     for row in rows:
-        armed = M.apply_arm(clip, row["arm"])
+        if row["arm"] == "arbitrary":
+            armed, stats = arbitrary_rows_clip(clip, row["control_ids"])
+            armed._h3_declared_marker_arm = "arbitrary_rows_control"
+            row["control_perturbation"] = stats
+        else:
+            armed = M.apply_arm(clip, row["arm"])
         text = {"graph": prompt, "stripped": stripped, "other": OTHER_PROMPT}[row["text"]]
         t0 = time.time()
         tokens = armed.tokenize(text, images=[])
@@ -230,6 +240,137 @@ def encode_arms(prompt: str, stripped: str, encoder: str, rows: list[dict]) -> N
     del clip
     comfy.model_management.unload_all_models()
     comfy.model_management.soft_empty_cache()
+
+
+def _prompt_ids(text: str) -> list[int]:
+    """Token ids for one prompt, from a standalone tokenizer -- no model load.
+
+    Used at plan time so the control sets can be chosen, printed by --dry-run
+    and recorded before any weight is touched.
+    """
+    from comfy.text_encoders.minimax import MiniMaxH3Tokenizer
+    out = MiniMaxH3Tokenizer(embedding_directory=None).tokenize_with_weights(text)
+    seq = []
+    for _key, batches in (out.items() if isinstance(out, dict) else [("x", out)]):
+        for batch in batches:
+            for item in batch:
+                seq.append(item[0] if isinstance(item, (list, tuple)) else item)
+    return seq
+
+
+def control_id_sets(prompt: str) -> dict:
+    """Non-marker id sets matched to what the marker arm actually perturbs.
+
+    ## Why this control exists
+
+    `mean_init_rows` moves the DiT's prediction by 0.135 relative L2. That
+    number has no null distribution: it may be exactly what perturbing ANY
+    comparable set of conditioning rows does. Without this control the marker
+    sensitivity result means nothing, which a peer session caught and this
+    author did not.
+
+    ## What has to match, and it is not the row count
+
+    The seven markers are not seven rows in this prompt -- two of them occur,
+    eight times each, so the arm perturbs **16 of 408 prefix positions**.
+    A control of seven rare words at one occurrence each would perturb seven
+    positions and under-read by more than half.
+
+    So `profile` matches on all three axes at once: two ids, eight occurrences
+    each, sixteen positions. That set is uniquely determined by the prompt --
+    there is no choice to make and therefore nothing to cherry-pick. The
+    `draw_N` sets match position count only, from a seeded shuffle, and exist
+    because one control is one sample of "arbitrary".
+    """
+    import collections
+    import random
+
+    ids = _prompt_ids(prompt)
+    counts = collections.Counter(ids)
+    markers = set(range(FIRST_MARKER_ID, FIRST_MARKER_ID + 7))
+    marker_counts = {k: v for k, v in counts.items() if k in markers}
+    positions = sum(marker_counts.values())
+    n_ids = len(marker_counts)
+    per_id = positions // n_ids if n_ids else 0
+
+    pool = {k: v for k, v in counts.items() if k not in markers}
+    sets = {}
+
+    exact = sorted(k for k, v in pool.items() if v == per_id)
+    if len(exact) >= n_ids:
+        sets["profile"] = {"ids": exact[:n_ids],
+                           "rule": f"the first {n_ids} non-marker ids occurring "
+                                   f"exactly {per_id} times, by id order -- "
+                                   f"uniquely determined, no choice made"}
+
+    for seed in (1, 2):
+        rng = random.Random(seed)
+        order = sorted(pool)
+        rng.shuffle(order)
+        chosen, total = [], 0
+        for i in order:
+            if total + pool[i] <= positions:
+                chosen.append(i)
+                total += pool[i]
+            if total == positions:
+                break
+        if total == positions:
+            sets[f"draw_{seed}"] = {
+                "ids": sorted(chosen),
+                "rule": f"seeded shuffle (seed {seed}) of the {len(pool)} "
+                        f"non-marker ids, filled greedily to exactly "
+                        f"{positions} positions"}
+
+    for name, spec in sets.items():
+        spec["positions"] = sum(counts[i] for i in spec["ids"])
+        spec["n_ids"] = len(spec["ids"])
+    return {"marker_ids": sorted(marker_counts), "marker_positions": positions,
+            "marker_n_ids": n_ids, "prefix_tokens": len(ids), "sets": sets}
+
+
+def arbitrary_rows_clip(clip, ids: list[int]):
+    """`mean_init_rows`, applied to rows that are not markers.
+
+    One offset-keyed `set` patch per id, because the rows are scattered rather
+    than contiguous -- the marker arm's single span patch does not generalise.
+    Same clone discipline as `marker_arms`: never the shared module, never a
+    file, and the match count is asserted so a patch that attached to nothing
+    cannot render as the release arm.
+    """
+    import torch
+
+    weight = M._embedding(clip)
+    if weight is None:
+        raise SystemExit(f"this CLIP has no embedding at {M.EMBED_KEY}")
+    total = torch.zeros(weight.shape[1], dtype=torch.float32, device=weight.device)
+    for lo in range(0, weight.shape[0], 8192):
+        total += weight[lo:lo + 8192].to(torch.float32).sum(dim=0)
+    mean = (total / weight.shape[0]).to(weight.dtype)
+
+    moved = []
+    patches = {}
+    for i in ids:
+        patches[(M.EMBED_KEY, (0, int(i), 1))] = ("set", (mean.unsqueeze(0).clone(),))
+        row = weight[int(i)].to(torch.float32)
+        moved.append(float((mean.to(torch.float32) - row).norm() / row.norm()))
+
+    out = clip.clone()
+    matched = out.add_patches(patches, 1.0, 1.0)
+    if not matched:
+        raise SystemExit(
+            f"add_patches matched nothing for {len(ids)} scattered rows; the "
+            "control did not attach and would render as the release arm")
+    # add_patches returns the list of keys it matched, not a count. marker_arms
+    # only ever tests it for truthiness, so this shape was never exercised.
+    n_matched = len(matched) if isinstance(matched, (list, tuple, set)) else int(matched)
+    if n_matched != len(ids):
+        raise SystemExit(
+            f"add_patches matched {n_matched} of {len(ids)} control rows; a "
+            "partially attached control is not a control")
+    return out, {"n_patched": len(ids), "matched": n_matched,
+                 "per_row_relative_l2_mean": sum(moved) / len(moved),
+                 "per_row_relative_l2_min": min(moved),
+                 "per_row_relative_l2_max": max(moved)}
 
 
 def _token_digest(tokens) -> str:
@@ -409,6 +550,7 @@ def main() -> int:
     prompt = _graph_prompt()
     stripped = _strip_markers(prompt)
 
+    controls = control_id_sets(prompt)
     rows = [
         {"label": "release",        "arm": "release",        "text": "graph"},
         {"label": "release_again",  "arm": "release",        "text": "graph"},
@@ -417,6 +559,13 @@ def main() -> int:
         {"label": "stripped",       "arm": "release",        "text": "stripped"},
         {"label": "legacy_stripped", "arm": "legacy_bpe",    "text": "stripped"},
         {"label": "other_scene",    "arm": "release",        "text": "other"},
+    ] + [
+        # The null distribution for the marker result. Same substitution, rows
+        # that are not markers, matched on positions perturbed.
+        {"label": f"arb_{name}", "arm": "arbitrary", "text": "graph",
+         "control_ids": spec["ids"], "control_rule": spec["rule"],
+         "control_positions": spec["positions"], "control_n_ids": spec["n_ids"]}
+        for name, spec in controls["sets"].items()
     ]
     if args.rows:
         want = [r.strip() for r in args.rows.split(",") if r.strip()]
@@ -435,6 +584,13 @@ def main() -> int:
          "other representation; retokenizes, so the prefix length also moves"),
         ("scale",     "release", "stripped",
          "marker strings removed from the text, weights untouched"),
+    ] + [
+        ("control", "release", f"arb_{name}",
+         "the null distribution for the treatment: the SAME substitution on "
+         "non-marker rows, matched on positions perturbed. If this reads like "
+         "the treatment, the marker result is not about markers")
+        for name in controls["sets"]
+    ] + [
         ("purity",    "stripped", "legacy_stripped",
          "the two tokenizers on a prompt carrying NO markers. The legacy arm "
          "is a fresh tokenizer with only the seven H3 tokens emptied, so this "
@@ -464,6 +620,12 @@ def main() -> int:
         print(f"encoder      {Path(enc).name}")
         print(f"unet         {Path(unet_path).name}")
         print(f"prompt       {len(prompt)} chars, {len(stripped)} stripped")
+        print(f"\nmarkers occupy {controls['marker_positions']} of "
+              f"{controls['prefix_tokens']} prefix positions across "
+              f"{controls['marker_n_ids']} ids {controls['marker_ids']}")
+        for name, spec in controls["sets"].items():
+            print(f"  control {name:<9} {spec['n_ids']} ids, "
+                  f"{spec['positions']} positions -- {spec['rule']}")
         print(f"\nrows ({len(rows)}):")
         for r in rows:
             print(f"  {r['label']:<16} arm={r['arm']:<15} text={r['text']}")
@@ -515,6 +677,7 @@ def main() -> int:
 
 
     record = {
+        "control_id_sets": controls,
         "measurement": "DiT denoised-prediction delta across marker arms, at "
                        "fixed noise, latents and sigma",
         "question": "is the frozen DiT sensitive to the seven H3 marker rows",

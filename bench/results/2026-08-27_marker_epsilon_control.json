@@ -1,0 +1,637 @@
+{
+ "control_id_sets": {
+  "marker_ids": [
+   151669,
+   151670
+  ],
+  "marker_positions": 16,
+  "marker_n_ids": 2,
+  "prefix_tokens": 408,
+  "sets": {
+   "profile": {
+    "ids": [
+     58,
+     22574
+    ],
+    "rule": "the first 2 non-marker ids occurring exactly 8 times, by id order -- uniquely determined, no choice made",
+    "positions": 16,
+    "n_ids": 2
+   },
+   "draw_1": {
+    "ids": [
+     30,
+     198,
+     272,
+     396,
+     770,
+     1786,
+     4722,
+     4815,
+     14175,
+     23314,
+     35224
+    ],
+    "rule": "seeded shuffle (seed 1) of the 187 non-marker ids, filled greedily to exactly 16 positions",
+    "positions": 16,
+    "n_ids": 11
+   },
+   "draw_2": {
+    "ids": [
+     304,
+     451,
+     2348,
+     2932,
+     3821,
+     5220,
+     7069,
+     9787
+    ],
+    "rule": "seeded shuffle (seed 2) of the 187 non-marker ids, filled greedily to exactly 16 positions",
+    "positions": 16,
+    "n_ids": 8
+   }
+  }
+ },
+ "measurement": "DiT denoised-prediction delta across marker arms, at fixed noise, latents and sigma",
+ "question": "is the frozen DiT sensitive to the seven H3 marker rows",
+ "does_not_establish": [
+  "that the markers carry no function. The DiT plainly responds to them; what is refuted is that the response is SPECIAL relative to other tokens.",
+  "anything perceptual, or anything at the output. One prompt, one seed, three probe steps, prediction-level only."
+ ],
+ "ceiling_is_not_a_bound": "the ceiling row is ONE unrelated prompt, not a maximum. A more distant scene raises it. Do not quote a treatment as a fraction of it.",
+ "null_and_ceiling_are_a_pair": "exactly 0.0 on the null is expected, not surprising, and cannot by itself show this would detect a difference. The ceiling row is what shows that. Neither establishes the harness alone.",
+ "graph": "h3_text_to_video_dialogue_api.json",
+ "encoder": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+ "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+ "canvas": {
+  "width": 1344,
+  "height": 768,
+  "length": 362,
+  "frame_count": 362
+ },
+ "schedule": {
+  "scheduler": "simple",
+  "steps": 16,
+  "probe_steps": [
+   0,
+   8,
+   15
+  ],
+  "sigmas_at_probe": [
+   1.0,
+   0.9230769276618958,
+   0.4465445876121521
+  ],
+  "sigma_shift": {
+   "shift_video": 12.0,
+   "shift_audio": 3.0
+  }
+ },
+ "seed": 730451892,
+ "arms": [
+  {
+   "label": "release",
+   "arm": "release",
+   "text": "graph",
+   "prefix_tokens": 408,
+   "token_ids_sha256": "90304241b9289298e97a0e772ac5a81902e0c2ac456f0643409f0822be4c068e",
+   "bound": {
+    "declared_arm": "release",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "key": "qwen3vl_32b.transformer.model.embed_tokens.weight",
+     "first_id": 151669,
+     "count": 7,
+     "sha256": "3263222001f127e71db2f4f933b97662144939d5c2f1f3d17923606b50bea4c7",
+     "patch_keys": []
+    }
+   }
+  },
+  {
+   "label": "release_again",
+   "arm": "release",
+   "text": "graph",
+   "prefix_tokens": 408,
+   "token_ids_sha256": "90304241b9289298e97a0e772ac5a81902e0c2ac456f0643409f0822be4c068e",
+   "bound": {
+    "declared_arm": "release",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "key": "qwen3vl_32b.transformer.model.embed_tokens.weight",
+     "first_id": 151669,
+     "count": 7,
+     "sha256": "3263222001f127e71db2f4f933b97662144939d5c2f1f3d17923606b50bea4c7",
+     "patch_keys": []
+    }
+   }
+  },
+  {
+   "label": "mean_init_rows",
+   "arm": "mean_init_rows",
+   "text": "graph",
+   "prefix_tokens": 408,
+   "token_ids_sha256": "90304241b9289298e97a0e772ac5a81902e0c2ac456f0643409f0822be4c068e",
+   "bound": {
+    "declared_arm": "mean_init_rows",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "key": "qwen3vl_32b.transformer.model.embed_tokens.weight",
+     "first_id": 151669,
+     "count": 7,
+     "sha256": "1fe095b644042d0574e87c6456a589ea783e3df87f0f161cd79c74dd1f726c2a",
+     "patch_keys": [
+      "qwen3vl_32b.transformer.model.embed_tokens.weight"
+     ]
+    }
+   }
+  },
+  {
+   "label": "arb_profile",
+   "arm": "arbitrary",
+   "text": "graph",
+   "control_ids": [
+    58,
+    22574
+   ],
+   "control_rule": "the first 2 non-marker ids occurring exactly 8 times, by id order -- uniquely determined, no choice made",
+   "control_positions": 16,
+   "control_n_ids": 2,
+   "control_perturbation": {
+    "n_patched": 2,
+    "matched": 2,
+    "per_row_relative_l2_mean": 0.9872285723686218,
+    "per_row_relative_l2_min": 0.9861411452293396,
+    "per_row_relative_l2_max": 0.988315999507904
+   },
+   "prefix_tokens": 408,
+   "token_ids_sha256": "90304241b9289298e97a0e772ac5a81902e0c2ac456f0643409f0822be4c068e",
+   "bound": {
+    "declared_arm": "arbitrary_rows_control",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "error": "OutOfMemoryError"
+    }
+   }
+  },
+  {
+   "label": "arb_draw_1",
+   "arm": "arbitrary",
+   "text": "graph",
+   "control_ids": [
+    30,
+    198,
+    272,
+    396,
+    770,
+    1786,
+    4722,
+    4815,
+    14175,
+    23314,
+    35224
+   ],
+   "control_rule": "seeded shuffle (seed 1) of the 187 non-marker ids, filled greedily to exactly 16 positions",
+   "control_positions": 16,
+   "control_n_ids": 11,
+   "control_perturbation": {
+    "n_patched": 11,
+    "matched": 11,
+    "per_row_relative_l2_mean": 0.9881207834590565,
+    "per_row_relative_l2_min": 0.9835508465766907,
+    "per_row_relative_l2_max": 0.9907324910163879
+   },
+   "prefix_tokens": 408,
+   "token_ids_sha256": "90304241b9289298e97a0e772ac5a81902e0c2ac456f0643409f0822be4c068e",
+   "bound": {
+    "declared_arm": "arbitrary_rows_control",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "error": "OutOfMemoryError"
+    }
+   }
+  },
+  {
+   "label": "arb_draw_2",
+   "arm": "arbitrary",
+   "text": "graph",
+   "control_ids": [
+    304,
+    451,
+    2348,
+    2932,
+    3821,
+    5220,
+    7069,
+    9787
+   ],
+   "control_rule": "seeded shuffle (seed 2) of the 187 non-marker ids, filled greedily to exactly 16 positions",
+   "control_positions": 16,
+   "control_n_ids": 8,
+   "control_perturbation": {
+    "n_patched": 8,
+    "matched": 8,
+    "per_row_relative_l2_mean": 0.9874411597847939,
+    "per_row_relative_l2_min": 0.9827355146408081,
+    "per_row_relative_l2_max": 0.9904131889343262
+   },
+   "prefix_tokens": 408,
+   "token_ids_sha256": "90304241b9289298e97a0e772ac5a81902e0c2ac456f0643409f0822be4c068e",
+   "bound": {
+    "declared_arm": "arbitrary_rows_control",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "error": "OutOfMemoryError"
+    }
+   }
+  }
+ ],
+ "results": [
+  {
+   "kind": "null",
+   "left": "release",
+   "right": "release_again",
+   "why": "same arm, re-encoded and re-run. MUST be exactly 0.0",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 0.0,
+     "cosine": 1.0007790327072144,
+     "max_abs_diff": 0.0
+    },
+    "audio": {
+     "relative_l2": 0.0,
+     "cosine": 0.9999998211860657,
+     "max_abs_diff": 0.0
+    }
+   }
+  },
+  {
+   "kind": "null",
+   "left": "release",
+   "right": "release_again",
+   "why": "same arm, re-encoded and re-run. MUST be exactly 0.0",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.0,
+     "cosine": 1.000959873199463,
+     "max_abs_diff": 0.0
+    },
+    "audio": {
+     "relative_l2": 0.0,
+     "cosine": 1.0000001192092896,
+     "max_abs_diff": 0.0
+    }
+   }
+  },
+  {
+   "kind": "null",
+   "left": "release",
+   "right": "release_again",
+   "why": "same arm, re-encoded and re-run. MUST be exactly 0.0",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.0,
+     "cosine": 1.0007139444351196,
+     "max_abs_diff": 0.0
+    },
+    "audio": {
+     "relative_l2": 0.0,
+     "cosine": 0.9999999403953552,
+     "max_abs_diff": 0.0
+    }
+   }
+  },
+  {
+   "kind": "treatment",
+   "left": "release",
+   "right": "mean_init_rows",
+   "why": "the controlled pair: identical tokens, seven embedding rows differ",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 0.04962269961833954,
+     "cosine": 0.9995617270469666,
+     "max_abs_diff": 315.1832275390625
+    },
+    "audio": {
+     "relative_l2": 0.06456013023853302,
+     "cosine": 0.9979138374328613,
+     "max_abs_diff": 24.601402282714844
+    }
+   }
+  },
+  {
+   "kind": "treatment",
+   "left": "release",
+   "right": "mean_init_rows",
+   "why": "the controlled pair: identical tokens, seven embedding rows differ",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.13487564027309418,
+     "cosine": 0.9917903542518616,
+     "max_abs_diff": 5.7485222816467285
+    },
+    "audio": {
+     "relative_l2": 0.1481720507144928,
+     "cosine": 0.9890551567077637,
+     "max_abs_diff": 1.866403579711914
+    }
+   }
+  },
+  {
+   "kind": "treatment",
+   "left": "release",
+   "right": "mean_init_rows",
+   "why": "the controlled pair: identical tokens, seven embedding rows differ",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.05360092967748642,
+     "cosine": 0.9992915987968445,
+     "max_abs_diff": 0.15786048769950867
+    },
+    "audio": {
+     "relative_l2": 0.05877646058797836,
+     "cosine": 0.9982712268829346,
+     "max_abs_diff": 0.03314197063446045
+    }
+   }
+  },
+  {
+   "kind": "control",
+   "left": "release",
+   "right": "arb_profile",
+   "why": "the null distribution for the treatment: the SAME substitution on non-marker rows, matched on positions perturbed. If this reads like the treatment, the marker result is not about markers",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 0.052163511514663696,
+     "cosine": 0.9994401335716248,
+     "max_abs_diff": 262.4150085449219
+    },
+    "audio": {
+     "relative_l2": 0.06912337243556976,
+     "cosine": 0.9976760149002075,
+     "max_abs_diff": 28.790773391723633
+    }
+   }
+  },
+  {
+   "kind": "control",
+   "left": "release",
+   "right": "arb_profile",
+   "why": "the null distribution for the treatment: the SAME substitution on non-marker rows, matched on positions perturbed. If this reads like the treatment, the marker result is not about markers",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.11645771563053131,
+     "cosine": 0.9941514134407043,
+     "max_abs_diff": 6.000487804412842
+    },
+    "audio": {
+     "relative_l2": 0.2119355946779251,
+     "cosine": 0.9796746969223022,
+     "max_abs_diff": 3.6208226680755615
+    }
+   }
+  },
+  {
+   "kind": "control",
+   "left": "release",
+   "right": "arb_profile",
+   "why": "the null distribution for the treatment: the SAME substitution on non-marker rows, matched on positions perturbed. If this reads like the treatment, the marker result is not about markers",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.056370075792074203,
+     "cosine": 0.9991818070411682,
+     "max_abs_diff": 0.16745424270629883
+    },
+    "audio": {
+     "relative_l2": 0.06455114483833313,
+     "cosine": 0.9979207515716553,
+     "max_abs_diff": 0.027909040451049805
+    }
+   }
+  },
+  {
+   "kind": "control",
+   "left": "release",
+   "right": "arb_draw_1",
+   "why": "the null distribution for the treatment: the SAME substitution on non-marker rows, matched on positions perturbed. If this reads like the treatment, the marker result is not about markers",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 0.16280430555343628,
+     "cosine": 0.9874491691589355,
+     "max_abs_diff": 393.6224365234375
+    },
+    "audio": {
+     "relative_l2": 0.1639220416545868,
+     "cosine": 0.9872130155563354,
+     "max_abs_diff": 72.73457336425781
+    }
+   }
+  },
+  {
+   "kind": "control",
+   "left": "release",
+   "right": "arb_draw_1",
+   "why": "the null distribution for the treatment: the SAME substitution on non-marker rows, matched on positions perturbed. If this reads like the treatment, the marker result is not about markers",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.24099335074424744,
+     "cosine": 0.9721954464912415,
+     "max_abs_diff": 17.805490493774414
+    },
+    "audio": {
+     "relative_l2": 0.42958417534828186,
+     "cosine": 0.9171517491340637,
+     "max_abs_diff": 6.812373161315918
+    }
+   }
+  },
+  {
+   "kind": "control",
+   "left": "release",
+   "right": "arb_draw_1",
+   "why": "the null distribution for the treatment: the SAME substitution on non-marker rows, matched on positions perturbed. If this reads like the treatment, the marker result is not about markers",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.12920919060707092,
+     "cosine": 0.9930251836776733,
+     "max_abs_diff": 0.2627374231815338
+    },
+    "audio": {
+     "relative_l2": 0.06418532133102417,
+     "cosine": 0.9979420900344849,
+     "max_abs_diff": 0.040991395711898804
+    }
+   }
+  },
+  {
+   "kind": "control",
+   "left": "release",
+   "right": "arb_draw_2",
+   "why": "the null distribution for the treatment: the SAME substitution on non-marker rows, matched on positions perturbed. If this reads like the treatment, the marker result is not about markers",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 0.17877793312072754,
+     "cosine": 0.9849170446395874,
+     "max_abs_diff": 473.4879150390625
+    },
+    "audio": {
+     "relative_l2": 0.21726767718791962,
+     "cosine": 0.9786826372146606,
+     "max_abs_diff": 61.32524108886719
+    }
+   }
+  },
+  {
+   "kind": "control",
+   "left": "release",
+   "right": "arb_draw_2",
+   "why": "the null distribution for the treatment: the SAME substitution on non-marker rows, matched on positions perturbed. If this reads like the treatment, the marker result is not about markers",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.2887037396430969,
+     "cosine": 0.9584460854530334,
+     "max_abs_diff": 17.24557113647461
+    },
+    "audio": {
+     "relative_l2": 0.4179515242576599,
+     "cosine": 0.9418022632598877,
+     "max_abs_diff": 5.468562126159668
+    }
+   }
+  },
+  {
+   "kind": "control",
+   "left": "release",
+   "right": "arb_draw_2",
+   "why": "the null distribution for the treatment: the SAME substitution on non-marker rows, matched on positions perturbed. If this reads like the treatment, the marker result is not about markers",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.09240565448999405,
+     "cosine": 0.9964554309844971,
+     "max_abs_diff": 0.16047698259353638
+    },
+    "audio": {
+     "relative_l2": 0.21130797266960144,
+     "cosine": 0.9785038232803345,
+     "max_abs_diff": 0.27996253967285156
+    }
+   }
+  }
+ ],
+ "finding": "REFUTES the marker-sensitivity reading of 2026-08-27_marker_epsilon.json. Perturbing 16 arbitrary conditioning positions the same way produces an effect at least as large as, and usually larger than, perturbing the 16 marker positions. The markers sit at the LOW end of the control range, not above it. So the 0.135 is not evidence that the DiT reads the marker rows specially -- it is roughly what perturbing any comparable set of conditioning rows does.",
+ "the_bias_runs_the_other_way": "the controls were perturbed about 6% LESS hard per row than the markers (0.987 against 1.050 mean relative L2, measured on the INT8 table). Relative L2 divides by the row's own norm and the untrained marker rows have small norms, so the same displacement reads larger on them. The direction of that bias favours the markers and they still lose, which makes the refutation stronger rather than weaker.",
+ "dose_response_worth_noting": "the effect grows with the number of DISTINCT ids perturbed, not the number of positions: arb_profile (2 ids) sits near the markers (2 ids), while arb_draw_1 (11 ids) and arb_draw_2 (8 ids) are two to three times higher at the same 16 positions. Perturbing eleven different words damages more of the prompt than perturbing one word eight times. The markers are 2 ids, which is why they are at the bottom."
+}
