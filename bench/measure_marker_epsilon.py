@@ -24,6 +24,36 @@ at the call. `bench/grade_sage_on_capture.py` does that for attention kernels;
 this is the conditioning equivalent. Identical latents, identical noise,
 identical sigma, identical everything but the seven rows, one forward each.
 
+The denoised prediction is not a compromise for epsilon. At fixed `x` and
+sigma the two are related by an affine map whose constants depend only on
+sigma, and every arm is compared at the SAME sigma, so a relative L2 here
+differs from the epsilon-space quantity by one constant factor per step.
+Rankings and ratios within a step are untouched. It is the same information.
+
+## Why no attention patching is a property, not an omission
+
+Nothing here wires sage, Sol or the SLA router, so both arms run whatever
+ComfyUI resolves by default. That is not merely "the same handicap on both
+arms". Sol is a sparse approximation whose top-k selection over the routed
+region depends on sequence CONTENT; `vendor/sol_attn_minimax.py::_sink_blocks`
+holds the conditioning rows exact as KV by default (dense conditioning
+*queries* are the opt-in `exact_kv_and_rows` mode), but the routed region's
+selection is still free to differ between arms. Running Sol would therefore let
+the approximation respond to the treatment and fold the kernel's reaction into
+the measurement. Running dense removes that failure mode rather than balancing
+it. It is also most of the cost: a forward here is ~120 s where a shipped
+sage+Sol render is ~37 s/step, and `docs/h3_pdd.md` records dense SDPA at 2.4x
+on this workload for the same reason.
+
+## A hazard this measurement walked into, recorded because it generalises
+
+A 640x384x5 smoke of this same script reported the `mean_init_rows` effect as
+concentrated in audio at about 4.5x, and that REVERSED at real geometry, where
+it is near-symmetric. The audio concentration belongs to the arms that change
+the token stream, not to the arm that changes row contents. Anything in this
+repo prototyped at a small canvas is exposed to the same reversal: a cheap
+geometry is a test of the plumbing and is not evidence about the effect.
+
 ## Why `release` against `mean_init_rows` is the controlled pair
 
 Both tokenize identically -- same ids, same count, same positions, same packed
@@ -39,10 +69,22 @@ controlled comparison.
     treatment  release vs mean_init_rows                  -> the question
     treatment  release vs legacy_bpe                      -> other representation
     scale      release vs markers stripped from the text  -> prompt-level change
-    ceiling    release vs an unrelated scene              -> what "a lot" is
+    ceiling    release vs an unrelated scene              -> a large change, sampled
 
-Without the null the harness could be measuring its own nondeterminism, and
-without the ceiling a relative L2 has no units a reader can act on.
+**The null and the ceiling are load-bearing as a PAIR, and neither establishes
+the harness works alone.** Exactly 0.0 on the null is the EXPECTED result, not a
+surprising one -- the noise is drawn once outside the loop, the encode is
+deterministic, and two identical CUDA forwards on identical inputs are bitwise
+identical; a small-but-nonzero null is what would have needed explaining. But a
+check whose input already satisfies the expected outcome cannot fail, so the
+null alone cannot show this would DETECT a difference. The ceiling arm is what
+shows that. Read them together.
+
+**The ceiling is one sample of "unrelated", not a bound.** A more distant scene
+raises it and shrinks any fraction taken against it without anything about the
+treatment changing. So the ceiling row is reported beside the treatment rows and
+a ratio between them is not computed here: that number would be a property of
+the prompt this file happens to carry.
 
 ## What it does not establish
 
@@ -336,8 +378,23 @@ def main() -> int:
         "measurement": "DiT denoised-prediction delta across marker arms, at "
                        "fixed noise, latents and sigma",
         "question": "is the frozen DiT sensitive to the seven H3 marker rows",
-        "does_not_establish": "direction -- which representation the DiT was "
-                              "trained against. That needs blind renders.",
+        "does_not_establish": [
+            "direction -- which representation the DiT was trained against. "
+            "That needs blind renders judged blind.",
+            "magnitude at the output -- this bounds sensitivity at one point "
+            "on the trajectory with x held fixed. Real sampling compounds, so "
+            "a per-step delta can wash out or amplify by the final frame.",
+        ],
+        "ceiling_is_not_a_bound": (
+            "the ceiling row is ONE unrelated prompt, not a maximum. A more "
+            "distant scene raises it. Do not quote a treatment as a fraction "
+            "of it."
+        ),
+        "null_and_ceiling_are_a_pair": (
+            "exactly 0.0 on the null is expected, not surprising, and cannot "
+            "by itself show this would detect a difference. The ceiling row is "
+            "what shows that. Neither establishes the harness alone."
+        ),
         "graph": GRAPH.name,
         "encoder": args.encoder,
         "unet": unet,
