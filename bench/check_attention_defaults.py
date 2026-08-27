@@ -120,13 +120,6 @@ SOL_EXEMPT_STEMS = {
         "comparative arm: the Turbo-SLA LoRA under sage alone, the repo's "
         "dense-baseline convention, one of three attention regimes the SLA "
         "probe set spans (Sol, router, dense)",
-    "h3_image_ref_plus_text_to_video_turbo_4step":
-        "the matched control for h3_image_ref_plus_text_to_video_pdd_4step, "
-        "which is a PDD arm and exempt by mechanism. A comparison whose two "
-        "halves differ in attention as well as in the LoRA answers neither "
-        "question, so this one inherits its twin's configuration -- sage on, "
-        "Sol absent -- rather than the default. Named rather than derived "
-        "because it is one graph paired with one other, not a class",
     "h3_probe_turbo_768p_sla_router":
         "comparative arm: the Turbo-SLA LoRA under the sparse top-k router it "
         "was distilled with (MiniMaxH3SLARouter), which replaces the sage+Sol "
@@ -230,6 +223,20 @@ def single_frame_dirs():
     return {d for d in h3_config.GRAPH_DIRS if d}
 
 
+def wires_sage(graph) -> bool:
+    """Whether this graph has a sage node at all.
+
+    The discriminator between the two PDD classes: a reference-replication arm
+    runs stock attention and carries neither sage nor Sol; a canonical arm runs
+    the repo default and carries both.
+    """
+    nodes = (graph.get("nodes") if isinstance(graph.get("nodes"), list)
+             else graph.values())
+    return any(isinstance(n, dict)
+               and (n.get("type") or n.get("class_type")) == "MiniMaxH3SageAttention"
+               for n in nodes)
+
+
 def loads_pdd(graph) -> bool:
     """Whether this graph loads a Parallel Decoding Distillation LoRA.
 
@@ -266,12 +273,19 @@ def main() -> int:
         stem = p.stem[:-4] if p.stem.endswith("_api") else p.stem
         in_image = p.parent.name in img_dirs
         exempt_reason = SOL_EXEMPT_STEMS.get(stem)
-        if exempt_reason is None and loads_pdd(g):
+        if exempt_reason is None and loads_pdd(g) and not wires_sage(g):
+            # Narrowed 2026-08-26, hours after it was written. It exempted
+            # EVERY PDD graph, which was right while they all ran dense and
+            # wrong the moment the canonical arms took the repo default -- a
+            # PDD arm with sage is an ordinary graph and should carry Sol like
+            # any other. The mechanism is the reference-replication config
+            # (neither sage nor Sol, which is what the vendor runs), not the
+            # loader class.
             exempt_reason = (
-                "PDD arm: replicates the vendor reference path, which runs "
-                "Diffusers' stock SDPA, so it wires neither sage nor Sol. "
-                "Derived from the loader class rather than listed, so a new "
-                "PDD arm is covered the moment it exists")
+                "PDD reference-replication arm: wires neither sage nor Sol, "
+                "which is what the vendor's own Diffusers pipeline runs. "
+                "Derived from the graph's attention config rather than listed, "
+                "so a new one is covered the moment it exists")
         if exempt_reason:
             exempt_seen[stem] = True
         checked["graphs"] += 1

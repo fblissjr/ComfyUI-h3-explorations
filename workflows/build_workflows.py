@@ -5806,7 +5806,7 @@ def main():
         # the LoRA.
         ("h3_image_ref_plus_text_to_video_turbo_4step.json", "r2v-turbo4", "r2v",
          _ref_prompt(images=True),
-         dict(dense_attn="sage", sampler_name="euler",
+         dict(sampler_name="euler",
               lora=(TURBO_REF2VA_LORA, 1.0), steps=TURBO_REF2VA_STEPS,
               shift=TURBO_REF2VA_SHIFT,
               out_prefix="Video/h3_r2v_turbo_4step",
@@ -5865,17 +5865,27 @@ def main():
 
 
         # --- PDD, the arms to actually render with ------------------------
-        # sage ON and Sol ABSENT. Sol skips attention adaptively per step,
-        # which is incoherent against a fixed fused block schedule, and a
-        # bypassed node in the graph is an invitation to switch it on. sage is
-        # a kernel swap at fixed numerics and buys ~2.4x here, which at ~90k
-        # packed tokens is worth more than halving the steps.
+        # The repo default: sage AND Sol.
+        #
+        # These carried sage only until 2026-08-26, on the reasoning that Sol's
+        # adaptive per-step skipping is incoherent against a fixed fused block
+        # schedule. **That was wrong and the numbers say so.** Sol's window is a
+        # PERCENT band (start 0.2, end 0.9) resolved off the sigma curve, so its
+        # coverage scales with the step count instead of degrading: 11 of 16
+        # steps, 6 of 8, 3 of 4 -- computed against the real curve at shift 12,
+        # and the 16-step figure reproduces the 11-sparse/5-dense this repo had
+        # already measured. Sol and PDD also touch different surfaces entirely,
+        # attention against the output head, and `ModelPatcher.clone` carries
+        # object patches, so a Sol node downstream keeps PDD's three.
+        #
+        # sage alone buys ~2.4x here, which at ~90k packed tokens is worth more
+        # than halving the steps; Sol is on top of that.
         #
         # Their dense twins under h3_probe_ref2v_pdd* are the reference
         # configuration -- Diffusers' stock SDPA, what the vendor runs -- and
         # exist to be compared against, not rendered with.
         ("h3_text_to_video_pdd.json", "texttovideopdd", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, dense_attn="sage", sampler_name="euler",
+         dict(pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               out_prefix="Video/text_to_video_pdd",
               variant_note=_probe_note(
@@ -5889,7 +5899,7 @@ def main():
          "text -> video + audio at 8 steps via PDD, sage on"),
 
         ("h3_text_to_video_pdd_4step.json", "texttovideopdd4step", "t2v", LONG_T2V_PROMPT,
-         dict(pdd=True, dense_attn="sage", sampler_name="euler",
+         dict(pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
               pdd_nfe=PDD_STEPS_FAST,
               out_prefix="Video/text_to_video_pdd_4step",
@@ -5905,7 +5915,7 @@ def main():
 
         ("h3_first_last_frame_to_video_pdd.json", "firstlastframetovideopdd", "i2v", None,
          dict(last_frame=True, **FL2V_CANVAS,
-              pdd=True, dense_attn="sage", sampler_name="euler",
+              pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               out_prefix="Video/first_last_frame_to_video_pdd",
               variant_note=_probe_note(
@@ -5920,7 +5930,7 @@ def main():
 
         ("h3_first_last_frame_to_video_pdd_4step.json", "firstlastframetovideopdd4step", "i2v", None,
          dict(last_frame=True, **FL2V_CANVAS,
-              pdd=True, dense_attn="sage", sampler_name="euler",
+              pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
               pdd_nfe=PDD_STEPS_FAST,
               out_prefix="Video/first_last_frame_to_video_pdd_4step",
@@ -5935,7 +5945,7 @@ def main():
          "first+last frame -> video + audio at 4 steps via PDD, sage on"),
 
         ("h3_image_ref_plus_text_to_video_pdd.json", "imagerefplustexttovideopdd", "r2v", _ref_prompt(images=True),
-         dict(pdd=True, dense_attn="sage", sampler_name="euler",
+         dict(pdd=True, sampler_name="euler",
               lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
               out_prefix="Video/image_ref_plus_text_to_video_pdd",
               variant_note=_probe_note(
@@ -5949,7 +5959,7 @@ def main():
          "image references -> video + audio at 8 steps via PDD, sage on"),
 
         ("h3_image_ref_plus_text_to_video_pdd_4step.json", "imagerefplustexttovideopdd4step", "r2v", _ref_prompt(images=True),
-         dict(pdd=True, dense_attn="sage", sampler_name="euler",
+         dict(pdd=True, sampler_name="euler",
               lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
               pdd_nfe=PDD_STEPS_FAST,
               out_prefix="Video/image_ref_plus_text_to_video_pdd_4step",
