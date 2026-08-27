@@ -109,12 +109,12 @@ class Found(NamedTuple):
     # strength is a different arm, and three of four fields staying right is
     # exactly how the fourth drifts unnoticed.
     strengths: dict[str, float] | None = None
-    # The evaluation count a PDD graph asks its loader for, or None when it
-    # takes the file's own. Added 2026-08-26 when the node started fusing the
-    # heads at load: one converted file now serves every divisor of the
-    # 32-point grid, so `pdd_nfe` in the FILE is a default and the GRAPH is
-    # what a render actually runs. Grading the file alone failed a correct
-    # 4-step arm the hour it landed.
+    # The `nfe` OVERRIDE a PDD graph sets, or None at its default of 0.
+    # Added 2026-08-26 when the node began fusing heads at load for any
+    # divisor; repurposed 2026-08-27 when it began deriving the count from
+    # `sample_sigmas` instead. It is no longer the evaluation count -- the
+    # sampler's `steps` is -- so this exists only to catch a graph that forces
+    # one partition while stepping another.
     pdd_nfe: int | None = None
 
 
@@ -661,24 +661,34 @@ def main():
                         f"{path.name}: {lora} is a PDD arm, whose block "
                         f"boundaries ARE the base schedule -- it must sit at "
                         f"{BASE_SHIFT[0]}/{BASE_SHIFT[1]}, has {found.shift}")
-                    # The GRAPH's nfe when it sets one, the FILE's otherwise.
-                    # The heads are fused at load, so the file records a default
-                    # and the graph records what runs.
+                    # **The SAMPLER's step count is the evaluation count.**
+                    # Since 2026-08-27 the node reads the block boundaries off
+                    # `sample_sigmas` at run time, so the graph's `steps` is
+                    # what runs and the file's `pdd_nfe` is only a fallback for
+                    # a sampler that publishes no schedule. This used to grade
+                    # `steps` against the file and went red on every correct
+                    # 4-step arm the moment the widget stopped carrying 4.
                     grid = pdd_grid(lora)
-                    nfe = found.pdd_nfe or pdd_nfe(lora)
-                    assert nfe is not None, (
-                        f"{path.name}: could not read `pdd_nfe` from {lora} and "
-                        "the graph sets none. A PDD arm whose schedule cannot "
-                        "be read cannot be graded; the filename is not "
-                        "evidence.")
-                    assert grid and grid % nfe == 0, (
-                        f"{path.name}: nfe={nfe} does not divide the file's "
-                        f"{grid}-point grid, so the blocks do not tile it.")
-                    assert found.steps == nfe, (
-                        f"{path.name}: {lora} was fused for {nfe} steps and "
-                        f"the graph runs {found.steps}. Off its boundaries the "
-                        "fused output heads decode intervals the sampler never "
-                        "visits, and nothing but a log line would say so.")
+                    assert grid, (
+                        f"{path.name}: could not read `pdd_num_steps` from "
+                        f"{lora}. A PDD arm whose grid cannot be read cannot "
+                        "be graded; the filename is not evidence.")
+                    assert grid % found.steps == 0, (
+                        f"{path.name}: {found.steps} evaluations do not divide "
+                        f"the file's {grid}-point grid, so the blocks come out "
+                        f"uneven. The node takes them anyway and says so, but a "
+                        f"SHIPPED arm should tile: "
+                        f"{sorted(n for n in range(1, grid + 1) if grid % n == 0)}.")
+                    # `nfe` is an override that forces uniform blocks and
+                    # ignores the schedule. Legal, but it means the arm decodes
+                    # one partition while stepping another -- an experiment, not
+                    # something to ship. Every shipped graph carries 0.
+                    assert not found.pdd_nfe or found.pdd_nfe == found.steps, (
+                        f"{path.name}: the node's `nfe` override is "
+                        f"{found.pdd_nfe} while the sampler runs {found.steps} "
+                        f"steps. That decodes the blocks of one partition while "
+                        f"stepping another. Leave `nfe` at 0 so it follows the "
+                        f"schedule, or change the sampler's steps to match.")
                     continue
                 # The third-party family is graded against a step RANGE and
                 # the unchanged base shift, not against a single vendor row.

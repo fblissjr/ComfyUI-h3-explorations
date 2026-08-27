@@ -63,7 +63,8 @@ from h3_config import (  # noqa: E402
     turbo_label,
     TURBO_SLA_LORA, TURBO_SLA_SHIFT, TURBO_SLA_STEPS,
     TURBO_OWNER_STRENGTH, TURBO_OWNER_SCHEDULER,
-    TURBO_HOME_CANVAS, TURBO_SAMPLER, SPLIT_AT, REF_VIDEO_BUDGET,
+    TURBO_HOME_CANVAS, TURBO_SAMPLER, DISTILL_SAMPLING, SPLIT_AT,
+    REF_VIDEO_BUDGET,
     CAPTURE_REF_IMAGES,
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
@@ -183,6 +184,24 @@ def sol_for_steps(sol, steps):
         return None
     end = SOL_END_PERCENT_BY_STEPS.get(steps)
     return sol if end is None else dict(sol, end_percent=end)
+
+
+def _distill(lora, pdd, key):
+    """Sampler/scheduler default for one graph, from whether it carries a distill.
+
+    Owner decision 2026-08-27: every arm running a distillation LoRA samples on
+    `DISTILL_SAMPLING` -- euler/simple -- and everything else keeps `SAMPLING`.
+    Derived from what the graph IS rather than retyped per call site, which is
+    how the turbo arms ended up split across two samplers while every PDD arm
+    passed `sampler_name="euler"` by hand.
+
+    `pdd` alone is not enough: a turbo arm carries `lora` with no `pdd` flag,
+    and the split-pack arms carry both. Passing `sampler_name=` at a call site
+    still wins, so a deliberate deviation stays possible and stays visible.
+    """
+    if pdd or lora:
+        return DISTILL_SAMPLING["sampler" if key == "sampler" else "scheduler"]
+    return SAMPLING[key]
 
 
 def sol_api_inputs(sol):
@@ -932,10 +951,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         "7": ({"class_type": "MiniMaxH3TurboSampler", "inputs": {}}
               if turbo_pack else
               {"class_type": "KSamplerSelect",
-               "inputs": {"sampler_name": sampler_name or SAMPLING["sampler"]}}),
+               "inputs": {"sampler_name": sampler_name or _distill(lora, pdd, "sampler")}}),
         "8": {"class_type": "BasicScheduler",
               "inputs": {"model": None,
-                         "scheduler": scheduler_name or SAMPLING["scheduler"],
+                         "scheduler": scheduler_name or _distill(lora, pdd, "scheduler"),
                          "steps": steps if steps is not None else SAMPLING["steps"],
                          "denoise": SAMPLING["denoise"]}},
         "9": {"class_type": "BasicGuider",
@@ -4446,10 +4465,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                   title="Turbo Sampler (pack node)")
             if turbo_pack else
             g.add("KSamplerSelect", (40, 150), size=(300, 60),
-                  widgets=[sampler_name or SAMPLING["sampler"]],
+                  widgets=[sampler_name or _distill(lora, pdd, "sampler")],
                   outputs=[_out("SAMPLER", "SAMPLER")]))
     sched = g.add("BasicScheduler", (40, 250), size=(300, 130),
-                  widgets=[scheduler_name or SAMPLING["scheduler"],
+                  widgets=[scheduler_name or _distill(lora, pdd, "scheduler"),
                            steps if steps is not None else SAMPLING["steps"],
                            SAMPLING["denoise"]],
                   inputs=[_in("model", "MODEL")], outputs=[_out("SIGMAS", "SIGMAS")])
@@ -5274,26 +5293,6 @@ def main():
         # "because only v1.0 has an attested row", which was the argument for
         # not adopting v1.1 and is no longer the state.  The row is now
         # inherited rather than attested; see check_distill_settings.UNATTESTED.
-        ("h3_text_to_video_turbo_768p_euler.json", "t2v-turbo768-euler", "t2v",
-         LONG_T2V_PROMPT,
-         dict(lora=(TURBO_768P_LORA, TURBO_768P_STRENGTH),
-              steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
-              sampler_name=TURBO_SAMPLER,
-              out_prefix="Video/h3_t2v_turbo_768p_euler",
-              variant_note=_probe_note(
-                  "the recipe the blind session supports",
-                  "h3_text_to_video_turbo_4step_768p.json",
-                  f"the sampler: `{TURBO_SAMPLER}` instead of "
-                  f"`{SAMPLING['sampler']}`, the vendor's own choice for its "
-                  "distilled LoRAs. Everything else is the vendor row: 4 steps, "
-                  "shift 6/3, `simple`, strength 1.0, Sol on at the shipped tau.",
-                  "Nothing in particular; this is a working graph, not an "
-                  "experiment. It exists so the recipe has a sha.",
-                  "The same clip family as its twin. On 2026-08-20 the owner "
-                  "could not tell this recipe from euler/beta/0.75 across 8 "
-                  "seeds, and it is 20% faster on the card.")),
-         "text -> video + audio: the 768p turbo LoRA at the vendor row with euler"),
-
         # The owner's working recipe on the same LoRA, as a graph with a sha
         # so bench arms can patch the LoRA file onto it. Three knobs differ
         # from the row above; see TURBO_OWNER_STRENGTH in h3_config.
@@ -5714,30 +5713,6 @@ def main():
                   "family it was trained on. The vendor's own graph ships "
                   "960x544, which is their answer, not a measurement.")),
          "the 8-step turbo LoRA at the 544p it was distilled at"),
-
-        ("h3_probe_turbo_euler.json", "t2v-turbo-euler", "t2v", LONG_T2V_PROMPT,
-         dict(lora=(TURBO_LORA, TURBO_LORA_STRENGTH), steps=TURBO_STEPS,
-              shift=TURBO_SHIFT, sampler_name=TURBO_SAMPLER,
-              out_prefix="Video/h3_probe_turbo_euler",
-              variant_note=_probe_note(
-                  "whether a distilled model wants a first-order sampler",
-                  "h3_text_to_video_turbo.json",
-                  f"sampler `{TURBO_SAMPLER}` instead of "
-                  f"`{SAMPLING['sampler']}`. The scheduler stays `simple`, "
-                  "which is not a free choice: `simple` reproduces the "
-                  "distillation's own sigma grid EXACTLY at every shift and "
-                  "step count, and every other scheduler deviates from it.",
-                  "Prompt adherence and motion, not speed. Both samplers are "
-                  "one model eval per step, so this costs nothing either way.",
-                  "The vendor ships euler on both their turbo graphs while "
-                  "core ships res_multistep on the base ones, which reads as "
-                  "deliberate. The argument: a distilled model is trained so "
-                  "ONE Euler step from sigma_i lands at sigma_i+1, so a "
-                  "multistep integrator corrects a discretization error that "
-                  "is not the dominant error here, and perturbs a trajectory "
-                  "that was already trained to be right. That is an argument, "
-                  "not a measurement, which is why this is a pair.")),
-         "the turbo graph with the vendor's sampler"),
 
         # The equal-cost shape control. 21:9, 16:9 and 9:16 are all
         # (w//32)*(h//32) = 1008 tokens/frame, so all three run at the SAME

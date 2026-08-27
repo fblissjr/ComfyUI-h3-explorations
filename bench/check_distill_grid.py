@@ -594,11 +594,21 @@ def main() -> int:
                 continue
             # The graph's nfe when it sets one; the file's is only a default
             # now that the heads are fused at load.
-            nfe = found.pdd_nfe or pdd_nfe(names[0])
+            # **The sampler's step count is the evaluation count.** Since
+            # 2026-08-27 the node derives the block boundaries from
+            # `sample_sigmas`, so the boundaries to compare against are the
+            # ones THIS GRAPH's step count lands on, not the file's default.
+            # An `nfe` override wins when set, because it makes the node
+            # ignore the schedule and fuse uniform blocks at that count.
+            nfe = found.pdd_nfe or found.steps
             grid = pdd_grid(names[0])
-            if nfe is None or grid is None:
-                bad.append(f"{rel}: no nfe on the graph and none readable "
-                           f"from {names[0]}")
+            if grid is None:
+                bad.append(f"{rel}: could not read `pdd_num_steps` from "
+                           f"{names[0]}, so there is no grid to grade against")
+                continue
+            if nfe < 1 or grid % nfe:
+                bad.append(f"{rel}: {nfe} evaluations do not divide the "
+                           f"{grid}-point grid, so the blocks do not tile it")
                 continue
             sv, sa = found.shift
             video, audio = comfy_grid(sv, sa, found.scheduler, found.steps)

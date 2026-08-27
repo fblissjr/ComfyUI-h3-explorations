@@ -8,7 +8,7 @@ This records what was done about each, and — the part worth more — what was
 deliberately *not* done and why, so nobody rebuilds the discarded option.
 
 Source for the path itself: a full node-by-node trace of
-`workflows/h3_text_to_video_turbo_768p_euler.json` against
+`workflows/h3_text_to_video_turbo_4step_768p.json` against
 `workflows/h3_image_ref_plus_text_to_video.json`, done 2026-08-21.
 
 ---

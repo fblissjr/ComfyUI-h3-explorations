@@ -576,7 +576,7 @@
         "Node name for S&R": "KSamplerSelect"
       },
       "widgets_values": [
-        "er_sde"
+        "euler"
       ]
     },
     {

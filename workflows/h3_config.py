@@ -886,9 +886,34 @@ TURBO_HOME_CANVAS = dict(width=960, height=544)
 # res_multistep which came from core's base template. A distilled model is
 # trained so one Euler step from sigma_i lands at sigma_i+1, so a multistep
 # integrator corrects a discretization error that is not the dominant error
-# here. That is an argument, not a measurement -- which is why it is a probe
-# pair (`h3_probe_turbo_euler.json`) and not a change to `SAMPLING`.
+# here. That was an argument rather than a measurement, which is why it was a
+# probe pair and not a change to the defaults -- until the decision below.
+# **Owner decision 2026-08-27: every distilled arm now runs this, and `simple`
+# with it.** The note above kept `er_sde` as the default because the Euler
+# argument was an argument rather than a measurement, and made euler a probe
+# pair instead. The owner's call reverses that: at 4 and 8 evaluations the
+# final step covers the largest jump in the schedule, and a sampler that
+# re-noises has no step left to recover from it. The two `_euler` probes that
+# existed to name the difference were retired the same day, because with the
+# defaults moved they no longer named one.
+#
+# **PDD does not merely prefer this, it requires it.** A fused head IS the
+# block's mean velocity and the paper's Algorithm 1 defines an Euler step as
+# its consumer; `er_sde` would consume the heads with an update rule they were
+# never distilled against. Every PDD graph already carried euler before this
+# change.
+#
+# Applied by `DISTILL_SAMPLING` below rather than by each call site
+# remembering, which is how the turbo arms ended up split across two samplers
+# in the first place.
 TURBO_SAMPLER = "euler"
+
+#: Sampler and scheduler for any arm carrying a distillation LoRA. The builder
+#: applies these whenever one is wired, so a new distilled arm cannot forget
+#: and a `sampler_name=` at the call site is only needed to DEVIATE. Same shape
+#: as `SOL_END_PERCENT_BY_STEPS`: a value the generator derives from what the
+#: graph is, not one a person retypes per graph.
+DISTILL_SAMPLING = dict(sampler=TURBO_SAMPLER, scheduler="simple")
 
 # A third-party turbo LoRA that is NOT interchangeable with the two above, and
 # cannot be loaded by `LoraLoaderModelOnly` at all on our checkpoint.

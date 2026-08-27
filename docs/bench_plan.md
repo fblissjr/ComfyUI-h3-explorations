@@ -759,7 +759,7 @@ totals are.
 
 **Arms.** `internal/refs/marker_arm_stock_api.json` and
 `marker_arm_vendortokens_api.json`, both built from
-`workflows/h3_text_to_video_turbo_768p_euler_api.json` with the prompt replaced
+`workflows/h3_text_to_video_turbo_4step_768p_api.json` with the prompt replaced
 by a four-line dialogue scene and, in the second, a `MiniMaxH3VendorTokens`
 node inserted between the CLIP loader and the conditioning node. Nothing else
 differs. `run_graph_arms.py` bumps the seed per run, so `--runs N` gives N

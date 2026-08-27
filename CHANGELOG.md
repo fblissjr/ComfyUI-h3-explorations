@@ -4,6 +4,52 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.78.0
+
+### Changed
+
+- **Every distilled arm samples on euler/simple.** Owner decision. `h3_config`
+  already carried the argument -- a distilled model is trained so one Euler step
+  from sigma_i lands at sigma_i+1 -- and had deliberately declined to apply it,
+  keeping `er_sde` as the default and euler as a probe because the argument was
+  an argument and not a measurement. That is reversed: at 4 and 8 evaluations the
+  final step covers the largest jump in the schedule and a sampler that re-noises
+  has no step left to recover. Nine turbo graphs moved off `er_sde`; every PDD
+  graph already carried euler, and for PDD it is required rather than preferred,
+  since a fused head IS the block's mean velocity and the paper's Algorithm 1
+  names an Euler step as its consumer.
+
+  Applied by the new `h3_config.DISTILL_SAMPLING` through
+  `build_workflows._distill`, keyed on whether a graph wires a distillation LoRA,
+  rather than by each call site remembering -- which is how the turbo arms ended
+  up split across two samplers while every PDD arm passed `sampler_name="euler"`
+  by hand. A `sampler_name=` at a call site still wins, so a deliberate deviation
+  stays possible and stays visible.
+
+  **Not changed: `h3_probe_turbo_768p_owner`**, which runs euler with `beta`.
+  That graph is the owner's own recipe with a recorded sha, and the scheduler is
+  the deliberate part of it.
+
+### Removed
+
+- **`h3_probe_turbo_euler` and `h3_text_to_video_turbo_768p_euler`.** Both existed
+  to name the euler-against-`er_sde` difference; with the defaults moved they were
+  duplicates of their own baselines. Owner decision to retire rather than invert.
+  The two documents that cited them for being the euler arm now cite the
+  baselines, which are euler.
+
+### Fixed
+
+- **Two checks graded a PDD graph's step count against the FILE.**
+  `check_distill_settings` asserted `steps == pdd_nfe` and `check_distill_grid`
+  compared sigmas against `block_bounds` for the file's count. Both were correct
+  while the graph carried an `nfe` widget and both went red on correct 4-step arms
+  the moment it stopped. They now take the sampler's `steps` as the evaluation
+  count, require it to divide the grid for a shipped arm, and treat a non-zero
+  `nfe` as an override that must agree with the sampler. Both new assertions were
+  shown red by deliberate violation -- 5 steps against a 32-point grid, and an
+  override of 8 against a 4-step sampler.
+
 ## 0.77.0
 
 ### Changed
