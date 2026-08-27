@@ -13,7 +13,11 @@ every graph back to the v1 conditioner (`72e97c3`). One arm was interrupted
 inside `SamplerCustomAdvanced` and wrote nothing; the other twenty-eight never
 started. No output survives and none should be looked for.
 
-**Rebuild from the shipped graphs rather than patching payloads.** Three things
+One arm below is an exception: `h3_image_ref_plus_text_to_video_dialogue_pdd_4step`
+was built into the generator afterwards (`3ef32aa`) and is ready to render as
+shipped.
+
+**Rebuild the rest from the shipped graphs rather than patching payloads.** Three things
 have moved under them since they were written, and each one silently invalidates
 a payload that names the old value:
 
@@ -77,7 +81,8 @@ on its own.
 
 **Withdrawn as a render arm.** It was `qwen_short_edge` 0 against 512, judged on
 whether the dialogue attribution holds. On v1 both arms produce the same encoder
-view, so the pair is one arm rendered twice.
+view, so the pair is one arm rendered twice. The *question* survives the
+withdrawal and is Group A' below; only the comparison collapsed.
 
 It also had a confound worth recording, because it would have survived the
 encoder switch: v2-at-0 differs from v1 in **both** the weights and the bounds,
@@ -92,6 +97,46 @@ snapshot -- v2 weights under v1's bounds against v2 weights under its own, via
 50 on the same rows. Two outcomes: the snapshot is the whole encoder-side
 difference and the ratio is the mechanism, or the bounds are not what changed the
 state and 512 was treating a symptom. Owned by the encoder lane.
+
+### Group A' -- does attribution hold on v1 at all?
+
+**Decides whether today's revert bought what it was done for.** The withdrawal
+above took a comparison out; this is not one, and it should not have gone with
+it. The misattribution was seen once, under v2. The entire case for moving every
+graph back to v1 is that v1's bounds restore the prompt's share of its segment.
+Nobody has checked that attribution actually holds under v1, so the largest
+decision of the day rests on arithmetic plus one negative observation.
+
+| arm | what it is |
+|---|---|
+| `h3_image_ref_plus_text_to_video_dialogue_pdd_4step` | references, dialogue and a distill, on v1 |
+
+Built 2026-08-27 (`3ef32aa`). Every **pair** of {references, dialogue, distill}
+already shipped and the triple did not, which is why nothing could reproduce the
+failure -- it needed all three. The dialogue reference graph with the ref2va PDD
+config applied: 4 steps, euler, Sol `end_percent` derived to 0.74 rather than
+inherited from the 16-step parent. Seed matches the base graph, so the two are
+readable against each other if anyone wants that later.
+
+**One render, one seed, and no blind session** -- rare here, and worth saying
+why it is legitimate rather than a shortcut. The prompt binds `<Subject 1>` to
+`<Picture 2>` and `<Subject 2>` to `<Picture 1>` **by number**, over eight `<d>`
+lines in a concrete stairwell exchange. Whether the woman speaks the woman's
+lines is a fact about the render, not a preference between two clips.
+CLAUDE.md's different-sample rule governs comparisons; nothing is being compared
+here, so it does not bite.
+
+**What it cannot do, and the entry has to say so.** A pass does not establish
+that v1's bounds are why. Attribution could hold for reasons unrelated to them --
+a different seed, PDD's own behaviour, or a failure that was always
+intermittent. It is confirmation, not cause; the causal question is the layer-50
+bounds pair in Group A, which needs no render. **A failure is the more
+informative outcome**: it would say the ratio story is wrong and the revert did
+not buy what it was meant to.
+
+Priced at ~120,077 packed tokens by `bench/preflight_graph.py`, which could not
+have told you that until `d7dd575` -- it read the pre-DynamicCombo widget names
+and reported 113,037.
 
 ### Group B -- what does upscaling buy?
 
