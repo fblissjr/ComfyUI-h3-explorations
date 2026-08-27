@@ -116,6 +116,10 @@ The manifest makes a captured tensor traceable to the prompt, reference images a
           "type": "object",
           "required": ["sage_mode", "sol_attn", "head_chunks"],
           "properties": {
+            "sol_start_percent": { "type": ["number", "null"] },
+            "sol_end_percent": { "type": ["number", "null"], "description": "the Sol window's upper bound. STEP-COUNT DEPENDENT: a fixed band covers a different fraction of an 8-step run than a 16-step one, so this is derived per graph and two renders differing only in it are different experiments." },
+            "sol_dense_blocks": { "type": ["string", "null"], "description": "DiT blocks forced dense, NVLabs ship '0-1' on every H3 config they publish." },
+            "sol_tau": { "type": ["number", "null"] },
             "sage_mode": { "type": "string", "description": "the wired sage node's mode, or the literal 'absent' / 'orphaned' when no sage node runs. It was a hardcoded 'fp16 (most accurate)' until 2026-08-26, so a render with no sage at all reported a mode for a kernel that never ran -- the same defect this file records for sol_attn, in the same dict literal." },
             "sol_attn": { "type": "string" },
             "head_chunks": { "type": "integer" }

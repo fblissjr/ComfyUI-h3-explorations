@@ -346,4 +346,30 @@ class SageChainAssert(io.ComfyNode):
                 "[h3] chain assert ok: override installed, "
                 "%d attention forward patch(es) present", len(attn_forwards))
 
+        # The resolved Sol window, which nothing printed before 2026-08-26.
+        #
+        # `start_percent`/`end_percent` are widgets, but what actually gates a
+        # step is the SIGMA pair they resolve to, and that conversion happens
+        # inside the Sol node at patch time. So the graph shows percentages, the
+        # log showed nothing, and the thing that decides which steps run sparse
+        # was invisible in both. It is also step-count dependent in effect --
+        # a fixed sigma floor covers a different fraction of a 16-step run than
+        # of an 8-step one -- which is how the PDD arms silently lost their
+        # dense final step.
+        #
+        # This node is where it belongs: it already exists to report what the
+        # composition ended up as rather than what any one node intended, and
+        # it is the only node downstream of Sol that holds the model.
+        # MiniMaxH3Preflight cannot -- it takes conditioning and samples, not a
+        # model, so it can price the sequence and nothing about attention.
+        gate = to.get("sol_compose") if isinstance(to, dict) else None
+        if isinstance(gate, dict):
+            lo, hi = gate.get("sigma_start"), gate.get("sigma_end")
+            if isinstance(lo, float) and isinstance(hi, float):
+                logger.info(
+                    "[h3] sol window: a step runs SPARSE while sigma is in "
+                    "[%.4f, %.4f], and dense outside it. Fewer steps means a "
+                    "coarser schedule, so check the tail: if the last sigma is "
+                    "above %.4f the final step runs sparse.", hi, lo, hi)
+
         return io.NodeOutput(model)

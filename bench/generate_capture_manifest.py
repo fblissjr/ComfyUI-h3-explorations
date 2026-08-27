@@ -398,11 +398,23 @@ def extract_from_workflow(wf: dict, input_base: Path):
     # ran, and the constant did not even match `h3_config.SAGE_NODE['mode']`.
     # That is the identical defect the paragraph above records for `sol_attn`,
     # in the same dict literal, left behind when that one was fixed.
+    # The Sol WINDOW, not just whether Sol is wired. `start_percent` and
+    # `end_percent` are what decide which steps run sparse, and they are
+    # step-count dependent in effect -- a fixed band covers a different
+    # fraction of an 8-step run than a 16-step one, which is how the PDD arms
+    # silently lost their dense final step. A manifest recording only
+    # `sol_attn: wired` cannot tell two renders apart that differed in it.
+    _sol_state, _sol_nodes = _class_state(wf, "SolAttnMiniMax")
+    _sol_cfg = _sol_nodes[0][1] if _sol_state == "wired" else {}
     _sage_state, _sage_nodes = _class_state(wf, "MiniMaxH3SageAttention")
     attention = {
         "sage_mode": (str(_scalar(_sage_nodes[0][1].get("mode"), str, missing="auto"))
                       if _sage_state == "wired" else _sage_state),
         "sol_attn": _sol_attn_state(wf),
+        "sol_start_percent": _scalar(_sol_cfg.get("start_percent"), float),
+        "sol_end_percent": _scalar(_sol_cfg.get("end_percent"), float),
+        "sol_dense_blocks": _scalar(_sol_cfg.get("dense_blocks"), str),
+        "sol_tau": _scalar(_sol_cfg.get("selection.tau"), float),
         "head_chunks": (_scalar(_sage_nodes[0][1].get("head_chunks"), int, missing=1)
                         if _sage_state == "wired" else 1),
     }
@@ -621,7 +633,7 @@ def main():
     models["sha256"] = hash_model_files(models)
 
     manifest = {
-        "schema_version": "1.3.0",
+        "schema_version": "1.4.0",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "provenance": {
             "git_commit": get_git_commit(),
