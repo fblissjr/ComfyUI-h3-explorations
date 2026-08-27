@@ -227,33 +227,134 @@ and the shipped adapter's per-forward einsum over all 32 heads is the form the
 paper says can be avoided.
 
 **Kijai's converted files**, an independent conversion of the same weights
-arrived at without reference to ours. Measured 2026-08-26:
+arrived at without reference to ours. **They are re-uploaded in place and have
+changed encoding once**, so every figure below is a dated record rather than a
+property: `bench/results/2026-08-27_pdd_conversion_{fl2va,ref2va}.json`, which
+now carries a sha256 of each input so a later reader can tell whether it is
+reading about the same artifact. Re-run with `bench/compare_pdd_conversions.py`.
+
+Read as of 2026-08-27, ref2va, both streams:
 
 | | ours against his |
 |---|---|
 | `attn.qkv_proj`, `out_proj`, `mlp.fc1`, `mlp.fc2` | 0.0, except 6.7e-20 on qkv |
-| his head bank against the published 32-stack | 0.0 |
-| our bank against the published 32-stack | 0.0 |
-| fusing either bank, at 8 / 4 / 2 evaluations | 0.0 |
+| his head bank against the published 32-stack | ~1e-10, video and audio |
+| our bank against the published 32-stack | 0.0, weight and bias, both streams |
+| fusing either bank, at 8 / 4 / 2 evaluations | ~1e-11 |
 
 Bit-identical on every backbone transform, including the two that are easy to
-get wrong -- the block-diagonal qkv fusion and the SwiGLU half-swap.
+get wrong -- the block-diagonal qkv fusion and the SwiGLU half-swap. The head
+rows were exact until 2026-08-27 and are now ~1e-10 because his repackaging
+factors the bank through a bf16 matrix; ours is stored verbatim at the
+published bf16 and stays exact.
+
+### His head bank changed encoding on 2026-08-27
+
+Not the weights -- the packaging, and it is the more interesting change.
+
+| | until 2026-08-27 | now |
+|---|---|---|
+| key | `final_layer.{stream}_out.set_weight` | `lora_up` / `lora_down` / `reshape_weight`, and the same for `.bias` |
+| what core must learn | a `set_weight` / `set_bias` path that does not exist | nothing; `comfy/weight_adapter/lora.py` already has `reshape_weight` |
+
+Under the new encoding the tensor he ships **is not the bank**. Core applies
+that path as `pad_tensor_to_shape(weight, reshape) + up @ down`, padding with
+ZEROS, so what is stored is the bank minus the padded base head: the first
+`out` rows are `head_0 - base` and the rest are heads 1..31 verbatim, and `up`
+is a full-rank square factor because an arbitrary matrix has to be expressed
+through a path that only ever multiplies two. Reconstructing it is what
+`bench/compare_pdd_conversions.py::kijai_bank` does, and the row above is that
+reconstruction against the published stack.
+
+**That padding also makes his `strength` mean something different from ours
+below 1.0.** Heads 1..31 scale from zero rather than from the checkpoint's own
+head, so a half-strength render decodes every block after the first with a
+half-magnitude head. Ours interpolates each head toward the base head, so 0.0
+is exactly the base model. Both are correct at the vendor's default of 1.0.
+`ComfyUI-MiniMaxH3-PDD-Mamad8` reaches our conclusion independently and says
+why in `blend_with_native`: the exported projections are complete block
+velocities, not additive residuals, so scaling them directly scales the whole
+Euler displacement.
 
 **His pruned build projects the adaln update into the curve basis too**, which
 is the part this repo worked out alone and most wanted a second opinion on.
 Two independent solutions of the same projection, each scored against ground
-truth rather than against each other:
+truth rather than against each other. ref2va, read 2026-08-27:
 
 | block | ours | his |
 |---|---|---|
-| 0 | 2.3e-05 | 8.3e-05 |
-| 25 | 6.1e-05 | 7.8e-05 |
-| 49 | 1.2e-05 | 3.7e-05 |
+| 0 | 7.8e-05 | 8.3e-05 |
+| 25 | 8.1e-05 | 7.8e-05 |
+| 49 | 2.8e-05 | 3.7e-05 |
 
 Same method, both far below bf16 resolution. The gap is storage precision and
 nothing else: he keeps bf16 factors, we store the fp32 product, which is also
 the smaller of the two because the projected rank is 8 and the factored rank is
 64.
+
+**The `ours` column above was wrong until 2026-08-27**, and the way it went
+wrong is worth keeping. It read 2.3e-05 / 6.1e-05 / 1.2e-05, which matched no
+record on disk -- the `his` column matched
+`bench/results/2026-08-26_pdd_conversion_ref2va.json` exactly while the `ours`
+column came from an earlier run, against a converted file that was rebuilt
+later the same evening. The fl2va record has the same shape and is worse: it
+was written at 18:12 and committed at 18:17, and its subject was reconverted at
+18:28, so **that record describes a file that no longer exists**. Same failure
+as `build_workflows.py`'s -- nothing is true of an artifact until it is rebuilt,
+and a measurement taken before the rebuild is a measurement of something else.
+The sha256 rows added on 2026-08-27 are what makes the next instance visible
+instead of silent.
+
+## Core is learning this, and what that costs us
+
+Comfy-Org/ComfyUI#15908, "MiniMax-H3: Support PDD LoRA", by the same author as
+the converted files above. Read 2026-08-27: **open**, and its diff is
+`comfy/ldm/minimax/model.py` alone. The description also names a
+`comfy/lora.py` change adding `set_bias` beside `set_weight`; that is not in
+the diff any more, which is consistent with the encoding move above -- the
+`reshape_weight` path he switched to needs no LoRA change at all.
+
+What it does: `FinalLayer.forward` computes
+`n = video_out.weight.shape[0] // out_features`, takes the original path when
+`n == 1`, and otherwise reads `transformer_options["sample_sigmas"]`, finds the
+current step by `argmin` against it, takes `sigma_next`, maps both back through
+`time_shift_sigma(s, shift_v, 1.0)` to base-grid indices, and fuses the spanned
+heads with an `einsum` inside the forward.
+
+Two design differences from ours, and neither is a defect in his:
+
+- **He derives the block from the sampler's schedule; we derive it from
+  `t_emb`.** His inverts the video shift to recover the base grid, which is
+  correct -- the grid is uniform in base sigma and the position is
+  shift-invariant, which is also why one index serves both streams while the
+  `dt` weights differ per stream. It does mean the selection depends on
+  `sample_sigmas` being present and on the sampler evaluating only at scheduled
+  sigmas. Ours reads what the model was called with and needs nothing threaded
+  in.
+- **He fuses per forward; we fuse at load.** The paper's section 3.1 recommends
+  the latter. At this sequence length neither is measurable.
+- **He accepts any step count**, blending whatever heads the step spans, where
+  we refuse a count that does not divide 32. His generalises off-distribution
+  silently; ours declines.
+
+**If it merges, our node breaks — and it broke loudly, which is the good
+case.** The PR widens `FinalLayer.forward` to
+`(x, t_emb, video_seg, audio_seg, sigma, sample_sigmas, shifts)`. We
+object-patch that method, which replaces it outright, so a four-parameter
+replacement drops three arguments the stock forward now requires:
+`TypeError` on the first sampling step. Fixed 2026-08-27 by making the patch
+arity-transparent, and `bench/check_pdd_head_selection.py` section 3 asserts it
+against both signatures. That case is graded: pinning the patch back to four
+parameters turns it red, and running that violation is what showed the case
+raised `TypeError` past `check()`'s `AssertionError` handler and aborted the
+run instead of reporting a named failure.
+
+Our converted file leaves `video_out.weight` its original size, so a merged
+core takes its `n == 1` path and our two output-linear patches still own the
+head swap. That is correct and it is also two implementations of one mechanism
+in one process. **The question that becomes live on merge is whether this node
+should keep the head half at all**, or narrow to the conversion plus the
+partition guard and let core do the rest. Not decided.
 
 ## Two traps that are silent in both directions
 
@@ -263,15 +364,29 @@ the smaller of the two because the projected rank is 8 and the factored rank is
 name, so a Ref2VA LoRA loads onto an fl2va checkpoint with zero unmatched keys
 and renders. Nothing errors and nothing logs.
 
-The converter records a sha256 of `final_layer.video_out.weight` from the
-checkpoint it was converted against, and the node refuses a mismatch. That
-tensor is fp32-unquantised and **bit-identical across pruned/unpruned and
-across `int8_convrot`/`fp8_scaled`**, verified 2026-08-26 over the six H3
-checkpoints in `models/diffusion_models/`, so one value names the partition for
-every variant we ship. The two partitions' values differ.
+The converter stores `final_layer.video_out.weight` from the checkpoint it was
+converted against, as the tensor `h3_pdd.base_video_out`, and the node refuses
+a load whose live tensor sits further than `PARTITION_TOLERANCE` away by
+relative Frobenius distance. That tensor is fp32-unquantised and **bit-identical
+across pruned/unpruned and across `int8_convrot`/`fp8_scaled`**, verified
+2026-08-26 over the six H3 checkpoints in `models/diffusion_models/`, so one
+value names the partition for every variant we ship. The two partitions sit
+about 0.05 apart.
 
-That is a branch on an observable, not on a filename — the rule CLAUDE.md
-adopted 2026-08-22 after the tokenizer-constant escape.
+**Compared by distance, not by hash, and this document said "sha256" until
+2026-08-27.** The first version did hash it, and that version fired on the
+first real render against the CORRECT checkpoint: ComfyUI casts on load, and a
+cast changes every bit while moving the value a few thousandths. An exact test
+against a value the loader is allowed to transform cannot separate "wrong
+partition" from "loaded normally" -- a control reporting red on correct state,
+which CLAUDE.md calls worse than no control. A distance separates a cast from a
+partition swap by an order of magnitude and can say how far off it was.
+`bench/check_pdd_head_selection.py` pins the tolerance between the two.
+A sha256 of that tensor survives in the file's metadata as a label; it is not
+what the node checks.
+
+Either way it is a branch on an observable, not on a filename — the rule
+CLAUDE.md adopted 2026-08-22 after the tokenizer-constant escape.
 
 ### The pruned base has nowhere to put the adaln delta
 

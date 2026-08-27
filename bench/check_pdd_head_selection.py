@@ -33,30 +33,42 @@ output is merely wrong. It is the shape `docs/checks.md` calls a
 silent-success, and the only thing that found it was driving the tracker with
 real inputs instead of reading the code.
 
+**The snap tolerance the escape above describes is gone**, and this section
+described it until 2026-08-27. `_StepTracker` now matches the `nfe + 1`
+boundary embeddings directly, so there is no recovered `t` to quantise and
+selection needs no tolerance at all; the two cases about snapping and about
+`step_for_t`'s membership fallback went with the code they graded. What
+replaced them is wider, not narrower -- every step count the grid divides by,
+rather than the one the bug was found at.
+
 ## What this asserts, i.e. what breaks if a case is deleted
 
-  real schedule        the tracker, the REAL `adaln_t_table` read off a
-                       shipped checkpoint, and the real 8-step boundaries
-                       select heads 0..nfe-1 in order, for video AND audio.
-                       Audio matters separately: it runs its own shift, so a
-                       fix that only lines the video stream up would pass a
-                       video-only case
-  the old bug is red   the same drive with snapping disabled reproduces the
-                       escaped selection and FAILS. Without this the check
-                       could go green on a tracker that had quietly lost the
-                       snap and gone back to pure membership, which is exactly
-                       the regression it exists to stop
+  every legal nfe      the tracker, the REAL `adaln_t_table` read off a
+                       shipped checkpoint, and the real boundaries select
+                       heads 0..n-1 in order at 16, 8, 4 and 2 evaluations,
+                       for video AND audio. The range is the point: one file
+                       serves every divisor by fusing at load, and a selector
+                       only ever seen at one block size is not evidence about
+                       the others. Audio matters separately because it runs
+                       its own shift, so a fix that only lines the video
+                       stream up would pass a video-only case
   off schedule warns   a run at a step count the file was not fused for sets
-                       `warned`. This is the OTHER half: the snap tolerance
-                       and the residual tolerance must agree about what "on
-                       schedule" means, or one regime silently borrows the
-                       other's behaviour
-  membership survives  `step_for_t` with no snap still does plain interval
-                       membership. The fix added a branch; this says it did
-                       not replace the fallback the off-schedule path needs
+                       `warned`. Selection degrades to the nearest boundary by
+                       design, so this warning is the only thing separating a
+                       deliberate arm from a misconfigured one
+  both tolerances      `TABLE_TOLERANCE` and `PARTITION_TOLERANCE` each sit
+                       between the noise below them (a bf16 cast) and the
+                       signal above (the other partition). Both were set by
+                       hand and one shipped wrong
+  arity transparent    the `final_layer.forward` object patch accepts today's
+                       four arguments and the seven Comfy-Org/ComfyUI#15908
+                       introduces, forwarding the extras verbatim. An object
+                       patch REPLACES the method, so a pinned parameter list
+                       is a TypeError on step 1 the day core widens it
 
-Needs a checkpoint on disk and ComfyUI importable for `safetensors`. No CUDA,
-no server, no model load -- it reads one small buffer out of a header.
+Needs a checkpoint on disk and ComfyUI importable for `safetensors` for the
+first three; the arity cases need neither and always run. No CUDA, no server,
+no model load -- it reads one small buffer out of a header.
 
 Exit codes: 0 all cases passed, 1 a case failed, 2 passed but a control was
 skipped (no checkpoint on disk to read a real table from).
@@ -287,6 +299,92 @@ else:
           table_tolerance_straddles)
     check("partition tolerance sits between a cast and a partition swap",
           partition_tolerance_straddles)
+
+# --- 3. the final_layer patch survives core widening the signature ---------
+# Comfy-Org/ComfyUI#15908 (open 2026-08-27) teaches core the same mechanism and
+# widens `FinalLayer.forward` to seven parameters. Our object patch REPLACES
+# that method, so a four-parameter replacement drops the three core now passes
+# and raises TypeError on the first sampling step of every PDD render.
+#
+# This is the cheap half of a forward-compatibility question whose expensive
+# half cannot be run here: nothing on this box can merge that PR and render.
+# What it does assert is that the patch is arity-transparent in BOTH
+# directions, which is the part that is ours to get right. Delete the `*args`
+# from `_make_final_layer_forward` and the second case goes red.
+print()
+print("the final_layer patch is arity-transparent")
+
+
+def _arity():
+    seen = {}
+
+    class _Tracker:
+        def update(self, t_emb, video_seg, audio_seg):
+            seen["update"] = (t_emb, video_seg, audio_seg)
+
+    def base(x, t_emb, video_seg, audio_seg, *extra, **kw):
+        seen["extra"] = extra
+        seen["kw"] = kw
+        return "stock output"
+
+    fwd = P._make_final_layer_forward(base, _Tracker())
+    return fwd, seen
+
+
+def _call(fwd, *args):
+    """Call the patch, turning an arity mismatch into a FAIL rather than a crash.
+
+    The failure this section exists to catch IS a `TypeError`, and `check()`
+    catches only `AssertionError` -- so without this the deliberate violation
+    aborts the run with a traceback instead of reporting a named case, and the
+    summary and exit code never happen. Found by running the violation, which
+    is the only reason it is here.
+    """
+    try:
+        return fwd(*args)
+    except TypeError as exc:
+        raise AssertionError(
+            f"the patched final_layer rejected a {len(args)}-argument call: "
+            f"{exc}. An object patch replaces the method outright, so its "
+            f"parameter list has to accept whatever `comfy/ldm/minimax/"
+            f"model.py` passes today AND whatever #15908 makes it pass, and "
+            f"forward the rest untouched.") from None
+
+
+def todays_core():
+    """Four positional arguments, which is what `model.py` passes today."""
+    fwd, seen = _arity()
+    out = _call(fwd, "x", "t_emb", (0, 1, 0), (1, 2, 0))
+    assert out == "stock output", f"the stock forward's return was not passed through: {out!r}"
+    assert seen["update"] == ("t_emb", (0, 1, 0), (1, 2, 0)), (
+        f"the tracker saw {seen['update']!r}; it must see the model's own "
+        f"t_emb and both segments, because that is the whole of the selection")
+    assert seen["extra"] == (), f"invented arguments for the stock forward: {seen['extra']!r}"
+    return "4 args reach the tracker and the stock forward unchanged"
+
+
+def post_pr_core():
+    """Seven, which is what #15908 makes `model.py` pass.
+
+    The three extra are `sigma`, `sample_sigmas` and `shifts`. This does not
+    check what they mean -- core owns that -- only that they arrive at the
+    stock forward verbatim rather than being dropped or reordered by us.
+    """
+    fwd, seen = _arity()
+    extra = ("sigma", "sample_sigmas", (12.0, 3.0))
+    out = _call(fwd, "x", "t_emb", (0, 1, 0), (1, 2, 0), *extra)
+    assert out == "stock output", f"the stock forward's return was not passed through: {out!r}"
+    assert seen["extra"] == extra, (
+        f"core's three new arguments arrived as {seen['extra']!r}, not "
+        f"{extra!r}. A patch that drops them leaves the stock forward without "
+        f"the sigma schedule it now requires, and the render dies on step 1.")
+    assert seen["update"] == ("t_emb", (0, 1, 0), (1, 2, 0)), (
+        "widening the signature changed which values the tracker reads")
+    return "7 args forward verbatim; selection still reads only the first 4"
+
+
+check("today's core signature", todays_core)
+check("the signature #15908 introduces", post_pr_core)
 
 print()
 if failures:

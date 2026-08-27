@@ -4,6 +4,52 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.76.0
+
+### Fixed
+
+- **`MiniMaxH3PDDLoRA` would have died on the first sampling step the day core
+  learns PDD.** Comfy-Org/ComfyUI#15908 widens `FinalLayer.forward` to
+  `(x, t_emb, video_seg, audio_seg, sigma, sample_sigmas, shifts)`. We
+  object-patch that method, which replaces it outright, so our four-parameter
+  replacement would drop three arguments the stock forward now requires. The
+  patch forwards extras verbatim now. Our converted file leaves
+  `video_out.weight` its original size, so a merged core takes its `n == 1`
+  path and our output-linear patches still own the head swap.
+- **`bench/compare_pdd_conversions.py` had stopped comparing anything.** It read
+  Kijai's head bank by the literal key `final_layer.video_out.set_weight` and
+  died with a `KeyError` when his files were re-uploaded in a different
+  encoding on 2026-08-27 -- an assumption that had only ever met one
+  implementation. It now branches on which keys are present and reconstructs
+  the bank through the same arithmetic core uses for the
+  `lora_up`/`lora_down`/`reshape_weight` path, recording which encoding it saw.
+- **`docs/h3_pdd.md` described a partition guard that had been replaced.** It
+  said the node refuses a mismatched sha256; the node compares
+  `h3_pdd.base_video_out` by relative Frobenius distance, because the hash
+  version fired on the CORRECT checkpoint after ComfyUI cast it on load. Its
+  adaln table also carried an `ours` column from a run that predated the
+  conversion it described.
+- **`bench/check_pdd_head_selection.py`'s docstring still described the snap
+  tolerance and `step_for_t`**, both deleted when the tracker moved to matching
+  the boundary embeddings directly.
+
+### Added
+
+- **`bench/compare_pdd_conversions.py` now covers both streams and the bias
+  bank**, and records a sha256 of every input. Only the video weight was
+  compared before, so the audio head -- its own shape, its own shift, its own
+  entry in his file -- rested on the video result. The hashes exist because
+  those artifacts are re-uploaded in place: a record naming only a filename
+  cannot say what it read, and one 2026-08-26 record turned out to describe a
+  converted file that was rebuilt sixteen minutes later.
+- **`bench/check_pdd_head_selection.py` section 3: the `final_layer` patch is
+  arity-transparent.** Asserts the patch accepts today's four arguments and the
+  seven #15908 introduces, forwarding extras verbatim. Needs no checkpoint, so
+  it runs when the rest SKIPs. Graded by pinning the patch back to four
+  parameters, which also exposed a defect in the case itself: it raised
+  `TypeError` past `check()`'s `AssertionError` handler and aborted the run
+  instead of reporting a named FAIL.
+
 ## 0.75.0
 
 ### Added

@@ -22,12 +22,30 @@ says you can avoid. Algorithm 1 confirms the consumer: `u = student(x_n, t[n])`
 then `x_n = x_n + einsum('k,k...', h_n, u_n)` -- evaluated at the block-START
 time, deterministic, no noise.
 
-**Kijai's conversion** ships the raw 32-head bank as `set_weight` and fuses at
-run time, where ours precomputes. Different choices, same arithmetic, so the
-backbone must agree exactly and our fused heads must be reproducible from his
-bank. His pruned build independently projects the adaln update into the curve
-basis -- the same conclusion this repo reached separately, which is the part
-worth having a second opinion on.
+**Kijai's conversion** ships the raw 32-head bank and fuses at run time, where
+ours precomputes. Different choices, same arithmetic, so the backbone must
+agree exactly and our fused heads must be reproducible from his bank. His
+pruned build independently projects the adaln update into the curve basis --
+the same conclusion this repo reached separately, which is the part worth
+having a second opinion on.
+
+**His bank has had two encodings and this reads whichever is on disk.** Until
+2026-08-27 it was one `final_layer.{stream}_out.set_weight` tensor, which needs
+a core change to load. It is now the generic weight-adapter path -- `lora_up` /
+`lora_down` / `reshape_weight` -- which ComfyUI already applies as
+`pad_tensor_to_shape(base, reshape) + up @ down`, so no core LoRA change is
+needed and only `comfy/ldm/minimax/model.py` has to learn what an enlarged head
+means (Comfy-Org/ComfyUI#15908, open, `model.py` only). Under that encoding the
+tensor he ships is NOT the bank: it is the bank minus the zero-padded base head,
+so the bank has to be reconstructed through the same arithmetic core uses.
+
+This script branched on `set_weight` by name and died with a `KeyError` the day
+the encoding changed -- an assumption that had only ever met one implementation,
+which is the escape CLAUDE.md's 2026-08-22 rule is about. It now branches on
+WHICH KEYS ARE PRESENT and records which encoding it saw, so the next
+repackaging is reported rather than fatal, and a record says what it compared.
+It reads the base head from the checkpoint rather than from our own converted
+file, so the reconstruction does not depend on anything this repo produced.
 
 ## What it reports
 
@@ -46,6 +64,7 @@ on any numbers. It records what was true when run, into `bench/results/`.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import date
@@ -74,6 +93,94 @@ def silu_temb_grid_from(checkpoint: Path, rows: int = 1025):
 LORAS = Path.home() / "ComfyUI" / "models" / "loras" / "h3"
 DIFFUSION = Path.home() / "ComfyUI" / "models" / "diffusion_models"
 BLOCKS = (0, 12, 25, 37, 49)
+
+
+#: The published grid. Read from our converted file's metadata where one is
+#: available; this is only the fallback for reshaping his tensors.
+NUM_INTERVALS = 32
+
+
+def sha256(path: Path) -> str:
+    """Identify exactly which artifact a record compared.
+
+    His files are re-uploaded in place and changed encoding once already, so a
+    record naming only the filename cannot say what it read. This is a
+    descriptive value in a dated record, which is the one place CLAUDE.md
+    allows one.
+    """
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 22), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def base_head(checkpoint: Path, stream: str) -> tuple[torch.Tensor, torch.Tensor]:
+    """`final_layer.{stream}_out` weight and bias from the checkpoint itself.
+
+    Read from the checkpoint rather than from our converted file so the
+    reconstruction below depends on nothing this repo produced. These two are
+    fp32-unquantised in every H3 build we ship, so any variant of the partition
+    serves.
+    """
+    with safe_open(checkpoint, framework="pt") as f:
+        return (f.get_tensor(f"final_layer.{stream}_out.weight").double(),
+                f.get_tensor(f"final_layer.{stream}_out.bias").double())
+
+
+def kijai_bank(kij: dict, stream: str, base_w: torch.Tensor,
+               base_b: torch.Tensor, n: int = NUM_INTERVALS):
+    """His per-interval head bank, whichever encoding the file uses.
+
+    Returns `(encoding, weight[n, out, in], bias[n, out])`.
+
+    Branches on the keys present, never on a filename or a date. Two encodings
+    have shipped:
+
+    `set_weight`
+        one tensor holding the bank outright. Needs a core `set_weight` /
+        `set_bias` path that is not in ComfyUI today.
+
+    `lora_up` / `lora_down` / `reshape_weight`
+        the generic adapter, which core already applies as
+        `pad_tensor_to_shape(weight, reshape) + up @ down` -- padding with
+        ZEROS. So the shipped tensor is `bank - pad(base_head)`: its first
+        `out` rows are `head_0 - base` and the rest are heads 1..n-1 verbatim,
+        and `up` is a full-rank square factor because an arbitrary matrix has
+        to be expressed through a path that only multiplies two.
+
+        That padding is also why his `strength` below 1.0 does not mean what
+        ours does: heads 1..n-1 scale from zero, not from the base head.
+
+    An unrecognised layout raises with the keys it did find. A `KeyError` from
+    a hardcoded name is how this went from a comparison to no comparison.
+    """
+    p = f"diffusion_model.final_layer.{stream}_out"
+    if f"{p}.set_weight" in kij:
+        w = kij[f"{p}.set_weight"].double()
+        b = kij.get(f"{p}.set_bias")
+        return ("set_weight",
+                w.reshape(n, -1, w.shape[-1]),
+                None if b is None else b.double().reshape(n, -1))
+    if f"{p}.reshape_weight" in kij:
+        def rebuild(prefix, base, shape):
+            padded = torch.zeros(shape, dtype=torch.float64)
+            padded[:base.shape[0]] = base
+            diff = (kij[f"{prefix}.lora_up.weight"].double()
+                    @ kij[f"{prefix}.lora_down.weight"].double())
+            return (padded + diff.reshape(padded.shape)).reshape(n, -1)
+        w = rebuild(p, base_w.reshape(base_w.shape[0], -1),
+                    kij[f"{p}.reshape_weight"].tolist())
+        b = rebuild(f"{p}.bias", base_b.reshape(-1, 1),
+                    list(kij[f"{p}.bias.reshape_weight"].tolist()) + [1])
+        return ("reshape_weight", w.reshape(n, -1, base_w.shape[-1]), b)
+    raise RuntimeError(
+        f"Kijai's file carries neither head encoding this knows for "
+        f"{stream}_out. Present: "
+        f"{sorted(k for k in kij if k.startswith(p))}. His artifacts are "
+        f"re-uploaded in place; read the current ones before assuming a bug "
+        f"here, and add the new encoding to this branch rather than to a "
+        f"call site.")
 
 
 def rel(a: torch.Tensor, b: torch.Tensor) -> float:
@@ -108,7 +215,8 @@ def main(argv=None) -> int:
     src = load_file(paths["source"])
 
     report: dict = {"date": str(date.today()), "partition": part,
-                    "files": {k: p.name for k, p in paths.items()}}
+                    "files": {k: p.name for k, p in paths.items()},
+                    "sha256": {k: sha256(p) for k, p in paths.items()}}
 
     # --- backbone: exact transforms, so exact agreement is the bar ----------
     backbone = {}
@@ -130,14 +238,37 @@ def main(argv=None) -> int:
     # so the comparison is bank-to-bank, and the fusion is checked separately at
     # every step count the grid divides by -- which is the property that
     # replaced the precompute.
-    kij_bank = kij["diffusion_model.final_layer.video_out.set_weight"].reshape(32, -1, 5376)
-    report["kijai_bank_is_the_published_stack"] = rel(kij_bank, src["proj_out.weight"])
-    report["our_bank_is_the_published_stack"] = rel(
-        ours["h3_pdd.bank.video.weight"], src["proj_out.weight"])
-    report["fusion_from_either_bank_agrees"] = {
-        str(nfe): rel(fuse_heads(ours["h3_pdd.bank.video.weight"], 12.0, 32, 32 // nfe),
-                      fuse_heads(kij_bank, 12.0, 32, 32 // nfe))
-        for nfe in (8, 4, 2)}
+    #
+    # Both streams, weight and bias. Only video was compared until 2026-08-27,
+    # which left the audio head -- a different shape, its own shift, and its own
+    # entry in his file -- resting on the video result. His current encoding
+    # carries a bias bank too, so that is compared rather than assumed.
+    pruned_ckpt = DIFFUSION / f"minimax_h3_{part}_pruned_int8_convrot.safetensors"
+    banks, encodings = {}, {}
+    for stream, w_key, b_key in (("video", "proj_out.weight", "proj_out.bias"),
+                                 ("audio", "audio_proj_out.weight",
+                                  "audio_proj_out.bias")):
+        bw, bb = base_head(pruned_ckpt, stream)
+        enc, kw, kb = kijai_bank(kij, stream, bw, bb)
+        encodings[stream] = enc
+        banks[stream] = kw
+        shift = 12.0 if stream == "video" else 3.0
+        row = {
+            "kijai_bank_is_the_published_stack": rel(kw, src[w_key]),
+            "our_bank_is_the_published_stack": rel(
+                ours[f"h3_pdd.bank.{stream}.weight"], src[w_key]),
+            "our_bias_is_the_published_stack": rel(
+                ours[f"h3_pdd.bank.{stream}.bias"], src[b_key]),
+            "fusion_from_either_bank_agrees": {
+                str(nfe): rel(
+                    fuse_heads(ours[f"h3_pdd.bank.{stream}.weight"], shift, 32, 32 // nfe),
+                    fuse_heads(kw, shift, 32, 32 // nfe))
+                for nfe in (8, 4, 2)},
+        }
+        if kb is not None:
+            row["kijai_bias_is_the_published_stack"] = rel(kb, src[b_key])
+        report[stream] = row
+    report["kijai_head_encoding"] = encodings
 
     # --- adaln bake: two approximations, both scored against ground truth ---
     # The 2688-dim pairs and the grid live in the UNPRUNED conversion now: a
@@ -173,13 +304,21 @@ def main(argv=None) -> int:
     print("backbone against Kijai's independent conversion (exact transforms):")
     for k, v in backbone.items():
         print(f"  {k:16s} {v:.2e}")
-    print(f"his bank is the published 32-stack     : "
-          f"{report['kijai_bank_is_the_published_stack']:.2e}")
-    print(f"our bank is the published 32-stack     : "
-          f"{report['our_bank_is_the_published_stack']:.2e}")
-    print("fusing either bank agrees, per step count:")
-    for k, v in report["fusion_from_either_bank_agrees"].items():
-        print(f"  nfe {k:>2}  {v:.2e}")
+    for stream in ("video", "audio"):
+        row = report[stream]
+        print(f"{stream} head, his encoding {encodings[stream]!r}:")
+        print(f"  his bank is the published 32-stack   : "
+              f"{row['kijai_bank_is_the_published_stack']:.2e}")
+        print(f"  our bank is the published 32-stack   : "
+              f"{row['our_bank_is_the_published_stack']:.2e}")
+        if "kijai_bias_is_the_published_stack" in row:
+            print(f"  his bias is the published 32-stack   : "
+                  f"{row['kijai_bias_is_the_published_stack']:.2e}")
+        print(f"  our bias is the published 32-stack   : "
+              f"{row['our_bias_is_the_published_stack']:.2e}")
+        print("  fusing either bank agrees, per step count:")
+        for k, v in row["fusion_from_either_bank_agrees"].items():
+            print(f"    nfe {k:>2}  {v:.2e}")
     print("adaln bake, each against ground truth:")
     print(f"  {'block':>6} {'ours':>12} {'kijai':>12}")
     for i, row in adaln.items():

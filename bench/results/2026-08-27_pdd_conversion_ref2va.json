@@ -1,0 +1,71 @@
+{
+  "date": "2026-08-27",
+  "partition": "ref2va",
+  "files": {
+    "ours": "minimax_h3_ref2va_pdd_8step_comfy.safetensors",
+    "kijai": "MiniMax-H3-Ref2VA-Acc-8Step_comfy.safetensors",
+    "kijai_pruned": "MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors",
+    "source": "MiniMax-H3-Ref2VA-Acc-8Step.safetensors"
+  },
+  "sha256": {
+    "ours": "7c55e0a5e07798dd1a11766cc2dda9c7adb1ad5454c65d78641f438b50f8a61a",
+    "kijai": "ce68f787e2c275a8dee0cbb5c6a12092052f678fe2d95a5cd4125605f3235d1f",
+    "kijai_pruned": "c0efad0058616f3792f6ba458087fe860fd3ebb1fe77c5d64ad257ca0ef487b4",
+    "source": "111c82e669f6e20e628228172edf39395f1a9fc3ad049793895e542c0f55b18c"
+  },
+  "backbone_vs_kijai": {
+    "attn.qkv_proj": 6.702493247283352e-20,
+    "attn.out_proj": 0.0,
+    "mlp.fc1": 0.0,
+    "mlp.fc2": 0.0
+  },
+  "video": {
+    "kijai_bank_is_the_published_stack": 8.760942194657098e-11,
+    "our_bank_is_the_published_stack": 0.0,
+    "our_bias_is_the_published_stack": 0.0,
+    "fusion_from_either_bank_agrees": {
+      "8": 6.375625062172854e-11,
+      "4": 5.452680039779991e-11,
+      "2": 4.252757994598254e-11
+    },
+    "kijai_bias_is_the_published_stack": 0.0
+  },
+  "audio": {
+    "kijai_bank_is_the_published_stack": 5.5935532726623777e-11,
+    "our_bank_is_the_published_stack": 0.0,
+    "our_bias_is_the_published_stack": 0.0,
+    "fusion_from_either_bank_agrees": {
+      "8": 4.369369406601143e-11,
+      "4": 4.080399253714446e-11,
+      "2": 3.5454770842629934e-11
+    },
+    "kijai_bias_is_the_published_stack": 1.8714340619311663e-11
+  },
+  "kijai_head_encoding": {
+    "video": "reshape_weight",
+    "audio": "reshape_weight"
+  },
+  "adaln_bake_vs_truth": {
+    "0": {
+      "ours": 7.760923240968967e-05,
+      "kijai": 8.265868815371668e-05
+    },
+    "12": {
+      "ours": 6.786601842990897e-05,
+      "kijai": 0.0001563878718636202
+    },
+    "25": {
+      "ours": 8.097660414871638e-05,
+      "kijai": 7.768707223229026e-05
+    },
+    "37": {
+      "ours": 0.00011166466727028732,
+      "kijai": 0.00018188734226755915
+    },
+    "49": {
+      "ours": 2.7847805527417775e-05,
+      "kijai": 3.6775856384081446e-05
+    }
+  },
+  "note": "Kijai stores the projection as bf16 factors and we store the fp32 product, which is the whole of the difference between the two adaln columns. Both are the same projection and both are far below bf16 resolution."
+}

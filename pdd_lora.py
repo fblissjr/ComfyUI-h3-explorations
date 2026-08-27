@@ -303,10 +303,27 @@ def _make_final_layer_forward(base_forward, tracker):
     Deliberately does not reimplement the modulation maths: the two head swaps
     below are separate patches on the output linears, so `FinalLayer.forward`
     stays upstream's and a change to it does not silently diverge here.
+
+    **The trailing `*args` is load-bearing and is not defensive padding.**
+    Comfy-Org/ComfyUI#15908 (open 2026-08-27, `comfy/ldm/minimax/model.py`
+    only) adds PDD support to core and widens this exact signature to
+    `(x, t_emb, video_seg, audio_seg, sigma, sample_sigmas, shifts)`. An object
+    patch replaces the method, so the four names we bind are the four we read
+    and everything after them has to reach `base_forward` untouched or the
+    stock forward loses arguments it now requires. Pinned to four, this node
+    raises a TypeError on the first sampling step the day that merges.
+
+    Widening costs nothing here and is not a claim that the rest of the node
+    survives core learning PDD. It does not: core keys off
+    `video_out.weight.shape[0] // out_features`, our converted file leaves that
+    weight its original size, so core takes its `n == 1` path and our two
+    output-linear patches still own the head swap. That is correct, and it is
+    also two implementations of one mechanism sitting in one process. See
+    `docs/h3_pdd.md`.
     """
-    def forward(x, t_emb, video_seg, audio_seg):
+    def forward(x, t_emb, video_seg, audio_seg, *args, **kwargs):
         tracker.update(t_emb, video_seg, audio_seg)
-        return base_forward(x, t_emb, video_seg, audio_seg)
+        return base_forward(x, t_emb, video_seg, audio_seg, *args, **kwargs)
     return forward
 
 
