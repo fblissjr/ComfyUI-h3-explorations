@@ -497,8 +497,34 @@ def post_pr_core():
     return "7 args forward verbatim; selection still reads only the first 4"
 
 
+def refuses_to_stack():
+    """A second owner of the output heads is refused, not silently clobbered.
+
+    `add_object_patch` is last-writer-wins per key and the two head swaps live
+    on their own keys, so chaining the bookkeeping wrapper would not save it --
+    two things cannot both own `video_out`.
+
+    The case needing no other pack installed is two of THIS node in one chain.
+    At least two other ComfyUI implementations patch the same attribute for
+    their own PDD artifact families, so the collision is a property of the patch
+    point rather than of what is in `custom_nodes/` on any given day.
+    """
+    assert P.head_patch_clash({}) == [], (
+        "a clean model reported a clash, which would refuse every render")
+    assert P.head_patch_clash({"diffusion_model.blocks.0.attn.forward": 1}) == [], (
+        "an unrelated forward patch reported a clash. Sage and Sol patch block "
+        "attention on every shipped graph, so this would refuse all of them.")
+    for key in P.HEAD_PATCH_KEYS:
+        assert P.head_patch_clash({key: 1}) == [key], (
+            f"{key} was already taken and went unreported")
+    both = P.head_patch_clash({k: 1 for k in P.HEAD_PATCH_KEYS})
+    assert both == list(P.HEAD_PATCH_KEYS), f"partial report: {both}"
+    return f"{len(P.HEAD_PATCH_KEYS)} head keys reported, attention patches ignored"
+
+
 check("today's core signature", todays_core)
 check("the signature #15908 introduces", post_pr_core)
+check("a second owner of the heads is refused", refuses_to_stack)
 
 print()
 if failures:

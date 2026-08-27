@@ -496,6 +496,24 @@ def _make_final_layer_forward(base_forward, tracker):
     return forward
 
 
+#: The three keys this node takes when it installs the head swap. Anything
+#: already holding one of them owns H3's output projections, and two owners is
+#: a silently wrong render.
+HEAD_PATCH_KEYS = ("diffusion_model.final_layer.forward",
+                   "diffusion_model.final_layer.video_out.forward",
+                   "diffusion_model.final_layer.audio_out.forward")
+
+
+def head_patch_clash(object_patches) -> list[str]:
+    """Which of this node's head-patch keys are already taken.
+
+    A free function so the guard can be graded without a loaded H3 -- the
+    predicate is the whole of it, and the call site is one `if`. Takes the
+    patch mapping rather than a ModelPatcher for the same reason.
+    """
+    return [k for k in HEAD_PATCH_KEYS if k in object_patches]
+
+
 def _make_capture_forward(base_forward, tracker):
     """Observe the sampler's schedule, then the stock forward.
 
@@ -728,6 +746,28 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         ref = sd.get("h3_pdd.base_video_out")
         if ref is not None:
             live = dm.final_layer.video_out.weight.detach().to(torch.float32).cpu()
+            # Shape first, because a differently-SHAPED head is a different
+            # failure from a different partition and the subtraction below
+            # raises an unreadable broadcast error on it.
+            #
+            # Observed 2026-08-27 under Comfy-Org/ComfyUI#15908: a graph that
+            # ran Kijai's PDD file left `video_out.weight` resident at
+            # [32*out, in], and the next graph through this node read the
+            # enlarged tensor off the cached model. That is what an
+            # enlarging-patch approach costs -- the shape change outlives the
+            # graph that asked for it -- and it is the reason ours patches the
+            # projection's forward instead of resizing its weight.
+            if live.shape != ref.shape:
+                raise RuntimeError(
+                    f"{lora_name}: this model's final_layer.video_out is "
+                    f"{tuple(live.shape)}, not the {tuple(ref.shape)} it was "
+                    f"converted against. A head that is an exact multiple of "
+                    f"the expected rows is an ENLARGED PDD head bank left "
+                    f"resident by another implementation -- core reads "
+                    f"`weight.shape[0] // out_features` as its interval count, "
+                    f"so the tensor survives on the cached model after the "
+                    f"graph that installed it. Restart ComfyUI, or run that "
+                    f"graph and this one in separate sessions.")
             dist = float((live - ref.to(torch.float32)).norm() / ref.norm())
             if dist > PARTITION_TOLERANCE:
                 raise RuntimeError(
@@ -899,6 +939,29 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         # model's own code, or the claim is only nearly true and the control
         # arm is only nearly a control.
         if patch_heads and strength != 0.0:
+            # Refuse to stack, rather than clobber. `add_object_patch` is
+            # last-writer-wins per key, and the head swaps live on separate
+            # keys from the bookkeeping wrapper, so two implementations both
+            # replacing the output projections produce a plausible wrong render
+            # with nothing said. Chaining would not help: two things cannot both
+            # own `video_out`.
+            #
+            # The always-reachable case is two of THIS node in one chain, which
+            # needs no other pack installed. Beyond that, at least two other
+            # ComfyUI implementations patch the same attribute for their own
+            # PDD artifact families -- `ComfyUI-MiniMaxH3-PDD-Mamad8` and
+            # `silveroxides/ComfyUI-UtilsCollection` -- so the collision is a
+            # property of the patch point rather than of what happens to be in
+            # `custom_nodes/` today. Guard adopted from the latter.
+            taken = head_patch_clash(m.object_patches)
+            if taken:
+                raise RuntimeError(
+                    f"{lora_name}: something upstream in this graph has already "
+                    f"patched {', '.join(taken)}. Two things cannot own H3's "
+                    f"output heads -- the second silently wins and the render "
+                    f"looks entirely normal. Remove the other PDD or head-swap "
+                    f"node, or set patch_heads=False here to run this one as "
+                    f"the backbone-and-adaln arm.")
             m.add_object_patch(
                 "diffusion_model.final_layer.forward",
                 _make_final_layer_forward(final_layer.forward, tracker))
