@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Standalone copy of the published page. The Artifact host supplies a
+     doctype, a head and a minimal reset around the same content; this file
+     carries them itself so it opens from disk. The body below is verbatim.
+     Web fonts are the one network dependency and every face has a local
+     fallback stack, so this renders offline. -->
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; }
+  img, svg, video { max-width: 100%; height: auto; }
+</style>
+<title>Two PDD Paths</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:   #F5F7F9;
+    --surface:  #FFFFFF;
+    --sunken:   #EDF1F4;
+    --ink:      #141A21;
+    --muted:    #5D6A78;
+    --faint:    #8B98A6;
+    --rule:     #C7D0D9;
+    --hair:     #DEE5EB;
+    --ours:     #0E7C86;
+    --ours-bg:  #E2F1F2;
+    --kijai:    #B4531A;
+    --kijai-bg: #F7E9DE;
+    --warn:     #A61B3C;
+    --warn-bg:  #F8E4E9;
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --measure: 68ch;
+    --wide: 1180px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0F141A;
+      --surface:  #161D25;
+      --sunken:   #1C242E;
+      --ink:      #E3E9EF;
+      --muted:    #97A4B2;
+      --faint:    #6D7B8A;
+      --rule:     #33404D;
+      --hair:     #26313B;
+      --ours:     #3FBFC9;
+      --ours-bg:  #10333A;
+      --kijai:    #E8894A;
+      --kijai-bg: #3A2416;
+      --warn:     #F0637E;
+      --warn-bg:  #3A1622;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #0F141A;
+    --surface:  #161D25;
+    --sunken:   #1C242E;
+    --ink:      #E3E9EF;
+    --muted:    #97A4B2;
+    --faint:    #6D7B8A;
+    --rule:     #33404D;
+    --hair:     #26313B;
+    --ours:     #3FBFC9;
+    --ours-bg:  #10333A;
+    --kijai:    #E8894A;
+    --kijai-bg: #3A2416;
+    --warn:     #F0637E;
+    --warn-bg:  #3A1622;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 24px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: var(--wide); margin: 0 auto; }
+  .col  { max-width: var(--measure); }
+
+  /* ---------- masthead ---------- */
+
+  header.masthead {
+    padding: 72px 0 40px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 18px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.2rem, 5.4vw, 3.4rem);
+    line-height: 1.04;
+    letter-spacing: -0.024em;
+    text-wrap: balance;
+    margin: 0 0 20px;
+  }
+  .standfirst {
+    font-size: 1.16rem;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  /* ---------- dated status strip ---------- */
+
+  .asof {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 36px 0 0;
+  }
+  .asof div { background: var(--surface); padding: 14px 16px; }
+  .asof dt {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 5px;
+  }
+  .asof dd { margin: 0; font-size: 0.92rem; line-height: 1.45; }
+
+  /* ---------- sections ---------- */
+
+  section { margin: 0 0 76px; }
+  .stage {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--hair);
+  }
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(1.45rem, 2.7vw, 1.95rem);
+    line-height: 1.16;
+    letter-spacing: -0.016em;
+    text-wrap: balance;
+    margin: 0 0 14px;
+  }
+  h3 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.06rem;
+    letter-spacing: -0.006em;
+    margin: 30px 0 8px;
+  }
+  p { margin: 0 0 16px; }
+  p.lede { font-size: 1.05rem; color: var(--muted); }
+  a { color: var(--ours); text-underline-offset: 3px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--ours);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.865em;
+    background: var(--sunken);
+    padding: 0.12em 0.36em;
+    border-radius: 2px;
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.62;
+    background: var(--sunken);
+    border: 1px solid var(--hair);
+    border-left: 2px solid var(--rule);
+    border-radius: 3px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 0 0 18px;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  pre.ours  { border-left-color: var(--ours); }
+  pre.kijai { border-left-color: var(--kijai); }
+
+  /* ---------- identity legend ---------- */
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 26px;
+    align-items: center;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 3px;
+    margin: 0 0 40px;
+    font-size: 0.9rem;
+  }
+  .key { display: inline-flex; align-items: center; gap: 9px; }
+  .swatch {
+    width: 26px; height: 3px; border-radius: 2px; flex: none;
+  }
+  .swatch.o { background: var(--ours); }
+  .swatch.k { background: var(--kijai); }
+  .swatch.n { background: var(--rule); }
+  .key b { font-weight: 600; }
+
+  /* ---------- figures ---------- */
+
+  figure { margin: 0 0 14px; }
+  .scroller {
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 3px;
+    padding: 20px 18px;
+  }
+  .scroller svg { display: block; max-width: 100%; height: auto; min-width: 720px; }
+  figcaption {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--muted);
+    margin-top: 12px;
+    max-width: 76ch;
+  }
+
+  /* SVG classes — every colour resolves from a token defined on bare :root */
+  .n-box   { fill: var(--surface); stroke: var(--rule); stroke-width: 1.4; }
+  .n-sunk  { fill: var(--sunken);  stroke: var(--rule); stroke-width: 1.4; }
+  .n-ours  { fill: var(--ours-bg);  stroke: var(--ours);  stroke-width: 1.8; }
+  .n-kij   { fill: var(--kijai-bg); stroke: var(--kijai); stroke-width: 1.8; }
+  .n-warn  { fill: var(--warn-bg);  stroke: var(--warn);  stroke-width: 1.6; }
+  .n-dash  { fill: none; stroke: var(--faint); stroke-width: 1.3; stroke-dasharray: 5 4; }
+  .ln      { stroke: var(--rule); stroke-width: 1.4; fill: none; }
+  .ln-o    { stroke: var(--ours); stroke-width: 1.7; fill: none; }
+  .ln-k    { stroke: var(--kijai); stroke-width: 1.7; fill: none; }
+  .ln-w    { stroke: var(--warn); stroke-width: 1.6; fill: none; }
+  .ln-d    { stroke: var(--faint); stroke-width: 1.3; fill: none; stroke-dasharray: 5 4; }
+  .tick    { stroke: var(--rule); stroke-width: 1.2; }
+  .tick-b  { stroke: var(--ink); stroke-width: 1.8; }
+  .t       { fill: var(--ink); font-family: "IBM Plex Sans", sans-serif; font-size: 12.5px; font-weight: 500; }
+  .t-s     { fill: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10.5px; }
+  .t-m     { fill: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+  .t-lbl   { fill: var(--faint); font-family: "IBM Plex Mono", monospace; font-size: 9.5px; letter-spacing: 0.09em; }
+  .t-o     { fill: var(--ours); font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500; }
+  .t-k     { fill: var(--kijai); font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500; }
+  .t-w     { fill: var(--warn); font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 500; }
+  .t-hd-o  { fill: var(--ours); font-family: "Archivo", sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
+  .t-hd-k  { fill: var(--kijai); font-family: "Archivo", sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
+  .fill-o  { fill: var(--ours); }
+  .fill-k  { fill: var(--kijai); }
+  .fill-r  { fill: var(--rule); }
+  .fill-s  { fill: var(--sunken); }
+
+  /* ---------- table ---------- */
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 940px;
+    font-size: 0.855rem;
+    font-variant-numeric: tabular-nums;
+  }
+  caption {
+    caption-side: top;
+    text-align: left;
+    font-size: 0.875rem;
+    color: var(--muted);
+    padding-bottom: 12px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--hair);
+    white-space: nowrap;
+  }
+  thead th {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--faint);
+    border-bottom: 1px solid var(--rule);
+    vertical-align: bottom;
+  }
+  tbody th {
+    font-family: var(--mono);
+    font-size: 0.79rem;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  td.num { font-family: var(--mono); }
+  tr.grp8 td, tr.grp8 th { background: var(--surface); }
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    padding: 2px 7px;
+    border-radius: 2px;
+    border: 1px solid var(--rule);
+    color: var(--muted);
+  }
+  .tag.on { border-color: var(--ours); color: var(--ours); }
+
+  /* ---------- divergence list ---------- */
+
+  .div-list { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; }
+  .div-item { background: var(--surface); padding: 18px 20px; }
+  .div-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+  .div-head h3 { margin: 0; font-size: 1rem; }
+  .chip {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 2.5px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .chip.live { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn); }
+  .chip.closed { background: var(--ours-bg); color: var(--ours); border: 1px solid var(--ours); }
+  .chip.edge { background: var(--sunken); color: var(--muted); border: 1px solid var(--rule); }
+  .div-item p { margin: 0 0 8px; font-size: 0.95rem; }
+  .div-item p:last-child { margin-bottom: 0; }
+
+  /* ---------- verified strip ---------- */
+
+  .verified {
+    border: 1px solid var(--hair);
+    border-left: 2px solid var(--ours);
+    border-radius: 3px;
+    background: var(--surface);
+    padding: 18px 20px;
+    margin: 0 0 22px;
+  }
+  .verified h3 { margin: 0 0 10px; font-size: 0.98rem; }
+  .verified table { min-width: 0; width: auto; }
+  .verified td { border-bottom: 1px solid var(--hair); padding: 6px 22px 6px 0; white-space: normal; }
+  .verified tr:last-child td { border-bottom: none; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 22px;
+    color: var(--faint);
+    font-size: 0.855rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">MiniMax H3 &middot; Parallel Decoding Distillation</p>
+    <h1>Two PDD Paths</h1>
+    <p class="standfirst">The same alibaba-pai acceleration weights, wired two ways: ours through a custom node that fuses the head bank once at load, and Kijai's through a stock LoRA loader and a change to ComfyUI core that fuses inside every forward. Traced end to end through the four shipped PDD workflows.</p>
+
+    <dl class="asof">
+      <div>
+        <dt>Kijai's artifacts</dt>
+        <dd>All four PDD files in the Kijai experimental directory were re-downloaded <b>2026-08-27</b>. The head-bank encoding changed that day.</dd>
+      </div>
+      <div>
+        <dt>PR 15908</dt>
+        <dd><b>Open</b> as of 2026-08-27. Its diff contains one file, <code>comfy/ldm/minimax/model.py</code>, at +27 / &minus;3.</dd>
+      </div>
+      <div>
+        <dt>What is settled</dt>
+        <dd>Both conversions carry the same published weights. The divergence is entirely in packaging and in when the fusion happens.</dd>
+      </div>
+    </dl>
+  </header>
+
+  <div class="legend">
+    <span class="key"><span class="swatch o"></span><b>Ours</b> &mdash; <code>MiniMaxH3PDDLoRA</code>, <code>pdd_lora.py</code></span>
+    <span class="key"><span class="swatch k"></span><b>Kijai's</b> &mdash; stock loader plus PR 15908</span>
+    <span class="key"><span class="swatch n"></span>Shared &mdash; identical in both paths</span>
+  </div>
+
+  <section>
+    <div class="col">
+      <p class="stage">Graph</p>
+      <h2>One spine, four graphs, one slot that differs</h2>
+      <p class="lede">Every PDD workflow in the repo is the same chain with one node swapped. Two facts in the drawing are load-bearing and easy to miss in prose: the accelerator sits <em>upstream</em> of the sigma shift and the attention nodes, and <code>BasicScheduler</code> hangs off the <em>end</em> of that chain &mdash; so the shift the sampler's sigmas are built from is the one the accelerator node has already seen.</p>
+    </div>
+
+    <figure>
+      <div class="scroller">
+        <svg viewBox="0 0 1280 420" role="img" aria-label="The shared node chain of all four PDD workflows: a model lane running from UNETLoader through the accelerator slot, sigma shift, sage attention, Sol attention and the chain assert into BasicScheduler and BasicGuider; and a conditioning lane running from resolution and optional reference images through the conditioning node and preflight into the guider and sampler; both converging on SamplerCustomAdvanced and out through the two VAE decoders to the video combiner.">
+          <defs>
+            <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-r"/>
+            </marker>
+            <marker id="a1o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-o"/>
+            </marker>
+          </defs>
+
+          <!-- lane labels -->
+          <text x="14" y="24" class="t-lbl">MODEL LANE &mdash; ORDER IS LOAD-BEARING</text>
+          <text x="14" y="184" class="t-lbl">CONDITIONING LANE</text>
+
+          <!-- model lane boxes -->
+          <rect x="14"  y="40" width="118" height="40" rx="3" class="n-box"/>
+          <text x="73"  y="65" class="t" text-anchor="middle">UNETLoader</text>
+
+          <rect x="154" y="40" width="118" height="40" rx="3" class="n-ours"/>
+          <text x="213" y="59" class="t-o" text-anchor="middle">accelerator</text>
+          <text x="213" y="73" class="t-o" text-anchor="middle">slot</text>
+
+          <rect x="294" y="40" width="118" height="40" rx="3" class="n-box"/>
+          <text x="353" y="59" class="t" text-anchor="middle">SigmaShift</text>
+          <text x="353" y="73" class="t-s" text-anchor="middle">12.0 / 3.0</text>
+
+          <rect x="434" y="40" width="118" height="40" rx="3" class="n-box"/>
+          <text x="493" y="65" class="t" text-anchor="middle">SageAttention</text>
+
+          <rect x="574" y="40" width="118" height="40" rx="3" class="n-box"/>
+          <text x="633" y="59" class="t" text-anchor="middle">SolAttnMiniMax</text>
+          <text x="633" y="73" class="t-s" text-anchor="middle">end_percent</text>
+
+          <rect x="714" y="40" width="118" height="40" rx="3" class="n-box"/>
+          <text x="773" y="65" class="t" text-anchor="middle">ChainAssert</text>
+
+          <line x1="132" y1="60" x2="152" y2="60" class="ln" marker-end="url(#a1)"/>
+          <line x1="272" y1="60" x2="292" y2="60" class="ln" marker-end="url(#a1)"/>
+          <line x1="412" y1="60" x2="432" y2="60" class="ln" marker-end="url(#a1)"/>
+          <line x1="552" y1="60" x2="572" y2="60" class="ln" marker-end="url(#a1)"/>
+          <line x1="692" y1="60" x2="712" y2="60" class="ln" marker-end="url(#a1)"/>
+
+          <!-- fork out of the chain -->
+          <polyline points="832,60 856,60 856,31 876,31" class="ln" marker-end="url(#a1)"/>
+          <polyline points="856,60 856,113 876,113" class="ln" marker-end="url(#a1)"/>
+          <text x="862" y="88" class="t-lbl">MODEL</text>
+
+          <rect x="878" y="14" width="140" height="34" rx="3" class="n-box"/>
+          <text x="948" y="35" class="t" text-anchor="middle">BasicScheduler</text>
+
+          <rect x="878" y="96" width="140" height="34" rx="3" class="n-box"/>
+          <text x="948" y="117" class="t" text-anchor="middle">BasicGuider</text>
+
+          <!-- conditioning lane -->
+          <rect x="14" y="196" width="236" height="72" rx="4" class="n-dash"/>
+          <text x="24" y="212" class="t-lbl">IMAGE-REF GRAPHS ONLY &mdash; 2 OF 4</text>
+          <rect x="26" y="220" width="94" height="34" rx="3" class="n-box"/>
+          <text x="73" y="241" class="t" text-anchor="middle">LoadImage</text>
+          <text x="73" y="266" class="t-s" text-anchor="middle">&times; 2</text>
+          <rect x="146" y="220" width="94" height="34" rx="3" class="n-box"/>
+          <text x="193" y="236" class="t" text-anchor="middle">Append</text>
+          <text x="193" y="249" class="t" text-anchor="middle">RefImage</text>
+          <line x1="120" y1="237" x2="144" y2="237" class="ln" marker-end="url(#a1)"/>
+
+          <rect x="14" y="300" width="118" height="34" rx="3" class="n-box"/>
+          <text x="73" y="321" class="t" text-anchor="middle">Resolution</text>
+
+          <rect x="290" y="212" width="164" height="42" rx="3" class="n-box"/>
+          <text x="372" y="230" class="t" text-anchor="middle">Conditioning</text>
+          <text x="372" y="245" class="t-s" text-anchor="middle">Qwen3-VL + VAE</text>
+
+          <rect x="494" y="212" width="130" height="42" rx="3" class="n-box"/>
+          <text x="559" y="238" class="t" text-anchor="middle">Preflight</text>
+
+          <line x1="250" y1="233" x2="288" y2="233" class="ln" marker-end="url(#a1)"/>
+          <polyline points="132,317 262,317 262,244 288,244" class="ln" marker-end="url(#a1)"/>
+          <line x1="454" y1="233" x2="492" y2="233" class="ln" marker-end="url(#a1)"/>
+
+          <!-- preflight out -->
+          <polyline points="624,224 700,224 700,113 876,113" class="ln" marker-end="url(#a1)"/>
+          <text x="706" y="160" class="t-lbl">CONDITIONING</text>
+          <polyline points="624,244 760,244 760,236 876,236" class="ln" marker-end="url(#a1)"/>
+          <text x="766" y="230" class="t-lbl">LATENT</text>
+
+          <!-- sampler -->
+          <rect x="878" y="212" width="160" height="44" rx="3" class="n-box"/>
+          <text x="958" y="230" class="t" text-anchor="middle">SamplerCustom</text>
+          <text x="958" y="245" class="t" text-anchor="middle">Advanced</text>
+
+          <polyline points="948,48 948,70 1058,70 1058,204 958,204 958,210" class="ln" marker-end="url(#a1)"/>
+          <text x="1064" y="66" class="t-lbl">SIGMAS</text>
+          <polyline points="948,130 948,150 1002,150 1002,210" class="ln" marker-end="url(#a1)"/>
+          <text x="1008" y="148" class="t-lbl">GUIDER</text>
+
+          <rect x="714" y="300" width="140" height="34" rx="3" class="n-box"/>
+          <text x="784" y="321" class="t" text-anchor="middle">KSamplerSelect</text>
+          <text x="784" y="348" class="t-s" text-anchor="middle">euler</text>
+          <polyline points="854,317 906,317 906,258" class="ln" marker-end="url(#a1)"/>
+          <text x="912" y="300" class="t-lbl">SAMPLER</text>
+
+          <!-- decode -->
+          <rect x="1078" y="196" width="124" height="32" rx="3" class="n-box"/>
+          <text x="1140" y="216" class="t" text-anchor="middle">VAEDecode</text>
+          <rect x="1078" y="238" width="124" height="32" rx="3" class="n-box"/>
+          <text x="1140" y="252" class="t" text-anchor="middle">VAEDecode</text>
+          <text x="1140" y="264" class="t" text-anchor="middle">Audio</text>
+          <line x1="1038" y1="222" x2="1076" y2="212" class="ln" marker-end="url(#a1)"/>
+          <line x1="1038" y1="240" x2="1076" y2="252" class="ln" marker-end="url(#a1)"/>
+
+          <rect x="1078" y="316" width="124" height="34" rx="3" class="n-box"/>
+          <text x="1140" y="337" class="t" text-anchor="middle">VideoCombine</text>
+          <polyline points="1140,228 1140,238" class="ln"/>
+          <line x1="1140" y1="270" x2="1140" y2="314" class="ln" marker-end="url(#a1)"/>
+
+          <!-- the slot callout -->
+          <polyline points="213,88 213,116 246,116" class="ln-o" marker-end="url(#a1o)"/>
+          <text x="252" y="112" class="t-o">ours: MiniMaxH3PDDLoRA &nbsp;/&nbsp; his: LoraLoaderModelOnly</text>
+          <text x="252" y="128" class="t-s">everything else on this page is identical between the two</text>
+        </svg>
+      </div>
+      <figcaption>The shared chain of all four PDD graphs. The two text-to-video graphs run <code>MiniMaxH3Conditioning</code> against the fl2va checkpoint and omit the dashed reference group entirely; the two image-ref graphs run <code>MiniMaxH3ReferenceConditioning</code> against ref2va with two <code>LoadImage</code> and two <code>MiniMaxH3AppendRefImage</code> nodes. All four carry <code>euler</code>, <code>simple</code>, shift 12.0 / 3.0 and seed 730451892.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="col">
+      <p class="stage">Load time</p>
+      <h2>Where the head bank goes</h2>
+      <p class="lede">This is the divergence everything downstream inherits. Ours never touches the checkpoint's output projection: the fused heads live in a closure and are applied by an object patch. His replaces that projection outright, because ComfyUI's generic LoRA adapter is allowed to change a weight's shape &mdash; so after load his model's <code>final_layer.video_out.weight</code> is thirty-two times taller than ours.</p>
+    </div>
+
+    <figure>
+      <div class="scroller">
+        <svg viewBox="0 0 1180 620" role="img" aria-label="Side by side load-time comparison. On the left, our node reads a converted file and splits it three ways into weight patches, a fused head bank held in a closure, and boundary embeddings, leaving the checkpoint projection at 96 by 5376. On the right, a stock loader hands Kijai's file to ComfyUI's generic weight adapter, which pads the projection with zeros to 3072 by 5376 and adds the factored bank, enlarging the weight in place.">
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-r"/>
+            </marker>
+            <marker id="a2o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-o"/>
+            </marker>
+            <marker id="a2k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-k"/>
+            </marker>
+          </defs>
+
+          <line x1="590" y1="10" x2="590" y2="606" class="ln-d"/>
+
+          <!-- ============ OURS ============ -->
+          <text x="14" y="24" class="t-hd-o">OURS</text>
+          <text x="80" y="24" class="t-s">custom node, nothing in core</text>
+
+          <rect x="14" y="38" width="546" height="46" rx="3" class="n-sunk"/>
+          <text x="26" y="57" class="t-m">minimax_h3_ref2va_pdd_8step_comfy.safetensors</text>
+          <text x="26" y="74" class="t-s">730 tensors &nbsp;&middot;&nbsp; pdd_num_steps 32 &nbsp;&middot;&nbsp; pdd_nfe 8 &nbsp;&middot;&nbsp; pdd_block_size 4 &nbsp;&middot;&nbsp; shifts 12.0 / 3.0</text>
+
+          <line x1="287" y1="84" x2="287" y2="102" class="ln-o" marker-end="url(#a2o)"/>
+
+          <rect x="14" y="104" width="546" height="40" rx="3" class="n-ours"/>
+          <text x="287" y="121" class="t-o" text-anchor="middle">MiniMaxH3PDDLoRA.execute</text>
+          <text x="287" y="136" class="t-s" text-anchor="middle">partition check: ||live &minus; base_video_out|| / ||base_video_out|| vs tolerance</text>
+
+          <!-- three fan-outs -->
+          <polyline points="287,144 287,158 106,158 106,176" class="ln-o" marker-end="url(#a2o)"/>
+          <polyline points="287,144 287,176" class="ln-o" marker-end="url(#a2o)"/>
+          <polyline points="287,144 287,158 468,158 468,176" class="ln-o" marker-end="url(#a2o)"/>
+
+          <rect x="14" y="178" width="184" height="86" rx="3" class="n-box"/>
+          <text x="106" y="196" class="t" text-anchor="middle">weight patches</text>
+          <text x="24" y="214" class="t-s">208 backbone modules</text>
+          <text x="24" y="229" class="t-s">50 adaln diff / diff_b</text>
+          <text x="24" y="244" class="t-s">[96768, 8] fp32</text>
+          <text x="24" y="259" class="t-s">comfy.lora.load_lora</text>
+
+          <rect x="206" y="178" width="162" height="86" rx="3" class="n-box"/>
+          <text x="287" y="196" class="t" text-anchor="middle">fuse_heads</text>
+          <text x="216" y="214" class="t-s">bank [32, 96, 5376]</text>
+          <text x="216" y="229" class="t-s">float64 tensordot</text>
+          <text x="216" y="244" class="t-o">&rarr; [nfe, 96, 5376]</text>
+          <text x="216" y="259" class="t-s">once, before step 0</text>
+
+          <rect x="376" y="178" width="184" height="86" rx="3" class="n-box"/>
+          <text x="468" y="196" class="t" text-anchor="middle">boundary table</text>
+          <text x="386" y="214" class="t-s">adaln_t_table [1025, 8]</text>
+          <text x="386" y="229" class="t-s">block_bounds(shift, 32, bs)</text>
+          <text x="386" y="244" class="t-o">&rarr; [nfe+1, D] per stream</text>
+          <text x="386" y="259" class="t-s">model's own arithmetic</text>
+
+          <polyline points="106,264 106,282 287,282 287,298" class="ln-o" marker-end="url(#a2o)"/>
+          <polyline points="287,264 287,298" class="ln-o"/>
+          <polyline points="468,264 468,282 287,282" class="ln-o"/>
+
+          <rect x="14" y="300" width="546" height="40" rx="3" class="n-box"/>
+          <text x="287" y="317" class="t" text-anchor="middle">m.add_patches(loaded, strength) &nbsp;+&nbsp; 3 object patches</text>
+          <text x="287" y="332" class="t-s" text-anchor="middle">final_layer.forward &nbsp;&middot;&nbsp; video_out.forward &nbsp;&middot;&nbsp; audio_out.forward</text>
+
+          <line x1="287" y1="340" x2="287" y2="374" class="ln-o" marker-end="url(#a2o)"/>
+
+          <rect x="14" y="376" width="546" height="72" rx="3" class="n-ours"/>
+          <text x="26" y="396" class="t-o">STATE OF THE CHECKPOINT PROJECTION AFTER LOAD</text>
+          <text x="26" y="416" class="t-m">final_layer.video_out.weight &nbsp;&rarr;&nbsp; [96, 5376] &nbsp; unchanged</text>
+          <text x="26" y="436" class="t-s">the fused heads sit in a closure, never registered on a module</text>
+
+          <!-- ============ KIJAI ============ -->
+          <text x="620" y="24" class="t-hd-k">KIJAI'S</text>
+          <text x="700" y="24" class="t-s">stock loader, mechanism in core</text>
+
+          <rect x="620" y="38" width="546" height="46" rx="3" class="n-sunk"/>
+          <text x="632" y="57" class="t-m">MiniMax-H3-Ref2VA-Acc-8Step_pruned_comfy.safetensors</text>
+          <text x="632" y="74" class="t-s">578 tensors &nbsp;&middot;&nbsp; pdd_num_steps 32 &nbsp;&middot;&nbsp; pdd_block_size 4 &nbsp;&middot;&nbsp; no alpha tensors &nbsp;&middot;&nbsp; no partition fingerprint</text>
+
+          <line x1="893" y1="84" x2="893" y2="102" class="ln-k" marker-end="url(#a2k)"/>
+
+          <rect x="620" y="104" width="546" height="40" rx="3" class="n-kij"/>
+          <text x="893" y="121" class="t-k" text-anchor="middle">LoraLoaderModelOnly &rarr; comfy/weight_adapter/lora.py</text>
+          <text x="893" y="136" class="t-s" text-anchor="middle">one generic path for every key; no PDD-specific code runs at load</text>
+
+          <polyline points="893,144 893,158 712,158 712,176" class="ln-k" marker-end="url(#a2k)"/>
+          <polyline points="893,144 893,158 1030,158 1030,176" class="ln-k" marker-end="url(#a2k)"/>
+
+          <rect x="620" y="178" width="184" height="86" rx="3" class="n-box"/>
+          <text x="712" y="196" class="t" text-anchor="middle">ordinary keys</text>
+          <text x="630" y="214" class="t-s">backbone lora_A / lora_B</text>
+          <text x="630" y="229" class="t-s">adaln lora_A [64, 8]</text>
+          <text x="630" y="244" class="t-s">adaln lora_B [96768, 64]</text>
+          <text x="630" y="259" class="t-s">+ diff_b [96768]</text>
+
+          <rect x="812" y="178" width="354" height="86" rx="3" class="n-box"/>
+          <text x="989" y="196" class="t" text-anchor="middle">head keys carry reshape_weight</text>
+          <text x="822" y="214" class="t-s">calculate_shape &rarr; [3072, 5376]</text>
+          <text x="822" y="229" class="t-s">weight = pad_tensor_to_shape(weight, reshape)&nbsp;&nbsp;&larr; zeros</text>
+          <text x="822" y="244" class="t-s">weight += mm(lora_up, lora_down).reshape(weight.shape)</text>
+          <text x="822" y="259" class="t-s">up [3072, 3072] bf16 &nbsp;&middot;&nbsp; down [3072, 5376] fp32</text>
+
+          <!-- padding glyph -->
+          <text x="632" y="300" class="t-lbl">HOW THE BANK IS RECONSTRUCTED IN PLACE</text>
+
+          <rect x="632" y="308" width="46" height="120" rx="2" class="n-box"/>
+          <rect x="632" y="308" width="46" height="10" class="fill-o"/>
+          <text x="655" y="444" class="t-s" text-anchor="middle">padded</text>
+          <text x="686" y="320" class="t-s">rows 0&ndash;95: base head</text>
+          <text x="686" y="378" class="t-s">rows 96&ndash;3071: zeros</text>
+
+          <text x="800" y="376" class="t" text-anchor="middle">+</text>
+
+          <rect x="822" y="308" width="46" height="120" rx="2" class="n-box"/>
+          <text x="845" y="444" class="t-s" text-anchor="middle">up &times; down</text>
+          <text x="876" y="372" class="t-s">the whole delta</text>
+
+          <text x="962" y="376" class="t" text-anchor="middle">=</text>
+
+          <rect x="984" y="308" width="46" height="120" rx="2" class="n-box"/>
+          <line x1="984" y1="323" x2="1030" y2="323" class="tick"/>
+          <line x1="984" y1="338" x2="1030" y2="338" class="tick"/>
+          <line x1="984" y1="353" x2="1030" y2="353" class="tick"/>
+          <line x1="984" y1="368" x2="1030" y2="368" class="tick"/>
+          <line x1="984" y1="383" x2="1030" y2="383" class="tick"/>
+          <line x1="984" y1="398" x2="1030" y2="398" class="tick"/>
+          <line x1="984" y1="413" x2="1030" y2="413" class="tick"/>
+          <text x="1007" y="444" class="t-s" text-anchor="middle">32 heads</text>
+          <text x="1038" y="372" class="t-k">the published stack</text>
+          <text x="1038" y="387" class="t-s">verified 8.8e-11 (video)</text>
+
+          <polyline points="893,428 893,452 893,466" class="ln-k" marker-end="url(#a2k)"/>
+
+          <rect x="620" y="468" width="546" height="72" rx="3" class="n-kij"/>
+          <text x="632" y="488" class="t-k">STATE OF THE CHECKPOINT PROJECTION AFTER LOAD</text>
+          <text x="632" y="508" class="t-m">final_layer.video_out.weight &nbsp;&rarr;&nbsp; [3072, 5376] &nbsp; enlarged</text>
+          <text x="632" y="528" class="t-s">the shape itself is the signal core reads to decide it is a PDD bank</text>
+        </svg>
+      </div>
+      <figcaption>Load time, side by side. Ours splits the file three ways and leaves the checkpoint's projection untouched; his hands every key to one generic adapter, whose <code>reshape_weight</code> branch pads the projection with zeros and adds the factored bank on top. The audio projection takes the same treatment at <code>[1024, 5376]</code>. Nothing about PDD runs at load on his side &mdash; the enlarged shape is the only thing that survives into the forward.</figcaption>
+    </figure>
+
+    <div class="verified">
+      <h3>Reconstructed and checked against the published stack, 2026-08-27</h3>
+      <table>
+        <tbody>
+          <tr><td>his video bank, reconstructed as pad + <code>up&times;down</code></td><td class="num">8.8e-11</td></tr>
+          <tr><td>his audio bank</td><td class="num">5.6e-11</td></tr>
+          <tr><td>his audio bias</td><td class="num">1.9e-11</td></tr>
+          <tr><td>our stored bank, read directly</td><td class="num">0.0</td></tr>
+          <tr><td>the same reconstruction <em>without</em> adding the base head</td><td class="num">1.76e-01</td></tr>
+        </tbody>
+      </table>
+      <p style="margin:12px 0 0;font-size:0.9rem;color:var(--muted)">Relative Frobenius against the alibaba-pai 32-head stack. The last row is the control: it confirms the padding-then-add semantics rather than assuming them. His residual is the bf16 <code>up</code> factor; ours is exact because the bank is stored verbatim at the published bf16.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <p class="stage">Per step</p>
+      <h2>Where the fusion happens</h2>
+      <p class="lede">Both implementations end at the same operation &mdash; one <code>F.linear</code> against a step-appropriate head. They differ in when that head is built and in what the step index is derived from. Ours reads <code>t_emb</code>, the tensor the model was actually called with. His reads <code>sample_sigmas</code>, which has to be threaded in from outside the forward.</p>
+    </div>
+
+    <figure>
+      <div class="scroller">
+        <svg viewBox="0 0 1180 600" role="img" aria-label="One sampling step in both implementations. Ours wraps the final layer forward for bookkeeping, matches the timestep embedding against a precomputed boundary table to pick a head index, delegates the modulation to the stock forward, and applies an already-fused head. Kijai's core forward detects the enlarged weight, recovers the step from the sampler sigma schedule, rounds two base-grid indices, and fuses the spanned heads inside the forward on every call.">
+          <defs>
+            <marker id="a3o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-o"/>
+            </marker>
+            <marker id="a3k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-k"/>
+            </marker>
+            <marker id="a3d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <line x1="590" y1="10" x2="590" y2="586" class="ln-d"/>
+
+          <!-- OURS -->
+          <text x="14" y="24" class="t-hd-o">OURS &mdash; ONE STEP</text>
+
+          <rect x="14" y="38" width="546" height="34" rx="3" class="n-box"/>
+          <text x="287" y="60" class="t" text-anchor="middle">final_layer.forward &mdash; our wrapper, pdd_lora.py:300</text>
+
+          <line x1="287" y1="72" x2="287" y2="92" class="ln-o" marker-end="url(#a3o)"/>
+
+          <rect x="14" y="94" width="546" height="84" rx="3" class="n-ours"/>
+          <text x="26" y="113" class="t-o">_StepTracker.update(t_emb, video_seg, audio_seg)</text>
+          <text x="26" y="132" class="t-s">e = t_emb[row]  &nbsp;&rarr;&nbsp;  cdist(e, boundary_table[nfe+1, D])  &nbsp;&rarr;&nbsp;  argmin</text>
+          <text x="26" y="150" class="t-s">k_video and k_audio, chosen independently &mdash; the streams run different shifts</text>
+          <text x="26" y="168" class="t-s">no tolerance in the selector: there are exactly nfe answers and no intermediate t</text>
+
+          <line x1="287" y1="178" x2="287" y2="198" class="ln-o" marker-end="url(#a3o)"/>
+
+          <rect x="14" y="200" width="546" height="48" rx="3" class="n-sunk"/>
+          <text x="287" y="219" class="t" text-anchor="middle">base_forward(x, t_emb, video_seg, audio_seg)</text>
+          <text x="287" y="236" class="t-s" text-anchor="middle">stock modulation, untouched &mdash; the wrapper only books the index</text>
+
+          <line x1="287" y1="248" x2="287" y2="268" class="ln-o" marker-end="url(#a3o)"/>
+
+          <rect x="14" y="270" width="546" height="66" rx="3" class="n-ours"/>
+          <text x="26" y="290" class="t-o">video_out.forward &mdash; our patch, pdd_lora.py:313</text>
+          <text x="26" y="310" class="t-m">F.linear(inp, w[k], b[k])</text>
+          <text x="26" y="328" class="t-s">w is [nfe, 96, 5376], already fused; cached once per (device, dtype)</text>
+
+          <!-- fusion is outside -->
+          <polyline points="300,378 300,352 240,352" class="ln-d" marker-end="url(#a3d)" style="color:var(--faint)"/>
+          <rect x="14" y="378" width="546" height="44" rx="3" class="n-dash"/>
+          <text x="287" y="398" class="t-s" text-anchor="middle">FUSION HAPPENED AT LOAD &mdash; outside this diagram, once per render</text>
+          <text x="287" y="414" class="t-s" text-anchor="middle">float64 tensordot over the block, then float32</text>
+
+          <rect x="14" y="440" width="546" height="42" rx="3" class="n-sunk"/>
+          <text x="26" y="459" class="t-s">per forward: one cdist against nfe+1 rows, per stream</text>
+          <text x="26" y="475" class="t-s">the head arithmetic does not run again</text>
+
+          <!-- KIJAI -->
+          <text x="620" y="24" class="t-hd-k">KIJAI'S &mdash; ONE STEP, POST-PR</text>
+
+          <rect x="620" y="38" width="546" height="34" rx="3" class="n-box"/>
+          <text x="893" y="60" class="t" text-anchor="middle">FinalLayer.forward(x, t_emb, video_seg, audio_seg, sigma, sample_sigmas, shifts)</text>
+
+          <line x1="893" y1="72" x2="893" y2="92" class="ln-k" marker-end="url(#a3k)"/>
+
+          <rect x="620" y="94" width="546" height="34" rx="3" class="n-sunk"/>
+          <text x="893" y="116" class="t-m" text-anchor="middle">n = video_out.weight.shape[0] // out_features &nbsp;&rarr;&nbsp; 32</text>
+
+          <line x1="893" y1="128" x2="893" y2="148" class="ln-k" marker-end="url(#a3k)"/>
+
+          <rect x="620" y="150" width="546" height="84" rx="3" class="n-kij"/>
+          <text x="632" y="169" class="t-k">recover the step from the sampler's schedule</text>
+          <text x="632" y="188" class="t-s">i = argmin |sample_sigmas &minus; sigma| &nbsp;;&nbsp; sigma_next = sample_sigmas[i+1]</text>
+          <text x="632" y="206" class="t-s">start, stop = round((1 &minus; time_shift_sigma(s, shift_v, 1.0)) &times; n)</text>
+          <text x="632" y="224" class="t-s">shift inverted to the base grid; one index pair serves both streams</text>
+
+          <line x1="893" y1="234" x2="893" y2="254" class="ln-k" marker-end="url(#a3k)"/>
+
+          <rect x="620" y="256" width="546" height="102" rx="3" class="n-kij"/>
+          <text x="632" y="275" class="t-k">_pdd_head &mdash; the fusion, inside the forward</text>
+          <text x="632" y="294" class="t-s">grid = linspace(1, 0, 33) &nbsp;;&nbsp; dt = shifted(grid).diff()[start:stop]</text>
+          <text x="632" y="312" class="t-s">w = dt / dt.sum() &nbsp;&mdash; each stream uses its own flow_shift here</text>
+          <text x="632" y="330" class="t-m">einsum("n,noi-&gt;oi", w, weight.reshape(32, -1, 5376)[start:stop])</text>
+          <text x="632" y="348" class="t-s">cast_bias_weight / uncast_bias_weight around it</text>
+
+          <line x1="893" y1="358" x2="893" y2="378" class="ln-k" marker-end="url(#a3k)"/>
+
+          <rect x="620" y="380" width="546" height="42" rx="3" class="n-box"/>
+          <text x="893" y="406" class="t-m" text-anchor="middle">F.linear(h, fused_weight, fused_bias)</text>
+
+          <rect x="620" y="440" width="546" height="42" rx="3" class="n-sunk"/>
+          <text x="632" y="459" class="t-s">per forward: the einsum over the block runs again, both streams</text>
+          <text x="632" y="475" class="t-s">requires sample_sigmas in transformer_options; raises without it</text>
+
+          <!-- shared endpoint -->
+          <rect x="14" y="500" width="1152" height="44" rx="3" class="n-box"/>
+          <text x="590" y="519" class="t" text-anchor="middle">Both arrive at the same head when the render is on schedule</text>
+          <text x="590" y="536" class="t-s" text-anchor="middle">the block boundaries are the plain shifted schedule for that step count, so the two selections agree exactly</text>
+        </svg>
+      </div>
+      <figcaption>One sampling step. The operation at the bottom is the same in both; what moved is the fusion. Ours does it once before step 0 and looks up the result; his rebuilds it on every forward, which is the enlarged final layer the PDD paper's section 3.1 says inference can avoid. The step index is derived from different sources: <code>t_emb</code> is an argument the model already receives, <code>sample_sigmas</code> is state carried in through <code>transformer_options</code>.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="col">
+      <p class="stage">The grid</p>
+      <h2>Thirty-two intervals, two step counts, one disagreement</h2>
+      <p class="lede">The trajectory is always a 32-point grid. A step count that divides 32 subsamples it exactly, which is why a PDD arm moves the sampler's step count and nothing else &mdash; no shift change, no custom scheduler. Both implementations land on identical blocks there. They part company only when the step count does not divide 32.</p>
+    </div>
+
+    <figure>
+      <div class="scroller">
+        <svg viewBox="0 0 1180 520" role="img" aria-label="The 32-interval base grid with three schedules drawn beneath it. At eight steps every block spans four intervals and at four steps every block spans eight, both landing exactly on grid knots. At five steps the knots fall between grid points: our node refuses to load, while Kijai's rounds to the nearest knot and produces uneven spans of six and seven intervals.">
+          <defs>
+            <marker id="a4k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-k"/>
+            </marker>
+          </defs>
+
+          <!-- base grid axis -->
+          <text x="14" y="26" class="t-lbl">BASE GRID &mdash; 32 INTERVALS, 33 KNOTS, UNIFORM IN BASE SIGMA</text>
+
+          <line x1="60" y1="54" x2="1100" y2="54" class="ln"/>
+          <!-- 33 ticks at stride 32.5 -->
+          <g>
+            <line x1="60"     y1="46" x2="60"     y2="62" class="tick-b"/>
+            <line x1="92.5"   y1="48" x2="92.5"   y2="60" class="tick"/>
+            <line x1="125"    y1="48" x2="125"    y2="60" class="tick"/>
+            <line x1="157.5"  y1="48" x2="157.5"  y2="60" class="tick"/>
+            <line x1="190"    y1="46" x2="190"    y2="62" class="tick-b"/>
+            <line x1="222.5"  y1="48" x2="222.5"  y2="60" class="tick"/>
+            <line x1="255"    y1="48" x2="255"    y2="60" class="tick"/>
+            <line x1="287.5"  y1="48" x2="287.5"  y2="60" class="tick"/>
+            <line x1="320"    y1="46" x2="320"    y2="62" class="tick-b"/>
+            <line x1="352.5"  y1="48" x2="352.5"  y2="60" class="tick"/>
+            <line x1="385"    y1="48" x2="385"    y2="60" class="tick"/>
+            <line x1="417.5"  y1="48" x2="417.5"  y2="60" class="tick"/>
+            <line x1="450"    y1="46" x2="450"    y2="62" class="tick-b"/>
+            <line x1="482.5"  y1="48" x2="482.5"  y2="60" class="tick"/>
+            <line x1="515"    y1="48" x2="515"    y2="60" class="tick"/>
+            <line x1="547.5"  y1="48" x2="547.5"  y2="60" class="tick"/>
+            <line x1="580"    y1="46" x2="580"    y2="62" class="tick-b"/>
+            <line x1="612.5"  y1="48" x2="612.5"  y2="60" class="tick"/>
+            <line x1="645"    y1="48" x2="645"    y2="60" class="tick"/>
+            <line x1="677.5"  y1="48" x2="677.5"  y2="60" class="tick"/>
+            <line x1="710"    y1="46" x2="710"    y2="62" class="tick-b"/>
+            <line x1="742.5"  y1="48" x2="742.5"  y2="60" class="tick"/>
+            <line x1="775"    y1="48" x2="775"    y2="60" class="tick"/>
+            <line x1="807.5"  y1="48" x2="807.5"  y2="60" class="tick"/>
+            <line x1="840"    y1="46" x2="840"    y2="62" class="tick-b"/>
+            <line x1="872.5"  y1="48" x2="872.5"  y2="60" class="tick"/>
+            <line x1="905"    y1="48" x2="905"    y2="60" class="tick"/>
+            <line x1="937.5"  y1="48" x2="937.5"  y2="60" class="tick"/>
+            <line x1="970"    y1="46" x2="970"    y2="62" class="tick-b"/>
+            <line x1="1002.5" y1="48" x2="1002.5" y2="60" class="tick"/>
+            <line x1="1035"   y1="48" x2="1035"   y2="60" class="tick"/>
+            <line x1="1067.5" y1="48" x2="1067.5" y2="60" class="tick"/>
+            <line x1="1100"   y1="46" x2="1100"   y2="62" class="tick-b"/>
+          </g>
+          <text x="60"   y="80" class="t-s" text-anchor="middle">0</text>
+          <text x="320"  y="80" class="t-s" text-anchor="middle">8</text>
+          <text x="580"  y="80" class="t-s" text-anchor="middle">16</text>
+          <text x="840"  y="80" class="t-s" text-anchor="middle">24</text>
+          <text x="1100" y="80" class="t-s" text-anchor="middle">32</text>
+
+          <!-- 8 NFE band -->
+          <text x="14" y="118" class="t-lbl">8 EVALUATIONS &mdash; BLOCK 4</text>
+          <g>
+            <rect x="60"   y="128" width="128" height="26" rx="2" class="n-box"/>
+            <rect x="190"  y="128" width="128" height="26" rx="2" class="n-box"/>
+            <rect x="320"  y="128" width="128" height="26" rx="2" class="n-box"/>
+            <rect x="450"  y="128" width="128" height="26" rx="2" class="n-box"/>
+            <rect x="580"  y="128" width="128" height="26" rx="2" class="n-box"/>
+            <rect x="710"  y="128" width="128" height="26" rx="2" class="n-box"/>
+            <rect x="840"  y="128" width="128" height="26" rx="2" class="n-box"/>
+            <rect x="970"  y="128" width="128" height="26" rx="2" class="n-box"/>
+            <text x="124"  y="146" class="t-s" text-anchor="middle">head 0</text>
+            <text x="254"  y="146" class="t-s" text-anchor="middle">1</text>
+            <text x="384"  y="146" class="t-s" text-anchor="middle">2</text>
+            <text x="514"  y="146" class="t-s" text-anchor="middle">3</text>
+            <text x="644"  y="146" class="t-s" text-anchor="middle">4</text>
+            <text x="774"  y="146" class="t-s" text-anchor="middle">5</text>
+            <text x="904"  y="146" class="t-s" text-anchor="middle">6</text>
+            <text x="1034" y="146" class="t-s" text-anchor="middle">7</text>
+          </g>
+          <text x="60" y="176" class="t-s">every knot on a block boundary is a knot of the plain 8-step shifted schedule &mdash; block_bounds(12.0, 32, 4) is torch.equal to the 8-step grid</text>
+
+          <!-- 4 NFE band -->
+          <text x="14" y="216" class="t-lbl">4 EVALUATIONS &mdash; BLOCK 8</text>
+          <g>
+            <rect x="60"  y="226" width="258" height="26" rx="2" class="n-box"/>
+            <rect x="320" y="226" width="258" height="26" rx="2" class="n-box"/>
+            <rect x="580" y="226" width="258" height="26" rx="2" class="n-box"/>
+            <rect x="840" y="226" width="258" height="26" rx="2" class="n-box"/>
+            <text x="189" y="244" class="t-s" text-anchor="middle">head 0</text>
+            <text x="449" y="244" class="t-s" text-anchor="middle">1</text>
+            <text x="709" y="244" class="t-s" text-anchor="middle">2</text>
+            <text x="969" y="244" class="t-s" text-anchor="middle">3</text>
+          </g>
+          <text x="60" y="274" class="t-s">same weights, same file &mdash; the node fuses at load for whichever count is asked, so one artifact serves both</text>
+
+          <!-- agreement bar -->
+          <rect x="60" y="292" width="1040" height="34" rx="3" class="n-sunk"/>
+          <text x="72" y="307" class="t-o">OURS: precomputed head per block, selected by matching t_emb to a boundary</text>
+          <text x="72" y="321" class="t-k">HIS: [start, stop) derived per step, spans 4 / 4 / 4 / 4 / 4 / 4 / 4 / 4 at eight and 8 / 8 / 8 / 8 at four</text>
+          <text x="1088" y="314" class="t-o" text-anchor="end">identical selections</text>
+
+          <!-- off-schedule -->
+          <text x="14" y="368" class="t-lbl">5 EVALUATIONS &mdash; 32 % 5 = 2, OFF THE GRID</text>
+
+          <g>
+            <rect x="60"    y="380" width="193" height="26" rx="2" class="n-kij"/>
+            <rect x="255"   y="380" width="225" height="26" rx="2" class="n-kij"/>
+            <rect x="482.5" y="380" width="193" height="26" rx="2" class="n-kij"/>
+            <rect x="677.5" y="380" width="225" height="26" rx="2" class="n-kij"/>
+            <rect x="905"   y="380" width="193" height="26" rx="2" class="n-kij"/>
+            <text x="156"  y="398" class="t-k" text-anchor="middle">6</text>
+            <text x="367"  y="398" class="t-k" text-anchor="middle">7</text>
+            <text x="579"  y="398" class="t-k" text-anchor="middle">6</text>
+            <text x="790"  y="398" class="t-k" text-anchor="middle">7</text>
+            <text x="1001" y="398" class="t-k" text-anchor="middle">6</text>
+          </g>
+          <text x="60" y="426" class="t-k">his: knots round to 0, 6, 13, 19, 26, 32 &mdash; uneven spans, no error, sampling continues</text>
+
+          <rect x="60" y="440" width="1040" height="34" rx="3" class="n-warn"/>
+          <text x="72" y="462" class="t-w">ours: refuses at load &mdash; "nfe=5 does not divide the file's 32-point grid", and names the legal counts</text>
+
+          <text x="60" y="500" class="t-s">Neither behaviour is wrong on its face. His generalises off-distribution silently; ours declines and says so. That is the whole difference in policy.</text>
+        </svg>
+      </div>
+      <figcaption>The 32-point grid at the two shipped step counts and at one that does not divide it. The 8- and 4-evaluation rows were checked against <code>pdd_math.block_bounds</code>, which is bit-equal to the plain shifted grid for that step count at both. The 5-step row is derived by running the PR's own index formula, <code>round((1 &minus; time_shift_sigma(s, 12.0, 1.0)) &times; 32)</code>, over a 5-step schedule.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="col">
+      <p class="stage">The four graphs</p>
+      <h2>What each one actually carries</h2>
+      <p>Read off the graph files rather than from the generator. The two 8-step graphs carry <code>nfe: 0</code>, which the node resolves to the count the file was converted for &mdash; the file's <code>pdd_nfe</code> is 8. The Sol window narrows with the step count so the final step still runs dense, which is the one setting that changes between the 8- and 4-step arms for reasons that have nothing to do with PDD.</p>
+    </div>
+
+    <div class="scroller">
+      <table>
+        <caption>All four shipped PDD graphs, from <code>workflows/*_api.json</code>. Every row carries <code>strength 1.0</code>, <code>patch_heads true</code>, <code>euler</code>, <code>simple</code>, and seed 730451892.</caption>
+        <thead>
+          <tr>
+            <th>Graph</th>
+            <th>Checkpoint</th>
+            <th>LoRA</th>
+            <th>nfe widget</th>
+            <th>Steps</th>
+            <th>Block</th>
+            <th>Fused heads</th>
+            <th>Shift</th>
+            <th>Sol end</th>
+            <th>Conditioning</th>
+            <th>Ref nodes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="grp8">
+            <th scope="row">h3_text_to_video_pdd</th>
+            <td>fl2va</td>
+            <td>fl2va pdd 8step</td>
+            <td class="num">0 &rarr; 8</td>
+            <td class="num">8</td>
+            <td class="num">4</td>
+            <td class="num">8</td>
+            <td class="num">12.0 / 3.0</td>
+            <td class="num">0.87</td>
+            <td>Conditioning</td>
+            <td><span class="tag">none</span></td>
+          </tr>
+          <tr>
+            <th scope="row">h3_text_to_video_pdd_4step</th>
+            <td>fl2va</td>
+            <td>fl2va pdd 8step</td>
+            <td class="num">4</td>
+            <td class="num">4</td>
+            <td class="num">8</td>
+            <td class="num">4</td>
+            <td class="num">12.0 / 3.0</td>
+            <td class="num">0.74</td>
+            <td>Conditioning</td>
+            <td><span class="tag">none</span></td>
+          </tr>
+          <tr class="grp8">
+            <th scope="row">h3_image_ref_plus_text_to_video_pdd</th>
+            <td>ref2va</td>
+            <td>ref2va pdd 8step</td>
+            <td class="num">0 &rarr; 8</td>
+            <td class="num">8</td>
+            <td class="num">4</td>
+            <td class="num">8</td>
+            <td class="num">12.0 / 3.0</td>
+            <td class="num">0.87</td>
+            <td>ReferenceConditioning</td>
+            <td><span class="tag on">2 images</span></td>
+          </tr>
+          <tr>
+            <th scope="row">h3_image_ref_plus_text_to_video_pdd_4step</th>
+            <td>ref2va</td>
+            <td>ref2va pdd 8step</td>
+            <td class="num">4</td>
+            <td class="num">4</td>
+            <td class="num">8</td>
+            <td class="num">4</td>
+            <td class="num">12.0 / 3.0</td>
+            <td class="num">0.74</td>
+            <td>ReferenceConditioning</td>
+            <td><span class="tag on">2 images</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:0.875rem;color:var(--muted);margin-top:14px;max-width:76ch">The same LoRA file appears in both step counts of each pair. That is the parallel-decoding claim in one line: one weight set, two step counts, both landing exactly on the grid.</p>
+  </section>
+
+  <section>
+    <div class="col">
+      <p class="stage">Divergence</p>
+      <h2>Four places the two paths behave differently</h2>
+      <p>None of these change the default render. The first three matter the moment someone moves off the default. The fourth would have mattered the moment the PR merged, and is now closed.</p>
+    </div>
+
+    <div class="div-list">
+      <div class="div-item">
+        <div class="div-head">
+          <h3>Strength below 1.0 means different things</h3>
+          <span class="chip edge">off-default</span>
+        </div>
+        <p>Ours interpolates every head toward the checkpoint's own: <code>base + s &times; (fused &minus; base)</code>, so 0.0 is exactly the base model, heads included. His arrives through zero padding, so head 0 interpolates from the base but heads 1 through 31 scale from <em>zero</em> &mdash; at strength 0.5 the last block decodes with a half-magnitude head.</p>
+        <p>Worth knowing because sweeping strength is a natural first experiment, and on his path it does not degrade gracefully.</p>
+      </div>
+
+      <div class="div-item">
+        <div class="div-head">
+          <h3>The partition fingerprint exists on one side only</h3>
+          <span class="chip edge">silent failure</span>
+        </div>
+        <p>The fl2va and ref2va partitions ship identical key sets, so the wrong file loads with zero unmatched keys and renders. We store the checkpoint's own <code>final_layer.video_out.weight</code> as <code>h3_pdd.base_video_out</code> and refuse on a relative-distance mismatch. His metadata names no checkpoint and carries no fingerprint.</p>
+      </div>
+
+      <div class="div-item">
+        <div class="div-head">
+          <h3>Alpha rests on a coincidence</h3>
+          <span class="chip edge">latent</span>
+        </div>
+        <p>His files carry no <code>.alpha</code> tensors, so ComfyUI's adapter falls back to a scale of 1.0. That is correct here only because PDD's <code>alpha / rank</code> happens to be 1.0. Our converter writes the alpha tensors explicitly rather than depending on the fallback continuing to agree.</p>
+      </div>
+
+      <div class="div-item">
+        <div class="div-head">
+          <h3>The forward signature collides</h3>
+          <span class="chip closed">found, closed 2026-08-27</span>
+        </div>
+        <p>PR 15908 changes <code>FinalLayer.forward</code> to take seven arguments and updates the call site to match. Our object patch installed a four-argument replacement, so the first sampling step after a merge would have raised a <code>TypeError</code> &mdash; loud and immediate rather than a silently wrong render, but a hard break. Our two output-linear patches would have survived it, since core takes the <code>n == 1</code> path when the weight has not been enlarged and still calls through <code>video_out.forward</code>.</p>
+        <p>Closed in commit <code>999e0c4</code>. <code>_make_final_layer_forward</code> now binds <code>(x, t_emb, video_seg, audio_seg, *args, **kwargs)</code> and forwards the extras to <code>base_forward</code> verbatim; the tracker still reads only the first four.</p>
+        <p><code>bench/check_pdd_head_selection.py</code> is what holds it closed &mdash; a third section asserting both signatures, today's four arguments and the seven the PR introduces, with the extras arriving unchanged. It needs no checkpoint, so it runs even when the rest of that check skips. Graded by deliberate violation: pinning the patch back to four parameters turns the second case red. That violation also exposed a defect in the case itself, a <code>TypeError</code> escaping past <code>check()</code>'s <code>AssertionError</code> handler and aborting the run instead of reporting a named failure, so the case now converts an arity mismatch into an assertion.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <p class="stage">Reading</p>
+      <h2>What the comparison comes down to</h2>
+      <p>His is the better distribution story: one file, the stock loader, no custom node, and the mechanism upstream where everyone gets it. Ours is the better inference story: the fusion happens once instead of thirty-two times a render, the step index comes from an argument the model already has rather than state threaded in from the sampler, and the load path refuses a partition mismatch and an illegal step count instead of proceeding.</p>
+      <p>Those are not in tension. They are different bets about where the risk lives, and the arithmetic underneath them is the same to eleven decimal places.</p>
+      <p style="color:var(--muted);font-size:0.94rem">One consequence for this repo, also closed today: <code>bench/compare_pdd_conversions.py</code> read his bank by the literal key <code>diffusion_model.final_layer.video_out.set_weight</code>, which his 2026-08-27 files no longer carry, so it died with a <code>KeyError</code> &mdash; the second-implementation cross-check had quietly become no check at all. It now branches on which keys are present, reconstructing through the documented adapter path where it must: a branch on the observable rather than on one implementation's spelling, which survives his next repackaging.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Built 2026-08-27 from the graph files, <code>pdd_lora.py</code>, <code>pdd_math.py</code>, <code>bench/convert_pdd_lora.py</code>, the converted artifacts on disk, ComfyUI's <code>comfy/weight_adapter/lora.py</code> and <code>comfy/ldm/minimax/model.py</code>, and the diff of PR 15908. Claims about the PR and about the Kijai artifacts describe their state on that date; both are moving.</p>
+  </footer>
+
+</div>
+</body>
+</html>

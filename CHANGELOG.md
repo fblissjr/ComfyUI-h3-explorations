@@ -35,6 +35,11 @@ artifact.
 
 ### Added
 
+- **`docs/research/pdd/` holds the PDD mechanisms drawn against Kijai's**, traced
+  through the four shipped PDD graphs: the shared graph spine, load time, one
+  sampling step, and the 32-interval grid at 8, 4 and an off-schedule count.
+  A teaching surface -- `docs/h3_pdd.md` owns every number on it, nothing
+  generates it and no check reads it, and its README says so.
 - **`bench/compare_pdd_conversions.py` now covers both streams and the bias
   bank**, and records a sha256 of every input. Only the video weight was
   compared before, so the audio head -- its own shape, its own shift, its own
