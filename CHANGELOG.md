@@ -31,6 +31,24 @@ artifact.
 
 ## 0.75.0
 
+### Added
+
+- **A "Settled, and re-derived from scratch anyway" section at the top of
+  `CLAUDE.md`.** Owner observation, and it was correct: established H3 facts
+  keep arriving as fresh discoveries. Two sessions did it on 2026-08-27 alone,
+  and one of them (mine) built a confident argument that
+  `bench/results/2026-08-21_h3_token_embeddings.json` had already refuted six
+  days earlier -- that the seven H3 marker rows are the trained spelling. They
+  are indistinguishable from the untrained padding tail in every artifact
+  measured, including an upstream Qwen3-VL the H3 work never touched.
+
+  The cost of the pattern is not repeated work. It is that a session
+  re-deriving half of one of these reaches a confident wrong conclusion and
+  acts on it. The section carries the four that recur -- the untrained marker
+  rows, core's derived-not-declared token ids, the guide-trained prompt
+  structure, and 1344x768 as the trained canvas -- each pointing at its record
+  rather than restating it.
+
 ### Changed
 
 - **The single-frame image path is parked.** Owner decision: it was an

@@ -5,6 +5,37 @@ provenance nodes, benchmarks, and workflows. `README.md` is what ships and why.
 This file is only what would cost you a session to rediscover — the operative
 rule, not the story behind it. Stories live in `docs/` and the postmortems.
 
+## Settled, and re-derived from scratch anyway
+
+Every item here was measured or decided, and every one has been rediscovered as
+"news" in a later session. Read this before opening a marker, tokenizer, or
+prompt-structure question; if you are about to establish one of these, you are
+repeating work.
+
+- **The seven H3 marker rows were never trained, and this is about the Qwen3-VL
+  ENCODER's input embedding table, not the DiT.** Measured 2026-08-21 across the
+  release, `int8_convrot`, `nvfp4_awq`, and an upstream Qwen3-VL the H3 work never
+  touched: `bench/results/2026-08-21_h3_token_embeddings.json`. The seven sit with
+  the untrained padding tail, not with the trained Qwen specials, in every
+  artifact including the one that is pure upstream — which is what makes the
+  method credible rather than a quirk of one file. **So routing a prompt through
+  those ids hands the encoder rows it never learned.** Any argument that the
+  fixed tokenizer is "the repair" and the BPE spelling is "the defect" has to
+  answer this first, and the intuitive version of that argument is wrong.
+- **The release declares those seven in `additional_special_tokens` and gives
+  none of them an id.** All thirteen other specials have one; zero of seven do.
+  Core's 151669-151675 are *derived* — append in declaration order after the
+  highest existing added token — not read off the release, though
+  `comfy/text_encoders/minimax.py` describes them as "fixed by the released
+  tokenizer". Treat the numbering as an inference, because it is one.
+- **The DiT was trained on MiniMax's own prompt-writing structure, and it
+  differs by mode.** `internal/official_prompt_guides/` holds the base and ref
+  guides. Prompt structure is not a free parameter you may restructure to chase
+  an effect; deviating trades a trained-on layout for an untrained one.
+- **1344x768 is a trained canvas, and small canvases have inverted a finding.**
+  Anything meant to inform a shipped decision gets measured there. A cheap
+  canvas is for making a harness run, never for the number you will quote.
+
 ## Guiding Principles
 - **Before writing a number into prose, substitute a different plausible value. If the reader's next action is unchanged, the number is decorative — delete it.** "Sixteen rows claim calibration" and "seventeen rows claim calibration" prompt the same next step, so the count is liability carrying no information.
   - A number that survives the test is one of two things. **Normative** — a limit you are setting, an exit code, a threshold — which cannot drift, because the world moves toward it. Or **descriptive**, in which case it needs an observation point: a date, a commit, an attribution, or past tense. Descriptive counts belong only in dated records.
