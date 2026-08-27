@@ -40,6 +40,34 @@ Nothing here is allowed to have a second copy anywhere in the repo.
 #: rather than the "no contract" an unknown name would have produced.
 ENCODER_V2 = "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"
 
+#: **Shipped again since 2026-08-27, by owner decision, hours after v2 replaced
+#: it.** Its snapshot resolves to `None` in `h3_awq_encoder.ARTIFACT_SNAPSHOTS`,
+#: which is that module's own config -- the 200,704..301,056 px still budget.
+#:
+#: What sent it back is not a weights result. On the Gate 5 holdout v2's median
+#: relative L2 against BF16 is a wash or slightly worse: noup 0.3667 against
+#: 0.3594, up2048 0.3326 against 0.3122, t2va 0.0611 against 0.0671
+#: (`bench/results/2026-08-25_v2_holdout_layer50.json`; at up2048 the MEANS
+#: disagree in sign with the medians, annotated beside the Gate 5 table in
+#: `canonical/2026-08-25_v2_launch_record.md`). Everything v2 bought was its
+#: snapshot -- it reads as a quant generation and was doing a preprocessing job.
+#:
+#: And that snapshot is what broke a render. v2 declares the release's own
+#: 65,536..16,777,216 px, so 2048-short-edge references stopped clamping and
+#: reached the conditioner at 9,408 tokens against a ~1,000-token prompt --
+#: the prompt fell to 9.5% of its own segment where v1's bounds had left it
+#: near 63%. A two-speaker scene at that default attributed the dialogue to the
+#: wrong subject, and the speaker binding lives in exactly those prompt tokens.
+#:
+#: **The mechanism is priced, not proven.** One render, one seed, and the
+#: arithmetic is consistent with it. The arm that would settle it holds the
+#: WEIGHTS fixed and varies the snapshot -- v2 weights under v1 bounds via
+#: `h3_awq_encoder.install_source_processors(image_bounds=...)`, which exists
+#: for exactly that and is not reachable from a graph. Until it runs, going
+#: back is the cheap way to stop paying for an unproven mechanism, not a
+#: verdict on v2.
+ENCODER_V1 = "qwen3vl_32b_minimax_h3_w4a16_awq_v1-comfy.safetensors"
+
 # Checkpoint names are the ones their owning loader actually offers. The text
 # encoder is the canonical custom W4A16 AWQ build. Core CLIPLoader also lists it,
 # but that is filesystem discovery, not format support: the file uses
@@ -64,7 +92,7 @@ MODELS = dict(
     # The filenames end `-int8`, not `_int8_convrot`; `substrate.py` tags them.
     unet_hybrid_b30="minimax_h3_hybrid_fl2va_ref2va_b30-49-int8.safetensors",
     unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
-    clip=ENCODER_V2,
+    clip=ENCODER_V1,
     # The fp16 video VAE, and it is the best build available in ComfyUI's
     # format. **Measured 2026-08-21** against the official release's fp32
     # weights (`MiniMaxAI/MiniMax-H3`, `video_vae/source/model.safetensors`):
