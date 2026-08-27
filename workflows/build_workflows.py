@@ -5569,8 +5569,10 @@ def main():
         # fp32 *because the same module encodes references and keyframes* and
         # decodes under fp16, which the flag cannot express.
         # `MiniMaxH3VAEPrecision` splits them, and until 2026-08-21 it was wired
-        # into zero graphs -- the `MiniMaxH3VendorTokens` failure mode, a fix
-        # nobody can reach.
+        # into zero graphs -- a fix nobody can reach. The node that named this
+        # failure mode, `MiniMaxH3VendorTokens`, was removed on 2026-08-27
+        # after ComfyUI made it a no-op; the shape it illustrated is what
+        # matters, not the example.
         #
         # **These two arms cannot answer which output is better**, and building
         # them as though they could would be the mistake CLAUDE.md records: a

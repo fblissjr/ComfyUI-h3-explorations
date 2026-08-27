@@ -30,8 +30,9 @@ now requires the native tokens and reconstructs the legacy tokenizer only as a
 measurement control.
 
 The local fallback is retired. Both custom conditioners rely on native
-ComfyUI; their old `vendor_tokens` schema slots and the standalone
-`MiniMaxH3VendorTokens` node remain inert only so saved graphs still load.
+ComfyUI; their `vendor_tokens` schema slots and the standalone
+`MiniMaxH3VendorTokens` node were kept inert for saved-graph loadability and
+were **removed on 2026-08-27** by owner decision.
 
 The finding below stands as written for an unpatched install.
 

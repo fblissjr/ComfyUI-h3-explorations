@@ -46,11 +46,13 @@ checkout as commit `924743af`. Core's H3 tokenizer now registers all seven
 tokens itself. That is the resolution of the ComfyUI/vendor gap.
 
 **This repo's handling:** the fallback has been removed from both the FL2VA and
-Ref2VA conditioners. New API workflows omit `vendor_tokens`. The old schema
-slot remains optional, advanced and ignored at its original position because
-saved UI graphs store widget values positionally. `MiniMaxH3VendorTokens`
-remains registered as a deprecated pass-through node for the same loadability
-reason; `vendor_tokens.py` contains no tokenizer construction or mutation.
+Ref2VA conditioners, and since **2026-08-27** so has the `vendor_tokens` schema
+slot itself. It had been kept optional, advanced and ignored at its original
+position because saved UI graphs store widget values positionally;
+`MiniMaxH3VendorTokens` was registered as a deprecated pass-through for the
+same loadability reason. Both are gone, and `vendor_tokens.py` with them --
+owner decision, trading compatibility with externally saved graphs for schemas
+that carry nothing dead.
 
 ComfyUI commit `924743af` or newer is therefore the minimum runtime contract
 for correct H3 marker tokenization. The native-token arm in

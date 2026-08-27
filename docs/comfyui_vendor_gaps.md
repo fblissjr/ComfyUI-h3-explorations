@@ -161,9 +161,10 @@ marker-free prompt is byte-identical to the reconstructed legacy arm.
 is the harness and refuses an install that lacks the native fix.
 
 **Handling in this repo:** no tokenizer patching remains. The conditioning
-nodes rely on native ComfyUI. Their old `vendor_tokens` inputs and the
-standalone `MiniMaxH3VendorTokens` node are inert compatibility tombstones so
-saved UI graphs retain their positional widget contract.
+nodes rely on native ComfyUI. Their `vendor_tokens` inputs and the standalone
+`MiniMaxH3VendorTokens` node were inert compatibility tombstones until
+2026-08-27 and are now **removed** — the owner traded saved-graph widget
+compatibility for schemas that carry nothing dead.
 
 ### Do the seven tokens touch Qwen3-VL's vision tower?
 
@@ -688,7 +689,6 @@ nothing is watching.
 | Record | [`bench/results/2026-08-24_h3_marker_tokenization_native.json`](../bench/results/2026-08-24_h3_marker_tokenization_native.json) |
 | Encoder-level companion, what the states do | [`bench/grade_h3_marker_tokens.py`](../bench/grade_h3_marker_tokens.py), [record](../bench/results/2026-08-21_h3_marker_token_states.json) |
 | Are the embedding rows trained | [`bench/audit_h3_token_embeddings.py`](../bench/audit_h3_token_embeddings.py) |
-| Saved-graph compatibility tombstone; no tokenizer mutation | [`vendor_tokens.py`](../vendor_tokens.py) |
 | The release's declared list, never retyped | [`vendor_config.py`](../vendor_config.py), guarded by [`bench/check_vendor_config.py`](../bench/check_vendor_config.py) |
 
 The audit's two controls are what make it worth running. A marker-free prompt

@@ -612,11 +612,15 @@ else:
     scale = full if allow_upscale else min(1.0, full)
 ```
 
-`match` + `allow_upscale=True` on the shipped path is therefore **ignored with
-a warning, not a double resample** — `reference_conditioning.py` logs
-"size_policy='match' sizes this reference from the canvas area, so short_edge=N
-and allow_upscale=X are not read." One resize either way, and no wasted
-lanczos pass.
+`match` + `allow_upscale=True` on the shipped path is therefore **not a double
+resample**. One resize either way, and no wasted lanczos pass.
+
+**And since 2026-08-27 the combination is not expressible.** `size_policy` is a
+`DynamicCombo`: `short_edge` and `allow_upscale` are nested under the `max`
+branch, so they do not exist when `match` is selected. The node used to carry
+them as flat widgets and log a warning that they were not read — visible only
+after a render was queued. The warning is gone because its subject is
+unreachable.
 
 **The reason to prefer `max` for a vendor-matching arm is the one this page
 already gives above and not row two**: `match` sizes from the generation's

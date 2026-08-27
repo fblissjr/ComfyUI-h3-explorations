@@ -91,11 +91,16 @@ so this forecloses nothing, and appending outputs later is permitted.
 ### 3. Retired, but not removed
 
 `lift_downstream_clamp` and `keep_towers_matched` stay on `MiniMaxH3ReferenceFit`
-as inert inputs with tooltips saying so, following the `vendor_tokens`
-precedent on the conditioner. The original design called for removing
-`lift_downstream_clamp` and accepted a breaking manifest update for it. There is
-no reason to pay that: an inert input costs a tooltip, and a removed one breaks
-every saved graph that carries it.
+as inert inputs with tooltips saying so. This followed the `vendor_tokens`
+precedent on the conditioner, and **that precedent was reversed on 2026-08-27**:
+the owner ruled saved-graph compatibility not worth keeping ("it's just me
+using this"), `vendor_tokens` was removed from both conditioners, and
+`size_policy`'s dead siblings moved inside a `DynamicCombo` branch rather than
+staying visible and inert. The reasoning below -- that an inert input costs a
+tooltip and a removed one breaks saved graphs -- held only while the second
+half was a cost anyone was paying. These two survive because
+`MiniMaxH3ReferenceFit` is itself retired from the shipped path, not because
+the argument still stands.
 
 The machinery behind them is gone: `_downstream_ref_image_size`,
 `arm_short_edge_override` / `disarm_short_edge_override`, the

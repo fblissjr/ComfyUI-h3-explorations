@@ -757,6 +757,21 @@ categorical, and it needs seeds in aggregate rather than a pair. Clip *i* of one
 arm is never to be compared against clip *i* of the other; only the per-arm
 totals are.
 
+> **Void, 2026-08-27, and not by this repo's choice.** Both arms are now the
+> same graph. The `vendortokens` arm inserted `MiniMaxH3VendorTokens` to give a
+> tokenizer the seven H3 markers it lacked; ComfyUI registers them natively
+> (PR 15808), so the node became a no-op and the contrast it was built on is
+> gone. The node and `vendor_tokens.py` were removed on 2026-08-27, which makes
+> the arm unbuildable as well as uninformative. **Predictions 1 and 2 are
+> unreachable; prediction 3 is unaffected and was always the likely outcome.**
+> The question they asked -- does marker representation reach the DiT --
+> survives, and its instrument is now the marker arms in
+> `bench/marker_corpus/` plus
+> [`2026-08-27_marker_epsilon_control.json`](../bench/results/2026-08-27_marker_epsilon_control.json),
+> which measured the DiT no more sensitive to the marker rows than to arbitrary
+> conditioning rows. Kept as written because a pre-registered plan that is
+> rewritten after the fact stops being one.
+
 **Arms.** `internal/refs/marker_arm_stock_api.json` and
 `marker_arm_vendortokens_api.json`, both built from
 `workflows/h3_text_to_video_turbo_4step_768p_api.json` with the prompt replaced

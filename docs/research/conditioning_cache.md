@@ -47,11 +47,11 @@ source of silently wrong conditioning.
 | encoder contract | `reference_geometry.ENCODER_CONTRACT_KEYS`: `source`, image and video bounds and geometry; decides the stage-two view under `encoder` policy | stamped on the CLIP by `MiniMaxH3AWQEncoderLoader`; read by `encoder_contract_from_clip` |
 | prompt bytes (sha256) | the text is the presentation | capture manifest |
 | ordered media, each by sha256, role and label | order is part of the presentation (`<Picture i>` numbering), and the same file as keyframe and as reference sizes differently | capture manifest `references[].sha256` |
-| per-reference sizing knobs | `size_policy`, `allow_upscale`, `short_edge`, `qwen_short_edge`: the same file at two views is two encodes | the append node's inputs |
+| per-reference sizing knobs | `size_policy`, and under its `max` branch `short_edge` and `allow_upscale`, plus `qwen_short_edge`: the same file at two views is two encodes | the append node's inputs |
 | `video_policy`, `image_policy` | select whose bounds apply at stage two | the conditioner's inputs |
 | canvas and length | reference videos are sized by the canvas rule and frame count; the emitted AV latent's shape follows them | the conditioner's inputs |
 | audio references (label only) | a text label enters the presentation | the append node |
-| tokenizer identity | the seven H3 special tokens are appended by the installed ComfyUI, and their ids are what the presentation is made of | `vendor_tokens.py` / the loader's token-set assertion |
+| tokenizer identity | the seven H3 special tokens are appended by the installed ComfyUI, and their ids are what the presentation is made of | the loader's token-set assertion (`vendor_tokens.py` was removed 2026-08-27) |
 
 Every row is something this repo already computes or records for the capture
 manifest (`docs/capture_manifest_schema.md`), so the key is the manifest's

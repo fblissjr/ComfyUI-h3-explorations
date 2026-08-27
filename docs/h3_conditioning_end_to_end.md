@@ -293,10 +293,13 @@ reference's effective conditioning influence is unmeasured.
 policy.** It is pinned to the canvas by the packing. Canvas size and the number
 of guides remain separate cost levers.
 
-**Contradictory sizing settings warn rather than erroring.** `size_policy`,
-`short_edge` and `allow_upscale` sit on one node since 2026-08-24, so a
-`match` policy carrying a non-default `short_edge` is checkable and says so;
-before the fold the two lived a node apart and went silently inert. See
+**Contradictory sizing settings are no longer expressible.** `size_policy`,
+`short_edge` and `allow_upscale` came onto one node on 2026-08-24, which made a
+`match` policy carrying a non-default `short_edge` *checkable* — it warned. On
+2026-08-27 `size_policy` became a `DynamicCombo` and the two knobs moved inside
+the `max` branch, so selecting `match` removes them from the node entirely. The
+warning went with them: a state that cannot be reached does not need reporting,
+and a warning that only fires after a render is queued was the weaker fix. See
 [`h3_references.md`](h3_references.md) for the two knobs and how they are
 confused for each other.
 
