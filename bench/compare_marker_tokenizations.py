@@ -103,6 +103,69 @@ def _legacy_tokenizer():
     return fresh
 
 
+def id_provenance() -> dict:
+    """Where the seven marker ids come from, since it is not where core says.
+
+    `comfy/text_encoders/minimax.py` declares MINIMAX_EXTRA_TOKENS with the
+    comment "ids fixed by the released tokenizer". The released
+    `tokenizer_config.json` assigns the seven NO ids: all seven are listed in
+    `additional_special_tokens` and none appears in `added_tokens_decoder`,
+    where every one of the other thirteen specials does.
+
+    The ids are a DERIVATION -- append the seven in declaration order after the
+    highest existing added token -- and this reproduces core's constants
+    exactly. That derivation is the standard behaviour and is very likely what
+    the vendor's own tokenizer did, but it is an inference and core states it
+    as source. It is load-bearing for this whole lane: if the vendor's internal
+    tokenizer numbered them differently, `release_id` addresses the wrong seven
+    rows, and no cheap measurement can tell -- feeding an unexpected id still
+    produces a response, so sensitivity does not confirm the numbering.
+    """
+    # Through vendor_config's own reader, never a retyped path or value --
+    # CLAUDE.md's rule for anything the release declares.
+    import vendor_config as VC
+    cfg = VC._load("tokenizer_config.json")
+    declared = VC.additional_special_tokens()
+    decoder = cfg.get("added_tokens_decoder", {})
+    by_content = {v.get("content"): int(k) for k, v in decoder.items()}
+    markers = M.marker_tokens()
+
+    top = max(int(k) for k in decoder)
+    derived, n = {}, 0
+    for token in declared:
+        if token in markers:
+            n += 1
+            derived[token] = top + n
+
+    from comfy.text_encoders.minimax import MINIMAX_EXTRA_TOKENS as CORE
+    return {
+        "release_declares_them_special": [t for t in markers if t in declared],
+        "release_gives_them_ids": {t: by_content[t] for t in markers if t in by_content},
+        "other_specials_all_have_ids": all(
+            t in by_content for t in declared if t not in markers),
+        "highest_id_in_added_tokens_decoder": top,
+        "derived_by_sequential_append": derived,
+        "core_constant": dict(CORE),
+        "derivation_reproduces_core_exactly": derived == dict(CORE),
+        "core_comment_says": "ids fixed by the released tokenizer",
+        "evidence_class": (
+            "INFERENCE, not SOURCE. The released config fixes no id for any of "
+            "the seven. Appending them in declaration order after the highest "
+            "existing added token reproduces core's constants exactly, which "
+            "is the standard mechanism and is probably what the vendor did -- "
+            "but it is derived, and core's comment states it as read."
+        ),
+        "why_it_matters": (
+            "every marker arm, and the DiT sensitivity measured in "
+            "2026-08-27_marker_epsilon.json, addresses rows 151669-151675. If "
+            "the vendor's internal tokenizer numbered the seven differently, "
+            "those are the wrong rows and release_id is not the release "
+            "spelling. Sensitivity cannot detect this: an unexpected id still "
+            "moves the prediction."
+        ),
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -137,6 +200,7 @@ def main() -> int:
         "legacy_ids_outside_lcs": len(b) - lcs,
         "max_cumulative_displacement": shift,
         "edit_sites": sites,
+        "id_provenance": id_provenance(),
         "index_wise_mismatches": index_wise,
         "index_wise_is_misleading": (
             "reported only to retire it. An insertion shifts every later "
@@ -163,6 +227,10 @@ def main() -> int:
     print(f"  release ids outside it     : {len(a)-lcs}")
     print(f"  edit sites                 : {len(sites)}, net {shift:+d} tokens")
     print(f"  index-wise mismatches      : {index_wise}  <- retired, see record")
+    prov = record["id_provenance"]
+    print(f"\nmarker ids: release fixes {len(prov['release_gives_them_ids'])} of 7; "
+          f"derivation reproduces core exactly: "
+          f"{prov['derivation_reproduces_core_exactly']}")
     try:
         print(f"wrote {out.relative_to(REPO)}")
     except ValueError:
