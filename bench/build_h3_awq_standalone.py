@@ -28,17 +28,29 @@ from h3_config import (  # noqa: E402
 )
 
 LOADER_SOURCE = REPO / "h3_awq_encoder.py"
-CONFIG_DIR = REPO / "config" / "qwen3vl_32b_minimax_h3_w4a16_awq"
+# The artifact this distribution answers for. **v2 since 2026-08-27.** The
+# published one-file loader embeds ONE artifact's configs and refuses any other
+# by that artifact's own config, so this constant decides what the release can
+# load -- not a default it falls back from.
+CONFIG_DIR = REPO / "config" / "qwen3vl_32b_minimax_h3_w4a16_awq_v2"
+# v2 uses the release's flat `preprocessor_config.json` where v1 nested the
+# same settings in `processor_config.json`; the loader accepts either through
+# `h3_awq_encoder.py::STILL_CONFIG_NAMES`, so only this tuple names one.
 RUNTIME_CONFIGS = (
     "config.json",
     "tokenizer_config.json",
-    "processor_config.json",
+    "preprocessor_config.json",
     "video_preprocessor_config.json",
 )
 
 HF_REPO_ID = "fbjr/qwen3-vl-32b-W4A16-AWQ-H3"
-MODEL_FILENAME = "qwen3vl_32b_minimax_h3_w4a16_awq_v1-comfy.safetensors"
+MODEL_FILENAME = "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"
 STANDALONE_FILENAME = "comfyui_minimax_h3_awq_loader.py"
+README_FILENAME = "README.md"
+# The encoder comparison is READ from the recorded run, never retyped into the
+# card. `docs/evidence.md` owns which numbers may be quoted at all; this build
+# fails rather than shipping a card whose table nobody can trace.
+HOLDOUT_RESULT = REPO / "bench" / "results" / "2026-08-25_four_encoders_holdout_layer50.json"
 COMPARE_WORKFLOW_FILENAME = "comfyui_minimax_h3_encoder_ab_compare.json"
 # Repo-relative directory the generated workflows are emitted into. The loader
 # and the Hugging Face checkpoint files stay at the root; see build().
@@ -104,7 +116,9 @@ that gap.
 
 Adaptation is in-memory and view-based for the 4-bit weights; it does not
 write a second multi-gigabyte checkpoint.  Its four small runtime configs are
-embedded from the versioned ComfyUI-h3-explorations snapshot.
+embedded from one versioned ComfyUI-h3-explorations snapshot, and this build
+answers for that artifact alone: a checkpoint whose embedded config differs is
+refused rather than loaded under the wrong preprocessing.
 '''
 
 _STANDALONE_FOOTER = f'''
@@ -782,6 +796,178 @@ def render_compare_workflow() -> str:
     return json.dumps(workflow, indent=2, ensure_ascii=False) + "\n"
 
 
+def _holdout_rows() -> tuple[list[tuple[str, dict]], dict]:
+    """(label, median relative L2 per geometry) per arm, read from the record."""
+    record = json.loads(HOLDOUT_RESULT.read_text())
+    rows = []
+    for arm, per_geometry in record["arms"].items():
+        label = arm.split("-tap49-")[-1].replace(".safetensors", "")
+        medians = {}
+        for geometry, block in per_geometry.items():
+            dist = block.get("all", {}).get("relative_l2", {}).get("distribution")
+            if dist:
+                medians[geometry] = dist["median"]
+        rows.append((label, medians))
+    return rows, record
+
+
+def render_readme() -> str:
+    rows, record = _holdout_rows()
+    geometries = ["noup", "up2048", "t2va"]
+    pretty = {"noup": "image refs, native size",
+              "up2048": "image refs, 2048 short edge",
+              "t2va": "text only"}
+    n = len(next(iter(record["rows_per_geometry"].values())))
+
+    table = ["| encoder | " + " | ".join(pretty[g] for g in geometries) + " |",
+             "|---|" + "---|" * len(geometries)]
+    for label, medians in sorted(rows, key=lambda r: r[0]):
+        cells = [f"{medians[g]:.4f}" if g in medians else "—" for g in geometries]
+        name = f"**{label}**" if label == Path(MODEL_FILENAME).stem else label
+        table.append(f"| {name} | " + " | ".join(cells) + " |")
+
+    return f"""---
+license: apache-2.0
+base_model: Qwen/Qwen3-VL-32B-Instruct
+tags: [minimax-h3, comfyui, compressed-tensors, awq, w4a16, quantized]
+---
+
+# Qwen3-VL-32B W4A16 AWQ conditioner for MiniMax H3 — v2
+
+A compressed-tensors W4A16 AWQ quantization of Qwen3-VL-32B, adapted for the
+50-layer text/vision conditioner MiniMax H3 uses, plus the single-file ComfyUI
+node that loads it. ComfyUI supplies the H3 architecture and tokenizer;
+comfy-kitchen supplies the CUDA W4A16 operator; this node adapts
+compressed-tensors' Hugging Face namespace, packing and metadata in memory,
+because core does not recognize that format.
+
+## Files
+
+| file | what it is |
+|---|---|
+| [`{MODEL_FILENAME}`](https://huggingface.co/{HF_REPO_ID}/blob/main/{MODEL_FILENAME}) | the v2 checkpoint |
+| [`{STANDALONE_FILENAME}`](https://huggingface.co/{HF_REPO_ID}/blob/main/{STANDALONE_FILENAME}) | the ComfyUI custom node — drop into `custom_nodes/` |
+| [`{WORKFLOW_SUBDIR}/`](https://huggingface.co/{HF_REPO_ID}/tree/main/{WORKFLOW_SUBDIR}) | sample workflows, derived from ComfyUI's official H3 templates |
+
+Put the checkpoint in `models/text_encoders/`, the `.py` at the **top level** of
+`custom_nodes/` (ComfyUI's scan only walks one level deep), and the workflows
+anywhere under `user/default/workflows/`.
+
+## If you used the previous release, update the node
+
+The v1 loader embeds v1's configs and compares every checkpoint against them,
+so it **refuses** this checkpoint rather than loading it under the wrong
+preprocessing:
+
+> checkpoint embedded config differs from the versioned config snapshot
+
+That refusal is the correct behaviour and the reason to update: the two
+artifacts declare different still-image pixel budgets, and loading v2's weights
+under v1's budget would silently change what the conditioner sees. Download the
+node from this repo again. The new node answers for v2 and refuses v1 in the
+same way, for the same reason.
+
+## What changed from v1
+
+**The still-image pixel budget, which is the change you will actually notice.**
+v1 declared 200704–301056 px; v2 declares the release's own 65536–16777216 px.
+Under v1 every reference still was reduced to a few hundred merged tokens no
+matter how it was prepared upstream, so preparing a reference at a 2048 short
+edge did nothing. Under v2 that preparation survives to the encoder.
+
+That is a cost as well as a capability. An unclamped view costs
+`(width/32) * (height/32)` merged tokens in the conditioning sequence, so a
+large reference is now genuinely large. Size references deliberately.
+
+**The vision patch-embed is stored FP32** (`model.visual.patch_embed.proj`),
+where v1 stored it BF16, so image pixels are not downcast on the way in. Those
+two tensors are the only dtype difference between the files.
+
+**Calibration ran under ComfyUI's own arithmetic** rather than the framework
+defaults: FP32 compute over BF16-stored weights, matching what `manual_cast`
+does at inference, with the patch-embed held in FP32.
+
+**The AWQ search differs**: v2 enables `duo_scaling` and uses the library's
+resolved mappings, where v1 disabled it and pinned hand-written smooth/balance
+pairs.
+
+**What did not change.** The `quantization_config` is byte-identical between
+the two — same W4A16, symmetric, group size 128, same 117-entry ignore list.
+The token embedding table is BF16 in both and was never quantized in either:
+both recipes target `Linear`, and an embedding is not a Linear. The vision
+tower, mergers and LM head are unquantized in both.
+
+## How it compares
+
+Median relative L2 at layer 50 against the BF16 reference in the same ComfyUI
+50-layer implementation, over a {n}-row holdout. Lower is closer.
+
+{chr(10).join(table)}
+
+**Read this honestly: v2 is not a fidelity improvement over v1 by this
+measure.** It is very slightly further on reference geometries and very
+slightly closer on text-only. And ComfyUI's own INT8 ConvRot conditioner is
+roughly an order of magnitude closer to BF16 than either W4A16 build.
+
+If layer-50 fidelity is what you care about and you can afford the memory,
+use the INT8 conditioner Comfy ships. The reasons to use this one are that it
+is about 19 GiB rather than about 25 GiB, and that W4A16 executes on
+comfy-kitchen's CUDA path.
+
+**What none of this measures is rendered output.** Layer-50 distance is a
+proxy; nobody has run a blinded matched-seed comparison of clips from these
+conditioners. Whether the difference is visible is genuinely open, and if you
+form an impression either way, that is more informative than this table.
+
+## What it was calibrated on
+
+At a high level, and deliberately without publishing the population: real
+media presented the way H3 actually presents it — the native H3 prompt format
+with its picture, audio and video markers, not a generic vision-language chat
+template — across the reference roles the model supports (text-only, single
+image, multi-image, keyframe, and video reference), with reference stills
+prepared at the 2048-short-edge serving geometry that the release's own
+pipeline produces.
+
+Sequential calibration with error propagation, so each layer is fitted against
+the propagated outputs of the layers above it rather than against clean ones.
+
+## Known open reports
+
+**A user reported that a reference with audio produced video that ignored the
+prompt, on v1, where ComfyUI's INT8 conditioner on the same workflow did not.**
+Not reproduced and not explained. What has been checked, and cleared:
+
+- the H3 tokenizer keeps the prompt intact with an audio reference present;
+- audio never reaches the vision path at all — it becomes the text `<Audio N>: `;
+- this node's handling of a non-image reference is what the base class does;
+- this node's reference construction is identical to core ComfyUI's;
+- neither v1 nor v2 produces a degenerate encoding with an audio marker
+  present: finite throughout, no collapsed or dead rows, and row statistics
+  essentially unchanged against the same prompt without audio.
+
+So the loud failure modes are ruled out and the report is still open. If you
+can reproduce it, a workflow JSON would help more than a description.
+
+## v3
+
+The next variant is GPTQ rather than another AWQ calibration, on the reasoning
+that AWQ's per-channel scale search has not moved layer-50 distance between two
+quite different calibrations, which is evidence the limit is the method rather
+than the population. GPTQ's error-compensating update is a different mechanism,
+and its per-layer state is independent of population size.
+
+## Provenance
+
+Generated by `build_h3_awq_standalone.py` in the ComfyUI-h3-explorations
+research repo. The node is generated from that repo's `h3_awq_encoder.py` and
+records its own source SHA-256 in its header; its four runtime configs are
+embedded from this artifact's own snapshot and their digests are recorded in
+`_EMBEDDED_CONFIG_SHA256`. The comparison table above is read from the recorded
+holdout run at build time, not retyped.
+"""
+
+
 def build(output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     written = []
@@ -809,6 +995,13 @@ def build(output_dir: Path) -> list[Path]:
     compare = workflow_dir / COMPARE_WORKFLOW_FILENAME
     compare.write_text(render_compare_workflow())
     written.append(compare)
+
+    # The model card ships beside the weights, and its comparison table is read
+    # from the recorded holdout rather than retyped, so it cannot drift from
+    # the run it cites.
+    readme = output_dir / README_FILENAME
+    readme.write_text(render_readme())
+    written.append(readme)
     return written
 
 

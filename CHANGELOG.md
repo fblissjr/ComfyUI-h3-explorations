@@ -53,6 +53,33 @@ artifact.
   contract" and been safe. Name an artifact in `workflows/h3_config.py`; do not
   symlink one file into another's name.
 
+### Added
+
+- **The Hugging Face distribution targets v2, and ships a model card.**
+  `bench/build_h3_awq_standalone.py` embeds the v2 snapshot (which spells its
+  still-image settings `preprocessor_config.json`, where v1 nested them in
+  `processor_config.json`) and names the v2 checkpoint. The generated loader
+  accepts v2 and refuses v1, which is the mirror of what the published v1
+  loader does to a v2 file -- verified by driving both modules' own
+  `_validate_metadata` against both checkpoints rather than reasoning about it.
+
+  The card's encoder comparison is **read from
+  `bench/results/2026-08-25_four_encoders_holdout_layer50.json` at build time**,
+  not retyped, and it says plainly what that record shows: v2 is not a fidelity
+  improvement on v1 by that measure, and ComfyUI's INT8 ConvRot conditioner is
+  about an order of magnitude closer to BF16 than either W4A16 build. It also
+  says that layer-50 distance is a proxy and no blinded matched-seed clip
+  comparison has been run.
+
+- `bench/probe_audio_marker_effect.py` and its two records, for the report that
+  a reference with audio produced video ignoring the prompt. It asks an
+  **absolute** question on purpose -- non-finite values, collapsed rows, dead
+  spans -- because the obvious comparison, how far the rows move when the audio
+  marker is added, has no meaning without a reference encoder: the marker is
+  real text and legitimately shifts every downstream row. Both v1 and v2 come
+  back clean on both arms, so the loud failure modes are ruled out and the
+  question escalates to a BF16 comparison rather than being closed.
+
 ### Documentation
 
 - `docs/h3_awq_encoder.md` no longer states one budget as "the current

@@ -50,6 +50,8 @@ sys.path.insert(0, str(REPO / "bench"))
 import comfy.cli_args  # noqa: E402
 from build_h3_awq_standalone import (  # noqa: E402
     COMPARE_WORKFLOW_FILENAME,
+    CONFIG_DIR as STANDALONE_CONFIG_DIR,
+    README_FILENAME,
     MODEL_FILENAME,
     WORKFLOW_SUBDIR,
     FIRST_LAST_WORKFLOW,
@@ -423,6 +425,7 @@ def standalone_distribution_contract():
         # The loader is emitted at the root and the workflows one level down;
         # see build_h3_awq_standalone.build() for why that split is load-bearing.
         expected_names = {STANDALONE_FILENAME,
+                          README_FILENAME,
                           f"{WORKFLOW_SUBDIR}/{COMPARE_WORKFLOW_FILENAME}",
                           *(f"{WORKFLOW_SUBDIR}/{n}" for n in WORKFLOWS)}
         assert {str(path.relative_to(output_dir)) for path in written} == expected_names
@@ -436,8 +439,12 @@ def standalone_distribution_contract():
         sys.modules[spec.name] = standalone
         spec.loader.exec_module(standalone)
 
+        # Against the snapshot the BUILD embeds, not this module's own. Those
+        # were the same directory until the distribution moved to v2, and
+        # `H.CONFIG_DIR` is still v1 -- it is what `ARTIFACT_SNAPSHOTS` resolves
+        # the v1 names to, so it cannot follow the distribution.
         for name in RUNTIME_CONFIGS:
-            source_path = H.CONFIG_DIR / name
+            source_path = STANDALONE_CONFIG_DIR / name
             assert standalone._config(name) == json.loads(source_path.read_text())
             digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
             assert standalone._EMBEDDED_CONFIG_SHA256[name] == digest

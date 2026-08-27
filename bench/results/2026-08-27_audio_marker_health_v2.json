@@ -1,0 +1,112 @@
+{
+  "purpose": "absolute health of H3 layer-50 output with and without an audio reference; escalates rather than clears",
+  "encoder": "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors",
+  "encoder_contract": {
+    "source": "qwen3vl_32b_minimax_h3_w4a16_awq_v2",
+    "image_bounds": [
+      65536,
+      16777216
+    ],
+    "image_geometry": {
+      "patch_size": 16,
+      "temporal_patch_size": 2,
+      "merge_size": 2,
+      "image_mean": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "image_std": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    },
+    "video_bounds": [
+      4096,
+      25165824
+    ],
+    "video_geometry": {
+      "patch_size": 16,
+      "temporal_patch_size": 2,
+      "merge_size": 2,
+      "image_mean": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "image_std": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    }
+  },
+  "prompt_sha256": "16282799bf4cb2b121d6699fd46440f1e52eb17c836536471cd0dc37dd91e94f",
+  "arms": {
+    "images_only": {
+      "rows": 439,
+      "width": 5120,
+      "all_finite": true,
+      "nan_count": 0,
+      "inf_count": 0,
+      "row_norm": {
+        "min": 195.06045532226562,
+        "median": 247.9752197265625,
+        "max": 18638.96875,
+        "mean": 394.9944763183594
+      },
+      "near_zero_rows": 0,
+      "mean_alignment_to_centroid": 0.7523190379142761,
+      "max_alignment_to_centroid": 0.9232076406478882
+    },
+    "images_with_audio": {
+      "rows": 444,
+      "width": 5120,
+      "all_finite": true,
+      "nan_count": 0,
+      "inf_count": 0,
+      "row_norm": {
+        "min": 181.8055419921875,
+        "median": 248.77500915527344,
+        "max": 18638.96875,
+        "mean": 393.9630432128906
+      },
+      "near_zero_rows": 0,
+      "mean_alignment_to_centroid": 0.7529019713401794,
+      "max_alignment_to_centroid": 0.9243113994598389
+    },
+    "audio_only": {
+      "rows": 36,
+      "width": 5120,
+      "all_finite": true,
+      "nan_count": 0,
+      "inf_count": 0,
+      "row_norm": {
+        "min": 236.3369903564453,
+        "median": 299.86456298828125,
+        "max": 15995.400390625,
+        "mean": 736.000732421875
+      },
+      "near_zero_rows": 0,
+      "mean_alignment_to_centroid": 0.7040736079216003,
+      "max_alignment_to_centroid": 0.9756887555122375
+    },
+    "no_refs": {
+      "rows": 31,
+      "width": 5120,
+      "all_finite": true,
+      "nan_count": 0,
+      "inf_count": 0,
+      "row_norm": {
+        "min": 251.46690368652344,
+        "median": 305.3253173828125,
+        "max": 15073.8603515625,
+        "mean": 782.725830078125
+      },
+      "near_zero_rows": 0,
+      "mean_alignment_to_centroid": 0.6895895600318909,
+      "max_alignment_to_centroid": 0.978369414806366
+    }
+  }
+}
