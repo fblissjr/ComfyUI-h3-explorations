@@ -63,6 +63,9 @@ artifact.
   loader does to a v2 file -- verified by driving both modules' own
   `_validate_metadata` against both checkpoints rather than reasoning about it.
 
+  The card carries no open-report section: what to say publicly about an
+  unresolved third-party report is the owner's call, not the build's.
+
   The card's encoder comparison is **read from
   `bench/results/2026-08-25_four_encoders_holdout_layer50.json` at build time**,
   not retyped, and it says plainly what that record shows: v2 is not a fidelity

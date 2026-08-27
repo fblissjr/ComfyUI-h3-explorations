@@ -932,23 +932,6 @@ pipeline produces.
 Sequential calibration with error propagation, so each layer is fitted against
 the propagated outputs of the layers above it rather than against clean ones.
 
-## Known open reports
-
-**A user reported that a reference with audio produced video that ignored the
-prompt, on v1, where ComfyUI's INT8 conditioner on the same workflow did not.**
-Not reproduced and not explained. What has been checked, and cleared:
-
-- the H3 tokenizer keeps the prompt intact with an audio reference present;
-- audio never reaches the vision path at all — it becomes the text `<Audio N>: `;
-- this node's handling of a non-image reference is what the base class does;
-- this node's reference construction is identical to core ComfyUI's;
-- neither v1 nor v2 produces a degenerate encoding with an audio marker
-  present: finite throughout, no collapsed or dead rows, and row statistics
-  essentially unchanged against the same prompt without audio.
-
-So the loud failure modes are ruled out and the report is still open. If you
-can reproduce it, a workflow JSON would help more than a description.
-
 ## v3
 
 The next variant is GPTQ rather than another AWQ calibration, on the reasoning
