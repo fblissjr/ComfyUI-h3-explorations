@@ -46,18 +46,11 @@ that `MiniMaxH3PDDLoRA` reads.
     unpruned model behind the node's back, and silently drop them on a pruned
     one with nothing but a log line.
 
-`h3_pdd.head.{video,audio}.{weight,bias}`  [nfe, out, in] / [nfe, out]
-    The 32 per-interval heads collapsed to the `nfe` fused heads a run actually
-    uses. `MiniMaxH3ParallelHead.forward` fuses WEIGHTS, not outputs, and the
-    fusion plan depends only on (shift, num_steps, block_size, step) -- all
-    fixed at conversion time. So this is the same arithmetic, not an
-    approximation, and it turns a 32-head module swap into an 8-entry lookup.
-    Computed in float64 and stored float32: the reference casts its plan to the
-    weight dtype (bf16) before the einsum, which costs ~1.7e-3 relative on the
-    fused head -- the same order as a tenth of the signal the heads carry. Our
-    output heads are ComfyUI's fp32 island, so we keep the precision. This
-    means our result is not bit-identical to theirs; it is closer to the
-    intended arithmetic, not further.
+`h3_pdd.head.*`  RETIRED 2026-08-27, and deliberately not re-added.
+    This held the 32 heads collapsed to `nfe` fused ones. That pinned a step
+    count into the artifact, which stopped being knowable here the day the node
+    began reading it off the sampler's schedule. The bank below replaced it;
+    the node fuses each span it is asked for.
 
 `h3_pdd.bank.{video,audio}.{weight,bias}`   [32, out, in] / [32, out]
     The published per-interval head stack, verbatim and at its published bf16.
@@ -166,7 +159,7 @@ from safetensors.torch import load_file, save_file
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))              # this repo
-from pdd_math import fuse_heads, silu_temb_grid   # noqa: E402
+from pdd_math import silu_temb_grid   # noqa: E402
 
 CONVERTER_VERSION = "1"
 
@@ -528,8 +521,18 @@ def main(argv=None) -> int:
     print(f"wrote {args.out}")
     print(f"  {modules} backbone modules, {adaln_modules} adaln modules "
           f"({len(src)} source tensors, all consumed)")
-    print(f"  {nfe} fused head pairs at shift {args.shift_video}/{args.shift_audio}")
-    print(f"  time grid {tuple(out['h3_pdd.silu_temb_grid'].shape)} from {args.base.name}")
+    print(f"  32-interval head bank at shift {args.shift_video}/{args.shift_audio}")
+    # The grid is emitted ONLY on the unpruned path, so reading it
+    # unconditionally raised KeyError after the file had already been written --
+    # every `--pruned` run looked failed and returned non-zero while having
+    # produced a correct artifact. Both files this repo ships are pruned
+    # conversions, so that was every real run.
+    if "h3_pdd.silu_temb_grid" in out:
+        print(f"  time grid {tuple(out['h3_pdd.silu_temb_grid'].shape)} "
+              f"from {args.base.name}")
+    else:
+        print(f"  adaln baked into {baked} block(s) of the pruned curve basis; "
+              f"no runtime grid needed")
     print(f"  partition fingerprint {metadata['base_video_out_sha256'][:16]}")
     return 0
 

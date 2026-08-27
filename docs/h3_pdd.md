@@ -11,7 +11,11 @@ describes *their* design is read from that file, not inferred.
 
 Written 2026-08-26 against the published weights, ComfyUI's
 `comfy/ldm/minimax/model.py`, and the checkpoints in
-`models/diffusion_models/`. Four arms have rendered at 1344x768; see
+`models/diffusion_models/`. Substantially revised 2026-08-27, when the node
+stopped asking for a step count and started reading it off the sampler; where a
+section reads as a correction of an earlier design, that is the one.
+
+Arms have rendered at 1344x768 at both 8 and 4 evaluations; see
 `bench/check_pdd_head_selection.py` for the defect the first four exposed.
 
 ---
@@ -22,15 +26,25 @@ Not "the same trajectory in fewer steps". The trajectory stays a 32-point
 grid. What changes is the **final output head**: `proj_out` and
 `audio_proj_out` are each replicated once per interval of that grid, and one
 sampling step fuses a contiguous block of those heads into a single effective
-linear whose output is the block's mean velocity. So `nfe = 32 / 4 = 8`
-transformer evaluations cover a 32-step trajectory.
+linear whose output is the block's mean velocity. Eight evaluations at block
+width 4 cover the 32-interval trajectory; four at width 8 do too, from the same
+weights.
 
 The fusion is on **weights**, not outputs — `MiniMaxH3ParallelHead.forward`
-builds one matrix per step and calls `F.linear` once — and its plan depends
-only on `(shift, num_steps, block_size, step)`. All four are fixed before a
-render starts, so there are only ever `nfe` distinct fused heads. That is what
-lets `bench/convert_pdd_lora.py` collapse the 32-head stack offline without
-approximating anything.
+builds one matrix per step and calls `F.linear` once — and its plan is a
+function of `(shift, num_steps, start, stop)` alone: no hidden state, no
+dependence on what the previous step produced. That is what makes a fused head
+a thing you can compute once and reuse, and it is why `pdd_math.fuse_block` is
+exact rather than an approximation of the reference's per-forward einsum.
+
+**What it is NOT a function of is the step count**, and that is the whole of
+why this document changed on 2026-08-27. A block is a span between two grid
+points, and which grid points a render visits is named by the sampler's
+schedule — which does not exist at patch time. So the converter ships the
+32-head bank verbatim (`h3_pdd.bank.{video,audio}`) and the node fuses each
+span the first time a step asks for it. An earlier design collapsed the stack
+to `nfe` heads inside the converter; that pinned a step count into the
+artifact, and it is gone.
 
 One published file therefore carries three mechanisms that reach the model on
 three different surfaces:
@@ -59,8 +73,14 @@ LoRA, which was distilled at 6/3 and therefore changes two things at once,
 which `docs/h3_ref2v_distillation.md` records as the reason it is harder to
 attribute.
 
-`pdd_math.block_bounds` is the one implementation of this, shared by the
-converter and the node so they cannot disagree about which head a step wants.
+`pdd_math.pdd_time_grid` is the one implementation of the grid, and
+`fusion_plan` the one implementation of a block's weights. Both consumers go
+through them, so the converter and the node cannot disagree about what a block
+means. `block_bounds` is the closed form for the uniform case and is now used
+only by the checks — the node reaches the same boundaries through
+`schedule_knots`, and `bench/check_pdd_head_selection.py` asserts the two agree
+to `torch.equal` at every divisor, which is what keeps the closed form honest
+as a reference rather than leaving two answers in the tree.
 
 ---
 
@@ -109,13 +129,41 @@ be tested without a server. One copy: a drift between the converter's fusion
 and the node's selection is a silent wrong-head, and sharing the module is what
 makes it impossible rather than merely unlikely.
 
+Four functions carry the design. `pdd_time_grid` is the grid. `base_sigma`
+inverts the flow shift, which is what makes a grid position readable from a
+sampler's sigma at all — the grid is uniform in BASE sigma, not in `t` and not
+in the shifted sigma, so undoing the shift is the only way back to an index.
+`schedule_knots` turns a sigma schedule into the grid points it lands on.
+`fusion_plan` is the paper's `D_k` over a span, and `fuse_block` applies it to
+one block; `fuse_heads` is the uniform case built on top, kept because the
+checks want the whole stack at once.
+
+`fusion_plan` takes an END index rather than a width as of 2026-08-27, for the
+reason the rest of this section keeps arriving at: a schedule-derived block is
+a span between two knots and is not always as wide as its neighbours.
+
 ### `MiniMaxH3PDDLoRA` (`pdd_lora.py`)
 
-The three runtime surfaces. Goes where a LoRA loader goes — before
+The runtime surfaces. Goes where a LoRA loader goes — before
 `MiniMaxH3SigmaShift`, before the attention nodes — for the reason
 `workflows/build_workflows.py` already states about the turbo loaders: it
 clones the ModelPatcher, and that clone belongs upstream of the sage-then-Sol
 adjacency rather than inserted into it.
+
+It installs four object patches when the heads are on, and they are not four
+copies of one idea:
+
+| patch | what it is for |
+|---|---|
+| `diffusion_model.forward` | observe `sample_sigmas` and delegate. The only patch that is not about heads |
+| `final_layer.forward` | bookkeeping: pick this step's block, then call the stock forward |
+| `final_layer.video_out.forward` | the swap |
+| `final_layer.audio_out.forward` | the swap, on the other stream's shift |
+
+Plus the weight patches, which go through `comfy.lora` and need no patch point
+at all. **`patch_heads=False` installs none of the four** — the control arm
+runs the backbone and adaln updates against the checkpoint's own heads, and
+does not need the schedule, so it does not observe it either.
 
 ---
 
@@ -135,6 +183,14 @@ threaded through.
 
 Selection matches `t_emb` against the **block-boundary embeddings**, built from
 the model's own arithmetic. The nearest boundary is the block, directly.
+
+Those embeddings are built at EVERY point of the 32-interval grid, not at the
+boundaries of one step count, and the tracker indexes that array by the knots
+it derives. It has to be that way round: at load the node knows the grid,
+because the grid is in the file, and does not know which subset of it are
+boundaries, because that is the schedule's business. Building all 33 costs one
+`cdist` table and removes any need to rebuild when the schedule arrives — or
+when it changes mid-graph, which `split_at` two-pass sampling does.
 
 ### The step COUNT is a different question, and it used to be a widget
 
@@ -204,8 +260,22 @@ how they consume the fused heads are worth matching rather than approximating.
 Euler (`eta = 0`) step", and their adapter defines the fused head as "the mean
 velocity of one block, which an Euler step over the block boundaries consumes".
 `er_sde` injects noise and uses a different update rule, so the heads would be
-consumed by something they were never distilled against. The PDD arms carry
-`euler` for that reason and no other.
+consumed by something they were never distilled against.
+
+**This is a requirement, not a preference, and the distinction matters because
+a preference could be traded away.** A fused head is not "a velocity that an
+Euler step happens to suit" — it is *defined* as the block's mean velocity,
+which is the quantity a single Euler step across that block integrates exactly.
+Consume it with anything that re-noises between boundaries and the head is
+answering a question the sampler did not ask. The `p` axis below is the same
+point from the other side: sub-stepping within a block is provably redundant
+under a first-order solver, and stops being redundant only under a stochastic
+one, which is off-distribution.
+
+`workflows/h3_config.py` made euler/simple the default for every distilled arm
+on 2026-08-27, which is a separate and weaker argument about distilled models in
+general. PDD required euler before that policy existed and would require it if
+the policy were reversed.
 
 **The sigma grid already matches, and is now graded.** `simple` is EXACT at 4
 and 8 steps -- it reads the discrete 1,000-entry table and both divide 1,000,
@@ -213,6 +283,13 @@ measured in `bench/check_distill_grid.py`. That check skipped every PDD graph
 until 2026-08-26 because `is_turbo` is false for a PDD filename; it now grades
 them against `pdd_math.block_bounds`, which is analytic ground truth rather
 than a vendor table, on both the video and audio streams.
+
+**Corrected 2026-08-27**: it took the evaluation count from the converted
+file's `pdd_nfe`, which was right while the graph carried an `nfe` widget and
+went red on every correct 4-step arm the moment the widget stopped carrying
+one. It now takes the sampler's own `steps`, treats a non-zero `nfe` as an
+override, and requires the count to divide the grid for a shipped arm.
+`bench/check_distill_settings.py` had the same premise and the same correction.
 
 **Dense DiT attention is the reference configuration**, not a handicap. Their
 pipeline is Diffusers' `ModularPipeline` on stock SDPA, and running dense costs
@@ -259,10 +336,17 @@ evaluated at the block-START time, deterministic, no noise. That is what the
 
 It also settles a design question rather than leaving it to taste: *"during
 inference we can avoid the extra compute of an enlarged final layer and we only
-need to hold one fused linear layer per block in memory."* Precomputing the
-fused heads is the paper's own recommendation, not our optimisation of it --
+need to hold one fused linear layer per block in memory."* Holding one fused
+linear per block is the paper's own recommendation, not our optimisation of it,
 and the shipped adapter's per-forward einsum over all 32 heads is the form the
 paper says can be avoided.
+
+Note what the recommendation does and does not pin down. It says *hold* one per
+block, not *precompute at conversion time* -- so `_FusedHeads`, which fuses a
+span on first use and keeps it, satisfies it exactly. That is what let the step
+count move out of the artifact without giving anything up: a render visits at
+most `nfe` blocks, each is fused once, and the sampling loop is a dict lookup
+from the second pass onward.
 
 **Kijai's converted files**, an independent conversion of the same weights
 arrived at without reference to ours. **They are re-uploaded in place and have
@@ -369,11 +453,18 @@ Two design differences from ours, and neither is a defect in his:
   `sample_sigmas` being present and on the sampler evaluating only at scheduled
   sigmas. Ours reads what the model was called with and needs nothing threaded
   in.
-- **He fuses per forward; we fuse at load.** The paper's section 3.1 recommends
-  the latter. At this sequence length neither is measurable.
-- **He accepts any step count**, blending whatever heads the step spans, where
-  we refuse a count that does not divide 32. His generalises off-distribution
-  silently; ours declines.
+- **He fuses inside every forward; we fuse each block once and cache it.** The
+  paper's section 3.1 asks for one fused linear per block held in memory rather
+  than an enlarged final layer evaluated per step, which is what the cache is.
+  At this sequence length the arithmetic is not measurable either way — the
+  reason to prefer the cache is that there are only `nfe` distinct answers and
+  computing them repeatedly is a place for them to differ.
+- **Both of us accept any step count.** This bullet said we refuse one that
+  does not divide 32; that stopped being true on 2026-08-27. The node takes
+  whatever spans the schedule names, reports uneven widths in the log, and
+  refuses only a non-dividing `nfe` OVERRIDE — because an override forces
+  uniform blocks by definition and so has to tile. Neither implementation
+  declines the arm; ours says out loud that it is off-distribution.
 
 **If it merges, our node breaks — and it broke loudly, which is the good
 case.** The PR widens `FinalLayer.forward` to
@@ -412,15 +503,22 @@ and the same affine adaln solve.
 
 **Where they are ahead**, and it is the guards rather than the maths:
 
-| they enforce | we did |
+| they enforce | us, as of 2026-08-27 |
 |---|---|
-| a partial patch-key match raises | nothing, until 2026-08-27 -- adopted, see below |
-| head shapes checked against the live model | nothing |
-| unconsumed keys in the published file are an error | nothing |
-| an off-grid sigma RAISES by default, `clamp` opt-in | warn once and continue |
-| refuses to stack on an existing `final_layer` object patch | nothing |
+| a partial patch-key match raises | **adopted.** `add_patches` returns the keys it matched; a shortfall against what `load_lora` resolved raises and names the first unmatched |
+| refuses to stack on an existing `final_layer` object patch | **adopted.** `head_patch_clash` refuses when any of the three head keys is taken |
+| head shapes checked against the live model | **partly.** The partition check tests shape before distance, which catches an enlarged bank; a genuinely mismatched one still surfaces as a torch broadcast error |
+| unconsumed keys in the published file are an error | open, converter-side |
+| an off-grid sigma RAISES by default, `clamp` opt-in | open, and **not** obviously worth taking -- see below |
 
-The first row is now closed here. The rest are open and are worth taking.
+Two adopted, one partly. The unconsumed-keys row is worth taking and is cheap.
+
+The off-grid row is the one to leave. Raising mid-render costs a whole render,
+and since 2026-08-27 the case it guards is narrower than theirs: our blocks come
+FROM the sampler's schedule, so "off grid" no longer means a step count
+mismatch — it means a sampler evaluating at a time its own schedule does not
+contain. Ours has never fired in a real render. A guard that has never fired,
+whose failure mode is a warning, is not obviously improved by making it fatal.
 
 **Their interface solves the step count from the other side.** The node has a
 `SIGMAS` output: it emits the block boundaries and you wire them into the
@@ -451,7 +549,35 @@ Our own note records shipping 1e-3 there and finding it *below* the 1.6e-3 a
 bf16 cast costs. Whether theirs bites depends on their target checkpoints, and
 nobody here has run it.
 
-## Two traps that are silent in both directions
+## Three traps that are silent in both directions
+
+### Two things cannot own the output heads
+
+`add_object_patch` is last-writer-wins per key, and the head swap lives on
+`final_layer.video_out.forward` and `.audio_out.forward` while the bookkeeping
+lives on `final_layer.forward`. So a second implementation installing its own
+swap does not collide loudly — it wins, silently, and the render looks entirely
+normal with one implementation's bookkeeping driving the other's heads.
+
+**The node refuses rather than chaining, and the choice is not arbitrary.**
+Chaining works for the capture patch on `diffusion_model.forward`, which only
+observes and delegates, so stacking observers is harmless and it does chain
+there. It cannot work for the heads: `video_out` produces one tensor, and two
+things claiming to produce it means one of them is not. There is no compose
+that makes both right, so the honest move is to decline and say which key is
+taken.
+
+The case that needs no other pack installed is two of this node in one chain.
+Beyond that, at least two other ComfyUI implementations patch the same
+attribute for their own PDD artifact families, so the collision is a property
+of the patch point rather than of what happens to be in `custom_nodes/` on a
+given day. `head_patch_clash` is a free function taking the patch mapping, so
+`bench/check_pdd_head_selection.py` grades the predicate without a loaded H3 —
+including that an unrelated block-attention patch does NOT trip it, which
+matters because sage and Sol patch those on every shipped graph and a sloppy
+predicate would refuse every render.
+
+Guard adopted from `silveroxides/ComfyUI-UtilsCollection`.
 
 ### The partitions have identical key sets
 
@@ -482,6 +608,22 @@ what the node checks.
 
 Either way it is a branch on an observable, not on a filename — the rule
 CLAUDE.md adopted 2026-08-22 after the tokenizer-constant escape.
+
+**Shape is tested before distance, and that order was earned.** On 2026-08-27,
+running Comfy-Org/ComfyUI#15908 locally, a graph that loaded Kijai's PDD file
+left `final_layer.video_out.weight` resident at `[32*out, in]` on the cached
+model. The next graph through this node read the enlarged tensor and died
+inside the subtraction with `size of tensor a (3072) must match tensor b (96)`
+— a broadcast error naming two numbers and explaining nothing. The check now
+tests shape first and says what an enlarged head means and how to clear it.
+
+The reason that happens at all is the difference between the two designs, and
+it is the strongest practical argument for ours. An approach that ENLARGES the
+weight has changed the module, and the change outlives the graph that asked for
+it, because ComfyUI caches the patched model. An approach that patches the
+projection's `forward` leaves the weight alone, so nothing it does can be
+inherited by the next graph. We patch forwards; that is not a stylistic
+preference.
 
 ### The pruned base has nowhere to put the adaln delta
 
@@ -633,6 +775,17 @@ deterministic:
 The first row is the one worth keeping. A fix that changes the arm it targets
 and leaves the arm that does not use that path untouched has demonstrated its
 own scope, which no amount of reading the diff can.
+
+**The instrument was weaker than two of those claims, noted 2026-08-27.** Those
+md5s are of the `.mp4` container, and these graphs carry `save_metadata: True`,
+so the workflow JSON is embedded in the file. Two payloads differing by nothing
+but a `filename_prefix` produce different containers with identical frames. The
+implication only runs one way: **identical container implies identical frames,
+so row one stands unharmed.** Rows two and three argue from "differs", which a
+container hash cannot establish — those conclusions are very likely right for
+other reasons, but the evidence cited does not reach them. Nothing was re-run;
+the rows are kept as the record of what was done. Compare decoded frames
+(`ffmpeg -f rawvideo | md5sum`) if this question ever needs answering again.
 
 ## Not measured
 

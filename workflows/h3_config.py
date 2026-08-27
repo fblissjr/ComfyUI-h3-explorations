@@ -378,17 +378,26 @@ SOL_BASELINE_124F = dict(
 #
 # Two knobs deliberately left at the node's default rather than tuned, to keep
 # this a single-variable change:
-#   min_tokens 4096   NOT the node's 12288, and it does not matter. Retracted
-#                     2026-08-14: this said "very likely wrong, a third of the
-#                     node's crossover". That reasoned from a call distribution
-#                     that does not exist. H3's DiT has exactly ONE attention
-#                     site (`comfy/ldm/minimax/model.py`) at the full packed
-#                     length, and frame counts satisfy n %% 17 == 5, so the
-#                     shortest clip past 5 frames is 22 frames -> S = 7,194,
-#                     already above 4096. Only a 5-frame render falls below.
-#                     4096 and 12288 therefore select the same thing -- all of
-#                     it -- at every length anyone renders. The small calls that
-#                     suggested otherwise were SageChainAssert's own probes.
+#   min_tokens 4096   The Triton-era value. SUPERSEDED 2026-08-27 -- the CUDA
+#                     recipe now takes the node's 12288; see its own note. H3's
+#                     DiT has exactly ONE attention site
+#                     (`comfy/ldm/minimax/model.py`) at the full packed length;
+#                     the small calls that once suggested otherwise were
+#                     SageChainAssert's own probes.
+#
+#                     **Corrected 2026-08-27.** This said the two values "select
+#                     the same thing at every length anyone renders", reasoning
+#                     from S = 7,194 at 22 frames being "already above 4096".
+#                     Above 4096 is not the test -- 7,194 is BELOW 12288, so at
+#                     that length the two disagree outright: 4096 runs Sol and
+#                     12288 keeps it dense. The claim is true only for the
+#                     lengths this repo actually renders, which are 31k-128k
+#                     tokens and far above both. Say that, not the stronger
+#                     thing.
+#
+#                     So 4096 is a deliberate choice to engage Sol BELOW the
+#                     crossover the node's own default encodes, in a regime
+#                     nothing here has measured and nothing here renders.
 #   reuse_qkv_memory  False. Verified numerically identical to the normal entry
 #                     (cos agreeing to six digits), so it cannot change output,
 #                     and upstream reports it drops attention's peak below the
@@ -457,19 +466,65 @@ SOL_RECOMMENDED_CUDA = dict(
     # 1.0 since 2026-08-20, owner decision; see the tau note above for the
     # reversal condition. 1.3 was the value every Sol number before that date
     # was measured at.
-    tau=1.0, start_percent=0.2, end_percent=0.9,
-    # 4096 against the node's own 12288. `docs/SOLATTN.md` records both as
-    # no-ops because every DiT call runs at the full packed length and every
-    # token-refiner call is ~311 rows, so nothing sits between the two
-    # thresholds.
+    tau=1.0,
+    # **`start_percent` has never been measured, at any value, ever.**
+    # `docs/SOLATTN.md` says so in its knob table and again in its
+    # open-experiments table ("zero measurements, ever"); the node's own tooltip
+    # justifies it only as "the paper uses 0.2". It has been 0.2 in every graph
+    # this repo has ever shipped.
     #
-    # **OPEN, raised 2026-08-26 and NOT resolved:** that note also states the
-    # shortest clip past 5 frames is S = 7,194, which is BELOW 12288 and above
-    # 4096 -- so on that arm the two thresholds should disagree, and the note
-    # says they do not. Either the figure or the reasoning is off by one step
-    # of the argument. Nothing here is at risk: every arm this repo renders is
-    # 31k-128k tokens, far above both. Re-read before quoting the no-op claim.
-    min_tokens=4096,
+    # Priced 2026-08-27, arithmetic not measurement: it forces the top of the
+    # trajectory dense and that costs a FLAT 25% of evaluations at every step
+    # count -- 4 of 16, 2 of 8, 1 of 4. Scale-invariant, because it is a fixed
+    # fraction of a schedule that is uniform in base sigma. So it is not a
+    # low-step problem; it is a constant quarter of Sol's opportunity.
+    #
+    # At 0.0 the 4-step arm would go from 2 sparse steps to 3. Whether that is
+    # free or harmful is open both ways: the first step's input is pure noise,
+    # which argues it is the most redundant place to route sparsely, and it also
+    # sets global composition, which argues a routing error there propagates
+    # into everything after. The speed half is one bench patch; the quality half
+    # is a numerical knob and needs `docs/eval_comparison.md` section 3.
+    start_percent=0.2, end_percent=0.9,
+    # 4096 against the node's own 12288. Both are no-ops **at the lengths this
+    # repo renders** -- every DiT call is at the full packed length, 31k-128k
+    # tokens, far above either threshold, and every token-refiner call is ~311
+    # rows, far below both.
+    #
+    # **CLOSED 2026-08-27, raised 2026-08-26.** The question was whether the
+    # figure or the reasoning was off, given S = 7,194 at 22 frames sits
+    # between the two. The reasoning was: being above 4096 does not make the
+    # thresholds agree, being above 12288 does. At 22 frames they genuinely
+    # disagree and 4096 is the permissive one. Arithmetic, not a measurement,
+    # so it needed no run. Nothing is at risk -- we do not render there -- but
+    # the unqualified "both select the same thing" is retired.
+    # **12288 since 2026-08-27, adopting the node's own default; 4096 before.**
+    #
+    # The reason is what this gate actually chooses between, which is not what
+    # the name suggests. Below the threshold Sol declines and the call falls
+    # through to `previous` -- and on every graph here that is SAGE, not dense
+    # torch (`vendor/sol_attn_minimax.py::make_override`'s `dense()`, read
+    # 2026-08-27; the render log says it too, "sage registered as the
+    # attention-override fallback" then "chaining onto an existing attention
+    # override"). So this is Sol against sage.
+    #
+    # That moves the crossover UP. `docs/SOLATTN.md` puts sage about 2.7x ahead
+    # of torch's flash backend on this shape, so a sparse kernel has to clear a
+    # good dense one, not a naive one. `SOL_CUDA_DEFAULTS` above already
+    # recorded the direction -- upstream puts the crossover near 12k and "4096
+    # engages Sol-Attn in the regime where it costs time" -- and the sage
+    # baseline only sharpens it.
+    #
+    # **Changes nothing this repo renders**, which is why it is safe to make on
+    # an argument: every DiT call is 31k-128k tokens and every token-refiner
+    # call is ~311 rows, so both values select identically. The reachable gap is
+    # ~22 frames / S ~ 7,194, where 4096 handed the call to Sol at a length
+    # nobody has shown Sol wins. This removes that.
+    #
+    # Still unmeasured on this box, and this is deference, not evidence. What
+    # overturns it: measuring the actual Sol-against-sage crossover here. That
+    # measurement would beat both values, including this one.
+    min_tokens=12288,
     sink_conditioning="exact_kv_and_rows", morton=False,
     # `3d`, not `2d_frame`, since 2026-08-16. This changes NOTHING today
     # because morton is off; it changes which curve you get if you turn it on.

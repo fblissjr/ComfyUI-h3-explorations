@@ -1,11 +1,20 @@
 """Schedule arithmetic shared by the PDD converter and the PDD node.
 
-One copy, because the two consumers must agree exactly or the node selects a
-head the converter did not fuse and nothing errors. `bench/convert_pdd_lora.py`
-bakes `fuse_heads` output into a file; `pdd_lora.py` reads that file and uses
-`block_bounds` to decide which entry a sampling step wants. A drift between
-them is a silent wrong-head, which is the failure mode this module exists to
-make impossible.
+One copy, because the two consumers must agree exactly about what a block is
+or the node decodes intervals the converter never meant, and nothing errors.
+`bench/convert_pdd_lora.py` ships the 32-interval bank verbatim;
+`pdd_lora.py` turns the sampler's sigma schedule into grid indices with
+`schedule_knots` and fuses each span with `fuse_block`. A drift between them is
+a silent wrong-head, which is the failure mode this module exists to make
+impossible.
+
+**Corrected 2026-08-27.** This said the converter bakes `fuse_heads` output into
+the file and the node uses `block_bounds` to pick an entry. Neither is true now:
+collapsing the stack pinned a step count into the artifact, and the node has no
+step count at patch time. `block_bounds` survives as the closed form for the
+uniform case, with the checks as its only consumer -- they assert it and
+`schedule_knots` agree to `torch.equal` at every divisor, which is what keeps it
+honest as a reference rather than a second answer.
 
 No ComfyUI imports here on purpose: the converter runs without a server, and
 this is the part worth testing without one.

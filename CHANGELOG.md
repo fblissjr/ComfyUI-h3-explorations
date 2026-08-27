@@ -4,6 +4,94 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.81.0
+
+### Changed
+
+- **`min_tokens` 4096 -> 12288 on the shipped Sol recipe**, adopting the node's
+  own default. The gate is not Sol against dense torch: below the threshold Sol
+  declines and the call falls through to whatever override is installed, which
+  on every graph here is sage. Verified in `vendor/sol_attn_minimax.py`'s
+  `dense()` and in the render log. Since sage is about 2.7x ahead of torch's
+  flash backend on this shape, the crossover sits higher than it would against a
+  naive baseline -- and `SOL_CUDA_DEFAULTS` had already recorded that upstream
+  puts it near 12k and that 4096 "engages Sol-Attn in the regime where it costs
+  time". Deference, not evidence, and the comment says so along with what would
+  overturn it. Changes nothing this repo renders; it closes the one reachable
+  gap at ~22 frames.
+
+### Fixed
+
+- **`bench/convert_pdd_lora.py` exited non-zero on every `--pruned` run.** It
+  read `h3_pdd.silu_temb_grid` unconditionally when reporting, but that key is
+  emitted only on the unpruned path, so the converter saved a correct artifact
+  and then died with `KeyError`. Both shipped LoRAs are pruned conversions, so
+  that was every real run. No render was ever affected -- the write is complete
+  before the report, and both artifacts were re-verified against the published
+  stack at 0.0 the same day -- but a correct conversion looked like a failed one.
+- **Two leftovers from the retired precompute path in the same file**: the
+  docstring documented `h3_pdd.head.*`, a key the bank replaced, and `fuse_heads`
+  was imported without being called. `pdd_math.py`'s module docstring had the
+  matching staleness, describing the converter as baking `fuse_heads` output and
+  the node as selecting with `block_bounds`; neither is what either does now.
+- **The `min_tokens` no-op claim contradicted its own arithmetic**, in
+  `h3_config.py` and in `docs/SOLATTN.md` which owns it. It argued from S = 7,194
+  at 22 frames being "already above 4096" -- but 7,194 is below 12288, so the two
+  thresholds disagreed exactly there. The claim holds only for the lengths this
+  repo renders, and now says so. Closes the question raised 2026-08-26.
+
+### Added
+
+- **`start_percent` is annotated with its cost**, since it remains unmeasured at
+  any value ever: it forces the top of the trajectory dense at a flat 25% of
+  evaluations at every step count -- 4 of 16, 2 of 8, 1 of 4 -- because it is a
+  fixed fraction of a schedule uniform in base sigma.
+
+## 0.80.0
+
+### Fixed
+
+- **`docs/h3_pdd.md` still described the design the 2026-08-27 rewrite
+  replaced.** Re-derived against `pdd_lora.py`, `pdd_math.py`,
+  `bench/convert_pdd_lora.py` and `bench/check_pdd_head_selection.py`, treating
+  the code as the authority. Nine corrections, of which three were claims a
+  reader would have acted on:
+
+  - It said the converter "collapses the 32-head stack offline". It does not,
+    and has not since the heads began fusing per block: it ships the bank
+    verbatim, because collapsing it pins a step count into the artifact.
+  - It said `pdd_math.block_bounds` is "shared by the converter and the node".
+    Neither imports it any more. The shared implementations are
+    `pdd_time_grid` and `fusion_plan`; `block_bounds` is the closed form the
+    checks grade `schedule_knots` against.
+  - Its comparison against Comfy-Org/ComfyUI#15908 claimed we "fuse at load"
+    and "refuse a count that does not divide 32". Both stopped being true the
+    same day, and the second contradicted a table three sections earlier.
+
+  Also: the guard table against `silveroxides/ComfyUI-UtilsCollection` now
+  records two rows adopted and one partly, rather than one; the boundary
+  embeddings are described as built at every grid point and indexed by knots,
+  which is the reason they can survive a mid-graph schedule change; and the
+  header says the document was revised rather than implying one 2026-08-26
+  reading.
+
+### Added
+
+- **`docs/h3_pdd.md` gains the reasons behind three decisions it previously
+  only stated.** Why the node refuses to stack on the output heads rather than
+  chaining (chaining is right for the observer patch and impossible for the
+  swap: two things cannot both produce one tensor); why an enlarging-weight
+  approach leaks state across graphs where a forward patch cannot (the shape
+  change outlives the graph, because ComfyUI caches the patched model, which is
+  how an enlarged bank broke the next render on 2026-08-27); and why euler is
+  required by PDD rather than merely preferred by the repo's new distilled-arm
+  default.
+- **A note that the 2026-08-26 render table's instrument was weaker than two of
+  its claims.** Those md5s are of the `.mp4` container and the graphs embed the
+  workflow, so identical implies identical frames but "differs" establishes
+  nothing. The bit-identical row stands; the two "differs" rows keep their
+  conclusions and lose their evidence. Nothing re-run, no rows removed.
+
 ## 0.79.0
 
 ### Added

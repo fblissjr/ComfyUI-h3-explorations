@@ -219,7 +219,7 @@
       "selection.tau": 1.0,
       "start_percent": 0.2,
       "end_percent": 0.83,
-      "min_tokens": 4096,
+      "min_tokens": 12288,
       "sink_conditioning": "exact_kv_and_rows",
       "morton": false,
       "morton_curve": "3d",
