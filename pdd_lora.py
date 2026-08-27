@@ -517,11 +517,19 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
 
         backbone = {k: v for k, v in sd.items() if k.startswith("diffusion_model.")}
         adaln = {k: v for k, v in sd.items() if k.startswith("h3_pdd.adaln.")}
-        n_adaln = len({k.rsplit(".", 1)[0] for k in adaln})
+        # From the converter's own count, not from a key prefix. Counting
+        # `h3_pdd.adaln.` missed every `h3_pdd.adaln_baked.` key -- the prefix
+        # is not a prefix of the other -- so a file carrying only the baked
+        # form reported 0 modules, the install loop never ran, and four arms
+        # rendered with the backbone and heads but NO adaln update. The node
+        # logged "0 adaln" and completed.
+        n_adaln = int(meta.get("adaln_modules") or 0) or len(
+            {k.rsplit(".", 1)[0] for k in adaln})
 
         # Which of the three adaln paths this checkpoint gets. Branching on
         # `use_adaln_curves` and on the live table -- observables of the loaded
         # model -- rather than on anything in the filename.
+        adaln_installed = 0
         baked = None
         if pruned and "h3_pdd.adaln_table" in sd:
             live_table = dm.adaln_t_table.detach().to(torch.float32).cpu()
@@ -549,6 +557,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 slot = "lora_A" if k.endswith("lora_A") else "lora_B"
                 backbone[f"diffusion_model.blocks.{i}.adaln_proj.linear."
                          f"{slot}.weight"] = v
+            adaln_installed = len({k.split(".")[3] for k in adaln})
         elif baked is not None:
             # Pruned, with a bake solved against this checkpoint's own basis.
             # `diff` / `diff_b` are comfy.lora's own patch kinds and take
@@ -559,6 +568,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     sd[f"h3_pdd.adaln_baked.blocks.{i}.diff"]
                 backbone[f"{base_key}.diff_b"] = \
                     sd[f"h3_pdd.adaln_baked.blocks.{i}.diff_b"]
+                adaln_installed += 1
 
         key_map = comfy.lora.model_lora_keys_unet(model.model, {})
         loaded = comfy.lora.load_lora(backbone, key_map, log_missing=True)
@@ -570,6 +580,8 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
 
         m = model.clone()
         m.add_patches(loaded, strength)
+
+
 
         # --- the runtime surfaces -------------------------------------------
         # The step tracker needs a table in whatever space `t_emb` lives in,
@@ -600,6 +612,19 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         sd[f"h3_pdd.adaln.blocks.{i}.lora_A"],
                         sd[f"h3_pdd.adaln.blocks.{i}.lora_B"],
                         grid, table, strength))
+                adaln_installed += 1
+
+        # What the file declares against what actually reached the model.
+        # These were never compared, and a prefix that matched neither form
+        # reported 0 modules while the install loop quietly did not run: four
+        # arms rendered with the backbone and heads and NO modulation update,
+        # which looks like a plausible render and is a different experiment.
+        declared_adaln = int(meta.get("adaln_modules") or 0)
+        if declared_adaln and adaln_installed != declared_adaln:
+            raise RuntimeError(
+                f"{lora_name} declares {declared_adaln} adaln modules but "
+                f"{adaln_installed} reached the model. A PDD arm without its "
+                f"modulation update renders and looks entirely normal.")
 
         bounds_v = block_bounds(shift_v, num_steps, block_size)
         bounds_a = block_bounds(shift_a, num_steps, block_size)
@@ -656,9 +681,9 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 _make_head_forward(w, b, tracker, stream))
 
         logger.info(
-            "[h3-pdd] %s at strength %.3f: %d backbone modules patched, "
+            "[h3-pdd] %s at strength %.3f: %d weight patches, "
             "%d adaln %s, %s (grid %d/%d -> nfe %d, shifts %g/%g). Base is %s.",
-            lora_name, strength, len(loaded), n_adaln,
+            lora_name, strength, len(loaded), adaln_installed,
             ("baked into the curve basis, applied as weight patches"
              if baked is not None else
              "re-injected at run time (pruned base, no bake in this file)"
