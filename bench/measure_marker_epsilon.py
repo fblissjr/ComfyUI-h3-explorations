@@ -70,6 +70,17 @@ controlled comparison.
     treatment  release vs legacy_bpe                      -> other representation
     scale      release vs markers stripped from the text  -> prompt-level change
     ceiling    release vs an unrelated scene              -> a large change, sampled
+    purity     stripped vs legacy_bpe-on-stripped         -> MUST be exactly 0.0
+
+**The purity row is what makes `legacy_bpe` readable at all.** That arm
+retokenizes, so its prefix length moves and every downstream position with it;
+its delta is therefore confounded in a way `mean_init_rows` is not, and the two
+must never be compared as if they were like quantities. Running the legacy
+tokenizer against a prompt with the markers already removed isolates the
+question: the legacy arm empties only the seven H3 token declarations, so off
+marker the two tokenizers should agree exactly. A non-zero here means the arm
+differs somewhere else as well, and `legacy_bpe`'s delta stops being
+attributable to the marker spelling.
 
 **The null and the ceiling are load-bearing as a PAIR, and neither establishes
 the harness works alone.** Exactly 0.0 on the null is the EXPECTED result, not a
@@ -97,6 +108,7 @@ is the gate on whether to spend them.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -209,6 +221,7 @@ def encode_arms(prompt: str, stripped: str, encoder: str, rows: list[dict]) -> N
         cond = armed.encode_from_tokens_scheduled(tokens)
         row["cond"] = cond
         row["prefix_tokens"] = int(cond[0][0].shape[1])
+        row["token_ids_sha256"] = _token_digest(tokens)
         # Read back what bound, never the arm name that was asked for -- the
         # rule marker_arms.py is built around.
         row["bound"] = M.encoder_arm_record(armed)
@@ -217,6 +230,64 @@ def encode_arms(prompt: str, stripped: str, encoder: str, rows: list[dict]) -> N
     del clip
     comfy.model_management.unload_all_models()
     comfy.model_management.soft_empty_cache()
+
+
+def _token_digest(tokens) -> str:
+    """sha256 of the token id sequence a row was encoded from.
+
+    A COUNT is necessary and not sufficient: two tokenizers can emit the same
+    number of tokens with different ids. Recording the sequence is what lets a
+    purity comparison be settled in phase 1, before an encoder load, rather
+    than by two forwards that could only ever have agreed with it.
+    """
+    seq = []
+    for _key, batches in (tokens.items() if isinstance(tokens, dict)
+                          else [("x", tokens)]):
+        for batch in batches:
+            for item in batch:
+                seq.append(item[0] if isinstance(item, (list, tuple)) else item)
+    return hashlib.sha256(repr(seq).encode()).hexdigest()
+
+
+def settle_purity(rows: list[dict], comparisons: list[tuple]) -> list[dict]:
+    """Resolve every `purity` comparison from phase 1's token ids, and REFUSE
+    if one fails.
+
+    A purity row asserts two arms are identical on this input. If their id
+    sequences match, the forwards are a formality -- identical ids through a
+    deterministic encode give identical conditioning, and the null row already
+    established the forward is deterministic. If they do NOT match, the arm
+    differs where it claimed not to, every delta attributed to it is
+    unattributable, and spending the card on the rest would be spending it on
+    numbers already known to be uninterpretable. So this refuses rather than
+    reports.
+    """
+    by_label = {r["label"]: r for r in rows}
+    settled = []
+    for kind, left, right, why in comparisons:
+        if kind != "purity":
+            continue
+        a, b = by_label[left], by_label[right]
+        same = a["token_ids_sha256"] == b["token_ids_sha256"]
+        print(f"[phase 1] purity {left} vs {right}: ids "
+              f"{'IDENTICAL' if same else 'DIFFER'} "
+              f"({a['token_ids_sha256'][:16]} / {b['token_ids_sha256'][:16]})",
+              flush=True)
+        if not same:
+            raise SystemExit(
+                f"PURITY FAILED: {left} and {right} were asserted identical on "
+                f"this input and their token id sequences differ "
+                f"({a['prefix_tokens']} vs {b['prefix_tokens']} tokens). The "
+                f"arm differs where it claimed not to, so nothing measured "
+                f"against it is attributable. Refusing before the DiT loads."
+            )
+        settled.append({
+            "kind": kind, "left": left, "right": right, "why": why,
+            "settled_in": "phase 1, from token ids -- no forward needed",
+            "token_ids_sha256": a["token_ids_sha256"],
+            "prefix_tokens": a["prefix_tokens"],
+        })
+    return settled
 
 
 def sigma_shifted(model):
@@ -317,6 +388,9 @@ def main() -> int:
                          "(0.021-0.027) is BELOW the marker effect at layer 50 "
                          "(0.034-0.16); a W4 artifact's (0.31-0.37) is above "
                          "it, and would bury the thing being measured")
+    ap.add_argument("--rows", default=None,
+                    help="comma-separated subset of arm labels to run; "
+                         "comparisons needing an absent row are skipped")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -337,29 +411,16 @@ def main() -> int:
         {"label": "mean_init_rows", "arm": "mean_init_rows", "text": "graph"},
         {"label": "legacy_bpe",     "arm": "legacy_bpe",     "text": "graph"},
         {"label": "stripped",       "arm": "release",        "text": "stripped"},
+        {"label": "legacy_stripped", "arm": "legacy_bpe",    "text": "stripped"},
         {"label": "other_scene",    "arm": "release",        "text": "other"},
     ]
+    if args.rows:
+        want = [r.strip() for r in args.rows.split(",") if r.strip()]
+        unknown = [w for w in want if w not in {r["label"] for r in rows}]
+        if unknown:
+            raise SystemExit(f"unknown row(s): {unknown}")
+        rows = [r for r in rows if r["label"] in want]
 
-    encode_arms(prompt, stripped, args.encoder, rows)
-
-    unet = _graph_unet()
-    print(f"[phase 2] loading DiT {unet}", flush=True)
-    model = sigma_shifted(comfy.sd.load_diffusion_model(_resolve("diffusion_models", unet)))
-
-    latent, frame_count = _empty_av_latent(args.width, args.height, args.length)
-    latent = latent["samples"]
-    noise = comfy.sample.prepare_noise(latent, args.seed)
-    sigmas = comfy.samplers.calculate_sigmas(
-        model.get_model_object("model_sampling"), SAMPLING["scheduler"], args.steps)
-
-    preds: dict = {}
-    for step in probe_steps:
-        for row in rows:
-            t0 = time.time()
-            preds[(row["label"], step)] = one_forward(
-                model, row["cond"], noise, latent, sigmas, step, args.seed)
-            print(f"[phase 2] step {step} {row['label']}: {time.time() - t0:.1f}s",
-                  flush=True)
 
     comparisons = [
         ("null",      "release", "release_again",
@@ -370,9 +431,56 @@ def main() -> int:
          "other representation; retokenizes, so the prefix length also moves"),
         ("scale",     "release", "stripped",
          "marker strings removed from the text, weights untouched"),
+        ("purity",    "stripped", "legacy_stripped",
+         "the two tokenizers on a prompt carrying NO markers. The legacy arm "
+         "is a fresh tokenizer with only the seven H3 tokens emptied, so this "
+         "MUST be 0.0: any other value means the arm differs off-marker too "
+         "and legacy_bpe's delta is not attributable to the markers"),
         ("ceiling",   "release", "other_scene",
-         "an unrelated scene: what a large prediction change looks like"),
+         "one unrelated scene. NOT a maximum -- see ceiling_is_not_a_bound"),
     ]
+    have = {r["label"] for r in rows}
+    comparisons = [c for c in comparisons if c[1] in have and c[2] in have]
+    if not comparisons:
+        raise SystemExit("the selected rows support no comparison")
+
+    encode_arms(prompt, stripped, args.encoder, rows)
+
+    # Purity is settled from token ids here, before the DiT loads. If it
+    # fails the run stops: nothing measured against a contaminated arm is
+    # attributable, so the card must not be spent on it.
+    settled = settle_purity(rows, comparisons)
+    comparisons = [c for c in comparisons if c[0] != "purity"]
+    needed = {c[1] for c in comparisons} | {c[2] for c in comparisons}
+    rows = [r for r in rows if r["label"] in needed]
+    skip_phase2 = not rows
+    if skip_phase2:
+        print("\nevery selected comparison settled in phase 1; "
+              "no forward is needed, so the DiT is not loaded.", flush=True)
+
+    unet = _graph_unet()
+    _, frame_count = _empty_av_latent(args.width, args.height, args.length)
+    sigmas = None
+    if not skip_phase2:
+        print(f"[phase 2] loading DiT {unet}", flush=True)
+        model = sigma_shifted(
+            comfy.sd.load_diffusion_model(_resolve("diffusion_models", unet)))
+        latent, _ = _empty_av_latent(args.width, args.height, args.length)
+        latent = latent["samples"]
+        noise = comfy.sample.prepare_noise(latent, args.seed)
+        sigmas = comfy.samplers.calculate_sigmas(
+            model.get_model_object("model_sampling"), SAMPLING["scheduler"],
+            args.steps)
+
+    preds: dict = {}
+    for step in probe_steps:
+        for row in rows:
+            t0 = time.time()
+            preds[(row["label"], step)] = one_forward(
+                model, row["cond"], noise, latent, sigmas, step, args.seed)
+            print(f"[phase 2] step {step} {row['label']}: {time.time() - t0:.1f}s",
+                  flush=True)
+
 
     record = {
         "measurement": "DiT denoised-prediction delta across marker arms, at "
@@ -402,11 +510,12 @@ def main() -> int:
                    "length": args.length, "frame_count": frame_count},
         "schedule": {"scheduler": SAMPLING["scheduler"], "steps": args.steps,
                      "probe_steps": probe_steps,
-                     "sigmas_at_probe": [float(sigmas[s]) for s in probe_steps],
+                     "sigmas_at_probe": ([float(sigmas[s]) for s in probe_steps]
+                                         if sigmas is not None else None),
                      "sigma_shift": dict(SIGMA_SHIFT)},
         "seed": args.seed,
         "arms": [{k: v for k, v in r.items() if k != "cond"} for r in rows],
-        "results": [],
+        "results": list(settled),
     }
 
     for kind, left, right, why in comparisons:
@@ -424,7 +533,13 @@ def main() -> int:
 
     print(f"\n{'kind':<10} {'comparison':<32} {'step':>4} {'video relL2':>12} {'audio relL2':>12}")
     for r in record["results"]:
-        print(f"{r['kind']:<10} {r['left'] + ' vs ' + r['right']:<32} {r['step']:>4} "
+        pair = f"{r['left']} vs {r['right']}"
+        if "delta" not in r:
+            # Settled in phase 1 from token ids; it has no step and no forward.
+            print(f"{r['kind']:<10} {pair:<32} {'--':>4} "
+                  f"{'ids identical':>12} {'(no forward)':>14}")
+            continue
+        print(f"{r['kind']:<10} {pair:<32} {r['step']:>4} "
               f"{r['delta']['video']['relative_l2']:>12.6f} "
               f"{r['delta']['audio']['relative_l2']:>12.6f}")
     try:

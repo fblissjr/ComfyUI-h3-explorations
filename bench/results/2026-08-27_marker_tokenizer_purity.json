@@ -1,0 +1,47 @@
+{
+ "measurement": "DiT denoised-prediction delta across marker arms, at fixed noise, latents and sigma",
+ "question": "is the frozen DiT sensitive to the seven H3 marker rows",
+ "does_not_establish": [
+  "direction -- which representation the DiT was trained against. That needs blind renders judged blind.",
+  "magnitude at the output -- this bounds sensitivity at one point on the trajectory with x held fixed. Real sampling compounds, so a per-step delta can wash out or amplify by the final frame."
+ ],
+ "ceiling_is_not_a_bound": "the ceiling row is ONE unrelated prompt, not a maximum. A more distant scene raises it. Do not quote a treatment as a fraction of it.",
+ "null_and_ceiling_are_a_pair": "exactly 0.0 on the null is expected, not surprising, and cannot by itself show this would detect a difference. The ceiling row is what shows that. Neither establishes the harness alone.",
+ "graph": "h3_text_to_video_dialogue_api.json",
+ "encoder": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+ "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+ "canvas": {
+  "width": 1344,
+  "height": 768,
+  "length": 362,
+  "frame_count": 362
+ },
+ "schedule": {
+  "scheduler": "simple",
+  "steps": 16,
+  "probe_steps": [
+   0
+  ],
+  "sigmas_at_probe": null,
+  "sigma_shift": {
+   "shift_video": 12.0,
+   "shift_audio": 3.0
+  }
+ },
+ "seed": 730451892,
+ "arms": [],
+ "results": [
+  {
+   "kind": "purity",
+   "left": "stripped",
+   "right": "legacy_stripped",
+   "why": "the two tokenizers on a prompt carrying NO markers. The legacy arm is a fresh tokenizer with only the seven H3 tokens emptied, so this MUST be 0.0: any other value means the arm differs off-marker too and legacy_bpe's delta is not attributable to the markers",
+   "settled_in": "phase 1, from token ids -- no forward needed",
+   "token_ids_sha256": "3e2df08ec86f42d2ca9008cf4f2f3de2a2c37444e1052e3a08e19ca3dfe11113",
+   "prefix_tokens": 384
+  }
+ ],
+ "finding": "the legacy arm is PURE: on a marker-free prompt the two tokenizers emit an identical token id sequence, so legacy_bpe's delta on a marker-bearing prompt arises only where markers appear.",
+ "and_the_displacement_it_reveals": "on the marker-BEARING prompt the same two tokenizers diverge at position 83 and mismatch 316 of 408 positions (408 vs 416 tokens). So legacy_bpe is not a seven-token substitution: it displaces most of the prompt. Its delta must NOT be read as a marker-semantics effect, and must never be compared as a like quantity against mean_init_rows, which holds every position fixed.",
+ "consequence_for_the_render_session": "a marker-free prompt is a PROVEN null for the release-vs-legacy pair -- identical ids means identical conditioning means the same clip. Include one as an internal control; it must come out a coin flip, and if it does not, the session is not measuring what it thinks."
+}
