@@ -391,6 +391,10 @@ def main() -> int:
     ap.add_argument("--rows", default=None,
                     help="comma-separated subset of arm labels to run; "
                          "comparisons needing an absent row are skipped")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="validate everything and print the plan without "
+                         "loading a model. Resolves both artifacts, tokenizes "
+                         "nothing, spends no card")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -443,6 +447,34 @@ def main() -> int:
     comparisons = [c for c in comparisons if c[1] in have and c[2] in have]
     if not comparisons:
         raise SystemExit("the selected rows support no comparison")
+
+    if args.dry_run:
+        # Everything that can be checked without a model load, checked -- the
+        # point of a dry run is to fail here rather than after an encoder load.
+        enc = _resolve("text_encoders", args.encoder)
+        unet_path = _resolve("diffusion_models", _graph_unet())
+        forwards = len([r for r in rows if r["label"] in (
+            {c[1] for c in comparisons if c[0] != "purity"} |
+            {c[2] for c in comparisons if c[0] != "purity"})]) * len(probe_steps)
+        print(f"graph        {GRAPH.name}")
+        print(f"canvas       {args.width}x{args.height} x {args.length} frames")
+        print(f"schedule     {SAMPLING['scheduler']}, {args.steps} steps, "
+              f"probing {probe_steps}")
+        print(f"seed         {args.seed}")
+        print(f"encoder      {Path(enc).name}")
+        print(f"unet         {Path(unet_path).name}")
+        print(f"prompt       {len(prompt)} chars, {len(stripped)} stripped")
+        print(f"\nrows ({len(rows)}):")
+        for r in rows:
+            print(f"  {r['label']:<16} arm={r['arm']:<15} text={r['text']}")
+        print(f"\ncomparisons ({len(comparisons)}):")
+        for kind, left, right, _why in comparisons:
+            print(f"  {kind:<10} {left} vs {right}")
+        print(f"\n{forwards} forward(s) after any phase-1 settlement. At the "
+              f"~120 s/forward measured at 1344x768x362 that is about "
+              f"{forwards * 120 / 60:.0f} min of sampling, plus model loads.")
+        print("\nDRY RUN: nothing loaded, no card spent.")
+        return 0
 
     encode_arms(prompt, stripped, args.encoder, rows)
 
