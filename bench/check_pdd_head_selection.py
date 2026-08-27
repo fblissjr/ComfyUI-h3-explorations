@@ -331,7 +331,51 @@ else:
             f"forced blocks should be width 8; first is {video[0]}")
         return "nfe=4 against an 8-step schedule forces width-8 blocks"
 
+    def a_new_schedule_is_re_derived():
+        """Changing the SCHEDULER re-derives the blocks, not just changing steps.
+
+        The escaped defect this earns: `observe` cached on
+        `(len, first, last)`, and at 8 steps `simple`, `beta`, `kl_optimal` and
+        `linear_quadratic` all produce `(9, 1.0, 0.0)` while deriving four
+        different knot sets. `BasicScheduler` is DOWNSTREAM of the node, so
+        changing its scheduler does not re-execute it -- the cached ModelPatcher
+        keeps this tracker, `observe` sees new sigmas, matches the stale key and
+        returns, and every block decodes an interval the sampler never visits.
+
+        Driven with two schedules that COLLIDE under the old key, so this is red
+        against the version it replaced rather than merely green against the new
+        one. Uses hand-built sigma vectors rather than `comfy.samplers` so the
+        case needs no model-sampling object.
+        """
+        grid_t_v = M.pdd_time_grid(SHIFT_V, NUM_STEPS)
+        grid_t_a = M.pdd_time_grid(SHIFT_A, NUM_STEPS)
+        tracker = P._StepTracker(
+            P.boundary_embeddings(grid_t_v, table),
+            P.boundary_embeddings(grid_t_a, table),
+            grid_t_v, grid_t_a, SHIFT_V, NUM_STEPS, 0, NFE, "collide")
+        a = sampler_sigmas(8)                       # the uniform 8-step schedule
+        # Same length, same endpoints, different interior -- the shape that
+        # collided. Knots land on [0, 2, 6, 11, ...] rather than [0, 4, 8, ...].
+        b = torch.tensor([1.0] + [float(x) for x in
+                                  M.shifted_sigma(SHIFT_V, torch.tensor(
+                                      [0.94, 0.82, 0.66, 0.5, 0.34, 0.18, 0.06],
+                                      dtype=torch.float64))] + [0.0])
+        assert (a.numel(), float(a[0]), float(a[-1])) == \
+               (b.numel(), float(b[0]), float(b[-1])), (
+            "this case is only meaningful if the two schedules collide under "
+            "the retired key; they no longer do, so rebuild the pair")
+        tracker.observe(a)
+        first = list(tracker.knots)
+        tracker.observe(b)
+        second = list(tracker.knots)
+        assert first != second, (
+            f"both schedules derived {first}. `observe` did not re-derive on a "
+            f"schedule it had already seen the shape of, which is the caching "
+            f"bug: same length and endpoints, different interior.")
+        return f"{first} then {second}, re-derived on a colliding shape"
+
     check("every legal step count tiles the grid", every_legal_nfe)
+    check("a new schedule is re-derived", a_new_schedule_is_re_derived)
     check("derived knots equal the widget's boundaries", derived_matches_the_old_widget)
     check("an uneven schedule is taken and reported", uneven_schedule_is_reported)
     check("a truncated schedule starts partway down", truncated_schedule_starts_late)

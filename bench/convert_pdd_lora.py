@@ -521,7 +521,8 @@ def main(argv=None) -> int:
     print(f"wrote {args.out}")
     print(f"  {modules} backbone modules, {adaln_modules} adaln modules "
           f"({len(src)} source tensors, all consumed)")
-    print(f"  32-interval head bank at shift {args.shift_video}/{args.shift_audio}")
+    print(f"  {out['h3_pdd.bank.video.weight'].shape[0]}-interval head bank at "
+          f"shift {args.shift_video}/{args.shift_audio}")
     # The grid is emitted ONLY on the unpruned path, so reading it
     # unconditionally raised KeyError after the file had already been written --
     # every `--pruned` run looked failed and returned non-zero while having

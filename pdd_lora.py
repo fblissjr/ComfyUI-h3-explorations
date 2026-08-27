@@ -331,8 +331,23 @@ class _StepTracker:
         if sample_sigmas is None:
             key = None
         else:
-            s = torch.as_tensor(sample_sigmas).flatten()
-            key = (int(s.numel()), float(s[0]), float(s[-1]))
+            # The WHOLE vector, not a summary of it. `(len, first, last)` was
+            # the first version and it collides: at 8 steps and shift 12,
+            # `simple`, `beta`, `kl_optimal` and `linear_quadratic` all produce
+            # (9, 1.0, 0.0) while deriving four different knot sets --
+            # `simple` [0,4,8,...] against `kl_optimal` [0,24,28,30,31,32].
+            #
+            # That is not academic. `BasicScheduler` is DOWNSTREAM of this node,
+            # so changing its scheduler does not re-execute the node: the cached
+            # ModelPatcher keeps this tracker, `observe` sees the new sigmas,
+            # computes the same key and returns early, and every block after the
+            # first decodes an interval the sampler never steps over. Silent,
+            # and the boundary warning names the wrong cause when it fires.
+            #
+            # A sigma vector is at most a few dozen values and `observe` runs
+            # once per forward, so comparing all of them costs nothing.
+            s = torch.as_tensor(sample_sigmas).detach().flatten()
+            key = tuple(s.tolist())
         if key == self._key:
             return
         self._key = key
@@ -1011,8 +1026,16 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
              "re-injected at run time (pruned base, no bake in this file)"
              if pruned else
              "applied as weight patches (unpruned base)"),
-            "heads fused per block from the schedule" if patch_heads
-            else "HEADS NOT PATCHED (control arm: the checkpoint's own heads)",
+            # Branches on the INSTALL condition, not on `patch_heads` alone.
+            # At strength 0.0 nothing is installed -- that is the documented
+            # "exactly the base model" control -- and this line was claiming the
+            # heads were patched, while being the only runtime evidence of which
+            # arm ran.
+            "heads fused per block from the schedule"
+            if (patch_heads and strength != 0.0) else
+            "HEADS NOT PATCHED (control arm: the checkpoint's own heads)"
+            if patch_heads else
+            "HEADS NOT PATCHED (patch_heads off)",
             num_steps, shift_v, shift_a,
             "pruned/curve-form" if pruned else "full-width")
         return io.NodeOutput(m)

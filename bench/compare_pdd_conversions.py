@@ -95,8 +95,10 @@ DIFFUSION = Path.home() / "ComfyUI" / "models" / "diffusion_models"
 BLOCKS = (0, 12, 25, 37, 49)
 
 
-#: The published grid. Read from our converted file's metadata where one is
-#: available; this is only the fallback for reshaping his tensors.
+#: The published grid, as a constant. Nothing here reads it from metadata --
+#: an earlier docstring said it did, which would have been the better design and
+#: was never built. Every call site takes the default, so a variant published at
+#: another grid needs this changed, not just its file passed in.
 NUM_INTERVALS = 32
 
 
@@ -201,6 +203,11 @@ def main(argv=None) -> int:
         "kijai_pruned": LORAS / f"MiniMax-H3-{tag}-Acc-8Step_pruned_comfy.safetensors",
         "source": Path.home() / "Storage" / "alibaba-pai_MiniMax-H3-Acc-LoRAs"
                   / f"MiniMax-H3-{tag}-Acc-8Step.safetensors",
+        # `base_head` reads this on BOTH encoding branches. It belongs in this
+        # dict so an absent one SKIPs loudly like every other input; left out,
+        # the script loaded four large safetensors files and then raised out of
+        # `safe_open`, which reads as a broken script rather than a missing one.
+        "pruned": DIFFUSION / f"minimax_h3_{part}_pruned_int8_convrot.safetensors",
     }
     missing = [k for k, p in paths.items() if not p.exists()]
     if missing:
@@ -243,7 +250,7 @@ def main(argv=None) -> int:
     # which left the audio head -- a different shape, its own shift, and its own
     # entry in his file -- resting on the video result. His current encoding
     # carries a bias bank too, so that is compared rather than assumed.
-    pruned_ckpt = DIFFUSION / f"minimax_h3_{part}_pruned_int8_convrot.safetensors"
+    pruned_ckpt = paths["pruned"]
     banks, encodings = {}, {}
     for stream, w_key, b_key in (("video", "proj_out.weight", "proj_out.bias"),
                                  ("audio", "audio_proj_out.weight",

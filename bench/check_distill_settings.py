@@ -673,6 +673,11 @@ def main():
                         f"{path.name}: could not read `pdd_num_steps` from "
                         f"{lora}. A PDD arm whose grid cannot be read cannot "
                         "be graded; the filename is not evidence.")
+                    assert found.steps is not None, (
+                        f"{path.name}: could not read the sampler's step count, "
+                        f"which IS the evaluation count since 2026-08-27. A PDD "
+                        f"arm whose schedule cannot be read cannot be graded; "
+                        f"the filename is not evidence.")
                     assert grid % found.steps == 0, (
                         f"{path.name}: {found.steps} evaluations do not divide "
                         f"the file's {grid}-point grid, so the blocks come out "
