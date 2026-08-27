@@ -214,6 +214,28 @@ artifact.
 
 ### Added
 
+- **`bench/check_graph_discovery.py` says when it is dormant.** Parking the
+  image lane took `GRAPH_DIRS` to a single directory, so `graph_paths()` began
+  returning exactly what the non-recursive glob it exists to prevent returns --
+  130 files either way, with only `include_bench` adding anything (3, under
+  `workflows/bench/`). Nothing said so, and "49 check(s) audited" reads as
+  coverage to anyone who does not go and measure it. It now prints which case
+  it is in, and both branches were exercised rather than one assumed.
+
+  It stays rather than being deleted: `graph_paths()` re-arms the moment a
+  directory returns to `GRAPH_DIRS`, and deleting it would silently
+  reintroduce the 2026-08-16 defect where a documented one-directory
+  invocation priced 20 graphs and missed 8. Dormant is not broken. The problem
+  is a green implying coverage it is not providing, which is the same disease
+  as a red on correct state.
+
+  The same check now states the axis it has never covered: it audits **which
+  files** a scan sees, never **which fields** it reads. A scan can route
+  through `graph_paths()` correctly and still read only `inputs`, missing every
+  UI graph's `widgets_values` -- which happened on 2026-08-27 in a bench scan,
+  and nothing here would have caught it. Recorded as the escaped instance
+  CLAUDE.md requires before anyone builds a second instrument for it.
+
 - **A "Settled, and re-derived from scratch anyway" section at the top of
   `CLAUDE.md`.** Owner observation, and it was correct: established H3 facts
   keep arriving as fresh discoveries. Two sessions did it on 2026-08-27 alone,
