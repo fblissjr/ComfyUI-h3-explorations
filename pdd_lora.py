@@ -10,7 +10,9 @@ the loaded checkpoint in front of it.
     adaln       50 modules   weight patch on an unpruned base; a weight patch
                              in the curve basis on a pruned one when the file
                              carries a bake; runtime injection otherwise
-    heads        8 pairs     per-step swap of final_layer's two output linears
+    heads       per block   per-step swap of final_layer's two output
+                            linears; how many blocks is the schedule's
+                            business, not this file's
 
 ## Why the head swap is keyed on the timestep
 
@@ -27,10 +29,36 @@ video and audio streams, and PDD runs those on separate schedules (shift 12 and
 3), so the per-stream split falls out of the model's own signature rather than
 having to be threaded through.
 
-`step_for_t` picks by interval membership, not by nearest boundary, so a run at
-a step count or shift the file was not fused for degrades to the closest
-available head rather than an arbitrary one -- and `boundary_residual` says so
-in the log, once, because nothing else about such a render looks wrong.
+## Where the step COUNT comes from, which is a different question
+
+Selecting a head needs two things: where on the grid this step starts, and how
+far it goes. The start is in `t_emb`. The extent is not -- it lives in the
+sampler's schedule and nowhere else, and at patch time that schedule does not
+exist yet, because `BasicScheduler` sits downstream of every model-patch node
+in the graph.
+
+This node used to close that gap with an `nfe` widget the person had to keep
+equal to `BasicScheduler.steps` by hand, backed by a warning that fires after
+sampling has already started. A requirement with a warning behind it is not a
+control, and the warning has never fired in a real render.
+
+It now reads `transformer_options["sample_sigmas"]` -- the shifted sigmas this
+render will actually be evaluated at, put there by `comfy/samplers.py` -- and
+maps each back through `pdd_math.base_sigma` to a grid index. Those knots ARE
+the block boundaries. On a step count that divides the grid they reproduce
+`block_bounds` exactly; on one that does not they come out uneven and say so;
+under `denoise < 1.0` they start partway down the trajectory, which is correct
+and which a widget could not have expressed at all.
+
+Reaching that dict needs one more patch point than the head swap does, so
+`diffusion_model.forward` is patched to observe it and delegate. Sol-Attn
+composes with `.forward` patches whose owner segment contains "attn"
+(`vendor/sol_attn_minimax.py`), so it skips this one and the `final_layer` one
+alike -- checked, not assumed. The patch chains onto whatever forward is
+already installed rather than replacing it.
+
+The `nfe` input survives as an override for deliberately off-schedule arms. At
+its default of 0 nothing has to be entered and nothing can disagree.
 
 ## Three traps this node is shaped around
 
@@ -111,9 +139,11 @@ import torch.nn.functional as F
 from comfy_api.latest import io
 
 try:                                     # loaded as a package by ComfyUI
-    from .pdd_math import block_bounds, fuse_heads, silu_temb_grid
+    from .pdd_math import (fuse_block, pdd_time_grid, schedule_knots,
+                           silu_temb_grid)
 except ImportError:                      # loaded as a bare module by a script
-    from pdd_math import block_bounds, fuse_heads, silu_temb_grid
+    from pdd_math import (fuse_block, pdd_time_grid, schedule_knots,
+                          silu_temb_grid)
 
 logger = logging.getLogger(__name__)
 
@@ -211,43 +241,122 @@ def _row_index(row) -> int:
 
 
 class _StepTracker:
-    """Which fused head each stream wants, from the embedding it was called with.
+    """Which block of the grid each stream's step spans.
 
-    Matches `t_emb` against the `nfe + 1` BLOCK BOUNDARY embeddings, not against
-    the 1025-row curve table. That is the whole selector: the nearest boundary
-    is the block, directly.
+    Two independent questions, and they have different answers.
 
-    The earlier version recovered a `t` by nearest row of the full table and
-    then bucketed it, which is how a `t` sitting exactly ON a boundary came back
-    a fraction below it and selected the previous block -- wrong at two of eight
-    steps, silent, and it took a deliberate drive against real inputs to find.
-    It was fixed by snapping, i.e. by a tolerance that then had to be justified
-    against the table's own quantisation.
+    **Where the step starts** comes from `t_emb`, matched against the block
+    boundary embeddings. That is the whole selector: the nearest boundary is
+    the block, directly, and it cannot desync from the trajectory because it is
+    read off what the model was called with.
 
-    Matching the boundaries directly deletes that problem rather than guarding
-    it. There is no intermediate `t`, so nothing to quantise; there are exactly
-    `nfe` answers, so nothing to fall between; and the selector needs no
-    tolerance at all. The tolerance that remains is only for the WARNING, which
-    is a different question -- is this render even on the schedule the heads
-    were fused for.
+    An earlier version recovered a `t` by nearest row of the 1025-row curve
+    table and then bucketed it, which is how a `t` sitting exactly ON a boundary
+    came back a fraction below it and selected the previous block -- wrong at
+    two of eight steps, silent, and it took a deliberate drive against real
+    inputs to find. It was fixed by snapping, i.e. by a tolerance that then had
+    to be justified against the table's own quantisation. Matching the
+    boundaries directly deletes that problem rather than guarding it: no
+    intermediate `t` to quantise, exactly `nfe` answers to fall between, no
+    tolerance needed.
 
-    Costs `nfe + 1` distances per stream per forward against 1025 before, which
-    is not why: at ~70 s a step neither is measurable. It is smaller and it
-    cannot be wrong in the way the other one was.
+    **How far it goes** cannot come from `t_emb`. It is a property of the
+    schedule, which `observe` reads from `transformer_options["sample_sigmas"]`
+    at run time. Until 2026-08-27 it came from an `nfe` widget instead, which
+    made the schedule and the heads two facts that had to be typed to agree.
+
+    The boundary tolerance survives, guarding what is now a genuinely different
+    question. It no longer asks "is the step count right" -- the step count is
+    taken from the sampler, so it is right by construction. It asks whether the
+    model is being evaluated at a time the schedule said it would be, which is
+    what goes wrong under a sampler that evaluates off its own grid.
     """
 
-    def __init__(self, boundary_emb_v, boundary_emb_a, bounds_v, bounds_a,
-                 nfe, label):
-        self.emb_v = boundary_emb_v          # [nfe+1, D]
-        self.emb_a = boundary_emb_a
-        self.bounds_v = bounds_v
-        self.bounds_a = bounds_a
-        self.nfe = nfe
+    def __init__(self, grid_emb_v, grid_emb_a, grid_t_v, grid_t_a,
+                 shift_v, num_steps, forced_nfe, fallback_nfe, label):
+        # Embeddings at EVERY grid point, not just the ones one step count
+        # visits: which subset is a boundary is not known until a schedule is.
+        self.grid_emb_v = grid_emb_v         # [num_steps+1, D]
+        self.grid_emb_a = grid_emb_a
+        self.grid_t_v = grid_t_v
+        self.grid_t_a = grid_t_a
+        self.shift_v = shift_v
+        self.num_steps = num_steps
+        self.forced_nfe = forced_nfe
         self.label = label
-        self.video = 0
-        self.audio = 0
         self.warned = False
-        self.seen = 0
+        self._key = object()             # never equal to a real schedule key
+        # A schedule is always observed before the first `final_layer` call --
+        # the capture patch is on the model's own forward, which strictly
+        # precedes it. This is only so the attributes exist.
+        self._adopt(self._uniform(forced_nfe or fallback_nfe),
+                    "the file's own step count; no schedule seen yet")
+
+    def _uniform(self, nfe: int) -> list[int]:
+        block = max(1, self.num_steps // max(1, nfe))
+        return list(range(0, self.num_steps + 1, block))
+
+    def _adopt(self, knots: list[int], why: str) -> None:
+        self.knots = knots
+        self.nfe = len(knots) - 1
+        self.emb_v = self.grid_emb_v[knots]
+        self.emb_a = self.grid_emb_a[knots]
+        self.block_v = (knots[0], knots[1])
+        self.block_a = (knots[0], knots[1])
+        widths = [b - a for a, b in zip(knots, knots[1:])]
+        uniform = len(set(widths)) == 1
+        logger.info(
+            "[h3-pdd] %s: %d evaluations over the %d-point grid, %s. Blocks %s.",
+            self.label, self.nfe, self.num_steps, why,
+            f"uniform, width {widths[0]}" if uniform else f"UNEVEN {widths}")
+        if not uniform:
+            logger.warning(
+                "[h3-pdd] %s: this step count does not divide the %d-point "
+                "grid, so the blocks are uneven (%s). Each step still decodes "
+                "the mean velocity of the interval it spans, but a partial "
+                "block is off the distribution the heads were distilled on. "
+                "A count that divides the grid is exact: %s.",
+                self.label, self.num_steps, widths,
+                sorted(n for n in range(1, self.num_steps + 1)
+                       if self.num_steps % n == 0))
+
+    def observe(self, sample_sigmas) -> None:
+        """Adopt the sampler's schedule, once per distinct schedule.
+
+        Called from the model's own forward, so it runs before every
+        `final_layer` call and re-runs for free if a graph samples twice with
+        different schedules -- `split_at` two-pass sampling, or a second
+        `SamplerCustomAdvanced` on the same patched model.
+        """
+        if sample_sigmas is None:
+            key = None
+        else:
+            s = torch.as_tensor(sample_sigmas).flatten()
+            key = (int(s.numel()), float(s[0]), float(s[-1]))
+        if key == self._key:
+            return
+        self._key = key
+        if self.forced_nfe:
+            self._adopt(self._uniform(self.forced_nfe),
+                        f"FORCED by the node's nfe={self.forced_nfe}, ignoring "
+                        f"the sampler's schedule")
+            return
+        if key is None:
+            logger.warning(
+                "[h3-pdd] %s: the sampler put no `sample_sigmas` in "
+                "transformer_options, so the block extents cannot be derived. "
+                "Falling back to uniform blocks at the file's own step count. "
+                "Set the node's `nfe` if this render uses a different one.",
+                self.label)
+            return
+        knots = schedule_knots(sample_sigmas, self.shift_v, self.num_steps)
+        if len(knots) < 2:
+            logger.warning(
+                "[h3-pdd] %s: this schedule lands on fewer than two grid "
+                "points, so it names no block. Keeping the previous blocks.",
+                self.label)
+            return
+        self._adopt(knots, "derived from the sampler's own sigma schedule")
 
     def _pick(self, t_emb, row, table):
         e = t_emb[_row_index(row)].detach().float().reshape(1, -1)
@@ -256,24 +365,84 @@ class _StepTracker:
         return min(j, self.nfe - 1), float(d[j])
 
     def update(self, t_emb, video_seg, audio_seg) -> None:
-        self.video, dv = self._pick(t_emb, video_seg[2], self.emb_v)
-        self.audio, da = self._pick(t_emb, audio_seg[2], self.emb_a)
+        jv, dv = self._pick(t_emb, video_seg[2], self.emb_v)
+        ja, da = self._pick(t_emb, audio_seg[2], self.emb_a)
+        self.block_v = (self.knots[jv], self.knots[jv + 1])
+        self.block_a = (self.knots[ja], self.knots[ja + 1])
         if TRACE:
-            self.seen += 1
+            # The ordinal comes from the block, not from a call counter. A
+            # counter reported "step 5/4" on the second render of a session:
+            # ComfyUI caches the patched model, so this closure outlives one
+            # sampling run, and a running count is a fact about call history
+            # rather than about the trajectory. Same class of mistake as the
+            # vendor's forward-hook step index, in the diagnostic instead of in
+            # the selection.
             logger.info(
-                "[h3-pdd] step %d/%d: video head %d (%.5f from its boundary), "
-                "audio head %d (%.5f)", self.seen, self.nfe,
-                self.video, dv, self.audio, da)
+                "[h3-pdd] step %d/%d: video block %s (%.5f from its boundary), "
+                "audio block %s (%.5f)", jv + 1, self.nfe,
+                self.block_v, dv, self.block_a, da)
         if not self.warned and max(dv, da) > BOUNDARY_TOLERANCE:
             self.warned = True
             logger.warning(
-                "[h3-pdd] %s: this render is NOT on the schedule the heads "
-                "were fused for. The timestep embedding sits %.4f (video) and "
-                "%.4f (audio) from the nearest block boundary, tolerance "
-                "%.4f. The heads assume %d evaluations at the shifts recorded "
-                "in the file; set the sampler's step count to %d, or "
-                "reconvert. Sampling continues on the nearest boundary.",
-                self.label, dv, da, BOUNDARY_TOLERANCE, self.nfe, self.nfe)
+                "[h3-pdd] %s: the model is being evaluated at a time this "
+                "render's schedule does not contain. The timestep embedding "
+                "sits %.4f (video) and %.4f (audio) from the nearest of the %d "
+                "block boundaries, tolerance %.4f. Blocks are taken from "
+                "`sample_sigmas`, so this is not a step-count mismatch -- it is "
+                "a sampler evaluating off its own grid, or an `nfe` override "
+                "that does not match it. Sampling continues on the nearest "
+                "boundary.",
+                self.label, dv, da, self.nfe + 1, BOUNDARY_TOLERANCE)
+
+
+class _FusedHeads:
+    """The block heads this render actually asks for, fused once each.
+
+    The paper's section 3.1 says to hold one fused linear per block rather than
+    an enlarged final layer, and that is what this is -- it just cannot know
+    WHICH blocks until the schedule is known, so it fuses on first use instead
+    of at load. A render visits at most `nfe` distinct blocks, so this settles
+    after the first pass and the sampling loop is a dict lookup thereafter.
+
+    Two levels: fp32 masters on CPU keyed by the block, and one cast copy per
+    `(block, device, dtype)`. The cast cache is the same per-device pattern as
+    before, borrowed from `ComfyUI-MiniMaxH3-PDD-Mamad8::PDDHeads.for_device`;
+    the master cache is what makes the fusion once-per-block rather than
+    once-per-step. Held in a closure and never registered on a module, so the
+    streaming loader's backup bookkeeping never sees them.
+
+    `strength` interpolates toward the fused head, so 0.0 would be the base head
+    exactly -- but the node installs nothing at all at 0.0, so that path is the
+    checkpoint's own `operations.Linear` rather than this one.
+    """
+
+    def __init__(self, bank_w, bank_b, base_w, base_b, shift, num_steps,
+                 strength):
+        self.bank_w = bank_w
+        self.bank_b = bank_b
+        self.base_w = base_w
+        self.base_b = base_b
+        self.shift = shift
+        self.num_steps = num_steps
+        self.strength = strength
+        self._master: dict[tuple, tuple] = {}
+        self._cast: dict[tuple, tuple] = {}
+
+    def get(self, block, device, dtype):
+        key = (block, str(device), dtype)
+        hit = self._cast.get(key)
+        if hit is not None:
+            return hit
+        master = self._master.get(block)
+        if master is None:
+            w = fuse_block(self.bank_w, self.shift, self.num_steps, *block)
+            b = fuse_block(self.bank_b, self.shift, self.num_steps, *block)
+            master = (self.base_w + self.strength * (w - self.base_w),
+                      self.base_b + self.strength * (b - self.base_b))
+            self._master[block] = master
+        hit = (master[0].to(device, dtype), master[1].to(device, dtype))
+        self._cast[key] = hit
+        return hit
 
 
 def boundary_embeddings(bounds, table, time_embedder=None, rows=1025):
@@ -327,27 +496,42 @@ def _make_final_layer_forward(base_forward, tracker):
     return forward
 
 
-def _make_head_forward(weights, biases, tracker, stream):
-    """Replace one output linear with the fused head for the current step.
+def _make_capture_forward(base_forward, tracker):
+    """Observe the sampler's schedule, then the stock forward.
 
-    The masters stay on CPU and each (device, dtype) pair is materialised once,
-    not per call -- the per-device cache pattern is borrowed from
-    `ComfyUI-MiniMaxH3-PDD-Mamad8::PDDHeads.for_device`, which patches the same
-    two projections for a different PDD artifact family. Like theirs, the
-    tensors are held in a closure and never registered on a module, so they
-    stay out of the streaming loader's backup bookkeeping.
+    `transformer_options` reaches the model's own forward and stops there --
+    `final_layer` never sees it, and neither do the output linears. This is the
+    nearest patch point that does, and it is the only reason the node touches
+    `diffusion_model.forward` at all.
+
+    Chains: `base_forward` is whatever forward was installed before this,
+    so a pack that has already patched the model's forward keeps working.
+    Sol-Attn composes only with `.forward` patches whose owner segment contains
+    "attn" (`vendor/sol_attn_minimax.py`), and this one's owner is
+    `diffusion_model`, so it is left alone rather than gated behind Sol's sigma
+    window -- which would have made the capture run only inside that window.
     """
-    cache: dict[tuple, tuple] = {}
+    def forward(*args, **kwargs):
+        opts = kwargs.get("transformer_options")
+        if opts is None and len(args) > 3:
+            opts = args[3]                       # positional in the signature
+        tracker.observe((opts or {}).get("sample_sigmas"))
+        return base_forward(*args, **kwargs)
+    return forward
 
+
+def _make_head_forward(heads, tracker, stream):
+    """Replace one output linear with the fused head for the current block.
+
+    The block is a `(start, stop)` span of the published grid rather than an
+    index into a precomputed stack, because its width is a property of the
+    schedule and is not known when this patch is installed. `_FusedHeads` fuses
+    each span once and caches it; this is a dict lookup after the first pass.
+    """
     def forward(inp):
-        k = tracker.video if stream == "video" else tracker.audio
-        key = (str(inp.device), inp.dtype)
-        entry = cache.get(key)
-        if entry is None:
-            entry = (weights.to(inp.device, inp.dtype),
-                     biases.to(inp.device, inp.dtype))
-            cache[key] = entry
-        return F.linear(inp, entry[0][k], entry[1][k])
+        block = tracker.block_v if stream == "video" else tracker.block_a
+        w, b = heads.get(block, inp.device, inp.dtype)
+        return F.linear(inp, w, b)
     return forward
 
 
@@ -463,19 +647,21 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 io.Int.Input(
                     "nfe", default=0, min=0, max=64, optional=True,
                     tooltip=(
-                        "Transformer evaluations, i.e. the sampler's step "
-                        "count. 0 means the count the file was converted for.\n\n"
-                        "The published grid is 32 points, so ANY divisor is a "
-                        "legal arm from the same weights: 8 (block 4) is what "
-                        "the file records, and 4 (block 8) is the other count "
-                        "the vendor's README reports rendering at. Every "
-                        "divisor lands exactly on the plain shifted schedule "
-                        "for its own step count, so changing this changes the "
-                        "sampler's steps and nothing else -- not the shift, not "
-                        "the scheduler.\n\n"
-                        "The heads are fused here, at load, for whichever "
-                        "count you ask. Set BasicScheduler to the same number: "
-                        "a mismatch is what the boundary warning reports."
+                        "LEAVE THIS AT 0. The step count is read from the "
+                        "sampler's own sigma schedule at run time, so it "
+                        "cannot disagree with BasicScheduler and there is "
+                        "nothing to keep in sync.\n\n"
+                        "The published grid is 32 points, so any divisor is a "
+                        "legal arm from the same weights -- 8 is what the file "
+                        "records, 4 is the other count the vendor's README "
+                        "reports rendering at -- and every divisor lands "
+                        "exactly on the plain shifted schedule for its own "
+                        "count. Change the SAMPLER's steps; this input does "
+                        "not need to follow.\n\n"
+                        "Non-zero forces uniform blocks at that count and "
+                        "IGNORES the schedule, which is only useful for "
+                        "deliberately decoding one grid partition while "
+                        "stepping another. It logs loudly that it is doing so."
                     ),
                 ),
             ],
@@ -512,14 +698,19 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 f"directly applies nothing at all.")
 
         num_steps = int(meta["pdd_num_steps"])
-        nfe = int(nfe) or int(meta["pdd_nfe"])
-        if nfe < 1 or num_steps % nfe:
+        # The step count is DERIVED at run time from the sampler's own sigmas,
+        # so nothing here has to agree with `BasicScheduler` by hand. `nfe` is
+        # an override for a deliberately off-schedule arm, and the file's own
+        # count is the fallback for a sampler that publishes no schedule.
+        file_nfe = int(meta["pdd_nfe"])
+        forced_nfe = int(nfe)
+        if forced_nfe and num_steps % forced_nfe:
             raise RuntimeError(
-                f"nfe={nfe} does not divide the file's {num_steps}-point grid. "
-                f"A block has to tile the grid exactly or the fused heads "
-                f"decode intervals that are not the ones being stepped over. "
-                f"Legal here: {sorted(n for n in range(1, num_steps + 1) if num_steps % n == 0)}.")
-        block_size = num_steps // nfe
+                f"nfe={forced_nfe} does not divide the file's {num_steps}-point "
+                f"grid. As an OVERRIDE it forces uniform blocks, so it has to "
+                f"tile the grid exactly; leave it at 0 to take the blocks from "
+                f"the sampler's schedule, which handles an uneven count. Legal "
+                f"here: {sorted(n for n in range(1, num_steps + 1) if num_steps % n == 0)}.")
         shift_v = float(meta["pdd_shift_video"])
         shift_a = float(meta["pdd_shift_audio"])
 
@@ -619,7 +810,24 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 f"conversion may predate a checkpoint layout change.")
 
         m = model.clone()
-        m.add_patches(loaded, strength)
+        # `add_patches` returns only the keys it found in the model's state
+        # dict, so this separates "matched nothing" -- already caught above --
+        # from "matched SOME", which is the case `docs/h3_pdd.md` listed under
+        # Enforced by nothing until 2026-08-27. A checkpoint layout change that
+        # renames a subset leaves the rest applied and the render plausible.
+        #
+        # Adopted from `silveroxides/ComfyUI-UtilsCollection`, which had it and
+        # we did not. Their count is over the source keys; ours is over what
+        # `load_lora` resolved, which is the same question one step later and
+        # does not need to know which suffixes the converter emitted.
+        applied = m.add_patches(loaded, strength)
+        if len(applied) != len(loaded):
+            missing = sorted(set(loaded) - set(applied))
+            raise RuntimeError(
+                f"{lora_name} matched {len(applied)} of {len(loaded)} patch "
+                f"keys on this model. A partial match renders and looks "
+                f"entirely normal, with whichever modules did not match left "
+                f"at their base weights. First unmatched: {missing[:3]}.")
 
 
 
@@ -666,17 +874,21 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 f"{adaln_installed} reached the model. A PDD arm without its "
                 f"modulation update renders and looks entirely normal.")
 
-        bounds_v = block_bounds(shift_v, num_steps, block_size)
-        bounds_a = block_bounds(shift_a, num_steps, block_size)
-        # Built once at load, from the model's own arithmetic, for the nfe this
-        # render will use. The two streams run different shifts, so they get
-        # different boundary times and therefore different embeddings.
+        # Embeddings at EVERY point of the published grid, built once at load
+        # from the model's own arithmetic. Which subset are block boundaries is
+        # a property of the schedule and is not known yet; the tracker indexes
+        # this by the knots it derives. The two streams run different shifts, so
+        # they get different times and therefore different embeddings -- but the
+        # same grid INDICES, because undoing each shift lands on the one grid.
+        grid_t_v = pdd_time_grid(shift_v, num_steps)
+        grid_t_a = pdd_time_grid(shift_a, num_steps)
         tracker = _StepTracker(
-            boundary_embeddings(bounds_v, step_table,
+            boundary_embeddings(grid_t_v, step_table,
                                 None if pruned else dm.time_embedder),
-            boundary_embeddings(bounds_a, step_table,
+            boundary_embeddings(grid_t_a, step_table,
                                 None if pruned else dm.time_embedder),
-            bounds_v, bounds_a, nfe, lora_name)
+            grid_t_v, grid_t_a, shift_v, num_steps, forced_nfe, file_nfe,
+            lora_name)
 
         final_layer = m.get_model_object("diffusion_model.final_layer")
         # strength 0 installs NOTHING on the head path. Interpolating to the
@@ -690,47 +902,54 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             m.add_object_patch(
                 "diffusion_model.final_layer.forward",
                 _make_final_layer_forward(final_layer.forward, tracker))
+            # The one patch that is not about the heads: `transformer_options`
+            # reaches the model's forward and no further, and the block extents
+            # live in it. Chained onto whatever forward is already installed.
+            m.add_object_patch(
+                "diffusion_model.forward",
+                _make_capture_forward(
+                    m.get_model_object("diffusion_model.forward"), tracker))
         for stream, out_name in (
                 (("video", "video_out"), ("audio", "audio_out"))
                 if (patch_heads and strength != 0.0) else ()):
             live = getattr(final_layer, out_name)
             base_w = live.weight.detach().to(torch.float32).cpu()
             base_b = live.bias.detach().to(torch.float32).cpu()
-            # Fused HERE, from the published per-interval bank, for whatever
-            # nfe was asked for. The paper's section 3.1 is explicit that this
-            # belongs at inference setup rather than inside the forward:
-            # "we only need to hold one fused linear layer per block in
-            # memory". Doing it at load also means one file serves every legal
-            # step count, where precomputing pinned it into the artifact.
+            # The bank goes in whole; fusion happens per block on first use.
+            # The paper's section 3.1 asks for one fused linear per block rather
+            # than an enlarged final layer, which this satisfies -- it just
+            # cannot know WHICH blocks until the sampler names them, and a
+            # render visits at most `nfe` of them.
             bank_w = sd.get(f"h3_pdd.bank.{stream}.weight")
             if bank_w is None:
                 raise RuntimeError(
                     f"{lora_name} carries no per-interval head bank. It was "
                     f"converted before the bank was stored; reconvert with "
                     f"bench/convert_pdd_lora.py.")
-            shift = shift_v if stream == "video" else shift_a
-            fused_w = fuse_heads(bank_w, shift, num_steps, block_size)
-            fused_b = fuse_heads(sd[f"h3_pdd.bank.{stream}.bias"], shift,
-                                 num_steps, block_size)
-            # strength interpolates toward the fused head, so 0.0 is the base
-            # head exactly rather than a zeroed projection.
-            w = base_w[None] + strength * (fused_w - base_w[None])
-            b = base_b[None] + strength * (fused_b - base_b[None])
             m.add_object_patch(
                 f"diffusion_model.final_layer.{out_name}.forward",
-                _make_head_forward(w, b, tracker, stream))
+                _make_head_forward(
+                    _FusedHeads(bank_w, sd[f"h3_pdd.bank.{stream}.bias"],
+                                base_w, base_b,
+                                shift_v if stream == "video" else shift_a,
+                                num_steps, strength),
+                    tracker, stream))
 
+        # The step count is deliberately NOT in this line. It is not known here
+        # -- the scheduler is downstream -- and printing the file's own count
+        # would read as a statement about this render. `_StepTracker._adopt`
+        # logs it once, with the block widths, when the schedule arrives.
         logger.info(
             "[h3-pdd] %s at strength %.3f: %d weight patches, "
-            "%d adaln %s, %s (grid %d/%d -> nfe %d, shifts %g/%g). Base is %s.",
+            "%d adaln %s, %s (%d-point grid, shifts %g/%g). Base is %s.",
             lora_name, strength, len(loaded), adaln_installed,
             ("baked into the curve basis, applied as weight patches"
              if baked is not None else
              "re-injected at run time (pruned base, no bake in this file)"
              if pruned else
              "applied as weight patches (unpruned base)"),
-            f"{nfe} fused head pairs per stream" if patch_heads
+            "heads fused per block from the schedule" if patch_heads
             else "HEADS NOT PATCHED (control arm: the checkpoint's own heads)",
-            num_steps, block_size, nfe, shift_v, shift_a,
+            num_steps, shift_v, shift_a,
             "pruned/curve-form" if pruned else "full-width")
         return io.NodeOutput(m)

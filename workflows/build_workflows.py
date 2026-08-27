@@ -839,6 +839,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               turbo_pack: bool = False,
               pdd: bool = False,
               pdd_heads: bool = True,
+              # 0 everywhere, and it should stay that way: the node reads
+              # the step count off the sampler's own sigma schedule at run
+              # time. The three 4-step arms carried 4 here until
+              # 2026-08-27, which made the step count a fact typed in two
+              # places with only a warning between them. Non-zero now
+              # FORCES uniform blocks and ignores the schedule, which is an
+              # off-schedule experiment, not a step-count setting.
               pdd_nfe: int = 0,
               ref_audio: bool = False,
               split_at: int | None = None,
@@ -4011,7 +4018,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              turbo_pack: bool = False,
              pdd: bool = False,
              pdd_heads: bool = True,
-             pdd_nfe: int = 0,
+             pdd_nfe: int = 0,          # an override; see the API builder
              ref_audio: bool = False,
              split_at: int | None = None,
              split_base_last: bool = True,
@@ -5957,7 +5964,6 @@ def main():
         ("h3_text_to_video_pdd_4step.json", "texttovideopdd4step", "t2v", LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-              pdd_nfe=PDD_STEPS_FAST,
               out_prefix="Video/text_to_video_pdd_4step",
               variant_note=_probe_note(
                   "text to video at 4 steps via PDD",
@@ -5988,7 +5994,6 @@ def main():
          dict(last_frame=True, **FL2V_CANVAS,
               pdd=True, sampler_name="euler",
               lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-              pdd_nfe=PDD_STEPS_FAST,
               out_prefix="Video/first_last_frame_to_video_pdd_4step",
               variant_note=_probe_note(
                   "first+last frame to video at 4 steps via PDD",
@@ -6017,7 +6022,6 @@ def main():
         ("h3_image_ref_plus_text_to_video_pdd_4step.json", "imagerefplustexttovideopdd4step", "r2v", _ref_prompt(images=True),
          dict(pdd=True, sampler_name="euler",
               lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-              pdd_nfe=PDD_STEPS_FAST,
               out_prefix="Video/image_ref_plus_text_to_video_pdd_4step",
               variant_note=_probe_note(
                   "image references to video at 4 steps via PDD",

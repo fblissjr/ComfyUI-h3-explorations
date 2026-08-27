@@ -180,9 +180,9 @@
         "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors",
         1.0,
         true,
-        4
+        0
       ],
-      "title": "PDD LoRA (strength 1.0, 4 NFE)"
+      "title": "PDD LoRA (strength 1.0)"
     },
     {
       "id": 6,

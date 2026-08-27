@@ -49,17 +49,87 @@ def block_bounds(shift: float, num_steps: int, block_size: int) -> torch.Tensor:
     return pdd_time_grid(shift, num_steps)[::block_size].contiguous()
 
 
-def fusion_plan(step_sizes: torch.Tensor, start: int,
-                block_size: int) -> torch.Tensor:
-    """Step-size weights over `[start, start + block_size)`, summing to 1.
+def base_sigma(sigma: torch.Tensor, shift: float) -> torch.Tensor:
+    """Undo the flow shift: which point of the UNSHIFTED grid a sigma came from.
 
-    Vendor equivalent: `minimax_h3_pdd.pdd_sampling_plan`, minus the leading
-    direction axis, which is always length 1 for a first-order solver.
+    The exact inverse of `shifted_sigma`, and the same algebra as the first line
+    of `comfy/ldm/minimax/model.py::time_shift_sigma`, which inverts one shift
+    before applying another.
+
+    This is what makes a grid position readable from a sampler's sigma. The
+    published 32-point grid is uniform in BASE sigma, not in `t` and not in the
+    shifted sigma, so `1 - base_sigma(s)` scaled by `num_steps` is the grid
+    index directly -- and it is the same index for both streams, because
+    undoing each stream's own shift lands on the shared grid. Only the fusion
+    weights below are per-stream.
+    """
+    return sigma / (shift + sigma * (1.0 - shift))
+
+
+def schedule_knots(sample_sigmas, shift: float, num_steps: int) -> list[int]:
+    """Which grid points the sampler's own schedule lands on.
+
+    `sample_sigmas` is what `comfy/samplers.py` puts in `transformer_options`:
+    the shifted sigmas this render will actually be evaluated at, `steps + 1`
+    of them. Mapping each back to a grid index says which intervals each step
+    spans, which is the whole of what a PDD run needs to know about the
+    schedule -- and it is knowable only at RUN time, because the scheduler sits
+    downstream of every model-patch node in the graph.
+
+    Returns strictly increasing indices. Deduped rather than asserted unique:
+    a schedule finer than the grid puts two steps on one grid point, which is a
+    legal thing to ask for and means those steps share a head.
+
+    On a schedule whose step count divides the grid this is exactly
+    `range(0, num_steps + 1, block_size)`, so it reproduces `block_bounds`
+    rather than approximating it. On one that does not, the blocks come out
+    uneven -- 5 steps over 32 intervals gives `[0, 6, 13, 19, 26, 32]` -- which
+    is a real answer and not an error, but is off the distribution the heads
+    were distilled on.
+
+    A `denoise` below 1.0 truncates the schedule, so the first knot is not 0.
+    That is correct and is the reason this reads the sigmas rather than
+    assuming a full trajectory.
+    """
+    s = torch.as_tensor(sample_sigmas, dtype=torch.float64).flatten()
+    idx = torch.round((1.0 - base_sigma(s.clamp(0.0, 1.0), shift)) * num_steps)
+    out: list[int] = []
+    for k in idx.to(torch.int64).clamp(0, num_steps).tolist():
+        if not out or k > out[-1]:
+            out.append(k)
+    return out
+
+
+def fusion_plan(step_sizes: torch.Tensor, start: int, stop: int) -> torch.Tensor:
+    """Step-size weights over `[start, stop)`, summing to 1.
+
+    The paper's `D_k = (t_{k+1} - t_k) / (t_{stop} - t_start)` over the block,
+    zero elsewhere. Vendor equivalent: `minimax_h3_pdd.pdd_sampling_plan`, minus
+    the leading direction axis, which is always length 1 for a first-order
+    solver.
+
+    Takes an END index rather than a length as of 2026-08-27, because a block
+    derived from the sampler's own schedule is a span between two knots and is
+    not always the same width as its neighbours.
     """
     plan = torch.zeros(step_sizes.shape[0], dtype=torch.float64)
-    span = step_sizes[start:start + block_size].sum()
-    plan[start:start + block_size] = step_sizes[start:start + block_size] / span
+    span = step_sizes[start:stop].sum()
+    plan[start:stop] = step_sizes[start:stop] / span
     return plan
+
+
+def fuse_block(stack: torch.Tensor, shift: float, num_steps: int,
+               start: int, stop: int) -> torch.Tensor:
+    """One fused head: the block `[start, stop)`'s mean velocity.
+
+    Slices the bank before weighting, so the fp64 intermediate is the block
+    rather than the whole 32-head stack -- which matters when this is called
+    inside a sampling step rather than once at load.
+    """
+    steps = pdd_time_grid(shift, num_steps).diff()
+    plan = fusion_plan(steps, start, stop)[start:stop]
+    return torch.tensordot(plan, stack[start:stop].to(torch.float64),
+                           dims=([0], [0])).to(torch.float32)
 
 
 def fuse_heads(stack: torch.Tensor, shift: float, num_steps: int,
@@ -76,14 +146,17 @@ def fuse_heads(stack: torch.Tensor, shift: float, num_steps: int,
     before the einsum, which moves the fused head by ~1.7e-3 relative; our
     output heads are ComfyUI's fp32 island, so we keep the precision and are
     deliberately NOT bit-identical to the reference.
+
+    The uniform case, kept because the converter and three checks want the
+    whole stack at once. A render goes through `fuse_block` per block instead,
+    since a schedule-derived block is not always the same width as its
+    neighbours -- both call the same `fusion_plan`.
     """
-    steps = pdd_time_grid(shift, num_steps).diff()
-    src = stack.to(torch.float64)
     return torch.stack([
-        torch.tensordot(fusion_plan(steps, k * block_size, block_size), src,
-                        dims=([0], [0]))
+        fuse_block(stack, shift, num_steps, k * block_size,
+                   (k + 1) * block_size)
         for k in range(num_steps // block_size)
-    ]).to(torch.float32)
+    ])
 
 
 def silu_temb_grid(proj_in_w: torch.Tensor, proj_in_b: torch.Tensor,

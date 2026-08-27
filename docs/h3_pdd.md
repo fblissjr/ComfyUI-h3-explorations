@@ -133,10 +133,48 @@ the video and audio streams**, and PDD runs those on separate schedules, so the
 per-stream split falls out of the model's own signature instead of being
 threaded through.
 
-Selection matches `t_emb` against the **`nfe + 1` block-boundary embeddings**,
-built once at load from the model's own arithmetic. The nearest boundary is the
-block, directly. A run at a step count the file was not fused for lands between
-boundaries, takes the closest available head, and is reported once in the log.
+Selection matches `t_emb` against the **block-boundary embeddings**, built from
+the model's own arithmetic. The nearest boundary is the block, directly.
+
+### The step COUNT is a different question, and it used to be a widget
+
+Selecting a head needs two things and only one of them is in `t_emb`: where the
+step starts, and how far it goes. The extent is a property of the sampler's
+schedule, and at patch time that schedule does not exist — `BasicScheduler` is
+downstream of every model-patch node in the graph.
+
+Until 2026-08-27 the node closed that gap with an `nfe` widget the person had to
+keep equal to `BasicScheduler.steps` by hand, and the only thing standing behind
+that requirement was a warning that fires after sampling has already started.
+A requirement with a warning behind it is not a control, and this one had never
+fired in a real render.
+
+It now reads `transformer_options["sample_sigmas"]` — put there by
+`comfy/samplers.py` — and maps each sigma back through `pdd_math.base_sigma` to
+a grid index. Those knots are the block boundaries:
+
+| schedule | knots derived |
+|---|---|
+| any count dividing the grid | exactly `block_bounds`, verified to `torch.equal` |
+| a count that does not divide it | uneven and reported, e.g. 5 steps → `[0, 6, 13, 19, 26, 32]` |
+| `denoise < 1.0` | starts partway down, which a count could not express at all |
+
+Reaching that dict costs one more patch point than the head swap does, so
+`diffusion_model.forward` is patched to observe it and delegate. Sol-Attn
+composes with `.forward` patches whose owner segment contains `attn`
+(`vendor/sol_attn_minimax.py`), so it leaves this one and the `final_layer` one
+alone rather than gating them behind its sigma window. The patch chains onto
+whatever forward is already installed.
+
+The heads follow: rather than fusing `nfe` of them at load, the node fuses each
+`(start, stop)` span the first time a step asks for it and caches it. A render
+visits at most `nfe` distinct spans, so this is still the paper's "one fused
+linear per block" and not a per-forward einsum — it just cannot know which
+blocks until the sampler names them.
+
+`nfe` survives as an override that forces uniform blocks and ignores the
+schedule, for deliberately decoding one partition while stepping another. Every
+shipped graph carries 0.
 
 **This replaced a selector that recovered a `t` and bucketed it, and the
 replacement is why that bug class is gone rather than guarded.** The old one
@@ -356,6 +394,63 @@ in one process. **The question that becomes live on merge is whether this node
 should keep the head half at all**, or narrow to the conversion plus the
 partition guard and let core do the rest. Not decided.
 
+## A third implementation, and it is ahead of us on guards
+
+`silveroxides/ComfyUI-UtilsCollection` ships `UC_MiniMaxH3PDDAcc`. Read at HEAD
+`5bac35be3d61` on 2026-08-27; PDD landed there `23ab5f2dd4f6` (2026-08-26) and
+was last touched `2ede53355074` the following day, "remove PDD filename
+validation" -- they moved off a filename branch, the same correction CLAUDE.md's
+2026-08-22 rule describes. Diagrams and the full comparison:
+[`docs/research/pdd/README.md`](research/pdd/README.md).
+
+It is a complete implementation, not generic plumbing: grid arithmetic, an
+in-node converter for the published layout, head fusion, the adaln rebase for
+pruned checkpoints, block selection, patch installation. **Third independent
+agreement on the arithmetic** -- the same four backbone transforms including the
+SwiGLU half-swap and the block-diagonal qkv fusion, explicit `.alpha` tensors,
+and the same affine adaln solve.
+
+**Where they are ahead**, and it is the guards rather than the maths:
+
+| they enforce | we did |
+|---|---|
+| a partial patch-key match raises | nothing, until 2026-08-27 -- adopted, see below |
+| head shapes checked against the live model | nothing |
+| unconsumed keys in the published file are an error | nothing |
+| an off-grid sigma RAISES by default, `clamp` opt-in | warn once and continue |
+| refuses to stack on an existing `final_layer` object patch | nothing |
+
+The first row is now closed here. The rest are open and are worth taking.
+
+**Their interface solves the step count from the other side.** The node has a
+`SIGMAS` output: it emits the block boundaries and you wire them into the
+sampler, so the count exists in one place by construction. We reached one source
+of truth from the opposite direction, by reading the sampler's schedule at run
+time. Theirs is the simpler graph; ours needs no rewiring and composes with a
+scheduler the user already has. Both beat a widget.
+
+**Two things they do that we cannot.** An uneven partition by construction --
+`nfe=6` as `(8,8,4,4,4,4)` -- and a hard restriction of block sizes to the
+trained width and twice it. That restriction is a claim we have not tested and
+which our own check should not be read as refuting; see the last row of
+**Enforced by nothing**.
+
+**Where we still lead:** the partition fingerprint. Ours remains the only one of
+the three that notices a Ref2VA file loaded onto an fl2va checkpoint, which is
+silent in both of the others because the key sets are identical.
+
+**They will break twice on #15908**, harder than we would have: their
+`pdd_final_forward` is installed as a four-argument `MethodType` *and* copies
+core's modulation body, importing the private `_mod_row`. The copy would
+silently diverge rather than fail. Ours delegates to the stock forward for
+exactly that reason.
+
+Reported, not verified: their basis match is `torch.allclose(atol=1e-6)` against
+the model's `adaln_t_table`, three orders tighter than our `TABLE_TOLERANCE`.
+Our own note records shipping 1e-3 there and finding it *below* the 1.6e-3 a
+bf16 cast costs. Whether theirs bites depends on their target checkpoints, and
+nobody here has run it.
+
 ## Two traps that are silent in both directions
 
 ### The partitions have identical key sets
@@ -494,16 +589,30 @@ scope silently is how a table stops meaning what its header claims.
   mechanisms and 0.0 installs nothing at all, so it is exactly the base model.
   Nothing checks that, and a check would need a loaded model to be worth
   anything -- asserting it against a stub would grade the stub.
-- **Nothing verifies the converted file against the model it will be applied
+- ~~**Nothing verifies the converted file against the model it will be applied
   to** beyond the partition fingerprint. A checkpoint layout change would be
   caught by `load_lora` matching nothing, which the node raises on, but a
-  *partial* match would not be.
+  *partial* match would not be.~~ **Closed 2026-08-27.** The node now compares
+  what `add_patches` returned against what `load_lora` resolved and raises on a
+  shortfall, naming the first unmatched keys. Adopted from
+  `silveroxides/ComfyUI-UtilsCollection`, which had this guard while we had the
+  row admitting we did not.
 - **The off-schedule warning has never fired in a real render.** It is
   exercised only by `bench/check_pdd_head_selection.py`, on a synthetic drive.
-  Its threshold is reasoned, not calibrated. It now guards only "is this render
-  on the fused schedule" -- selection itself no longer depends on a tolerance --
-  but the head-selection defect above is still the reminder that a silent
-  warning is not evidence the selection is right.
+  Its threshold is reasoned, not calibrated. Since 2026-08-27 it guards a
+  narrower question than it used to: not "is the step count right", which is now
+  taken from the sampler and correct by construction, but "is the model being
+  evaluated at a time this schedule contains". The head-selection defect above
+  is still the reminder that a silent warning is not evidence the selection is
+  right.
+- **Nothing grades whether a legal step count is a SENSIBLE one.**
+  `check_pdd_head_selection.py` asserts that 16, 8, 4 and 2 evaluations each
+  select their own blocks, and they do -- but that is a statement about the
+  selector, not about the arm. `silveroxides/ComfyUI-UtilsCollection` restricts
+  block sizes to the trained width and twice it, on the reasoning that a block
+  of 16 heads averaged into one velocity is a long way from what the block-4
+  distillation was trained to produce. Nothing here has measured whether they
+  are right, and our check should not be read as endorsing 2 NFE.
 
 ---
 

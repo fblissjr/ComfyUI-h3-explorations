@@ -184,7 +184,7 @@
       "lora_name": "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors",
       "strength": 1.0,
       "patch_heads": true,
-      "nfe": 4
+      "nfe": 0
     }
   },
   "19": {

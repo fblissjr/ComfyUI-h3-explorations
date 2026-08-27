@@ -1,0 +1,822 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Standalone copy of the published page. The Artifact host supplies a
+     doctype, a head and a minimal reset around the same content; this file
+     carries them itself so it opens from disk. The body below is verbatim.
+     Web fonts are the one network dependency and every face has a local
+     fallback stack, so this renders offline. -->
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; }
+  img, svg, video { max-width: 100%; height: auto; }
+</style>
+<title>Three PDD Implementations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:    #EDEEF1;
+    --surface:   #FFFFFF;
+    --sunken:    #E4E6EB;
+    --ink:       #E4E6EB;
+    --muted:     #5F6673;
+    --hair:      #C7CBD4;
+    --hair-soft: #DCDFE6;
+
+    --ours:   #2F5D8A;
+    --kijai:  #A2601D;
+    --silver: #6D4B75;
+
+    --good: #2C6B4E;
+    --warn: #8A6212;
+    --crit: #A33A32;
+
+    --ours-wash:   #E4ECF4;
+    --kijai-wash:  #F5EBDE;
+    --silver-wash: #EEE6F0;
+    --good-wash:   #E1EEE7;
+    --warn-wash:   #F4ECDB;
+    --crit-wash:   #F6E2E0;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:    #14161A;
+      --surface:   #1B1E24;
+      --sunken:    #23272E;
+      --ink:       #E5E8ED;
+      --muted:     #99A1AF;
+      --hair:      #363B45;
+      --hair-soft: #2A2E36;
+
+      --ours:   #83B1DE;
+      --kijai:  #DCA467;
+      --silver: #C098C4;
+
+      --good: #6FBF95;
+      --warn: #D6AC55;
+      --crit: #E08A82;
+
+      --ours-wash:   #1D2A38;
+      --kijai-wash:  #332616;
+      --silver-wash: #2B2130;
+      --good-wash:   #172C22;
+      --warn-wash:   #2E2513;
+      --crit-wash:   #341F1D;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:    #14161A;
+    --surface:   #1B1E24;
+    --sunken:    #23272E;
+    --ink:       #E5E8ED;
+    --muted:     #99A1AF;
+    --hair:      #363B45;
+    --hair-soft: #2A2E36;
+
+    --ours:   #83B1DE;
+    --kijai:  #DCA467;
+    --silver: #C098C4;
+
+    --good: #6FBF95;
+    --warn: #D6AC55;
+    --crit: #E08A82;
+
+    --ours-wash:   #1D2A38;
+    --kijai-wash:  #332616;
+    --silver-wash: #2B2130;
+    --good-wash:   #172C22;
+    --warn-wash:   #2E2513;
+    --crit-wash:   #341F1D;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  .col { max-width: 68ch; }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    padding: 72px 0 40px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 44px;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 18px;
+  }
+
+  h1 {
+    font-family: "Chivo", "Source Sans 3", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: clamp(2.1rem, 5.2vw, 3.2rem);
+    line-height: 1.05;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+    margin: 0 0 20px;
+  }
+
+  .standfirst {
+    font-size: 1.16rem;
+    color: var(--muted);
+    max-width: 62ch;
+    margin: 0;
+  }
+
+  /* ---------- sections ---------- */
+
+  section { margin: 0 0 60px; }
+
+  h2 {
+    font-family: "Chivo", "Source Sans 3", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1.62rem;
+    letter-spacing: -0.014em;
+    line-height: 1.2;
+    text-wrap: balance;
+    margin: 0 0 6px;
+    padding-top: 26px;
+    border-top: 1px solid var(--hair);
+  }
+
+  h3 {
+    font-family: "Chivo", "Source Sans 3", system-ui, sans-serif;
+    font-weight: 600;
+    font-size: 1.07rem;
+    letter-spacing: -0.006em;
+    margin: 30px 0 8px;
+  }
+
+  p { margin: 0 0 15px; }
+  ul { margin: 0 0 15px; padding-left: 1.15rem; }
+  li { margin-bottom: 7px; }
+
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.855em;
+    background: var(--sunken);
+    padding: 0.1em 0.36em;
+    border-radius: 3px;
+  }
+
+  strong { font-weight: 600; }
+
+  a { color: var(--ours); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, .impl:focus-visible { outline: 2px solid var(--ours); outline-offset: 3px; }
+
+  /* ---------- implementation marks ---------- */
+
+  .impl {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.78em;
+    font-weight: 500;
+    padding: 0.14em 0.5em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .impl-ours   { background: var(--ours-wash);   color: var(--ours);   border: 1px solid var(--ours); }
+  .impl-kijai  { background: var(--kijai-wash);  color: var(--kijai);  border: 1px solid var(--kijai); }
+  .impl-silver { background: var(--silver-wash); color: var(--silver); border: 1px solid var(--silver); }
+
+  /* ---------- cards ---------- */
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
+    gap: 16px;
+    margin: 26px 0;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-top: 3px solid var(--hair);
+    border-radius: 4px;
+    padding: 18px 20px 20px;
+  }
+  .card.c-ours   { border-top-color: var(--ours); }
+  .card.c-kijai  { border-top-color: var(--kijai); }
+  .card.c-silver { border-top-color: var(--silver); }
+
+  .card h4 {
+    font-family: "Chivo", system-ui, sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 3px;
+  }
+  .card .who {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.74rem;
+    color: var(--muted);
+    margin: 0 0 12px;
+  }
+  .card p { font-size: 0.94rem; margin: 0 0 9px; }
+  .card p:last-child { margin-bottom: 0; }
+
+  /* ---------- tables ---------- */
+
+  .scroll {
+    overflow-x: auto;
+    margin: 24px 0;
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    background: var(--surface);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 720px;
+    font-size: 0.9rem;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--hair-soft);
+    vertical-align: top;
+  }
+
+  thead th {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.73rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--sunken);
+    border-bottom: 1px solid var(--hair);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  td.mono, th.mono { font-family: "IBM Plex Mono", monospace; font-size: 0.83rem; font-variant-numeric: tabular-nums; }
+  td.subj { font-weight: 600; width: 27%; }
+
+  .yes, .no, .part {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.76rem;
+    font-weight: 500;
+    padding: 0.12em 0.46em;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .yes  { background: var(--good-wash); color: var(--good); }
+  .no   { background: var(--crit-wash); color: var(--crit); }
+  .part { background: var(--warn-wash); color: var(--warn); }
+
+  /* ---------- figures ---------- */
+
+  figure {
+    margin: 30px 0;
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    padding: 22px 22px 16px;
+  }
+
+  figure .svg-scroll { overflow-x: auto; }
+  figure svg { display: block; max-width: 100%; height: auto; color: var(--ink); }
+  figure svg.wide { min-width: 780px; }
+
+  figcaption {
+    font-size: 0.87rem;
+    color: var(--muted);
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hair-soft);
+    max-width: 76ch;
+  }
+
+  /* ---------- callout ---------- */
+
+  .note {
+    border-left: 3px solid var(--ours);
+    background: var(--surface);
+    padding: 15px 18px;
+    margin: 24px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .note.warn { border-left-color: var(--warn); }
+  .note p:last-child { margin-bottom: 0; }
+  .note .lead {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.73rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  /* ---------- quote ---------- */
+
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.815rem;
+    line-height: 1.55;
+    background: var(--sunken);
+    border: 1px solid var(--hair-soft);
+    border-radius: 4px;
+    padding: 13px 15px;
+    overflow-x: auto;
+    margin: 16px 0;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .srcline {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.73rem;
+    color: var(--muted);
+    margin: 0 0 -8px;
+  }
+
+  footer {
+    margin-top: 68px;
+    padding-top: 22px;
+    border-top: 2px solid var(--ink);
+    font-size: 0.87rem;
+    color: var(--muted);
+    max-width: 78ch;
+  }
+
+  /* ---------- diagram tokens ---------- */
+
+  figure svg .t-ours   { fill: var(--ours); }
+  figure svg .t-kijai  { fill: var(--kijai); }
+  figure svg .t-silver { fill: var(--silver); }
+  figure svg .t-muted  { fill: var(--muted); }
+  figure svg .t-warn   { fill: var(--warn); }
+  figure svg .t-crit   { fill: var(--crit); }
+
+  figure svg .s-silver { stroke: var(--silver); }
+  figure svg .s-warn   { stroke: var(--warn); }
+
+  figure svg .b-ours   { fill: var(--ours-wash);   stroke: var(--ours); }
+  figure svg .b-kijai  { fill: var(--kijai-wash);  stroke: var(--kijai); }
+  figure svg .b-silver { fill: var(--silver-wash); stroke: var(--silver); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">MiniMax H3 &middot; parallel decoding distillation &middot; read 2026-08-27</p>
+    <h1>Three PDD Implementations</h1>
+    <p class="standfirst">A third pack implements the same mechanism, converts the published file in the node, and hands the sampler its own schedule. On guards it is ahead of both of the others.</p>
+  </header>
+
+  <section>
+    <div class="col">
+      <h2>It is a PDD implementation</h2>
+      <p>The question was open — <code>ComfyUI-UtilsCollection</code> is a general utility pack and the two files named could have been generic patcher plumbing. They are not. <code>patcher_nodes.py</code> declares <code>UC_MiniMaxH3PDDAcc</code>, and <code>patcher_helpers.py</code> carries a complete PDD path: grid arithmetic, an in-node converter for the published alibaba-pai layout, head fusion, an AdaLN rebase for pruned checkpoints, block selection, and the patch installation.</p>
+      <p>So all three are directly comparable, and the pack overlaps ours on every axis rather than on some of them.</p>
+    </div>
+
+    <div class="cards">
+      <div class="card c-ours">
+        <h4>Ours</h4>
+        <p class="who">MiniMaxH3PDDLoRA</p>
+        <p>Offline converter writes a file with <code>h3_pdd.*</code> sidecar tensors; the node reads it, fuses heads at load, and swaps the two output linears per step.</p>
+      </div>
+      <div class="card c-kijai">
+        <h4>Kijai</h4>
+        <p class="who">stock loader + Comfy-Org/ComfyUI#15908</p>
+        <p>The bank rides in an ordinary LoRA file through core's generic <code>reshape_weight</code> adapter; a core patch to <code>FinalLayer.forward</code> blends the spanned heads per forward.</p>
+      </div>
+      <div class="card c-silver">
+        <h4>silveroxides</h4>
+        <p class="who">UC_MiniMaxH3PDDAcc</p>
+        <p>Node converts the published file in place, fuses at load into a separate head-bank module that ComfyUI manages, and emits the block-boundary sigmas as an output.</p>
+      </div>
+    </div>
+
+    <div class="col">
+      <p class="srcline">patcher_nodes.py, node schema</p>
+      <pre><code>outputs=[
+    io.Model.Output("model", display_name="model"),
+    io.Sigmas.Output("sigmas", display_name="sigmas"),
+],
+is_experimental=True,</code></pre>
+      <p>That second output is the design difference that propagates through everything else on this page.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <h2>Where the block index comes from</h2>
+      <p>All three answer the same question every sampling step: which fused head does this step want. They get there from different places, and the number of things a person has to keep in agreement differs with it.</p>
+    </div>
+
+    <figure>
+      <div class="svg-scroll">
+        <svg class="wide" viewBox="0 0 880 340" role="img" aria-label="Three data paths to the block index. Ours takes two separate user entries, the step count and nfe, joined only by a runtime warning. Kijai's derives the block from the sampler's sigma schedule. The silveroxides node emits the schedule itself, so the step count originates in the node." xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <g font-family="IBM Plex Mono, monospace" font-size="11.5">
+
+            <!-- lane A: ours -->
+            <text x="0" y="14" font-size="12" font-weight="500" class="t-ours">OURS</text>
+            <rect x="0" y="26" width="104" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="52" y="45" text-anchor="middle">steps (user)</text>
+            <line x1="104" y1="41" x2="146" y2="41" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="146" y="26" width="96" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="194" y="45" text-anchor="middle">sampler</text>
+            <line x1="242" y1="41" x2="284" y2="41" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="284" y="26" width="80" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="324" y="45" text-anchor="middle">t_emb</text>
+            <line x1="364" y1="41" x2="406" y2="41" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="406" y="26" width="164" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="488" y="45" text-anchor="middle">cdist vs boundaries</text>
+            <line x1="570" y1="41" x2="612" y2="41" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="612" y="26" width="76" height="30" rx="3" class="b-ours" stroke-width="1.4"/>
+            <text x="650" y="45" text-anchor="middle" class="t-ours">block k</text>
+
+            <rect x="0" y="72" width="104" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="52" y="91" text-anchor="middle">nfe (user)</text>
+            <line x1="104" y1="87" x2="264" y2="87" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="264" y="72" width="126" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="327" y="91" text-anchor="middle">fuse at load</text>
+            <path d="M 390 87 L 470 87 L 470 60" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+
+            <path d="M 52 56 L 52 64 L 52 72" fill="none" class="s-warn" stroke-width="1.3" stroke-dasharray="3 3"/>
+            <text x="120" y="118" class="t-warn" font-size="11">two entries, agreement enforced by a runtime warning only</text>
+            <line x1="112" y1="114" x2="112" y2="114" class="s-warn"/>
+
+            <!-- lane B: kijai -->
+            <line x1="0" y1="140" x2="880" y2="140" stroke="currentColor" stroke-width="0.6" opacity="0.28"/>
+            <text x="0" y="166" font-size="12" font-weight="500" class="t-kijai">KIJAI</text>
+            <rect x="0" y="178" width="104" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="52" y="197" text-anchor="middle">steps (user)</text>
+            <line x1="104" y1="193" x2="146" y2="193" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="146" y="178" width="96" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="194" y="197" text-anchor="middle">sampler</text>
+            <line x1="242" y1="193" x2="284" y2="193" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="284" y="178" width="122" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="345" y="197" text-anchor="middle">sample_sigmas</text>
+            <line x1="406" y1="193" x2="448" y2="193" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="448" y="178" width="122" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="509" y="197" text-anchor="middle">argmin, next</text>
+            <line x1="570" y1="193" x2="612" y2="193" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="612" y="178" width="110" height="30" rx="3" class="b-kijai" stroke-width="1.4"/>
+            <text x="667" y="197" text-anchor="middle" class="t-kijai">span [i, j)</text>
+            <text x="736" y="197" font-size="11" class="t-muted">fuse per forward</text>
+
+            <!-- lane C: silveroxides -->
+            <line x1="0" y1="236" x2="880" y2="236" stroke="currentColor" stroke-width="0.6" opacity="0.28"/>
+            <text x="0" y="262" font-size="12" font-weight="500" class="t-silver">SILVEROXIDES</text>
+            <rect x="0" y="274" width="150" height="30" rx="3" class="b-silver" stroke-width="1.4"/>
+            <text x="75" y="293" text-anchor="middle" class="t-silver">nfe + partition</text>
+            <line x1="150" y1="289" x2="192" y2="289" class="s-silver" stroke-width="1.4" marker-end="url(#ar)"/>
+            <rect x="192" y="274" width="126" height="30" rx="3" class="s-silver" fill="none" stroke-width="1.4"/>
+            <text x="255" y="293" text-anchor="middle" class="t-silver">SIGMAS out</text>
+            <line x1="318" y1="289" x2="360" y2="289" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="360" y="274" width="96" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="408" y="293" text-anchor="middle">sampler</text>
+            <line x1="456" y1="289" x2="498" y2="289" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="498" y="274" width="112" height="30" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="554" y="293" text-anchor="middle">ContextVar</text>
+            <line x1="610" y1="289" x2="652" y2="289" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+            <rect x="652" y="274" width="118" height="30" rx="3" class="b-silver" stroke-width="1.4"/>
+            <text x="711" y="293" text-anchor="middle" class="t-silver">exact knot</text>
+            <text x="0" y="326" font-size="11" class="t-muted">the schedule originates in the node, so there is nothing to keep in agreement</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>The step count enters our graph twice — once at the scheduler and once at the node — and only a runtime warning connects them. Kijai's reads it back out of the sampler. The third node emits the schedule, so the count exists in one place by construction.</figcaption>
+    </figure>
+
+    <div class="col">
+      <p>Ours and the third pack both recover the step from what the model was actually called with, so both survive a step cache or a two-pass split; Kijai's <code>argmin</code> against the schedule does not. The difference between ours and theirs is upstream of that: we ask the user for <code>nfe</code> because the node runs before the scheduler exists, and they removed the question by making the node the scheduler.</p>
+
+      <div class="note">
+        <span class="lead">Moving as this was written</span>
+        <p>The top lane describes <code>MiniMaxH3PDDLoRA</code> as it stood at the start of 2026-08-27. It is being changed the same day: the <code>nfe</code> widget goes away and the count is derived from the sampler's own schedule at runtime, which reaches the same one-source-of-truth property from the opposite direction — they emit the schedule, we read it. Treat the dashed warning arrow as the problem being solved, not as current state.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <h2>Which partitions of the grid are allowed</h2>
+      <p>The trajectory is 32 intervals. A sampling step consumes a contiguous block of them. Ours accepts any block size that divides 32; theirs accepts only the trained block and double it, which is a claim about the distillation rather than about the arithmetic.</p>
+      <p class="srcline">patcher_helpers.py, resolve_pdd_partition</p>
+      <pre><code>allowed = (trained_block, 2 * trained_block)
+invalid = sorted({size for size in sizes if size not in allowed})
+if invalid:
+    raise ValueError(f"partition {sizes} contains block sizes {invalid} "
+                     f"outside the trained envelope {allowed}")</code></pre>
+    </div>
+
+    <figure>
+      <div class="svg-scroll">
+        <svg class="wide" viewBox="0 0 880 300" role="img" aria-label="The 32-interval grid under four partitions. Eight blocks of four and four blocks of eight are accepted by every implementation. Six blocks as eight, eight, four, four, four, four is uneven and unique to the silveroxides pack. Two blocks of sixteen divides 32 and is accepted by ours but refused by theirs as outside the trained envelope." xmlns="http://www.w3.org/2000/svg">
+          <g font-family="IBM Plex Mono, monospace" font-size="11">
+
+            <text x="0" y="12" class="t-muted">32 intervals, partitioned four ways</text>
+
+            <!-- nfe 8 -->
+            <text x="0" y="44" font-weight="500">nfe 8</text>
+            <text x="52" y="44" class="t-muted">block 4</text>
+            <g>
+              <rect x="130" y="30" width="88" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="222" y="30" width="88" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="314" y="30" width="88" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="406" y="30" width="88" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="498" y="30" width="88" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="590" y="30" width="88" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="682" y="30" width="88" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="774" y="30" width="88" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+            </g>
+            <text x="130" y="66" class="t-muted" font-size="10">all three accept</text>
+
+            <!-- nfe 4 -->
+            <text x="0" y="106" font-weight="500">nfe 4</text>
+            <text x="52" y="106" class="t-muted">block 8</text>
+            <g>
+              <rect x="130" y="92" width="180" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="314" y="92" width="180" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="498" y="92" width="180" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+              <rect x="682" y="92" width="180" height="19" rx="2" class="b-ours" stroke-width="1.1"/>
+            </g>
+            <text x="130" y="128" class="t-muted" font-size="10">all three accept</text>
+
+            <!-- nfe 6 -->
+            <text x="0" y="168" font-weight="500">nfe 6</text>
+            <text x="52" y="168" class="t-muted">8,8,4,4,4,4</text>
+            <g>
+              <rect x="130" y="154" width="180" height="19" rx="2" class="b-silver" stroke-width="1.3"/>
+              <rect x="314" y="154" width="180" height="19" rx="2" class="b-silver" stroke-width="1.3"/>
+              <rect x="498" y="154" width="88" height="19" rx="2" class="b-silver" stroke-width="1.3"/>
+              <rect x="590" y="154" width="88" height="19" rx="2" class="b-silver" stroke-width="1.3"/>
+              <rect x="682" y="154" width="88" height="19" rx="2" class="b-silver" stroke-width="1.3"/>
+              <rect x="774" y="154" width="88" height="19" rx="2" class="b-silver" stroke-width="1.3"/>
+            </g>
+            <text x="130" y="190" class="t-silver" font-size="10">uneven, and only the third pack builds it &mdash; 6 does not divide 32</text>
+
+            <!-- nfe 2 -->
+            <text x="0" y="230" font-weight="500">nfe 2</text>
+            <text x="52" y="230" class="t-muted">block 16</text>
+            <g opacity="0.55">
+              <rect x="130" y="216" width="364" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 3"/>
+              <rect x="498" y="216" width="364" height="19" rx="2" fill="none" stroke="currentColor" stroke-width="1.1" stroke-dasharray="4 3"/>
+            </g>
+            <text x="130" y="252" font-size="10" class="t-crit">ours accepts (16 divides 32) &mdash; theirs refuses: outside the trained envelope (4, 8)</text>
+
+            <line x1="130" y1="272" x2="862" y2="272" stroke="currentColor" stroke-width="0.8" opacity="0.4"/>
+            <text x="130" y="288" font-size="10" class="t-muted">sigma 1.0</text>
+            <text x="862" y="288" font-size="10" class="t-muted" text-anchor="end">sigma 0.0</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>Block sizes 4 and 8 are common ground. Two rows are not: an uneven six-step partition that only the third pack can express, and a two-step partition that ours permits on divisibility grounds and theirs refuses on distributional ones.</figcaption>
+    </figure>
+
+    <div class="col">
+      <div class="note warn">
+        <span class="lead">Open question for us</span>
+        <p><code>bench/check_pdd_head_selection.py</code> drives and asserts nfe 16, 8, 4 and 2, on the grounds that every divisor lands exactly on its own shifted schedule. That is true of the arithmetic and says nothing about whether a block of 16 heads averaged into one velocity is anywhere near what the block-4 distillation trained. Their envelope says it is not. Neither position has been tested against a render.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <h2>Who owns the fused heads at runtime</h2>
+      <p>All three end up doing <code>F.linear</code> against a per-block weight. They disagree about who is responsible for that tensor existing on the right device, which is the question ComfyUI's streaming loader turns into a trap.</p>
+    </div>
+
+    <figure>
+      <div class="svg-scroll">
+        <svg class="wide" viewBox="0 0 880 268" role="img" aria-label="Three custody models for the fused head tensors. Ours keeps them in a closure hidden from ComfyUI with a manual per-device cache. Kijai enlarges the model's own weight so core moves it as part of the model. The silveroxides pack wraps them in their own ModelPatcher attached as an additional model." xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g font-family="IBM Plex Mono, monospace" font-size="11">
+
+            <!-- ours -->
+            <text x="0" y="14" font-size="12" font-weight="500" class="t-ours">OURS</text>
+            <rect x="0" y="26" width="126" height="28" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="63" y="44" text-anchor="middle">fused, at load</text>
+            <line x1="126" y1="40" x2="168" y2="40" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+            <rect x="168" y="26" width="146" height="28" rx="3" class="b-ours" stroke-width="1.3"/>
+            <text x="241" y="44" text-anchor="middle" class="t-ours">closure variable</text>
+            <line x1="314" y1="40" x2="356" y2="40" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+            <rect x="356" y="26" width="168" height="28" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="440" y="44" text-anchor="middle">manual .to(device)</text>
+            <text x="546" y="44" class="t-muted">never registered &mdash; invisible to the loader</text>
+
+            <!-- kijai -->
+            <line x1="0" y1="76" x2="880" y2="76" stroke="currentColor" stroke-width="0.6" opacity="0.28"/>
+            <text x="0" y="102" font-size="12" font-weight="500" class="t-kijai">KIJAI</text>
+            <rect x="0" y="114" width="126" height="28" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="63" y="132" text-anchor="middle">bank in file</text>
+            <line x1="126" y1="128" x2="168" y2="128" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+            <rect x="168" y="114" width="180" height="28" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="258" y="132" text-anchor="middle">pad + up @ down</text>
+            <line x1="348" y1="128" x2="390" y2="128" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+            <rect x="390" y="114" width="210" height="28" rx="3" class="b-kijai" stroke-width="1.3"/>
+            <text x="495" y="132" text-anchor="middle" class="t-kijai">video_out.weight, 32x tall</text>
+            <text x="622" y="132" class="t-muted">core moves it as model weight</text>
+
+            <!-- silveroxides -->
+            <line x1="0" y1="164" x2="880" y2="164" stroke="currentColor" stroke-width="0.6" opacity="0.28"/>
+            <text x="0" y="190" font-size="12" font-weight="500" class="t-silver">SILVEROXIDES</text>
+            <rect x="0" y="202" width="126" height="28" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="63" y="220" text-anchor="middle">fused, at load</text>
+            <line x1="126" y1="216" x2="168" y2="216" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+            <rect x="168" y="202" width="186" height="28" rx="3" class="b-silver" stroke-width="1.3"/>
+            <text x="261" y="220" text-anchor="middle" class="t-silver">HeadBank, buffers</text>
+            <line x1="354" y1="216" x2="396" y2="216" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+            <rect x="396" y="202" width="164" height="28" rx="3" class="s-silver" fill="none" stroke-width="1.3"/>
+            <text x="478" y="220" text-anchor="middle" class="t-silver">own ModelPatcher</text>
+            <line x1="560" y1="216" x2="602" y2="216" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)"/>
+            <rect x="602" y="202" width="182" height="28" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="693" y="220" text-anchor="middle">set_additional_models</text>
+            <text x="0" y="254" class="t-muted" font-size="10">core accounts and moves it, and project() raises if it did not arrive</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>Three answers to the same custody problem. We hide the tensors from ComfyUI because registering a wrapper module injects a parameter path the streaming loader later fails to restore; the third pack instead gives them their own patcher, which keeps them managed without ever touching the diffusion model's parameter tree.</figcaption>
+    </figure>
+
+    <div class="col">
+      <p>Theirs is the better answer to the problem ours works around. Our closure keeps the tensors off the loader's books by making them invisible, at the cost of hand-rolling the device cache and getting no VRAM accounting. A standalone <code>ModelPatcher</code> attached with <code>set_additional_models</code> is managed by ComfyUI without going near the diffusion model's parameter tree, so the trap never applies — and the bank's <code>project()</code> raises if the tensors did not arrive on the expected device rather than silently transferring.</p>
+      <p>Every core API this depends on — <code>set_additional_models</code>, <code>add_wrapper_with_key</code>, <code>remove_wrappers_with_key</code>, <code>WrappersMP.DIFFUSION_MODEL</code> — exists in the ComfyUI installed here, so this path would run on this box.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <h2>Guards</h2>
+      <p>This is where the three genuinely separate. Every row is something that can be wrong at load or at the first step, and the question is whether anything says so.</p>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>What could be wrong</th>
+            <th>Ours</th>
+            <th>Kijai</th>
+            <th>silveroxides</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="subj">LoRA is the other partition (fl2va vs ref2va — identical key sets)</td>
+            <td><span class="yes">raises</span> distance vs stored <code>base_video_out</code></td>
+            <td><span class="no">nothing</span></td>
+            <td><span class="no">nothing</span> the basis match names the model's trunk, not the file's</td>
+          </tr>
+          <tr>
+            <td class="subj">Only some patch keys matched the model</td>
+            <td><span class="part">partial</span> raises only if <em>nothing</em> matched</td>
+            <td><span class="no">nothing</span></td>
+            <td><span class="yes">raises</span> <code>len(applied) != expected_keys</code></td>
+          </tr>
+          <tr>
+            <td class="subj">Head tensors do not fit this model</td>
+            <td><span class="no">nothing</span></td>
+            <td><span class="no">nothing</span></td>
+            <td><span class="yes">raises</span> shape checked against live <code>video_out</code> and <code>audio_out</code></td>
+          </tr>
+          <tr>
+            <td class="subj">Published file carries a key the converter does not know</td>
+            <td><span class="no">nothing</span> unrecognised keys are ignored</td>
+            <td>n/a converted offline</td>
+            <td><span class="yes">raises</span> unconsumed keys are an error</td>
+          </tr>
+          <tr>
+            <td class="subj">Sampler evaluated off the fused schedule</td>
+            <td><span class="part">warns once</span> then takes the nearest boundary</td>
+            <td><span class="no">nothing</span> blends whatever the step spans</td>
+            <td><span class="yes">raises</span> by default; <code>clamp</code> is opt-in</td>
+          </tr>
+          <tr>
+            <td class="subj">SigmaShift is not 12.0 / 3.0</td>
+            <td><span class="no">nothing</span> shift comes from file metadata</td>
+            <td><span class="no">nothing</span></td>
+            <td><span class="yes">raises</span> checked per forward in the wrapper</td>
+          </tr>
+          <tr>
+            <td class="subj">Another node already patched <code>final_layer.forward</code></td>
+            <td><span class="no">nothing</span></td>
+            <td>n/a no object patch</td>
+            <td><span class="yes">raises</span> and refuses to combine with its own Cache or Spectrum</td>
+          </tr>
+          <tr>
+            <td class="subj">AdaLN bake solved against the wrong curve basis</td>
+            <td><span class="yes">falls back</span> table distance vs <code>TABLE_TOLERANCE</code></td>
+            <td><span class="no">nothing</span></td>
+            <td><span class="yes">raises</span> <code>allclose(atol=1e-6)</code>, listing candidates</td>
+          </tr>
+          <tr>
+            <td class="subj">Core widens <code>FinalLayer.forward</code> (#15908)</td>
+            <td><span class="yes">survives</span> patch forwards extras verbatim</td>
+            <td>n/a it <em>is</em> the change</td>
+            <td><span class="no">breaks</span> 4-arg <code>MethodType</code>, and it copies the modulation body</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>The second row is worth dwelling on. <code>docs/h3_pdd.md</code> lists it under "Enforced by nothing" in our own words — a partial key match would not be caught. They caught it in three lines:</p>
+      <p class="srcline">patcher_helpers.py, patch_minimax_h3_pdd_model</p>
+      <pre><code>expected_keys = sum(key.endswith((".lora_A.weight", ".diff", ".diff_b"))
+                    for key in lora_state)
+applied = patched.add_patches(loaded, lora_strength)
+if len(applied) != expected_keys:
+    raise ValueError(f"MiniMax H3 PDD matched {len(applied)}/{expected_keys} "
+                     f"patch keys; verify that PDD and diffusion-model trunks match.")</code></pre>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <h2>The arithmetic agrees</h2>
+      <p>Independently of the packaging, this is a third arrival at the transforms our converter performs, and it agrees on every one.</p>
+      <ul>
+        <li><strong>The four backbone transforms.</strong> q/k/v concatenated down, block-diagonal up, <code>alpha * 3.0</code>; <code>attn.to_out.0</code> to <code>attn.out_proj</code>; <code>ff.net.2</code> to <code>mlp.fc2</code>; and <code>ff.net.0.proj</code> to <code>mlp.fc1</code> with the output halves swapped.</li>
+        <li><strong>Explicit <code>.alpha</code> tensors</strong>, as ours writes and Kijai's files omit.</li>
+        <li><strong>The affine AdaLN projection.</strong> <code>diff = scale * (up @ (down @ basis))</code> and <code>diff_b = scale * (up @ (down @ center))</code> — the basis plus a constant column, which is the same solve ours performs and the same one Kijai's pruned build reaches.</li>
+        <li><strong>Per-stream fusion shifts.</strong> Video heads fused on the 12.0 grid, audio on 3.0, while block <em>selection</em> uses the video sigma alone — the grid position is shift-invariant, so one index serves both streams.</li>
+      </ul>
+      <p>Three independent implementations now agree on the SwiGLU half-swap and the block-diagonal qkv fusion, which are the two easiest things here to get wrong.</p>
+      <p>One numerical nicety we do not have: <code>pdd_fine_sigmas</code> pins <code>values[0] = 1.0</code> and <code>values[-1] = 0.0</code> after shifting, so the endpoints are exact rather than whatever the rational shift returns.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <h2>What each does better</h2>
+
+      <h3>Ahead of ours</h3>
+      <ul>
+        <li><strong>No offline conversion step.</strong> <code>split_pdd_state_dict</code> accepts the published alibaba-pai layout and converts in the node, or takes a pre-converted file. Ours requires running <code>bench/convert_pdd_lora.py</code> first.</li>
+        <li><strong>The schedule is an output, not a second question.</strong> One place the step count exists. Ours is converging on the same property from the other side — deriving the count from the sampler rather than emitting it — which closes the gap but leaves theirs the simpler graph.</li>
+        <li><strong>Failing closed.</strong> Off-grid sigma, partial key match, wrong head shape, wrong shift, unknown key, unmatched basis — all raise. Ours warns or ignores on most of these.</li>
+        <li><strong>Separate <code>lora_strength</code> and <code>head_strength</code>,</strong> where ours has one knob scaling all three surfaces together.</li>
+        <li><strong>Head custody</strong> through a real <code>ModelPatcher</code> rather than a hand-rolled cache.</li>
+        <li><strong>Refusing to stack</strong> with another final-layer patch, or with its own Cache and Spectrum nodes.</li>
+      </ul>
+
+      <h3>Ahead of theirs</h3>
+      <ul>
+        <li><strong>The partition fingerprint.</strong> Ours is still the only one of the three that notices a Ref2VA file on an fl2va checkpoint.</li>
+        <li><strong>Delegating the modulation.</strong> Their <code>pdd_final_forward</code> re-implements the body of core's <code>FinalLayer.forward</code> and imports the private <code>minimax_model._mod_row</code>; ours does bookkeeping and calls the stock forward, so upstream cannot silently diverge from us.</li>
+        <li><strong>Arity transparency</strong> against #15908, as of today.</li>
+        <li><strong>A stable artifact.</strong> Converting offline gives a file that can be hashed, compared against other conversions, and shipped; theirs re-derives on every load.</li>
+        <li><strong>Selection from <code>t_emb</code> including the per-token denoise-mask case</strong>, where theirs reads the scalar timestep.</li>
+      </ul>
+
+      <div class="note warn">
+        <span class="lead">Worth watching, not verified</span>
+        <p>Their basis match is <code>torch.allclose(basis_table, table, atol=1e-6)</code>. Our own <code>TABLE_TOLERANCE</code> note records shipping <code>1e-3</code> for an hour and finding it <em>below</em> the <code>1.6e-3</code> a bf16 cast of that table costs — a tolerance under the noise it has to absorb, which rejects correct state. Theirs is three orders tighter still. Whether that bites depends on how the AdaLN table is stored and cast in the checkpoints they target, and nothing here has run it.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Read 2026-08-27 from <code>patcher_nodes.py</code> and <code>patcher_helpers.py</code> in <code>silveroxides/ComfyUI-UtilsCollection</code>, fetched raw at repository HEAD <code>5bac35be3d61</code>. The PDD path arrived in <code>23ab5f2dd4f6</code> (2026-08-26) and was last touched by <code>2ede53355074</code> (2026-08-27), "fix(h3): remove PDD filename validation" — so it is moving, and every claim here describes that day. Claims about Kijai's converted files and about Comfy-Org/ComfyUI#15908 are dated the same way and were also moving; the PR was open with <code>comfy/ldm/minimax/model.py</code> alone in its diff.</p>
+    <p>A teaching surface, not a source. Numbers about our own implementation are owned by <code>docs/h3_pdd.md</code>, and where this page disagrees with it, that document is right.</p>
+  </footer>
+
+</div>
+</body>
+</html>

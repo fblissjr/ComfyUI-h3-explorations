@@ -4,6 +4,58 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.77.0
+
+### Changed
+
+- **`MiniMaxH3PDDLoRA` derives the step count instead of asking for it.** The
+  block extents come from `transformer_options["sample_sigmas"]` at run time,
+  mapped back to grid indices through the new `pdd_math.base_sigma` /
+  `schedule_knots`. The `nfe` widget it replaces had to be kept equal to
+  `BasicScheduler.steps` by hand, with only a warning behind the requirement --
+  and that warning fires after sampling has started and had never fired in a
+  real render. `nfe` survives as an override that forces uniform blocks; every
+  shipped graph now carries 0, so the step count is entered once, in the
+  scheduler.
+
+  Verified end to end at 1344x768 / 362 frames / 4 steps: the node logs the
+  file's own count at load, then `4 evaluations ... derived from the sampler's
+  own sigma schedule, blocks uniform width 8`, and every step reports its block
+  0.00000 from its boundary.
+
+  Reaching that dict needs `diffusion_model.forward` patched to observe it and
+  delegate. Sol-Attn composes only with `.forward` patches whose owner segment
+  contains `attn`, so it leaves this one alone -- checked against
+  `vendor/sol_attn_minimax.py`, not assumed.
+
+- **Heads fuse per block on first use rather than `nfe` of them at load**, since
+  which blocks a render visits is not knowable until the schedule is. Still the
+  paper's one-fused-linear-per-block; a render visits at most `nfe` spans and
+  each is fused once. `pdd_math.fusion_plan` takes an end index rather than a
+  width, and `fuse_heads` is now a loop over the new `fuse_block`. Verified
+  bit-identical to the previous arithmetic on both streams, weight and bias, at
+  every step count the grid divides by.
+
+### Added
+
+- **`MiniMaxH3PDDLoRA` raises on a partial patch-key match.** `add_patches`
+  returns only what it found in the state dict; a shortfall against what
+  `load_lora` resolved now raises and names the first unmatched keys. This was a
+  row in `docs/h3_pdd.md`'s **Enforced by nothing**; adopted from
+  `silveroxides/ComfyUI-UtilsCollection`, which had the guard while we had the
+  admission.
+- **`bench/check_pdd_head_selection.py` drives the tracker through `observe`
+  with a real sigma schedule**, so the step count is derived the way a render
+  derives it rather than handed in. New cases: the derived knots equal what the
+  widget computed at every divisor, an uneven schedule (5 steps ->
+  `[0, 6, 13, 19, 26, 32]`) is taken and reported rather than refused,
+  `denoise < 1.0` starts partway down the trajectory, and the `nfe` override
+  overrides.
+- **`docs/research/pdd/three_pdd_implementations.html`**, comparing
+  `silveroxides/ComfyUI-UtilsCollection`'s PDD node against ours and Kijai's.
+  A third independent agreement on the conversion arithmetic, and a guard matrix
+  where they are ahead of both of us.
+
 ## 0.76.0
 
 ### Fixed

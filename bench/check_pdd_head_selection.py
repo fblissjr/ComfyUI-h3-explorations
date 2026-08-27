@@ -136,14 +136,34 @@ def time_shift_sigma(sigma, from_shift, to_shift):
     return to_shift * base / (1.0 + (to_shift - 1.0) * base)
 
 
-def drive(table, nfe):
-    """Run the real tracker over one full schedule at `nfe`. Returns (video, audio)."""
-    block = NUM_STEPS // nfe
-    bounds_v = M.block_bounds(SHIFT_V, NUM_STEPS, block)
-    bounds_a = M.block_bounds(SHIFT_A, NUM_STEPS, block)
-    tracker = P._StepTracker(P.boundary_embeddings(bounds_v, table),
-                             P.boundary_embeddings(bounds_a, table),
-                             bounds_v, bounds_a, nfe, f"nfe={nfe}")
+def sampler_sigmas(steps, shift=None):
+    """The sigmas `BasicScheduler` hands the sampler, restated.
+
+    A flow schedule is uniform in base sigma with the model's shift applied
+    pointwise, which is `1 - pdd_time_grid`. This is the input a render puts in
+    `transformer_options["sample_sigmas"]`, and driving the tracker with it is
+    what makes these cases exercise the DERIVATION rather than a step count
+    handed in by the test.
+    """
+    return 1.0 - M.pdd_time_grid(SHIFT_V if shift is None else shift, steps)
+
+
+def drive(table, steps, sample_sigmas=None, forced_nfe=0):
+    """Run the real tracker over one schedule. Returns (blocks_v, blocks_a, tracker).
+
+    Goes in through `observe`, so the block boundaries come out of the sigma
+    schedule the same way they do in a render. Nothing here tells the tracker
+    how many steps there are.
+    """
+    grid_t_v = M.pdd_time_grid(SHIFT_V, NUM_STEPS)
+    grid_t_a = M.pdd_time_grid(SHIFT_A, NUM_STEPS)
+    tracker = P._StepTracker(
+        P.boundary_embeddings(grid_t_v, table),
+        P.boundary_embeddings(grid_t_a, table),
+        grid_t_v, grid_t_a, SHIFT_V, NUM_STEPS, forced_nfe, NFE,
+        f"steps={steps}")
+    tracker.observe(sampler_sigmas(steps) if sample_sigmas is None
+                    else sample_sigmas)
     rows = table.shape[0]
 
     def emb(t):
@@ -152,13 +172,17 @@ def drive(table, nfe):
         return torch.lerp(table[i0], table[i0 + 1], pos - i0)
 
     video, audio = [], []
-    for boundary in bounds_v[:-1]:
-        sigma_v = 1.0 - float(boundary)
-        t_a = 1.0 - time_shift_sigma(sigma_v, SHIFT_V, SHIFT_A)
-        tracker.update(torch.stack([emb(1.0 - sigma_v), emb(t_a)]),
-                       (0, 1, 0), (1, 2, 1))
-        video.append(tracker.video)
-        audio.append(tracker.audio)
+    for k in tracker.knots[:-1]:
+        t_v = float(grid_t_v[k])
+        t_a = 1.0 - time_shift_sigma(1.0 - t_v, SHIFT_V, SHIFT_A)
+        # The audio grid is the video grid carried to the audio shift. If these
+        # ever disagree the audio boundaries are being built two different ways.
+        assert abs(t_a - float(grid_t_a[k])) < 1e-9, (
+            f"audio time at grid point {k}: {t_a} from the video sigma, "
+            f"{float(grid_t_a[k])} from pdd_time_grid")
+        tracker.update(torch.stack([emb(t_v), emb(t_a)]), (0, 1, 0), (1, 2, 1))
+        video.append(tracker.block_v)
+        audio.append(tracker.block_a)
     return video, audio, tracker
 
 
@@ -182,47 +206,137 @@ else:
         """One file, every step count the 32-point grid divides by.
 
         This is the parallel-decoding claim in the form the node has to get
-        right: the same weights fused at load for 8, 4, 2 or 16 evaluations,
-        each landing on its own block boundaries. The vendor's README reports
-        rendering at 8 and 4; the other two come free from the same divisibility
-        and are here because a selector that only ever sees one block size is
-        not evidence about the others.
+        right: the same weights decoded at 8, 4, 2 or 16 evaluations, each
+        landing on its own block boundaries. The vendor's README reports
+        rendering at 8 and 4; the other two come free from the same
+        divisibility and are here because a selector that only ever sees one
+        block size is not evidence about the others.
+
+        Nothing tells the tracker the step count. It comes out of the sigma
+        schedule, so this grades the derivation and the selection together.
+
+        **This is a statement about the SELECTOR, not about the arm.** Passing
+        at 2 evaluations means the tracker picks the blocks that partition names;
+        it does not mean a 16-interval block is a sensible thing to average into
+        one velocity. `silveroxides/ComfyUI-UtilsCollection` restricts block
+        sizes to the trained width and twice it for exactly that reason, and
+        nothing here has measured who is right. Do not cite this case as
+        evidence that every divisor is a usable arm.
         """
         rows = []
-        for nfe in (n for n in (16, 8, 4, 2) if NUM_STEPS % n == 0):
-            video, audio, tracker = drive(table, nfe)
-            want = list(range(nfe))
-            assert video == want, f"nfe={nfe}: video heads {video}, want {want}"
+        for steps in (n for n in (16, 8, 4, 2) if NUM_STEPS % n == 0):
+            video, audio, tracker = drive(table, steps)
+            block = NUM_STEPS // steps
+            want = [(k * block, (k + 1) * block) for k in range(steps)]
+            assert tracker.nfe == steps, (
+                f"steps={steps}: derived nfe {tracker.nfe} from a schedule of "
+                f"{steps} steps. The step count is read from `sample_sigmas`; "
+                f"getting it wrong means every block is wrong.")
+            assert video == want, f"steps={steps}: video blocks {video}, want {want}"
             assert audio == want, (
-                f"nfe={nfe}: audio heads {audio}, want {want}. Audio runs "
+                f"steps={steps}: audio blocks {audio}, want {want}. Audio runs "
                 f"shift {SHIFT_A} and is selected independently, so a "
                 f"video-only fix passes a video-only case.")
-            assert not tracker.warned, f"nfe={nfe}: on-schedule run warned"
-            rows.append(str(nfe))
-        return f"nfe {', '.join(rows)} each select 0..n-1 on both streams"
+            assert not tracker.warned, f"steps={steps}: on-schedule run warned"
+            rows.append(str(steps))
+        return f"{', '.join(rows)} steps each tile the grid exactly, both streams"
+
+    def derived_matches_the_old_widget():
+        """The schedule-derived knots ARE `block_bounds`, not an approximation.
+
+        The control for replacing a hand-entered `nfe` with a derivation: for
+        every count that divides the grid, what the sampler's sigmas produce
+        has to equal what the widget produced, or this change moved the render.
+        """
+        for steps in (16, 8, 4, 2):
+            knots = M.schedule_knots(sampler_sigmas(steps), SHIFT_V, NUM_STEPS)
+            want = list(range(0, NUM_STEPS + 1, NUM_STEPS // steps))
+            assert knots == want, f"steps={steps}: derived {knots}, want {want}"
+            # and the times those knots name are the boundaries themselves
+            grid = M.pdd_time_grid(SHIFT_V, NUM_STEPS)
+            assert torch.equal(grid[knots],
+                               M.block_bounds(SHIFT_V, NUM_STEPS, NUM_STEPS // steps)), (
+                f"steps={steps}: the derived boundary TIMES differ from "
+                f"block_bounds, so the embeddings matched against would differ")
+        return "16, 8, 4, 2 derive exactly the boundaries the widget computed"
+
+    def uneven_schedule_is_reported():
+        """A step count that does not divide the grid still names blocks.
+
+        5 steps over 32 intervals cannot tile it. The old node refused at load;
+        this one takes the spans the sampler actually asks for, which is what
+        makes `nfe` deletable -- but a partial block is off the distribution the
+        heads were distilled on, so it has to say so rather than proceed
+        quietly.
+        """
+        video, audio, tracker = drive(table, 5)
+        widths = [b - a for a, b in zip(tracker.knots, tracker.knots[1:])]
+        assert tracker.knots[0] == 0 and tracker.knots[-1] == NUM_STEPS, (
+            f"an uneven schedule must still span the whole grid: {tracker.knots}")
+        assert len(set(widths)) > 1, (
+            f"5 steps over {NUM_STEPS} intervals cannot be uniform; got {widths}")
+        assert video == list(zip(tracker.knots, tracker.knots[1:])), (
+            f"uneven blocks selected out of order: {video}")
+        assert sum(widths) == NUM_STEPS, (
+            f"the blocks do not tile the grid: {widths} sums to {sum(widths)}")
+        return f"5 steps -> knots {tracker.knots}, widths {widths}, contiguous"
+
+    def truncated_schedule_starts_late():
+        """`denoise < 1.0` starts partway down the trajectory.
+
+        The widget could not express this at all: it named a COUNT, and the
+        node assumed a full trajectory from it. Reading the sigmas means a
+        partial-denoise render selects the heads for the part it actually
+        runs.
+        """
+        full = sampler_sigmas(NFE)
+        partial = full[len(full) // 2:]          # the tail half of the schedule
+        knots = M.schedule_knots(partial, SHIFT_V, NUM_STEPS)
+        assert knots[0] > 0, (
+            f"a truncated schedule must not start at grid point 0: {knots}")
+        assert knots[-1] == NUM_STEPS, (
+            f"a truncated schedule still ends at the trajectory's end: {knots}")
+        return f"a half schedule derives knots {knots}, starting at {knots[0]}"
 
     def off_schedule_warns():
-        """A step count the heads were not fused for is reported, once."""
-        block = NUM_STEPS // NFE
-        bounds_v = M.block_bounds(SHIFT_V, NUM_STEPS, block)
-        bounds_a = M.block_bounds(SHIFT_A, NUM_STEPS, block)
-        tracker = P._StepTracker(P.boundary_embeddings(bounds_v, table),
-                                 P.boundary_embeddings(bounds_a, table),
-                                 bounds_v, bounds_a, NFE, "off-schedule")
+        """Evaluated at a time this render's schedule does not contain."""
+        _, _, tracker = drive(table, NFE)
         rows = table.shape[0]
-        for boundary in M.block_bounds(SHIFT_V, NUM_STEPS * 2, block)[1:5]:
-            pos = min(max(float(boundary), 0.0), 1.0) * (rows - 1)
+        # Times halfway between this schedule's boundaries: on the trajectory,
+        # but not points the sampler said it would visit.
+        for a, b in zip(tracker.knots, tracker.knots[1:]):
+            t = float(M.pdd_time_grid(SHIFT_V, NUM_STEPS)[(a + b) // 2])
+            pos = min(max(t, 0.0), 1.0) * (rows - 1)
             i0 = min(int(pos), rows - 2)
             e = torch.lerp(table[i0], table[i0 + 1], pos - i0)
             tracker.update(torch.stack([e, e]), (0, 1, 0), (1, 2, 1))
         assert tracker.warned, (
-            "a run off the fused schedule did not warn. Selection degrades to "
-            "the nearest boundary by design, so this warning is the only thing "
-            "that distinguishes a deliberate arm from a misconfigured one.")
-        return "a 16-step sampler against 8-step heads is reported"
+            "a forward at a time the schedule does not contain did not warn. "
+            "Selection degrades to the nearest boundary by design, so this "
+            "warning is the only thing that distinguishes a sampler evaluating "
+            "off its own grid from one on it.")
+        return "a forward between two scheduled sigmas is reported"
 
-    check("every legal nfe selects its own blocks", every_legal_nfe)
-    check("off the fused schedule warns", off_schedule_warns)
+    def override_ignores_the_schedule():
+        """`nfe` non-zero forces uniform blocks whatever the sampler says.
+
+        The escape hatch has to actually override, or it is a widget that
+        silently does nothing -- which is worse than not having one.
+        """
+        video, _, tracker = drive(table, 8, forced_nfe=4)
+        assert tracker.nfe == 4, (
+            f"nfe=4 against an 8-step schedule derived {tracker.nfe}; the "
+            f"override did not take")
+        assert video[0] == (0, 8), (
+            f"forced blocks should be width 8; first is {video[0]}")
+        return "nfe=4 against an 8-step schedule forces width-8 blocks"
+
+    check("every legal step count tiles the grid", every_legal_nfe)
+    check("derived knots equal the widget's boundaries", derived_matches_the_old_widget)
+    check("an uneven schedule is taken and reported", uneven_schedule_is_reported)
+    check("a truncated schedule starts partway down", truncated_schedule_starts_late)
+    check("evaluating off the schedule warns", off_schedule_warns)
+    check("the nfe override overrides", override_ignores_the_schedule)
 
 
 # --- 2. the two tolerances, against the noise each has to straddle ---------
