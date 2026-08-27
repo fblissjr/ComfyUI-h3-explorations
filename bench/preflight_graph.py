@@ -309,13 +309,35 @@ def _reference_media(inputs: dict, graph: dict):
             # error with no marker. Widget-to-input conversion is an ordinary
             # frontend action, so both are graphs a user can build. Unresolved
             # values become None and the caller says so.
-            def _value(name, default):
-                raw = append_inputs.get(name, default)
-                return None if isinstance(raw, list) else raw
+            absent = []
+
+            def _value(name, default, group=None):
+                """Read a widget spelled flat OR as a DynamicCombo member.
+
+                `size_policy` became a DynamicCombo on 2026-08-27, so its
+                members are `size_policy.short_edge` and
+                `size_policy.allow_upscale` in API form. This read the flat
+                names only, so `allow_upscale` fell to its default False and
+                every shipped reference graph was priced as though it did not
+                upscale -- 2,368 DiT rows against the 9,408 a render packs,
+                on the tool whose job is to say whether a graph will fit.
+
+                Missing under BOTH spellings is RECORDED rather than
+                defaulted. A silent default is what hid the rename, and this
+                file already treats an unreadable value as "not priced"
+                rather than as a guess.
+                """
+                for candidate in ((f"{group}.{name}", name) if group
+                                  else (name,)):
+                    if candidate in append_inputs:
+                        raw = append_inputs[candidate]
+                        return None if isinstance(raw, list) else raw
+                absent.append(name)
+                return default
 
             size_policy = _value("size_policy", "match")
-            allow_upscale = _value("allow_upscale", False)
-            short_edge = _value("short_edge", 2048)
+            allow_upscale = _value("allow_upscale", False, group="size_policy")
+            short_edge = _value("short_edge", 2048, group="size_policy")
             qwen_short_edge = _value("qwen_short_edge", 0)
             image_policies[key] = {
                 "size_policy": size_policy,
@@ -329,6 +351,7 @@ def _reference_media(inputs: dict, graph: dict):
                                           ("short_edge", short_edge),
                                           ("qwen_short_edge", qwen_short_edge))
                            if v is None],
+                "absent": absent,
             }
         elif kind == "video":
             media[f"ref_videos.ref_video_{index}"] = append_inputs.get("frames")
@@ -1277,6 +1300,14 @@ def price(node: dict, graph: dict) -> list[str]:
                     f"  {key}: {', '.join(policy['linked'])} is wired to an "
                     f"input socket, so its value is not in the graph. This "
                     f"reference was NOT priced.")
+                continue
+            if policy.get("absent"):
+                lines.append(
+                    f"  {key}: {', '.join(policy['absent'])} is on neither the "
+                    f"flat nor the size_policy.* spelling, so this node's "
+                    f"schema is not one this reader knows. This reference was "
+                    f"NOT priced -- pricing it against a default is how the "
+                    f"DynamicCombo rename went unnoticed.")
                 continue
             # The typed append owns all three since the fit fold.
             size_mode = policy["size_policy"]
