@@ -267,13 +267,40 @@
   },
   "derivation_reproduces_core_exactly": true,
   "core_comment_says": "ids fixed by the released tokenizer",
-  "evidence_class": "INFERENCE, not SOURCE. The released config fixes no id for any of the seven. Appending them in declaration order after the highest existing added token reproduces core's constants exactly, which is the standard mechanism and is probably what the vendor did -- but it is derived, and core's comment states it as read.",
-  "why_it_matters": "every marker arm, and the DiT sensitivity measured in 2026-08-27_marker_epsilon.json, addresses rows 151669-151675. If the vendor's internal tokenizer numbered the seven differently, those are the wrong rows and release_id is not the release spelling. Sensitivity cannot detect this: an unexpected id still moves the prediction."
+  "loaded_from_release": {
+   "tokenizer_class": "Qwen2Tokenizer",
+   "len_tokenizer": 151676,
+   "base_vocab_size": 151643,
+   "ids": {
+    "<d>": 151669,
+    "</d>": 151670,
+    "<|cutoff|>": 151671,
+    "<|lyrics_start|>": 151672,
+    "<|lyrics_end|>": 151673,
+    "<|caption_start|>": 151674,
+    "<|caption_end|>": 151675
+   },
+   "single_token": true
+  },
+  "evidence_class": "SOURCE. The config assigns no id as a literal, but loading the release's own tokenizer directory with the standard HF loader yields 151669-151675 and tokenizes the seven as single tokens. The ids are fixed by construction from the shipped config, so core's comment is correct and release_id addresses the rows the vendor's own pipeline would address.",
+  "worry_this_closes": "raised twice, on 2026-08-26 and 2026-08-27: that core DERIVED the numbering and might have guessed wrong, which would mean every marker arm addresses arbitrary rows. It did not guess. Recorded here so the third session to notice the missing literal finds the answer instead of re-raising it."
  },
  "index_wise_mismatches": 316,
  "index_wise_is_misleading": "reported only to retire it. An insertion shifts every later index, so this counts displacement as if it were content change. Use longest_common_subsequence. A record of this repo's carried the index-wise number alone and it read as 'the tokenizations are wildly different', which the alignment refutes.",
  "what_it_does_not_settle": "whether legacy_bpe's prediction delta comes from the changed content or from the displacement. Both are present and this sizes them; separating them needs a padding arm that reproduces the displacement with content untouched, specified by edit_sites.",
- "max_cumulative_displacement_is_not_confined_to_the_prefix": "VERIFIED in comfy/ldm/minimax/model.py::PackedLayout.__init__: `cursor = float(text_len)` is the temporal ORIGIN of both target streams. _audio_grid sets t = cursor + arange(audio_t); _video_grid passes cursor as the t-origin of the video grid. So a prefix that grows by 8 moves the whole target timeline by 8 in RoPE t-space, not just 8 rows of a 408-row prefix. Text rows are arange(text_len), so the prefix-end to target-start gap is invariant; what changes is the relative distance from EARLY prefix rows to the targets, graded from +8 at the first row to 0 at the boundary.",
- "this_retires_a_ranking": "an earlier reading of this record ranked content above displacement by comparing 8 positions against a 109,478-token sequence. That arithmetic measured the wrong thing: the 8 is a coordinate origin, not a local shift. Neither cause is ranked. The padding arm separates them, and it captures the cursor shift as well as the intra-prefix displacement because it reproduces text_len=416 with release content.",
- "and_it_predicts_the_audio_concentration": "audio's temporal coordinate is a pure 1-D offset (cursor + arange), while video's passes through _video_t_grid inside a three-axis grid, so a change in cursor lands directly on audio's only temporal axis. That is a mechanism for the observation in 2026-08-27_marker_epsilon.json that audio concentration appears for the arms which change the token stream (legacy_bpe, stripped) and not for the arm that holds text_len fixed (mean_init_rows). Consistent with the table; not independently tested."
+ "marker_id_reach": {
+  "question": "which of the seven marker ids do our surfaces actually carry",
+  "measured": "2026-08-27",
+  "calibration_and_holdout_bundles": {
+   "bundle_v2_Bp2": "15 of 29 rows carry 151669/151670; the other five ids in zero rows",
+   "bundle_v2_holdout_v2b_up2048": "9 of 13; other five in zero",
+   "bundle_v2_holdout_v2b_noup": "9 of 13; other five in zero",
+   "bundle_t2va_holdout": "7 of 13; other five in zero",
+   "pool": "<d>/</d> in 505 rows, the other five in 0 (2026-08-25_v3_selection_max_no_upscale.json)"
+  },
+  "shipped_graphs": "<d>/</d> in 23 of 137; the other five in none",
+  "marker_corpus": "all seven present (bench/marker_corpus/compiled.json) -- the only surface that reaches them",
+  "consequence": "every encoder measurement this repo has taken -- Gate 5, the overfit test, the four-encoder table -- exercises 2 of the 7 markers, because they all run on these bundles. The five are not mis-tokenized; they are absent. Claims about 'the encoder's handling of H3 markers' from those runs cover <d> and </d> only.",
+  "where_it_could_bite": "AWQ targets Linear, so embed_tokens is untouched and layer0_input relL2 is exactly 0.0 -- the marker ROWS are bit-identical in v1/v2. NVFP4 is the exception: it ships the embedding table at I8, so it does perturb all seven rows, and five of them have never appeared in any population it was graded on."
+ }
 }
