@@ -1400,25 +1400,43 @@ SPLIT_AT = 2
 #: `MiniMaxH3AppendRefImage.qwen_short_edge`. 512 since 2026-08-27; 0 (one
 #: view, whatever the VAE got) before.
 #:
-#: **A PRIOR, NOT A MEASUREMENT. Read that before quoting it.** Reference
-#: tokens land in the TEXT segment ahead of the prompt, so they compete with it
-#: rather than merely costing sequence length. Under the v2 encoder two
-#: 2048-short-edge references cost 9,408 tokens there against a ~1,000-token
-#: prompt, leaving the prompt 9.5% of its own segment; at 512 the view is 592
-#: tokens and the prompt is back to 63%, while the DiT keeps every one of its
-#: 9,408 reference rows. Priced with `bench/preflight_graph.py`, which could
-#: not see this until 26a0dbe -- it costed the segment from the DiT rows.
+#: **INERT ON EVERY SHIPPED GRAPH SINCE 72e97c3, and kept anyway.** Those
+#: graphs run the v1 conditioner, whose still bounds are a 1.5x window
+#: (200704..301056), so `smart_resize` lands every non-square reference on the
+#: identical view whatever it was prepared at: 512, 1024 and 2048 all reach
+#: the encoder as 264 merged tokens at 16:9, and only square moves at all.
+#: Measured across four aspects in
+#: `bench/results/2026-08-27_qwen_view_under_snapshot.json`. Not "close to
+#: inert" -- exactly inert for every aspect these graphs use.
 #:
-#: 63% is v1's ratio, and v1's ratio was an accident of that snapshot's pixel
-#: bounds rather than a number anyone chose. Reproducing it is a reasonable
-#: starting point, not a target, and that is the whole of the justification.
+#: It stays rather than coming out because it re-arms. Under v2's bounds the
+#: same knob spans 448 to 7,296 merged tokens over that range, so it is a live
+#: lever again the moment anyone moves `MODELS["clip"]`. Deleting it would
+#: leave nothing here to warn them -- the same reason
+#: `bench/check_attention_defaults.py` derives its single-frame exempt class
+#: instead of deleting it.
+#:
+#: **Why it exists, and it is a PRIOR rather than a measurement.** Reference
+#: tokens land in the TEXT segment ahead of the prompt, so they compete with it
+#: rather than merely costing sequence length. Under v2 on 2026-08-27 two
+#: 2048-short-edge references cost 9,408 tokens there against a ~1,000-token
+#: prompt, leaving the prompt 9.5% of its own segment; 512 put it back to 63%
+#: while the DiT kept all 9,408 of its reference rows. Priced with
+#: `bench/preflight_graph.py`, which could not see this until 26a0dbe -- it
+#: costed the segment from the DiT rows. 63% is v1's ratio, and v1's ratio was
+#: an accident of that snapshot's bounds rather than a number anyone chose.
 #:
 #: The observation behind it is ONE render: a two-speaker scene at the old
 #: default attributed the dialogue to the wrong subject, and the binding lives
-#: in the prompt tokens whose share had collapsed. One arm, one seed. The
-#: mechanism is arithmetic rather than judgement, but the arm that would move
-#: this number is 512 against 0 on that same graph, judged on whether the
-#: attribution holds. Until that runs, this is reasoning.
+#: in the prompt tokens whose share had collapsed. One seed, and the arm that
+#: would have moved this number never ran -- the queue was stopped when the
+#: graphs went back to v1. That arm would not have settled it anyway: v2-at-0
+#: differs from v1 in BOTH weights and bounds, so it could not separate "the
+#: proportion was the problem" from "v2's weights are worse and shrinking the
+#: view happens to help". The pair that isolates it holds the weights fixed --
+#: v2 under v1's bounds against v2 under its own, via
+#: `h3_awq_encoder.install_source_processors(image_bounds=...)` -- needs no
+#: render, and belongs to the encoder lane.
 REF_QWEN_SHORT_EDGE = 512
 
 REF_VIDEO_CANVAS = dict(width=1024, height=768)
