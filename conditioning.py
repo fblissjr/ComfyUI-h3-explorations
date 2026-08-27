@@ -100,14 +100,6 @@ class MiniMaxH3Conditioning(io.ComfyNode):
                             "keyframe, as the release does, and width/height "
                             "are ignored. explicit uses width/height and "
                             "cover-crops the anchor to fit."),
-                io.Boolean.Input(
-                    "vendor_tokens", default=True, optional=True, advanced=True,
-                    tooltip=(
-                        "Legacy ignored input retained so saved UI graph "
-                        "widget positions remain valid. Current ComfyUI "
-                        "registers the H3 tokens natively."
-                    ),
-                ),
             ],
             outputs=[io.Conditioning.Output(display_name="positive"),
                      io.Latent.Output()],
@@ -115,8 +107,8 @@ class MiniMaxH3Conditioning(io.ComfyNode):
 
     @classmethod
     def execute(cls, clip, vae, prompt, width=1344, height=768, length=124,
-                first_frame=None, last_frame=None, canvas="from_keyframe",
-                vendor_tokens=True) -> io.NodeOutput:
+                first_frame=None, last_frame=None,
+                canvas="from_keyframe") -> io.NodeOutput:
         # Refused rather than padded. Core emits token 151643 for an empty
         # entry list and renders against it; both vendor runtimes reject the
         # request. Checked before any model work so the failure is cheap.

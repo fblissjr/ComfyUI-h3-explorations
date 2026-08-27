@@ -139,12 +139,27 @@ class _Clip:
         return [[torch.zeros(1, 1, 1), {}]]
 
 
+def _max_policy(short_edge=None, allow_upscale=False):
+    """The nested shape a DynamicCombo actually delivers to `execute`.
+
+    NOT a flattened kwarg. `MiniMaxH3Resolution.execute` carries the scar from
+    a test that invented its own caller: it passed flattened kwargs, the node
+    read the nested form, every selection fell through to one branch, and the
+    test agreed with the bug. So these call sites build the dict the executor
+    sends rather than the arguments that happen to be convenient.
+    """
+    return {"size_policy": "max",
+            "short_edge": (R.REF_IMAGE_SHORT_EDGE if short_edge is None
+                           else short_edge),
+            "allow_upscale": allow_upscale}
+
+
 def append_is_copy_on_add_and_ordered():
     """An append returns a new tuple and never rewrites its input plan."""
     audio_out = R.MiniMaxH3AppendRefAudio.execute(_audio()).args[0]
     before = tuple(audio_out)
     image_out = R.MiniMaxH3AppendRefImage.execute(
-        _frames(1), references=audio_out
+        _frames(1), {"size_policy": "match"}, references=audio_out
     ).args[0]
     assert audio_out == before and len(audio_out) == 1, audio_out
     assert len(image_out) == 2 and image_out[:1] == audio_out, image_out
@@ -698,14 +713,15 @@ def qwen_view_is_separate_from_the_vae_view():
 
     # The node refuses a sub-grid value and records the field.
     try:
-        R.MiniMaxH3AppendRefImage.execute(source, "max", qwen_short_edge=16)
+        R.MiniMaxH3AppendRefImage.execute(source, _max_policy(), qwen_short_edge=16)
     except ValueError as exc:
         assert "qwen_short_edge" in str(exc), exc
     else:
         raise AssertionError("a sub-grid qwen_short_edge was accepted")
-    records = R.MiniMaxH3AppendRefImage.execute(source, "max", qwen_short_edge=960).args[0]
+    records = R.MiniMaxH3AppendRefImage.execute(source, _max_policy(), qwen_short_edge=960).args[0]
     assert records[-1].qwen_short_edge == 960
-    assert R.MiniMaxH3AppendRefImage.execute(source, "max").args[0][-1].qwen_short_edge == 0
+    assert R.MiniMaxH3AppendRefImage.execute(
+        source, _max_policy()).args[0][-1].qwen_short_edge == 0
 
 
 def preflight_prices_the_two_views():

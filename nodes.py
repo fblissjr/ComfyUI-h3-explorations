@@ -22,7 +22,6 @@ from .reference_fit import MiniMaxH3ReferenceFit
 from .resolution import MiniMaxH3Resolution
 from .sol_curve_node import MiniMaxH3SolAttnCurve
 from .vae_precision import MiniMaxH3VAEPrecision
-from .vendor_tokens import MiniMaxH3VendorTokens
 from .reference_video_fit import MiniMaxH3ReferenceVideoFit
 from .reference_conditioning import (
     MiniMaxH3AppendRefAudio,
@@ -305,7 +304,7 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3ReferenceFit, MiniMaxH3Resolution, MiniMaxH3Preflight,
                 MiniMaxH3ProvenanceStamp, MiniMaxH3SolAttnCurve,
                 MiniMaxH3SLARouter, MiniMaxH3VAEPrecision,
-                MiniMaxH3VendorTokens, MiniMaxH3Conditioning,
+                MiniMaxH3Conditioning,
                 MiniMaxH3ReferenceVideoFit,
                 MiniMaxH3AppendRefImage, MiniMaxH3AppendRefVideo,
                 MiniMaxH3AppendRefAudio, MiniMaxH3ReferenceConditioning,

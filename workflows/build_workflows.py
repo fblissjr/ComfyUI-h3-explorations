@@ -1066,10 +1066,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             append_inputs = {"image": [load_id, 0], "size_policy": "max"}
             if chain is not None:
                 append_inputs["references"] = chain
-            # Appended inputs go after `references`, matching the schema order
-            # a saved graph maps widget values by.
-            append_inputs["allow_upscale"] = ref_upscale
-            append_inputs["short_edge"] = _ref_short_edge()
+            # `size_policy` is a DynamicCombo since 2026-08-27, so its members
+            # are spelled DOTTED in the API form -- `size_policy.short_edge`,
+            # never the flat `short_edge`, which the executor rejects. Same
+            # rule as `MiniMaxH3Resolution`'s `shape.wide_resolution`. They
+            # exist only under `max`; nothing emits them for `match`.
+            append_inputs["size_policy.short_edge"] = _ref_short_edge()
+            append_inputs["size_policy.allow_upscale"] = ref_upscale
             # Only when set: 0 is the node's default and the byte-for-byte
             # one-view path, and writing it into every graph would touch every
             # shipped reference graph for nothing.
@@ -4357,11 +4360,14 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             _in("references", "MINIMAX_H3_REFERENCES"),
         ]
         cond = g.add("MiniMaxH3ReferenceConditioning", (-460, 0), size=(430, 620),
-                     # The True is the ignored legacy vendor_tokens slot. Keep
-                     # it before video_policy because saved UI graphs map
-                     # widget values positionally, and keep image_policy last
-                     # for the same reason -- it is the newest append.
-                     widgets=[prompt, cv["width"], cv["height"], length, True,
+                     # `vendor_tokens` was removed from the schema on
+                     # 2026-08-27 -- ComfyUI owns the H3 tokens natively and the
+                     # input had been an inert placeholder held only to keep
+                     # saved widget positions stable. Compatibility with
+                     # externally saved graphs was traded away by owner
+                     # decision the same day, so the slot goes rather than
+                     # staying as a True nobody reads.
+                     widgets=[prompt, cv["width"], cv["height"], length,
                               ref_video_policy, ref_image_policy],
                      inputs=cond_inputs + [
                          _in("width", "INT", widget=True), _in("height", "INT", widget=True),
@@ -4481,8 +4487,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         g.link(chain, 0, cond, "references", "MINIMAX_H3_REFERENCES")
     else:
         # Widget order mirrors the schema: prompt, width, height, length,
-        # canvas, then the ignored legacy vendor_tokens slot. Keep its True so
-        # saved widget positions stay stable. The keyframe images stay sockets.
+        # canvas. The legacy vendor_tokens slot was removed from the schema on
+        # 2026-08-27. The keyframe images stay sockets.
         cond_inputs = [_in("clip", "CLIP"), _in("vae", "VAE"),
                        _in("first_frame", "IMAGE", optional=True),
                        _in("last_frame", "IMAGE", optional=True),

@@ -708,48 +708,63 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
             ),
             inputs=[
                 io.Image.Input("image"),
-                io.Combo.Input(
-                    "size_policy", options=list(SIZE_POLICIES), default="match",
+                H3References.Input("references", optional=True),
+                # A DynamicCombo, not four flat widgets. `short_edge` and
+                # `allow_upscale` are read ONLY under `max`, and as flat
+                # widgets they stayed visible and editable under `match` while
+                # doing nothing -- discoverable only from a log line after the
+                # render was queued. Nesting them under the branch that reads
+                # them makes that state unreachable rather than warned about.
+                # `MiniMaxH3Resolution` established this pattern here.
+                #
+                # This reshuffles saved-graph widget positions and that is
+                # deliberate: owner decision 2026-08-27, compatibility with
+                # externally saved graphs traded for a node that cannot
+                # mislead.
+                io.DynamicCombo.Input(
+                    "size_policy",
+                    options=[
+                        io.DynamicCombo.Option("match", []),
+                        io.DynamicCombo.Option("max", [
+                            io.Int.Input(
+                                "short_edge", default=REF_IMAGE_SHORT_EDGE,
+                                min=CANVAS_MULTIPLE, max=4096, step=32,
+                                tooltip=(
+                                    "Scale until the SHORTER side reaches "
+                                    "this, then round to 32. 2048 is a "
+                                    "property of the released checkpoint, "
+                                    "carried beside the canvas rules as "
+                                    "reference_image_short_edge."
+                                ),
+                            ),
+                            io.Boolean.Input(
+                                "allow_upscale", default=False,
+                                tooltip=(
+                                    "Scale until the shorter side REACHES "
+                                    "short_edge, enlarging a smaller "
+                                    "reference. Off matches ComfyUI, which "
+                                    "clamps its scale with min(1.0, ...) and "
+                                    "only ever shrinks. On matches the three "
+                                    "serving implementations, which upscale "
+                                    "unconditionally: a 1280x720 reference "
+                                    "becomes 3648x2048, going from 880 to "
+                                    "7296 latent rows. Those rows are "
+                                    "attended at every sampling step. "
+                                    "Upscaling adds rows, not detail, so "
+                                    "whether it helps an already-small source "
+                                    "is unmeasured."
+                                ),
+                            ),
+                        ]),
+                    ],
                     tooltip=(
                         "Core-compatible sizing for this image. match caps it "
-                        "at target pixel area; max caps the short edge at "
-                        "short_edge. Whether either upscales is allow_upscale's "
-                        "decision, not this one's."
+                        "at the target pixel area and takes no further "
+                        "knobs -- the canvas decides. max caps the short edge "
+                        "and carries short_edge and allow_upscale, which only "
+                        "exist under it."
                     ),
                 ),
-                H3References.Input("references", optional=True),
-                # APPENDED, and they have to stay after `references`: widget
-                # values map positionally in every saved graph, so these are
-                # the permitted change shape and reordering is not. Defaults
-                # reproduce ComfyUI's own sizing, which is what a graph built
-                # before they existed must keep getting.
-                io.Boolean.Input(
-                    "allow_upscale", default=False, optional=True,
-                    tooltip=(
-                        "Scale until the shorter side REACHES short_edge, "
-                        "enlarging a smaller reference. Off (default) matches "
-                        "ComfyUI, which clamps its scale with min(1.0, ...) and "
-                        "only ever shrinks. On matches the three serving "
-                        "implementations, which upscale unconditionally: a "
-                        "1280x720 reference becomes 3648x2048, going from 880 "
-                        "to 7296 latent rows. Those rows are attended at every "
-                        "sampling step. Upscaling adds rows, not detail, so "
-                        "whether it helps an already-small source is unmeasured."
-                    ),
-                ),
-                io.Int.Input(
-                    "short_edge", default=REF_IMAGE_SHORT_EDGE, min=256,
-                    max=4096, step=32, optional=True,
-                    tooltip=(
-                        "Under size_policy=max, scale until the SHORTER side "
-                        "reaches this, then round to 32. 2048 is a property of "
-                        "the released checkpoint, carried beside the canvas "
-                        "rules as reference_image_short_edge. Ignored under "
-                        "size_policy=match, which sizes from the canvas area."
-                    ),
-                ),
-                # APPENDED after short_edge, for the positional-widget reason
-                # above. Default 0 reproduces every earlier graph exactly.
                 io.Int.Input(
                     "qwen_short_edge", default=0, min=0, max=4096, step=32,
                     optional=True,
@@ -759,18 +774,18 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                         "tensor the video VAE encodes. N: Qwen is shown the "
                         "source scaled so its shorter side reaches N (nearest "
                         "32, upscaling allowed), while the VAE still encodes "
-                        "the size_policy/short_edge/allow_upscale view above. "
-                        "This raises the identity signal reaching the "
-                        "conditioner without the reference-latent rows and "
-                        "the large VAE encode that a full 2048 upscale costs; "
-                        "only the Qwen rows grow. The loaded encoder's own "
-                        "processor still applies its pixel bounds afterwards: "
-                        "under the current W4 artifact's 200,704-301,056 px "
-                        "snapshot the view is clamped back to about 265 "
-                        "tokens whatever N is, so this knob is only "
-                        "meaningful on an encoder whose bounds admit it. "
-                        "Whether it helps is unmeasured; it is the B arm of "
-                        "the reference-view ablation."
+                        "the size_policy view above, so only the Qwen rows "
+                        "grow. The loaded encoder's own processor still "
+                        "applies its pixel bounds afterwards, and WHICH "
+                        "encoder is loaded decides whether this knob does "
+                        "anything: v1's snapshot declared 200,704-301,056 px "
+                        "and clamped every view back to about 265 tokens "
+                        "whatever N was, while v2 -- shipped 2026-08-27 and "
+                        "the default since -- declares the release's own "
+                        "65,536-16,777,216 px, so a 2048 short edge arrives "
+                        "intact. Live on v2, and a cost as well as a "
+                        "capability. Whether it helps is unmeasured; it is "
+                        "the B arm of the reference-view ablation."
                     ),
                 ),
             ],
@@ -778,12 +793,24 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, size_policy="match", references=None,
-                allow_upscale=False, short_edge=REF_IMAGE_SHORT_EDGE,
-                qwen_short_edge=0):
+    def execute(cls, image, size_policy, references=None, qwen_short_edge=0):
+        # A DynamicCombo arrives as ONE nested dict: the selected key under the
+        # input's own id, and the chosen option's inputs alongside it. NOT as
+        # flattened kwargs. `MiniMaxH3Resolution.execute` carries the scar from
+        # getting this wrong -- every selection fell through to one branch, and
+        # its test agreed with the bug because the test invented the caller.
+        policy = (size_policy if isinstance(size_policy, str)
+                  else size_policy["size_policy"])
+        if policy not in SIZE_POLICIES:
+            raise ValueError(f"unknown image size policy {policy!r}")
+        if policy == "max" and not isinstance(size_policy, str):
+            short_edge = int(size_policy["short_edge"])
+            allow_upscale = bool(size_policy["allow_upscale"])
+        else:
+            # `match` reads neither, and they are no longer reachable under it.
+            short_edge, allow_upscale = REF_IMAGE_SHORT_EDGE, False
+        size_policy = policy
         count, source_h, source_w = _image_shape(image, "image")
-        if size_policy not in SIZE_POLICIES:
-            raise ValueError(f"unknown image size policy {size_policy!r}")
         if count > 1:
             # `_compile_reference_records` keeps only the first. Saying so is
             # the whole fix: wiring a video loader's IMAGE output here dropped
@@ -802,14 +829,6 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
         if short_edge < CANVAS_MULTIPLE:
             raise ValueError(
                 f"short_edge must be at least {CANVAS_MULTIPLE}, got {short_edge}")
-        if size_policy == "match" and (allow_upscale or
-                                       short_edge != REF_IMAGE_SHORT_EDGE):
-            # Inert settings used to go quiet. They are checkable here because
-            # the policy and its knobs are finally on one node.
-            logger.warning(
-                "[h3] size_policy='match' sizes this reference from the canvas "
-                "area, so short_edge=%d and allow_upscale=%s are not read. Set "
-                "size_policy='max' to use them.", short_edge, allow_upscale)
         qwen_short_edge = int(qwen_short_edge)
         if qwen_short_edge and qwen_short_edge < CANVAS_MULTIPLE:
             raise ValueError(
@@ -904,16 +923,6 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
                 io.Int.Input("width", default=1344, min=32, max=16384, step=32),
                 io.Int.Input("height", default=768, min=32, max=16384, step=32),
                 io.Int.Input("length", default=124, min=5, max=3600, step=17),
-                io.Boolean.Input(
-                    "vendor_tokens", default=True, optional=True, advanced=True,
-                    tooltip=(
-                        "Legacy ignored input retained so saved UI graph "
-                        "widget positions remain valid. Current ComfyUI "
-                        "registers the H3 tokens natively."
-                    ),
-                ),
-                # APPENDED: saved UI graphs map widgets positionally. Keep new
-                # controls after every established widget.
                 io.Combo.Input(
                     "video_policy", options=list(VIDEO_POLICIES),
                     default="encoder", optional=True,
@@ -961,7 +970,7 @@ class MiniMaxH3ReferenceConditioning(io.ComfyNode):
     @classmethod
     def execute(
         cls, clip, vae, audio_vae, references, prompt, width=1344,
-        height=768, length=124, vendor_tokens=True, video_policy="encoder",
+        height=768, length=124, video_policy="encoder",
         image_policy="comfy",
     ):
         records = _reference_tuple(references)
