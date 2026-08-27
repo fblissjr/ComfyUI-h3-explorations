@@ -6,61 +6,65 @@ is deliberately unmeasured. Nothing here is either: it is measurable today, on
 tooling that exists. Delete an entry when it runs; one still here in a week
 belongs in one of those two instead.
 
-## Status: nothing is staged
+## Status: nothing is staged, for the second time today
 
-**Thirty payloads were built and are now void.** Two things invalidated them
-after they were written, and both are worth knowing before rebuilding:
+Twenty-nine arms were built, queued, and stopped mid-flight when the owner moved
+every graph back to the v1 conditioner (`72e97c3`). One arm was interrupted
+inside `SamplerCustomAdvanced` and wrote nothing; the other twenty-eight never
+started. No output survives and none should be looked for.
+
+**Rebuild from the shipped graphs rather than patching payloads.** Three things
+have moved under them since they were written, and each one silently invalidates
+a payload that names the old value:
 
 1. `MiniMaxH3AppendRefImage.size_policy` became a DynamicCombo (`e6e527e`), so
    `short_edge` and `allow_upscale` are spelled `size_policy.short_edge` and
-   `size_policy.allow_upscale` in API form. The flat names the payloads used no
-   longer exist on the node.
-2. `qwen_short_edge` now defaults to 512 rather than 0 (below), which changes
-   what every reference arm should carry.
+   `size_policy.allow_upscale` in API form.
+2. `qwen_short_edge` defaults to 512 rather than 0.
+3. `MODELS["clip"]` is the **v1** encoder again (`72e97c3`), which changes what
+   a reference costs the prompt and therefore what several arms below decide.
 
-Rebuild them from the shipped graphs rather than patching: the graphs were
-rebuilt onto the new schema in `3bbf8e1` and now carry both changes, so
-regenerating picks them up for free.
-
-Two arms did complete before the stop, and **neither should be judged**:
-`base16_ref2va` at one seed, which is the render that exposed the finding below
-and is degraded for that reason, and one other.
+The graphs carry all three. Regenerating picks them up for free.
 
 ---
 
-## What changed under everything: the prompt lost its own segment
-
-This is the session's most consequential finding and it reframes the arms below.
+## What changed under everything, and what the encoder switch did to it
 
 Reference tokens land in the **text segment, ahead of the prompt**, so they do
-not merely cost sequence length -- they compete with the prompt for it. Under
-the v1 encoder every reference clamped to ~290 merged tokens whatever it was
-prepared at, so this could not bite. The v2 encoder shipped 2026-08-27 declaring
-the release's own bounds, and references now arrive intact.
+not merely cost sequence length -- they compete with the prompt for it. That is
+structural and did not move.
 
-Priced on the shipped reference graph at 1344x768 x 362, two references:
+What moved is whether anything can act on it. Priced on the shipped reference
+graph at 1344x768 x 362, two references:
 
-| | DiT ref rows | qwen tokens | packed | prompt's share of its segment |
-|---|---|---|---|---|
-| v2, upscale, `qwen_short_edge` 0 -- the old default | 9,408 | 9,408 | 128,971 | **9.5%** |
-| v2, upscale, `qwen_short_edge` 512 -- shipped now | 9,408 | 592 | 120,155 | **63%** |
-| v2, no upscale | 2,368 | 2,368 | 114,891 | 30% |
-| v1 clamp -- what every earlier render got | 9,408 | ~580 | ~120,000 | 63% |
+| | DiT ref rows | qwen tokens | prompt's share of its segment |
+|---|---|---|---|
+| v2, upscale, `qwen_short_edge` 0 | 9,408 | 9,408 | **9.5%** |
+| v2, upscale, `qwen_short_edge` 512 | 9,408 | 592 | **63%** |
+| v2, no upscale | 2,368 | 2,368 | 30% |
+| v1 -- what every shipped graph runs now | 9,408 | ~580 | ~63% |
 
-**Observed once:** a two-speaker scene at the old default rendered with the
-dialogue attributed to the wrong subject. The subject-to-speaker binding lives
-in the prompt tokens whose share had collapsed. One arm, one seed; the mechanism
-is arithmetic, the conclusion is not yet measured.
+**Under v1 the knob cannot move, and that is measured rather than assumed.**
+v1's still bounds are a 1.5x window (200704..301056), narrow enough that
+`smart_resize` lands every non-square reference on the identical view whatever
+it was prepared at: 512, 1024 and 2048 all arrive as 264 merged tokens at 16:9,
+266 at 4:3, and only square moves at all
+([`bench/results/2026-08-27_qwen_view_under_snapshot.json`](../../../bench/results/2026-08-27_qwen_view_under_snapshot.json)).
+Under v2's bounds the same knob spans 448 to 7,296.
 
-`h3_config.REF_QWEN_SHORT_EDGE` is 512 as of today and says in as many words
-that it is a prior rather than a measurement -- 63% is v1's ratio, and v1's
-ratio was an accident of a snapshot's pixel bounds rather than a number anyone
-chose.
+**Observed once, under v2:** a two-speaker scene at the old default rendered
+with the dialogue attributed to the wrong subject. The subject-to-speaker
+binding lives in the prompt tokens whose share had collapsed. One arm, one seed;
+the mechanism is arithmetic, the conclusion is not measured, and the render that
+would have tested it was in the queue that stopped.
 
-**The two knobs do different jobs, and conflating them is what made an earlier
-framing here wrong.** `allow_upscale` decides what the DiT sees.
-`qwen_short_edge` decides what the prompt competes with. Before v2 they moved
-together and reading them as one knob cost nothing.
+`h3_config.REF_QWEN_SHORT_EDGE` stays at 512 and its note says why: inert on
+every shipped graph today, live again the moment anyone moves the encoder back.
+
+**The two knobs do different jobs.** `allow_upscale` decides what the DiT sees.
+`qwen_short_edge` decides what the prompt competes with. Conflating them is what
+made an earlier framing here wrong, and under v1 they are separate for a second
+reason -- one of them does nothing.
 
 ---
 
@@ -69,38 +73,45 @@ together and reading them as one knob cost nothing.
 Grouped by what a group is testing, since a single arm rarely decides anything
 on its own.
 
-### Group A -- does the prompt come back?
+### Group A -- does the prompt come back? NOT ANSWERABLE ON A SHIPPED GRAPH
 
-**Decides whether `REF_QWEN_SHORT_EDGE = 512` stays.** The one arm that moves a
-default currently resting on reasoning.
+**Withdrawn as a render arm.** It was `qwen_short_edge` 0 against 512, judged on
+whether the dialogue attribution holds. On v1 both arms produce the same encoder
+view, so the pair is one arm rendered twice.
 
-| arm | change | reads as |
-|---|---|---|
-| `ref_qwen0` | `qwen_short_edge` 0 | reproduces the degraded render |
-| `ref_qwen512` | `qwen_short_edge` 512 | the shipped default |
+It also had a confound worth recording, because it would have survived the
+encoder switch: v2-at-0 differs from v1 in **both** the weights and the bounds,
+so a win for 512 was consistent with "the proportion was the problem" and with
+"v2's weights are worse and shrinking the view happens to help". The four-encoder
+holdout says v2's weights are a wash against v1's on every geometry, which makes
+the second reading unlikely but does not exclude it.
 
-Same seed, same prompt, same references, `allow_upscale` on for both. Judged on
-whether the dialogue attribution holds, which is a legible pass/fail rather than
-a taste judgement -- unusually, this pair CAN be read from one seed each, because
-the failure is categorical. `encoderman` has offered to own this arm; the
-encoder contract is that lane's.
+**What replaces it needs no render.** Hold the weights fixed and vary only the
+snapshot -- v2 weights under v1's bounds against v2 weights under its own, via
+`h3_awq_encoder.install_source_processors(image_bounds=...)`, compared at layer
+50 on the same rows. Two outcomes: the snapshot is the whole encoder-side
+difference and the ratio is the mechanism, or the bounds are not what changed the
+state and 512 was treating a symptom. Owned by the encoder lane.
 
-### Group B -- what does upscaling buy, now that it is separable?
+### Group B -- what does upscaling buy?
 
 **Decides whether `allow_upscale` should stay on.** The Gate 6 question, which
 has had graphs, a 12-family population, matched seeds and a preflight since
-2026-08-25 and has never run -- arm A was stopped before it wrote.
+2026-08-25 and has never run.
 
 | arm | `allow_upscale` | DiT rows |
 |---|---|---|
 | `ref_ups` | on -- vendor-matching | 9,408 |
 | `ref_noups` | off | 2,368 |
 
-Both at `qwen_short_edge` 512, which is what makes this a clean test of the DiT
-half alone. Before today it could not be isolated: turning upscale off also
-rescued the prompt, so the two effects were confounded.
+**The encoder switch made this cleaner, not worse.** It needed both arms held at
+one Qwen view so the DiT half moved alone; under v2 that meant setting
+`qwen_short_edge` on both and trusting it. Under v1 the clamp does it by
+construction -- both arms reach the encoder as the same picture whatever the
+stage-one size, so the only surviving difference is DiT reference rows. This is
+now the isolation the group was designed for rather than an approximation of it.
 
-3 seeds. This one is a quality judgement, not a categorical failure.
+3 seeds. A quality judgement, not a categorical failure.
 
 ### Group C -- is 4 NFE too few, or is it the head machinery?
 
