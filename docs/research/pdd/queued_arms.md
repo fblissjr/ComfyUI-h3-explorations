@@ -108,6 +108,60 @@ confound for an unknown one.
 
 ---
 
+## Staged and ready, 2026-08-27
+
+Ten payloads are built and waiting in the session scratchpad with a runner that
+blocks until the card is free. Controls are queued first, so an interrupted run
+never leaves a comparison without its baseline.
+
+Every arm is 1344x768, 362 frames, seed 730451892, shift 12/3, the current
+encoder, and `SOL_RECOMMENDED_CUDA` including `min_tokens` 12288. Sol's
+`end_percent` follows the step count on every one -- 0.9 at 16, 0.87 at 8, 0.74
+at 4 -- which is the mistake to avoid here and was made once already today.
+
+**The reference set**, built from the workflow embedded in the 2026-08-26 base
+render's PNG. This is the arm that did not exist: fl2va carrying reference
+conditioning, which the community reports works and which nothing here has
+tested.
+
+| arm | checkpoint | steps | sampler | LoRA |
+|---|---|---|---|---|
+| `base16_ref2va` | ref2va | 16 | er_sde | none |
+| `pdd4_ref2va` | ref2va | 4 | euler | ref2va PDD |
+| `pdd8_ref2va` | ref2va | 8 | euler | ref2va PDD |
+| `pdd4_fl2va` | fl2va | 4 | euler | fl2va PDD |
+| `pdd8_fl2va` | fl2va | 8 | euler | fl2va PDD |
+
+The base arm is re-rendered rather than reused: the original ran the v1 encoder,
+and shipped graphs now default to v2, so reusing it would have made the encoder
+a second variable.
+
+**The t2v set**, on the dialogue scene, where one control serves three
+questions.
+
+| arm | one change from the control |
+|---|---|
+| `t2v4_control` | — |
+| `t2v4_reuse_on` | `reuse_qkv_memory` True |
+| `t2v4_start0` | `start_percent` 0.0 |
+| `t2v8` | 8 evaluations |
+| `t2v4_headfree` | `patch_heads` off |
+
+These also close two coverage gaps found while reviewing what the rewrite had
+actually been exercised against: **no reference-path render and no 8-NFE render
+had happened under the derived-`nfe` code.** Everything rendered on 2026-08-27
+was t2v at 4 evaluations on fl2va.
+
+**What each pair can say.** `t2v4_control` against `t2v4_reuse_on` is an identity
+test and decides a yes/no. `t2v4_control` against `t2v4_start0` is a timing
+comparison. Everything else is "did this arm meet the brief" and NOT "which is
+better" -- base at 16/er_sde against PDD at 4/euler moves several things at once,
+and two arms differing in a numerical knob are different samples rather than
+degraded versions of one. The blind process in `docs/eval_comparison.md`
+section 3 is what answers better.
+
+---
+
 ## Not queued, and why
 
 **`min_tokens`.** Now 12288 and inert -- every DiT call is 31k-128k tokens and
