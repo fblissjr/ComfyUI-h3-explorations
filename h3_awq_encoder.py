@@ -15,6 +15,7 @@ snapshotted under ``config/qwen3vl_32b_minimax_h3_w4a16_awq``.
 from __future__ import annotations
 
 import functools
+import importlib.util
 import json
 import logging
 import re
@@ -954,6 +955,31 @@ def load_h3_awq_model_patcher(path: str, embedding_directory,
     ).patcher
 
 
+@functools.lru_cache(maxsize=1)
+def shipped_encoder_name() -> str | None:
+    """The artifact every shipped graph loads, read from `workflows/h3_config.py`.
+
+    Read, never copied. This is only a menu default, but a second copy of the
+    filename here would drift from the graphs the first time one of them moved,
+    which is the rule `h3_config` exists to enforce. Loaded from its path rather
+    than imported: nothing is added to `sys.path`, and that file declares no
+    imports of its own, so this costs no dependency in either direction.
+
+    `None` is ordinary, not an error -- the standalone distribution carries this
+    module without a `workflows/` beside it, and a name absent from the
+    directory's real population must not become a menu item either way.
+    """
+    path = Path(__file__).resolve().parent / "workflows" / "h3_config.py"
+    try:
+        spec = importlib.util.spec_from_file_location("_h3_config_menu_default", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        name = module.MODELS["clip"]
+    except Exception:
+        return None
+    return name if isinstance(name, str) else None
+
+
 class MiniMaxH3AWQEncoderLoader(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -965,6 +991,18 @@ class MiniMaxH3AWQEncoderLoader(io.ComfyNode):
         names = sorted(
             n for n in folder_paths.get_filename_list("text_encoders")
             if n.endswith(".safetensors")
+        )
+        # Select the artifact the shipped graphs load, but only when this
+        # directory actually offers it. Without a default ComfyUI selects
+        # `options[0]`, which is whatever sorts first in `text_encoders` and on
+        # this box was `clip_l.safetensors` -- not an H3 encoder at all. A
+        # default outside `options` would be the manufactured menu item the
+        # comment above refuses, so a miss leaves the menu as it was.
+        shipped = shipped_encoder_name()
+        encoder_input = (
+            io.Combo.Input("encoder_name", options=names, default=shipped)
+            if shipped in names
+            else io.Combo.Input("encoder_name", options=names)
         )
         return io.Schema(
             node_id="MiniMaxH3AWQEncoderLoader",
@@ -980,7 +1018,7 @@ class MiniMaxH3AWQEncoderLoader(io.ComfyNode):
                 "CLIPLoader only lists this file; it cannot load this format."
             ),
             inputs=[
-                io.Combo.Input("encoder_name", options=names),
+                encoder_input,
                 io.Combo.Input(
                     "device", options=["default", "cpu"], default="default",
                     optional=True,

@@ -24,6 +24,16 @@ artifact.
   in two segments where it used to pay in one, so reference policy is the open
   question this change hands forward rather than something it settled.
 
+- **`MiniMaxH3AWQEncoderLoader` selects the shipped artifact by default.** Its
+  `encoder_name` combo declared no default, so ComfyUI took `options[0]` --
+  whatever sorts first in `text_encoders`, which on this box was
+  `clip_l.safetensors`, not an H3 encoder at all. It now reads
+  `MODELS["clip"]` out of `workflows/h3_config.py` by path, so the menu default
+  and the graphs cannot disagree, and falls back to the unmodified menu when
+  that file is absent (the standalone distribution carries the module without
+  it) or when the directory does not offer the name -- a default outside
+  `options` would be the manufactured menu item the node already refuses.
+
 - `bench/check_h3_awq_encoder.py` chooses the adapter for its large CPU load by
   asking whether that adapter's own resolver recognizes the artifact, instead
   of assuming the standalone distribution packages whatever `MODELS["clip"]`
