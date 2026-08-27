@@ -264,43 +264,53 @@ def sol_api_inputs(sol):
 # `<d>` blocks, `<|caption_start|>`/`<|caption_end|>` and `<|cutoff|>` in the
 # clinic scene. Patterns follow `bench/audit_h3_marker_tokenization.py`'s
 # scenes, which are the only worked examples of the five the guide omits.
-# **The five guide rules a prompt here has broken, found 2026-08-27.** Every one
-# of them was in the prompt below, every one is in the official base-en guide,
-# and **`bench/preflight_graph.py` graded that prompt GREEN.** Nothing mechanical
-# checks any of these, so they are written down here, where prompts are written,
-# rather than left to be rediscovered from a bad render. Enforced by nothing --
-# see the row in `docs/checks.md`.
+# **What the shipped market prompt actually broke, checked against base_en
+# 4.3/4.4/4.6 verbatim on 2026-08-27** -- and `bench/preflight_graph.py` graded
+# it GREEN throughout. Nothing mechanical checks any of this.
 #
-#   1. USE THE GUIDE'S MOTION VOCABULARY, AND DO NOT CONFLATE A CUT WITH A
-#      CAMERA MOVE. "the camera whip pans to a wide shot" is two errors: `whip
-#      pan` is not in section 4.3's vocabulary, and a `[Shot N]` carrying a
-#      timestamp IS the cut, so the sentence asked for a cut and a move at once.
-#      Write the cut, then the move: "the shot cuts to a wide shot. The camera
-#      pans right with large amplitude at fast speed to follow him."
-#   2. OMIT DEFAULT AMPLITUDE AND SPEED. The guide says medium amplitude and
-#      normal speed are assumed, so "tracks left at medium amplitude and
-#      moderate speed" is three words of noise around one instruction, and
-#      `Truck Left` is the named motion. Write "the camera trucks left".
-#   3. ESTABLISH A SPEAKER'S IDENTITY WHERE THEY FIRST APPEAR (section 4.4).
-#      S2 entered Shot 1 as "a young porter (S2)" and did not get "a lean man in
-#      his twenties with a quick, bright tenor" until Shot 2, so the model was
-#      asked to render a person before it was told who.
-#   4. SOUNDSCAPES ARE 1-4 SENTENCES OF SEQUENCED PROSE (section 4.6), not one
-#      sentence listing concurrent sources. The guide's own example connects and
-#      orders them: "The entrance bell rings once, followed by wet footsteps and
-#      the soft scrape of a chair."
-#   5. DO NOT PUT THE SAME SOUND IN BOTH FIELDS. Coins appeared as "coins
-#      clatter one after another" in the shot description and "coins dropping
-#      one by one" in the soundscape. Physical action sounds belong to the
-#      soundscape.
+# **Each item says whether the guide STATES it or whether it is a reading of the
+# guide's examples.** A first pass here listed five "rules"; two of them are not
+# in the guide at all, and a rules list you cannot find in the document it cites
+# is worse than no list. Statuses below were read off the source, not recalled.
+#
+#   1. STATED RULE -- camera motion comes from 4.3's table. `Zoom`, `Push`,
+#      `Pull`, `Pan`, `Truck`, `Tilt`, `Pedestal`, `Arc Shot`, `Tracking Shot`,
+#      `Static Shot`, `Shake`, `POV`, `Roll`. **`whip pan` is not in it.** The
+#      shipped line also conflated a cut with a move -- a `[Shot N]` carrying a
+#      timestamp IS the cut, so write the cut, then the move.
+#   2. STATED RULE, PLUS SOFT GUIDANCE, and the two are easy to confuse.
+#      4.3's only amplitude values are `with small amplitude` / `with large
+#      amplitude` and its only speeds are `at slow speed` / `at fast speed`, so
+#      "at medium amplitude and moderate speed" is OUT OF VOCABULARY, and
+#      "tracks left" conflates the `Truck Left` motion type with the separate
+#      `Tracking Shot` entry. Those are the rule. The soft part, and only this
+#      part, is 4.3's "medium amplitude and normal speed are usually omitted".
+#   3. STATED RULE -- 4.4: "When a speaker first appears, provide enough
+#      information from the visual and audio context to establish a stable
+#      identity." S2 entered in Shot 1 as "a young porter (S2)" and was not
+#      described until Shot 2.
+#   4. NOT A RULE. 4.6 asks for "1-4 English sentences in one continuous
+#      paragraph" and nothing else about their shape. The shipped soundscape is
+#      one sentence in one paragraph and CONFORMS. Sequenced prose appears in
+#      every worked example and is stated nowhere -- an inference from examples,
+#      recorded here as one so nobody goes looking for it in the text.
+#   5. NOT A VIOLATION, and close to backwards. 4.6 puts "physical action
+#      sounds" IN the soundscape by name, and its "should not be repeated here"
+#      covers dialogue, singing and diegetic music only. Coins belong there.
+#
+# So the escaped instance is ONE decidable rule with no checker -- 4.3's motion
+# vocabulary -- plus one that is not mechanizable at all (is this speaker
+# identified where he first appears). See the row in `docs/checks.md`.
 #
 # **This prompt was disqualified as a SAMPLE by the owner on 2026-08-27** after
 # it rendered badly at 4 evaluations -- "maybe the prompt just sucked. anyway you
 # can not use that one". Four mechanisms were fitted to that render and all four
 # were refuted the same evening; `docs/research/pdd/queued_arms.md` records them
 # and why none is written down as a finding. A conformant rewrite holding the
-# scene constant is under test as the `F_market_v2` arms. **Do not read a render
-# of this prompt as evidence about anything but this prompt.**
+# scene constant is under test as the `F_market_v2` arms; since three of its
+# five changes turn out to be stylistic, the guide-backed candidates if it
+# renders well are the motion phrasing and the speaker identity. **Do not read a
+# render of this prompt as evidence about anything but this prompt.**
 
 LONG_T2V_PROMPT = """integrated_multimodal_description:
 [Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera tracks left at medium amplitude and moderate speed as a young porter (S2) steps into frame behind her shoulder.
