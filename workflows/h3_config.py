@@ -403,6 +403,33 @@ SOL_BASELINE_124F = dict(
 #: of 50), which does not survive a step-count change either -- ten dense steps
 #: of eight is all of them. Neither recipe covers 8 steps, because their
 #: reference config runs 50. This restores what 16 steps gave us.
+#:
+#: **Keyed on step count ALONE, and the three other candidates were checked
+#: rather than assumed:**
+#:
+#:   shift        cancels. `percent_to_sigma` and `calculate_sigmas` apply the
+#:                same shift, so both the band floor and the last step's sigma
+#:                move together. Verified 2026-08-26: shift 12 and shift 6 both
+#:                want 0.87 at 8 steps, 0.83 at 6, 0.74 at 4. 11 shipped graphs
+#:                run shift 6 and need no separate row.
+#:   length,      no effect. The window is a SIGMA band and sigma is a position
+#:   resolution   on the trajectory; it does not know the sequence length. A
+#:                5-second 768x1024 clip and a 15-second 1344x768 one at the
+#:                same step count have identical sigmas and identical splits.
+#:                (`min_tokens` IS length-dependent -- see its note below.)
+#:
+#: **The node cannot do this itself, which is why it is baked in here.**
+#: `vendor/sol_attn_minimax.py:654` calls `percent_to_sigma` at PATCH time and
+#: stores fixed sigma thresholds; at run time it only compares the current
+#: sigma against them. At patch time the step count is not knowable -- the
+#: scheduler is downstream of the Sol node. So `start_percent`/`end_percent`
+#: are static widgets and the generator is the only place that can pick the
+#: right one per arm.
+#:
+#: **The consequence, and it is a real edge:** loading a shipped graph and
+#: changing `steps` by hand leaves `end_percent` stale, and nothing at run time
+#: will say so. `bench/check_attention_defaults.py` catches it for shipped
+#: graphs; a hand-edited one is on the person editing it.
 SOL_END_PERCENT_BY_STEPS = {4: 0.74, 6: 0.83, 8: 0.87}
 
 SOL_RECOMMENDED_CUDA = dict(
@@ -415,7 +442,19 @@ SOL_RECOMMENDED_CUDA = dict(
     # 1.0 since 2026-08-20, owner decision; see the tau note above for the
     # reversal condition. 1.3 was the value every Sol number before that date
     # was measured at.
-    tau=1.0, start_percent=0.2, end_percent=0.9, min_tokens=4096,
+    tau=1.0, start_percent=0.2, end_percent=0.9,
+    # 4096 against the node's own 12288. `docs/SOLATTN.md` records both as
+    # no-ops because every DiT call runs at the full packed length and every
+    # token-refiner call is ~311 rows, so nothing sits between the two
+    # thresholds.
+    #
+    # **OPEN, raised 2026-08-26 and NOT resolved:** that note also states the
+    # shortest clip past 5 frames is S = 7,194, which is BELOW 12288 and above
+    # 4096 -- so on that arm the two thresholds should disagree, and the note
+    # says they do not. Either the figure or the reasoning is off by one step
+    # of the argument. Nothing here is at risk: every arm this repo renders is
+    # 31k-128k tokens, far above both. Re-read before quoting the no-op claim.
+    min_tokens=4096,
     sink_conditioning="exact_kv_and_rows", morton=False,
     # `3d`, not `2d_frame`, since 2026-08-16. This changes NOTHING today
     # because morton is off; it changes which curve you get if you turn it on.
