@@ -5985,6 +5985,39 @@ def main():
                   "speaks which lines.")),
          "the same exchange, both speakers from reference stills"),
 
+        # The triple. Every PAIR of {references, dialogue, distill} shipped and
+        # the combination did not, which is why nothing here could reproduce
+        # the 2026-08-27 misattribution -- that needed all three.
+        #
+        # Read against the prompt rather than against a twin. The subject
+        # definitions bind <Subject 1> to <Picture 2> and <Subject 2> to
+        # <Picture 1> BY NUMBER over eight `<d>` lines, so "which mouth said
+        # which line" is a fact about the render. That is what makes this one
+        # of the few arms here that does not need a distribution: CLAUDE.md's
+        # different-sample rule bites when two clips are compared, and nothing
+        # is being compared.
+        ("h3_image_ref_plus_text_to_video_dialogue_pdd_4step.json",
+         "r2v-dialogue-pdd4", "r2v", DIALOGUE_REF2V_PROMPT,
+         dict(pdd=True, sampler_name="euler",
+              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
+              length=362, ref_image_count=2, ref_images=DIALOGUE_REF_IMAGES,
+              out_prefix="Video/h3_r2v_dialogue_pdd_4step",
+              variant_note=_probe_note(
+                  "does speaker attribution survive references and a distill",
+                  "h3_image_ref_plus_text_to_video_dialogue.json",
+                  "the ref2va PDD LoRA at 4 evaluations on euler, against the "
+                  "companion's 16 steps on er_sde. One axis, several widgets: "
+                  "a distill moves the sampler and the step count with it.",
+                  "which mouth each of the eight lines comes out of, before "
+                  "anything else. Identity across the three cuts second.",
+                  "a swap is legible without a companion, because the prompt "
+                  "numbers its own bindings. A pass confirms attribution "
+                  "holds; it does not establish WHY, and the cause is the "
+                  "encoder lane's layer-50 bounds pair.",
+                  held="same prompt, same canvas, same two references"),
+              ),
+         "the same stairwell exchange from two stills, at 4 steps via PDD"),
+
 
         # --- PDD, the arms to actually render with ------------------------
         # The repo default: sage AND Sol.
@@ -6012,8 +6045,8 @@ def main():
               out_prefix="Video/text_to_video_pdd",
               variant_note=_probe_note(
                   "text to video at 8 steps via PDD",
-                  "h3_text_to_video_pdd.json",
-                  "the PDD LoRA at 8 evaluations, sage on, Sol absent.",
+                  "h3_text_to_video_pdd_4step.json",
+                  "the PDD LoRA at 8 evaluations, sage AND Sol on.",
                   "identity and texture in the last third, where this "
                   "schedule takes its largest jump.",
                   "one converted file serves both step counts; the heads "
@@ -6027,7 +6060,7 @@ def main():
               variant_note=_probe_note(
                   "text to video at 4 steps via PDD",
                   "h3_text_to_video_pdd.json",
-                  "the PDD LoRA at 4 evaluations, sage on, Sol absent.",
+                  "the PDD LoRA at 4 evaluations, sage AND Sol on.",
                   "identity and texture in the last third, where this "
                   "schedule takes its largest jump.",
                   "one converted file serves both step counts; the heads "
@@ -6042,7 +6075,7 @@ def main():
               variant_note=_probe_note(
                   "first+last frame to video at 8 steps via PDD",
                   "h3_first_last_frame_to_video_pdd.json",
-                  "the PDD LoRA at 8 evaluations, sage on, Sol absent.",
+                  "the PDD LoRA at 8 evaluations, sage AND Sol on.",
                   "identity and texture in the last third, where this "
                   "schedule takes its largest jump.",
                   "one converted file serves both step counts; the heads "
@@ -6057,7 +6090,7 @@ def main():
               variant_note=_probe_note(
                   "first+last frame to video at 4 steps via PDD",
                   "h3_first_last_frame_to_video_pdd.json",
-                  "the PDD LoRA at 4 evaluations, sage on, Sol absent.",
+                  "the PDD LoRA at 4 evaluations, sage AND Sol on.",
                   "identity and texture in the last third, where this "
                   "schedule takes its largest jump.",
                   "one converted file serves both step counts; the heads "
@@ -6071,7 +6104,7 @@ def main():
               variant_note=_probe_note(
                   "image references to video at 8 steps via PDD",
                   "h3_image_ref_plus_text_to_video_pdd.json",
-                  "the PDD LoRA at 8 evaluations, sage on, Sol absent.",
+                  "the PDD LoRA at 8 evaluations, sage AND Sol on.",
                   "identity and texture in the last third, where this "
                   "schedule takes its largest jump.",
                   "one converted file serves both step counts; the heads "
@@ -6085,7 +6118,7 @@ def main():
               variant_note=_probe_note(
                   "image references to video at 4 steps via PDD",
                   "h3_image_ref_plus_text_to_video_pdd.json",
-                  "the PDD LoRA at 4 evaluations, sage on, Sol absent.",
+                  "the PDD LoRA at 4 evaluations, sage AND Sol on.",
                   "identity and texture in the last third, where this "
                   "schedule takes its largest jump.",
                   "one converted file serves both step counts; the heads "

@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "c53428fd-6e08-5df9-a525-4ff8c200bc4d",
+  "id": "ddf3a7f3-73d5-5ccc-92c5-78fdabb0aa50",
   "revision": 0,
   "last_node_id": 31,
   "last_link_id": 32,
@@ -557,7 +557,7 @@
         "Node name for S&R": "MiniMaxH3ReferenceConditioning"
       },
       "widgets_values": [
-        "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.\n\noverall_soundscape:\nNatural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music:\nN/A",
+        "subject_definitions:\n<Subject 1> is the woman shown in <Picture 2>, preserving her facial identity, shoulder-length dark brown hair, and warm features. She wears a charcoal wool coat in the target video. The daylight park background of <Picture 2> is not present in the target video.\n<Subject 2> is the elderly man shown in <Picture 1>, preserving his facial identity, white swept-back hair, and deeply lined face. He wears a navy jacket in the target video. The brown studio backdrop of <Picture 1> is not present in the target video.\n\nsummary:\n[reference generation] In three shots on a concrete stairwell landing, <Subject 1> and <Subject 2> trade eight short clipped lines with almost no gap between them, about a plan that has moved.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1] and [Shot 2]): fully_preserved - retain the same face, shoulder-length dark brown hair and features in every frame she appears in.\n<Subject 2> (appears in [Shot 1] and [Shot 3]): fully_preserved - retain the same face, white swept-back hair and deeply lined face in every frame he appears in.\n\ndetailed_description:\nPhotorealistic live-action, 16:9, handheld on 35mm with visible grain, shallow depth of field, lit hard and from above by a single caged bulb on the stairwell ceiling so both faces carry a bright top edge and a deep shadow under the brow and jaw. The stairwell is poured concrete with painted cinderblock walls in a flat institutional green, a steel handrail running down out of frame, and a scuffed landing floor. The air is cold enough to be visible faintly on the breath at the end of the longer lines. The camera stays handheld throughout with small continuous drift from the operator's breathing, never a deliberate move. Each speaker's lips move only on their own line and are closed and still while the other speaks. Both faces stay in focus whenever they are in frame. No other people, no readable text, no signage, no costume changes, no music.\n\n[Shot 1, 00:00.000-00:06.000] A medium two-shot frames <Subject 1> in a charcoal wool coat, collar turned up, facing <Subject 2> in a navy jacket on the stairwell landing, the two of them a little closer than is comfortable. <Subject 1>, with a low measured voice (S1), says: <d>[English] You said tomorrow.</d> <Subject 2>, with a lower gravelled voice (S2), answers immediately: <d>[English] It moved.</d> She says at once: <d>[English] To when?</d> He says: <d>[English] Tonight.</d> Her jaw tightens, she does not step back, and the camera drifts a few degrees with the operator's breathing while the bulb hums overhead.\n\n[Shot 2, 00:06.000-00:11.000] The camera cuts to a close-up of <Subject 1> against the painted cinderblock, the bulb throwing a hard edge down one cheek and leaving the other in shadow, a few strands of hair lit at the crown. She (S1) says: <d>[English] Who else knows?</d> Off screen he (S2) answers immediately: <d>[English] Nobody.</d> She says at once: <d>[English] Keep it that way.</d> She holds his eyeline a moment longer than the line needs, then looks past the camera and down toward the stairs below, her breath just visible.\n\n[Shot 3, 00:11.000-00:15.000] The camera cuts to a close-up of <Subject 2>, the same hard overhead light picking out the lines around his eyes and mouth, rain noise faint through a window well behind him and a wet grey rectangle of light on the wall past his shoulder. He (S2) says: <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder with one hand, exhales once, and holds still with his lips closed until the final frame.\n\noverall_soundscape:\nClose handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead. Two speaking voices, a measured adult female voice and a lower adult male voice, trading short clipped lines with almost no gap between them.\n\nnon_diegetic_music:\nN/A\n",
         1344,
         768,
         362,
@@ -635,7 +635,7 @@
         "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
-        "2-mountain_landscape.png",
+        "5-woman.png",
         "image"
       ]
     },
@@ -1058,7 +1058,7 @@
       "widgets_values": {
         "frame_rate": 24.0,
         "loop_count": 0,
-        "filename_prefix": "Video/image_ref_plus_text_to_video_pdd_4step",
+        "filename_prefix": "Video/h3_r2v_dialogue_pdd_4step",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 19,
@@ -1259,7 +1259,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Probe: image references to video at 4 steps via PDD\n\n**Run this against `h3_image_ref_plus_text_to_video_pdd.json`.** Same seed (730451892), same prompt, same canvas, same\neverything except one setting. That is the whole design: if the seed moved\nbetween the two, the difference you are looking for would be underneath the\ndifference you are not.\n\n**What differs:** the PDD LoRA at 4 evaluations, sage AND Sol on.\n\n**What to compare:** identity and texture in the last third, where this schedule takes its largest jump.\n\n**What to expect:** one converted file serves both step counts; the heads are fused at load for whichever is asked.\n\nThis is a probe, not a render config. If you like what one side does, change\nthe setting in the shipped graph rather than rendering from this file.\n"
+        "## Probe: does speaker attribution survive references and a distill\n\n**Run this against `h3_image_ref_plus_text_to_video_dialogue.json`.** Same seed (730451892), same prompt, same canvas, same two references, same\neverything except one setting. That is the whole design: if the seed moved\nbetween the two, the difference you are looking for would be underneath the\ndifference you are not.\n\n**What differs:** the ref2va PDD LoRA at 4 evaluations on euler, against the companion's 16 steps on er_sde. One axis, several widgets: a distill moves the sampler and the step count with it.\n\n**What to compare:** which mouth each of the eight lines comes out of, before anything else. Identity across the three cuts second.\n\n**What to expect:** a swap is legible without a companion, because the prompt numbers its own bindings. A pass confirms attribution holds; it does not establish WHY, and the cause is the encoder lane's layer-50 bounds pair.\n\nThis is a probe, not a render config. If you like what one side does, change\nthe setting in the shipped graph rather than rendering from this file.\n"
       ],
       "title": "What this graph is probing"
     }

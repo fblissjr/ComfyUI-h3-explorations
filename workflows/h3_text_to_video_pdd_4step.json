@@ -1098,7 +1098,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Probe: text to video at 4 steps via PDD\n\n**Run this against `h3_text_to_video_pdd.json`.** Same seed (730451892), same prompt, same canvas, same\neverything except one setting. That is the whole design: if the seed moved\nbetween the two, the difference you are looking for would be underneath the\ndifference you are not.\n\n**What differs:** the PDD LoRA at 4 evaluations, sage on, Sol absent.\n\n**What to compare:** identity and texture in the last third, where this schedule takes its largest jump.\n\n**What to expect:** one converted file serves both step counts; the heads are fused at load for whichever is asked.\n\nThis is a probe, not a render config. If you like what one side does, change\nthe setting in the shipped graph rather than rendering from this file.\n"
+        "## Probe: text to video at 4 steps via PDD\n\n**Run this against `h3_text_to_video_pdd.json`.** Same seed (730451892), same prompt, same canvas, same\neverything except one setting. That is the whole design: if the seed moved\nbetween the two, the difference you are looking for would be underneath the\ndifference you are not.\n\n**What differs:** the PDD LoRA at 4 evaluations, sage AND Sol on.\n\n**What to compare:** identity and texture in the last third, where this schedule takes its largest jump.\n\n**What to expect:** one converted file serves both step counts; the heads are fused at load for whichever is asked.\n\nThis is a probe, not a render config. If you like what one side does, change\nthe setting in the shipped graph rather than rendering from this file.\n"
       ],
       "title": "What this graph is probing"
     }
