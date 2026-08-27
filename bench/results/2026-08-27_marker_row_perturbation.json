@@ -1,0 +1,73 @@
+{
+ "measurement": "per-row perturbation of the seven H3 marker embeddings",
+ "reference": "qwen3vl_32b_minimax_h3_bf16.safetensors",
+ "candidate": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+ "per_marker": [
+  {
+   "marker": "<d>",
+   "id": 151669,
+   "candidate_relative_l2": 0.008288337849080563,
+   "candidate_cosine": 0.9999696612358093,
+   "mean_init_relative_l2": 1.047929048538208,
+   "reference_row_norm": 0.5018320083618164
+  },
+  {
+   "marker": "</d>",
+   "id": 151670,
+   "candidate_relative_l2": 0.008144089952111244,
+   "candidate_cosine": 0.9999707937240601,
+   "mean_init_relative_l2": 1.0529649257659912,
+   "reference_row_norm": 0.5132003426551819
+  },
+  {
+   "marker": "<|cutoff|>",
+   "id": 151671,
+   "candidate_relative_l2": 0.008505884557962418,
+   "candidate_cosine": 0.999967634677887,
+   "mean_init_relative_l2": 1.0497000217437744,
+   "reference_row_norm": 0.5030455589294434
+  },
+  {
+   "marker": "<|lyrics_start|>",
+   "id": 151672,
+   "candidate_relative_l2": 0.00832731369882822,
+   "candidate_cosine": 0.9999688863754272,
+   "mean_init_relative_l2": 1.0561412572860718,
+   "reference_row_norm": 0.505757749080658
+  },
+  {
+   "marker": "<|lyrics_end|>",
+   "id": 151673,
+   "candidate_relative_l2": 0.008322130888700485,
+   "candidate_cosine": 0.9999688863754272,
+   "mean_init_relative_l2": 1.0682878494262695,
+   "reference_row_norm": 0.4981503486633301
+  },
+  {
+   "marker": "<|caption_start|>",
+   "id": 151674,
+   "candidate_relative_l2": 0.008342692628502846,
+   "candidate_cosine": 0.9999685287475586,
+   "mean_init_relative_l2": 1.0554932355880737,
+   "reference_row_norm": 0.49814894795417786
+  },
+  {
+   "marker": "<|caption_end|>",
+   "id": 151675,
+   "candidate_relative_l2": 0.008310711942613125,
+   "candidate_cosine": 0.9999693632125854,
+   "mean_init_relative_l2": 1.0508522987365723,
+   "reference_row_norm": 0.514715313911438
+  }
+ ],
+ "candidate_mean_relative_l2": 0.00832016593111413,
+ "mean_init_rows_mean_relative_l2": 1.0544812338692802,
+ "candidate_as_fraction_of_mean_init": 0.007890293031184988,
+ "the_scale_this_is_read_against": "mean_init_rows replaces each row with the table mean and moved the DiT's prediction by up to 13.5% (bench/results/2026-08-27_marker_epsilon.json). This candidate's perturbation expressed as a fraction of that one is the number to read; the raw relative L2 is not interpretable alone.",
+ "row_norm_controls": {
+  "trained_qwen_specials": 0.7074602842330933,
+  "the_seven_markers": 0.504978597164154,
+  "untrained_padding_tail": 0.5029426217079163
+ },
+ "does_not_establish": "that the downstream effect scales linearly with row perturbation. A small fraction of a consequential change is evidence of a small effect only under an assumption this does not test."
+}
