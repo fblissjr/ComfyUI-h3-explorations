@@ -265,7 +265,12 @@ def mean_init_rows_clip(clip):
     # Chunked so the float32 accumulation never materialises a second copy of
     # the table. On the real encoder that table is several gigabytes and the
     # arm may be applied while the model is resident on a 24 GB card.
-    total = torch.zeros(weight.shape[1], dtype=torch.float32)
+    # On the weight's own device, not the default one. The encoder is often
+    # already resident when an arm is applied -- which is the case this comment
+    # anticipated and the accumulator did not: a CPU accumulator against a CUDA
+    # table raises "found at least two devices". Every fixture this had met was
+    # CPU-resident, so nothing exercised it until a real encoder did.
+    total = torch.zeros(weight.shape[1], dtype=torch.float32, device=weight.device)
     for lo in range(0, weight.shape[0], 8192):
         total += weight[lo:lo + 8192].to(torch.float32).sum(dim=0)
     mean = (total / weight.shape[0]).to(weight.dtype)

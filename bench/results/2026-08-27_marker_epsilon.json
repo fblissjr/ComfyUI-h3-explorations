@@ -1,0 +1,525 @@
+{
+ "measurement": "DiT denoised-prediction delta across marker arms, at fixed noise, latents and sigma",
+ "question": "is the frozen DiT sensitive to the seven H3 marker rows",
+ "does_not_establish": "direction -- which representation the DiT was trained against. That needs blind renders.",
+ "graph": "h3_text_to_video_dialogue_api.json",
+ "encoder": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+ "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+ "canvas": {
+  "width": 1344,
+  "height": 768,
+  "length": 362,
+  "frame_count": 362
+ },
+ "schedule": {
+  "scheduler": "simple",
+  "steps": 16,
+  "probe_steps": [
+   0,
+   8,
+   15
+  ],
+  "sigmas_at_probe": [
+   1.0,
+   0.9230769276618958,
+   0.4465445876121521
+  ],
+  "sigma_shift": {
+   "shift_video": 12.0,
+   "shift_audio": 3.0
+  }
+ },
+ "seed": 730451892,
+ "arms": [
+  {
+   "label": "release",
+   "arm": "release",
+   "text": "graph",
+   "prefix_tokens": 408,
+   "bound": {
+    "declared_arm": "release",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "key": "qwen3vl_32b.transformer.model.embed_tokens.weight",
+     "first_id": 151669,
+     "count": 7,
+     "sha256": "3263222001f127e71db2f4f933b97662144939d5c2f1f3d17923606b50bea4c7",
+     "patch_keys": []
+    }
+   }
+  },
+  {
+   "label": "release_again",
+   "arm": "release",
+   "text": "graph",
+   "prefix_tokens": 408,
+   "bound": {
+    "declared_arm": "release",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "key": "qwen3vl_32b.transformer.model.embed_tokens.weight",
+     "first_id": 151669,
+     "count": 7,
+     "sha256": "3263222001f127e71db2f4f933b97662144939d5c2f1f3d17923606b50bea4c7",
+     "patch_keys": []
+    }
+   }
+  },
+  {
+   "label": "mean_init_rows",
+   "arm": "mean_init_rows",
+   "text": "graph",
+   "prefix_tokens": 408,
+   "bound": {
+    "declared_arm": "mean_init_rows",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "key": "qwen3vl_32b.transformer.model.embed_tokens.weight",
+     "first_id": 151669,
+     "count": 7,
+     "sha256": "1fe095b644042d0574e87c6456a589ea783e3df87f0f161cd79c74dd1f726c2a",
+     "patch_keys": [
+      "qwen3vl_32b.transformer.model.embed_tokens.weight"
+     ]
+    }
+   }
+  },
+  {
+   "label": "legacy_bpe",
+   "arm": "legacy_bpe",
+   "text": "graph",
+   "prefix_tokens": 416,
+   "bound": {
+    "declared_arm": "legacy_bpe",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": null,
+      "</d>": null,
+      "<|cutoff|>": null,
+      "<|lyrics_start|>": null,
+      "<|lyrics_end|>": null,
+      "<|caption_start|>": null,
+      "<|caption_end|>": null
+     },
+     "markers_resolved": 0,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 23,
+     "probe_sha256": "f7c00c4284c12200efbb25c9952ff09b6b9d87f48b031165ba5d7a9c4c62569c"
+    },
+    "marker_rows": {
+     "key": "qwen3vl_32b.transformer.model.embed_tokens.weight",
+     "first_id": 151669,
+     "count": 7,
+     "sha256": "3263222001f127e71db2f4f933b97662144939d5c2f1f3d17923606b50bea4c7",
+     "patch_keys": []
+    }
+   }
+  },
+  {
+   "label": "stripped",
+   "arm": "release",
+   "text": "stripped",
+   "prefix_tokens": 384,
+   "bound": {
+    "declared_arm": "release",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "key": "qwen3vl_32b.transformer.model.embed_tokens.weight",
+     "first_id": 151669,
+     "count": 7,
+     "sha256": "3263222001f127e71db2f4f933b97662144939d5c2f1f3d17923606b50bea4c7",
+     "patch_keys": []
+    }
+   }
+  },
+  {
+   "label": "other_scene",
+   "arm": "release",
+   "text": "other",
+   "prefix_tokens": 76,
+   "bound": {
+    "declared_arm": "release",
+    "tokenizer": {
+     "marker_ids": {
+      "<d>": 151669,
+      "</d>": 151670,
+      "<|cutoff|>": 151671,
+      "<|lyrics_start|>": 151672,
+      "<|lyrics_end|>": 151673,
+      "<|caption_start|>": 151674,
+      "<|caption_end|>": 151675
+     },
+     "markers_resolved": 7,
+     "probe": "he said <d>hold</d> then <|cutoff|> and <|lyrics_start|>la",
+     "probe_token_count": 13,
+     "probe_sha256": "de8301631e4905a6514dec3d91ca0f63d079893d365beec38a2037b3ffa030c4"
+    },
+    "marker_rows": {
+     "key": "qwen3vl_32b.transformer.model.embed_tokens.weight",
+     "first_id": 151669,
+     "count": 7,
+     "sha256": "3263222001f127e71db2f4f933b97662144939d5c2f1f3d17923606b50bea4c7",
+     "patch_keys": []
+    }
+   }
+  }
+ ],
+ "results": [
+  {
+   "kind": "null",
+   "left": "release",
+   "right": "release_again",
+   "why": "same arm, re-encoded and re-run. MUST be exactly 0.0",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 0.0,
+     "cosine": 1.0007790327072144,
+     "max_abs_diff": 0.0
+    },
+    "audio": {
+     "relative_l2": 0.0,
+     "cosine": 0.9999998211860657,
+     "max_abs_diff": 0.0
+    }
+   }
+  },
+  {
+   "kind": "null",
+   "left": "release",
+   "right": "release_again",
+   "why": "same arm, re-encoded and re-run. MUST be exactly 0.0",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.0,
+     "cosine": 1.000959873199463,
+     "max_abs_diff": 0.0
+    },
+    "audio": {
+     "relative_l2": 0.0,
+     "cosine": 1.0000001192092896,
+     "max_abs_diff": 0.0
+    }
+   }
+  },
+  {
+   "kind": "null",
+   "left": "release",
+   "right": "release_again",
+   "why": "same arm, re-encoded and re-run. MUST be exactly 0.0",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.0,
+     "cosine": 1.0007139444351196,
+     "max_abs_diff": 0.0
+    },
+    "audio": {
+     "relative_l2": 0.0,
+     "cosine": 0.9999999403953552,
+     "max_abs_diff": 0.0
+    }
+   }
+  },
+  {
+   "kind": "treatment",
+   "left": "release",
+   "right": "mean_init_rows",
+   "why": "the controlled pair: identical tokens, seven embedding rows differ",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 0.04962269961833954,
+     "cosine": 0.9995617270469666,
+     "max_abs_diff": 315.1832275390625
+    },
+    "audio": {
+     "relative_l2": 0.06456013023853302,
+     "cosine": 0.9979138374328613,
+     "max_abs_diff": 24.601402282714844
+    }
+   }
+  },
+  {
+   "kind": "treatment",
+   "left": "release",
+   "right": "mean_init_rows",
+   "why": "the controlled pair: identical tokens, seven embedding rows differ",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.13487564027309418,
+     "cosine": 0.9917903542518616,
+     "max_abs_diff": 5.7485222816467285
+    },
+    "audio": {
+     "relative_l2": 0.1481720507144928,
+     "cosine": 0.9890551567077637,
+     "max_abs_diff": 1.866403579711914
+    }
+   }
+  },
+  {
+   "kind": "treatment",
+   "left": "release",
+   "right": "mean_init_rows",
+   "why": "the controlled pair: identical tokens, seven embedding rows differ",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.05360092967748642,
+     "cosine": 0.9992915987968445,
+     "max_abs_diff": 0.15786048769950867
+    },
+    "audio": {
+     "relative_l2": 0.05877646058797836,
+     "cosine": 0.9982712268829346,
+     "max_abs_diff": 0.03314197063446045
+    }
+   }
+  },
+  {
+   "kind": "treatment",
+   "left": "release",
+   "right": "legacy_bpe",
+   "why": "other representation; retokenizes, so the prefix length also moves",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 0.0708671286702156,
+     "cosine": 0.9982699155807495,
+     "max_abs_diff": 326.5925598144531
+    },
+    "audio": {
+     "relative_l2": 0.29196202754974365,
+     "cosine": 0.9567945003509521,
+     "max_abs_diff": 283.09442138671875
+    }
+   }
+  },
+  {
+   "kind": "treatment",
+   "left": "release",
+   "right": "legacy_bpe",
+   "why": "other representation; retokenizes, so the prefix length also moves",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.14990946650505066,
+     "cosine": 0.9896090030670166,
+     "max_abs_diff": 7.092333793640137
+    },
+    "audio": {
+     "relative_l2": 0.31332239508628845,
+     "cosine": 0.9497195482254028,
+     "max_abs_diff": 8.977401733398438
+    }
+   }
+  },
+  {
+   "kind": "treatment",
+   "left": "release",
+   "right": "legacy_bpe",
+   "why": "other representation; retokenizes, so the prefix length also moves",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.08177267014980316,
+     "cosine": 0.9973660707473755,
+     "max_abs_diff": 0.1462499052286148
+    },
+    "audio": {
+     "relative_l2": 0.08148586004972458,
+     "cosine": 0.9966750144958496,
+     "max_abs_diff": 0.04709649085998535
+    }
+   }
+  },
+  {
+   "kind": "scale",
+   "left": "release",
+   "right": "stripped",
+   "why": "marker strings removed from the text, weights untouched",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 0.10077131539583206,
+     "cosine": 0.9960208535194397,
+     "max_abs_diff": 241.02244567871094
+    },
+    "audio": {
+     "relative_l2": 0.19682306051254272,
+     "cosine": 0.9817622900009155,
+     "max_abs_diff": 49.202789306640625
+    }
+   }
+  },
+  {
+   "kind": "scale",
+   "left": "release",
+   "right": "stripped",
+   "why": "marker strings removed from the text, weights untouched",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.1682983785867691,
+     "cosine": 0.9866621494293213,
+     "max_abs_diff": 9.406676292419434
+    },
+    "audio": {
+     "relative_l2": 0.2612009048461914,
+     "cosine": 0.9653359055519104,
+     "max_abs_diff": 3.2288784980773926
+    }
+   }
+  },
+  {
+   "kind": "scale",
+   "left": "release",
+   "right": "stripped",
+   "why": "marker strings removed from the text, weights untouched",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.07821353524923325,
+     "cosine": 0.9976918697357178,
+     "max_abs_diff": 0.15524402260780334
+    },
+    "audio": {
+     "relative_l2": 0.0751810073852539,
+     "cosine": 0.9971780776977539,
+     "max_abs_diff": 0.026164710521697998
+    }
+   }
+  },
+  {
+   "kind": "ceiling",
+   "left": "release",
+   "right": "other_scene",
+   "why": "an unrelated scene: what a large prediction change looks like",
+   "step": 0,
+   "sigma": 1.0,
+   "delta": {
+    "video": {
+     "relative_l2": 1.1372250318527222,
+     "cosine": 0.2981193959712982,
+     "max_abs_diff": 1622.9796142578125
+    },
+    "audio": {
+     "relative_l2": 1.1482207775115967,
+     "cosine": 0.491352379322052,
+     "max_abs_diff": 329.8014221191406
+    }
+   }
+  },
+  {
+   "kind": "ceiling",
+   "left": "release",
+   "right": "other_scene",
+   "why": "an unrelated scene: what a large prediction change looks like",
+   "step": 8,
+   "sigma": 0.9230769276618958,
+   "delta": {
+    "video": {
+     "relative_l2": 0.523681640625,
+     "cosine": 0.8709860444068909,
+     "max_abs_diff": 18.188100814819336
+    },
+    "audio": {
+     "relative_l2": 1.0062495470046997,
+     "cosine": 0.3325645923614502,
+     "max_abs_diff": 12.766200065612793
+    }
+   }
+  },
+  {
+   "kind": "ceiling",
+   "left": "release",
+   "right": "other_scene",
+   "why": "an unrelated scene: what a large prediction change looks like",
+   "step": 15,
+   "sigma": 0.4465445876121521,
+   "delta": {
+    "video": {
+     "relative_l2": 0.3408277928829193,
+     "cosine": 0.9446840286254883,
+     "max_abs_diff": 0.4360786974430084
+    },
+    "audio": {
+     "relative_l2": 0.17836518585681915,
+     "cosine": 0.9866922497749329,
+     "max_abs_diff": 0.09157654643058777
+    }
+   }
+  }
+ ]
+}

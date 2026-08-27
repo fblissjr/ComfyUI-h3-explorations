@@ -4,6 +4,31 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.75.0
+
+### Added
+
+- **`bench/measure_marker_epsilon.py`: is the frozen DiT sensitive to the seven
+  H3 marker rows at all?** The marker record's three instruments are
+  encoder-level, render-level and prefix-attention; none answer the cheap
+  question that gates the expensive one. This compares the DiT's denoised
+  prediction across marker arms at fixed noise, latents and sigma -- the
+  conditioning analogue of `grade_sage_on_capture.py`, and the second
+  controlled comparison this repo can make about a numerical knob rather than
+  about a rendered sample. Carries a null row (same arm, re-encoded and re-run;
+  must read exactly 0.0), a stripped-text scale row and an unrelated-scene
+  ceiling, because a relative L2 with no ladder has no units a reader can act
+  on. First record: `bench/results/2026-08-27_marker_epsilon.json`.
+
+### Fixed
+
+- **`marker_arms.mean_init_rows_clip` could not run against a card-resident
+  encoder.** Its mean accumulator was built on the default device while the
+  embedding table was on CUDA, so it raised "found at least two devices" --
+  under the very condition its own comment anticipated. Every fixture it had
+  met was CPU-resident, which is why nothing caught it until a real encoder
+  did. `MiniMaxH3MarkerArm` would have hit the same wall in a live graph.
+
 ## 0.74.0
 
 ### Changed
