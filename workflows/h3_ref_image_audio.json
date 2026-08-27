@@ -611,7 +611,7 @@
         "max",
         2048,
         true,
-        0
+        512
       ],
       "title": "Append Picture 1"
     },
@@ -658,7 +658,7 @@
         "max",
         2048,
         true,
-        0
+        512
       ],
       "title": "Append Picture 2"
     },

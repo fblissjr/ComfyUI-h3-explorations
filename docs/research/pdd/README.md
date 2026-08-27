@@ -1,13 +1,19 @@
 # PDD diagrams
 
 [`two_pdd_paths.html`](two_pdd_paths.html) — our PDD implementation against
-Kijai's, traced end to end through the four shipped PDD graphs. Open it from
+Kijai's, traced end to end through the six production PDD graphs. Open it from
 disk; it is self-contained apart from web fonts, which have local fallbacks.
 
 Four diagrams: the shared graph spine with the accelerator slot marked, load
 time side by side, one sampling step side by side, and the 32-interval grid at
 8, 4 and an off-schedule step count. Plus a per-graph table and the four places
 the two implementations diverge.
+
+**Corrected 2026-08-27** for the derived-step-count rewrite. It was written
+before the node stopped asking for a step count, so it described fusing at load
+and refusing an off-grid count; both are gone. The same pass completed the
+per-graph table, which had claimed to be all four PDD graphs while there are ten
+and it listed only the two t2v and two image-ref arms.
 
 [`three_pdd_implementations.html`](three_pdd_implementations.html) — the same
 mechanism in a third pack, `silveroxides/ComfyUI-UtilsCollection`, against ours

@@ -392,7 +392,7 @@
   <header class="masthead">
     <p class="eyebrow">MiniMax H3 &middot; Parallel Decoding Distillation</p>
     <h1>Two PDD Paths</h1>
-    <p class="standfirst">The same alibaba-pai acceleration weights, wired two ways: ours through a custom node that fuses the head bank once at load, and Kijai's through a stock LoRA loader and a change to ComfyUI core that fuses inside every forward. Traced end to end through the four shipped PDD workflows.</p>
+    <p class="standfirst">The same alibaba-pai acceleration weights, wired two ways: ours through a custom node that fuses each block the first time a step asks for it, and Kijai's through a stock LoRA loader and a change to ComfyUI core that fuses inside every forward. Traced end to end through the shipped PDD workflows.</p>
 
     <dl class="asof">
       <div>
@@ -407,6 +407,10 @@
         <dt>What is settled</dt>
         <dd>Both conversions carry the same published weights. The divergence is entirely in packaging and in when the fusion happens.</dd>
       </div>
+      <div>
+        <dt>Corrected</dt>
+        <dd><b>2026-08-27.</b> Written before our node stopped asking for a step count and started reading it off the sampler's schedule. Four claims about fusing at load, and one about refusing an off-grid count, described the design that replaced.</dd>
+      </div>
     </dl>
   </header>
 
@@ -419,13 +423,13 @@
   <section>
     <div class="col">
       <p class="stage">Graph</p>
-      <h2>One spine, four graphs, one slot that differs</h2>
+      <h2>One spine, six graphs, one slot that differs</h2>
       <p class="lede">Every PDD workflow in the repo is the same chain with one node swapped. Two facts in the drawing are load-bearing and easy to miss in prose: the accelerator sits <em>upstream</em> of the sigma shift and the attention nodes, and <code>BasicScheduler</code> hangs off the <em>end</em> of that chain &mdash; so the shift the sampler's sigmas are built from is the one the accelerator node has already seen.</p>
     </div>
 
     <figure>
       <div class="scroller">
-        <svg viewBox="0 0 1280 420" role="img" aria-label="The shared node chain of all four PDD workflows: a model lane running from UNETLoader through the accelerator slot, sigma shift, sage attention, Sol attention and the chain assert into BasicScheduler and BasicGuider; and a conditioning lane running from resolution and optional reference images through the conditioning node and preflight into the guider and sampler; both converging on SamplerCustomAdvanced and out through the two VAE decoders to the video combiner.">
+        <svg viewBox="0 0 1280 420" role="img" aria-label="The shared node chain of all six production PDD workflows: a model lane running from UNETLoader through the accelerator slot, sigma shift, sage attention, Sol attention and the chain assert into BasicScheduler and BasicGuider; and a conditioning lane running from resolution and optional reference images through the conditioning node and preflight into the guider and sampler; both converging on SamplerCustomAdvanced and out through the two VAE decoders to the video combiner.">
           <defs>
             <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" class="fill-r"/>
@@ -545,7 +549,7 @@
           <text x="252" y="128" class="t-s">everything else on this page is identical between the two</text>
         </svg>
       </div>
-      <figcaption>The shared chain of all four PDD graphs. The two text-to-video graphs run <code>MiniMaxH3Conditioning</code> against the fl2va checkpoint and omit the dashed reference group entirely; the two image-ref graphs run <code>MiniMaxH3ReferenceConditioning</code> against ref2va with two <code>LoadImage</code> and two <code>MiniMaxH3AppendRefImage</code> nodes. All four carry <code>euler</code>, <code>simple</code>, shift 12.0 / 3.0 and seed 730451892.</figcaption>
+      <figcaption>The shared chain of all six production PDD graphs. The four fl2va graphs &mdash; two text-to-video, two first-and-last-frame &mdash; run <code>MiniMaxH3Conditioning</code> and omit the dashed reference group entirely; the two image-ref graphs run <code>MiniMaxH3ReferenceConditioning</code> against ref2va with two <code>LoadImage</code> and two <code>MiniMaxH3AppendRefImage</code> nodes. All six carry <code>euler</code>, <code>simple</code>, shift 12.0 / 3.0 and seed 730451892.</figcaption>
     </figure>
   </section>
 
@@ -600,26 +604,26 @@
           <text x="24" y="259" class="t-s">comfy.lora.load_lora</text>
 
           <rect x="206" y="178" width="162" height="86" rx="3" class="n-box"/>
-          <text x="287" y="196" class="t" text-anchor="middle">fuse_heads</text>
+          <text x="287" y="196" class="t" text-anchor="middle">head bank, kept whole</text>
           <text x="216" y="214" class="t-s">bank [32, 96, 5376]</text>
-          <text x="216" y="229" class="t-s">float64 tensordot</text>
-          <text x="216" y="244" class="t-o">&rarr; [nfe, 96, 5376]</text>
-          <text x="216" y="259" class="t-s">once, before step 0</text>
+          <text x="216" y="229" class="t-s">stored, not collapsed</text>
+          <text x="216" y="244" class="t-o">&rarr; fuse_block on first use</text>
+          <text x="216" y="259" class="t-s">once per block, then cached</text>
 
           <rect x="376" y="178" width="184" height="86" rx="3" class="n-box"/>
           <text x="468" y="196" class="t" text-anchor="middle">boundary table</text>
           <text x="386" y="214" class="t-s">adaln_t_table [1025, 8]</text>
-          <text x="386" y="229" class="t-s">block_bounds(shift, 32, bs)</text>
-          <text x="386" y="244" class="t-o">&rarr; [nfe+1, D] per stream</text>
-          <text x="386" y="259" class="t-s">model's own arithmetic</text>
+          <text x="386" y="229" class="t-s">pdd_time_grid(shift, 32)</text>
+          <text x="386" y="244" class="t-o">&rarr; [33, D] per stream</text>
+          <text x="386" y="259" class="t-s">indexed by the derived knots</text>
 
           <polyline points="106,264 106,282 287,282 287,298" class="ln-o" marker-end="url(#a2o)"/>
           <polyline points="287,264 287,298" class="ln-o"/>
           <polyline points="468,264 468,282 287,282" class="ln-o"/>
 
           <rect x="14" y="300" width="546" height="40" rx="3" class="n-box"/>
-          <text x="287" y="317" class="t" text-anchor="middle">m.add_patches(loaded, strength) &nbsp;+&nbsp; 3 object patches</text>
-          <text x="287" y="332" class="t-s" text-anchor="middle">final_layer.forward &nbsp;&middot;&nbsp; video_out.forward &nbsp;&middot;&nbsp; audio_out.forward</text>
+          <text x="287" y="317" class="t" text-anchor="middle">m.add_patches(loaded, strength) &nbsp;+&nbsp; 4 object patches</text>
+          <text x="287" y="332" class="t-s" text-anchor="middle">diffusion_model.forward &nbsp;&middot;&nbsp; final_layer.forward &nbsp;&middot;&nbsp; video_out.forward &nbsp;&middot;&nbsp; audio_out.forward</text>
 
           <line x1="287" y1="340" x2="287" y2="374" class="ln-o" marker-end="url(#a2o)"/>
 
@@ -718,12 +722,12 @@
     <div class="col">
       <p class="stage">Per step</p>
       <h2>Where the fusion happens</h2>
-      <p class="lede">Both implementations end at the same operation &mdash; one <code>F.linear</code> against a step-appropriate head. They differ in when that head is built and in what the step index is derived from. Ours reads <code>t_emb</code>, the tensor the model was actually called with. His reads <code>sample_sigmas</code>, which has to be threaded in from outside the forward.</p>
+      <p class="lede">Both implementations end at the same operation &mdash; one <code>F.linear</code> against a step-appropriate head. They differ in how often that head is built and in what the step index is derived from. Ours reads <code>t_emb</code>, the tensor the model was actually called with. His reads <code>sample_sigmas</code>, which has to be threaded in from outside the forward.</p>
     </div>
 
     <figure>
       <div class="scroller">
-        <svg viewBox="0 0 1180 600" role="img" aria-label="One sampling step in both implementations. Ours wraps the final layer forward for bookkeeping, matches the timestep embedding against a precomputed boundary table to pick a head index, delegates the modulation to the stock forward, and applies an already-fused head. Kijai's core forward detects the enlarged weight, recovers the step from the sampler sigma schedule, rounds two base-grid indices, and fuses the spanned heads inside the forward on every call.">
+        <svg viewBox="0 0 1180 600" role="img" aria-label="One sampling step in both implementations. Ours wraps the final layer forward for bookkeeping, matches the timestep embedding against a boundary table built at load to pick a block, delegates the modulation to the stock forward, and applies a head fused the first time that block came up and cached thereafter. Kijai's core forward detects the enlarged weight, recovers the step from the sampler sigma schedule, rounds two base-grid indices, and fuses the spanned heads inside the forward on every call.">
           <defs>
             <marker id="a3o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" class="fill-o"/>
@@ -762,18 +766,18 @@
 
           <rect x="14" y="270" width="546" height="66" rx="3" class="n-ours"/>
           <text x="26" y="290" class="t-o">video_out.forward &mdash; our patch, pdd_lora.py:313</text>
-          <text x="26" y="310" class="t-m">F.linear(inp, w[k], b[k])</text>
-          <text x="26" y="328" class="t-s">w is [nfe, 96, 5376], already fused; cached once per (device, dtype)</text>
+          <text x="26" y="310" class="t-m">F.linear(inp, *heads.get(block, device, dtype))</text>
+          <text x="26" y="328" class="t-s">the block's head, fused the first time it came up, then cached per (device, dtype)</text>
 
           <!-- fusion is outside -->
           <polyline points="300,378 300,352 240,352" class="ln-d" marker-end="url(#a3d)" style="color:var(--faint)"/>
           <rect x="14" y="378" width="546" height="44" rx="3" class="n-dash"/>
-          <text x="287" y="398" class="t-s" text-anchor="middle">FUSION HAPPENED AT LOAD &mdash; outside this diagram, once per render</text>
+          <text x="287" y="398" class="t-s" text-anchor="middle">FUSED ON FIRST USE &mdash; outside this diagram, once per block, then cached</text>
           <text x="287" y="414" class="t-s" text-anchor="middle">float64 tensordot over the block, then float32</text>
 
           <rect x="14" y="440" width="546" height="42" rx="3" class="n-sunk"/>
           <text x="26" y="459" class="t-s">per forward: one cdist against nfe+1 rows, per stream</text>
-          <text x="26" y="475" class="t-s">the head arithmetic does not run again</text>
+          <text x="26" y="475" class="t-s">the head arithmetic runs once per block, not once per step</text>
 
           <!-- KIJAI -->
           <text x="620" y="24" class="t-hd-k">KIJAI'S &mdash; ONE STEP, POST-PR</text>
@@ -818,20 +822,20 @@
           <text x="590" y="536" class="t-s" text-anchor="middle">the block boundaries are the plain shifted schedule for that step count, so the two selections agree exactly</text>
         </svg>
       </div>
-      <figcaption>One sampling step. The operation at the bottom is the same in both; what moved is the fusion. Ours does it once before step 0 and looks up the result; his rebuilds it on every forward, which is the enlarged final layer the PDD paper's section 3.1 says inference can avoid. The step index is derived from different sources: <code>t_emb</code> is an argument the model already receives, <code>sample_sigmas</code> is state carried in through <code>transformer_options</code>.</figcaption>
+      <figcaption>One sampling step. The operation at the bottom is the same in both; what moved is the fusion. Ours does it once per block, the first time a step lands there, and looks it up thereafter; his rebuilds it on every forward, which is the enlarged final layer the PDD paper's section 3.1 says inference can avoid. The step index is derived from different sources: <code>t_emb</code> is an argument the model already receives, <code>sample_sigmas</code> is state carried in through <code>transformer_options</code>.</figcaption>
     </figure>
   </section>
 
   <section>
     <div class="col">
       <p class="stage">The grid</p>
-      <h2>Thirty-two intervals, two step counts, one disagreement</h2>
-      <p class="lede">The trajectory is always a 32-point grid. A step count that divides 32 subsamples it exactly, which is why a PDD arm moves the sampler's step count and nothing else &mdash; no shift change, no custom scheduler. Both implementations land on identical blocks there. They part company only when the step count does not divide 32.</p>
+      <h2>Thirty-two intervals, two step counts, and what is left of the disagreement</h2>
+      <p class="lede">The trajectory is always a 32-point grid. A step count that divides 32 subsamples it exactly, which is why a PDD arm moves the sampler's step count and nothing else &mdash; no shift change, no custom scheduler. Both implementations land on identical blocks there &mdash; and, since 2026-08-27, on identical blocks when it does not divide 32 either. What is left of the difference is that ours logs the unevenness, and that its <code>nfe</code> override still refuses a non-dividing count.</p>
     </div>
 
     <figure>
       <div class="scroller">
-        <svg viewBox="0 0 1180 520" role="img" aria-label="The 32-interval base grid with three schedules drawn beneath it. At eight steps every block spans four intervals and at four steps every block spans eight, both landing exactly on grid knots. At five steps the knots fall between grid points: our node refuses to load, while Kijai's rounds to the nearest knot and produces uneven spans of six and seven intervals.">
+        <svg viewBox="0 0 1180 520" role="img" aria-label="The 32-interval base grid with three schedules drawn beneath it. At eight steps every block spans four intervals and at four steps every block spans eight, both landing exactly on grid knots. At five steps the knots fall between grid points and both implementations round to the nearest knot, producing the same uneven spans of six and seven intervals; ours additionally logs that the blocks are uneven.">
           <defs>
             <marker id="a4k" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" class="fill-k"/>
@@ -918,11 +922,11 @@
             <text x="709" y="244" class="t-s" text-anchor="middle">2</text>
             <text x="969" y="244" class="t-s" text-anchor="middle">3</text>
           </g>
-          <text x="60" y="274" class="t-s">same weights, same file &mdash; the node fuses at load for whichever count is asked, so one artifact serves both</text>
+          <text x="60" y="274" class="t-s">same weights, same file &mdash; the node fuses each block the first time a step asks for it, so one artifact serves both</text>
 
           <!-- agreement bar -->
           <rect x="60" y="292" width="1040" height="34" rx="3" class="n-sunk"/>
-          <text x="72" y="307" class="t-o">OURS: precomputed head per block, selected by matching t_emb to a boundary</text>
+          <text x="72" y="307" class="t-o">OURS: one fused head per block, cached on first use, selected by matching t_emb to a boundary</text>
           <text x="72" y="321" class="t-k">HIS: [start, stop) derived per step, spans 4 / 4 / 4 / 4 / 4 / 4 / 4 / 4 at eight and 8 / 8 / 8 / 8 at four</text>
           <text x="1088" y="314" class="t-o" text-anchor="end">identical selections</text>
 
@@ -944,31 +948,31 @@
           <text x="60" y="426" class="t-k">his: knots round to 0, 6, 13, 19, 26, 32 &mdash; uneven spans, no error, sampling continues</text>
 
           <rect x="60" y="440" width="1040" height="34" rx="3" class="n-warn"/>
-          <text x="72" y="462" class="t-w">ours: refuses at load &mdash; "nfe=5 does not divide the file's 32-point grid", and names the legal counts</text>
+          <text x="72" y="462" class="t-w">ours: the same knots &mdash; logs "UNEVEN [6, 7, 6, 7, 6]" and names the divisors that tile exactly, then continues</text>
 
-          <text x="60" y="500" class="t-s">Neither behaviour is wrong on its face. His generalises off-distribution silently; ours declines and says so. That is the whole difference in policy.</text>
+          <text x="60" y="500" class="t-s">Both take the spans the sampler asks for; ours says so in the log. The one thing still refused is a non-zero nfe override that does not divide 32.</text>
         </svg>
       </div>
-      <figcaption>The 32-point grid at the two shipped step counts and at one that does not divide it. The 8- and 4-evaluation rows were checked against <code>pdd_math.block_bounds</code>, which is bit-equal to the plain shifted grid for that step count at both. The 5-step row is derived by running the PR's own index formula, <code>round((1 &minus; time_shift_sigma(s, 12.0, 1.0)) &times; 32)</code>, over a 5-step schedule.</figcaption>
+      <figcaption>The 32-point grid at the two shipped step counts and at one that does not divide it. The 8- and 4-evaluation rows were checked against <code>pdd_math.block_bounds</code>, which is bit-equal to the plain shifted grid for that step count at both. The 5-step row is derived by running the PR's own index formula, <code>round((1 &minus; time_shift_sigma(s, 12.0, 1.0)) &times; 32)</code>, over a 5-step schedule &mdash; and our <code>pdd_math.schedule_knots</code> returns the same list from the same sigmas, which is why the row now describes both implementations rather than only his.</figcaption>
     </figure>
   </section>
 
   <section>
     <div class="col">
-      <p class="stage">The four graphs</p>
+      <p class="stage">The six graphs</p>
       <h2>What each one actually carries</h2>
-      <p>Read off the graph files rather than from the generator. The two 8-step graphs carry <code>nfe: 0</code>, which the node resolves to the count the file was converted for &mdash; the file's <code>pdd_nfe</code> is 8. The Sol window narrows with the step count so the final step still runs dense, which is the one setting that changes between the 8- and 4-step arms for reasons that have nothing to do with PDD.</p>
+      <p>Read off the graph files rather than from the generator. <b>All ten PDD graphs carry <code>nfe: 0</code></b>, which means the node derives the block boundaries from <code>transformer_options["sample_sigmas"]</code> at run time &mdash; the sampler's step count is the evaluation count, and this input is only an override. The file's <code>pdd_nfe</code> of 8 survives as a fallback for a sampler that publishes no schedule, which none of these use. The Sol window narrows with the step count so the final step still runs dense, which is the one setting that changes between the 8- and 4-step arms for reasons that have nothing to do with PDD.</p>
     </div>
 
     <div class="scroller">
       <table>
-        <caption>All four shipped PDD graphs, from <code>workflows/*_api.json</code>. Every row carries <code>strength 1.0</code>, <code>patch_heads true</code>, <code>euler</code>, <code>simple</code>, and seed 730451892.</caption>
+        <caption>The six production PDD graphs, from <code>workflows/*_api.json</code>. Four <code>h3_probe_ref2v_pdd*</code> arms are omitted &mdash; they wire neither sage nor Sol by design, running stock SDPA because that is the vendor's reference config. Every row carries <code>strength 1.0</code>, <code>patch_heads true</code>, <code>euler</code>, <code>simple</code>, and seed 730451892.</caption>
         <thead>
           <tr>
             <th>Graph</th>
             <th>Checkpoint</th>
             <th>LoRA</th>
-            <th>nfe widget</th>
+            <th>nfe override</th>
             <th>Steps</th>
             <th>Block</th>
             <th>Fused heads</th>
@@ -983,7 +987,7 @@
             <th scope="row">h3_text_to_video_pdd</th>
             <td>fl2va</td>
             <td>fl2va pdd 8step</td>
-            <td class="num">0 &rarr; 8</td>
+            <td class="num">0</td>
             <td class="num">8</td>
             <td class="num">4</td>
             <td class="num">8</td>
@@ -1009,7 +1013,7 @@
             <th scope="row">h3_image_ref_plus_text_to_video_pdd</th>
             <td>ref2va</td>
             <td>ref2va pdd 8step</td>
-            <td class="num">0 &rarr; 8</td>
+            <td class="num">0</td>
             <td class="num">8</td>
             <td class="num">4</td>
             <td class="num">8</td>
@@ -1030,6 +1034,32 @@
             <td class="num">0.74</td>
             <td>ReferenceConditioning</td>
             <td><span class="tag on">2 images</span></td>
+          </tr>
+          <tr class="grp8">
+            <th scope="row">h3_first_last_frame_to_video_pdd</th>
+            <td>fl2va</td>
+            <td>fl2va pdd 8step</td>
+            <td class="num">0</td>
+            <td class="num">8</td>
+            <td class="num">4</td>
+            <td class="num">8</td>
+            <td class="num">12.0 / 3.0</td>
+            <td class="num">0.87</td>
+            <td>Conditioning</td>
+            <td><span class="tag">keyframes</span></td>
+          </tr>
+          <tr>
+            <th scope="row">h3_first_last_frame_to_video_pdd_4step</th>
+            <td>fl2va</td>
+            <td>fl2va pdd 8step</td>
+            <td class="num">0</td>
+            <td class="num">4</td>
+            <td class="num">8</td>
+            <td class="num">4</td>
+            <td class="num">12.0 / 3.0</td>
+            <td class="num">0.74</td>
+            <td>Conditioning</td>
+            <td><span class="tag">keyframes</span></td>
           </tr>
         </tbody>
       </table>
@@ -1086,7 +1116,7 @@
     <div class="col">
       <p class="stage">Reading</p>
       <h2>What the comparison comes down to</h2>
-      <p>His is the better distribution story: one file, the stock loader, no custom node, and the mechanism upstream where everyone gets it. Ours is the better inference story: the fusion happens once instead of thirty-two times a render, the step index comes from an argument the model already has rather than state threaded in from the sampler, and the load path refuses a partition mismatch and an illegal step count instead of proceeding.</p>
+      <p>His is the better distribution story: one file, the stock loader, no custom node, and the mechanism upstream where everyone gets it. Ours is the better inference story: each block is fused once instead of thirty-two times a render, the step index comes from an argument the model already has rather than state threaded in from the sampler, and the load path refuses a partition mismatch and a second owner of the output heads instead of proceeding.</p>
       <p>Those are not in tension. They are different bets about where the risk lives, and the arithmetic underneath them is the same to eleven decimal places.</p>
       <p style="color:var(--muted);font-size:0.94rem">One consequence for this repo, also closed today: <code>bench/compare_pdd_conversions.py</code> read his bank by the literal key <code>diffusion_model.final_layer.video_out.set_weight</code>, which his 2026-08-27 files no longer carry, so it died with a <code>KeyError</code> &mdash; the second-implementation cross-check had quietly become no check at all. It now branches on which keys are present, reconstructing through the documented adapter path where it must: a branch on the observable rather than on one implementation's spelling, which survives his next repackaging.</p>
     </div>

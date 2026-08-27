@@ -19,7 +19,13 @@ Nothing here is allowed to have a second copy anywhere in the repo.
 #: 200704..301056. Under v1 every reference reached the conditioner reduced to
 #: roughly 290 merged tokens whatever it was prepared at, which is why
 #: `MiniMaxH3AppendRefImage.qwen_short_edge` could not do anything; under v2 a
-#: 2048 short edge arrives intact. That is a cost as well as a capability --
+#: 2048 short edge arrives intact, and so does a 512 one. The knob is
+#: bidirectional -- `qwen_view_size` has no `min(1.0, ...)` -- and 2026-08-27
+#: showed the DOWNWARD direction is the one that matters here: reference tokens
+#: sit in the text segment ahead of the prompt, so two upscaled references left
+#: a ~1,000-token prompt at 9.5% of its own segment and a two-speaker scene
+#: rendered with the dialogue attributed to the wrong subject. That is a cost
+#: as well as a capability --
 #: an unclamped Qwen view costs `(w/32)*(h/32)` tokens, the same arithmetic as
 #: the DiT reference rows, and both segments sit inside Sol-Attn's exact sink.
 #:
@@ -1362,6 +1368,31 @@ SPLIT_AT = 2
 #
 # Spread into every video-bearing reference arm so the three numbers have one
 # home. Editing them here moves all eight arms together, which is the point.
+#: The encoder-only view every shipped reference graph gives Qwen3-VL, in
+#: `MiniMaxH3AppendRefImage.qwen_short_edge`. 512 since 2026-08-27; 0 (one
+#: view, whatever the VAE got) before.
+#:
+#: **A PRIOR, NOT A MEASUREMENT. Read that before quoting it.** Reference
+#: tokens land in the TEXT segment ahead of the prompt, so they compete with it
+#: rather than merely costing sequence length. Under the v2 encoder two
+#: 2048-short-edge references cost 9,408 tokens there against a ~1,000-token
+#: prompt, leaving the prompt 9.5% of its own segment; at 512 the view is 592
+#: tokens and the prompt is back to 63%, while the DiT keeps every one of its
+#: 9,408 reference rows. Priced with `bench/preflight_graph.py`, which could
+#: not see this until 26a0dbe -- it costed the segment from the DiT rows.
+#:
+#: 63% is v1's ratio, and v1's ratio was an accident of that snapshot's pixel
+#: bounds rather than a number anyone chose. Reproducing it is a reasonable
+#: starting point, not a target, and that is the whole of the justification.
+#:
+#: The observation behind it is ONE render: a two-speaker scene at the old
+#: default attributed the dialogue to the wrong subject, and the binding lives
+#: in the prompt tokens whose share had collapsed. One arm, one seed. The
+#: mechanism is arithmetic rather than judgement, but the arm that would move
+#: this number is 512 against 0 on that same graph, judged on whether the
+#: attribution holds. Until that runs, this is reasoning.
+REF_QWEN_SHORT_EDGE = 512
+
 REF_VIDEO_CANVAS = dict(width=1024, height=768)
 # Reference-video graphs render at the length of the reference CLIP, not at
 # `LONG_LENGTH`. Since 2026-08-22 the shared clip is trimmed to 14.375s ending

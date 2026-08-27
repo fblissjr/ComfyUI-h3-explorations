@@ -4,6 +4,42 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.82.0
+
+### Changed
+
+- **Every shipped reference graph now gives Qwen3-VL a 512-short-edge view**
+  (`h3_config.REF_QWEN_SHORT_EDGE`), where before it saw whatever the video VAE
+  encoded. Reference tokens land in the TEXT segment ahead of the prompt, so
+  they compete with it rather than merely costing sequence. Under the v1 encoder
+  every reference clamped to ~290 merged tokens and this could not bite; v2
+  shipped the same day declaring the release's own bounds, and two
+  2048-short-edge references then cost 9,408 tokens there against a
+  ~1,000-token prompt -- leaving the prompt 9.5% of its own segment. At 512 the
+  view is 592 tokens and the prompt is back to 63%, while the DiT keeps every
+  one of its 9,408 reference rows.
+
+  Observed once: a two-speaker scene at the old default rendered with the
+  dialogue attributed to the wrong subject, and the binding lives in those
+  prompt tokens. **The constant says in as many words that it is a prior and
+  not a measurement** -- 63% is v1's ratio, and v1's ratio was an accident of a
+  snapshot's pixel bounds rather than a number anyone chose. The arm that would
+  move it is named there.
+
+  34 reference graphs took the new default. The three `h3_probe_refview_*`
+  ablation arms were untouched without needing a carve-out, because they were
+  written to pin their own values -- which is the reason that ablation still
+  means what its arm names say.
+
+### Fixed
+
+- **`qwen_short_edge`'s tooltip and its geometry docstring described a knob that
+  only grows.** `qwen_view_size` has no `min(1.0, ...)`, so it shrinks as
+  readily, and under v2 shrinking is the direction that matters. Both now say
+  so, with what it costs and what it buys. `allow_upscale`'s tooltip gains the
+  distinction the two knobs acquired when v2 made them separable: it governs
+  what the DiT sees, `qwen_short_edge` governs what the prompt competes with.
+
 ## 0.81.0
 
 ### Changed

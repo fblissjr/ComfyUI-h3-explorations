@@ -476,6 +476,16 @@ def qwen_view_size(source_w: int, source_h: int, qwen_short_edge: int) -> tuple[
     From the source, not from the stage-one output, so the view is one
     resample from the pixels rather than two. Nearest 32 via the same snap the
     stage-one policies use. Shared with `bench/preflight_graph.py`.
+
+    **Bidirectional, and deliberately so.** There is no `min(1.0, ...)` here,
+    unlike the stage-one `max` policy, so N below the source shrinks the view.
+    The knob was built to ENLARGE what the encoder sees without paying DiT
+    reference rows; under the v2 encoder the useful direction is usually the
+    other one. Reference tokens land in the text segment ahead of the prompt,
+    so a large view does not merely cost tokens -- it costs the prompt its
+    share of the segment, and the prompt is where the subject-to-speaker
+    binding lives. Lowering N is how you keep full-resolution references for
+    the DiT and still leave the prompt legible to the encoder.
     """
     scale = qwen_short_edge / min(source_w, source_h)
     return snap_to_multiple(source_w, scale), snap_to_multiple(source_h, scale)
@@ -752,7 +762,15 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                                     "attended at every sampling step. "
                                     "Upscaling adds rows, not detail, so "
                                     "whether it helps an already-small source "
-                                    "is unmeasured."
+                                    "is unmeasured.\n\n"
+                                    "This governs what the DiT AND the encoder "
+                                    "see, unless qwen_short_edge below splits "
+                                    "them. Since 2026-08-27 that matters: "
+                                    "reference tokens sit in the text segment "
+                                    "ahead of the prompt, so upscaling here "
+                                    "also shrinks the prompt's share of its "
+                                    "own segment. Use qwen_short_edge to keep "
+                                    "the rows without paying that."
                                 ),
                             ),
                         ]),
@@ -773,9 +791,25 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                         "ENCODER only. 0 (default): Qwen3-VL sees the same "
                         "tensor the video VAE encodes. N: Qwen is shown the "
                         "source scaled so its shorter side reaches N (nearest "
-                        "32, upscaling allowed), while the VAE still encodes "
-                        "the size_policy view above, so only the Qwen rows "
-                        "grow. The loaded encoder's own processor still "
+                        "32), while the VAE still encodes the size_policy view "
+                        "above, so only the Qwen rows move.\n\n"
+                        "**It shrinks as readily as it grows** -- the scale is "
+                        "N / min(w, h) with no min(1.0, ...) clamp -- and "
+                        "under v2 REDUCING it is the more useful direction. "
+                        "Reference tokens land in the TEXT segment ahead of "
+                        "the prompt, so they compete with it: two 2048-short-"
+                        "edge references cost 9,408 tokens there against a "
+                        "~1,000-token prompt, leaving the prompt 9.5% of its "
+                        "own segment. Observed 2026-08-27 at that default -- "
+                        "a two-speaker scene rendered with the dialogue "
+                        "attributed to the wrong subject, because the binding "
+                        "lives in those prompt tokens. N=512 puts the Qwen "
+                        "view at 592 tokens and the prompt back to 63%, which "
+                        "is the ratio v1 gave by clamping, while the DiT keeps "
+                        "every reference row. Priced with "
+                        "bench/preflight_graph.py, not measured against a "
+                        "blind comparison.\n\n"
+                        "The loaded encoder's own processor still "
                         "applies its pixel bounds afterwards, and WHICH "
                         "encoder is loaded decides whether this knob does "
                         "anything: v1's snapshot declared 200,704-301,056 px "
@@ -783,9 +817,9 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                         "whatever N was, while v2 -- shipped 2026-08-27 and "
                         "the default since -- declares the release's own "
                         "65,536-16,777,216 px, so a 2048 short edge arrives "
-                        "intact. Live on v2, and a cost as well as a "
-                        "capability. Whether it helps is unmeasured; it is "
-                        "the B arm of the reference-view ablation."
+                        "intact. Live on v2 in BOTH directions: a cost when raised, "
+                        "and the lever that gives the prompt its segment back "
+                        "when lowered. The B arm of the reference-view ablation raises it; nothing has yet measured lowering it."
                     ),
                 ),
             ],
