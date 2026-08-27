@@ -1,0 +1,283 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "MiniMaxH3AWQEncoderLoader",
+    "inputs": {
+      "encoder_name": "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "8": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 4,
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_r2v_turbo_4step",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 362
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ReferenceConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "references": [
+        "51",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.\n\noverall_soundscape:\nNatural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music:\nN/A",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "video_policy": "encoder",
+      "image_policy": "comfy"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "1-man.png"
+    }
+  },
+  "16": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "2-mountain_landscape.png"
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "size_policy": "max",
+      "allow_upscale": true,
+      "short_edge": 2048
+    }
+  },
+  "51": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "16",
+        0
+      ],
+      "size_policy": "max",
+      "references": [
+        "50",
+        0
+      ],
+      "allow_upscale": true,
+      "short_edge": 2048
+    }
+  },
+  "18": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+      "strength_model": 1.0
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "20": {
+    "class_type": "MiniMaxH3SageAttention",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "mode": "auto",
+      "patch_token_refiner": false,
+      "head_chunks": 1
+    }
+  },
+  "23": {
+    "class_type": "SageChainAssert",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "require_override": true,
+      "require_forward_patch": true,
+      "exercise": true,
+      "warn_only": false
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
+    }
+  }
+}

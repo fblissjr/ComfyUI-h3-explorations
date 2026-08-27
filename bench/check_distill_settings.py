@@ -567,6 +567,10 @@ def main():
         if hasattr(h3_config, "TURBO_768P_LORA"):
             triples.append(("TURBO_768P", h3_config.TURBO_768P_LORA,
                             h3_config.TURBO_768P_STEPS, h3_config.TURBO_768P_SHIFT))
+        if hasattr(h3_config, "TURBO_REF2VA_LORA"):
+            triples.append(("TURBO_REF2VA", h3_config.TURBO_REF2VA_LORA,
+                            h3_config.TURBO_REF2VA_STEPS,
+                            h3_config.TURBO_REF2VA_SHIFT))
         if hasattr(h3_config, "TURBO_SLA_LORA"):
             triples.append(("TURBO_SLA", h3_config.TURBO_SLA_LORA,
                             h3_config.TURBO_SLA_STEPS, h3_config.TURBO_SLA_SHIFT))
@@ -591,7 +595,7 @@ def main():
                 "the pack tunes for strength 1.0 across its whole step range")
 
         graded = {"TURBO_LORA", "TURBO_768P_LORA", "TURBO_SLA_LORA",
-                  "TURBO_PACK_LORA"} & declared
+                  "TURBO_PACK_LORA", "TURBO_REF2VA_LORA"} & declared
         assert declared == graded, (
             f"h3_config declares turbo LoRA constants this check does not "
             f"grade: {sorted(declared - graded)}")

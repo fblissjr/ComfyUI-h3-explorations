@@ -68,6 +68,7 @@ from h3_config import (  # noqa: E402
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
     DIALOGUE_REF_IMAGES,
+    TURBO_REF2VA_LORA, TURBO_REF2VA_STEPS, TURBO_REF2VA_SHIFT,
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
     PDD_STRENGTH,
 )
@@ -5788,6 +5789,40 @@ def main():
         # Fact B -- an fl2v distill aimed at the wrong weights -- does not
         # apply to this one. Facts A and C do not follow from that and are
         # untouched.
+
+        # The arm PDD is actually claiming to beat, matched to
+        # h3_image_ref_plus_text_to_video_pdd_4step on every axis a comparison
+        # needs: same canvas, length, prompt, seed, sampler, scheduler, shift
+        # and step count. The LoRA is the only thing that differs.
+        #
+        # Both are ref2v-NATIVE distills, which matters: docs/h3_ref2v_distillation.md
+        # is about fl2v turbos being aimed at the wrong weight partition, and
+        # neither of these is. So this pair asks about the METHOD rather than
+        # about partition mismatch.
+        #
+        # sage on and Sol absent, matching its twin. Sol skips attention
+        # adaptively per step and that is incoherent against a 4-step schedule
+        # for either distill, so leaving it in would vary attention as well as
+        # the LoRA.
+        ("h3_image_ref_plus_text_to_video_turbo_4step.json", "r2v-turbo4", "r2v",
+         _ref_prompt(images=True),
+         dict(dense_attn="sage", sampler_name="euler",
+              lora=(TURBO_REF2VA_LORA, 1.0), steps=TURBO_REF2VA_STEPS,
+              shift=TURBO_REF2VA_SHIFT,
+              out_prefix="Video/h3_r2v_turbo_4step",
+              variant_note=_probe_note(
+                  "does PDD beat the turbo distill it is pitched against",
+                  "h3_image_ref_plus_text_to_video_pdd_4step.json",
+                  "the lightx2v ref2v turbo instead of the PDD LoRA, at the "
+                  "same 4 evaluations and the same 12/3 shift.",
+                  "identity on the reference subject and texture late in the "
+                  "clip, which is where PDD's fused heads differ most from the "
+                  "base and where the turbo LoRAs touch nothing.",
+                  "PDD perturbs the backbone about 20x harder than the 8-step "
+                  "turbo and moves the modulation path the turbos leave "
+                  "alone; this is where that shows or does not. NOTE the "
+                  "turbo was distilled at 544p and this renders 768p.")),
+         "the ref2v turbo at 4 steps, matched to the PDD 4-step arm"),
 
         # --- the dialogue probe, t2v and ref2v -----------------------------
         # Eight short lines over three shots with the pacing written in. The

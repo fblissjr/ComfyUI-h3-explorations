@@ -120,6 +120,13 @@ SOL_EXEMPT_STEMS = {
         "comparative arm: the Turbo-SLA LoRA under sage alone, the repo's "
         "dense-baseline convention, one of three attention regimes the SLA "
         "probe set spans (Sol, router, dense)",
+    "h3_image_ref_plus_text_to_video_turbo_4step":
+        "the matched control for h3_image_ref_plus_text_to_video_pdd_4step, "
+        "which is a PDD arm and exempt by mechanism. A comparison whose two "
+        "halves differ in attention as well as in the LoRA answers neither "
+        "question, so this one inherits its twin's configuration -- sage on, "
+        "Sol absent -- rather than the default. Named rather than derived "
+        "because it is one graph paired with one other, not a class",
     "h3_probe_turbo_768p_sla_router":
         "comparative arm: the Turbo-SLA LoRA under the sparse top-k router it "
         "was distilled with (MiniMaxH3SLARouter), which replaces the sage+Sol "

@@ -894,6 +894,30 @@ LORA_LOADER_CLASSES = ("LoraLoaderModelOnly", "MiniMaxH3TurboLoRA",
                        "MiniMaxH3PDDLoRA")
 
 PDD_FL2VA_LORA = "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors"
+# The ref2v turbo, on disk since 2026-08-18 and NAMED here for the first time
+# on 2026-08-26. It exists to be the thing PDD is measured against.
+#
+# **This is the comparison the PDD release is actually making.** alibaba-pai's
+# README is a three-column table -- base, lightx2v Turbo, PDD Acc-8Step -- run
+# on test cases taken from the Turbo repo's own examples. Speed over base is
+# the premise both distills already share; the claim being made is quality
+# against the other distill. Everything in this repo compared PDD against PDD
+# until this row existed.
+#
+# Its row in check_distill_settings: 544p mixed aspect, shift 12/3, 4 steps.
+# The shift and the step count MATCH the PDD 4-evaluation arm exactly, which is
+# what makes a matched pair possible at all -- and the vendor's own demo does
+# not match them, showing 8-step PDD against 4-step turbo.
+#
+# **Stated confound:** it was distilled at 544p mixed aspect and the paired arm
+# renders 1344x768, so the turbo is outside its training canvas there. Run at
+# 768p anyway because that is where the vendor compared, and because PDD's own
+# training canvas is not stated in its metadata -- so moving to 544p would swap
+# a known confound for an unknown one.
+TURBO_REF2VA_LORA = "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors"
+TURBO_REF2VA_STEPS = 4
+TURBO_REF2VA_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
+
 PDD_REF2VA_LORA = "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors"
 # The step counts one converted file serves. The published grid is 32 points,
 # so any divisor is a legal arm from the same weights and each lands exactly on
