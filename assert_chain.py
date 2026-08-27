@@ -215,11 +215,25 @@ class SageChainAssert(io.ComfyNode):
                           "passed")
         min_tokens = gate["min_tokens"] if sparse_expected else 4096
 
-        need = 4 * BATCH * (2 * min_tokens) * HEADS * HEAD_DIM * 2
+        # Sized from the LARGEST probe this actually fires, which is
+        # `min_tokens + 512` below -- not `2 * min_tokens`, which is what this
+        # computed until 2026-08-27 and is nearly double the real peak. The two
+        # probes run in sequence on threads that exit, so the peak is the larger
+        # one alone.
+        #
+        # The overestimate did not matter while `min_tokens` was 4096. It
+        # started to when the shipped Sol recipe took the node's 12288 the same
+        # day: the demand went from ~1.75 GiB free to ~5.25 GiB, and this
+        # assert is wired in most shipped graphs, so a second render in a
+        # session with H3 resident would quietly return "skipped" instead of
+        # confirming the sage/Sol composition. A check that goes silent when the
+        # state is fine is the mirror of one that goes red when it is fine.
+        probe_peak = 4 * BATCH * (min_tokens + 512) * HEADS * HEAD_DIM * 2
         free = torch.cuda.mem_get_info()[0]
-        if free < need * 4:
+        if free < probe_peak * 4:
             return None, (f"skipped the probe: {free / 2**20:.0f} MiB free, want "
-                          f"{need * 4 / 2**20:.0f} MiB headroom. Registration "
+                          f"{probe_peak * 4 / 2**20:.0f} MiB headroom for a "
+                          f"{min_tokens + 512}-token probe. Registration "
                           "checks above still passed; routing was not confirmed "
                           "at call time")
 
