@@ -6,7 +6,20 @@ is deliberately unmeasured. Nothing here is either: it is measurable today, on
 tooling that exists. Delete an entry when it runs; one still here in a week
 belongs in one of those two instead.
 
-## Status: nothing is staged, for the second time today
+## Status: twelve arms running, all on the ref dialogue graph
+
+**Every arm below that is running renders the ref dialogue graph** -- two image
+references, eight `<d>` lines, the stairwell exchange. That is a change from
+what several groups were originally written against, and it has one reason: the
+market t2v prompt those arms used was disqualified as a sample by the owner on
+2026-08-27, so anything built on it answers nothing. Where a group moved, its
+section says so and why.
+
+The batch is `Video/batch/{arm}_s{seed}`. Sol's `end_percent` is derived from
+each arm's step count by the builder rather than carried over, so the 8-step arm
+runs 0.87 and the 4-step arms 0.74.
+
+## The queue that was stopped, for the second time today
 
 Twenty-nine arms were built, queued, and stopped mid-flight when the owner moved
 every graph back to the v1 conditioner (`72e97c3`). One arm was interrupted
@@ -100,6 +113,13 @@ state and 512 was treating a symptom. Owned by the encoder lane.
 
 ### Group A' -- does attribution hold on v1 at all?
 
+> **RAN 2026-08-27, and it PASSES.** Owner's verdict on
+> `h3_r2v_dialogue_pdd_4step_00001-audio.mp4`: "looks great". 3.9 min at 4
+> evaluations. Attribution holds on v1 with references, dialogue and a distill
+> together. **Confirmation, not cause** -- a pass is equally consistent with the
+> bounds story, with the seed, and with the original failure being intermittent.
+> The causal question is still the layer-50 bounds pair, which needs no render.
+
 **Decides whether today's revert bought what it was done for.** The withdrawal
 above took a comparison out; this is not one, and it should not have gone with
 it. The misattribution was seen once, under v2. The entire case for moving every
@@ -138,6 +158,35 @@ Priced at ~120,077 packed tokens by `bench/preflight_graph.py`, which could not
 have told you that until `d7dd575` -- it read the pre-DynamicCombo widget names
 and reported 113,037.
 
+### What died on 2026-08-27, and why nothing replaced it
+
+A 4-against-8 finding was assembled during the evening and is **not recorded as
+a finding**, because the owner disqualified its only failing sample: "maybe the
+prompt just sucked. anyway you can not use that one."
+
+So the state is: **two good renders at 4 evaluations on one prompt family, one
+disqualified render, and no failure case.** Not "4 fails on motion", not "4
+fails on complex scenes" -- no established failure at all.
+
+Four explanations were fitted to that one render and all four were refuted
+within the hour, each by a measurement that took under a minute:
+
+| explanation | what killed it |
+|---|---|
+| static single-setup vs multi-shot | all three prompts are 3-shot with 2 hard cuts |
+| camera and subject motion | motion cannot degrade the AUDIO stream, and the audio was bad too |
+| the prompt violates the guide's tags or order | it does not; it is base-en's 3 fields, same structure as the GOOD t2v prompt |
+| the prompt is underspecified for its ambition | 387 tokens against the good t2v prompt's 408. The 985 it was compared against is the r2v prompt -- a different prompt family |
+
+The two good renders are also **not independent**: they share their
+`overall_soundscape` verbatim and differ only in t2v against r2v. Two prompts,
+not three scenes.
+
+**Recording any of the four would be worse than recording nothing**, because
+each is a plausible mechanism with a refutation attached, and the mechanism is
+the half people carry forward. Anyone who wants to know where 4 evaluations
+fails writes a scene for it and renders it.
+
 ### Group B -- what does upscaling buy?
 
 **Decides whether `allow_upscale` should stay on.** The Gate 6 question, which
@@ -156,7 +205,12 @@ construction -- both arms reach the encoder as the same picture whatever the
 stage-one size, so the only surviving difference is DiT reference rows. This is
 now the isolation the group was designed for rather than an approximation of it.
 
-3 seeds. A quality judgement, not a categorical failure.
+**RUNNING 2026-08-27, and narrower than the group above describes.** Three
+`B_noupscale` seeds against three at `allow_upscale` on (A' plus two more), all
+on the **ref dialogue graph** rather than the Gate 6 refview population. That is
+one scene, not twelve families. It can say whether upscaling is visible on this
+scene; it cannot settle Gate 6, which still has never run and still wants its
+population.
 
 ### Group C -- is 4 NFE too few, or is it the head machinery?
 
@@ -172,14 +226,38 @@ shipped graph.
 63% of the sigma path at 8 NFE against 80% at 4, and Sol covers 5 of 8 steps
 against 2 of 4. Both accelerations work harder at 4.
 
+**RUNNING 2026-08-27 on the ref dialogue graph, not the t2v one.** The t2v
+prompt this group was written against is the disqualified sample above, so an
+arm built on it would answer nothing. Same two widgets, sound prompt, seed
+matched to A'. `C_pdd8` picked up Sol `end_percent` 0.87 from the builder's
+`SOL_END_PERCENT_BY_STEPS` rather than inheriting 4-step's 0.74 -- the failure
+that shipped three broken arms by hand earlier that day is structurally
+unavailable through the generator.
+
+**Read `C_pdd8` only if the difference is GROSS.** Step count is a numerical
+change, so CLAUDE.md's different-sample rule applies at full force: the 8-step
+clip is a DIFFERENT SAMPLE, not a better-resolved version of the 4-step one, and
+a matched seed does not rescue that (measured 2026-08-18 -- two arms differing
+only in sage `mode` diverged at frame 0 under a deterministic sampler). If
+neither clip shows an obvious defect, the honest read is "no visible difference
+on one pair", never "8 is no better". Ranking them needs a distribution nobody
+has budgeted.
+
 ### Group D -- the two knob questions
 
 **Decidable from one render each**, unlike everything above.
 
 | arm | decides |
 |---|---|
-| `t2v4_reuse_on` against control | whether `reuse_qkv_memory` is free -- bit-identical decoded frames or it is not |
-| `t2v4_start0` against control | what `start_percent` 0.2 costs in seconds, at 3 seeds for variance |
+| `D_reuse_on` against control | whether `reuse_qkv_memory` is free -- bit-identical decoded frames or it is not |
+| `D_start0` against control | what `start_percent` 0.2 costs in seconds, at 3 seeds for variance |
+
+**RUNNING 2026-08-27 on the ref dialogue graph**, not the t2v one these were
+named for, for the same reason as Group C. Two consequences worth stating.
+`reuse_qkv_memory` is an identity check and a heavier sequence is a strictly
+better test of it, so ~120k beats ~109k here. `start_percent` is a timing
+measurement, so the absolute seconds are not comparable to anything measured on
+t2v -- only the within-pair delta is the answer, and it runs 3 seeds a side.
 
 `reuse_qkv_memory`: **do not try to measure what it saves.**
 `bench/bench_e2e_h3.py` spent 2026-08-14 on that and records why it failed -- the
