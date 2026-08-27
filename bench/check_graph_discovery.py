@@ -58,6 +58,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 BENCH = REPO / "bench"
+WORKFLOWS = REPO / "workflows"
+sys.path.insert(0, str(WORKFLOWS))
 
 #: {filename: reason}. A reason naming a file rather than a mechanism is not a
 #: reason -- see the module docstring.
@@ -145,6 +147,42 @@ def audit(files) -> list[str]:
     return errs
 
 
+def coverage_now() -> str:
+    """What routing through `graph_paths()` currently BUYS over the bare glob.
+
+    The audit below enforces a convention; whether that convention is catching
+    anything today is a different question, and "N checks audited" answers only
+    the first. On 2026-08-27 the single-frame lane was parked, `GRAPH_DIRS`
+    went to a single directory, and `graph_paths()` began returning exactly
+    what the non-recursive glob it exists to prevent returns -- with nothing
+    saying so. A dormant guard and a working one must not print the same line,
+    for the same reason a red on correct state is worse than no check.
+
+    Dormant is not broken. `graph_paths()` re-arms the moment a directory
+    returns to `GRAPH_DIRS`, which is why it stays rather than being deleted;
+    what must not happen is a reader taking this check's green as evidence of
+    coverage it is not currently providing.
+    """
+    import h3_config as cfg
+
+    naive = {p.name for p in WORKFLOWS.glob("*.json")}
+    shipped = {Path(p).name for p in cfg.graph_paths(WORKFLOWS)}
+    with_bench = {Path(p).name for p in cfg.graph_paths(WORKFLOWS, include_bench=True)}
+    gained = len(shipped - naive)
+    bench_only = len(with_bench - shipped)
+
+    if gained:
+        return (f"graph_paths() reaches {gained} file(s) the bare "
+                f"glob misses, from GRAPH_DIRS {cfg.GRAPH_DIRS!r}; "
+                f"include_bench adds {bench_only} more")
+    return (f"DORMANT on the shipped axis: GRAPH_DIRS is {cfg.GRAPH_DIRS!r}, so "
+            f"graph_paths() returns the same {len(shipped)} file(s) as the bare "
+            f"glob it exists to prevent. Only include_bench adds coverage "
+            f"({bench_only} file(s) under workflows/bench/). The audit below is "
+            f"enforcing a convention, not catching a defect, and it re-arms "
+            f"when a directory returns to GRAPH_DIRS")
+
+
 def main() -> int:
     files = sorted(BENCH.glob("check_*.py"))
     files = [f for f in files if f.name != Path(__file__).name]
@@ -152,6 +190,11 @@ def main() -> int:
 
     print(f"graph discovery routes through graph_paths(), "
           f"{len(files)} check(s) audited")
+    print(f"  note  {coverage_now()}")
+    print("  note  this check covers WHICH FILES a scan sees, never which "
+          "FIELDS it reads. A scan can route through graph_paths() and still "
+          "read only `inputs`, missing every UI graph's `widgets_values` -- "
+          "that happened on 2026-08-27 and nothing here would have caught it")
     if EXEMPT:
         for k, v in EXEMPT.items():
             print(f"  note  {k} exempt: {v}")
