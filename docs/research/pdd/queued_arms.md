@@ -252,6 +252,14 @@ has budgeted.
 | `D_reuse_on` against control | whether `reuse_qkv_memory` is free -- bit-identical decoded frames or it is not |
 | `D_start0` against control | what `start_percent` 0.2 costs in seconds, at 3 seeds for variance |
 
+> **`D_start0`'s timing is INVALIDATED as run, 2026-08-27.** Its control is A',
+> which ran first after a restart and paid the full model load; the `D_start0`
+> arms run mid-batch on cache hits. That comparison measures cache position, not
+> `start_percent`, and three seeds a side does not help because they all sit on
+> the same side of the same systematic difference. It needs re-running under
+> `--cache-none`. See the section above. `D_reuse_on` is unaffected -- it is
+> decided on decoded frames.
+
 **RUNNING 2026-08-27 on the ref dialogue graph**, not the t2v one these were
 named for, for the same reason as Group C. Two consequences worth stating.
 `reuse_qkv_memory` is an identity check and a heavier sequence is a strictly
@@ -269,6 +277,40 @@ buffer.
 `start_percent` has never been measured at any value, ever, and costs a flat 25%
 of evaluations at every step count. Run the cheap half first; if the saving is
 small the quality question never needs asking.
+
+### A render is not a pure function of its graph
+
+Recorded 2026-08-27 after it invalidated one arm, one instrument and two
+hypotheses in the same hour. **ComfyUI's execution cache persists across
+prompts within a server session**, keyed by input signature
+(`main.py`'s default `CacheType.RAM_PRESSURE`; the server runs with no
+`--cache-*` flag). Two graphs differing in one widget share every cached node
+upstream of it.
+
+What that did here. `C_pdd8` at two seeds differs only in `RandomNoise`, so the
+second submission hit cache on the encoder loader, the conditioning, the UNet
+loader and every patch node -- it re-executed the sampler and below. The first
+seed ran first after a restart and paid the whole load; it **OOM'd**. The second
+paid almost none of it and **rendered**. That was read here as the same
+configuration giving opposite outcomes, and it is nothing of the kind.
+
+**So any arm whose outcome is TIME or MEMORY has to state what ran before it.**
+Output is unaffected -- a cache hit returns tensors already computed from
+identical inputs -- so perceptual comparisons are safe and this rule does not
+touch them.
+
+| protocol | when |
+|---|---|
+| cold restart before every arm | the question is "does this fit as people run it". Reproduces shipped conditions, cache included |
+| `--cache-none` | the question is a comparison BETWEEN arms. Makes them comparable to each other; not the shipped configuration, and it changes the memory profile itself |
+| neither | any comparison decided on pixels |
+
+Three instruments died to this before it was written down: a "Sol at 8 steps
+OOMs" reading, a fits-or-does-not-fit oracle for `reuse_qkv_memory` that was
+sound except for assuming determinism, and a same-seed repeat that would have
+been a near-total cache hit reporting success without executing the thing that
+failed. None of them was wrong about the model. All three treated the runtime
+between runs as inert.
 
 ### Group E -- the standing item
 
