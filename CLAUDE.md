@@ -12,16 +12,24 @@ Every item here was measured or decided, and every one has been rediscovered as
 prompt-structure question; if you are about to establish one of these, you are
 repeating work.
 
-- **The seven H3 marker rows were never trained, and this is about the Qwen3-VL
-  ENCODER's input embedding table, not the DiT.** Measured 2026-08-21 across the
-  release, `int8_convrot`, `nvfp4_awq`, and an upstream Qwen3-VL the H3 work never
-  touched: `bench/results/2026-08-21_h3_token_embeddings.json`. The seven sit with
-  the untrained padding tail, not with the trained Qwen specials, in every
-  artifact including the one that is pure upstream — which is what makes the
-  method credible rather than a quirk of one file. **So routing a prompt through
-  those ids hands the encoder rows it never learned.** Any argument that the
-  fixed tokenizer is "the repair" and the BPE spelling is "the defect" has to
-  answer this first, and the intuitive version of that argument is wrong.
+- **The released text encoder is byte-identical to stock Qwen3-VL-32B-Instruct**
+  — all 14 shards, hub LFS SHA-256, `bench/results/2026-08-25_released_encoder_is_stock.json`.
+  MiniMax shipped no encoder post-training. **Read the next bullet only through
+  this one.**
+- **The seven H3 marker rows are untrained, and that fact discriminates
+  nothing.** Measured 2026-08-21 in four artifacts
+  (`bench/results/2026-08-21_h3_token_embeddings.json`): the seven sit with the
+  untrained padding tail, not the trained Qwen specials. This is about the
+  ENCODER's input embedding table, not the DiT. But since the encoder is stock
+  in its entirety, *every* row is untrained-by-MiniMax and the seven could not
+  have been otherwise — so it is a consequence of the bullet above, not a
+  finding about markers. **Both live hypotheses predict it**: that MiniMax used
+  single ids against a frozen encoder, so the DiT learned fixed-but-arbitrary
+  vectors as delimiters; and that MiniMax BPE'd them, so the ids never
+  appeared. Row norms cannot separate those, and neither can prediction
+  sensitivity. The discriminator is `release_id` against `mean_init_rows` and
+  it has not been run. **Do not read "untrained" as "the fixed tokenizer is
+  wrong"** — a session did exactly that on 2026-08-27 and had to retract it.
 - **The release declares those seven in `additional_special_tokens` and gives
   none of them an id.** All thirteen other specials have one; zero of seven do.
   Core's 151669-151675 are *derived* — append in declaration order after the
