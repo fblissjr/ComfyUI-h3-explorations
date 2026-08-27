@@ -4,7 +4,62 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
-## 0.72.0
+## 0.74.0
+
+### Changed
+
+- **The shipped text encoder is the v2 W4A16 AWQ artifact.** `MODELS["clip"]`
+  now names `ENCODER_V2`, defined above it so the string still has one copy,
+  and every graph is rebuilt onto it. The two artifacts differ in one setting
+  that matters here: v1's snapshot declares a still-image budget far narrower
+  than the release's, v2 declares the release's own. Under v1 every reference
+  reached the conditioner reduced to a few hundred merged tokens whatever it
+  had been prepared at, which is why `MiniMaxH3AppendRefImage.qwen_short_edge`
+  could not do anything; under v2 a 2048 short edge arrives intact.
+
+  That is a cost as well as a capability, and the graphs were not re-tuned for
+  it. An unclamped Qwen view costs `(w/32)*(h/32)` merged tokens, the same
+  arithmetic as the DiT reference rows, and both segments sit inside Sol-Attn's
+  exact sink. A graph that keeps `allow_upscale=True` now pays for that upscale
+  in two segments where it used to pay in one, so reference policy is the open
+  question this change hands forward rather than something it settled.
+
+- `bench/check_h3_awq_encoder.py` chooses the adapter for its large CPU load by
+  asking whether that adapter's own resolver recognizes the artifact, instead
+  of assuming the standalone distribution packages whatever `MODELS["clip"]`
+  names. Those coincided until the change above and no longer do: the
+  standalone embeds one artifact's configs, so handing it a different one
+  tested only the mismatch. Its own contract case already proves the render is
+  deterministic, the embedded configs match their source digests and the
+  load-bearing functions are copied verbatim, so the shipped default now takes
+  the large load through the repo-local adapter that scans every snapshot.
+
+  **The branch is on the embedded config, never the filename**, and a live
+  instance is why rather than a principle: pointing the v1 *name* at the v2
+  *file* through a symlink made the loader read v2's release bounds while the
+  name-keyed registry read v1's clamp, so `bench/preflight_graph.py` priced a
+  clamp that would not happen -- confidently, because the v1 name is a known
+  key and the lookup succeeded. An unknown name would have returned "no
+  contract" and been safe. Name an artifact in `workflows/h3_config.py`; do not
+  symlink one file into another's name.
+
+### Documentation
+
+- `docs/h3_awq_encoder.md` no longer states one budget as "the current
+  artifact's". The budget is the setting that varies between artifacts, so the
+  section names `source_image_pixel_bounds()` as the way to read it and records
+  which artifact ships. The layer-49 benchmark that argued for keeping v1's
+  snapshot unchanged is marked as history taken while v1 was the default.
+- `docs/h3_references.md`'s caveat on `qwen_short_edge` said the knob stays
+  inert until an encoder whose bounds admit the view is loaded. That encoder is
+  now the shipped one, so the caveat records when it stopped binding and what
+  the knob costs now that it works.
+
+### Fixed
+
+- Two changelog sections were both filed as 0.72.0. The newer is 0.73.0.
+
+## 0.73.0
 
 ### Added
 

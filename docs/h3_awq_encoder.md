@@ -320,27 +320,43 @@ kernel.
 
 ### Still images
 
-The loader binds a processor to this CLIP instance using the selected
-artifact's snapshotted `processor_config.json`. For the current artifact that
-means:
+The loader binds a processor to this CLIP instance from the **selected
+artifact's own** snapshot, whichever spelling that artifact uses -- v1 nests
+the settings in `processor_config.json`, v2 uses the release's flat
+`preprocessor_config.json`. The accepted names are
+`h3_awq_encoder.py::STILL_CONFIG_NAMES`; do not name one here. Common to both:
 
 - patch size 16, temporal patch size 2, merge size 2;
 - mean and standard deviation of 0.5 per channel;
-- bicubic resampling (`resample=3`); and
-- a 200704–301056-pixel still-image budget.
+- bicubic resampling (`resample=3`).
 
 Native Qwen3-VL processing uses the same patch geometry and normalization for
 H3, but Comfy's shared helper currently uses its own pixel bounds and bilinear
 interpolation. The local behavior is therefore artifact-config-driven rather
 than a claim that the native vision architecture is wrong.
 
-This snapshot is much narrower than either stock ComfyUI or the release. It is
-the binding Qwen constraint on reference stills under the current W4 loader;
-upstream `max` or 2048-short-edge preparation cannot make the encoder retain
-geometry that this stage removes. The measured layer-49 policy benchmark
-therefore keeps the deployed snapshot unchanged and treats v2 calibration—not
-an in-place config edit—as the repair path. This artifact-specific condition
-must not be reported as a stock-ComfyUI processor bug.
+**The still-image pixel budget is the one setting that differs between
+artifacts, and it decides whether reference preparation upstream survives.**
+Read it with `source_image_pixel_bounds()` rather than from prose. v1 declares
+a budget far narrower than either stock ComfyUI or the release, and under it
+that clamp is the binding constraint on reference stills: upstream `max`, a
+2048 short edge, or `MiniMaxH3AppendRefImage.qwen_short_edge` cannot make the
+encoder retain geometry this stage removes, which is why that knob was inert.
+v2 declares the release's own bounds, so the same preparation arrives intact
+and the knob is live.
+
+That is a cost as much as a capability. An unclamped Qwen view costs
+`(w/32)*(h/32)` merged tokens -- the same arithmetic as the DiT reference rows
+-- and both segments sit inside Sol-Attn's exact sink, so a reference that
+reaches the conditioner at full size is paid for at every sampling step twice
+over. [`h3_references.md`](h3_references.md) owns that accounting.
+
+**Shipped default: v2 since 2026-08-27** (`workflows/h3_config.py::ENCODER_V2`,
+which `MODELS["clip"]` now names). The layer-49 policy benchmark that argued
+for keeping v1's deployed snapshot unchanged was taken while v1 was the
+default and reads as history, not as an argument against the artifact that
+replaced it. Neither budget is a stock-ComfyUI processor bug; both are
+artifact-specific conditions and must not be reported as one.
 
 The bicubic-through-uint8 path also differs numerically from stock ComfyUI's
 float/bilinear path. Its independent contribution to layer-49 drift has not

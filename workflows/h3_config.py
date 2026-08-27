@@ -12,6 +12,28 @@ never rendered; keep it structural rather than remembered.
 Nothing here is allowed to have a second copy anywhere in the repo.
 """
 
+#: The shipped text encoder, by the name `h3_awq_encoder.py`'s snapshot
+#: registry recognizes. **v2 since 2026-08-27, by owner decision**, replacing
+#: `qwen3vl_32b_minimax_h3_w4a16_awq.safetensors`. v2 declares the release's
+#: own still-image budget, 65536..16777216 px, where v1's snapshot declared
+#: 200704..301056. Under v1 every reference reached the conditioner reduced to
+#: roughly 290 merged tokens whatever it was prepared at, which is why
+#: `MiniMaxH3AppendRefImage.qwen_short_edge` could not do anything; under v2 a
+#: 2048 short edge arrives intact. That is a cost as well as a capability --
+#: an unclamped Qwen view costs `(w/32)*(h/32)` tokens, the same arithmetic as
+#: the DiT reference rows, and both segments sit inside Sol-Attn's exact sink.
+#:
+#: **Name the artifact here; never symlink one file into another's name.** The
+#: loader recognizes an artifact by its embedded `config.json`, but the static
+#: readers (`bench/preflight_graph.py`) resolve by filename through
+#: `h3_awq_encoder.ARTIFACT_SNAPSHOTS`. A symlink splits the two. Measured
+#: 2026-08-27, pointing the v1 name at the v2 file: runtime resolved the v2
+#: snapshot and its release bounds, while the static reader resolved the v1
+#: bounds and preflight priced a clamp that would not happen. The v1 name is a
+#: known key in that registry, so the lookup returned a confident wrong answer
+#: rather than the "no contract" an unknown name would have produced.
+ENCODER_V2 = "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"
+
 # Checkpoint names are the ones their owning loader actually offers. The text
 # encoder is the canonical custom W4A16 AWQ build. Core CLIPLoader also lists it,
 # but that is filesystem discovery, not format support: the file uses
@@ -36,7 +58,7 @@ MODELS = dict(
     # The filenames end `-int8`, not `_int8_convrot`; `substrate.py` tags them.
     unet_hybrid_b30="minimax_h3_hybrid_fl2va_ref2va_b30-49-int8.safetensors",
     unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
-    clip="qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
+    clip=ENCODER_V2,
     # The fp16 video VAE, and it is the best build available in ComfyUI's
     # format. **Measured 2026-08-21** against the official release's fp32
     # weights (`MiniMaxAI/MiniMax-H3`, `video_vae/source/model.safetensors`):
@@ -57,21 +79,14 @@ MODELS = dict(
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
 )
 
-#: The v2 encoder artifact by the name the loader recognizes
-#: (`h3_awq_encoder.py`'s snapshot registry; `bench/convert_h3_awq_candidate.py`
-#: writes it). Not in `MODELS` on purpose: `MODELS` is what every shipped graph
-#: loads today, and `check_model_files` holds each of those names to the live
-#: server. This one names a file that lands when the v2 calibration does, and
-#: only the Gate 6 reference-view arms wire it, so v1/v2 swap at that combo
-#: without a graph edit. Until the file exists those graphs read red there.
-ENCODER_V2 = "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"
-
 #: The ComfyUI-native INT8 ConvRot encoder, the encoder of record for the
 #: Gate 6 reference-view arms and the marker arms since 2026-08-25: on the
 #: 13-row holdout it sits about fifteen times closer to the BF16 release at
 #: layer 50 than either W4A16 artifact (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`).
-#: Not in `MODELS` for the same reason as `ENCODER_V2`: the shipped graphs
-#: still load `MODELS["clip"]`; only the arms that measure wire this one.
+#: That comparison was taken against v1 and the v2 candidate as they stood on
+#: that date; it is the reason to keep measuring this encoder, not a reason the
+#: shipped graphs cannot move. They load `MODELS["clip"]`, which is v2 since
+#: 2026-08-27; only the arms that measure wire this one.
 ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 
 #: Encoder files core's own `CLIPLoader` (type `minimax`) loads; everything

@@ -9,7 +9,7 @@
   "2": {
     "class_type": "MiniMaxH3AWQEncoderLoader",
     "inputs": {
-      "encoder_name": "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
+      "encoder_name": "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors",
       "device": "default"
     }
   },

@@ -73,7 +73,7 @@
         "Node name for S&R": "MiniMaxH3AWQEncoderLoader"
       },
       "widgets_values": [
-        "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors",
+        "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors",
         "default"
       ],
       "title": "Load custom H3 W4A16 encoder (repo adapter)"

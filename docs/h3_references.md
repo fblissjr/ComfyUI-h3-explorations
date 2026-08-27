@@ -697,10 +697,15 @@ which is the B arm of the reference-view ablation (A: no upscale; B: Qwen-only
 2048; C: full parity). Whether B helps is unmeasured and is the owner's blind
 matched-seed comparison to judge after v2 lands.
 
-**The loud caveat.** The loaded encoder's own processor still applies its
-bounds afterwards. Under the current W4 artifact's 200,704--301,056-pixel
-snapshot a 2048 view is clamped back to about 265 tokens whatever N is, so the
-knob is inert for Qwen until an encoder whose bounds admit the view is loaded;
+**The caveat, and it stopped binding on 2026-08-27.** The loaded encoder's own
+processor still applies its bounds afterwards, so this knob is only ever worth
+as much as the selected artifact's still-image budget allows. Under the v1 W4
+snapshot a 2048 view was clamped back to a few hundred tokens whatever N is,
+which made the knob inert for Qwen. The shipped encoder is v2 since
+2026-08-27 ([`h3_awq_encoder.md`](h3_awq_encoder.md)), and it declares the
+release's own bounds, so a 2048 view now reaches layer 50 at full size -- and
+is charged for accordingly, in the text segment, at every step. Read the
+budget with `h3_awq_encoder.py::source_image_pixel_bounds`, never from prose;
 `bench/preflight_graph.py` prices both views per reference and says on the
 line when the Qwen view was clamped and by whose bounds. Controlled by
 `bench/check_reference_runtime.py::qwen_view_is_separate_from_the_vae_view`

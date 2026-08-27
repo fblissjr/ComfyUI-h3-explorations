@@ -34,6 +34,7 @@ import inspect
 import json
 import os
 import shutil
+import struct
 import sys
 import tempfile
 import time
@@ -750,6 +751,30 @@ def kitchen_cuda_dispatches_fp32_h3_input():
         got, expected)
 
 
+def adapter_recognizes(module, path: Path) -> bool:
+    """Whether this adapter resolves a snapshot for THIS artifact's own config.
+
+    The standalone distribution embeds one artifact's configs -- the file it
+    ships beside on Hugging Face -- where the repo-local module scans every
+    directory under `config/`. Once `MODELS["clip"]` names a different
+    artifact than the standalone packages, handing the standalone that file
+    tests nothing but the mismatch.
+
+    Ask the adapter's own resolver, never compare filenames. On 2026-08-27 a
+    symlink pointing the v1 name at the v2 file made the loader read v2's
+    release bounds while a name-keyed lookup read v1's clamp, so a filename
+    here would say nothing about what is in the file.
+    """
+    with open(path, "rb") as handle:
+        header = json.loads(handle.read(struct.unpack("<Q", handle.read(8))[0]))
+    embedded = json.loads(header["__metadata__"]["config"])
+    try:
+        module._resolve_snapshot(embedded)
+    except Exception:
+        return False
+    return True
+
+
 def full_loader_contract(path: Path, module=H):
     clip = module._load_clip(str(path), [], device="cpu")
     model = clip.cond_stage_model.qwen3vl_32b.transformer
@@ -851,6 +876,12 @@ def main(argv=None) -> int:
         # control passed. This makes the large CPU construction an artifact
         # test, not merely another test of the repo-local import.
         module = standalone_module.get("module", H)
+        if module is not H and not adapter_recognizes(module, path):
+            print("  note  the standalone packages a different artifact than "
+                  f"MODELS['clip'] ({MODELS['clip']}); its own contract case "
+                  "covers it, so the large CPU load goes through the "
+                  "repo-local adapter that resolves every snapshot")
+            module = H
         count = full_loader_contract(path, module=module)
     except Exception as exc:
         ok = False
