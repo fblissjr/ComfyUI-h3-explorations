@@ -4404,9 +4404,21 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                     _in("references", "MINIMAX_H3_REFERENCES", optional=True))
             append = g.add("MiniMaxH3AppendRefImage", (-760, row_y(i)),
                            size=(280, 150),
-                           # positional: size_policy, allow_upscale,
-                           # short_edge, qwen_short_edge. `references` is a
-                           # socket and consumes no widget slot.
+                           # positional: size_policy, then the SELECTED
+                           # DynamicCombo option's own widgets IN SCHEMA ORDER,
+                           # then qwen_short_edge. `references` is a socket and
+                           # consumes no widget slot.
+                           #
+                           # Under `max` the schema declares short_edge BEFORE
+                           # allow_upscale, so that is the order here. This was
+                           # wrong for one build on 2026-08-27: the API branch
+                           # was converted to the dotted form and this one was
+                           # left on the pre-DynamicCombo order, emitting
+                           # ["max", True, 2048, 0] -- short_edge=True,
+                           # allow_upscale=2048. Every validator passed, which
+                           # is the finding: nothing here grades a
+                           # DynamicCombo's sub-widget ORDER against the schema
+                           # it came from, only that the graph is well-formed.
                            #
                            # ALWAYS emit qwen_short_edge, even at 0. build_api
                            # omits it at 0 on the reasoning that 0 is the
@@ -4420,7 +4432,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                            # reasoning was copied across the format boundary on
                            # 2026-08-25 and corrupted 40 UI graphs until
                            # 2026-08-26.
-                           widgets=["max", ref_upscale, _ref_short_edge(),
+                           widgets=["max", _ref_short_edge(), ref_upscale,
                                     ref_qwen_short_edge],
                            inputs=append_inputs,
                            outputs=[_out("references", "MINIMAX_H3_REFERENCES")],

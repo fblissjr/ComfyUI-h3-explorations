@@ -536,7 +536,6 @@
         1024,
         768,
         345,
-        true,
         "encoder",
         "comfy"
       ]
@@ -613,8 +612,8 @@
       },
       "widgets_values": [
         "max",
-        false,
         2048,
+        false,
         0
       ],
       "title": "Append Picture 1"

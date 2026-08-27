@@ -207,8 +207,8 @@
         0
       ],
       "size_policy": "max",
-      "allow_upscale": true,
-      "short_edge": 2048
+      "size_policy.short_edge": 2048,
+      "size_policy.allow_upscale": true
     }
   },
   "51": {
@@ -223,8 +223,8 @@
         "50",
         0
       ],
-      "allow_upscale": true,
-      "short_edge": 2048
+      "size_policy.short_edge": 2048,
+      "size_policy.allow_upscale": true
     }
   },
   "52": {
@@ -239,8 +239,8 @@
         "51",
         0
       ],
-      "allow_upscale": true,
-      "short_edge": 2048
+      "size_policy.short_edge": 2048,
+      "size_policy.allow_upscale": true
     }
   },
   "19": {

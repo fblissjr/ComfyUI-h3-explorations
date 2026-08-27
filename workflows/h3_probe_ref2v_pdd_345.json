@@ -449,7 +449,6 @@
         1344,
         768,
         345,
-        true,
         "encoder",
         "comfy"
       ]
@@ -563,8 +562,8 @@
       },
       "widgets_values": [
         "max",
-        true,
         2048,
+        true,
         0
       ],
       "title": "Append Picture 1"
@@ -610,8 +609,8 @@
       },
       "widgets_values": [
         "max",
-        true,
         2048,
+        true,
         0
       ],
       "title": "Append Picture 2"

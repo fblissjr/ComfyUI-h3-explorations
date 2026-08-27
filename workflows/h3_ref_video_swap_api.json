@@ -194,8 +194,8 @@
         0
       ],
       "size_policy": "max",
-      "allow_upscale": false,
-      "short_edge": 2048
+      "size_policy.short_edge": 2048,
+      "size_policy.allow_upscale": false
     }
   },
   "28": {
