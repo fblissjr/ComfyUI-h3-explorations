@@ -130,7 +130,18 @@ Classified by the task prefix each prompt declares: the ten pure
 `reference generation` prompts (42-198 words) are genuinely under. The three
 `video editing` ones are exempt. `video continuation` is not named by the rule.
 Two of the editing prompts also declare `reference generation`, and the guide
-does not resolve that combination — an ambiguity, not a defect.
+does not resolve that combination — an ambiguity, not a defect, and a sharper
+one than it first looks. **`[video editing + reference generation + audio reuse]`
+is ref §3's own worked illustration of the prefix format** (ref_en:127), so a
+job that is simultaneously an edit and a generation is the shape the guide chose
+to demonstrate its syntax with, not a corner we backed into. Ref §5.2, fifteen
+sections later, gives the generation range and the editing exemption and never
+mentions the combination.
+
+Treat it as **unresolved rather than decided in either direction**: picking one
+would be house judgement wearing a guide citation. The half both readings agree
+on is safe to act on — never pad toward the range to satisfy it, and let
+information load set the length.
 
 One line of §5.2 forecloses the obvious excuse: **"A single shot does not
 automatically justify a shorter description."** Our under-budget prompts are all

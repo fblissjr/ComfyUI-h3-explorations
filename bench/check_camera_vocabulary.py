@@ -206,9 +206,37 @@ def case_quiet_on_guide_examples() -> list[str]:
                              "not the text")
     if fails:
         return [f.replace("modifiers_in_set", "quiet_on_examples") for f in fails]
+
+    # WHAT THE CORPUS DOES NOT CONTAIN. Silence is only evidence for a rule the
+    # corpus actually EXERCISES -- one whose inputs appear in it at all. A rule
+    # the corpus never feeds is silent for a structural reason, and reporting
+    # that as a pass is how a green cry-wolf control hides a wrong rule.
+    #
+    # The sibling project supplied the instance: a punctuation rule that
+    # contradicted base 4.4 sat green through their whole worked-example suite,
+    # because none of the five fixtures carried user-supplied dialogue with
+    # decorative punctuation. Nothing in a passing run said so.
+    #
+    # So per rule: did the corpus contain anything this rule LOOKS AT? Not
+    # anything it fires on -- that would be the same vacuity one level up.
+    blob = " ".join(corpus.values())
+    exercised = {
+        "modifiers_in_set": bool(AMP_RE.search(blob)) and bool(SPD_RE.search(blob)),
+        # A denylist is inputs-by-enumeration, so a known-good corpus can never
+        # exercise it: if it did, the corpus would not be known-good. This is
+        # ALWAYS False and is reported rather than hidden.
+        "denied_motion": any(bad in blob.lower() for bad in DENIED),
+    }
     print(f"  ok    quiet_on_examples  silent on {len(corpus)} passage(s) of the "
-          "guide's own prose (cry-wolf corpus; proves no false fire on vendor "
-          "text, NOT that the rules are correct)")
+          "guide's own prose (cry-wolf corpus)")
+    for rule, ran in exercised.items():
+        if ran:
+            print(f"        exercised  {rule}: the corpus contains inputs this "
+                  "rule inspects, so its silence is evidence")
+        else:
+            print(f"        NOT exercised  {rule}: the corpus contains nothing "
+                  "this rule inspects, so its silence here is structural and "
+                  "proves nothing about it")
     return []
 
 
