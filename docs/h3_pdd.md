@@ -270,6 +270,46 @@ exists, so there is nothing honest to emit. The first version raised
 unconditionally and would have refused a 6-step render in flight while it was
 written, which is why the asymmetry is there.
 
+#### It composes with the sigma nodes, and `denoise < 1.0` needs no fallback
+
+**An earlier version of this section was wrong about that**, and said to leave
+SIGMAS unwired and use `BasicScheduler` for a partial trajectory. Not needed:
+
+| path | result |
+|---|---|
+| `SIGMAS(8)` -> `SplitSigmasDenoise(0.5)` -> `low_sigmas` | `[0.9231, 0.878, 0.8, 0.6316, 0.0]` |
+| `BasicScheduler(simple, 4, denoise=0.5)` | the same vector, `torch.equal` |
+| both rendered at a matched seed | **pixel-identical** |
+
+And the composed form is the better of the two, for a reason the arithmetic
+agreement hides: **every entry of the emitted vector IS a block boundary**, so
+an index split lands on the grid by construction rather than by
+`BasicScheduler`'s `int(steps/denoise)` happening to come out even.
+`SplitSigmas` composes the same way, which is what a two-stage PDD arm would
+use -- none ships, so the split graphs keep `BasicScheduler` and this is
+untested there.
+
+#### The boundary warning was firing once per SESSION, not once per schedule
+
+Found while measuring the above, and it invalidated a measurement in the middle
+of taking it. Two arms with a bit-identical truncated sigma vector, queued back
+to back: the first warned, the second was silent. `self.warned` is a latch set
+in `__init__` and the tracker outlives the render -- ComfyUI's execution cache
+keeps the ModelPatcher across prompts -- so the second graph to go off-boundary
+in a session got nothing. `_adopt` now resets it, so the budget is one warning
+per schedule.
+
+This is the **third** instance of the same defect class in this file in one day:
+the head selector's `t` quantisation, the shift guard's first `_shift_checked`
+latch, and this. All three are a value that outlives the render it describes.
+Anything latched on this tracker has to ask what happens on the next prompt in
+the same session.
+
+With the latch fixed, a clean session shows **neither** denoise path warning --
+so a truncated PDD schedule is on-grid both ways, and the one warning that
+started this was a render queued after a RAISED render in the same session,
+which is contaminated state rather than an off-grid schedule.
+
 What this does **not** reach: `sampler_name` -- the euler requirement is still
 enforced by nothing -- and `strength`. Sol's `end_percent` is still derived from
 the step count at build time, so hand-editing steps still leaves it stale.

@@ -76,8 +76,15 @@ plain shifted schedule for the block count -- so this is bit-identical to
 `calculate_sigmas`, and grades that the graphs consume it.
 
 The observe path above is NOT retired: it still drives head selection, so a
-graph that leaves SIGMAS unwired behaves exactly as before -- which is what
-`denoise < 1.0` and any deliberately off-grid arm need.
+graph that leaves SIGMAS unwired behaves exactly as before -- which is what a
+deliberately off-grid arm needs.
+
+`denoise < 1.0` does NOT need it, and an earlier version of this note said it
+did. The emitted vector composes with ComfyUI's sigma nodes:
+`SplitSigmasDenoise(sigmas, 0.5)` -> `low_sigmas` is bit-identical to
+`BasicScheduler(simple, N, 0.5)` and renders pixel-identically. It is the
+better of the two, because every entry here IS a block boundary, so the split
+lands on the grid by construction.
 
 ## Three traps this node is shaped around
 
@@ -350,6 +357,17 @@ class _StepTracker:
         return list(range(0, self.num_steps + 1, block))
 
     def _adopt(self, knots: list[int], why: str) -> None:
+        # A new schedule gets a new warning budget. `warned` is a latch, and
+        # this tracker outlives the render: ComfyUI's execution cache keeps the
+        # ModelPatcher across prompts in a session, so without this reset the
+        # boundary warning fires at most once PER SESSION rather than once per
+        # schedule -- the second graph to go off-boundary is silent.
+        #
+        # Measured 2026-08-28: two arms with a bit-identical truncated sigma
+        # vector, queued back to back, and only the first warned. Same defect
+        # class as the shift guard's first version in `check_shift` below, found
+        # the same day, which is why both now say so out loud.
+        self.warned = False
         self.knots = knots
         self.nfe = len(knots) - 1
         self.emb_v = self.grid_emb_v[knots]
@@ -837,10 +855,16 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "non-dividing count no on-grid schedule exists, so "
                         "this raises rather than quietly emitting something "
                         "off it.\n\n"
-                        "Leave SIGMAS unwired for denoise < 1.0, which this "
-                        "output does not express; the MODEL output still "
-                        "derives its blocks from whatever the sampler "
-                        "publishes and handles a partial trajectory."
+                        "For denoise < 1.0, do NOT fall back to "
+                        "BasicScheduler -- feed this output through "
+                        "`SplitSigmasDenoise` and take `low_sigmas`. Measured "
+                        "bit-identical to `BasicScheduler(simple, N, denoise)` "
+                        "and pixel-identical on the card, and it is the better "
+                        "of the two: every entry of this vector IS a block "
+                        "boundary, so an index split lands on the grid by "
+                        "construction rather than by arithmetic that happens "
+                        "to agree. `SplitSigmas` composes the same way for a "
+                        "two-stage arm."
                     ),
                 ),
             ],
