@@ -629,10 +629,34 @@ So we are stricter than the paper at 6 and looser at 1 and 2. Worth noting the
 the paper, which is a nice convergence but means the warning is doing the
 paper's job by accident rather than by construction.
 
-**The six-evaluation arm is reachable today** and is the most paper-grounded
-untried thing in the lane: the run-time path takes an uneven partition happily
-(`schedule_knots` derives and reports it), so `ManualSigmas` with knots
-`[0,4,8,12,16,24,32]` runs it with no code change. Unrun.
+> **RUN AND SUPERSEDED, 2026-08-28. The arm named here — `[4,4,4,4,8,8]`,
+> knots `[0,4,8,12,16,24,32]` — was the wrong six-evaluation partition.** It is
+> legal under the envelope, and it spends its extra evaluations at the FRONT
+> where the trajectory is nearly flat, so it keeps the same 80% final Euler step
+> as the uniform four-evaluation arm it was meant to improve on. Legality was
+> necessary and not sufficient.
+>
+> `[8,8,4,4,4,4]` is the one that matters: same evaluation count, same width
+> multiset, coarse blocks at the FRONT, and a **63.2%** final step — the same
+> tail the vendor's own eight-evaluation schedule has. It now ships as
+> `workflows/h3_text_to_video_pdd_manual_sigmas.json`.
+>
+> **And four evaluations cannot be improved at all.** Enumerated: `[8,8,8,8]` is
+> the ONLY partition of the 32-point grid into four blocks that starts every
+> block on a multiple of `L_min` and keeps every width within `L_max`. Its 80%
+> final step is forced, not chosen, so there is nothing to tune toward — the
+> operating point itself is the problem.
+>
+> [`research/pdd/audio_under_pdd.md`](research/pdd/audio_under_pdd.md) has the
+> matched-pair render behind that, and the reason no partition experiment can
+> attribute the effect to either stream: every coarseness statistic ranks the
+> arms identically whether computed in video time or through the audio
+> transform.
+
+**The six-evaluation arm is reachable today** and was, before this section was
+written, the most paper-grounded untried thing in the lane: the run-time path
+takes an uneven partition happily (`schedule_knots` derives and reports it), so
+`ManualSigmas` runs one with no code change.
 
 **Stated as a prediction, not a result.** Fusion loss is a weight-space proxy:
 it measures how far a block's heads sit from their own mean, and it does NOT
@@ -646,8 +670,18 @@ code change -- `ManualSigmas` or `FloatToSigmas` into `SamplerCustomAdvanced`
 does it, and the tracker derives blocks from whatever it is handed and reports
 an uneven partition rather than refusing:
 
-    uniform  sigmas [1.0, 0.972973, 0.923077, 0.8,      0.0]
-    optimal  sigmas [1.0, 0.631579, 0.444444, 0.27907,  0.0]
+    uniform  sigmas [1.0, 0.972973, 0.923077, 0.8,      0.0]         80.0% tail
+    optimal  sigmas [1.0, 0.631579, 0.444444, 0.27907,  0.0]         refuted
+    SHIPPED  sigmas [1.0, 0.972973, 0.923077, 0.878049,
+                     0.8, 0.631579, 0.0]                             63.2% tail
+
+**A `ManualSigmas` arm is now a shipped shape, not just a possibility**, and two
+checks learned it: `h3_config.graph_schedule` reads the vector and reports the
+scheduler as `manual` rather than `simple` (calling it simple would assert an
+equality with `calculate_sigmas` that is false for a non-uniform partition), and
+`check_distill_settings` grades such an arm's knots against the grid and its
+widths against the envelope instead of demanding the count divide 32.
+`check_pdd_sigmas` skips them and says which check covers them instead.
 
 Matched seed, `C2`-style with Sol removed from both sides, is the arm.
 
@@ -1631,6 +1665,16 @@ of fix, and the record says so.
 ---
 
 ## See also
+
+- [`research/pdd/audio_under_pdd.md`](research/pdd/audio_under_pdd.md) — **why a
+  4-evaluation arm renders jagged video with scratchy audio, and why 4 cannot be
+  fixed.** Carries the matched-pair render, the enumeration showing `[8,8,8,8]`
+  is the only legal 4-block partition, the energy-collapse measurement, and the
+  reason no partition experiment can attribute the effect to one stream. Its
+  central MECHANISM claim is superseded; its causal result is not, and the file
+  says which is which at the top.
+- [`research/pdd/2026-08-28_audio_plan.md`](research/pdd/2026-08-28_audio_plan.md)
+  — the execution plan for that lane, written for a session with no context.
 
 - [`docs/h3_ref2v_distillation.md`](h3_ref2v_distillation.md) — why ref2v
   resists step distillation, and the measurements this table is scaled against
