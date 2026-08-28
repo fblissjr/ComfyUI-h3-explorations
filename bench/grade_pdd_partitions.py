@@ -71,11 +71,30 @@ OUT = Path(os.environ.get("H3_OUTPUT_DIR", "")) if os.environ.get(
 # anything. The audio SHARE is not the problem (1.06% at 39, 1.11% at 362).
 LENGTH, SEED = 362, 730451892
 
-#: [28,2,1,1] on the shift-12 grid. Written out rather than recomputed so the
-#: arm is legible in the payload and in the record.
-OPT4 = "1.0, 0.631579, 0.444444, 0.27907, 0.0"
+#: Non-uniform arms, as the sigma vector each drives the sampler with. Written
+#: out rather than recomputed so the arm is legible in the payload and in the
+#: record -- and every one is a SUBSET of the 32 knots `pdd_time_grid(12, 32)`
+#: produces, so each block's fused head is exact for the span it steps.
+#:
+#: opt4  [28,2,1,1]  the fusion-loss optimum at four evaluations, and the
+#:                   prediction this script refuted: measured, it is FURTHER
+#:                   from the trajectory than uniform.
+#: mix6  [4,4,4,4,8,8]  six evaluations, and the arm the paper argues for.
+#:                   Paper line 282: training takes block starts at multiples
+#:                   of `L_min` and widths within `L_max`. Under the inferred
+#:                   4/8 this is legal where `opt4` is not -- opt4 starts two
+#:                   blocks off-multiple (30, 31) and makes one 28 wide, which
+#:                   is why fusion loss, reading only head weights, could not
+#:                   see that it was off-distribution.
+MANUAL = {
+    "opt4": "1.0, 0.631579, 0.444444, 0.27907, 0.0",
+    "mix6": "1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.8, 0.0",
+}
 
-ARMS = {"ref32": 32, "u8": 8, "u4": 4, "u4b": 4, "u4c": 4, "opt4": None}
+#: int -> a uniform arm at that many evaluations; the node emits the schedule.
+#: str -> the key into MANUAL, driven through ManualSigmas instead.
+ARMS = {"ref32": 32, "u8": 8, "u4": 4, "u4b": 4, "u4c": 4,
+        "opt4": "opt4", "mix6": "mix6"}
 
 
 def post(path, payload):
@@ -94,9 +113,18 @@ def build(arm):
     g["6"]["inputs"]["noise_seed"] = SEED
     g.pop("13", None)                       # muxer: re-encodes, and we compare tensors
     steps = ARMS[arm]
-    if steps is None:                       # the non-uniform arm
-        g["18"]["inputs"]["steps"] = 4      # heads still fuse per span from the schedule
-        g["60"] = {"class_type": "ManualSigmas", "inputs": {"sigmas": OPT4}}
+    if isinstance(steps, str):              # a non-uniform arm
+        # 0, not the evaluation count. `steps` feeds ONLY the SIGMAS output,
+        # which ManualSigmas replaces here -- head fusion comes from
+        # `sample_sigmas` at run time, per block, from whatever the sampler
+        # actually steps. And 0 is the one value `resolve_emit_steps` never
+        # refuses, which is what makes six reachable: 32 % 6 != 0, so asking
+        # for 6 explicitly raises by design. Passing the eval count here would
+        # make legal arms depend on whether they happen to divide 32, which is
+        # exactly the constraint a manual partition exists to escape.
+        g["18"]["inputs"]["steps"] = 0
+        g["60"] = {"class_type": "ManualSigmas",
+                   "inputs": {"sigmas": MANUAL[steps]}}
         g["10"]["inputs"]["sigmas"] = ["60", 0]
     else:
         g["18"]["inputs"]["steps"] = steps
