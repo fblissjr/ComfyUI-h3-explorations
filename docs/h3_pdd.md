@@ -1452,6 +1452,84 @@ for `.mp4` containers, met again in a different format one day later. Decode
 first, hash second; the note's advice was right and reaching for a different
 file format did not escape it.
 
+## Why audio suffers more than video, and why it worsens with block width
+
+The owner's question was why audio is always the thing that is off in these
+distilled arms, and whether it is a latent ComfyUI bug. **No bug was found. What
+was found is a structural interaction between how ComfyUI samples H3's audio and
+what a PDD head returns**, and it predicts the size of the effect.
+
+### The divergence, confirmed from source
+
+The vendor's own pipeline steps audio on **its own scheduler**:
+`coderef/alibaba-pai_MiniMax-H3-Acc-LoRAs/predict_t2v.py:36` passes
+`pipeline.scheduler.shift` AND `pipeline.audio_scheduler.shift` — two
+schedulers, audio integrated at shift 3 in its own time.
+
+ComfyUI does not. `comfy/model_sampling.py:328` carries the audio latent
+**scaled onto the video schedule** so the pack is "an ordinary single-schedule
+flow latent", and `comfy/ldm/minimax/model.py:530-551` undoes and redoes that
+carry around every forward:
+
+    carry  = sigma_a / sigma_v                       # before _forward, audio seen clean
+    out[1] = (1 - s) * (audio_src * carry)           # after _forward
+             + (1 + (s - 1) * sigma_a) * out[1]      # s = shift_v/shift_a = 4
+
+That second line is a **change of variable on an instantaneous derivative**,
+evaluated at this step's `sigma_a`.
+
+### Where PDD lands in it
+
+`MiniMaxH3PDDLoRA` patches `final_layer.{video,audio}_out.forward`, which is
+inside `_forward` — so the fused head runs in the clean-audio domain and the
+transform is applied to its output. That placement is correct.
+
+**But a fused head does not return an instantaneous velocity.** It returns the
+block's MEAN velocity over `[t_n, t_{n+L}]` — that is the whole idea. So an
+instantaneous change of variable, evaluated at the block's starting sigma, is
+applied to a quantity averaged over the block. That is exact only as the block
+narrows, and **video has no such transform at all**, because video is the
+reference stream the carry is defined against.
+
+So the error is audio-only and should grow with block width. **This is an
+inference from source, not a measurement** — but it makes a prediction the
+existing data can score.
+
+### The prediction, scored
+
+`bench/results/2026-08-28_pdd_partition_fidelity_362.json`, four arms:
+
+| arm | widest block | video rel L2 | audio rel L2 | audio/video |
+|---|---|---|---|---|
+| u8 | 4 | 0.542 | 0.858 | 1.58 |
+| mix6 | 8 | 0.536 | 0.899 | 1.68 |
+| u4 | 8 | 0.537 | 0.923 | 1.72 |
+| opt4 | 28 | 0.522 | 0.992 | 1.90 |
+
+**Video is flat across a 7x range of block width — it even improves slightly.
+Audio rises monotonically, and so does the ratio.** That is the signature the
+mechanism predicts, on the one variable video is insensitive to.
+
+### What this does and does not license
+
+It does NOT say ComfyUI is wrong. Carrying audio on one schedule is a
+deliberate design that makes the pack a single-schedule latent, and it is
+presumably fine for undistilled sampling where every step returns an
+instantaneous velocity. The interaction is with PDD specifically.
+
+It is also **one seed**, and audio rel L2 is raw-waveform and phase-sensitive —
+a poor absolute metric. What carries the argument is the ORDERING across four
+arms with video flat, which phase noise does not explain.
+
+**What would settle it:** render one arm with `shift_audio` set equal to
+`shift_video`, making `s = 1` and the transform the identity. If the audio
+penalty collapses, the mechanism is confirmed. That changes what the model is
+asked for, so it is a diagnostic and not a shipping option. Unrun.
+
+**Practical consequence meanwhile:** prefer partitions whose blocks are narrow
+where it matters, which is the same conclusion the tail5/tail6 enumeration
+reached from the video side for a different reason.
+
 ## What the artifact costs at run time, and whether it has to
 
 Raised by the owner on 2026-08-28: the file adds about a gigabyte at run time —
