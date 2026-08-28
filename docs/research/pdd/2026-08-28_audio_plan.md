@@ -56,14 +56,23 @@ harmless in principle and the error is the variation of `A` and `B` ACROSS the
 block, which the code freezes at the block's start. That is schedule arithmetic
 and needs no model.
 
-**Computed per arm it does NOT reproduce the observed ordering** — see
-[`audio_under_pdd.md`](audio_under_pdd.md). It correctly predicts `mix6` and
-`u4` land together (identical variation, and they are the closest observed
-pair), and it puts `opt4` mid-pack when `opt4` is observed worst.
+**Use INTEGRATED drift, not max-of-relative.** Freezing `B` costs error at every
+step in the block, so the quantity is the sum of `|B(sigma) - B(block start)|`
+over the grid points each block spans. Max-of-relative was an ad hoc proxy and
+mis-ranked `opt4`; integrated drift orders **all four** scored arms correctly.
+Full table and the two arithmetic corrections behind it are in
+[`audio_under_pdd.md`](audio_under_pdd.md).
 
-**So the mechanism is not sufficient as stated.** Anything you conclude has to
-either explain `opt4` or exclude it with a reason that is not post-hoc. Start
-here, because it is free and because it is the part currently failing.
+**Treat it as a consistency check, not a confirmation.** Four data points, and
+more than one metric was tried. Its claim to be more than a fit is that it is
+derived from the mechanism rather than selected for agreement — say that
+wherever you cite it.
+
+**A prediction is pre-registered against your queued arms**, which is the part
+that makes A0 worth doing before A: `tail6` (8.54) should land between `u8` and
+`mix6`; `tail5` (9.82) between `tail6` and `mix6`. **`tail5` above `u4` kills
+the quantity** — it is a five-evaluation arm that should beat a four-evaluation
+one, so it discriminates integrated drift from plain evaluation count.
 
 ### A. Grade tail6 / tail5 — free if they rendered
 

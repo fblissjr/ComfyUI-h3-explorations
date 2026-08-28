@@ -68,30 +68,64 @@ Relative variation of B across a block, `(Bmax-Bmin)/mean(B)`, at shift_v 12:
 **It is not monotone in width**, because a 28-wide block sits mostly in the flat
 early region. Where a block sits matters as much as how wide it is.
 
-### And computed per ARM, it does not reproduce the observed ordering
+### The right quantity is INTEGRATED drift, and it orders all four arms
 
-| arm | widths | max relvar B | observed audio/video |
+Max-of-relative-variation was the wrong statistic and mis-ranked `opt4`. The
+mechanism implies something else: freezing `B` costs error at EVERY step in the
+block, proportional to how far `B` has drifted from its frozen value. So the
+quantity is the **integrated absolute deviation** — over each block, the sum of
+`|B(sigma) - B(block start)|` across the grid points it spans.
+
+| arm | partition | integrated drift | observed audio/video |
 |---|---|---|---|
-| u8 | [4]x8 | 0.664 | 1.58 |
-| mix6 | [4,4,4,4,8,8] | 0.981 | 1.68 |
-| u4 | [8]x4 | 0.981 | 1.72 |
-| **opt4** | **[28,2,1,1]** | **0.779** | **1.90** |
+| u8 | [4]x8 | 7.19 | 1.58 |
+| mix6 | [4,4,4,4,8,8] | 10.88 | 1.68 |
+| u4 | [8]x4 | 12.22 | 1.72 |
+| opt4 | [28,2,1,1] | 23.19 | 1.90 |
 
-    ranked by coefficient variation:  u8 < opt4 < mix6 = u4
-    ranked by observed penalty:       u8 < mix6 < u4 < opt4      MISMATCH
+    by integrated:  u8 < mix6 < u4 < opt4
+    by observed:    u8 < mix6 < u4 < opt4      MATCH, all four
 
-**One real hit and one real miss.** The mechanism predicts `mix6` and `u4` land
-nearly on top of each other — identical coefficient variation, since both have a
-widest block of 8 in the same position — and observed they are 1.68 and 1.72,
-the closest pair in the set. That is a non-trivial prediction.
+**`opt4` no longer needs the off-distribution story.** It is worst because a
+28-wide block accumulates drift at 28 grid points, which a max cannot see and an
+integral does. The post-hoc note below is kept because this does not rule the
+start-at-30 explanation out, but it is no longer needed to save the mechanism.
 
-But it puts `opt4` mid-pack, and `opt4` is observed WORST by a clear margin.
-**So coefficient variation is not sufficient to explain the arm ordering.**
+**The caveat is not small, and it belongs next to the result.** Four data points,
+and several metrics were tried before this one — a metric that fits four points
+was cheap to find. What makes integrated drift worth more than a fit is that it
+is **derived from the mechanism** (the error accumulates per step by
+construction) rather than selected for agreement. **Call it a consistency check,
+not a confirmation.**
 
-A candidate reconciliation: `opt4` is the arm that is off-distribution
-(`[28,2,1,1]` starts two blocks at 30 and 31, not multiples of `L_min`), so its
-penalty may be off-distribution-ness rather than the transform. **That is
-post-hoc and is not evidence.** It is written here so nobody advances it as one.
+### Two arithmetic corrections made along the way
+
+**The earlier disagreement was normalisation, not a bug.** Relative variation
+came out at 0.474 normalised by `B[block start]`, 0.980 by `B[mean]`, and 1.500
+by `B[block end]` — three defensible choices spanning a 3x range, which is why
+the two sessions computing it disagreed and neither was wrong.
+
+**`mix6` and `tail6` are different arms and were briefly conflated.** `mix6` is
+`[4,4,4,4,8,8]`, wide blocks at the END, integrated 10.88. `tail6` is
+`[8,8,4,4,4,4]`, wide blocks at the FRONT, integrated 8.54. The claim that
+`mix6` and `u4` have identical variation came from reading `mix6` as `tail6`;
+withdrawn.
+
+### PRE-REGISTERED, before tail6 and tail5 render
+
+Ordinal, which is the real test:
+
+| arm | integrated | predicted position |
+|---|---|---|
+| tail6 | 8.54 | between **u8 (1.58)** and **mix6 (1.68)** |
+| tail5 | 9.82 | between **tail6** and **mix6**, nearer mix6 |
+
+**`tail5` is the discriminating one.** It is a FIVE-evaluation arm that should
+beat the FOUR-evaluation `u4` on audio. If the penalty tracked evaluation count
+rather than integrated drift, it would come out the other way.
+
+**If `tail5` lands above `u4`, the quantity is wrong** and the mechanism needs
+rethinking rather than refitting.
 
 ### The inference
 
