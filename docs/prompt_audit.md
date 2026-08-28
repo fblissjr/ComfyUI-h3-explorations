@@ -54,7 +54,7 @@ Ordered by blast radius — how many graphs carry the scene.
 | `derived:h3_first_last_frame_to_video` | fl2va | keep | conforms |
 | `I2V_PROMPT` | fl2va | keep | conforms |
 | `derived:h3_probe_ref2v_split_turbo_pack` | ref2va | revise | budget |
-| `DIALOGUE_REF2V_PROMPT` (stairwell) | ref2va | **rewrite** | shot-header format the guides both contradict, and it silently defeats preflight |
+| `DIALOGUE_REF2V_PROMPT` (stairwell) | ref2va | ~~rewrite~~ **done `d5be353`** | shot-header format the guides both contradict, and it silently defeated preflight. Headers fixed; see the open soundscape item below |
 | `derived:h3_probe_release_video_policy` | ref2va | keep | a policy probe |
 | `DIALOGUE_T2V_PROMPT` (stairwell t2v) | t2v | revise | one out-of-table motion phrase |
 | `R2V_PROMPT` (ten-second) | ref2va | **rewrite** | describes 10 s on a 15.083 s graph |
@@ -188,6 +188,38 @@ argument buys multi-shot ref2va and most of the budget at once. Verify that
 before writing 300 words by hand.
 
 ---
+
+### Both dialogue scenes name their speakers in `overall_soundscape` — open
+
+Found 2026-08-28 by a peer session auditing the catalogue, and **not covered by
+either scene's existing verdict**, which is why it is its own entry. Both
+`DIALOGUE_T2V_PROMPT` and `DIALOGUE_REF2V_PROMPT` carry the identical sentence
+"Two speaking voices, a measured adult female voice and a lower adult male
+voice, trading short clipped lines with almost no gap between them" in
+`overall_soundscape`, while already declaring those speakers with `<d>` and
+stable ids in the main field.
+
+**The grounds are the field's positive scope, not the no-repeat clause.**
+base §4.6 does say dialogue "should not be repeated here", and a describing
+sentence arguably slips past that since it repeats no words. The stronger
+reading is the same sentence's enumeration: the field summarizes "ambient
+sound, physical action sounds, and **non-verbal** human sounds", listing
+breathing, laughter and panting. Verbal human sound is the category that
+enumeration excludes by naming its complement. ref §6 reaches the same place
+independently — "ambience and physical sounds", dialogue staying in
+`detailed_description`.
+
+So it is out of scope by what the field IS, which does not depend on settling
+whether describing voices counts as repeating them.
+
+**A related case that is NOT this and must not be swept in**: the voice-timbre
+reference in `derived:h3_ref_audio_voice`. Ref §6 places a reference
+relationship "in the section that matches the audible layer" and names two —
+ambience/SFX, and audience-only score. A speaking voice is neither, so the guide
+gives it no home there; the form the guide does give lives in
+`subject_definitions` with its marker in `retention_analysis`. That reads as the
+wrong layer, but the guide is **silent** rather than contradictory, and this
+repo has retracted two rules read out of guide silence. OPEN, not a defect.
 
 ## Marker coverage: the gap nothing measures
 
