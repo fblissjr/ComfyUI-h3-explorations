@@ -76,7 +76,13 @@ MAX_DURATION = MAX_LENGTH / FPS  # 15.083s
 #: module needs no ComfyUI on the path, which is what lets both sides read one
 #: value instead of keeping two in step by hand.
 #:
-#: A reasoned default, not a tuned one: no A/B has been run on it.
+#: **A reasoned default, not a tuned one, and moving it here did not change
+#: that.** This became the node's default so that a freshly dragged node and
+#: the shipped graphs agree; agreement between them is not evidence about the
+#: value. It still rests on a single render at one seed, and the arm that would
+#: settle it holds the encoder weights fixed and varies only its pixel bounds,
+#: which needs no render at all. Do not cite this constant, or the fact that it
+#: is the default, as a measured result.
 REF_QWEN_SHORT_EDGE = 512
 
 # diffusers' hard-coded `max_duration`. Kept, and kept SEPARATE, for the one
