@@ -25,14 +25,27 @@ knocked out by measurement. Read this section before any of the rest.
 drift over the blocks orders all six arms, and the ordering is the observed one.
 
 **"Audio-only, video flat" was a metric artifact.** Raw video rel L2 is
-dominated by the DC term every arm preserves. Remove the mean and video degrades
-monotonically with the same predictor — contrast ratio 0.991 / 0.975 / 0.860 /
-0.690 across u8 / mix6 / u4 / opt4, and at u4 and opt4 it is EVERY frame rather
-than outliers. The audio-only half of the claim rested on the metric's
-blindness, not on a property of the model.
+dominated by the DC term every arm preserves, and it is blind to contrast loss:
+**every arm sits at 0.50-0.53 raw while contrast spans 0.70-0.96.** So video is
+NOT unaffected, and the audio-only half of the claim rested on the metric's
+blindness rather than on a property of the model.
 
-**And audio is not "decorrelated", it is COLLAPSING.** Measured independently
-with `ffmpeg volumedetect`: ref32 -29.7 dB, u8 -34.3, mix6 -36.4, u4 -36.9,
+**The fine ordering does not reproduce, and the two sessions disagree at the top
+end.** Contrast ratio against ref32, u8 / mix6 / u4 / opt4:
+
+    audioclaude   0.9914 / 0.9753 / 0.8595 / 0.6896     monotone
+    verified here 0.9470 / 0.9556 / 0.8612 / 0.7039     u8 and mix6 INVERTED
+
+`u4` and `opt4` agree closely and are clearly degraded. `u8` and `mix6` are
+within noise of each other and swap order between computations, so **"video
+degrades monotonically with the same predictor" is stronger than the data
+supports.** What survives is the qualitative claim: video degrades, and the
+metric this thread used could not see it.
+
+**And audio is not "decorrelated", it is COLLAPSING. Reproduced exactly in a
+second session**, including the u4/u4b/u4c repeats all landing on -36.9, which
+is the zero noise floor showing up in a different instrument. `ffmpeg
+volumedetect`: ref32 -29.7 dB, u8 -34.3, mix6 -36.4, u4 -36.9,
 opt4 -40.9. Optimal gain against the reference falls to 0.046 for opt4 — its
 audio has essentially vanished. **Audio rel L2 saturates at sqrt(2) = 1.414 for
 a ONE-frame shift (measured 1.418), so it has no gradation for phase at all**;
