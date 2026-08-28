@@ -20,8 +20,13 @@ from dataclasses import dataclass as _dataclass
 from pathlib import Path
 
 
-#: The shipped text encoder, by the name `h3_awq_encoder.py`'s snapshot
-#: registry recognizes. **v2 since 2026-08-27, by owner decision**, replacing
+#: **NOT SHIPPED. `MODELS["clip"]` is `ENCODER_INT8`.** A W4 artifact kept for
+#: the small-host variant and for the arms that measure encoders; no shipped
+#: graph loads it. This docstring opened with "the shipped text encoder ... v2
+#: since 2026-08-27" until 2026-08-28, which was true for hours and then was
+#: not. **The observable is `MODELS["clip"]`; do not restate ship state here.**
+#: Named by the name `h3_awq_encoder.py`'s snapshot registry recognizes,
+#: replacing
 #: `qwen3vl_32b_minimax_h3_w4a16_awq.safetensors`. v2 declares the release's
 #: own still-image budget, 65536..16777216 px, where v1's snapshot declared
 #: 200704..301056. Under v1 every reference reached the conditioner reduced to
@@ -48,8 +53,9 @@ from pathlib import Path
 #: rather than the "no contract" an unknown name would have produced.
 ENCODER_V2 = "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"
 
-#: **Shipped again since 2026-08-27, by owner decision, hours after v2 replaced
-#: it.** Its snapshot resolves to `None` in `h3_awq_encoder.ARTIFACT_SNAPSHOTS`,
+#: **NOT SHIPPED either. `MODELS["clip"]` is `ENCODER_INT8`.** This said
+#: "shipped again since 2026-08-27" and was overtaken the same day by
+#: `4ff3f0b`. Its snapshot resolves to `None` in `h3_awq_encoder.ARTIFACT_SNAPSHOTS`,
 #: which is that module's own config -- the 200,704..301,056 px still budget.
 #:
 #: What sent it back is not a weights result. On the Gate 5 holdout v2's median
@@ -93,8 +99,9 @@ ENCODER_V1 = "qwen3vl_32b_minimax_h3_w4a16_awq_v1-comfy.safetensors"
 #: layer 50 than either W4A16 artifact (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`).
 #: That comparison was taken against v1 and the v2 candidate as they stood on
 #: that date; it is the reason to keep measuring this encoder, not a reason the
-#: shipped graphs cannot move. They load `MODELS["clip"]`, which is v2 since
-#: 2026-08-27; only the arms that measure wire this one.
+#: shipped graphs cannot move. **They load `MODELS["clip"]`, which is THIS
+#: file** -- the sentence here used to say v2, contradicting the line below it
+#: in the same comment block, and `git blame` shows one commit wrote both.
 #:
 #: **SHIPPED ON EVERY GRAPH SINCE 2026-08-27 (late), by owner decision**,
 #: replacing the W4A16 AWQ builds. The fidelity case is the table above; what
@@ -728,8 +735,12 @@ SOL_CUDA_DEFAULTS = dict(
 #   **Captures exist, but not the one this comment named.** The dense 124-frame
 #   1344x768 render at blocks 0/24/49 is no longer on disk; what is there is the
 #   2026-08-17 reference-heavy pair at 362 frames 1024x768. Both were made for a
-#   different question and **no sage kernel has been graded against either**. That is the run that would let this repo state an accuracy figure
-#   of its own; until it happens there is no number to quote.
+#   different question. **This said no sage kernel had been graded against
+#   either and that there was no number to quote. Both were false when written:**
+#   `bench/results/2026-08-18_sage_accuracy_on_capture.json` grades sage against
+#   the 2026-08-17 capture named here, with a float64 reference, produced by
+#   `bench/grade_sage_on_capture.py`. Read the number there rather than this
+#   comment.
 #
 # fp16's other cost, unchanged and now not paid: it is the one mode with no
 # `sageattn_consume` entry point, so it holds the float q/k/v for the whole
@@ -741,7 +752,10 @@ SOL_CUDA_DEFAULTS = dict(
 # `fp16 (most accurate)` remains available and is what the probe arms bisect
 # against.
 #
-# token_refiner runs over the text span only (~2k rows against ~42k), so
+# token_refiner runs over the text span only, which is a few hundred rows
+# against a hundred thousand -- this said "~2k rows against ~42k" and both
+# halves were wrong; `docs/SOLATTN.md` has the measured breakdown off a shipped
+# graph, and this file's own numbers elsewhere say a few hundred. So
 # patching it is worth well under 1% of attention time.
 # head_chunks 1 = off. It trades ~4x the attention launches for headroom that
 # converts to wall-clock at the ~2.6% ceiling measured above, so it is for
@@ -1236,7 +1250,10 @@ IMAGE_VAE = "minimax_h3_t1_image_vae_step1597.safetensors"
 # 2:3 portrait, and INSIDE the trained family -- `adapt_canvas(2, 3)` returns
 # exactly this. Worth stating because the community workflow this path follows
 # renders 1024x1536 (1.57 MP), which is 52% over H3's 768*1344 area cap and
-# outside the family; it works, and it costs 1.78x the attention per frame for
+# outside the family; it works, and it costs 1.78x the TOKENS per frame -- so
+# about 3.2x the attention, which goes as their square, a distinction this line
+# got wrong until 2026-08-28 while the tier table three blocks down had it
+# right -- for
 # a canvas the checkpoint never trained on. Ours is the conservative default,
 # not a claim that the bigger one is wrong -- the Resolution node's `custom`
 # option reaches it and says which side of the family you are on.
@@ -1307,7 +1324,12 @@ IMAGE_EDIT_BUDGET = dict(**IMAGE_EDIT_CANVAS, ref_upscale=False)
 # **The structural fact that makes this worth having**, measured against
 # `adapt_canvas` on 2026-08-16 by enumerating the whole legal family:
 #
-#   Every ratio at or above 1.75 costs the SAME. 1344x768, 1536x672,
+#   Going wider is free, and buys no speed. **Not "every ratio at or above
+#   1.75 costs the same" -- that was this line until 2026-08-28 and it is
+#   false across the band; the four canvases named were selected, not
+#   representative.** What is true is that the area cap binds, so widening
+#   trades width for height at about the same cost. These four are exactly
+#   equal: 1344x768, 1536x672,
 #   1792x576 and 2016x512 are all 1008 tokens/frame, because the area cap
 #   binds and simply trades width for height. **Going wider is free and buys
 #   no speed.** The only cheap direction is toward square, and it is a smooth
@@ -1403,8 +1425,15 @@ ASPECTS = {
 # useful boundary is lower here and the sweep starts at 1.
 SPLIT_AT = 2
 
-# **`REF_VIDEO_LENGTH` was deleted on 2026-08-16. Do not reintroduce it.**
-# Owner's reasoning, and it is the right one: a safe length for a reference
+# **`REF_VIDEO_LENGTH` was deleted on 2026-08-16, REINTRODUCED on 2026-08-22
+# (`f9d63c59`), and is defined about a hundred lines below with its own
+# justification. 28 shipped graphs render at it.** The prohibition below stood
+# here unqualified until 2026-08-28 while the constant it forbids lived in the
+# same file, which is the failure this file is most prone to: a decision
+# recorded as a rule, reversed, and the rule left standing.
+#
+# The reasoning is kept because it is still the right question to ask of any
+# length constant -- read it as an argument, not as a prohibition: a safe length for a reference
 # arm is not a constant. It depends on how many references are wired, their
 # kinds, their durations, the canvas, and whether they are upscaled -- so a
 # single number can only be right for the one configuration it was measured
