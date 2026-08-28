@@ -104,96 +104,109 @@ re-arms under v2. Sol is written `start-end tau<t> dense<blocks> min<tokens>`.
 
 ### A' -- does attribution hold on v1
 
-ref dialogue, 2 refs, 8 `<d>` lines
+ref dialogue, 2 refs, 8 `<d>` lines. **PASSED**
 
-| arm | status | steps | heads | refs | Sol |
-|---|---|---|---|---|---|
-| `h3_r2v_dialogue_pdd_4step_00001` | **PASSED** (owner) | 4 | on | 2 up qwen512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| arm | status | steps | len | heads | refs | Sol |
+|---|---|---|---|---|---|---|
+| `h3_r2v_dialogue_pdd_4step_00001` | **PASSED** (owner) | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
 
-### B -- what does upscaling buy
+### B -- reference sizing at 362 frames
 
-`allow_upscale` alone; Qwen view is 522 tok on BOTH sides under v1, so only DiT rows move (9,408 vs 2,368)
+the full sizing axis. `match` had NEVER been rendered before tonight -- 84 of 84 shipped graphs use `max`
 
-| arm | status | steps | heads | refs | Sol |
-|---|---|---|---|---|---|
-| `B_noupscale_s730451892` | done | 4 | on | 2  up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_noupscale_s730451893` | done | 4 | on | 2  up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_noupscale_s730451894` | done | 4 | on | 2  up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_upscale_s730451893` | done | 4 | on | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_upscale_s730451894` | done | 4 | on | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| arm | status | steps | len | heads | refs | Sol |
+|---|---|---|---|---|---|---|
+| `B_match_s730451892` | queued | 4 | 362 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_match_s730451893` | queued | 4 | 362 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_match_s730451894` | queued | 4 | 362 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_noupscale_s730451892` | done | 4 | 362 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_noupscale_s730451893` | done | 4 | 362 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_noupscale_s730451894` | done | 4 | 362 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_upscale_s730451893` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_upscale_s730451894` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+
+### L -- the same sizing axis at 294 frames (12.25s)
+
+~99,691 packed against 362's ~120,077, which is below both of tonight's OOM points. Second length for the sizing question
+
+| arm | status | steps | len | heads | refs | Sol |
+|---|---|---|---|---|---|---|
+| `L_12s_match_s730451892` | queued | 4 | 294 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `L_12s_noupscale_s730451892` | queued | 4 | 294 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `L_12s_upscale_s730451892` | queued | 4 | 294 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
 
 ### C -- heads, and step count with Sol on
 
-`patch_heads`, and 8 steps with Sol's window moving too
+`patch_heads`, and 8 steps with Sol's window moving with it
 
-| arm | status | steps | heads | refs | Sol |
-|---|---|---|---|---|---|
-| `C_pdd4_headfree_s730451892` | done | 4 | off | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `C_pdd4_headfree_s730451893` | done | 4 | off | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `C_pdd4_headfree_s730451894` | done | 4 | off | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `C_pdd8_s730451892` | **OOM** | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
-| `C_pdd8_s730451893` | done | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
-| `C_pdd8_s730451894` | not run -- cancelled while Sol was wrongly suspected of the OOM; C2 supersedes | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
+| arm | status | steps | len | heads | refs | Sol |
+|---|---|---|---|---|---|---|
+| `C_pdd4_headfree_s730451892` | done | 4 | 362 | off | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `C_pdd4_headfree_s730451893` | done | 4 | 362 | off | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `C_pdd4_headfree_s730451894` | done | 4 | 362 | off | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `C_pdd8_s730451892` | **OOM** | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
+| `C_pdd8_s730451893` | done | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
+| `C_pdd8_s730451894` | not run -- cancelled while Sol was wrongly suspected of the OOM | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
 
 ### C2 -- step count, clean
 
-4 vs 8 with Sol REMOVED from both, so the step count drags nothing with it
+4 vs 8 with Sol REMOVED from both
 
-| arm | status | steps | heads | refs | Sol |
-|---|---|---|---|---|---|
-| `C2_pdd4_nosol_s730451892` | queued | 4 | on | 2  up=True qwen=512 | absent |
-| `C2_pdd4_nosol_s730451893` | queued | 4 | on | 2  up=True qwen=512 | absent |
-| `C2_pdd4_nosol_s730451894` | queued | 4 | on | 2  up=True qwen=512 | absent |
-| `C2_pdd8_nosol_s730451892` | queued | 8 | on | 2  up=True qwen=512 | absent |
-| `C2_pdd8_nosol_s730451893` | queued | 8 | on | 2  up=True qwen=512 | absent |
-| `C2_pdd8_nosol_s730451894` | queued | 8 | on | 2  up=True qwen=512 | absent |
+| arm | status | steps | len | heads | refs | Sol |
+|---|---|---|---|---|---|---|
+| `C2_pdd4_nosol_s730451892` | done | 4 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd4_nosol_s730451893` | done | 4 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd4_nosol_s730451894` | done | 4 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd8_nosol_s730451892` | RUNNING | 8 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd8_nosol_s730451893` | queued | 8 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd8_nosol_s730451894` | queued | 8 | 362 | on | 2 max up=True qwen=512 | absent |
 
 ### D -- the two knobs
 
-`reuse_qkv_memory` (identity) and `start_percent` (timing)
+`reuse_qkv_memory` (identity, SETTLED bit-identical) and `start_percent` (timing)
 
-| arm | status | steps | heads | refs | Sol |
-|---|---|---|---|---|---|
-| `D_reuse_on_s730451892` | done | 4 | on | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 REUSE |
-| `D_start0_s730451892` | **OOM** | 4 | on | 2  up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
-| `D_start0_s730451893` | done | 4 | on | 2  up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
-| `D_start0_s730451894` | done | 4 | on | 2  up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| arm | status | steps | len | heads | refs | Sol |
+|---|---|---|---|---|---|---|
+| `D_reuse_on_s730451892` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 REUSE |
+| `D_start0_s730451892` | **OOM** | 4 | 362 | on | 2 max up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| `D_start0_s730451893` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| `D_start0_s730451894` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
 
 ### F -- prompt conformance
 
-market scene, guide-conformant rewrite against the original. No references
+market t2v scene, guide-conformant rewrite against the original
 
-| arm | status | steps | heads | refs | Sol |
-|---|---|---|---|---|---|
-| `F_market_v1_s730451893` | RUNNING | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `F_market_v1_s730451894` | queued | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `F_market_v2_s730451892` | done | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `F_market_v2_s730451893` | done | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `F_market_v2_s730451894` | done | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| arm | status | steps | len | heads | refs | Sol |
+|---|---|---|---|---|---|---|
+| `F_market_v1_s730451893` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v1_s730451894` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v2_s730451892` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v2_s730451893` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v2_s730451894` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
 
 ### S -- Sol settings on the rewritten market scene
 
-one seed each, exploratory. `S_mktv2_yesterday` is the exact 2026-08-26 19:48 config
+one seed each. `S_mktv2_yesterday` is the exact 2026-08-26 19:48 config, read off an embedded workflow
 
-| arm | status | steps | heads | refs | Sol |
-|---|---|---|---|---|---|
-| `S_mktv2_dense_none` | queued | 4 | on | 0 | 0.2-0.74 tau1.0 densenone min12288 |
-| `S_mktv2_end090` | queued | 4 | on | 0 | 0.2-0.9 tau1.0 dense0-1 min12288 |
-| `S_mktv2_min4096` | queued | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min4096 |
-| `S_mktv2_sol_off` | queued | 4 | on | 0 | absent |
-| `S_mktv2_start0` | queued | 4 | on | 0 | 0.0-0.74 tau1.0 dense0-1 min12288 |
-| `S_mktv2_tau13` | queued | 4 | on | 0 | 0.2-0.74 tau1.3 dense0-1 min12288 |
-| `S_mktv2_yest_no_dense` | queued | 4 | on | 0 | 0.2-0.9 tau1.0 dense0-1 min4096 |
-| `S_mktv2_yesterday` | queued | 4 | on | 0 | 0.2-0.9 tau1.0 densenone min4096 |
+| arm | status | steps | len | heads | refs | Sol |
+|---|---|---|---|---|---|---|
+| `S_mktv2_dense_none` | queued | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 densenone min12288 |
+| `S_mktv2_end090` | queued | 4 | 362 | on | none (t2v) | 0.2-0.9 tau1.0 dense0-1 min12288 |
+| `S_mktv2_min4096` | queued | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min4096 |
+| `S_mktv2_sol_off` | queued | 4 | 362 | on | none (t2v) | absent |
+| `S_mktv2_start0` | queued | 4 | 362 | on | none (t2v) | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| `S_mktv2_tau13` | queued | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.3 dense0-1 min12288 |
+| `S_mktv2_yest_no_dense` | queued | 4 | 362 | on | none (t2v) | 0.2-0.9 tau1.0 dense0-1 min4096 |
+| `S_mktv2_yesterday` | queued | 4 | 362 | on | none (t2v) | 0.2-0.9 tau1.0 densenone min4096 |
 
 ### G -- does the shipped 8-step reference graph run
 
 shipped defaults, unmodified
 
-| arm | status | steps | heads | refs | Sol |
-|---|---|---|---|---|---|
-| `G_shipped_pdd8_ref_asis` | not run -- held back: needs its own cold server, see the cache section | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
-| `G_shipped_pdd8_ref_reuse` | not run -- held back: same, and it is the paired half | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 REUSE |
+| arm | status | steps | len | heads | refs | Sol |
+|---|---|---|---|---|---|---|
+| `G_shipped_pdd8_ref_asis` | not run -- held: needs its own cold server | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
+| `G_shipped_pdd8_ref_reuse` | not run -- held: same, and it is the paired half | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 REUSE |
 
 Re-derive it with:
 
