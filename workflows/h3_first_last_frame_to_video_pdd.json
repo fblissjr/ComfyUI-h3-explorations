@@ -10,8 +10,8 @@
   },
   "id": "69b72ee8-8749-595e-b323-50ac9607d2bf",
   "revision": 0,
-  "last_node_id": 27,
-  "last_link_id": 25,
+  "last_node_id": 28,
+  "last_link_id": 26,
   "nodes": [
     {
       "id": 1,
@@ -65,7 +65,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            9
+            10
           ]
         }
       ],
@@ -99,8 +99,8 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            6,
-            21
+            7,
+            22
           ]
         }
       ],
@@ -132,7 +132,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            23
+            24
           ]
         }
       ],
@@ -180,13 +180,21 @@
         170
       ],
       "flags": {},
-      "order": 5,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
           "link": 1
+        },
+        {
+          "name": "steps",
+          "type": "INT",
+          "link": 2,
+          "widget": {
+            "name": "steps"
+          }
         }
       ],
       "outputs": [
@@ -194,14 +202,14 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            2
+            3
           ]
         },
         {
           "name": "SIGMAS",
           "type": "SIGMAS",
           "links": [
-            19
+            20
           ]
         }
       ],
@@ -219,6 +227,39 @@
     },
     {
       "id": 7,
+      "type": "PrimitiveInt",
+      "pos": [
+        -1500,
+        780
+      ],
+      "size": [
+        300,
+        60
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PrimitiveInt"
+      },
+      "widgets_values": [
+        8,
+        "fixed"
+      ],
+      "title": "PDD steps (8)"
+    },
+    {
+      "id": 8,
       "type": "MiniMaxH3SigmaShift",
       "pos": [
         -1500,
@@ -229,46 +270,7 @@
         110
       ],
       "flags": {},
-      "order": 6,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 2
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            3
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "MiniMaxH3SigmaShift"
-      },
-      "widgets_values": [
-        12.0,
-        3.0
-      ],
-      "title": "Sigma shift (video 12, audio 3)"
-    },
-    {
-      "id": 8,
-      "type": "MiniMaxH3SageAttention",
-      "pos": [
-        -880,
-        0
-      ],
-      "size": [
-        360,
-        110
-      ],
-      "flags": {},
-      "order": 7,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -287,51 +289,27 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3SageAttention"
+        "Node name for S&R": "MiniMaxH3SigmaShift"
       },
       "widgets_values": [
-        "auto",
-        false,
-        1
-      ]
+        12.0,
+        3.0
+      ],
+      "title": "Sigma shift (video 12, audio 3)"
     },
     {
       "id": 9,
-      "type": "MarkdownNote",
+      "type": "MiniMaxH3SageAttention",
       "pos": [
         -880,
-        -660
-      ],
-      "size": [
-        560,
-        480
-      ],
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "properties": {
-        "Node name for S&R": "MarkdownNote"
-      },
-      "widgets_values": [
-        "## What this node does that the UI does not show\n\n**`end_percent` is computed per step count by the generator, not by this\nnode.** The node turns a percent into a sigma when it is patched, which\nhappens before the step count exists. Edit `steps` by hand and this value goes\nstale, the wrong steps run sparse, and nothing at run time says so. Change\nsteps in `workflows/h3_config.py` and regenerate.\n\n**The window is a sigma band, so fewer steps means less of the run is\nsparse** -- most of it at 16 steps, about half at 4. The final step is always\ndense: it covers the largest jump in the schedule.\n\n**The packed conditioning rows always run dense** (`sink_conditioning`). They\nare a few hundred rows in a ~90k sequence and are the first thing a\nblock-sparse router drops; dropping them is what breaks generated audio.\n\n**Blocks 0-1 stay dense**, matching NVLabs' own H3 configs.\n\n**It composes onto the sage patch rather than replacing it**, which is why it\nmust sit after it. See the node-order note.\n"
-      ],
-      "title": "Sol-Attn: what runs that the widgets do not show"
-    },
-    {
-      "id": 10,
-      "type": "SolAttnMiniMax",
-      "pos": [
-        -880,
-        190
+        0
       ],
       "size": [
         360,
-        330
+        110
       ],
       "flags": {},
-      "order": 9,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
@@ -346,6 +324,69 @@
           "type": "MODEL",
           "links": [
             5
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SageAttention"
+      },
+      "widgets_values": [
+        "auto",
+        false,
+        1
+      ]
+    },
+    {
+      "id": 10,
+      "type": "MarkdownNote",
+      "pos": [
+        -880,
+        -660
+      ],
+      "size": [
+        560,
+        480
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "## What this node does that the UI does not show\n\n**`end_percent` is computed per step count by the generator, not by this\nnode.** The node turns a percent into a sigma when it is patched, which\nhappens before the step count exists. Edit `steps` by hand and this value goes\nstale, the wrong steps run sparse, and nothing at run time says so. Change\nsteps in `workflows/h3_config.py` and regenerate.\n\n**The window is a sigma band, so fewer steps means less of the run is\nsparse** -- most of it at 16 steps, about half at 4. The final step is always\ndense: it covers the largest jump in the schedule.\n\n**The packed conditioning rows always run dense** (`sink_conditioning`). They\nare a few hundred rows in a ~90k sequence and are the first thing a\nblock-sparse router drops; dropping them is what breaks generated audio.\n\n**Blocks 0-1 stay dense**, matching NVLabs' own H3 configs.\n\n**It composes onto the sage patch rather than replacing it**, which is why it\nmust sit after it. See the node-order note.\n"
+      ],
+      "title": "Sol-Attn: what runs that the widgets do not show"
+    },
+    {
+      "id": 11,
+      "type": "SolAttnMiniMax",
+      "pos": [
+        -880,
+        190
+      ],
+      "size": [
+        360,
+        330
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            6
           ]
         }
       ],
@@ -369,7 +410,7 @@
       "title": "Patch Sol-Attn (end_percent 0.87 - derived from the step count so the LAST step stays dense; default is 0.9)"
     },
     {
-      "id": 11,
+      "id": 12,
       "type": "ModelPreviewOverrideKJ",
       "pos": [
         -460,
@@ -380,13 +421,13 @@
         200
       ],
       "flags": {},
-      "order": 10,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 5
+          "link": 6
         },
         {
           "name": "vae",
@@ -400,7 +441,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            10
+            11
           ]
         }
       ],
@@ -418,7 +459,7 @@
       "title": "Preview (taeh3)"
     },
     {
-      "id": 12,
+      "id": 13,
       "type": "MiniMaxH3Conditioning",
       "pos": [
         -460,
@@ -435,23 +476,23 @@
         {
           "name": "clip",
           "type": "CLIP",
-          "link": 9
+          "link": 10
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 6
+          "link": 7
         },
         {
           "name": "first_frame",
           "type": "IMAGE",
-          "link": 7,
+          "link": 8,
           "shape": 7
         },
         {
           "name": "last_frame",
           "type": "IMAGE",
-          "link": 8,
+          "link": 9,
           "shape": 7
         },
         {
@@ -484,14 +525,14 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            12
+            13
           ]
         },
         {
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            13
+            14
           ]
         }
       ],
@@ -507,7 +548,7 @@
       ]
     },
     {
-      "id": 13,
+      "id": 14,
       "type": "LoadImage",
       "pos": [
         -880,
@@ -518,44 +559,7 @@
         330
       ],
       "flags": {},
-      "order": 11,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            7
-          ]
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "1-man.png",
-        "image"
-      ]
-    },
-    {
-      "id": 14,
-      "type": "LoadImage",
-      "pos": [
-        -880,
-        1260
-      ],
-      "size": [
-        290,
-        330
-      ],
-      "flags": {},
-      "order": 12,
+      "order": 7,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -576,12 +580,49 @@
         "Node name for S&R": "LoadImage"
       },
       "widgets_values": [
-        "2-mountain_landscape.png",
+        "1-man.png",
         "image"
       ]
     },
     {
       "id": 15,
+      "type": "LoadImage",
+      "pos": [
+        -880,
+        1260
+      ],
+      "size": [
+        290,
+        330
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            9
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "2-mountain_landscape.png",
+        "image"
+      ]
+    },
+    {
+      "id": 16,
       "type": "RandomNoise",
       "pos": [
         40,
@@ -592,7 +633,7 @@
         110
       ],
       "flags": {},
-      "order": 13,
+      "order": 9,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -600,7 +641,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            16
+            17
           ]
         }
       ],
@@ -613,7 +654,7 @@
       ]
     },
     {
-      "id": 16,
+      "id": 17,
       "type": "KSamplerSelect",
       "pos": [
         40,
@@ -624,7 +665,7 @@
         60
       ],
       "flags": {},
-      "order": 14,
+      "order": 10,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -632,7 +673,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            18
+            19
           ]
         }
       ],
@@ -644,7 +685,7 @@
       ]
     },
     {
-      "id": 17,
+      "id": 18,
       "type": "BasicGuider",
       "pos": [
         40,
@@ -655,18 +696,18 @@
         70
       ],
       "flags": {},
-      "order": 22,
+      "order": 23,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 11
+          "link": 12
         },
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 14
+          "link": 15
         }
       ],
       "outputs": [
@@ -674,7 +715,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            17
+            18
           ]
         }
       ],
@@ -683,7 +724,7 @@
       }
     },
     {
-      "id": 18,
+      "id": 19,
       "type": "SamplerCustomAdvanced",
       "pos": [
         400,
@@ -694,33 +735,33 @@
         150
       ],
       "flags": {},
-      "order": 23,
+      "order": 24,
       "mode": 0,
       "inputs": [
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 16
+          "link": 17
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 17
+          "link": 18
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 18
+          "link": 19
         },
         {
           "name": "sigmas",
           "type": "SIGMAS",
-          "link": 19
+          "link": 20
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 15
+          "link": 16
         }
       ],
       "outputs": [
@@ -728,8 +769,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            20,
-            22
+            21,
+            23
           ]
         },
         {
@@ -743,50 +784,11 @@
       }
     },
     {
-      "id": 19,
+      "id": 20,
       "type": "VAEDecode",
       "pos": [
         780,
         0
-      ],
-      "size": [
-        260,
-        60
-      ],
-      "flags": {},
-      "order": 24,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "samples",
-          "type": "LATENT",
-          "link": 20
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
-          "link": 21
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            24
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "VAEDecode"
-      }
-    },
-    {
-      "id": 20,
-      "type": "VAEDecodeAudio",
-      "pos": [
-        780,
-        110
       ],
       "size": [
         260,
@@ -799,12 +801,51 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 22
+          "link": 21
         },
         {
           "name": "vae",
           "type": "VAE",
+          "link": 22
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            25
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 21,
+      "type": "VAEDecodeAudio",
+      "pos": [
+        780,
+        110
+      ],
+      "size": [
+        260,
+        60
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
           "link": 23
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 24
         }
       ],
       "outputs": [
@@ -812,7 +853,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            25
+            26
           ]
         }
       ],
@@ -821,7 +862,7 @@
       }
     },
     {
-      "id": 21,
+      "id": 22,
       "type": "VHS_VideoCombine",
       "pos": [
         1080,
@@ -832,18 +873,18 @@
         520
       ],
       "flags": {},
-      "order": 26,
+      "order": 27,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 24
+          "link": 25
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 25,
+          "link": 26,
           "shape": 7
         },
         {
@@ -883,7 +924,7 @@
       }
     },
     {
-      "id": 22,
+      "id": 23,
       "type": "SageChainAssert",
       "pos": [
         -480,
@@ -894,13 +935,13 @@
         130
       ],
       "flags": {},
-      "order": 15,
+      "order": 21,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 10
+          "link": 11
         }
       ],
       "outputs": [
@@ -908,7 +949,7 @@
           "name": "model",
           "type": "MODEL",
           "links": [
-            11
+            12
           ]
         }
       ],
@@ -924,7 +965,7 @@
       "title": "Assert the attention chain composed"
     },
     {
-      "id": 23,
+      "id": 24,
       "type": "MiniMaxH3Preflight",
       "pos": [
         -60,
@@ -935,18 +976,18 @@
         260
       ],
       "flags": {},
-      "order": 21,
+      "order": 22,
       "mode": 0,
       "inputs": [
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 12
+          "link": 13
         },
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 13
+          "link": 14
         }
       ],
       "outputs": [
@@ -954,14 +995,14 @@
           "name": "conditioning",
           "type": "CONDITIONING",
           "links": [
-            14
+            15
           ]
         },
         {
           "name": "samples",
           "type": "LATENT",
           "links": [
-            15
+            16
           ]
         },
         {
@@ -981,7 +1022,7 @@
       "title": "Preflight: what this render costs"
     },
     {
-      "id": 24,
+      "id": 25,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -992,7 +1033,7 @@
         620
       ],
       "flags": {},
-      "order": 16,
+      "order": 11,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1005,7 +1046,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 25,
+      "id": 26,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1016,7 +1057,7 @@
         560
       ],
       "flags": {},
-      "order": 17,
+      "order": 12,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1029,7 +1070,7 @@
       "title": "Which nodes, and the order that matters"
     },
     {
-      "id": 26,
+      "id": 27,
       "type": "MarkdownNote",
       "pos": [
         -2860,
@@ -1040,7 +1081,7 @@
         900
       ],
       "flags": {},
-      "order": 18,
+      "order": 13,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1053,7 +1094,7 @@
       "title": "Resolution, references, and reading the preflight"
     },
     {
-      "id": 27,
+      "id": 28,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1064,7 +1105,7 @@
         760
       ],
       "flags": {},
-      "order": 19,
+      "order": 14,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -1088,15 +1129,15 @@
     ],
     [
       2,
-      6,
-      0,
       7,
       0,
-      "MODEL"
+      6,
+      1,
+      "INT"
     ],
     [
       3,
-      7,
+      6,
       0,
       8,
       0,
@@ -1106,13 +1147,13 @@
       4,
       8,
       0,
-      10,
+      9,
       0,
       "MODEL"
     ],
     [
       5,
-      10,
+      9,
       0,
       11,
       0,
@@ -1120,161 +1161,169 @@
     ],
     [
       6,
-      3,
+      11,
       0,
       12,
-      1,
-      "VAE"
+      0,
+      "MODEL"
     ],
     [
       7,
-      13,
+      3,
       0,
-      12,
-      2,
-      "IMAGE"
+      13,
+      1,
+      "VAE"
     ],
     [
       8,
       14,
       0,
-      12,
-      3,
+      13,
+      2,
       "IMAGE"
     ],
     [
       9,
+      15,
+      0,
+      13,
+      3,
+      "IMAGE"
+    ],
+    [
+      10,
       2,
       0,
-      12,
+      13,
       0,
       "CLIP"
     ],
     [
-      10,
       11,
-      0,
-      22,
-      0,
-      "MODEL"
-    ],
-    [
-      11,
-      22,
-      0,
-      17,
-      0,
-      "MODEL"
-    ],
-    [
-      12,
       12,
       0,
       23,
+      0,
+      "MODEL"
+    ],
+    [
+      12,
+      23,
+      0,
+      18,
+      0,
+      "MODEL"
+    ],
+    [
+      13,
+      13,
+      0,
+      24,
       0,
       "CONDITIONING"
     ],
     [
+      14,
       13,
-      12,
       1,
-      23,
+      24,
       1,
       "LATENT"
     ],
     [
-      14,
-      23,
+      15,
+      24,
       0,
-      17,
+      18,
       1,
       "CONDITIONING"
     ],
     [
-      15,
-      23,
+      16,
+      24,
       1,
-      18,
+      19,
       4,
       "LATENT"
     ],
     [
+      17,
       16,
-      15,
       0,
-      18,
+      19,
       0,
       "NOISE"
     ],
     [
-      17,
-      17,
-      0,
       18,
+      18,
+      0,
+      19,
       1,
       "GUIDER"
     ],
     [
-      18,
-      16,
+      19,
+      17,
       0,
-      18,
+      19,
       2,
       "SAMPLER"
     ],
     [
-      19,
+      20,
       6,
       1,
-      18,
+      19,
       3,
       "SIGMAS"
     ],
     [
-      20,
-      18,
-      0,
+      21,
       19,
+      0,
+      20,
       0,
       "LATENT"
-    ],
-    [
-      21,
-      3,
-      0,
-      19,
-      1,
-      "VAE"
     ],
     [
       22,
-      18,
-      0,
-      20,
-      0,
-      "LATENT"
-    ],
-    [
-      23,
-      4,
+      3,
       0,
       20,
       1,
       "VAE"
     ],
     [
-      24,
+      23,
       19,
       0,
       21,
       0,
-      "IMAGE"
+      "LATENT"
+    ],
+    [
+      24,
+      4,
+      0,
+      21,
+      1,
+      "VAE"
     ],
     [
       25,
       20,
       0,
+      22,
+      0,
+      "IMAGE"
+    ],
+    [
+      26,
       21,
+      0,
+      22,
       1,
       "AUDIO"
     ]

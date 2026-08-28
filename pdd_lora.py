@@ -836,72 +836,37 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 io.Int.Input(
                     "nfe", default=0, min=0, max=64, optional=True,
                     tooltip=(
-                        "LEAVE THIS AT 0. The step count is read from the "
-                        "sampler's own sigma schedule at run time, so it "
-                        "cannot disagree with BasicScheduler and there is "
-                        "nothing to keep in sync.\n\n"
-                        "The published grid is 32 points, so any divisor is a "
-                        "legal arm from the same weights -- 8 is what the file "
-                        "records, 4 is the other count the vendor's README "
-                        "reports rendering at -- and every divisor lands "
-                        "exactly on the plain shifted schedule for its own "
-                        "count. Change the SAMPLER's steps; this input does "
-                        "not need to follow.\n\n"
-                        "Non-zero forces uniform blocks at that count and "
-                        "IGNORES the schedule, which is only useful for "
-                        "deliberately decoding one grid partition while "
-                        "stepping another. It logs loudly that it is doing "
-                        "so.\n\n"
-                        "**`nfe` and `steps` are allowed to disagree, and that "
-                        "disagreement IS this input's purpose.** `steps` picks "
-                        "the schedule the SIGMAS output emits; `nfe` picks the "
-                        "blocks the heads are fused into. Setting them to "
-                        "different values is exactly \"decode one partition "
-                        "while stepping another\", so it is not an error and "
-                        "is not refused. It is announced instead: the tracker "
-                        "logs `FORCED by the node's nfe=N, ignoring` on every "
-                        "run where this is non-zero, which is the only thing "
-                        "separating a deliberate arm from a forgotten widget."
+                        "Leave at 0.\n\n"
+                        "Forces the head blocks to a fixed count and ignores "
+                        "the sampler's schedule. The one use is decoding one "
+                        "part of the 32-point grid while stepping another, "
+                        "which is an experiment rather than a setting. It "
+                        "logs on every run where it is non-zero.\n\n"
+                        "Not the same knob as `steps`: `steps` picks the "
+                        "schedule, `nfe` picks the blocks. They are allowed to "
+                        "disagree, and that disagreement is the experiment."
                     ),
                 ),
                 # APPENDED. See the note on patch_heads.
                 io.Int.Input(
-                    "steps", default=0, min=0, max=64, optional=True,
+                    "steps", default=8, min=0, max=64, optional=True,
                     tooltip=(
-                        "Evaluations for the SIGMAS output, and the whole "
-                        "reason that output exists.\n\n"
-                        "Wire SIGMAS into SamplerCustomAdvanced instead of a "
-                        "BasicScheduler and the sampler steps at exactly the "
-                        "block boundaries these heads were fused for. There is "
-                        "then no scheduler to pick wrong, no step count to "
-                        "keep in sync, and off-grid sampling is not "
-                        "expressible. On the 32-point grid at 2, 4 and 8 "
-                        "steps this output is bit-identical to "
-                        "`BasicScheduler(simple, N)`, so it changes no "
-                        "existing render -- it removes the ways to get one "
-                        "wrong. At 16 it differs by ~2e-3 because `simple` "
-                        "reads a 1,000-entry table and 1000 % 16 != 0; the "
-                        "closed form here is the more correct of the two.\n\n"
-                        "0 emits the file's own count and never refuses, so "
-                        "a graph that leaves SIGMAS unwired is untouched by "
-                        "this input -- including a deliberately off-grid arm "
-                        "driving BasicScheduler at a count that does not tile "
-                        "the grid, which stays legal and still reports itself "
-                        "at run time. Set it non-zero and it MUST divide the "
-                        "grid: you have asked for a partition, and at a "
-                        "non-dividing count no on-grid schedule exists, so "
-                        "this raises rather than quietly emitting something "
-                        "off it.\n\n"
-                        "For denoise < 1.0, do NOT fall back to "
-                        "BasicScheduler -- feed this output through "
-                        "`SplitSigmasDenoise` and take `low_sigmas`. Measured "
-                        "bit-identical to `BasicScheduler(simple, N, denoise)` "
-                        "and pixel-identical on the card, and it is the better "
-                        "of the two: every entry of this vector IS a block "
-                        "boundary, so an index split lands on the grid by "
-                        "construction rather than by arithmetic that happens "
-                        "to agree. `SplitSigmas` composes the same way for a "
-                        "two-stage arm."
+                        "How many sampling steps this arm runs. This is what "
+                        "the SIGMAS output emits.\n\n"
+                        "Set it to the same number your sampler runs. Legal "
+                        "values are 1, 2, 4, 8, 16 and 32 -- the counts that "
+                        "divide this LoRA's 32-point grid. Anything else "
+                        "raises, because there is no valid schedule at that "
+                        "count.\n\n"
+                        "The shipped graphs WIRE this from a PrimitiveInt so "
+                        "the arm's step count is one visible number in the "
+                        "workflow rather than a widget buried in this node -- "
+                        "a 4-step graph has a PrimitiveInt of 4 feeding it.\n\n"
+                        "0 falls back to whatever count the LoRA file itself "
+                        "records (its `pdd_nfe`), which is derived rather than "
+                        "fixed. Use 0 only when SIGMAS is unwired.\n\n"
+                        "For denoise below 1.0, send SIGMAS through "
+                        "SplitSigmasDenoise and take low_sigmas."
                     ),
                 ),
             ],
@@ -910,7 +875,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
 
     @classmethod
     def execute(cls, model, lora_name, strength=1.0,
-                patch_heads=True, nfe=0, steps=0) -> io.NodeOutput:
+                patch_heads=True, nfe=0, steps=8) -> io.NodeOutput:
         import comfy.lora
         import comfy.utils
         import folder_paths

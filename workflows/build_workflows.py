@@ -1284,8 +1284,18 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                   # split arm at 6 steps would be refused for
                                   # a schedule it never uses. 0 is the inert
                                   # setting the tooltip promises for this case.
+                                  # Wired from a PrimitiveInt (node 61) rather
+                                  # than set here, so the arm's step count is
+                                  # ONE visible number in the workflow instead
+                                  # of a widget buried in the loader. Owner
+                                  # decision 2026-08-28. Split graphs keep the
+                                  # literal 0: nothing consumes their SIGMAS,
+                                  # and a non-zero value can refuse at load.
                                   "steps": (0 if split_at
-                                            else _resolved_steps)}}
+                                            else ["61", 0])}}
+            if not split_at:
+                g["61"] = {"class_type": "PrimitiveInt",
+                           "inputs": {"value": _resolved_steps}}
         else:
             g["18"] = ({"class_type": "MiniMaxH3TurboLoRA",
                         "inputs": {"model": model_src, "lora_name": lora[0],
@@ -4319,7 +4329,11 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 170),
                 widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
                          0 if split_at else _resolved_steps],
-                inputs=[_in("model", "MODEL")],
+                # `steps` is a socket in the UI form too, fed by the
+                # PrimitiveInt added below, so the value is visible on the
+                # canvas rather than inside the loader.
+                inputs=([_in("model", "MODEL")] if split_at else
+                        [_in("model", "MODEL"), _in("steps", "INT", widget=True)]),
                 outputs=[_out("MODEL", "MODEL"), _out("SIGMAS", "SIGMAS")],
                 title=(f"PDD LoRA (strength {lora[1]}"
                        + (f", {pdd_nfe} NFE" if pdd_nfe else "")
@@ -4341,6 +4355,18 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                       outputs=[_out("MODEL", "MODEL")],
                       title=f"Load LoRA (ref delta, strength {lora[1]})"))
         g.link(unet_node, 0, lora_node, "model", "MODEL")
+        if pdd and not split_at:
+            # The arm's step count as ONE visible number on the canvas, rather
+            # than a widget inside the loader. Mirrors node 61 in build_api.
+            steps_const = g.add("PrimitiveInt", (-1500, 780), size=(300, 60),
+                                # PrimitiveInt declares control_after_generate,
+                                # so the frontend draws a second widget. Its
+                                # default is "fixed", which is what a constant
+                                # wants; omitting it fails validate_ui.
+                                widgets=[_resolved_steps, "fixed"],
+                                outputs=[_out("INT", "INT")],
+                                title=f"PDD steps ({_resolved_steps})")
+            g.link(steps_const, 0, lora_node, "steps", "INT")
         model_src = lora_node
 
     # See the matching note in build_api. Titled with its values because the

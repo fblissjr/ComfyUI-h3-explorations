@@ -89,7 +89,8 @@ sys.path.insert(0, str(HERE.parent))              # this repo
 sys.path.insert(0, str(HERE.parent / "workflows"))
 
 import pdd_math as M                              # noqa: E402
-from h3_config import graph_paths, graph_schedule  # noqa: E402
+from h3_config import (graph_paths, graph_schedule,  # noqa: E402
+                       resolve_widget)
 
 WORKFLOWS = HERE.parent / "workflows"
 
@@ -294,7 +295,11 @@ def case_graphs_consume_it():
             continue
         graded.append(path.name)
         nid = pdd[0]
-        steps = g[nid]["inputs"].get("steps")
+        # Through the resolver, not a literal read: the shipped graphs WIRE
+        # `steps` from a PrimitiveInt so the count is one visible number on the
+        # canvas, and a literal read sees `["61", 0]` and calls a correct graph
+        # broken. This is the case `h3_config.resolve_widget` exists for.
+        steps = resolve_widget(g, g[nid], "steps").value
         if not isinstance(steps, int) or steps <= 0:
             problems.append(f"{path.name}: PDD node steps={steps!r}, "
                             f"so its SIGMAS output is the file's count, "
@@ -352,7 +357,7 @@ def case_graph_shift_matches_file():
                and n.get("class_type") == "MiniMaxH3PDDLoRA"]
         if not pdd:
             continue
-        steps = pdd[0]["inputs"].get("steps")
+        steps = resolve_widget(g, pdd[0], "steps").value   # see note above
         if not isinstance(steps, int) or steps <= 0:
             continue                       # graded by `graphs consume it`
         shifts = [n["inputs"] for n in g.values()

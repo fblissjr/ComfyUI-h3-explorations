@@ -174,7 +174,16 @@
       "strength": 1.0,
       "patch_heads": true,
       "nfe": 0,
-      "steps": 8
+      "steps": [
+        "61",
+        0
+      ]
+    }
+  },
+  "61": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 8
     }
   },
   "19": {
