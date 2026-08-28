@@ -1142,6 +1142,68 @@ files exist, so that is a listening test, not a render.
 
 ---
 
+## Which shipped values have evidence, audited 2026-08-28
+
+Prompted by the owner asking whether the defaults are actually known to be good.
+Answer: **one of them is, and it is not the one anybody worries about.**
+
+### tau = 1.0 is measured, and better than the value it replaced
+
+A matched pair exists and had not been read against itself:
+`bench/results/2026-08-19_sol_error_per_head.json` (tau 1.3) and
+`..._per_head_tau1.0.json` (tau 1.0), **same capture, same fourteen
+(block, step) pairs**, decomposed against an oracle by
+`bench/analyze_sol_error.py`.
+
+| | tau 1.3 | tau 1.0 (ships) |
+|---|---|---|
+| sparsity_l2, median | 0.168 | **0.143** |
+| quant_l2, median | 0.035 | 0.037 |
+| total_l2, median | 0.182 | **0.156** (0.86x) |
+| sparsity_cos, min | 0.969 | **0.978** |
+
+Two things here matter more than the verdict.
+
+**Sparsity costs about FOUR TIMES what quantisation costs** — 0.143 against
+0.037. Sol's sparsity, not INT8, is the dominant fidelity loss in the shipped
+stack. A lane spent on encoder quantisation fidelity was working on the smaller
+term.
+
+**1.0 is the lowest tau ever measured.** Both tested points say lower tau costs
+less error, so the shipped value sits at the EDGE of the tested range, in the
+direction that was still improving. That is a different claim from "1.0 is
+optimal", and nothing here supports the stronger one.
+
+### What has no measurement at all
+
+Searched `bench/results/` for each. Nothing found for `dense_blocks='0-1'`,
+`centroid_tail=True`, `sink_conditioning='exact_kv_and_rows'`, or
+`start_percent=0.2`. The 2026-08-22 selection verdict is **speed and density at
+one to two runs per arm**, not quality. Morton's speed claim is retracted above,
+and 362 frames is the `latent_t % 4 == 3` case `h3_input_impacts.md` says to
+avoid, so it is doubly not a candidate.
+
+**This is not an accusation that the values are wrong.** It is a statement about
+what is known: they were inherited from a Triton era whose numbers are
+unreproducible, and being the shipped value is not evidence.
+
+### The trap in the control file
+
+`2026-08-19_sol_error_control.json` carries `tau: 1.3` in its metadata and its
+`rows` is **EMPTY**. Its `controls` hold the DENSE limit (`tau=-1e9`) and the
+SPARSE limit (`tau=26`) — the bounds, not a tau arm
+(`bench/analyze_sol_error.py:670`). Reading the field name without reading the
+producer gives a tau comparison that does not exist, with a sparsity error near
+zero that looks like a spectacular result and is just the dense limit.
+
+### What would settle the open half
+
+A tau sweep at 0.7 / 0.85 / 1.0 / 1.15 through `analyze_sol_error.py` on the
+existing captures. It is **controlled by construction** — an oracle reference on
+recorded activations, so it needs no render and does not meet the different-
+sample rule at all. It does use CUDA. Approved by the owner 2026-08-28, to run
+when the card is free; unrun at the time of writing.
+
 ## Configuration findings
 
 Carried over from the Triton evaluation. Everything marked 124 frames is below

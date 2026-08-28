@@ -141,6 +141,26 @@ repeating work.
   - A number that survives the test is one of two things. **Normative** — a limit you are setting, an exit code, a threshold — which cannot drift, because the world moves toward it. Or **descriptive**, in which case it needs an observation point: a date, a commit, an attribution, or past tense. Descriptive counts belong only in dated records.
   - **Generating a decorative number is not a lesser fix than deleting it.** It makes the claim permanently true and permanently useless, and still charges every reader a reconciliation against what they can see. Delete first; generate only what passed the test.
   - Auditing prose already written rather than prose being written: `claim-audit`.
+- **A default is not a decision, and shipping is not evidence.** A value that is
+  the node default, sits in every graph, and is named in three docs has acquired
+  standing through repetition, not measurement. Before citing one, ask what it
+  would take to find out it was wrong — if the answer is "a record nobody has
+  written", say so in the sentence that uses it.
+  - Four instances on 2026-08-28, all found by asking the same question of
+    values nobody doubted. `qwen_short_edge=512` is a prior resting on one
+    render at one seed. `ref_upscale=True` cost 6,300 extra reference rows per
+    step for a benefit this repo has never measured, and was flipped once asked.
+    `nfe=0` was the ordinary mode wearing a falsy sentinel. Sol's `tau=1.0` DOES
+    have a matched controlled measurement behind it — and is also the lowest
+    value ever tested, in the direction that was still improving, which is a
+    different claim from optimal.
+  - **The tell is that nobody chose it.** Each was inherited — from a vendor
+    default, an earlier era's tooling, or a first draft — and then read as
+    settled because it was everywhere. `docs/SOLATTN.md` has the worked audit;
+    `docs/config_drift.md` has the prose half of the same disease.
+  - The cheap discipline: when you write a value into a constant, say in the
+    same comment whether it was measured, inherited, or reasoned. Three words
+    that stop the next reader re-deriving it or, worse, citing it.
 - DO NOT write meaningless tests - if something can't be tested or be a simple red/green, then find another way to make sure you're measuring and testing what you think you are
 - **Sol-Attn is ALWAYS ON by default in every shipped video workflow.** Bypassing is reserved for explicit testing / comparative experiments. Some graphs legitimately do not wire it, and the exempt set is `bench/check_attention_defaults.py::SOL_EXEMPT_STEMS` plus the single-frame class it derives from `h3_config.GRAPH_DIRS` — read it there rather than counting the kinds here, which is what went stale. **That derived class has been empty since the single-frame path was parked on 2026-08-27** ([`docs/h3_image_editing.md`](docs/h3_image_editing.md)); it stays derived rather than deleted, so a directory added back to `GRAPH_DIRS` re-arms it without anyone remembering to. The kinds still exempt, and why: `workflows/bench/*_stamped_api.json` (dense baselines — the thing Sol is measured against) and the two `h3_probe_capture_ref3*` graphs (activation capture, which must record the true attention inputs rather than Sol's output) wire `MiniMaxH3SageAttention` instead. Two kinds wire neither sage nor Sol: `h3_probe_turbo_768p_sla_router` (since 2026-08-20) runs `MiniMaxH3SLARouter`, the sparse top-k router the Turbo-SLA LoRA was distilled under; and the `h3_probe_ref2v_pdd*` arms (since 2026-08-26) run stock SDPA because that is what the vendor runs, which costs about 2.4x and must not be copied outside a reference arm. **The node the graphs wire for Sol is the vendored `SolAttnMiniMax`, not this repo's `MiniMaxH3SolAttnCurve`** — that one is the Hilbert permutation node and appears in no shipped graph. **Enforced by `bench/check_attention_defaults.py` since 2026-08-18**: it grades every graph's Sol and sage values against `h3_config`, by reachability from the output node rather than node presence, and asserts each exemption above is *necessary* (an exempt graph with live Sol goes red).
 
