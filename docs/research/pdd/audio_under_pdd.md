@@ -6,6 +6,61 @@ This file is the finding; that one is what to do about it. The link was
 one-directional until 2026-08-28: the plan pointed here and nothing pointed
 back, so a reader arriving at the finding had no route to the work.
 
+## Perceptual results, 2026-08-28, owner's reads
+
+All at 1344x768 / 362 frames / seed 730451892 on the rewritten market prompt.
+**The `_4step` filename is inherited from the graph they were mutated from and
+does NOT describe what they ran** — read the partition out of the embedded
+workflow.
+
+| render | partition | evals | final step | Sol end% | owner's read |
+|---|---|---|---|---|---|
+| `00004` | `[8,8,8,8]` | 4 | 80.0% | 0.74 | jaggedy lines, scratchy audio |
+| `00005` | `[8,8,8,8]` | 4 | 80.0% | 0.90 | **about equally bad as 00004** |
+| `00007` | `[8,8,4,4,4,4]` | 6 | 63.2% | 0.74 | as good as expected; box ghosts ~7s |
+| `00008` | `[8,8,8,4,4]` | 5 | 63.2% | 0.74 | good until ~10s, then face melts |
+| `00009` | `[8,8,4,4,4,4]` | 6 | 63.2% | 0.90 | same as 00007, audio great, no jaggedness |
+
+### What is controlled, and what is not
+
+**`00007` vs `00009` IS a controlled pair** — verified by diffing the embedded
+workflows, they differ in `end_percent` alone. Sparse coverage goes 17.3% ->
+97.3%, including running the final step sparse, and **it makes no perceptible
+difference.** On a tail-weighted partition, Sol's band is second-order.
+
+**`00004` vs `00005` is NOT.** They differ in FOUR inputs — `end_percent`,
+`dense_blocks`, `morton_curve`, and `canvas` (`explicit` -> `from_keyframe`,
+which changes geometry, not a kernel setting). An earlier version of this
+section called that pair "the first empirical support for
+`SOL_END_PERCENT_BY_STEPS`". **Withdrawn.** It cannot attribute to any one knob,
+and a peer caught it by diffing the embedded prompts — which makes "was this a
+controlled pair" a decidable question that neither of us checked before building
+on it.
+
+What that pair does suggest, weakly: four knobs moved at once on the coarse
+partition and the result stayed about equally bad. **Once the partition is
+coarse, the other knobs do not rescue it.**
+
+### The signal that survives all of it
+
+**The partition is what moves quality, and the artifacts track MOTION.** The box
+ghosts as it is lifted; degradation follows people walking; a zoomed-out crowd
+is the worst case. Measured within a clip, comparing `00004` against `00007`
+frame by frame with shot cuts masked:
+
+    corr(motion, partition effect)   +0.676
+    effect, low-motion quartile      0.0214
+    effect, high-motion quartile     0.0254      1.18x
+
+**This is the first observable in the lane that is a within-clip trajectory
+rather than one scalar per arm** — which is the bar, because a coarseness
+statistic is one number per arm and cannot imitate a per-frame signal.
+
+It also fits the mechanism without needing Sol: a fused head returns the block's
+MEAN velocity, which is a good approximation for near-constant velocity and a
+poor one under fast motion, and worse the wider the block. **Reasoning, one
+clip.** Reproduce on `00008` and `manual_sigmas_00001` before leaning on it.
+
 ## The one thing that is not in doubt
 
 **The sigma schedule caused it.** `00004` and `00007` are a matched pair —
