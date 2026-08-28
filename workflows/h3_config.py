@@ -1505,6 +1505,52 @@ SPLIT_AT = 2
 #: depending on whether the key happened to be written. `h3_rules` imports no
 #: ComfyUI, so this works from a bare `sys.path` with only `workflows/` on it,
 #: which is how every bench script loads this file.
+#: --- Paths. One resolver, because counting `..` by hand has cost real time. ---
+#:
+#: The bug this closes, twice over. `bench/grade_pdd_partitions.py` resolved its
+#: output directory as `Path(__file__).resolve().parents[2] / "output"`, which
+#: from `bench/` is `custom_nodes/output` -- not an output directory on any
+#: install. Seven arms rendered, then every one was thrown away undecoded.
+#:
+#: The reason it is easy to get wrong is that TWO conventions are in use here
+#: and they differ by one:
+#:
+#:     Path(__file__).resolve().parents[2]   # from the FILE:      custom_nodes
+#:     HERE.parents[2]                       # HERE = the DIR:     ComfyUI root
+#:
+#: Both appear across `bench/`. Neither is wrong; reading one while writing the
+#: other is. So do not count levels -- ask for the thing by name.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+COMFY_ROOT = REPO_ROOT.parent.parent
+
+
+def output_dir() -> Path:
+    """Where the server writes renders.
+
+    `H3_OUTPUT_DIR` wins, because this box starts ComfyUI with
+    `--output-directory` pointing at a share and nothing in the HTTP API
+    reports it back -- so a script CANNOT derive the real location and must be
+    told. The stock path is the fallback, not the assumption.
+
+    Raises rather than returning a path that does not exist. A missing output
+    directory is only ever discovered when something tries to read a render
+    back, which is after the GPU time has been spent; failing here moves that
+    to before it.
+    """
+    import os
+    named = os.environ.get("H3_OUTPUT_DIR")
+    out = Path(named) if named else COMFY_ROOT / "output"
+    if not out.is_dir():
+        raise SystemExit(
+            f"output directory {out} does not exist"
+            + (" (from H3_OUTPUT_DIR)" if named else
+               f" (stock location under {COMFY_ROOT}; this box overrides it "
+               f"with --output-directory, see start.sh)")
+            + ". Set H3_OUTPUT_DIR and re-run. Checked up front so no render "
+              "is queued against a path its results cannot be read from.")
+    return out
+
+
 def _ref_qwen_short_edge() -> int:
     import importlib.util
     spec = importlib.util.spec_from_file_location(
