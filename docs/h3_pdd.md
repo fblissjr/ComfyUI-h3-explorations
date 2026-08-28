@@ -298,13 +298,27 @@ checks start opening safetensors, or `h3_config` grows a constant that is a
 second copy of what the file already says. Removing one duplication would
 create another, in a worse place.
 
-So the widget stays and `bench/check_pdd_sigmas.py::graph shift matches file`
-asserts it equals the file's. **That is a control, not a fix**: it covers the
-shipped graphs and reaches no hand-edited one, which is the same gap the rest of
-this section closes for `scheduler` and `steps` and does not close here. The
-clean fix is to move the PDD node downstream of `MiniMaxH3SigmaShift` so it
-reads the model's actual shift and the two cannot disagree at all; that changes
-a documented node placement and is not done.
+**Closed at run time, 2026-08-28, and without moving anything.**
+`MiniMaxH3SigmaShift` writes its value into `transformer_options`
+(`comfy_extras/nodes_minimax_h3.py`), and this node already patches
+`diffusion_model.forward` to read that dict for `sample_sigmas`. So the
+mismatch is observable at the first forward with no node reordering, no
+generator change and no check surgery. `_StepTracker.check_shift` RAISES,
+naming both numbers -- there is no legitimate arm on the other side, because
+the fused heads are themselves a function of the shift. The static assertion
+stays as the build-time half; this is the half that reaches a hand-edited
+graph.
+
+**The first version of that guard was silent on exactly the render it was
+written for**, and the reason is worth keeping. It latched on a one-shot flag,
+and the tracker lives in the ModelPatcher, which ComfyUI's execution cache
+keeps across prompts in a session. A passing shift-12 render set the flag; the
+shift-6 graph queued next reused the cached patcher and skipped the check
+entirely, rendering to completion. Verified both ways on the card: with the
+latch, a 6.0 graph rendered after a 12.0 one; without it, the same ordering
+raises. That is `queued_arms.md`'s "a render is not a pure function of its
+graph", met inside a guard written to catch a different silence -- so the check
+is per-forward and unlatched.
 
 **This replaced a selector that recovered a `t` and bucketed it, and the
 replacement is why that bug class is gone rather than guarded.** The old one

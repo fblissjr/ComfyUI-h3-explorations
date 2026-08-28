@@ -1,0 +1,27 @@
+{
+ "date": "2026-08-28",
+ "question": "does bench/convert_pdd_lora.py reproduce its artifact byte for byte",
+ "answer": "content yes, file no -- safetensors does not preserve metadata key order",
+ "method": "re-ran both conversions from identical source/base/pruned inputs (source sha256 unchanged since the 2026-08-27 record) and compared header, metadata and every tensor",
+ "tensors_bit_identical": "730 of 730, both partitions",
+ "metadata_values_identical": true,
+ "header_difference": "metadata key ORDER only; tensor key set, tensor key order and all data_offsets identical",
+ "implication": "a converted file's sha256 is NOT a stable identity, and a mismatch does not imply the content changed. bench/results/2026-08-27_pdd_conversion_*.json records the file sha256 as `ours` and will not reproduce.",
+ "content_hash_recipe": "sha256 over sorted metadata pairs then every tensor's bytes in sorted key order; independent of header layout",
+ "partitions": [
+  {
+   "partition": "ref2va",
+   "file_sha_old": "7c55e0a5e07798dd1a11766cc2dda9c7adb1ad5454c65d78641f438b50f8a61a",
+   "file_sha_new": "f800e1494eb379ed69e7fc7e935c142a694e06a4dd5ee1836d5c8a0749c96237",
+   "content_sha_old": "cf9ef30a90a620de68b1be0a89f11d373aa183206b47218506db2afa494fef7a",
+   "content_sha_new": "cf9ef30a90a620de68b1be0a89f11d373aa183206b47218506db2afa494fef7a"
+  },
+  {
+   "partition": "fl2va",
+   "file_sha_old": "01ed0903a6ac3b00fac35192751b00b88fe6dc612af4cc157a1f5eaa82c1ad20",
+   "file_sha_new": "cff36c1775e93eac897348cbe53681efd769acc027dc5cc5f7f1217a512a1ece",
+   "content_sha_old": "d96e2c02d94a2c923f9bea5f4a3b950685dbd6c99827bad1486b49463caae9c9",
+   "content_sha_new": "d96e2c02d94a2c923f9bea5f4a3b950685dbd6c99827bad1486b49463caae9c9"
+  }
+ ]
+}

@@ -373,6 +373,52 @@ class _StepTracker:
                 sorted(n for n in range(1, self.num_steps + 1)
                        if self.num_steps % n == 0))
 
+    def check_shift(self, graph_shift) -> None:
+        """Refuse a render whose shift is not the one this file was fused at.
+
+        **This closes a gap the SIGMAS rewiring opened and a static check could
+        not reach.** The schedule this node emits is built from the shift in its
+        own file, because the node sits UPSTREAM of `MiniMaxH3SigmaShift` and
+        cannot see the widget at patch time. `bench/check_pdd_sigmas.py` asserts
+        the two agree, but only across SHIPPED graphs -- a hand-edited or
+        hand-built one had nothing, and the symptom was a sampler stepping one
+        curve while the model integrates another, with no error anywhere.
+
+        `MiniMaxH3SigmaShift` puts its value in `transformer_options`
+        (`comfy_extras/nodes_minimax_h3.py`), which this patch already receives,
+        so the mismatch is observable at the first forward without moving any
+        node or reordering the chain.
+
+        Raises rather than warns, and the reason is the one the owner gave:
+        the failure it replaces cost debugging time chasing nothing. A named
+        error at step 0 that prints both numbers is the cheapest possible form
+        of it. There is no legitimate arm on the other side -- the fused heads
+        ARE a function of the shift, so a PDD render at another shift is
+        decoding blocks that were never fused for it.
+        """
+        # **Checked on EVERY forward, deliberately not latched.** The first
+        # version set a one-shot flag and was silent on the very render it was
+        # written for: this tracker lives in the ModelPatcher, ComfyUI's
+        # execution cache keeps that across prompts in a session, so a passing
+        # render latched the flag and the next graph -- with a different shift
+        # -- skipped the check entirely. That is the trap
+        # `docs/research/pdd/queued_arms.md` records as "a render is not a pure
+        # function of its graph", met here in a guard written to catch a
+        # different silence. A float compare per forward costs nothing.
+        if graph_shift is None:
+            return
+        if abs(float(graph_shift) - float(self.shift_v)) > 1e-6:
+            raise RuntimeError(
+                f"[h3-pdd] this graph runs MiniMaxH3SigmaShift at shift_video="
+                f"{float(graph_shift)}, but the PDD file was fused at "
+                f"{float(self.shift_v)}. The fused heads and the schedule this "
+                f"node emits are BOTH functions of the shift, so the sampler "
+                f"would step one curve while the model integrates another and "
+                f"the render would complete looking merely wrong. Set "
+                f"MiniMaxH3SigmaShift back to {float(self.shift_v)} (the value "
+                f"the file records), or use a PDD file fused at "
+                f"{float(graph_shift)}.")
+
     def observe(self, sample_sigmas) -> None:
         """Adopt the sampler's schedule, once per distinct schedule.
 
@@ -601,7 +647,9 @@ def _make_capture_forward(base_forward, tracker):
         opts = kwargs.get("transformer_options")
         if opts is None and len(args) > 3:
             opts = args[3]                       # positional in the signature
-        tracker.observe((opts or {}).get("sample_sigmas"))
+        opts = opts or {}
+        tracker.check_shift(opts.get("minimax_h3_sigma_shift_video"))
+        tracker.observe(opts.get("sample_sigmas"))
         return base_forward(*args, **kwargs)
     return forward
 
