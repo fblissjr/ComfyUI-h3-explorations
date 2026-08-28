@@ -101,6 +101,7 @@ def main() -> int:
         print(f"no such workflow: {wf_path}")
         return 2
     wf = json.loads(wf_path.read_text())
+    steps_applied_to: set[str] = set()
     for n in wf.values():
         ct = n["class_type"]
         if ct in ("MiniMaxH3ImageToVideo", "MiniMaxH3Conditioning"):
@@ -119,8 +120,21 @@ def main() -> int:
             # The typed compiler would cap them later, but the loader cost is
             # paid first and can hide the behaviour the smoke means to test.
             n["inputs"]["frame_load_cap"] = args.length
-        if ct == "BasicScheduler":
+        # Two nodes can own the step count, and which one does is a property
+        # of the graph. Since 0.83.0 a PDD graph carries no `BasicScheduler`
+        # at all -- `MiniMaxH3PDDLoRA` emits SIGMAS and owns the count -- so
+        # patching only the scheduler silently no-opped on every PDD graph
+        # while the summary below went on printing the count that was asked
+        # for. A smoke runner that misreports what it queued is worse than one
+        # that cannot set the value.
+        #
+        # An off-grid request RAISES here rather than being snapped: the node
+        # names the legal divisors, and inventing a nearby count would render
+        # something the caller did not ask for. `--steps 1` is legal on the
+        # shipped 32-point grid.
+        if ct in ("BasicScheduler", "MiniMaxH3PDDLoRA"):
             n["inputs"]["steps"] = args.steps
+            steps_applied_to.add(ct)
         if ct in SOL_NODE_IDS:
             n["inputs"]["verbose"] = True
         if ct == "SaveVideo":
@@ -131,7 +145,16 @@ def main() -> int:
     pid = json.load(urllib.request.urlopen(urllib.request.Request(
         f"{base}/prompt", json.dumps({"prompt": wf, "client_id": str(uuid.uuid4())}).encode(),
         {"Content-Type": "application/json"}), timeout=60))["prompt_id"]
-    print(f"submitted {pid[:8]}, {args.length} frames / {args.steps} steps", flush=True)
+    # Report where the step count actually landed, not what was asked for.
+    # An empty set means the graph owns its own count and this run is NOT the
+    # step count on the command line -- say so rather than printing a number
+    # that describes nothing that happened.
+    if steps_applied_to:
+        steps_note = f"{args.steps} steps (set on {'+'.join(sorted(steps_applied_to))})"
+    else:
+        steps_note = (f"steps NOT set -- no BasicScheduler or MiniMaxH3PDDLoRA "
+                      f"in this graph; it ran its own count, not {args.steps}")
+    print(f"submitted {pid[:8]}, {args.length} frames / {steps_note}", flush=True)
 
     # /queue rather than the log: HTTP is never buffered.
     while True:
