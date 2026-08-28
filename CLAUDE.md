@@ -5,6 +5,34 @@ provenance nodes, benchmarks, and workflows. `README.md` is what ships and why.
 This file is only what would cost you a session to rediscover — the operative
 rule, not the story behind it. Stories live in `docs/` and the postmortems.
 
+## Read this before anything else: do not trust prose, including this file's
+
+**When prose and code disagree, the code is right. Verify or trace before you
+act on any sentence here or in `docs/` — including sentences that name a
+default, a shipped artifact, or what "every graph" does.** Those are the three
+that rot fastest, because each has a machine-readable home and the sentence is a
+second copy with no invalidation.
+
+This is not caution for its own sake. On 2026-08-28 alone, prose lost to code
+four times in one session: `docs/h3_references.md` said the shipped text encoder
+was the v2 AWQ artifact when `h3_config.MODELS["clip"]` is `ENCODER_INT8`;
+`docs/prompt_audit.md` said four prompt defects were "all still present" after a
+commit had fixed them; a node tooltip stated a pixel floor 20x off; and a rule
+written into THIS file — that reaching the vendor's reference floor needs a
+second node — was wrong within the hour, because it was taken from a doc
+sentence describing a code path the shipped graphs had left.
+
+The generalisation, and `docs/config_drift.md` is the long form: **prose stating
+a fact the code already knows is a cache, and this repo has no invalidation for
+it.** A date does not help — every one of those claims carried one, and the date
+told you when it was written rather than whether it is still true.
+
+So: cite the observable, not the claim. `h3_config.MODELS["clip"]` over "the
+shipped encoder is"; the node's `define_schema` over "the default is"; a walk of
+`graph_paths` over "every graph". If you find prose that lost, **correct it and
+say what it used to claim** — a reader who remembers the old sentence needs to
+know it was withdrawn rather than quietly reworded.
+
 ## Settled, and re-derived from scratch anyway
 
 Every item here was measured or decided, and every one has been rediscovered as
