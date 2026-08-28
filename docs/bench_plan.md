@@ -912,3 +912,29 @@ consonants could be more natural or could be lost articulation.
   still the binding constraint.
 - **`tau` re-sweep.** Already measured at 362 frames on Triton, and the artifact
   onset near 1.5 is the binding constraint rather than the timing.
+
+## 2026-08-28: the six-evaluation arm, pre-registered
+
+Run: `bench/grade_pdd_partitions.py ref32 u8 u4 u4b u4c opt4 mix6`, 1152x768
+(`fast` tier), length 362, seed 730451892, on the market prompt as rewritten by
+`d5be353`. Predictions written before the arms rendered; the reference and the
+`u4`/`u4b`/`u4c` floor are in the same run, so nothing here is graded against a
+number taken on a different day.
+
+| # | prediction | what refutes it |
+|---|---|---|
+| 1 | `mix6` lands **between `u8` and `u4`** on video rel L2 | landing outside that interval on either side |
+| 2 | `u4`/`u4b`/`u4c` agree to **exactly 0.00000**, as at length 39 | any non-zero same-arm distance, which would withdraw every ordering this script has ever reported |
+| 3 | `opt4` stays **worse than `u4`**, reproducing the refutation of the fusion-loss optimum on a conformant prompt and a second canvas | `opt4` beating `u4`, which would put the length-39 refutation back in play |
+| 4 | audio rel L2 stays **roughly 2x video** at every step count | the ratio collapsing, which would mean the length-39 audio finding was a Sol-inert artifact after all |
+
+**What each outcome buys.** Prediction 1 holding is the first evidence that the
+inferred `L_min = 4 / L_max = 8` envelope is real, because `mix6` is legal under
+it and `opt4` is not. Prediction 1 failing **low** (better than `u8`) would be
+more interesting than it holding: six evaluations beating eight would mean block
+*placement* matters more than block *count*, which nothing here predicts.
+
+**What no outcome buys.** This is one seed, one canvas, one prompt, and a
+distance to the distilled trajectory rather than to anything perceptual. It
+cannot say which arm looks or sounds better -- `docs/eval_comparison.md`'s blind
+path is the only thing that can, and it needs a distribution.
