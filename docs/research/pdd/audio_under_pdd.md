@@ -100,10 +100,15 @@ not a confirmation.**
 
 ### Two arithmetic corrections made along the way
 
-**The earlier disagreement was normalisation, not a bug.** Relative variation
-came out at 0.474 normalised by `B[block start]`, 0.980 by `B[mean]`, and 1.500
-by `B[block end]` — three defensible choices spanning a 3x range, which is why
-the two sessions computing it disagreed and neither was wrong.
+**The earlier disagreement is NOT settled, and should not be written up as
+normalisation.** Two sessions got 0.474 (by `B[block start]`) and 0.980 (by
+`B[mean]`) for the same w=8 quantity. A third computation of the mean
+normalisation gives 0.498, BELOW the by-start figure rather than above it, so
+"three normalisations spanning 3x" does not account for it. Since integrated
+drift reproduces exactly across both sessions, the `B` grids agree and the gap
+is specific to that one metric's computation. **It no longer bears on any
+conclusion — max-of-relative was withdrawn — but it is an open discrepancy, not
+a resolved one.**
 
 **`mix6` and `tail6` are different arms and were briefly conflated.** `mix6` is
 `[4,4,4,4,8,8]`, wide blocks at the END, integrated 10.88. `tail6` is
@@ -111,21 +116,77 @@ the two sessions computing it disagreed and neither was wrong.
 `mix6` and `u4` have identical variation came from reading `mix6` as `tail6`;
 withdrawn.
 
-### PRE-REGISTERED, before tail6 and tail5 render
+### First perceptual result: tail6 fixes what u4 broke, at matched canvas
 
-Ordinal, which is the real test:
+**Owner's read, 2026-08-28, unprompted:** `text_to_video_pdd_4step_00007`
+(tail6) "looks relatively decent" and "sounds decent" — against
+`..._00004` (uniform 4-step), which he had described as jaggy with the audio
+off.
 
-| arm | integrated | predicted position |
+**It is a matched pair.** Diffing the workflows embedded in both PNGs, the only
+differences are the sigma source (node SIGMAS -> ManualSigmas), the now-inert
+`steps` value, and the ManualSigmas node itself. Same canvas 1344x768, same seed,
+same prompt, same LoRA, same Sol settings.
+
+| | 00004 | 00007 |
 |---|---|---|
-| tail6 | 8.54 | between **u8 (1.58)** and **mix6 (1.68)** |
-| tail5 | 9.82 | between **tail6** and **mix6**, nearer mix6 |
+| partition | [8,8,8,8] | [8,8,4,4,4,4] |
+| evaluations | 4 | 6 |
+| final Euler step | **80.0%** | **63.2%** |
+| integrated drift | 12.22 | **8.54** |
 
-**`tail5` is the discriminating one.** It is a FIVE-evaluation arm that should
-beat the FOUR-evaluation `u4` on audio. If the penalty tracked evaluation count
-rather than integrated drift, it would come out the other way.
+**Both predictions point the same way and both are satisfied**: the video
+argument wanted a narrower final block, the audio mechanism wanted lower
+integrated drift, and tail6 was built for the FIRST reason before the second
+existed.
 
-**If `tail5` lands above `u4`, the quantity is wrong** and the mechanism needs
-rethinking rather than refitting.
+**What it is worth.** One seed, and two arms differing in a knob are different
+samples — `CLAUDE.md`'s rule applies. What raises it above that: the complaint
+was specific, it predated tail6, tail6 was designed for an unrelated reason, and
+the improvement was volunteered rather than asked for. That is the
+resolved-complaint shape, which is the strongest form a single render takes and
+is still not a measurement.
+
+**It does NOT score the pre-registered test below**, which needs 1152x768 to
+compare against `mix6`. This is the perceptual half; that one is the numeric
+half, and they are different claims.
+
+### PRE-REGISTERED: tail6 against mix6, and why tail5 was not a test
+
+**`tail5` versus `u4` does not discriminate, and was withdrawn.** tail5 has MORE
+evaluations (5 vs 4) AND lower drift (9.82 vs 12.22), so integrated drift and
+plain evaluation count both predict tail5 wins. Two outcomes, one outcome.
+
+**`tail6` against `mix6` is the test**, and it is sharper than anything else
+proposed here:
+
+| | tail6 | mix6 |
+|---|---|---|
+| partition | [8,8,4,4,4,4] | [4,4,4,4,8,8] |
+| evaluations | 6 | 6 |
+| width multiset | {8,8,4,4,4,4} | {8,8,4,4,4,4} |
+| widest block | 8 | 8 |
+| **wide blocks sit** | **at the FRONT** | **at the END** |
+| **integrated drift** | **8.54** | **10.88** |
+
+**Evaluation count, widest block and width distribution all predict these two
+are IDENTICAL.** Placement is the only difference, and integrated drift is the
+only account that reads placement. `mix6` is already scored at 1.68, so this
+costs ONE arm.
+
+**Prediction: `tail6` lands clearly below 1.68, near `u8`'s 1.58. At or above
+`mix6` kills integrated drift** — report it killed rather than refitted, because
+placement is the only thing that differs and placement is the only thing the
+quantity reads.
+
+> **THE ARMS RENDERED SO FAR CANNOT BE USED FOR THIS.** `tail6` was queued
+> through a scratch runner that posted the shipped graph, which is **1344x768**.
+> Every scored arm above is **1152x768**, the `fast` tier that
+> `grade_pdd_partitions.py` sets in its own `CANVAS` constant. Scoring the
+> existing tail6 render against 1.68 reads a canvas change as a placement
+> effect. Re-render through the grader:
+> `bench/grade_pdd_partitions.py ref32 u8 mix6 tail6`, one batch, one canvas,
+> ref32 alongside so everything is graded against the same reference.
 
 ### The inference
 
