@@ -49,6 +49,38 @@ say what motion regime it was judged in. A scene with 0% high-motion frames
 cannot discriminate a defect that appears under motion, however carefully it is
 judged or however many seeds it gets.
 
+## Say DELTA, not motion — the metric never measured motion
+
+Owner, refining it a third time: *"motion is one thing but it's also just...
+massive delta changes."* He is right, and it corrects a label I used all
+evening.
+
+**What was actually computed is `mean(|frame[n] - frame[n-1]|)` — frame-to-frame
+CHANGE, whatever causes it.** Not optical flow, not object tracking, no motion
+estimation anywhere. A cut, a light turning on, a dissolve and a camera whip all
+score high with nothing moving in the scene's own terms.
+
+So the measured claim is **"degradation tracks inter-frame delta at +0.676"**,
+and every use of "motion" in this file's earlier sections is a gloss I put on it
+rather than something measured.
+
+**That is a better fit for the phenomenology, not a weaker one.** A box leaving
+the frame is a large delta at a boundary. A wide crowded shot is large delta
+everywhere at once. A closeup with someone speaking is small delta even though
+something is plainly moving. Delta explains all three; motion has to explain the
+third away.
+
+**And it matters for the mechanism.** A fused head returns a block's MEAN
+velocity, and the error in that approximation grows with how much the latent
+changes across the block — which is delta in latent space, not motion in the
+world. The metric that happened to be easiest to compute is closer to the
+mechanism than the word used for it.
+
+**What would separate them:** a scene with high motion and LOW delta — a subject
+moving smoothly across a static background at constant velocity. If degradation
+follows delta, that scene is fine. If it follows motion, it is not. The corpus
+has no such scene.
+
 ## What the motion effect actually looks like, in the owner's terms
 
 The claim he stands by, stated as precisely as he stated it — **the scoping is
