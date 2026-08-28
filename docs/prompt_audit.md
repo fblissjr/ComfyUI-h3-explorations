@@ -37,11 +37,11 @@ reading.
 > is — and the prose beneath them saying the defects are "all still present" is
 > superseded by that commit. `check_prompt_guide_conformance.py` is green and
 > preflight grades the rewritten graphs at zero FAIL and zero WARN. The `revise`
-> rows are untouched and still open. Two things that commit also changed and
-> that outlive this note: the ref2va word-budget gap is a **wiring** fix
-> (`REF_SCENE_SHOTS` exists and is unreachable), not prose; and because the
-> canonical t2v arm now renders different text, **clips from before 2026-08-28
-> are not matched-seed comparable with clips after it.**
+> rows are open, but read the budget one through its own **Corrected
+> 2026-08-28** note below rather than through this table's "systematic" wording.
+> The consequence that outlives all of it: because the canonical t2v arm now
+> renders different text, **clips from before 2026-08-28 are not matched-seed
+> comparable with clips after it.**
 
 Ordered by blast radius — how many graphs carry the scene.
 
