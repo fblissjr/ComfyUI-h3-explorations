@@ -54,9 +54,9 @@ Ordered by blast radius — how many graphs carry the scene.
 | `derived:h3_first_last_frame_to_video` | fl2va | keep | conforms |
 | `I2V_PROMPT` | fl2va | keep | conforms |
 | `derived:h3_probe_ref2v_split_turbo_pack` | ref2va | revise | budget |
-| `DIALOGUE_REF2V_PROMPT` (stairwell) | ref2va | ~~rewrite~~ **done `d5be353`** | shot-header format the guides both contradict, and it silently defeated preflight. Headers fixed; see the open soundscape item below |
+| `DIALOGUE_REF2V_PROMPT` (stairwell) | ref2va | ~~rewrite~~ **done `d5be353`, `f5b3651`** | shot-header format the guides both contradict, and it silently defeated preflight. Headers fixed; soundscape closed |
 | `derived:h3_probe_release_video_policy` | ref2va | keep | a policy probe |
-| `DIALOGUE_T2V_PROMPT` (stairwell t2v) | t2v | revise | one out-of-table motion phrase |
+| `DIALOGUE_T2V_PROMPT` (stairwell t2v) | t2v | ~~revise~~ **done `d5be353`, `f5b3651`** | out-of-table motion phrase replaced; soundscape closed |
 | `R2V_PROMPT` (ten-second) | ref2va | **rewrite** | describes 10 s on a 15.083 s graph |
 | r2v-swap family | ref2va | revise | defines a `<Picture N>` ref §2.2 says not to define |
 | the remaining `derived:` ref2va scenes | ref2va | revise | the budget gap is systematic |
@@ -127,7 +127,7 @@ than a representative one, which is a weaker claim than those runs implied.
 **The rewrite is mechanical**: three phrases swapped for §4.3 vocabulary, the
 porter's identity moved into Shot 1. The scene itself is fine.
 
-### `DIALOGUE_REF2V_PROMPT` — rewrite
+### `DIALOGUE_REF2V_PROMPT` — rewrite, discharged `d5be353`
 
 Shot headers read `[Shot 1, 00:00.000-00:06.000]`. Ref §5.1 and base §4.2 both
 state `[Shot 1]` takes no timestamp and later shots use `[Shot N] At MM:SS.mmm`.
@@ -189,74 +189,66 @@ before writing 300 words by hand.
 
 ---
 
-### Both dialogue scenes name their speakers in `overall_soundscape` — open, owner's call
+### Both dialogue scenes named their speakers in `overall_soundscape` — CLOSED `f5b3651`
 
-Found 2026-08-28 by a peer session auditing the catalogue, and **not covered by
-either scene's existing verdict**, which is why it is its own entry. Both
-`DIALOGUE_T2V_PROMPT` and `DIALOGUE_REF2V_PROMPT` carry the identical sentence
-"Two speaking voices, a measured adult female voice and a lower adult male
-voice, trading short clipped lines with almost no gap between them" in
-`overall_soundscape`, while already declaring those speakers with `<d>` and
-stable ids in the main field.
+Raised 2026-08-28 by a peer session auditing the catalogue, held open the same
+day, and closed the same day. **The sentence no longer exists in any prompt**;
+this entry is kept because the reasoning is what will otherwise be
+re-litigated, and because two things asserted here turned out not to be facts.
+
+**What was there.** Both `DIALOGUE_T2V_PROMPT` and `DIALOGUE_REF2V_PROMPT`
+carried the identical sentence "Two speaking voices, a measured adult female
+voice and a lower adult male voice, trading short clipped lines with almost no
+gap between them" in `overall_soundscape`, while already declaring those
+speakers with `<d>` and stable ids in the main field.
 
 **The grounds are the field's positive scope, not the no-repeat clause.**
 base §4.6 does say dialogue "should not be repeated here", and a describing
-sentence arguably slips past that since it repeats no words. The stronger
+sentence arguably slips past that since it repeats no words. The operative
 reading is the same sentence's enumeration: the field summarizes "ambient
 sound, physical action sounds, and **non-verbal** human sounds", listing
 breathing, laughter and panting. Verbal human sound is the category that
 enumeration excludes by naming its complement. ref §6 reaches the same place
-independently — "ambience and physical sounds", dialogue staying in
-`detailed_description`.
+independently. So it was out of scope by what the field IS, without having to
+settle whether describing voices counts as repeating them.
 
-So it is out of scope by what the field IS, which does not depend on settling
-whether describing voices counts as repeating them.
+**Two guards argued against touching it, and both were weaker than they
+looked.**
 
-**That settles the guide reading and does NOT settle the edit.** A second peer
-session stopped before editing and was right to. Three things bear on it:
+*The comment calling the sentence load-bearing.* `build_workflows.py` named it
+one of three devices making the arm judgeable and closed "Do not 'improve' it
+without rendering the result beside this one" — and its empirical half,
+"remove those and the same lines come out spaced and unjudgeable", **was never
+observed**. No arm has been rendered without them; `bench/results/` has
+nothing either way. Corrected in the comment rather than quietly dropped.
 
-**1. Both constants carry a "do not touch" guard.** `build_workflows.py`'s
-comment above `DIALOGUE_T2V_PROMPT` names this soundscape line as one of three
-pacing devices that make the arm judgeable, and closes "Do not 'improve' it
-without rendering the result beside this one." The ref2va comment holds the two
-prompts as a matched pair whose only intended axis is where the people come
-from. So the identical sentence in both scenes is the pairing, not a
-copy-paste slip, and editing one breaks the pair.
+*The "reproduced verbatim" claim.* Also false by the time it was read.
+`d5be353` had already changed the camera phrase in both constants on base §4.3
+grounds with no paired render. The 2026-08-08 clips are the output of a prompt
+neither constant now matches, so the paired-render instruction had one
+disclosed exception before this change and has two after it.
 
-**2. The guard's empirical half was never observed.** "Remove those and the
-same lines come out spaced and unjudgeable" is a claim about renders; no arm
-has been rendered without them, and `bench/results/` has nothing either way.
-Corrected in the comment 2026-08-28 to read as the belief it is.
+**The asymmetry, and why the fix dissolves it rather than trading it off.**
+This is the part worth keeping. Both prompts carried "answers immediately"
+twice and "says at once" twice, covering four of the **five** within-shot line
+transitions — Shot 1's fourth line was a bare "He says". `DIALOGUE_REF2V_PROMPT`
+also carried the cue a third time in `summary`; `DIALOGUE_T2V_PROMPT` has no
+`summary` field. So dropping the sentence from both cost them different things,
+and "treat both constants the same way" (which the matched pair requires) pulled
+against the content (which was not symmetric).
 
-**3. The guard was already crossed, and the comment was already false.**
-`d5be353` changed the camera phrase in *both* constants on guide grounds with
-no paired render, so the arm is no longer the verbatim 2026-08-08
-configuration the comment claimed. That does not license further edits; it
-removes the frozen-reproduction status the guard leaned on, and it means the
-paired-render instruction has one deliberate exception rather than none.
+The move that resolves it is not moving the global sentence into
+`integrated_multimodal_description` — that was proposed here and is **not** what
+shipped, because the guide only ever shows the per-line form in that field.
+`f5b3651` instead closed the fifth transition with a fifth per-line cue ("He
+answers at once"), in the form the guide demonstrates, in both constants. Both
+prompts now carry the pacing on every within-shot transition, the ref2va twin
+still has its `summary` line, the pair stays matched, and neither loses
+anything. **Nothing was traded.**
 
-**The two prompts are not symmetric in what dropping the sentence costs.**
-Both carry "answers immediately" twice and "says at once" twice in the body.
-`DIALOGUE_REF2V_PROMPT` also carries the cue a third time in `summary`
-("trade eight short clipped lines with almost no gap between them"), so for the
-ref2va twin the global pacing statement survives the drop in a guide-legal
-field. `DIALOGUE_T2V_PROMPT` has no `summary` field, so there the global
-statement would survive nowhere -- only the four per-line cues, which cover
-four of the five within-shot transitions.
-
-**Three ways to close it, and the third dissolves the asymmetry:**
-
-| | pair stays matched | guide scope | pacing cue |
-|---|---|---|---|
-| drop from neither | yes | off-guide in both | intact |
-| drop from both | yes | clean | t2v loses its only global statement |
-| drop from both, and move t2v's global statement into `integrated_multimodal_description` | yes | clean | intact in both, in the field the guide puts it in |
-
-The third is the minimal move that satisfies both constraints, and it is what
-the ref2va twin already does structurally. **It is still an edit to a judged
-arm, so it is the owner's call, not a peer's** -- and if it is taken, the
-honest form is to render the result beside the 2026-08-08 clips as the comment
-asks, rather than to cross the guard a second time by argument.
+**Not yet done, and not a documentation matter:** the arm is judged by ear and
+its baseline moved twice on 2026-08-28. It has not been re-rendered against the
+2026-08-08 clips, which are in any case no longer the same prompt.
 
 **A related case that is NOT this and must not be swept in**: the voice-timbre
 reference in `derived:h3_ref_audio_voice`. Ref §6 places a reference
