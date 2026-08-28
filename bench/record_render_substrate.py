@@ -34,6 +34,19 @@ prompt's index in it IS its position in the session.
 What this cannot recover post-hoc: host and GPU memory at the time each render
 ran. Those need sampling while the queue runs, which is `--sample`.
 
+**`/history` IS VOLATILE. Run this before you restart the server, not after.**
+The reset is what makes position-in-session free, and it is also what destroys
+the record: a restart takes every row with it, and nothing else on the box
+remembers what a finished render ran under. On 2026-08-27 a batch of 37 arms
+lost most of its substrate rows to two restarts that were themselves part of the
+experiment.
+
+So `--out` MERGES into an existing record rather than overwriting it, keyed by
+`prompt_id`. Run it before each restart and the file accumulates across a whole
+session; run it once at the end and it holds only whatever survived. Rows from
+earlier sessions keep their original `position_in_session`, which is correct --
+position is per-session and the file is a union of sessions, not one ordering.
+
 ## What it deliberately does NOT record
 
 Its output is committed, so this list is the whole of its exposure and is
@@ -192,8 +205,23 @@ def main() -> int:
               f"swap {s.get('swap_used_gib')}/{s.get('swap_total_gib')} GiB, "
               f"gpu {s.get('gpu_used_mib')}/{s.get('gpu_total_mib')} MiB")
     if args.out:
-        args.out.write_text(json.dumps(record, indent=1) + "\n")
-        print(f"wrote {args.out}")
+        # Merge, never clobber: history is wiped by a restart, so a later run
+        # would otherwise replace a full record with a nearly empty one.
+        merged, prior = record, 0
+        if args.out.exists():
+            try:
+                old_rec = json.loads(args.out.read_text())
+                seen = {r.get("prompt_id") for r in rows}
+                keep = [r for r in old_rec.get("session_rows", [])
+                        if r.get("prompt_id") not in seen]
+                prior = len(keep)
+                merged = dict(record, session_rows=keep + rows)
+            except (json.JSONDecodeError, AttributeError) as exc:
+                print(f"  could not merge {args.out} ({exc.__class__.__name__}); "
+                      "writing this session only")
+        args.out.write_text(json.dumps(merged, indent=1) + "\n")
+        print(f"wrote {args.out} ({len(rows)} from this session"
+              + (f", {prior} carried over)" if prior else ")"))
     return 0
 
 

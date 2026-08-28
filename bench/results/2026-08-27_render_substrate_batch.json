@@ -171,15 +171,5 @@
    "failed_node": null,
    "error_class": null
   }
- ],
- "substrate_now": {
-  "sampled_at": 1787875874.3197522,
-  "host_available_gib": 77.4,
-  "host_total_gib": 125.5,
-  "swap_total_gib": 0.0,
-  "swap_used_gib": 0.0,
-  "gpu_used_mib": 20572,
-  "gpu_total_mib": 24564,
-  "gpu_util": 100
- }
+ ]
 }

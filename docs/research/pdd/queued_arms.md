@@ -43,8 +43,12 @@ a payload that names the old value:
    `short_edge` and `allow_upscale` are spelled `size_policy.short_edge` and
    `size_policy.allow_upscale` in API form.
 2. `qwen_short_edge` defaults to 512 rather than 0.
-3. `MODELS["clip"]` is the **v1** encoder again (`72e97c3`), which changes what
-   a reference costs the prompt and therefore what several arms below decide.
+3. `MODELS["clip"]` moved twice on 2026-08-27: to **v1** (`72e97c3`), then to
+   the ComfyUI-native **INT8 ConvRot** encoder late the same night (`4ff3f0b`),
+   by owner decision. Every arm in this file rendered on **v1**; the shipped
+   graphs now load INT8. That changes what a reference costs the prompt, so
+   re-price before comparing anything rendered here against anything rendered
+   later.
 
 The graphs carry all three. Regenerating picks them up for free.
 
@@ -80,8 +84,14 @@ binding lives in the prompt tokens whose share had collapsed. One arm, one seed;
 the mechanism is arithmetic, the conclusion is not measured, and the render that
 would have tested it was in the queue that stopped.
 
-`h3_config.REF_QWEN_SHORT_EDGE` stays at 512 and its note says why: inert on
-every shipped graph today, live again the moment anyone moves the encoder back.
+`h3_config.REF_QWEN_SHORT_EDGE` stays at 512, and **it is LIVE again as of
+`4ff3f0b`.** It was inert while v1 shipped, because v1's 1.5x window flattened
+every reference to one view. INT8 loads through core's `CLIPLoader`, which
+stamps no contract, so the operative ceiling is core's own 3,136..12,845,056 px
+-- 43x wider than v1's -- and the knob does real work again. Measured on the
+shipped reference pair: 522 merged tokens under v1's bounds, 592 under core's.
+**Do not set it back to 0 on the current encoder**; unclamped, those two
+references cost 9,408 tokens inside the prompt's own segment.
 
 **The two knobs do different jobs.** `allow_upscale` decides what the DiT sees.
 `qwen_short_edge` decides what the prompt competes with. Conflating them is what
@@ -98,9 +108,10 @@ history, not from recall.** Every arm renders the ref dialogue graph except the
 The narrative sections below say WHY each group exists; this says what is
 actually on the card and with what settings.
 
-Seeds are 730451892/3/4 throughout. `qwen512` is
-`h3_config.REF_QWEN_SHORT_EDGE`, inert under the v1 encoder and kept because it
-re-arms under v2. Sol is written `start-end tau<t> dense<blocks> min<tokens>`.
+Seeds are 730451892/3/4 throughout. **Every arm here rendered on the v1
+encoder**, under which `qwen512` was inert; the shipped graphs moved to INT8
+ConvRot after these ran, and it is live there. Sol is written
+`start-end tau<t> dense<blocks> min<tokens>`.
 
 ### A' -- does attribution hold on v1
 
@@ -112,28 +123,28 @@ ref dialogue, 2 refs, 8 `<d>` lines. **PASSED**
 
 ### B -- reference sizing at 362 frames
 
-the full sizing axis. `match` had NEVER been rendered before tonight -- 84 of 84 shipped graphs use `max`
+`match` had never been rendered before tonight -- 84 of 84 shipped graphs used `max`
 
 | arm | status | steps | len | heads | refs | Sol |
 |---|---|---|---|---|---|---|
-| `B_match_s730451892` | queued | 4 | 362 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_match_s730451893` | queued | 4 | 362 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_match_s730451894` | queued | 4 | 362 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_noupscale_s730451892` | done | 4 | 362 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_noupscale_s730451893` | done | 4 | 362 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_noupscale_s730451894` | done | 4 | 362 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_upscale_s730451893` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `B_upscale_s730451894` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_match_s730451892` | **rendered** | 4 | 362 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_match_s730451893` | **rendered** | 4 | 362 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_match_s730451894` | **rendered** | 4 | 362 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_noupscale_s730451892` | **rendered** | 4 | 362 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_noupscale_s730451893` | **rendered** | 4 | 362 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_noupscale_s730451894` | **rendered** | 4 | 362 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_upscale_s730451893` | **rendered** | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_upscale_s730451894` | **rendered** | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
 
 ### L -- the same sizing axis at 294 frames (12.25s)
 
-~99,691 packed against 362's ~120,077, which is below both of tonight's OOM points. Second length for the sizing question
+~99,691 packed against 362's ~120,077, below both OOM points
 
 | arm | status | steps | len | heads | refs | Sol |
 |---|---|---|---|---|---|---|
-| `L_12s_match_s730451892` | queued | 4 | 294 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `L_12s_noupscale_s730451892` | queued | 4 | 294 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `L_12s_upscale_s730451892` | queued | 4 | 294 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `L_12s_match_s730451892` | **rendered** | 4 | 294 | on | 2 match qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `L_12s_noupscale_s730451892` | **rendered** | 4 | 294 | on | 2 max up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `L_12s_upscale_s730451892` | **rendered** | 4 | 294 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
 
 ### C -- heads, and step count with Sol on
 
@@ -141,33 +152,12 @@ the full sizing axis. `match` had NEVER been rendered before tonight -- 84 of 84
 
 | arm | status | steps | len | heads | refs | Sol |
 |---|---|---|---|---|---|---|
-| `C_pdd4_headfree_s730451892` | done | 4 | 362 | off | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `C_pdd4_headfree_s730451893` | done | 4 | 362 | off | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `C_pdd4_headfree_s730451894` | done | 4 | 362 | off | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `C_pdd4_headfree_s730451892` | **rendered** | 4 | 362 | off | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `C_pdd4_headfree_s730451893` | **rendered** | 4 | 362 | off | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `C_pdd4_headfree_s730451894` | **rendered** | 4 | 362 | off | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
 | `C_pdd8_s730451892` | **OOM** | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
-| `C_pdd8_s730451893` | done | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
+| `C_pdd8_s730451893` | **rendered** | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
 | `C_pdd8_s730451894` | not run -- cancelled while Sol was wrongly suspected of the OOM | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
-
-### C2 vs C_pdd8 does NOT isolate Sol on the OOM -- read this before concluding
-
-    position  1  C_pdd8_s892         Sol ON    0/24 cached   OOM
-    position 23  C2_pdd8_nosol_s892  Sol OFF  17/23 cached   success, 511.0 s
-
-Same seed, same graph but for Sol. **The success is fully explained by cache
-position and says nothing about Sol.** The Sol-on arm ran first after a restart
-and paid the entire model load; the Sol-off arm ran twenty-two prompts later on
-a warm cache. "Sol off rendered where Sol on OOM'd" is unsupported, and it is
-the kind of sentence that survives being quoted.
-
-Isolating Sol on the OOM needs both arms at the same cache position, which
-means `--cache-none` or a cold server each -- see the cache section below.
-
-**What the pair DOES support, on the other axis:** Sol-off took 511.0 s where
-Sol-on at 8 steps took 388.0 s (`C_pdd8_s893`, 19/24 cached against 17/23).
-The cache fractions are close enough that a 32% gap is not explained by them,
-so **Sol is worth roughly a quarter of wall-clock at 8 steps on this graph.**
-That is a timing claim, and timing is what the cache confound bites hardest --
-treat it as indicative until it runs under a controlled protocol.
 
 ### C2 -- step count, clean
 
@@ -175,23 +165,23 @@ treat it as indicative until it runs under a controlled protocol.
 
 | arm | status | steps | len | heads | refs | Sol |
 |---|---|---|---|---|---|---|
-| `C2_pdd4_nosol_s730451892` | done | 4 | 362 | on | 2 max up=True qwen=512 | absent |
-| `C2_pdd4_nosol_s730451893` | done | 4 | 362 | on | 2 max up=True qwen=512 | absent |
-| `C2_pdd4_nosol_s730451894` | done | 4 | 362 | on | 2 max up=True qwen=512 | absent |
-| `C2_pdd8_nosol_s730451892` | RUNNING | 8 | 362 | on | 2 max up=True qwen=512 | absent |
-| `C2_pdd8_nosol_s730451893` | queued | 8 | 362 | on | 2 max up=True qwen=512 | absent |
-| `C2_pdd8_nosol_s730451894` | queued | 8 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd4_nosol_s730451892` | **rendered** | 4 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd4_nosol_s730451893` | **rendered** | 4 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd4_nosol_s730451894` | **rendered** | 4 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd8_nosol_s730451892` | **rendered** | 8 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd8_nosol_s730451893` | **rendered** | 8 | 362 | on | 2 max up=True qwen=512 | absent |
+| `C2_pdd8_nosol_s730451894` | **rendered** | 8 | 362 | on | 2 max up=True qwen=512 | absent |
 
 ### D -- the two knobs
 
-`reuse_qkv_memory` (identity, SETTLED bit-identical) and `start_percent` (timing)
+`reuse_qkv_memory` (SETTLED: bit-identical) and `start_percent`
 
 | arm | status | steps | len | heads | refs | Sol |
 |---|---|---|---|---|---|---|
-| `D_reuse_on_s730451892` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 REUSE |
+| `D_reuse_on_s730451892` | **rendered** | 4 | 362 | on | 2 max up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 REUSE |
 | `D_start0_s730451892` | **OOM** | 4 | 362 | on | 2 max up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
-| `D_start0_s730451893` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
-| `D_start0_s730451894` | done | 4 | 362 | on | 2 max up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| `D_start0_s730451893` | **rendered** | 4 | 362 | on | 2 max up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| `D_start0_s730451894` | **rendered** | 4 | 362 | on | 2 max up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
 
 ### F -- prompt conformance
 
@@ -199,26 +189,26 @@ market t2v scene, guide-conformant rewrite against the original
 
 | arm | status | steps | len | heads | refs | Sol |
 |---|---|---|---|---|---|---|
-| `F_market_v1_s730451893` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `F_market_v1_s730451894` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `F_market_v2_s730451892` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `F_market_v2_s730451893` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
-| `F_market_v2_s730451894` | done | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v1_s730451893` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v1_s730451894` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v2_s730451892` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v2_s730451893` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v2_s730451894` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min12288 |
 
 ### S -- Sol settings on the rewritten market scene
 
-one seed each. `S_mktv2_yesterday` is the exact 2026-08-26 19:48 config, read off an embedded workflow
+one seed each. `S_mktv2_yesterday` is the exact 2026-08-26 19:48 config
 
 | arm | status | steps | len | heads | refs | Sol |
 |---|---|---|---|---|---|---|
-| `S_mktv2_dense_none` | queued | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 densenone min12288 |
-| `S_mktv2_end090` | queued | 4 | 362 | on | none (t2v) | 0.2-0.9 tau1.0 dense0-1 min12288 |
-| `S_mktv2_min4096` | queued | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min4096 |
-| `S_mktv2_sol_off` | queued | 4 | 362 | on | none (t2v) | absent |
-| `S_mktv2_start0` | queued | 4 | 362 | on | none (t2v) | 0.0-0.74 tau1.0 dense0-1 min12288 |
-| `S_mktv2_tau13` | queued | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.3 dense0-1 min12288 |
-| `S_mktv2_yest_no_dense` | queued | 4 | 362 | on | none (t2v) | 0.2-0.9 tau1.0 dense0-1 min4096 |
-| `S_mktv2_yesterday` | queued | 4 | 362 | on | none (t2v) | 0.2-0.9 tau1.0 densenone min4096 |
+| `S_mktv2_dense_none` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 densenone min12288 |
+| `S_mktv2_end090` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.9 tau1.0 dense0-1 min12288 |
+| `S_mktv2_min4096` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.0 dense0-1 min4096 |
+| `S_mktv2_sol_off` | **rendered** | 4 | 362 | on | none (t2v) | absent |
+| `S_mktv2_start0` | **rendered** | 4 | 362 | on | none (t2v) | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| `S_mktv2_tau13` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.74 tau1.3 dense0-1 min12288 |
+| `S_mktv2_yest_no_dense` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.9 tau1.0 dense0-1 min4096 |
+| `S_mktv2_yesterday` | **rendered** | 4 | 362 | on | none (t2v) | 0.2-0.9 tau1.0 densenone min4096 |
 
 ### G -- does the shipped 8-step reference graph run
 
@@ -482,7 +472,8 @@ renders 1344x768. PDD's own training canvas is not in its metadata, so moving to
 
 ## Reading the outputs
 
-Everything lands in `output/Video/refcmp/` as `{arm}_s{seed}`, in three files:
+Everything lands in `output/Video/batch/` as `{arm}_s{seed}`, in three files.
+**It said `refcmp/` until 2026-08-28; that directory is empty and always was.**
 
 | file | what it is |
 |---|---|
