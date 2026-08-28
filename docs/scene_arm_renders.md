@@ -156,6 +156,54 @@ reads.
 
 ---
 
+## 4b. What they turned out to be for, which is not what they were built for
+
+Added 2026-08-28 after the renders landed, because it changes their standing.
+
+A peer session established that **artifact severity under PDD tracks motion**
+(+0.676 within-clip, coarse partition against fine, frame by frame), and that
+the dialogue scenes which look fine at 4 steps contain **no high-motion frames
+at all** — so they are structurally incapable of showing a motion-dependent
+defect, however carefully or blindly they are scored. `docs/eval_comparison.md`
+carries the process rule that follows: a perceptual claim states the motion
+regime it was judged in.
+
+They also identified a coverage gap: no high-motion **ref2va** scene existed,
+every wide moving scene being t2v. **These two arms close it, and by a margin
+nobody predicted.** Measured with `bench/measure_clip_motion.py` on the renders
+themselves:
+
+| clip | median | p90 | % frames busy |
+|---|---|---|---|
+| dialogue, base 16-step | 0.0036 | 0.0082 | 0.6% |
+| dialogue, PDD 4-step | 0.0068 | 0.0171 | 5.3% |
+| market t2v (`h3_t2v_00015`) | 0.0106 | 0.0219 | 13.0% |
+| **`scene_kitchen`** | **0.0283** | 0.0876 | **73.4%** |
+| **`scene_subway`** | **0.0295** | 0.0527 | **77.6%** |
+
+About 2.8x the market scene, and the busy-frame share is a different regime
+rather than a higher number on the same one. So the corpus's strongest
+motion instrument is a pair of arms built for marker coverage and word budget,
+and neither purpose predicted it — the four-shot structure and the crowd,
+platform and service-line content did.
+
+**What that does NOT yet give you.** Both arms rendered at 16 steps base.
+Nothing here is a PDD arm, so they cannot currently discriminate a
+motion-dependent distillation artifact — they establish that the *substrate*
+exists, not that anything has been measured on it. PDD 4-step and 8-step
+variants of these two are the cheap next step, and until they exist "looks
+fine at 4 steps" remains a statement about low-motion scenes.
+
+**One confound worth carrying, found in a prompt rather than a render.** The
+stairwell dialogue text asks for "the camera shakes slightly with the
+operator's breathing". Both dialogue arms share it, so their comparison stays
+controlled, but that scene cannot cleanly answer whether distillation changes
+camera movement, because the movement is prompted. The market prompt asks for
+no shake and is the clean substrate for that question. These two scene arms
+prompt camera moves throughout and are **not** clean for it either.
+
+---
+
 ## 5. Recording the verdict
 
 Free text, per the house pattern: what you saw, what differed from the brief,
