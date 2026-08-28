@@ -784,6 +784,51 @@ def l2v_prompt(length: int) -> str:
 #: phrase at all, because the guide writes medium and normal by omitting them.
 #: The porter's identity is given in [Shot 1] where he first appears (4.4).
 #: The reference the market ref2va arms carry. One image, one subject.
+def graph_length(extra: dict) -> int:
+    """The frame count the build loops give a graph.
+
+    Both loops spell this `{"length": LONG_LENGTH, **rest}` -- the shipped
+    default is LONG, not `build_api`'s signature default, and an entry naming
+    its own `length` wins. Factored out because `--dump-prompts` has to
+    resolve it identically: `l2v_prompt`/`fl2v_prompt` bake the alignment
+    TIMESTAMP from it, so a length resolved one way here and another way there
+    yields two prompts differing only in a number -- exactly the silent
+    disagreement the check that consumes it exists to detect.
+
+    The bench stamped copies pass `length=` directly and are not built from a
+    GRAPHS entry; they are outside `graph_paths` and so outside that check.
+    """
+    return extra.get("length", LONG_LENGTH)
+
+
+def resolve_default_prompt(task: str, prompt: str | None, *,
+                           length: int, last_frame: bool,
+                           first_frame: bool) -> str:
+    """The prompt a graph gets when its GRAPHS entry declares none.
+
+    **THE DEFAULT PROMPT FOLLOWS THE SOCKETS, NOT THE TASK STRING.** `i2v`
+    covers both keyframe modes -- one wired frame or two -- and they take
+    DIFFERENT alignment sentences (`base_en.md:14-32`), so keying this on
+    `task` alone hands an fl2va graph the I2VA line. Nothing downstream would
+    catch it: preflight checks that the preamble names a Picture, not that it
+    is the right sentence for the mode.
+
+    **One copy, called from three places.** It stood as an identical
+    five-line expression in `build_api` and `build_ui` until 2026-08-28, when
+    `--dump-prompts` needed the same answer and would have made a third.
+    `bench/check_ref_prompt_labels.py` compares shipped graphs against what
+    this returns, so a fourth copy would be a check grading a graph against a
+    restatement of the rule rather than against the rule.
+    """
+    if prompt is not None:
+        return prompt
+    if task == "i2v" and last_frame and not first_frame:
+        return l2v_prompt(length)
+    if task == "i2v" and last_frame:
+        return fl2v_prompt(length)
+    return {"t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]
+
+
 MARKET_REF_IMAGES = ("dirk_runway2.jpeg",)
 
 MARKET_REF2V_PROMPT = """subject_definitions:
@@ -1073,18 +1118,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     _check_geometry(length, canvas)
     ref = task == "r2v"
     cv = dict(CANVAS, **canvas)
-    # THE DEFAULT PROMPT FOLLOWS THE SOCKETS, NOT THE TASK STRING. `i2v`
-    # covers both keyframe modes -- one wired frame or two -- and they take
-    # DIFFERENT alignment sentences (`base_en.md:14-32`), so keying this on
-    # `task` alone hands an fl2va graph the I2VA line. Nothing downstream
-    # would catch it: preflight checks that the preamble names a Picture,
-    # not that it is the right sentence for the mode.
-    if prompt is None:
-        prompt = (l2v_prompt(length)
-                  if (task == "i2v" and last_frame and not first_frame)
-                  else fl2v_prompt(length) if (task == "i2v" and last_frame)
-                  else {"t2v": T2V_PROMPT, "i2v": I2V_PROMPT,
-                        "r2v": R2V_PROMPT}[task])
+    prompt = resolve_default_prompt(task, prompt, length=length,
+                                    last_frame=last_frame,
+                                    first_frame=first_frame)
 
     _encoder = clip or MODELS["clip"]
     # Resolved once. `_resolved_steps` reaches BasicScheduler AND, on a PDD
@@ -1395,7 +1431,17 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        "inputs": {"model": model_src, "lora_name": lora[0],
                                   "strength": lora[1],
                                   "patch_heads": pdd_heads,
-                                  "nfe": pdd_nfe,
+                                  # `head_blocks` replaced the old `nfe` Int
+                                  # on 2026-08-28: 0 used to mean "take the
+                                  # blocks from the sampler's schedule", which
+                                  # is the normal mode spelled as a falsy
+                                  # sentinel. The count is now nested under
+                                  # the branch that reads it, so a graph that
+                                  # is not forcing carries no count at all.
+                                  "head_blocks": ("forced" if pdd_nfe
+                                                  else "from schedule"),
+                                  **({"head_blocks.nfe": pdd_nfe}
+                                     if pdd_nfe else {}),
                                   # 0 on a split graph. There, `_sigma_src`
                                   # below keeps BasicScheduler and nothing
                                   # consumes this node's SIGMAS -- but a
@@ -4457,18 +4503,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # the two disagreeing -- and the UI/API pair check compares what lands
     # in each.
     _resolved_steps = steps if steps is not None else SAMPLING["steps"]
-    # THE DEFAULT PROMPT FOLLOWS THE SOCKETS, NOT THE TASK STRING. `i2v`
-    # covers both keyframe modes -- one wired frame or two -- and they take
-    # DIFFERENT alignment sentences (`base_en.md:14-32`), so keying this on
-    # `task` alone hands an fl2va graph the I2VA line. Nothing downstream
-    # would catch it: preflight checks that the preamble names a Picture,
-    # not that it is the right sentence for the mode.
-    if prompt is None:
-        prompt = (l2v_prompt(length)
-                  if (task == "i2v" and last_frame and not first_frame)
-                  else fl2v_prompt(length) if (task == "i2v" and last_frame)
-                  else {"t2v": T2V_PROMPT, "i2v": I2V_PROMPT,
-                        "r2v": R2V_PROMPT}[task])
+    prompt = resolve_default_prompt(task, prompt, length=length,
+                                    last_frame=last_frame,
+                                    first_frame=first_frame)
     g = UIGraph()
 
     unet_node = g.add("UNETLoader", (-1500, 0), size=(560, 90),
@@ -4532,7 +4569,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                   title="PDD LoRA: what runs that the widgets do not show")
             lora_node = g.add(
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 170),
-                widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
+                widgets=[lora[0], lora[1], pdd_heads,
+                         "forced" if pdd_nfe else "from schedule",
+                         *([pdd_nfe] if pdd_nfe else []),
                          0 if split_at else _resolved_steps],
                 # `steps` is a socket in the UI form too, fed by the
                 # PrimitiveInt added below, so the value is visible on the
@@ -5755,6 +5794,10 @@ def main():
     # Loading the right prompt into the right arm, without opening a JSON.
     # The graphs already ship with theirs baked in; these are for pasting one
     # into a graph you are editing by hand, or reading one without ComfyUI.
+    ap.add_argument("--dump-prompts", action="store_true",
+                    help="JSON map of shipped api filename -> its prompt, for "
+                         "checks that compare a graph against ITS OWN expected "
+                         "text rather than against every legal prompt")
     ap.add_argument("--list-prompts", action="store_true",
                     help="one line per shipped graph: its name and prompt's first line")
     ap.add_argument("--print-prompt", metavar="GRAPH",
@@ -7080,6 +7123,35 @@ def main():
         print(json.dumps(T2V_SCENES[args.print_scene]))
         return 0
 
+    if args.dump_prompts:
+        # The authoritative `api filename -> prompt` map.
+        #
+        # Exists so a consumer can compare a shipped graph against ITS OWN
+        # expected prompt. `bench/check_ref_prompt_labels.py` used to
+        # re-enumerate `_ref_prompt`'s whole argument space and assert set
+        # membership, which failed two ways: the enumeration had to be widened
+        # by hand every time the signature grew (missed `images` becoming a
+        # tuple in 2026-08-16, missed `scene=` until 2026-08-28), and set
+        # membership cannot tell two arms apart -- an arm carrying a DIFFERENT
+        # arm's prompt was a legal string and passed green. Both classes are
+        # gone if the comparison is per graph, and this is the only place that
+        # knows which prompt belongs to which graph.
+        # `length`/`last_frame`/`first_frame` come from the BUILDER'S OWN
+        # signature, not from constants repeated here, so a changed default
+        # moves this with it instead of leaving it quietly wrong.
+        import inspect as _inspect
+        _p = _inspect.signature(build_api).parameters
+        print(json.dumps({
+            fname.removesuffix(".json") + "_api.json":
+                resolve_default_prompt(
+                    task, prompt,
+                    length=graph_length(extra),
+                    last_frame=extra.get("last_frame", _p["last_frame"].default),
+                    first_frame=extra.get("first_frame",
+                                          _p["first_frame"].default))
+            for fname, _label, task, prompt, extra, _note in GRAPHS}))
+        return 0
+
     if args.list_prompts or args.print_prompt:
         want = (args.print_prompt or "").removesuffix(".json").removeprefix("h3_")
         hit = False
@@ -7134,7 +7206,7 @@ def main():
                       title=f"h3-{label}-" + ("sla-router" if router else
                                               "dense" if dense_mode == "none" else
                                               "sage" + ("-sol" if sol_on else "")),
-                      **{"length": LONG_LENGTH, **rest})
+                      **{**rest, "length": graph_length(rest)})
         p = _graph_dir(out, extra) / fname
         written.append((label, "ui", p, wf))
         print(f"  {p.name}: {note}")
@@ -7155,7 +7227,7 @@ def main():
                        sol=(sol_for_steps(SOL_RECOMMENDED_CUDA,
                                           extra.get("steps", SAMPLING["steps"]))
                             if sol_on else None),
-                       **{"length": LONG_LENGTH, **api_extra})
+                       **{**api_extra, "length": graph_length(api_extra)})
         p = _graph_dir(out, extra) / fname.replace(".json", "_api.json")
         written.append((label, "api", p, wf))
 

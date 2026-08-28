@@ -72,7 +72,6 @@ Reads the shipped API graphs. No CUDA, no model, no ComfyUI import.
 
 from __future__ import annotations
 
-import itertools
 import json
 import re
 import sys
@@ -292,105 +291,78 @@ def main():
         assert not bad, "\n         ".join(bad)
 
     def prompts_match_the_generator():
-        """A baked prompt that no longer matches its generator is drift.
+        """Every shipped graph carries the prompt ITS OWN entry declares.
 
-        The graphs carry their prompt inline, which is what makes them
-        editable -- and what lets a hand-edit diverge from `_ref_prompt`
-        silently. Rebuild every prompt the GRAPHS table declares and assert
-        each shipped graph carries one of them verbatim.
+        Drives `build_workflows.py --dump-prompts`, the one place that knows
+        which prompt belongs to which graph, and compares per graph.
+
+        **This replaced an enumeration on 2026-08-28, and the enumeration is
+        why.** It rebuilt `_ref_prompt`'s entire argument space into a
+        147,503-string `legal` set and asserted membership. That design failed
+        three ways, two of them observed:
+
+          * it had to be widened BY HAND whenever the generator's signature
+            grew, and silently accused the graph instead of itself when it was
+            not. `images` becoming a role tuple did it on 2026-08-16;
+            `scene=` was added later and was never enumerated at all
+          * module-level authored prompts had to be declared one at a time,
+            and `MARKET_REF2V_PROMPT` was not -- so the check sat RED from
+            b62e95d until somebody ran it
+          * **set membership cannot tell two arms apart.** Any legal string
+            passed in any graph. Demonstrated: one arm was given another
+            arm's prompt and all eight cases stayed green, which is an
+            experiment silently rendering the wrong text
+
+        A per-graph comparison has none of those. There is nothing to
+        enumerate, nothing to declare, and an arm carrying another arm's
+        prompt is a mismatch like any other.
+
+        **Widened from ref graphs to ALL graphs at the same time.** The walk
+        above collects only nodes in `REF_NODES`; nothing else in `bench/`
+        compares a t2v or keyframe prompt against the generator, so those
+        carried no drift check at all. The accessor covers every entry in
+        `GRAPHS`, so covering them costs nothing.
+
+        **What this does NOT catch**, and no mechanical check can: a GRAPHS
+        entry that wires the wrong prompt for its arm. The graph would
+        faithfully match its entry and pass. That stays `docs/prompt_audit.md`
+        and `bench/preflight_graph.py`.
         """
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "_bw_for_check", REPO / "workflows" / "build_workflows.py")
-        if spec is None or spec.loader is None:
-            raise AssertionError("could not load build_workflows to compare")
-        # build_workflows imports h3_config as a bare name, so its own
-        # directory has to be importable; ComfyUI's root has to come FIRST so
-        # a later bare `import nodes` finds ComfyUI's and not this repo's.
-        import sys as _sys
-        for extra in (str(REPO / "workflows"), str(REPO.parents[1])):
-            if extra not in _sys.path:
-                _sys.path.insert(0, extra)
-        try:
-            import nodes  # noqa: F401
-        except Exception:
-            pass
-        bw = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(bw)
+        import subprocess
+        r = subprocess.run(
+            [sys.executable, str(REPO / "workflows" / "build_workflows.py"),
+             "--dump-prompts"], capture_output=True, text=True)
+        assert r.returncode == 0, (
+            "could not ask the generator what each graph should carry "
+            f"(exit {r.returncode}). This case cannot be evaluated, so it "
+            f"fails rather than passing: {r.stderr.strip()[-400:]}")
+        expected = json.loads(r.stdout)
 
-        # every prompt `_ref_prompt` can produce for the roles in use
-        #
-        # `images` is enumerated over ROLE TUPLES, not over (True, False).
-        # Until 2026-08-16 it was the bool pair, which could not express a role
-        # tuple at all, so the first graph declaring three roles was reported
-        # as a hand-edit -- a false positive that accused the graph of the
-        # check's own blind spot. The comment below already said a hardcoded
-        # copy stops covering the generator "the moment a role is added"; it
-        # was right about the risk and still missed it, because what changed
-        # was the SHAPE of the argument rather than its value.
-        #
-        # Built from `IMAGE_ROLES` and `_REF_IMAGE_NODES` so neither the role
-        # list nor the socket count is duplicated here.
-        image_arms = [False]
-        for n in range(1, len(bw._REF_IMAGE_NODES) + 1):
-            image_arms += list(itertools.product(bw.IMAGE_ROLES, repeat=n))
-        legal = set()
-        for imgs in image_arms:
-            for vid in (True, False):
-                for vaud in (True, False):
-                    for aud in (True, False):
-                        # Imported, never repeated. A hardcoded copy here
-                        # stops covering the generator the moment a role is
-                        # added, and reports it as a hand-edit.
-                        for vrole in bw.VIDEO_ROLES:
-                            for arole in bw.AUDIO_ROLES:
-                                legal.add(bw._ref_prompt(
-                                    images=imgs, video=vid, video_audio=vaud,
-                                    audio=aud, video_role=vrole, audio_role=arole))
-
-        # The single-frame image prompts USED to be enumerated here from
-        # `bw._IMAGE_SCENES` x `bw.IMAGE_FORMATS`. Dropped 2026-08-27 with the
-        # lane: `build_workflows.py` no longer calls `_image_graphs()`, so no
-        # shipped graph can legitimately carry one of those prompts, and adding
-        # them to `legal` would widen the accept set to cover text that cannot
-        # appear -- an image prompt pasted into a video graph would pass as
-        # generated. The generator still defines the tables, so restoring this
-        # is un-parking the lane plus these three lines. See
-        # `docs/h3_image_editing.md`.
-        # `_ref_prompt` also takes `scene=`, and this loop does not enumerate
-        # it. That is deliberate and it is the same call as the image prompts
-        # above: no call site in `build_workflows.py` passes `scene`, so no
-        # shipped graph can legitimately carry one, and adding
-        # `REF_SCENE_SHOTS` to `legal` would widen the accept set to cover text
-        # that cannot appear. **The cost is a cry-wolf red**: the first graph to
-        # wire a scene arm gets accused of being a hand-edit. If you are that
-        # person, the fix is to enumerate `bw.REF_SCENE_SHOTS` here in the same
-        # breath as wiring it -- not to add your prompt to the list below.
-        #
-        # This is the 2026-08-16 `images` failure one parameter over: the
-        # comment there says a hardcoded copy stops covering the generator "the
-        # moment a role is added" and it was right about the class while
-        # missing this instance, because again what changed was the SHAPE of
-        # the signature rather than a value in it.
-        # Authored ref2v prompts, named one at a time on purpose.
-        #
-        # This case exists to catch a GENERATED graph whose prompt was
-        # hand-edited away from `_ref_prompt`. A prompt that is a module-level
-        # constant cannot drift from `_ref_prompt` because it never came from
-        # it -- but it is also not something the loop above can enumerate, so
-        # it has to be declared. Listed individually rather than swept up by a
-        # `*_PROMPT` glob: a glob would make every future constant legal
-        # silently, and the point of this list is that adding one is a
-        # deliberate act somebody can see in a diff.
-        for authored in (bw.DIALOGUE_REF2V_PROMPT,
-                         bw.MARKET_REF2V_PROMPT):
-            legal.add(authored)
-        bad = [name for name, inputs, _doc in graphs
-               if isinstance(inputs.get("prompt"), str)
-               and inputs["prompt"] not in legal]
-        assert not bad, (
-            "these graphs carry a prompt `_ref_prompt` cannot produce, so a "
-            "hand-edit has diverged from the generator: " + ", ".join(bad))
+        bad, compared = [], 0
+        for path in graph_paths(WORKFLOWS, "*_api.json"):
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            for node in doc.values():
+                if not isinstance(node, dict):
+                    continue
+                got = (node.get("inputs") or {}).get("prompt")
+                if not isinstance(got, str):
+                    continue
+                if path.name not in expected:
+                    bad.append(f"{path.name}: no GRAPHS entry generates this "
+                               f"graph, so nothing declares its prompt")
+                    continue
+                compared += 1
+                if got != expected[path.name]:
+                    want = expected[path.name]
+                    where = next((i for i, (a, b) in enumerate(
+                        zip(got, want)) if a != b), min(len(got), len(want)))
+                    bad.append(
+                        f"{path.name}: prompt differs from the one its entry "
+                        f"declares, first at char {where}\n"
+                        f"           shipped:  ...{got[max(0, where-40):where+60]!r}\n"
+                        f"           generator:...{want[max(0, where-40):where+60]!r}")
+        assert not bad, "\n         ".join(bad)
+        print(f"        ({compared} graph(s) compared against their own entry)")
 
     def no_attribute_assertions_in_environment_templates():
         """Environment templates must be purely subtractive.
