@@ -111,11 +111,30 @@ nothing. Its camera clause (`executes a controlled, slow-speed lateral truck…
 on a smooth dolly axis, tracking parallel to`) is outside §4.3's vocabulary in
 every dimension at once.
 
-### The systematic ref2va budget gap — revise
+### The ref2va budget gap — revise, and narrower than first stated
 
-Every generated ref2va prompt is **one shot, 42–68 words**, against ref §5.2's
-350–500. This is preflight's only WARN class and it fires on every ref2va graph,
-which is why it stopped being read as a finding.
+**Corrected 2026-08-28.** This section said the gap was systematic across every
+ref2va prompt. Ref §5.2 scopes it more tightly than that, and the scoping
+changes which prompts are actually in breach:
+
+- the range is **350-500 words for GENERATION tasks**, and it is "normally",
+  not a hard bound;
+- **video-editing descriptions are exempt** — the guide says they "scale with
+  the complexity of the source video and do not have to follow the
+  generation-task range";
+- **dialogue-dense content** may prioritise fitting the spoken timeline over
+  reaching a count;
+- and **base_en states no word budget at all**, so this is a ref2va rule only.
+
+Classified by the task prefix each prompt declares: the ten pure
+`reference generation` prompts (42-198 words) are genuinely under. The three
+`video editing` ones are exempt. `video continuation` is not named by the rule.
+Two of the editing prompts also declare `reference generation`, and the guide
+does not resolve that combination — an ambiguity, not a defect.
+
+One line of §5.2 forecloses the obvious excuse: **"A single shot does not
+automatically justify a shorter description."** Our under-budget prompts are all
+one shot.
 
 **The fix may not be prose.** `REF_SCENE_SHOTS` exists and is unreachable —
 `_ref_prompt(scene=)` defaults to `None` and no call site passes it. Wiring one

@@ -718,6 +718,53 @@ def fl2v_prompt(length: int) -> str:
         "non_diegetic_music: N/A")
 
 
+
+#: The final shot index the L2VA alignment sentence names. One, for the same
+#: reason `FL2V_FINAL_SHOT` is one: a single continuous shot is what lets the
+#: model converge on the closing frame.
+L2V_FINAL_SHOT = 1
+
+
+def l2v_prompt(length: int) -> str:
+    """The l2va prompt, with the alignment line resolved against `length`.
+
+    **L2VA is the mode with no coverage until now**, and its alignment sentence
+    is the third of base_en's three. It is NOT the fl2va one with a field
+    removed: `base_en.md:31` brackets BOTH the label and the shot --
+    `<Picture 1> (from [Shot N])` -- where fl2va brackets neither. Getting that
+    wrong is not cosmetic, because `preflight_graph._expected_base_alignment`
+    compares the preamble to the guide's own template by exact string.
+
+    `Shot N` and `S.SS` are placeholders and are resolved here, for the same
+    reason `fl2v_prompt` resolves them: a duration typed in as a literal
+    disagrees with the graph the moment `length` moves.
+
+    One shot, and the body converges rather than interpolating between two
+    endpoints -- there is only one endpoint. The opening is unconstrained,
+    which is the whole difference from fl2va, so the body must not imply a
+    starting frame the model was never given.
+    """
+    seconds = duration_of(snap_length(length))
+    return (
+        "How the reference pictures align with the target video \u2014 "
+        f"<Picture 1> (from [Shot {L2V_FINAL_SHOT}]) aligns with the "
+        f"{seconds:.2f}-second mark of the target video.\n"
+        "\n"
+        "integrated_multimodal_description: [Shot 1] Live-action, cinematic, one "
+        "continuous shot in a quiet interior. A woman in a dark jacket crosses the "
+        "room unhurriedly, passing a window that throws a soft band of daylight "
+        "across the floor. The camera trucks right with small amplitude at slow "
+        "speed, holding her in frame as she moves. Her pace settles, her shoulders "
+        "come level, and her position, wardrobe, the lighting and the camera's "
+        "angle and framing converge on the closing composition, reaching it only at "
+        "the final frame.\n"
+        "\n"
+        "overall_soundscape: Quiet room tone with a low ambient hum throughout, "
+        "unhurried footsteps on a hard floor, and the faint settle of fabric as the "
+        "movement comes to rest.\n"
+        "\n"
+        "non_diegetic_music: N/A")
+
 R2V_PROMPT = """subject_definitions:
 <Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
 <Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.
@@ -910,6 +957,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               length: int = LENGTH, seed: int = SEED,
               sol: dict | None = None, canvas_mode: str = "match_keyframe",
               last_frame: bool = False,
+              first_frame: bool = True,
               stamp: bool = False, unet: str | None = None,
               lora: tuple[str, float] | None = None,
               steps: int | None = None, shift: dict | None = None,
@@ -982,7 +1030,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     # would catch it: preflight checks that the preamble names a Picture,
     # not that it is the right sentence for the mode.
     if prompt is None:
-        prompt = (fl2v_prompt(length) if (task == "i2v" and last_frame)
+        prompt = (l2v_prompt(length)
+                  if (task == "i2v" and last_frame and not first_frame)
+                  else fl2v_prompt(length) if (task == "i2v" and last_frame)
                   else {"t2v": T2V_PROMPT, "i2v": I2V_PROMPT,
                         "r2v": R2V_PROMPT}[task])
 
@@ -1234,8 +1284,10 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # other node stays the same. Unlike core, wiring ONLY `last_frame`
             # is now also a valid graph -- the lone frame anchors the canvas
             # instead of being cropped into one chosen elsewhere.
-            g["15"] = {"class_type": "LoadImage", "inputs": {"image": PLACEHOLDER_IMAGE_A}}
-            inputs["first_frame"] = ["15", 0]
+            if first_frame:
+                g["15"] = {"class_type": "LoadImage",
+                           "inputs": {"image": PLACEHOLDER_IMAGE_A}}
+                inputs["first_frame"] = ["15", 0]
             if last_frame:
                 # The second LoadImage is the whole difference between
                 # i2va and fl2va. The canvas still comes from the FIRST
@@ -4242,6 +4294,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              sol: dict | None = None, sol_enabled: bool = True,
              canvas_mode: str = "match_keyframe", stamp: bool = False,
              last_frame: bool = False,
+             first_frame: bool = True,
              unet: str | None = None, lora: tuple[str, float] | None = None,
              out_prefix: str | None = None, title: str | None = None,
              sla_router: float | None = None,
@@ -4278,7 +4331,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # would catch it: preflight checks that the preamble names a Picture,
     # not that it is the right sentence for the mode.
     if prompt is None:
-        prompt = (fl2v_prompt(length) if (task == "i2v" and last_frame)
+        prompt = (l2v_prompt(length)
+                  if (task == "i2v" and last_frame and not first_frame)
+                  else fl2v_prompt(length) if (task == "i2v" and last_frame)
                   else {"t2v": T2V_PROMPT, "i2v": I2V_PROMPT,
                         "r2v": R2V_PROMPT}[task])
     g = UIGraph()
@@ -4683,10 +4738,12 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             # Straight into the conditioning node. There is no canvas node in
             # front of it any more: it derives the canvas from this keyframe
             # itself, which is one owner instead of two agreeing by wiring.
-            img_a = g.add("LoadImage", (-880, 900), size=(290, 330),
-                          widgets=[PLACEHOLDER_IMAGE_A, "image"],
-                          outputs=[_out("IMAGE", "IMAGE"), _out("MASK", "MASK")])
-            g.link(img_a, 0, cond, "first_frame", "IMAGE")
+            if first_frame:
+                img_a = g.add("LoadImage", (-880, 900), size=(290, 330),
+                              widgets=[PLACEHOLDER_IMAGE_A, "image"],
+                              outputs=[_out("IMAGE", "IMAGE"),
+                                       _out("MASK", "MASK")])
+                g.link(img_a, 0, cond, "first_frame", "IMAGE")
             if last_frame:
                 # Mirrors `build_api`. `cross_check` is what asserts the
                 # two builders agree, so a second frame added to one and
@@ -5615,6 +5672,24 @@ def main():
          dict(last_frame=True, variant_note=_NOTE_FL2V,
               out_prefix="Video/h3_fl2v", **FL2V_CANVAS),
          "first frame + last frame + text -> video + audio"),
+
+        # l2va: last frame ONLY, and the mode base_en names that this repo had
+        # zero coverage of until 2026-08-28. `first_frame=False` is the whole
+        # difference from fl2va -- the lone frame anchors the canvas rather
+        # than being cropped into one chosen elsewhere, which the keyframe
+        # comment in `build_api` already said was valid and which nothing
+        # exercised. Task stays "i2v" for the same reason fl2va does: the
+        # geometry and canvas logic are shared and a fourth task value would
+        # fork them.
+        #
+        # It also exercises `l2v_prompt`, whose alignment sentence brackets
+        # BOTH the label and the shot where fl2va brackets neither. That
+        # distinction was carried by an uncalled branch emitting the guide's
+        # placeholders literally until the same day.
+        ("h3_last_frame_to_video.json", "l2v", "i2v", None,
+         dict(last_frame=True, first_frame=False,
+              out_prefix="Video/h3_l2v", **FL2V_CANVAS),
+         "last frame + text -> video + audio (the closing frame is the anchor)"),
 
         # The first turbo graph here that is IN distribution: every released
         # turbo LoRA is an fl2v distill and every previous turbo arm was t2v or

@@ -19,6 +19,7 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | [`derived:h3_probe_release_video_policy`](#derivedh3-probe-release-video-policy) | 2 | 183 | 1 | 0 | — |
 | [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | 1 | 250 | 3 | 2 | `<d>` |
 | [`R2V_PROMPT`](#r2v-prompt) | 1 | 281 | 1 | 0 | — |
+| [`derived:h3_last_frame_to_video`](#derivedh3-last-frame-to-video) | 1 | 137 | 1 | 0 | — |
 | [`derived:h3_ref_audio_voice`](#derivedh3-ref-audio-voice) | 1 | 213 | 1 | 1 | `<d>` |
 | [`derived:h3_ref_image_audio`](#derivedh3-ref-image-audio) | 1 | 184 | 1 | 0 | — |
 | [`derived:h3_ref_video_continue`](#derivedh3-ref-video-continue) | 1 | 181 | 1 | 0 | — |
@@ -401,6 +402,26 @@ retention_analysis:
 detailed_description:
 The target video is in a cinematic live-action style with realistic natural textures, depth of field, and continuous motion throughout the fifteen-second sequence.
 [Shot 1] The shot opens on a wide establishing frame of <Subject 2>, organic spatial depth and clean perspective lines under the ambient light of the environment. From 0.0s to 3.0s, <Subject 1> enters steadily into frame from camera-left, stepping forward in full view while preserving the complete identity, form, and wardrobe specified by <Picture 1>. From 3.0s to 7.0s, the camera trucks right at slow speed, staying level with <Subject 1> as they reach the centre of the frame and pause in a natural resting posture, the lens holding sharp focus on <Subject 1> while <Subject 2> falls away behind them with gentle focal roll-off. From 7.0s to 11.0s, <Subject 1> turns toward the primary ambient light source of the environment, glancing slightly off-camera with a measured, contemplative expression, their profile clearly visible without abrupt shifts in posture. From 11.0s to 15.0s, the camera holds a static shot on a balanced medium framing of <Subject 1> against <Subject 2>, preserving subject presence, lighting equilibrium, and environmental continuity until the final frame, with no cuts.
+```
+
+## derived:h3_last_frame_to_video
+
+Carried by **1** graph(s). Sections: none.
+
+<details><summary>graphs</summary>
+
+- `h3_last_frame_to_video_api`
+
+</details>
+
+```text
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 15.08-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot in a quiet interior. A woman in a dark jacket crosses the room unhurriedly, passing a window that throws a soft band of daylight across the floor. The camera trucks right with small amplitude at slow speed, holding her in frame as she moves. Her pace settles, her shoulders come level, and her position, wardrobe, the lighting and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: Quiet room tone with a low ambient hum throughout, unhurried footsteps on a hard floor, and the faint settle of fabric as the movement comes to rest.
+
+non_diegetic_music: N/A
 ```
 
 ## derived:h3_ref_audio_voice
