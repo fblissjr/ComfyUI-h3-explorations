@@ -212,13 +212,25 @@ def case_quiet_on_guide_examples() -> list[str]:
     # the corpus never feeds is silent for a structural reason, and reporting
     # that as a pass is how a green cry-wolf control hides a wrong rule.
     #
-    # The sibling project supplied the instance: a punctuation rule that
-    # contradicted base 4.4 sat green through their whole worked-example suite,
-    # because none of the five fixtures carried user-supplied dialogue with
-    # decorative punctuation. Nothing in a passing run said so.
-    #
     # So per rule: did the corpus contain anything this rule LOOKS AT? Not
     # anything it fires on -- that would be the same vacuity one level up.
+    #
+    # **And not anything that would EXPOSE its bug**, which is a third and
+    # stronger property this does not have. The distinction was worth a
+    # correction: an earlier version of this comment offered a sibling
+    # project's punctuation bug as the motivating instance. That bug sat green
+    # through their worked-example control -- true -- but their corpus DID
+    # contain the input class the rule inspects, a correctly-punctuated
+    # user-supplied line. The bug lived in a VALUE inside a covered class, so
+    # this predicate would have stayed silent on it too. Stated because the
+    # limit is easy to write down and then contradict in the next sentence,
+    # which is what happened.
+    #
+    # What the predicate is actually good for, on their evidence rather than
+    # mine: run across their five fixtures it finds four rules whose inputs are
+    # absent outright -- no fixture sets the flag or fills the array those rules
+    # read. Each has a passing green test asserting the code is absent, and each
+    # of those greens is structural. That is the class this catches.
     blob = " ".join(corpus.values())
     exercised = {
         "modifiers_in_set": bool(AMP_RE.search(blob)) and bool(SPD_RE.search(blob)),
