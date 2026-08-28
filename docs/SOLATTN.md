@@ -1142,34 +1142,51 @@ files exist, so that is a listening test, not a render.
 
 ---
 
-## Sparsity costs about four times what quantisation costs
+## Sparsity dominates through the trunk; at the final block quantisation catches up
 
-Stated on its own because it is a fact about the STACK, not about a tau setting,
-and because it points the next optimisation somewhere different from where this
-repo has been pointing it.
+Stated on its own because it is a fact about the STACK rather than about a
+setting, and because it points the next optimisation somewhere different from
+where this repo has been pointing it.
 
-Within one file — `bench/results/2026-08-19_sol_error_per_head_tau1.0.json`,
-fourteen (block, step) rows from one capture, decomposed against an oracle by
-`bench/analyze_sol_error.py` — the median per-head error splits:
+From `bench/results/2026-08-19_sol_error_per_head_tau1.0.json` — fourteen
+(block, step) rows from one capture, decomposed against an oracle by
+`bench/analyze_sol_error.py`. Within-file, same rows, so it does not depend on
+matching captures across records:
 
-    sparsity_l2   0.143
-    quant_l2      0.037     about 3.8x smaller
+| block | sparsity_l2 | quant_l2 | ratio |
+|---|---|---|---|
+| 0, 8, 16, 24, 32, 40 (two steps each) | 0.089 - 0.224 | 0.024 - 0.049 | **2.90 - 4.79** |
+| **49, step 3** | 0.1427 | 0.1354 | **1.05** |
+| **49, step 11** | 0.1647 | 0.1353 | **1.22** |
 
-**Sol's sparsity, not INT8, is the dominant fidelity loss in the shipped stack.**
-That is a within-file comparison on the same rows, so it does not depend on
-matching captures across records, which is the trap the tau comparison had to
-avoid.
+**Through the trunk, Sol's sparsity costs three to five times what INT8 costs.**
+That cuts against a framing used repeatedly here, in which INT8 is the thing to
+be nervous about and Sol is treated as free.
 
-It cuts against a framing used repeatedly here, in which INT8 is the thing to be
-nervous about and Sol is treated as free. A lane spent on encoder quantisation
-fidelity was working the smaller term. **Read it as: if fidelity is the concern,
-Sol is where it is going.**
+**At block 49 the two are equal**, because its `quant_l2` is about 3.7x every
+other block's while its sparsity error is ordinary. **Block 49 is the LAST
+block** — the checkpoint carries blocks 0..49 — so it is the one whose error
+reaches the output with no remaining network to absorb it. `docs/morton.md`
+already records block 49 behaving unlike the trunk for reordering, which is a
+different measurement pointing at the same block being special.
 
-**What it does not say.** One capture, one tau, fourteen rows, and an L2 against
-an oracle rather than anything perceptual — a larger L2 is not automatically a
-worse-looking render, and this page's own do-not-rely-on table applies. It also
-does not say Sol is not worth its speed; it says the trade is bigger than the
-quantisation trade, not that it is a bad one.
+So the actionable form is neither "Sol is where fidelity goes" nor "INT8 is the
+worry": **it is Sol through the trunk and an equal partner at the output.**
+Acting on a stack-wide reading of the first would deprioritise quantisation work
+exactly where the data makes it an equal term.
+
+**Name the statistic, because the ratio moves with it.** Ratio of medians 3.82,
+median of per-row ratios 3.87, **ratio of means 2.88** — the mean is dragged by
+those two block-49 rows, which is skew rather than noise (quant_l2 mean 0.0500
+against median 0.0374). Quote the median and say so.
+
+**What it does not say.** One capture, one tau, seven blocks sampled at two
+steps each, and an L2 against an oracle rather than anything perceptual — a
+larger L2 is not automatically a worse-looking render. It does not say Sol is
+not worth its speed; it says the trade is bigger than the quantisation trade
+through the trunk, not that it is a bad one. And block 49 being a quantisation
+hotspot is two rows: real, and not a characterisation of how it behaves in
+general.
 
 ## Which shipped values have evidence, audited 2026-08-28
 
