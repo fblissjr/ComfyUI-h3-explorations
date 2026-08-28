@@ -957,7 +957,19 @@ def load_h3_awq_model_patcher(path: str, embedding_directory,
 
 @functools.lru_cache(maxsize=1)
 def shipped_encoder_name() -> str | None:
-    """The artifact every shipped graph loads, read from `workflows/h3_config.py`.
+    """A W4A16 artifact THIS ADAPTER CAN OPEN, read from `workflows/h3_config.py`.
+
+    **Corrected 2026-08-27 (late).** This read `MODELS["clip"]` on the premise
+    that the menu should start from "the artifact the shipped graphs load".
+    That premise died the same day: the graphs moved to the ComfyUI-native INT8
+    build through core's `CLIPLoader`, so `MODELS["clip"]` became a file this
+    loader REFUSES, and the default it produced would have started every
+    freshly dragged node on an error. A menu default has to name something the
+    node can open, which is a property of the FILE and not of what ships.
+
+    So it reads `ENCODER_V1` -- still a real W4A16 artifact on this box -- and
+    falls back to `MODELS["clip"]` only when that is itself adapter-openable,
+    which keeps the original intent alive for anyone who ships one again.
 
     Read, never copied. This is only a menu default, but a second copy of the
     filename here would drift from the graphs the first time one of them moved,
@@ -974,7 +986,13 @@ def shipped_encoder_name() -> str | None:
         spec = importlib.util.spec_from_file_location("_h3_config_menu_default", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        name = module.MODELS["clip"]
+        native = set(getattr(module, "CORE_LOADED_ENCODERS", ()) or ())
+        shipped = module.MODELS.get("clip")
+        # Prefer the shipped encoder only if this adapter owns its format.
+        if isinstance(shipped, str) and shipped not in native:
+            name = shipped
+        else:
+            name = getattr(module, "ENCODER_V1", None)
     except Exception:
         return None
     return name if isinstance(name, str) else None
