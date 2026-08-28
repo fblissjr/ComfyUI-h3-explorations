@@ -566,9 +566,99 @@ def refuses_to_stack():
     return f"{len(P.HEAD_PATCH_KEYS)} head keys reported, attention patches ignored"
 
 
+
+
+# --- the tracker's state cannot outlive the schedule it describes ------------
+
+#: `_key` is the ONLY attribute allowed to survive `_adopt`, and it has to.
+#: It is the schedule's identity, the thing `observe` compares against to decide
+#: whether to re-adopt at all. Reset it in `_adopt` and every forward re-adopts.
+#: Named with its reason rather than pattern-matched, so an attribute that stops
+#: needing the exemption fails instead of being quietly covered.
+STATE_EXEMPT = {"_key": "the schedule identity observe compares against"}
+
+
+def no_state_outlives_its_schedule():
+    """Every per-render field on `_StepTracker` is reset when the schedule is.
+
+    ## The two escaped instances that earn this, both on 2026-08-28
+
+    `_StepTracker` is a mutable object held by the ModelPatcher, and ComfyUI's
+    execution cache keeps that across prompts in a session. So any attribute
+    carrying per-render state silently persists into the NEXT render, and both
+    times it did, the symptom was a guard going quiet rather than a wrong
+    picture -- which this repo already calls the worst shape a check can take.
+
+      `_shift_checked`   a one-shot latch on the shift guard. A passing
+                         shift-12 render set it; the shift-6 graph queued next
+                         reused the cached patcher, skipped the check entirely
+                         and rendered to completion. Caught by driving the two
+                         orderings on the card, not by any gate.
+      `warned`           the boundary warning's latch, set in `__init__` and
+                         never reset. Two arms with a bit-identical truncated
+                         sigma vector, queued back to back: the first warned,
+                         the second was silent.
+
+    Nothing in the suite could have caught either. What catches them is the
+    shape rather than the instance: an attribute assigned somewhere other than
+    `__init__` is per-render by construction, and `_adopt` is the one place a
+    new schedule is taken. So the invariant is mechanical -- assigned outside
+    `__init__` implies assigned in `_adopt` -- and this asserts it statically,
+    with no model, no CUDA and no server.
+
+    **Deliberately NOT a runtime probe.** Driving two schedules through a live
+    tracker would grade the fields that exist today; parsing the class catches
+    the field somebody adds next year, which is the one that will actually bite.
+
+    What breaks if this case is deleted: a new per-render attribute lands on the
+    tracker without a reset, and the next graph in the same server session
+    inherits it. There is no symptom at the time -- the render completes.
+    """
+    import ast
+    src = (HERE.parent / "pdd_lora.py").read_text()
+    cls = next(n for n in ast.walk(ast.parse(src))
+               if isinstance(n, ast.ClassDef) and n.name == "_StepTracker")
+    where: dict[str, set[str]] = {}
+    for fn in [n for n in cls.body if isinstance(n, ast.FunctionDef)]:
+        for node in ast.walk(fn):
+            targets = (node.targets if isinstance(node, ast.Assign)
+                       else [node.target] if isinstance(node, ast.AnnAssign)
+                       else [])
+            for tgt in targets:
+                if (isinstance(tgt, ast.Attribute)
+                        and isinstance(tgt.value, ast.Name)
+                        and tgt.value.id == "self"):
+                    where.setdefault(tgt.attr, set()).add(fn.name)
+    assert where, "parsed no attributes off _StepTracker; this case is inert"
+    assert "_adopt" in {m for ms in where.values() for m in ms}, (
+        "_StepTracker has no `_adopt`; this case is keyed on it and has lost "
+        "its subject rather than passing")
+
+    leaked = sorted(
+        a for a, ms in where.items()
+        if ms != {"__init__"} and "_adopt" not in ms and a not in STATE_EXEMPT)
+    assert not leaked, (
+        f"per-render state on _StepTracker that `_adopt` does not reset: "
+        f"{leaked}. The tracker lives in the ModelPatcher and ComfyUI's cache "
+        f"keeps it across prompts, so each of these carries into the next "
+        f"render in the same session. Reset it in `_adopt`, or add it to "
+        f"STATE_EXEMPT with the reason it must survive.")
+
+    stale = sorted(a for a in STATE_EXEMPT
+                   if a not in where or "_adopt" in where.get(a, ()))
+    assert not stale, (
+        f"STATE_EXEMPT names {stale}, which no longer needs the exemption -- "
+        f"either gone from the class or now reset by `_adopt`. An exemption "
+        f"that is not necessary covers the next real leak.")
+    per_render = sorted(a for a, ms in where.items() if "_adopt" in ms)
+    return (f"{len(per_render)} per-render field(s) reset by _adopt, "
+            f"{len(STATE_EXEMPT)} exempt and still necessary")
+
+
 check("today's core signature", todays_core)
 check("the signature #15908 introduces", post_pr_core)
 check("a second owner of the heads is refused", refuses_to_stack)
+check("no state outlives its schedule", no_state_outlives_its_schedule)
 
 print()
 if failures:

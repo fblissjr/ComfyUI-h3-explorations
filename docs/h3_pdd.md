@@ -299,11 +299,30 @@ keeps the ModelPatcher across prompts -- so the second graph to go off-boundary
 in a session got nothing. `_adopt` now resets it, so the budget is one warning
 per schedule.
 
-This is the **third** instance of the same defect class in this file in one day:
-the head selector's `t` quantisation, the shift guard's first `_shift_checked`
-latch, and this. All three are a value that outlives the render it describes.
-Anything latched on this tracker has to ask what happens on the next prompt in
-the same session.
+**Corrected: two instances, not three.** An earlier version of this paragraph
+lumped the 2026-08-26 head-selector defect in with these, and it does not
+belong -- that was `t` recovered by a quantising table lookup, a numerical
+precision bug, and it produced a WRONG PICTURE. These two produced no wrong
+picture at all. They produced **silence**: a guard that had stopped reporting,
+read as "all clear". That is the more expensive shape by this repo's own
+standard, and it is a different defect from the first.
+
+The class these two share is exact and structural. `_StepTracker` is a mutable
+object held by the ModelPatcher; ComfyUI's execution cache keeps that across
+prompts in a session; so any attribute carrying per-render state survives into
+the next render.
+
+**That is now an assertion rather than a thing to remember.** All sixteen
+attributes were enumerated: eight are immutable load-time configuration and
+are correct to persist, seven are per-render and every one is reset by
+`_adopt`, and `_key` must survive because it is the schedule identity `observe`
+compares against. `bench/check_pdd_head_selection.py::no state outlives its
+schedule` parses the class and asserts the mechanical form of that -- assigned
+outside `__init__` implies assigned in `_adopt` -- with `_key` as a named
+exemption graded for necessity. Static rather than a runtime probe on purpose:
+driving a live tracker grades the fields that exist today, and the field that
+will bite is the one somebody adds later. Shown red by reintroducing the exact
+unreset latch, which it names.
 
 With the latch fixed, a clean session shows **neither** denoise path warning --
 so a truncated PDD schedule is on-grid both ways, and the one warning that
