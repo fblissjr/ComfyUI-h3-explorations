@@ -56,7 +56,7 @@ without it, **convenience** means the graph could be wired by hand instead, and
 | `MiniMaxH3PDDLoRA` | load-bearing on PDD arms | yes |
 | `MiniMaxH3Resolution` | convenience | yes |
 | `MiniMaxH3KeyframeCanvas` | convenience | **no** |
-| `MiniMaxH3ReferenceFit` | convenience | **no** |
+| `MiniMaxH3ReferenceFit` | convenience, **DEPRECATED 2026-08-28** | **no** |
 | `MiniMaxH3ReferenceVideoFit` | convenience | **no** |
 | `MiniMaxH3Preflight` | instrumentation | yes |
 | `MiniMaxH3SLARouter` | instrumentation (comparative arm) | one arm |
@@ -75,7 +75,14 @@ dead code, and the distinction matters:
   unwired.
 - `MiniMaxH3ReferenceFit` and `MiniMaxH3ReferenceVideoFit` were superseded by
   the append-ref chain and kept registered so externally saved graphs still
-  load.
+  load. **`MiniMaxH3ReferenceFit` carries `is_deprecated=True` since
+  2026-08-28**, so it no longer appears in the node picker while saved graphs
+  that wire it keep loading. Three reasons it is not merely redundant: chaining
+  it in front of the append resamples TWICE, it hardcodes `size_policy="max"`
+  and cannot express `match`, and it has no `qwen_short_edge`, so it cannot give
+  the text encoder a view separate from the VAE's. `MiniMaxH3ReferenceVideoFit`
+  is NOT deprecated -- it is unwired but still live as the reporter
+  `bench/check_ref_video_prediction.py` grades core's behaviour against.
 - `MiniMaxH3AWQEncoderLoader` is a **format adapter with no current consumer**,
   but live code: `bench/preflight_graph.py` and `workflows/h3_config.py` both
   read its `ARTIFACT_SNAPSHOTS`. See §5.1.

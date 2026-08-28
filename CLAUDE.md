@@ -83,8 +83,10 @@ repeating work.
     ceiling: a source already under it is untouched, and the knob does nothing
     at all for that source until `allow_upscale` is on. Both knobs live on
     `MiniMaxH3AppendRefImage` and are read ONLY under `max`.
-  - **Do not reach for `MiniMaxH3ReferenceFit`.** It is back-compat for saved
-    graphs outside this repo and **no shipped graph wires it**; the typed path
+  - **Do not reach for `MiniMaxH3ReferenceFit`.** It carries
+    `is_deprecated=True` since 2026-08-28, so it is gone from the node picker
+    while saved graphs that wire it still load, and **no shipped graph wires
+    it**; the typed path
     (`AppendRefImage` -> `MiniMaxH3ReferenceConditioning`) carries both knobs
     itself and does one resize with the canvas in scope. `docs/h3_references.md`
     says in places that you need `max` *and* `ReferenceFit(allow_upscale=True)`

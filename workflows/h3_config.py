@@ -1450,8 +1450,19 @@ SPLIT_AT = 2
 #: `MiniMaxH3AppendRefImage.qwen_short_edge`. 512 since 2026-08-27; 0 (one
 #: view, whatever the VAE got) before.
 #:
-#: **INERT ON EVERY SHIPPED GRAPH SINCE 72e97c3, and kept anyway.** Those
-#: graphs run the v1 conditioner, whose still bounds are a 1.5x window
+#: **SUPERSEDED 2026-08-28: this paragraph describes an encoder the graphs no
+#: longer load.** It was true between `72e97c3` (v1 on every graph) and
+#: `4ff3f0b` (ship INT8 ConvRot), both 2026-08-27 -- a window of hours. Today
+#: `MODELS["clip"]` is `ENCODER_INT8`, which loads through core `CLIPLoader`
+#: with no contract stamped, so core's own 3,136..12,845,056 px bounds apply
+#: and this knob is **LOAD-BEARING, not inert** -- the `ENCODER_INT8` note near
+#: the top of this file is the current statement and explains why 0 would cost
+#: two references 9,408 tokens inside the prompt's own segment. Keep the v1
+#: paragraph below: it is why the knob was kept when it looked useless, and it
+#: is the regime anyone loading a v1 snapshot is still in.
+#:
+#: **The v1 regime, for when it applies.** Those graphs ran the v1 conditioner,
+#: whose still bounds are a 1.5x window
 #: (200704..301056), so `smart_resize` lands every non-square reference on the
 #: identical view whatever it was prepared at: 512, 1024 and 2048 all reach
 #: the encoder as 264 merged tokens at 16:9, and only square moves at all.

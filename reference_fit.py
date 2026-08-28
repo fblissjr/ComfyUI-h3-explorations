@@ -132,16 +132,27 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="MiniMaxH3ReferenceFit",
-            display_name="MiniMax H3 Reference Resolution",
+            display_name="MiniMax H3 Reference Resolution (DEPRECATED)",
             category="model/conditioning/minimax",
+            is_deprecated=True,
             description=(
-                "Scales a reference image to MiniMax H3's 2048 short edge, "
-                "upscaling when it is smaller -- which the reference pipeline "
-                "does and ComfyUI does not. Wire it between Load Image and "
-                "MiniMax H3 Reference to Video, with that node's "
-                "ref_image_size on 'max', and its own resize becomes a no-op. "
-                "Reference rows ride every sampling step, so read latent_rows "
-                "before queueing."
+                "RETIRED 2026-08-28. Use MiniMaxH3AppendRefImage instead -- it "
+                "carries short_edge and allow_upscale itself, and MiniMax H3 "
+                "Reference Conditioning performs ONE resize with the target "
+                "canvas in scope.\n\n"
+                "This node still works and is kept registered ONLY so saved "
+                "graphs that wire it keep loading; no graph in this repo has "
+                "wired it since the typed reference path landed. Three reasons "
+                "not to reach for it in new work: chaining it into the append "
+                "node resamples TWICE (this resize, then the append's), it "
+                "cannot express size_policy=match at all because it hardcodes "
+                "max, and it has no qwen_short_edge -- so it cannot give the "
+                "text encoder a view separate from the VAE's, which is the "
+                "knob that keeps reference tokens from crowding the prompt out "
+                "of its own segment.\n\n"
+                "Two of its inputs, lift_downstream_clamp and "
+                "keep_towers_matched, are INERT and retained only to keep "
+                "saved-graph widget positions valid."
             ),
             inputs=[
                 io.Image.Input("image"),

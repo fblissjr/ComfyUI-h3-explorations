@@ -2036,19 +2036,61 @@ be one you made on purpose.
 
 These graphs use this repo's `MiniMaxH3AppendRefImage`, not native ComfyUI's
 autogrow image sockets. Each append carries its own `size_policy`,
-`allow_upscale` and `short_edge`, and *MiniMax H3 Reference Conditioning*
-performs ONE resize with the target canvas in scope. There is no separate
-Reference Resolution node in the chain any more -- it stays registered for
-saved graphs that wire it, and its fit is idempotent with this one.
+`short_edge`, `allow_upscale` and `qwen_short_edge`, and *MiniMax H3 Reference
+Conditioning* performs ONE resize with the target canvas in scope.
 
-`max` sizes from `short_edge` and keeps the reference on its own grid; `match`
-sizes it from the target canvas area instead.
+**Do not add a Reference Resolution node.** It is DEPRECATED as of 2026-08-28
+and no graph here wires it. Chaining it in front of the append resamples
+twice, it cannot express `match`, and it has no `qwen_short_edge`.
 
-`allow_upscale` on is the released pipeline's behaviour: it scales until the
-short side reaches 2048, enlarging small references. ComfyUI's own rule only
-ever shrinks. Upscaling adds tokens, not detail, so whether it helps an
-already-small source is unmeasured -- turn it off and watch the Preflight
-percentages if you want the cheap version.
+### There are TWO budgets, and they are only the same number at qwen_short_edge 0
+
+| budget | what sets it | what it costs |
+|---|---|---|
+| **DiT rows** | `size_policy` + `short_edge` + `allow_upscale` | attended at EVERY sampling step, alongside video |
+| **vision tokens** | `qwen_short_edge` (or the above, when it is 0) | sit in the TEXT segment **ahead of your prompt** |
+
+### short_edge is a CEILING, not a target
+
+The scale is `short_edge / min(w, h)`, clamped by `min(1.0, ...)` unless
+`allow_upscale` is on, then snapped to 32. So a source already smaller than
+`short_edge` is left alone and the widget does nothing for it.
+
+A 4096x2304 source, `max`, `allow_upscale` off:
+
+```
+short_edge   VAE view    DiT rows   tokens @qwen 0   tokens @qwen 512
+      128     224x128          28               28                448
+      512     896x512         448              448                448
+     1024   1824x1024       1,824            1,824                448
+     2048   3648x2048       7,296            7,296                448
+```
+
+A 640x480 source is **640x480 at 512, 1024 and 2048 alike** -- all three
+identical, because each is above its short edge. `allow_upscale` on is what
+makes it a target: that source becomes 672x512 / 1376x1024 / 2720x2048.
+
+Rows go as the SQUARE of `short_edge`. 2048 is the released checkpoint's own
+`reference_image_short_edge` and is what these graphs use.
+
+### The defaults, and what moving each one does
+
+- **`size_policy = max`, `short_edge = 2048`** -- the vendor's rule. `match`
+  sizes from the target canvas area instead, is off-vendor, and never enlarges.
+- **`allow_upscale`** -- off matches ComfyUI (shrink only); on matches all three
+  serving implementations (upscale unconditionally). It only ever matters for a
+  source *below* `short_edge`. Upscaling adds rows, not detail, so whether it
+  helps an already-small source is unmeasured.
+- **`qwen_short_edge = 512`** -- gives the text encoder its own view so the DiT
+  keeps every reference row while the prompt keeps its share of the text
+  segment. **Do not set 0 on the shipped encoder**: two 2048 references then
+  cost 9,408 tokens ahead of a ~1,000-token prompt. 512 is a reasoned default
+  resting on one observation, not a measured optimum.
+
+Whether this knob does anything depends on which encoder is loaded -- it is
+exactly inert under a v1 snapshot and live under what ships. Preflight says on
+the line when a view was clamped and by whose bounds; read it there rather than
+assuming.
 
 `image_policy` on the conditioner is a separate decision: it selects WHOSE
 still-image ceiling applies once the reference has been prepared. `comfy`
@@ -4964,7 +5006,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
           title="Canvas + length: what is actually selectable")
     g.add("MarkdownNote", (-2180, 660), size=(620, 560), widgets=[_NOTE_NODES],
           title="Which nodes, and the order that matters")
-    g.add("MarkdownNote", (-2860, 0), size=(640, 900), widgets=[_NOTE_SIZING],
+    # Sized to the content: the sizing note grew the two-budget tables and
+    # the short_edge ladder on 2026-08-28, and a note that needs
+    # scrolling is a note nobody reads to the end of.
+    g.add("MarkdownNote", (-2860, 0), size=(700, 1560), widgets=[_NOTE_SIZING],
           title="Resolution, references, and reading the preflight")
     if variant_note is not None:
         g.add("MarkdownNote", (-2180, 1280), size=(620, 760),

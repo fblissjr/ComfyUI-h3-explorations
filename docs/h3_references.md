@@ -104,9 +104,16 @@ for graphs that explicitly wire it.
 `ref_image_size` defaults to `match`, which sizes a reference to the
 *generation's pixel area*. sglang's ceiling does not move with the canvas: it is
 a fixed 2048 short edge with no area cap, so a 16:9 reference lands near 7.5 MP
-where `match` on a 1344x768 render lands near 1 MP. `max` fixes the ceiling and
-`MiniMaxH3ReferenceFit(allow_upscale=True)` fixes the floor; you need both to
-condition the way the release is served.
+where `match` on a 1344x768 render lands near 1 MP. `max` fixes the ceiling and `allow_upscale` fixes the
+floor; you need both to condition the way the release is served.
+
+**On the typed path both live on `MiniMaxH3AppendRefImage`** and that is the
+whole of it. The sentence you may remember -- that the floor needs
+`MiniMaxH3ReferenceFit(allow_upscale=True)` as a separate node -- describes the
+NATIVE path, where core's `MiniMaxH3ReferenceToVideo` hardcodes its own clamp
+and a second node has to pre-empt it. `MiniMaxH3ReferenceFit` was **deprecated
+2026-08-28**: no graph here wires it, chaining it into the append resamples
+twice, it cannot express `match`, and it has no `qwen_short_edge`.
 
 Two separate knobs decide the final size and they are constantly confused for
 each other. See **Sizing a reference image** below; the short version is that
