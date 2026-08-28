@@ -54,6 +54,70 @@ ALLOWED = {
 }
 
 
+def _fallback_must_earn_its_use() -> list[str]:
+    """The stock fallback refuses a directory that holds no renders.
+
+    The escaped instance, 2026-08-28: `<comfy>/output` EXISTS on this box,
+    holding ComfyUI's placeholder and nothing else, because the server writes
+    to a share via `--output-directory`. The first `output_dir()` raised only on
+    ABSENCE, so it returned that directory happily and a peer session's analysis
+    reported "no renders" instead of "wrong path". An empty-but-present
+    directory reads as success, which is worse than a missing one.
+
+    Driven against the real `output_dir()` rather than a copy of its rule.
+    """
+    import importlib.util, os, tempfile
+    spec = importlib.util.spec_from_file_location(
+        "h3cfg", REPO / "workflows" / "h3_config.py")
+    cfg = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cfg)
+    out = []
+    keep = os.environ.pop("H3_OUTPUT_DIR", None)
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            # Point the FALLBACK at a stock-shaped directory: present, holding
+            # only ComfyUI's placeholder. This is the case that matters, and an
+            # earlier version of this function tested the NAMED path instead --
+            # which cannot fail, because naming a path is what honours it.
+            # Neutering the resolver left that version green.
+            stock = Path(d) / "output"
+            stock.mkdir()
+            (stock / "_output_images_will_be_put_here").touch()
+            cfg.COMFY_ROOT = Path(d)
+
+            try:
+                got = cfg.output_dir()
+                out.append(f"  FAIL  empty_stock_refused  fallback returned "
+                           f"{got}, which holds no renders. An empty-but-"
+                           f"present directory reads as success and produces "
+                           f"'no results' instead of 'wrong path'.")
+            except SystemExit:
+                pass
+
+            # The same fallback WITH a render is accepted.
+            (stock / "x.png").touch()
+            try:
+                cfg.output_dir()
+            except SystemExit:
+                out.append("  FAIL  render_dir_accepted  a fallback holding a "
+                           "render was refused")
+
+            # And an explicitly NAMED path is honoured even when empty, because
+            # the caller naming it is the whole point.
+            empty = Path(d) / "named"; empty.mkdir()
+            os.environ["H3_OUTPUT_DIR"] = str(empty)
+            try:
+                cfg.output_dir()
+            except SystemExit:
+                out.append("  FAIL  named_path_honoured  an explicitly named "
+                           "H3_OUTPUT_DIR was refused for being empty")
+    finally:
+        os.environ.pop("H3_OUTPUT_DIR", None)
+        if keep is not None:
+            os.environ["H3_OUTPUT_DIR"] = keep
+    return out
+
+
 def main() -> int:
     offenders = []
     scanned = 0
@@ -78,8 +142,16 @@ def main() -> int:
               f"directory is absent -- which is the half that matters, because a "
               f"wrong output path is otherwise only discovered after the render.")
         return 1
+    fb = _fallback_must_earn_its_use()
+    if fb:
+        offenders_msg = "\n".join(fb)
+        print("Render output directory: resolved in one place, not counted per script")
+        print(offenders_msg)
+        return 1
     print(f"  ok    derives_output_dir  {scanned} script(s) scanned, none counts "
           f"parents to reach `output`")
+    print("  ok    fallback_earns_its_use  a named path is honoured; a stock "
+          "path with no renders is refused")
     print(f"  ok    allowlist_is_necessary  {len(ALLOWED)} exemption(s), each named")
     print("\nall ok -- one resolver, and it fails before the GPU time")
     return 0

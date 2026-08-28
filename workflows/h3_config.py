@@ -1606,7 +1606,35 @@ def output_dir() -> Path:
                f"with --output-directory, see start.sh)")
             + ". Set H3_OUTPUT_DIR and re-run. Checked up front so no render "
               "is queued against a path its results cannot be read from.")
-    return out
+    if named:
+        return out
+    # **An EXISTING stock directory is not evidence it is the right one, and
+    # this is the escaped instance the first version of this function walked
+    # straight into.** On this box `<comfy>/output` exists holding ComfyUI's
+    # `_output_images_will_be_put_here` placeholder and nothing else, because
+    # the server writes to a share via `--output-directory`. So the
+    # existence check above passes and the caller gets a real, empty, WRONG
+    # directory -- which is worse than a missing one, because it reads as
+    # success. A peer session lost time to exactly this: their analysis found
+    # an empty `pddref/` and reported no renders rather than a bad path.
+    #
+    # `check_output_dir_resolution.py`'s own docstring named this case -- "a
+    # script can honour it and still fall back to a wrong stock path when it is
+    # unset" -- and the guard could not fire, because it only ever raised on
+    # absence. So the fallback now has to EARN its use by containing renders.
+    media = {".png", ".mp4", ".flac", ".webm", ".webp"}
+    for i, entry in enumerate(out.iterdir()):
+        if entry.suffix.lower() in media:
+            return out
+        if i > 512:          # bounded: a real output dir shows one immediately
+            break
+    raise SystemExit(
+        f"output directory {out} exists but holds no renders, so it is almost "
+        f"certainly not where this server writes -- the stock path is only a "
+        f"fallback, and this box starts ComfyUI with --output-directory (see "
+        f"start.sh). Set H3_OUTPUT_DIR to the real location. Raising rather "
+        f"than returning it, because an empty-but-present directory reads as "
+        f"success and produces 'no results' instead of 'wrong path'.")
 
 
 def _ref_qwen_short_edge() -> int:
