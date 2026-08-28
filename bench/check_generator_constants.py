@@ -57,10 +57,23 @@ def ref_short_edge_in(graph):
     simply went empty, and an empty set compares unequal to every value, so the
     three cases below went red for the right reason by luck rather than by
     design. An empty set is asserted against explicitly now.
+
+    **Both spellings, dotted first.** `size_policy` became a DynamicCombo on
+    2026-08-27 (`e6e527e`), so the API form spells its members
+    `size_policy.short_edge`, never the flat `short_edge`. This reader was left
+    on the flat name and every graph went subject-less, which raised the
+    "lost its subject" assertion below on a subject that had only been renamed.
+    `bench/preflight_graph.py` took the same fix in `d7dd575`; the flat name is
+    still tried so a hand-built graph on the old spelling is still priced.
     """
-    found = {n["inputs"]["short_edge"] for n in graph.values()
-             if n["class_type"] == "MiniMaxH3AppendRefImage"
-             and "short_edge" in n["inputs"]}
+    found = set()
+    for n in graph.values():
+        if n["class_type"] != "MiniMaxH3AppendRefImage":
+            continue
+        for candidate in ("size_policy.short_edge", "short_edge"):
+            if candidate in n["inputs"]:
+                found.add(n["inputs"][candidate])
+                break
     if not found:
         raise AssertionError(
             "no MiniMaxH3AppendRefImage in this graph carries short_edge; this "

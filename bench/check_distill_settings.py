@@ -79,7 +79,7 @@ VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 # A bare `WORKFLOWS.glob` is non-recursive and quietly stops covering any
 # directory `GRAPH_DIRS` routes to -- as `workflows/image/` was from 2026-08-16
 # until the single-frame lane was parked on 2026-08-27. See h3_config.GRAPH_DIRS.
-from h3_config import (LORA_LOADER_CLASSES, graph_paths,  # noqa: E402
+from h3_config import (LORA_LOADER_CLASSES, graph_paths, graph_schedule,  # noqa: E402
                         turbo_label)
 
 
@@ -370,11 +370,12 @@ def read_api(doc) -> Found:
             shift = None if sv is None or sa is None else (float(sv), float(sa))
             if shift is not None:
                 shifts.append(shift)
-        elif ct == "BasicScheduler":
-            n = _literal(inp.get("steps"))
-            steps = None if n is None else int(n)
-            sched = _literal(inp.get("scheduler"))
-            scheduler = None if sched is None else str(sched)
+    # Steps and scheduler come from `h3_config.graph_schedule`, not from a
+    # local `BasicScheduler` branch: since 0.83.0 a PDD graph carries no
+    # scheduler node at all -- `MiniMaxH3PDDLoRA` emits SIGMAS -- and reading
+    # only `BasicScheduler` reported "could not read the sampler's step count"
+    # on every PDD graph, which this file treats as a failure.
+    steps, scheduler = graph_schedule(doc)
     return Found(loras, shift, steps, scheduler, tuple(shifts), strengths, pdd_nfe)
 
 
@@ -401,9 +402,8 @@ def read_ui(doc) -> Found:
         elif t == "MiniMaxH3SigmaShift" and len(w) >= 2:
             shift = (float(w[0]), float(w[1]))
             shifts.append(shift)
-        elif t == "BasicScheduler" and len(w) >= 2:
-            steps = int(w[1])
-            scheduler = str(w[0])
+    # See the matching note in `read_api`.
+    steps, scheduler = graph_schedule(doc)
     return Found(loras, shift, steps, scheduler, tuple(shifts), strengths, pdd_nfe)
 
 

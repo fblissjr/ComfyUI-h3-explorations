@@ -440,11 +440,27 @@ SOL_BASELINE_124F = dict(
 # Two knobs deliberately left at the node's default rather than tuned, to keep
 # this a single-variable change:
 #   min_tokens 4096   The Triton-era value. SUPERSEDED 2026-08-27 -- the CUDA
-#                     recipe now takes the node's 12288; see its own note. H3's
-#                     DiT has exactly ONE attention site
-#                     (`comfy/ldm/minimax/model.py`) at the full packed length;
-#                     the small calls that once suggested otherwise were
-#                     SageChainAssert's own probes.
+#                     recipe now takes the node's 12288; see its own note.
+#
+#                     **Corrected 2026-08-28.** This said H3's DiT "has exactly
+#                     ONE attention site... the small calls that once suggested
+#                     otherwise were SageChainAssert's own probes." That is a
+#                     retracted claim (retracted 2026-08-14) and it was wrong
+#                     twice over: the refiner calls are model code, not
+#                     instrumentation. `docs/SOLATTN.md` owns this and states
+#                     it -- one SOURCE LINE
+#                     (`comfy/ldm/minimax/model.py`'s single
+#                     `optimized_attention` inside `Attention.forward`) but 52
+#                     MODULES, because `RefinerBlock` and `DiTBlock` both
+#                     instantiate that same `Attention`: 50 DiT blocks at the
+#                     full packed length plus 2 token-refiner blocks on the
+#                     text span alone.
+#
+#                     The min_tokens conclusion is unaffected, and now rests on
+#                     the right reason: the refiner calls sit at ~311 rows,
+#                     below BOTH 4096 and 12288, so the two thresholds select
+#                     identically on them. What separates the two values is the
+#                     DiT calls, which is the note below.
 #
 #                     **Corrected 2026-08-27.** This said the two values "select
 #                     the same thing at every length anyone renders", reasoning
@@ -1564,6 +1580,70 @@ GRAPH_DIRS: tuple[str, ...] = ("",)
 # check from enumerating graphs itself, and the way to widen coverage is to
 # widen this function, never to work around it.
 BENCH_GRAPH_DIRS: tuple[str, ...] = ("bench",)
+
+
+def graph_schedule(graph) -> tuple:
+    """`(steps, scheduler)` for one graph, from whichever node owns the schedule.
+
+    **There are two owners now, and which one it is is not a style choice.**
+    Until 0.83.0 every graph took its schedule from `BasicScheduler`, so three
+    checks each grew their own two-line reader for it. Then the PDD graphs
+    stopped carrying one: `MiniMaxH3PDDLoRA` emits `SIGMAS` and the sampler
+    reads it, precisely so that a scheduler and a step count are no longer
+    settable independently of the grid the heads were fused for. A reader that
+    knows only about `BasicScheduler` returns `None` on those graphs, and every
+    one of the three treats "could not read" as a failure -- which is what
+    happened, in all three at once.
+
+    So the rule lives here rather than three times:
+
+      * `BasicScheduler` present -> its `steps` and its `scheduler`.
+      * otherwise, a `MiniMaxH3PDDLoRA` with a non-zero `steps` -> that count,
+        and the scheduler is **`simple` by construction**, not by declaration.
+        The node emits `1 - pdd_time_grid`, which IS the plain shifted schedule
+        for the block count and is bit-identical to `BasicScheduler(simple, N)`
+        at every count the shipped graphs run (`bench/check_pdd_sigmas.py`
+        grades that against ComfyUI's own `calculate_sigmas`). Reporting
+        `simple` here is therefore a fact about the emitted vector and not a
+        convenient label -- if that equality ever breaks, that check goes red
+        before anything reading this does.
+      * neither -> `(None, None)`, and the caller decides whether that is a
+        failure. It still is for every current caller.
+
+    Accepts both graph forms: UI (`{"nodes": [...]}` with `widgets_values`) and
+    API (`{id: {"class_type", "inputs"}}`).
+    """
+    nodes = (graph.get("nodes") if isinstance(graph.get("nodes"), list)
+             else list(graph.values()))
+    steps = scheduler = None
+    pdd_steps = None
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        kind = n.get("type") or n.get("class_type")
+        widgets = n.get("widgets_values")
+        inputs = n.get("inputs") if isinstance(n.get("inputs"), dict) else {}
+        if kind == "BasicScheduler":
+            if isinstance(widgets, list) and len(widgets) >= 2:
+                scheduler, steps = str(widgets[0]), int(widgets[1])
+            else:
+                v, sch = inputs.get("steps"), inputs.get("scheduler")
+                if isinstance(v, (int, float)):
+                    steps = int(v)
+                if isinstance(sch, str):
+                    scheduler = sch
+        elif kind == "MiniMaxH3PDDLoRA":
+            # Widget order is [name, strength, patch_heads, nfe, steps]; the
+            # input is APPENDED, so index 4 is the only place it can be.
+            if isinstance(widgets, list) and len(widgets) >= 5:
+                if isinstance(widgets[4], int) and widgets[4] > 0:
+                    pdd_steps = int(widgets[4])
+            v = inputs.get("steps")
+            if isinstance(v, (int, float)) and int(v) > 0:
+                pdd_steps = int(v)
+    if steps is None and pdd_steps is not None:
+        return pdd_steps, "simple"
+    return steps, scheduler
 
 
 def graph_paths(workflows, pattern: str = "*.json", include_bench: bool = False) -> list:

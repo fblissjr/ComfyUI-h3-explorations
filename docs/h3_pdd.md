@@ -232,6 +232,80 @@ blocks until the sampler names them.
 schedule, for deliberately decoding one partition while stepping another. Every
 shipped graph carries 0.
 
+### Reading the schedule was still the wrong direction, and 0.83.0 inverted it
+
+Everything above is about *recovering* the schedule correctly, and it does.
+What it cannot do is stop the schedule being wrong in the first place, because
+the knobs that decide it -- `scheduler`, `steps` -- live on `BasicScheduler`,
+downstream of this node. Three ways to be off the grid followed, and each was
+caught, if at all, by a static check over the SHIPPED graphs, so a hand-edited
+or hand-built graph had nothing at all.
+
+The node now also **emits** the schedule. `MiniMaxH3PDDLoRA` has a `SIGMAS`
+output, and every shipped non-split PDD graph wires it straight into
+`SamplerCustomAdvanced` with no `BasicScheduler` in the graph. The sampler
+steps at the boundaries the heads were fused for; there is no scheduler widget
+left to set wrong, and off-grid is not expressible.
+
+**It moves no render, and that is checked rather than asserted.** The output is
+`1 - pdd_time_grid`, which is `shifted_sigma` over `linspace(1, 0, nfe + 1)` --
+the plain shifted schedule for the block count. Against ComfyUI's own
+`calculate_sigmas` over `ModelSamplingAV`:
+
+| steps | shift 12 and shift 6 |
+|---|---|
+| 2, 4, 8 | bit-identical to `simple` (`torch.equal`) |
+| 16 | ~2e-3 apart; `simple` quantises against its 1,000-entry table because `1000 % 16 != 0`, and the closed form is the more correct of the two |
+
+No PDD graph runs 16. `bench/check_pdd_sigmas.py` grades all of it, including
+that the graphs actually consume the output -- perfect sigmas nothing reads
+would be worth nothing.
+
+The new `steps` input is **inert at its default of 0**, which is what keeps a
+deliberately off-grid arm working: 0 means the file's own count and never
+refuses, so a graph driving `BasicScheduler` at a count that does not tile the
+grid is untouched and still reports itself at run time. A non-zero request must
+tile the grid and raises otherwise -- at such a count no on-grid schedule
+exists, so there is nothing honest to emit. The first version raised
+unconditionally and would have refused a 6-step render in flight while it was
+written, which is why the asymmetry is there.
+
+What this does **not** reach: `sampler_name` -- the euler requirement is still
+enforced by nothing -- and `strength`. Sol's `end_percent` is still derived from
+the step count at build time, so hand-editing steps still leaves it stale.
+
+#### The shift is now a second place the schedule is decided, and it is asserted rather than removed
+
+The PDD node sits UPSTREAM of `MiniMaxH3SigmaShift`, so the schedule it emits is
+built from the shift recorded in its own file, not from the graph's shift
+widget. While `BasicScheduler` owned the schedule it read the shift off the
+patched model and followed the widget. Those agree on every shipped graph and
+would diverge the moment a PDD graph was set to another shift -- the sampler
+stepping one curve while the model integrates another.
+
+**Removing the widget from PDD graphs was measured and is inert**: with
+`MiniMaxH3SigmaShift` deleted outright, two runs came back pixel-identical to
+the settled group, and `comfy/supported_models.py`'s H3 entry declares
+`shift 12.0 / audio_shift 3.0` as the default for the model class, so this is a
+property of every H3 checkpoint and not of the one that was rendered.
+
+**It was not removed anyway, and the reason is worth stating because it argues
+against the obvious move.** `check_distill_grid.py` and
+`check_distill_settings.py` both read the graph's shift off that node, and both
+are cheap static checks that touch no model file. Delete the node and the shift
+has exactly one authority left -- the PDD file's metadata -- so either those two
+checks start opening safetensors, or `h3_config` grows a constant that is a
+second copy of what the file already says. Removing one duplication would
+create another, in a worse place.
+
+So the widget stays and `bench/check_pdd_sigmas.py::graph shift matches file`
+asserts it equals the file's. **That is a control, not a fix**: it covers the
+shipped graphs and reaches no hand-edited one, which is the same gap the rest of
+this section closes for `scheduler` and `steps` and does not close here. The
+clean fix is to move the PDD node downstream of `MiniMaxH3SigmaShift` so it
+reads the model's actual shift and the two cannot disagree at all; that changes
+a documented node placement and is not done.
+
 **This replaced a selector that recovered a `t` and bucketed it, and the
 replacement is why that bug class is gone rather than guarded.** The old one
 read the nearest row of the 1025-row curve table, which quantises `t` to about
@@ -731,6 +805,23 @@ scope silently is how a table stops meaning what its header claims.
   mechanisms and 0.0 installs nothing at all, so it is exactly the base model.
   Nothing checks that, and a check would need a loaded model to be worth
   anything -- asserting it against a stub would grade the stub.
+- **The runtime adaln injection cannot run on either file this repo ships, and
+  the node says the opposite on its way into it.** `--pruned` deliberately pops
+  the raw `h3_pdd.adaln.*` tensors and `h3_pdd.silu_temb_grid` -- about 40% of
+  the file, dead on a pruned base -- so both shipped files carry ONLY
+  `h3_pdd.adaln_baked.*`. Of the three adaln paths `MiniMaxH3PDDLoRA`
+  implements, exactly one is reachable with them: the unpruned path installs 0
+  modules and trips the declared-vs-installed guard, and the table-mismatch
+  path logs "falling back to the runtime adaln injection, which is correct on
+  any pruned base" and then raises `KeyError` on `h3_pdd.silu_temb_grid`.
+  Unreachable today, because the head guard refuses a cross-partition file
+  first. It matters because
+  [`research/pdd/2026-08-27_handoff.md`](research/pdd/2026-08-27_handoff.md)
+  used that same claim to argue the adaln "already takes care of itself" if the
+  head guard were relaxed -- **it does not**, and relaxing the guard exposes
+  the `KeyError` rather than a slow path. Found 2026-08-28 by diffing the two
+  shipped files' key inventories, which are otherwise identical: 0 keys unique
+  to either side, the silent trap this document already records, confirmed live.
 - ~~**Nothing verifies the converted file against the model it will be applied
   to** beyond the partition fingerprint. A checkpoint layout change would be
   caught by `load_lora` matching nothing, which the node raises on, but a
@@ -786,6 +877,60 @@ container hash cannot establish — those conclusions are very likely right for
 other reasons, but the evidence cited does not reach them. Nothing was re-run;
 the rows are kept as the record of what was done. Compare decoded frames
 (`ffmpeg -f rawvideo | md5sum`) if this question ever needs answering again.
+
+## What the renders established, 2026-08-28: the SIGMAS rewiring is inert
+
+Verified on the card, at 1344x768 x 39 frames, t2v PDD 4-step, one seed. Arms
+differ ONLY in where the sampler's sigmas come from. Compared on **decoded
+pixels**, never on file bytes -- see the methodology note below, which this
+session re-learned the hard way.
+
+| group | arms | what they share |
+|---|---|---|
+| settled 4-step | 4 old-wiring runs + 4 new-wiring runs | **pixel-identical** |
+| 2-step | node emitting `steps=2`, and `BasicScheduler(simple, 2)` | **pixel-identical** to each other |
+| 4-step vs 2-step | -- | differ |
+
+Three things follow, and the third is the one that could have embarrassed the
+change:
+
+- **The rewiring moves no render.** Old wiring and new wiring agree exactly, at
+  two step counts, on eight settled runs. This is the end-to-end form of the
+  `torch.equal` result `bench/check_pdd_sigmas.py` proves offline.
+- **The output is genuinely consumed.** Changing the node's `steps` moves the
+  pixels. Had it not, the SIGMAS output would be decorative and the whole
+  change a no-op wearing a fix's clothes.
+- **A non-dividing `steps` is refused before sampling.** `steps=6` failed at
+  the PDD node with the divisor message; the executed-node list contains the
+  loaders and no sampler. The trained-envelope warning also fired in a real
+  render at `steps=2` -- the first warning this node has ever emitted outside a
+  synthetic drive.
+- **The preserved path still works, which is the point of preserving it.** A
+  graph left on `BasicScheduler` at `denoise=0.5` with SIGMAS unwired renders,
+  the node's `steps` stays inert at 0, and the tracker derives **width 4**
+  blocks -- four evaluations over half the trajectory, not the width 8 a
+  full-trajectory 4-step run gets. That is the case the SIGMAS output cannot
+  express and the reason the observe path was not retired with the rewiring.
+
+### Two methodology traps, both of which caught this session
+
+**A render here has a warm-up transient, so a matched pair is not an
+instrument.** The first render or two after a state change differ from the
+value the same configuration settles on, and it happens to BOTH wirings -- one
+old-wiring run and one new-wiring run were each a one-off before both settled
+onto the shared value. Read against a single pair, this looks exactly like "the
+change moved the render", and it was read that way here for several minutes.
+Only repeated, interleaved runs separate the two. **The paragraph above the
+2026-08-26 table calls the pipeline "deterministic"; that is true of the
+settled state and not of the first run after a restart or a batch boundary.**
+
+**File bytes are not pixels, and this doc already said so.** The comparison was
+first run over `.png` bytes from `SaveImage`, which embeds the prompt JSON --
+and the arms differ in `filename_prefix`, so every file differed while the
+frames were identical. That is the same trap the 2026-08-27 note below records
+for `.mp4` containers, met again in a different format one day later. Decode
+first, hash second; the note's advice was right and reaching for a different
+file format did not escape it.
 
 ## Not measured
 

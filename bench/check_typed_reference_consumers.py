@@ -74,9 +74,18 @@ def main():
         }, media
         # `linked` names any of the three that is wired to an input socket
         # rather than carrying a value; empty is the ordinary case.
+        #
+        # `absent` names any that is on NEITHER the flat nor the dotted
+        # spelling. Added to `preflight_graph._reference_media` in `d7dd575`
+        # (2026-08-27) so a value it cannot read is recorded rather than
+        # silently defaulted -- a silent default is what hid the DynamicCombo
+        # rename for a day. This fixture's append node carries `size_policy`
+        # alone, so all three are legitimately absent and the values beside
+        # them are the defaults, not readings.
         assert policies == {"ref_images.ref_image_0": {
             "size_policy": "max", "allow_upscale": False, "short_edge": 2048, "qwen_short_edge": 0,
             "linked": [],
+            "absent": ["allow_upscale", "short_edge", "qwen_short_edge"],
         }}, policies
 
     def malformed_chain_is_not_partially_reported():

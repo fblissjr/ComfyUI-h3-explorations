@@ -60,6 +60,25 @@ already installed rather than replacing it.
 The `nfe` input survives as an override for deliberately off-schedule arms. At
 its default of 0 nothing has to be entered and nothing can disagree.
 
+## And then the direction was inverted, which is the real fix
+
+Reading the schedule correctly still leaves every way of setting it WRONG in
+place, because `scheduler` and `steps` live on a node this one sits above. So
+this node also EMITS the schedule: `SIGMAS` is the second output, the shipped
+non-split PDD graphs wire it straight into `SamplerCustomAdvanced`, and there
+is no `BasicScheduler` in them at all. Off-grid stops being expressible rather
+than being detected after the fact.
+
+`1 - pdd_time_grid` is `shifted_sigma` over `linspace(1, 0, nfe + 1)` -- the
+plain shifted schedule for the block count -- so this is bit-identical to
+`BasicScheduler(simple, N)` at 2, 4 and 8 steps and moves no render.
+`bench/check_pdd_sigmas.py` grades that against ComfyUI's own
+`calculate_sigmas`, and grades that the graphs consume it.
+
+The observe path above is NOT retired: it still drives head selection, so a
+graph that leaves SIGMAS unwired behaves exactly as before -- which is what
+`denoise < 1.0` and any deliberately off-grid arm need.
+
 ## Three traps this node is shaped around
 
 **Patch `.forward` attributes; never wrap a module.** A wrapper `nn.Module`
@@ -139,11 +158,11 @@ import torch.nn.functional as F
 from comfy_api.latest import io
 
 try:                                     # loaded as a package by ComfyUI
-    from .pdd_math import (fuse_block, pdd_time_grid, schedule_knots,
-                           silu_temb_grid)
+    from .pdd_math import (block_bounds, fuse_block, pdd_time_grid,
+                           schedule_knots, silu_temb_grid)
 except ImportError:                      # loaded as a bare module by a script
-    from pdd_math import (fuse_block, pdd_time_grid, schedule_knots,
-                          silu_temb_grid)
+    from pdd_math import (block_bounds, fuse_block, pdd_time_grid,
+                          schedule_knots, silu_temb_grid)
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +233,40 @@ PARTITION_TOLERANCE = 0.015
 #: 0.0205 wrong at runtime against 0.0001 for the right one, and nothing
 #: downstream would say so.
 TABLE_TOLERANCE = 5e-3
+
+
+def resolve_emit_steps(steps, file_nfe: int, num_steps: int) -> int:
+    """Evaluations for the SIGMAS output: what `steps` asked for, or the file's.
+
+    Lifted out of `MiniMaxH3PDDLoRA.execute` so it can be driven without a
+    loaded model -- `bench/check_pdd_sigmas.py` calls it directly, and a case
+    that restated this condition instead of calling it could not have failed.
+
+    Two behaviours, and the asymmetry is the point:
+
+      * **0 never refuses.** It means "the file's own count", which keeps this
+        input inert for any graph that does not consume SIGMAS -- including a
+        deliberately off-grid arm driving `BasicScheduler` at a count that does
+        not tile the grid. That arm stays legal, and the MODEL path still
+        reports it at run time. An earlier version of this raised
+        unconditionally and would have refused a 6-step render in flight at
+        the time it was written.
+      * **A non-zero request MUST tile the grid.** At such a count no on-grid
+        schedule exists, so there is nothing honest to emit, and raising is the
+        only answer that is not silently off it.
+    """
+    asked = int(steps)
+    if not asked:
+        return int(file_nfe)
+    if num_steps % asked:
+        legal = sorted(n for n in range(1, num_steps + 1) if num_steps % n == 0)
+        raise RuntimeError(
+            f"steps={asked} does not divide the file's {num_steps}-point "
+            f"grid, so the blocks cannot tile it and the SIGMAS output would "
+            f"step somewhere these heads were never fused for. Legal here: "
+            f"{legal}. This raises rather than warning because the failure is "
+            f"otherwise silent: the render completes and is merely wrong.")
+    return asked
 
 
 def _is_minimax_h3(diffusion_model) -> bool:
@@ -697,13 +750,47 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "stepping another. It logs loudly that it is doing so."
                     ),
                 ),
+                # APPENDED. See the note on patch_heads.
+                io.Int.Input(
+                    "steps", default=0, min=0, max=64, optional=True,
+                    tooltip=(
+                        "Evaluations for the SIGMAS output, and the whole "
+                        "reason that output exists.\n\n"
+                        "Wire SIGMAS into SamplerCustomAdvanced instead of a "
+                        "BasicScheduler and the sampler steps at exactly the "
+                        "block boundaries these heads were fused for. There is "
+                        "then no scheduler to pick wrong, no step count to "
+                        "keep in sync, and off-grid sampling is not "
+                        "expressible. On the 32-point grid at 2, 4 and 8 "
+                        "steps this output is bit-identical to "
+                        "`BasicScheduler(simple, N)`, so it changes no "
+                        "existing render -- it removes the ways to get one "
+                        "wrong. At 16 it differs by ~2e-3 because `simple` "
+                        "reads a 1,000-entry table and 1000 % 16 != 0; the "
+                        "closed form here is the more correct of the two.\n\n"
+                        "0 emits the file's own count and never refuses, so "
+                        "a graph that leaves SIGMAS unwired is untouched by "
+                        "this input -- including a deliberately off-grid arm "
+                        "driving BasicScheduler at a count that does not tile "
+                        "the grid, which stays legal and still reports itself "
+                        "at run time. Set it non-zero and it MUST divide the "
+                        "grid: you have asked for a partition, and at a "
+                        "non-dividing count no on-grid schedule exists, so "
+                        "this raises rather than quietly emitting something "
+                        "off it.\n\n"
+                        "Leave SIGMAS unwired for denoise < 1.0, which this "
+                        "output does not express; the MODEL output still "
+                        "derives its blocks from whatever the sampler "
+                        "publishes and handles a partial trajectory."
+                    ),
+                ),
             ],
-            outputs=[io.Model.Output()],
+            outputs=[io.Model.Output(), io.Sigmas.Output()],
         )
 
     @classmethod
     def execute(cls, model, lora_name, strength=1.0,
-                patch_heads=True, nfe=0) -> io.NodeOutput:
+                patch_heads=True, nfe=0, steps=0) -> io.NodeOutput:
         import comfy.lora
         import comfy.utils
         import folder_paths
@@ -746,6 +833,52 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 f"here: {sorted(n for n in range(1, num_steps + 1) if num_steps % n == 0)}.")
         shift_v = float(meta["pdd_shift_video"])
         shift_a = float(meta["pdd_shift_audio"])
+
+        # The SIGMAS output, and why it is worth a second output rather than a
+        # note telling people to set BasicScheduler correctly.
+        #
+        # Every knob that could put this render off its own grid lives in a
+        # node DOWNSTREAM of this one -- `BasicScheduler` sits below every
+        # model-patch node -- so this node can only ever observe the schedule
+        # after the fact and report. Emitting the schedule inverts that: the
+        # sampler consumes the boundaries these heads were fused for, and
+        # "off-grid" stops being a thing a graph can express. Same move as
+        # `ComfyUI-UtilsCollection`'s PDD node, whose off-grid error says to
+        # use its SIGMAS output; ours makes that the wiring rather than the
+        # advice.
+        #
+        # `1 - pdd_time_grid` is `shifted_sigma` over `linspace(1, 0, N+1)`,
+        # which is the plain shifted schedule for the block count -- so this is
+        # the closed form of what `simple` approximates, not a second opinion
+        # about it. Bit-identical to `BasicScheduler(simple, N)` at 2, 4 and 8
+        # steps on shift 12 and shift 6; ~2e-3 apart at 16, where `simple`
+        # quantises against its 1,000-entry table because 1000 % 16 != 0 and
+        # this is the more correct of the two. Graded in
+        # `bench/check_pdd_sigmas.py` against ComfyUI's own scheduler.
+        # 0 means "the file's own count". That keeps this input inert for any
+        # graph that does not consume SIGMAS -- including a deliberately
+        # off-grid arm at a count that does not tile the grid, which the MODEL
+        # path still supports and reports. Only an explicit request is graded.
+        emit_steps = resolve_emit_steps(steps, file_nfe, num_steps)
+        block_w = num_steps // emit_steps
+        # The trained envelope, warned rather than refused. The file records
+        # the width it was distilled at; `ComfyUI-UtilsCollection` hard-refuses
+        # anything past twice that, on the reasoning that a block averaged from
+        # too many heads is a long way from what the distillation produced.
+        # This repo deliberately renders the 2x arm (4 steps against a
+        # block-4 file) and has an open question about whether it holds up, so
+        # refusing would break a live experiment. Naming it is the compromise:
+        # nothing said so before, at any step count.
+        trained_w = int(meta.get("pdd_block_size", block_w))
+        if block_w > 2 * trained_w:
+            logger.warning(
+                "[h3-pdd] steps=%d gives block width %d against a file "
+                "distilled at width %d. That is past the 2x envelope an "
+                "independent implementation refuses outright, and nothing "
+                "here has measured whether it holds up. Rendering anyway.",
+                emit_steps, block_w, trained_w)
+        sigmas = (1.0 - block_bounds(shift_v, num_steps, block_w)).to(
+            torch.float32)
 
         # Partition check. fl2va and ref2va ship identical key sets, so a
         # mismatched pair loads with zero unmatched keys and renders -- the
@@ -1038,4 +1171,4 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             "HEADS NOT PATCHED (patch_heads off)",
             num_steps, shift_v, shift_a,
             "pruned/curve-form" if pruned else "full-width")
-        return io.NodeOutput(m)
+        return io.NodeOutput(m, sigmas)

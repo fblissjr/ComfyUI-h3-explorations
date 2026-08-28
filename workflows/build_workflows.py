@@ -970,6 +970,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                         "r2v": R2V_PROMPT}[task])
 
     _encoder = clip or MODELS["clip"]
+    # Resolved once. `_resolved_steps` reaches BasicScheduler AND, on a PDD
+    # graph, MiniMaxH3PDDLoRA's own `steps` -- the two must never be able to
+    # disagree, which is exactly the class of bug this rewiring exists to make
+    # unexpressible.
+    _resolved_steps = steps if steps is not None else SAMPLING["steps"]
     g = {
         "1": {"class_type": "UNETLoader",
               "inputs": {"unet_name": unet or MODELS["unet_ref2va" if ref else "unet_fl2va"],
@@ -1010,13 +1015,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         "8": {"class_type": "BasicScheduler",
               "inputs": {"model": None,
                          "scheduler": scheduler_name or _distill(lora, pdd, "scheduler"),
-                         "steps": steps if steps is not None else SAMPLING["steps"],
+                         "steps": _resolved_steps,
                          "denoise": SAMPLING["denoise"]}},
         "9": {"class_type": "BasicGuider",
               "inputs": {"model": None, "conditioning": ["5", 0]}},
         "10": {"class_type": "SamplerCustomAdvanced",
                "inputs": {"noise": ["6", 0], "guider": ["9", 0], "sampler": ["7", 0],
-                          "sigmas": ["8", 0], "latent_image": ["5", 1]}},
+                          "sigmas": None, "latent_image": ["5", 1]}},
         # Both decoders read the same packed AV latent and each pulls out its
         # own half; this is not a mistake in the wiring.
         "11": {"class_type": "VAEDecode", "inputs": {"samples": ["10", 0], "vae": ["3", 0]}},
@@ -1259,11 +1264,18 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # modules, skip the rest with a log line, and render -- the same
         # silent-partial shape the pack note above describes.
         if pdd:
+            # `steps` here is the SAME resolved value BasicScheduler would get,
+            # and on a non-split PDD graph this node's SIGMAS output replaces
+            # BasicScheduler entirely (see `_sigma_src` below). The step count
+            # then lives on the node that owns the 32-point grid, which is the
+            # only node able to reject a count that does not tile it -- and it
+            # raises rather than warning, before sampling starts.
             g["18"] = {"class_type": "MiniMaxH3PDDLoRA",
                        "inputs": {"model": model_src, "lora_name": lora[0],
                                   "strength": lora[1],
                                   "patch_heads": pdd_heads,
-                                  "nfe": pdd_nfe}}
+                                  "nfe": pdd_nfe,
+                                  "steps": _resolved_steps}}
         else:
             g["18"] = ({"class_type": "MiniMaxH3TurboLoRA",
                         "inputs": {"model": model_src, "lora_name": lora[0],
@@ -1346,8 +1358,43 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     g["26"] = {"class_type": "MiniMaxH3Preflight",
                "inputs": {"conditioning": ["5", 0], "samples": ["5", 1]}}
 
-    # The fork. Both consumers, always, from the same variable.
-    g["8"]["inputs"]["model"] = model_src
+    # Where the sampler's sigmas come from, and it is the whole point of the
+    # PDD rewiring.
+    #
+    # Every knob that can put a distilled render off its own grid --
+    # `scheduler`, `steps` -- lives on BasicScheduler, which sits DOWNSTREAM of
+    # every model-patch node. So the PDD node could only ever observe the
+    # schedule after the fact and report on it, and three separate footguns
+    # followed from that: a scheduler that is not `simple`, a step count that
+    # does not tile the 32-point grid, and evaluation off the block boundaries
+    # entirely. Each was caught, if at all, by a static check over SHIPPED
+    # graphs -- so a hand-edited or hand-built graph had nothing.
+    #
+    # Emitting the schedule from the PDD node inverts the dependency. The
+    # sampler steps at exactly the boundaries the heads were fused for, there
+    # is no scheduler widget to get wrong, and off-grid is not expressible.
+    # `ComfyUI-UtilsCollection` reached the same design from the other end --
+    # its off-grid error tells you to use its SIGMAS output; this makes that
+    # the wiring rather than the advice.
+    #
+    # Numerically inert on every shipped PDD graph: the node emits
+    # `1 - pdd_time_grid`, which IS the plain shifted schedule for the block
+    # count, and that is bit-identical to `BasicScheduler(simple, N)` at 2, 4
+    # and 8 steps. Graded by `bench/check_pdd_sigmas.py` against ComfyUI's own
+    # `calculate_sigmas` rather than against a value computed here.
+    #
+    # A split graph keeps BasicScheduler: `SplitSigmas` wants one schedule fed
+    # to both halves and that combination has never shipped with PDD, so it
+    # keeps the old path rather than inheriting an untested one.
+    _sigma_src = (["18", 1] if (pdd and lora is not None and not split_at)
+                  else ["8", 0])
+    g["10"]["inputs"]["sigmas"] = _sigma_src
+    if _sigma_src == ["8", 0]:
+        g["8"]["inputs"]["model"] = model_src
+    else:
+        del g["8"]
+
+    # The guider, from the same variable the sigma source above used.
     g["9"]["inputs"]["model"] = model_src
     g["9"]["inputs"]["conditioning"] = ["26", 0]
     g["10"]["inputs"]["latent_image"] = ["26", 1]
@@ -1416,7 +1463,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # schedule and is readable from nothing else.
         g["22"] = {"class_type": "MiniMaxH3ProvenanceStamp",
                    "inputs": {"latent": ["10", 0], "model": model_src,
-                              "sigmas": ["8", 0], "note": f"bench {task}"}}
+                              "sigmas": _sigma_src, "note": f"bench {task}"}}
         g["11"]["inputs"]["samples"] = ["22", 0]
         g["12"]["inputs"]["samples"] = ["22", 0]
     return g
@@ -4182,6 +4229,11 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             "expected 'comfy', 'release', or 'encoder'"
         )
     cv = dict(CANVAS, **canvas)
+    # Resolved once, exactly as `build_api` does it. Both the PDD node's own
+    # `steps` and BasicScheduler's read this, so a UI graph cannot ship with
+    # the two disagreeing -- and the UI/API pair check compares what lands
+    # in each.
+    _resolved_steps = steps if steps is not None else SAMPLING["steps"]
     # THE DEFAULT PROMPT FOLLOWS THE SOCKETS, NOT THE TASK STRING. `i2v`
     # covers both keyframe modes -- one wired frame or two -- and they take
     # DIFFERENT alignment sentences (`base_en.md:14-32`), so keying this on
@@ -4254,13 +4306,16 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                   widgets=[_NOTE_PDD_NODE],
                   title="PDD LoRA: what runs that the widgets do not show")
             lora_node = g.add(
-                "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 140),
-                widgets=[lora[0], lora[1], pdd_heads, pdd_nfe],
+                "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 170),
+                widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
+                         _resolved_steps],
                 inputs=[_in("model", "MODEL")],
-                outputs=[_out("MODEL", "MODEL")],
+                outputs=[_out("MODEL", "MODEL"), _out("SIGMAS", "SIGMAS")],
                 title=(f"PDD LoRA (strength {lora[1]}"
                        + (f", {pdd_nfe} NFE" if pdd_nfe else "")
                        + ("" if pdd_heads else ", HEADS OFF -- control arm")
+                       + (f", {_resolved_steps} steps -> SIGMAS"
+                          if not split_at else "")
                        + ")"))
         else:
             lora_node = (
@@ -4567,8 +4622,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                      widgets=[prompt, cv["width"], cv["height"], length,
                               ("from_keyframe"
                                if task == "i2v" and canvas_mode == "match_keyframe"
-                               else "explicit"),
-                              True],
+                               else "explicit")],
                      inputs=cond_inputs,
                      outputs=[_out("positive", "CONDITIONING"), _out("LATENT", "LATENT")])
         g.link(vae_enc_src, 0, cond, "vae", "VAE")
@@ -4601,11 +4655,17 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             g.add("KSamplerSelect", (40, 150), size=(300, 60),
                   widgets=[sampler_name or _distill(lora, pdd, "sampler")],
                   outputs=[_out("SAMPLER", "SAMPLER")]))
-    sched = g.add("BasicScheduler", (40, 250), size=(300, 130),
-                  widgets=[scheduler_name or _distill(lora, pdd, "scheduler"),
-                           steps if steps is not None else SAMPLING["steps"],
-                           SAMPLING["denoise"]],
-                  inputs=[_in("model", "MODEL")], outputs=[_out("SIGMAS", "SIGMAS")])
+    # On a non-split PDD graph the PDD node emits the schedule and there is no
+    # BasicScheduler at all -- see the long note in build_api. Not created
+    # rather than created-and-unlinked: this writer has no node removal, so an
+    # orphan would ship in the graph and read as intentional wiring.
+    _pdd_sigmas = pdd and lora is not None and not split_at
+    sched = (None if _pdd_sigmas else
+             g.add("BasicScheduler", (40, 250), size=(300, 130),
+                   widgets=[scheduler_name or _distill(lora, pdd, "scheduler"),
+                            _resolved_steps, SAMPLING["denoise"]],
+                   inputs=[_in("model", "MODEL")],
+                   outputs=[_out("SIGMAS", "SIGMAS")]))
     guider = g.add("BasicGuider", (40, 420), size=(300, 70),
                    inputs=[_in("model", "MODEL"), _in("conditioning", "CONDITIONING")],
                    outputs=[_out("GUIDER", "GUIDER")])
@@ -4686,7 +4746,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     if split_at and not split_base_last:
         # base_first: the plain base model runs the high-noise steps.
         stage1_src = plain_src
-    g.link(stage1_src, 0, sched, "model", "MODEL")
+    if sched is not None:
+        g.link(stage1_src, 0, sched, "model", "MODEL")
     g.link(stage1_src, 0, guider, "model", "MODEL")
     if resn is not None:
         g.link(resn, 0, cond, "width", "INT")
@@ -4714,7 +4775,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         # With a split, SplitSigmas sits between these two and the link is
         # made below. This writer has no re-link, so a link made here would
         # be left dangling on the input it no longer owns.
-        g.link(sched, 0, sampler, "sigmas", "SIGMAS")
+        if _pdd_sigmas:
+            g.link(lora_node, 1, sampler, "sigmas", "SIGMAS")
+        else:
+            g.link(sched, 0, sampler, "sigmas", "SIGMAS")
     latent_src, latent_slot = sampler, 0
 
     if split_at:
@@ -4766,7 +4830,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                        outputs=[_out("latent", "LATENT")])
         g.link(sampler, 0, stampn, "latent", "LATENT")
         g.link(model_src, 0, stampn, "model", "MODEL")
-        g.link(sched, 0, stampn, "sigmas", "SIGMAS")
+        g.link(lora_node if _pdd_sigmas else sched,
+               1 if _pdd_sigmas else 0, stampn, "sigmas", "SIGMAS")
         latent_src, latent_slot = stampn, 0
     # Link ORDER is preserved exactly as it was before the single-frame path
     # existed, including the two audio links sitting between the video decode
@@ -5102,6 +5167,91 @@ def validate_api(graph: dict, oi: dict, label: str) -> list[str]:
     return errs
 
 
+# --------------------------------------------------------------------------
+# What widget values a saved UI graph is allowed to carry
+# --------------------------------------------------------------------------
+#
+# The widget list `/object_info` implies for a node is derived in exactly one
+# place, `bench/check_workflow_schema.py`, and imported from there. Loaded by
+# path for the same reason `_resolution_widgets` loads `resolution.py` that
+# way: `bench/` is not a package, and this script runs without ComfyUI
+# importable.
+#
+# It is imported rather than re-derived because this file's own derivation was
+# the weaker of the two twice, and both escapes were the same defect wearing
+# different clothes -- a widget value with no widget behind it:
+#
+#   2026-08-10 (d3691a9)  `tau_profile` is `force_input=True`, so it is a
+#                         SOCKET and owns no widget value. This file counted
+#                         it as a widget, so the Sol node shipped a 13th value
+#                         on a 12-widget node. Caught by the then-new
+#                         `check_workflow_schema.py`, never by the generator.
+#   2026-08-27 (e6e527e)  `vendor_tokens` left `MiniMaxH3Conditioning`'s
+#                         schema and this generator kept emitting its `True`.
+#                         24 shipped UI graphs carried it. Caught by
+#                         `check_workflow_schema.py` again.
+#
+# d3691a9 fixed its instance by correcting the widget LIST and left the surplus
+# allowance standing -- "allow a surplus but never a shortfall" -- which is
+# precisely what made the second one invisible here. So the allowance is now
+# narrow and NAMED: a surplus is a failure unless the exact node class and
+# widget are listed below.
+
+
+def _load_widget_schema():
+    import importlib.util
+
+    src = HERE.parent / "bench" / "check_workflow_schema.py"
+    spec = importlib.util.spec_from_file_location(
+        "_h3_widget_schema_for_build", src)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_WIDGET_SCHEMA = _load_widget_schema()
+
+#: Trailing widget values the FRONTEND adds and `/object_info` does not
+#: declare, by node class -> the extras it appends, in order, each as
+#: (widget name, the value written there, why it exists).
+#:
+#: Deliberately NOT derived from the schema flag that produces it
+#: (`LoadImage.image` carries `image_upload: true`). A derived rule would
+#: silently extend this allowance to the next node that sets the flag, which
+#: is the blanket allowance again in a smaller box. Anything new is red until
+#: somebody writes down which widget it is.
+#:
+#: `check_workflow_schema.py::EXTRA_WIDGETS` is the counterpart for graphs
+#: this generator did not write -- it takes a COUNT, because a hand-saved
+#: graph may legitimately hold any of them. This table takes the name and the
+#: value because everything it grades was emitted a few lines up in this file.
+_FRONTEND_EXTRA_WIDGETS = {
+    "LoadImage": (
+        ("upload", "image",
+         "the 'choose file to upload' button the frontend adds to any combo "
+         "declaring image_upload; it is a button, not an input, so no schema "
+         "reports it"),
+    ),
+}
+
+#: Every entry above must be NECESSARY: an allowance nothing used is an
+#: allowance covering something nobody can see. Same rule, and the same
+#: failure mode, as `bench/check_attention_defaults.py::SOL_EXEMPT_STEMS`.
+_EXTRA_WIDGETS_SEEN = {(cls, extra[0]): False
+                       for cls, extras in _FRONTEND_EXTRA_WIDGETS.items()
+                       for extra in extras}
+
+
+def unused_widget_allowances() -> list[str]:
+    """Named frontend-widget allowances that no generated graph needed."""
+    return [f"_FRONTEND_EXTRA_WIDGETS allows {cls}.{name!r} a trailing widget "
+            f"value, and no graph this build wrote used it. Either nothing "
+            f"emits {cls} any more or the frontend stopped writing that "
+            f"widget -- remove the entry rather than leaving it to cover the "
+            f"next surplus."
+            for (cls, name), seen in _EXTRA_WIDGETS_SEEN.items() if not seen]
+
+
 def validate_ui(wf: dict, oi: dict, label: str) -> list[str]:
     """Self-consistency only. No server validates a UI graph, so this checks
     what the frontend would choke on: dangling links and slot mismatches."""
@@ -5139,29 +5289,62 @@ def validate_ui(wf: dict, oi: dict, label: str) -> list[str]:
                 e(f"node {n['id']} ({n['type']}) input {inp['name']}: dangling link")
             if inp.get("link") is None and inp.get("shape") != 7 and "widget" not in inp:
                 e(f"node {n['id']} ({n['type']}): required input {inp['name']} unconnected")
-        # widgets_values must cover every widget the node declares, in order,
-        # including any that have been converted to inputs.
-        spec = oi[n["type"]]["input"]
-        # `force_input=True` turns a scalar input into a socket, so it owns no
-        # widget value. Missing that is how tau_profile got emitted as a 13th
-        # widget on a 12-widget node: this check allows a surplus (see below),
-        # so a spurious extra value was invisible from here.
-        def _is_widget(v):
-            opts = v[1] if len(v) > 1 and isinstance(v[1], dict) else {}
-            if opts.get("forceInput"):
-                return False
-            return isinstance(v[0], list) or v[0] in (
-                "INT", "FLOAT", "STRING", "BOOLEAN", "COMBO", "COMFY_DYNAMICCOMBO_V3")
-
-        widget_names = [k for k, v in ((spec.get("required") or {}) | (spec.get("optional") or {})).items()
-                        if _is_widget(v)]
-        got = len(n.get("widgets_values") or [])
-        # RandomNoise / LoadImage carry an extra frontend-only widget
-        # (control_after_generate, the upload button) that /object_info does
-        # not report, so allow a surplus but never a shortfall.
-        if got < len(widget_names):
-            e(f"node {n['id']} ({n['type']}): {got} widget values for "
-              f"{len(widget_names)} widgets {widget_names}")
+        # widgets_values must match the widget list EXACTLY: every widget the
+        # node declares, in order, and NOTHING after them. Values map to
+        # widgets positionally, so a value with no widget behind it shifts
+        # nothing today and shifts every widget after it the day one is
+        # inserted. The derivation is imported -- see the two escapes recorded
+        # above `_FRONTEND_EXTRA_WIDGETS`, both of which were exactly that.
+        node_spec = oi[n["type"]]
+        values = n.get("widgets_values")
+        if isinstance(values, dict):
+            # Keyed form, used by nodes whose widget set depends on another
+            # widget: VHS_VideoCombine appends the chosen format's own widgets
+            # (pix_fmt, crf, ...) after `format`, so positions cannot address
+            # them. Here a surplus is a KEY naming no widget rather than a
+            # value past the end, so it is checked by name.
+            wants = _WIDGET_SCHEMA.widget_inputs(node_spec)
+            known = ({w[0] for w in wants}
+                     | {w[0] for w in _WIDGET_SCHEMA.format_widgets(
+                         node_spec, values.get("format"))}
+                     # a DOM widget the frontend stores; no schema declares it
+                     | {"videopreview"})
+            for key in values:
+                if key not in known:
+                    e(f"node {n['id']} ({n['type']}): widget {key!r} is not an "
+                      f"input of this node, nor a widget of format "
+                      f"{values.get('format')!r}")
+            for name, _t, _c in wants:
+                if name not in values:
+                    e(f"node {n['id']} ({n['type']}): widget {name!r} is "
+                      f"missing from widgets_values")
+            continue
+        vals = values or []
+        wants = _WIDGET_SCHEMA.widget_inputs(node_spec)
+        if vals:
+            wants = _WIDGET_SCHEMA.expand_dynamic_combo(node_spec, wants, vals)
+        names = [w[0] for w in wants]
+        extras = _FRONTEND_EXTRA_WIDGETS.get(n["type"], ())
+        if len(vals) < len(wants):
+            e(f"node {n['id']} ({n['type']}): {len(vals)} widget values for "
+              f"{len(wants)} widgets {names}")
+        elif len(vals) > len(wants) + len(extras):
+            allowed = (f" plus the named frontend widget(s) "
+                       f"{[x[0] for x in extras]}" if extras else "")
+            e(f"node {n['id']} ({n['type']}): {len(vals)} widget values for "
+              f"{len(wants)} widgets {names}{allowed} -- SURPLUS "
+              f"{vals[len(wants) + len(extras):]!r}. Either this node stopped "
+              f"declaring an input and the generator kept emitting its value, "
+              f"or the frontend really does add a widget here -- in which case "
+              f"name it in _FRONTEND_EXTRA_WIDGETS. A surplus is not allowed "
+              f"on the grounds that some other node has one.")
+        else:
+            for (wname, wvalue, _why), got in zip(extras, vals[len(wants):]):
+                _EXTRA_WIDGETS_SEEN[(n["type"], wname)] = True
+                if got != wvalue:
+                    e(f"node {n['id']} ({n['type']}): trailing frontend widget "
+                      f"{wname!r} holds {got!r}, and the allowance in "
+                      f"_FRONTEND_EXTRA_WIDGETS is for {wvalue!r}")
     return errs
 
 
@@ -6700,8 +6883,13 @@ def main():
         return 0
     oi = load_object_info(args.object_info)
     errs = []
+    for k in _EXTRA_WIDGETS_SEEN:
+        _EXTRA_WIDGETS_SEEN[k] = False
     for task, fmt, p, wf in written:
         errs += (validate_api if fmt == "api" else validate_ui)(wf, oi, p.name)
+    # An allowance that covers nothing is an allowance waiting to cover the
+    # next defect, which is the whole history of the surplus rule above.
+    errs += unused_widget_allowances()
     if errs:
         print("\nvalidation FAILED -- NOTHING WRITTEN, the tree is unchanged:")
         for x in errs:

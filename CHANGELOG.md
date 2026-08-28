@@ -4,6 +4,134 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.83.0
+
+### Changed
+
+- **`MiniMaxH3PDDLoRA` emits its own `SIGMAS`, and every shipped non-split PDD
+  graph now samples from it instead of a `BasicScheduler`.** The dependency ran
+  the wrong way: every knob that can put a distilled render off its own grid --
+  `scheduler`, `steps` -- lives on `BasicScheduler`, which sits DOWNSTREAM of
+  every model-patch node. So the PDD node could only ever observe the schedule
+  after the fact and report on it, and three separate footguns followed. A
+  scheduler that is not `simple`, a step count that does not tile the 32-point
+  grid, and evaluation off the block boundaries entirely were each caught, if
+  at all, by a static check over SHIPPED graphs -- leaving a hand-edited or
+  hand-built graph with nothing at all.
+
+  Emitting the schedule inverts that. The sampler steps at exactly the
+  boundaries the heads were fused for, there is no scheduler widget left to get
+  wrong, and off-grid is no longer expressible.
+  `silveroxides/ComfyUI-UtilsCollection` reached the same design from the other
+  end -- its off-grid error tells you to use its SIGMAS output; this makes that
+  the wiring rather than the advice.
+
+  **Numerically inert on every shipped PDD graph, which is why it could be
+  done at all.** The node emits `1 - pdd_time_grid`, which IS the plain shifted
+  schedule for the block count, and that is bit-identical to
+  `BasicScheduler(simple, N)` at 2, 4 and 8 steps on shift 12 and shift 6. At
+  16 the two sit ~2e-3 apart, because `simple` reads a 1,000-entry table and
+  `1000 % 16 != 0`; the closed form is the more correct of the two there and no
+  PDD graph runs 16. No render moves; the ways to get one wrong go away.
+
+- **The node's new `steps` input is inert at its default of 0**, which is what
+  keeps a deliberately off-grid arm working. 0 means "the file's own count" and
+  never refuses; a non-zero request must tile the grid and RAISES otherwise,
+  because at such a count no on-grid schedule exists and there is nothing
+  honest to emit. The first version of this raised unconditionally and would
+  have refused a 6-step PDD render that was in flight while it was written.
+
+- **A step count past twice the file's distilled block width now says so.**
+  `pdd_block_size` is 4 in both shipped files, so 4 sampling steps is exactly
+  the 2x edge and 2 steps is past it.
+  `silveroxides/ComfyUI-UtilsCollection` refuses anything wider outright; this
+  warns instead, because the 2x arm is one the repo deliberately renders and
+  refusing would break a live experiment. Nothing said so before, at any count.
+
+### Verified on the card
+
+- **The rewiring is inert end to end**, not only in the sigma arithmetic. Eight
+  settled runs at 1344x768 x 39 frames, matched seed -- four on the old
+  `BasicScheduler` wiring and four on the new SIGMAS wiring -- are
+  pixel-identical, and the same holds at a second step count. Changing the
+  node's `steps` does move the pixels, which is what shows the output is
+  actually consumed rather than decorative. `steps=6` is refused at the node
+  with no sampler in the executed list, and the trained-envelope warning fired
+  in a real render for the first time.
+
+  Two instrument failures on the way there, both recorded in
+  [`docs/h3_pdd.md`](docs/h3_pdd.md): the comparison was first run over `.png`
+  file bytes, which embed the prompt JSON and so differed on arms whose frames
+  were identical -- the same trap that doc already recorded for `.mp4`
+  containers; and a render here has a **warm-up transient**, so the first run
+  after a state change differs from the value that configuration settles on. It
+  affects both wirings equally. Read against a single matched pair, that looks
+  exactly like a regression, and it was read that way here before interleaved
+  repeats separated the two.
+
+### Fixed (found while running the full suite, unrelated to the above)
+
+- **The UI generator emitted a widget the schema had dropped.**
+  `build_workflows.py` still passed a trailing `True` for
+  `MiniMaxH3Conditioning`'s retired `vendor_tokens` slot -- in the same branch
+  whose comment already said the slot was removed. 24 shipped UI graphs carried
+  the surplus. The sibling `MiniMaxH3ReferenceConditioning` branch had its copy
+  removed when the schema changed and this one had only its comment updated:
+  "editing the generator is half the change", inside the generator.
+  `check_workflow_schema.py` was correctly red the whole time.
+- **`h3_config.py` restated a claim retracted on 2026-08-14** -- that H3's DiT
+  has only a single attention site, the smaller calls being SageChainAssert's
+  probes. (The retracted wording is deliberately not quoted here;
+  `check_retraction_consumers.py` grades exactly that phrase and went red on an
+  earlier draft of this entry, which is the check working.)
+  `docs/SOLATTN.md` owns the correction: one source line but **52 modules**, and
+  the refiner calls are model code, not instrumentation. Verified at source
+  (`RefinerBlock` and `DiTBlock` both instantiate the same `Attention`). The
+  `min_tokens` conclusion the comment was supporting is unaffected and now
+  rests on the right reason.
+
+### Known gap, stated rather than closed
+
+- **The shift became a second place the schedule is decided.** The PDD node is
+  upstream of `MiniMaxH3SigmaShift`, so it emits its FILE's shift while the
+  model follows the widget. They agree on every shipped graph;
+  `check_pdd_sigmas.py` asserts that, and it is a control over shipped graphs
+  rather than a fix -- a hand-edited graph is not reached. Removing the widget
+  from PDD graphs was measured inert (two runs pixel-identical with the node
+  deleted; `comfy/supported_models.py` declares 12.0/3.0 as the H3 class
+  default) and deliberately NOT done: two cheap static checks read the shift off
+  that node, so deleting it would push them onto the file's metadata or onto a
+  duplicated constant. That trades one duplication for a worse one.
+  [`docs/h3_pdd.md`](docs/h3_pdd.md) carries the reasoning and names the clean
+  fix, which is to move the node downstream of the shift.
+
+### Added
+
+- **`bench/check_pdd_sigmas.py`**, the control for both claims above. Grades
+  the emitted vector against **ComfyUI's own `comfy.samplers.calculate_sigmas`
+  over `ModelSamplingAV`** rather than a value it computes, asserts the
+  exactness precondition instead of assuming it (so a graph shipping outside
+  `simple`'s exact regime goes red rather than quietly widening a tolerance),
+  round-trips the output through `schedule_knots` to confirm the sampler steps
+  where the heads were fused, drives `resolve_emit_steps` directly for the
+  refusal and inertness cases, and fails if any shipped PDD graph still carries
+  a `BasicScheduler`. Its first two refusal cases restated their own condition
+  and could not have failed; `resolve_emit_steps` was lifted out of `execute`
+  so they could drive the real code instead.
+
+### Fixed
+
+- The node's load line and `docs/h3_pdd.md` claimed a cross-partition file
+  "falls back to the runtime adaln injection, which is correct on any pruned
+  base". **It is not, for either file this repo ships.** `--pruned` deliberately
+  pops the raw `h3_pdd.adaln.*` tensors and the `h3_pdd.silu_temb_grid` (about
+  40% of the file, dead on a pruned base), so the fallback path reads keys that
+  are not there and raises `KeyError` -- after logging that it is doing the
+  correct thing. Unreachable today, because the head guard refuses a
+  cross-partition file first; it matters because the 2026-08-27 handoff used
+  that same claim to argue the adaln "already takes care of itself" if the head
+  guard were relaxed. It does not.
+
 ## 0.82.0
 
 ### Changed

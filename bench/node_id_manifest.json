@@ -22,10 +22,8 @@
   "MiniMaxH3AppendRefImage": {
     "inputs": [
       "image",
-      "size_policy",
       "references",
-      "allow_upscale",
-      "short_edge",
+      "size_policy",
       "qwen_short_edge"
     ],
     "node_id": "MiniMaxH3AppendRefImage",
@@ -55,8 +53,7 @@
       "length",
       "first_frame",
       "last_frame",
-      "canvas",
-      "vendor_tokens"
+      "canvas"
     ],
     "node_id": "MiniMaxH3Conditioning",
     "outputs": [
@@ -99,10 +96,12 @@
       "lora_name",
       "strength",
       "patch_heads",
-      "nfe"
+      "nfe",
+      "steps"
     ],
     "node_id": "MiniMaxH3PDDLoRA",
     "outputs": [
+      "Output",
       "Output"
     ]
   },
@@ -142,7 +141,6 @@
       "width",
       "height",
       "length",
-      "vendor_tokens",
       "video_policy",
       "image_policy"
     ],
@@ -233,16 +231,6 @@
       "decoder"
     ],
     "node_id": "MiniMaxH3VAEPrecision",
-    "outputs": [
-      "Output"
-    ]
-  },
-  "MiniMaxH3VendorTokens": {
-    "inputs": [
-      "clip",
-      "strict"
-    ],
-    "node_id": "MiniMaxH3VendorTokens",
     "outputs": [
       "Output"
     ]

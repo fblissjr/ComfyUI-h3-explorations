@@ -249,20 +249,16 @@ def wires_sage(graph) -> bool:
 
 
 def _steps_of(graph):
-    """The graph's BasicScheduler step count, or None."""
-    nodes = (graph.get("nodes") if isinstance(graph.get("nodes"), list)
-             else graph.values())
-    for n in nodes:
-        if not isinstance(n, dict):
-            continue
-        if (n.get("type") or n.get("class_type")) == "BasicScheduler":
-            w = n.get("widgets_values")
-            if isinstance(w, list) and len(w) >= 2:
-                return int(w[1])
-            v = (n.get("inputs") or {}).get("steps")
-            if isinstance(v, (int, float)):
-                return int(v)
-    return None
+    """The graph's step count, or None.
+
+    Delegates to `h3_config.graph_schedule` rather than reading
+    `BasicScheduler` itself. A PDD graph has not carried one since 0.83.0 --
+    the PDD node emits the schedule -- and the local reader this replaced
+    returned None on every one of them. That read here as "no step count", took
+    `SOL_END_PERCENT_BY_STEPS` to its 0.9 default, and reported eleven
+    correctly-wired graphs as wrong.
+    """
+    return h3_config.graph_schedule(graph)[0]
 
 
 def loads_pdd(graph) -> bool:
