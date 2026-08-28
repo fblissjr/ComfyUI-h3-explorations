@@ -268,6 +268,11 @@ that **no call site ever asked for**, so `<|caption_start|>`,
 appeared in the generator and in zero graphs. `h3_ref2v_scene_subway` and
 `h3_ref2v_scene_kitchen` wire two of those scenes and close that.
 
+Both were queued 2026-08-28.
+[`docs/scene_arm_renders.md`](scene_arm_renders.md) is the viewing guide: what
+one render each can settle, what it cannot, and why the caption route is
+deliberately confounded.
+
 **What is still open, and it is the larger half.** The arms exist; nothing has
 been rendered through them, so every marker but `<d>` remains *unexercised
 against the model* even though it is now *present in a graph*. Wiring changed
