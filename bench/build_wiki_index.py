@@ -157,18 +157,59 @@ def collapse(paths: list[str], threshold: int = 3) -> list[str]:
 
 
 def first_sentence(blurb: str, limit: int = 200) -> str:
-    """Trim a blurb to its first sentence for the compact routing table."""
-    # Blurbs are markdown and contain `**bold**`, links and inline code; leave
-    # them intact rather than stripping, so the route reads the way the owner
-    # wrote it. Cut on the first sentence end that is not inside backticks.
-    depth = 0
-    for i, ch in enumerate(blurb):
+    """Trim a blurb to its first sentence for the compact routing table.
+
+    Blurbs are markdown: inline code, `**bold**` and links. Leave them intact
+    rather than stripping, so the route reads the way its owner wrote it -- but
+    only cut where every span is closed.
+
+    **The backtick check alone was not enough**, and the first version shipped
+    the proof: two rows in the generated index opened `**` and never closed it,
+    because the cut landed mid-emphasis. A markdown viewer then renders the
+    rest of the table as bold. So track emphasis and links as well as code, and
+    require a sentence end to be followed by whitespace -- `docs/x.md` and
+    `0.83.0` both contain a `.` that ends nothing.
+    """
+    code = False
+    bold = 0
+    ital = 0
+    link = 0
+    i = 0
+    n = len(blurb)
+    last_safe: int | None = None
+
+    while i < n:
+        ch = blurb[i]
         if ch == "`":
-            depth ^= 1
-        if ch in ".;" and depth == 0 and i > 40:
-            return blurb[: i + 1]
-        if i >= limit and depth == 0:
+            code = not code
+            i += 1
+            continue
+        if not code:
+            if blurb.startswith("**", i):
+                bold ^= 1
+                i += 2
+                continue
+            if ch == "*":
+                ital ^= 1
+            elif ch == "[":
+                link += 1
+            elif ch == "]":
+                link = max(0, link - 1)
+        clear = not code and not bold and not ital and link == 0
+        # A sentence end only counts when followed by whitespace or EOS.
+        if clear and ch in ".;" and (i + 1 >= n or blurb[i + 1].isspace()):
+            if i > 40:
+                return blurb[: i + 1]
+            last_safe = i + 1
+        elif clear and ch == " ":
+            last_safe = i
+        if i >= limit and clear:
             return blurb[:i].rstrip() + " ..."
+        i += 1
+
+    # Nothing to cut on, or every candidate sat inside a span: return whole.
+    # Truncating here would be the bug this function exists to avoid.
+    del last_safe
     return blurb
 
 
