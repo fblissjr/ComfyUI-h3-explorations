@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -171,6 +172,16 @@ def _runtime_config_text() -> tuple[dict[str, str], dict[str, str]]:
     return texts, digests
 
 
+#: Which `config/` snapshot each artifact's contract lives in. Derived from the
+#: repo table below rather than restated, so a new artifact cannot be added
+#: there and forgotten here.
+ARTIFACT_SNAPSHOT_DIR_FOR = {
+    "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors": "qwen3vl_32b_minimax_h3_w4a16_awq",
+    "qwen3vl_32b_minimax_h3_w4a16_awq_v1-comfy.safetensors": "qwen3vl_32b_minimax_h3_w4a16_awq",
+    "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors": "qwen3vl_32b_minimax_h3_w4a16_awq_v2",
+    "qwen3vl_32b_minimax_h3_w4a16_awq_v2_smoke-comfy.safetensors": "qwen3vl_32b_minimax_h3_w4a16_awq_v2_smoke",
+}
+
 _REPO_SNAPSHOT_TABLE = """ARTIFACT_SNAPSHOTS: dict[str, Path | None] = {
     "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors": None,
     "qwen3vl_32b_minimax_h3_w4a16_awq_v1-comfy.safetensors": None,
@@ -256,6 +267,30 @@ def render_standalone_loader() -> str:
     # loader REFUSED the published v1 artifact with "checkpoint embedded config
     # matches no versioned config snapshot", so the Hub shipped weights its own
     # loader could not open.
+    # **The invariant that makes `None` mean one thing.** In the repo,
+    # `_snapshot_json(None, ...)` routes through `_config` to `CONFIG_DIR`; in
+    # the standalone it routes to the embedded configs. So `None` means "v1's
+    # snapshot" in one place and "whatever this build embedded" in the other,
+    # and the two agreed only by the two edits happening to match. They did not
+    # on 2026-08-27: the builder embedded v2 while the table still mapped the
+    # v1 filenames to `None`, and the published loader refused the published v1
+    # artifact. Asserted here rather than remembered.
+    embedded_snapshot = Path(CONFIG_DIR).name
+    table_artifacts = re.findall(r'"([^"]+\.safetensors)"', _STANDALONE_SNAPSHOT_TABLE)
+    if len(table_artifacts) != 1:
+        raise AssertionError(
+            "the standalone carries one embedded snapshot, so its table must "
+            f"name exactly one artifact; it names {len(table_artifacts)}: "
+            f"{table_artifacts}")
+    expected = ARTIFACT_SNAPSHOT_DIR_FOR.get(table_artifacts[0])
+    if expected != embedded_snapshot:
+        raise AssertionError(
+            f"the build embeds config/{embedded_snapshot} but its standalone "
+            f"table maps {table_artifacts[0]} to the embedded snapshot, which "
+            f"is the contract for config/{expected}. A loader built like this "
+            "refuses the artifact it ships beside -- change CONFIG_DIR and "
+            "_STANDALONE_SNAPSHOT_TABLE together.")
+
     source = _replace_once(source, _REPO_SNAPSHOT_TABLE, _STANDALONE_SNAPSHOT_TABLE,
                            "artifact snapshot table")
     source = _replace_once(
