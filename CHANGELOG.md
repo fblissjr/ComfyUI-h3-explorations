@@ -239,10 +239,14 @@
   with `num_inference_steps=nfe + 1`; the README says "Official 8 Step Acc
   LoRA" and its comparison grid puts that against LightX2V's **4-step turbo**.
   So 4 steps is the turbo lane's number and every 4-step PDD arm here is our
-  own extrapolation to twice the trained block width -- legal, at the limit an
-  independent implementation refuses past, and never something the authors
-  shipped or measured. That is the most likely reason a 4-step PDD clip
-  disappoints, and it is a fact about the arm rather than a defect in the code.
+  own extrapolation to twice the trained block width -- never something the
+  authors shipped or measured. **Unvalidated upstream is not the same as shown
+  worse**, and an earlier draft of this entry blurred them: three of the five
+  other implementations allow four evaluations, the one that refuses does so on
+  a stated fidelity-to-the-reference policy rather than a measurement, and the
+  weight-space fusion loss measured here does not grow from width 4 to width 8.
+  `C2_pdd4_nosol` against `C2_pdd8_nosol` is the only thing in this repo that
+  can settle it, and it is unjudged.
 
 - **A generated sweep of 1 to 10 evaluations** in [`docs/h3_pdd.md`](docs/h3_pdd.md):
   which counts tile the 32-point grid, the block width each gives, where that

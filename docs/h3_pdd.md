@@ -415,8 +415,10 @@ That last row is the one to read twice: **4 steps is the turbo lane's number,
 not PDD's.** The authors position their 8-step PDD against somebody else's
 4-step model. Every 4-step PDD arm in this repo is therefore our own
 extrapolation to twice the trained block width -- legal, at exactly the limit
-`silveroxides/ComfyUI-UtilsCollection` refuses past, and never something the
-authors shipped or measured.
+`silveroxides/ComfyUI-UtilsCollection` allows up to and refuses past, and never
+something the authors shipped or measured. **Unvalidated upstream, which is not
+the same as shown worse**; the tally further down says why that distinction
+matters here.
 
 ### The sweep, 1 to 10 evaluations
 
@@ -471,11 +473,38 @@ implementation and the strictest of them.** Its `validate_pdd_sigmas` RAISES on
 anything that is not the exact schedule: *"MiniMax H3 PDD requires exactly 8
 model evaluations and a terminal sigma (9 values)"*, and separately *"requires
 the official Euler/simple 8-step sigma schedule with video shift 12"*, to
-`5e-6`. So the stance across implementations is now: the authors give no knob at
-all, T8 refuses anything but 8, `UtilsCollection` allows the trained width and
-twice it, Mamad8 exposes a `steps` input, and ours allows any divisor and warns
-past 2x. **We are at the permissive end of six.** Its shift check is also
-independent convergence on the run-time shift guard added here the same day.
+`5e-6`. Its shift check is independent convergence on the run-time shift guard added
+here the same day.
+
+**But read its strictness for what it is.** T8's own module docstring gives the
+reason, and it is not a measurement: *"The math follows the Apache-2.0
+reference implementation published with `alibaba-pai/MiniMax-H3-Acc-LoRAs` at
+revision 78db175..."*. That is a **fidelity policy** -- reproduce the reference
+exactly, refuse everything else -- and it is a perfectly good goal for a pack
+that wants vendor-equivalent output. It is not evidence that four evaluations
+are worse.
+
+**And the tally does not say what it first looks like it says:**
+
+| implementation | 4 steps (block width 8) |
+|---|---|
+| alibaba-pai, the authors | no step knob exists; 4 is *unvalidated*, not refused |
+| T8 | refuses, on a stated fidelity policy |
+| `UtilsCollection` | **allows** -- its cap is `(trained, 2 x trained)`, and width 8 is exactly 2x |
+| Mamad8 | allows, exposes `steps` |
+| ours | allows any divisor, warns past 2x |
+
+So three of five allow it, one refuses on policy, and the authors simply never
+exposed the choice. **Nothing in that table is a rendered comparison.** Nor is
+the weight-space evidence against 4: the step-size-weighted fusion loss measured
+here does NOT grow from width 4 to width 8 -- the last block comes out 0.0309
+against 0.0335 -- because the `dt` weighting concentrates on the late heads and
+widening only adds low-weight ones.
+
+**The honest position: 4-step PDD is unvalidated upstream, not shown worse.**
+The one clean rendered comparison this repo owns -- `C2_pdd4_nosol` against
+`C2_pdd8_nosol`, three seeds a side with Sol removed from both -- is still
+unjudged, and it is the only thing here that can settle it.
 
 **`coderef/ComfyUI-H3-AudioRefine` states the symptom outright and ships the
 fix.** Its README: *"4-step video is acceptable but 4-step audio is not"* --
