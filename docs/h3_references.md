@@ -781,14 +781,26 @@ which is the B arm of the reference-view ablation (A: no upscale; B: Qwen-only
 2048; C: full parity). Whether B helps is unmeasured and is the owner's blind
 matched-seed comparison to judge after v2 lands.
 
-**The caveat, and it stopped binding on 2026-08-27.** The loaded encoder's own
-processor still applies its bounds afterwards, so this knob is only ever worth
-as much as the selected artifact's still-image budget allows. Under the v1 W4
-snapshot a 2048 view was clamped back to a few hundred tokens whatever N is,
-which made the knob inert for Qwen. The shipped encoder is v2 since
-2026-08-27 ([`h3_awq_encoder.md`](h3_awq_encoder.md)), and it declares the
-release's own bounds, so a 2048 view now reaches layer 50 at full size -- and
-is charged for accordingly, in the text segment, at every step. Read the
+**The caveat, and which regime you are in decides everything.** The loaded
+encoder's own processor applies its bounds afterwards, so this knob is only ever
+worth as much as the selected artifact's still-image budget allows. There are
+three regimes and they do not agree:
+
+| encoder | still bounds | what `qwen_short_edge` does |
+|---|---|---|
+| v1 W4 snapshot | 200,704..301,056 | **exactly inert** on every non-square aspect -- 512, 1024 and 2048 all arrive as 264 merged tokens at 16:9 |
+| v2 W4 snapshot | the release's own | live, 448..7,296 merged tokens across that range |
+| **`ENCODER_INT8`, what ships** | **core's `process_qwen2vl_images` defaults, 3,136..12,845,056** | **live, and the widest of the three** |
+
+**Corrected 2026-08-28: this section said the shipped encoder is v2. It is
+not.** `h3_config.MODELS["clip"]` is `ENCODER_INT8`
+(`qwen3vl_32b_minimax_h3_int8_convrot.safetensors`) and every `CLIPLoader` in
+the shipped graphs loads it; the v2 lane was closed rather than adopted. The
+conclusion that the knob is load-bearing survives the correction, but **not for
+the reason given here** -- it is live because INT8 loads through core's
+`CLIPLoader`, which stamps no `_h3_encoder_contract`, so no snapshot's bounds
+are installed and core's own defaults apply, 43x wider than v1's.
+`h3_config.py`'s note on `ENCODER_INT8` owns this and is the current one. Read the
 budget with `h3_awq_encoder.py::source_image_pixel_bounds`, never from prose;
 `bench/preflight_graph.py` prices both views per reference and says on the
 line when the Qwen view was clamped and by whose bounds. Controlled by
