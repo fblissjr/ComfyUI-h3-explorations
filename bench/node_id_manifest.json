@@ -43,6 +43,16 @@
       "references"
     ]
   },
+  "MiniMaxH3AudioCarryProbe": {
+    "inputs": [
+      "model",
+      "mode"
+    ],
+    "node_id": "MiniMaxH3AudioCarryProbe",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3Conditioning": {
     "inputs": [
       "clip",

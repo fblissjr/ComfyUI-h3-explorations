@@ -16,6 +16,7 @@ from .marker_arms import MiniMaxH3MarkerArm
 from .conditioning import MiniMaxH3Conditioning
 from .h3_awq_encoder import MiniMaxH3AWQEncoderLoader
 from .pdd_lora import MiniMaxH3PDDLoRA
+from .audio_carry_probe import MiniMaxH3AudioCarryProbe
 from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
 from .reference_fit import MiniMaxH3ReferenceFit
@@ -322,7 +323,7 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3AppendRefImage, MiniMaxH3AppendRefVideo,
                 MiniMaxH3AppendRefAudio, MiniMaxH3ReferenceConditioning,
                 MiniMaxH3AWQEncoderLoader, MiniMaxH3MarkerArm,
-                MiniMaxH3PDDLoRA]
+                MiniMaxH3PDDLoRA, MiniMaxH3AudioCarryProbe]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:
