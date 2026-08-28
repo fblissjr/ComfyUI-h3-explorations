@@ -17,6 +17,7 @@ Nothing here is allowed to have a second copy anywhere in the repo.
 # imports it with only `workflows/` there, so a check whose own imports are
 # broken is still audited.
 from dataclasses import dataclass as _dataclass
+from pathlib import Path
 
 
 #: The shipped text encoder, by the name `h3_awq_encoder.py`'s snapshot
@@ -1498,7 +1499,22 @@ SPLIT_AT = 2
 #: v2 under v1's bounds against v2 under its own, via
 #: `h3_awq_encoder.install_source_processors(image_bounds=...)` -- needs no
 #: render, and belongs to the encoder lane.
-REF_QWEN_SHORT_EDGE = 512
+#: Read from `h3_rules`, never retyped. The NODE's default and this must be
+#: the same number -- a graph that omits the input takes the node's, and a
+#: generator that disagreed would produce graphs whose behaviour changed
+#: depending on whether the key happened to be written. `h3_rules` imports no
+#: ComfyUI, so this works from a bare `sys.path` with only `workflows/` on it,
+#: which is how every bench script loads this file.
+def _ref_qwen_short_edge() -> int:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "_h3_rules_const", Path(__file__).resolve().parent.parent / "h3_rules.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return int(mod.REF_QWEN_SHORT_EDGE)
+
+
+REF_QWEN_SHORT_EDGE = _ref_qwen_short_edge()
 
 REF_VIDEO_CANVAS = dict(width=1024, height=768)
 # Reference-video graphs render at the length of the reference CLIP, not at

@@ -40,7 +40,8 @@ from comfy_extras.nodes_minimax_h3 import (
     adapt_canvas,
 )
 
-from .h3_rules import aspect_in_range, describe_aspect_range
+from .h3_rules import (REF_QWEN_SHORT_EDGE, aspect_in_range,
+                       describe_aspect_range)
 from .reference_order import AudioRef, ImageRef, VideoRef, assign_labels
 from .reference_geometry import (
     IMAGE_POLICIES,
@@ -790,16 +791,18 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                     ),
                 ),
                 io.Int.Input(
-                    "qwen_short_edge", default=0, min=0, max=4096, step=32,
-                    optional=True,
+                    "qwen_short_edge", default=REF_QWEN_SHORT_EDGE,
+                    min=0, max=4096, step=32, optional=True,
                     tooltip=(
                         "Give the text encoder a smaller copy of this image "
                         "than the video model gets.\n\n"
                         "The image is used twice: the video model encodes it "
                         "as reference frames, and the text encoder reads it "
                         "alongside your prompt. Those are separate costs.\n\n"
-                        "0: both get the same image, sized by size_policy "
-                        "above.\n\n"
+                        "0 means the text encoder gets the SAME image as "
+                        "the video model, sized by size_policy above. That is "
+                        "a deliberate choice, not 'off' -- use it when both "
+                        "should see identical input.\n\n"
                         "Any other value: the text encoder gets its own copy "
                         "with its shorter side at that many pixels, while the "
                         "video model still gets the full-size one.\n\n"

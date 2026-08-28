@@ -62,6 +62,23 @@ MIN_DURATION = 5.0
 MAX_LENGTH = 362
 MAX_DURATION = MAX_LENGTH / FPS  # 15.083s
 
+#: Default shorter side, in pixels, of the copy of a reference image handed to
+#: the TEXT ENCODER -- `MiniMaxH3AppendRefImage.qwen_short_edge`.
+#:
+#: A reference is read twice, by the video model and by the text encoder, and
+#: only the text encoder's copy competes with the prompt for room. Left at the
+#: size the video model gets, two references can take enough of that shared
+#: budget that the prompt holds under a tenth of it, which weakens prompt
+#: adherence while the video model gains nothing.
+#:
+#: Owned HERE rather than in `workflows/h3_config.py` because the node default
+#: and the generator have to agree and the node cannot import that file. This
+#: module needs no ComfyUI on the path, which is what lets both sides read one
+#: value instead of keeping two in step by hand.
+#:
+#: A reasoned default, not a tuned one: no A/B has been run on it.
+REF_QWEN_SHORT_EDGE = 512
+
 # diffusers' hard-coded `max_duration`. Kept, and kept SEPARATE, for the one
 # question it answers: would a graph exported from here also run in the
 # reference pipeline. That is portability, not legality -- see the docstring.

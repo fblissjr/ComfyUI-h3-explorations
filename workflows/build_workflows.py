@@ -1200,11 +1200,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # exist only under `max`; nothing emits them for `match`.
             append_inputs["size_policy.short_edge"] = _ref_short_edge()
             append_inputs["size_policy.allow_upscale"] = ref_upscale
-            # Only when set: 0 is the node's default and the byte-for-byte
-            # one-view path, and writing it into every graph would touch every
-            # shipped reference graph for nothing.
-            if ref_qwen_short_edge:
-                append_inputs["qwen_short_edge"] = ref_qwen_short_edge
+            # ALWAYS written, including 0. It used to be emitted only when
+            # truthy, which left the two shared-view arms (refview a/c) taking
+            # whatever the node defaulted to -- so moving that default would
+            # have silently retuned two arms of a comparison. Writing it every
+            # time means the graph states the value and nothing rides on a
+            # default that can move underneath it.
+            append_inputs["qwen_short_edge"] = ref_qwen_short_edge
             g[append_id] = {"class_type": "MiniMaxH3AppendRefImage",
                             "inputs": append_inputs}
             chain = [append_id, 0]
