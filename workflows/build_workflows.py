@@ -2421,8 +2421,15 @@ def _scene_description(scene: str, image_roles, defs) -> str:
 #: **The dialogue probe, and the one arm here built to be JUDGED rather than to
 #: look good.** Rendered 2026-08-08 as `marker_arm_vendortokens`
 #: (`internal/refs/marker_arm_vendortokens_api.json`, clips under the owner's
-#: `Video/20260808-stock-vs-vendortokens/`) and kept because it worked, so it
-#: is reproduced verbatim rather than rewritten.
+#: `Video/20260808-stock-vs-vendortokens/`) and kept because it worked.
+#:
+#: **It is no longer a verbatim reproduction of what was rendered, and this
+#: comment said it was until 2026-08-28.** `d5be353` replaced "the camera
+#: drifts a few degrees" with "shakes slightly" here and in the ref2va twin,
+#: because the original is not in base guide 4.3's closed camera table --
+#: a guide correction, made without the paired render the last line of this
+#: comment asks for. Diff this constant against the api json before treating
+#: any of it as the rendered configuration.
 #:
 #: What makes it a good test, as opposed to a good clip:
 #:
@@ -2432,8 +2439,14 @@ def _scene_description(scene: str, image_roles, defs) -> str:
 #:   line rather than at the end.
 #: * **The pacing is written, not hoped for.** "answers immediately", "says at
 #:   once", and a soundscape line that says the two voices trade "short clipped
-#:   lines with almost no gap between them". Remove those and the same lines
-#:   come out spaced and unjudgeable.
+#:   lines with almost no gap between them". "Remove those and the same lines
+#:   come out spaced and unjudgeable" stood here as fact until 2026-08-28;
+#:   **it is a belief, not a result** -- no arm has ever been rendered without
+#:   them, so nothing in `bench/results/` speaks to it either way.
+#:   The soundscape half is also outside what base guide 4.6 scopes that field
+#:   to, which is the open question in `docs/prompt_audit.md`; the two body
+#:   cues are guide-legal and cover four of the five within-shot line
+#:   transitions.
 #: * **Every line is `<d>[English] ...</d>`**, which the prompt guide requires
 #:   for all dialogue. The marker is the subject: if the tokenizer is not
 #:   emitting 151669/151670 the model hears angle brackets and the word

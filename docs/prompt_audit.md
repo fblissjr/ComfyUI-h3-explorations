@@ -189,7 +189,7 @@ before writing 300 words by hand.
 
 ---
 
-### Both dialogue scenes name their speakers in `overall_soundscape` — open
+### Both dialogue scenes name their speakers in `overall_soundscape` — open, owner's call
 
 Found 2026-08-28 by a peer session auditing the catalogue, and **not covered by
 either scene's existing verdict**, which is why it is its own entry. Both
@@ -211,6 +211,52 @@ independently — "ambience and physical sounds", dialogue staying in
 
 So it is out of scope by what the field IS, which does not depend on settling
 whether describing voices counts as repeating them.
+
+**That settles the guide reading and does NOT settle the edit.** A second peer
+session stopped before editing and was right to. Three things bear on it:
+
+**1. Both constants carry a "do not touch" guard.** `build_workflows.py`'s
+comment above `DIALOGUE_T2V_PROMPT` names this soundscape line as one of three
+pacing devices that make the arm judgeable, and closes "Do not 'improve' it
+without rendering the result beside this one." The ref2va comment holds the two
+prompts as a matched pair whose only intended axis is where the people come
+from. So the identical sentence in both scenes is the pairing, not a
+copy-paste slip, and editing one breaks the pair.
+
+**2. The guard's empirical half was never observed.** "Remove those and the
+same lines come out spaced and unjudgeable" is a claim about renders; no arm
+has been rendered without them, and `bench/results/` has nothing either way.
+Corrected in the comment 2026-08-28 to read as the belief it is.
+
+**3. The guard was already crossed, and the comment was already false.**
+`d5be353` changed the camera phrase in *both* constants on guide grounds with
+no paired render, so the arm is no longer the verbatim 2026-08-08
+configuration the comment claimed. That does not license further edits; it
+removes the frozen-reproduction status the guard leaned on, and it means the
+paired-render instruction has one deliberate exception rather than none.
+
+**The two prompts are not symmetric in what dropping the sentence costs.**
+Both carry "answers immediately" twice and "says at once" twice in the body.
+`DIALOGUE_REF2V_PROMPT` also carries the cue a third time in `summary`
+("trade eight short clipped lines with almost no gap between them"), so for the
+ref2va twin the global pacing statement survives the drop in a guide-legal
+field. `DIALOGUE_T2V_PROMPT` has no `summary` field, so there the global
+statement would survive nowhere -- only the four per-line cues, which cover
+four of the five within-shot transitions.
+
+**Three ways to close it, and the third dissolves the asymmetry:**
+
+| | pair stays matched | guide scope | pacing cue |
+|---|---|---|---|
+| drop from neither | yes | off-guide in both | intact |
+| drop from both | yes | clean | t2v loses its only global statement |
+| drop from both, and move t2v's global statement into `integrated_multimodal_description` | yes | clean | intact in both, in the field the guide puts it in |
+
+The third is the minimal move that satisfies both constraints, and it is what
+the ref2va twin already does structurally. **It is still an edit to a judged
+arm, so it is the owner's call, not a peer's** -- and if it is taken, the
+honest form is to render the result beside the 2026-08-08 clips as the comment
+asks, rather than to cross the guard a second time by argument.
 
 **A related case that is NOT this and must not be swept in**: the voice-timbre
 reference in `derived:h3_ref_audio_voice`. Ref §6 places a reference

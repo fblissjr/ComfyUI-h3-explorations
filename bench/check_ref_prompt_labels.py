@@ -351,7 +351,8 @@ def main():
         # `*_PROMPT` glob: a glob would make every future constant legal
         # silently, and the point of this list is that adding one is a
         # deliberate act somebody can see in a diff.
-        for authored in (bw.DIALOGUE_REF2V_PROMPT,):
+        for authored in (bw.DIALOGUE_REF2V_PROMPT,
+                         bw.MARKET_REF2V_PROMPT):
             legal.add(authored)
         bad = [name for name, inputs, _doc in graphs
                if isinstance(inputs.get("prompt"), str)
