@@ -151,6 +151,43 @@ is still not a measurement.
 compare against `mix6`. This is the perceptual half; that one is the numeric
 half, and they are different claims.
 
+### The practical conclusion: 4 evaluations is a bad operating point, and cannot be fixed
+
+The owner's read of the pair was not marginal — `00004` "looks really bad",
+`00007` looks and sounds decent. Same canvas, same seed, same everything but the
+partition.
+
+**Four evaluations has no better configuration.** Enumerated: the only partition
+of the 32-point grid into 4 blocks with starts on multiples of `L_min` and widths
+within `L_max` is `[8,8,8,8]`. So its 80% final Euler step and its 12.22
+integrated drift are forced, not chosen. **There is nothing to tune.**
+
+**Five and six evaluations are a different operating point, not a small
+improvement:**
+
+| arm | evals | final step | integrated drift |
+|---|---|---|---|
+| uniform 4 (the shipped `_4step` arm) | 4 | **80.0%** | 12.22 |
+| tail5 `[8,8,8,4,4]` | 5 | 63.2% | 9.82 |
+| tail6 `[8,8,4,4,4,4]` | 6 | 63.2% | 8.54 |
+| uniform 8 (the vendor's count) | 8 | 63.2% | 7.19 |
+
+**tail5 buys the 8-step's final step at five evaluations.** The knee is at 5-6
+with a tail-weighted partition, not at 4 uniform — and the shipped `_4step`
+graph sits on the wrong side of it.
+
+**What shipping that would need.** `resolve_emit_steps` refuses counts that do
+not divide 32, so a 5- or 6-evaluation arm needs `ManualSigmas` today. The
+follow-on named in [`2026-08-28_handoff.md`](2026-08-28_handoff.md) §2.2 —
+accept an explicit non-uniform knot list rather than only divisors — was
+deliberately deferred there as "do not build this first". **It now has a reason
+behind it**: not a convenience, but the only way to ship the operating point the
+arithmetic and one perceptual pair both point at.
+
+**Still one seed**, and the recommendation rests as much on the forced-partition
+arithmetic as on the render. Before changing a shipped graph, score the
+pre-registered test below and get a second seed.
+
 ### PRE-REGISTERED: tail6 against mix6, and why tail5 was not a test
 
 **`tail5` versus `u4` does not discriminate, and was withdrawn.** tail5 has MORE
