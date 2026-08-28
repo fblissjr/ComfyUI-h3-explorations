@@ -4,6 +4,65 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.84.0
+
+### Added
+
+- **`docs/custom_node_gaps.md`** -- the companion to `comfyui_vendor_gaps.md`.
+  That file asks how native ComfyUI differs from the release; this asks what
+  the nodes in this pack do end to end, and where that differs from sglang,
+  LightX2V, DiffSynth-Studio, diffusers and native ComfyUI. Carries the node
+  inventory by class -- load-bearing, convenience, instrumentation, which is
+  the cut that matters, since six registered nodes are wired by no shipped
+  graph and only two of those are merely superseded -- the three canonical
+  dataflows, the reading traps in the shipped JSON, and its own
+  enforced-by-nothing table. A snapshot that defers to owners, same standing
+  as the file it accompanies.
+
+- **`docs/research/pdd/pdd_implementations.md`** -- our PDD against the four
+  other implementations (the alibaba-pai source we converted from, the core
+  PR, `ComfyUI-UtilsCollection`, and a third-party pack), plus how the lane
+  reached its current shape. **No other engine implements PDD**: diffusers,
+  LightX2V, DiffSynth and sglang were each searched.
+
+- **`docs/wiki/`, with `bench/build_wiki_index.py` generating its index.** An
+  entry point that routes rather than restates. The index is DERIVED from
+  CLAUDE.md's own routing tables, so a blurb edited there cannot drift from a
+  copy here. Two written pages the generator never touches: `references.md`
+  (what each `coderef/` checkout implements for H3, what has been compared
+  against it, at which revision, and what it is not evidence of) and
+  `stages.md` (per render stage: our code, its owner, its guard, the
+  implementation to compare against). `--check` refuses a stale index and was
+  verified in both directions.
+
+### Found, not fixed
+
+- **The Turbo-SLA LoRA adapts the token refiner as well as the fifty DiT
+  blocks; `MiniMaxH3SLARouter` patches the blocks only.** Read off the
+  artifact's own key set. `docs/open_experiments.md` #20 named this gap
+  without evidence the refiner mattered to the distillation; it does.
+
+- **The Sol node every shipped graph wires is this repo's own `vendor/`
+  file** -- the sibling pack symlinks to it -- while that pack's docstring
+  still explains why the file is not vendored here.
+
+- **Two three-against-one divergences**, both reachable today: the reference
+  view handed to the text encoder (sglang, DiffSynth and diffusers all feed
+  one prepared tensor to both towers), and video VAE precision, where the node
+  that would close it exists, defaults the way the other implementations run,
+  and is wired nowhere.
+
+- **A matched-seed A/B is not matched on audio when the arms differ in canvas
+  or length.** Both streams draw from one generator consumed in order, so the
+  audio noise depends on the video latent's element count. Recorded in
+  `docs/wiki/stages.md`; `docs/eval_comparison.md` owns the A/B process and
+  does not carry the caveat.
+
+- **The special-tokens research subtree is reachable by no markdown link.**
+  Surfaced by the wiki generator's report. Reachable by prose mentions only,
+  which link-following navigation cannot use.
+
+
 ## 0.83.0
 
 ### Changed
