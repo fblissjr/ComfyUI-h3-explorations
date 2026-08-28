@@ -70,6 +70,8 @@ from h3_config import (  # noqa: E402
     TURBO_PACK_LORA, TURBO_PACK_STEPS, TURBO_PACK_STRENGTH,
     TURBO_PACK_SCHEDULER, TURBO_PACK_LOW_VRAM,
     DIALOGUE_REF_IMAGES,
+    PDD_MANUAL_EVALS,
+    PDD_MANUAL_SIGMAS,
     SOL_END_PERCENT_BY_STEPS,
     TURBO_REF2VA_LORA, TURBO_REF2VA_STEPS, TURBO_REF2VA_SHIFT,
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
@@ -1058,6 +1060,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               # benefit this repo has never measured -- and it diverges
               # from the vendor on a knob where we otherwise match.
               ref_upscale: bool = False,
+              manual_sigmas: str | None = None,
               ref_video_policy: str = "encoder",
               ref_image_policy: str = "comfy",
               ref_qwen_short_edge: int = REF_QWEN_SHORT_EDGE,
@@ -1448,9 +1451,15 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                   # decision 2026-08-28. Split graphs keep the
                                   # literal 0: nothing consumes their SIGMAS,
                                   # and a non-zero value can refuse at load.
-                                  "steps": (0 if split_at
+                                  # 0 under `manual_sigmas` too: ManualSigmas
+                                  # replaces the schedule this node would emit,
+                                  # and 0 is the one value `resolve_emit_steps`
+                                  # never refuses -- which matters because a
+                                  # tail-weighted partition runs 5 or 6
+                                  # evaluations and neither divides the grid.
+                                  "steps": (0 if (split_at or manual_sigmas)
                                             else ["61", 0])}}
-            if not split_at:
+            if not split_at and not manual_sigmas:
                 g["61"] = {"class_type": "PrimitiveInt",
                            "inputs": {"value": _resolved_steps}}
         else:
@@ -1563,7 +1572,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
     # A split graph keeps BasicScheduler: `SplitSigmas` wants one schedule fed
     # to both halves and that combination has never shipped with PDD, so it
     # keeps the old path rather than inheriting an untested one.
-    _sigma_src = (["18", 1] if (pdd and lora is not None and not split_at)
+    if manual_sigmas:
+        # An explicit non-uniform partition. The node's SIGMAS output can only
+        # express counts that DIVIDE the 32-point grid, so a tail-weighted 5- or
+        # 6-evaluation schedule is unreachable through it today.
+        g["60"] = {"class_type": "ManualSigmas",
+                   "inputs": {"sigmas": manual_sigmas}}
+    _sigma_src = (["60", 0] if manual_sigmas
+                  else ["18", 1] if (pdd and lora is not None and not split_at)
                   else ["8", 0])
     g["10"]["inputs"]["sigmas"] = _sigma_src
     if _sigma_src == ["8", 0]:
@@ -4481,6 +4497,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
               # benefit this repo has never measured -- and it diverges
               # from the vendor on a knob where we otherwise match.
               ref_upscale: bool = False,
+              manual_sigmas: str | None = None,
              ref_video_policy: str = "encoder",
              ref_image_policy: str = "comfy",
              ref_qwen_short_edge: int = REF_QWEN_SHORT_EDGE,
@@ -4625,7 +4642,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                       outputs=[_out("MODEL", "MODEL")],
                       title=f"Load LoRA (ref delta, strength {lora[1]})"))
         g.link(unet_node, 0, lora_node, "model", "MODEL")
-        if pdd and not split_at:
+        if pdd and not split_at and not manual_sigmas:
             # The arm's step count as ONE visible number on the canvas, rather
             # than a widget inside the loader. Mirrors node 61 in build_api.
             steps_const = g.add("PrimitiveInt", (-1500, 780), size=(300, 60),
@@ -4967,8 +4984,14 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     # BasicScheduler at all -- see the long note in build_api. Not created
     # rather than created-and-unlinked: this writer has no node removal, so an
     # orphan would ship in the graph and read as intentional wiring.
-    _pdd_sigmas = pdd and lora is not None and not split_at
-    sched = (None if _pdd_sigmas else
+    _pdd_sigmas = pdd and lora is not None and not split_at and not manual_sigmas
+    manual_node = (g.add("ManualSigmas", (40, 250), size=(360, 90),
+                         widgets=[manual_sigmas],
+                         outputs=[_out("SIGMAS", "SIGMAS")],
+                         title=f"Manual sigmas ({PDD_MANUAL_EVALS} evaluations, "
+                               f"tail-weighted)")
+                   if manual_sigmas else None)
+    sched = (None if (_pdd_sigmas or manual_sigmas) else
              g.add("BasicScheduler", (40, 250), size=(300, 130),
                    widgets=[scheduler_name or _distill(lora, pdd, "scheduler"),
                             _resolved_steps, SAMPLING["denoise"]],
@@ -5086,7 +5109,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
         if _pdd_sigmas:
             g.link(lora_node, 1, sampler, "sigmas", "SIGMAS")
         else:
-            g.link(sched, 0, sampler, "sigmas", "SIGMAS")
+            g.link(manual_node or sched, 0, sampler, "sigmas", "SIGMAS")
     latent_src, latent_slot = sampler, 0
 
     if split_at:
@@ -5138,8 +5161,9 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                        outputs=[_out("latent", "LATENT")])
         g.link(sampler, 0, stampn, "latent", "LATENT")
         g.link(model_src, 0, stampn, "model", "MODEL")
-        g.link(lora_node if _pdd_sigmas else sched,
-               1 if _pdd_sigmas else 0, stampn, "sigmas", "SIGMAS")
+        _sig_node = manual_node or (lora_node if _pdd_sigmas else sched)
+        _sig_slot = 1 if (_pdd_sigmas and not manual_node) else 0
+        g.link(_sig_node, _sig_slot, stampn, "sigmas", "SIGMAS")
         latent_src, latent_slot = stampn, 0
     # Link ORDER is preserved exactly as it was before the single-frame path
     # existed, including the two audio links sitting between the video decode
@@ -6732,6 +6756,31 @@ def main():
                   "one converted file serves both step counts; the heads "
                   "are fused at load for whichever is asked.")),
          "text -> video + audio at 4 steps via PDD, sage on"),
+
+        ("h3_text_to_video_pdd_manual_sigmas.json", "texttovideopddmanualsigmas",
+         "t2v", LONG_T2V_PROMPT,
+         dict(pdd=True, sampler_name="euler",
+              lora=(PDD_FL2VA_LORA, PDD_STRENGTH),
+              manual_sigmas=PDD_MANUAL_SIGMAS, steps=PDD_MANUAL_EVALS,
+              out_prefix="Video/text_to_video_pdd_manual_sigmas",
+              variant_note=_probe_note(
+                  "text to video on an explicit tail-weighted PDD partition",
+                  "h3_text_to_video_pdd_4step.json",
+                  "[8,8,4,4,4,4] through ManualSigmas -- six evaluations, "
+                  "coarse blocks at the FRONT where the trajectory is nearly "
+                  "flat, and a 63.2% final step instead of the uniform "
+                  "4-evaluation arm's 80%.",
+                  "jagged edges and scratchy audio, which is what the uniform "
+                  "4-evaluation arm produced on a matched pair.",
+                  "NO step count is in the name on purpose: this runs SIX "
+                  "evaluations, and naming it 4step -- which the render "
+                  "filenames did -- made a 6-evaluation result read as a "
+                  "4-evaluation one. The schedule is in the ManualSigmas "
+                  "widget; read it there. The PDD node's own `steps` is 0 "
+                  "because ManualSigmas replaces the schedule it would emit, "
+                  "and 6 does not divide the 32-point grid so a non-zero value "
+                  "would be refused at load.")),
+         "text -> video + audio on a tail-weighted PDD partition, sage on"),
 
         ("h3_first_last_frame_to_video_pdd.json", "firstlastframetovideopdd", "i2v", None,
          dict(last_frame=True, **FL2V_CANVAS,

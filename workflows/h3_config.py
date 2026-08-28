@@ -1206,6 +1206,35 @@ PDD_REF2VA_LORA = "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors"
 PDD_STEPS = 8
 PDD_STEPS_FAST = 4
 PDD_STRENGTH = 1.0
+
+#: The `[8,8,4,4,4,4]` partition of the 32-point grid, as the sigma vector a
+#: `ManualSigmas` node feeds the sampler. Six evaluations.
+#:
+#: **Why this one.** Under shift 12 the uniform 4-evaluation partition spends
+#: its LAST Euler step on 80% of the trajectory, and four evaluations cannot do
+#: better: `[8,8,8,8]` is the only partition of 32 into four blocks that starts
+#: every block on a multiple of `L_min` and keeps every width within `L_max`.
+#: This one puts the coarse blocks at the FRONT, where the trajectory is nearly
+#: flat, and keeps the final step at 63.2% -- the same tail the vendor's own
+#: 8-evaluation schedule has.
+#:
+#: **Measured, one seed, 2026-08-28.** Against the uniform 4-evaluation arm on a
+#: matched pair (same seed, canvas, prompt, LoRA, Sol, sampler; only the
+#: schedule differs) the owner called that one "jaggedy lines and scratchy
+#: audio" and this one acceptable in both. `docs/research/pdd/audio_under_pdd.md`
+#: has the arithmetic and the caveats -- and note that no partition experiment
+#: can say WHY, because every coarseness statistic ranks the arms identically
+#: whether computed in video time or through the audio transform.
+#:
+#: Written out rather than derived so the graph shows the schedule it runs.
+#: `bench/grade_pdd_partitions.py::MANUAL["tail6"]` is the same vector.
+PDD_MANUAL_SIGMAS = "1.0, 0.972973, 0.923077, 0.878049, 0.8, 0.631579, 0.0"
+
+#: Evaluations `PDD_MANUAL_SIGMAS` runs. Passed as the graph's `steps` so
+#: `_sol_for_steps` derives Sol's `end_percent` from the count the sampler
+#: actually runs -- the PDD node's own `steps` input goes to 0, since
+#: ManualSigmas replaces the schedule it would emit.
+PDD_MANUAL_EVALS = 6
 PDD_SHIFT = dict(shift_video=12.0, shift_audio=3.0)
 
 # `CHAIN` was here and is gone as of 2026-08-14. It listed the node order --
@@ -2119,6 +2148,14 @@ def graph_schedule(graph) -> tuple:
         `simple` here is therefore a fact about the emitted vector and not a
         convenient label -- if that equality ever breaks, that check goes red
         before anything reading this does.
+      * a `ManualSigmas` node -> the step count is `len(vector) - 1`, and the
+        scheduler is **`manual`**. Added 2026-08-28 with the tail-weighted PDD
+        partition, which is the first graph whose schedule is neither a
+        `BasicScheduler` curve nor a count the PDD node can emit: the node's
+        SIGMAS output only expresses counts that DIVIDE the 32-point grid, and
+        `[8,8,4,4,4,4]` is six evaluations. Reading it off the vector is not a
+        convenience -- it is the only place the count exists on that graph, and
+        three checks went red at once when it did not.
       * neither -> `(None, None)`, and the caller decides whether that is a
         failure. It still is for every current caller.
 
@@ -2145,7 +2182,7 @@ def graph_schedule(graph) -> tuple:
     nodes = (graph.get("nodes") if isinstance(graph.get("nodes"), list)
              else list(graph.values()))
     steps = scheduler = None
-    pdd_steps = None
+    pdd_steps = manual_steps = None
     for n in nodes:
         if not isinstance(n, dict):
             continue
@@ -2165,6 +2202,17 @@ def graph_schedule(graph) -> tuple:
             got = resolve_widget(graph, n, "steps", _widget(widgets, 4))
             if got.ok and isinstance(got.value, (int, float)) and int(got.value) > 0:
                 pdd_steps = int(got.value)
+        elif kind == "ManualSigmas":
+            got = resolve_widget(graph, n, "sigmas", _widget(widgets, 0))
+            if got.ok and isinstance(got.value, str):
+                pts = [x for x in got.value.split(",") if x.strip()]
+                if len(pts) >= 2:
+                    manual_steps = len(pts) - 1
+    if steps is None and manual_steps is not None:
+        # `manual` rather than `simple`: the vector is an explicit non-uniform
+        # partition, so calling it `simple` would assert an equality with
+        # `calculate_sigmas` that is FALSE here by construction.
+        return manual_steps, "manual"
     if steps is None and pdd_steps is not None:
         return pdd_steps, "simple"
     return steps, scheduler

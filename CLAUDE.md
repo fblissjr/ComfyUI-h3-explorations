@@ -89,8 +89,10 @@ repeating work.
   6-evaluation arm on a tail-weighted partition renders acceptably. But the
   count is not the variable: **two arms with the SAME evaluation count and the
   SAME block-width multiset, differing only in whether the wide blocks sit at
-  the front or the end, have materially different coarseness** (`tail6` 2.22
-  against `mix6` 2.95 in video time) and the coarser one is worse.
+  the front or the end, have materially different coarseness** — and the
+  coarser one is worse. (No magnitude here: two sessions summed the drift
+  over different index ranges and got a constant offset, ranks identical.
+  `docs/research/pdd/audio_under_pdd.md` carries the definition it uses.)
   - **Where the coarseness lands is what matters, and under shift 12 that means
     the TAIL.** The uniform 4-evaluation partition spends its last Euler step on
     **80%** of the trajectory; every partition that keeps a narrow final block

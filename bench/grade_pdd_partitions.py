@@ -209,7 +209,18 @@ def run(arm):
 
 
 def video_array(paths):
-    return np.stack([np.asarray(Image.open(p).convert("RGB"), dtype=np.float32) / 255.0
+    """Decoded frames as float64.
+
+    **float32 was wrong here and the error was not small.** A 362-frame
+    1152x768 RGB stack is ~9.6e8 elements, and a single float32
+    `np.linalg.norm` over that many terms loses up to 1.6e-3 to accumulation --
+    larger than the gap between two of the arms it was used to rank. The
+    ordering survived, but `2026-08-28_pdd_partition_fidelity_362.json` scored a
+    prediction on a 7.5e-4 difference that is really 2.0e-3, which was luckier
+    than it looked. Found by a peer whose identity control could not reproduce
+    that record. Audio was never affected: 964,800 float64 samples, exact.
+    """
+    return np.stack([np.asarray(Image.open(p).convert("RGB"), dtype=np.float64) / 255.0
                      for p in sorted(paths)])
 
 

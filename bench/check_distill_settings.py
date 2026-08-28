@@ -248,6 +248,50 @@ def note_versions(doc) -> list[str]:
 _PDD_NAME = re.compile(r"_pdd_(\d+)step_", re.IGNORECASE)
 
 
+def _manual_knots(doc, grid):
+    """Grid indices a `ManualSigmas` vector lands on, or None.
+
+    Uses the same `schedule_knots` the NODE uses at run time rather than
+    restating the mapping -- the repo's rule about grading against the real
+    expression instead of a copy of it.
+    """
+    import torch
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from pdd_math import schedule_knots
+    # `doc` arrives as a UI dict, an API dict, or an already-unpacked list
+    # depending on the caller. Normalise rather than assume.
+    if isinstance(doc, list):
+        nodes = doc
+    elif isinstance(doc.get("nodes"), list):
+        nodes = doc["nodes"]
+    else:
+        nodes = list(doc.values())
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        if (n.get("type") or n.get("class_type")) != "ManualSigmas":
+            continue
+        # Branch on the FORM, not on whether a key is present: a UI node also
+        # has `inputs`, but as a LIST of slot dicts rather than a value map,
+        # so `"inputs" in n` picks the wrong reader on every UI graph.
+        ins = n.get("inputs")
+        if isinstance(ins, dict):
+            raw = ins.get("sigmas")
+        else:
+            w = n.get("widgets_values")
+            raw = w[0] if isinstance(w, list) and w else None
+        if not isinstance(raw, str):
+            return None
+        try:
+            vec = [float(x) for x in raw.split(",") if x.strip()]
+        except ValueError:
+            return None
+        import h3_config
+        shift = float(h3_config.SIGMA_SHIFT["shift_video"])
+        return schedule_knots(torch.tensor(vec), shift, grid)
+    return None
+
+
 def classify_pdd(lora_name):
     return bool(_PDD_NAME.search(lora_name.replace("-", "_")))
 
@@ -708,12 +752,46 @@ def main():
                         f"which IS the evaluation count since 2026-08-27. A PDD "
                         f"arm whose schedule cannot be read cannot be graded; "
                         f"the filename is not evidence.")
-                    assert grid % found.steps == 0, (
-                        f"{path.name}: {found.steps} evaluations do not divide "
-                        f"the file's {grid}-point grid, so the blocks come out "
-                        f"uneven. The node takes them anyway and says so, but a "
-                        f"SHIPPED arm should tile: "
-                        f"{sorted(n for n in range(1, grid + 1) if grid % n == 0)}.")
+                    # **Uniformity is not the requirement; landing on the grid
+                    # is.** This asserted `grid % steps == 0` until 2026-08-28,
+                    # which was right while every arm was uniform and wrong the
+                    # moment one was not. `[8,8,4,4,4,4]` is six evaluations, so
+                    # it fails that test, and it is on-grid at every knot --
+                    # every block boundary is a grid point and every width is
+                    # within the trained envelope. Divisibility was standing in
+                    # for on-grid because for a UNIFORM partition the two are
+                    # the same thing.
+                    #
+                    # A `manual` schedule is checked against the grid it names;
+                    # anything else still has to tile, because a non-uniform
+                    # schedule can only arrive through ManualSigmas and its
+                    # absence means the count came from a node that emits
+                    # uniform blocks.
+                    if found.scheduler == "manual":
+                        knots = _manual_knots(doc, grid)
+                        assert knots is not None, (
+                            f"{path.name}: a manual schedule that cannot be "
+                            f"read cannot be graded.")
+                        assert knots == sorted(set(knots)), (
+                            f"{path.name}: manual sigmas do not ascend through "
+                            f"the grid: {knots}.")
+                        widths = [b - a for a, b in zip(knots, knots[1:])]
+                        assert knots[0] == 0 and knots[-1] == grid, (
+                            f"{path.name}: manual sigmas span {knots[0]}.."
+                            f"{knots[-1]} of a {grid}-point grid; a shipped arm "
+                            f"runs the whole trajectory.")
+                        assert all(w <= 8 for w in widths), (
+                            f"{path.name}: block widths {widths} exceed the "
+                            f"trained envelope (L_max 8 under the inferred "
+                            f"4/8). Legal to render, not to ship.")
+                    else:
+                        assert grid % found.steps == 0, (
+                            f"{path.name}: {found.steps} evaluations do not "
+                            f"divide the file's {grid}-point grid, and this arm "
+                            f"has no ManualSigmas to name an explicit partition, "
+                            f"so its blocks come out uneven. The node takes them "
+                            f"anyway and says so, but a SHIPPED arm should tile: "
+                            f"{sorted(n for n in range(1, grid + 1) if grid % n == 0)}.")
                     # `nfe` is an override that forces uniform blocks and
                     # ignores the schedule. Legal, but it means the arm decodes
                     # one partition while stepping another -- an experiment, not

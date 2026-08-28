@@ -271,7 +271,7 @@ def case_graphs_consume_it():
     BasicScheduler. Walks `graph_paths` rather than globbing, which
     `check_graph_discovery.py` requires.
     """
-    graded, problems = [], []
+    graded, problems, manual = [], [], []
     for path in graph_paths(WORKFLOWS):
         if not path.name.endswith("_api.json"):
             continue
@@ -292,6 +292,18 @@ def case_graphs_consume_it():
         if any(isinstance(n, dict)
                and n.get("class_type") in ("SplitSigmas", "SplitSigmasDenoise")
                for n in g.values()):
+            continue
+        # A ManualSigmas arm names an explicit NON-UNIFORM partition, which the
+        # node's SIGMAS output cannot express -- it emits uniform blocks, so it
+        # only reaches counts that divide the grid, and [8,8,4,4,4,4] is six.
+        # This is not an exemption for its own sake: `check_distill_settings`
+        # grades that arm's vector against the grid instead, asserting every
+        # knot lands on a grid point and every width is inside the trained
+        # envelope, which is the property this case protects on the others.
+        # Without that second grader the skip would be a hole.
+        if any(isinstance(n, dict) and n.get("class_type") == "ManualSigmas"
+               for n in g.values()):
+            manual.append(path.name)
             continue
         graded.append(path.name)
         nid = pdd[0]
@@ -325,7 +337,9 @@ def case_graphs_consume_it():
         "no PDD graph was graded. Either none ship or discovery missed them; "
         "either way this case is asserting nothing and must not read green.")
     assert not problems, "; ".join(problems[:4])
-    return f"{len(graded)} PDD graph(s) sample from the node"
+    tail = (f", {len(manual)} on an explicit ManualSigmas partition "
+            f"(graded by check_distill_settings)" if manual else "")
+    return f"{len(graded)} PDD graph(s) sample from the node{tail}"
 
 
 def case_graph_shift_matches_file():
