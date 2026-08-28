@@ -6,6 +6,49 @@ This file is the finding; that one is what to do about it. The link was
 one-directional until 2026-08-28: the plan pointed here and nothing pointed
 back, so a reader arriving at the finding had no route to the work.
 
+## THE CORPUS IS BIASED TOWARD LOW MOTION, and it may invalidate past reads
+
+Owner's observation, 2026-08-28: *"maybe all these dialogue scenes in the bunker
+look great cuz its closeups and small room and little motion and cuts."*
+
+Measured on the renders already on disk, 336x192 greyscale, shot cuts masked:
+
+| scene | median motion | p90 | frames above 0.02 |
+|---|---|---|---|
+| **market** (t2v, wide, crowd) | **0.0142** | **0.0316** | **47.6%** |
+| dialogue, PDD 4-step | 0.0082 | 0.0180 | 6.4% |
+| dialogue, base 16-step | 0.0047 | 0.0099 | **0.0%** |
+
+**The market scene carries 1.7-3x the median motion and 48% high-motion frames
+against 6% and 0%.**
+
+**Why this is a corpus-level problem and not a scene preference.** Artifact
+severity tracks motion (+0.676 within-clip, below). Most perceptual judgements
+of distilled arms in this repo were made on the dialogue scenes. So **"looks
+fine at 4 steps" may have been a statement about the SCENE rather than about the
+distillation** — the same failure shape as every other one today: a measurement
+that could not see the thing it was being used to judge.
+
+**It lands on a decision in flight.** A dialogue arm was proposed as the PDD
+quality probe, on the good reasoning that eight lines and seven speaker changes
+in fifteen seconds make it a sharp AUDIO instrument. That reasoning still holds
+for audio. **For video it is close to the worst available choice**, because it
+is the lowest-motion content in the corpus. Both can be true, and the probe
+should be described as an audio probe rather than a quality probe.
+
+**One corollary worth separating, which this number cannot do alone.**
+`dialogue_base` (16 steps, undistilled) has ZERO frames above the motion
+threshold; `dialogue_pdd4` has 6.4%, on the same prompt. The distilled arm is
+generating more frame-to-frame change. That is either real motion the base did
+not produce, or the artifact itself registering as motion. **Unresolved, and the
+second reading would mean this metric partly measures the defect it is being
+used to control for.**
+
+**What follows for evaluation.** A quality claim about a distilled arm needs to
+say what motion regime it was judged in. A scene with 0% high-motion frames
+cannot discriminate a defect that appears under motion, however carefully it is
+judged or however many seeds it gets.
+
 ## Perceptual results, 2026-08-28, owner's reads
 
 All at 1344x768 / 362 frames / seed 730451892 on the rewritten market prompt.

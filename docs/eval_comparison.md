@@ -6,6 +6,47 @@ Utility for building side-by-side or top-to-bottom comparison videos with synchr
 
 ---
 
+
+## Motion regime is part of a perceptual claim, not context for it
+
+Added 2026-08-28, from an owner observation that turned out to be measurable and
+to bear on judgements already made.
+
+**Artifact severity in distilled arms tracks MOTION.** Comparing a coarse
+partition against a fine one frame by frame with shot cuts masked, the effect
+correlates with per-frame motion at **+0.676**, and the high-motion quartile
+carries 1.18x the low-motion one.
+
+**And this repo's scenes differ enormously in motion.** Measured on shipped
+renders:
+
+| scene | median motion | frames above 0.02 |
+|---|---|---|
+| market (t2v, wide, crowd) | 0.0142 | **47.6%** |
+| dialogue, PDD 4-step | 0.0082 | 6.4% |
+| dialogue, base 16-step | 0.0047 | **0.0%** |
+
+**So a scene can be incapable of showing the defect being judged.** A dialogue
+scene with zero high-motion frames cannot discriminate a motion-dependent
+artifact, however carefully it is scored, however blind the process, and however
+many seeds it gets. Blinding controls who knows which arm; it does nothing about
+whether the content can express the difference.
+
+**The rule.** A perceptual claim about a distilled arm states the motion regime
+it was judged in. "Looks fine at 4 steps" on the dialogue corpus is a claim about
+that corpus. If the question is whether a distillation holds up, the scene has to
+contain the thing that breaks.
+
+**This does not retire the dialogue scenes.** They remain the sharpest AUDIO
+instrument available -- eight lines, seven speaker changes, two registers -- and
+that is a different axis from the one above. The error is calling such a scene a
+quality probe rather than an audio probe.
+
+`docs/research/pdd/audio_under_pdd.md` has the measurements and the one thing
+they cannot settle: the distilled dialogue arm shows MORE frame-to-frame change
+than the undistilled one on the same prompt, which is either motion the base did
+not generate or the artifact registering as motion.
+
 ## 1. Automatic Layout Optimization
 
 The tool automatically detects canvas aspect ratio ($W/H$) to pick the optimal stacking layout:
