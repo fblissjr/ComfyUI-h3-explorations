@@ -39,10 +39,16 @@ its name implies, and must not read as though it did.
 
 Two deliberate choices, both from getting them wrong first:
 
-- **Enough steps to look like a render.** An earlier version used 4, which
-  produces a smeared, incoherent clip indistinguishable from a failure --
-  so the artifact it leaves behind causes exactly the alarm it was meant to
-  rule out. 10 is still fast and still recognisably converging.
+- **Enough steps to look like a render, and a count the grid accepts.** An
+  earlier version used 4, which produces a smeared, incoherent clip
+  indistinguishable from a failure -- so the artifact it leaves behind causes
+  exactly the alarm it was meant to rule out. The default is now constrained
+  from two directions rather than one: it must still be recognisably
+  converging, and it must divide the PDD file's 32-point grid, because the
+  PDD node owns the step count on the graphs that carry it and refuses a
+  count that cannot tile. See `--steps` for which value satisfies both and
+  why; **do not restate it here** -- this bullet said 10 for one commit after
+  the default moved to 8, which is the drift this repo keeps paying for.
 - **Its own filename prefix and a short clip.** The output is throwaway; it
   should not land in the middle of real renders wearing their naming.
 
