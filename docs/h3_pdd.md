@@ -461,6 +461,61 @@ Emitted sigmas at shift 12, where a schedule exists at all:
   there is no on-grid schedule to emit, so there is nothing honest to hand the
   sampler.
 
+### Audio is the first thing a low step count costs, and there is a known fix
+
+Two more packs on this box speak to the question this section opened with, and
+they agree with each other without agreeing with us.
+
+**`coderef/comfyui-minimax-h3-audio-T8/pdd_advanced.py` is a sixth PDD
+implementation and the strictest of them.** Its `validate_pdd_sigmas` RAISES on
+anything that is not the exact schedule: *"MiniMax H3 PDD requires exactly 8
+model evaluations and a terminal sigma (9 values)"*, and separately *"requires
+the official Euler/simple 8-step sigma schedule with video shift 12"*, to
+`5e-6`. So the stance across implementations is now: the authors give no knob at
+all, T8 refuses anything but 8, `UtilsCollection` allows the trained width and
+twice it, Mamad8 exposes a `steps` input, and ours allows any divisor and warns
+past 2x. **We are at the permissive end of six.** Its shift check is also
+independent convergence on the run-time shift guard added here the same day.
+
+**`coderef/ComfyUI-H3-AudioRefine` states the symptom outright and ships the
+fix.** Its README: *"4-step video is acceptable but 4-step audio is not"* --
+written about turbo, and the mechanism is not turbo-specific. The reason is
+structural rather than incidental: on a 1344x768 124-frame clip the audio is
+about **400 rows against video's ~37,000**, roughly 1% of the packed sequence,
+so whatever a distillation gives up it gives up on audio first and least
+visibly.
+
+Its approach, and the part that makes it applicable here:
+
+- Freeze the video with a per-stream `denoise_mask` (video 0, audio 1). ComfyUI
+  supports that natively -- for H3 `scale_latent_inpaint` returns the latent
+  unmodified and the frozen rows are fed at `VISUAL_COND_TIMESTEP`, the same
+  treatment keyframe conditioning gets, so the returned video is bit-identical.
+- **Take the MODEL from before the LoRA for the refinement pass.** Pass one runs
+  distilled; the audio-only pass runs undistilled. Their sentence for why is the
+  whole argument: *"the audio quality you were missing is exactly what the turbo
+  LoRA took away."*
+- Freezing alone saves almost nothing -- attention is one fused sequence, so the
+  37,000 frozen rows still pay qkv, attention and MLP at all 50 blocks (measured
+  20.7s against 23.0s). The pack's `H3FrozenVideoCache` is what buys the time
+  back, caching each block's attention input; it hooks `set_model_patch_replace`
+  and a `WrappersMP.DIFFUSION_MODEL` wrapper, both stock, no monkeypatching.
+  Its stated approximation is that the video->audio attention edge is severed
+  between rebuilds.
+
+**Why this is worth a look here specifically.** Because the refinement runs on
+the base model, it needs nothing from the PDD head schedule -- so it sidesteps
+every constraint this document spends its length on. A 4-step PDD video pass
+followed by an audio-only pass on the undistilled weights is expressible today,
+costs roughly 8-10 full steps of arithmetic, and targets exactly the stream that
+a 2x-wide block hurts most.
+
+**Nothing here has run it**, and the interaction that would need checking first
+is whether the PDD node's patches and the pack's block replacement compose --
+they sit on different surfaces (`final_layer.forward` and
+`diffusion_model.forward` against `("dit", "double_block", i)` plus a model
+wrapper), which is a reason to expect they do and not evidence that they do.
+
 **The 6 in the Sol table is a turbo count, not a PDD one** -- worth stating
 because reading that table alone suggests otherwise. Every 6-step arm this repo
 ships is a 768p turbo graph; no PDD graph can run 6, because 6 does not divide

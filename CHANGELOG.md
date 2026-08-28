@@ -49,6 +49,27 @@
   `__init__` implies assigned in `_adopt` -- statically, so it catches the field
   somebody adds later rather than the fields that exist today.
 
+### Recorded from two reference packs
+
+- **Audio is the first thing a low step count costs, and there is a known fix.**
+  `coderef/ComfyUI-H3-AudioRefine` states the symptom this lane opened with --
+  "4-step video is acceptable but 4-step audio is not" -- and the reason is
+  structural: audio is ~400 rows against video's ~37,000, about 1% of the packed
+  sequence, so a distillation gives it up first and least visibly. The fix is a
+  per-stream `denoise_mask` that freezes video and runs audio-only steps, taking
+  the MODEL from BEFORE the LoRA so those steps use undistilled weights. It
+  needs nothing from the PDD head schedule, which is what makes it applicable
+  here. Not run; the composition with our patches is untested.
+
+- **A sixth PDD implementation, and the strictest.**
+  `coderef/comfyui-minimax-h3-audio-T8/pdd_advanced.py` raises on anything but
+  the exact 8-evaluation schedule and separately verifies video shift 12 to
+  5e-6 -- independent convergence on the run-time shift guard added this
+  release. Across six implementations the authors give no step knob, T8
+  refuses, UtilsCollection allows the trained width and twice it, Mamad8
+  exposes `steps`, and ours allows any divisor and warns past 2x. **We are at
+  the permissive end.**
+
 ### Corrected
 
 - **`denoise < 1.0` needs no `BasicScheduler` fallback**, and the previous
