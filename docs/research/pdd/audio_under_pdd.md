@@ -49,6 +49,41 @@ say what motion regime it was judged in. A scene with 0% high-motion frames
 cannot discriminate a defect that appears under motion, however carefully it is
 judged or however many seeds it gets.
 
+## What the motion effect actually looks like, in the owner's terms
+
+The claim he stands by, stated as precisely as he stated it — **the scoping is
+part of the finding, not hedging around it:**
+
+> *"It's clear when a lot of shit changes all at once, under our conditions in
+> our workflows for that specific prompt — like a box moving out of the frame
+> and into the frame, or a scene zoomed out and a ton of motion in a crowded
+> market causing faces to melt and ghost and everything get a little jaggier,
+> and audio potentially worse, hard to tell."*
+
+**Read three things out of that.**
+
+**It is LARGE, SIMULTANEOUS change — not motion per se.** A box crossing the
+frame boundary. A wide shot where a crowd is moving and every region of the
+image is changing at once. That is a sharper predictor than "motion", and it is
+why the market scene shows it and a two-person closeup does not: a closeup can
+have movement without much of the frame changing.
+
+**The failure modes are specific and worth keeping as a list**, because they are
+what to look for rather than a general "worse": faces MELT, objects GHOST, edges
+get JAGGIER. All three are failures of a region to hold a stable identity across
+frames.
+
+**The audio half is explicitly uncertain — "potentially worse, hard to tell."**
+Do not promote it. Every audio claim in this file is either measured energy
+(which is real) or uncertain perception (which is not the same thing), and this
+one is the second. If audio degrades with motion too, nothing here shows it.
+
+**And "under our conditions in our workflows for that specific prompt" is a real
+limit, not modesty.** One canvas, one length, one prompt family, one checkpoint,
+one sampler, this box. The effect is clear WITHIN that; nothing establishes it
+outside it, and the corpus is narrow enough that a single scene carries most of
+the high-motion evidence.
+
 ## READ THIS BEFORE USING ANY PERCEPTUAL RESULT BELOW
 
 **The owner's own caution, 2026-08-28: "don't rely on me for this because
