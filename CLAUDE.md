@@ -70,6 +70,7 @@ repeating work.
 
 | file | what it answers |
 |---|---|
+| [`docs/wiki/index.md`](docs/wiki/index.md) | **the entry point, and the only generated one.** A router: where to start, who owns each answer, and which documents nothing links to. Two written pages beside it — `references.md` (what each `coderef/` checkout implements for H3 and what has been compared against it) and `stages.md` (per render stage: our code, its owner, its guard, the implementation to compare against). Regenerate with `bench/build_wiki_index.py`; never hand-edit `index.md` |
 | [`docs/roadmap.md`](docs/roadmap.md) | what we are trying to find out next, and what would count as finding it. **Start here** if the question is what to work on. Designing a new probe or prompt: the `h3-experiment` skill in `.claude/skills/` routes to the files that own each step (this one first), and restates none of them. |
 | [`docs/evidence.md`](docs/evidence.md) | what is measured, what is retracted, and what must not be relied on. **Start here** if you are about to state a number. |
 | [`docs/checks.md`](docs/checks.md) | the index of every check, the standard it is held to, and the standing uncontrolled-requirement audit. **Start here** if you are about to change behaviour or add a check. |

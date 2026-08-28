@@ -86,10 +86,10 @@ changes the result the plan defines.
 ### What everyone else does and we do not
 
 - **Raise rather than warn on an off-grid step count.** All three other
-  implementations refuse, in three different ways. Ours warns. The in-flight
-  rewiring (§3, S5) changes the shape of this by making off-grid mostly
-  inexpressible rather than merely detectable, which is a stronger fix than a
-  raise — but the hand-built graph case remains.
+  implementations refuse, in three different ways. Ours warns. The S5 rewiring
+  (§3) changes the shape of this by making off-grid mostly inexpressible rather
+  than merely detectable, which is a stronger fix than a raise — but the
+  hand-built graph case remains.
 - Restrict block width to the trained envelope (UtilsCollection).
 - Treat provenance hashes as load-bearing (Mamad8).
 - Let core own the fused heads' VRAM (UtilsCollection).
@@ -147,16 +147,25 @@ never visited. The key became the whole vector. Also fixed: a converter error
 that made every real pruned run look failed after writing a correct file, and a
 log line claiming heads were patched at zero strength.
 
-**S4 → S5, in flight as of this writing.** The node now **emits** the schedule:
-a SIGMAS output and a step input, with the scheduler node deleted from the
-non-split PDD graphs. Off-grid stops being expressible rather than merely
+**S4 → S5, landed in `5032faa` and `d94e286`.** The node now **emits** the
+schedule: a SIGMAS output and a step input, with the scheduler node deleted from
+the non-split PDD graphs. Off-grid stops being expressible rather than merely
 detectable. A shared schedule reader was added after a scheduler-only reader
 returned nothing on every PDD graph and reported correctly-wired graphs as
-wrong. A new check grades inertness against ComfyUI's own sigma computation and
-asserts its exactness precondition rather than assuming it.
+wrong. `bench/check_pdd_sigmas.py` grades the emitted vector against ComfyUI's
+own sigma computation rather than a value it computes itself, asserts its
+exactness precondition rather than assuming it, round-trips through the knots,
+and fails if any shipped PDD graph still carries a scheduler node.
 
-**This work is uncommitted and being written by another session.** Nothing in §3
-S5 should be read as finished.
+Split graphs deliberately keep the scheduler: the split sampler wants one
+schedule fed to both halves, and that combination has never shipped with PDD.
+Where the schedule is absent the generator **does not create the node** rather
+than creating it unlinked, because an orphan node ships in the graph and reads
+as intentional wiring.
+
+**The rewiring is inert end to end** — *measured by the session that built it,
+not here*: eight settled runs at a short length, four on each wiring,
+pixel-identical, and the same at a second step count.
 
 ---
 
@@ -196,31 +205,47 @@ Four, in descending order of consequence. All are proposed corrections to
 | requirement | status |
 |---|---|
 | a PDD arm is consumed by `euler`, not a re-noising sampler | **nothing.** Re-verified: no check reads the sampler name off a shipped graph. No escaped instance — every shipped graph carries it — so per CLAUDE.md that is a reason not to build the check yet |
-| the node's own step and fused-head counts agree | **nothing** on the node itself. Covered statically for shipped graphs, which is not the population the rewiring was for |
+| the node's own step and fused-head counts agree | **deliberately not enforced, and this row was wrong to call it a gap.** They are allowed to disagree: the step count picks the schedule the node emits, the head count picks the blocks the heads fuse into, and setting them apart *is* the documented "decode one partition while stepping another". Announced rather than refused -- the tracker logs the override on every such run |
 | `strength` semantics | read into the record, graded only against turbo recipes |
-| the runtime adaln injection path | **dead code that announces itself as a safe fallback.** The pruned conversion removes the tensors it reads, so it raises after logging that it is doing the right thing. Unreachable only because another guard refuses first — one guard masking another's failure |
-| a legal step count is a *sensible* one | the in-flight work adds an envelope warning; nothing grades it |
+| the runtime adaln injection path | **dead code that announces itself as a safe fallback.** The pruned conversion removes the tensors it reads, so it raises after logging that it is doing the right thing. Unreachable only because another guard refuses first — one guard masking another's failure. Now recorded in [`../../h3_pdd.md`](../../h3_pdd.md); reached independently by two readers from opposite directions on the same day |
+| a legal step count is a *sensible* one | an envelope warning exists; nothing grades it |
 | whether the heads change the output visibly | **not established.** No blind session has been run on a PDD arm |
-| `docs/research/pdd/`'s README and its three HTML explainers | in no check, and absent from the in-flight diff, so the rewiring has probably staled them |
+| the positional widget read | **graded since `d94e286`**, by comparing the UI form's positional read against the API form's named one across every PDD pair -- so a schema move is caught rather than assumed |
 
 ---
 
-## 6. What to re-check when the in-flight work lands
+## 6. The S5 re-check, closed
 
-Ordered by consequence. Carried from the reconstruction, and the reason this
-file is dated:
+This section was a list of seven things to re-check when the rewiring landed.
+It landed in `5032faa` and `d94e286`, and the session that built it answered
+each one. Kept as answers rather than deleted, because the list is the record of
+what a schedule-ownership change puts at risk.
 
-1. Whether the new sigma check was actually run and committed.
-2. Whether the graphs were rebuilt **after** the last generator edit — both are
-   in the diff, and CLAUDE.md's rule is that nothing is true of a graph until it
-   is rebuilt.
-3. The UI-writing path, where the schedule can be absent and the writer has no
-   node-removal step.
-4. The shared schedule reader's positional assumption about widget order,
-   against `bench/node_id_manifest.json` — the schema gained both an input and
-   an output this round, and positional widget values are exactly what that
-   manifest exists to protect.
-5. Whether the step/head agreement gained a runtime comparison, or a stated
-   reason not to.
-6. Whether the dead adaln path was resolved or left.
-7. The PDD research documents and explainers named in §5.
+*Reported by the session that did the work; not independently verified here,
+except the two items marked.*
+
+| what was at risk | outcome |
+|---|---|
+| the new check was written but never run | run and committed, green |
+| graphs claimed but not rebuilt after the last generator edit | rebuilt and validated against the served schema, twice |
+| the UI writer leaving an orphan node when there is no schedule | the node is **not created** rather than created-and-unlinked; an orphan would read as intentional wiring |
+| the positional widget read breaking when the schema moved | now **graded** against the API form's named read across every PDD pair, which is what keeps it correct the next time the schema moves |
+| step and head counts silently disagreeing | a stated reason, not an omission — see §5 |
+| the PDD explainers staled by the rewiring | one drew the retired wiring as load-bearing and was corrected with a superseded banner rather than a redraw; the others do not mention it |
+| the rewiring changing output | **inert**: eight settled runs, four per wiring, pixel-identical, and again at a second step count |
+
+Two findings this document raised were taken up rather than filed:
+
+- The dead adaln path (§5) was reached **independently** by the other session
+  hours earlier, from the opposite direction — diffing the two shipped files'
+  key inventories rather than reading the guard order. Same conclusion, two
+  routes. It also corrected a handoff document that had used "the adaln takes
+  care of itself" to argue a decision was narrower than it is.
+- The core-PR head-formula finding (§4) was recorded in
+  [`../../h3_pdd.md`](../../h3_pdd.md) as a **lead, explicitly labelled
+  reported-and-not-verified**, and the paragraph it contradicts was deliberately
+  left standing with the doubt attached — because the evidence against it is a
+  source read on a moving target and the evidence for it was a measurement.
+  That is the right call and the reason it is worth writing down: **re-fetch the
+  artifact and re-run the conversion comparison** is what settles it, and until
+  someone does, neither statement should be promoted.
