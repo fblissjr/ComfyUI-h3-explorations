@@ -411,14 +411,32 @@ there is no step knob in their API.** Read from
 | `predict_ref2v.py` | calls the pipeline with `num_inference_steps=nfe + 1`, i.e. whatever the file dictates |
 | `README.md` | "Official **8 Step** Acc LoRA", and its comparison grid puts the 8-step Acc LoRA against LightX2V's **4-step turbo** |
 
-That last row is the one to read twice: **4 steps is the turbo lane's number,
-not PDD's.** The authors position their 8-step PDD against somebody else's
-4-step model. Every 4-step PDD arm in this repo is therefore our own
-extrapolation to twice the trained block width -- legal, at exactly the limit
-`silveroxides/ComfyUI-UtilsCollection` allows up to and refuses past, and never
-something the authors shipped or measured. **Unvalidated upstream, which is not
-the same as shown worse**; the tally further down says why that distinction
-matters here.
+All of that is about what alibaba-pai's *inference script* exposes, and an
+earlier version of this section drew the wrong conclusion from it -- that 4
+evaluations were "our own extrapolation". **The paper says otherwise about the
+method**, and it is saved beside this file
+([`arxiv_2607.26004v1`](research/pdd/arxiv_2607.26004v1_Parallel_Decoding_Distillationfor_Fast_Image_and_Video_Generation.md)):
+
+- The **abstract**: *"By varying the block size during training, PDD supports
+  sampling with different number of function evaluations (NFEs) during
+  inference."* Variable NFE is the designed feature.
+- **Table 1** lists PDD's NFE as *Variable*, against Pi-Flow's *Fixed*.
+- §5: `L_min` and `L_max` *"determine the set of available NFEs at inference
+  time"*, and for **LTX-2.3 -- the 22B joint video+audio model, the closest
+  analogue to H3 in the whole paper** -- they are chosen so the available NFEs
+  are **4 and 8**.
+
+The H3 files declare `pdd_num_steps 32` and `pdd_block_size 4`, giving
+`nfe = 8`, which is exactly consistent with `L_min = 4, L_max = 8` -- the same
+{4, 8} set the paper chose for the multimodal model. **So 4 evaluations is most
+likely a TRAINED configuration for these artifacts.**
+
+What stops that being settled: `L_max` appears nowhere in the released
+metadata, and the vendor script derives `nfe = num_steps // block_size` and
+offers no choice -- an inference-script limitation rather than evidence about
+the weights, but it does leave the trained ceiling unpublished. **Status: very
+likely trained, certainly not shown worse, not confirmable from what was
+released.** Recovering `L_max` is the one thing that would settle it.
 
 ### The sweep, 1 to 10 evaluations
 
@@ -520,6 +538,39 @@ better, and both are legal subsets of the same grid.
 > `bench/grade_pdd_partitions.py`,
 > [`bench/results/2026-08-28_pdd_partition_fidelity.json`](../bench/results/2026-08-28_pdd_partition_fidelity.json),
 > which also carries what these magnitudes do NOT license.
+
+**The paper explains the refutation, which the measurement alone could not.**
+§3.1's training rule is the constraint the DP search ignored: *"during
+training, we consider multiples of `L_min` for indices `n` of initial states
+and sample `k` in `{n, ..., n + L_max - 1}` inside each block."* So a legal
+partition is not any subset of the knots. It needs **every block to START at a
+multiple of `L_min`** and **no block wider than `L_max`**.
+
+`[28,2,1,1]` violates both, on nearly every block:
+
+| block | start | multiple of 4? | width | within `L_max`? |
+|---|---|---|---|---|
+| 0 | 0 | yes | 28 | no, by a mile |
+| 1 | 28 | yes | 2 | yes |
+| 2 | 30 | **no** | 1 | yes |
+| 3 | 31 | **no** | 1 | yes |
+
+A width-28 block asks the decoder for head offsets 0..27 from one hidden state,
+where training only ever sampled offsets below `L_max`. So the measured result
+is not a surprise about the metric alone -- the partition was outside the
+training distribution in a way the fusion loss cannot see, because fusion loss
+is computed from the head weights and knows nothing about which spans were
+trained.
+
+**And the same rule implies an arm this node currently refuses.** With
+`L_min = 4` and `L_max = 8`, a legal partition is any composition of block
+sizes from `{4, 8}`. At **six** evaluations that is `4+4+4+4+8+8 = 32` -- every
+block starting on a multiple of 4, none wider than 8. Six is legal by the
+paper's own rule and `resolve_emit_steps` refuses it, because the SIGMAS output
+requires a count that divides the grid **uniformly**. The run-time path does
+not: `schedule_knots` takes an uneven partition and reports it, so the arm is
+reachable today through `ManualSigmas` with knots `[0,4,8,12,16,24,32]`.
+Unrun, and it is the most paper-grounded arm currently available.
 
 **Stated as a prediction, not a result.** Fusion loss is a weight-space proxy:
 it measures how far a block's heads sit from their own mean, and it does NOT

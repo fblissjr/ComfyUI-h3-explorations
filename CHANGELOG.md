@@ -6,6 +6,34 @@ artifact.
 
 ## 0.85.0
 
+### Corrected against the paper
+
+- **4 evaluations is most likely a TRAINED configuration, not our
+  extrapolation**, and the previous entry said the opposite. Read from
+  `arxiv_2607.26004v1` rather than from the vendor's inference script: the
+  abstract says varying block size during training is what lets PDD *"support
+  sampling with different number of function evaluations at inference"*; Table 1
+  lists its NFE as **Variable**; and for **LTX-2.3, the 22B joint video+audio
+  model and the closest analogue to H3 in the paper**, `L_min`/`L_max` are
+  chosen so the available NFEs are **4 and 8**. The H3 files' `pdd_num_steps 32`
+  / `pdd_block_size 4` is exactly consistent with `L_min=4, L_max=8`. What stops
+  it being settled is that `L_max` appears in no released metadata; recovering
+  it is the one thing that would.
+
+- **The paper also explains why the `[28,2,1,1]` partition lost**, which the
+  measurement alone could not. §3.1: training takes block starts at multiples of
+  `L_min` and samples offsets below `L_max`. That partition starts two of its
+  four blocks off-multiple and makes one 28 wide, so it was outside the training
+  distribution in a way fusion loss cannot see — fusion loss reads head weights
+  and knows nothing about which spans were trained.
+
+- **And the same rule implies an arm the node refuses.** With 4/8, block sizes
+  compose from `{4, 8}`, so `[4,4,4,4,8,8]` is a legal **six**-evaluation
+  partition. `resolve_emit_steps` rejects 6 because the SIGMAS output requires
+  uniform division; the run-time path takes an uneven partition happily. The arm
+  is reachable today via `ManualSigmas` and is unrun.
+
+
 ### Added
 
 - **A reader that can follow a linked widget** -- `h3_config.resolve_link` and
