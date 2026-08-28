@@ -374,7 +374,7 @@ downstream of the resize matches" until the posterior row below was added.
 | presentation | `<Picture i>: ` then a vision block, no chat template (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/presentation.py:104`) | the same string, the same place (`comfy/text_encoders/minimax.py:164`) | **yes** |
 | packing | ref blocks in request order, target timeline starts past their spans (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/packed_sequence.py:274-320`) | `_ref_t_span` does the same (`comfy/ldm/minimax/model.py:335-338`) | **yes** |
 | condition timestep | 0.999, applied as `max(t_video, aug)` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/denoise_loop.py:24`) | 0.999, applied as `max(t_v, vis_aug)` (`comfy/ldm/minimax/model.py:32`) | **yes** |
-| condition noise | the same 0.999 is the mixing weight: per-condition CPU generator, `aug * clean + (1 - aug) * noise` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:93-117`) | the same recipe, the same constant, a fresh generator per condition (`comfy/ldm/minimax/model.py:499-511`) | **yes**, see the note below |
+| condition noise | the same 0.999 is the mixing weight: per-condition CPU generator, `aug * clean + (1 - aug) * noise` (`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:93-117`) | the same recipe, the same constant, a fresh generator per condition (`comfy/ldm/minimax/model.py:499-511`) | **recipe yes, draw no** -- corrected 2026-08-28, see the note below |
 
 **Four consequences worth carrying away.**
 
@@ -400,6 +400,29 @@ Our video VAE is an fp16 cast of the release fp32, so a parity test carries
 precision and mean-versus-sample as two variables at once and has to separate
 them. And a rendered clip cannot answer it — `CLAUDE.md`'s different-sample
 rule applies, so the comparison has to be made at the latent, not the output.
+
+**The condition-noise recipe matches and the DRAW does not, found 2026-08-28.**
+The table row said a flat yes until then. The mixing weight, the constant and
+the per-condition generator are the same on both sides; what differs is where
+the noise is drawn. sglang draws in latent space at the target's own length
+plus its conditions and prefix-slices before patchify
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/minimax_h3/condition_noise.py:94-119`);
+ComfyUI draws in row space after patchify, at the condition's own size
+(`comfy/ldm/minimax/model.py:505-511`). Two independent reasons the tensors
+differ at one seed.
+
+**Read this as a difference, not a defect.** *Source read, not measured.* The
+recipe being identical is the part that governs behaviour; a different draw at
+one seed is a different sample, which `CLAUDE.md`'s different-sample rule says
+cannot be ranked by looking at two clips. Nothing here says sglang's draw is
+the correct one — **it is the vendor's serving path, not a specification**, and
+several of its choices follow from hardware we do not have. This box is a
+24 GB card with 128 GB of host memory streaming blocks through CPU RAM to fit a
+model that would not otherwise fit; a serving stack sized for datacentre parts
+makes different trades and some of them do not transfer. Where a mechanism
+*does* transfer it is worth knowing, which is why the row is kept rather than
+dropped. What would settle whether the draw matters at all is a latent-space
+comparison at one seed, not a render.
 
 **The smart-resize policies do not match the release, found 2026-08-21.** The
 patch geometry does: `patch_size=16`, `temporal_patch_size=2`, `merge_size=2`

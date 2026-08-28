@@ -5671,41 +5671,21 @@ def main():
                   "bypassed, which nothing here has rendered either.")),
          "the 768p turbo graph with lightx2v's SLA-distilled LoRA swapped in"),
 
-        # The same SLA arm under the router it was distilled with, and under
-        # no sparse attention at all. With the probe above (Sol) these are the
-        # three attention regimes; bench arms patch the v1.1 file onto all
-        # three for the never-SLA-trained control. Everything but the
-        # attention chain is the SLA probe's.
-        ("h3_probe_turbo_768p_sla_router.json", "t2v-turbo768-sla-router", "t2v",
-         LONG_T2V_PROMPT,
-         dict(lora=(TURBO_SLA_LORA, TURBO_LORA_STRENGTH),
-              steps=TURBO_SLA_STEPS, shift=TURBO_SLA_SHIFT,
-              sla_router=0.85,
-              out_prefix="Video/h3_probe_turbo_768p_sla_router",
-              variant_note=_probe_note(
-                  "whether the SLA LoRA behaves differently under the "
-                  "attention it was distilled with",
-                  "h3_probe_turbo_768p_sla.json",
-                  "the attention chain: `MiniMaxH3SLARouter` at sparsity 0.85 "
-                  "(LightX2V's sparse top-k block router on its Triton kernel, "
-                  "vendored at `vendor/sla_sparse_triton.py`, gated on captured "
-                  "activations in `bench/results/2026-08-20_sla_router_gate.json`) "
-                  "instead of sage + Sol-Attn. No sage node, no Sol node; the "
-                  "chain assert runs warn-only. Same LoRA, steps, shift, seed, "
-                  "prompt. Two named gaps from the release's own path: 64/64 "
-                  "blocks against its 128/64, and bf16 Triton against "
-                  "SpargeAttn's sage2 operator.",
-                  "Whether it renders a coherent clip, and what the sampler "
-                  "costs against the Sol twin -- the router keeps 15% of key "
-                  "blocks where Sol at tau 1.0 keeps more, so this is also the "
-                  "speed question. Quality is briefs met, one seed.",
-                  "Unknown. On the base model's activations the router's error "
-                  "at 0.85 was comparable to Sol's at tau 1.0-1.3 on ordinary "
-                  "heads and better on the loudest (the gate record); the "
-                  "student was trained to survive this cut, so its own "
-                  "activations may do better still. The captures under the "
-                  "LoRA are what settle that.")),
-         "the SLA LoRA under the sparse top-k router it was distilled with"),
+        # The router arm was RETIRED 2026-08-28 by owner decision ("we don't
+        # use it"), and the reason is worth keeping because it is not disuse
+        # alone: the arm was an INCOMPLETE reproduction of what the LoRA was
+        # distilled under. The Turbo-SLA LoRA's 208 modules are the 50 DiT
+        # blocks PLUS the 2 token_refiner blocks (read from the artifact
+        # header, 2026-08-28), and `MiniMaxH3SLARouter` patches
+        # `diffusion_model.blocks` only. So the arm answered "the LoRA under a
+        # router like the one it was trained with" rather than the question it
+        # was named for. `docs/open_experiments.md` #20 owns that gap.
+        #
+        # The two remaining SLA arms below do NOT use the router node: they run
+        # the SLA-distilled LoRA under our own attention, which is a different
+        # and still-live question. The node stays registered -- `node_id` is
+        # append-only and saved graphs bind to it -- and is marked deprecated
+        # in its own schema.
 
         ("h3_probe_turbo_768p_sla_dense.json", "t2v-turbo768-sla-dense", "t2v",
          LONG_T2V_PROMPT,

@@ -124,10 +124,6 @@ SOL_EXEMPT_STEMS = {
         "comparative arm: the Turbo-SLA LoRA under sage alone, the repo's "
         "dense-baseline convention, one of three attention regimes the SLA "
         "probe set spans (Sol, router, dense)",
-    "h3_probe_turbo_768p_sla_router":
-        "comparative arm: the Turbo-SLA LoRA under the sparse top-k router it "
-        "was distilled with (MiniMaxH3SLARouter), which replaces the sage+Sol "
-        "chain outright; a Sol node after it would route a second time",
 }
 
 

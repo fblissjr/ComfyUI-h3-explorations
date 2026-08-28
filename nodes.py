@@ -226,9 +226,22 @@ class MiniMaxH3SLARouter(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="MiniMaxH3SLARouter",
-            display_name="MiniMax H3 SLA Router (sparse top-k, Triton)",
+            display_name="MiniMax H3 SLA Router (DEPRECATED, sparse top-k, Triton)",
             category="model/attention/minimax",
             description=(
+                "DEPRECATED 2026-08-28 by owner decision, and wired by no "
+                "shipped graph. Kept registered because `node_id` is "
+                "append-only and an externally saved graph may bind to it; it "
+                "still runs. Retired for two reasons, and the second is the "
+                "one that matters: it was not used, AND it is an INCOMPLETE "
+                "reproduction of what the LoRA it exists to test was "
+                "distilled under. The Turbo-SLA LoRA's 208 modules are the 50 "
+                "DiT blocks PLUS the 2 token_refiner blocks -- read from the "
+                "artifact header on 2026-08-28 -- and this node patches "
+                "`diffusion_model.blocks` only, so it answers 'the LoRA under "
+                "a router like the one it was trained with'. "
+                "`docs/open_experiments.md` #20 owns that gap. Do not read a "
+                "result from this node as the distillation's own attention.\n\n"
                 "Replaces H3's self-attention with the sparse top-k block "
                 "router LightX2V calls SLA: mean-pooled q against mean-pooled "
                 "(k - mean k) scores each 64x64 block pair, the top "

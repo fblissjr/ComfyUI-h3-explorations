@@ -1,0 +1,54 @@
+{
+  "date": "2026-08-28",
+  "what": "tensor dumps that used to sit in bench/results/. Moved out by owner decision: bench/results/ is the evidence base and holds records, not weights. The JSON records that cite these stay where they were.",
+  "moved_to": "internal/20260825_awq_calibration_tensors/ (gitignored)",
+  "lane": "the v2 AWQ calibration lane, CLOSED 2026-08-27. These are its scale dumps; nothing live reads them.",
+  "recover": "the sha256 below identifies each file if it is ever needed again",
+  "files": [
+    {
+      "file": "2026-08-25_dit_prefix_attention_t2va_importance.safetensors",
+      "bytes": 9018,
+      "sha256": "fdc5d15ab43d2a19ac42b27ac69c2d1ce087a8372615d8b27b3549b0a422453a"
+    },
+    {
+      "file": "2026-08-25_gate2b_emit_smoke_2layers_awq_scales.safetensors",
+      "bytes": 287400,
+      "sha256": "56953b0cec595b92eb84f1b138ead046fdb9c35861b6531017f0fc974ae4258b"
+    },
+    {
+      "file": "2026-08-25_gate2b_host_budget_prefix8_2layers_awq_scales.safetensors",
+      "bytes": 287400,
+      "sha256": "77a10dff27b973ac65eb2f55cbea2a9e63a56d151bb77df590a4ff491bc12d59"
+    },
+    {
+      "file": "2026-08-25_gate2b_host_budget_prefix8_2layers_disk_tier_awq_scales.safetensors",
+      "bytes": 287400,
+      "sha256": "77a10dff27b973ac65eb2f55cbea2a9e63a56d151bb77df590a4ff491bc12d59"
+    },
+    {
+      "file": "2026-08-25_gate2b_row1_expanded_kv_awq_scales.safetensors",
+      "bytes": 9197056,
+      "sha256": "9a431b642030b413156a5cb26e0695c285656eb5426b49fcbf6004cb28371406"
+    },
+    {
+      "file": "2026-08-25_gate2b_row1_grouped_query_awq_scales.safetensors",
+      "bytes": 9197056,
+      "sha256": "d1c4e10301294c648017cec7f3563658e606e32ab13f2739a0364a05259dd072"
+    },
+    {
+      "file": "2026-08-25_gate2b_rows3_expanded_kv_awq_scales.safetensors",
+      "bytes": 9197056,
+      "sha256": "0021193397e702a044ddbf11e95d821a7b9f63a07c1eb08561022b43be9becee"
+    },
+    {
+      "file": "2026-08-25_gate2b_smoke_2layers_awq_scales.safetensors",
+      "bytes": 287400,
+      "sha256": "82e69faa7c505145f0570063201427d7fd93cf95d8a6b94fdeba59422d2a556f"
+    },
+    {
+      "file": "2026-08-25_v2_calibration_run_awq_scales.safetensors",
+      "bytes": 9197056,
+      "sha256": "9663612132f19020b9e1068c4e66588132eda17f5db295fea08574d31da0ffed"
+    }
+  ]
+}

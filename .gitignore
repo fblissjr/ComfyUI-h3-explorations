@@ -12,3 +12,13 @@ workflows/archive/
 # resolve only on the machine that made them, so they are never repo content.
 coderef/
 update-coderef.sh
+# Model weights and tensor dumps are never repo content. This rule lives here
+# rather than only in a machine-level ignore config: on 2026-08-28 the 37 MB of
+# `bench/results/*.safetensors` on this box were excluded by a global rule
+# only, so the repo was protected by one machine's setup and a fresh checkout
+# would have committed them. The evidence base is the JSON and JSONL beside
+# them, which stay tracked and are small.
+*.safetensors
+*.ckpt
+*.pt
+*.pth
