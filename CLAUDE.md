@@ -179,7 +179,13 @@ repeating work.
   and say what would have to change for the branch to be wrong.
 - **Prefer a control the check compares against** — a frontend-written graph,
   the pre-fix code, an independent implementation — over asserting against
-  numbers the test computed itself.
+  numbers the test computed itself, **including through a helper the check
+  defines rather than imports.** The helper is the part that escapes: on
+  2026-08-28 `check_pdd_sigmas.py` graded its headline case against ComfyUI's
+  own `calculate_sigmas` and still could not fail, because three other cases
+  routed through an `emitted()` that restated the node's expression. Dropping
+  the `1.0 -` in `pdd_lora.py` left the whole file green. `docs/checks.md` has
+  the long form.
 - **After a fix, ask which code paths were DEAD before it and are live after.**
   Those are unexercised by construction and no existing test covers them,
   because until the fix there was nothing to cover. **Four instances on
