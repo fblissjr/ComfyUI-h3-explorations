@@ -1,8 +1,22 @@
 # The sigma schedule is what governs PDD quality
 
-**SUPERSEDED IN ITS CENTRAL CLAIM, 2026-08-28, on the same day it was written.**
-This file argued for an audio-specific mechanism. The mechanism may still be
-real, but **nothing in here identifies it**, and two of its supporting legs were
+## The one thing that is not in doubt
+
+**The sigma schedule caused it.** `00004` and `00007` are a matched pair —
+diffing the workflows embedded in both PNGs, the ONLY differences are the sigma
+source, the ManualSigmas node, and a `steps` value that is inert on that path.
+Same seed, canvas, prompt, LoRA, Sol settings, sampler, checkpoint. One renders
+jagged video with scratchy audio; the other is acceptable in both.
+
+**One variable changed and the output changed, on a matched pair. That is a
+causal result and nothing below weakens it.** What is open is WHY — and that
+question turns out to be much harder to answer than it looked.
+
+---
+
+**The MECHANISM claim is superseded, 2026-08-28, the same day it was written.**
+This file argued the cause was an audio-specific change of variable. That may
+still be true, but **nothing here identifies it**, and two supporting legs were
 knocked out by measurement. Read this section before any of the rest.
 
 ## What actually holds
