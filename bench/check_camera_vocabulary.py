@@ -1,0 +1,200 @@
+#!/usr/bin/env python
+"""Camera motion in every shipped prompt comes from base_en 4.3's closed sets.
+
+## The escaped instance that earns this
+
+`docs/checks.md` recorded this rule as decidable and unbuilt for weeks. On
+2026-08-28 it acquired its instance: the shipped market t2v prompt -- the
+DEFAULT, carried by seventeen graph files -- rendered badly and was found by
+reading the guide against it BY HAND. Every gate passed it. It carried
+`tracks left` (which conflates 4.3's `Truck Left` row with its separate
+`Tracking Shot` row), `at medium amplitude and moderate speed` (neither value
+is in either modifier set), and `whip pan` (in no row at all).
+
+## Why the split, and which half this is
+
+`docs/checks.md` also states the split correctly and this file honours it.
+
+**The modifier axes are DECIDABLE and are gated.** Amplitude and speed are
+closed at two phrases each. Any `with <word> amplitude` or `at <word> speed`
+outside them is out-of-table by construction -- no judgement, no list of bad
+terms to maintain. This is where `at medium amplitude and moderate speed`
+would have died.
+
+**Motion type is NOT decidable and is REPORTED.** Proving a phrase is in
+vocabulary needs a parser for English; a denylist of known-bad terms only ever
+catches what somebody already thought of. So known-bad terms warn, and this
+file does not pretend to prove the absence of the rest.
+
+## The allowlist, and where it comes from
+
+`VOCAB` is vendored rather than parsed, because the guide lives in `internal/`
+which is gitignored -- a check that needs it cannot run on a fresh checkout.
+But a vendored copy of somebody else's table is exactly the drift this repo
+keeps paying for, so **when the guide IS present it is parsed and the vendored
+copy is graded against it**. That case fails on any divergence, which makes the
+constant a cache rather than a second source.
+
+A third encoding exists and agrees: a sibling project of the owner's
+independently encoded the same table from the same guide, verified
+spelling-and-casing on 2026-08-28. Two independent derivations agreeing is why
+this is a cache worth trusting between guide checks.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "workflows"))
+GUIDE = REPO / "internal" / "official_prompt_guides" / \
+    "minimax-h3-official-VIDEO_PROMPT_WRITING_GUIDE_base_en.md"
+
+CONDITIONERS = ("MiniMaxH3Conditioning", "MiniMaxH3ReferenceConditioning",
+                "MiniMaxH3ImageToVideo", "MiniMaxH3ReferenceToVideo")
+
+#: base_en 4.3, verbatim. Cross-checked against the guide below when present.
+MOTION = (
+    "Zoom In", "Zoom Out", "Push In", "Pull Out", "Pan Left", "Pan Right",
+    "Truck Left", "Truck Right", "Tilt Up", "Tilt Down", "Pedestal Up",
+    "Pedestal Down", "Arc Shot", "Tracking Shot", "Static Shot",
+    "Shake Slightly", "Shake Strongly", "POV", "Roll Clockwise",
+    "Roll Counterclockwise",
+)
+AMPLITUDE = ("with small amplitude", "with large amplitude")
+SPEED = ("at slow speed", "at fast speed")
+
+#: Known-bad motion phrases. A DENYLIST, and it only catches what somebody has
+#: already been bitten by -- every entry here is a phrase that actually shipped
+#: or was proposed in this repo. It is not a proof of absence and must never be
+#: described as one.
+DENIED = {
+    "whip pan": "in no 4.3 row; also usually re-describes a cut the shot header made",
+    "tracks left": "conflates `Truck Left` with the separate `Tracking Shot` row",
+    "tracks right": "conflates `Truck Right` with the separate `Tracking Shot` row",
+    "dolly": "not a 4.3 row; `Push In` / `Pull Out` or `Truck` is the vocabulary",
+    "drifts a few degrees": "not a 4.3 row; `Shake Slightly` is the row that means it",
+    "crash zoom": "in no 4.3 row",
+    "snap zoom": "in no 4.3 row",
+}
+
+# Match the MODIFIER WORD, not the preposition. The first version of this
+# anchored on `with ... amplitude` and `at ... speed`, and the red proof showed
+# it could not catch its own motivating instance: the shipped defect read
+# `at medium amplitude and moderate speed`, where the amplitude carries `at`
+# rather than `with`, and `speed` is separated from its `at` by four words. A
+# check that misses the escaped instance it was written for is worse than none,
+# because the green reads as coverage.
+AMP_RE = re.compile(r"\b([a-z\-]+)\s+amplitude\b", re.I)
+SPD_RE = re.compile(r"\b([a-z\-]+)\s+speed\b", re.I)
+
+
+def prompts() -> dict[str, set[str]]:
+    import h3_config
+    out: dict[str, set[str]] = {}
+    for path in h3_config.graph_paths(REPO / "workflows", include_bench=True):
+        graph = json.loads(Path(path).read_text(encoding="utf-8"))
+        for node in graph.values() if isinstance(graph, dict) else []:
+            if not isinstance(node, dict):
+                continue
+            if node.get("class_type") in CONDITIONERS:
+                p = (node.get("inputs") or {}).get("prompt")
+                if isinstance(p, str) and p.strip():
+                    out.setdefault(p, set()).add(Path(path).stem)
+    return out
+
+
+def case_vocab_matches_guide() -> list[str]:
+    """The vendored table IS the guide's, when the guide is on disk."""
+    if not GUIDE.exists():
+        print("  skip  vocab_matches_guide  guide not on disk (internal/ is "
+              "gitignored); the vendored table is unverified on this checkout")
+        return []
+    text = GUIDE.read_text(encoding="utf-8")
+    found = set()
+    for m in re.finditer(r"\|\s*Motion type\s*\|\s*`([^`]+)`\s*\|", text):
+        for part in m.group(1).split(" / "):
+            found.add(part.strip())
+    fails = []
+    missing = found - set(MOTION)
+    extra = set(MOTION) - found
+    if missing:
+        fails.append(f"  FAIL  vocab_matches_guide  guide has motion types this "
+                     f"file does not: {sorted(missing)}")
+    if extra:
+        fails.append(f"  FAIL  vocab_matches_guide  this file has motion types "
+                     f"the guide does not: {sorted(extra)}")
+    if not fails:
+        print(f"  ok    vocab_matches_guide  {len(found)} motion type(s) agree "
+              "with base_en 4.3")
+    return fails
+
+
+def case_modifiers_are_in_set(corpus) -> list[str]:
+    """DECIDABLE: amplitude and speed are closed at two phrases each."""
+    fails = []
+    ok_amp = {a.split()[1] for a in AMPLITUDE}
+    ok_spd = {s.split()[1] for s in SPEED}
+    for text, graphs in sorted(corpus.items(), key=lambda kv: sorted(kv[1])[0]):
+        where = sorted(graphs)[0]
+        for word in AMP_RE.findall(text):
+            if word.lower() not in ok_amp:
+                fails.append(
+                    f"  FAIL  modifiers_in_set  {where}: `with {word} amplitude` "
+                    f"-- base_en 4.3 closes amplitude at {list(AMPLITUDE)}, and "
+                    "medium is written by OMITTING the phrase")
+        for word in SPD_RE.findall(text):
+            if word.lower() not in ok_spd:
+                fails.append(
+                    f"  FAIL  modifiers_in_set  {where}: `at {word} speed` -- "
+                    f"base_en 4.3 closes speed at {list(SPEED)}, and normal is "
+                    "written by OMITTING the phrase")
+    if not fails:
+        print(f"  ok    modifiers_in_set    every amplitude and speed phrase "
+              f"across {len(corpus)} prompt(s) is in 4.3's closed set")
+    return fails
+
+
+def case_no_denied_motion(corpus) -> list[str]:
+    """NOT decidable: a denylist, reported. Absence here proves nothing."""
+    warns = []
+    for text, graphs in sorted(corpus.items(), key=lambda kv: sorted(kv[1])[0]):
+        where = sorted(graphs)[0]
+        low = text.lower()
+        for bad, why in DENIED.items():
+            if bad in low:
+                warns.append(f"  warn  denied_motion      {where}: `{bad}` -- {why}")
+    for line in warns:
+        print(line)
+    if not warns:
+        print(f"  ok    denied_motion      no known-bad motion phrase in "
+              f"{len(corpus)} prompt(s). **This is a denylist: it proves only "
+              "that the phrases somebody already got wrong are absent**")
+    return []
+
+
+def main() -> int:
+    corpus = prompts()
+    if not corpus:
+        print("FAIL  no prompts found -- the scan or the graph shape changed; "
+              "this check must not pass by looking at nothing")
+        return 2
+    fails = case_vocab_matches_guide()
+    fails += case_modifiers_are_in_set(corpus)
+    case_no_denied_motion(corpus)
+    if fails:
+        print()
+        for line in fails:
+            print(line)
+        print(f"\n{len(fails)} camera-vocabulary failure(s). A phrase outside "
+              "4.3's table is off-distribution: the model was trained on that "
+              "vocabulary and not on this one.")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
