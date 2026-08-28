@@ -65,6 +65,41 @@ Ordered by blast radius — how many graphs carry the scene.
 
 ## The four that matter
 
+### `LONG_T2V_PROMPT` — rewritten, and the render is the owner's verdict
+
+**Outcome, 2026-08-28.** The rewritten scene rendered (`h3_t2v_00015`) and the
+owner's judgement was "fantastic", against a pre-existing complaint that this
+same scene looked and sounded wrong while everything else looked fine.
+
+**What that is, and what it is not.** It is one render at one seed, so it is not
+a measured claim and must never be cited as one — CLAUDE.md's different-sample
+rule applies and a distribution was not gathered. But it is the strongest shape
+this class of evidence takes, and the shape is worth naming because the parts
+are what make it worth anything:
+
+- the complaint was **specific and predated the diagnosis** — the owner
+  identified this scene, not a general dissatisfaction, before anybody read the
+  guide against it;
+- the defects were then found **independently by reading the vendor guide**,
+  not by looking for something to blame;
+- the fix was **targeted at those defects only** — three camera phrases into
+  base 4.3's closed sets, one speaker identity moved to first appearance;
+- and **nothing else moved**: same seed, same canvas, same checkpoint, same
+  sampler, no LoRA, 16 steps.
+
+So the honest statement is: a scene the owner had flagged as bad, carrying four
+documented guide violations, stopped being bad when only those violations were
+repaired. That is a resolved complaint, not a measurement, and the difference
+matters if anyone later wants to claim camera vocabulary is worth N percent of
+anything.
+
+**The practical consequence is bigger than one scene.** This prompt was the t2v
+default across seventeen graph files. If the rewrite is why the render improved,
+every earlier comparison on the t2v default was scoring arms against each other
+on a degraded scene. Paired arms shared it so their orderings stand, but the
+absolute impressions from those runs were formed on something the vendor's own
+guide says is off-distribution.
+
 ### `LONG_T2V_PROMPT` — rewrite
 
 The t2v default, and the widest-reaching prompt in the repo. Four defects
@@ -197,7 +232,18 @@ L2VA branch emitting `[Shot N]` and `S.SS` literally — was real and was fixed 
 `d964088`. **Neither has rendered yet**, so what they bought is conformance, not
 a result.
 
-1. ~~**An L2VA prompt.**~~ Done, `b753fe1`. The bug it predicted was there.
+1. ~~**An L2VA prompt.**~~ Shipped `b753fe1`; the latent bug it predicted was
+   real. **Rendered 2026-08-28 (`h3_l2v_00001`) and the owner's verdict was
+   bad. DEFERRED, not diagnosed** — nobody has looked at why, and the candidate
+   causes are not separated, so do not repeat the render expecting a different
+   answer. What is NOT yet ruled out, in the order I would rule it out:
+   the prompt body is mine and unvalidated by anything but conformance; it
+   rendered at 768x768, which is square and not the trained canvas this repo
+   insists on for anything load-bearing; the mode itself may simply be weak,
+   since the model gets one endpoint and an unconstrained opening; and the
+   keyframe is a landscape photograph, which is a thing to converge *on* rather
+   than a subject to arrive at. The one thing that IS established is mechanical:
+   the mode runs end to end and its alignment sentence resolves.
 2. ~~**A conformant market rewrite.**~~ Done, `d5be353`.
 3. **One marker scene**, plus **its §4.5 double-quoted control**. Neither is
    interpretable alone — and PROMPTING.md says outright the caption marker is
