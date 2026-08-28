@@ -27,7 +27,8 @@ Read these before starting work, in this order.
 | 3 | [`docs/checks.md`](../../docs/checks.md) | the index of every check, the standard it is held to, and the standing uncontrolled-requirement audit. **Start here** if you are about to change behaviour or add a check. |
 | 4 | [`docs/comfyui_vendor_gaps.md`](../../docs/comfyui_vendor_gaps.md) | every known divergence between this install and the release, with practical impact, priority, and which are enforced by nothing. **Start here** if the question is "what is still wrong against the vendor". A dated snapshot that defers to the docs below, not a fourth authority -- where it disagrees with an owner, the owner is right |
 | 5 | [`docs/sustainability.md`](../../docs/sustainability.md) | the direction argument: the instrumentation is healthy, the closure rate is not, and the fix is to generalise an aging rule this repo already has in one lane rather than add instruments. Carries its own **do not do** list and a record of the four claims an adversarial review broke — including a proposed check class that was already installed three times, which is the 2026-08-17 failure mode repeating. Read it before proposing process; argue with it or delete it |
-| 6 | [`docs/custom_node_gaps.md`](../../docs/custom_node_gaps.md) | the companion question: what OUR nodes do end to end, and where that differs from sglang, LightX2V, DiffSynth, diffusers and native ComfyUI. **Start here** if the question is "what does this pack actually do differently". Carries the node inventory by class (load-bearing / convenience / instrumentation), the three canonical dataflows, the reading traps in the shipped JSON, and its own enforced-by-nothing table. Same standing as the file above -- a snapshot that defers to owners |
+| 6 | [`docs/prompting.md`](../../docs/prompting.md) | **how to write an H3 prompt, and the canonical source.** Supersedes `internal/PROMPTING.md`, which is gitignored, reachable by no check, and went five days stale carrying a retracted claim and two instructions naming a deleted node. Every rule is labelled GUIDE (the vendor's, breaking it is off-distribution), OWNER (a deliberate decision here), HOUSE (our inference) or OPEN (contradictory -- do not build a checker on it). Restates base 4.3's closed camera vocabulary because a rule nobody can check mechanically is how a broken prompt shipped |
+| 7 | [`docs/custom_node_gaps.md`](../../docs/custom_node_gaps.md) | the companion question: what OUR nodes do end to end, and where that differs from sglang, LightX2V, DiffSynth, diffusers and native ComfyUI. **Start here** if the question is "what does this pack actually do differently". Carries the node inventory by class (load-bearing / convenience / instrumentation), the three canonical dataflows, the reading traps in the shipped JSON, and its own enforced-by-nothing table. Same standing as the file above -- a snapshot that defers to owners |
 
 ## Reference, when you touch the thing it covers
 
@@ -61,7 +62,8 @@ Present on disk and reached by no link from any routed document.
 A deep dive reached through its parent does not appear here; that is the
 difference between this list and a membership test.
 
-- `docs/ -- 4 file(s), the whole subtree`
+- `docs/drift_frontier.md`
+- `docs/prompt_length_experiment.md`
 - `docs/research/ -- 4 file(s), the whole subtree`
 - `docs/research/awq_quantization_suite/README.md`
 - `docs/research/awq_quantization_suite/qwen3vl_32b_w4a16_awq_quantization_report.md`
