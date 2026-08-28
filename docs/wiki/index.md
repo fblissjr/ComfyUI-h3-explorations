@@ -61,8 +61,7 @@ Present on disk and reached by no link from any routed document.
 A deep dive reached through its parent does not appear here; that is the
 difference between this list and a membership test.
 
-- `docs/drift_frontier.md`
-- `docs/prompt_length_experiment.md`
+- `docs/ -- 4 file(s), the whole subtree`
 - `docs/research/ -- 4 file(s), the whole subtree`
 - `docs/research/awq_quantization_suite/README.md`
 - `docs/research/awq_quantization_suite/qwen3vl_32b_w4a16_awq_quantization_report.md`
