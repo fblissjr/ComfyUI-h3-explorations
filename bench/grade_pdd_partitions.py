@@ -114,15 +114,39 @@ CANVAS = "1152x768  3/2  864 tok/frame  0.73x"
 #:                   blocks off-multiple (30, 31) and makes one 28 wide, which
 #:                   is why fusion loss, reading only head weights, could not
 #:                   see that it was off-distribution.
+#: tail5/tail6 come from enumerating EVERY partition legal under the inferred
+#: envelope and ranking by the size of the final Euler step, which is the one
+#: that matters: under shift 12 the last block covers most of the trajectory,
+#: and it is where detail resolves.
+#:
+#:     uniform 8 (ships)      tail 63.2%
+#:     uniform 4              tail 80.0%   <- and it is FORCED
+#:     mix6  [4,4,4,4,8,8]    tail 80.0%
+#:     tail6 [8,8,4,4,4,4]    tail 63.2%
+#:     tail5 [8,8,8,4,4]      tail 63.2%
+#:
+#: **Four evaluations has no alternative.** Enumerated: the only partition of
+#: 32 into 4 blocks with starts on multiples of 4 and widths <= 8 is [8,8,8,8].
+#: So the 80% final step is not a tuning mistake at 4 evals, it is the only
+#: thing 4 evals can do, and no sigma vector improves it without leaving the
+#: envelope.
+#:
+#: `mix6` is kept as the REFUTED arm rather than deleted: it was picked as the
+#: best untried partition on the grounds that it is legal where `opt4` is not,
+#: and it is -- but it spends its extra evaluations at the front, where the
+#: trajectory is nearly flat, and keeps the same 80% tail as the arm it was
+#: meant to improve on. Legality was necessary and not sufficient.
 MANUAL = {
     "opt4": "1.0, 0.631579, 0.444444, 0.27907, 0.0",
     "mix6": "1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.8, 0.0",
+    "tail5": "1.0, 0.972973, 0.923077, 0.8, 0.631579, 0.0",
+    "tail6": "1.0, 0.972973, 0.923077, 0.878049, 0.8, 0.631579, 0.0",
 }
 
 #: int -> a uniform arm at that many evaluations; the node emits the schedule.
 #: str -> the key into MANUAL, driven through ManualSigmas instead.
 ARMS = {"ref32": 32, "u8": 8, "u4": 4, "u4b": 4, "u4c": 4,
-        "opt4": "opt4", "mix6": "mix6"}
+        "opt4": "opt4", "mix6": "mix6", "tail5": "tail5", "tail6": "tail6"}
 
 
 def post(path, payload):
