@@ -216,7 +216,15 @@ def case_quiet_on_guide_examples() -> list[str]:
     # anything it fires on -- that would be the same vacuity one level up.
     #
     # **And not anything that would EXPOSE its bug**, which is a third and
-    # stronger property this does not have. The distinction was worth a
+    # stronger property this does not have. That one is PARTIALLY reachable
+    # and it is worth knowing how, because the method is the mirror of the red
+    # control: mutate the RULE rather than the document, weaken one condition
+    # in its body, and re-run. If nothing goes red, no input in the corpus
+    # distinguishes the rule from its weakened form. What that still cannot
+    # reach is a rule wrong at the level of what it is FOR -- a rule correctly
+    # implementing the wrong scope is not a weakened form of the right one, so
+    # no mutation of its body produces the correct rule. Cheap for "too weak",
+    # open for "wrong job". The distinction was worth a
     # correction: an earlier version of this comment offered a sibling
     # project's punctuation bug as the motivating instance. That bug sat green
     # through their worked-example control -- true -- but their corpus DID
