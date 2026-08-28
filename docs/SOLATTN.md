@@ -1142,6 +1142,35 @@ files exist, so that is a listening test, not a render.
 
 ---
 
+## Sparsity costs about four times what quantisation costs
+
+Stated on its own because it is a fact about the STACK, not about a tau setting,
+and because it points the next optimisation somewhere different from where this
+repo has been pointing it.
+
+Within one file — `bench/results/2026-08-19_sol_error_per_head_tau1.0.json`,
+fourteen (block, step) rows from one capture, decomposed against an oracle by
+`bench/analyze_sol_error.py` — the median per-head error splits:
+
+    sparsity_l2   0.143
+    quant_l2      0.037     about 3.8x smaller
+
+**Sol's sparsity, not INT8, is the dominant fidelity loss in the shipped stack.**
+That is a within-file comparison on the same rows, so it does not depend on
+matching captures across records, which is the trap the tau comparison had to
+avoid.
+
+It cuts against a framing used repeatedly here, in which INT8 is the thing to be
+nervous about and Sol is treated as free. A lane spent on encoder quantisation
+fidelity was working the smaller term. **Read it as: if fidelity is the concern,
+Sol is where it is going.**
+
+**What it does not say.** One capture, one tau, fourteen rows, and an L2 against
+an oracle rather than anything perceptual — a larger L2 is not automatically a
+worse-looking render, and this page's own do-not-rely-on table applies. It also
+does not say Sol is not worth its speed; it says the trade is bigger than the
+quantisation trade, not that it is a bad one.
+
 ## Which shipped values have evidence, audited 2026-08-28
 
 Prompted by the owner asking whether the defaults are actually known to be good.
