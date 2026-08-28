@@ -36,6 +36,22 @@ Claims, i.e. what breaks if a case is deleted:
                         demonstrated 2026-08-16, where a stale GRAPH_DIRS made
                         this file and check_prompt_guide_conformance both exit
                         0 while covering 20 ref graphs instead of 28
+  no baked drift        every shipped prompt is one the generator can still
+                        produce, or a declared authored constant. Catches a
+                        hand-edited graph AND a generator constant changed
+                        without a rebuild, since it compares by value
+  subjects resolve      no <Subject N> is used without being defined
+  subjects act          every DEFINED subject is also cited in
+                        detailed_description, where guide 5.3 puts the
+                        requirement. Added because the dangling-direction case
+                        above passes clean on a prompt that defines two
+                        subjects and cites neither
+  environments subtract generic environment definitions assert no attributes.
+                        The forbidden-phrase list is an artifact list, not a
+                        style rule: chalet/timber/veranda are the parts of the
+                        house that appeared on a lake. **The render behind it
+                        is not in `bench/results/`** -- treat it as a
+                        regression guard on text, not as a measured mechanism
   force_rate is 24      every VHS_LoadVideo feeding a reference socket resamples
                         onto 24. ComfyUI's node has no fps input and assumes 24
                         twice -- the DiT's temporal clock and the
@@ -341,6 +357,21 @@ def main():
         # generated. The generator still defines the tables, so restoring this
         # is un-parking the lane plus these three lines. See
         # `docs/h3_image_editing.md`.
+        # `_ref_prompt` also takes `scene=`, and this loop does not enumerate
+        # it. That is deliberate and it is the same call as the image prompts
+        # above: no call site in `build_workflows.py` passes `scene`, so no
+        # shipped graph can legitimately carry one, and adding
+        # `REF_SCENE_SHOTS` to `legal` would widen the accept set to cover text
+        # that cannot appear. **The cost is a cry-wolf red**: the first graph to
+        # wire a scene arm gets accused of being a hand-edit. If you are that
+        # person, the fix is to enumerate `bw.REF_SCENE_SHOTS` here in the same
+        # breath as wiring it -- not to add your prompt to the list below.
+        #
+        # This is the 2026-08-16 `images` failure one parameter over: the
+        # comment there says a hardcoded copy stops covering the generator "the
+        # moment a role is added" and it was right about the class while
+        # missing this instance, because again what changed was the SHAPE of
+        # the signature rather than a value in it.
         # Authored ref2v prompts, named one at a time on purpose.
         #
         # This case exists to catch a GENERATED graph whose prompt was
