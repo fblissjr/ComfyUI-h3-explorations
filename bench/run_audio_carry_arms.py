@@ -81,6 +81,9 @@ OPT4 = "1.0, 0.631579, 0.444444, 0.27907, 0.0"
 #: partitions differ in block width, which is exactly the thing that might make
 #: them differ in numerical sensitivity too.
 ARMS = {
+    "u8_off":     ("u8", "off"),
+    "u8_start":   ("u8", "block_start"),
+    "u8_mean":    ("u8", "block_mean"),
     "u4_off":     ("u4", "off"),
     "u4_start":   ("u4", "block_start"),
     "u4_mean":    ("u4", "block_mean"),
@@ -88,6 +91,14 @@ ARMS = {
     "opt4_start": ("opt4", "block_start"),
     "opt4_mean":  ("opt4", "block_mean"),
 }
+
+#: Widest block per partition, which is the dose the ablation is supposed to
+#: respond to. `u8` is here because the first run had only TWO points and one of
+#: them (`opt4`) is off-distribution -- so the dose-response rested on an arm
+#: nobody should ship. `u8` and `u4` are both legal under the trained envelope,
+#: which lets the relationship stand on legal partitions alone and makes `opt4`
+#: a third point rather than half the evidence.
+WIDEST_BLOCK = {"u8": 4, "u4": 8, "opt4": 28}
 
 #: **Everything below is graded WITHIN this run, against each partition's own
 #: `off` arm, and never against `bench/results/2026-08-28_pdd_stream_energy.json`.**
@@ -129,8 +140,8 @@ def build(arm, seed=SEED, tag=""):
         g["60"] = {"class_type": "ManualSigmas",   # only the SIGMAS output, which
                    "inputs": {"sigmas": OPT4}}     # ManualSigmas replaces here
         g["10"]["inputs"]["sigmas"] = ["60", 0]
-    else:
-        g["18"]["inputs"]["steps"] = 4
+    else:                                    # uniform: the node emits the schedule
+        g["18"]["inputs"]["steps"] = int(partition[1:])
         g["10"]["inputs"]["sigmas"] = ["18", 1]
     # AFTER the PDD node (18) and before the shift node (19), so the probe's
     # wrapper chains onto PDD's rather than being overwritten by it.
@@ -178,8 +189,8 @@ def main() -> int:
     bad = [a for a in want if a not in ARMS]
     if bad:
         raise SystemExit(f"unknown arm(s) {bad}; known: {list(ARMS)}")
-    for part in ("u4", "opt4"):
-        if any(a.startswith(part) for a in want) and f"{part}_off" not in want:
+    for part in WIDEST_BLOCK:
+        if any(ARMS[a][0] == part for a in want) and f"{part}_off" not in want:
             raise SystemExit(
                 f"{part} arms were requested without {part}_off. Every number "
                 f"here is relative to that partition's own `off` render, "
@@ -226,15 +237,15 @@ def main() -> int:
               f"{row.get('corr_vs_own_off', float('nan')):>13.4f}")
 
     verdict = []
-    for part in ("u4", "opt4"):
+    for part in WIDEST_BLOCK:
         st, mn = f"{part}_start", f"{part}_mean"
         if st not in rows or mn not in rows:
             continue
         floor = abs(rows[st]["rms_db_vs_own_off"])
         eff = rows[mn]["rms_db_vs_own_off"] - rows[st]["rms_db_vs_own_off"]
         verdict.append(
-            f"{part}: NOISE FLOOR (off vs block_start, same knob, different "
-            f"sample) {floor:.2f} dB")
+            f"{part} (widest block {WIDEST_BLOCK[part]}): NOISE FLOOR "
+            f"(off vs block_start, same knob, different sample) {floor:.2f} dB")
         if abs(eff) < 1e-9:
             verdict.append(
                 f"{part}: block_mean and block_start are IDENTICAL. That is "
@@ -244,8 +255,8 @@ def main() -> int:
             call = ("clears the floor" if abs(eff) > 2 * floor else
                     "INSIDE the floor, so not measurable this way")
             verdict.append(
-                f"{part}: ablation moves audio energy {eff:+.2f} dB "
-                f"against block_start ({call})")
+                f"{part} (widest block {WIDEST_BLOCK[part]}): ablation moves "
+                f"audio energy {eff:+.2f} dB against block_start ({call})")
     print()
     for v in verdict:
         print(f"  {v}")
@@ -256,7 +267,7 @@ def main() -> int:
         "script": "bench/run_audio_carry_arms.py",
         "length": LENGTH, "canvas": CANVAS, "seed": SEED,
         "grading": CROSS_RUN_NOTE,
-        "arms": rows, "verdict": verdict,
+        "arms": rows, "widest_block": WIDEST_BLOCK, "verdict": verdict,
         "errors": {a: res[a]["error"] for a in want if res[a].get("error")},
         "do_not_rely_on": [
             "ONE pair per partition. block_start is a noise-floor estimate "
