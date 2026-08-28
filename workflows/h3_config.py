@@ -79,6 +79,42 @@ ENCODER_V1 = "qwen3vl_32b_minimax_h3_w4a16_awq_v1-comfy.safetensors"
 # explicitly local handling. The graph must name a concrete file; the custom
 # loader itself is not filename-bound and validates any selected file by its
 # metadata and complete adapted tensor inventory.
+#: The ComfyUI-native INT8 ConvRot encoder, the encoder of record for the
+#: Gate 6 reference-view arms and the marker arms since 2026-08-25: on the
+#: 13-row holdout it sits about fifteen times closer to the BF16 release at
+#: layer 50 than either W4A16 artifact (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`).
+#: That comparison was taken against v1 and the v2 candidate as they stood on
+#: that date; it is the reason to keep measuring this encoder, not a reason the
+#: shipped graphs cannot move. They load `MODELS["clip"]`, which is v2 since
+#: 2026-08-27; only the arms that measure wire this one.
+#:
+#: **SHIPPED ON EVERY GRAPH SINCE 2026-08-27 (late), by owner decision**,
+#: replacing the W4A16 AWQ builds. The fidelity case is the table above; what
+#: changed is the judgement that a stack already carrying pruning, int8
+#: quantisation and a third-party PDD LoRA should not also carry the least
+#: faithful encoder on the box.
+#:
+#: **It loads through core's `CLIPLoader`, which stamps no
+#: `_h3_encoder_contract`.** So `reference_geometry.encoder_contract_from_clip`
+#: returns `None`, `effective_policy` resolves `encoder` to `comfy`, and the
+#: AWQ adapter's `preprocess_embed` -- what applied a snapshot's declared still
+#: bounds -- is not installed. The operative ceiling becomes core's own
+#: `process_qwen2vl_images` defaults, 3,136..12,845,056 px, 43x wider than v1's
+#: 200,704..301,056.
+#:
+#: **That would have re-run 2026-08-27 morning's failure, and
+#: `REF_QWEN_SHORT_EDGE` is why it does not.** Measured on the shipped
+#: reference pair at `qwen_short_edge` 512: 522 merged tokens under v1's
+#: bounds, 592 under core's. The knob was inert under v1 and is load-bearing
+#: here -- the case its own note argued when it was kept rather than deleted.
+#: **Do not set it back to 0 on this encoder**: unclamped, those two references
+#: cost 9,408 tokens inside the prompt's own segment.
+#:
+#: `bench/preflight_graph.py` reports "no contract" for this file rather than
+#: guessing one, which is the designed behaviour for a name its registry does
+#: not know.
+ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+
 MODELS = dict(
     unet_fl2va="minimax_h3_fl2va_pruned_int8_convrot.safetensors",
     unet_ref2va="minimax_h3_ref2va_pruned_int8_convrot.safetensors",
@@ -92,7 +128,7 @@ MODELS = dict(
     # The filenames end `-int8`, not `_int8_convrot`; `substrate.py` tags them.
     unet_hybrid_b30="minimax_h3_hybrid_fl2va_ref2va_b30-49-int8.safetensors",
     unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
-    clip=ENCODER_V1,
+    clip=ENCODER_INT8,
     # The fp16 video VAE, and it is the best build available in ComfyUI's
     # format. **Measured 2026-08-21** against the official release's fp32
     # weights (`MiniMaxAI/MiniMax-H3`, `video_vae/source/model.safetensors`):
@@ -113,15 +149,6 @@ MODELS = dict(
     audio_vae="minimax_h3_audio_vae_fp32.safetensors",
 )
 
-#: The ComfyUI-native INT8 ConvRot encoder, the encoder of record for the
-#: Gate 6 reference-view arms and the marker arms since 2026-08-25: on the
-#: 13-row holdout it sits about fifteen times closer to the BF16 release at
-#: layer 50 than either W4A16 artifact (`bench/results/2026-08-25_four_encoders_holdout_layer50.json`).
-#: That comparison was taken against v1 and the v2 candidate as they stood on
-#: that date; it is the reason to keep measuring this encoder, not a reason the
-#: shipped graphs cannot move. They load `MODELS["clip"]`, which is v2 since
-#: 2026-08-27; only the arms that measure wire this one.
-ENCODER_INT8 = "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 
 #: Encoder files core's own `CLIPLoader` (type `minimax`) loads; everything
 #: else named as a graph's encoder goes through the repo's

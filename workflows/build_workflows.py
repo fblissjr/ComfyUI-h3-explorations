@@ -969,6 +969,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                   else {"t2v": T2V_PROMPT, "i2v": I2V_PROMPT,
                         "r2v": R2V_PROMPT}[task])
 
+    _encoder = clip or MODELS["clip"]
     g = {
         "1": {"class_type": "UNETLoader",
               "inputs": {"unet_name": unet or MODELS["unet_ref2va" if ref else "unet_fl2va"],
@@ -976,12 +977,17 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         # Core CLIPLoader lists every file in the directory but cannot open a
         # compressed-tensors W4A16 artifact; the repo adapter opens only those.
         # The file decides the loader (h3_config.CORE_LOADED_ENCODERS).
+        # **Resolve the name BEFORE branching on it.** This tested `clip` and
+        # then wrote `clip or MODELS["clip"]`, so every graph passing no clip
+        # took the adapter branch whatever the default encoder was -- invisible
+        # while that default was always a W4A16 artifact, and 66 broken graphs
+        # the moment it became a ComfyUI-native one on 2026-08-27.
         "2": ({"class_type": "CLIPLoader",
-               "inputs": {"clip_name": clip, "type": "minimax", "device": "default"}}
-              if clip in CORE_LOADED_ENCODERS else
+               "inputs": {"clip_name": _encoder, "type": "minimax",
+                          "device": "default"}}
+              if _encoder in CORE_LOADED_ENCODERS else
               {"class_type": "MiniMaxH3AWQEncoderLoader",
-               "inputs": {"encoder_name": clip or MODELS["clip"],
-                          "device": "default"}}),
+               "inputs": {"encoder_name": _encoder, "device": "default"}}),
         # The image VAE ONLY on the single-frame path. See h3_config: same
         # frozen encoder, decoder retrained for one temporal latent, and its
         # own README says it regresses multi-frame reconstruction -- so this
@@ -4192,6 +4198,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                       widgets=[unet or MODELS["unet_ref2va" if ref else "unet_fl2va"],
                                "default"],
                       outputs=[_out("MODEL", "MODEL")])
+    clip = clip or MODELS["clip"]        # resolve before branching; see the API form
     if clip in CORE_LOADED_ENCODERS:
         clip = g.add(
             "CLIPLoader", (-1500, 140), size=(560, 110),
@@ -4202,7 +4209,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     else:
         clip = g.add(
             "MiniMaxH3AWQEncoderLoader", (-1500, 140), size=(560, 110),
-            widgets=[clip or MODELS["clip"], "default"],
+            widgets=[clip, "default"],
             outputs=[_out("CLIP", "CLIP")],
             title="Load custom H3 W4A16 encoder (repo adapter)",
         )

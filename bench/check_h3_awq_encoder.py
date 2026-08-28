@@ -67,7 +67,7 @@ from build_h3_awq_standalone import (  # noqa: E402
     build as build_standalone,
     render_standalone_loader,
 )
-from h3_config import MODELS  # noqa: E402
+from h3_config import ENCODER_V1, MODELS  # noqa: E402
 
 comfy.cli_args.args.cpu = True
 
@@ -93,10 +93,15 @@ def _path() -> Path:
     raw = os.environ.get("H3_AWQ_ENCODER")
     if raw:
         return Path(os.path.expanduser(raw))
-    # The shipped graphs choose a canonical artifact, but the loader itself
-    # accepts any selected filename whose metadata and full tensor inventory
-    # satisfy the format contract.
-    return COMFY / "models" / "text_encoders" / MODELS["clip"]
+    # **An adapter artifact, not whatever the graphs ship.** This defaulted to
+    # `MODELS["clip"]`, which coupled a check ABOUT the W4A16 adapter to a
+    # constant that merely happened to name a W4A16 file. On 2026-08-27 the
+    # shipped encoder became the ComfyUI-native INT8 build and this check began
+    # testing the adapter against a file it is designed to refuse -- reporting
+    # missing compressed-tensors keys as adapter failures. The loader still
+    # accepts any selected filename meeting the format contract; what changed
+    # is that the DEFAULT names one.
+    return COMFY / "models" / "text_encoders" / ENCODER_V1
 
 
 def _native_path() -> Path:

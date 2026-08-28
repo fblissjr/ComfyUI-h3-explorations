@@ -109,11 +109,19 @@ print(f"the bench's `shipped` arm vs what workflows/ ships "
       f"(sol backend: {bench.SOL_BACKEND}):\n")
 
 print("text encoder:")
-want = node_inputs(SAGE_GRAPH, "MiniMaxH3AWQEncoderLoader")
-got = built_inputs("MiniMaxH3AWQEncoderLoader")
+# **Find the encoder loader by looking, not by name.** This named
+# `MiniMaxH3AWQEncoderLoader` outright, so when the shipped encoder became the
+# ComfyUI-native INT8 build on 2026-08-27 and the graphs correctly moved to
+# `CLIPLoader`, the check reported "missing" -- reading a correct migration as
+# drift. Which loader is right is decided by the file; this check's subject is
+# whether the bench and the shipped graphs AGREE, whichever it is.
+ENCODER_LOADERS = ("CLIPLoader", "MiniMaxH3AWQEncoderLoader")
+_loader = next((c for c in ENCODER_LOADERS if node_inputs(SAGE_GRAPH, c)), None)
+want = node_inputs(SAGE_GRAPH, _loader) if _loader else None
+got = built_inputs(_loader) if _loader else None
 if want is None or got is None:
     check("clip_matches", False,
-          f"missing MiniMaxH3AWQEncoderLoader in "
+          f"missing an encoder loader ({_loader or 'none found'}) in "
           f"{'the graph' if want is None else 'the bench graph'}")
 else:
     diff = {k: (want.get(k), got.get(k)) for k in set(want) | set(got)

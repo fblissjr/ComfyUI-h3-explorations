@@ -62,7 +62,7 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "workflows"))
-from h3_config import MODELS, SAMPLING  # noqa: E402
+from h3_config import CORE_LOADED_ENCODERS, MODELS, SAMPLING  # noqa: E402
 
 # Settings lifted from the bundled i2v template so this measures the
 # configuration people actually run.
@@ -301,8 +301,17 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
     g = {
         "1": {"class_type": "UNETLoader",
               "inputs": {"unet_name": cfg["unet"], "weight_dtype": "default"}},
-        "2": {"class_type": "MiniMaxH3AWQEncoderLoader",
-              "inputs": {"encoder_name": cfg["clip"], "device": "default"}},
+        # The FILE decides the loader, exactly as `build_workflows.py` does it.
+        # Hardcoding the adapter here meant the bench measured a different
+        # encoder from the shipped graphs the moment the default became a
+        # ComfyUI-native build (2026-08-27); `check_bench_matches_shipped`
+        # caught it, which is what it is for.
+        "2": ({"class_type": "CLIPLoader",
+               "inputs": {"clip_name": cfg["clip"], "type": "minimax",
+                          "device": "default"}}
+              if cfg["clip"] in CORE_LOADED_ENCODERS else
+              {"class_type": "MiniMaxH3AWQEncoderLoader",
+               "inputs": {"encoder_name": cfg["clip"], "device": "default"}}),
         "3": {"class_type": "VAELoader", "inputs": {"vae_name": cfg["video_vae"]}},
         "4": {"class_type": "VAELoader", "inputs": {"vae_name": cfg["audio_vae"]}},
         "5": {"class_type": "MiniMaxH3ImageToVideo",

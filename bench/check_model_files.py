@@ -79,7 +79,7 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parents[0] / "workflows"))
 
-from h3_config import MODELS, IMAGE_VAE, graph_paths  # noqa: E402
+from h3_config import CORE_LOADED_ENCODERS, ENCODER_V1, MODELS, IMAGE_VAE, graph_paths  # noqa: E402
 
 WORKFLOWS = _HERE.parents[0] / "workflows"
 DEFAULT_URL = "http://127.0.0.1:8188"
@@ -88,7 +88,10 @@ DEFAULT_URL = "http://127.0.0.1:8188"
 CONSTANT_CLASS = {
     "unet": "UNETLoader", "unet_fl2va": "UNETLoader", "unet_ref2va": "UNETLoader",
     "unet_hybrid_b30": "UNETLoader", "unet_hybrid_adaln_all": "UNETLoader",
-    "clip": "MiniMaxH3AWQEncoderLoader",
+    # Resolved per file below, not pinned: the shipped encoder became a
+    # ComfyUI-native build on 2026-08-27 and this map is what said
+    # otherwise.
+    "clip": None,
     "video_vae": "VAELoader", "audio_vae": "VAELoader",
 }
 AWQ_LOADER = "MiniMaxH3AWQEncoderLoader"
@@ -160,11 +163,33 @@ def grade(items, oi: dict) -> list[str]:
 
 
 def grade_format_owner(items) -> list[str]:
-    """The escaped case: a filesystem menu entry is not loader support."""
+    """The escaped case: a filesystem menu entry is not loader support.
+
+    **Branches on the FILE, not on which constant happens to hold it.** This
+    read `MODELS["clip"]` and demanded the adapter for whatever that named,
+    which was correct only while the shipped encoder was always a W4A16
+    artifact. When it became the ComfyUI-native INT8 build on 2026-08-27 the
+    check inverted: it declared a native file "compressed-tensors AWQ" and
+    demanded the adapter that cannot open it. Same defect as the generator's
+    loader choice the same evening, and the same rule -- branch on the
+    observable, which here is membership of `CORE_LOADED_ENCODERS`.
+    """
     bad = []
-    awq_name = MODELS["clip"]
+    # Encoder loaders only. A VAELoader naming a VAE is not this rule's
+    # business, and scoping by CORE_LOADED_ENCODERS membership alone made every
+    # non-encoder file look like an adapter artifact.
+    encoder_loaders = {"CLIPLoader", AWQ_LOADER}
     for where, cls, name in items:
-        if name == awq_name and cls != AWQ_LOADER:
+        if cls not in encoder_loaders:
+            continue
+        native = name in CORE_LOADED_ENCODERS
+        if native and cls == AWQ_LOADER:
+            bad.append(
+                f"{where}: {name!r} is a ComfyUI-native encoder and must use "
+                f"CLIPLoader, not {AWQ_LOADER}, which opens only "
+                "compressed-tensors W4A16 artifacts."
+            )
+        elif not native and cls != AWQ_LOADER:
             bad.append(
                 f"{where}: {name!r} is compressed-tensors AWQ and must use "
                 f"{AWQ_LOADER}, not {cls}. Core menu discovery is not format "
@@ -189,7 +214,9 @@ def main() -> int:
             items.append((f"{p.relative_to(WORKFLOWS.parent)}#{nid}", cls, name))
     for key, cls in CONSTANT_CLASS.items():
         if key in MODELS:
-            items.append((f"h3_config.MODELS[{key!r}]", cls, MODELS[key]))
+            resolved = cls or ("CLIPLoader" if MODELS[key] in CORE_LOADED_ENCODERS
+                               else AWQ_LOADER)
+            items.append((f"h3_config.MODELS[{key!r}]", resolved, MODELS[key]))
     items.append(("h3_config.IMAGE_VAE", "VAELoader", IMAGE_VAE))
 
     failures = grade(items, oi) + grade_format_owner(items)
@@ -210,7 +237,10 @@ def main() -> int:
     controls.append(("control:empty", not items))
     controls.insert(2, ("control:bothforms",
                         seen == {"legacy_only.safetensors", "v3_only.safetensors"}))
-    core_awq = [("control", "CLIPLoader", MODELS["clip"])]
+    # Must name an artifact the adapter really owns. Using MODELS["clip"]
+    # stopped firing the moment the shipped encoder became native --
+    # the control was asserting a pairing that is now correct.
+    core_awq = [("control", "CLIPLoader", ENCODER_V1)]
     controls.insert(3, ("control:format-owner", bool(grade_format_owner(core_awq))))
 
     ok = True
