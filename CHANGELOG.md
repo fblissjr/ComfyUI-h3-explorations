@@ -1,8 +1,68 @@
-# Changelog
+## 0.85.0
 
-Semantic versioning. Nothing here has been tagged or published, so every
-version below describes the state of the working repo rather than a release
-artifact.
+### Added
+
+- **A reader that can follow a linked widget** -- `h3_config.resolve_link` and
+  `resolve_widget`, with `bench/check_graph_values.py` as their control.
+
+  The defect they close is not hypothetical. In API form a node input is either
+  a literal (`"steps": 4`) or a link `[node_id, slot]`. Every static reader here
+  read literals, and `check_distill_settings::_literal` returned `None` for a
+  link, which its caller reports as a **failure**. So linking any widget a check
+  reads turned a perfectly good graph red -- and the pattern is already in the
+  tree: 60 UI nodes link `width` from `MiniMaxH3Resolution` today. This is the
+  groundwork for constant/primitive nodes feeding values downstream, which would
+  otherwise have reddened every affected graph on arrival.
+
+  **Four states rather than a value-or-None**, and the fourth is the point.
+  `RESOLVED`; `COMPUTED`, meaning the node produces it at run time and no static
+  reader can ever know it (`MiniMaxH3Resolution.width`); `OPAQUE`, meaning THIS
+  resolver cannot see it because the table has no row for that class -- the
+  graph is probably fine; and `MALFORMED`, meaning the graph is broken. Keeping
+  `COMPUTED` and `OPAQUE` apart matters because their fixes are opposite: skip
+  it forever, versus add a table row. Collapsing them asserts "no reader can
+  ever know this" about a node nobody has described yet.
+
+  `graph_schedule` now reads through it. Verified inert against HEAD's version
+  over all 135 graphs: 0 differ. No graph was converted to a primitive and no
+  literal was turned into a link -- groundwork only.
+
+- **`bench/check_pdd_head_selection.py::no state outlives its schedule`**, which
+  makes a convention into an assertion. See the Fixed entry below.
+
+### Fixed
+
+- **Two PDD guards were going silent, both because state outlived its render.**
+  `_StepTracker` is a mutable object held by the ModelPatcher, and ComfyUI's
+  execution cache keeps that across prompts in a session. `_shift_checked` (a
+  one-shot latch on the new shift guard) and `warned` (the boundary warning's
+  latch, set in `__init__` and never reset) both survived into the next render:
+  a passing graph set the latch and the failing graph queued next skipped the
+  check and completed. Neither produced a wrong picture -- both produced silence
+  where a guard was due, which `docs/checks.md` already calls worse than no
+  check. Nothing in the suite could have caught either.
+
+  All sixteen attributes were then enumerated: eight are immutable load-time
+  configuration, seven are per-render and every one is reset by `_adopt`, and
+  `_key` must survive because it is the schedule identity `observe` compares
+  against. The new case asserts the mechanical form of that -- assigned outside
+  `__init__` implies assigned in `_adopt` -- statically, so it catches the field
+  somebody adds later rather than the fields that exist today.
+
+### Corrected
+
+- **`denoise < 1.0` needs no `BasicScheduler` fallback**, and the previous
+  release said it did. `SIGMAS(8)` -> `SplitSigmasDenoise(0.5)` -> `low_sigmas`
+  is `torch.equal` to `BasicScheduler(simple, 4, denoise=0.5)` and renders
+  pixel-identically at a matched seed. The composed form is the better of the
+  two, because every entry of the emitted vector IS a block boundary, so an
+  index split lands on the grid by construction rather than by
+  `int(steps/denoise)` happening to come out even.
+
+- **The three-instances claim about the tracker was two.** The 2026-08-26
+  head-selector defect was a quantising table lookup -- a precision bug that
+  produced a wrong picture -- and does not belong with the two latches, which
+  produced silence. Different defect, different fix.
 
 ## 0.84.0
 

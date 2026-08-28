@@ -80,7 +80,7 @@ VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 # directory `GRAPH_DIRS` routes to -- as `workflows/image/` was from 2026-08-16
 # until the single-frame lane was parked on 2026-08-27. See h3_config.GRAPH_DIRS.
 from h3_config import (LORA_LOADER_CLASSES, graph_paths, graph_schedule,  # noqa: E402
-                        turbo_label)
+                        resolve_link, turbo_label)
 
 
 class Row(NamedTuple):
@@ -331,14 +331,28 @@ def is_turbo(lora_name):
 # graph readers -- the two shipped forms store the same graph differently
 # --------------------------------------------------------------------------
 
-def _literal(value):
-    """An API-form input is either a literal or a `[node_id, slot]` link.
+def _literal(doc, value):
+    """The value behind an API-form input, or None if it cannot be read.
 
-    A linked widget is not a value this file can grade, and coercing one with
-    `float()` raises TypeError -- which surfaces as a FAIL on a graph that is
-    actually fine. Return None so the caller reports "could not read" instead.
+    An input is either a literal or a `[node_id, slot]` link, and this
+    returned None for every link until it was pointed at the resolver --
+    coercing one with `float()` raises TypeError, which surfaces as a FAIL on a
+    graph that is actually fine. That traded one wrong answer for a quieter
+    one: the day anyone wires
+    a `strength_model` or a `shift_video` from a constant node, every graph
+    that does it reads here as ungradeable and this file goes red on correct
+    state.
+
+    So the link is followed, once, by `h3_config.resolve_link`, which is the
+    only walker in the repo. None still means "could not read", and it now
+    means what it says: the chain is genuinely unresolvable -- a computed
+    output, a class the resolver has no row for, or a broken link. The caller's
+    existing "could not read" path is unchanged for all three, deliberately;
+    telling them apart is `GraphValue.reason`'s job and no case here needs it
+    yet.
     """
-    return None if isinstance(value, list) else value
+    got = resolve_link(doc, value)
+    return got.value if got.ok else None
 
 
 def read_api(doc) -> Found:
@@ -358,15 +372,16 @@ def read_api(doc) -> Found:
             # which they happened to satisfy, and never graded on steps.
             # A pass for the wrong reason is what this file exists to stop.
             loras.append(inp.get("lora_name", ""))
-            s = _literal(inp.get("strength_model"))
+            s = _literal(doc, inp.get("strength_model"))
             if s is None:
-                s = _literal(inp.get("strength"))     # MiniMaxH3PDDLoRA
+                s = _literal(doc, inp.get("strength"))     # MiniMaxH3PDDLoRA
             if ct == "MiniMaxH3PDDLoRA":
-                pdd_nfe = _literal(inp.get("nfe")) or None
+                pdd_nfe = _literal(doc, inp.get("nfe")) or None
             if s is not None:
                 strengths[str(inp.get("lora_name", ""))] = float(s)
         elif ct == "MiniMaxH3SigmaShift":
-            sv, sa = _literal(inp.get("shift_video")), _literal(inp.get("shift_audio"))
+            sv, sa = (_literal(doc, inp.get("shift_video")),
+                      _literal(doc, inp.get("shift_audio")))
             shift = None if sv is None or sa is None else (float(sv), float(sa))
             if shift is not None:
                 shifts.append(shift)
