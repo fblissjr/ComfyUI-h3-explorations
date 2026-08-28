@@ -33,6 +33,24 @@ prompt's index in it IS its position in the session.
 
 What this cannot recover post-hoc: host and GPU memory at the time each render
 ran. Those need sampling while the queue runs, which is `--sample`.
+
+## What it deliberately does NOT record
+
+Its output is committed, so this list is the whole of its exposure and is
+enforced by what the code reads rather than by what a caller passes.
+
+  - **No prompt text.** `/history` carries every prompt in full; this reads it
+    for a node COUNT and one filename prefix and nothing else.
+  - **No file paths.** The arm label is reduced to a sanitised basename
+    (`_label` below) because `filename_prefix` is user-controlled and may be
+    absolute. Media filenames, input directories and output directories never
+    appear.
+  - **No node inputs, seeds, model names or checkpoint names.** A row is
+    position, id, label, status, duration, node counts and the failing node
+    type. Nothing that describes WHAT was rendered, only what it ran under.
+  - **No host identifiers.** `--sample` records memory and GPU totals, which
+    are the same class of fact `bench/hwinfo.py` already publishes by design
+    (`docs/hardware.md` owns that decision). No hostname, user, PID or path.
 """
 
 from __future__ import annotations
@@ -54,13 +72,30 @@ def _get(path: str):
         return json.loads(r.read())
 
 
+#: Characters an arm label may contain. Anything else is dropped rather than
+#: escaped, because the label's only job is to let a human find the clip.
+_LABEL_OK = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.")
+
+
 def _label(prompt: dict) -> str | None:
-    """The arm, by the output prefix it writes, which is how a human finds it."""
+    """The arm, by the output prefix it writes, which is how a human finds it.
+
+    **Reduced to a bare, sanitised basename on purpose.** A `filename_prefix`
+    is user-controlled and can be an absolute path; this file is written into
+    `bench/results/` and committed, so the whole of its exposure is whatever
+    comes out of here. Directory components are dropped, then every character
+    outside `_LABEL_OK`, then the result is capped. A label that sanitises to
+    nothing returns None rather than a guess.
+    """
     for node in prompt.values():
-        if isinstance(node, dict):
-            pre = node.get("inputs", {}).get("filename_prefix")
-            if isinstance(pre, str):
-                return pre.rsplit("/", 1)[-1]
+        if not isinstance(node, dict):
+            continue
+        pre = node.get("inputs", {}).get("filename_prefix")
+        if not isinstance(pre, str):
+            continue
+        base = pre.replace("\\", "/").rsplit("/", 1)[-1]
+        clean = "".join(c for c in base if c in _LABEL_OK)[:64]
+        return clean or None
     return None
 
 
