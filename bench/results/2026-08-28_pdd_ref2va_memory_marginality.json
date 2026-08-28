@@ -1,0 +1,52 @@
+{
+ "date": "2026-08-28",
+ "subject": "PDD ref2va memory on a 24 GiB card: marginal and order-dependent, not a capacity limit",
+ "graphs_as_of_commit": "b62e95d",
+ "IMPORTANT_the_graphs_have_since_changed": "bff9ae3 flipped the generator's ref_upscale default to False and renamed short_edge -> dit_short_edge. On the CURRENT graphs this reference is no longer enlarged: 1,032 DiT rows against the 7,360 measured here, about 7x lighter on the reference span, attended every step. So a green re-run of today's files REFUTES NOTHING about what is recorded below -- it is a different configuration. Reproduce against b62e95d or not at all.",
+ "card": "RTX 4090, 23.54 GiB usable",
+ "arm": "h3_ref2v_market_pdd_api, 362 frames, 1344x768, seed 730451892",
+ "reference_at_the_time": {
+  "source": "768x1376",
+  "vae_view": "2048x3680",
+  "dit_rows": 7360,
+  "qwen_short_edge": 512,
+  "packed_sequence": 117770
+ },
+ "runs_in_order": [
+  {
+   "arm": "r2v16",
+   "lora": null,
+   "context": "first, after model load",
+   "result": "success"
+  },
+  {
+   "arm": "r2v_pdd8",
+   "lora": "PDD",
+   "context": "immediately after r2v16, a model loaded WITHOUT the LoRA",
+   "result": "OOM",
+   "free_at_failure_mib": 17.5,
+   "requested_gib": 6.28,
+   "allocated_gib": 4.94
+  },
+  {
+   "arm": "r2v_pdd4",
+   "lora": "PDD",
+   "context": "after the OOM, which frees models",
+   "result": "success"
+  },
+  {
+   "arm": "r2v_pdd8 (retry)",
+   "lora": "PDD",
+   "context": "after r2v_pdd4, PDD-patched model already resident",
+   "result": "success"
+  }
+ ],
+ "CONCLUSION": "The same graph OOMed once and succeeded once on the same card, so 'PDD ref2va does not fit at this canvas and length' is REFUTED. What is supported is that the configuration sits within about a gigabyte of the ceiling and whether a given render clears it depends on what was resident before it.",
+ "MECHANISM_and_a_correction": "The failing attempt was the first render to apply the PDD LoRA on top of a model loaded without it, so the peak is in the TRANSITION rather than the steady state -- which is what a 17.5 MiB shortfall means, as opposed to a shortfall of gigabytes. The first explanation given for this, in this session and relayed to a peer, was the resident 32-head bank. That is WRONG and is recorded here because it was written down elsewhere before it was checked: measured by tensor group, the artifact is 1,059 MiB of which backbone rank-64 LoRA A/B pairs are 933 MiB (88%), the adaln baked delta 83 MiB (7.8%) and the head bank 42 MiB (4.0%). Fusing the bank to 8 heads at load would save about 31 MiB.",
+ "do_not_rely_on": [
+  "Two runs of one arm. The OOM reproduced zero times out of one retry, which is enough to refute 'does not fit' and NOT enough to characterise how often it happens or exactly what triggers it.",
+  "No attempt was made to force the failure deliberately, so the transition-peak mechanism is the best available reading of the run order and not a controlled result.",
+  "Memory figures are what CUDA reported at the moment of failure, not a profile.",
+  "bench/preflight_graph.py's 'recorded peaks' block is three fixed anchors printed for every graph; it priced this arm's neighbourhood as comfortable and the arm OOMed. Peak memory is not a function of token count."
+ ]
+}

@@ -1580,10 +1580,26 @@ def price(node: dict, graph: dict) -> list[str]:
     total = video + ref_total + tt + twin + audio_rows + emb_rows
     lines.append(f"  TOTAL    ~{total:>8,}  packed sequence")
     lines.append("")
-    lines.append("  recorded peaks on this box, for judgement not prediction:")
+    # These three rows used to sit here under "for judgement not prediction",
+    # directly beneath the computed TOTAL, and the layout defeated the label.
+    # On 2026-08-28 a 117,770-token arm was read against them as comfortable --
+    # below the only OOM row, just under a LARGER row that had used 17.8 GiB --
+    # and it OOMed. The rows are also non-monotonic (78k cost MORE than 124k),
+    # so there was never a curve to interpolate; three ascending token counts
+    # with a trailing OOM merely looked like one.
+    lines.append("  peak memory is NOT a function of sequence length, so this")
+    lines.append("  section predicts NOTHING about the graph above:")
     lines.append("    78,019 tok (2 img refs + 1 video ref, 124f)  ->  21,938 MiB")
     lines.append("   ~124,000 tok (2 img refs upscaled, 362f)      ->  17,840 MiB")
     lines.append("   182,092 tok (imgs at max + video ref, 345f)   ->  OOM")
+    lines.append("    117,770 tok (1 img ref upscaled, 362f)       ->  BOTH:")
+    lines.append("      OOMed applying a PDD LoRA onto a model loaded without")
+    lines.append("      one, then succeeded on retry once one was resident.")
+    lines.append("  Note rows 1 and 2: MORE tokens, LESS memory. What actually")
+    lines.append("  moves the peak is resident weights and what ran before --")
+    lines.append("  a PDD LoRA adds ~1.0 GiB, and applying it is a transition")
+    lines.append("  cost the steady state does not show.")
+    lines.append("  bench/results/2026-08-28_pdd_ref2va_memory_marginality.json")
     return lines
 
 
