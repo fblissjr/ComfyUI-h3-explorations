@@ -98,12 +98,44 @@ or the reference identity speaking a line assigned to someone else.
 The reference person appears in Shots 1 and 3 in both scenes and is absent in
 between. Look for the face drifting across the gap.
 
-### 2.6 Do the four shots and their cut times actually appear?
+### 2.6 Do the four shots and their cut times actually appear? — MEASURED, and they differ
 
 subway cuts at 00:03.500, 00:07.000, 00:11.000; kitchen at 00:03.500,
-00:07.500, 00:11.500. Four distinct shots, cutting near those marks. A
-four-shot prompt rendering as one continuous take is a finding about long
-multi-shot descriptions, which nothing here has tested before.
+00:07.500, 00:11.500.
+
+**This one no longer needs a viewer.** A hard cut is the largest inter-frame
+delta in a clip by an order of magnitude, so it is findable. Measured on the
+renders, prompted frame against the nearest delta peak and that peak's rank
+among all 361 deltas:
+
+| arm | prompted | actual peak | value | rank |
+|---|---|---|---|---|
+| subway | 84 | 81 | 0.148 | 3 |
+| subway | 168 | 167 | 0.179 | 1 |
+| subway | 264 | 269 | 0.170 | 2 |
+| kitchen | 84 | 79 | 0.181 | 3 |
+| kitchen | 180 | 176 | 0.088 | **36** |
+| kitchen | 276 | 281 | 0.031 | **147** |
+
+**subway honoured all three cuts**, within five frames, and they are the three
+largest deltas in the clip. Its four-shot structure came out.
+
+**kitchen honoured the first and not the other two.** Rank 36 is ambiguous;
+rank 147 at 0.031 is no cut at all, against 0.15-0.27 for a real one. So the
+kitchen render is roughly two shots where the prompt asked for four.
+
+That is a difference between two arms that are identical in every setting, and
+the obvious candidate is that kitchen's `detailed_description` is the longer of
+the two (425 words against 392) — **but two prompts is not a sample**, the
+scenes differ in content, and nothing here isolates length. It is the first
+evidence in this repo that a prompted cut can silently not happen, and the
+experiment it argues for is cut fidelity against description length on one
+scene, which does not exist.
+
+Worth knowing before reading any other verdict on kitchen: if two of its shots
+did not cut, then its Shot 3 and Shot 4 content is not where the prompt put it,
+and anything judged about those shots is judging a different clip than the one
+described.
 
 ---
 
