@@ -83,6 +83,33 @@ repeating work.
 - **1344x768 is a trained canvas, and small canvases have inverted a finding.**
   Anything meant to inform a shipped decision gets measured there. A cheap
   canvas is for making a harness run, never for the number you will quote.
+- **PDD quality is governed by the SIGMA SCHEDULE'S COARSENESS, not by the
+  evaluation count** — and this was established the long way round, so do not
+  re-derive it. A 4-evaluation arm renders jagged video and scratchy audio; a
+  6-evaluation arm on a tail-weighted partition renders acceptably. But the
+  count is not the variable: **two arms with the SAME evaluation count and the
+  SAME block-width multiset, differing only in whether the wide blocks sit at
+  the front or the end, have materially different coarseness** (`tail6` 2.22
+  against `mix6` 2.95 in video time) and the coarser one is worse.
+  - **Where the coarseness lands is what matters, and under shift 12 that means
+    the TAIL.** The uniform 4-evaluation partition spends its last Euler step on
+    **80%** of the trajectory; every partition that keeps a narrow final block
+    gets that to 63.2%, including at five evaluations. **Four evaluations cannot
+    be fixed** — `[8,8,8,8]` is the only partition of the 32-point grid into
+    four blocks that is legal under the trained envelope, so its 80% tail is
+    forced rather than chosen.
+  - **Both streams degrade together and for the same reason**, which is why
+    "audio is the thing that is off" was a misreading that survived a whole
+    session. It reproduced because raw video rel L2 is dominated by the DC term
+    every arm preserves; remove the mean and video degrades monotonically with
+    coarseness too. **A metric that says one stream is fine is a claim about the
+    metric until you have checked what it is blind to.**
+  - **Any coarseness statistic gives the same answer, which is a warning as much
+    as a result.** Summed drift computed through the audio change-of-variable
+    and summed drift computed in pure video time **rank all six arms
+    identically**. So no partition experiment can attribute the effect to an
+    audio-specific mechanism — to identify one you must vary the TRANSFORM at
+    fixed partition (`shift_audio`, graded), never the partition.
 - **The encoder THIS INSTALL loads is `ENCODER_INT8`, and the v2 AWQ lane was
   closed rather than adopted.** `h3_config.MODELS["clip"]`, and every
   `CLIPLoader` in the shipped graphs, resolves to

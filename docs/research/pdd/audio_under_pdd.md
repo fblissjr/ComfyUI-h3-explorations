@@ -1,18 +1,68 @@
-# Why PDD costs audio more than video, and what to try tonight
+# The sigma schedule is what governs PDD quality
 
-Written 2026-08-28, prompted by the owner's question: audio is always the thing
-that is off in these 4-step and 8-step distilled arms, and is that a latent
-ComfyUI bug?
+**SUPERSEDED IN ITS CENTRAL CLAIM, 2026-08-28, on the same day it was written.**
+This file argued for an audio-specific mechanism. The mechanism may still be
+real, but **nothing in here identifies it**, and two of its supporting legs were
+knocked out by measurement. Read this section before any of the rest.
 
-**No bug was found.** What was found is a structural interaction between how
-ComfyUI samples H3's audio and what a PDD head returns. It is audio-only by
-construction, it should worsen as blocks widen, and the existing data already
-scores that prediction.
+## What actually holds
 
-[`../../h3_pdd.md`](../../h3_pdd.md) owns the PDD contract and carries the
-short form. This file is the working detail and the experiment list.
+**Partition coarseness governs quality, and it governs BOTH streams.** Summed
+drift over the blocks orders all six arms, and the ordering is the observed one.
 
----
+**"Audio-only, video flat" was a metric artifact.** Raw video rel L2 is
+dominated by the DC term every arm preserves. Remove the mean and video degrades
+monotonically with the same predictor — contrast ratio 0.991 / 0.975 / 0.860 /
+0.690 across u8 / mix6 / u4 / opt4, and at u4 and opt4 it is EVERY frame rather
+than outliers. The audio-only half of the claim rested on the metric's
+blindness, not on a property of the model.
+
+**And audio is not "decorrelated", it is COLLAPSING.** Measured independently
+with `ffmpeg volumedetect`: ref32 -29.7 dB, u8 -34.3, mix6 -36.4, u4 -36.9,
+opt4 -40.9. Optimal gain against the reference falls to 0.046 for opt4 — its
+audio has essentially vanished. **Audio rel L2 saturates at sqrt(2) = 1.414 for
+a ONE-frame shift (measured 1.418), so it has no gradation for phase at all**;
+what it was reporting across the arms is mostly this energy loss. That is very
+likely the whole of the owner's original complaint: 4-step audio is not subtly
+wrong, it is 4.6 to 11 dB down.
+
+## Why no partition experiment can identify an audio mechanism
+
+Summed drift computed through the audio change-of-variable, and summed drift
+computed in pure VIDEO time with no audio transform anywhere in it, **rank all
+six arms identically**:
+
+| arm | audio-B drift | video-time drift |
+|---|---|---|
+| u8 | 7.19 | 2.09 |
+| tail6 | 8.54 | 2.22 |
+| tail5 | 9.82 | 2.40 |
+| mix6 | 10.88 | 2.95 |
+| u4 | 12.22 | 3.08 |
+| opt4 | 23.19 | 3.49 |
+
+So the quantity is measuring **partition coarseness**, not the transform. The
+pre-registered `tail6`-versus-`mix6` test is still worth running — it separates
+coarseness from evaluation count and widest block, which is a real result — but
+**it cannot attribute anything to the audio transform, because the video-derived
+measure predicts the identical outcome.**
+
+**To identify the transform you must vary the TRANSFORM at fixed partition.**
+Fix the partition (u4 is cheapest at 4 evaluations) and sweep `shift_audio` for
+s = 4, 2, 1 plus the 16-step control. Coarseness has no reason to respond to
+`shift_audio` at all, so **a graded response in s is the transform and nothing
+else is.**
+
+## A sign prediction, withdrawn before it was scored
+
+`B` is frozen at the block start where sigma is largest and `B` is decreasing,
+which predicts audio OVERSHOOT. Observed is the opposite and severe. That is not
+a refutation, because the derivation was incomplete: the transform also freezes
+`A = (1-s) * carry * x_a`, `carry` also decreases, and at s=4 that term is large
+and negative. Two frozen coefficients pull opposite ways, so **the transform
+makes no clean sign prediction** without knowing the magnitude of `x_a` against
+`v_a`. Withdrawn rather than scored.
+
 
 ## 1. The mechanism
 
