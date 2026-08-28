@@ -55,6 +55,45 @@ repeating work.
 - **1344x768 is a trained canvas, and small canvases have inverted a finding.**
   Anything meant to inform a shipped decision gets measured there. A cheap
   canvas is for making a harness run, never for the number you will quote.
+- **The encoder THIS INSTALL loads is `ENCODER_INT8`, and the v2 AWQ lane was
+  closed rather than adopted.** `h3_config.MODELS["clip"]`, and every
+  `CLIPLoader` in the shipped graphs, resolves to
+  `qwen3vl_32b_minimax_h3_int8_convrot.safetensors`. **Do not confuse this with
+  the first bullet above** — that one is about the *released* encoder's weights
+  being stock; this one is about which local artifact is wired, and they are
+  different questions. On 2026-08-28 `docs/h3_references.md` was found asserting
+  the shipped encoder is v2 and reasoning from v2's bounds; the conclusion it
+  drew survived, the mechanism did not. **The observable is
+  `h3_config.MODELS["clip"]`, never a doc sentence and never a lane's name.**
+- **Reference-image sizing has three knobs, one of them is a prior rather than a
+  measurement, and the vendor-matching settings are already in every shipped
+  graph.** [`docs/h3_references.md`](docs/h3_references.md) is the authority and
+  `h3_config.py`'s `REF_QWEN_SHORT_EDGE` note is the current record of *why*.
+  The operative rules, all of which have cost a session:
+  - `size_policy=max` with `short_edge=2048` matches the vendor, which caps the
+    short edge and applies no area cap; the node default `match` sizes to the
+    generation's pixel area instead, which is several times smaller on a
+    landscape canvas. Image references are deliberately exempt from the area cap
+    that binds video, which is how one can legitimately exceed what the video
+    itself may reach.
+  - **`max` never upscales.** It clamps with `min(1.0, ...)`, so it sets the
+    ceiling and nothing else; reaching the vendor's floor needs
+    `MiniMaxH3ReferenceFit(allow_upscale=True)` as well. These are the two knobs
+    the table below calls "constantly confused", and needing *both* is the part
+    that gets lost.
+  - **`qwen_short_edge` must not be 0 on the shipped encoder.** Reference tokens
+    land in the TEXT segment ahead of the prompt, so they compete with it rather
+    than merely lengthening the sequence, and unclamped they can crowd the
+    prompt into a small minority of its own segment. The knob is *exactly inert*
+    under the v1 snapshot, live under v2, and widest under what actually ships —
+    so which regime you are in decides the answer, and reading the wrong row
+    gives the opposite one.
+  - **The shipped value is a PRIOR, not a measurement**, resting on a single
+    render at one seed. Cite it as a default, never as measured. The A/B/C
+    reference-view ablation (`workflows/h3_probe_refview_*`) is BUILT and has
+    never been rendered, and the experiment that would settle the mechanism
+    holds the weights fixed and varies only the bounds — so it needs no render
+    at all.
 
 ## Guiding Principles
 - **Before writing a number into prose, substitute a different plausible value. If the reader's next action is unchanged, the number is decorative — delete it.** "Sixteen rows claim calibration" and "seventeen rows claim calibration" prompt the same next step, so the count is liability carrying no information.
@@ -93,7 +132,7 @@ repeating work.
 | [`docs/research/sglang_h3_pipeline.md`](docs/research/sglang_h3_pipeline.md) | **what sglang's H3 pipeline does, stage by stage, at the source level**: request and admission, time grid and canvas, media ingestion, the Qwen3-VL encode, the VAE encodes and seeds, the packed sequence and positions, the DiT forward, the denoise loop, decode and output, the runtime and quality gates, and 27 numbered insights. Compares nothing; read it before `sglang_comparison.md` |
 | [`docs/research/sglang_comparison.md`](docs/research/sglang_comparison.md) | **what the vendor serving path does that we do not, and where ours is the weaker version.** Owns the runtime and optimization comparison against sglang; the reference-conditioning comparison is `h3_references.md`'s and is not restated there. Read it before proposing an optimization -- it records what is already priced, and one hypothesis it killed |
 | [`docs/research/technique_transfer.md`](docs/research/technique_transfer.md) | **what transfers from LLM and ViT serving to H3 and what does not**: each technique, the model property it needs, what it becomes here, and its status. Read before proposing a borrow from the LLM world; the two open ones are named there with their first measurement |
-| [`docs/h3_references.md`](docs/h3_references.md) | every reference type, its processing, measured cost, label rules, and the two sizing knobs that are constantly confused |
+| [`docs/h3_references.md`](docs/h3_references.md) | **every reference type, its processing, measured cost, label rules, and the three sizing knobs — two of which are constantly confused for each other.** Start here for "what should `AppendRefImage` be set to"; the settled answers and the one value that is only a prior are summarised in the bullet above, and the three encoder regimes that change what `qwen_short_edge` even does are tabulated there. Carries its own dated correction about which encoder ships |
 | [`docs/h3_image_editing.md`](docs/h3_image_editing.md) | **PARKED 2026-08-27** — the single-frame image gen/edit path in the past tense: what it was, what moved to `archive/`, and what un-parking would take. It owns that record. Nothing in the live tree depends on it, and no graph, check or node is generated from it |
 | [`docs/h3_resolutions.md`](docs/h3_resolutions.md) | every legal canvas and what each costs -- it owns the count, do not restate it here. `h3_input_impacts.md` is its deep dive |
 | [`docs/h3_geometry_and_nodes.md`](docs/h3_geometry_and_nodes.md) | the frame grid, the token maths, and which node to use |
