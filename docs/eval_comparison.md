@@ -37,6 +37,55 @@ it was judged in. "Looks fine at 4 steps" on the dialogue corpus is a claim abou
 that corpus. If the question is whether a distillation holds up, the scene has to
 contain the thing that breaks.
 
+### Correction, same day: DELTA is the wrong axis for choosing a scene
+
+The measurement above is real and unretracted. **Its label is wrong twice, and
+the second one changes what you should do with it.**
+
+**First, "motion" was a gloss.** What is computed is mean |frame[n] -
+frame[n-1]| — frame-to-frame CHANGE, whatever causes it. No flow, no tracking.
+A cut, a light switching on and a camera whip all score high with nothing
+moving in the scene's own terms. Read every "motion" above as **delta**.
+`bench/measure_clip_delta.py` is the instrument.
+
+**Second, and worse: across shots, severity runs OPPOSITE to delta.** The owner
+identifies shot 3 of the market scene — wide, crowd, crates of small coloured
+fruit — as where ghosting and melting appear, and shot 2, a crate lift, as
+"just ghosts a bit". Measured per shot on `text_to_video_pdd_4step_00007`, cuts
+located by delta peak rather than assumed:
+
+| shot | mean delta | spatial detail | change concentration |
+|---|---|---|---|
+| 1 | 0.0253 | 0.0632 | 32.4% |
+| 2 — crate lift | 0.0252 | 0.0507 | 38.2% |
+| **3 — crowd and fruit** | **0.0058** | **0.0666** | 64.6% |
+
+The worst shot has **0.23x the delta and 1.32x the spatial detail** of the one
+called nearly clean. The camera is locked and the stalls are static, so
+frame-differencing reads a quiet shot where the eye reads a busy one.
+
+**Both numbers survive because they measure different things.** The +0.676 is
+WITHIN a clip, frame to frame, cuts masked — busier frames may well be worse
+inside a shot. The table above is ACROSS shots. What does not survive is using
+delta to choose a scene, which is what the rule above was for.
+
+**A hypothesis that fits, and is not established.** One clip, one observer.
+Detail at the latent resolution limit: a wide market shot gives each orange one
+or two latent cells where a stairwell closeup gives a face hundreds, and fewer
+steps means less refinement at exactly that scale. Ghosting fruit and smearing
+faces is what that would look like.
+
+**One reading that was tested and failed**, recorded so it is not re-proposed:
+that shot 3 is bad because many things move independently. Its change is more
+CONCENTRATED than shot 2's — 64.6% of it in the busiest 5% of pixels against
+38.2% — because the camera is locked. Colour versus greyscale also makes no
+difference here (0.0058 against 0.0061), so a greyscale metric is not the gap.
+
+**The revised rule.** A perceptual claim states the regime it was judged in,
+and delta alone does not describe the regime. Report delta AND spatial detail;
+where they disagree, as they do across the market shots, say which one the
+scene was chosen for.
+
 **This does not retire the dialogue scenes.** They remain the sharpest AUDIO
 instrument available -- eight lines, seven speaker changes, two registers -- and
 that is a different axis from the one above. The error is calling such a scene a

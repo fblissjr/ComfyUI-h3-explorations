@@ -202,7 +202,7 @@ regime it was judged in.
 
 They also identified a coverage gap: no high-motion **ref2va** scene existed,
 every wide moving scene being t2v. **These two arms close it, and by a margin
-nobody predicted.** Measured with `bench/measure_clip_motion.py` on the renders
+nobody predicted.** Measured with `bench/measure_clip_delta.py` on the renders
 themselves:
 
 | clip | median | p90 | % frames busy |
