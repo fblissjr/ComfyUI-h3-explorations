@@ -1,4 +1,22 @@
-# PDD diagrams
+# PDD diagrams and handoffs
+
+## Handoffs — newest first, and read the newest before anything else here
+
+- [`2026-08-28_handoff.md`](2026-08-28_handoff.md) — **current.** What the paper
+  says about variable NFE and why it overturns the previous handoff's central
+  conclusion; the six-evaluation arm the node refuses but the paper permits; the
+  audio-refinement path; six prioritised action items with sources; the measured
+  partition-fidelity result and the prediction it refuted; and five methodology
+  traps that each cost time.
+- [`2026-08-27_handoff.md`](2026-08-27_handoff.md) — superseded on its central
+  question by the above, and carries a dated in-place correction to its item 2.
+
+[`queued_arms.md`](queued_arms.md) is the session queue those handoffs draw on.
+The paper itself is
+[`arxiv_2607.26004v1_...md`](arxiv_2607.26004v1_Parallel_Decoding_Distillationfor_Fast_Image_and_Video_Generation.md);
+`docs/h3_pdd.md` owns the contract and every file here defers to it.
+
+## Diagrams
 
 [`two_pdd_paths.html`](two_pdd_paths.html) — our PDD implementation against
 Kijai's, traced end to end through the six production PDD graphs. Open it from
