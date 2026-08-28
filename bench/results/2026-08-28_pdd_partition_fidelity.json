@@ -75,5 +75,6 @@
   "The reference is the distilled 32-point trajectory, NOT a claim that it is the best-sounding render. Faithfulness to it is a different question from quality.",
   "1344x768 is a TRAINED canvas, so the canvas is not the cheap axis here; only length=39 is. An earlier hand-written version of this record called the canvas cheap, contradicting CLAUDE.md.",
   "One seed, one length, one canvas, one partition family."
- ]
+ ],
+ "SUPERSEDED": "2026-08-28: these numbers were taken at length=39, which is wrong twice over. The packed sequence is 12,226 rows, 62 below SolAttnMiniMax min_tokens 12288, so Sol was INERT and no arm ran the production attention path; and the graph carries the market prompt that docs/prompt_audit.md verdicts rewrite and the owner disqualified as a sample. WHAT SURVIVES: the ordering (u8 < u4 < opt4) and the exactly-zero same-arm floor, because every arm shares prompt, length, canvas, seed and Sol state, so a shared confound does not flip an ordering -- the refutation of the [28,2,1,1] prediction therefore stands. WHAT DOES NOT: every magnitude as a production number, and specifically the audio-versus-video ratio, which is untested with Sol active and 9x the video rows. Re-run at length=362."
 }

@@ -63,7 +63,13 @@ REPO = Path(__file__).resolve().parent.parent
 BASE = REPO / "workflows/h3_text_to_video_pdd_4step_api.json"
 OUT = Path(os.environ.get("H3_OUTPUT_DIR", "")) if os.environ.get(
     "H3_OUTPUT_DIR") else Path(__file__).resolve().parents[2] / "output"
-LENGTH, SEED = 39, 730451892
+# 362 is the trained production length. 39 was used on the first run and was
+# WRONG for two reasons found afterwards, both worth stating so nobody sets it
+# back: at 39 frames the packed sequence is 12,226 rows, which is 62 rows below
+# SolAttnMiniMax's min_tokens of 12,288 -- so Sol is INERT and the arms do not
+# run the production attention path at all. And a 1.6s clip is not a sample of
+# anything. The audio SHARE is not the problem (1.06% at 39, 1.11% at 362).
+LENGTH, SEED = 362, 730451892
 
 #: [28,2,1,1] on the shift-12 grid. Written out rather than recomputed so the
 #: arm is legible in the payload and in the record.
@@ -210,6 +216,11 @@ out.write_text(json.dumps(
        "1344x768 is a TRAINED canvas, so the canvas is not the cheap axis "
        "here; only length=39 is. An earlier hand-written version of this "
        "record called the canvas cheap, contradicting CLAUDE.md.",
-       "One seed, one length, one canvas, one partition family."]},
+       "One seed, one length, one canvas, one partition family.",
+       "PROMPT: this graph carries LONG_T2V_PROMPT (the market scene), which "
+       "docs/prompt_audit.md verdicts `rewrite` on four official-guide defects "
+       "and which the owner disqualified as a sample on 2026-08-27. Shared "
+       "across every arm, so it does not flip an ordering, but no magnitude "
+       "here is a statement about a well-formed prompt."]},
     indent=1) + "\n")
 print(f"\nwrote {out.relative_to(REPO)}")

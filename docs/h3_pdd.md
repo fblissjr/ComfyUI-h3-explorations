@@ -535,6 +535,22 @@ better, and both are legal subsets of the same grid.
 > left standing because it is correct about the schedule being back-loaded; it
 > just does not follow that rebalancing it helps.
 >
+>> **SUPERSEDED 2026-08-28, and know which half.** These were taken at
+>> `length=39`. That puts the packed sequence at 12,226 rows — **62 below
+>> `SolAttnMiniMax`'s `min_tokens` of 12,288 — so Sol was INERT** and no arm ran
+>> the production attention path. The graph also carries the market prompt that
+>> [`prompt_audit.md`](prompt_audit.md) verdicts `rewrite` and the owner
+>> disqualified as a sample.
+>
+>> **Survives:** the ordering and the exactly-zero same-arm floor. Every arm
+>> shares prompt, length, canvas, seed and Sol state, so a shared confound does
+>> not flip an ordering — the `[28,2,1,1]` refutation stands.
+>
+>> **Does not:** every magnitude as a production number, and specifically the
+>> audio-versus-video ratio, which is untested with Sol active and 9x the video
+>> rows. The audio *share* is not the problem: 1.06% at 39 frames against 1.11%
+>> at 362. `bench/grade_pdd_partitions.py` now defaults to 362.
+>
 > `bench/grade_pdd_partitions.py`,
 > [`bench/results/2026-08-28_pdd_partition_fidelity.json`](../bench/results/2026-08-28_pdd_partition_fidelity.json),
 > which also carries what these magnitudes do NOT license.
