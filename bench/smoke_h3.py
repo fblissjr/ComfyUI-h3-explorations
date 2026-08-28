@@ -83,7 +83,15 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--host", default="127.0.0.1:8188")
     ap.add_argument("--length", type=int, default=39)
-    ap.add_argument("--steps", type=int, default=10)
+    # 8, not 10, and the reason is the PDD node now owning the count on 11
+    # graphs. 10 does not tile the 32-point grid, so `resolve_emit_steps`
+    # RAISES -- which turned the DEFAULT smoke on any PDD graph into a dead
+    # render the moment `--steps` stopped silently no-opping there. 8 divides
+    # the grid AND divides `simple`'s 1,000-entry table, so it is exact on the
+    # base graphs too, which 10 also was. An explicitly requested off-grid
+    # count still raises: that is a caller asking for something that does not
+    # exist, and inventing a nearby one would render what nobody asked for.
+    ap.add_argument("--steps", type=int, default=8)
     ap.add_argument("--log", help="ComfyUI log file; if given, the lines are checked here")
     ap.add_argument("--workflow", default="h3_text_to_video_api.json",
                     help="API-format graph in workflows/ to submit. The default "

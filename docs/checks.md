@@ -76,6 +76,36 @@ state is correct is worse than no check. The `shown red` column records which
 checks have a construction; **the tallies live in the table, not in this
 prose.**
 
+### Drive the expression, never restate it
+
+**A check that RESTATES the expression it grades cannot fail when the
+expression is wrong.** It is grading its own copy, and the copy agrees with
+itself no matter what the code does. This is a specific and non-obvious form of
+"a check whose input already satisfies the expected outcome cannot fail",
+because the check looks like it is comparing two things.
+
+It has now escaped twice in one lane on one day, which is why it is here rather
+than in a commit message:
+
+| the restated thing | what it hid |
+|---|---|
+| `check_pdd_sigmas::emitted()` recomputed `1 - block_bounds(...)` | dropping the `1.0 -` in `pdd_lora.py` left **every case in that file green** |
+| the same file's refusal cases recomputed `num_steps % steps` | they asserted their own arithmetic, so no behaviour of the node could have reddened them |
+
+Both were fixed the same way, and the fix names itself: **lift the expression
+into a module-level function and have the check call it.** `emit_sigmas` and
+`resolve_emit_steps` exist for no other reason -- neither is used twice in the
+node. After the lift, dropping the `1.0 -` reddens three cases and a
+non-dividing count reddens one.
+
+The tell, when reading a check: if you can delete the implementation and the
+check still passes because it computed the answer itself, it is not a check. Ask
+where the number came from, and make it come from the thing under test.
+
+This does not conflict with **prefer a control the check compares against** --
+it is the same rule seen from the other end. A control is a second, independent
+answer; a restatement is the same answer twice.
+
 ## Running them
 
 Most need neither CUDA nor a model and finish in about a second.
