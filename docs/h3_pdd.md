@@ -339,6 +339,76 @@ stays upstream's and cannot silently diverge from it.
 
 ---
 
+## What the authors ship, and what a step count actually changes
+
+**They ship 8 evaluations and nothing else, and it is not a recommendation --
+there is no step knob in their API.** Read from
+`coderef/alibaba-pai_MiniMax-H3-Acc-LoRAs/` rather than inferred:
+
+| where | what it says |
+|---|---|
+| `coderef/alibaba-pai_MiniMax-H3-Acc-LoRAs/minimax_h3_pdd.py::apply_pdd_lora` | `nfe = num_steps // block_size`, derived from the file's own config and returned to the caller. Not a parameter |
+| its `DEFAULT_PDD_CONFIG` | `pdd_num_steps: 32`, `pdd_block_size: 4` -- so `nfe` is 8 |
+| `predict_ref2v.py` | calls the pipeline with `num_inference_steps=nfe + 1`, i.e. whatever the file dictates |
+| `README.md` | "Official **8 Step** Acc LoRA", and its comparison grid puts the 8-step Acc LoRA against LightX2V's **4-step turbo** |
+
+That last row is the one to read twice: **4 steps is the turbo lane's number,
+not PDD's.** The authors position their 8-step PDD against somebody else's
+4-step model. Every 4-step PDD arm in this repo is therefore our own
+extrapolation to twice the trained block width -- legal, at exactly the limit
+`silveroxides/ComfyUI-UtilsCollection` refuses past, and never something the
+authors shipped or measured.
+
+### The sweep, 1 to 10 evaluations
+
+Generated against `pdd_math` and `h3_config`, not recalled:
+
+| steps | tiles the grid | block width | vs trained width 4 | the node | Sol `end_percent` |
+|---|---|---|---|---|---|
+| 1 | yes | 32 | past 2x | emits | 0.9 (default) |
+| 2 | yes | 16 | past 2x | emits | 0.9 (default) |
+| 3 | **no** | -- | -- | **raises** | 0.9 (default) |
+| 4 | yes | 8 | **2x, the edge** | emits | 0.74 |
+| 5 | **no** | -- | -- | **raises** | 0.9 (default) |
+| 6 | **no** | -- | -- | **raises** | 0.83 |
+| 7 | **no** | -- | -- | **raises** | 0.9 (default) |
+| 8 | yes | 4 | **trained** | emits | 0.87 |
+| 9 | **no** | -- | -- | **raises** | 0.9 (default) |
+| 10 | **no** | -- | -- | **raises** | 0.9 (default) |
+
+Emitted sigmas at shift 12, where a schedule exists at all:
+
+    1 step   1.0000, 0.0000
+    2 steps  1.0000, 0.9231, 0.0000
+    4 steps  1.0000, 0.9730, 0.9231, 0.8000, 0.0000
+    8 steps  1.0000, 0.9882, 0.9730, 0.9524, 0.9231, 0.8780, 0.8000, 0.6316, 0.0000
+
+### Three things move when you change the step count, and two are invisible
+
+- **The block width**, which is the obvious one. 8 -> 4 steps doubles it: each
+  evaluation now averages eight of the 32 distilled heads into one velocity
+  instead of four.
+- **`nfe` does NOT react.** It is an independent override and stays whatever it
+  was. The two are allowed to disagree and that disagreement is `nfe`'s whole
+  purpose; see its tooltip. Every shipped graph carries 0.
+- **Sol's `end_percent`**, which is a BUILD-TIME lookup in
+  `h3_config.SOL_END_PERCENT_BY_STEPS` and reacts only if the generator runs.
+  Change `steps` on a loaded graph by hand and this goes stale silently -- the
+  edge `h3_config` already documents. Note the table has entries for 4, 6 and 8
+  only; any other count silently takes `SOL_RECOMMENDED_CUDA`'s 0.9, which is
+  the value whose wrongness at 8 steps created the table in the first place.
+- **Whether a schedule exists at all.** Only divisors of 32 have one. The sweep
+  is mostly `raises`, and that is correct rather than restrictive: at 5 steps
+  there is no on-grid schedule to emit, so there is nothing honest to hand the
+  sampler.
+
+**The 6 in the Sol table is a turbo count, not a PDD one** -- worth stating
+because reading that table alone suggests otherwise. Every 6-step arm this repo
+ships is a 768p turbo graph; no PDD graph can run 6, because 6 does not divide
+32 and the node refuses. Checked, not assumed.
+
+---
+
 ## Replicating the reference
 
 The vendor ships `predict_ref2v.py` and a scheduler, and three things about
@@ -414,6 +484,42 @@ were distilled and nothing here has tried it.
 Three references, and they fail differently, which is why all three were used.
 `bench/compare_pdd_conversions.py` re-runs the numeric half;
 `bench/results/2026-08-26_pdd_conversion_*.json` records it.
+
+**The conversion reproduces its CONTENT but not its FILE, measured 2026-08-28**
+([`bench/results/2026-08-28_pdd_conversion_reproducibility.json`](../bench/results/2026-08-28_pdd_conversion_reproducibility.json)).
+Both partitions were re-converted from the identical source, base and pruned
+inputs -- the source sha256 is unchanged since the 2026-08-27 record -- and the
+result is:
+
+| | old against new |
+|---|---|
+| all 730 tensors | **bit-identical**, both partitions |
+| every metadata VALUE | identical |
+| tensor key set, key order, `data_offsets` | identical |
+| the file's sha256 | **differs** |
+
+The whole difference is the ORDER of metadata keys inside the header JSON.
+`safetensors` does not preserve the order of the dict the converter hands it and
+picks a different one per process, so the header is the same length, holds the
+same pairs, and serialises to different bytes.
+
+**So a converted artifact's file hash is not a stable identity, and a mismatch
+does not imply the content changed.** That matters here specifically:
+`2026-08-27_pdd_conversion_*.json` records the file sha256 as `ours`, and it
+will not reproduce. The 2026-08-28 record carries a layout-independent content
+hash instead -- sorted metadata pairs, then every tensor's bytes in sorted key
+order -- which is the thing to compare when the question is "did this artifact
+change".
+
+Note what the re-run did NOT establish. The source files are byte-identical to
+what the 2026-08-27 record hashed, so it says nothing about whether upstream
+has re-uploaded; see the lead recorded above. Only a re-fetch settles that, and
+**the converter would not notice a re-encoded bank**: it copies `proj_out` into
+`h3_pdd.bank.*` verbatim with no check of whether the rows are absolute heads
+or deltas from head 0. The cheap observable, if a detector is ever wanted, is
+the row norms -- on the artifacts here every row sits within 1% of every other
+(min/row0 = 0.9906, all ~57), where a delta encoding would put rows 1..31 far
+below row 0.
 
 **The paper.** Section 3.1 gives the fused layer as
 `W_{n:n+L} = sum_k D_k W_k` with `D_k = (t_{k+1} - t_k) / (t_{n+L} - t_n)`,

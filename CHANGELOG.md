@@ -149,6 +149,35 @@ artifact.
   `min_tokens` conclusion the comment was supporting is unaffected and now
   rests on the right reason.
 
+### Documented
+
+- **What the PDD authors actually ship, read from their source rather than
+  inferred.** `apply_pdd_lora` derives `nfe = num_steps // block_size` from the
+  file's own config and returns it; there is no step parameter in their API.
+  Their config is 32/4, so `nfe` is 8; `predict_ref2v.py` calls the pipeline
+  with `num_inference_steps=nfe + 1`; the README says "Official 8 Step Acc
+  LoRA" and its comparison grid puts that against LightX2V's **4-step turbo**.
+  So 4 steps is the turbo lane's number and every 4-step PDD arm here is our
+  own extrapolation to twice the trained block width -- legal, at the limit an
+  independent implementation refuses past, and never something the authors
+  shipped or measured. That is the most likely reason a 4-step PDD clip
+  disappoints, and it is a fact about the arm rather than a defect in the code.
+
+- **A generated sweep of 1 to 10 evaluations** in [`docs/h3_pdd.md`](docs/h3_pdd.md):
+  which counts tile the 32-point grid, the block width each gives, where that
+  sits against the trained width, whether the node emits or raises, and the Sol
+  `end_percent` each would take. Three things move when the step count changes
+  and two are invisible: the block width (obvious), `nfe` (does **not** react --
+  it is an independent override), and Sol's `end_percent` (a build-time lookup
+  that goes stale if steps is edited on a loaded graph). Only divisors of 32
+  have a schedule at all, so most of the sweep raises, correctly.
+
+  One thing the sweep corrected on inspection rather than confirming: the `6`
+  in `SOL_END_PERCENT_BY_STEPS` is a **turbo** count, not a PDD one. Every
+  6-step arm this repo ships is a 768p turbo graph, and no PDD graph can run 6
+  because 6 does not divide 32 and the node refuses. Reading that table alone
+  suggests otherwise, which is why it is now said out loud.
+
 ### Known gap, stated rather than closed
 
 - **The shift became a second place the schedule is decided.** The PDD node is
