@@ -71,16 +71,9 @@ changed arm is a *different sample*, not a degraded one.
 [`../eval_comparison.md`](../eval_comparison.md) owns the process; CLAUDE.md
 owns the rule. Compare knobs at the call, not at the output.
 
-Two riders on that, both established 2026-08-28 and neither owned by a document
-yet:
-
-- **Noise for the video and audio streams comes from one seeded generator
-  consumed in order**, so the audio noise depends on the video latent's element
-  count. A matched-seed A/B whose arms differ in canvas or length is not matched
-  on audio.
-- **A render has a warm-up transient**: the first run after a state change
-  differs from what that configuration settles on, and it hits both arms of a
-  pair equally — so a single matched pair reads exactly like a regression.
-  Determinism claims hold of the settled state only. *Reported by a peer session
-  from eight GPU runs; not verified here.* And compare decoded pixels, never
-  file bytes — the containers embed metadata.
+Two riders on that were established 2026-08-28 and now live with the process
+they constrain, under *What a matched seed does not match* in
+[`../eval_comparison.md`](../eval_comparison.md): the audio stream is not
+matched by a shared seed when arms differ in canvas or length, and the first
+run after a state change is not the arm's settled behaviour. That file owns
+them; this row exists so nobody rediscovers them from the stage table.

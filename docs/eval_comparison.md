@@ -83,6 +83,35 @@ For a single pair outside a session -- two clips that already exist -- the
 `--blind --keyfile` form in section 2 is still right, with `-o` set to a
 neutral name, since the default output name carries both input stems.
 
+### What a matched seed does not match
+
+Two riders on the different-sample rule, both established 2026-08-28. Neither
+weakens step 1; both change what "matched" is allowed to mean.
+
+**A matched seed does not match the audio stream when the arms differ in canvas
+or length.** Noise for the video and audio streams is drawn from one seeded
+generator consumed in order (`comfy/sample.py`), so the audio noise depends on
+the video latent's element count. Two arms at one seed that differ in
+resolution or frame count therefore differ in their audio noise as well as in
+the knob under test. *Read from source, not measured.* Consequence for this
+process: an arm pair that varies canvas or length is not a controlled
+comparison of anything audible, and a session mixing canvases cannot pool its
+audio judgements.
+
+**The first run after a state change is not the arm's settled behaviour.** A
+render has a warm-up transient; the first run after a configuration change
+differs from what that configuration settles on, and it hits both arms of a
+pair equally -- so a single matched pair reads exactly like a regression. This
+is what `--warmup` on the first arm in step 1 is for, and it is the reason the
+flag is not optional for a quoted comparison. *Reported by a peer session from
+eight settled runs on the card, four per arm; not verified here.*
+
+A corollary worth stating because it has caught people: **compare decoded
+pixels, never file bytes.** The containers embed metadata -- the mp4 case was
+already recorded here, and `SaveImage` embeds the prompt JSON the same way, so
+two byte-different files can be pixel-identical.
+
+
 ### Scoring: the page and the joiner
 
 Step 3's "sheet written in advance" is now a page written into the batch. The
