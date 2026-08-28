@@ -841,8 +841,13 @@ it deliberately. [OWNER decision territory; the guide reading is GUIDE]
   reducing the description to a plot summary or a list of reference
   relationships.**
 
-This budget is the systematic gap in this repo: every generated ref2va prompt
-currently runs one shot at 42-68 words.
+This budget was the systematic gap in this repo. Every ref2va prompt that
+`_ref_prompt` generates without a scene still runs one shot at 42-68 words —
+an order of magnitude under the range — and that is most of the shipped ref2va
+set. The two scene arms added 2026-08-28 (`h3_ref2v_scene_subway`,
+`h3_ref2v_scene_kitchen`) are the first that sit inside it, at four shots and
+373-375 words, so the gap is now demonstrated-closable rather than universal.
+Neither has been rendered, so nothing here says the budget improves output.
 
 ### 9.11 Reference-writing craft, not in the guide
 

@@ -259,11 +259,25 @@ gives it no home there; the form the guide does give lives in
 wrong layer, but the guide is **silent** rather than contradictory, and this
 repo has retracted two rules read out of guide silence. OPEN, not a defect.
 
-## Marker coverage: the gap nothing measures
+## Marker coverage: reachable since `930d296`, still unrendered
 
-**No shipped graph carries any marker but `<d>`.** `<|lyrics_start|>`,
-`<|caption_start|>` and `<|cutoff|>` live only in `T2V_SCENES`, reachable
-through `--print-scene` and through no graph.
+**Until 2026-08-28 no shipped graph carried any marker but `<d>`.** The other
+markers lived only in scene text that `_ref_prompt(scene=...)` could render and
+that **no call site ever asked for**, so `<|caption_start|>`,
+`<|caption_end|>`, `<|lyrics_start|>`, `<|lyrics_end|>` and `<|cutoff|>`
+appeared in the generator and in zero graphs. `h3_ref2v_scene_subway` and
+`h3_ref2v_scene_kitchen` wire two of those scenes and close that.
+
+**What is still open, and it is the larger half.** The arms exist; nothing has
+been rendered through them, so every marker but `<d>` remains *unexercised
+against the model* even though it is now *present in a graph*. Wiring changed
+what the corpus contains, not what has been observed.
+
+The `T2V_SCENES` copies of the same five scenes remain unwired. `subway`,
+`kitchen` and `clinic` each carry markers in t2v form and reach no graph;
+they are injected through `--print-scene`/`--set` rather than shipped, which
+is a deliberate design and not an oversight — but it does mean marker coverage
+in the t2v layout is still zero.
 
 This matters more than a coverage gap normally would, because this repo has
 spent real effort on marker questions — the seven ids, the untrained rows, the
