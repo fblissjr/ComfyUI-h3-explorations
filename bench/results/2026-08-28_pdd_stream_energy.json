@@ -1,0 +1,158 @@
+{
+ "date": "2026-08-28",
+ "script": "bench/analyze_pdd_stream_energy.py",
+ "reads": "the renders already on disk from bench/results/2026-08-28_pdd_partition_fidelity_362.json; no GPU, nothing re-rendered",
+ "length": 362,
+ "canvas": "1152x768 (fast tier)",
+ "arms": {
+  "u8": {
+   "evaluations": 8,
+   "widths": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+   ],
+   "drift_audio_coefficient": 4.189740260960223,
+   "drift_video_time": 1.0927516793833476,
+   "video": {
+    "rel_l2": 0.5420007034325398,
+    "rel_l2_as_recorded_f32": 0.541977,
+    "centred_gain": 0.5513464027870328,
+    "centred_corr": 0.5517886764468037,
+    "contrast_ratio_mean": 0.9914046135773067,
+    "contrast_ratio_p10": 0.9460315207240053,
+    "contrast_ratio_p90": 1.0844804370344159,
+    "frames_below_ref_pct": 71.54696132596685
+   },
+   "audio": {
+    "rel_l2": 0.8579475092605842,
+    "gain": 0.30773590676720514,
+    "corr": 0.5190237745931322,
+    "rms_ratio": 0.592913003774322,
+    "rms_db_vs_ref": -4.540180491987506
+   }
+  },
+  "mix6": {
+   "evaluations": 6,
+   "widths": [
+    4,
+    4,
+    4,
+    4,
+    8,
+    8
+   ],
+   "drift_audio_coefficient": 7.875454546674515,
+   "drift_video_time": 1.9465484602661367,
+   "video": {
+    "rel_l2": 0.5367389368148826,
+    "rel_l2_as_recorded_f32": 0.536336,
+    "centred_gain": 0.5458263330099333,
+    "centred_corr": 0.5558862184999838,
+    "contrast_ratio_mean": 0.9753116304478048,
+    "contrast_ratio_p10": 0.9340363335240313,
+    "contrast_ratio_p90": 1.0501537587946894,
+    "frames_below_ref_pct": 78.45303867403315
+   },
+   "audio": {
+    "rel_l2": 0.8987136655736558,
+    "gain": 0.20459858924466112,
+    "corr": 0.4393285703512617,
+    "rms_ratio": 0.46570731908736074,
+    "rms_db_vs_ref": -6.6377387322504475
+   }
+  },
+  "u4": {
+   "evaluations": 4,
+   "widths": [
+    8,
+    8,
+    8,
+    8
+   ],
+   "drift_audio_coefficient": 9.220909092129062,
+   "drift_video_time": 2.075975366163631,
+   "video": {
+    "rel_l2": 0.5386898868416845,
+    "rel_l2_as_recorded_f32": 0.537085,
+    "centred_gain": 0.4552804401572799,
+    "centred_corr": 0.5301881373482022,
+    "contrast_ratio_mean": 0.8594954331536421,
+    "contrast_ratio_p10": 0.7907919075609477,
+    "contrast_ratio_p90": 0.9081412062547128,
+    "frames_below_ref_pct": 100.0
+   },
+   "audio": {
+    "rel_l2": 0.9233628306781165,
+    "gain": 0.1702017153789842,
+    "corr": 0.3874205351934963,
+    "rms_ratio": 0.4393207814619111,
+    "rms_db_vs_ref": -7.144365050980118
+   }
+  },
+  "opt4": {
+   "evaluations": 4,
+   "widths": [
+    28,
+    2,
+    1,
+    1
+   ],
+   "drift_audio_coefficient": 20.18561497448199,
+   "drift_video_time": 2.4942483043876083,
+   "video": {
+    "rel_l2": 0.5233486584400997,
+    "rel_l2_as_recorded_f32": 0.522529,
+    "centred_gain": 0.36785350404274614,
+    "centred_corr": 0.5233724602078971,
+    "contrast_ratio_mean": 0.6895822119576719,
+    "contrast_ratio_p10": 0.4407337639399913,
+    "contrast_ratio_p90": 0.8675199576188928,
+    "frames_below_ref_pct": 100.0
+   },
+   "audio": {
+    "rel_l2": 0.9921587255605213,
+    "gain": 0.04613202227829162,
+    "corr": 0.1666350278019758,
+    "rms_ratio": 0.2768448803535284,
+    "rms_db_vs_ref": -11.155270068272714
+   }
+  }
+ },
+ "video_contrast_monotone_in_drift": true,
+ "drift_measures_rank_identical": true,
+ "drift_rank_audio_coefficient": [
+  "u8",
+  "tail6",
+  "tail5",
+  "mix6",
+  "u4",
+  "opt4"
+ ],
+ "drift_rank_video_time": [
+  "u8",
+  "tail6",
+  "tail5",
+  "mix6",
+  "u4",
+  "opt4"
+ ],
+ "findings": [
+  "The audio-only half of docs/research/pdd/audio_under_pdd.md does not survive. Raw-video rel L2 is dominated by the DC term; with the mean removed, video contrast falls monotonically with partition coarseness on 100% of frames for the two coarsest arms. Video's correlation with the reference moves far less over the same arms, so the loss is mostly amplitude rather than content. Both streams lose amplitude and only audio's was visible to the chosen metric.",
+  "PDD audio loses ENERGY rather than merely decorrelating: 4.6 dB down at u8 and 11.2 dB at opt4, best-fit gain 0.308 down to 0.046. opt4's audio rel L2 of 0.992 means nearly silent. This is a plainer account of the owner's 'the audio is off' than any phase or content story.",
+  "Integrated drift does not identify the audio transform. Recomputed as pure video-time coarseness, with the audio coefficient absent, it is rank-identical on all six arms including the two not yet rendered. So it measures partition coarseness, and NO experiment that only varies the partition can separate the transform from generic coarseness."
+ ],
+ "do_not_rely_on": [
+  "This does not refute the transform. The transform freezes TWO coefficients at the block start, B on the velocity and A on the latent, and at s=4 they pull opposite ways -- so it makes no clean sign prediction, and none is scored here.",
+  "Audio is hit harder than video on every statistic here and that excess is unexplained. It is NOT evidence for the transform: the streams differ in sequence share, VAE and signal statistics.",
+  "Audio rel L2 reaches its decorrelation ceiling (sqrt 2) at a ONE-frame shift, measured at 1.418 against video's 0.18. It has no gradation for phase, so across these arms it is reporting mostly the energy loss.",
+  "One seed, one length, one canvas, one prompt, six partitions from one family. The prompt is the market scene that docs/prompt_audit.md verdicts `rewrite`.",
+  "Distance to the distilled 32-point trajectory is not quality, and no clip was judged by a person.",
+  "Every number here is float64. Statistics over ~1e9 float32 elements are not reliable in the third decimal, which is how the record's video rel L2 came to be off by up to 1.6e-3 and how an earlier float32 pass of THIS analysis put video correlation at 0.588 where it is 0.552."
+ ]
+}
