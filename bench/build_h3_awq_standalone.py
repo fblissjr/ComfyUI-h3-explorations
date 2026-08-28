@@ -171,6 +171,23 @@ def _runtime_config_text() -> tuple[dict[str, str], dict[str, str]]:
     return texts, digests
 
 
+_REPO_SNAPSHOT_TABLE = """ARTIFACT_SNAPSHOTS: dict[str, Path | None] = {
+    "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors": None,
+    "qwen3vl_32b_minimax_h3_w4a16_awq_v1-comfy.safetensors": None,
+    "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors":
+        SNAPSHOT_ROOT / "qwen3vl_32b_minimax_h3_w4a16_awq_v2",
+    "qwen3vl_32b_minimax_h3_w4a16_awq_v2_smoke-comfy.safetensors":
+        SNAPSHOT_ROOT / "qwen3vl_32b_minimax_h3_w4a16_awq_v2_smoke",
+}"""
+
+#: One artifact, one embedded snapshot. `None` is that snapshot; any other
+#: filename resolves to no contract rather than to a guess, which is the
+#: behaviour the repo table already documents for unknown names.
+_STANDALONE_SNAPSHOT_TABLE = """ARTIFACT_SNAPSHOTS: dict[str, Path | None] = {
+    "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors": None,
+}"""
+
+
 def render_standalone_loader() -> str:
     source = LOADER_SOURCE.read_text()
     texts, digests = _runtime_config_text()
@@ -229,6 +246,18 @@ def render_standalone_loader() -> str:
         source, _CONFIG_DECLARATION, config_decl, "config declaration"
     )
     source = _replace_once(source, _SOURCE_DOC, _STANDALONE_DOC, "module doc")
+    # **The standalone carries ONE snapshot, so its table may name only one
+    # artifact.** The repo's `config/` is a directory of snapshots and the repo
+    # table maps each artifact to its own; a standalone embeds exactly one set
+    # of configs, and `None` means "the embedded one". Shipping the repo table
+    # unchanged mapped the v1 filenames to `None` -- i.e. to whatever the build
+    # embedded, which is v2's configs -- and pointed the v2 name at a directory
+    # that does not exist in a distribution. Verified 2026-08-27: the published
+    # loader REFUSED the published v1 artifact with "checkpoint embedded config
+    # matches no versioned config snapshot", so the Hub shipped weights its own
+    # loader could not open.
+    source = _replace_once(source, _REPO_SNAPSHOT_TABLE, _STANDALONE_SNAPSHOT_TABLE,
+                           "artifact snapshot table")
     source = _replace_once(
         source,
         "from comfy_api.latest import io",
