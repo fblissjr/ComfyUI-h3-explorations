@@ -133,7 +133,7 @@ def case_vocab_matches_guide() -> list[str]:
     return fails
 
 
-def case_modifiers_are_in_set(corpus) -> list[str]:
+def case_modifiers_are_in_set(corpus, quiet: bool = False) -> list[str]:
     """DECIDABLE: amplitude and speed are closed at two phrases each."""
     fails = []
     ok_amp = {a.split()[1] for a in AMPLITUDE}
@@ -152,10 +152,64 @@ def case_modifiers_are_in_set(corpus) -> list[str]:
                     f"  FAIL  modifiers_in_set  {where}: `at {word} speed` -- "
                     f"base_en 4.3 closes speed at {list(SPEED)}, and normal is "
                     "written by OMITTING the phrase")
-    if not fails:
+    if not fails and not quiet:
         print(f"  ok    modifiers_in_set    every amplitude and speed phrase "
               f"across {len(corpus)} prompt(s) is in 4.3's closed set")
     return fails
+
+
+def case_quiet_on_guide_examples() -> list[str]:
+    """CRY-WOLF: the rules stay silent on the guide's OWN prose.
+
+    Suggested by the sibling project, whose suite asserts its validator emits
+    an empty diagnostic list on the guides' worked examples. The idea is better
+    than either of our encodings of the table, because the corpus is the
+    vendor's rather than anybody's reading of it: base 4.3 writes motion as
+    natural English action ("The camera pushes in with small amplitude at slow
+    speed ..."), so a grep aimed at out-of-table phrasing can very easily fire
+    on the exact sentences the guide holds up as correct.
+
+    Extracted rather than pinned by line number: every sentence in the guide
+    beginning "The camera ", plus every worked
+    `integrated_multimodal_description`. A red proof shows a check CAN fail;
+    this shows it does not fail on known-good text, and the two are different
+    properties. `docs/checks.md`: a check reporting red while the state is
+    correct trains you to ignore red.
+
+    **What it does NOT prove**, stated because the sibling project stated it
+    first and was right to: the corpus is the guide's examples, not the space
+    of legitimate prose. Silence here means the rules do not fire on the
+    vendor's own sentences. It does not mean they are correct.
+    """
+    if not GUIDE.exists():
+        print("  skip  quiet_on_examples  guide not on disk; the cry-wolf "
+              "corpus is the guide's own prose and cannot be built without it")
+        return []
+    text = GUIDE.read_text(encoding="utf-8")
+    corpus = {}
+    for i, line in enumerate(text.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith("The camera ") or \
+                stripped.startswith("integrated_multimodal_description:"):
+            corpus[f"base_en:{i}"] = stripped
+    if not corpus:
+        return ["  FAIL  quiet_on_examples  found no worked motion prose in the "
+                "guide; the extraction broke and silence here would be vacuous"]
+
+    fails = [f for f in case_modifiers_are_in_set(
+        {t: {k} for k, t in corpus.items()}, quiet=True)]
+    for k, t in corpus.items():
+        for bad in DENIED:
+            if bad in t.lower():
+                fails.append(f"  FAIL  quiet_on_examples  fired `{bad}` on the "
+                             f"guide's own prose at {k} -- the rule is wrong, "
+                             "not the text")
+    if fails:
+        return [f.replace("modifiers_in_set", "quiet_on_examples") for f in fails]
+    print(f"  ok    quiet_on_examples  silent on {len(corpus)} passage(s) of the "
+          "guide's own prose (cry-wolf corpus; proves no false fire on vendor "
+          "text, NOT that the rules are correct)")
+    return []
 
 
 def case_no_denied_motion(corpus) -> list[str]:
@@ -183,6 +237,7 @@ def main() -> int:
               "this check must not pass by looking at nothing")
         return 2
     fails = case_vocab_matches_guide()
+    fails += case_quiet_on_guide_examples()
     fails += case_modifiers_are_in_set(corpus)
     case_no_denied_motion(corpus)
     if fails:
