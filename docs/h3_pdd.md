@@ -329,8 +329,8 @@ so a truncated PDD schedule is on-grid both ways, and the one warning that
 started this was a render queued after a RAISED render in the same session,
 which is contaminated state rather than an off-grid schedule.
 
-What this does **not** reach: `sampler_name` -- the euler requirement is still
-enforced by nothing -- and `strength`. Sol's `end_percent` is still derived from
+What this does **not** reach: `sampler_name` -- and that gap is worse than
+"enforced by nothing", see below --  -- and `strength`. Sol's `end_percent` is still derived from
 the step count at build time, so hand-editing steps still leaves it stale.
 
 #### The shift is now a second place the schedule is decided, and it is asserted rather than removed
@@ -540,7 +540,7 @@ better, and both are legal subsets of the same grid.
 > which also carries what these magnitudes do NOT license.
 
 **The paper explains the refutation, which the measurement alone could not.**
-§3.1's training rule is the constraint the DP search ignored: *"during
+§3's training rule is the constraint the DP search ignored: *"during
 training, we consider multiples of `L_min` for indices `n` of initial states
 and sample `k` in `{n, ..., n + L_max - 1}` inside each block."* So a legal
 partition is not any subset of the knots. It needs **every block to START at a
@@ -562,15 +562,30 @@ training distribution in a way the fusion loss cannot see, because fusion loss
 is computed from the head weights and knows nothing about which spans were
 trained.
 
-**And the same rule implies an arm this node currently refuses.** With
-`L_min = 4` and `L_max = 8`, a legal partition is any composition of block
-sizes from `{4, 8}`. At **six** evaluations that is `4+4+4+4+8+8 = 32` -- every
-block starting on a multiple of 4, none wider than 8. Six is legal by the
-paper's own rule and `resolve_emit_steps` refuses it, because the SIGMAS output
-requires a count that divides the grid **uniformly**. The run-time path does
-not: `schedule_knots` takes an uneven partition and reports it, so the arm is
-reachable today through `ManualSigmas` with knots `[0,4,8,12,16,24,32]`.
-Unrun, and it is the most paper-grounded arm currently available.
+**Our legality rule is not the paper's, and it is wrong in BOTH directions.**
+`resolve_emit_steps` requires the count to divide 32 uniformly. The paper
+requires only that blocks start at multiples of `L_min` and stay within
+`L_max` -- which permits mixed widths. Taking the inferred `L_min = 4,
+L_max = 8`:
+
+| count | widths | paper | us |
+|---|---|---|---|
+| 8 | `[4]x8` | legal | legal |
+| **6** | `[4,4,4,4,8,8]` | **legal** | **REFUSED** -- does not divide 32 |
+| 4 | `[8]x4` | legal | legal |
+| **2** | `[16,16]` | **outside `L_max`** | **allowed**, with only a warning |
+| **1** | `[32]` | **far outside `L_max`** | **allowed**, with only a warning |
+
+So we are stricter than the paper at 6 and looser at 1 and 2. Worth noting the
+2x-envelope warning added here lands on block width 8 -- exactly the inferred
+`L_max` -- reached from `ComfyUI-UtilsCollection`'s reasoning rather than from
+the paper, which is a nice convergence but means the warning is doing the
+paper's job by accident rather than by construction.
+
+**The six-evaluation arm is reachable today** and is the most paper-grounded
+untried thing in the lane: the run-time path takes an uneven partition happily
+(`schedule_knots` derives and reports it), so `ManualSigmas` with knots
+`[0,4,8,12,16,24,32]` runs it with no code change. Unrun.
 
 **Stated as a prediction, not a result.** Fusion loss is a weight-space proxy:
 it measures how far a block's heads sit from their own mean, and it does NOT
@@ -688,6 +703,14 @@ Euler (`eta = 0`) step", and their adapter defines the fused head as "the mean
 velocity of one block, which an Euler step over the block boundaries consumes".
 `er_sde` injects noise and uses a different update rule, so the heads would be
 consumed by something they were never distilled against.
+
+**Whose requirement this is, stated precisely, because the loose version gets
+quoted.** The MECHANISM is the paper's: eq 4, eq 10, eq 14 and Algorithm 1
+define a first-order update with no noise term, evaluated at the block start.
+The PROHIBITION is ours. The paper *defines* its sampler rather than choosing
+among them, so it never contemplates `er_sde` and therefore does not forbid it.
+"The paper requires euler" is not quite true; "the paper's sampler is euler,
+and anything else is outside what it defines" is.
 
 **This is a requirement, not a preference, and the distinction matters because
 a preference could be traded away.** A fused head is not "a velocity that an
@@ -1234,6 +1257,42 @@ scope silently is how a table stops meaning what its header claims.
   shortfall, naming the first unmatched keys. Adopted from
   `silveroxides/ComfyUI-UtilsCollection`, which had this guard while we had the
   row admitting we did not.
+- **LoRA, adaLN and pruning appear nowhere in the paper.** Those three surfaces
+  are alibaba-pai's packaging of the method, neither prescribed nor forbidden by
+  it. So `--pruned` is an approximation with **no paper counterpart** rather
+  than something the paper sanctions -- the residual is ~50x below bf16 so the
+  exposure is nil, but the label matters when someone cites the paper as
+  authority for it. Reported by a peer's read; not independently re-derived
+  here beyond confirming the terms are absent.
+
+- **A second-order or stochastic sampler is not merely unguarded -- it is
+  STRUCTURALLY INVISIBLE to `BOUNDARY_TOLERANCE`, and no tightening will ever
+  reach it.** Reported by a peer reading the paper against our code, then
+  verified here by driving the real `_StepTracker` with a real
+  `adaln_t_table` over heun's actual evaluation pattern.
+
+  `comfy/k_diffusion/sampling.py:296` evaluates heun's corrector at
+  `sigmas[i + 1]` -- which **is** the next block boundary. The boundary check
+  measures distance-to-nearest-boundary, so it sees ~0, which is precisely the
+  state it is built to call healthy. Driven at 4 steps, knots
+  `[0, 8, 16, 24, 32]`:
+
+      step  evaluation          sigma   block   warned
+         0  euler predictor   1.00000       0    False
+         0  HEUN corrector    0.97297       8    False
+         1  euler predictor   0.97297       8    False
+         1  HEUN corrector    0.92308      16    False
+
+  **Every corrector selects the NEXT block's fused head while integrating the
+  current step**, and `warned` never flips. Half the model evaluations use the
+  wrong head and nothing says so. `er_sde` is invisible the same way.
+
+  So the honest statement is not "the euler requirement is enforced by
+  nothing" -- it is that **the guard which looks closest to covering it cannot,
+  by construction.** If it is ever worth closing, the observable is the number
+  of model calls per step, or the sampler's identity, and NOT the distance to a
+  boundary. Do not spend time tightening the tolerance.
+
 - **The off-schedule warning has never fired in a real render.** It is
   exercised only by `bench/check_pdd_head_selection.py`, on a synthetic drive.
   Its threshold is reasoned, not calibrated. Since 2026-08-27 it guards a
