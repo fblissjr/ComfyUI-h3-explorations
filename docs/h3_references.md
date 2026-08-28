@@ -696,11 +696,19 @@ instinct that big references are the expensive ones is backwards — big
 references are already close to the ceiling, and the ceiling is where everything
 ends up.
 
-The "text twin" column is not padding. Reference images cost again in the text
-segment, at 75-160 rows *above* the reference segment itself (measured, see the
-count ladder above), because the conditioner's vision blocks read the resized
-image too. So all five upscaled is roughly **64,600 rows before a single frame
-of video** — against 37,296 for an entire 124-frame render at 1344x768.
+The "text twin" column is not padding. A reference is read twice — the video VAE
+encodes it, and the conditioner's vision blocks read it as well — so it is
+charged in the text segment on top of the reference segment. **What that second
+charge comes to was removed on 2026-08-28 as unsupported.** The figure that
+stood here ("75-160 rows above the reference segment itself, measured") cites
+the ladder above, which does not contain it, and a source trace could not derive
+it: with `qwen_short_edge=0` and no clamp the two counts are identical by
+construction, both `(w/32)*(h/32)`, and the only genuine extra is the per-
+reference `<Picture N>: ` label plus its vision delimiters — a handful of
+tokens. It may rest on a measurement that was never recorded here. **Price the
+two views with `bench/preflight_graph.py`, which reports each separately and
+says when one was clamped and by whose bounds, rather than applying a rule of
+thumb from this page.**
 
 Nothing here says the 2048 version looks better. That is
 `docs/open_experiments.md` #1, still unmeasured, and its own entry notes that

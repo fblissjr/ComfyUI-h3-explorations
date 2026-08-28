@@ -1,0 +1,71 @@
+{
+ "date": "2026-08-28",
+ "script": "bench/grade_pdd_partitions.py",
+ "graded_by": "the arms were rendered by that script; grading was re-run from the server's history records after the script died decoding on a wrong output path (parents[2] resolved to custom_nodes/). The renders are the script's own, unmodified; the path is fixed and now checked before queueing.",
+ "length": 362,
+ "canvas": "1152x768 (fast tier, 3:2, 864 tok/frame)",
+ "seed": 730451892,
+ "prompt": "market t2v as rewritten in d5be353",
+ "reference": "steps=32, block width 1, the distilled trajectory",
+ "against_reference": {
+  "u8": {
+   "video_rel_l2": 0.541976809501648,
+   "video_max_abs": 1.0,
+   "audio_rel_l2": 0.8579477667808533
+  },
+  "u4": {
+   "video_rel_l2": 0.5370851755142212,
+   "video_max_abs": 1.0,
+   "audio_rel_l2": 0.9233632683753967
+  },
+  "u4b": {
+   "video_rel_l2": 0.5370851755142212,
+   "video_max_abs": 1.0,
+   "audio_rel_l2": 0.9233632683753967
+  },
+  "u4c": {
+   "video_rel_l2": 0.5370851755142212,
+   "video_max_abs": 1.0,
+   "audio_rel_l2": 0.9233632683753967
+  },
+  "opt4": {
+   "video_rel_l2": 0.5225285291671753,
+   "video_max_abs": 1.0,
+   "audio_rel_l2": 0.9921589493751526
+  },
+  "mix6": {
+   "video_rel_l2": 0.5363360643386841,
+   "video_max_abs": 1.0,
+   "audio_rel_l2": 0.8987144827842712
+  }
+ },
+ "noise_floor": {
+  "u4_vs_u4b": {
+   "video_abs_l2": 0.0,
+   "audio_abs_l2": 0.0
+  },
+  "u4_vs_u4c": {
+   "video_abs_l2": 0.0,
+   "audio_abs_l2": 0.0
+  },
+  "u4b_vs_u4c": {
+   "video_abs_l2": 0.0,
+   "audio_abs_l2": 0.0
+  },
+  "note": "exactly zero on three byte-identical repeats, so every difference below is real rather than run-to-run variation."
+ },
+ "HEADLINE": "THE ORDERING FROM THE LENGTH-39 RUN DOES NOT REPRODUCE, AND IT INVERTED. At 39 frames (Sol inert, pre-rewrite prompt, 1344x768) the order was u8 0.458 < u4 0.531 < opt4 0.552. Here it is opt4 0.523 < mix6 0.536 < u4 0.537 < u8 0.542 -- the best and worst arms have swapped ends. The spread also collapsed, from about 0.094 to 0.019 on a base of 0.52. The 2026-08-28 handoff and h3_pdd.md both said the length-39 ORDERING survived its supersession because every arm shared prompt, length, canvas, seed and Sol state. That reasoning was wrong: a shared confound cannot flip an ordering WITHIN a run, but the ordering is not a property of the partitions alone -- it is a property of the partitions at a length, canvas and prompt, and it did not survive changing them.",
+ "predictions_scored": {
+  "1_mix6_between_u8_and_u4": "REFUTED. mix6 0.53634 is below BOTH u4 0.53709 and u8 0.54198, i.e. closer to the reference than either. This was the outcome pre-registered as 'more interesting than it holding'.",
+  "2_zero_same_arm_floor": "CONFIRMED, exactly, on three repeats.",
+  "3_opt4_still_worse_than_uniform": "REFUTED, and reversed: opt4 is the CLOSEST arm here. The [28,2,1,1] refutation recorded on 2026-08-28 was a length-39 result and does not hold at 362.",
+  "4_audio_about_2x_video": "WEAKENED. Audio 0.858-0.992 against video 0.523-0.542 is about 1.7x, not 2x, and audio does not order with video: u8 has the BEST audio and the WORST video."
+ },
+ "what_this_does_NOT_license": [
+  "It does not say opt4 is the best partition. The spread is 0.019 on a base of 0.52 -- about 4% -- from ONE seed at ONE length on ONE canvas with ONE prompt. The zero floor makes the differences real, not important.",
+  "Every arm sits 0.52-0.54 from the reference with max|d| = 1.0, which is the different-sample regime CLAUDE.md describes rather than a degraded-version-of-the-same-sample regime. Read that as: at production settings this metric does not separate these partitions, rather than as a ranking with a new winner.",
+  "Nothing here is perceptual. Distance to the distilled trajectory is not quality, and no clip was judged.",
+  "The canvas is 1152x768, not the 1344x768 that ships."
+ ],
+ "supersedes": "bench/results/2026-08-28_pdd_partition_fidelity.json, whose surviving-ordering caveat is now itself withdrawn."
+}

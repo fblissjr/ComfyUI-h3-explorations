@@ -61,8 +61,34 @@ from PIL import Image
 SRV = "http://127.0.0.1:8188"
 REPO = Path(__file__).resolve().parent.parent
 BASE = REPO / "workflows/h3_text_to_video_pdd_4step_api.json"
-OUT = Path(os.environ.get("H3_OUTPUT_DIR", "")) if os.environ.get(
-    "H3_OUTPUT_DIR") else Path(__file__).resolve().parents[2] / "output"
+#: Where the server writes. `parents[2]` was `custom_nodes/`, which is not an
+#: output directory on any install -- this script rendered all seven arms and
+#: then died on `FileNotFoundError` at the first decode, throwing away the GPU
+#: time rather than the two seconds it would have cost to check first. Hence
+#: `_require_output_dir` below, called BEFORE anything is queued.
+#:
+#: The default is the stock location. This box does not use it: `start.sh`
+#: passes `--output-directory`, so set `H3_OUTPUT_DIR` to match or the arms
+#: render fine and grade nothing.
+OUT = (Path(os.environ["H3_OUTPUT_DIR"]) if os.environ.get("H3_OUTPUT_DIR")
+       else Path(__file__).resolve().parents[3] / "output")
+
+
+def _require_output_dir():
+    """Fail before rendering, not after.
+
+    A path that is wrong is wrong at import time, and every second spent
+    finding that out after the queue drains is a second of card time bought
+    for nothing.
+    """
+    if OUT.is_dir():
+        return
+    raise SystemExit(
+        f"output directory {OUT} does not exist, so nothing rendered here "
+        f"could be decoded. This machine's server is started with "
+        f"--output-directory (see start.sh), which this script cannot read "
+        f"from the API -- set H3_OUTPUT_DIR to the same path and re-run. "
+        f"Checked before queueing so no render is wasted.")
 # 362 is the trained production length. 39 was used on the first run and was
 # WRONG for two reasons found afterwards, both worth stating so nobody sets it
 # back: at 39 frames the packed sequence is 12,226 rows, which is 62 rows below
@@ -187,7 +213,9 @@ def audio_array(path):
 
 
 arms = sys.argv[1:] or list(ARMS)
-print(f"length={LENGTH} seed={SEED} arms={arms}")
+_require_output_dir()
+print(f"length={LENGTH} seed={SEED} canvas={CANVAS} arms={arms}")
+print(f"output dir {OUT}")
 res = {}
 for a in arms:
     print(f"[{a}]", flush=True)

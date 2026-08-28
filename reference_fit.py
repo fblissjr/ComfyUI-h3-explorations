@@ -136,23 +136,17 @@ class MiniMaxH3ReferenceFit(io.ComfyNode):
             category="model/conditioning/minimax",
             is_deprecated=True,
             description=(
-                "RETIRED 2026-08-28. Use MiniMaxH3AppendRefImage instead -- it "
-                "carries short_edge and allow_upscale itself, and MiniMax H3 "
-                "Reference Conditioning performs ONE resize with the target "
-                "canvas in scope.\n\n"
-                "This node still works and is kept registered ONLY so saved "
-                "graphs that wire it keep loading; no graph in this repo has "
-                "wired it since the typed reference path landed. Three reasons "
-                "not to reach for it in new work: chaining it into the append "
-                "node resamples TWICE (this resize, then the append's), it "
-                "cannot express size_policy=match at all because it hardcodes "
-                "max, and it has no qwen_short_edge -- so it cannot give the "
-                "text encoder a view separate from the VAE's, which is the "
-                "knob that keeps reference tokens from crowding the prompt out "
-                "of its own segment.\n\n"
+                "Deprecated. Use Append Picture instead, which carries "
+                "short_edge and allow_upscale itself.\n\n"
+                "This node still works, and is kept so existing workflows "
+                "that use it keep loading. Do not add it to new ones: placing "
+                "it in front of Append Picture resizes the image twice, it "
+                "cannot do size_policy=match, and it has no qwen_short_edge, "
+                "so it cannot give the text encoder a smaller copy than the "
+                "video model gets.\n\n"
                 "Two of its inputs, lift_downstream_clamp and "
-                "keep_towers_matched, are INERT and retained only to keep "
-                "saved-graph widget positions valid."
+                "keep_towers_matched, do nothing. They are kept so widget "
+                "positions in saved workflows stay valid."
             ),
             inputs=[
                 io.Image.Input("image"),
