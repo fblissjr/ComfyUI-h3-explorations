@@ -8,17 +8,17 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 | scene | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|
-| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | 17 | 276 | 3 | 2 | `<d>` |
+| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | 17 | 269 | 3 | 2 | `<d>` |
 | [`derived:h3_image_ref_plus_text_to_video`](#derivedh3-image-ref-plus-text-to-video) | 11 | 135 | 1 | 0 | — |
 | [`derived:h3_probe_capture_ref3`](#derivedh3-probe-capture-ref3) | 11 | 173 | 1 | 0 | — |
 | [`derived:h3_probe_cache_easy`](#derivedh3-probe-cache-easy) | 5 | 264 | 1 | 0 | — |
 | [`derived:h3_first_last_frame_to_video`](#derivedh3-first-last-frame-to-video) | 4 | 159 | 1 | 0 | — |
 | [`I2V_PROMPT`](#i2v-prompt) | 3 | 90 | 1 | 0 | — |
 | [`derived:h3_probe_ref2v_split_turbo_pack`](#derivedh3-probe-ref2v-split-turbo-pack) | 3 | 303 | 1 | 0 | — |
-| [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | 2 | 648 | 3 | 2 | `<d>` |
+| [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | 2 | 647 | 3 | 2 | `<d>` |
 | [`derived:h3_probe_release_video_policy`](#derivedh3-probe-release-video-policy) | 2 | 183 | 1 | 0 | — |
-| [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | 1 | 252 | 3 | 2 | `<d>` |
-| [`R2V_PROMPT`](#r2v-prompt) | 1 | 322 | 1 | 0 | — |
+| [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | 1 | 250 | 3 | 2 | `<d>` |
+| [`R2V_PROMPT`](#r2v-prompt) | 1 | 281 | 1 | 0 | — |
 | [`derived:h3_ref_audio_voice`](#derivedh3-ref-audio-voice) | 1 | 213 | 1 | 1 | `<d>` |
 | [`derived:h3_ref_image_audio`](#derivedh3-ref-image-audio) | 1 | 184 | 1 | 0 | — |
 | [`derived:h3_ref_video_continue`](#derivedh3-ref-video-continue) | 1 | 181 | 1 | 0 | — |
@@ -58,9 +58,9 @@ Carried by **17** graph(s). Sections: `integrated_multimodal_description`, `over
 
 ```text
 integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera tracks left at medium amplitude and moderate speed as a young porter (S2) steps into frame behind her shoulder.
-[Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter, a lean man in his twenties with a quick, bright tenor (S2), answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and coins clatter one after another into a metal tin on the counter.
-[Shot 3] At 00:09.000, the camera whip pans to a wide shot of the aisle as he carries both crates away between the stalls, shoppers stepping aside around him, while the stallholder turns back and stacks fruit into a pyramid with both hands, her lips closed.
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder.
+[Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and coins clatter one after another into a metal tin on the counter.
+[Shot 3] At 00:09.000, the camera holds a static shot, wide on the aisle, as he carries both crates away between the stalls, shoppers stepping aside around him, while the stallholder turns back and stacks fruit into a pyramid with both hands, her lips closed.
 
 overall_soundscape:
 Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, and the dry crackle of paper bags shaken open.
@@ -309,11 +309,11 @@ retention_analysis:
 detailed_description:
 Photorealistic live-action, 16:9, handheld on 35mm with visible grain, shallow depth of field, lit hard and from above by a single caged bulb on the stairwell ceiling so both faces carry a bright top edge and a deep shadow under the brow and jaw. The stairwell is poured concrete with painted cinderblock walls in a flat institutional green, a steel handrail running down out of frame, and a scuffed landing floor. The air is cold enough to be visible faintly on the breath at the end of the longer lines. The camera stays handheld throughout with small continuous drift from the operator's breathing, never a deliberate move. Each speaker's lips move only on their own line and are closed and still while the other speaks. Both faces stay in focus whenever they are in frame. No other people, no readable text, no signage, no costume changes, no music.
 
-[Shot 1, 00:00.000-00:06.000] A medium two-shot frames <Subject 1> in a charcoal wool coat, collar turned up, facing <Subject 2> in a navy jacket on the stairwell landing, the two of them a little closer than is comfortable. <Subject 1>, with a low measured voice (S1), says: <d>[English] You said tomorrow.</d> <Subject 2>, with a lower gravelled voice (S2), answers immediately: <d>[English] It moved.</d> She says at once: <d>[English] To when?</d> He says: <d>[English] Tonight.</d> Her jaw tightens, she does not step back, and the camera drifts a few degrees with the operator's breathing while the bulb hums overhead.
+[Shot 1] A medium two-shot frames <Subject 1> in a charcoal wool coat, collar turned up, facing <Subject 2> in a navy jacket on the stairwell landing, the two of them a little closer than is comfortable. <Subject 1>, with a low measured voice (S1), says: <d>[English] You said tomorrow.</d> <Subject 2>, with a lower gravelled voice (S2), answers immediately: <d>[English] It moved.</d> She says at once: <d>[English] To when?</d> He says: <d>[English] Tonight.</d> Her jaw tightens, she does not step back, and the camera shakes slightly with the operator's breathing while the bulb hums overhead.
 
-[Shot 2, 00:06.000-00:11.000] The camera cuts to a close-up of <Subject 1> against the painted cinderblock, the bulb throwing a hard edge down one cheek and leaving the other in shadow, a few strands of hair lit at the crown. She (S1) says: <d>[English] Who else knows?</d> Off screen he (S2) answers immediately: <d>[English] Nobody.</d> She says at once: <d>[English] Keep it that way.</d> She holds his eyeline a moment longer than the line needs, then looks past the camera and down toward the stairs below, her breath just visible.
+[Shot 2] At 00:06.000, the camera cuts to a close-up of <Subject 1> against the painted cinderblock, the bulb throwing a hard edge down one cheek and leaving the other in shadow, a few strands of hair lit at the crown. She (S1) says: <d>[English] Who else knows?</d> Off screen he (S2) answers immediately: <d>[English] Nobody.</d> She says at once: <d>[English] Keep it that way.</d> She holds his eyeline a moment longer than the line needs, then looks past the camera and down toward the stairs below, her breath just visible.
 
-[Shot 3, 00:11.000-00:15.000] The camera cuts to a close-up of <Subject 2>, the same hard overhead light picking out the lines around his eyes and mouth, rain noise faint through a window well behind him and a wet grey rectangle of light on the wall past his shoulder. He (S2) says: <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder with one hand, exhales once, and holds still with his lips closed until the final frame.
+[Shot 3] At 00:11.000, the camera cuts to a close-up of <Subject 2>, the same hard overhead light picking out the lines around his eyes and mouth, rain noise faint through a window well behind him and a wet grey rectangle of light on the wall past his shoulder. He (S2) says: <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder with one hand, exhales once, and holds still with his lips closed until the final frame.
 
 overall_soundscape:
 Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead. Two speaking voices, a measured adult female voice and a lower adult male voice, trading short clipped lines with almost no gap between them.
@@ -369,7 +369,7 @@ Carried by **1** graph(s). Sections: none.
 </details>
 
 ```text
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames a woman with dark shoulder-length hair in a charcoal wool coat facing a man with a close-cropped beard in a navy jacket on a concrete stairwell landing, lit hard from a caged bulb overhead. The woman with the low measured voice (S1) says, <d>[English] You said tomorrow.</d> The man with the lower gravelled voice (S2) answers immediately, <d>[English] It moved.</d> She says at once, <d>[English] To when?</d> He says, <d>[English] Tonight.</d> Her jaw tightens and the camera drifts a few degrees with the operator's breathing. [Shot 2] At 00:06.000, the camera cuts to a close-up of the woman against painted cinderblock, the bulb throwing a hard edge down one cheek. She (S1) says, <d>[English] Who else knows?</d> Off screen he (S2) answers immediately, <d>[English] Nobody.</d> She says at once, <d>[English] Keep it that way.</d> She looks past the camera toward the stairs below. [Shot 3] At 00:11.000, the camera cuts to a close-up of the man, rain noise faint through a window well behind him. He (S2) says, <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder, and holds still until the final frame.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames a woman with dark shoulder-length hair in a charcoal wool coat facing a man with a close-cropped beard in a navy jacket on a concrete stairwell landing, lit hard from a caged bulb overhead. The woman with the low measured voice (S1) says, <d>[English] You said tomorrow.</d> The man with the lower gravelled voice (S2) answers immediately, <d>[English] It moved.</d> She says at once, <d>[English] To when?</d> He says, <d>[English] Tonight.</d> Her jaw tightens and the camera shakes slightly with the operator's breathing. [Shot 2] At 00:06.000, the camera cuts to a close-up of the woman against painted cinderblock, the bulb throwing a hard edge down one cheek. She (S1) says, <d>[English] Who else knows?</d> Off screen he (S2) answers immediately, <d>[English] Nobody.</d> She says at once, <d>[English] Keep it that way.</d> She looks past the camera toward the stairs below. [Shot 3] At 00:11.000, the camera cuts to a close-up of the man, rain noise faint through a window well behind him. He (S2) says, <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder, and holds still until the final frame.
 
 overall_soundscape: Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead. Two speaking voices, a measured adult female voice and a lower adult male voice, trading short clipped lines with almost no gap between them.
 
@@ -378,7 +378,7 @@ non_diegetic_music: N/A
 
 ## R2V_PROMPT
 
-Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`.
 
 <details><summary>graphs</summary>
 
@@ -399,14 +399,8 @@ retention_analysis:
 <Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.
 
 detailed_description:
-The target video is in a cinematic live-action style with realistic natural textures, depth of field, and continuous motion throughout the ten-second sequence.
-[Shot 1] The shot opens on a wide-angle establishing perspective of <Subject 2>, framing the scene with organic spatial depth and clean perspective lines under the ambient light of the environment. From 0.0s to 2.5s, <Subject 1> enters steadily into frame from camera-left, stepping forward in full view while preserving the complete identity, form, and wardrobe specified by <Picture 1>. From 2.5s to 6.0s, the camera executes a controlled, slow-speed lateral truck to the right on a smooth dolly axis, tracking parallel to <Subject 1> as they reach the center of the frame and pause in a natural resting posture. During this middle interval, the lens maintains sharp optical focus on <Subject 1> while <Subject 2> recedes with gentle focal roll-off and accurate geometric parallax across the background layer. From 6.0s to 8.5s, <Subject 1> turns subtly toward the primary ambient light source of the environment, glancing slightly off-camera with a measured, contemplative expression, allowing their profile and form to be clearly visible without abrupt shifts in posture. From 8.5s to 10.0s, the camera holds steady on a balanced medium shot framing <Subject 1> against <Subject 2>, preserving subject presence, lighting equilibrium, and environmental continuity until the final frame without any camera cuts or sudden movements.
-
-overall_soundscape:
-Natural ambient atmosphere continues throughout the shot.
-
-non_diegetic_music:
-N/A
+The target video is in a cinematic live-action style with realistic natural textures, depth of field, and continuous motion throughout the fifteen-second sequence.
+[Shot 1] The shot opens on a wide establishing frame of <Subject 2>, organic spatial depth and clean perspective lines under the ambient light of the environment. From 0.0s to 3.0s, <Subject 1> enters steadily into frame from camera-left, stepping forward in full view while preserving the complete identity, form, and wardrobe specified by <Picture 1>. From 3.0s to 7.0s, the camera trucks right at slow speed, staying level with <Subject 1> as they reach the centre of the frame and pause in a natural resting posture, the lens holding sharp focus on <Subject 1> while <Subject 2> falls away behind them with gentle focal roll-off. From 7.0s to 11.0s, <Subject 1> turns toward the primary ambient light source of the environment, glancing slightly off-camera with a measured, contemplative expression, their profile clearly visible without abrupt shifts in posture. From 11.0s to 15.0s, the camera holds a static shot on a balanced medium framing of <Subject 1> against <Subject 2>, preserving subject presence, lighting equilibrium, and environmental continuity until the final frame, with no cuts.
 ```
 
 ## derived:h3_ref_audio_voice
