@@ -1431,17 +1431,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        "inputs": {"model": model_src, "lora_name": lora[0],
                                   "strength": lora[1],
                                   "patch_heads": pdd_heads,
-                                  # `head_blocks` replaced the old `nfe` Int
-                                  # on 2026-08-28: 0 used to mean "take the
-                                  # blocks from the sampler's schedule", which
-                                  # is the normal mode spelled as a falsy
-                                  # sentinel. The count is now nested under
-                                  # the branch that reads it, so a graph that
-                                  # is not forcing carries no count at all.
-                                  "head_blocks": ("forced" if pdd_nfe
-                                                  else "from schedule"),
-                                  **({"head_blocks.nfe": pdd_nfe}
-                                     if pdd_nfe else {}),
+                                  "nfe": pdd_nfe,
                                   # 0 on a split graph. There, `_sigma_src`
                                   # below keeps BasicScheduler and nothing
                                   # consumes this node's SIGMAS -- but a
