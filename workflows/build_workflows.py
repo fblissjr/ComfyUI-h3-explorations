@@ -4559,9 +4559,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                   title="PDD LoRA: what runs that the widgets do not show")
             lora_node = g.add(
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 170),
-                widgets=[lora[0], lora[1], pdd_heads,
-                         "forced" if pdd_nfe else "from schedule",
-                         *([pdd_nfe] if pdd_nfe else []),
+                widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
                          0 if split_at else _resolved_steps],
                 # `steps` is a socket in the UI form too, fed by the
                 # PrimitiveInt added below, so the value is visible on the
