@@ -1646,6 +1646,66 @@ no transition peak, strength composing natively — not that memory demands it.
 Reaching for a 933 MiB redesign to solve a 17.5 MiB shortfall is the wrong size
 of fix, and the record says so.
 
+## Step distillation adds MOTION, and this repo had no record of it
+
+**Owner observation, 2026-08-28, and it is not new to him.** Distilled arms
+generate more motion than the undistilled base — "cameras get shakier" — and he
+has seen it "a ton", first with the **LightX2V 4/8-step turbo LoRAs, before PDD
+existed**, and again in the PDD clips rendered on 2026-08-27 and 2026-08-28. He
+reports it as community-known for step distillation generally.
+
+**Nothing in this repo recorded it before today.** Grepped: no mention of
+distills and motion, shake, or temporal instability anywhere in `docs/`. That is
+the notable part — a repeatedly observed, cross-implementation behaviour of the
+exact technique this file is about, with no entry. It is not a PDD finding; PDD
+is where we happen to be looking at it.
+
+### The one measurement here, and what confounds it
+
+Dialogue scene, base 16-step against PDD 4-step, same prompt and seed, shot cuts
+masked, 336x192 greyscale:
+
+| | median motion | p90 | jitter | jitter/motion |
+|---|---|---|---|---|
+| base 16-step | 0.0047 | 0.0099 | 0.00085 | 0.179 |
+| PDD 4-step | 0.0082 | 0.0180 | 0.00118 | 0.145 |
+
+**1.72x the motion, 1.39x the jitter.** The jitter-to-motion RATIO falls, which
+says this is more movement rather than more frame-to-frame instability per unit
+of movement — shakier-looking because there is more of everything moving.
+
+**The confound, and it is in the prompt.** That scene's own text says *"the
+camera shakes slightly with the operator's breathing"*. Both arms share it, so
+the comparison is controlled — but "the distilled arm over-expresses a PROMPTED
+shake" is a weaker and different claim from "distillation invents motion". **The
+market prompt asks for no camera shake and is the clean substrate for this
+question. It is unmeasured for it.**
+
+### Separate from the partition effect, and they compound
+
+The partition axis shows the opposite sign: the coarse `[8,8,8,8]` arm has
+**0.79x** the motion of `[8,8,4,4,4,4]` and 1.01x the jitter — more sluggish and
+smeared, not shakier. So:
+
+  * **distillation** adds motion (base -> distilled), independent of partition;
+  * **coarse partitions** degrade under motion (+0.676 within-clip correlation).
+
+**A 4-evaluation arm is therefore bad twice over: it generates more of the thing
+it is least able to render.** Narrowing the tail addresses the second and
+nothing here addresses the first.
+
+### Why it matters beyond quality
+
+If distillation systematically adds motion, then a distilled arm is not a faster
+version of the same sample — it is a different one in a way that has a
+direction. Any comparison that treats a distilled clip as "the base, cheaper" is
+assuming something this observation contradicts.
+
+**Unmeasured and worth having:** whether it reproduces on the market scene
+(no prompted shake, both arms already rendered), and whether the turbo LoRAs
+show the same ratio, which would make it a property of step distillation rather
+than of PDD.
+
 ## Not measured
 
 - **Whether the fused heads change the output in a way anyone can see.** They
