@@ -1646,13 +1646,21 @@ no transition peak, strength composing natively — not that memory demands it.
 Reaching for a 933 MiB redesign to solve a 17.5 MiB shortfall is the wrong size
 of fix, and the record says so.
 
-## Step distillation adds MOTION, and this repo had no record of it
+## Distilled motion looks WRONG, not necessarily greater — and this repo had no record of it
 
 **Owner observation, 2026-08-28, and it is not new to him.** Distilled arms
-generate more motion than the undistilled base — "cameras get shakier" — and he
-has seen it "a ton", first with the **LightX2V 4/8-step turbo LoRAs, before PDD
-existed**, and again in the PDD clips rendered on 2026-08-27 and 2026-08-28. He
-reports it as community-known for step distillation generally.
+render camera movement worse — "cameras get shakier" — seen "a ton", first with
+the **LightX2V 4/8-step turbo LoRAs, before PDD existed**, and again in the PDD
+clips of 2026-08-27 and 2026-08-28. Reported as community-known for step
+distillation generally.
+
+> **REFINED by the owner on closer viewing, and the refinement matters.** *"Both
+> the base and the distills and pdds shake, but I guess it's less natural in the
+> pdd one and distills."* So it is **not** that distillation invents shake where
+> there was none — the base shakes too. The difference is in the CHARACTER of
+> the movement, not obviously its amount. That is a weaker and more specific
+> claim than the one this section originally made, and the numbers below should
+> be read through it.
 
 **Nothing in this repo recorded it before today.** Grepped: no mention of
 distills and motion, shake, or temporal instability anywhere in `docs/`. That is
@@ -1670,9 +1678,23 @@ masked, 336x192 greyscale:
 | base 16-step | 0.0047 | 0.0099 | 0.00085 | 0.179 |
 | PDD 4-step | 0.0082 | 0.0180 | 0.00118 | 0.145 |
 
-**1.72x the motion, 1.39x the jitter.** The jitter-to-motion RATIO falls, which
-says this is more movement rather than more frame-to-frame instability per unit
-of movement — shakier-looking because there is more of everything moving.
+**1.72x the motion, 1.39x the jitter**, with the jitter-to-motion RATIO falling.
+**But read that against the refinement above: both arms shake, so this is very
+likely the SAME prompted camera movement rendered differently rather than extra
+movement invented.** A magnitude metric cannot tell those apart.
+
+**An attempt to measure "less natural" did not work, and is recorded because the
+negative is useful.** Natural handheld shake is aperiodic and broadband, so a
+peakier motion spectrum should read as less natural. Two statistics on the same
+signal disagree in direction:
+
+    spectral flatness   base 0.0832   PDD 0.0646   (PDD peakier -> less natural)
+    peak / mean         base 76.1     PDD 61.2     (base peakier -> other way)
+
+**So this does not capture it.** One scene, one seed, and two measures pointing
+opposite ways is not a result; picking the agreeing one would be choosing a
+statistic for its answer. Whatever "less natural" is, frame-differenced motion
+magnitude and its spectrum do not see it.
 
 **The confound, and it is in the prompt.** That scene's own text says *"the
 camera shakes slightly with the operator's breathing"*. Both arms share it, so
