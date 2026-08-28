@@ -71,6 +71,23 @@ OUT = Path(os.environ.get("H3_OUTPUT_DIR", "")) if os.environ.get(
 # anything. The audio SHARE is not the problem (1.06% at 39, 1.11% at 362).
 LENGTH, SEED = 362, 730451892
 
+#: The `fast` tier of `h3_config.CANVAS_TIERS` -- exact 3:2, 864 tokens/frame,
+#: 0.73x the attention of the 1344x768 that ships. Chosen by the owner on
+#: 2026-08-28 for the re-run, and checked against the one constraint that makes
+#: a canvas wrong HERE rather than merely cheaper:
+#:
+#:   at 362 frames, latent_t is 107, so this is 92,448 video rows against
+#:   107,856 at 1344x768. Sol's `min_tokens` is 12,288 and it needs ~60k before
+#:   it does anything measurable (`h3_config` states both) -- so `fast` clears
+#:   both by a wide margin and Sol runs the production path. `draft`
+#:   (1024x768) is the tier that would NOT, which is why the tier is named
+#:   here rather than the pixels being tweaked freely.
+#:
+#: Still a trained canvas, so this is not the length-39 mistake in another
+#: axis. But it is NOT the shipped canvas, so a magnitude from this run is a
+#: statement about 1152x768; the ordering is what carries across.
+CANVAS = "1152x768  3/2  864 tok/frame  0.73x"
+
 #: Non-uniform arms, as the sigma vector each drives the sampler with. Written
 #: out rather than recomputed so the arm is legible in the payload and in the
 #: record -- and every one is a SUBSET of the 32 knots `pdd_time_grid(12, 32)`
@@ -110,6 +127,7 @@ def get(path):
 def build(arm):
     g = json.loads(BASE.read_text())
     g["27"]["inputs"]["length"] = LENGTH
+    g["27"]["inputs"]["shape.wide_resolution"] = CANVAS
     g["6"]["inputs"]["noise_seed"] = SEED
     g.pop("13", None)                       # muxer: re-encodes, and we compare tensors
     steps = ARMS[arm]
@@ -223,7 +241,8 @@ for i, a in enumerate(have):
 out = REPO / "bench/results/2026-08-28_pdd_partition_fidelity.json"
 out.write_text(json.dumps(
     {"date": "2026-08-28", "script": "bench/grade_pdd_partitions.py",
-     "length": LENGTH, "seed": SEED, "opt4_sigmas": OPT4,
+     "length": LENGTH, "canvas": CANVAS, "seed": SEED,
+     "manual_arm_sigmas": MANUAL,
      "reference": "steps=32, block width 1, the distilled trajectory",
      "against_reference": rows, "pairwise": pairs,
      # Emitted by the script rather than typed into the record, because a
@@ -245,6 +264,10 @@ out.write_text(json.dumps(
        "here; only length=39 is. An earlier hand-written version of this "
        "record called the canvas cheap, contradicting CLAUDE.md.",
        "One seed, one length, one canvas, one partition family.",
+       "The canvas is 1152x768, the `fast` tier -- trained, and above both of "
+       "Sol's thresholds at this length, so Sol runs the production path. But "
+       "it is NOT the 1344x768 that ships, so magnitudes here describe "
+       "1152x768; the ordering is what carries to the shipped canvas.",
        "PROMPT: this graph carries LONG_T2V_PROMPT (the market scene), which "
        "docs/prompt_audit.md verdicts `rewrite` on four official-guide defects "
        "and which the owner disqualified as a sample on 2026-08-27. Shared "
