@@ -1452,6 +1452,80 @@ for `.mp4` containers, met again in a different format one day later. Decode
 first, hash second; the note's advice was right and reaching for a different
 file format did not escape it.
 
+## What the artifact costs at run time, and whether it has to
+
+Raised by the owner on 2026-08-28: the file adds about a gigabyte at run time —
+is there a way to do that more efficiently without losing quality? Measured
+composition first, because the intuitive answer is wrong.
+
+### Where the gigabyte actually is
+
+By tensor group, on `minimax_h3_ref2va_pdd_8step_comfy.safetensors`:
+
+| group | MiB | share |
+|---|---|---|
+| **backbone rank-64 LoRA A/B pairs** | **933** | **88%** |
+| adaln baked delta | 83 | 7.8% |
+| head bank, 32 replicated heads | 42 | 4.0% |
+| grid / base head / alphas | ~1 | — |
+
+**The head bank is not the cost, and saying it was is a mistake this repo made
+out loud.** It is the part everyone reaches for because it is the unusual thing
+about PDD, and it is 4%. The node fuses the bank down to the requested
+evaluation count at load, so keeping only the fused heads would save about
+31 MiB. Worth doing as tidiness; it is not an answer to anything.
+
+### Why the backbone is dynamic, and whether it still needs to be
+
+The backbone installs through ComfyUI's native `add_patches`, so the pairs are
+held and the patched weights materialised. The argument for keeping A/B pairs
+separable is `strength`. **Across every shipped PDD node, `strength` is 1.0** —
+nothing uses the scaling the dynamic form exists to provide.
+
+There is also a precedent in this file: the adaln update WAS a runtime
+injection and is now a baked weight patch, which removed 50 forward patches, a
+`cdist` per forward and the per-call casts, at a measured worst 1.1e-4 relative
+— about thirty times below bf16's own resolution — with the converter refusing
+above 1e-3. So one of the three mechanisms has already had exactly this
+treatment, and the tooling and the discipline for grading it exist.
+
+### The blocker, which is real and is measurable
+
+Baking the backbone is NOT the same operation as baking the adaln. The adaln
+bake was a change of *representation* into a basis already present in the
+pruned checkpoint. Merging the backbone means folding a bf16 residual into an
+**INT8 ConvRot** base — dequantise, add, requantise — which is lossy in a way
+the adaln bake was not. `coderef/comfyui-minimax-h3-audio-T8` declines this step
+for that stated reason.
+
+Lossy is a measurement, not a verdict, and two instruments for it already exist:
+
+- `MiniMaxH3PDDLoRA`'s `strength=0.01` is documented as the way to price the
+  backbone's dequantise/add/requantise cost against `0.0`, which installs
+  nothing.
+- `bench/grade_sage_on_capture.py`'s method — grade against an exact reference
+  on captured activations — is the controlled comparison, and needs no render,
+  so it does not run into the different-sample rule.
+
+**What would settle it:** bake one partition, then grade merged against patched
+on captured activations with a bf16 reference. If the residual lands where the
+adaln bake did, ship a pre-merged checkpoint per partition and delete 933 MiB of
+run-time patching — which is the shape this repo already ships for everything
+else, since `MODELS` names four pre-converted checkpoints. If it lands near the
+INT8 quantisation floor, the current design was right and now for a stated
+reason. **Unrun.**
+
+### Do not justify it with the OOM
+
+The 2026-08-28 ref2va memory failure is recorded in
+`bench/results/2026-08-28_pdd_ref2va_memory_marginality.json`, and it does not
+support this work. The shortfall was **17.5 MiB**, not gigabytes; the same graph
+succeeded on retry; and the 31 MiB head-bank fuse alone might have cleared it.
+The case for baking the backbone is that it is *correct* — fewer moving parts,
+no transition peak, strength composing natively — not that memory demands it.
+Reaching for a 933 MiB redesign to solve a 17.5 MiB shortfall is the wrong size
+of fix, and the record says so.
+
 ## Not measured
 
 - **Whether the fused heads change the output in a way anyone can see.** They
