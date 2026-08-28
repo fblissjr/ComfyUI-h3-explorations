@@ -71,7 +71,7 @@ to differ in four inputs.
 
 | finding | rests on | status |
 |---|---|---|
-| artifacts track motion (+0.676) | MEASUREMENT, within-clip | stands |
+| **motion causes degradation in PDD arms** | **owner's REPEATED observation across many clips, plus an independent within-clip measurement (+0.676)** | **stands — the strongest thing here** |
 | corpus is biased low-motion (47.6% vs 0.0%) | MEASUREMENT | stands |
 | 4 evals has one legal partition | ENUMERATION | stands |
 | tail6 better than uniform-4 | one unblinded viewing | **indicative** |
@@ -79,7 +79,15 @@ to differ in four inputs.
 | 00004 and 00005 about equal | uncontrolled pair | **not usable** |
 | distilled shake "less natural" | one viewing, unmeasurable so far | **open** |
 
-**The measured half does not depend on the perceptual half.** The motion
+**The motion claim is the exception to the caution above, and the owner drew
+that line himself:** *"I do think motion causes degradation though — I'll stand
+by that one. In PDDs. I've seen it."* That is not one viewing of one pair; it is
+an accumulated observation across many clips, and it is the one perceptual claim
+here with an independent measurement pointing the same way. Two lines of
+evidence of different kinds agreeing is a different epistemic object from a
+single unblinded read, and it should not be discounted with them.
+
+**The rest of the measured half does not depend on the perceptual half.** The motion
 correlation, the corpus bias and the partition enumeration were computed from
 files and arithmetic. They would stand if every read below were withdrawn — and
 they are the reason to keep going, not the clips.
