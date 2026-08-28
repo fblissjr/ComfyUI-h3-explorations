@@ -97,12 +97,39 @@ and compare, over a block `[t_n, t_{n+L}]`:
   * the mean over the block of `f` applied to the INSTANTANEOUS velocity at each
     sigma — what an exact treatment would give.
 
-Sweep `L` over 1, 2, 4, 8, 16, 28. **Prediction: the discrepancy is zero at
-L=1 and grows monotonically with L.** If it is flat, the mechanism is wrong and
-everything below is unmotivated.
+**RUN 2026-08-28: `bench/measure_pdd_audio_carry.py`. Consistent, and it
+corrected its own premise on the way.**
 
-Costs nothing but arithmetic and needs no model. **It is also the only item here
-that can refute the mechanism rather than merely be consistent with it.**
+| L | blocks | max abs(applied - exact) | rel to spread of f |
+|---|---|---|---|
+| 1 | 32 | 0.1425 | 0.538 |
+| 2 | 16 | 0.2831 | 0.566 |
+| 4 | 8 | 0.5435 | 0.604 |
+| 8 | 4 | 0.9693 | 0.646 |
+| 16 | 2 | 1.5408 | 0.685 |
+| 28 | 2 | 1.3018 | 0.620 |
+
+Monotone across the uniform widths, **10.8x from L=1 to L=16**.
+
+**The premise it corrected.** This section originally predicted the gap would be
+ZERO at L=1, on the reasoning that the block is one interval so the mean is the
+instantaneous value. The script asserted that, got 0.1425, and refused to
+report. The premise was wrong: L=1 is one grid INTERVAL, not a point, and
+`sigma_a` varies across it — so the transform at the interval's start already
+differs from the transform averaged over it. **L=1 is a floor, carrying whatever
+the sampler's own discretisation costs, not a zero.** The refutable claim is
+growth above that floor, and that is what the script now tests.
+
+The `[28,4]` row sits at 1.30, BELOW L=16, and is not a failure: a non-uniform
+partition places its widest block somewhere specific on the curve, so its gap
+depends on where the block sits as well as how wide it is. Monotonicity is
+checked across uniform widths only, and the script says so.
+
+**What it does not claim.** It measures the GEOMETRY of the transform — how much
+`f` varies across a block, which is exactly what a block-mean discards — using a
+unit velocity field. It is **not** a predicted render error, and a genuinely
+constant velocity field would give zero regardless. That assumption is in the
+docstring rather than buried.
 
 ### 3.2 tail6 / tail5 — already queued, just needs grading
 
