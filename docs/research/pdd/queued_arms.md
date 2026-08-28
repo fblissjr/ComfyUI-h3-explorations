@@ -148,6 +148,27 @@ the full sizing axis. `match` had NEVER been rendered before tonight -- 84 of 84
 | `C_pdd8_s730451893` | done | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
 | `C_pdd8_s730451894` | not run -- cancelled while Sol was wrongly suspected of the OOM | 8 | 362 | on | 2 max up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
 
+### C2 vs C_pdd8 does NOT isolate Sol on the OOM -- read this before concluding
+
+    position  1  C_pdd8_s892         Sol ON    0/24 cached   OOM
+    position 23  C2_pdd8_nosol_s892  Sol OFF  17/23 cached   success, 511.0 s
+
+Same seed, same graph but for Sol. **The success is fully explained by cache
+position and says nothing about Sol.** The Sol-on arm ran first after a restart
+and paid the entire model load; the Sol-off arm ran twenty-two prompts later on
+a warm cache. "Sol off rendered where Sol on OOM'd" is unsupported, and it is
+the kind of sentence that survives being quoted.
+
+Isolating Sol on the OOM needs both arms at the same cache position, which
+means `--cache-none` or a cold server each -- see the cache section below.
+
+**What the pair DOES support, on the other axis:** Sol-off took 511.0 s where
+Sol-on at 8 steps took 388.0 s (`C_pdd8_s893`, 19/24 cached against 17/23).
+The cache fractions are close enough that a 32% gap is not explained by them,
+so **Sol is worth roughly a quarter of wall-clock at 8 steps on this graph.**
+That is a timing claim, and timing is what the cache confound bites hardest --
+treat it as indicative until it runs under a controlled protocol.
+
 ### C2 -- step count, clean
 
 4 vs 8 with Sol REMOVED from both
