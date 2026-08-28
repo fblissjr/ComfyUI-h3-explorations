@@ -938,3 +938,35 @@ more interesting than it holding: six evaluations beating eight would mean block
 distance to the distilled trajectory rather than to anything perceptual. It
 cannot say which arm looks or sounds better -- `docs/eval_comparison.md`'s blind
 path is the only thing that can, and it needs a distribution.
+
+### Scored, 2026-08-28. Three of four refuted.
+
+`bench/results/2026-08-28_pdd_partition_fidelity_362.json`.
+
+| # | prediction | outcome |
+|---|---|---|
+| 1 | `mix6` between `u8` and `u4` | **REFUTED.** 0.53634, below both — the outcome pre-registered as more interesting than it holding |
+| 2 | zero same-arm floor | **CONFIRMED**, exactly, on three repeats |
+| 3 | `opt4` still worse than uniform | **REFUTED, and reversed.** It is the closest arm here |
+| 4 | audio about 2x video | **WEAKENED.** ~1.7x, and audio does not order with video: `u8` has the best audio and the worst video |
+
+**What the run actually established is a null result, and it is worth more than
+the ranking would have been.** Every arm sits 0.52-0.54 from the reference with
+`max|d|` = 1.0. With a floor of exactly zero the differences are real, but a 4%
+spread on one seed among arms that are all equally far away is not a ranking —
+it is this metric failing to separate these partitions at production settings.
+
+**The methodological finding is the durable one.** The length-39 run's ordering
+was carried forward as the thing that survived its supersession, on the argument
+that every arm shared its confounds. That argument is wrong, and the error is
+worth naming because it is easy to repeat: a shared confound cannot flip an
+ordering *within* a run, but an ordering is not a property of the arms alone. It
+is a property of the arms at a length, a canvas and a prompt. Changing those
+changed it. **An ordering measured on a cheap axis is not a result that
+transfers to an expensive one — it is a result about the cheap axis.**
+
+Consequence for the six-evaluation question: unanswered. `mix6` is legal under
+the inferred `L_min`/`L_max` envelope where `opt4` is not, and it landed between
+them — but so did everything, so the arm did not discriminate. Settling it needs
+a metric that separates at production settings, or a blind perceptual
+distribution, not another run of this one.

@@ -555,6 +555,37 @@ better, and both are legal subsets of the same grid.
 > [`bench/results/2026-08-28_pdd_partition_fidelity.json`](../bench/results/2026-08-28_pdd_partition_fidelity.json),
 > which also carries what these magnitudes do NOT license.
 
+> **RE-RUN AT 362 FRAMES, 2026-08-28, AND THE ORDERING INVERTED.**
+> `bench/results/2026-08-28_pdd_partition_fidelity_362.json`, on the `fast`
+> tier (1152x768) with Sol active and the rewritten market prompt:
+>
+> | arm | video rel L2 | at length 39 |
+> |---|---|---|
+> | opt4 `[28,2,1,1]` | **0.52253** | 0.552, the worst |
+> | mix6 `[4,4,4,4,8,8]` | 0.53634 | not run |
+> | u4 / u4b / u4c | 0.53709 | 0.531 |
+> | u8 | **0.54198** | 0.458, the best |
+>
+> The best and worst arms swapped ends, and the spread collapsed from about
+> 0.094 to 0.019. The same-arm floor is again **exactly 0.00000** on three
+> byte-identical repeats, so this is not noise.
+>
+> **So the caveat above is itself withdrawn.** It said the length-39 ORDERING
+> survived because every arm shared prompt, length, canvas, seed and Sol state.
+> That reasoning was wrong: a shared confound cannot flip an ordering *within* a
+> run, but an ordering is not a property of the partitions alone -- it is a
+> property of the partitions at a length, a canvas and a prompt, and it did not
+> survive changing them. **Quote neither ordering.**
+>
+> What the re-run supports is weaker and more useful: at production settings
+> every arm sits 0.52-0.54 from the reference with `max|d|` = 1.0, which is the
+> different-sample regime rather than a degraded-version-of-one-sample regime.
+> **This metric does not separate these partitions at 362 frames.** Read that as
+> a null result, not as a new winner -- 4% on one seed is not a ranking. The
+> `[28,2,1,1]` refutation recorded earlier the same day is withdrawn with the
+> rest; it was a length-39 result.
+
+
 **The paper explains the refutation, which the measurement alone could not.**
 §3's training rule is the constraint the DP search ignored: *"during
 training, we consider multiples of `L_min` for indices `n` of initial states
