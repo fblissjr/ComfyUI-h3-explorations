@@ -60,7 +60,7 @@ without it, **convenience** means the graph could be wired by hand instead, and
 | `MiniMaxH3ReferenceVideoFit` | convenience | **no** |
 | `MiniMaxH3Preflight` | instrumentation | yes |
 | `MiniMaxH3SLARouter` | instrumentation (comparative arm) | one arm |
-| `MiniMaxH3VAEPrecision` | instrumentation | one arm |
+| `MiniMaxH3VAEPrecision` | instrumentation | the fp32 probe arm, not the canonical graphs |
 | `MiniMaxH3ProvenanceStamp` | instrumentation | bench only |
 | `MiniMaxH3MarkerArm` | instrumentation | **no** |
 | `MiniMaxH3SolAttnCurve` | instrumentation | **no** |
@@ -267,12 +267,28 @@ fresh noise every step, and H3 declares no noise-scale override, so the term is
 live. Deliberate and recorded in `workflows/h3_config.py::SAMPLING`; **enforced by
 nothing** for the PDD arms, where `docs/checks.md` already carries the row.
 
-**3. Video VAE precision — again three-against-one.** diffusers pins the VAE's
-encoder, decoder and both conv layers in fp32 and decodes under autocast;
-DiffSynth loads the release fp32 file. Our graphs load the fp16 build and wire
-no `MiniMaxH3VAEPrecision` node, so both halves are fp16. The node exists,
-defaults its encoder to fp32, and is simply unwired. **The cheapest thing in
-this document to test.**
+**3. Video VAE precision — three-against-one on the shipped default, and
+already graded.** diffusers pins the VAE's encoder, decoder and both conv layers
+in fp32 and decodes under autocast; DiffSynth loads the release fp32 file. The
+**three canonical graphs** load the fp16 build and wire no
+`MiniMaxH3VAEPrecision`, so both halves are fp16 there.
+
+**Corrected 2026-08-28, and the correction matters more than the finding.** An
+earlier version of this row said the node "is simply unwired" and called wiring
+it the cheapest thing here to test. Both halves were wrong. It is wired, in
+`h3_probe_ref_vae_encoder_fp32*` against the matched `..._fp16*` control, and
+[`comfyui_vendor_gaps.md`](comfyui_vendor_gaps.md) already names the pair. And
+the knob is already answered: `bench/results/2026-08-21_vae_encoder_precision.json`
+holds the graded comparison, which `bench/grade_vae_encoder_precision.py` opens
+by explaining had to be a graded one — encoder precision is a numerical knob,
+and a rendered pair cannot A/B one. **The defect was a dropped scope**: a source
+read established that the three canonical graphs wire no such node, and this
+document generalised it to "nowhere". Exactly the boundary error CLAUDE.md warns
+about, committed inside a document arguing for care about boundaries.
+
+What remains open is narrower and is a decision, not a measurement: whether the
+shipped default should follow the graded result. That is the owner's call and
+`comfyui_vendor_gaps.md` owns the row.
 
 **4. Condition latents are the posterior mean, not a seeded sample.** Owned by
 [`h3_references.md`](h3_references.md), open, unchanged.
@@ -422,9 +438,10 @@ and does not carry this caveat.
    carries live Sol (*measured*, this session). The configuration is right and
    the A/B pairing is intact — only the prose is inverted. No check reads
    generator comments.
-2. **Wire `MiniMaxH3VAEPrecision`, or record why not.** Three implementations
-   run a more precise VAE than we do; the node already exists and defaults the
-   way they run.
+2. **Decide the shipped VAE default against the result we already have.** Not
+   a measurement — `bench/results/2026-08-21_vae_encoder_precision.json` graded
+   it on 2026-08-21 and the probe arms exist. The open part is whether the
+   canonical graphs should follow it, which is a decision.
 3. **Extend the SLA router to the token refiner**, or record the asymmetry
    against `open_experiments.md` #20 now that the LoRA's key set confirms it.
 4. **Run the encoder-bounds arm.** Weights fixed, bounds varied — the arm
