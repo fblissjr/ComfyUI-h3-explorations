@@ -463,6 +463,56 @@ Emitted sigmas at shift 12, where a schedule exists at all:
   there is no on-grid schedule to emit, so there is nothing honest to hand the
   sampler.
 
+### The uniform partition is not the only legal one, and it may not be the best
+
+Asked 2026-08-28: can an optimal block partition be *derived* rather than
+chosen? For `nfe` the answer is trivial -- its optimum is `nfe=0`, which takes
+the blocks from the schedule. The interesting question is whether the SCHEDULE
+should be uniform, and the answer is measured and surprising.
+
+**Every contiguous span of the 32-point grid has a well-defined fused head** --
+that is the whole point of shipping the bank rather than `nfe` pre-fused heads.
+So a partition does not have to be uniform; it only has to be a subset of the
+grid knots. Minimising the worst per-block fusion loss over ALL partitions
+(dynamic programming over the 528 spans, `dt`-weighted RMS of each block's heads
+against their own fused head):
+
+| nfe | uniform widths | worst | optimal widths | worst | |
+|---|---|---|---|---|---|
+| 4 | `[8,8,8,8]` | 0.0309 | `[28,2,1,1]` | 0.0105 | 2.95x |
+| 8 | `[4]*8` | 0.0335 | `[1,1,2,1,23,2,1,1]` | 0.0098 | 3.40x |
+
+Audio behaves the same way, 1.80x at nfe=4 and 3.10x at nfe=8.
+
+`[28,2,1,1]` reads as degenerate and it is not -- **the uniform partition is the
+lopsided one.** Under shift 12 the time grid is heavily back-loaded, so as a
+share of the trajectory each Euler step integrates:
+
+    uniform [8,8,8,8]    2.7%   5.0%  12.3%  80.0%
+    optimal [28,2,1,1]  36.8%  18.7%  16.5%  27.9%
+
+At four evaluations the standard schedule spends one step on 80% of the
+trajectory and the other three on 20% between them. So on both axes measured --
+fusion loss, and arc integrated per step -- the non-uniform partition looks
+better, and both are legal subsets of the same grid.
+
+**Stated as a prediction, not a result.** Fusion loss is a weight-space proxy:
+it measures how far a block's heads sit from their own mean, and it does NOT
+measure the integration error of freezing the hidden state across the span, nor
+whether a non-standard sigma set is off-distribution for the DiT. The uniform
+partition is the schedule these models are normally run at, and deviating from
+it is untested here.
+
+**It costs nothing to test.** Both are just sigma vectors, and neither needs a
+code change -- `ManualSigmas` or `FloatToSigmas` into `SamplerCustomAdvanced`
+does it, and the tracker derives blocks from whatever it is handed and reports
+an uneven partition rather than refusing:
+
+    uniform  sigmas [1.0, 0.972973, 0.923077, 0.8,      0.0]
+    optimal  sigmas [1.0, 0.631579, 0.444444, 0.27907,  0.0]
+
+Matched seed, `C2`-style with Sol removed from both sides, is the arm.
+
 ### Audio is the first thing a low step count costs, and there is a known fix
 
 Two more packs on this box speak to the question this section opened with, and
