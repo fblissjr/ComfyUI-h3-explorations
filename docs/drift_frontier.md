@@ -8,6 +8,12 @@ A row whose reasoning is edited away stops being a record.
 Status values: `open` (needs the owner) · `settled` (decided, not built) ·
 `done` (built and verified) · `dropped` (decided against, reason recorded).
 
+**Next sweep: 2026-09-28.** At a sweep every `open` row is either moved to
+`settled`, `done` or `dropped` -- `dropped` with a recorded reason is a result,
+not a failure -- or re-dated with why it is still open. A row that survives two
+sweeps unchanged is `dropped` in everything but name and should be relabelled.
+Adopted 2026-08-28; [`sustainability.md`](sustainability.md) argues the case.
+
 Numbers here are descriptive, so they carry an observation point. Anything
 without one is a defect in this file.
 

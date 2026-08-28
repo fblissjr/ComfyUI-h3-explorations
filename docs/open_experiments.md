@@ -26,6 +26,24 @@ Each entry states its **blocker** honestly. Several are blocked on a judgment
 only the owner can make, not on machine time, and those will not resolve by
 running them harder.
 
+
+## Aging: this file is swept, not accumulated
+
+**Next sweep: 2026-09-28.** At a sweep every entry is either **closed** --
+which includes "we are living with this, reviewed `<date>`", a real and
+different state from open -- or **re-dated with a reason**. An entry that
+survives two sweeps with the same reason is not open, it is declined, and
+should say so.
+
+Adopted 2026-08-28. The reason is measured rather than felt: this file's
+numbered sections went 7, 8, 13, 16, 19, 21, 24, 24 across sampled commits --
+monotone at every sample. Nothing here prevents false belief; the machinery for
+that is good. What was missing is anything that makes an open question more
+expensive to leave open, and a sweep date is the cheapest version of that.
+[`sustainability.md`](sustainability.md) argues the case;
+[`research/pdd/queued_arms.md`](research/pdd/queued_arms.md) is where the
+convention already worked in one lane.
+
 ---
 
 ## 1. Reference `short_edge`, sweeping down from 2048

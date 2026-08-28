@@ -180,6 +180,28 @@ repeating work.
 - **Prefer a control the check compares against** — a frontend-written graph,
   the pre-fix code, an independent implementation — over asserting against
   numbers the test computed itself.
+- **After a fix, ask which code paths were DEAD before it and are live after.**
+  Those are unexercised by construction and no existing test covers them,
+  because until the fix there was nothing to cover. **Four instances on
+  2026-08-28, three of them the same day as each other.** `smoke_h3.py --steps`
+  had been a no-op on PDD graphs, so nothing had ever evaluated its default
+  against `resolve_emit_steps`; making it work made the default raise on every
+  PDD graph. The PDD node emitting SIGMAS made a schedule reachable that
+  `BasicScheduler` had always supplied, and the headfree arm consumed it with
+  no guard. The shift guard made a comparison reachable that had never run, and
+  was silent on the exact render it was written for. Each fix was correct in
+  itself; **a correct fix moves where a constraint applies, and it moves it
+  somewhere nobody is looking.** Verifying the thing you changed is not
+  verifying the thing your change newly touches.
+- **"It works" is not "it was trained for".** A capability that functions
+  because a code path has no bounds check is not one the model was trained to
+  do. Established for prompt structure above; it applies to layout, geometry and
+  conditioning too, and the question to ask of any knob is **does the vendor's
+  own pipeline ever produce this input?** Instances: a third-party pack pins
+  audio at a fractional negative keyframe index that stock nodes cannot produce
+  and the release never emits — it works because core applies no cast and no
+  bounds check. Our own `qwen_short_edge` view split currently answers no to
+  the same question, which is why it is priced rather than proven.
 - **The same standard applies to claims, and re-reading your own work does not
   meet it.** On 2026-08-13, eight substantive defects were found here and in the
   sage fork; not one was caught by whoever wrote it. Every one came from a

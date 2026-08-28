@@ -289,6 +289,13 @@ WHY: same pack, same deletion. Cited for the opposite reason -- it is the H3
 
 ## Uncontrolled requirements
 
+**Next sweep: 2026-09-28.** At a sweep every row reading "nothing" is either
+given a control, or re-stated as a deliberate decision not to build one with the
+reason recorded. Per this file's own no-new-check rule most will correctly stay
+"nothing" -- the sweep exists so that staying uncontrolled is a judgement
+somebody made rather than a row nobody read. Adopted 2026-08-28;
+[`sustainability.md`](sustainability.md) argues the case.
+
 The standing audit. For each imperative a person could violate in code, the
 question is *what assertion goes red if someone ignores this?* `CLAUDE.md` is
 swept; a full sweep of `docs/` is not done.
