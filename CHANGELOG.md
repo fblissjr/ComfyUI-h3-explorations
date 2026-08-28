@@ -95,6 +95,15 @@ artifact.
   needs nothing from the PDD head schedule, which is what makes it applicable
   here. Not run; the composition with our patches is untested.
 
+  **The supporting measurement is length-limited, flagged 2026-08-28.** The
+  partition grading behind "audio diverges about twice as far as video" ran at
+  39 frames, where the packed sequence is 12,226 rows -- 62 below Sol's
+  `min_tokens` of 12,288, so Sol was inert and no arm ran the production
+  attention path. The graph also carries the market prompt
+  `docs/prompt_audit.md` verdicts `rewrite`. The ORDERING survives, since every
+  arm shares the confound; the magnitudes and the audio-versus-video ratio do
+  not. `bench/grade_pdd_partitions.py` now defaults to 362.
+
 - **A sixth PDD implementation, and the strictest.**
   `coderef/comfyui-minimax-h3-audio-T8/pdd_advanced.py` raises on anything but
   the exact 8-evaluation schedule and separately verifies video shift 12 to
