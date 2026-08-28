@@ -42,6 +42,57 @@ evaluated at this step's `sigma_a`.
 fused head runs in the clean-audio domain and the transform is applied to its
 output. **That placement is correct** — this is not the bug.
 
+### The transform is AFFINE, which sharpens the claim and then weakens it
+
+Raised by a peer session 2026-08-28 and confirmed. The transform is affine in
+`out[1]`:
+
+    out[1] = A + B * out[1]        A = (1-s) * audio_src * carry
+                                   B = 1 + (s-1) * sigma_a
+
+**Affine maps commute with averaging.** So a fused head returning a block MEAN
+is harmless in principle — that was not the right framing, and the first version
+of this section had it. The error is entirely that the code **freezes A and B at
+the block's starting sigma** while they vary across the block.
+
+That is pure schedule arithmetic and needs no model, so it can be computed.
+Relative variation of B across a block, `(Bmax-Bmin)/mean(B)`, at shift_v 12:
+
+| audio_shift | s | w=4 | w=8 | w=28 |
+|---|---|---|---|---|
+| 12 | 1.00 | 0 | 0 | 0 |
+| 6 | 2.00 | 0.384 | 0.522 | 0.316 |
+| **3 (ships)** | **4.00** | **0.663** | **0.980** | **0.778** |
+| 1 | 12.00 | 0.918 | 1.518 | 1.991 |
+
+**It is not monotone in width**, because a 28-wide block sits mostly in the flat
+early region. Where a block sits matters as much as how wide it is.
+
+### And computed per ARM, it does not reproduce the observed ordering
+
+| arm | widths | max relvar B | observed audio/video |
+|---|---|---|---|
+| u8 | [4]x8 | 0.664 | 1.58 |
+| mix6 | [4,4,4,4,8,8] | 0.981 | 1.68 |
+| u4 | [8]x4 | 0.981 | 1.72 |
+| **opt4** | **[28,2,1,1]** | **0.779** | **1.90** |
+
+    ranked by coefficient variation:  u8 < opt4 < mix6 = u4
+    ranked by observed penalty:       u8 < mix6 < u4 < opt4      MISMATCH
+
+**One real hit and one real miss.** The mechanism predicts `mix6` and `u4` land
+nearly on top of each other — identical coefficient variation, since both have a
+widest block of 8 in the same position — and observed they are 1.68 and 1.72,
+the closest pair in the set. That is a non-trivial prediction.
+
+But it puts `opt4` mid-pack, and `opt4` is observed WORST by a clear margin.
+**So coefficient variation is not sufficient to explain the arm ordering.**
+
+A candidate reconciliation: `opt4` is the arm that is off-distribution
+(`[28,2,1,1]` starts two blocks at 30 and 31, not multiples of `L_min`), so its
+penalty may be off-distribution-ness rather than the transform. **That is
+post-hoc and is not evidence.** It is written here so nobody advances it as one.
+
 ### The inference
 
 A fused head does not return an instantaneous velocity. It returns the block's

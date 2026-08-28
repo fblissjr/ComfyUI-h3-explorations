@@ -48,6 +48,23 @@ its own README. Unrelated to audio; land it in one commit after a restart.
 
 ## The experiments, in order
 
+### A0. Compute the coefficient variation per arm — free, and it already
+### partly failed
+
+The transform is AFFINE in `out[1]` (`A + B*out[1]`), so block-averaging is
+harmless in principle and the error is the variation of `A` and `B` ACROSS the
+block, which the code freezes at the block's start. That is schedule arithmetic
+and needs no model.
+
+**Computed per arm it does NOT reproduce the observed ordering** — see
+[`audio_under_pdd.md`](audio_under_pdd.md). It correctly predicts `mix6` and
+`u4` land together (identical variation, and they are the closest observed
+pair), and it puts `opt4` mid-pack when `opt4` is observed worst.
+
+**So the mechanism is not sufficient as stated.** Anything you conclude has to
+either explain `opt4` or exclude it with a reason that is not post-hoc. Start
+here, because it is free and because it is the part currently failing.
+
 ### A. Grade tail6 / tail5 — free if they rendered
 
 They exist for an unrelated reason (a VIDEO argument about the final Euler
@@ -69,12 +86,39 @@ torch and comfy.)
   worse audio".
 - Video moves too -> the audio-only half is wrong; look for a shared cause.
 
-### B. The identity-transform diagnostic — one render, the direct test
+### B. The shift arms — and B ALONE IS A CONFOUND
 
-Set `shift_audio` equal to `shift_video` on `MiniMaxH3SigmaShift`. Then
-`s = shift_v/shift_a = 1` and the transform collapses to `out[1] = out[1]`.
+**This section was rewritten 2026-08-28 after a peer found the hole. The
+original plan was one render and it could not have concluded anything.**
 
-**Read this before queueing it:**
+Setting `shift_audio = shift_video` does TWO things at once: it removes the
+transform AND moves audio onto shift 12. If audio improves you cannot separate
+"the PDD interaction is gone" from "audio simply prefers shift 12". **A positive
+result from that arm alone IS the confound.**
+
+You need the same change at a step count where PDD's blocks are narrow enough
+that the mechanism predicts little:
+
+|  | s = 4 (ships) | s = 1 |
+|---|---|---|
+| **PDD 4-step** | have it | the render originally planned |
+| **base 16-step** | likely have it | **the cell that disambiguates** |
+
+- Collapse under PDD but **not** at 16 steps -> the interaction is real.
+- Collapse in **both** -> a schedule preference, and it says nothing about PDD.
+
+**A third point, cheap and worth more than either:** `audio_shift = 6` gives
+`s = 2`, where the coefficient variation is about 55% of the shipped value. The
+mechanism predicts a PARTIAL collapse. **A schedule preference has no reason to
+respond gradedly in `s`**, so a graded response is much harder to explain away
+than a binary one.
+
+**And `s = 1` is not an ablation of one term.** `comfy/ldm/minimax/model.py`
+guards the whole block with `if scale != 1.0`, so at `s = 1` no carry happens at
+all — it is a different sampling configuration, not the transform with identity
+coefficients. Do not describe it as an ablation.
+
+**Read this before queueing any of it:**
 
 - `MiniMaxH3PDDLoRA` has a run-time shift guard (`8e82c51`) that refuses a
   render whose shift is not the file's. This arm WILL trip it. Satisfy it
