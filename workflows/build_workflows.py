@@ -410,7 +410,7 @@ T2V_SCENES = {
 
 
 def scene_prompt(name: str, *, first_frame: bool = False,
-                 last_frame: bool = False) -> str:
+                 last_frame: bool = False, length: int = LONG_LENGTH) -> str:
     """A baseline scene rendered for the task its sockets describe.
 
     The t2v and keyframe paths share one node and one three-field layout, so a
@@ -478,18 +478,29 @@ def scene_prompt(name: str, *, first_frame: bool = False,
     # This function is still uncalled (the shipped graphs run on the prompt
     # constants above), so the defect never reached a graph -- but it was
     # staged for exactly the task that would have hit it first.
+    # `Shot N` and `S.SS` are PLACEHOLDERS in the guide's templates and must be
+    # resolved against this graph, exactly as `fl2v_prompt` does. Emitting them
+    # literally is what this function did until 2026-08-28: the fl2va branch
+    # resolved the shot index and left `S.SS`, and the L2VA branch left BOTH --
+    # so an L2VA prompt carried the string "[Shot N]" and "S.SS" into the
+    # render. `preflight_graph._expected_base_alignment` compares this line by
+    # exact string against the guide, so it would have failed the moment a
+    # graph called this; the bug survived only because nothing did.
+    seconds = duration_of(snap_length(length))
+    shots = [int(n) for n in re.findall(r"\[Shot (\d+)\]", text)]
+    final_shot = max(shots) if shots else 1
     if first_frame and last_frame:
         line = ("How the reference pictures align with the target video \u2014 "
                 "Picture 1 (from Shot 1) aligns with the 0.00-second mark of "
-                f"the target video; Picture 2 (from Shot {FL2V_FINAL_SHOT}) "
-                "aligns with the S.SS-second mark of the target video.")
+                f"the target video; Picture 2 (from Shot {final_shot}) "
+                f"aligns with the {seconds:.2f}-second mark of the target video.")
     elif first_frame:
         line = ("For the target video, at 0.00 seconds into the target video, "
                 "<Picture 1> (from [Shot 1]) is fully referenced.")
     else:
         line = ("How the reference pictures align with the target video \u2014 "
-                "<Picture 1> (from [Shot N]) aligns with the S.SS-second mark "
-                "of the target video.")
+                f"<Picture 1> (from [Shot {final_shot}]) aligns with the "
+                f"{seconds:.2f}-second mark of the target video.")
     return line + "\n\n" + text
 
 # h264-mp4 rather than h265 or an nvenc variant: software x264 at crf 19 is
