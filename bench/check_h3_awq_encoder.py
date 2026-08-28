@@ -51,7 +51,6 @@ import comfy.cli_args  # noqa: E402
 from build_h3_awq_standalone import (  # noqa: E402
     COMPARE_WORKFLOW_FILENAME,
     CONFIG_DIR as STANDALONE_CONFIG_DIR,
-    README_FILENAME,
     MODEL_FILENAME,
     WORKFLOW_SUBDIR,
     FIRST_LAST_WORKFLOW,
@@ -429,8 +428,12 @@ def standalone_distribution_contract():
         written = build_standalone(output_dir)
         # The loader is emitted at the root and the workflows one level down;
         # see build_h3_awq_standalone.build() for why that split is load-bearing.
+        # No README, deliberately: the builder stopped emitting one on
+        # 2026-08-27 because the published card is hand-maintained and a
+        # generated one would clobber its calibration description, its
+        # four-encoder table and its reference-crowding warning. Asserting the
+        # exact set is what keeps that decision from silently reverting.
         expected_names = {STANDALONE_FILENAME,
-                          README_FILENAME,
                           f"{WORKFLOW_SUBDIR}/{COMPARE_WORKFLOW_FILENAME}",
                           *(f"{WORKFLOW_SUBDIR}/{n}" for n in WORKFLOWS)}
         assert {str(path.relative_to(output_dir)) for path in written} == expected_names
