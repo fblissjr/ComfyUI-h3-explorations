@@ -30,6 +30,11 @@ Two further things make it exact rather than approximate:
   u4      uniform [8,8,8,8]              what the 4-step graphs ship
   u8      uniform [4]*8                  what the authors ship
   opt4    [28,2,1,1]                     the fusion-loss optimum at 4 evals
+  u4b/u4c byte-identical repeats of u4    the NOISE FLOOR, and the reason any
+                                          ordering below can be believed. Without
+                                          them a difference cannot be told from
+                                          run-to-run variation, which this
+                                          pipeline was wrongly assumed to have.
 
 ## What it measures, and why per stream
 
@@ -42,6 +47,7 @@ Everything is compared on decoded output, never on file bytes: SaveImage embeds
 the prompt JSON, which already produced one false negative in this lane.
 """
 import json
+import os
 import subprocess
 import sys
 import time
@@ -53,9 +59,10 @@ import numpy as np
 from PIL import Image
 
 SRV = "http://127.0.0.1:8188"
-REPO = Path("/home/fbliss/ComfyUI/custom_nodes/ComfyUI-h3-explorations")
+REPO = Path(__file__).resolve().parent.parent
 BASE = REPO / "workflows/h3_text_to_video_pdd_4step_api.json"
-OUT = Path("/mnt/hub/ai/img/output")
+OUT = Path(os.environ.get("H3_OUTPUT_DIR", "")) if os.environ.get(
+    "H3_OUTPUT_DIR") else Path(__file__).resolve().parents[2] / "output"
 LENGTH, SEED = 39, 730451892
 
 #: [28,2,1,1] on the shift-12 grid. Written out rather than recomputed so the
@@ -162,8 +169,47 @@ for a in arms:
     print(f"{a:<7} {vrel:>14.5f} {vmax:>13.5f} "
           f"{'n/a' if arel is None else f'{arel:>14.5f}'}")
 
-Path(__file__).with_name("pdd_reference_trajectory_result.json").write_text(
-    json.dumps({"length": LENGTH, "seed": SEED, "opt4_sigmas": OPT4,
-                "reference": "steps=32, block width 1, the distilled trajectory",
-                "arms": rows}, indent=1) + "\n")
-print("\nwrote pdd_reference_trajectory_result.json")
+# Pairwise distances, including the same-arm repeats that ARE the noise floor.
+# The committed record reported these while this script computed only
+# arm-vs-reference, so three of its numbers could not be reproduced by the file
+# it named. They are computed here now, and written to the path the record uses.
+pairs = {}
+have = [a for a in arms if not res[a].get("error")]
+for i, a in enumerate(have):
+    for b in have[i + 1:]:
+        va, vb = video_array(res[a]["frames"]), video_array(res[b]["frames"])
+        entry = {"video_rel_l2": float(np.linalg.norm(va - vb) / np.linalg.norm(vb))}
+        if res[a]["audio"] and res[b]["audio"]:
+            xa, xb = audio_array(res[a]["audio"][0]), audio_array(res[b]["audio"][0])
+            n = min(xa.size, xb.size)
+            entry["audio_rel_l2"] = float(
+                np.linalg.norm(xa[:n] - xb[:n]) / (np.linalg.norm(xb[:n]) + 1e-12))
+        pairs[f"{a}_vs_{b}"] = entry
+
+out = REPO / "bench/results/2026-08-28_pdd_partition_fidelity.json"
+out.write_text(json.dumps(
+    {"date": "2026-08-28", "script": "bench/grade_pdd_partitions.py",
+     "length": LENGTH, "seed": SEED, "opt4_sigmas": OPT4,
+     "reference": "steps=32, block width 1, the distilled trajectory",
+     "against_reference": rows, "pairwise": pairs,
+     # Emitted by the script rather than typed into the record, because a
+     # hand-added caveat is the same defect as a hand-added number: it drifts
+     # from what the run actually supports and cannot be regenerated.
+     "do_not_rely_on": [
+       "These magnitudes are NOT calibrated to perception. Nothing here says "
+       "what rel L2 0.5 looks like or 1.0 sounds like. Only the ORDERING and "
+       "the exactly-zero same-arm floor are load-bearing.",
+       "Raw-waveform L2 is phase-sensitive and a poor audio metric in general. "
+       "It is used here only because every arm shares a seed and the pipeline "
+       "is bit-deterministic, so a phase offset is not an innocent "
+       "explanation -- but an uncorrelated waveform still does not mean it "
+       "sounds bad.",
+       "The reference is the distilled 32-point trajectory, NOT a claim that "
+       "it is the best-sounding render. Faithfulness to it is a different "
+       "question from quality.",
+       "1344x768 is a TRAINED canvas, so the canvas is not the cheap axis "
+       "here; only length=39 is. An earlier hand-written version of this "
+       "record called the canvas cheap, contradicting CLAUDE.md.",
+       "One seed, one length, one canvas, one partition family."]},
+    indent=1) + "\n")
+print(f"\nwrote {out.relative_to(REPO)}")

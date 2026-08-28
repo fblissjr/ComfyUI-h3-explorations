@@ -411,7 +411,12 @@ def read_ui(doc) -> Found:
             loras.append(w[0])
             if len(w) >= 2 and isinstance(w[1], (int, float)):
                 strengths[str(w[0])] = float(w[1])
-            # MiniMaxH3PDDLoRA widgets: [name, strength, patch_heads, nfe]
+            # MiniMaxH3PDDLoRA widgets:
+            #   [name, strength, patch_heads, nfe, steps]
+            # `steps` was appended 2026-08-28. Kept accurate because the
+            # next person inserting a widget reads THIS list, and
+            # check_pdd_sigmas::case_ui_and_api_agree exists to catch
+            # exactly the mis-index that follows from trusting a stale one.
             if t == "MiniMaxH3PDDLoRA" and len(w) >= 4 and isinstance(w[3], int):
                 pdd_nfe = w[3] or None
         elif t == "MiniMaxH3SigmaShift" and len(w) >= 2:

@@ -93,8 +93,10 @@ from h3_config import graph_paths, graph_schedule  # noqa: E402
 
 WORKFLOWS = HERE.parent / "workflows"
 
-#: The published grid every PDD file declares. Read from a file when one is on
-#: disk; this is the fallback so the arithmetic cases run on a bare checkout.
+#: The published grid every PDD file declares. A CONSTANT -- nothing here reads
+#: `pdd_num_steps`, and an earlier comment claimed it did. A file converted at
+#: another grid would be graded against 32 regardless, which is safe only
+#: because every artifact this repo ships declares 32.
 NUM_STEPS = 32
 
 #: Step counts where `simple` reproduces the closed form exactly: divisors of
@@ -123,12 +125,14 @@ def check(name, fn):
 def emitted(shift: float, steps: int) -> torch.Tensor:
     """What `MiniMaxH3PDDLoRA` puts on its SIGMAS output.
 
-    The node's own expression, not a restatement of it: `1 - block_bounds` is
-    `shifted_sigma` over `linspace(1, 0, nfe + 1)`, i.e. the plain shifted
-    schedule for the block count.
+    CALLS the node, rather than restating it. The first version of this
+    duplicated the expression, and a review showed the whole file stayed green
+    with the `1.0 -` dropped from `pdd_lora` -- the check was grading its own
+    copy. `emit_sigmas` was lifted out of `execute` so this can drive the real
+    thing, exactly as `resolve_emit_steps` was for the refusal cases.
     """
-    return (1.0 - M.block_bounds(shift, NUM_STEPS,
-                                 NUM_STEPS // steps)).to(torch.float32)
+    from pdd_lora import emit_sigmas
+    return emit_sigmas(shift, NUM_STEPS, NUM_STEPS // steps)
 
 
 def comfy_simple(shift: float, steps: int) -> torch.Tensor:
@@ -279,9 +283,15 @@ def case_graphs_consume_it():
                if isinstance(n, dict) and n.get("class_type") == "MiniMaxH3PDDLoRA"]
         if not pdd:
             continue
-        if any(isinstance(n, dict) and n.get("class_type") == "SplitSigmas"
+        # Anything that legitimately sits between the node and the sampler.
+        # `SplitSigmas` is the two-stage split (keeps BasicScheduler by design);
+        # `SplitSigmasDenoise` is what the node's OWN `steps` tooltip prescribes
+        # for denoise < 1.0, so a graph following that advice must not go red
+        # here for doing what it was told.
+        if any(isinstance(n, dict)
+               and n.get("class_type") in ("SplitSigmas", "SplitSigmasDenoise")
                for n in g.values()):
-            continue                      # keeps BasicScheduler by design
+            continue
         graded.append(path.name)
         nid = pdd[0]
         steps = g[nid]["inputs"].get("steps")
@@ -373,9 +383,15 @@ def case_graph_shift_matches_file():
                 f"are not `simple`'s")
         graded.append(path.name)
     assert not problems, "; ".join(problems[:4])
-    assert graded, (
-        "no PDD graph reached the shift comparison"
-        + (f" ({len(skipped)} skipped, file not on disk)" if skipped else ""))
+    # NOT `assert graded`. This module's contract says it needs "no checkpoint
+    # on disk", and every LoRA being absent is a correct state on a fresh
+    # checkout -- failing there would be red while nothing is wrong, which
+    # `docs/checks.md` calls worse than no check. An empty result is reported
+    # as a skip; what stays a failure is a graph whose file IS present and
+    # disagrees, which `problems` above carries.
+    if not graded:
+        return (f"SKIPPED: no PDD LoRA on disk ({len(skipped)} graph(s) "
+                f"unreachable), so no shift was compared")
     note = f"{len(graded)} graph(s) agree with their file's shift"
     return note + (f"; {len(skipped)} skipped (file absent)" if skipped else "")
 

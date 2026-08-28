@@ -242,6 +242,20 @@ PARTITION_TOLERANCE = 0.015
 TABLE_TOLERANCE = 5e-3
 
 
+def emit_sigmas(shift_v: float, num_steps: int, block_w: int) -> torch.Tensor:
+    """The vector the SIGMAS output carries, as the node builds it.
+
+    Lifted out of `execute` for the same reason `resolve_emit_steps` was: a
+    check that RESTATES this expression cannot fail when the expression is
+    wrong. `bench/check_pdd_sigmas.py` had its own copy, and dropping the
+    `1.0 -` here left every case of that file green.
+
+    `1 - pdd_time_grid` is `shifted_sigma` over `linspace(1, 0, nfe + 1)` --
+    the plain shifted schedule for the block count, descending to 0.
+    """
+    return (1.0 - block_bounds(shift_v, num_steps, block_w)).to(torch.float32)
+
+
 def resolve_emit_steps(steps, file_nfe: int, num_steps: int) -> int:
     """Evaluations for the SIGMAS output: what `steps` asked for, or the file's.
 
@@ -333,7 +347,8 @@ class _StepTracker:
     """
 
     def __init__(self, grid_emb_v, grid_emb_a, grid_t_v, grid_t_a,
-                 shift_v, num_steps, forced_nfe, fallback_nfe, label):
+                 shift_v, num_steps, forced_nfe, fallback_nfe, label,
+                 shift_a=None, default_shift_v=None, default_shift_a=None):
         # Embeddings at EVERY grid point, not just the ones one step count
         # visits: which subset is a boundary is not known until a schedule is.
         self.grid_emb_v = grid_emb_v         # [num_steps+1, D]
@@ -341,6 +356,12 @@ class _StepTracker:
         self.grid_t_v = grid_t_v
         self.grid_t_a = grid_t_a
         self.shift_v = shift_v
+        self.shift_a = shift_v if shift_a is None else shift_a
+        # What the model runs when the graph carries no shift node:
+        # read off `model_sampling` at patch time. `check_shift`
+        # compares against these when transformer_options is silent.
+        self.default_shift_v = default_shift_v
+        self.default_shift_a = default_shift_a
         self.num_steps = num_steps
         self.forced_nfe = forced_nfe
         self.label = label
@@ -391,7 +412,7 @@ class _StepTracker:
                 sorted(n for n in range(1, self.num_steps + 1)
                        if self.num_steps % n == 0))
 
-    def check_shift(self, graph_shift) -> None:
+    def check_shift(self, graph_shift, graph_audio_shift=None) -> None:
         """Refuse a render whose shift is not the one this file was fused at.
 
         **This closes a gap the SIGMAS rewiring opened and a static check could
@@ -423,19 +444,32 @@ class _StepTracker:
         # `docs/research/pdd/queued_arms.md` records as "a render is not a pure
         # function of its graph", met here in a guard written to catch a
         # different silence. A float compare per forward costs nothing.
-        if graph_shift is None:
-            return
-        if abs(float(graph_shift) - float(self.shift_v)) > 1e-6:
+        # An ABSENT key is not agreement. `MiniMaxH3SigmaShift` is what writes
+        # these into `transformer_options`, so absence means the graph carries
+        # no shift node and the model is running its class default -- which this
+        # node reads at patch time into `default_shift_v/a`. Comparing against
+        # that is what covers the hand-built graph the docstring claims; an
+        # early return read "no key" as "agrees" and covered nothing.
+        #
+        # Audio is compared too. `grid_emb_a` is built from `shift_a` and the
+        # audio stream runs its own schedule, so a graph that moves only the
+        # audio shift was silently accepted by a video-only comparison.
+        gv = self.default_shift_v if graph_shift is None else float(graph_shift)
+        ga = (self.default_shift_a if graph_audio_shift is None
+              else float(graph_audio_shift))
+        for got, want, name in ((gv, self.shift_v, "shift_video"),
+                                (ga, self.shift_a, "shift_audio")):
+            if got is None or abs(float(got) - float(want)) <= 1e-6:
+                continue
             raise RuntimeError(
-                f"[h3-pdd] this graph runs MiniMaxH3SigmaShift at shift_video="
-                f"{float(graph_shift)}, but the PDD file was fused at "
-                f"{float(self.shift_v)}. The fused heads and the schedule this "
-                f"node emits are BOTH functions of the shift, so the sampler "
-                f"would step one curve while the model integrates another and "
-                f"the render would complete looking merely wrong. Set "
-                f"MiniMaxH3SigmaShift back to {float(self.shift_v)} (the value "
-                f"the file records), or use a PDD file fused at "
-                f"{float(graph_shift)}.")
+                f"[h3-pdd] this graph runs MiniMaxH3SigmaShift at {name}="
+                f"{float(got)}, but the PDD file was fused at {float(want)}. "
+                f"The fused heads and the schedule this node emits are BOTH "
+                f"functions of the shift, so the sampler would step one curve "
+                f"while the model integrates another and the render would "
+                f"complete looking merely wrong. Set MiniMaxH3SigmaShift back "
+                f"to {float(want)} (the value the file records), or use a PDD "
+                f"file fused at {float(got)}.")
 
     def observe(self, sample_sigmas) -> None:
         """Adopt the sampler's schedule, once per distinct schedule.
@@ -480,6 +514,7 @@ class _StepTracker:
                 "Falling back to uniform blocks at the file's own step count. "
                 "Set the node's `nfe` if this render uses a different one.",
                 self.label)
+            self.warned = False       # see _adopt: a new render, a new budget
             return
         knots = schedule_knots(sample_sigmas, self.shift_v, self.num_steps)
         if len(knots) < 2:
@@ -487,6 +522,7 @@ class _StepTracker:
                 "[h3-pdd] %s: this schedule lands on fewer than two grid "
                 "points, so it names no block. Keeping the previous blocks.",
                 self.label)
+            self.warned = False       # see _adopt: a new render, a new budget
             return
         self._adopt(knots, "derived from the sampler's own sigma schedule")
 
@@ -666,7 +702,8 @@ def _make_capture_forward(base_forward, tracker):
         if opts is None and len(args) > 3:
             opts = args[3]                       # positional in the signature
         opts = opts or {}
-        tracker.check_shift(opts.get("minimax_h3_sigma_shift_video"))
+        tracker.check_shift(opts.get("minimax_h3_sigma_shift_video"),
+                            opts.get("minimax_h3_sigma_shift_audio"))
         tracker.observe(opts.get("sample_sigmas"))
         return base_forward(*args, **kwargs)
     return forward
@@ -916,6 +953,13 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 f"here: {sorted(n for n in range(1, num_steps + 1) if num_steps % n == 0)}.")
         shift_v = float(meta["pdd_shift_video"])
         shift_a = float(meta["pdd_shift_audio"])
+        # The shift the MODEL is on right now, before any downstream
+        # MiniMaxH3SigmaShift. `check_shift` falls back to this when the graph
+        # writes no shift into transformer_options, so "no shift node" is
+        # compared rather than waved through.
+        _ms = model.get_model_object("model_sampling")
+        _ms_shift_v = float(getattr(_ms, "shift", shift_v))
+        _ms_shift_a = float(getattr(_ms, "audio_shift", shift_a))
 
         # The SIGMAS output, and why it is worth a second output rather than a
         # note telling people to set BasicScheduler correctly.
@@ -952,16 +996,26 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         # block-4 file) and has an open question about whether it holds up, so
         # refusing would break a live experiment. Naming it is the compromise:
         # nothing said so before, at any step count.
-        trained_w = int(meta.get("pdd_block_size", block_w))
-        if block_w > 2 * trained_w:
+        # NOT defaulted to `block_w`: that made the test below
+        # `block_w > 2 * block_w`, false for every positive width, so a file
+        # missing this key silently disarmed the guard -- the "a check whose
+        # input already satisfies the expected outcome cannot fail" shape.
+        # Absent means unknown, and unknown warns rather than passes.
+        trained_w = meta.get("pdd_block_size")
+        trained_w = None if trained_w is None else int(trained_w)
+        if trained_w is None:
+            logger.warning(
+                "[h3-pdd] %s declares no pdd_block_size, so the trained-width "
+                "envelope cannot be checked at all. Rendering at block width "
+                "%d unguarded.", lora_name, block_w)
+        elif block_w > 2 * trained_w:
             logger.warning(
                 "[h3-pdd] steps=%d gives block width %d against a file "
                 "distilled at width %d. That is past the 2x envelope an "
                 "independent implementation refuses outright, and nothing "
                 "here has measured whether it holds up. Rendering anyway.",
                 emit_steps, block_w, trained_w)
-        sigmas = (1.0 - block_bounds(shift_v, num_steps, block_w)).to(
-            torch.float32)
+        sigmas = emit_sigmas(shift_v, num_steps, block_w)
 
         # Partition check. fl2va and ref2va ship identical key sets, so a
         # mismatched pair loads with zero unmatched keys and renders -- the
@@ -1159,7 +1213,8 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             boundary_embeddings(grid_t_a, step_table,
                                 None if pruned else dm.time_embedder),
             grid_t_v, grid_t_a, shift_v, num_steps, forced_nfe, file_nfe,
-            lora_name)
+            lora_name, shift_a=shift_a,
+            default_shift_v=_ms_shift_v, default_shift_a=_ms_shift_a)
 
         final_layer = m.get_model_object("diffusion_model.final_layer")
         # strength 0 installs NOTHING on the head path. Interpolating to the
@@ -1196,13 +1251,24 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             m.add_object_patch(
                 "diffusion_model.final_layer.forward",
                 _make_final_layer_forward(final_layer.forward, tracker))
-            # The one patch that is not about the heads: `transformer_options`
-            # reaches the model's forward and no further, and the block extents
-            # live in it. Chained onto whatever forward is already installed.
-            m.add_object_patch(
-                "diffusion_model.forward",
-                _make_capture_forward(
-                    m.get_model_object("diffusion_model.forward"), tracker))
+        # OUTSIDE the head gate, deliberately. `transformer_options` reaches the
+        # model's forward and no further, and both the block extents and the
+        # graph's shift live in it -- so this patch carries `check_shift` as
+        # well as `observe`, and neither is a head concern.
+        #
+        # It was inside the gate until 2026-08-28, which left a real hole that
+        # two independent reviews found the same hour:
+        # `h3_probe_ref2v_pdd_headfree` ships `patch_heads: false` AND consumes
+        # this node's SIGMAS, so the one shipped arm that most needs the guard
+        # was the one arm that did not get it -- and the adaln patch it DOES
+        # install is itself a function of the shift. Same hole at
+        # `strength == 0.0`.
+        #
+        # Chained onto whatever forward is already installed.
+        m.add_object_patch(
+            "diffusion_model.forward",
+            _make_capture_forward(
+                m.get_model_object("diffusion_model.forward"), tracker))
         for stream, out_name in (
                 (("video", "video_out"), ("audio", "audio_out"))
                 if (patch_heads and strength != 0.0) else ()):

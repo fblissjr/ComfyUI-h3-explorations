@@ -32,7 +32,7 @@ if str(_REPO) not in sys.path:
 from substrate import infer_quantization  # noqa: E402
 
 sys.path.insert(0, str(_REPO / "workflows"))
-from h3_config import LORA_LOADER_CLASSES  # noqa: E402
+from h3_config import LORA_LOADER_CLASSES, graph_schedule  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _paths  # noqa: E402
@@ -534,6 +534,20 @@ def extract_from_workflow(wf: dict, input_base: Path):
                 "latent_rows": lat_rows,
                 "fit_settings": {"allow_upscale": False, "short_edge": 2048, "lift_downstream_clamp": False},
             })
+
+    # Steps and scheduler come from `h3_config.graph_schedule`, NOT from the
+    # `BasicScheduler` branch above, which is now only one of the two nodes that
+    # can own a schedule. Since the PDD rewiring, `MiniMaxH3PDDLoRA` emits SIGMAS
+    # and 11 shipped graphs carry no BasicScheduler at all -- against those this
+    # scan derived neither field and exited with "every graph this repo emits
+    # sets them", an error whose own text the rewiring had made false. Three
+    # other readers were migrated in the same change and this fourth was missed.
+    if sampling.get("scheduler") is UNSET or sampling.get("steps") is UNSET:
+        steps, scheduler = graph_schedule(wf)
+        if steps is not None and sampling.get("steps") is UNSET:
+            sampling["steps"] = int(steps)
+        if scheduler is not None and sampling.get("scheduler") is UNSET:
+            sampling["scheduler"] = str(scheduler)
 
     underived = resolve_unset({"canvas": canvas, "models": models,
                                "sampling": sampling, "attention": attention})

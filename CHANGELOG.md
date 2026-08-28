@@ -1,3 +1,9 @@
+# Changelog
+
+Semantic versioning. Nothing here has been tagged or published, so every
+version below describes the state of the working repo rather than a release
+artifact.
+
 ## 0.85.0
 
 ### Added

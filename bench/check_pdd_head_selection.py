@@ -619,11 +619,22 @@ def no_state_outlives_its_schedule():
     cls = next(n for n in ast.walk(ast.parse(src))
                if isinstance(n, ast.ClassDef) and n.name == "_StepTracker")
     where: dict[str, set[str]] = {}
-    for fn in [n for n in cls.body if isinstance(n, ast.FunctionDef)]:
+    for fn in [n for n in cls.body
+               if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
         for node in ast.walk(fn):
-            targets = (node.targets if isinstance(node, ast.Assign)
-                       else [node.target] if isinstance(node, ast.AnnAssign)
-                       else [])
+            # AugAssign and NamedExpr are collected too. Walking only
+            # Assign/AnnAssign made `self.calls += 1` invisible -- and a
+            # per-render COUNTER is the single most likely field somebody adds
+            # to this class, which is the case this whole guard exists for.
+            # `for self.x in ...` targets come through `ast.For` the same way.
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.For)):
+                targets = [node.target]
+            elif isinstance(node, ast.NamedExpr):
+                targets = [node.target]
+            else:
+                targets = []
             for tgt in targets:
                 if (isinstance(tgt, ast.Attribute)
                         and isinstance(tgt.value, ast.Name)

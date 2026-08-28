@@ -501,7 +501,7 @@ better, and both are legal subsets of the same grid.
 > head on its own interval, no fusion -- so it IS what a coarser partition
 > approximates, and the comparison needs no human). Same seed, 39 frames.
 > **The noise floor is exactly 0.00000 on both streams across three runs of one
-> arm**, so every number here is real:
+> arm**, so every number here is real (reproduced across a server restart):
 >
 > | partition | video rel L2 vs the 32-step trajectory | audio |
 > |---|---|---|

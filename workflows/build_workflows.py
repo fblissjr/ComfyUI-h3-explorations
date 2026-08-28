@@ -1275,7 +1275,17 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                   "strength": lora[1],
                                   "patch_heads": pdd_heads,
                                   "nfe": pdd_nfe,
-                                  "steps": _resolved_steps}}
+                                  # 0 on a split graph. There, `_sigma_src`
+                                  # below keeps BasicScheduler and nothing
+                                  # consumes this node's SIGMAS -- but a
+                                  # non-zero `steps` still reaches
+                                  # `resolve_emit_steps`, which RAISES at load
+                                  # on a count that does not tile the grid. A
+                                  # split arm at 6 steps would be refused for
+                                  # a schedule it never uses. 0 is the inert
+                                  # setting the tooltip promises for this case.
+                                  "steps": (0 if split_at
+                                            else _resolved_steps)}}
         else:
             g["18"] = ({"class_type": "MiniMaxH3TurboLoRA",
                         "inputs": {"model": model_src, "lora_name": lora[0],
@@ -4308,7 +4318,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             lora_node = g.add(
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 170),
                 widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
-                         _resolved_steps],
+                         0 if split_at else _resolved_steps],
                 inputs=[_in("model", "MODEL")],
                 outputs=[_out("MODEL", "MODEL"), _out("SIGMAS", "SIGMAS")],
                 title=(f"PDD LoRA (strength {lora[1]}"
