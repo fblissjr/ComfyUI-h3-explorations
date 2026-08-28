@@ -496,6 +496,31 @@ trajectory and the other three on 20% between them. So on both axes measured --
 fusion loss, and arc integrated per step -- the non-uniform partition looks
 better, and both are legal subsets of the same grid.
 
+> **MEASURED 2026-08-28, AND THE PREDICTION BELOW IS REFUTED.** Graded against
+> the 32-point trajectory itself (`steps=32` is block width 1 -- every published
+> head on its own interval, no fusion -- so it IS what a coarser partition
+> approximates, and the comparison needs no human). Same seed, 39 frames.
+> **The noise floor is exactly 0.00000 on both streams across three runs of one
+> arm**, so every number here is real:
+>
+> | partition | video rel L2 vs the 32-step trajectory | audio |
+> |---|---|---|
+> | uniform `[4]*8`, 8 evals | 0.458 | 0.984 |
+> | uniform `[8,8,8,8]`, 4 evals | 0.531 | 1.103 |
+> | `[28,2,1,1]`, 4 evals | **0.552** | 1.014 |
+>
+> The fusion-loss optimum is **further** from the trajectory than uniform, not
+> closer. So minimising `dt`-weighted head-to-mean deviation does not predict
+> fidelity, and the weight-space metric was simply the wrong objective -- which
+> was the first read here, then talked out of on the arc-length argument, and
+> the measurement sides with the first read. The arc-length reasoning below is
+> left standing because it is correct about the schedule being back-loaded; it
+> just does not follow that rebalancing it helps.
+>
+> `bench/grade_pdd_partitions.py`,
+> [`bench/results/2026-08-28_pdd_partition_fidelity.json`](../bench/results/2026-08-28_pdd_partition_fidelity.json),
+> which also carries what these magnitudes do NOT license.
+
 **Stated as a prediction, not a result.** Fusion loss is a weight-space proxy:
 it measures how far a block's heads sit from their own mean, and it does NOT
 measure the integration error of freezing the hidden state across the span, nor

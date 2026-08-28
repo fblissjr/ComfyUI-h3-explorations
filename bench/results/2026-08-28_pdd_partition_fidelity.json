@@ -1,0 +1,51 @@
+{
+ "date": "2026-08-28",
+ "question": "does a coarser PDD block partition land near the 32-point trajectory its heads were distilled from, and does the fusion-loss optimum beat the uniform one",
+ "script": "bench/grade_pdd_partitions.py",
+ "why_not_perceptual": "steps=32 is block width 1 -- every published head on its own interval, no fusion. It is the trajectory the coarser partitions approximate, so this is a comparison against a reference rather than between arms, and needs no human. The node's SIGMAS output is the only way to reach it exactly: BasicScheduler(simple,32) sits 4.95e-3 away because 1000 % 32 != 0.",
+ "setup": {
+  "graph": "h3_text_to_video_pdd_4step (fl2va)",
+  "length": 39,
+  "seed": 730451892,
+  "shift": [
+   12.0,
+   3.0
+  ],
+  "canvas": "1344x768",
+  "note": "cheap canvas and length: the claim is a distance between arms of one render, not a quality number"
+ },
+ "noise_floor": {
+  "u4_vs_u4b": 0.0,
+  "u4b_vs_u4c": 0.0,
+  "meaning": "EXACTLY zero on both streams over three runs of one arm, so every difference below is real and the pipeline is deterministic in a settled session"
+ },
+ "against_the_32_step_reference": {
+  "u8_uniform_w4": {
+   "video_rel_l2": 0.45826,
+   "audio_rel_l2": 0.98418
+  },
+  "u4_uniform_w8": {
+   "video_rel_l2": 0.53056,
+   "audio_rel_l2": 1.1027
+  },
+  "opt4_28_2_1_1": {
+   "video_rel_l2": 0.55167,
+   "audio_rel_l2": 1.01388
+  }
+ },
+ "opt4_vs_u4": {
+  "video_rel_l2": 0.53042
+ },
+ "findings": [
+  "PREDICTION REFUTED. The fusion-loss optimum [28,2,1,1] is FURTHER from the reference than uniform [8,8,8,8] (0.5517 against 0.5306). Minimising dt-weighted head-to-mean deviation does not predict trajectory fidelity, so the weight-space metric was the wrong objective -- as first suspected and then wrongly talked out of.",
+  "Video divergence falls monotonically with evaluation count: 8 evals 0.458, 4 evals 0.531.",
+  "Audio diverges about twice as far as video in relative terms at every count, and barely improves from 4 to 8 evaluations (1.103 -> 0.984). At 4 evaluations the audio difference EXCEEDS the reference's own magnitude.",
+  "That is the first number this lane has attached to its opening complaint, and it points the same way as ComfyUI-H3-AudioRefine's independent statement that 4-step audio is not acceptable while 4-step video is."
+ ],
+ "do_not_rely_on": [
+  "These magnitudes are NOT calibrated to perception. Nothing here establishes what rel L2 0.5 looks like or 1.0 sounds like; only the ORDERING and the exactly-zero noise floor are load-bearing.",
+  "Raw-waveform L2 is phase-sensitive and a poor audio metric in general. It is used here only because every arm shares a seed and the pipeline is bit-deterministic, so a phase offset is not an innocent explanation -- but 'uncorrelated waveform' still does not equal 'sounds bad'.",
+  "The reference is the distilled 32-point trajectory, not a statement that it is the best-sounding render. Faithfulness to it is not the same question as quality.",
+  "One seed, one length, one canvas."
+ ]
+}
