@@ -313,7 +313,7 @@ def sol_api_inputs(sol):
 # render of this prompt as evidence about anything but this prompt.**
 
 LONG_T2V_PROMPT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder.
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents and a hanging brass scale swaying gently at the edge of frame. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder.
 [Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and coins clatter one after another into a metal tin on the counter.
 [Shot 3] At 00:09.000, the camera holds a static shot, wide on the aisle, as he carries both crates away between the stalls, shoppers stepping aside around him, while the stallholder turns back and stacks fruit into a pyramid with both hands, her lips closed.
 
@@ -764,6 +764,49 @@ def l2v_prompt(length: int) -> str:
         "movement comes to rest.\n"
         "\n"
         "non_diegetic_music: N/A")
+
+#: The market scene as a ref2va task: the same three shots and the same two
+#: speakers, with the stallholder's appearance carried from a reference image.
+#:
+#: **This is not `LONG_T2V_PROMPT` with sections bolted on.** ref_en's format
+#: differs from base_en's in four ways (ref 5.2) and three of them apply here:
+#: the main field is `detailed_description`, the style opening sits BEFORE
+#: `[Shot 1]` rather than after it, and the reference labels are inserted at
+#: first appearance and where their roles apply.
+#:
+#: `<Picture 1>` is cited INSIDE the `<Subject 1>` definition and gets no
+#: standalone entry, per ref 2.2: the image defines a character, it is not a
+#: keyframe or composition anchor. `docs/prompting.md` 9.3 calls this the
+#: single most-violated ref2va rule in this repo's shipped prompts.
+#:
+#: Camera motion is base 4.3 vocabulary, the same repair the t2v version got in
+#: `d5be353` -- `trucks left`, `holds a static shot`, and no amplitude or speed
+#: phrase at all, because the guide writes medium and normal by omitting them.
+#: The porter's identity is given in [Shot 1] where he first appears (4.4).
+#: The reference the market ref2va arms carry. One image, one subject.
+MARKET_REF_IMAGES = ("dirk_runway2.jpeg",)
+
+MARKET_REF2V_PROMPT = """subject_definitions:
+<Subject 1> is the market stallholder, whose appearance is carried from <Picture 1>: an oversized smooth bald head far above human scale, with a heavy scowling brow, deep-set pale eyes and a downturned mouth; a small glitter-trimmed straw hat perched on the crown; a dress of crumpled silver foil strips layered over hot-pink tulle with short puffed pink sleeves; bare arms and legs, and glitter-covered shoes.
+
+summary:
+[reference generation] The target video places <Subject 1> behind a covered market stall as the stallholder, in a three-shot morning exchange with a young porter who is not referenced.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 3]): fully_preserved - the oversized head and its facial structure, the glitter-trimmed hat, the foil-and-tulle dress and the glitter shoes are retained in every frame the stallholder appears in.
+
+detailed_description:
+The target video is live-action and cinematic, handheld, with shallow depth of field and the slightly desaturated colour of an overcast late morning.
+[Shot 1] A medium-wide shot frames a covered market aisle, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. <Subject 1> stands behind the counter, the oversized head tilting forward as she sets a crate down and wipes both palms down the front of the foil-and-tulle dress, the silver strips catching the light as they move. With a warm, gravelly alto (S1) she says: <d>[English] Last of the good ones. After this it is all imports.</d> Her mouth closes and she pushes the crate forward with the heel of one hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder, glancing at the stacked fruit.
+[Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners and lifts it to his chest, the citrus shifting and resettling as the weight comes up. He (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, one forearm braced under the slats, and coins clatter one after another into a metal tin on the counter behind him. Past his shoulder the stall front stays in soft focus, the stacked crates and the hanging scale reduced to shape and colour.
+[Shot 3] At 00:09.000, the camera holds a static shot, wide on the aisle, as the porter carries both crates away between the stalls, shoppers stepping aside around him and a paper bag swinging from one woman's hand as she turns. The roof vents throw regular bars of light across the concrete he walks through. Behind the counter <Subject 1> turns back to the stall, the small glitter-trimmed hat steady on the crown of the head, and stacks fruit into a pyramid with both hands, working from the base upward and squaring each row before starting the next. The crumpled foil strips shift and catch the light with every reach, the pink tulle swinging against the counter edge, and her mouth stays closed until the final frame.
+
+overall_soundscape:
+Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, the dry crackle of paper bags shaken open, and a light rustle of foil and tulle whenever the stallholder moves.
+
+non_diegetic_music:
+N/A"""
+
 
 R2V_PROMPT = """subject_definitions:
 <Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
@@ -6352,6 +6395,41 @@ def main():
                   "alone; this is where that shows or does not. NOTE the "
                   "turbo was distilled at 544p and this renders 768p.")),
          "the ref2v turbo at 4 steps, matched to the PDD 4-step arm"),
+
+        # --- the market scene as ref2va, base and both PDD step counts ------
+        # The t2v market rewrite (d5be353) was rendered at 16 steps on
+        # 2026-08-28 and the owner's verdict was that it fixed the scene. These
+        # ask the next question: does the SAME scene hold up as a reference
+        # task, and does it survive distillation at 8 and at 4 evaluations.
+        #
+        # Matched to the t2v arms deliberately -- same canvas, same length, same
+        # seed, same shift -- so the only intended differences are the task, the
+        # reference, and the step count. Two differences are NOT free variables
+        # and must not be normalised away: PDD requires `euler` (a fused head is
+        # the block's mean velocity and one Euler step integrates exactly that),
+        # and Sol's `end_percent` is step-aware and derived.
+        #
+        # The reference is a runway photograph, deliberately far from the role
+        # it is being asked to fill. That is the owner's choice and it makes the
+        # arm a harder identity test than a plausible-looking stallholder would.
+        ("h3_ref2v_market.json", "r2v-market", "r2v", MARKET_REF2V_PROMPT,
+         dict(ref_images=MARKET_REF_IMAGES, ref_image_count=1,
+              out_prefix="Video/h3_r2v_market"),
+         "the market scene as ref2va, base 16 steps"),
+
+        ("h3_ref2v_market_pdd.json", "r2v-market-pdd8", "r2v", MARKET_REF2V_PROMPT,
+         dict(ref_images=MARKET_REF_IMAGES, ref_image_count=1,
+              pdd=True, sampler_name="euler",
+              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS,
+              out_prefix="Video/h3_r2v_market_pdd"),
+         "the market scene as ref2va at 8 steps via PDD"),
+
+        ("h3_ref2v_market_pdd_4step.json", "r2v-market-pdd4", "r2v", MARKET_REF2V_PROMPT,
+         dict(ref_images=MARKET_REF_IMAGES, ref_image_count=1,
+              pdd=True, sampler_name="euler",
+              lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
+              out_prefix="Video/h3_r2v_market_pdd_4step"),
+         "the market scene as ref2va at 4 steps via PDD"),
 
         # --- the dialogue probe, t2v and ref2v -----------------------------
         # Eight short lines over three shots with the pacing written in. The

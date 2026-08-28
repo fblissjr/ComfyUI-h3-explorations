@@ -8,12 +8,13 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 | scene | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|
-| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | 17 | 269 | 3 | 2 | `<d>` |
+| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | 17 | 281 | 3 | 2 | `<d>` |
 | [`derived:h3_image_ref_plus_text_to_video`](#derivedh3-image-ref-plus-text-to-video) | 11 | 135 | 1 | 0 | — |
 | [`derived:h3_probe_capture_ref3`](#derivedh3-probe-capture-ref3) | 11 | 173 | 1 | 0 | — |
 | [`derived:h3_probe_cache_easy`](#derivedh3-probe-cache-easy) | 5 | 264 | 1 | 0 | — |
 | [`derived:h3_first_last_frame_to_video`](#derivedh3-first-last-frame-to-video) | 4 | 159 | 1 | 0 | — |
 | [`I2V_PROMPT`](#i2v-prompt) | 3 | 90 | 1 | 0 | — |
+| [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | 3 | 573 | 3 | 2 | `<d>` |
 | [`derived:h3_probe_ref2v_split_turbo_pack`](#derivedh3-probe-ref2v-split-turbo-pack) | 3 | 303 | 1 | 0 | — |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | 2 | 647 | 3 | 2 | `<d>` |
 | [`derived:h3_probe_release_video_policy`](#derivedh3-probe-release-video-policy) | 2 | 183 | 1 | 0 | — |
@@ -59,7 +60,7 @@ Carried by **17** graph(s). Sections: `integrated_multimodal_description`, `over
 
 ```text
 integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder.
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a covered market aisle in late morning, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents and a hanging brass scale swaying gently at the edge of frame. A stallholder in her fifties with a warm, gravelly alto (S1) sets a crate on the counter, wipes both palms down her apron, and says: <d>[English] Last of the good ones. After this it is all imports.</d> Her lips close and she pushes the crate forward with the heel of her hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder.
 [Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners, and lifts it to his chest. The porter (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, and coins clatter one after another into a metal tin on the counter.
 [Shot 3] At 00:09.000, the camera holds a static shot, wide on the aisle, as he carries both crates away between the stalls, shoppers stepping aside around him, while the stallholder turns back and stacks fruit into a pyramid with both hands, her lips closed.
 
@@ -244,6 +245,41 @@ integrated_multimodal_description: [Shot 1] Live-action, cinematic, the subject 
 overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement.
 
 non_diegetic_music: N/A
+```
+
+## MARKET_REF2V_PROMPT
+
+Carried by **3** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref2v_market_api`
+- `h3_ref2v_market_pdd_4step_api`
+- `h3_ref2v_market_pdd_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the market stallholder, whose appearance is carried from <Picture 1>: an oversized smooth bald head far above human scale, with a heavy scowling brow, deep-set pale eyes and a downturned mouth; a small glitter-trimmed straw hat perched on the crown; a dress of crumpled silver foil strips layered over hot-pink tulle with short puffed pink sleeves; bare arms and legs, and glitter-covered shoes.
+
+summary:
+[reference generation] The target video places <Subject 1> behind a covered market stall as the stallholder, in a three-shot morning exchange with a young porter who is not referenced.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 3]): fully_preserved - the oversized head and its facial structure, the glitter-trimmed hat, the foil-and-tulle dress and the glitter shoes are retained in every frame the stallholder appears in.
+
+detailed_description:
+The target video is live-action and cinematic, handheld, with shallow depth of field and the slightly desaturated colour of an overcast late morning.
+[Shot 1] A medium-wide shot frames a covered market aisle, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. <Subject 1> stands behind the counter, the oversized head tilting forward as she sets a crate down and wipes both palms down the front of the foil-and-tulle dress, the silver strips catching the light as they move. With a warm, gravelly alto (S1) she says: <d>[English] Last of the good ones. After this it is all imports.</d> Her mouth closes and she pushes the crate forward with the heel of one hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder, glancing at the stacked fruit.
+[Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners and lifts it to his chest, the citrus shifting and resettling as the weight comes up. He (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, one forearm braced under the slats, and coins clatter one after another into a metal tin on the counter behind him. Past his shoulder the stall front stays in soft focus, the stacked crates and the hanging scale reduced to shape and colour.
+[Shot 3] At 00:09.000, the camera holds a static shot, wide on the aisle, as the porter carries both crates away between the stalls, shoppers stepping aside around him and a paper bag swinging from one woman's hand as she turns. The roof vents throw regular bars of light across the concrete he walks through. Behind the counter <Subject 1> turns back to the stall, the small glitter-trimmed hat steady on the crown of the head, and stacks fruit into a pyramid with both hands, working from the base upward and squaring each row before starting the next. The crumpled foil strips shift and catch the light with every reach, the pink tulle swinging against the counter edge, and her mouth stays closed until the final frame.
+
+overall_soundscape:
+Loose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, the dry crackle of paper bags shaken open, and a light rustle of foil and tulle whenever the stallholder moves.
+
+non_diegetic_music:
+N/A
 ```
 
 ## derived:h3_probe_ref2v_split_turbo_pack

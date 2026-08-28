@@ -1,0 +1,284 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "18",
+        1
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_r2v_market_pdd_4step",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 362
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ReferenceConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "references": [
+        "50",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the market stallholder, whose appearance is carried from <Picture 1>: an oversized smooth bald head far above human scale, with a heavy scowling brow, deep-set pale eyes and a downturned mouth; a small glitter-trimmed straw hat perched on the crown; a dress of crumpled silver foil strips layered over hot-pink tulle with short puffed pink sleeves; bare arms and legs, and glitter-covered shoes.\n\nsummary:\n[reference generation] The target video places <Subject 1> behind a covered market stall as the stallholder, in a three-shot morning exchange with a young porter who is not referenced.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1], [Shot 3]): fully_preserved - the oversized head and its facial structure, the glitter-trimmed hat, the foil-and-tulle dress and the glitter shoes are retained in every frame the stallholder appears in.\n\ndetailed_description:\nThe target video is live-action and cinematic, handheld, with shallow depth of field and the slightly desaturated colour of an overcast late morning.\n[Shot 1] A medium-wide shot frames a covered market aisle, crates of citrus stacked along a wooden stall front, dust turning slowly in a shaft of light from the roof vents. <Subject 1> stands behind the counter, the oversized head tilting forward as she sets a crate down and wipes both palms down the front of the foil-and-tulle dress, the silver strips catching the light as they move. With a warm, gravelly alto (S1) she says: <d>[English] Last of the good ones. After this it is all imports.</d> Her mouth closes and she pushes the crate forward with the heel of one hand. The camera trucks left as a young porter, a lean man in his twenties with a quick, bright tenor (S2), steps into frame behind her shoulder, glancing at the stacked fruit.\n[Shot 2] At 00:04.500, the shot cuts to a close shot over the porter's shoulder as he squats, takes the crate at its corners and lifts it to his chest, the citrus shifting and resettling as the weight comes up. He (S2) answers: <d>[English] Then I will take two.</d> His lips close and he shifts the weight onto his hip, one forearm braced under the slats, and coins clatter one after another into a metal tin on the counter behind him. Past his shoulder the stall front stays in soft focus, the stacked crates and the hanging scale reduced to shape and colour.\n[Shot 3] At 00:09.000, the camera holds a static shot, wide on the aisle, as the porter carries both crates away between the stalls, shoppers stepping aside around him and a paper bag swinging from one woman's hand as she turns. The roof vents throw regular bars of light across the concrete he walks through. Behind the counter <Subject 1> turns back to the stall, the small glitter-trimmed hat steady on the crown of the head, and stacks fruit into a pyramid with both hands, working from the base upward and squaring each row before starting the next. The crumpled foil strips shift and catch the light with every reach, the pink tulle swinging against the counter edge, and her mouth stays closed until the final frame.\n\noverall_soundscape:\nLoose crowd murmur under a high roof, wooden crates knocking hollow as they stack, coins dropping one by one into a metal tin, boot steps on swept concrete, the dry crackle of paper bags shaken open, and a light rustle of foil and tulle whenever the stallholder moves.\n\nnon_diegetic_music:\nN/A",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "video_policy": "encoder",
+      "image_policy": "comfy"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "dirk_runway2.jpeg"
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "size_policy": "max",
+      "size_policy.short_edge": 2048,
+      "size_policy.allow_upscale": true,
+      "qwen_short_edge": 512
+    }
+  },
+  "18": {
+    "class_type": "MiniMaxH3PDDLoRA",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors",
+      "strength": 1.0,
+      "patch_heads": true,
+      "nfe": 0,
+      "steps": [
+        "61",
+        0
+      ]
+    }
+  },
+  "61": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 4
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "20": {
+    "class_type": "MiniMaxH3SageAttention",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "mode": "auto",
+      "patch_token_refiner": false,
+      "head_chunks": 1
+    }
+  },
+  "21": {
+    "class_type": "SolAttnMiniMax",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "selection": "adaptive tau",
+      "selection.tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 0.74,
+      "min_tokens": 12288,
+      "sink_conditioning": "exact_kv_and_rows",
+      "morton": false,
+      "morton_curve": "3d",
+      "centroid_tail": true,
+      "reuse_qkv_memory": false,
+      "verbose": false,
+      "dense_blocks": "0-1"
+    }
+  },
+  "23": {
+    "class_type": "SageChainAssert",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "require_override": true,
+      "require_forward_patch": true,
+      "exercise": true,
+      "warn_only": false
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
+    }
+  }
+}
