@@ -67,6 +67,30 @@ MOTION = (
 AMPLITUDE = ("with small amplitude", "with large amplitude")
 SPEED = ("at slow speed", "at fast speed")
 
+#: **`amplitude` and `speed` are graded WHEREVER they appear, and this check
+#: cannot tell whose motion is being described.** Deliberate, and it has a
+#: cost worth stating.
+#:
+#: Both scene arms tripped it on first contact 2026-08-28: a train "with
+#: visible speed", commuters "through the crowd at speed", two cooks
+#: overlapping "at speed". None of those is a camera instruction, so none is
+#: a 4.3 violation, and by the letter this check was wrong three times.
+#:
+#: It was not scoped to camera context, because it cannot be. Subway Shot 2
+#: put subject motion and camera motion in ONE sentence -- "shouldering
+#: through the crowd at speed, the camera tracking with them at large
+#: amplitude" -- so a proximity heuristic gets that case wrong in whichever
+#: direction it is tuned, and a heuristic that misses a real camera violation
+#: is worse than one that over-reports.
+#:
+#: The scene text was changed instead, and the resulting convention is HOUSE,
+#: not a guide rule: **in a prompt, `speed` and `amplitude` are reserved for
+#: the camera.** The guide does not say that. What the guide does say is that
+#: camera motion has a closed vocabulary, and reusing its two head nouns for
+#: subject motion puts an untrained phrasing next to a trained one -- which is
+#: an argument for avoiding the collision, not evidence that it hurts. Nothing
+#: has measured it.
+
 #: Known-bad motion phrases. A DENYLIST, and it only catches what somebody has
 #: already been bitten by -- every entry here is a phrase that actually shipped
 #: or was proposed in this repo. It is not a proof of absence and must never be

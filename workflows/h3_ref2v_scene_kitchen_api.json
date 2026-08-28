@@ -1,0 +1,273 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "er_sde"
+    }
+  },
+  "8": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 16,
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_r2v_scene_kitchen",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 362
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ReferenceConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "references": [
+        "50",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> in a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] Handheld, fast reframing, hard practical light off stainless steel. A medium-wide shot establishes a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> <Subject 1> works the pass, preserving the face, hair, wardrobe and build established in the reference, slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks, one tossing a pan so the flame climbs above the rim.\n[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in one motion and the flame flares behind her shoulder.\n[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, a thumb wiping a rim clean. <Subject 1> and the cook overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position. The camera stays low across the pass so the stainless surfaces, the loaded ticket rail and the lit burners of the reference setting remain continuously visible behind the hands, steam crossing the lens twice without hiding either face.\n[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam. The camera pedestals up with small amplitude at slow speed as he passes, holding the lit burners and the loaded ticket rail of the reference setting across the top of the frame while the ticket printer starts another run behind the pass and a pan is set down hard on the flat top. <Subject 1> calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>\n\noverall_soundscape:\nA ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.\n\nnon_diegetic_music:\nN/A",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "video_policy": "encoder",
+      "image_policy": "comfy"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "h3_refs/face_young_man_glasses_1024x1024.png"
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "size_policy": "max",
+      "size_policy.dit_short_edge": 2048,
+      "size_policy.allow_upscale": false,
+      "qwen_short_edge": 512
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "20": {
+    "class_type": "MiniMaxH3SageAttention",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "mode": "auto",
+      "patch_token_refiner": false,
+      "head_chunks": 1
+    }
+  },
+  "21": {
+    "class_type": "SolAttnMiniMax",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "selection": "adaptive tau",
+      "selection.tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 0.9,
+      "min_tokens": 12288,
+      "sink_conditioning": "exact_kv_and_rows",
+      "morton": false,
+      "morton_curve": "3d",
+      "centroid_tail": true,
+      "reuse_qkv_memory": false,
+      "verbose": false,
+      "dense_blocks": "0-1"
+    }
+  },
+  "23": {
+    "class_type": "SageChainAssert",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "require_override": true,
+      "require_forward_patch": true,
+      "exercise": true,
+      "warn_only": false
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
+    }
+  }
+}

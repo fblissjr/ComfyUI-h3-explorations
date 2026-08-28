@@ -376,8 +376,8 @@ N/A"""
 # collapsing into speech, or a caption surviving a whip pan. **These are for
 # finding the failure, not for judging quality** -- read them as briefs met.
 T2V_SUBWAY_PROMPT = """integrated_multimodal_description:
-[Shot 1] Live-action, cinematic, handheld with fast reframing and shallow depth of field under cool platform fluorescents. A wide shot frames a crowded underground platform, tiled columns receding, a train already braking into frame from the right with visible speed. Tiled signage runs above the busker's head. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> A busker in her twenties with a bright, slightly raw mezzo (S1) stands over an open guitar case, strums once, and sings into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the northbound line.</d><d>[English] Everybody's leaving on time.</d><|lyrics_end|> Her lips close on the last word as the train's headlights wash across her face and commuters surge past her in both directions, coats swinging, one man breaking into a run.
-[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters shouldering through the crowd at speed, the camera tracking with them at large amplitude. A woman in a soaked raincoat with a clipped, urgent contralto (S2) turns her head without slowing and says: <d>[English] Do not stop, it is the last one.</d> Her lips close. Her companion, a man in his thirties with a breathless, higher tenor (S3), answers half a step behind her: <d>[English] I know, I know, go, go.</d> His lips close and he shoves his bag under one arm as they cut left around a column.
+[Shot 1] Live-action, cinematic, handheld with fast reframing and shallow depth of field under cool platform fluorescents. A wide shot frames a crowded underground platform, tiled columns receding, a train already braking into frame from the right, still moving fast. Tiled signage runs above the busker's head. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> A busker in her twenties with a bright, slightly raw mezzo (S1) stands over an open guitar case, strums once, and sings into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the northbound line.</d><d>[English] Everybody's leaving on time.</d><|lyrics_end|> Her lips close on the last word as the train's headlights wash across her face and commuters surge past her in both directions, coats swinging, one man breaking into a run.
+[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters shouldering fast through the crowd, the camera tracking with them at large amplitude. A woman in a soaked raincoat with a clipped, urgent contralto (S2) turns her head without slowing and says: <d>[English] Do not stop, it is the last one.</d> Her lips close. Her companion, a man in his thirties with a breathless, higher tenor (S3), answers half a step behind her: <d>[English] I know, I know, go, go.</d> His lips close and he shoves his bag under one arm as they cut left around a column.
 [Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the platform edge as the doors open and the crowd compresses inward, bodies turning sideways, a dropped umbrella skidding across the tiles. The busker keeps playing through it, and over the crowd she sings again: <|lyrics_start|><d>[English] Hold the door and hold your line.</d><|lyrics_end|> Her lips close.
 [Shot 4] At 00:11.000, the shot changes to a close shot inside the carriage looking out through the closing doors, the woman in the raincoat pressed against the glass, breathing hard, as she calls back to her companion still on the platform: <d>[English] Get the next one and meet me at the</d><|cutoff|>
 
@@ -390,7 +390,7 @@ N/A"""
 T2V_KITCHEN_PROMPT = """integrated_multimodal_description:
 [Shot 1] Live-action, cinematic, handheld, fast reframing, hard practical light off stainless steel with fine film grain. A medium-wide shot frames a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. A printed ticket hangs closest to camera. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> An expediter in his fifties with a hard, carrying baritone (S1) slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks working, one tossing a pan so the flame climbs above the rim.
 [Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and then she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in a single motion and the flame flares up behind her shoulder.
-[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, tongs setting garnish, a thumb wiping a rim clean. The expediter and the cook overlap at speed: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position.
+[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, tongs setting garnish, a thumb wiping a rim clean. The expediter and the cook overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position.
 [Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam, while the expediter calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
 
 overall_soundscape:
@@ -2338,8 +2338,8 @@ REF_SCENE_SHOTS = {
     "subway": [
         "[Shot 1] Handheld with fast reframing under cool platform fluorescents. "
         "A wide shot establishes {environment_beat}a crowded underground platform, "
-        "tiled columns receding, a train braking into frame from the right with "
-        "visible speed. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> "
+        "tiled columns receding, a train braking into frame from the right, "
+        "still moving fast. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> "
         "{character} stands over an open guitar case, preserving the face, hair, "
         "wardrobe and build established in the reference, strums once, and sings "
         "into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the "
@@ -2348,7 +2348,7 @@ REF_SCENE_SHOTS = {
         "across her face and commuters surge past in both directions, one man "
         "breaking into a run.",
         "[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters "
-        "shouldering through the crowd at speed, the camera tracking with them at "
+        "shouldering fast through the crowd, the camera tracking with them at "
         "large amplitude. A woman in a soaked raincoat with a clipped, urgent "
         "contralto (S2) turns her head without slowing and says: <d>[English] Do "
         "not stop, it is the last one.</d> Her lips close. Her companion, a man in "
@@ -2392,15 +2392,26 @@ REF_SCENE_SHOTS = {
         "[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on "
         "the pass as plates land in a row, hands entering frame from three "
         "directions, a thumb wiping a rim clean. {character} and the cook overlap "
-        "at speed: <d>[English] Where is my second plate.</d> <d>[English] Behind "
+        "with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind "
         "you, behind you.</d> Both sets of lips close as a plate is spun into "
         "position. The camera stays low across the pass so the stainless "
         "surfaces, the loaded ticket rail and the lit burners of the reference "
         "setting remain continuously visible behind the hands, steam crossing "
         "the lens twice without hiding either face.",
+        # Shot 4 ran 50 words against the other three at 81-107, and was
+        # missing two of the things ref 5.2 asks every shot to establish:
+        # camera movement, and current sound. Filling those took the scene's
+        # `detailed_description` from 349 words to inside the guide's 350-500
+        # band -- the beat is here because the shot was underspecified, not to
+        # clear the number. `Pedestal Up` is base 4.3's table entry for this
+        # move; "cranes up" is not in it.
         "[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts "
         "both plates and turns for the door, the kitchen receding behind him in a "
-        "blur of steam, while {character} calls after him already reading the next "
+        "blur of steam. The camera pedestals up with small amplitude at slow "
+        "speed as he passes, holding the lit burners and the loaded ticket rail "
+        "of the reference setting across the top of the frame while the ticket "
+        "printer starts another run behind the pass and a pan is set down hard "
+        "on the flat top. {character} calls after him already reading the next "
         "ticket: <d>[English] And tell them the special is</d><|cutoff|>",
     ],
 }
@@ -2419,6 +2430,29 @@ REF_SCENE_AUDIO = {
                 "burner whumping as it catches, plates set down hard in quick "
                 "succession, and a thin radio behind everything.", "N/A"),
 }
+
+
+#: The identity reference each scene arm wires, one `character` picture per
+#: scene. Chosen to match what the scene's own text already says about the
+#: person, because a reference that contradicts the description is an arm
+#: testing two things at once:
+#:
+#: * `subway` calls the busker "her" in Shot 3 ("keeps playing through it, her
+#:   identity unchanged"), and `subject_performer_stage` is a woman performer.
+#: * `kitchen` gives the line cook at the flat top a "light, quick soprano
+#:   (S2)" and makes `{character}` a DIFFERENT person working the pass, so
+#:   this picks a face that cannot be confused with S2.
+#:
+#: Deliberately `character` only, with no `environment` role. The one kitchen
+#: environment asset on the box is papercraft, and these scenes are
+#: photorealistic live-action -- wiring it would put a style transfer inside an
+#: arm that exists to test markers and description length. Adding an
+#: environment arm later is a second entry, not an edit to this one.
+SCENE_REF_IMAGES = {
+    "subway": ("h3_refs/subject_performer_stage_662x1177.png",),
+    "kitchen": ("h3_refs/face_young_man_glasses_1024x1024.png",),
+}
+
 
 
 def _scene_description(scene: str, image_roles, defs) -> str:
@@ -6519,6 +6553,42 @@ def main():
         # What survived both corrections: `h3_ref2v_market` succeeded on the
         # same scene, reference and canvas, so whatever this is, it is not the
         # scene and not the reference.
+        # **The two scene arms, and the only graphs here that carry a marker
+        # other than `<d>`.** `REF_SCENE_SHOTS` and `REF_SCENE_AUDIO` have held
+        # both scenes since they were written, `_ref_prompt(scene=...)` renders
+        # them, and until 2026-08-28 NO CALL SITE PASSED `scene` -- so
+        # `<|caption_start|>`, `<|caption_end|>`, `<|lyrics_start|>` and
+        # `<|lyrics_end|>` appeared in this generator and in zero shipped
+        # graphs. Wiring them is what makes the marker path reachable at all.
+        #
+        # They close a second gap at the same time. `docs/prompting.md` 9.10
+        # records the guide's 350-500 word budget for a generation
+        # `detailed_description` and says every generated ref2va prompt here
+        # runs one shot at 42-68 words. These run FOUR shots at 349 (subway
+        # 373) words, so they are the first ref2va arms in the shipped set
+        # that sit in the guide's range rather than an order of magnitude
+        # under it. `kitchen` lands one word below 350; the guide says
+        # "normally", and adding the `environment` role takes it to 360 if
+        # that matters more than the style risk noted at SCENE_REF_IMAGES.
+        #
+        # **Unrendered.** Nothing here has been through the card, so treat the
+        # word counts and the marker coverage as properties of the TEXT and
+        # not as a claim about what the model does with either.
+        *[
+            (f"h3_ref2v_scene_{sc}.json", f"r2v-scene-{sc}", "r2v",
+             _ref_prompt(images=("character",), scene=sc),
+             dict(ref_images=SCENE_REF_IMAGES[sc], ref_image_count=1,
+                  out_prefix=f"Video/h3_r2v_scene_{sc}"),
+             note)
+            for sc, note in (
+                ("subway", "a busker on a crowded platform, four shots with "
+                           "sung lyrics and a platform sign -- the lyrics and "
+                           "caption marker arm"),
+                ("kitchen", "a restaurant pass mid-service, four shots with "
+                            "overlapping dialogue and a ticket caption -- the "
+                            "same markers against speech rather than song"))
+        ],
+
         ("h3_ref2v_market.json", "r2v-market", "r2v", MARKET_REF2V_PROMPT,
          dict(ref_images=MARKET_REF_IMAGES, ref_image_count=1,
               out_prefix="Video/h3_r2v_market"),

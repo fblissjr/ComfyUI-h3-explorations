@@ -1,0 +1,273 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "er_sde"
+    }
+  },
+  "8": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 16,
+      "denoise": 1.0
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_r2v_scene_subway",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 362
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3ReferenceConditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ],
+      "references": [
+        "50",
+        0
+      ],
+      "prompt": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> in a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] Handheld with fast reframing under cool platform fluorescents. A wide shot establishes a crowded underground platform, tiled columns receding, a train braking into frame from the right, still moving fast. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> <Subject 1> stands over an open guitar case, preserving the face, hair, wardrobe and build established in the reference, strums once, and sings into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the northbound line.</d><d>[English] Everybody's leaving on time.</d><|lyrics_end|> Her lips close on the last word as the headlights wash across her face and commuters surge past in both directions, one man breaking into a run.\n[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters shouldering fast through the crowd, the camera tracking with them at large amplitude. A woman in a soaked raincoat with a clipped, urgent contralto (S2) turns her head without slowing and says: <d>[English] Do not stop, it is the last one.</d> Her lips close. Her companion, a man in his thirties with a breathless, higher tenor (S3), answers half a step behind her: <d>[English] I know, I know, go, go.</d> His lips close and he shoves his bag under one arm as they cut left around a column.\n[Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the platform edge as the doors open and the crowd compresses inward, a dropped umbrella skidding across the tiles. <Subject 1> keeps playing through it, her identity unchanged from the reference, and sings over the crowd: <|lyrics_start|><d>[English] Hold the door and hold your line.</d><|lyrics_end|> Her lips close. The camera holds wide long enough to keep the tiled columns, the platform edge markings and the overhead signage of the reference setting continuously visible behind her while the crowd moves across the frame in both directions, coats and bags passing close to the lens without occluding her face.\n[Shot 4] At 00:11.000, the shot changes to a close shot inside the carriage looking out through the closing doors, the woman in the raincoat pressed against the glass, breathing hard, calling back to her companion still on the platform: <d>[English] Get the next one and meet me at the</d><|cutoff|>\n\noverall_soundscape:\nBrake squeal rising and cutting out as a train settles, a dense crowd shuffling and coats brushing, a single guitar strummed hard over the noise, an umbrella skittering across tile, a two-tone door chime, and pneumatic doors sealing with a hard thump.\n\nnon_diegetic_music:\nN/A",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "video_policy": "encoder",
+      "image_policy": "comfy"
+    }
+  },
+  "15": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "h3_refs/subject_performer_stage_662x1177.png"
+    }
+  },
+  "50": {
+    "class_type": "MiniMaxH3AppendRefImage",
+    "inputs": {
+      "image": [
+        "15",
+        0
+      ],
+      "size_policy": "max",
+      "size_policy.dit_short_edge": 2048,
+      "size_policy.allow_upscale": false,
+      "qwen_short_edge": 512
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "20": {
+    "class_type": "MiniMaxH3SageAttention",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "mode": "auto",
+      "patch_token_refiner": false,
+      "head_chunks": 1
+    }
+  },
+  "21": {
+    "class_type": "SolAttnMiniMax",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "selection": "adaptive tau",
+      "selection.tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 0.9,
+      "min_tokens": 12288,
+      "sink_conditioning": "exact_kv_and_rows",
+      "morton": false,
+      "morton_curve": "3d",
+      "centroid_tail": true,
+      "reuse_qkv_memory": false,
+      "verbose": false,
+      "dense_blocks": "0-1"
+    }
+  },
+  "23": {
+    "class_type": "SageChainAssert",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "require_override": true,
+      "require_forward_patch": true,
+      "exercise": true,
+      "warn_only": false
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
+    }
+  }
+}
