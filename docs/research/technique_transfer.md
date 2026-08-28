@@ -70,7 +70,7 @@ phases DRAM-saturated, so weight bytes are their cost) and on load staging
 
 | from the LLM/ViT world | here | status |
 |---|---|---|
-| W4/W8 weight-only quantisation of the LLM (AWQ, GPTQ) | the encoder: this repo's W4A16 AWQ, [`h3_awq_encoder.md`](../h3_awq_encoder.md) | **exists**; v2 calibrating on native input as of 2026-08-25 |
+| W4/W8 weight-only quantisation of the LLM (AWQ, GPTQ) | the encoder: this repo's W4A16 AWQ, [`h3_awq_encoder.md`](../h3_awq_encoder.md) | **exists**, and the lane is CLOSED. v2 calibrated on native input 2026-08-25 and was rejected at Gate 5; the owner ended further own-calibration quantisation on 2026-08-27, so the planned GPTQ variant will not run. The shipped encoder is the v1 W4A16 AWQ artifact |
 | the same on the ViT/DiT | the DiT ships int8 ConvRot (rotation plus int8); `fp8_scaled` measured worse against the bf16 release ([`evidence.md`](../evidence.md)) | **exists at int8. The unexplored borrow is W4 DiT weights** in the SVDQuant/Nunchaku style, which those projects apply to Flux and Wan DiTs. Prize: residency on 24 GB and faster DRAM-bound GEMM phases. Risk: diffusion's sensitivity to weight error, and a rendered pair cannot judge it (the different-sample rule in `CLAUDE.md`). Measurement: the same capture-graded route, then a blind distribution |
 | KV cache quantisation | no KV survives a step | n/a |
 | activation quantisation (A8) | sage quantises inside attention; the GEMMs are not quantised at the activation | possible, unmeasured |
