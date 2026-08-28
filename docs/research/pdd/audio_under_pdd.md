@@ -49,6 +49,46 @@ say what motion regime it was judged in. A scene with 0% high-motion frames
 cannot discriminate a defect that appears under motion, however carefully it is
 judged or however many seeds it gets.
 
+## READ THIS BEFORE USING ANY PERCEPTUAL RESULT BELOW
+
+**The owner's own caution, 2026-08-28: "don't rely on me for this because
+there's too many variables here."** He is right, and it applies to every
+perceptual read in this file. Recorded at his request rather than discovered,
+which is worth saying: the person whose judgements they are asked for them to be
+discounted.
+
+Every read below is **one seed, one viewing, unblinded, by a judge who knew
+which arm was which** — and `CLAUDE.md` already says a perceptual claim about a
+numerical knob needs a distribution, not a pair. `docs/eval_comparison.md`
+section 3 exists for exactly this and none of tonight went through it.
+
+There are also more variables in play than any single comparison controls:
+scene motion differs by 3x across the corpus, one prompt asks for camera shake
+and another does not, and at least one pair believed to be controlled turned out
+to differ in four inputs.
+
+**What that means concretely:**
+
+| finding | rests on | status |
+|---|---|---|
+| artifacts track motion (+0.676) | MEASUREMENT, within-clip | stands |
+| corpus is biased low-motion (47.6% vs 0.0%) | MEASUREMENT | stands |
+| 4 evals has one legal partition | ENUMERATION | stands |
+| tail6 better than uniform-4 | one unblinded viewing | **indicative** |
+| Sol band second-order on tail6 | one unblinded viewing | **indicative** |
+| 00004 and 00005 about equal | uncontrolled pair | **not usable** |
+| distilled shake "less natural" | one viewing, unmeasurable so far | **open** |
+
+**The measured half does not depend on the perceptual half.** The motion
+correlation, the corpus bias and the partition enumeration were computed from
+files and arithmetic. They would stand if every read below were withdrawn — and
+they are the reason to keep going, not the clips.
+
+**What would upgrade the indicative rows:** `docs/eval_comparison.md` section 3
+— matched seeds, several per arm, blinded with a sealed key, scored before
+unblinding. That is a real cost and nobody should pretend tonight's viewing was
+a cheap version of it.
+
 ## Perceptual results, 2026-08-28, owner's reads
 
 All at 1344x768 / 362 frames / seed 730451892 on the rewritten market prompt.
