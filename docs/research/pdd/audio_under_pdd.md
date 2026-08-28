@@ -118,10 +118,21 @@ withdrawn.
 
 ### First perceptual result: tail6 fixes what u4 broke, at matched canvas
 
-**Owner's read, 2026-08-28, unprompted:** `text_to_video_pdd_4step_00007`
-(tail6) "looks relatively decent" and "sounds decent" — against
-`..._00004` (uniform 4-step), which he had described as jaggy with the audio
-off.
+**Owner's read, 2026-08-28, unprompted:** `..._00007` (tail6) "looks and sounds
+about as good as I'd expect for a 4 step"; `..._00004` (uniform 4) is "jaggedy
+lines and scratchy audio".
+
+> **THE FILENAMES LIE, and this one will cost somebody an hour.** Both files are
+> called `text_to_video_pdd_4step_0000N` because they were produced by mutating
+> the 4-step graph with `ManualSigmas`, and the muxer names output after the
+> graph. **`00007` ran SIX evaluations, not four.** Only `00004` is actually a
+> 4-evaluation render. Read the partition out of the embedded workflow
+> (`SamplerCustomAdvanced.sigmas` -> `ManualSigmas`), never off the filename.
+
+So the owner's phrasing understates it: six evaluations delivering what he would
+accept from four, against a four-evaluation arm that is unusable. And "scratchy"
+is the useful word — a high-frequency audio artifact, which is the shape a
+drifting coefficient would produce rather than a gross timing or content error.
 
 **It is a matched pair.** Diffing the workflows embedded in both PNGs, the only
 differences are the sigma source (node SIGMAS -> ManualSigmas), the now-inert
