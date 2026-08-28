@@ -462,8 +462,19 @@ def scene_prompt(name: str, *, first_frame: bool = False,
     # last-only call emitted no line at all -- which `preflight_graph.grade`
     # fails outright as a keyframe socket with no preamble.
     #
-    # Nothing caught either, and nothing would have: preflight checks that the
-    # preamble NAMES a Picture, not that it is the right sentence for the mode.
+    # Nothing caught either AT THE TIME. **That is no longer true and this
+    # comment outlived it**: `preflight_graph.py::_expected_base_alignment`
+    # parses all three templates out of the release guide, resolves `Shot N`
+    # and `S.SS` from the graph's own final shot and snapped length, and
+    # compares the preamble by exact string -- so a mode-mismatched alignment
+    # sentence now FAILS rather than passing. Shown red 2026-08-28 by feeding
+    # the shipped fl2va graph the I2VA sentence.
+    #
+    # Left as a correction rather than deleted, because the stale half was
+    # copied verbatim into `docs/prompting.md` on the day that file was
+    # written, and propagated from there into `docs/prompt_audit.md`. A comment
+    # asserting an absence is the kind that rots silently: the absence gets
+    # filled somewhere else and nothing links the two.
     # This function is still uncalled (the shipped graphs run on the prompt
     # constants above), so the defect never reached a graph -- but it was
     # staged for exactly the task that would have hit it first.
