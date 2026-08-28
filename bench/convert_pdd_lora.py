@@ -171,6 +171,80 @@ CONVERTER_VERSION = "1"
 DEFAULT_SHIFT_VIDEO = 12.0
 DEFAULT_SHIFT_AUDIO = 3.0
 
+#: Median `||row_i|| / ||row_0||` over i>=1 in a published head bank, below
+#: which the stack is read as DELTAS FROM HEAD 0 rather than verbatim heads.
+#:
+#: Why a norm and not a key name. `compare_pdd_conversions.kijai_bank` already
+#: branches between two encodings, and it does it on the KEYS PRESENT, which is
+#: right there: his two layouts ship different tensor names. That method cannot
+#: work here. A re-upload of the source would keep `proj_out.weight` exactly and
+#: change only what is inside it, so the keys are identical under both encodings
+#: and only the values separate them. This is the repo's rule about branching on
+#: the observable, and the observable here is the values.
+#:
+#: Why it separates, measured 2026-08-28 on both published partitions:
+#:
+#:                        rows1..31/row0     what a delta stack would give
+#:   FL2VA  video               1.0010                            0.0289
+#:   FL2VA  audio               0.9999                            0.0169
+#:   Ref2VA video               1.0038                            0.0290
+#:   Ref2VA audio               0.9993                            0.0245
+#:
+#: Consecutive heads are nearly the same map -- they differ by 2-3% of a head's
+#: own norm -- so a delta encoding is not a near miss here, it is a factor of
+#: ~35. 0.5 sits about 17x above the largest delta case and 2x below the
+#: smallest verbatim one. It is not a precision tolerance and must not be tuned
+#: like one: any value in (0.05, 0.9) makes the identical decision on every
+#: artifact either encoding can produce.
+BANK_VERBATIM_RATIO = 0.5
+
+
+def bank_row_ratio(w) -> float:
+    """Median norm of rows 1.. against row 0's, for an `[n, out, in]` stack."""
+    n = w.to(torch.float64).flatten(1).norm(dim=1)
+    return float(n[1:].median() / n[0])
+
+
+def assert_bank_verbatim(src: dict, head_keys) -> dict:
+    """Refuse a source whose head stack is deltas rather than verbatim heads.
+
+    The hazard this closes. The converter below copies `proj_out.weight` into
+    `h3_pdd.bank.*` UNCHANGED, and nothing downstream would notice if that were
+    the wrong thing to do: the partition guard compares the base checkpoint's
+    head, not the bank, and `compare_pdd_conversions.py` grades our bank against
+    the very file it was copied from, so it agrees with itself under either
+    encoding. A delta-encoded re-upload therefore converts silently and renders
+    silently, and the first sign is bad output nobody can attribute.
+
+    That is not hypothetical: `Comfy-Org/ComfyUI#15908` changed its head formula
+    after `bd016b75ff9b` to one correct only if the stored rows are deltas from
+    head 0, and the HF repo's `lastModified` sits two minutes after that commit.
+    Our copies are still verbatim -- checked, not assumed, every run from here.
+
+    RAISES rather than converting the deltas itself. Reconstructing them needs
+    the upstream convention (is row i `head_i - head_0`, or a running
+    difference?), and the file does not say. Guessing would replace a loud
+    failure with a quiet wrong bank, which is the thing this exists to prevent.
+    """
+    ratios = {}
+    for key in head_keys:
+        if not key.endswith(".weight"):
+            continue
+        ratios[key] = bank_row_ratio(src[key])
+    bad = {k: r for k, r in ratios.items() if r < BANK_VERBATIM_RATIO}
+    if bad:
+        detail = ", ".join(f"{k} {r:.4f}" for k, r in sorted(bad.items()))
+        raise SystemExit(
+            f"the published head stack does not look like verbatim heads: "
+            f"{detail}, against a verbatim ~1.0 and a threshold of "
+            f"{BANK_VERBATIM_RATIO}. Rows 1.. being far smaller than row 0 is "
+            f"what a DELTA-FROM-HEAD-0 encoding looks like, and this converter "
+            f"copies the stack into `h3_pdd.bank.*` verbatim -- so it would "
+            f"produce a wrong bank that nothing downstream checks. Upstream is "
+            f"known to have changed this encoding once. Establish the "
+            f"convention before converting; do not relax this number.")
+    return ratios
+
 #: Rows in the derived time grid. Matches `adaln_t_table`'s first dimension in
 #: the pruned checkpoints, so a row index means the same t on both paths.
 GRID_ROWS = 1025
@@ -378,6 +452,11 @@ def main(argv=None) -> int:
             f"{leftover[:4]}. Every key must reach the backbone, the adaln "
             f"sidecar or the fused heads.")
 
+    # Verbatim heads, or deltas from head 0? Checked BEFORE the copy below,
+    # because that copy is what makes the question matter: it moves the stack
+    # across unchanged, so a wrong encoding survives into the bank intact.
+    bank_ratios = assert_bank_verbatim(src, head_keys)
+
     # The raw bank, so the node can fuse for any block size the grid divides
     # by. Kept at the published bf16: the fusion runs in float64 from these
     # exact values either way, so widening here would store precision the
@@ -523,6 +602,10 @@ def main(argv=None) -> int:
           f"({len(src)} source tensors, all consumed)")
     print(f"  {out['h3_pdd.bank.video.weight'].shape[0]}-interval head bank at "
           f"shift {args.shift_video}/{args.shift_audio}")
+    print("  bank rows are verbatim heads, not deltas: "
+          + ", ".join(f"{k.split('.')[0]} {r:.4f}"
+                      for k, r in sorted(bank_ratios.items()))
+          + f" (delta would be ~0.02, threshold {BANK_VERBATIM_RATIO})")
     # The grid is emitted ONLY on the unpruned path, so reading it
     # unconditionally raised KeyError after the file had already been written --
     # every `--pruned` run looked failed and returned non-zero while having

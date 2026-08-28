@@ -1,0 +1,21 @@
+{
+ "date": "2026-08-28",
+ "script": "bench/check_pdd_bank_encoding.py",
+ "what": "median ||row_i||/||row_0||, i>=1, of the published per-interval head stacks. ~1.0 is verbatim heads; a delta-from-head-0 encoding would sit near 0.02.",
+ "threshold": 0.5,
+ "ratios": {
+  "FL2VA": {
+   "proj_out.weight": 1.001023,
+   "audio_proj_out.weight": 0.999889
+  },
+  "Ref2VA": {
+   "proj_out.weight": 1.003835,
+   "audio_proj_out.weight": 0.999309
+  }
+ },
+ "why_it_matters": "bench/convert_pdd_lora.py copies this stack into h3_pdd.bank.* unchanged. Upstream (Comfy-Org/ComfyUI#15908) adopted a formula correct only under the delta encoding, so a re-upload in that form would convert silently. Re-run against any re-fetched artifact BEFORE converting it, and compare to these values.",
+ "do_not_rely_on": [
+  "This says the ENCODING is verbatim. It says nothing about whether the weights are the same weights -- a re-upload can keep the encoding and change the values, which bench/compare_pdd_conversions.py is for.",
+  "The threshold is a discriminator, not a precision tolerance. Any value in (0.05, 0.9) decides identically; a number tuned finer than that is a number pretending to measure something."
+ ]
+}

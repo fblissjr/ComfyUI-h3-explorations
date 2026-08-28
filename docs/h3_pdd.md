@@ -1240,6 +1240,16 @@ Two readings follow, and both are predictions rather than results:
 
 ## Enforced by nothing
 
+> **One item left this list on 2026-08-28.** The converter copied
+> `proj_out.weight` into `h3_pdd.bank.*` with no encoding check, and nothing
+> downstream could have caught a delta-encoded re-upload -- the partition guard
+> compares the base checkpoint's head, not the bank, and
+> `compare_pdd_conversions.py` grades our bank against the file it came from.
+> `assert_bank_verbatim` now refuses one at conversion time, on the values
+> rather than on a revision, with `bench/check_pdd_bank_encoding.py` as its
+> red proof and `bench/results/2026-08-28_pdd_bank_encoding.json` as the
+> baseline a re-fetch is compared against.
+
 Doc-local, and deliberately not merged into `docs/checks.md`'s standing audit:
 that table sweeps the imperatives in `CLAUDE.md` and says so, and widening its
 scope silently is how a table stops meaning what its header claims.
