@@ -6,6 +6,47 @@ artifact.
 
 ## 0.85.0
 
+### Corrected by measurement
+
+- **"Audio is the thing a low step count costs" was a metric artifact, and both
+  streams degrade.** The audio-only reading rested on video staying flat across
+  partitions while audio rose. Raw video rel L2 is dominated by the DC term
+  every arm reproduces; remove the mean and video contrast falls monotonically
+  with partition coarseness, on every frame of the two coarsest arms, while
+  video's correlation with the reference moves far less. Both streams lose
+  amplitude and only audio's was visible to the chosen metric.
+  `bench/results/2026-08-28_pdd_stream_energy.json`, from renders already on
+  disk. **A metric that says one stream is fine is a claim about the metric
+  until you have checked what it is blind to.**
+
+- **The audio failure is an ENERGY collapse, not a decorrelation**, which is a
+  blunter account of the original complaint than any phase or content story.
+  Best-fit gain against the 32-evaluation reference falls from 0.308 to 0.046
+  across the partitions, confirmed against `ffmpeg volumedetect` independently
+  of the analysis script's own decode path. The coarsest arm's audio rel L2 of
+  0.992 means nearly silent rather than uncorrelated.
+
+- **Audio rel L2 has no phase gradation and should not be read as a fidelity
+  metric.** It reaches its decorrelation ceiling of sqrt(2) at a ONE-frame
+  shift -- measured 1.418, against video's 0.181 at the same shift -- so across
+  these arms it was mostly reporting the energy loss above. Recorded in the same
+  file.
+
+- **No partition experiment can attribute any of this to the audio
+  change-of-variable.** Summed drift computed THROUGH that transform and summed
+  drift computed in pure video time rank every arm identically, including arms
+  not yet rendered. Identifying it needs the transform varied at a fixed
+  partition -- and `shift_audio` is not that knob either, since
+  `pdd_math.fuse_block` weights each block by `pdd_time_grid(shift_a, ...)`, so
+  the audio fused head and the audio adaln grid move with it and the published
+  heads end up at sigmas they were never distilled for.
+
+- **Video rel L2 in `bench/results/2026-08-28_pdd_partition_fidelity_362.json`
+  was computed in float32 over ~9.6e8 elements and is imprecise in the third
+  decimal**, by more than the arm-to-arm gap one of its scored predictions
+  turns on. **The ordering is unchanged and nothing in that record is
+  withdrawn** -- the scoring survives, the margin behind it was thinner than it
+  looked. `grade_pdd_partitions.py` now accumulates in float64.
 ### Corrected against the paper
 
 - **4 evaluations is most likely a TRAINED configuration, not our
@@ -35,6 +76,19 @@ artifact.
 
 
 ### Added
+
+- **A probe that moves only the audio carry's evaluation point.**
+  `MiniMaxH3AudioCarryProbe` inverts H3's audio change-of-variable, recovers the
+  model's raw audio velocity, and re-applies the transform at the block's
+  average sigma instead of its start -- holding heads, schedule, adaln grid,
+  seed and every weight fixed. Three modes: `off` installs nothing,
+  `block_start` is the round trip, `block_mean` is the ablation. **`block_start`
+  is arithmetically the identity to ~1e-6 but is NOT a reproduction of `off` as
+  a render**, because 1e-6 diverges a sampling trajectory completely; it is a
+  second sample at the same knob, which makes it the noise floor the ablation
+  has to clear. `bench/check_audio_carry_inversion.py` asserts the inversion and
+  separately asserts the ablation moves the output -- neutering the ablation
+  leaves the round-trip assertion green, which is the check-cannot-fail shape.
 
 - **A reader that can follow a linked widget** -- `h3_config.resolve_link` and
   `resolve_widget`, with `bench/check_graph_values.py` as their control.
