@@ -2437,16 +2437,29 @@ def _scene_description(scene: str, image_roles, defs) -> str:
 #:   clip carries seven speaker changes in fifteen seconds. Lip sync has to be
 #:   right repeatedly and at speed; a model that drifts is caught on the next
 #:   line rather than at the end.
-#: * **The pacing is written, not hoped for.** "answers immediately", "says at
-#:   once", and a soundscape line that says the two voices trade "short clipped
-#:   lines with almost no gap between them". "Remove those and the same lines
-#:   come out spaced and unjudgeable" stood here as fact until 2026-08-28;
-#:   **it is a belief, not a result** -- no arm has ever been rendered without
-#:   them, so nothing in `bench/results/` speaks to it either way.
-#:   The soundscape half is also outside what base guide 4.6 scopes that field
-#:   to, which is the open question in `docs/prompt_audit.md`; the two body
-#:   cues are guide-legal and cover four of the five within-shot line
-#:   transitions.
+#: * **The pacing is written, not hoped for**, and as of 2026-08-28 it is
+#:   written ONLY in the body: "answers immediately" x2 and "says at once" x2,
+#:   now joined by "answers at once" on Shot 1's fourth line. Those five cover
+#:   all five within-shot line transitions, which is why the change below was
+#:   safe to make.
+#:
+#:   **A soundscape sentence carried this until 2026-08-28** -- "two speaking
+#:   voices ... trading short clipped lines with almost no gap between them",
+#:   identical here and in the ref2va twin -- and it was dropped from both.
+#:   Two reasons, and the first is the operative one. Base guide 4.6 scopes
+#:   `overall_soundscape` to ambient sound, physical action sounds and
+#:   NON-VERBAL human sounds (breathing, laughter, panting); two speaking
+#:   voices is verbal human sound, the category that enumeration excludes by
+#:   naming its complement. Ref guide 6 reaches the same place independently.
+#:   Second, it was redundant: the ref2va twin says the same thing a third
+#:   time in its `summary`, and the fifth body cue closes the one transition
+#:   the body had left uncovered.
+#:
+#:   **What stood here as fact and was not one.** "Remove those and the same
+#:   lines come out spaced and unjudgeable" was a belief, not a result -- no
+#:   arm has ever been rendered without them, so nothing in `bench/results/`
+#:   speaks to it either way. It is recorded because it nearly blocked a
+#:   guide-correct edit on the strength of sounding measured.
 #: * **Every line is `<d>[English] ...</d>`**, which the prompt guide requires
 #:   for all dialogue. The marker is the subject: if the tokenizer is not
 #:   emitting 151669/151670 the model hears angle brackets and the word
@@ -2455,10 +2468,16 @@ def _scene_description(scene: str, image_roles, defs) -> str:
 #: * **Two voices described by register** (measured female S1, lower gravelled
 #:   male S2), so a swapped or blended speaker is obvious without a spectrogram.
 #:
-#: Do not "improve" it without rendering the result beside this one.
-DIALOGUE_T2V_PROMPT = """integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames a woman with dark shoulder-length hair in a charcoal wool coat facing a man with a close-cropped beard in a navy jacket on a concrete stairwell landing, lit hard from a caged bulb overhead. The woman with the low measured voice (S1) says, <d>[English] You said tomorrow.</d> The man with the lower gravelled voice (S2) answers immediately, <d>[English] It moved.</d> She says at once, <d>[English] To when?</d> He says, <d>[English] Tonight.</d> Her jaw tightens and the camera shakes slightly with the operator's breathing. [Shot 2] At 00:06.000, the camera cuts to a close-up of the woman against painted cinderblock, the bulb throwing a hard edge down one cheek. She (S1) says, <d>[English] Who else knows?</d> Off screen he (S2) answers immediately, <d>[English] Nobody.</d> She says at once, <d>[English] Keep it that way.</d> She looks past the camera toward the stairs below. [Shot 3] At 00:11.000, the camera cuts to a close-up of the man, rain noise faint through a window well behind him. He (S2) says, <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder, and holds still until the final frame.
+#: Do not "improve" it without rendering the result beside this one. That
+#: instruction has now been crossed twice, both times for a guide correction
+#: and both times disclosed here rather than quietly: `d5be353` for the camera
+#: verb, and the 2026-08-28 soundscape drop above. **The arm has not been
+#: re-rendered since either**, so the clips in
+#: `Video/20260808-stock-vs-vendortokens/` are the old prompt's output and this
+#: constant is not what produced them.
+DIALOGUE_T2V_PROMPT = """integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames a woman with dark shoulder-length hair in a charcoal wool coat facing a man with a close-cropped beard in a navy jacket on a concrete stairwell landing, lit hard from a caged bulb overhead. The woman with the low measured voice (S1) says, <d>[English] You said tomorrow.</d> The man with the lower gravelled voice (S2) answers immediately, <d>[English] It moved.</d> She says at once, <d>[English] To when?</d> He answers at once, <d>[English] Tonight.</d> Her jaw tightens and the camera shakes slightly with the operator's breathing. [Shot 2] At 00:06.000, the camera cuts to a close-up of the woman against painted cinderblock, the bulb throwing a hard edge down one cheek. She (S1) says, <d>[English] Who else knows?</d> Off screen he (S2) answers immediately, <d>[English] Nobody.</d> She says at once, <d>[English] Keep it that way.</d> She looks past the camera toward the stairs below. [Shot 3] At 00:11.000, the camera cuts to a close-up of the man, rain noise faint through a window well behind him. He (S2) says, <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder, and holds still until the final frame.
 
-overall_soundscape: Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead. Two speaking voices, a measured adult female voice and a lower adult male voice, trading short clipped lines with almost no gap between them.
+overall_soundscape: Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead.
 
 non_diegetic_music: N/A
 """
@@ -2502,14 +2521,14 @@ retention_analysis:
 detailed_description:
 Photorealistic live-action, 16:9, handheld on 35mm with visible grain, shallow depth of field, lit hard and from above by a single caged bulb on the stairwell ceiling so both faces carry a bright top edge and a deep shadow under the brow and jaw. The stairwell is poured concrete with painted cinderblock walls in a flat institutional green, a steel handrail running down out of frame, and a scuffed landing floor. The air is cold enough to be visible faintly on the breath at the end of the longer lines. The camera stays handheld throughout with small continuous drift from the operator's breathing, never a deliberate move. Each speaker's lips move only on their own line and are closed and still while the other speaks. Both faces stay in focus whenever they are in frame. No other people, no readable text, no signage, no costume changes, no music.
 
-[Shot 1] A medium two-shot frames <Subject 1> in a charcoal wool coat, collar turned up, facing <Subject 2> in a navy jacket on the stairwell landing, the two of them a little closer than is comfortable. <Subject 1>, with a low measured voice (S1), says: <d>[English] You said tomorrow.</d> <Subject 2>, with a lower gravelled voice (S2), answers immediately: <d>[English] It moved.</d> She says at once: <d>[English] To when?</d> He says: <d>[English] Tonight.</d> Her jaw tightens, she does not step back, and the camera shakes slightly with the operator's breathing while the bulb hums overhead.
+[Shot 1] A medium two-shot frames <Subject 1> in a charcoal wool coat, collar turned up, facing <Subject 2> in a navy jacket on the stairwell landing, the two of them a little closer than is comfortable. <Subject 1>, with a low measured voice (S1), says: <d>[English] You said tomorrow.</d> <Subject 2>, with a lower gravelled voice (S2), answers immediately: <d>[English] It moved.</d> She says at once: <d>[English] To when?</d> He answers at once: <d>[English] Tonight.</d> Her jaw tightens, she does not step back, and the camera shakes slightly with the operator's breathing while the bulb hums overhead.
 
 [Shot 2] At 00:06.000, the camera cuts to a close-up of <Subject 1> against the painted cinderblock, the bulb throwing a hard edge down one cheek and leaving the other in shadow, a few strands of hair lit at the crown. She (S1) says: <d>[English] Who else knows?</d> Off screen he (S2) answers immediately: <d>[English] Nobody.</d> She says at once: <d>[English] Keep it that way.</d> She holds his eyeline a moment longer than the line needs, then looks past the camera and down toward the stairs below, her breath just visible.
 
 [Shot 3] At 00:11.000, the camera cuts to a close-up of <Subject 2>, the same hard overhead light picking out the lines around his eyes and mouth, rain noise faint through a window well behind him and a wet grey rectangle of light on the wall past his shoulder. He (S2) says: <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder with one hand, exhales once, and holds still with his lips closed until the final frame.
 
 overall_soundscape:
-Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead. Two speaking voices, a measured adult female voice and a lower adult male voice, trading short clipped lines with almost no gap between them.
+Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead.
 
 non_diegetic_music:
 N/A

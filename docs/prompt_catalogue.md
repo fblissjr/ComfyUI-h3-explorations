@@ -16,9 +16,9 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 | [`I2V_PROMPT`](#i2v-prompt) | 3 | 90 | 1 | 0 | — |
 | [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | 3 | 573 | 3 | 2 | `<d>` |
 | [`derived:h3_probe_ref2v_split_turbo_pack`](#derivedh3-probe-ref2v-split-turbo-pack) | 3 | 303 | 1 | 0 | — |
-| [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | 2 | 647 | 3 | 2 | `<d>` |
+| [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | 2 | 625 | 3 | 2 | `<d>` |
 | [`derived:h3_probe_release_video_policy`](#derivedh3-probe-release-video-policy) | 2 | 183 | 1 | 0 | — |
-| [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | 1 | 250 | 3 | 2 | `<d>` |
+| [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | 1 | 228 | 3 | 2 | `<d>` |
 | [`R2V_PROMPT`](#r2v-prompt) | 1 | 281 | 1 | 0 | — |
 | [`derived:h3_last_frame_to_video`](#derivedh3-last-frame-to-video) | 1 | 137 | 1 | 0 | — |
 | [`derived:h3_ref_audio_voice`](#derivedh3-ref-audio-voice) | 1 | 213 | 1 | 1 | `<d>` |
@@ -346,14 +346,14 @@ retention_analysis:
 detailed_description:
 Photorealistic live-action, 16:9, handheld on 35mm with visible grain, shallow depth of field, lit hard and from above by a single caged bulb on the stairwell ceiling so both faces carry a bright top edge and a deep shadow under the brow and jaw. The stairwell is poured concrete with painted cinderblock walls in a flat institutional green, a steel handrail running down out of frame, and a scuffed landing floor. The air is cold enough to be visible faintly on the breath at the end of the longer lines. The camera stays handheld throughout with small continuous drift from the operator's breathing, never a deliberate move. Each speaker's lips move only on their own line and are closed and still while the other speaks. Both faces stay in focus whenever they are in frame. No other people, no readable text, no signage, no costume changes, no music.
 
-[Shot 1] A medium two-shot frames <Subject 1> in a charcoal wool coat, collar turned up, facing <Subject 2> in a navy jacket on the stairwell landing, the two of them a little closer than is comfortable. <Subject 1>, with a low measured voice (S1), says: <d>[English] You said tomorrow.</d> <Subject 2>, with a lower gravelled voice (S2), answers immediately: <d>[English] It moved.</d> She says at once: <d>[English] To when?</d> He says: <d>[English] Tonight.</d> Her jaw tightens, she does not step back, and the camera shakes slightly with the operator's breathing while the bulb hums overhead.
+[Shot 1] A medium two-shot frames <Subject 1> in a charcoal wool coat, collar turned up, facing <Subject 2> in a navy jacket on the stairwell landing, the two of them a little closer than is comfortable. <Subject 1>, with a low measured voice (S1), says: <d>[English] You said tomorrow.</d> <Subject 2>, with a lower gravelled voice (S2), answers immediately: <d>[English] It moved.</d> She says at once: <d>[English] To when?</d> He answers at once: <d>[English] Tonight.</d> Her jaw tightens, she does not step back, and the camera shakes slightly with the operator's breathing while the bulb hums overhead.
 
 [Shot 2] At 00:06.000, the camera cuts to a close-up of <Subject 1> against the painted cinderblock, the bulb throwing a hard edge down one cheek and leaving the other in shadow, a few strands of hair lit at the crown. She (S1) says: <d>[English] Who else knows?</d> Off screen he (S2) answers immediately: <d>[English] Nobody.</d> She says at once: <d>[English] Keep it that way.</d> She holds his eyeline a moment longer than the line needs, then looks past the camera and down toward the stairs below, her breath just visible.
 
 [Shot 3] At 00:11.000, the camera cuts to a close-up of <Subject 2>, the same hard overhead light picking out the lines around his eyes and mouth, rain noise faint through a window well behind him and a wet grey rectangle of light on the wall past his shoulder. He (S2) says: <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder with one hand, exhales once, and holds still with his lips closed until the final frame.
 
 overall_soundscape:
-Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead. Two speaking voices, a measured adult female voice and a lower adult male voice, trading short clipped lines with almost no gap between them.
+Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead.
 
 non_diegetic_music:
 N/A
@@ -406,9 +406,9 @@ Carried by **1** graph(s). Sections: none.
 </details>
 
 ```text
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames a woman with dark shoulder-length hair in a charcoal wool coat facing a man with a close-cropped beard in a navy jacket on a concrete stairwell landing, lit hard from a caged bulb overhead. The woman with the low measured voice (S1) says, <d>[English] You said tomorrow.</d> The man with the lower gravelled voice (S2) answers immediately, <d>[English] It moved.</d> She says at once, <d>[English] To when?</d> He says, <d>[English] Tonight.</d> Her jaw tightens and the camera shakes slightly with the operator's breathing. [Shot 2] At 00:06.000, the camera cuts to a close-up of the woman against painted cinderblock, the bulb throwing a hard edge down one cheek. She (S1) says, <d>[English] Who else knows?</d> Off screen he (S2) answers immediately, <d>[English] Nobody.</d> She says at once, <d>[English] Keep it that way.</d> She looks past the camera toward the stairs below. [Shot 3] At 00:11.000, the camera cuts to a close-up of the man, rain noise faint through a window well behind him. He (S2) says, <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder, and holds still until the final frame.
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, handheld on 35mm, a medium two-shot frames a woman with dark shoulder-length hair in a charcoal wool coat facing a man with a close-cropped beard in a navy jacket on a concrete stairwell landing, lit hard from a caged bulb overhead. The woman with the low measured voice (S1) says, <d>[English] You said tomorrow.</d> The man with the lower gravelled voice (S2) answers immediately, <d>[English] It moved.</d> She says at once, <d>[English] To when?</d> He answers at once, <d>[English] Tonight.</d> Her jaw tightens and the camera shakes slightly with the operator's breathing. [Shot 2] At 00:06.000, the camera cuts to a close-up of the woman against painted cinderblock, the bulb throwing a hard edge down one cheek. She (S1) says, <d>[English] Who else knows?</d> Off screen he (S2) answers immediately, <d>[English] Nobody.</d> She says at once, <d>[English] Keep it that way.</d> She looks past the camera toward the stairs below. [Shot 3] At 00:11.000, the camera cuts to a close-up of the man, rain noise faint through a window well behind him. He (S2) says, <d>[English] Understood.</d> He looks down, adjusts the strap on his shoulder, and holds still until the final frame.
 
-overall_soundscape: Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead. Two speaking voices, a measured adult female voice and a lower adult male voice, trading short clipped lines with almost no gap between them.
+overall_soundscape: Close handheld room tone in a hard concrete stairwell with a long reflective tail on every consonant and a faint electrical hum from the caged bulb overhead.
 
 non_diegetic_music: N/A
 ```
