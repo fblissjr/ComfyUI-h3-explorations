@@ -1142,51 +1142,75 @@ files exist, so that is a listening test, not a render.
 
 ---
 
-## Sparsity dominates through the trunk; at the final block quantisation catches up
+## Inside Sol: sparsity costs more than the kernel's INT8, except at the last block
 
-Stated on its own because it is a fact about the STACK rather than about a
-setting, and because it points the next optimisation somewhere different from
-where this repo has been pointing it.
+**Read the scope before the numbers.** Both terms come out of
+`bench/analyze_sol_error.py::decompose_single`, which builds all three
+references from the SAME captured q, k, v:
 
-From `bench/results/2026-08-19_sol_error_per_head_tau1.0.json` — fourteen
-(block, step) rows from one capture, decomposed against an oracle by
-`bench/analyze_sol_error.py`. Within-file, same rows, so it does not depend on
-matching captures across records:
+    out_dense = dense_reference(q, k, v)           fp, full attention
+    out_eager = eager_sol_reference(q, k, v, tau)  fp, Sol's sparsity
+    out_cuda  = cuda_sol_kernel(q, k, v, tau)      Sol's CUDA kernel, INT8 inside
+
+    sparsity_l2 = eager vs dense      the sparsity approximation
+    quant_l2    = cuda  vs eager      the KERNEL's INT8 arithmetic
+
+The weights are already applied by the time q, k, v exist, so **whatever error
+the INT8 checkpoint or the encoder contributes is in all three and cancels out.**
+`quant_l2` is Sol's own kernel arithmetic — which SOLATTN records as INT8
+unconditionally, with no setting to change. **This file cannot speak to
+checkpoint or encoder weight quantisation in either direction.**
+
+An earlier version of this section said "a lane spent on encoder quantisation
+fidelity was working the smaller term." That compared two different stages and
+is withdrawn — it is `CLAUDE.md`'s carry-a-fact-across-stages case, and it would
+have sent someone to stop encoder work on evidence that never measured it.
+
+### The numbers, within that scope
+
+Fourteen (block, step) rows, one capture, tau 1.0:
 
 | block | sparsity_l2 | quant_l2 | ratio |
 |---|---|---|---|
-| 0, 8, 16, 24, 32, 40 (two steps each) | 0.089 - 0.224 | 0.024 - 0.049 | **2.90 - 4.79** |
+| 0, 8, 16, 24, 32, 40 | 0.089 - 0.224 | 0.024 - 0.049 | **2.90 - 4.79** |
 | **49, step 3** | 0.1427 | 0.1354 | **1.05** |
 | **49, step 11** | 0.1647 | 0.1353 | **1.22** |
 
-**Through the trunk, Sol's sparsity costs three to five times what INT8 costs.**
-That cuts against a framing used repeatedly here, in which INT8 is the thing to
-be nervous about and Sol is treated as free.
+Through the trunk, **Sol's sparsity approximation costs three to five times what
+its kernel's INT8 arithmetic costs.** At block 49 they are equal.
 
-**At block 49 the two are equal**, because its `quant_l2` is about 3.7x every
-other block's while its sparsity error is ordinary. **Block 49 is the LAST
-block** — the checkpoint carries blocks 0..49 — so it is the one whose error
-reaches the output with no remaining network to absorb it. `docs/morton.md`
-already records block 49 behaving unlike the trunk for reordering, which is a
-different measurement pointing at the same block being special.
+### Block 49 is the last block, and it inverts
 
-So the actionable form is neither "Sol is where fidelity goes" nor "INT8 is the
-worry": **it is Sol through the trunk and an equal partner at the output.**
-Acting on a stack-wide reading of the first would deprioritise quantisation work
-exactly where the data makes it an equal term.
+`transformer/config.json` declares 50 layers, so 49 is final — the block whose
+error reaches the output with no remaining network to absorb it. Confirmed
+scale-invariantly with cosine, so it is not a denominator effect:
 
-**Name the statistic, because the ratio moves with it.** Ratio of medians 3.82,
-median of per-row ratios 3.87, **ratio of means 2.88** — the mean is dragged by
-those two block-49 rows, which is skew rather than noise (quant_l2 mean 0.0500
-against median 0.0374). Quote the median and say so.
+    1 - quant_cos    blocks 0-40:   2.1e-4 to 8.3e-4
+    1 - quant_cos    block 49:      7.5e-3, 7.7e-3      about 10x
 
-**What it does not say.** One capture, one tau, seven blocks sampled at two
-steps each, and an L2 against an oracle rather than anything perceptual — a
-larger L2 is not automatically a worse-looking render. It does not say Sol is
-not worth its speed; it says the trade is bigger than the quantisation trade
-through the trunk, not that it is a bad one. And block 49 being a quantisation
-hotspot is two rows: real, and not a characterisation of how it behaves in
-general.
+**And sparsity simultaneously gets EASIER there** — `sparsity_cos` 0.9915 at
+block 49 against 0.9784 at block 40. The two terms swap which one is hard.
+
+### What this points at, and it is not tau
+
+**`dense_blocks`, and the tooltip is half wrong.** It says "the first and last
+blocks are the most approximation-sensitive". The data says **last yes, first
+no**: blocks 0 and 8 carry the LOWEST error of anything measured (sparsity
+0.089-0.127, quant 0.024-0.032). Any `dense_blocks` of the form `0-2` protects
+the blocks that need it least.
+
+**`h3_config.SOL_ARTIFACT_INSURANCE` is `dense_blocks="33-35,39-42"`**, which
+covers the sparsity peak — block 40 at 0.2236 — and does not cover 49. Given 49
+is where the kernel arithmetic breaks down, that config addresses one peak and
+misses the other. **What adding 49 costs or fixes is unmeasured.**
+
+### What it does not license
+
+One capture, one tau, seven blocks at two steps each, an L2 against an oracle
+rather than anything perceptual. Block 49 as a kernel hotspot is TWO rows: real,
+and not a characterisation of it in general. And none of it says Sol is not
+worth its speed — only that within Sol the sparsity term is the larger one
+through the trunk.
 
 ## Which shipped values have evidence, audited 2026-08-28
 
