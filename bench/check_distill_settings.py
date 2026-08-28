@@ -614,11 +614,21 @@ def main():
             assert h3_config.TURBO_PACK_STRENGTH == 1.0, (
                 "the pack tunes for strength 1.0 across its whole step range")
 
+        # NOT intersected with `declared`. It used to be
+        # `{...} & declared`, which made `graded` a subset of `declared` by
+        # construction, so the assert below could only ever catch a constant
+        # being ADDED. A rename or a removal dropped the name from both sides
+        # at once and the check stayed green while silently grading one triple
+        # fewer -- coverage narrowing with no signal, which is worse than a
+        # red. Comparing the literal set catches both directions.
         graded = {"TURBO_LORA", "TURBO_768P_LORA", "TURBO_SLA_LORA",
-                  "TURBO_PACK_LORA", "TURBO_REF2VA_LORA"} & declared
+                  "TURBO_PACK_LORA", "TURBO_REF2VA_LORA"}
         assert declared == graded, (
-            f"h3_config declares turbo LoRA constants this check does not "
-            f"grade: {sorted(declared - graded)}")
+            f"turbo LoRA constants and this check disagree. Declared in "
+            f"h3_config but not graded here: {sorted(declared - graded)}. "
+            f"Graded here but no longer in h3_config: {sorted(graded - declared)} "
+            f"-- if one was renamed, rename it here too rather than deleting "
+            f"the row, or this check quietly stops covering it.")
 
         for label, lora, steps, shift in triples:
             key = classify(lora)
