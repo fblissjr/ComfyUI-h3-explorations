@@ -1513,7 +1513,15 @@ adaln bake did, ship a pre-merged checkpoint per partition and delete 933 MiB of
 run-time patching — which is the shape this repo already ships for everything
 else, since `MODELS` names four pre-converted checkpoints. If it lands near the
 INT8 quantisation floor, the current design was right and now for a stated
-reason. **Unrun.**
+reason.
+
+**Unrun, and DEPRIORITISED by the owner on 2026-08-28 — do not pick this up as
+the next thing.** It is written down because the analysis was done and would
+otherwise be re-derived, not because it is queued. Nothing depends on it: the
+current design works, the memory failure it might have been justified by turned
+out to be a session artifact, and the whole section exists to say the intuitive
+version of this optimisation aims at the wrong 4% anyway. If it is ever run,
+run it because the run-time patching is a moving part worth deleting.
 
 ### Do not justify it with the OOM
 
