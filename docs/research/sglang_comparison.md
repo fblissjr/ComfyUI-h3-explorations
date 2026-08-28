@@ -272,10 +272,27 @@ anything. We already run quantized weights by necessity on 24 GB.
 
 ## What we do that they do not
 
-Recorded so the comparison is not read one-directionally: Sol-Attn, the sage
-kernels and the SLA router have no counterpart in sglang's H3 path, which runs
-dense FlashAttention. [`SOLATTN.md`](../SOLATTN.md) owns those numbers. Their
-speedups and ours are not comparable and must not be put in the same table.
+Recorded so the comparison is not read one-directionally: the SLA router has no
+counterpart in sglang's H3 path. [`SOLATTN.md`](../SOLATTN.md) owns those
+numbers. Their speedups and ours are not comparable and must not be put in the
+same table.
+
+**Sol-Attn and the sage kernels no longer belong in that sentence, corrected
+2026-08-28 against `803b4fb31c`.** This section read "Sol-Attn, the sage kernels
+and the SLA router have no counterpart ... which runs dense FlashAttention",
+which was true when written and is not now: sglang ships a `sol_attn` attention
+backend (`coderef/sglang/python/sglang/multimodal_gen/test/unit/test_sol_attn_backend.py`)
+and a `kitchen_int8` linear path dispatching the same `comfy_kitchen.int8_linear`
+our checkpoints load through.
+
+**What that convergence is, and is not.** Their published consumer-card table's
+fastest row is an int8 DiT with a sage-to-Sol hybrid — which is the stack our
+graphs already wire. That is two projects arriving at one answer, and it is
+worth more as corroboration than as an action item, because there is nothing
+here to adopt. **Do not import their numbers.** Their PSNR column compares
+different samples by our own 2026-08-18 measurement, and their own quality
+section says as much; their seconds came off a host that page-caches the whole
+checkpoint, so the mechanism carries and the figures do not.
 
 ---
 
