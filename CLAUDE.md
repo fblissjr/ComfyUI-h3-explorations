@@ -76,11 +76,22 @@ repeating work.
     landscape canvas. Image references are deliberately exempt from the area cap
     that binds video, which is how one can legitimately exceed what the video
     itself may reach.
-  - **`max` never upscales.** It clamps with `min(1.0, ...)`, so it sets the
-    ceiling and nothing else; reaching the vendor's floor needs
-    `MiniMaxH3ReferenceFit(allow_upscale=True)` as well. These are the two knobs
-    the table below calls "constantly confused", and needing *both* is the part
-    that gets lost.
+  - **`short_edge` targets the SHORTER side, and `max` only shrinks until you
+    say otherwise.** The scale is `short_edge / min(w, h)`, clamped by
+    `min(1.0, ...)` unless `allow_upscale` is on, then snapped to 32
+    (`reference_geometry.py::fit_reference_image`). So `short_edge` alone sets a
+    ceiling: a source already under it is untouched, and the knob does nothing
+    at all for that source until `allow_upscale` is on. Both knobs live on
+    `MiniMaxH3AppendRefImage` and are read ONLY under `max`.
+  - **Do not reach for `MiniMaxH3ReferenceFit`.** It is back-compat for saved
+    graphs outside this repo and **no shipped graph wires it**; the typed path
+    (`AppendRefImage` -> `MiniMaxH3ReferenceConditioning`) carries both knobs
+    itself and does one resize with the canvas in scope. `docs/h3_references.md`
+    says in places that you need `max` *and* `ReferenceFit(allow_upscale=True)`
+    to reach the vendor's floor -- **that describes the older native path**, and
+    on the typed path `allow_upscale` on the append node is the whole of it.
+    `reference_fit.py`'s own docstring is the current statement, and two of that
+    node's inputs are inert.
   - **`qwen_short_edge` must not be 0 on the shipped encoder.** Reference tokens
     land in the TEXT segment ahead of the prompt, so they compete with it rather
     than merely lengthening the sequence, and unclamped they can crowd the
