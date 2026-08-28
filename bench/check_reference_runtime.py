@@ -149,7 +149,7 @@ def _max_policy(short_edge=None, allow_upscale=False):
     sends rather than the arguments that happen to be convenient.
     """
     return {"size_policy": "max",
-            "short_edge": (R.REF_IMAGE_SHORT_EDGE if short_edge is None
+            "dit_short_edge": (R.REF_IMAGE_SHORT_EDGE if short_edge is None
                            else short_edge),
             "allow_upscale": allow_upscale}
 
@@ -743,7 +743,7 @@ def preflight_prices_the_two_views():
                   "inputs": {"encoder_name": "qwen3vl_32b_minimax_h3_w4a16_awq.safetensors"}},
             "2": {"class_type": "MiniMaxH3AppendRefImage",
                   "inputs": {"image": ["9", 0], "size_policy": "max",
-                             "allow_upscale": False, "short_edge": 2048,
+                             "allow_upscale": False, "dit_short_edge": 2048,
                              "qwen_short_edge": qwen_short_edge}},
             "3": {"class_type": "MiniMaxH3ReferenceConditioning",
                   "inputs": {"clip": ["1", 0], "references": ["2", 0]}},

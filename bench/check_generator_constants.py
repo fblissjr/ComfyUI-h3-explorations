@@ -65,12 +65,19 @@ def ref_short_edge_in(graph):
     "lost its subject" assertion below on a subject that had only been renamed.
     `bench/preflight_graph.py` took the same fix in `d7dd575`; the flat name is
     still tried so a hand-built graph on the old spelling is still priced.
+
+    **The member was renamed `short_edge` -> `dit_short_edge` on 2026-08-28**,
+    so it reads as a pair with `qwen_short_edge` and stops being mistaken for
+    it -- a confusion that cost two sessions. All three spellings are tried,
+    newest first, for the same reason the flat one still is: an old hand-built
+    graph should still be priced rather than silently losing its subject.
     """
     found = set()
     for n in graph.values():
         if n["class_type"] != "MiniMaxH3AppendRefImage":
             continue
-        for candidate in ("size_policy.short_edge", "short_edge"):
+        for candidate in ("size_policy.dit_short_edge",
+                          "size_policy.short_edge", "short_edge"):
             if candidate in n["inputs"]:
                 found.add(n["inputs"][candidate])
                 break

@@ -127,7 +127,7 @@
       ],
       "frame_rate": 24.0,
       "loop_count": 0,
-      "filename_prefix": "Video/h3_probe_ref_noupscale",
+      "filename_prefix": "Video/h3_probe_ref_upscale",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -201,8 +201,8 @@
         0
       ],
       "size_policy": "max",
-      "size_policy.short_edge": 2048,
-      "size_policy.allow_upscale": false,
+      "size_policy.dit_short_edge": 2048,
+      "size_policy.allow_upscale": true,
       "qwen_short_edge": 512
     }
   },
@@ -218,8 +218,8 @@
         "50",
         0
       ],
-      "size_policy.short_edge": 2048,
-      "size_policy.allow_upscale": false,
+      "size_policy.dit_short_edge": 2048,
+      "size_policy.allow_upscale": true,
       "qwen_short_edge": 512
     }
   },

@@ -688,7 +688,7 @@
       "widgets_values": [
         "max",
         2048,
-        true,
+        false,
         512
       ],
       "title": "Append Picture 1"

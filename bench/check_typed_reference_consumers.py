@@ -85,7 +85,7 @@ def main():
         assert policies == {"ref_images.ref_image_0": {
             "size_policy": "max", "allow_upscale": False, "short_edge": 2048, "qwen_short_edge": 0,
             "linked": [],
-            "absent": ["allow_upscale", "short_edge", "qwen_short_edge"],
+            "absent": ["allow_upscale", "dit_short_edge", "qwen_short_edge"],
         }}, policies
 
     def malformed_chain_is_not_partially_reported():

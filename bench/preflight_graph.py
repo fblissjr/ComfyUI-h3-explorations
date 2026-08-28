@@ -327,8 +327,17 @@ def _reference_media(inputs: dict, graph: dict):
                 file already treats an unreadable value as "not priced"
                 rather than as a guess.
                 """
-                for candidate in ((f"{group}.{name}", name) if group
-                                  else (name,)):
+                # `dit_short_edge` was `short_edge` until 2026-08-28. An old
+                # hand-built graph still carries the old spelling, and pricing
+                # it wrong is worse than pricing it -- so the previous name is
+                # tried too. `absent` still reports the CURRENT name, because
+                # that is what a reader has to go and write.
+                aliases = {"dit_short_edge": ("short_edge",)}
+                names = (name,) + aliases.get(name, ())
+                cands = []
+                for nm in names:
+                    cands += [f"{group}.{nm}", nm] if group else [nm]
+                for candidate in cands:
                     if candidate in append_inputs:
                         raw = append_inputs[candidate]
                         return None if isinstance(raw, list) else raw
@@ -337,7 +346,11 @@ def _reference_media(inputs: dict, graph: dict):
 
             size_policy = _value("size_policy", "match")
             allow_upscale = _value("allow_upscale", False, group="size_policy")
-            short_edge = _value("short_edge", 2048, group="size_policy")
+            # Renamed on the node 2026-08-28; the internal dict key below
+            # stays `short_edge` because it is preflight's own, and the
+            # retired fit node further down still has an input of that
+            # name that must NOT follow this rename.
+            short_edge = _value("dit_short_edge", 2048, group="size_policy")
             qwen_short_edge = _value("qwen_short_edge", 0)
             image_policies[key] = {
                 "size_policy": size_policy,
@@ -937,11 +950,36 @@ def _resolved_prompt(node: dict, graph: dict) -> str | None:
 
 
 def text_tokens(prompt: str) -> tuple[int, str]:
-    """Token count from ComfyUI's own tokenizer, or an estimate if absent."""
+    """Token count from ComfyUI's own tokenizer, or an estimate if absent.
+
+    **The special tokens are added, and that is not cosmetic.** The runtime
+    tokenizer is `MiniMaxQwenSDTokenizer`, which registers the release's
+    `additional_special_tokens` before tokenizing, so each H3 marker is ONE id.
+    A plain load of the same directory splits them into pieces instead, and
+    this function reported "exact" while being wrong by one token per marker
+    part -- 786 against the runtime's 784 on the market ref2va prompt, which
+    carries `<d>` and `</d>`.
+
+    Small, and it was still worth fixing: the label said exact, the error is
+    silent, and it grows with exactly the prompts this repo is most interested
+    in, since a marker scene is mostly markers. Read the list from
+    `vendor_config`, never retyped -- it is the release's own declaration.
+    """
     try:
         from transformers import AutoTokenizer
         tk = AutoTokenizer.from_pretrained(
             Path.home() / "ComfyUI" / "comfy" / "text_encoders" / "qwen25_tokenizer")
+        try:
+            sys.path.insert(0, str(_REPO))
+            import vendor_config
+            extra = [t for t in vendor_config.additional_special_tokens()
+                     if t not in tk.get_vocab()]
+            if extra:
+                tk.add_special_tokens({"additional_special_tokens": extra})
+        except Exception:
+            # Without the release on disk the count is still far better than
+            # the word estimate; say so rather than silently claiming exact.
+            return len(tk(prompt)["input_ids"]), "exact-, no marker list"
         return len(tk(prompt)["input_ids"]), "exact"
     except Exception:
         return int(len(prompt.split()) * 1.35), "~est"

@@ -1005,7 +1005,14 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               lora: tuple[str, float] | None = None,
               steps: int | None = None, shift: dict | None = None,
               sampler_name: str | None = None, scheduler_name: str | None = None,
-              head_chunks: int | None = None, ref_upscale: bool = True,
+              head_chunks: int | None = None,
+              # Owner decision 2026-08-28: default flipped True -> False so
+              # it agrees with the node's own `allow_upscale`, which was
+              # already False. On the shipped reference pair upscaling
+              # turns 1,032 DiT rows into 7,360, attended every step, for a
+              # benefit this repo has never measured -- and it diverges
+              # from the vendor on a knob where we otherwise match.
+              ref_upscale: bool = False,
               ref_video_policy: str = "encoder",
               ref_image_policy: str = "comfy",
               ref_qwen_short_edge: int = REF_QWEN_SHORT_EDGE,
@@ -1237,11 +1244,11 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             if chain is not None:
                 append_inputs["references"] = chain
             # `size_policy` is a DynamicCombo since 2026-08-27, so its members
-            # are spelled DOTTED in the API form -- `size_policy.short_edge`,
+            # are spelled DOTTED in the API form -- `size_policy.dit_short_edge`,
             # never the flat `short_edge`, which the executor rejects. Same
             # rule as `MiniMaxH3Resolution`'s `shape.wide_resolution`. They
             # exist only under `max`; nothing emits them for `match`.
-            append_inputs["size_policy.short_edge"] = _ref_short_edge()
+            append_inputs["size_policy.dit_short_edge"] = _ref_short_edge()
             append_inputs["size_policy.allow_upscale"] = ref_upscale
             # ALWAYS written, including 0. It used to be emitted only when
             # truthy, which left the two shared-view arms (refview a/c) taking
@@ -4360,7 +4367,14 @@ def _plain_chain_ui(g, unet_node, *, sh, sage, sol, head_chunks,
 def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              steps: int | None = None, shift: dict | None = None,
              sampler_name: str | None = None, scheduler_name: str | None = None,
-             head_chunks: int | None = None, ref_upscale: bool = True,
+             head_chunks: int | None = None,
+              # Owner decision 2026-08-28: default flipped True -> False so
+              # it agrees with the node's own `allow_upscale`, which was
+              # already False. On the shipped reference pair upscaling
+              # turns 1,032 DiT rows into 7,360, attended every step, for a
+              # benefit this repo has never measured -- and it diverges
+              # from the vendor on a knob where we otherwise match.
+              ref_upscale: bool = False,
              ref_video_policy: str = "encoder",
              ref_image_policy: str = "comfy",
              ref_qwen_short_edge: int = REF_QWEN_SHORT_EDGE,
@@ -6412,6 +6426,36 @@ def main():
         # The reference is a runway photograph, deliberately far from the role
         # it is being asked to fill. That is the owner's choice and it makes the
         # arm a harder identity test than a plausible-looking stallholder would.
+        #
+        # **MEMORY, 2026-08-28. Marginal and ORDER-DEPENDENT, not a ceiling.**
+        # `h3_ref2v_market_pdd` OOMed once at 17.5 MiB free and then SUCCEEDED
+        # on retry with nothing changed. The full sequence is the evidence:
+        #
+        #   r2v16     no LoRA                        success
+        #   r2v_pdd8  PDD, straight after r2v16      OOM, 17.5 MiB free
+        #   r2v_pdd4  PDD, after that OOM            success
+        #   r2v_pdd8  PDD, retry                     SUCCESS
+        #
+        # Same graph, same card. So "PDD ref2va does not fit at this canvas and
+        # length" is REFUTED, and an earlier version of this note said it. The
+        # tell was there before the retry: short by 17.5 MiB is short by
+        # nothing, and the 4-step had already passed at an identical profile.
+        #
+        # **The mechanism, and it is not the one everybody reaches for.** The
+        # failing attempt was the first to apply the PDD LoRA on top of a model
+        # loaded WITHOUT it; the passing ones ran when a PDD-patched model was
+        # already the resident shape. The peak is in the TRANSITION, not the
+        # steady state, which is exactly why it is sensitive to what ran before.
+        #
+        # And it is not the head bank. The artifact is 1,059 MiB, of which the
+        # 32-head bank is 42 MiB (4%) and the backbone rank-64 LoRA A/B pairs
+        # are 933 MiB (88%), applied through ComfyUI's native `add_patches`.
+        # This note previously blamed "the resident head bank", which was the
+        # available explanation rather than the measured one.
+        #
+        # What survived both corrections: `h3_ref2v_market` succeeded on the
+        # same scene, reference and canvas, so whatever this is, it is not the
+        # scene and not the reference.
         ("h3_ref2v_market.json", "r2v-market", "r2v", MARKET_REF2V_PROMPT,
          dict(ref_images=MARKET_REF_IMAGES, ref_image_count=1,
               out_prefix="Video/h3_r2v_market"),
@@ -6711,23 +6755,29 @@ def main():
               variant_note=_NOTE_TURBO_PACK_SPLIT),
          "base establishes the references, the distill finishes the clip"),
 
-        ("h3_probe_reference_upscale.json", "r2v-noupscale", "r2v", _ref_prompt(images=True),
-         dict(ref_upscale=False, out_prefix="Video/h3_probe_ref_noupscale",
+        # INVERTED 2026-08-28 with the default. This probe asked "does
+        # upscaling buy anything" by turning it OFF against an upscaling
+        # default; the default is now off, so the arm that asks the same
+        # question is the one that turns it ON. Re-pointed rather than deleted,
+        # because the question is still open and this is the graph that asks it.
+        ("h3_probe_reference_upscale.json", "r2v-upscale", "r2v", _ref_prompt(images=True),
+         dict(ref_upscale=True, out_prefix="Video/h3_probe_ref_upscale",
               variant_note=_probe_note(
                   "does upscaling a small reference buy anything",
                   "h3_image_ref_plus_text_to_video.json",
-                  "`allow_upscale` is OFF on both Append Picture nodes, "
-                  "so references arrive at ComfyUI's own sizing instead of the "
-                  "released pipeline's 2048 short edge.",
+                  "`allow_upscale` is ON on both Append Picture nodes, so "
+                  "references are enlarged to the released pipeline's 2048 "
+                  "short edge instead of arriving at their own size.",
                   "Preflight's `references` line and percentage, then the "
-                  "identity of the referenced subjects in the output. The "
-                  "shipped graph spends roughly 13,900 more vision tokens on "
-                  "the same two images.",
-                  "Fewer tokens here, and a shorter sequence. Whether identity "
-                  "is worse is the open question -- upscaling adds tokens, not "
-                  "detail, and nobody has measured whether the checkpoint uses "
-                  "them on an already-small source.")),
-         "same references, without the reference pipeline's upscale"),
+                  "identity of the referenced subjects in the output. This arm "
+                  "spends the extra vision tokens; the shipped default no "
+                  "longer does.",
+                  "More tokens here, and a longer sequence, for detail that may "
+                  "not exist in the source. Upscaling adds tokens, not detail, "
+                  "and nobody has measured whether the checkpoint uses them on "
+                  "an already-small source -- which is why this arm is kept "
+                  "rather than the question being closed by the default flip.")),
+         "same references, WITH the reference pipeline's upscale"),
 
         ("h3_probe_square_canvas.json", "t2v-1to1", "t2v", LONG_T2V_PROMPT,
          dict(width=768, height=768,

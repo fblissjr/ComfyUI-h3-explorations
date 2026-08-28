@@ -8,7 +8,7 @@
       ]
     }
   },
-  "id": "5d9fbd1c-d4df-5e00-a422-b143ff3050dc",
+  "id": "a4af56bc-9ac5-5098-8579-473c26752604",
   "revision": 0,
   "last_node_id": 29,
   "last_link_id": 31,
@@ -611,7 +611,7 @@
       "widgets_values": [
         "max",
         2048,
-        false,
+        true,
         512
       ],
       "title": "Append Picture 1"
@@ -658,7 +658,7 @@
       "widgets_values": [
         "max",
         2048,
-        false,
+        true,
         512
       ],
       "title": "Append Picture 2"
@@ -994,7 +994,7 @@
       "widgets_values": {
         "frame_rate": 24.0,
         "loop_count": 0,
-        "filename_prefix": "Video/h3_probe_ref_noupscale",
+        "filename_prefix": "Video/h3_probe_ref_upscale",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
         "crf": 19,
@@ -1195,7 +1195,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Probe: does upscaling a small reference buy anything\n\n**Run this against `h3_image_ref_plus_text_to_video.json`.** Same seed (730451892), same prompt, same canvas, same\neverything except one setting. That is the whole design: if the seed moved\nbetween the two, the difference you are looking for would be underneath the\ndifference you are not.\n\n**What differs:** `allow_upscale` is OFF on both Append Picture nodes, so references arrive at ComfyUI's own sizing instead of the released pipeline's 2048 short edge.\n\n**What to compare:** Preflight's `references` line and percentage, then the identity of the referenced subjects in the output. The shipped graph spends roughly 13,900 more vision tokens on the same two images.\n\n**What to expect:** Fewer tokens here, and a shorter sequence. Whether identity is worse is the open question -- upscaling adds tokens, not detail, and nobody has measured whether the checkpoint uses them on an already-small source.\n\nThis is a probe, not a render config. If you like what one side does, change\nthe setting in the shipped graph rather than rendering from this file.\n"
+        "## Probe: does upscaling a small reference buy anything\n\n**Run this against `h3_image_ref_plus_text_to_video.json`.** Same seed (730451892), same prompt, same canvas, same\neverything except one setting. That is the whole design: if the seed moved\nbetween the two, the difference you are looking for would be underneath the\ndifference you are not.\n\n**What differs:** `allow_upscale` is ON on both Append Picture nodes, so references are enlarged to the released pipeline's 2048 short edge instead of arriving at their own size.\n\n**What to compare:** Preflight's `references` line and percentage, then the identity of the referenced subjects in the output. This arm spends the extra vision tokens; the shipped default no longer does.\n\n**What to expect:** More tokens here, and a longer sequence, for detail that may not exist in the source. Upscaling adds tokens, not detail, and nobody has measured whether the checkpoint uses them on an already-small source -- which is why this arm is kept rather than the question being closed by the default flip.\n\nThis is a probe, not a render config. If you like what one side does, change\nthe setting in the shipped graph rather than rendering from this file.\n"
       ],
       "title": "What this graph is probing"
     }

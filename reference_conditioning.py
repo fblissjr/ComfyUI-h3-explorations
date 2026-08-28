@@ -738,7 +738,14 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                         io.DynamicCombo.Option("match", []),
                         io.DynamicCombo.Option("max", [
                             io.Int.Input(
-                                "short_edge", default=REF_IMAGE_SHORT_EDGE,
+                                # Renamed from `short_edge` 2026-08-28. It sits
+                                # beside `qwen_short_edge` and the pair decides
+                                # two DIFFERENT views -- this one the video
+                                # VAE's, and therefore the DiT reference rows;
+                                # the other the text encoder's. Reading one for
+                                # the other has now cost two separate sessions,
+                                # so the names say which tower each feeds.
+                                "dit_short_edge", default=REF_IMAGE_SHORT_EDGE,
                                 min=CANVAS_MULTIPLE, max=4096, step=32,
                                 tooltip=(
                                     "Resize the image so its SHORTER side is "
@@ -832,7 +839,7 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
         if policy not in SIZE_POLICIES:
             raise ValueError(f"unknown image size policy {policy!r}")
         if policy == "max" and not isinstance(size_policy, str):
-            short_edge = int(size_policy["short_edge"])
+            short_edge = int(size_policy["dit_short_edge"])
             allow_upscale = bool(size_policy["allow_upscale"])
         else:
             # `match` reads neither, and they are no longer reachable under it.
