@@ -1,0 +1,84 @@
+{
+ "date": "2026-08-28",
+ "script": "bench/analyze_audio_spectral_tilt.py",
+ "nfft": 2048,
+ "hop": 1024,
+ "band_split_hz": 2000.0,
+ "files": {
+  "opt4_mean_a_00001.flac": {
+   "seconds": 15.008,
+   "centroid_first_quarter_hz": 982.487065144982,
+   "centroid_last_quarter_hz": 1154.1271677749112,
+   "centroid_slope_hz_per_s": 16.177175276305057,
+   "band_ratio_first_quarter": 0.11386390899287091,
+   "band_ratio_last_quarter": 0.16616650280527112,
+   "rms_slope_db_per_s": -0.34017410018860295,
+   "rms_overall": 0.012441950229085206
+  },
+  "opt4_off_a_00001.flac": {
+   "seconds": 15.008,
+   "centroid_first_quarter_hz": 1374.831291364718,
+   "centroid_last_quarter_hz": 2540.1101874896044,
+   "centroid_slope_hz_per_s": 108.19796918487617,
+   "band_ratio_first_quarter": 0.19211359898712874,
+   "band_ratio_last_quarter": 0.5939582517912787,
+   "rms_slope_db_per_s": -0.6085813269080226,
+   "rms_overall": 0.006914430405182699
+  },
+  "opt4_start_a_00001.flac": {
+   "seconds": 15.008,
+   "centroid_first_quarter_hz": 1376.2685772516948,
+   "centroid_last_quarter_hz": 2553.7190423762167,
+   "centroid_slope_hz_per_s": 109.2539912109713,
+   "band_ratio_first_quarter": 0.19275445786775436,
+   "band_ratio_last_quarter": 0.6025656852725948,
+   "rms_slope_db_per_s": -0.607994022644107,
+   "rms_overall": 0.006891855492823459
+  },
+  "u4_mean_a_00001.flac": {
+   "seconds": 15.008,
+   "centroid_first_quarter_hz": 870.654099641189,
+   "centroid_last_quarter_hz": 909.0975675208529,
+   "centroid_slope_hz_per_s": 0.27646767982451204,
+   "band_ratio_first_quarter": 0.07307588080829511,
+   "band_ratio_last_quarter": 0.10304930648297897,
+   "rms_slope_db_per_s": -0.34276266842304354,
+   "rms_overall": 0.016995603713937737
+  },
+  "u4_off_a_00001.flac": {
+   "seconds": 15.008,
+   "centroid_first_quarter_hz": 1271.5375200329652,
+   "centroid_last_quarter_hz": 1279.8689730690342,
+   "centroid_slope_hz_per_s": -0.05701141873754437,
+   "band_ratio_first_quarter": 0.4145767896053348,
+   "band_ratio_last_quarter": 0.1904059850607234,
+   "rms_slope_db_per_s": -0.7154362665354681,
+   "rms_overall": 0.017215408996654726
+  },
+  "u4_off_a_00002.flac": {
+   "seconds": 15.008,
+   "centroid_first_quarter_hz": 1271.5375200329652,
+   "centroid_last_quarter_hz": 1279.8689730690342,
+   "centroid_slope_hz_per_s": -0.05701141873754437,
+   "band_ratio_first_quarter": 0.4145767896053348,
+   "band_ratio_last_quarter": 0.1904059850607234,
+   "rms_slope_db_per_s": -0.7154362665354681,
+   "rms_overall": 0.017215408996654726
+  },
+  "u4_start_a_00001.flac": {
+   "seconds": 15.008,
+   "centroid_first_quarter_hz": 1290.8800366125092,
+   "centroid_last_quarter_hz": 1344.9806286283138,
+   "centroid_slope_hz_per_s": 6.3688538033114845,
+   "band_ratio_first_quarter": 0.45827825699978697,
+   "band_ratio_last_quarter": 0.21069669903429272,
+   "rms_slope_db_per_s": -0.7286785873437537,
+   "rms_overall": 0.016882456748900054
+  }
+ },
+ "do_not_rely_on": [
+  "A rising centroid is also what a decaying low-frequency component produces. This does not separate the two on its own; rms_slope is reported beside it for that reason and the two must be read together.",
+  "Centroid is computed on the channel MEAN of a 32 kHz stereo file. A correlated-noise difference between channels would not show here.",
+  "No clip was judged by a person, and no perceptual claim is licensed by any number in this file."
+ ]
+}

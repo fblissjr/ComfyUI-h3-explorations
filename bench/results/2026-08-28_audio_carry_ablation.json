@@ -1,0 +1,61 @@
+{
+ "date": "2026-08-28",
+ "script": "bench/run_audio_carry_arms.py",
+ "length": 362,
+ "canvas": "1152x768  3/2  864 tok/frame  0.73x",
+ "seed": 730451892,
+ "grading": "graded within this run only; the base graph's prompt changed in b62e95d after bench/results/2026-08-28_pdd_stream_energy.json was measured",
+ "arms": {
+  "u4_off": {
+   "rms": 0.01748346470076881,
+   "rms_db_vs_own_off": 0.0,
+   "gain_vs_own_off": 1.0,
+   "corr_vs_own_off": 1.0
+  },
+  "u4_start": {
+   "rms": 0.017103487537696166,
+   "rms_db_vs_own_off": -0.19085650986696479,
+   "gain_vs_own_off": 0.9155035743650417,
+   "corr_vs_own_off": 0.9358424795454757
+  },
+  "u4_mean": {
+   "rms": 0.019355897577493127,
+   "rms_db_vs_own_off": 0.8837162865509287,
+   "gain_vs_own_off": 0.6967907776743526,
+   "corr_vs_own_off": 0.6293853582395027
+  },
+  "opt4_off": {
+   "rms": 0.008078531487524075,
+   "rms_db_vs_own_off": 0.0,
+   "gain_vs_own_off": 1.0,
+   "corr_vs_own_off": 1.0000000000000002
+  },
+  "opt4_start": {
+   "rms": 0.008053817573417133,
+   "rms_db_vs_own_off": -0.026612677121550573,
+   "gain_vs_own_off": 0.9826413238516032,
+   "corr_vs_own_off": 0.9856566496487916
+  },
+  "opt4_mean": {
+   "rms": 0.016812534953798447,
+   "rms_db_vs_own_off": 6.36601556402585,
+   "gain_vs_own_off": 1.11260386152637,
+   "corr_vs_own_off": 0.5346132225613426
+  }
+ },
+ "verdict": [
+  "u4: NOISE FLOOR (off vs block_start, same knob, different sample) 0.19 dB",
+  "u4: ablation moves audio energy +1.07 dB against block_start (clears the floor)",
+  "opt4: NOISE FLOOR (off vs block_start, same knob, different sample) 0.03 dB",
+  "opt4: ablation moves audio energy +6.39 dB against block_start (clears the floor)"
+ ],
+ "errors": {},
+ "do_not_rely_on": [
+  "ONE pair per partition. block_start is a noise-floor estimate from a single second sample, not a distribution. An effect inside it is 'not measurable this way', never 'no effect'.",
+  "NOT comparable to bench/results/2026-08-28_pdd_stream_energy.json or to the pddref renders: the base graph's prompt was rewritten in b62e95d after those were measured. The first u4_off render landed 1.7 dB off the recorded u4, which is how this was found. Every figure here is within-run.",
+  "The carry re-evaluation is PARTIAL by construction: the network already ran on x_a * carry(sigma_start) and no post-hoc correction reaches what it saw. A null result therefore does not clear the transform, it clears the velocity coefficient B.",
+  "Audio energy is the observable because the collapse is an energy collapse. It is not a quality measure and no clip was judged.",
+  "opt4 is the off-distribution partition. That cancels between its two modes but its magnitudes are not a statement about a partition anyone should ship.",
+  "One seed, one length, one canvas, one prompt -- the market scene that docs/prompt_audit.md verdicts `rewrite`."
+ ]
+}

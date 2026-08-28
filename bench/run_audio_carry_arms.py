@@ -43,6 +43,7 @@ it and every arm would be the stock path. The tell is free: `block_mean` and
 `block_start` would come out identical, and identical arms are reported as a
 FAILED RUN rather than as a null result.
 """
+import argparse
 import json
 import subprocess
 import sys
@@ -116,12 +117,12 @@ def get(path):
     return json.loads(urllib.request.urlopen(f"{SRV}/{path}").read())
 
 
-def build(arm):
+def build(arm, seed=SEED, tag=""):
     partition, mode = ARMS[arm]
     g = json.loads(BASE.read_text())
     g["27"]["inputs"]["length"] = LENGTH
     g["27"]["inputs"]["shape.wide_resolution"] = CANVAS
-    g["6"]["inputs"]["noise_seed"] = SEED
+    g["6"]["inputs"]["noise_seed"] = seed
     g.pop("13", None)                        # muxer: re-encodes, we want tensors
     if partition == "opt4":
         g["18"]["inputs"]["steps"] = 0       # see grade_pdd_partitions: 0 feeds
@@ -137,25 +138,26 @@ def build(arm):
                "inputs": {"model": ["18", 0], "mode": mode}}
     g["19"]["inputs"]["model"] = ["62", 0]
     g["98"] = {"class_type": "SaveImage",
-               "inputs": {"images": ["11", 0], "filename_prefix": f"{SUB}/{arm}_v"}}
+               "inputs": {"images": ["11", 0], "filename_prefix": f"{SUB}/{arm}{tag}_v"}}
     g["99"] = {"class_type": "SaveAudio",
-               "inputs": {"audio": ["12", 0], "filename_prefix": f"{SUB}/{arm}_a"}}
+               "inputs": {"audio": ["12", 0], "filename_prefix": f"{SUB}/{arm}{tag}_a"}}
     return g
 
 
-def run(arm):
+def run(arm, seed=SEED, tag=""):
     try:
-        pid = post("prompt", {"prompt": build(arm), "client_id": f"carry-{arm}"})["prompt_id"]
+        pid = post("prompt", {"prompt": build(arm, seed, tag),
+                              "client_id": f"carry-{arm}{tag}"})["prompt_id"]
     except urllib.error.HTTPError as e:
         return {"arm": arm, "error": e.read().decode()[:800]}
-    print(f"  {arm}: {pid}", flush=True)
+    print(f"  {arm}{tag}: {pid}", flush=True)
     while pid not in (h := get(f"history/{pid}")):
         time.sleep(3)
     rec = h[pid]
     if rec.get("status", {}).get("status_str") != "success":
         msgs = [m for m in rec["status"].get("messages", []) if m[0] == "execution_error"]
         return {"arm": arm, "error": json.dumps(msgs)[:800]}
-    return {"arm": arm,
+    return {"arm": arm + tag,
             "audio": [OUT / a.get("subfolder", "") / a["filename"]
                       for a in rec["outputs"]["99"].get("audio", [])]}
 
