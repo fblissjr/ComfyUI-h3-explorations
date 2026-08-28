@@ -1,0 +1,134 @@
+{
+  "measured": "2026-08-28",
+  "produced_by": "bench/analyze_quant_hotspots.py",
+  "what": "aggregation of stored-weight int8-vs-bf16 error by block and by module kind; no new measurement",
+  "source": "2026-08-21_quant_delta_ref2va.json",
+  "is_not": "Sol's kernel INT8. See this file's docstring -- analyze_sol_error.py's quant_l2 is a different quantity and the two were crossed once.",
+  "by_block": {
+    "spread_max_over_min": 1.0860459476561952,
+    "block_49_rank_of_50": 6,
+    "block_49_mean": 0.009612365574179042,
+    "worst_5": [
+      {
+        "block": 2,
+        "mean": 0.00991712522555574
+      },
+      {
+        "block": 1,
+        "mean": 0.009859248639418288
+      },
+      {
+        "block": 0,
+        "mean": 0.009759217334923813
+      },
+      {
+        "block": 3,
+        "mean": 0.009754093082088185
+      },
+      {
+        "block": 5,
+        "mean": 0.009639422941127903
+      }
+    ],
+    "all": {
+      "0": 0.009759217334923813,
+      "1": 0.009859248639418288,
+      "2": 0.00991712522555574,
+      "3": 0.009754093082088185,
+      "4": 0.009422508955265921,
+      "5": 0.009639422941127903,
+      "6": 0.009439079557423596,
+      "7": 0.009533465227452157,
+      "8": 0.009393035368855029,
+      "9": 0.00946043065742583,
+      "10": 0.009418460154256904,
+      "11": 0.009344121078292056,
+      "12": 0.009352929081259894,
+      "13": 0.00938229535916851,
+      "14": 0.009413572768545013,
+      "15": 0.00943974449576916,
+      "16": 0.009317927450255352,
+      "17": 0.009283658600803173,
+      "18": 0.009236810031290075,
+      "19": 0.00942625477770763,
+      "20": 0.009388656316869663,
+      "21": 0.00918870827905617,
+      "22": 0.0091654921388171,
+      "23": 0.009219671353825405,
+      "24": 0.00923931980951631,
+      "25": 0.009202338798315005,
+      "26": 0.009307811146633167,
+      "27": 0.009439139376866227,
+      "28": 0.00925131098400439,
+      "29": 0.009205095273821668,
+      "30": 0.009271837528074034,
+      "31": 0.009188552716326931,
+      "32": 0.009258829116884637,
+      "33": 0.009131404842454382,
+      "34": 0.009195568954194447,
+      "35": 0.00918633382816434,
+      "36": 0.009288793249993607,
+      "37": 0.009247763615995616,
+      "38": 0.009427989589876307,
+      "39": 0.009175963353991276,
+      "40": 0.009208732158643769,
+      "41": 0.009203673165941097,
+      "42": 0.00928506137278592,
+      "43": 0.009314747100268235,
+      "44": 0.009312423171232794,
+      "45": 0.009385798928166784,
+      "46": 0.009328681627805237,
+      "47": 0.009349039896746092,
+      "48": 0.009321097638355676,
+      "49": 0.009612365574179042
+    }
+  },
+  "by_kind": {
+    "attn.qkv_proj": {
+      "int8_vs_bf16_mean": 0.00883310071406451,
+      "int8_vs_bf16_max": 0.008867884149434003,
+      "fp8_vs_bf16_mean": 0.026491251769598455,
+      "row_rel_p95_median": 0.010075294262522547,
+      "row_rel_max": 0.015094737464854622,
+      "n": 50,
+      "vs_qkv": 1.0
+    },
+    "attn.out_proj": {
+      "int8_vs_bf16_mean": 0.010414719089307623,
+      "int8_vs_bf16_max": 0.012563105213734941,
+      "fp8_vs_bf16_mean": 0.026495335938296193,
+      "row_rel_p95_median": 0.012811482271093811,
+      "row_rel_max": 0.03710247636731827,
+      "n": 50,
+      "vs_qkv": 1.179055852122775
+    },
+    "mlp.fc1": {
+      "int8_vs_bf16_mean": 0.008829720328518401,
+      "int8_vs_bf16_max": 0.008855373014134296,
+      "fp8_vs_bf16_mean": 0.026505913901201224,
+      "row_rel_p95_median": 0.010069844144108511,
+      "row_rel_max": 0.014894313007434786,
+      "n": 50,
+      "vs_qkv": 0.9996173047658421
+    },
+    "mlp.fc2": {
+      "int8_vs_bf16_mean": 0.00937010800368463,
+      "int8_vs_bf16_max": 0.009517975337732916,
+      "fp8_vs_bf16_mean": 0.02649427192103219,
+      "row_rel_p95_median": 0.010567272875336816,
+      "row_rel_max": 0.01753552410502186,
+      "n": 50,
+      "vs_qkv": 1.0607948790581623
+    }
+  },
+  "findings": [
+    "Stored-weight INT8 error is FLAT across blocks: 1.086x from best to worst over all 50. Block 49 ranks 6/50. The worst blocks are [2, 1, 0, 3, 5], the shallow end, not the deep end. So block 49's Sol-kernel behaviour has no counterpart in its weights, and re-baking the checkpoint cannot address it.",
+    "attn.out_proj is the worst module kind under INT8 at 1.18x qkv_proj on the mean, and worse in the tail: row_rel p95 0.01281 against 0.01008, row_rel max 0.03710 against 0.01509.",
+    "Under fp8_scaled all four kinds are equal to four decimal places, so out_proj's excess is a property of the INT8 SCHEME rather than of the out_proj weights. That is what makes it a candidate for different treatment in a re-bake; it is also the only lane here the bf16 release is needed for."
+  ],
+  "not_measured": [
+    "whether out_proj's excess reaches the output. This is stored-weight fidelity only -- the same caveat the source record carries.",
+    "why the INT8 scheme treats out_proj worse. Outlier structure the rotation does not spread is the obvious candidate and is untested.",
+    "any block-49 activation property. Nothing here looks at activations."
+  ]
+}
