@@ -6,14 +6,19 @@ is deliberately unmeasured. Nothing here is either: it is measurable today, on
 tooling that exists. Delete an entry when it runs; one still here in a week
 belongs in one of those two instead.
 
-## Status: twelve arms running, all on the ref dialogue graph
+## Status: read the state table below, not this heading
 
-**Every arm below that is running renders the ref dialogue graph** -- two image
-references, eight `<d>` lines, the stairwell exchange. That is a change from
-what several groups were originally written against, and it has one reason: the
-market t2v prompt those arms used was disqualified as a sample by the owner on
-2026-08-27, so anything built on it answers nothing. Where a group moved, its
-section says so and why.
+Arm counts go stale within the hour, so this section does not carry one --
+**Current state** below is generated from the payloads and the server's history
+and is the only place to read status.
+
+**Most arms render the ref dialogue graph** -- two image references, eight `<d>`
+lines, the stairwell exchange. That is a change from what several groups were
+originally written against, and it has one reason: the market t2v prompt those
+arms used was disqualified as a sample by the owner on 2026-08-27, so anything
+built on it answers nothing. The exceptions are the `F_` prompt-conformance
+arms and the `S_` Sol sweep, which are deliberately on the market scene because
+prompt form and Sol settings are what they vary.
 
 The batch is `Video/batch/{arm}_s{seed}`. Sol's `end_percent` is derived from
 each arm's step count by the builder rather than carried over, so the 8-step arm
@@ -82,6 +87,121 @@ every shipped graph today, live again the moment anyone moves the encoder back.
 `qwen_short_edge` decides what the prompt competes with. Conflating them is what
 made an earlier framing here wrong, and under v1 they are separate for a second
 reason -- one of them does nothing.
+
+---
+
+## Current state, derived from the payloads on 2026-08-27 evening
+
+**This table is generated from the queued payloads and the server's own
+history, not from recall.** Every arm renders the ref dialogue graph except the
+`F_` and `S_` families, which are the market t2v scene and carry no references.
+The narrative sections below say WHY each group exists; this says what is
+actually on the card and with what settings.
+
+Seeds are 730451892/3/4 throughout. `qwen512` is
+`h3_config.REF_QWEN_SHORT_EDGE`, inert under the v1 encoder and kept because it
+re-arms under v2. Sol is written `start-end tau<t> dense<blocks> min<tokens>`.
+
+### A' -- does attribution hold on v1
+
+ref dialogue, 2 refs, 8 `<d>` lines
+
+| arm | status | steps | heads | refs | Sol |
+|---|---|---|---|---|---|
+| `h3_r2v_dialogue_pdd_4step_00001` | **PASSED** (owner) | 4 | on | 2 up qwen512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+
+### B -- what does upscaling buy
+
+`allow_upscale` alone; Qwen view is 522 tok on BOTH sides under v1, so only DiT rows move (9,408 vs 2,368)
+
+| arm | status | steps | heads | refs | Sol |
+|---|---|---|---|---|---|
+| `B_noupscale_s730451892` | done | 4 | on | 2  up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_noupscale_s730451893` | done | 4 | on | 2  up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_noupscale_s730451894` | done | 4 | on | 2  up=False qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_upscale_s730451893` | done | 4 | on | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `B_upscale_s730451894` | done | 4 | on | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+
+### C -- heads, and step count with Sol on
+
+`patch_heads`, and 8 steps with Sol's window moving too
+
+| arm | status | steps | heads | refs | Sol |
+|---|---|---|---|---|---|
+| `C_pdd4_headfree_s730451892` | done | 4 | off | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `C_pdd4_headfree_s730451893` | done | 4 | off | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `C_pdd4_headfree_s730451894` | done | 4 | off | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `C_pdd8_s730451892` | **OOM** | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
+| `C_pdd8_s730451893` | done | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
+| `C_pdd8_s730451894` | not run -- cancelled while Sol was wrongly suspected of the OOM; C2 supersedes | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
+
+### C2 -- step count, clean
+
+4 vs 8 with Sol REMOVED from both, so the step count drags nothing with it
+
+| arm | status | steps | heads | refs | Sol |
+|---|---|---|---|---|---|
+| `C2_pdd4_nosol_s730451892` | queued | 4 | on | 2  up=True qwen=512 | absent |
+| `C2_pdd4_nosol_s730451893` | queued | 4 | on | 2  up=True qwen=512 | absent |
+| `C2_pdd4_nosol_s730451894` | queued | 4 | on | 2  up=True qwen=512 | absent |
+| `C2_pdd8_nosol_s730451892` | queued | 8 | on | 2  up=True qwen=512 | absent |
+| `C2_pdd8_nosol_s730451893` | queued | 8 | on | 2  up=True qwen=512 | absent |
+| `C2_pdd8_nosol_s730451894` | queued | 8 | on | 2  up=True qwen=512 | absent |
+
+### D -- the two knobs
+
+`reuse_qkv_memory` (identity) and `start_percent` (timing)
+
+| arm | status | steps | heads | refs | Sol |
+|---|---|---|---|---|---|
+| `D_reuse_on_s730451892` | done | 4 | on | 2  up=True qwen=512 | 0.2-0.74 tau1.0 dense0-1 min12288 REUSE |
+| `D_start0_s730451892` | **OOM** | 4 | on | 2  up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| `D_start0_s730451893` | done | 4 | on | 2  up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| `D_start0_s730451894` | done | 4 | on | 2  up=True qwen=512 | 0.0-0.74 tau1.0 dense0-1 min12288 |
+
+### F -- prompt conformance
+
+market scene, guide-conformant rewrite against the original. No references
+
+| arm | status | steps | heads | refs | Sol |
+|---|---|---|---|---|---|
+| `F_market_v1_s730451893` | RUNNING | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v1_s730451894` | queued | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v2_s730451892` | done | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v2_s730451893` | done | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+| `F_market_v2_s730451894` | done | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min12288 |
+
+### S -- Sol settings on the rewritten market scene
+
+one seed each, exploratory. `S_mktv2_yesterday` is the exact 2026-08-26 19:48 config
+
+| arm | status | steps | heads | refs | Sol |
+|---|---|---|---|---|---|
+| `S_mktv2_dense_none` | queued | 4 | on | 0 | 0.2-0.74 tau1.0 densenone min12288 |
+| `S_mktv2_end090` | queued | 4 | on | 0 | 0.2-0.9 tau1.0 dense0-1 min12288 |
+| `S_mktv2_min4096` | queued | 4 | on | 0 | 0.2-0.74 tau1.0 dense0-1 min4096 |
+| `S_mktv2_sol_off` | queued | 4 | on | 0 | absent |
+| `S_mktv2_start0` | queued | 4 | on | 0 | 0.0-0.74 tau1.0 dense0-1 min12288 |
+| `S_mktv2_tau13` | queued | 4 | on | 0 | 0.2-0.74 tau1.3 dense0-1 min12288 |
+| `S_mktv2_yest_no_dense` | queued | 4 | on | 0 | 0.2-0.9 tau1.0 dense0-1 min4096 |
+| `S_mktv2_yesterday` | queued | 4 | on | 0 | 0.2-0.9 tau1.0 densenone min4096 |
+
+### G -- does the shipped 8-step reference graph run
+
+shipped defaults, unmodified
+
+| arm | status | steps | heads | refs | Sol |
+|---|---|---|---|---|---|
+| `G_shipped_pdd8_ref_asis` | not run -- held back: needs its own cold server, see the cache section | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 |
+| `G_shipped_pdd8_ref_reuse` | not run -- held back: same, and it is the paired half | 8 | on | 2  up=True qwen=512 | 0.2-0.87 tau1.0 dense0-1 min12288 REUSE |
+
+Re-derive it with:
+
+    python bench/record_render_substrate.py
+
+which also prints each render's position in its server session and how many of
+its nodes were cache hits -- **the two numbers that decide whether a duration or
+a memory outcome from this batch means anything.** See the cache section below.
 
 ---
 
