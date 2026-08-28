@@ -5688,7 +5688,21 @@ def main():
         # placeholders literally until the same day.
         ("h3_last_frame_to_video.json", "l2v", "i2v", None,
          dict(last_frame=True, first_frame=False,
-              out_prefix="Video/h3_l2v", **FL2V_CANVAS),
+              out_prefix="Video/h3_l2v", **FL2V_CANVAS,
+              variant_note=(
+                  "**The `width` and `height` widgets on the conditioner are "
+                  "INERT on this graph, and the render is not the size they "
+                  "show.** `canvas` is `from_keyframe`, so the canvas is "
+                  "derived from the keyframe through `adapt_canvas` and the "
+                  "widgets are carried but unread -- a 1024x1024 keyframe "
+                  "renders 768x768, not the 1152x768 the widgets say. That is "
+                  "correct behaviour for the mode: the lone closing frame is "
+                  "the only geometry the model is given, so it anchors the "
+                  "canvas rather than being cropped into one chosen elsewhere. "
+                  "Noted here because the widgets sit right beside the value "
+                  "they do not set, which reads as a bug and is the class of "
+                  "thing that costs somebody an hour. Set `canvas` to "
+                  "`explicit` if you want the widgets to own the geometry.")),
          "last frame + text -> video + audio (the closing frame is the anchor)"),
 
         # The first turbo graph here that is IN distribution: every released

@@ -189,12 +189,16 @@ Not official-guide defects. Listed so the distinction survives.
 
 Ranked by what would be learned, not by count.
 
-1. **An L2VA prompt.** The only base mode with **zero** coverage. And
-   `scene_prompt()`'s L2VA branch returns `[Shot N]` and `S.SS` unsubstituted
-   where the fl2v path resolves both — so the gap is a latent bug, not just a
-   missing scene.
-2. **A conformant market rewrite**, which the generator already names as a
-   planned arm.
+**Items 1 and 2 are DONE and are kept as done rows rather than deleted**, so the
+ranking still reads as the argument it was and nobody re-proposes them. L2VA
+shipped in `b753fe1` (`h3_last_frame_to_video`), the market rewrite landed in
+`d5be353`, and the latent placeholder bug item 1 predicted — `scene_prompt`'s
+L2VA branch emitting `[Shot N]` and `S.SS` literally — was real and was fixed in
+`d964088`. **Neither has rendered yet**, so what they bought is conformance, not
+a result.
+
+1. ~~**An L2VA prompt.**~~ Done, `b753fe1`. The bug it predicted was there.
+2. ~~**A conformant market rewrite.**~~ Done, `d5be353`.
 3. **One marker scene**, plus **its §4.5 double-quoted control**. Neither is
    interpretable alone — and PROMPTING.md says outright the caption marker is
    unmeasured.
