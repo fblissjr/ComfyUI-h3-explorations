@@ -30,6 +30,19 @@ reading.
 
 ## Verdicts
 
+> **The three `rewrite` verdicts were ACTED ON in `d5be353` (2026-08-28), after
+> this table was written.** `LONG_T2V_PROMPT`, `DIALOGUE_REF2V_PROMPT` and
+> `R2V_PROMPT` are fixed in the generator and every carrying graph was rebuilt
+> from it, so the `rewrite` rows below record **what was wrong**, not what still
+> is — and the prose beneath them saying the defects are "all still present" is
+> superseded by that commit. `check_prompt_guide_conformance.py` is green and
+> preflight grades the rewritten graphs at zero FAIL and zero WARN. The `revise`
+> rows are untouched and still open. Two things that commit also changed and
+> that outlive this note: the ref2va word-budget gap is a **wiring** fix
+> (`REF_SCENE_SHOTS` exists and is unreachable), not prose; and because the
+> canonical t2v arm now renders different text, **clips from before 2026-08-28
+> are not matched-seed comparable with clips after it.**
+
 Ordered by blast radius — how many graphs carry the scene.
 
 | scene | mode | verdict | why |
