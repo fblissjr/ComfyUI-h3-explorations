@@ -1,5 +1,11 @@
 # The sigma schedule is what governs PDD quality
 
+**[`2026-08-28_audio_plan.md`](2026-08-28_audio_plan.md) is the execution
+plan** — state, experiments in order, what each outcome means, and the traps.
+This file is the finding; that one is what to do about it. The link was
+one-directional until 2026-08-28: the plan pointed here and nothing pointed
+back, so a reader arriving at the finding had no route to the work.
+
 ## The one thing that is not in doubt
 
 **The sigma schedule caused it.** `00004` and `00007` are a matched pair —
