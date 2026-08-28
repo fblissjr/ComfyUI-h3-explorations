@@ -425,6 +425,20 @@
       <p class="stage">Graph</p>
       <h2>One spine, six graphs, one slot that differs</h2>
       <p class="lede">Every PDD workflow in the repo is the same chain with one node swapped. Two facts in the drawing are load-bearing and easy to miss in prose: the accelerator sits <em>upstream</em> of the sigma shift and the attention nodes, and <code>BasicScheduler</code> hangs off the <em>end</em> of that chain &mdash; so the shift the sampler's sigmas are built from is the one the accelerator node has already seen.</p>
+      <p class="lede" style="border-left:4px solid #b45309;padding-left:1em">
+        <strong>Superseded for the PDD arms, 2026-08-28.</strong> The diagram below and the
+        paragraph above show the topology <em>before</em> the SIGMAS rewiring, and are kept
+        because the swap-one-node point still holds for every other accelerator. What changed:
+        <code>MiniMaxH3PDDLoRA</code> now emits its own <code>SIGMAS</code>, and the shipped
+        non-split PDD graphs wire it straight into <code>SamplerCustomAdvanced</code> with
+        <strong>no <code>BasicScheduler</code> in the graph at all</strong>. So the second
+        load-bearing fact above is now false for exactly these workflows: the sampler's sigmas
+        are no longer built from the shift the chain carries, but from the shift recorded in the
+        PDD file &mdash; which is why <code>bench/check_pdd_sigmas.py</code> asserts the two
+        agree. See <a href="../../h3_pdd.md">h3_pdd.md</a>, which owns this.
+        <em>Nothing generates or checks this page, so it went stale silently; this note is the
+        repair, not a redraw.</em>
+      </p>
     </div>
 
     <figure>

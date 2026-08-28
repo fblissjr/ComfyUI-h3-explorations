@@ -89,7 +89,7 @@ sys.path.insert(0, str(HERE.parent))              # this repo
 sys.path.insert(0, str(HERE.parent / "workflows"))
 
 import pdd_math as M                              # noqa: E402
-from h3_config import graph_paths                 # noqa: E402
+from h3_config import graph_paths, graph_schedule  # noqa: E402
 
 WORKFLOWS = HERE.parent / "workflows"
 
@@ -380,6 +380,43 @@ def case_graph_shift_matches_file():
     return note + (f"; {len(skipped)} skipped (file absent)" if skipped else "")
 
 
+def case_ui_and_api_agree():
+    """The UI form's POSITIONAL read of `steps` equals the API form's NAMED one.
+
+    `h3_config.graph_schedule` reads `steps` off a UI graph by widget index,
+    because a UI graph carries no names -- and the schema gained BOTH an input
+    and an output this round, which is exactly when a positional read drifts.
+    `check_node_ids.py` guards against an input being INSERTED rather than
+    appended, but nothing tied that guarantee to this reader.
+
+    This is the control the repo's own rule asks for: compare against a
+    different implementation rather than against a number computed here. The
+    API form names its inputs, so the two forms disagreeing means the index is
+    wrong -- and it fails loudly instead of silently reading a neighbouring
+    int, which is what would happen if `nfe` and `steps` ever swapped places.
+    """
+    pairs, problems = 0, []
+    for ui in graph_paths(WORKFLOWS):
+        if ui.name.endswith("_api.json"):
+            continue
+        api = ui.with_name(ui.name[:-5] + "_api.json")
+        if not api.exists():
+            continue
+        gu = json.loads(ui.read_text())
+        if not any(isinstance(n, dict)
+                   and n.get("type") == "MiniMaxH3PDDLoRA"
+                   for n in gu.get("nodes", [])):
+            continue
+        su, _ = graph_schedule(gu)
+        sa, _ = graph_schedule(json.loads(api.read_text()))
+        pairs += 1
+        if su != sa:
+            problems.append(f"{ui.name}: UI reads steps={su}, API reads {sa}")
+    assert not problems, "; ".join(problems[:4])
+    assert pairs, "no PDD UI/API pair was compared; this case asserts nothing"
+    return f"{pairs} PDD UI/API pair(s) agree on the step count"
+
+
 print("PDD SIGMAS output: the schedule the heads were fused for")
 check("emitted is simple", case_emitted_is_simple)
 check("exactness regime holds", case_exactness_regime_holds)
@@ -388,6 +425,7 @@ check("non-divisor raises", case_non_divisor_raises)
 check("zero is inert", case_zero_is_inert)
 check("graphs consume it", case_graphs_consume_it)
 check("graph shift matches file", case_graph_shift_matches_file)
+check("ui and api agree", case_ui_and_api_agree)
 
 if failures:
     print(f"\nFAILED: {', '.join(failures)}")

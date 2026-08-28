@@ -747,7 +747,18 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "Non-zero forces uniform blocks at that count and "
                         "IGNORES the schedule, which is only useful for "
                         "deliberately decoding one grid partition while "
-                        "stepping another. It logs loudly that it is doing so."
+                        "stepping another. It logs loudly that it is doing "
+                        "so.\n\n"
+                        "**`nfe` and `steps` are allowed to disagree, and that "
+                        "disagreement IS this input's purpose.** `steps` picks "
+                        "the schedule the SIGMAS output emits; `nfe` picks the "
+                        "blocks the heads are fused into. Setting them to "
+                        "different values is exactly \"decode one partition "
+                        "while stepping another\", so it is not an error and "
+                        "is not refused. It is announced instead: the tracker "
+                        "logs `FORCED by the node's nfe=N, ignoring` on every "
+                        "run where this is non-zero, which is the only thing "
+                        "separating a deliberate arm from a forgotten widget."
                     ),
                 ),
                 # APPENDED. See the note on patch_heads.

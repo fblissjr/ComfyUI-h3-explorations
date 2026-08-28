@@ -462,6 +462,21 @@ through a path that only ever multiplies two. Reconstructing it is what
 `bench/compare_pdd_conversions.py::kijai_bank` does, and the row above is that
 reconstruction against the published stack.
 
+> **In question as of 2026-08-28, reported and not verified here.** A peer
+> session reading `Comfy-Org/ComfyUI#15908` reports that after commit
+> `bd016b75ff9b` its head formula is only correct if the stored rows are
+> DELTAS from head 0, that the alibaba-pai copies on this box are NOT deltas
+> (verbatim heads, exact-zero difference against the published values), and
+> that the HF repo's `lastModified` is two minutes after that commit -- so
+> upstream appears to have re-uploaded and our local copies are stale. If that
+> holds, he has adopted our semantics and the paragraph below is no longer
+> true of his current code. **Nothing here has re-fetched the artifact or
+> re-run `bench/compare_pdd_conversions.py` against it**, which is what would
+> settle it; the paragraph is left standing rather than edited, because the
+> evidence for the change is a source read on a moving target and the evidence
+> for the paragraph was a measurement. `docs/research/pdd/pdd_implementations.md`
+> carries the peer's fuller account. Re-fetch before any further cross-check.
+
 **That padding also makes his `strength` mean something different from ours
 below 1.0.** Heads 1..31 scale from zero rather than from the checkpoint's own
 head, so a half-strength render decodes every block after the first with a
