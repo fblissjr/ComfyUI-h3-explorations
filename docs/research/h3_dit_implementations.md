@@ -66,7 +66,11 @@ names. *(read: `coderef/MiniMax-H3/model_index.json`, and the absence of any
 
 **Reference of record is not the same as reachable here, and the gap is
 load-bearing.** diffusers cannot load the pruned curve checkpoint this install
-actually renders with — neither can vllm-omni. So for a real render on this
+actually renders with, and neither can vllm-omni — though the two fail
+differently, and vllm-omni's is the dangerous one: it has no completeness
+assertion, so it warns on the unmatched tensors, skips them, and runs with an
+uninitialised `time_embedder`. That is a silent wrong render, not a refusal,
+and it belongs on the §9.13 list. So for a real render on this
 box the comparison set is **three**: ComfyUI, sglang and DiffSynth. Read §3.2
 with that in mind: it is a comparison of the *architecture*, and where a row
 describes the released bf16 path rather than the shipped artifact it now says
@@ -119,7 +123,9 @@ Three facts every implementation asserts, re-derived here from
 `h3_config.MODELS["unet_fl2va"]` resolves to:
 
 **Rotary frequencies.** `rope.inv_freq` is a 16-element fp32 tensor equal to
-`10000^(-i/16)` (*measured*). That is exactly `1/(theta**(arange(0,32,2)/32))`
+`10000^(-i/16)` **recomputed in fp32** — bitwise equal there, and off by up to
+3.7e-9 if you recompute in float64 and cast down, which is the obvious way to
+check it and does not match (*measured*). That is exactly `1/(theta**(arange(0,32,2)/32))`
 with `theta = 10000` — the release's declared `rope_theta`, and per-axis rotary
 width 32. diffusers' converter states independently that its recomputed buffer
 is bitwise equal to the shipped one, which is a second confirmation by a
@@ -138,8 +144,11 @@ Under the competing chunk-major reading the same six slabs would be *every
 chunk of the text modality and nothing for video or audio*, i.e. only text
 modulated. The layout and the chunk order are therefore fixed by the weights.
 
-**Module inventory.** The 932 keys resolve to exactly the tree all five
-describe: 50 blocks of `{norm1, norm2, attn{q_norm,k_norm,qkv_proj,out_proj},
+**Module inventory.** The 932 keys of the *shipped pruned* file resolve to the
+tree — with the caveat that this artifact is not the one all five implement:
+it carries `adaln_t_table` and 100 int8 sidecars and has no `time_embedder`
+(§10.2). Read the shapes below as confirming the architecture, not as five-way
+agreement about this file. It resolves to: 50 blocks of `{norm1, norm2, attn{q_norm,k_norm,qkv_proj,out_proj},
 mlp{fc1,fc2}, adaln_proj}`, a 2-block `token_refiner` with `final_norm`, a
 `final_layer` with two output heads, the three input projections, and
 `rope.inv_freq` (*measured*). Shapes confirm the derived widths: `qkv_proj`
@@ -243,6 +252,10 @@ here. That is one data point and says nothing about which is better; what it
 does buy is **repeatability**, since a same-seed repeat under `euler` is a true
 repeat and under either SDE sampler it is not.
 
+One scope limit on that record: both arms load the **AWQ v2** encoder, not what
+`h3_config.MODELS["clip"]` resolves to. The sampler axis is clean because both
+arms share it, but "viable here" was not measured on the shipped encoder.
+
 ### 4.2 Step-count semantics: "N steps" means different things
 
 All implementations build the sigma grid with the same shift map over `[1, 0]`.
@@ -280,8 +293,16 @@ engine* construction. Two independent reasons, same answer.
 
 ### 4.3 The audio stream is carried differently
 
-diffusers, sglang, DiffSynth and vllm-omni hold **two scheduler instances** and
-step the two streams separately from one joint forward.
+diffusers, sglang, DiffSynth and vllm-omni run **two sigma schedules** and step
+the two streams separately from one joint forward.
+
+**Corrected 2026-08-29:** this previously said "two scheduler *instances*",
+which is an object-structure claim and is wrong for two of them. sglang holds
+none — `minimax_h3_pipeline.py` states "scheduler intentionally absent:
+model_index carries scheduler=null", generates per-modality sigmas in a
+timestep stage, and its stages accept `scheduler=None`. vllm-omni is the same
+shape. Two *schedules*, from one function called twice; the consequence below
+is unaffected.
 
 ComfyUI instead carries the audio latent *scaled onto the video schedule* by
 `audio_scale = shift_video / shift_audio`, making the pack an ordinary
@@ -307,17 +328,21 @@ to ComfyUI, which has no `cu_seqlens` and no mask.
 
 Padding is inert in the three engines that pad *because* `cu_seqlens` isolates
 it into its own attention document. Add pad rows to an implementation that
-passes `mask=None` and they are not isolated: a pad row's embedding is zero, so
-its q/k/v are zero (the projections are bias-free, and RMSNorm of a zero vector
-is zero), so **its key scores exactly 0 against every query, and `exp(0) = 1`.**
-Each pad row therefore takes a full unit of softmax mass away from the real
-keys.
+passes `mask=None` and they are not isolated.
 
-*Measured* for this document: appending 64 zero pad rows to a 512-row sequence
-under `mask=None` moves the real rows by 6.99% relative L2. The magnitude
-scales with the pad fraction, so on a 89,278-row render rounding to 89,280 the
-practical effect is small -- but it is not zero, and it is a change with no
-benefit, since ComfyUI's SDPA path needs no length alignment.
+**The mechanism stated here on 2026-08-29 was wrong and is corrected.** It
+claimed a pad row's q/k/v are zero, so its key scores 0 and `exp(0) = 1` takes
+softmax mass. That skips AdaLN. `DiTBlock.forward` modulates *between* `norm1`
+and the attention projection, and `_mod_scale_shift` is
+`h.mul_(1 + scale).add_(shift)` — so a zero row leaves `norm1` as zero and
+arrives at attention as **`shift_msa`**, not zero (*measured*: nonzero, order
+of a real row's magnitude). A pad row therefore carries a real query, a real
+key and a real **value**, and injects its own `v` into every real row's output.
+
+*Measured*: appending 64 **zeroed-qkv** pad rows to a 512-row sequence under
+`mask=None` moves the real rows by 6.99% relative L2. Given the correction
+above that is a **floor**, not the effect — the real perturbation is larger,
+because the pad rows are not zero at the kernel. The conclusion strengthens.
 
 **So: do not add padding here without adding segmentation, and there is no
 reason to add either.**
@@ -388,7 +413,7 @@ interleaved**, `[q_h|k_h|v_h] x 56`; the Comfy-Org repacks store it
 |---|---|
 | diffusers | converts interleaved -> contiguous offline, in its converter |
 | sglang | branches on a quant-config flag, permutes on load |
-| DiffSynth | ships a second DiT class, selected per checkpoint; its *only* delta is `view(S, 3, heads, D)` vs `view(S, heads, 3, D)` |
+| DiffSynth | ships **two** Comfy subclasses. `MiniMaxH3DiTComfy`'s only delta is the qkv view, `view(S, 3, heads, D)` vs `view(S, heads, 3, D)`; `MiniMaxH3DiTComfyPruned` extends it with `time_embed_dim=8`, the curve lerp and a no-SiLU AdaLN proj (§9.7) |
 | vllm-omni | reorders **unconditionally**, assuming the release layout; the only guard is a row-count assertion |
 | ComfyUI | splits contiguously **unconditionally**, assuming the repack layout |
 
@@ -405,10 +430,17 @@ This is already recorded at `docs/evidence.md:168-175` from an earlier session.
 A spot check corroborates it and settles which layout this box holds:
 splitting `blocks.0.attn.qkv_proj.weight_scale` into contiguous thirds gives
 three clearly distinct means and explains ~10.6% of the total variance, while
-the per-head-interleaved grouping explains ~0.03% — and the V third is the low
-one, which is the physical signature, since Q and K are RMSNormed downstream
-and V is not (*measured*). **The file this install loads is contiguous**, which
-is what ComfyUI's `split(heads*head_dim, dim=-1)` requires.
+the per-head-interleaved grouping explains ~0.03% (*measured*). **The file this
+install loads is contiguous**, which is what ComfyUI's
+`split(heads*head_dim, dim=-1)` requires.
+
+**The discriminator generalises; the story about it did not.** Contiguous beats
+interleaved at every block sampled — 0.106/0.0003 at block 0, 0.038/0.0005 at
+25, 0.293/0.0056 at 49 — so the test is sound anywhere. But an earlier version
+added "the V third is the low one, which is the physical signature, since Q and
+K are RMSNormed downstream and V is not". That is true **only at block 0**: V is
+the *highest* third at blocks 25 and 49 (*measured*). The mechanism sentence was
+a one-block observation generalised, and is withdrawn.
 
 ---
 
@@ -489,14 +521,15 @@ video rows + 1,150 audio rows + text**, run for 8 evaluations.
 |---|---|
 | **ComfyUI** | Qwen3-VL config is built with `num_hidden_layers = 50`, `final_norm = False`, `lm_head = False`. The stack is physically 50 layers, so "layer 50's output" is the last hidden state and no norm follows it. `enable_attention_masks = False`. |
 | **diffusers** | Loads the full 64-layer stack, reads `outputs.hidden_states[50]`, and raises if the stack has 50 or fewer layers — because the last hidden state of a 50-layer stack *would be post-norm* and wrong. |
-| **sglang** | Full stack, layer selected by `MINIMAX_H3_QWEN3VL_SELECTED_LM_LAYER = 50`. |
+| **sglang** | **Truncates, like ComfyUI and DiffSynth.** Sets both `arch.num_hidden_layers` and `arch.text_config.num_hidden_layers` to `MINIMAX_H3_QWEN3VL_SELECTED_LM_LAYER = 50`, refuses `lm_head.weight` and `model.language_model.norm.*` on load, and sets `language_model.norm = nn.Identity()`. |
 | **DiffSynth** | Truncates like ComfyUI: `num_hidden_layers = 50` and `language_model.norm = torch.nn.Identity()`. Its converter drops layers >= 50 and `lm_head`. |
 | **vllm-omni** | Full stack, layer 50. |
 
-**The one that matters:** diffusers' guard names the exact trap the two
-truncating implementations have to avoid, and both avoid it — ComfyUI with
-`final_norm = False`, DiffSynth with an `Identity()`. Same tensor, three
-spellings, one of which raises if you get it wrong.
+**The one that matters:** diffusers' guard names the exact trap the **three**
+truncating implementations have to avoid, and all three avoid it — ComfyUI with
+`final_norm = False`, DiffSynth and sglang with an `Identity()`. Three truncate,
+two read layer 50 off a full stack. Same tensor, four spellings, one of which
+raises if you get it wrong.
 
 ### 9.2 Text projection and the token refiner
 
@@ -567,8 +600,13 @@ Convention is halves / rotate-half everywhere — never interleaved.
 **Where a real difference could hide:** the order is norm-then-rope in all
 five, and sglang's `round_norm_before_rope=True` exists specifically to make
 its fused kernel match the eager order. ComfyUI's fused kernel does the same.
-vllm-omni notes its fast path round-trips through bf16 mid-kernel and is *not*
-bit-identical to its own eager path.
+vllm-omni's fused Triton kernel round-trips through bf16 mid-kernel, which is
+real. **An earlier version of this line added that vllm-omni "notes it is not
+bit-identical to its own eager path". That attribution was wrong** — the only
+bit-exactness statement in that tree is about the **video VAE**, not the DiT.
+Carrying a VAE claim onto the DiT is precisely the stage-crossing trap
+`CLAUDE.md` names, and it had landed under this file's headline unchecked risk.
+The round-trip stands; the vendor statement does not.
 
 ### 9.7 Timestep embedding
 
@@ -683,8 +721,10 @@ neither sniffs.
 | **ComfyUI** | the two target segments only, sliced first |
 | **all four others** | every row including padding, then `index_select` |
 
-Both output heads are **fp32** in all five, with the activation cast to fp32
-before them.
+Both output heads are **fp32 in four of the five**. DiffSynth's are plain
+`nn.Linear` with no `dtype=`, so they take the module dtype (bf16), and its
+`_modulate_scale_shift` ends `.to(x.dtype)` — the final layer casts *down*
+rather than up.
 
 **Sign:** ComfyUI and DiffSynth negate the DiT output so their sampler's
 `x0 = x - sigma*v` reproduces H3's data-ward `x0 = x + sigma*v`. diffusers,
@@ -696,7 +736,7 @@ negation and the scheduler sign are **one decision made in two places**.
 | | |
 |---|---|
 | **ComfyUI** | k-diffusion `sample_euler`, `s_churn=0` so no noise; `d = (x - denoised)/sigma`, `x += d*dt`. Audio rides the video schedule scaled by `shift_v/shift_a`, converted in and out inside `forward()`. |
-| **diffusers, sglang, DiffSynth, vllm-omni** | Euler eta=0 on **two scheduler instances**, one per stream. |
+| **diffusers, sglang, DiffSynth, vllm-omni** | Euler eta=0 on **two sigma schedules**, one per stream (§4.3 — not two scheduler objects). |
 
 Same integrator; ComfyUI reaches it through a graph node and one schedule
 rather than a hardcoded loop and two.
@@ -713,7 +753,11 @@ be wrong here — this is the list worth checking first if output ever looks off
 5. **RoPE halves vs interleaved**, and the 96/128 split — both easy to get subtly wrong.
 6. **Fused norm+rope kernels** — vllm-omni states its fast path is not bit-identical to its eager path; ComfyUI's and sglang's fused kernels are the same class of risk and neither has been graded here against an eager reference on this model.
 
-Item 6 is the only one on this list that nothing in this repo currently checks.
+**Items 1 and 6 are both unchecked**, and §7 finding 5 already says so for
+item 1: `bench/check_model_files.py` guards model *names*, and a grep of it for
+`qkv|interleav|contiguous` returns zero (*measured*). An earlier version of this
+line claimed item 6 was the only unchecked one, contradicting §7 in the same
+document.
 
 ---
 
