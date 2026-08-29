@@ -34,8 +34,8 @@ stretch across the same canvas.
 | `shots13` | 1+3 | 362 | ~7.5s | **great** |
 | `shots12` | 1+2 | 362 | ~7.5s | **great**, box did not ghost |
 | `shots23` | 2+3 | 362 | ~7.5s | rendered, unjudged |
-| `shots13_241f` | 1+3 | 241 | ~5.0s | queued |
-| `shots12_241f` | 1+2 | 241 | ~5.0s | queued, lands last |
+| `shots13_241f` | 1+3 | 241 | ~5.0s | rendered, unjudged |
+| `shots12_241f` | 1+2 | 241 | ~5.0s | rendered, unjudged |
 
 The two `_241f` arms were posted directly rather than through the sequential
 runner, so neither depends on a client process surviving. **A consequence worth
@@ -177,6 +177,46 @@ file measures at 160x96 BT.601 gray, this one at 320x192 rgb24 with a flat mean,
 and mixing them silently produces incomparable numbers on both axes. Two
 internally consistent files beat one module that has to pick a scale, because
 the day someone changes `W, H` for a good reason every historical number moves.
+
+## 6b. Every arm this night rendered, measured
+
+All eleven completed; nothing is missing. Scored through
+`bench/score_shot_ablation.py`. **Verdicts exist for three of them only** — the
+rest are unjudged, and these numbers are a description of the substrate, not a
+result.
+
+| clip | delta | detail | frames | verdict |
+|---|---|---|---|---|
+| `h3_t2v_rail_long` | 0.0062 | 0.0360 | 362 | unjudged |
+| `h3_t2v_aisle_short` | 0.0106 | 0.0490 | 362 | unjudged |
+| `shotablation_shots13` | 0.0122 | 0.0640 | 362 | great |
+| `shotablation_shots12_241f` | 0.0144 | 0.0474 | 243 | unjudged |
+| `shotablation_shots23` | 0.0165 | 0.0622 | 362 | unjudged |
+| `shotablation_shots13_241f` | 0.0197 | 0.0594 | 243 | unjudged |
+| `shotablation_shots12` | 0.0209 | 0.0580 | 362 | great |
+| `h3_t2v_aisle_long` | 0.0212 | 0.0525 | 362 | unjudged |
+| `h3_t2v_sortline_long` | 0.0214 | 0.0540 | 362 | unjudged |
+| `h3_t2v_sortline_short` | 0.0272 | 0.0560 | 362 | unjudged |
+| `h3_t2v_churn_long` | 0.0486 | 0.0475 | 362 | unjudged |
+
+**One pre-registration failed on its premise rather than its conclusion.** The
+prompts lane registered `rail_long` as the highest-delta clip in the repo, on
+the reasoning that a full-frame rail translation maximises inter-frame change,
+and built its falsification on that: clean would clear delta. **It is the
+lowest, on both axes.** So a clean rail clip is what delta predicts and clears
+nothing, and the rail/churn pair confounds predictability with an eightfold
+delta difference. The correction is annotated onto the prediction in
+[`artifact_axis.md`](artifact_axis.md) rather than replacing it.
+
+The general form is worth more than the instance: **a pre-registration can be
+falsified by measuring its premise, before any outcome is observed** — and that
+is the cheapest possible moment to find out, because it costs nothing but a
+scorer run and it saves the outcome being over-read.
+
+Note also `sortline_short` sits ABOVE `sortline_long` on delta while `aisle_long`
+sits above `aisle_short`. The demand manipulation has no consistent delta
+direction, which is expected under every account still standing and is recorded
+so nobody reads a direction into it later.
 
 ## 7. Not established
 
