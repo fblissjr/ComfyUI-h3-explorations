@@ -91,6 +91,26 @@ and nothing else in the model path moves.
 
 ## Traps that have each bitten more than once
 
+**The server writes its own log, and the launcher piping stdout does not hide
+it.** `user/comfyui_<port>.log` holds the current server session and
+`user/comfyui_<port>.prev.log` the previous one, whatever `start.sh` does with
+stdout. This is where the answer lives for "did that render silently fall back
+to lowvram, novram or a partial load", which is otherwise unanswerable after the
+fact and turns any timing or quality comparison into an argument. On 2026-08-28
+this lane read a stale `comfyui_detail.log`, saw the live process had both fds
+on a pipe, and concluded a VRAM-mode switch was *unobservable* — then proposed a
+26-minute control render partly to work around the gap. It was observable the
+whole time, and a grep across both files answered it in seconds. **Grep the log
+before designing a control for something the server already records.**
+
+**`free_memory` on `/free` unloads every model, even with
+`unload_models: False`.** The server sets the unload flag only when it is
+truthy, so the executor's `flags.get("unload_models", free_memory)` falls
+through to `free_memory`. There is no way to clear cached memory without
+dropping the models. Both flags are consumed *between* prompts rather than
+mid-render, so calling it is safe on a queue shared with other sessions — it
+just costs the next job a full reload. Worth saying out loud on a shared box.
+
 **`import nodes` resolves to ours.** This repo has a `nodes.py` and
 `build_workflows.py` inserts the repo root at `sys.path[0]`, so a later bare
 `import nodes` inside `comfy_extras` finds ours and dies on a relative import.
