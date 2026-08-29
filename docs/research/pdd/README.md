@@ -19,6 +19,16 @@ block width. [`2026-08-28_audio_plan.md`](2026-08-28_audio_plan.md) is the
 execution plan: state, three experiments in order, what each outcome means, and
 the traps. Read the first, work from the second.
 
+**Rendered arms, 2026-08-29:**
+[`2026-08-29_market_scene_arms.md`](2026-08-29_market_scene_arms.md) — three
+market-scene renders forming two single-variable pairs (Sol on/off, and
+`dpmpp_2m_sde_gpu` against `euler`) at 8 steps on PDD-emitted sigmas. It
+opens by saying why these are **not** comparable to group S, since steps,
+length, canvas and the sound prompt all moved. Its one transferable result is
+that the reference integrator is viable here, and that only the deterministic
+arm is repeatable — which is the precondition for every other comparison in
+this lane.
+
 [`queued_arms.md`](queued_arms.md) is the session queue those handoffs draw on.
 The paper itself is
 [`arxiv_2607.26004v1_...md`](arxiv_2607.26004v1_Parallel_Decoding_Distillationfor_Fast_Image_and_Video_Generation.md);
