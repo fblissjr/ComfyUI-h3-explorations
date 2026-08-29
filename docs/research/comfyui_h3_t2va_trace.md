@@ -318,6 +318,48 @@ The one thing that stays fp32 is `adaln_t_table`, because it is a
 `register_buffer` on `MiniMaxH3Model` and is filled by the parent module's
 ordinary `_load_from_state_dict` into the existing fp32 buffer.
 
+**So what — the magnitudes, and the one place it actually bites.** *measured*,
+what the bf16 load costs each tensor against its value on disk:
+
+| tensor | on disk | rel error from the bf16 load |
+|---|---|---|
+| `final_layer.video_out.weight` | F32 | 6.1e-4 |
+| `final_layer.audio_out.weight` | F32 | 3.7e-4 |
+| `video_patch_proj.weight` | F32 | 8.9e-4 |
+| `audio_patch_proj.weight` | F32 | 8.5e-4 |
+| `blocks.N.adaln_proj.linear.weight` | **F16** | **1.7e-3** |
+| for contrast: any int8 block linear | I8 | **8.8e-3** |
+
+Read that bottom row first. **The island loss is 5x to 20x smaller than the
+quantization error the same checkpoint already carries in every block.** So this
+is not a hidden precision disaster, and nobody should expect a visible
+difference from it alone.
+
+Two things do follow, and they are not about magnitude:
+
+**The AdaLN row is a strict regression, not a rounding choice.** F16 has 11
+mantissa bits and bf16 has 8. The file paid for precision the loader discards on
+contact — the only such case in the checkpoint. Everything else is fp32 on disk
+being rounded once, which is unavoidable at bf16.
+
+**It is a confound for any checkpoint A/B.** A bf16 H3 checkpoint has no
+`comfy_quant` blobs, so it goes through `manual_cast` / `disable_weight_init`,
+where `operations.Linear` really is `torch.nn.Linear` and `dtype=torch.float32`
+*is* honoured. So "bf16 checkpoint against int8 checkpoint" is not a comparison
+of the block linears. It changes the block linears **and** the output heads
+**and** the patch projections **and** the AdaLN projection, all at once. Anyone
+attributing a rendered difference to int8 quantization is attributing it to four
+changes. `docs/evidence.md` #22's first-step velocity delta of 5.6-9.4% between
+the two checkpoints is measured across all four.
+
+**And one stale justification.** `pdd_lora.py`'s dtype note says it stores fused
+heads in fp32 because "`final_layer`'s two output projections are the
+checkpoint's fp32 island". On a pruned int8 base that island does not exist, so
+the stated reason does not hold there. The *decision* still does — the node's
+heads run against an fp32 activation from `mod()` — and at `strength=1.0` the
+base head cancels out of `base + strength * (fused - base)` anyway, so nothing
+numerical rides on it. The reasoning is what needs updating, not the code.
+
 ### 1.6 The int8 weight is not dequantized at load
 
 `comfy/ops.py:1225-1229` (*read*):
@@ -664,21 +706,72 @@ they hold.
 | accumulate dtype? | **fp32.** The int8 GEMM never runs |
 | what does int8 storage buy? | disk, host RAM, PCIe volume. **No arithmetic speed at all** |
 
-The cost model follows: `gate_proj` at `[25600, 5120]` materializes 524 MiB of
-fp32 every time it is touched, 350 times per encode. That is consistent with
-this repo's own recorded ~691 s encode.
+**Is this a bug? No — it is a deliberate policy, and the git history says so.**
+`full_precision_mm=True` is the direct continuation of what `25022e0b`
+(2025-11-24, "Cleanup and fix issues with text encoder quants") replaced:
+`scaled_fp8_ops(fp8_matrix_mult=False, ...)`. Upstream's position is that a text
+encoder stores quantized and computes in full precision. It conditions
+everything downstream from a single pass, so the trade is defensible.
 
-**Two one-line changes would flip it**, and both are needed — dropping
-`full_precision_mm=True` at `comfy/sd1_clip.py:114`, and dropping
+**What it costs and buys, measured rather than reasoned.** Same layer
+(`model.layers.25.mlp.gate_proj`, `[25600, 5120]`), same box, weights already
+resident on the GPU:
+
+| | int8_convrot | bf16 |
+|---|---|---|
+| whole-encoder file | **25.28 GiB** | **47.97 GiB** |
+| — LM layers (24.38 G elements either way) | 22.72 GiB | 45.41 GiB |
+| — `embed_tokens` + vision tower | 1.45 + 1.11 GiB, BF16 in both | same |
+| weight -> fp32, per forward | 0.78 ms | 0.87 ms |
+| fp32 GEMM at 500 tokens | 1.87 ms | 1.87 ms |
+| host -> device, per layer | **10.87 ms** (125 MiB) | **21.75 ms** (250 MiB) |
+| weight error vs the bf16 source | **8.8e-3** | 0 (it *is* the source) |
+
+Three things fall out, and the first two are the opposite of what "never runs
+int8 arithmetic" suggests:
+
+**The dequantization is not a tax.** int8 -> fp32 with the Hadamard un-rotation
+is *faster* than a bf16 -> fp32 cast (0.78 vs 0.87 ms), because both are
+memory-bound on writing the same 524 MiB fp32 result and int8 reads half as many
+input bytes. The un-rotation itself costs 0.02 ms over a plain int8 dequant —
+and it is genuinely happening (*measured*: a convrot round trip reproduces the
+source to 7.9e-3, where skipping the rotation would be O(1) wrong).
+
+**Transfer dominates both by ~5x, and that is where int8 pays.** 10.87 ms of
+PCIe against 1.87 ms of GEMM, per layer. The encoder does not fit in 24 GiB in
+either format, so both stream; int8 streams half the bytes. **That is the reason
+to keep using it over the bf16 file you already have** — not disk space, and not
+arithmetic.
+
+**The price is 0.88% relative weight error**, uniform across the quantized
+linears and consistent with what `docs/evidence.md` records for the DiT's int8
+lane.
+
+*Corrected 2026-08-29, same day, by measurement.* An earlier version of this
+section said the fp32 dequantization was "consistent with this repo's own
+recorded ~691 s encode". **It is not, and the arithmetic was never done.** A
+full streaming pass of the 25.28 GiB model at the 12 GiB/s measured above is
+~2 s; all 350 GEMMs at 500 tokens are ~0.7 s; the dequantizations are ~0.3 s.
+Those sum to about 3 s against 691 s on record, so **the encode's real
+bottleneck is none of the three and remains unexplained.** Anyone optimizing it
+should profile first rather than reason from this section.
+
+**If you wanted the int8 GEMM anyway**, two edits are needed and neither is
+local: dropping `full_precision_mm=True` at `comfy/sd1_clip.py:114` and dropping
 `set_model_compute_dtype(torch.float32)` at `comfy/sd.py:270`. Both are global to
-every text encoder in the tree and the second changes encoder numerics for every
-model, so neither is a safe local edit. Neither has been tested here.
+every text encoder, the second changes encoder numerics for every model in the
+tree, and on this evidence the win would be at most the 1.87 ms GEMM per layer
+against a 10.87 ms transfer — i.e. under 15%, for a numerical change upstream
+deliberately avoided. Not worth it.
 
 **Contrast with the DiT**, which is the same quantization scheme in the same
-wheel: `pick_operations` passes no `full_precision_mm` (default `False`) and
-nothing calls `set_model_compute_dtype` on the diffusion patcher, so all four
-clauses of `_use_quantized` hold and the int8 kernel runs. Same file naming, same
-convrot, opposite outcome.
+wheel and *does* take the int8 kernel: `pick_operations` passes no
+`full_precision_mm` (it defaults `False`, `comfy/ops.py:1290`) and nothing calls
+`set_model_compute_dtype` on the diffusion patcher, so all four clauses of
+`_use_quantized` hold. The DiT is also the case where the kernel matters — it
+runs 50 blocks x 8 steps rather than one pass, and its activations are bf16
+rather than fp32, so the int8 path is both reachable and worth reaching.
+
 
 ---
 
@@ -1527,9 +1620,35 @@ layout is modality-major (`timestep_index * 3 + tag`, tags 0 video / 1 text /
 ```
 
 **`split(heads*head_dim, dim=-1)` is a contiguous three-way split**, so ComfyUI
-assumes the `[q_all; k_all; v_all]` repack layout unconditionally. It does not
-sniff. A release-native per-head-interleaved file loads clean and renders noise —
-the row count is `56*3*128 = 21504` under both layouts.
+assumes the `[q_all; k_all; v_all]` layout unconditionally. It does not sniff.
+
+**Why is qkv fused at all, and whose choice was it?** Not the release's.
+*measured*, over all 14 shards of `coderef/MiniMax-H3/transformer`'s weight
+index: **there is no `qkv` key anywhere in the release.** It ships 52 `to_q`,
+52 `to_k` and 52 `to_v` tensors (50 blocks + 2 refiner), in diffusers naming.
+Fusing is the **repacker's** choice, and ComfyUI's model then requires it —
+`comfy/model_detection.py:399` reads `blocks.0.attn.qkv_proj.weight` as a bare
+subscript, so a release-native split file cannot load at all.
+
+The fusion earns its place three ways, all of which matter more here than in a
+typical DiT: one GEMM of `[S, 5376] @ [5376, 21504]` instead of three narrower
+ones, at a sequence length where arithmetic intensity is the whole game; one
+convrot activation rotation shared by all three projections instead of three;
+and one set of `weight_scale` rows, one output buffer, one weight fault under
+the streaming loader. It costs the layout ambiguity below, and it is why a LoRA
+must be fused before it can be applied (§4.3).
+
+**Corrected 2026-08-29. An earlier version of this section said "a
+release-native per-head-interleaved file loads clean and renders noise."** That
+misnames the hazard in a way that makes it sound worse and vaguer than it is.
+There is no release qkv order, because the release has no fused qkv; a
+split-qkv file raises `KeyError` in detection and never reaches a render. The
+real hazard is narrower and entirely between **repackers**: Comfy-Org fuses
+contiguous, `DeepBeepMeep`/WanGP fuses per-head interleaved, both produce a
+`[21504, 5376]` tensor, and `56*3*128` is the row count under either. That
+collision is what `docs/evidence.md:176-186` actually measured, and it is real —
+a DBM bf16 file loads clean into ComfyUI and puts head 0's k rows where the
+split expects head 1's q.
 
 `rms_rope_split_half_` fuses per-head RMSNorm and partial split-half rope into
 one in-place kernel writing back into the qkv buffer. The eager reference
@@ -1740,6 +1859,76 @@ patch is applied by `ModelPatcher.load`, *after* detection, so this is safe
 today. A checkpoint shipping the bank baked in would be detected as
 `latents_dim = 768`.
 
+### 10.4 Core's PDD against ours, surface by surface
+
+Core's target artifact is Kijai's conversion, and reading it settles what core
+assumes. *measured*, `MiniMax-H3-FL2VA-Acc-8Step_pruned_comfy.safetensors`
+(1.61 GiB, 578 tensors, all under `diffusion_model.`):
+
+```
+final_layer.video_out.lora_down.weight   F32  [3072, 5376]     3072 = 32 x 96
+final_layer.video_out.lora_up.weight    BF16  [3072, 3072]
+final_layer.video_out.reshape_weight    I64   [2]
+blocks.N.adaln_proj.linear.lora_A       BF16  [64, 8]          the curve basis
+blocks.N.adaln_proj.linear.diff_b       F32   [96768]
+```
+
+and its metadata says the method out loud: `"PDD head banks as pad-and-add
+reshape_weight LoRA (strength 1.0 only); adaln projected to curve basis"`, with
+`"alpha/rank folded into lora_B"`.
+
+So the head bank arrives as a **rank-3072 LoRA plus a `reshape_weight`** that
+pads `[96, 5376]` to `[3072, 5376]` with zeros and adds. Row block 0 lands on
+the padded base, blocks 1.. land on zeros. For core's
+`rows[0] + sum(w * rows[k])` to be right, block 0 must therefore hold
+`head_0 - base` and blocks k>=1 must hold `head_k - head_0`. **Core and Kijai's
+artifact are self-consistent**, which is what §10.3's finding turns on: the
+assumption is correct for the artifact it was written against, and unchecked for
+any other.
+
+| | core (`2504e68d` + Kijai's file) | this pack (`pdd_lora.py`) |
+|---|---|---|
+| node needed | none, stock `LoraLoaderModelOnly` | a custom node |
+| head delivery | enlarges `video_out.weight` to `[3072, 5376]` | forward patch, weight untouched |
+| fusion timing | per forward, inside `FinalLayer` | per block, cached on first use |
+| bank encoding | deltas from head 0, **assumed** | verbatim, **asserted at conversion** |
+| strength | **1.0 only** (its own metadata says so; pad-and-add scales the base too) | any, via `base + s*(fused - base)` |
+| adaln on a pruned base | rank-64 LoRA in the 8-dim basis + `diff_b` | dense `diff [96768, 8]` + `diff_b` |
+| file size | 1.61 GiB | **1.044 GiB** |
+| alpha | folded into `lora_B`, no `.alpha` tensors | explicit `.alpha`, tripled with the fused rank |
+| partition guard | none | `base_video_out` relative distance |
+| shift guard | none | raises on a mismatch, checked every forward |
+| off-grid step count | the user's problem | not expressible: the node emits `SIGMAS` |
+| resident-weight side effects | enlarged tensor survives on the cached model | none |
+
+**What core does that we could adopt.** One thing, and it is now free. Since
+`2504e68d` widened `FinalLayer.forward` to
+`(x, t_emb, video_seg, audio_seg, sigma, sample_sigmas, shifts)`, our
+`_make_final_layer_forward` already *receives* `sample_sigmas` and the resolved
+shifts in its `*args`. That makes `_make_capture_forward` removable — with it
+the patch on `diffusion_model.forward`, and the `default_shift_v`/`_a` fallback
+that exists only because `transformer_options` may carry no shift key at all.
+Core resolves the class default before passing `shifts`, so the guard would get
+a strictly better input than it reads today. Two conditions: the final-layer
+wrapper would have to be installed **unconditionally** rather than under the
+head gate, or it re-opens the 2026-08-28 hole where `patch_heads=False` skipped
+the shift check; and it would pin the node to core >= `2504e68d`, where today's
+`*args` widening is exactly what lets it run on both sides of that commit.
+
+**Where core is wrong**, beyond §10.3's unchecked bank encoding: no partition
+guard, on a family whose two members ship identical key sets; no check that the
+graph's shift is the one the heads were distilled at, even though `_pdd_head`
+computes its `dt` weights from that shift; and the enlarged `video_out.weight`
+outliving the graph that installed it, which is the concrete failure this pack's
+shape check was written against.
+
+**Where we are wrong.** Two implementations of one mechanism now live in one
+process. Neither is reachable through the other — our converted file leaves the
+weight its original size, so core takes `n == 1` — but a user with this pack and
+a Kijai file has two things that own H3's output heads, and only one of them
+refuses to stack.
+
+
 ---
 
 ## 11. Back through the sampler
@@ -1900,7 +2089,37 @@ quantization grid is refit around the patched weights.
 numerically; what it changes is that off-grid stops being expressible.
 
 **13.3 Every patched `mlp.fc2` loses the SwiGLU fusion — or does not, depending
-on the loader path.** `linear_input_act` bails to eager SwiGLU the moment
+on the loader path.**
+
+*First, the two loader paths, because the rest of this only makes sense against
+them.* ComfyUI has two ways to run a model bigger than VRAM:
+
+- **Classic partial load** (`ModelPatcher.load`). Decide **once, at load time**
+  which modules stay resident, largest-first until a byte budget runs out. The
+  rest live on the offload device and are copied per forward. A LoRA on an
+  offloaded module is installed as `m.weight_function = [LowVramPatch(...)]` and
+  re-applied on **every** forward.
+- **Dynamic vbar** (`CoreModelPatcher`, `comfy_aimdo.model_vbar`). The whole
+  model is **staged** into a pinned host buffer and faulted into VRAM per module
+  on demand, with the next block prefetched on a side stream (§9.1). A LoRA is
+  installed as `m.weight_lowvram_function` — a **different attribute**.
+
+That attribute name is the whole difference. `resolve_cast_module_with_vbar`
+gates its requantization on `len(fns) == 0`, where `fns` is `weight_function`:
+on the dynamic path that list stays empty, so the requant fires, the weight
+comes back as a `QuantizedTensor`, and `orig.copy_(y)` writes it into the staged
+buffer so the LoRA is applied once per resident signature rather than once per
+forward. On the classic path `weight_function` is non-empty, `cast_bias_weight`
+dequantizes, and the weight comes back as a plain float tensor.
+
+*log*, from a real render on this box:
+
+```
+Model MiniMaxH3 prepared for dynamic VRAM loading. 19995MB Staged. 308 patches attached.
+```
+
+"Staged", not "loaded partially" — **this box is on the dynamic path**, and
+therefore keeps both the int8 GEMM and the fusion below under a PDD LoRA. `linear_input_act` bails to eager SwiGLU the moment
 `cast_bias_weight` hands back a non-`QuantizedTensor`, which is exactly what a
 `weight_function` forces. On the **classic** path a `LowVramPatch` lands in
 `weight_function` and the 2.79 GiB intermediate is materialized per block per
@@ -1949,8 +2168,10 @@ either way. Not reachable through this repo's node, which leaves the weight its
 original size.
 
 **4. qkv layout is assumed, not sniffed** (§9.4). ComfyUI splits contiguously
-unconditionally; a release-native interleaved file loads clean and renders noise.
-`bench/check_model_files.py` guards model *names*.
+unconditionally. The exposure is not the release — which ships split q/k/v and
+would raise `KeyError` in detection — but the two *repacker* fusion conventions:
+a `DeepBeepMeep`/WanGP bf16 file is `[21504, 5376]` like Comfy's, loads clean,
+and renders noise. `bench/check_model_files.py` guards model *names*.
 
 **5. The `minimax_payload` dtype-cast exemption is a contract nothing asserts**
 (§5.4). Anything H3-specific added outside that dict gets flattened to bf16 by

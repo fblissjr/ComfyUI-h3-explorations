@@ -4,6 +4,90 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.92.0
+
+### Measured
+
+- **int8_convrot on the text encoder is worth keeping over the bf16 file, and
+  the reason is PCIe, not disk.** Same layer, same box, weights resident:
+  int8 -> fp32 dequant with the Hadamard un-rotation is 0.78 ms against a
+  bf16 -> fp32 cast's 0.87 ms (both memory-bound on the same fp32 write; int8
+  reads half the input), and the fp32 GEMM is 1.87 ms either way. Host -> device
+  is **10.87 ms int8 against 21.75 ms bf16**, so transfer dominates compute ~5x
+  and the encoder does not fit in 24 GiB in either format. Footprint 25.28 vs
+  47.97 GiB for the same 24.38 G elements. The price is 0.88% relative weight
+  error. **The dequantization is not a tax and the rotation is nearly free.**
+- **`full_precision_mm=True` for text encoders is deliberate, not an
+  oversight.** `25022e0b` (2025-11-24) replaced
+  `scaled_fp8_ops(fp8_matrix_mult=False, ...)` with it -- upstream's policy is
+  that a text encoder stores quantized and computes in full precision.
+- **The published release ships NO fused qkv.** 52 `to_q`, 52 `to_k`, 52 `to_v`
+  and no `qkv` key in any of its 14 transformer shards. Both fused layouts in
+  circulation are repacker conventions, and a split-qkv file cannot load into
+  ComfyUI at all -- detection subscripts `blocks.0.attn.qkv_proj.weight`
+  unguarded. Corrects `docs/evidence.md` and
+  `docs/research/h3_dit_implementations.md`, which both named one of the two
+  fused orders "the release order".
+- **The bf16 load of the DiT's fp32 island costs 3.7e-4 to 1.7e-3 relative**,
+  against the 8.8e-3 the same checkpoint's int8 blocks already carry -- so it is
+  5x to 20x below the dominant error term. Two consequences that are not about
+  magnitude: `adaln_proj` is a strict regression (F16's 11 mantissa bits to
+  bf16's 8), and a bf16-against-int8 checkpoint A/B changes four things at once,
+  not one.
+
+### Fixed
+
+- **Retracted a claim this repo made yesterday and could not support.**
+  `comfyui_h3_t2va_trace.md` said the encoder's per-forward fp32 dequantization
+  was "consistent with this repo's own recorded ~691 s encode". The arithmetic
+  was never done: a full streaming pass is ~2 s, all 350 GEMMs ~0.7 s, the
+  dequantizations ~0.3 s. The encode's real bottleneck is none of the three and
+  is now recorded as unexplained.
+- Corrected the decode output buffer for this render: 3.98 GiB, not the 1.30 GB
+  a reader had computed for a different frame count.
+
+## 0.91.0
+
+### Added
+
+- **`docs/research/comfyui_h3_t2va_trace.md` -- what ComfyUI's own code does,
+  call by call, for one t2va render at 1344x768x345.** Four loaders through both
+  VAE decodes, with and without the PDD node: detection and the eleven keys it
+  sniffs, int8/convrot representation and where the GEMM actually runs, the
+  packed layout and position grid, one forward stage by stage, the block x50,
+  the output heads, and section 14's sharp-edge list. It compares nothing --
+  `h3_dit_implementations.md` keeps the five-way comparison. Every surprising
+  claim in it was re-derived by execution rather than relayed.
+
+### Measured
+
+- **The int8 text encoder never runs int8 arithmetic.** Two independent gates --
+  `full_precision_mm=True`, hardcoded for every quantized text encoder at
+  `comfy/sd1_clip.py:114`, and the `force_cast_weights` that
+  `comfy/sd.py:270`'s `set_model_compute_dtype(torch.float32)` stamps on every
+  module -- each make `_use_quantized` false at `comfy/ops.py:1373-1379`. So
+  `comfy/ops.py:431-436` dequantizes the full weight to fp32 on **every
+  forward** and runs an fp32 GEMM; `int8_linear` is called zero times. The int8
+  storage buys disk, host RAM and PCIe volume, and no arithmetic speed. The DiT
+  is the same scheme in the same wheel and does take the kernel, because
+  `pick_operations` passes no `full_precision_mm` and nothing sets a compute
+  dtype on the diffusion patcher.
+- **The DiT's fp32 output-head island does not survive the int8 load.**
+  `MixedPrecisionOps.Linear.__init__` (`comfy/ops.py:1300-1303`) discards the
+  `dtype=` its caller passed and uses the compute dtype, so
+  `final_layer.video_out`/`audio_out`, both patch projections and every
+  `adaln_proj.linear` load as bf16 -- the last of those from F16 on disk, i.e. a
+  loss of mantissa. Verified by executing the load path, not by reading it. The
+  comment at `comfy/ldm/minimax/model.py:302` is true of the file and of the
+  bf16 checkpoint, and false of the configuration this box renders.
+- **Core's PDD head fusion assumes a delta-encoded bank and nothing checks
+  which encoding is resident.** `_pdd_head` computes
+  `rows[0] + sum(w_k * rows[k])`, correct only if rows 1.. are offsets from row
+  0. The published alibaba-pai bank is verbatim -- rows differ from row 0 by
+  2.6-5% of a head's own norm -- and against it that formula is 0.77 to 1.00
+  relative wrong per block. Not reachable through `pdd_lora.py`, which leaves
+  `video_out.weight` its original size so core takes its `n == 1` path.
+
 ## 0.90.0
 
 ### Added
@@ -45,6 +129,30 @@ artifact.
   artifact's snapshot, the guarded loader checks the release's own. It stays in
   that module because the standalone build copies it verbatim and may import
   nothing beside it; the dependency runs one way.
+
+## 0.89.0
+
+### Added
+
+- `bench/convert_h3_bf16_encoder.py` — adapts a full-depth HF Qwen3-VL-32B text
+  encoder to the ComfyUI H3 encoder: drops decoder layers 50-63, `lm_head` and
+  the final norm (22.8% of a bf16 release artifact), and renames
+  `model.language_model.`/`model.visual.` into the naming
+  `comfy/sd.py::detect_te_model` requires. Shares its drop rule with
+  `h3_awq_encoder._drop_source_key` so the bf16 and W4A16 lanes cannot disagree
+  about what H3 consumes. Copies tensor bytes verbatim, so surviving weights are
+  bit-identical to the source; verifies by running core's detector and by
+  comparing the key set against an existing working artifact.
+
+### Measured
+
+- **A full-depth HF-named Qwen3-VL-32B misdetects as `QWEN3VL_8B`, not as the
+  H3 encoder.** `detect_te_model` tests
+  `model.visual.deepstack_merger_list.0.norm.weight` before the H3 test, and the
+  `QWEN3VL_32B` branch of `load_text_encoder_state_dicts` is the one qwen3vl
+  branch applying no `state_dict_prefix_replace`. So the rename is load-bearing,
+  not cosmetic — this is the 2026-08-23 escape `h3_awq_encoder` already guards
+  against in the W4A16 lane, reproduced here on a bf16 artifact.
 
 ## 0.88.0
 
