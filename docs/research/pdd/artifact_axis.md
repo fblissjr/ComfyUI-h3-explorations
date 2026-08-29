@@ -40,6 +40,33 @@ with the audio muxed in. **Watch the `-audio` one.**
 | `h3_t2v_sortline_short_` | recycling sort line, normal length | — | — |
 | `h3_t2v_sortline_long_` | same, elaborated | Two scenes agreeing is a result; one is an anecdote | — |
 
+> **CORRECTION, measured after all eleven clips landed and after the pre-registration
+> above was written.** The rail row rests on "a full-frame translation is the
+> highest delta in the repo". **It is the lowest.** Measured through
+> `bench/score_shot_ablation.py`, `rail_long` is delta **0.0062** and detail
+> **0.0360** — the lowest of all eleven clips rendered this night, on both axes.
+> `churn_long` is **0.0486**, roughly eight times it.
+>
+> Two consequences, and the first kills the row's headline:
+>
+> 1. **A clean rail clip does NOT clear delta.** Delta's prediction for a
+>    low-delta clip is that it looks fine, so rail coming back clean is exactly
+>    what delta expects and refutes nothing. The "clears three questions at once"
+>    claim above does not hold. It was true of the clip as *described*; it is not
+>    true of the clip as *rendered*.
+> 2. **The rail/churn pair confounds the axis it was built to isolate.** Churn is
+>    both less predictable AND eight times the delta, so if churn looks worse,
+>    predictability and delta each explain it and the pair cannot separate them.
+>
+> **What the pair can still do**, and it is not nothing: both are one 15 s take
+> with no cuts, so if either looks clean that speaks to shot count and to length,
+> which is what the market ablation could not hold fixed. Read them for that.
+>
+> The prediction is left standing as written above rather than edited, because a
+> pre-registration that gets quietly corrected after the fact is worth nothing.
+> This is the fourth account to fail tonight and the first to fail on its premise
+> rather than its conclusion.
+
 **Watch the rail one first.** It is the only clip that can settle three
 questions at once, and ghosting on a flat concrete wall with square windows is
 impossible to miss or to argue about.
