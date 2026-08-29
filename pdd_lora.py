@@ -672,6 +672,19 @@ HEAD_PATCH_KEYS = ("diffusion_model.final_layer.forward",
                    "diffusion_model.final_layer.audio_out.forward")
 
 
+def adaln_patch_key(index: int) -> str:
+    """The object-patch key the runtime adaln injection takes for one block.
+
+    Named so the clash check can watch it. `HEAD_PATCH_KEYS` covered only the
+    three head keys, while the rationale it carries -- "two of THIS node in one
+    chain" -- reaches the adaln patches too: two instances on a pruned base
+    taking the injection path install 50 patches each on these keys, and
+    `add_object_patch` is last-writer-wins, so one update would apply and both
+    backbones would stack, silently.
+    """
+    return f"diffusion_model.blocks.{index}.adaln_proj.forward"
+
+
 def head_patch_clash(object_patches) -> list[str]:
     """Which of this node's head-patch keys are already taken.
 
@@ -1052,19 +1065,43 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         # model -- rather than on anything in the filename.
         adaln_installed = 0
         baked = None
+        _table_unusable = None
         if pruned and "h3_pdd.adaln_table" in sd:
             live_table = dm.adaln_t_table.detach().to(torch.float32).cpu()
             ref_table = sd["h3_pdd.adaln_table"].to(torch.float32)
-            if live_table.shape == ref_table.shape:
+            # A shape mismatch used to fall through with NO log line at all,
+            # into the same unusable state as a distance mismatch below.
+            if live_table.shape != ref_table.shape:
+                _table_unusable = (
+                    f"its curve table is {tuple(ref_table.shape)} against the "
+                    f"checkpoint's {tuple(live_table.shape)}")
+            else:
                 d = float((live_table - ref_table).norm() / ref_table.norm())
                 if d <= TABLE_TOLERANCE:
                     baked = d
                 else:
-                    logger.warning(
-                        "[h3-pdd] %s was baked against a different curve table "
-                        "(%.5f away, tolerance %g); falling back to the runtime "
-                        "adaln injection, which is correct on any pruned base.",
-                        lora_name, d, TABLE_TOLERANCE)
+                    _table_unusable = (
+                        f"it was baked against a different curve table, "
+                        f"{d:.5f} away against a tolerance of "
+                        f"{TABLE_TOLERANCE:g}")
+
+            # The old message here promised "falling back to the runtime adaln
+            # injection, which is correct on any pruned base". It is not
+            # reachable from THIS state: a file carrying `adaln_table` was
+            # converted with `--pruned`, and that path drops both tensors the
+            # injection needs -- it does not emit `h3_pdd.silu_temb_grid` and it
+            # pops the 2688-dim `h3_pdd.adaln.blocks.*` pairs. So the warning
+            # was followed one line later by a bare KeyError. Say what is
+            # actually true instead.
+            if _table_unusable is not None:
+                raise RuntimeError(
+                    f"{lora_name} cannot apply its modulation update to this "
+                    f"checkpoint: {_table_unusable}. A file converted with "
+                    f"`--pruned` carries ONLY the baked form, so there is no "
+                    f"runtime-injection fallback to take -- reconvert against "
+                    f"this checkpoint, or convert without `--pruned` to get the "
+                    f"injectable form. Refusing rather than rendering without "
+                    f"the modulation update, which looks entirely normal.")
 
         if not pruned:
             # Unpruned base: the adaln update is an ordinary weight patch in the
@@ -1078,6 +1115,18 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 slot = "lora_A" if k.endswith("lora_A") else "lora_B"
                 backbone[f"diffusion_model.blocks.{i}.adaln_proj.linear."
                          f"{slot}.weight"] = v
+            # The alpha, explicitly, for the same reason the converter writes one
+            # for every backbone module: ComfyUI reads alpha from a TENSOR and
+            # never from `__metadata__`, falling back to a scale of 1.0. PDD's
+            # alpha/rank IS 1.0 today, so the fallback happens to be right --
+            # and an artifact where it is not would scale the backbone correctly
+            # and the modulation not, silently. Written here because the
+            # converter's `h3_pdd.adaln.*` namespace carries no alpha of its own.
+            _alpha = meta.get("lora_alpha")
+            if _alpha is not None:
+                for i in {k.split(".")[3] for k in adaln}:
+                    backbone[f"diffusion_model.blocks.{i}.adaln_proj.linear"
+                             f".alpha"] = torch.tensor(float(_alpha))
             adaln_installed = len({k.split(".")[3] for k in adaln})
         elif baked is not None:
             # Pruned, with a bake solved against this checkpoint's own basis.
@@ -1141,6 +1190,27 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             # Fallback only: a file with no bake, or one solved against another
             # table. Installs 50 forward patches the baked path does not need.
             grid = sd["h3_pdd.silu_temb_grid"]
+            # Same rationale as the head-patch clash: `add_object_patch` is
+            # last-writer-wins, so a second owner of these keys would leave one
+            # modulation update applied and both backbones stacked.
+            _taken = [adaln_patch_key(i) for i in range(n_adaln)
+                      if adaln_patch_key(i) in (m.object_patches or {})]
+            if _taken:
+                raise RuntimeError(
+                    f"{lora_name} needs the runtime adaln injection, but "
+                    f"{len(_taken)} of its {n_adaln} patch points are already "
+                    f"taken (e.g. {_taken[0]}). Something upstream owns this "
+                    f"model's modulation. Refusing rather than clobbering it: "
+                    f"the loser applies no update and renders normally.")
+            # The model's curve table and the file's grid are indexed by the
+            # same argmin, so a row-count disagreement reads the wrong times
+            # with no error.
+            if grid.shape[0] != table.shape[0]:
+                raise RuntimeError(
+                    f"{lora_name}'s time grid has {grid.shape[0]} rows against "
+                    f"the checkpoint's {table.shape[0]}. The injection indexes "
+                    f"both by one argmin, so a mismatch silently reads the "
+                    f"wrong times.")
             for i in range(n_adaln):
                 base = m.get_model_object(f"diffusion_model.blocks.{i}.adaln_proj")
                 m.add_object_patch(
@@ -1173,10 +1243,17 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         grid_t_v = pdd_time_grid(shift_v, num_steps)
         grid_t_a = pdd_time_grid(shift_a, num_steps)
         tracker = _StepTracker(
+            # `rows` is passed rather than defaulted: `step_table` above is
+            # built at `pdd_grid_rows` from the file, and `boundary_embeddings`
+            # indexes it by its OWN `rows`. Defaulting both to 1025 agreed only
+            # because the converter pins GRID_ROWS -- a file declaring anything
+            # else would have read the wrong rows of a longer table silently.
             boundary_embeddings(grid_t_v, step_table,
-                                None if pruned else dm.time_embedder),
+                                None if pruned else dm.time_embedder,
+                                rows=step_table.shape[0]),
             boundary_embeddings(grid_t_a, step_table,
-                                None if pruned else dm.time_embedder),
+                                None if pruned else dm.time_embedder,
+                                rows=step_table.shape[0]),
             grid_t_v, grid_t_a, shift_v, num_steps, forced_nfe, file_nfe,
             lora_name, shift_a=shift_a,
             default_shift_v=_ms_shift_v, default_shift_a=_ms_shift_a)
