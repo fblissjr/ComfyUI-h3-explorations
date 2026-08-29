@@ -76,15 +76,58 @@ That second one killed a third account: the crate lift was the action you had
 named as the failure point across several renders, and it rendered clean here.
 So that shot is not sufficient to cause it.
 
-### The audio session
+### The audio session — YOUR EAR IS THE INSTRUMENT HERE
 
-`carryprobe/u8_start_v` — read off the live queue rather than reported, so the
-prefix is certain and the meaning is not. It was the job running when this was
-written: 362 frames, 8 evaluations. Ask them what a good result looks like.
+Everything under `carryprobe/`, all 1152x768, 362 frames, seed 730451892, the
+market prompt. Video PNGs sit beside each as `<arm>_v_*.png`. **These are the
+rows where their measurements cannot decide and yours can**, which is not true
+of anything else in this file. Their words, not paraphrased:
 
-A seed re-render is also theirs and is worth a look even so — it decides
-whether this pipeline is bit-identical across a full model unload, which is
-what settles whether their withdrawal of the `u4` result stands.
+**The pair their ear question rests on — listen to this first.**
+
+`carryprobe/opt4_mean_a_*.flac` against `carryprobe/opt4_start_a_*.flac`, with
+`carryprobe/opt4_off_a_*.flac` as the stock path. Tests whether re-applying
+ComfyUI's audio change-of-variable at the block's AVERAGE sigma instead of its
+start fixes the audio. Same partition, same heads, same schedule, same seed,
+same weights — only the transform's evaluation point differs.
+
+> Listen for: this is exactly his "tin can that gets progressively higher
+> frequency toward the end". The uncorrected arm's spectral centroid nearly
+> doubles across the clip; the corrected one barely moves. So listen to the LAST
+> few seconds of each, not the first. The corrected arm should sound fuller and
+> should stop climbing in pitch. FALSIFIED if it sounds no different, or if it
+> is merely louder without the end-of-clip rise going away — my numbers cannot
+> separate "louder" from "less tilted" and his ear can.
+
+**The same pair at the partition that actually ships.**
+
+`carryprobe/u4_mean_a_*.flac` against `carryprobe/u4_start_a_*.flac`. Predicted
+much smaller, because its widest block is 8 against opt4's 28.
+
+> Listen for: probably nothing. My measured difference here is INSIDE seed noise
+> and I withdrew it. If he can hear a difference, that is more interesting than
+> the measurement, because it would mean the energy metric is the wrong
+> instrument rather than the effect being absent.
+
+**Four seeds, nothing else changed** — `carryprobe/u4_off_s730451892`,
+`_s111222333`, `_s424242424`, `_s987654321`. The spread here is what killed the
+row above; they had assumed it was small and it is several times the effect.
+
+> Listen for: whether these four sound like four takes of the same thing or like
+> meaningfully different quality. If they sound equivalent while measuring far
+> apart, the energy metric is not tracking what he hears, and that is the single
+> most useful thing he could tell me tomorrow.
+
+**Landing overnight, and a plain yes/no.** `carryprobe/u8_mean` and `u8_start`
+are a third dose point on a legal partition. `carryprobe/u4_off_reload` is a
+re-render of seed 111222333 across the full model unload that this session's OOM
+caused: if it reproduces its pre-unload value exactly, the pipeline is
+bit-identical across a reload, the seed spread is real, and their withdrawal of
+the `u4` result stands. If not, the withdrawal is itself withdrawn.
+
+**Caveat on every row above:** the base graph's prompt was rewritten in `b62e95d`
+at 15:25, so none of these compare to anything rendered before that. Within this
+set they are all mutually comparable.
 
 ### The order things will actually land in
 
