@@ -4,6 +4,37 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.88.0
+
+### Added
+
+- `bench/measure_int8_convrot_headroom.py` and
+  `bench/results/2026-08-29_int8_convrot_headroom.json` — what a rebuilt
+  `int8_convrot` encoder could gain over the shipped one, asked the way the AWQ
+  lane asked it and answered on weights rather than on a render.
+
+### Measured
+
+- **The shipped `int8_convrot` encoder is exactly ComfyUI's stock recipe applied
+  to an FP32 source, and there is no calibration lever to improve.**
+  `TensorWiseINT8Layout.quantize(W.float(), per_channel=True, convrot=True,
+  convrot_groupsize=256)` reproduces its int8 values to within a rounding
+  handful across every sampled linear. Unlike AWQ, `convrot` is a
+  deterministic data-free weight transform: there is no calibration population,
+  so the lever the AWQ lane spent itself on does not exist here.
+- **The one exposed knob is already at its optimum.** Rotation group size is
+  flat across the legal powers of four, and the shipped 256 is the best of them.
+- **The rotation earns its place**, and is the only thing in the recipe that
+  does: turning it off is materially worse.
+- **Quantizing from BF16 instead of FP32 is a real trap**, and the one finding
+  here that changes what a rebuild should do: it moves a noticeable share of the
+  int8 values and lands measurably worse. Anyone rebuilding this artifact must
+  upcast first.
+- **What the file leaves unquantized is the vision tower and the embedding
+  table**, both BF16, read from the header. The embedding table is the one that
+  must not be touched: quantizing it would break the layer-0 bit-identity the
+  marker work rests on.
+
 ## 0.87.0
 
 ### Added

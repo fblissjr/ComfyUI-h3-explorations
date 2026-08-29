@@ -1,0 +1,324 @@
+{
+  "question": "can a rebuilt int8_convrot encoder beat the shipped one",
+  "method": "per-weight relative L2 against the released BF16 encoder, for the shipped file and for reproductions through ComfyUI's own TensorWiseINT8Layout.quantize; a sample of module kinds and layers, not the full 350 linears",
+  "path_policy": "logical identifiers only; encoders named by file name",
+  "reference": "qwen3vl_32b_minimax_h3_bf16.safetensors",
+  "subject": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+  "layers_sampled": [
+    0,
+    25,
+    49
+  ],
+  "modules_sampled": [
+    "self_attn.q_proj",
+    "self_attn.k_proj",
+    "self_attn.o_proj",
+    "mlp.gate_proj",
+    "mlp.down_proj"
+  ],
+  "not_established": "end-to-end encoder output fidelity, which is 2026-08-25_four_encoders_holdout_layer50.json's; and whether a per-group scale would help, which this format cannot express",
+  "producer": {
+    "file": "measure_int8_convrot_headroom.py",
+    "sha256": "11ce67ce46ce4c5f37b1d4c639b4015cc6578b513bfea58bec50bb5df765e2f9",
+    "repository_commit": "18463fe218efb4958e4e3370462631fcc2f18eb6",
+    "dirty_against_commit": true
+  },
+  "per_module": [
+    {
+      "layer": 0,
+      "module": "self_attn.q_proj",
+      "shape": [
+        8192,
+        5120
+      ],
+      "shipped": 0.008926445618271828,
+      "reproduced_from_fp32": 0.008791973814368248,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0001,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.009667335078120232,
+      "reproduced_from_bf16_int8_values_differing_pct": 8.1524,
+      "reproduced_from_bf16_int8_max_abs_diff": 2,
+      "convrot_groupsize_64": 0.008802042342722416,
+      "convrot_groupsize_256": 0.008791973814368248,
+      "convrot_groupsize_1024": 0.00877643283456564,
+      "no_rotation": 0.009237077087163925
+    },
+    {
+      "layer": 0,
+      "module": "self_attn.k_proj",
+      "shape": [
+        1024,
+        5120
+      ],
+      "shipped": 0.008939041756093502,
+      "reproduced_from_fp32": 0.00879211537539959,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.00968167558312416,
+      "reproduced_from_bf16_int8_values_differing_pct": 8.2238,
+      "reproduced_from_bf16_int8_max_abs_diff": 1,
+      "convrot_groupsize_64": 0.008825558237731457,
+      "convrot_groupsize_256": 0.00879211537539959,
+      "convrot_groupsize_1024": 0.008812300860881805,
+      "no_rotation": 0.009776141494512558
+    },
+    {
+      "layer": 0,
+      "module": "self_attn.o_proj",
+      "shape": [
+        5120,
+        8192
+      ],
+      "shipped": 0.010125210508704185,
+      "reproduced_from_fp32": 0.010000721551477909,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.010795485228300095,
+      "reproduced_from_bf16_int8_values_differing_pct": 7.4267,
+      "reproduced_from_bf16_int8_max_abs_diff": 2,
+      "convrot_groupsize_64": 0.010744494386017323,
+      "convrot_groupsize_256": 0.010000721551477909,
+      "convrot_groupsize_1024": 0.010129944421350956,
+      "no_rotation": 0.011694613844156265
+    },
+    {
+      "layer": 0,
+      "module": "mlp.gate_proj",
+      "shape": [
+        25600,
+        5120
+      ],
+      "shipped": 0.008840234950184822,
+      "reproduced_from_fp32": 0.00874832458794117,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0001,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.009592203423380852,
+      "reproduced_from_bf16_int8_values_differing_pct": 8.1338,
+      "reproduced_from_bf16_int8_max_abs_diff": 2,
+      "convrot_groupsize_64": 0.008779201656579971,
+      "convrot_groupsize_256": 0.00874832458794117,
+      "convrot_groupsize_1024": 0.008761348202824593,
+      "no_rotation": 0.010857637971639633
+    },
+    {
+      "layer": 0,
+      "module": "mlp.down_proj",
+      "shape": [
+        5120,
+        25600
+      ],
+      "shipped": 0.010187361389398575,
+      "reproduced_from_fp32": 0.01011847984045744,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.010862446390092373,
+      "reproduced_from_bf16_int8_values_differing_pct": 7.1791,
+      "reproduced_from_bf16_int8_max_abs_diff": 2,
+      "convrot_groupsize_64": 0.010169846937060356,
+      "convrot_groupsize_256": 0.01011847984045744,
+      "convrot_groupsize_1024": 0.010118977166712284,
+      "no_rotation": 0.013008056208491325
+    },
+    {
+      "layer": 25,
+      "module": "self_attn.q_proj",
+      "shape": [
+        8192,
+        5120
+      ],
+      "shipped": 0.00893031433224678,
+      "reproduced_from_fp32": 0.00879284180700779,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0001,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.0096944160759449,
+      "reproduced_from_bf16_int8_values_differing_pct": 8.2415,
+      "reproduced_from_bf16_int8_max_abs_diff": 2,
+      "convrot_groupsize_64": 0.008819140493869781,
+      "convrot_groupsize_256": 0.00879284180700779,
+      "convrot_groupsize_1024": 0.008804898709058762,
+      "no_rotation": 0.009903323836624622
+    },
+    {
+      "layer": 25,
+      "module": "self_attn.k_proj",
+      "shape": [
+        1024,
+        5120
+      ],
+      "shipped": 0.008926567621529102,
+      "reproduced_from_fp32": 0.00877899955958128,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0001,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.009667443111538887,
+      "reproduced_from_bf16_int8_values_differing_pct": 8.2358,
+      "reproduced_from_bf16_int8_max_abs_diff": 1,
+      "convrot_groupsize_64": 0.008834519423544407,
+      "convrot_groupsize_256": 0.00877899955958128,
+      "convrot_groupsize_1024": 0.008773348294198513,
+      "no_rotation": 0.010501757264137268
+    },
+    {
+      "layer": 25,
+      "module": "self_attn.o_proj",
+      "shape": [
+        5120,
+        8192
+      ],
+      "shipped": 0.010129946283996105,
+      "reproduced_from_fp32": 0.010002215392887592,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0001,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.010793877765536308,
+      "reproduced_from_bf16_int8_values_differing_pct": 7.3907,
+      "reproduced_from_bf16_int8_max_abs_diff": 1,
+      "convrot_groupsize_64": 0.01024218462407589,
+      "convrot_groupsize_256": 0.010002215392887592,
+      "convrot_groupsize_1024": 0.01028587855398655,
+      "no_rotation": 0.01045112032443285
+    },
+    {
+      "layer": 25,
+      "module": "mlp.gate_proj",
+      "shape": [
+        25600,
+        5120
+      ],
+      "shipped": 0.008897324092686176,
+      "reproduced_from_fp32": 0.008819226175546646,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0001,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.009663783945143223,
+      "reproduced_from_bf16_int8_values_differing_pct": 8.2774,
+      "reproduced_from_bf16_int8_max_abs_diff": 2,
+      "convrot_groupsize_64": 0.008829643949866295,
+      "convrot_groupsize_256": 0.008819226175546646,
+      "convrot_groupsize_1024": 0.00882105715572834,
+      "no_rotation": 0.009750333614647388
+    },
+    {
+      "layer": 25,
+      "module": "mlp.down_proj",
+      "shape": [
+        5120,
+        25600
+      ],
+      "shipped": 0.009783904068171978,
+      "reproduced_from_fp32": 0.009685131721198559,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.010477446019649506,
+      "reproduced_from_bf16_int8_values_differing_pct": 7.4816,
+      "reproduced_from_bf16_int8_max_abs_diff": 1,
+      "convrot_groupsize_64": 0.009706648997962475,
+      "convrot_groupsize_256": 0.009685131721198559,
+      "convrot_groupsize_1024": 0.009687227196991444,
+      "no_rotation": 0.011368448846042156
+    },
+    {
+      "layer": 49,
+      "module": "self_attn.q_proj",
+      "shape": [
+        8192,
+        5120
+      ],
+      "shipped": 0.008936483412981033,
+      "reproduced_from_fp32": 0.008797569200396538,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0001,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.009691093116998672,
+      "reproduced_from_bf16_int8_values_differing_pct": 8.2135,
+      "reproduced_from_bf16_int8_max_abs_diff": 2,
+      "convrot_groupsize_64": 0.00881379283964634,
+      "convrot_groupsize_256": 0.008797569200396538,
+      "convrot_groupsize_1024": 0.00879131630063057,
+      "no_rotation": 0.009976442903280258
+    },
+    {
+      "layer": 49,
+      "module": "self_attn.k_proj",
+      "shape": [
+        1024,
+        5120
+      ],
+      "shipped": 0.00891226064413786,
+      "reproduced_from_fp32": 0.008766140788793564,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0001,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.00965866819024086,
+      "reproduced_from_bf16_int8_values_differing_pct": 8.1941,
+      "reproduced_from_bf16_int8_max_abs_diff": 1,
+      "convrot_groupsize_64": 0.008845924399793148,
+      "convrot_groupsize_256": 0.008766140788793564,
+      "convrot_groupsize_1024": 0.008788923732936382,
+      "no_rotation": 0.01057434268295765
+    },
+    {
+      "layer": 49,
+      "module": "self_attn.o_proj",
+      "shape": [
+        5120,
+        8192
+      ],
+      "shipped": 0.01036016084253788,
+      "reproduced_from_fp32": 0.010235249996185303,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.010988119058310986,
+      "reproduced_from_bf16_int8_values_differing_pct": 7.19,
+      "reproduced_from_bf16_int8_max_abs_diff": 1,
+      "convrot_groupsize_64": 0.01074196770787239,
+      "convrot_groupsize_256": 0.010235249996185303,
+      "convrot_groupsize_1024": 0.010703026317059994,
+      "no_rotation": 0.010989420115947723
+    },
+    {
+      "layer": 49,
+      "module": "mlp.gate_proj",
+      "shape": [
+        25600,
+        5120
+      ],
+      "shipped": 0.008893501944839954,
+      "reproduced_from_fp32": 0.008796566165983677,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.009656650014221668,
+      "reproduced_from_bf16_int8_values_differing_pct": 8.2565,
+      "reproduced_from_bf16_int8_max_abs_diff": 2,
+      "convrot_groupsize_64": 0.00883166491985321,
+      "convrot_groupsize_256": 0.008796566165983677,
+      "convrot_groupsize_1024": 0.008798935450613499,
+      "no_rotation": 0.01029254775494337
+    },
+    {
+      "layer": 49,
+      "module": "mlp.down_proj",
+      "shape": [
+        5120,
+        25600
+      ],
+      "shipped": 0.009765497408807278,
+      "reproduced_from_fp32": 0.009648315608501434,
+      "reproduced_from_fp32_int8_values_differing_pct": 0.0001,
+      "reproduced_from_fp32_int8_max_abs_diff": 1,
+      "reproduced_from_bf16": 0.010452473536133766,
+      "reproduced_from_bf16_int8_values_differing_pct": 7.4388,
+      "reproduced_from_bf16_int8_max_abs_diff": 1,
+      "convrot_groupsize_64": 0.009697383269667625,
+      "convrot_groupsize_256": 0.009648315608501434,
+      "convrot_groupsize_1024": 0.00964875053614378,
+      "no_rotation": 0.012147526256740093
+    }
+  ],
+  "mean_relative_l2": {
+    "shipped": 0.009370283658305804,
+    "reproduced_from_fp32": 0.009251591439048449,
+    "reproduced_from_fp32_int8_values_differing_pct": 6.000000000000001e-05,
+    "reproduced_from_bf16": 0.0100895411024491,
+    "reproduced_from_bf16_int8_values_differing_pct": 7.869046666666667,
+    "convrot_groupsize_64": 0.009378934279084206,
+    "convrot_groupsize_256": 0.009251591439048449,
+    "convrot_groupsize_1024": 0.009313491048912208,
+    "no_rotation": 0.010701919347047806
+  }
+}
