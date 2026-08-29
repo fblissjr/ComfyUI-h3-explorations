@@ -4,6 +4,64 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.94.0
+
+### Fixed
+
+- **Gap 7 withdrawn: a mono reference does NOT raise on native core, and the
+  gate that said so could never have noticed.** *measured* against the real
+  audio VAE (`bench/results/2026-08-29_ref_audio_channels.json`): a mono
+  waveform encodes to `[1,32,2,40]` and produces exactly the 80 rows
+  `PackedLayout` allocates, with the two latent channels **bitwise identical**.
+  `_encode_ref_audio` calls `comfy.sd.VAE.encode`, whose
+  `vae_encode_crop_pixels` replicates the channel because the H3 audio VAE
+  declares `output_channels = 2, pad_channel_value = "replicate"`. sglang does
+  the same with `-ac 2`, so this is parity, not a divergence. Corrected in
+  `comfyui_vendor_gaps.md` (summary row, section 7, both tables, the policy
+  paragraph) and in `h3_references.md` (Known limitations and the typed-boundary
+  paragraph).
+- **The escaped instance, which is the part worth keeping.**
+  `check_mono_ref_audio.py` asserted the current state so the record could not
+  rot — the right instinct — but it verified the claim by hand-building a
+  1-channel latent and reproducing `PackedLayout`'s assignment, instead of
+  encoding mono audio. That assignment does fail, so the gate stayed green while
+  being green about a state the live path cannot produce. It traced
+  `comfy/ldm/minimax/audio_vae.py::encode` and stopped one wrapper short of the
+  call the node actually makes. **A current-state assertion is only as good as
+  its entry point.** Inherited by name into
+  `check_reference_contracts.py`'s case 5c, the other check written to the same
+  retirement contract.
+
+### Added
+
+- `bench/audit_ref_audio_channels.py` and
+  `bench/results/2026-08-29_ref_audio_channels.json` — what core does with 1, 2
+  and 6 channels, run against the real audio VAE on CPU. Deliberately an
+  **audit, not a gate**: mono is no longer a defect, so there is nothing to hold
+  red. It replaces the retired check and carries the finding that check could
+  not have produced.
+
+### Measured
+
+- **More than two reference-audio channels is silently truncated to the first
+  two.** Six channels also encode to `[1,32,2,40]` — `vae_encode_crop_pixels`
+  slices `pixels[..., :2]` when the input is wider than the VAE wants — with no
+  error and no warning, so a 5.1 reference conditions on a pair nobody chose.
+  Open in core and watched by nothing there; this repo's typed
+  `reference_conditioning._prepare_audio` refuses it.
+- **A mono source reaches the DiT as exact dual-mono**: the audio VAE treats
+  stereo as a batch axis with no cross-channel coupling, so identical input
+  channels give bitwise identical latent channels. The two still receive
+  different position ids (the `w` grid's two extremes), so they are
+  positionally distinct and content-identical.
+
+### Removed
+
+- `bench/check_mono_ref_audio.py`, retired under the contract in its own
+  docstring: a succeeding mono arm means upstream fixed the path, which retires
+  the file rather than repairing it. The twist is that its mono arm never
+  succeeded — see above.
+
 ## 0.93.0
 
 ### Fixed

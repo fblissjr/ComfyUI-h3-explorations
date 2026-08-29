@@ -849,8 +849,11 @@ of excess. The first local handling used explicit `TrimAudioDuration` nodes in
 which cannot drift from `length`.
 
 The same boundary duplicates mono to stereo and refuses more than two channels.
-Native `_encode_ref_audio` still raises on mono, so both duration and channel
-handling must remain described as local behavior. Preflight reports native
+**Corrected 2026-08-29: this paragraph used to add "native `_encode_ref_audio`
+still raises on mono", which is false** — core upmixes it in the VAE wrapper
+(see Known limitations). Duration handling is still local behavior; mono is
+not, and the divergence that remains is multichannel, where core silently keeps
+the first two channels and the typed boundary refuses. Preflight reports native
 socket graphs separately, including "unreadable" when ffprobe cannot answer.
 
 **Video: full release parity remains opt-in; the encoder-aware hybrid is now
@@ -1277,19 +1280,33 @@ experiment, documented in its own note.
   suffix pairing with explicit ownership; native core remains unchanged.
 - **No trim offset.** sglang takes a `start_time_seconds` on every material,
   video and audio alike. ComfyUI has no equivalent; trim upstream.
-- **A mono reference on native core does not render — it raises.** Resolved 2026-08-21, run
-  here on CPU against the real `pack_audio`, replacing the entry that had this
-  as read-but-unverified, reproducible with `bench/check_mono_ref_audio.py`, a gate since 2026-08-21.
-  ComfyUI's audio VAE preserves the input channel count
-  (`comfy/ldm/minimax/audio_vae.py:427`) and `_encode_ref_audio` does not upmix
-  (`comfy_extras/nodes_minimax_h3.py:71`), so a mono waveform yields
-  `[1,32,1,T]` and `pack_audio` returns `T` rows. `PackedLayout` allocates
-  `ref_audio_t * 2` slots for the block (`comfy/ldm/minimax/model.py:381-386`),
-  so the masked assignment at `:659` fails with a shape mismatch. diffusers and
-  DiffSynth-Studio both expand to stereo before encoding. Upmix or convert
-  before the socket; the same path serves `MiniMaxH3AddGuide`, so an anchored
-  mono soundtrack fails identically. This repo's typed compiler upmixes mono;
-  that is local handling, not a core fix.
+- **A mono reference works on native core. More than two channels is silently
+  truncated to the first two.** **WITHDRAWN 2026-08-29: this entry used to say a
+  mono reference "does not render — it raises", and it was wrong.** Measured
+  against the real audio VAE on CPU
+  ([`../bench/results/2026-08-29_ref_audio_channels.json`](../bench/results/2026-08-29_ref_audio_channels.json),
+  [`../bench/audit_ref_audio_channels.py`](../bench/audit_ref_audio_channels.py)):
+  a `[1,1,32000]` mono waveform encodes to `[1,32,2,40]`, producing exactly the
+  80 rows `PackedLayout` allocates. It packs.
+
+  **What the old entry got wrong is where it stopped reading.** It traced
+  `comfy/ldm/minimax/audio_vae.py::encode`, which does preserve the channel
+  count — but `_encode_ref_audio` calls `comfy.sd.VAE.encode`, one wrapper up,
+  and that runs `vae_encode_crop_pixels` first. The H3 audio VAE declares
+  `output_channels = 2` and `pad_channel_value = "replicate"`
+  (`comfy/sd.py:1030-1035`), so mono is duplicated to stereo before the model
+  is reached. sglang does the same thing with `-ac 2` in its ffmpeg call, so
+  this is parity rather than a divergence. `bench/check_mono_ref_audio.py`
+  asserted the old claim, verified it by hand-building a 1-channel latent
+  rather than by encoding mono audio, and was therefore green about a state the
+  real path cannot produce. Retired 2026-08-29.
+
+  **The live case is the other direction.** Six channels encode to `[1,32,2,40]`
+  as well — `vae_encode_crop_pixels` takes `pixels[..., :2]` when the input has
+  more channels than the VAE wants, so a 5.1 track becomes its first two
+  channels with no error and no warning. This repo's typed
+  `reference_conditioning._prepare_audio` refuses more than two channels
+  instead; core does not.
 - At 1344x768 with images at `max`, one video reference does not fit on 24 GB
   past about 124 generated frames.
 - **Confirmed identical, so nobody re-checks it**: the 2 fps subsample for the

@@ -310,8 +310,17 @@ def contract5c_state():
     Recorded rather than fixed, and asserted in its CURRENT state so the
     record cannot rot: `ok` is True while the tags are still dropped. **If
     this flips, upstream fixed it** -- retire the case and the gap entry,
-    do not repair them. Same retirement contract as
-    `bench/check_mono_ref_audio.py`.
+    do not repair them.
+
+    That contract was carried out on 2026-08-29 for its previous exemplar,
+    `bench/check_mono_ref_audio.py`, and the way it went wrong is worth
+    inheriting here. That gate asserted a mono reference raises, and it
+    verified the claim against a hand-built 1-channel latent rather than
+    against a real encode -- so when core started upmixing mono one wrapper
+    above the layer the gate traced, the gate stayed green and the fix went
+    unnoticed for a week. **A current-state assertion is only as good as its
+    entry point.** This case drives `encode_from_tokens_scheduled` itself,
+    which is the seam the claim is about.
     """
     import torch
     out = _drive_encode_from_tokens({"minimax_token_tags": torch.tensor([0, 1, 0])},

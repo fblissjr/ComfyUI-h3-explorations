@@ -1,0 +1,55 @@
+{
+  "date": "2026-08-29",
+  "subject": "core's channel handling for H3 reference audio",
+  "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
+  "vae_output_channels": 2,
+  "vae_pad_channel_value": "replicate",
+  "sample_rate": 32000,
+  "seconds": 1,
+  "results": [
+    {
+      "label": "mono",
+      "channels": 1,
+      "latent_shape": [
+        1,
+        32,
+        2,
+        40
+      ],
+      "ref_audio_t": 40,
+      "rows_allocated": 80,
+      "rows_produced": 80,
+      "packs": true
+    },
+    {
+      "label": "stereo",
+      "channels": 2,
+      "latent_shape": [
+        1,
+        32,
+        2,
+        40
+      ],
+      "ref_audio_t": 40,
+      "rows_allocated": 80,
+      "rows_produced": 80,
+      "packs": true
+    },
+    {
+      "label": "5.1",
+      "channels": 6,
+      "latent_shape": [
+        1,
+        32,
+        2,
+        40
+      ],
+      "ref_audio_t": 40,
+      "rows_allocated": 80,
+      "rows_produced": 80,
+      "packs": true
+    }
+  ],
+  "retires": "bench/check_mono_ref_audio.py",
+  "why": "The retired gate asserted a mono reference raises. It verified that by hand-building a 1-channel latent and reproducing PackedLayout's assignment, which does fail -- but core upmixes mono to stereo in comfy.sd.VAE.encode before the model is reached, so no 1-channel latent occurs on the real path. The gate traced comfy/ldm/minimax/audio_vae.py and stopped one wrapper short of the call _encode_ref_audio actually makes."
+}

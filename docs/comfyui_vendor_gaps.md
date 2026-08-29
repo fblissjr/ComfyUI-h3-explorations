@@ -109,7 +109,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 4 | Reference image ceiling (`max_pixels`) | config | open | `MiniMaxH3ReferenceConditioning.image_policy` can opt in to one declared ceiling for both towers, off by default; core remains unchanged. **Corrected 2026-08-29**: the shipped encoder is no longer the W4 artifact, so the binding ceiling is core's 12,845,056 px, which no shipped graph reaches. What splits the two towers now is `qwen_short_edge`, deliberately, on 80 of 89 append nodes |
 | 5 | Reference soundtracks not truncated | behavioural | open | all shipped graphs now use typed internal caps; native socket graphs remain exposed unless they trim upstream |
 | 6 | Reference media never upscaled, and never reported | behavioural | sizing divergence remains; native path does not report the choice | fit nodes report it; the typed conditioner has an opt-in atomic release-video policy, while shipped defaults remain native-compatible |
-| 7 | Mono reference audio raises | behavioural | open | typed nodes upmix mono and refuse ambiguous multichannel input; legacy preflight reports it |
+| 7 | ~~Mono reference audio raises~~ **withdrawn**; multichannel silently truncated | behavioural | **mono: not a gap, core upmixes.** Multichannel: open | typed nodes refuse >2 channels; core keeps the first two silently |
 | 8 | VAE encode precision, and mean vs sample | behavioural | open | measured only; no claimed fix |
 | 9 | H3 VAE tiling as a runtime branch | behavioural | **not a gap in the installed native implementation** | documented as fixed H3-owned policy; no custom-node fix claimed |
 | 10-13 | Partition gate, AdaLN cache, CUDA graphs, step caching | behavioural | architectural differences | researched or explicitly declined; no native-equivalence claim |
@@ -595,15 +595,36 @@ the current default. The second is why the default should say what it did.
 One more thing it means, not urgent: output will not reproduce the vendor's for
 the same inputs, which matters only if that is your goal.
 
-**7. Mono reference audio raises.** `_encode_ref_audio` does not upmix, so a
-mono waveform produces half the rows the packed layout allocated and the
-assignment fails. diffusers and DiffSynth-Studio both expand to stereo first.
-*Impact:* a hard crash rather than a bad render, which is the better failure.
-Gated by [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py).
+**7. Mono reference audio — WITHDRAWN 2026-08-29. It does not raise; core
+upmixes it.** *measured* against the real audio VAE
+([`../bench/results/2026-08-29_ref_audio_channels.json`](../bench/results/2026-08-29_ref_audio_channels.json)):
+a mono waveform encodes to `[1,32,2,40]` and produces exactly the 80 rows
+`PackedLayout` allocates. `_encode_ref_audio` calls `comfy.sd.VAE.encode`, whose
+`vae_encode_crop_pixels` replicates the channel because the H3 audio VAE
+declares `output_channels = 2, pad_channel_value = "replicate"`
+(`comfy/sd.py:1030-1035`). sglang does the same with `-ac 2`, so this is parity.
 
-**Native ComfyUI status: open. Handling in this repo:** the typed compiler duplicates
-a mono channel to stereo before `_encode_ref_audio`; stereo passes unchanged,
-and more than two channels are refused rather than silently selecting a pair.
+**Why it was believed for a week.** The claim traced
+`comfy/ldm/minimax/audio_vae.py::encode`, which does preserve the channel count,
+and stopped one wrapper short of the call `_encode_ref_audio` actually makes.
+`bench/check_mono_ref_audio.py` then "verified" it by hand-building a 1-channel
+latent and reproducing `PackedLayout`'s assignment — which fails, so the gate
+stayed green while being green about a state the real path cannot produce. It
+could not have caught the correction at any revision, because it never ran the
+entry point. Retired 2026-08-29 under its own stated contract; replaced by
+[`../bench/audit_ref_audio_channels.py`](../bench/audit_ref_audio_channels.py),
+an audit rather than a gate, because there is no longer a defect to hold red.
+
+**What is actually open is the other direction: more than two channels is
+silently truncated to the first two.** Six channels also encode to `[1,32,2,40]`
+— `vae_encode_crop_pixels` slices `pixels[..., :2]` when the input is wider than
+the VAE wants — with no error and no warning, so a 5.1 reference conditions on
+a pair nobody chose.
+
+**Native ComfyUI status: mono is not a gap. Multichannel is open.** **Handling
+in this repo:** the typed compiler's `_prepare_audio` refuses more than two
+channels rather than silently selecting a pair; core does not, and no check
+watches it.
 
 ---
 
@@ -809,22 +830,25 @@ The measurement instruments **report**; neither refuses. Preflight reports a
 real graph crossing either divergent bound, but there is no runtime assertion
 that implements the release's image floor.
 
-### 7. Mono reference audio
+### 7. Reference audio channel count
 
 | what | where |
 |---|---|
-| Gate | [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py) |
+| What core does with 1, 2 and 6 channels, measured on the real VAE | [`bench/audit_ref_audio_channels.py`](../bench/audit_ref_audio_channels.py), [record](../bench/results/2026-08-29_ref_audio_channels.json) |
 | Reports it on a real graph's real media | [`bench/preflight_graph.py`](../bench/preflight_graph.py) |
-| Typed mono-to-stereo boundary | [`reference_conditioning.py`](../reference_conditioning.py), controlled by [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
+| Typed boundary that refuses >2 channels | [`reference_conditioning.py`](../reference_conditioning.py), controlled by [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 
-Its two red states mean opposite things and the file says which: a failing mono
-arm is the defect, a *succeeding* one means upstream fixed it and the check
-should be retired rather than repaired.
+`bench/check_mono_ref_audio.py` was the gate here and was **retired 2026-08-29**
+under the retirement contract written into its own docstring — a succeeding mono
+arm means upstream fixed the path, which retires the file rather than repairing
+it. The twist is that its mono arm never succeeded: it tested a hand-built
+latent instead of the real encode, so it could not observe the fix. The audit
+above replaces it and is deliberately not a gate.
 
-**Still open in native ComfyUI; locally handled without graph-wide channel
-nodes on the typed surface.** Preflight warns on legacy mono media. For typed
-graphs it reports the compiler's upmix instead. "Channel count unreadable"
-remains its own state -- no ffprobe and no audio stream are not a pass.
+**Mono is not a gap. Multichannel is, and nothing watches it in core.**
+Preflight still reports channel counts on a real graph's media, and "channel
+count unreadable" remains its own state -- no ffprobe and no audio stream are
+not a pass.
 
 ### 8. VAE encode precision
 
@@ -872,8 +896,10 @@ position.
 
 ### Policy disposition
 
-Soundtrack duration and mono normalization are executable properties of this
-repo's typed runtime; native ComfyUI remains unchanged. VAE tiling was removed
+Soundtrack duration is an executable property of this repo's typed runtime;
+native ComfyUI remains unchanged. Mono normalization is **no longer** in that
+list -- core does it (gap 7, withdrawn 2026-08-29); what the typed runtime still
+adds there is refusing more than two channels. VAE tiling was removed
 as a gap after the native H3-owned paths were traced.
 
 The release's video upscale and duration-aware Qwen resize are implemented as
@@ -909,7 +935,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 4, image ceiling | open | opt-in local guard, **off by default**: `MiniMaxH3ReferenceConditioning.image_policy` (`encoder`/`release`) since 2026-08-24, replacing `MiniMaxH3ReferenceFit.keep_towers_matched`, which read the wrong ceiling under the AWQ adapter. Graphs left on `comfy` remain exposed |
 | 5, soundtrack length | open | shipped typed graphs: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py); native socket graphs: [`bench/preflight_graph.py`](../bench/preflight_graph.py) reports required upstream handling |
 | 6, media upscale/reporting | sizing divergence remains; native path is silent | custom fit nodes report the resolution reached; the typed conditioner's opt-in `release` policy handles both video stages locally, with no claim that native sizing now matches the vendor |
-| 7, mono audio | open | native defect gate: [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py); local typed handling: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
+| 7, audio channels | mono **not a gap** (core upmixes); >2 channels silently truncated, open | audit only: [`bench/audit_ref_audio_channels.py`](../bench/audit_ref_audio_channels.py); local typed refusal: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 | 8, VAE encode precision | open | **nothing enforces a choice**; measurement only |
 | 9, VAE tiling | not a gap in installed native H3 path | policy documented from native source; no custom fix |
 | 14, fp32 island | open, core-side (`comfy/ops.py`) | **nothing enforces it**; magnitudes measured 2026-08-29 |
