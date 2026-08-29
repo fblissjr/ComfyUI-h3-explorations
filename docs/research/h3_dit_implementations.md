@@ -72,6 +72,13 @@ with that in mind: it is a comparison of the *architecture*, and where a row
 describes the released bf16 path rather than the shipped artifact it now says
 so. §9.7 has the detail.
 
+**That is a limit of the shipped artifact, not of what is on disk.** The
+unpruned `int8_convrot` fl2va and ref2va files are both local, and so is the
+full bf16 release including all fourteen transformer shards. A five-way
+comparison is therefore *reachable* on unpruned weights — it is simply not the
+configuration anything here renders with. Do not read the "three" as a ceiling
+on what can be compared; read it as what the shipped graph reaches. §9.8.
+
 Naming this because the failure mode is live in this repo. The `encoder`
 session found the same shape on 2026-08-29 in a different lane: an instrument
 swept two snapshots and omitted the regime every shipped graph resolves to, so
@@ -585,6 +592,36 @@ one modality, indexed by timestep alone.
 |---|---|---|
 | released bf16 | 2688 | `SiLU(t_emb)` |
 | **pruned / curve (what this box runs)** | **8** | **none** |
+
+**Why the pruned form exists, and what un-pruning costs** (*measured*, over 50
+blocks):
+
+| `adaln_proj.linear` | size |
+|---|---|
+| pruned, `T=8` F16 (what ships here) | **0.07 GiB** |
+| unpruned, `T=2688` I8 | **12.11 GiB** |
+| unpruned, `T=2688` BF16 | **24.22 GiB** |
+
+Both artifacts are on this box and the file sizes confirm the arithmetic: the
+pruned fl2va int8 file is 19.53 GiB with 932 keys, an `adaln_t_table` and no
+`time_embedder`; the unpruned one is 31.70 GiB with 1035 keys, `time_embedder`
+present and `adaln_proj` at `(96768, 2688)` I8. The 12.2 GiB between them is
+the table above.
+
+So **the AdaLN projection is the largest tensor family in H3**, and factorising
+it is what puts the model on a 24 GiB card — un-pruning costs more than the
+whole rest of the DiT combined, and the unpruned BF16 projection alone exceeds
+such a card. Pruning is not a convenience someone chose; it is the thing that
+makes consumer inference possible.
+
+There is a third option that is neither approximate nor huge: precompute the
+modulation for exactly the timesteps a schedule visits and drop the projection.
+[`sglang_comparison.md`](sglang_comparison.md) owns that mechanism and its
+trade. The shape is worth knowing here because it belongs to this stage — a
+cache over 16 distinct timesteps is roughly 148 MiB across all 50 blocks,
+against 12.11 GiB of unpruned int8 weights. Its precondition is a schedule
+known ahead of time, which a PDD-emitted grid satisfies and a percent-band
+scheduler does not.
 
 **How the modulation is applied is the largest granular divergence in the
 whole forward:**
