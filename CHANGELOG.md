@@ -20,6 +20,14 @@ artifact.
   `comfyui_vendor_gaps.md` (summary row, section 7, both tables, the policy
   paragraph) and in `h3_references.md` (Known limitations and the typed-boundary
   paragraph).
+- **Core never had the defect, so this was wrong when written rather than
+  stale.** `output_channels = 2` and `pad_channel_value = "replicate"` were set
+  in `57500fc5`, the commit that added H3 support on 2026-08-03, on a generic
+  channel trim/pad mechanism from `6a2678ac` (2025-12-18). The gap was filed on
+  2026-08-21, eighteen days later. The retirement contract both this gate and
+  `check_reference_contracts.py` case 5c are written to anticipates a *stale*
+  claim -- upstream fixes it, the arm flips, retire the file. It has no state
+  for a claim that was never true, which is why nothing fired for a week.
 - **The escaped instance, which is the part worth keeping.**
   `check_mono_ref_audio.py` asserted the current state so the record could not
   rot — the right instinct — but it verified the claim by hand-building a

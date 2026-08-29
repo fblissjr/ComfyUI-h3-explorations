@@ -1296,7 +1296,14 @@ experiment, documented in its own note.
   `output_channels = 2` and `pad_channel_value = "replicate"`
   (`comfy/sd.py:1030-1035`), so mono is duplicated to stereo before the model
   is reached. sglang does the same thing with `-ac 2` in its ffmpeg call, so
-  this is parity rather than a divergence. `bench/check_mono_ref_audio.py`
+  this is parity rather than a divergence.
+
+  **And core never had this defect.** `output_channels = 2` with
+  `pad_channel_value = "replicate"` were set in `57500fc5`, the commit that
+  added H3 support on 2026-08-03, on a generic trim/pad mechanism that predates
+  H3 by eight months (`6a2678ac`, 2025-12-18). The entry above was written on
+  2026-08-21, eighteen days later. **This was never a stale claim about a fixed
+  bug; it was wrong on the day it was written.** `bench/check_mono_ref_audio.py`
   asserted the old claim, verified it by hand-building a 1-channel latent
   rather than by encoding mono audio, and was therefore green about a state the
   real path cannot produce. Retired 2026-08-29.

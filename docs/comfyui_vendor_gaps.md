@@ -604,7 +604,15 @@ a mono waveform encodes to `[1,32,2,40]` and produces exactly the 80 rows
 declares `output_channels = 2, pad_channel_value = "replicate"`
 (`comfy/sd.py:1030-1035`). sglang does the same with `-ac 2`, so this is parity.
 
-**Why it was believed for a week.** The claim traced
+**Core never had this defect.** `output_channels = 2` and
+`pad_channel_value = "replicate"` were set in `57500fc5`, the commit that added
+H3 support (2026-08-03), on a generic channel trim/pad mechanism from
+`6a2678ac` (2025-12-18). The gap was filed on 2026-08-21, eighteen days after
+the behaviour it denies shipped. **So this is not a stale entry about a bug
+upstream fixed — it was wrong when written**, which is the worse of the two and
+the reason the retirement contract did not fire.
+
+**Why it was believed.** The claim traced
 `comfy/ldm/minimax/audio_vae.py::encode`, which does preserve the channel count,
 and stopped one wrapper short of the call `_encode_ref_audio` actually makes.
 `bench/check_mono_ref_audio.py` then "verified" it by hand-building a 1-channel
