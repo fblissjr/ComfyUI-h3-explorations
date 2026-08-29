@@ -113,6 +113,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 8 | VAE encode precision, and mean vs sample | behavioural | open | measured only; no claimed fix |
 | 9 | H3 VAE tiling as a runtime branch | behavioural | **not a gap in the installed native implementation** | documented as fixed H3-owned policy; no custom-node fix claimed |
 | 10-13 | Partition gate, AdaLN cache, CUDA graphs, step caching | behavioural | architectural differences | researched or explicitly declined; no native-equivalence claim |
+| 14 | DiT fp32 island collapses to bf16 under the int8 load | behavioural | open, and core-side | **nothing**; measured only, and 5-20x below the quantization error already present |
 
 ### Processor-policy impact by conditioning role
 
@@ -672,6 +673,58 @@ offload all *off*. "sglang has it and we don't" is not on its own an argument.
 
 ---
 
+## 14. The DiT's fp32 island collapses under the int8 load
+
+Owner: [`research/comfyui_h3_t2va_trace.md`](research/comfyui_h3_t2va_trace.md)
+§1.5, with the vendor side in
+[`research/sglang_comparison.md`](research/sglang_comparison.md).
+
+Added 2026-08-29. Both implementations declare that a small set of tensors stays
+fp32 while the rest of the DiT is bf16. sglang **enforces** it with a named
+frozenset covering both patch projections, the time embedder, both output heads
+and `rope.inv_freq`
+(`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:144-159`),
+and drops `time_embedder.*` from the list on a pruned checkpoint (`:2060-2066`).
+
+ComfyUI declares the same intent — `comfy/ldm/minimax/model.py` builds those
+layers with an explicit `dtype=torch.float32` and calls them "the checkpoint's
+fp32 island" at `:302` — and does not keep it on a quantized checkpoint.
+`MixedPrecisionOps.Linear.__init__` (`comfy/ops.py:1300-1303`) discards the
+caller's `dtype=` and uses the compute dtype, so on
+`minimax_h3_fl2va_pruned_int8_convrot.safetensors` every one of them loads
+**bf16**. Verified by executing the load path, not by reading it.
+
+**Practical impact: small, and not where it first looks.** *measured*, the bf16
+load costs 6.1e-4 on `final_layer.video_out`, 8.9e-4 on `video_patch_proj` and
+1.7e-3 on `adaln_proj.linear`, against the **8.8e-3** the same checkpoint's int8
+block linears already carry. So it is 5x to 20x below the dominant error term
+and no rendered difference should be attributed to it. Two things still follow:
+`adaln_proj` is a **strict** regression, F16 on disk to bf16 in memory; and a
+bf16-against-int8 checkpoint A/B moves the block linears, the heads, the patch
+projections and the AdaLN projection simultaneously, so `evidence.md` #22's
+5.6-9.4% first-step velocity delta is a four-variable measurement.
+
+**Native ComfyUI status: open, and it is a core-side issue this repo cannot
+patch** — `comfy/ops.py` is outside this tree and `CLAUDE.md` records that
+nothing here patches core. **Handling in this repo: none, and enforced by
+nothing.** No check asserts our fp32 set against the vendor's named list.
+
+### Adjacent, and the inverse direction: text-encoder precision
+
+Not a gap. sglang runs the Qwen3-VL encode in **bf16**; ComfyUI upcasts to fp32
+at the embedding (`comfy/sd1_clip.py:213`) and pins the patcher's compute dtype
+to match (`comfy/sd.py:269-270`), so ours is the more conservative of the two.
+That policy is also why an int8 encoder never reaches an int8 GEMM here
+(`full_precision_mm=True`, `comfy/sd1_clip.py:114`, continuing an explicit
+`fp8_matrix_mult=False` from `25022e0b`). Measured consequence: int8 costs no
+more time than bf16 per resident layer and halves the PCIe transfer that
+dominates, for 0.88% weight error — so the shipped `int8_convrot` encoder is the
+right choice over the local bf16 file, on transfer volume rather than disk.
+[`research/comfyui_h3_t2va_trace.md`](research/comfyui_h3_t2va_trace.md) §2.4
+owns those numbers.
+
+---
+
 ## Settled — recorded so nobody re-derives them
 
 - **The 2 fps conditioner subsample**, including the index-list pad to the
@@ -690,10 +743,23 @@ offload all *off*. "sglang has it and we don't" is not on its own an argument.
 
 ## What we do that they do not
 
-Recorded so the comparison is not read one-directionally. Sol-Attn, the sage
-kernels and the SLA router have no counterpart in sglang's H3 path, which runs
-dense FlashAttention. [`SOLATTN.md`](SOLATTN.md) owns those numbers. Their
-speedups and ours are not comparable and must not be put in the same table.
+Recorded so the comparison is not read one-directionally. The **SLA router**
+has no counterpart in sglang's H3 path. [`SOLATTN.md`](SOLATTN.md) owns those
+numbers. Their speedups and ours are not comparable and must not be put in the
+same table.
+
+**Corrected 2026-08-29. This paragraph used to include Sol-Attn and the sage
+kernels, and to say sglang "runs dense FlashAttention".** Its owner,
+[`research/sglang_comparison.md`](research/sglang_comparison.md), retracted that
+on 2026-08-28 against `803b4fb31c`: sglang ships a `sol_attn` attention backend
+and a `kitchen_int8` linear path dispatching the same
+`comfy_kitchen.int8_linear` our checkpoints load through, and its published
+consumer-card table's fastest row is an int8 DiT with a sage-to-Sol hybrid —
+the stack our graphs already wire. **This snapshot carried the withdrawn claim
+for a day after the owner corrected it**, which is exactly the failure the
+"if this file disagrees with an owner, the owner is right" rule at the top
+exists to catch, met here by the file itself. Convergence, not an action item;
+do not import their numbers.
 
 ---
 
@@ -846,6 +912,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 7, mono audio | open | native defect gate: [`bench/check_mono_ref_audio.py`](../bench/check_mono_ref_audio.py); local typed handling: [`bench/check_reference_runtime.py`](../bench/check_reference_runtime.py) |
 | 8, VAE encode precision | open | **nothing enforces a choice**; measurement only |
 | 9, VAE tiling | not a gap in installed native H3 path | policy documented from native source; no custom fix |
+| 14, fp32 island | open, core-side (`comfy/ops.py`) | **nothing enforces it**; magnitudes measured 2026-08-29 |
 
 For the stock native path, the image floor remains the most reachable still
 boundary and the clip-wide video policy remains a bounded source/length

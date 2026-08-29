@@ -4,6 +4,54 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.93.0
+
+### Fixed
+
+- **Retracted "the release ships no fused qkv", withdrawn the same day it was
+  written, and reverted the two documents it was used to "correct".** The claim
+  came from grepping one of the release's **two** DiT formats.
+  `coderef/MiniMax-H3/transformer/` is the diffusers copy
+  (`MiniMaxH3Transformer3DModel`, 638 keys, split `to_q`/`to_k`/`to_v`);
+  `FL2VA/transformer/` and `Ref2VA/transformer/` are the **native** format
+  (`MiniMaxH3DiTModel`, 535 keys) and carry 52 `blocks.N.attn.qkv_proj.weight`
+  under key names **identical to ComfyUI's** — `attn.out_proj`, `attn.q_norm`,
+  `mlp.fc1`, `adaln_proj.linear`, `final_layer.video_out`, `rope.inv_freq`.
+  ComfyUI implements the release's native checkpoint directly; diffusers is the
+  one that transforms. `docs/evidence.md` and
+  `docs/research/h3_dit_implementations.md` were right as written and are
+  restored, each carrying a note that the correction was withdrawn.
+- **`comfyui_vendor_gaps.md` carried a claim its owner had retracted a day
+  earlier** — that Sol-Attn and the sage kernels have no counterpart in sglang,
+  which `sglang_comparison.md` withdrew on 2026-08-28. Corrected, and the
+  correction says so, since this is the snapshot-versus-owner failure that
+  file's own opening rule exists to catch.
+
+### Added
+
+- **`comfyui_vendor_gaps.md` gap 14: the DiT's fp32 island collapses to bf16
+  under the int8 load.** sglang enforces the island with a named frozenset
+  (`MINIMAX_H3_FP32_PARAM_NAMES`, plus `rope.inv_freq` as a buffer) and prunes
+  `time_embedder.*` from it on a curve checkpoint. ComfyUI declares the same
+  intent in a comment and drops it, because `MixedPrecisionOps.Linear` discards
+  the caller's `dtype=`. Open, core-side, **enforced by nothing**, and 5-20x
+  below the quantization error already present.
+- `sglang_comparison.md` gains that section plus a text-encoder precision
+  section recording the inverse direction: sglang encodes in bf16, ComfyUI in
+  fp32.
+
+### Decided
+
+- **The two sglang documents stay separate.** Asked whether to merge
+  `sglang_comparison.md` into `sglang_h3_pipeline.md` to stop drift. They drift
+  for different reasons on different clocks — the pipeline walk goes stale when
+  *their* tree moves and is fixed by re-reading at a new commit; the comparison
+  goes stale when *ours* moves and is fixed by re-deriving against our side. One
+  merged file would need both kinds of maintenance and signal neither. Recorded
+  in `sglang_comparison.md` so the question is not re-opened from scratch. The
+  drift that was actually present was fixed instead, and the clone's move to
+  `97781eb7f3` (2026-08-29) is now named in the header.
+
 ## 0.92.0
 
 ### Measured

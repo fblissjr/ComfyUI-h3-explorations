@@ -165,18 +165,19 @@ instrument that has been shown red.
   quantized tensors, int8 stores no activation scale at all, and what either
   does with activations at run time is invisible to a weight comparison. The controlled runtime version
   is `docs/open_experiments.md` #22's fixed-input first-step forward.
-- **Two third-party repacks order `attn.qkv_proj` rows differently.** One
-  interleaves per head, `[head][q|k|v][head_dim]`; the Comfy repack
-  concatenates, `[q|k|v][head][head_dim]`, which is what
-  `comfy/ldm/minimax/model.py` splits on. **Corrected 2026-08-29: this bullet
-  used to open "the bf16 release and the Comfy repack", which names a release
-  layout that does not exist.** The published release ships q, k and v as three
-  separate `to_q`/`to_k`/`to_v` tensors and has no `qkv` key in any of its 14
-  transformer shards (*measured*, over the weight index). Fusing is a repacker's
-  choice, and the collision is between repackers -- a split-qkv file cannot load
-  into ComfyUI at all, because `comfy/model_detection.py:399` subscripts
-  `blocks.0.attn.qkv_proj.weight` unguarded. The measurement below is unaffected;
-  only the name for the non-Comfy order was wrong. Compared as stored, a qkv weight
+- **The bf16 release and the Comfy repack order `attn.qkv_proj` rows
+  differently.** The release interleaves per head, `[head][q|k|v][head_dim]`;
+  the repack concatenates, `[q|k|v][head][head_dim]`, which is what
+  `comfy/ldm/minimax/model.py` splits on. **A "correction" to this bullet on
+  2026-08-29 was itself wrong and is withdrawn**: it claimed the release ships
+  no fused qkv and renamed the interleaved order a "third-party" convention.
+  That came from reading only `coderef/MiniMax-H3/transformer/`, the
+  **diffusers-format** copy (`MiniMaxH3Transformer3DModel`, 638 keys, split
+  `to_q`/`to_k`/`to_v`). The release also ships its **native** format at
+  `FL2VA/transformer/` and `Ref2VA/transformer/` (`MiniMaxH3DiTModel`, 535
+  keys), and that one carries `blocks.N.attn.qkv_proj.weight` — 52 of them —
+  under key names identical to ComfyUI's. This bullet is about that format and
+  it was right as written. Compared as stored, a qkv weight
   reads a relative delta of 1.40 against its own origin with cosine ~0, in
   both quantizations equally; reordered, it reads the same ~0.9% as every
   other int8 linear. `analyze_quant_delta.py` measures both readings and

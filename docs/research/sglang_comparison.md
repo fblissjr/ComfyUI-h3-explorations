@@ -1,6 +1,6 @@
 # sglang's H3 serving path against ours
 
-last updated: 2026-08-22
+last updated: 2026-08-29
 
 What the vendor-side serving implementation does that this install does not,
 what both do where ours may be the weaker version, and what looks like a gap
@@ -13,12 +13,25 @@ bench records. No renders were made for any of it. Every claim below says
 which file it came from; nothing here is a measurement on this card unless it
 cites a record in `bench/results/`.
 
-**The clone has moved since that read.** `coderef/sglang` is at `a7ec6b97f7`
-as of 2026-08-22. The index rows added that day were read at the new commit;
-the prose sections below were read at `a41da991c8` and have **not** been
-re-read. `bench/check_doc_links.py` confirms every cited line still exists,
-which is not the same as confirming it still says the same thing. Re-read
-before quoting an older section as current.
+**The clone has moved twice since that read, and this is the file's standing
+hazard.** `coderef/sglang` was at `a7ec6b97f7` on 2026-08-22 and is at
+`97781eb7f3` (2026-08-29) now. The prose sections below were read at
+`a41da991c8`; only the sections dated later were read at a later commit.
+`bench/check_doc_links.py` confirms every cited line still exists, which is not
+the same as confirming it still says the same thing. Re-read before quoting an
+older section as current.
+
+**Why this file is not merged into the pipeline walk, asked 2026-08-29.**
+Because the two drift for different reasons and on different clocks.
+[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) is a source read of somebody
+else's tree: it goes stale when **their** code moves, and the fix is to re-read
+at a new commit. This file goes stale when **ours** moves — a ComfyUI upgrade,
+a node change, a new measurement here — and the fix is to re-derive against our
+side. Merging them would produce one file that needs both kinds of maintenance
+and signals neither, and would put a 700-line vendor description in front of
+every reader who only wanted the delta. The split is kept. What was actually
+drifting is fixed below and in
+[`../comfyui_vendor_gaps.md`](../comfyui_vendor_gaps.md).
 
 **The pipeline itself, before the comparison.** Since 2026-08-25
 [`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) is the stage-by-stage walk of
@@ -153,6 +166,57 @@ the same instrument reading SM occupancy well under 100% would be the signal.
 The technique is also available outside sglang as `meta-pytorch/breakable-cuda-graphs`
 (BSD-3; README read 2026-08-25: `@no_graph` regions may not return CUDA
 tensors, and it says nothing about weights that move between replays).
+
+### An enforced fp32 island, which our int8 load silently collapses
+
+**Found 2026-08-29 from the ComfyUI side**, and it is the sharpest new entry in
+this file because the vendor names the exact set we lose.
+
+sglang keeps a **named, enforced** list of tensors that stay fp32 while the rest
+of the DiT is bf16 (`coderef/sglang/python/sglang/multimodal_gen/runtime/models/dits/minimax_h3.py:144-159`):
+`MINIMAX_H3_FP32_PARAM_NAMES` covers both patch projections, the time embedder
+and both output heads, and `MINIMAX_H3_FP32_BUFFER_NAMES` covers
+`rope.inv_freq`. It even handles the pruned case, dropping `time_embedder.*`
+from the list when `adaln_t_table` is present (`:2060-2066`).
+[`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) §7 records that the island is
+never quantised.
+
+ComfyUI declares the same intent and does not keep it on a quantized
+checkpoint. `comfy/ldm/minimax/model.py` constructs those layers with an
+explicit `dtype=torch.float32` and calls them "the checkpoint's fp32 island" in
+a comment at `:302` — but `MixedPrecisionOps.Linear.__init__`
+(`comfy/ops.py:1300-1303`) discards the `dtype=` its caller passed and uses the
+compute dtype, so on `int8_convrot` every one of them loads bf16.
+[`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) §1.5 has the mechanism
+and the verification-by-execution; the magnitudes are 3.7e-4 to 1.7e-3
+relative, against the 8.8e-3 the same checkpoint's int8 blocks already carry.
+
+**Priced, not urgent, and the reason is the same as the AdaLN cache above**: it
+removes an error that is not the largest one in the stack. What makes it worth
+recording anyway is that it is a *stated intention this install does not meet*,
+it is a **strict** regression for `adaln_proj` (F16 on disk to bf16 in memory),
+and it silently confounds any bf16-against-int8 checkpoint comparison, which
+changes four things at once rather than one. **Enforced by nothing** — no check
+asserts our DiT's fp32 set against the vendor's named list, and nothing would
+notice if core changed it again.
+
+### Text-encoder precision, where ours is the more conservative one
+
+Recorded so this file is not read as a list of places we are behind. sglang runs
+the Qwen3-VL encode in **bf16**
+([`sglang_h3_pipeline.md`](sglang_h3_pipeline.md) §4). ComfyUI upcasts the
+embedding to fp32 (`comfy/sd1_clip.py:213`) and never comes back down, and
+`comfy/sd.py:269-270` sets the patcher's compute dtype to match with the comment
+"Match torch.float32 hardcode upcast in TE implemention". So the whole 50-layer
+stack runs fp32 activations here and bf16 there.
+
+That is also why an int8 encoder never reaches an int8 GEMM in ComfyUI, which is
+upstream policy rather than an oversight — `25022e0b` (2025-11-24) replaced an
+explicit `fp8_matrix_mult=False` with today's `full_precision_mm=True`. Measured
+consequence on this box: int8 costs no more time than bf16 per resident layer
+(0.78 ms dequant against a 0.87 ms cast) and halves the PCIe transfer that
+actually dominates (10.87 ms against 21.75 ms), for 0.88% weight error.
+[`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) §2.4 owns those numbers.
 
 ### Refusals at admission rather than degraded service
 

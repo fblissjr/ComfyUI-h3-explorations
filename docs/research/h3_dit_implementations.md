@@ -437,13 +437,16 @@ two places**. Compose them and every implementation agrees; port half of one
 into the other and the ODE runs backwards.
 
 **Two qkv layouts are in circulation, and two implementations assume opposite
-ones without checking.** **Corrected 2026-08-29: this paragraph used to say
-"the release's raw shards store qkv per-head interleaved".** The release stores
-no fused qkv at all -- it ships `to_q`, `to_k` and `to_v` separately, 52 of each,
-and `grep qkv` over its 14-shard weight index returns nothing (*measured*). Both
-fused layouts are **repacker** conventions: some third-party repacks (DBM/WanGP)
-interleave per head, `[q_h|k_h|v_h] x 56`, and the Comfy-Org repacks concatenate,
-`[q_all; k_all; v_all]`. How each implementation handles it:
+ones without checking.** The release's native-format shards store qkv **per-head
+interleaved**, `[q_h|k_h|v_h] x 56`; the Comfy-Org repacks store it
+**contiguous**, `[q_all; k_all; v_all]`. **A "correction" on 2026-08-29 claiming
+the release ships no fused qkv is withdrawn** — it read only
+`coderef/MiniMax-H3/transformer/`, the diffusers-format copy. The release ships
+both: that one splits into `to_q`/`to_k`/`to_v` (638 keys), and
+`FL2VA/transformer/` + `Ref2VA/transformer/` are the native
+`MiniMaxH3DiTModel` format (535 keys) whose key names are **identical to
+ComfyUI's**, `blocks.N.attn.qkv_proj` included. How each implementation handles
+it:
 
 | | strategy |
 |---|---|

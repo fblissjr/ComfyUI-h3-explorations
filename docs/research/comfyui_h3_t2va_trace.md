@@ -1622,13 +1622,23 @@ layout is modality-major (`timestep_index * 3 + tag`, tags 0 video / 1 text /
 **`split(heads*head_dim, dim=-1)` is a contiguous three-way split**, so ComfyUI
 assumes the `[q_all; k_all; v_all]` layout unconditionally. It does not sniff.
 
-**Why is qkv fused at all, and whose choice was it?** Not the release's.
-*measured*, over all 14 shards of `coderef/MiniMax-H3/transformer`'s weight
-index: **there is no `qkv` key anywhere in the release.** It ships 52 `to_q`,
-52 `to_k` and 52 `to_v` tensors (50 blocks + 2 refiner), in diffusers naming.
-Fusing is the **repacker's** choice, and ComfyUI's model then requires it —
-`comfy/model_detection.py:399` reads `blocks.0.attn.qkv_proj.weight` as a bare
-subscript, so a release-native split file cannot load at all.
+**Why is qkv fused at all, and whose choice was it?** The release's. It ships
+its DiT in **two** formats (*measured*, over both weight indexes in
+`coderef/MiniMax-H3`):
+
+| directory | class | keys | attention layout |
+|---|---|---|---|
+| `transformer/`, `transformer_ref/` | `MiniMaxH3Transformer3DModel` (diffusers) | 638 | split `to_q` / `to_k` / `to_v` |
+| `FL2VA/transformer/`, `Ref2VA/transformer/` | `MiniMaxH3DiTModel` (native) | 535 | **fused `attn.qkv_proj`**, 52 of them |
+
+**The native format's key names are ComfyUI's, exactly** — `blocks.0.attn.qkv_proj.weight`,
+`attn.out_proj`, `attn.q_norm`, `mlp.fc1`, `adaln_proj.linear`,
+`final_layer.video_out`, `rope.inv_freq`. ComfyUI's H3 implementation is written
+against the release's own native checkpoint, and diffusers is the one that
+transforms — its converter splits the fused projection to fit the diffusers
+`Attention` class. `comfy/model_detection.py:399` reads
+`blocks.0.attn.qkv_proj.weight` as a bare subscript, so the diffusers-format
+copy cannot load here at all.
 
 The fusion earns its place three ways, all of which matter more here than in a
 typical DiT: one GEMM of `[S, 5376] @ [5376, 21504]` instead of three narrower
@@ -1638,17 +1648,20 @@ and one set of `weight_scale` rows, one output buffer, one weight fault under
 the streaming loader. It costs the layout ambiguity below, and it is why a LoRA
 must be fused before it can be applied (§4.3).
 
-**Corrected 2026-08-29. An earlier version of this section said "a
-release-native per-head-interleaved file loads clean and renders noise."** That
-misnames the hazard in a way that makes it sound worse and vaguer than it is.
-There is no release qkv order, because the release has no fused qkv; a
-split-qkv file raises `KeyError` in detection and never reaches a render. The
-real hazard is narrower and entirely between **repackers**: Comfy-Org fuses
-contiguous, `DeepBeepMeep`/WanGP fuses per-head interleaved, both produce a
-`[21504, 5376]` tensor, and `56*3*128` is the row count under either. That
-collision is what `docs/evidence.md:176-186` actually measured, and it is real —
-a DBM bf16 file loads clean into ComfyUI and puts head 0's k rows where the
-split expects head 1's q.
+**The ambiguity is real and is between the release and the repack.** The native
+release shards store the fused rows **per-head interleaved**,
+`[q_h|k_h|v_h] x 56`; the Comfy-Org repacks store them **contiguous**,
+`[q_all; k_all; v_all]`, which is what the `split` above assumes. Both are
+`[21504, 5376]` and `56*3*128` is the row count either way, so a file in the
+wrong order loads clean and renders noise. `docs/evidence.md:176-186` records a
+`DeepBeepMeep`/WanGP bf16 file that does exactly that.
+
+**Retracted 2026-08-29, the same day it was written.** An earlier version of
+this section asserted that "the release ships no fused qkv" and demoted the
+interleaved order to a third-party convention, on the strength of grepping
+`coderef/MiniMax-H3/transformer/`'s index and finding only `to_q`/`to_k`/`to_v`.
+That is one of the release's two formats. The claim was wrong, it was used to
+"correct" two other documents that were right, and both have been reverted.
 
 `rms_rope_split_half_` fuses per-head RMSNorm and partial split-half rope into
 one in-place kernel writing back into the qkv buffer. The eager reference
@@ -2168,10 +2181,10 @@ either way. Not reachable through this repo's node, which leaves the weight its
 original size.
 
 **4. qkv layout is assumed, not sniffed** (§9.4). ComfyUI splits contiguously
-unconditionally. The exposure is not the release — which ships split q/k/v and
-would raise `KeyError` in detection — but the two *repacker* fusion conventions:
-a `DeepBeepMeep`/WanGP bf16 file is `[21504, 5376]` like Comfy's, loads clean,
-and renders noise. `bench/check_model_files.py` guards model *names*.
+unconditionally, where the release's own native shards are per-head interleaved.
+A `DeepBeepMeep`/WanGP bf16 file in release order is `[21504, 5376]` like
+Comfy's, loads clean, and renders noise. `bench/check_model_files.py` guards
+model *names*.
 
 **5. The `minimax_payload` dtype-cast exemption is a contract nothing asserts**
 (§5.4). Anything H3-specific added outside that dict gets flattened to bf16 by
