@@ -15,6 +15,7 @@ from .keyframe_canvas import MiniMaxH3KeyframeCanvas
 from .marker_arms import MiniMaxH3MarkerArm
 from .conditioning import MiniMaxH3Conditioning
 from .h3_awq_encoder import MiniMaxH3AWQEncoderLoader
+from .h3_encoder_loader import MiniMaxH3EncoderLoader
 from .pdd_lora import MiniMaxH3PDDLoRA
 from .audio_carry_probe import MiniMaxH3AudioCarryProbe
 from .preflight import MiniMaxH3Preflight
@@ -322,7 +323,8 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3ReferenceVideoFit,
                 MiniMaxH3AppendRefImage, MiniMaxH3AppendRefVideo,
                 MiniMaxH3AppendRefAudio, MiniMaxH3ReferenceConditioning,
-                MiniMaxH3AWQEncoderLoader, MiniMaxH3MarkerArm,
+                MiniMaxH3AWQEncoderLoader, MiniMaxH3EncoderLoader,
+                MiniMaxH3MarkerArm,
                 MiniMaxH3PDDLoRA, MiniMaxH3AudioCarryProbe]
 
 

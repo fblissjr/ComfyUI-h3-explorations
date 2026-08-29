@@ -962,6 +962,28 @@ def _validate_loaded_state_contract(clip, provided_shapes: dict[str, tuple]) -> 
         )
 
 
+def expected_special_token_ids(declared) -> dict:
+    """The ids the 20 declared special tokens must resolve to.
+
+    Two runs: thirteen from 151644, then the seven H3 markers from 151669.
+    Shared with `h3_encoder_loader.py`, which asserts the same arithmetic
+    against the RELEASE's declaration where this module asserts it against the
+    selected artifact's snapshot -- one rule, two declaration sources. Kept
+    here rather than in a neutral module because this file is copied verbatim
+    into the standalone build and may import nothing beside it; the dependency
+    runs one way only.
+    """
+    declared = list(declared)
+    if len(declared) != 20:
+        raise ValueError(f"declares {len(declared)} special tokens, expected 20")
+    if len(set(declared)) != len(declared):
+        raise ValueError("declares duplicate special tokens")
+    return {
+        **{token: 151644 + index for index, token in enumerate(declared[:13])},
+        **{token: 151669 + index for index, token in enumerate(declared[13:])},
+    }
+
+
 def _validate_native_tokenizer(clip, snapshot=None) -> None:
     """Prove native Comfy's tokenizer realizes the snapshotted token list.
 
@@ -979,16 +1001,10 @@ def _validate_native_tokenizer(clip, snapshot=None) -> None:
                 or cfg.get("additional_special_tokens") or [])
     tokenizer = clip.tokenizer.qwen3vl_32b.tokenizer
     vocab = tokenizer.get_vocab()
-    if len(declared) != 20:
-        raise ValueError(
-            f"source encoder declares {len(declared)} special tokens, expected 20"
-        )
-    if len(set(declared)) != len(declared):
-        raise ValueError("source encoder declares duplicate special tokens")
-    expected = {
-        **{token: 151644 + index for index, token in enumerate(declared[:13])},
-        **{token: 151669 + index for index, token in enumerate(declared[13:])},
-    }
+    try:
+        expected = expected_special_token_ids(declared)
+    except ValueError as exc:
+        raise ValueError(f"source encoder {exc}") from exc
     actual = {token: vocab.get(token) for token in declared}
     if actual != expected:
         raise ValueError(

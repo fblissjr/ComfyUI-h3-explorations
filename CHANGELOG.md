@@ -4,6 +4,48 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.90.0
+
+### Added
+
+- **`MiniMaxH3EncoderLoader` (`h3_encoder_loader.py`): ComfyUI's own H3
+  text-encoder load, with the checks core does not perform.** Deliberately thin
+  -- core's preprocessing is left exactly as it is, and everything added either
+  runs after the load or is stamped on the result. It refuses a checkpoint that
+  does not exactly populate the model, refuses one whose tokenizer does not
+  realise the released special-token ids, and stamps a contract describing what
+  core's preprocessing will actually do, so the reference nodes price against a
+  named ceiling instead of silently falling back. Serves t2v, fl2va and ref2va
+  alike: the guards are mode-independent, and fl2va keyframes reach the encoder
+  as image embeds exactly as references do.
+- `bench/check_h3_encoder_loader.py` -- its control. Proves the shipped encoder
+  passes every guard, that the contract is derived from ComfyUI rather than
+  declared here, and that an incomplete checkpoint cannot load quietly.
+
+### Measured
+
+- **Core does not reject an incomplete H3 checkpoint. It detects a DIFFERENT
+  ARCHITECTURE from the tensors present.** Dropping the DeepStack vision norm
+  sends the load into `comfy/text_encoders/flux.py`, which dies parsing a
+  Mistral tokenizer with a `TypeError` about JSON -- nothing in that message
+  names the cause. Dropping a mid-stack layernorm instead reports as an
+  ordinary missing key. The two failure shapes read nothing alike, which is why
+  the loader has both a construction wrapper and an inventory guard; before the
+  mutations ran it was not known which tensors produced which.
+- **A correct `int8_convrot` artifact reports no missing and no unexpected
+  keys**, so the inventory guard costs the shipped encoder nothing. Worth
+  stating because core reports unexpected keys at DEBUG level, so that half of
+  the comparison is invisible on a normal server.
+
+### Changed
+
+- `h3_awq_encoder.expected_special_token_ids` splits the special-token id
+  arithmetic out of `_validate_native_tokenizer`, so the two loaders share one
+  rule against two declaration sources -- the AWQ loader checks the selected
+  artifact's snapshot, the guarded loader checks the release's own. It stays in
+  that module because the standalone build copies it verbatim and may import
+  nothing beside it; the dependency runs one way.
+
 ## 0.88.0
 
 ### Added
