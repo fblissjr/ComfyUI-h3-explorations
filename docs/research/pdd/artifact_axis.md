@@ -78,6 +78,12 @@ So that shot is not sufficient to cause it.
 
 ### The audio session — YOUR EAR IS THE INSTRUMENT HERE
 
+**Before reading ANY audio number in this repo:** audio relative L2 saturates at
+sqrt(2) for a one-frame shift — measured 1.418, against video's 0.181 at the same
+shift. It has no gradation for phase at all, so across arms it is mostly
+reporting ENERGY, not fidelity. Nothing should be scored as audio quality on it.
+Measured by the audio session this night.
+
 Everything under `carryprobe/`, all 1152x768, 362 frames, seed 730451892, the
 market prompt. Video PNGs sit beside each as `<arm>_v_*.png`. **These are the
 rows where their measurements cannot decide and yours can**, which is not true
@@ -128,6 +134,17 @@ the `u4` result stands. If not, the withdrawal is itself withdrawn.
 **Caveat on every row above:** the base graph's prompt was rewritten in `b62e95d`
 at 15:25, so none of these compare to anything rendered before that. Within this
 set they are all mutually comparable.
+
+**One free experiment sitting inside the four `aisle`/`sortline` arms, registered
+here as an EXPECTED NULL rather than an open question.** Those pairs hold
+dialogue exactly constant while visual description varies 1.6-1.7x, which makes
+them a ready-made test of whether text-segment length reaches AUDIO at all. In
+the arms priced this night text was a fraction of a percent of the packed
+sequence, so a 1.6x change in a 0.3% share is a very small lever and a null is
+the prediction. **Writing it down as expected is what makes a null a result
+instead of a disappointment.** It needs no GPU — audio energy and spectral
+trajectory across the pairs is a tomorrow task, and the audio session offered to
+run it.
 
 ### The order things will actually land in
 
