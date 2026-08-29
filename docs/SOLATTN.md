@@ -451,6 +451,133 @@ What is worth knowing about each, because two of the four are inert today:
   recipes. It decides which curve someone gets on turning morton on, and
   `docs/morton.md` records that the `3d` pin rests on one canvas.
 
+#### What would replace the eyeballing, knob by knob
+
+The recipe above was set by watching renders, four knobs at once. This section
+is what a calculated version would look like, written down 2026-08-29 so the
+empirical value does not close the question. **One of the four already has a
+derivation and the chosen value sits one widget step off it. One has measured
+evidence at our own tau that points somewhere else. Two are inert.**
+
+**Which knob is doing the work is arithmetic, not opinion.** 11 of the 16 PDD
+arms run 4 evaluations, and on those `end_percent` 0.74 is exactly what
+`SOL_END_PERCENT_BY_STEPS` already gave, `min_tokens` selects identically and
+`morton_curve` is unreachable with `morton=False`. **So on the 4-step arms
+`dense_blocks` is not merely the dominant change, it is the only one.** On the
+4 arms at 8 evaluations both are live, and there `end_percent` is the larger
+intervention by compute: it takes a whole sparse step dense (50 blocks) against
+`dense_blocks`' 3 extra blocks over 4 sparse steps (12 block-steps).
+`h3_text_to_video_pdd_manual_sigmas` runs its own partition and is neither.
+
+##### `end_percent`: there is a rule, and 0.74 is the conservative side of it
+
+At shift 12, `percent_to_sigma(0.75)` is **0.8 exactly** — and 0.8 is index 24
+of PDD's 32-point grid, which is where the **final block of the 4-evaluation
+partition begins**. So the value chosen by eye is, to within one widget step,
+*run dense over the coarsest schedule's last block*. 0.74 gives sigma 0.80829,
+a hair above the boundary, which is the side you want it on: the boundary
+belongs inside the dense region rather than on its edge.
+
+That is a rule rather than a number, and it is a different rule from the one
+`SOL_END_PERCENT_BY_STEPS` encodes:
+
+| | rule | moves with |
+|---|---|---|
+| `SOL_END_PERCENT_BY_STEPS` | the last SAMPLING STEP runs dense | the step count |
+| what 0.74 encodes | a fixed SIGMA floor at the coarsest PDD block boundary | the shift and the grid, not the count |
+
+**The second one explains something the first cannot: why one constant works at
+both PDD step counts.** A sigma floor does not move with the discretization. At
+8 evaluations the same floor takes the last two evaluations dense (0.8 -> 0.6316
+and 0.6316 -> 0), which is the same stretch of trajectory the 4-step arm
+protects with one.
+
+**It also makes a prediction nothing has tested, and the recipe is already
+betting on it:** at 8 evaluations, 0.87 — that count's own final block, sigma
+0.642 — should be WORSE than 0.74 if the mechanism is trajectory-pinned rather
+than grid-pinned. Both values are legal, both keep the last step dense, and
+they differ only in whether the dense region is defined by the schedule or by
+the sigma path. That is a single-axis comparison and it is the cheapest real
+test of this whole section.
+
+Written as code it is one expression against `calculate_sigmas` and the PDD
+grid, so it would track a shift change instead of going stale as a literal.
+**Not built** — writing it is only worth doing once the prediction above has
+been run, or the derivation is just a prettier way to spell 0.74.
+
+##### `dense_blocks`: measured evidence exists at our tau, and it does not support 0-2
+
+`bench/results/2026-08-19_sol_error_per_head_tau1.0.json` is Sol's **sparsity
+error** — the algorithm against exact attention, not the kernel against the
+algorithm — at tau 1.0, all 56 heads, production S = 98,498, on a ref2va
+capture. Relative L2, at steps 3 and 11:
+
+| block | sparsity rel L2 | quant rel L2 |
+|---|---|---|
+| 0 | 0.089 / 0.093 | 0.024 / 0.032 |
+| 8 | 0.100 / 0.127 | 0.024 / 0.031 |
+| 16 | 0.123 / 0.146 | 0.032 / 0.039 |
+| 24 | 0.136 / 0.161 | 0.031 / 0.036 |
+| 32 | 0.143 / 0.176 | 0.041 / 0.046 |
+| 40 | **0.196 / 0.224** | 0.049 / 0.047 |
+| 49 | 0.165 / 0.143 | **0.135 / 0.135** |
+
+Read straight, that says **block 0 is where Sol is most accurate, not least**,
+and **block 40 is where it is worst — and nothing keeps 40 dense.** Block 49 is
+mid on sparsity but carries roughly four times every other block's quantization
+error, so its total is the highest measured; that half of the shipped list has
+support. Blocks 1, 2 and 48 have never been measured, because the captures hold
+0, 8, 16, 24, 32, 40 and 49 only.
+
+`h3_config.SOL_ARTIFACT_INSURANCE` already encodes this ranking as
+`"33-35,39-42"`, described there as the two highest-error regions. It has never
+shipped.
+
+**The counter-reading, which none of the above settles.** Error AT a block is
+not impact ON the output. Block 0's error propagates through 49 more blocks and
+can be amplified or washed out; block 49's lands on the output head directly,
+and under PDD that head is a fused replica, which is a reason to protect the
+last blocks that has nothing to do with attention error. Block 0 is also
+already the router's own outlier — it keeps 29.8% of blocks exact against ~11%
+deeper — so forcing it dense buys the least and costs the most of any block in
+the model. **Nothing here measures propagation, and that gap is exactly the
+distance between "which block Sol approximates worst" and "which block to keep
+dense".** Closing it is one experiment: perturb one block's attention output by
+its measured sparsity error and read the change at the output head.
+
+**So "too many, or the wrong ones" is answerable and currently unanswered.** The
+measured half says 0 is the weakest candidate in the model and 40 the strongest;
+the unmeasured half says early blocks might still be right for a reason error
+ranking cannot see.
+
+##### The cost of `dense_blocks`, as arithmetic
+
+From the 2026-08-16 dense pair (860.8 s against 454.0 s, 362 frames, 16 steps,
+11 of them sparse, **Triton era**), assuming uniform per-block cost: about
+**0.74 s per block per sparse step**. Against the vendor's `0-1`, the three
+extra blocks cost roughly
+
+- **4-step arm:** 3 blocks x 2 sparse steps ~ **4.4 s**
+- **8-step arm:** 3 x 4 ~ **8.9 s**, beside `end_percent`'s ~37 s for the
+  sparse step it removes
+
+**Order of magnitude only** — different kernel, different canvas, and uniform
+per-block cost is exactly what the block-0 outlier above refutes. **The honest
+number is a timed A/B**, and timing is one of the few things that can be
+compared arm to arm here: CLAUDE.md's different-sample rule is about what the
+clip looks like, not about how long it took.
+
+##### The next measurement, and it needs no render
+
+`2026-08-20_ref3_362f_1024x768_fl2va` survives on disk with blocks 0, 8, 16,
+24, 32, 40, 49 at steps 3 and 11, and has only ever been analysed at tau 1.3 on
+three of them. Running `bench/analyze_sol_error.py` at **tau 1.0** across all
+seven gives the per-block ranking on **fl2va, the partition the t2v PDD arms
+actually run**, against a ranking currently taken from ref2va. No render, no
+server; it needs the card free and `--heads 0` for all 56, or every row is a
+first-n-heads figure. Its calibration gate still runs at t <= 2001 and infers
+agreement at production S, which is the weakest link in any number it prints.
+
 **`top-k (SLA)` is not the SLA router, and the difference is the tail.** Under
 either selection Sol still adds a pooled term for every block it did not pick,
 so nothing leaves the softmax. `MiniMaxH3SLARouter` — the arm the Turbo-SLA

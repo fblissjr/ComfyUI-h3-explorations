@@ -711,6 +711,27 @@ SOL_RECOMMENDED_CUDA = dict(
 # centroid_tail, reuse_qkv_memory, verbose. Spelled as an override dict over
 # that one rather than a second full literal, because a full copy is exactly
 # the second copy this file forbids.
+#
+# **Two of these have a calculable answer and the literals are placeholders.**
+# `docs/SOLATTN.md`, "What would replace the eyeballing, knob by knob":
+#   end_percent   `percent_to_sigma(0.75)` is 0.8 EXACTLY at shift 12, and 0.8
+#                 is index 24 of PDD's 32-point grid -- the start of the final
+#                 block at 4 evaluations. So 0.74 is, one widget step out, the
+#                 rule "run dense over the coarsest schedule's last block": a
+#                 fixed point on the SIGMA PATH rather than on the step grid,
+#                 which is why one constant serves both step counts where
+#                 SOL_END_PERCENT_BY_STEPS needs a row each. Worth writing as
+#                 an expression only after the 0.74-against-0.87 arm at 8
+#                 evaluations has run; until then it is a prettier spelling of
+#                 the same literal.
+#   dense_blocks  measured evidence exists at THIS tau and points elsewhere.
+#                 `bench/results/2026-08-19_sol_error_per_head_tau1.0.json`
+#                 ranks block 0 as Sol's MOST accurate and block 40 as its
+#                 worst; 1, 2 and 48 have never been measured. Block 49 earns
+#                 its place on quantization error rather than sparsity. What
+#                 the ranking cannot see is propagation -- error at an early
+#                 block travels through 49 more -- and that is the gap between
+#                 "worst approximated" and "worth keeping dense".
 SOL_PDD_OVERRIDES = dict(
     end_percent=0.74,
     min_tokens=11776,

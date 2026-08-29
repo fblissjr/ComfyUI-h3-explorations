@@ -208,6 +208,19 @@ All in `workflows/h3_config.py`, all single switches, all regenerate with
 | `TURBO_LORA` / `TURBO_768P_*` / `TURBO_SLA_*` | none shipped by default; probe graphs | the lightx2v rows `bench/check_distill_settings.py` attests | 4-8 steps against 16 |
 | `CACHE_NODE` | probe graphs only, **not canonical** (owner decision 2026-08-20) | EasyCache threshold/window | 1.56-1.74x on deterministic samplers at 16 steps; a 16-step lever with nothing to skip at 4 |
 
+**The PDD Sol recipe is four eyeballed knobs, and two of them have a
+calculable answer waiting.** `docs/SOLATTN.md`, "What would replace the
+eyeballing, knob by knob", carries the derivations and the three things that
+would settle them, cheapest first: (1) `end_percent` 0.74 against 0.87 at 8
+evaluations, a single-axis test of whether Sol's dense region is pinned to the
+sigma path or to the schedule -- the recipe already bets on the first; (2)
+`bench/analyze_sol_error.py` at tau 1.0 over the surviving fl2va capture, which
+ranks blocks by Sol's own error on the partition the t2v PDD arms run and needs
+no render; (3) a timed A/B for what `dense_blocks` costs, which is legal
+because timing is not a sample. The measured ranking currently says block 0 is
+where Sol is MOST accurate and block 40 where it is worst, which is evidence
+against the shipped `0,1,2` and for a set nobody ships.
+
 **Iterate at `fast` (1152x768) and 243 frames; confirm at `full` and 362.**
 `fast` is exact 3:2, 27% off attention, and only 0.25 of ratio from the
 shipped canvas, so framing reads the same. At 243 frames it is 62,208 tokens

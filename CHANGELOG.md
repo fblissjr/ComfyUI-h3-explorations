@@ -41,6 +41,30 @@ artifact.
     LoRA-loader class and the generator's is a builder flag, and nothing had
     ever required the two to agree.
 
+- **Wrote down what would replace the eyeballing, before the shipped values
+  close the question.** `docs/SOLATTN.md` gains a derivation per knob, pointed
+  at from `h3_config` and `docs/roadmap.md`. Three findings, none of them a new
+  measurement -- all three fall out of what the repo already holds:
+  - **`dense_blocks` is the only behavioural change on 11 of the 16 PDD arms.**
+    They run 4 evaluations, where 0.74 is what `SOL_END_PERCENT_BY_STEPS`
+    already gave and the other two knobs are inert. On the 4 arms at 8
+    evaluations both are live, and `end_percent` is the larger intervention by
+    compute -- one whole sparse step against three blocks.
+  - **`end_percent` 0.74 is a rule, not a number.** `percent_to_sigma(0.75)` is
+    0.8 exactly at shift 12, and 0.8 is index 24 of PDD's 32-point grid: the
+    start of the final block at 4 evaluations. So the value chosen by eye is
+    "run dense over the coarsest schedule's last block", pinned to the sigma
+    path rather than to the step grid -- which is why one constant serves both
+    counts. It makes an untested prediction the recipe already bets on: at 8
+    evaluations 0.87 should be worse than 0.74.
+  - **The measured per-block evidence does not support `0,1,2`.**
+    `bench/results/2026-08-19_sol_error_per_head_tau1.0.json`, at the shipped
+    tau and production sequence length, ranks block 0 as Sol's MOST accurate
+    and block 40 as its worst -- and nothing keeps 40 dense. Block 49 earns its
+    place on quantization error rather than sparsity; 1, 2 and 48 have never
+    been measured. Stated with its counter-reading: error at a block is not
+    impact on the output, and nothing here measures propagation.
+
 ### Fixed
 
 - **`docs/SOLATTN.md` claimed `dense_blocks` ships empty, in two places.** It
