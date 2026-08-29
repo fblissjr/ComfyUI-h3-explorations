@@ -94,57 +94,54 @@ scoring first. And the demand pairs hold subjects, actions, camera moves,
 dialogue and cut times exactly, so they manipulate demand more cleanly than any
 shot swap can — a shot swap necessarily changes content.
 
-### Scored the same evening: DELTA won, DEMAND was refuted
+### Scored the same evening, then corrected within the hour
 
-Both arms landed and the owner's read is that **`shots13` is way better than
-`shots12`**. Measured on them:
+**Read the correction, not the first pass.** The first scoring here said
+"delta won, demand was refuted", on the owner reading `shots13` as way better
+than `shots12`. He then scored `shots12` too — *"great too. the box didnt
+ghost... video and audio great"* — and **both** two-shot arms are good. The
+comparison was never `shots13` against `shots12`; it is both of them against
+the three-shot original.
 
-| arm | shots | delta | detail (output) |
-|---|---|---|---|
-| `shots13` — **the better one** | 1 + 3 | **0.0122** | 0.0640 |
-| `shots12` — the worse one | 1 + 2 | **0.0209** | 0.0580 |
+| arm | prompted shots | delta | detail (output) | verdict |
+|---|---|---|---|---|
+| `00007` original | 3 | 0.0149 | 0.0635 | **bad** — ghosting, melting |
+| `shots13` | 2 | 0.0122 | 0.0640 | great |
+| `shots12` | 2 | **0.0209** | 0.0580 | great, the box did not ghost |
 
-`shots12` carries 1.7x the delta, and it is the arm judged worse. **Delta
-predicted exactly that and demand predicted the reverse**, so the one arm where
-the two accounts disagreed went to delta.
+**Delta is refuted, and by the arm I had just called its confirmation.**
+`shots12` carries the HIGHEST delta of the three and is fine. A delta account
+has to call it the worst.
 
-**The demand prediction on this arm was mine and it failed.** Recorded rather
-than quietly dropped: the ordering was read off the prompt — shot 2 close on
-one crate lowest, shot 1 medium-wide middle, shot 3 wide with crowd and fruit
-highest — making `shots12` the lowest-demand arm and therefore predicted best.
-It was judged worst.
+**Output detail gives no story either.** `shots12` is lowest and good,
+`shots13` highest and good, the bad clip sits between them.
 
-**Output detail cannot rescue it, and note why.** `shots12` has the LOWER
-output detail (0.0580 against 0.0640), which under the demand reading is the
-wrong direction twice: it is the lower-demand arm and it resolved less. That
-number is ambiguous by construction — destroyed detail and a plain scene give
-the same reading — so it does not adjudicate anything. The demand ordering that
-failed was taken from the prompt, where it is unambiguous, which is why the
-failure counts.
+**Prompted shot count is the only clean split**, and it is the owner's own
+reading: *"too much shit in one scene? so you make the stuff gigantic and it
+loses its shit."* Three setups in fifteen seconds breaks; two does not.
 
-**What this does not settle.** One observer, one pair, one seed, and a coarse
-"way better" rather than a scored comparison. `shots23`, the third point, OOMed
-and had not rendered. The two arms are different samples, so this is the
-"does the brief come out" class of evidence — legitimate for a large
-pre-registered perceptual difference, not for a small one.
+**One measured complication, kept because it constrains the mechanism.**
+`shots12` rendered an UNPROMPTED extra cut — peaks at frames 182 and 219,
+where only 180 was asked for — so it delivered three visual segments and was
+still fine. Whatever breaks the original is therefore not the number of
+segments on screen. Total content DEMANDED across the clip survives that;
+"how many shots got rendered" does not.
 
-**What survives for demand.** Nothing on this arm. The
-`h3_text_to_video_{aisle,sortline}_{short,long}` pairs are still worth
-rendering, because they vary demand while holding subjects, actions, camera
-moves, dialogue and cut times exactly, where a shot swap changes content and
-delta together. If long is not worse than short in both scenes, demand is
-finished as an account of this artifact rather than merely losing one arm.
+**What this costs the earlier entries on this page.** The "+0.676 severity
+tracks delta" measurement is not retracted — it is within-clip and frame-level
+— but delta has now failed twice as an across-clip account: once on the market
+shots, once here. Do not choose or judge a scene by it.
 
-**One reading that was tested and failed**, recorded so it is not re-proposed:
-that shot 3 is bad because many things move independently. Its change is more
-CONCENTRATED than shot 2's — 64.6% of it in the busiest 5% of pixels against
-38.2% — because the camera is locked. Colour versus greyscale also makes no
-difference here (0.0058 against 0.0061), so a greyscale metric is not the gap.
+**Status: one observer, three clips, one seed.** The split is clean and the
+delta refutation is solid because it needs no scoring finesse — the
+highest-delta arm is good. Everything else here is a candidate.
 
-**The revised rule.** A perceptual claim states the regime it was judged in,
-and delta alone does not describe the regime. Report delta AND spatial detail;
-where they disagree, as they do across the market shots, say which one the
-scene was chosen for.
+**The demand pairs are now the experiment, not a side one.**
+`h3_text_to_video_{aisle,sortline}_{short,long}` vary exactly "how much is
+being asked of one scene" at fixed shot count, holding subjects, actions,
+camera moves, dialogue and cut times. They are the direct test of the owner's
+reading, and unlike the shot ablation they cannot move delta and content
+together by construction.
 
 **This does not retire the dialogue scenes.** They remain the sharpest AUDIO
 instrument available -- eight lines, seven speaker changes, two registers -- and
