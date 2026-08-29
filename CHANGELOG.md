@@ -4,6 +4,40 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.86.0
+
+### Corrected by measurement
+
+- **Inter-frame delta does not predict PDD artifact severity, and neither does
+  output spatial detail.** Both were registered as accounts this session and
+  both are refuted by the same table: across four arms of one scene, the clip
+  judged bad sits INSIDE the range of the good ones on both statistics at once
+  (second of four by each). No threshold separates it and no monotone function
+  of either can, because good arms lie on both sides. The delta account was
+  additionally declared confirmed on a two-arm subset and refuted by the third
+  arm once it rendered. `docs/research/pdd/2026-08-28_scene_complexity.md`.
+- **A specific shot is not the cause either.** The action repeatedly named as
+  the failure point appears in an arm that rendered clean, so it is not
+  sufficient to produce the failure.
+- **A VRAM-mode switch was NOT unobservable, contrary to what this lane
+  concluded.** ComfyUI writes its own log under `user/`, with a `.prev` file for
+  the previous server session, independent of whether the launcher tees stdout.
+  Across both files there are zero lowvram, novram or partial-load switches for
+  the whole evening. A reference render proposed partly to work around the
+  supposed gap was not needed.
+
+### Added
+
+- `bench/run_shot_count_ablation.py` — renders one scene as arms that drop a
+  shot, holding seed, canvas, partition, sigmas and Sol settings. `--length`
+  separates total demanded content from per-shot duration, which the original
+  design confounds; `--ref` builds a 32-evaluation counterpart at block width 1.
+- `bench/score_shot_ablation.py` — delta and spatial detail on one pipeline.
+  Deliberately does not import the existing delta helper: that file measures at
+  a different resolution and colour handling, and a spatial gradient does not
+  survive a resolution change the way a temporal one does, so mixing the two
+  silently produces incomparable numbers.
+
 ## 0.85.0
 
 ### Corrected by measurement
