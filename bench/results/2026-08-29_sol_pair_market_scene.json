@@ -1,0 +1,47 @@
+{
+  "date": "2026-08-29",
+  "what": "A matched-seed Sol-on / Sol-off pair on the night-market t2va scene, recorded because it is the cleanest controlled pair this repo has and it existed only as two files that looked good.",
+  "recorded_by": "bench/diff_render_graphs.py --diff, against the graphs ComfyUI embedded in the two renders",
+  "renders": {
+    "A": "Video/BEST_MARKET_SCENE_8STEP_PDD_345frames_nosol.png (+ .mp4, -audio.mp4)",
+    "B": "Video/yoyo_00002.png (+ .mp4, -audio.mp4)",
+    "location": "the share's ComfyUI output directory; see start.sh --output-directory"
+  },
+  "the_only_difference": {
+    "node": "SolAttnMiniMax",
+    "present_in": "B",
+    "settings": {
+      "selection": "adaptive tau",
+      "tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 0.74,
+      "min_tokens": 11776,
+      "sink_conditioning": "exact_kv_and_rows",
+      "morton": false,
+      "centroid_tail": true
+    },
+    "everything_else": "identical, verified field by field on the reachable graph; prompt sha256[:16] 9a611ee9f0ee7265 in both, 2347 chars",
+    "cosmetic": "filename_prefix Video/test vs Video/yoyo"
+  },
+  "shared_configuration": {
+    "seed": 873119850061921,
+    "sampler": "dpmpp_2m_sde_gpu",
+    "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+    "encoder": "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors",
+    "pdd_lora": "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors, strength 1.0, patch_heads true, nfe 0",
+    "resolution": "1152x768, 864 tokens/frame",
+    "length_frames": 345,
+    "sigmas_source": "MiniMaxH3PDDLoRA SIGMAS output, slot 1, through a VisualizeSigmasKJ passthrough",
+    "sigmas": [1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.878049, 0.8, 0.631579, 0.0],
+    "evaluations": 8,
+    "no_model_sampling_shift_node": "removed; a no-op here, since supported_models.py MiniMaxH3 already carries shift 12.0 / audio_shift 3.0 and the node's defaults are the same two numbers"
+  },
+  "derived": {
+    "pdd_head_coverage": "block_w 4 over the 32-point grid; the 8 evaluations tile heads [0,4) [4,8) ... [28,32) exactly. 32 of 32 heads, no duplicates, no gaps.",
+    "sol_active_steps": "4 of 8. percent_to_sigma at shift 12 puts the window at sigma in (0.808290, 0.979592]; steps 3-6 fall inside, steps 1-2 are above it and 7-8 below.",
+    "near_boundary": "step 7 at sigma 0.8 misses the window by 0.008. end_percent 0.75 is the exact boundary that would include it."
+  },
+  "what_this_establishes": "Both arms met the brief. Sol at these settings did not break this scene.",
+  "what_this_does_not_establish": "Nothing about which arm is better. Sol is a numerical change to attention, so the trajectory diverges from frame 0 and the two clips are different samples rather than one sample with and without Sol -- the standing rule in CLAUDE.md. dpmpp_2m_sde_gpu compounds it: it injects noise every step, so two runs of the same arm would also differ. n=1, not blinded, not scored under docs/eval_comparison.md section 3.",
+  "owner_note": "The owner recalled the two renders also differing in prompt, length and resolution. The embedded graphs do not show that -- all three are identical. Either a different pair of files was meant, or the recollection is of the deviation from the repo's h3_text_to_video_churn_long workflow, which does differ in all three."
+}
