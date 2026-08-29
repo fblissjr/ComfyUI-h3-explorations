@@ -2207,11 +2207,28 @@ conditioning length entirely for H3** (§1.10). 44.12 GiB requested against a
 path it would drive residency to near zero.
 
 **9. The audio VAE's `extra_1d_channel` is unset where both peer stereo VAEs set
-it.** In `VAE.decode`'s OOM fallback and in `decode_tiled`, that routes a
-`[1,32,2,575]` latent to the **2D image tiler**, which would try to allocate
-`[1, 3, 1600, 460000]` fp32. Not reachable today — no shipped graph wires
-`VAEDecodeAudioTiled` and the non-tiled reservation is ~200 MB — but it is the
-failure mode you meet precisely when things are already going wrong.
+it, and the ENCODE side of that is reachable today.** `comfy/sd.py:514` defaults
+it to `None`; ACE Step (`:884`) and LTX Audio (`:966`) both set 16; the H3 audio
+branch (`:1030-1046`) sets `latent_dim = 2` and leaves it `None`. So both
+`VAE.encode`'s OOM retry and `VAE.decode`'s route a `[B, L, C]` audio tensor
+into `encode_tiled_` / `decode_tiled_`, the **2D image tilers**, which index
+`shape[3]`.
+
+**Measured 2026-08-29, and found by accident rather than by construction.**
+`vae.encode_tiled(torch.randn(1, 8000, 2))` raises
+`IndexError: tuple index out of range` at `comfy/sd.py:1166`. It first appeared
+here unprompted: a 15-second reference soundtrack encoded while ComfyUI held the
+card, hit `expandable_segments: memory mapping failed with OOM`, logged
+`Warning: Ran out of memory when regular VAE encoding, retrying with tiled VAE
+encoding`, and died in the retry. **So a long reference soundtrack plus tight
+VRAM is a crash rather than a graceful fallback**, and the conditions are
+ordinary — the encode is a one-off at graph start, exactly when the DiT and
+encoder may still be resident.
+
+An earlier version of this entry called it "not reachable today" on the strength
+of no shipped graph wiring `VAEDecodeAudioTiled`. That is true of **decode** and
+says nothing about **encode**, which needs no node to wire it — `VAE.encode`
+falls back on its own.
 
 **10. Audio noise is not independent of canvas** (§7.2). One generator, drawn
 sequentially: change the video shape at a fixed seed and the audio noise changes.

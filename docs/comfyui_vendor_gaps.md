@@ -114,6 +114,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 9 | H3 VAE tiling as a runtime branch | behavioural | **not a gap in the installed native implementation** | documented as fixed H3-owned policy; no custom-node fix claimed |
 | 10-13 | Partition gate, AdaLN cache, CUDA graphs, step caching | behavioural | architectural differences | researched or explicitly declined; no native-equivalence claim |
 | 14 | DiT fp32 island collapses to bf16 under the int8 load | behavioural | open, and core-side | **nothing**; measured only, and 5-20x below the quantization error already present |
+| 15 | Reference-audio encode crashes under VRAM pressure instead of tiling | behavioural | open, core-side (`extra_1d_channel` unset) | **nothing**; trimming the soundtrack shrinks the encode but does not fix it |
 
 ### Processor-policy impact by conditioning role
 
@@ -702,6 +703,40 @@ offload all *off*. "sglang has it and we don't" is not on its own an argument.
 
 ---
 
+## 15. Reference-audio encode crashes instead of falling back under VRAM pressure
+
+Owner: [`research/comfyui_h3_t2va_trace.md`](research/comfyui_h3_t2va_trace.md)
+§14 item 9.
+
+Added 2026-08-29, **found by accident while testing something else**, which is
+the only reason it is here. `comfy/sd.py:514` defaults `extra_1d_channel` to
+`None`. Both peer stereo VAEs set it to 16 — ACE Step at `:884`, LTX Audio at
+`:966` — and the H3 audio branch (`:1030-1046`) sets `latent_dim = 2` and leaves
+it `None`. So `VAE.encode`'s out-of-memory retry hands a `[B, L, C]` audio
+tensor to `encode_tiled_`, the **2D image tiler**, which indexes
+`pixel_samples.shape[3]` (`comfy/sd.py:1166`).
+
+*measured*: `vae.encode_tiled(torch.randn(1, 8000, 2))` raises
+`IndexError: tuple index out of range`. It surfaced unprompted first — a
+15-second reference soundtrack encoding while ComfyUI held the card hit
+`expandable_segments: memory mapping failed with OOM`, logged `Warning: Ran out
+of memory when regular VAE encoding, retrying with tiled VAE encoding`, and died
+in the retry.
+
+**Practical impact: a long reference soundtrack on a busy card is a hard crash,
+not a slow render.** The conditions are ordinary — the reference encode happens
+at graph start, when the DiT and text encoder may still be resident. This is the
+failure you meet exactly when things are already tight, which is when a fallback
+is supposed to save you.
+
+**Native ComfyUI status: open, core-side.** Setting `extra_1d_channel` on the H3
+audio branch the way both peer VAEs do would route it correctly.
+**Handling in this repo: none, and enforced by nothing.** Trimming the
+soundtrack (gap 5) makes it far less likely by shrinking the encode, but that is
+a mitigation, not a fix.
+
+---
+
 ## 14. The DiT's fp32 island collapses under the int8 load
 
 Owner: [`research/comfyui_h3_t2va_trace.md`](research/comfyui_h3_t2va_trace.md)
@@ -947,6 +982,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 8, VAE encode precision | open | **nothing enforces a choice**; measurement only |
 | 9, VAE tiling | not a gap in installed native H3 path | policy documented from native source; no custom fix |
 | 14, fp32 island | open, core-side (`comfy/ops.py`) | **nothing enforces it**; magnitudes measured 2026-08-29 |
+| 15, audio encode OOM fallback | open, core-side (`comfy/sd.py`) | **nothing**; reproduced 2026-08-29 |
 
 For the stock native path, the image floor remains the most reachable still
 boundary and the clip-wide video policy remains a bounded source/length

@@ -4,6 +4,34 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.95.0
+
+### Measured
+
+- **Gap 5 is real, unlike gap 7.** Run at the real entry point against the real
+  audio VAE: a 15-second reference soundtrack against the default 124-frame
+  target (5.167 s, `audio_t` 207) encodes to `ref_audio_t` 600 -- **1,200 rows
+  where 414 were wanted, 786 of them excess**, attended at every sampling step
+  and expanding the reference's RoPE span. A 5-second soundtrack fits with none
+  to spare. Nothing in core trims it.
+- **New gap 15: the reference-audio encode CRASHES under VRAM pressure instead
+  of falling back.** `comfy/sd.py:514` defaults `extra_1d_channel` to `None`;
+  ACE Step (`:884`) and LTX Audio (`:966`) both set 16; the H3 audio branch
+  leaves it unset. So `VAE.encode`'s OOM retry hands a `[B, L, C]` audio tensor
+  to `encode_tiled_`, the 2D image tiler, which indexes `shape[3]`.
+  `vae.encode_tiled(torch.randn(1, 8000, 2))` raises `IndexError: tuple index
+  out of range`.
+
+  **Found by accident, which is the only reason it is recorded.** A 15-second
+  soundtrack encoding while ComfyUI held the card hit
+  `expandable_segments: memory mapping failed with OOM`, logged the tiled-retry
+  warning, and died in the retry. The reference encode runs at graph start, when
+  the DiT and text encoder may still be resident, so the conditions are
+  ordinary. `comfyui_h3_t2va_trace.md` §14 item 9 had called this "not reachable
+  today" on the strength of no graph wiring `VAEDecodeAudioTiled` -- true of
+  **decode**, and silent about **encode**, which needs no node because
+  `VAE.encode` falls back on its own. Corrected there.
+
 ## 0.94.0
 
 ### Fixed
