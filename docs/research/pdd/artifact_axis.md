@@ -78,10 +78,39 @@ So that shot is not sufficient to cause it.
 
 ### The audio session
 
-A carry probe and a seed re-render. Their naming is theirs. The re-render is
-worth a look even so — it decides whether this pipeline is bit-identical across
-a full model unload, which is what settles whether their withdrawal of the `u4`
-result stands.
+`carryprobe/u8_start_v` — read off the live queue rather than reported, so the
+prefix is certain and the meaning is not. It was the job running when this was
+written: 362 frames, 8 evaluations. Ask them what a good result looks like.
+
+A seed re-render is also theirs and is worth a look even so — it decides
+whether this pipeline is bit-identical across a full model unload, which is
+what settles whether their withdrawal of the `u4` result stands.
+
+### The order things will actually land in
+
+Everything serialises on one card. Read off the live queue at the time of
+writing, so it is what was posted rather than what anyone intended:
+
+    running   carryprobe/u8_start_v                   audio session
+    then      Video/shotablation_shots13_241f         duration control, arm 1
+    then      Video/h3_t2v_rail_long                  the one to watch first
+    then      Video/h3_t2v_churn_long
+    then      Video/h3_t2v_aisle_short
+    then      Video/h3_t2v_aisle_long
+    then      Video/h3_t2v_sortline_short
+    then      Video/h3_t2v_sortline_long
+    last      Video/h3_t2v_shotablation_shots12_241f  posted separately, arrives last
+
+**`shots12_241f` was not in the queue when this was written.** The PDD session
+posts one arm at a time and waits, so it should arrive last — but if it never
+appears, the duration control is a single arm, and one arm going bad could be
+noise rather than a result. Check it exists before reading the duration
+question as settled.
+
+Each render on this shape takes roughly five minutes, so the whole queue is
+around forty. Three arms OOMed on this shape today, all recovered; if something
+is missing in the morning that is the likely reason and it just needs
+re-queueing.
 
 ### One thing this whole file cannot give you
 
