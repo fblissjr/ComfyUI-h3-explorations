@@ -1,0 +1,8 @@
+version = 1
+revision = 3
+requires-python = ">=3.10"
+
+[[package]]
+name = "comfyui-h3-explorations"
+version = "0.13.0"
+source = { virtual = "." }

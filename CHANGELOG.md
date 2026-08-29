@@ -6,6 +6,53 @@ artifact.
 
 ## 0.96.0
 
+### Fixed
+
+- **`head_strength`'s sentinel was documented and never implemented, so the
+  node default applied the distilled head correction backwards.** The input's
+  tooltip has said "-1.0, the default, means FOLLOW `strength`" since the
+  strength split; no code resolved it. The literal reached
+  `_FusedHeads.get`, where the master weight is `base + s * (fused - base)`, so
+  every head came out `base - (fused - base)`. Any PDD render taken between the
+  split and this commit ran inverted heads. Resolved in
+  `resolve_head_strength`, a named function rather than two lines inside
+  `execute`, so the contract is importable and testable -- it was untestable
+  before precisely because it lived only in prose.
+- **`build_workflows.py` could not write anything, and had not been able to
+  since the `steps` widget landed.** The validator refuses the whole run rather
+  than part of it, which is the right design and did mean the entire tree was
+  frozen for every lane. The missing widget was `head_strength`, not `steps`:
+  the generator already supplied `steps` on both forms. The UI widget list now
+  carries six values in required-then-optional order, which is how the
+  validator derives it from `define_schema` and is NOT declaration order.
+  Reported by a peer session, which is the second reader the repo's own rule
+  asks for.
+
+### Added
+
+- **`bench/measure_pdd_step_ladder.py` and its record**: what each legal PDD
+  step count buys on the shift-12 grid. Written because published guidance was
+  about to rest on the final block alone, which is the one statistic on which
+  5, 6, 7 and 8 are exactly tied. The ladder is flat where it was assumed to
+  climb -- those four sit within 2% of each other on summed squared step,
+  because under shift 12 the early blocks span almost none of the sigma range.
+  Only 4 evaluations is materially different, at 1.506x, and its `[8,8,8,8]`
+  partition is forced rather than chosen. Also records that 16 and 32 are legal
+  by the divisor route while sitting OUTSIDE the trained envelope in the
+  narrow direction, which nothing had stated.
+- **A case in `check_pdd_head_selection.py` for the sentinel.** It reads the
+  default from `define_schema` rather than retyping it, so the two sources stay
+  independent, drives the real `_HeadBank` and `_FusedHeads` rather than
+  restating their arithmetic, and asserts that the UNRESOLVED default lands
+  somewhere else entirely -- without that last part it would pass on a resolver
+  returning any constant.
+
+### Changed
+
+- **The shipped graphs write `head_strength` explicitly instead of relying on
+  the sentinel.** Same behaviour, and no graph JSON carries a negative number
+  that is not a negative scale.
+
 ### Changed
 
 - **`comfyui_vendor_gaps.md` brought up to date with the audio work.** Gap 7's

@@ -19,9 +19,15 @@ reasons, and the first is enforced:
 
 So the constraint is **core plus exactly one node**, `MiniMaxH3PDDLoRA`. Core
 turns out to carry everything else: `MiniMaxH3ImageToVideo` for conditioning
-and the empty latent, `MiniMaxH3SigmaShift` for the two shifts, and
-`CreateVideo` -> `SaveVideo` for a muxed file, so not even VideoHelperSuite is
-required.
+and the empty latent, and `CreateVideo` -> `SaveVideo` for a muxed file, so not
+even VideoHelperSuite is required.
+
+There is deliberately **no `MiniMaxH3SigmaShift`**. Core already carries both
+shifts -- `comfy/supported_models.py`'s `MiniMaxH3.sampling_settings` is
+`shift: 12.0, audio_shift: 3.0` -- so a node setting them to exactly those
+values is a no-op, and an example that wires one teaches the reader it is
+load-bearing. (Verified at that source, not quoted: the same node was found
+inert in a render comparison on 2026-08-29.)
 
 Generated rather than hand-written for the reason `CLAUDE.md` gives about
 `workflows/*.json`: a JSON graph typed by hand drifts from the node schema it
@@ -61,7 +67,7 @@ LORA = "minimax_h3_fl2va_pdd_8step_comfy.safetensors"
 SEED = 730451892
 
 
-def graph(steps: int, sampler: str, head_strength: float = -1.0) -> dict:
+def graph(steps: int, sampler: str, head_strength: float = 1.0) -> dict:
     """One example, as a ComfyUI API-format graph.
 
     `steps` reaches the PDD node and nothing else -- there is no
@@ -86,14 +92,8 @@ def graph(steps: int, sampler: str, head_strength: float = -1.0) -> dict:
                          "prompt": DIALOGUE_T2V_PROMPT,
                          "width": WIDTH, "height": HEIGHT, "length": LENGTH}},
 
-        # Explicit, though the model already defaults to these two. An example
-        # should show where the shifts live rather than rely on a default the
-        # reader cannot see.
-        "6": {"class_type": "MiniMaxH3SigmaShift",
-              "inputs": {"model": ["1", 0], "shift_video": 12.0, "shift_audio": 3.0}},
-
         "7": {"class_type": "MiniMaxH3PDDLoRA",
-              "inputs": {"model": ["6", 0], "lora_name": LORA,
+              "inputs": {"model": ["1", 0], "lora_name": LORA,
                          "strength": 1.0, "head_strength": head_strength,
                          "patch_heads": True, "nfe": 0, "steps": steps}},
 
@@ -119,17 +119,30 @@ def graph(steps: int, sampler: str, head_strength: float = -1.0) -> dict:
 
 
 EXAMPLES = {
+    "t2va_pdd_5step.json": dict(
+        steps=5, sampler="euler",
+        note="The cheapest count worth running, and the one to reach for "
+             "first. Tiles as [8,8,8,4,4] -- the wide blocks are front-loaded, "
+             "so the final Euler step still spans 63.2% of the sigma range, "
+             "the same as 8 steps. One evaluation more than 4 buys the whole "
+             "of that; a sixth buys nothing further."),
     "t2va_pdd_8step.json": dict(
         steps=8, sampler="euler",
-        note="Eight evaluations, the count the LoRA was distilled at. `euler` "
-             "because every reference implementation of H3 integrates with "
-             "deterministic Euler at eta=0."),
-    "t2va_pdd_6step.json": dict(
-        steps=6, sampler="euler",
-        note="Six evaluations. No UNIFORM partition of the 32-point grid into "
-             "six blocks exists, so the node emits the uneven tiling "
-             "[8,8,4,4,4,4] -- every block inside the trained envelope, and "
-             "wide blocks first so the final one stays narrow."),
+        note="The count the LoRA was distilled at, and the reference arm. "
+             "Uniform [4,4,4,4,4,4,4,4]. `euler` because every reference "
+             "implementation of H3 integrates with deterministic Euler at "
+             "eta=0, which also makes this the only arm here that reproduces "
+             "on a repeated seed."),
+    "t2va_pdd_4step.json": dict(
+        steps=4, sampler="euler",
+        note="The fast arm, and the one with a known cost. [8,8,8,8] is the "
+             "ONLY partition of the 32-point grid into four blocks that is "
+             "legal under the trained envelope, so its final Euler step spans "
+             "80% of the sigma range rather than 63.2% and that is forced "
+             "rather than chosen. Expect coarser motion and rougher audio. "
+             "Shipped because it is the first thing anyone tries: better to "
+             "know why it looks like that than to conclude the weights are "
+             "broken. Use 5 steps instead unless the time matters."),
     "t2va_pdd_8step_heads_off.json": dict(
         steps=8, sampler="euler", head_strength=0.0,
         note="The control arm. `head_strength=0.0` installs no head patches at "

@@ -647,6 +647,34 @@ class _HeadBank(torch.nn.Module):
                 getattr(self, f"{stream}_base_w"), getattr(self, f"{stream}_base_b"))
 
 
+#: The value `head_strength` uses to mean "follow `strength`". A sentinel
+#: rather than an optional None because the widget is a float and 0.0 is
+#: meaningful here -- it is the headfree control arm.
+HEAD_STRENGTH_FOLLOWS = -1.0
+
+
+def resolve_head_strength(strength: float, head_strength: float) -> float:
+    """`head_strength` as a real scale, with the schema's sentinel resolved.
+
+    Exists as a function rather than two lines inside `execute` because it was
+    two lines inside nothing at all: between 675e267 and 2026-08-29 the
+    sentinel was documented in the input tooltip and implemented nowhere, so
+    the DEFAULT reached `_FusedHeads` as a literal -1.0 and every head came out
+    `base - (fused - base)` -- the distilled correction applied backwards.
+
+    Nothing could have caught that. The tooltip is prose, the arithmetic is
+    correct for the number it is given, and a render completes and merely looks
+    wrong. It is testable now because the contract has a name.
+
+    Exact equality rather than `< 0`, so the negative range the widget allows
+    stays reachable as an anti-head ablation. -1.0 is exactly representable and
+    is what both the frontend and a hand-written API prompt write, so there is
+    no tolerance question.
+    """
+    head_strength = float(head_strength)
+    return float(strength) if head_strength == HEAD_STRENGTH_FOLLOWS else head_strength
+
+
 class _FusedHeads:
     """The block heads this render actually asks for, fused once each.
 
@@ -1013,6 +1041,8 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         # against 0.0 that decides whether anything is installed at all.
         strength = float(strength)
         patch_heads = bool(patch_heads)
+
+        head_strength = resolve_head_strength(strength, head_strength)
 
         dm = model.get_model_object("diffusion_model")
         if not _is_minimax_h3(dm):

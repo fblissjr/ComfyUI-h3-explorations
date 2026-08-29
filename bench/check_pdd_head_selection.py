@@ -666,9 +666,102 @@ def no_state_outlives_its_schedule():
             f"{len(STATE_EXEMPT)} exempt and still necessary")
 
 
+
+# --- the head_strength sentinel reaches the arithmetic as a real scale -------
+
+def head_strength_sentinel_is_resolved():
+    """The schema's declared default fuses to the DISTILLED head, not away from it.
+
+    ## The escaped defect that earns this case
+
+    `head_strength` was split from `strength` in 675e267. Its tooltip said
+    "-1.0, the default, means FOLLOW `strength`", and no code implemented that.
+    The literal -1.0 reached `_FusedHeads.get`, where the master weight is
+    `base + strength * (fused - base)`, so every head came out
+    `base - (fused - base)` -- the distilled correction applied BACKWARDS, at
+    the node's own default, on every render.
+
+    Nothing could have caught it. The tooltip is prose; the arithmetic is
+    correct for the number it is handed; the render completes and is merely
+    wrong. `docs/checks.md` calls that shape a silent-success.
+
+    ## Why it is graded this way
+
+    The default is read from `define_schema`, never retyped, so moving it in
+    the schema without teaching the resolver is what this goes red on -- the
+    two sources are independent, which is the point.
+
+    The arithmetic is graded by driving the real `_HeadBank` and `_FusedHeads`
+    rather than by restating `base + s * (fused - base)` here. A helper the
+    check defines is the escape `check_pdd_sigmas.py` shipped and
+    `docs/checks.md` records: it agrees with the code by construction.
+
+    The bank is built with every interval identical, so the fused head equals
+    that value for any block, shift or step count. That removes the grid from
+    the question -- this case is about the SCALE, and `fuse_block`'s own
+    weighting is graded elsewhere. That the uniform bank fuses to its own value
+    is asserted rather than assumed, since it rests on the fusion plan summing
+    to one.
+    """
+    import torch as _t
+
+    decl = {i.id: i for i in P.MiniMaxH3PDDLoRA.define_schema().inputs}
+    default = decl["head_strength"].default
+    assert default == P.HEAD_STRENGTH_FOLLOWS, (
+        f"the schema declares head_strength default={default!r} but the "
+        f"resolver's sentinel is {P.HEAD_STRENGTH_FOLLOWS!r}. One of them "
+        f"moved; the default now means a literal scale of {default!r}.")
+
+    for strength in (1.0, 0.7, 0.0):
+        got = P.resolve_head_strength(strength, default)
+        assert got == strength, (
+            f"the declared default resolved to {got!r} at strength={strength!r}, "
+            f"not to strength. The tooltip promises it follows.")
+
+    # An explicit value is passed through untouched, sentinel aside.
+    for explicit in (0.0, 0.5, 2.0, -2.0):
+        assert P.resolve_head_strength(1.0, explicit) == explicit, (
+            f"explicit head_strength={explicit!r} was rewritten")
+
+    # base 1.0, every fused interval 3.0 -- so a correct fuse at scale s is
+    # 1 + 2s, and the inverted default the defect produced is -1.0.
+    n_iv, dim = 32, 4
+    bank = {"video": (_t.full((n_iv, dim, dim), 3.0), _t.full((n_iv, dim), 3.0),
+                      _t.full((dim, dim), 1.0), _t.full((dim,), 1.0))}
+    hb = P._HeadBank(bank)
+
+    def master(scale):
+        fh = P._FusedHeads(hb, "video", 12.0, n_iv, scale)
+        w, b = fh.get((0, 4), _t.device("cpu"), _t.float32)
+        return float(w.flatten()[0]), float(b.flatten()[0])
+
+    w1, b1 = master(1.0)
+    assert abs(w1 - 3.0) < 1e-5 and abs(b1 - 3.0) < 1e-5, (
+        f"a uniform bank fused to {w1}/{b1} at scale 1.0, not to its own 3.0. "
+        f"The fusion plan does not sum to one, so this case cannot separate "
+        f"the scale from the weighting and the rest of it is meaningless.")
+
+    resolved = P.resolve_head_strength(1.0, default)
+    wr, _ = master(resolved)
+    assert abs(wr - 3.0) < 1e-5, (
+        f"the declared default fused to {wr}, not to the distilled 3.0")
+
+    # The discriminator: the raw default is what the defect fed in, and it must
+    # land somewhere else entirely. Without this the case passes on a resolver
+    # that returns any constant.
+    wraw, _ = master(default)
+    assert abs(wraw - (-1.0)) < 1e-5, (
+        f"the UNRESOLVED default fused to {wraw}, expected -1.0. This case "
+        f"cannot tell a resolved sentinel from an unresolved one.")
+    return (f"schema default {default} -> follows strength; "
+            f"fused {wr:.1f} where the raw sentinel gives {wraw:.1f}")
+
+
+
 check("today's core signature", todays_core)
 check("the signature #15908 introduces", post_pr_core)
 check("a second owner of the heads is refused", refuses_to_stack)
+check("the head_strength sentinel is resolved", head_strength_sentinel_is_resolved)
 check("no state outlives its schedule", no_state_outlives_its_schedule)
 
 print()
