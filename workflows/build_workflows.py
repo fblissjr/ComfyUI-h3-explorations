@@ -954,6 +954,57 @@ overall_soundscape: A wide rubber belt running continuously under a high metal r
 non_diegetic_music: N/A
 """
 
+
+#: **The PREDICTABILITY pair, and the sharpest discriminator built here.**
+#: Owner-stated 2026-08-28, after both two-shot ablation arms came back clean:
+#: "i bet even long prompts are fine. so long as you dont introduce like 5
+#: unique shots and tons of shit changes everywhere like lights flashing
+#: different led colors every second of every shot from different places and
+#: people moving around or a handheld camera fight scene where the model cant
+#: easily predict what comes next like it could say... a tracking shot of a
+#: boxy house going from left to right across. steady and not changing position
+#: at all, just moving left to right like its on a rail"
+#:
+#: **The axis is how hard the next frame is to predict, not how much it
+#: changes.** That distinction is what every earlier account here missed. A
+#: rail move translating the whole frame has near-maximal inter-frame delta and
+#: near-zero uncertainty: everything is where it was, shifted. A handheld shot
+#: of a crowd under changing coloured light has similar delta and no
+#: extrapolable structure at all.
+#:
+#: **Both arms are LONG on purpose**, ~500 words, because the owner's claim has
+#: two halves and this tests both: long prompts are fine, AND unpredictability
+#: is what is not. If the rail arm comes back clean at this length, length is
+#: exonerated in the same render that indicts churn.
+#:
+#: **Held: one shot each, no cuts, same canvas, same length, same settings, no
+#: dialogue in either.** Shot count is deliberately equalised at ONE so this
+#: does not re-run the ablation's confound -- pdd's arms move delta, demand and
+#: shot content together, and that is why they could not separate anything.
+#:
+#: **What it predicts, registered before either rendered.** Delta says the rail
+#: arm is worst, since a full-frame translation is the highest delta in this
+#: repo. Predictability says the rail arm is CLEAN and churn breaks. They
+#: cannot both be right, and the rail arm is cheap to judge because ghosting on
+#: a rigid boxy building is unmissable.
+T2V_RAIL_LONG = """integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, one continuous take with no cuts, shot on a rail dolly so the camera moves with no vibration whatsoever. A two-storey boxy concrete house stands square to the road in flat overcast afternoon light, its front face a plain grey slab broken by four identical square windows in two rows, a shallow flat roof with a thin metal drip edge, and a single dark door set slightly left of centre with two concrete steps below it. A low wall of the same grey concrete runs along the front of the plot, unbroken, with a strip of clipped grass between it and the house. Three young cypress trees stand evenly spaced along the wall, still, with no wind moving them. The camera trucks right with small amplitude at slow speed on the rail, holding the house at the same height in frame throughout and keeping its front face parallel to the sensor, so the building translates steadily across the frame from the right side to the left without rotating, tilting or changing size. Nothing in the scene moves except by that translation: no people, no vehicles, no animals, no leaves moving, no doors or windows opening, no shadows shifting, no lighting change of any kind, no reflections travelling across the glass. The light stays flat and even from an overcast sky for the whole take, so exposure and colour do not change. As the camera continues, the far edge of the house passes out of frame on the left and a plain grey neighbouring wall of similar height enters from the right, of the same material and finish, continuing the same steady rate of travel. The concrete surface holds its texture and its slight staining below the windows throughout, the window frames stay square and their spacing stays even, and the drip edge along the roof stays a single unbroken straight line for the entire shot. The concrete is board-formed, the horizontal seams from the shuttering visible as faint regular lines across the whole facade, with small blowholes clustered near the base and a darker band of weathering rising about a foot from the ground. Each window is a plain aluminium frame with a single fixed pane, no glazing bars, the glass reflecting only flat grey sky with no detail in it. The door is painted dark and flat with a plain lever handle and no glazing, and the two concrete steps below it have a chipped front edge on the upper step. The clipped grass is uniform and short with a straight mown edge along the wall. The cypress trees are the same height as each other, narrow, and evenly dense from top to bottom. All of this holds exactly as it is for the whole take. The take ends with the camera still travelling at the same rate, mid-move, without slowing or stopping.
+
+overall_soundscape: Flat outdoor ambience under an overcast sky with no wind, a distant steady road hum well behind the house, and the faint continuous mechanical run of a dolly on rails. No voices, no footsteps, no birds.
+
+non_diegetic_music: N/A
+"""
+
+#: The churn arm. **Same length, same one-shot structure, same canvas. Every
+#: source of unpredictability the owner named, in one shot.**
+T2V_CHURN_LONG = """integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, one continuous handheld take with no cuts, the operator moving fast through a crowded indoor night market under a low ceiling. The camera shakes strongly and reframes constantly, swinging between subjects without settling, so the framing changes several times a second and no composition is held. Strings of coloured LED bulbs hang in overlapping rows overhead and change colour rapidly and independently of one another, red to green to orange to blue, each string on its own timing, so the light on every surface shifts continuously and unpredictably and no two moments share a colour cast. Dozens of people move through the frame in all directions at once, crossing in front of and behind each other, some entering fast from the frame edge and some stopping abruptly, their faces catching different colours as they pass under different strings. Vendors push loaded handcarts through the crowd at varying speeds, and stacked goods on the carts shift and settle as they move. Steam rises in irregular bursts from three separate food stalls and drifts across the lens unpredictably, sometimes obscuring the frame almost completely and sometimes clearing at once. Hanging fabric banners swing at different rates in the moving air, printed with dense patterns. Reflections from the LED strings travel across metal surfaces, wet floor tiles and glass cabinets, none of them in step with each other. The camera passes close to a stall of small bright objects, loses focus, regains it on a different subject entirely, then swings up toward the ceiling lights and back down into the crowd. A child is carried past on someone's shoulders and turns to look back the way they came. Two people stop directly in front of the lens and move apart again. A stack of empty crates is lifted from a cart and set down out of frame. Paper wrappers blow along the floor at ankle height in irregular gusts from the extractor. A vendor throws a cloth over a display and it settles unevenly. Someone lights a burner and the flame jumps. Nothing in the frame holds still for longer than a moment, no element continues on a predictable path, and the direction of travel changes repeatedly throughout the take without settling.
+
+overall_soundscape: A dense crowded indoor market at night, many overlapping voices at different distances with no single conversation legible, metal handcart wheels on tile, sizzling from several stalls at once, a hand bell struck irregularly, and the low roar of a ceiling extractor throughout.
+
+non_diegetic_music: N/A
+"""
+
 MARKET_REF_IMAGES = ("dirk_runway2.jpeg",)
 
 MARKET_REF2V_PROMPT = """subject_definitions:
@@ -6886,6 +6937,26 @@ def main():
                 ("long", T2V_AISLE_LONG,
                  "the same scene with more fine structure demanded -- no new "
                  "subject, action, camera move or line"))
+        ],
+
+        # **The predictability pair.** One shot each, no cuts, both long, so
+        # shot count and length are equalised and only how predictable the
+        # next frame is varies. Delta says the rail arm is WORST; the owner's
+        # reading says it is clean. They cannot both be right.
+        *[
+            (f"h3_text_to_video_{tag}_long.json", f"t2v-{tag}-long", "t2v",
+             prompt,
+             dict(pdd=True, sampler_name="euler",
+                  lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
+                  out_prefix=f"Video/h3_t2v_{tag}_long"),
+             note)
+            for tag, prompt, note in (
+                ("rail", T2V_RAIL_LONG,
+                 "one rail move across a boxy house, nothing else moving -- "
+                 "maximal delta, minimal uncertainty"),
+                ("churn", T2V_CHURN_LONG,
+                 "one handheld take through a night market under changing "
+                 "LEDs -- similar delta, no extrapolable structure"))
         ],
 
         # The second pair, different scene, same manipulation. Two independent
