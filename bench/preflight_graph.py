@@ -681,6 +681,16 @@ def _encoder_contract_for(ins: dict, graph: dict):
         return None, "clip input is not linked, so no encoder contract"
     src = graph[str(link[0])]
     kind = src.get("class_type")
+    if kind == "MiniMaxH3EncoderLoader":
+        # The guarded loader stamps what CORE's own preprocessing will do, so
+        # the static answer is that same derivation rather than an artifact's
+        # declaration -- and it must not stay "native, unresolved" here while
+        # the runtime has a contract, or the preflight prices a different
+        # encoder than the render uses.
+        _core_minimax_cpu()
+        import h3_encoder_loader
+        contract = h3_encoder_loader.native_encoder_contract()
+        return contract, f"encoder contract from ComfyUI's own H3 path ({contract['source']})"
     if kind != "MiniMaxH3AWQEncoderLoader":
         return None, f"{kind} declares no processor contract; encoder = native"
     name = src.get("inputs", {}).get("encoder_name")

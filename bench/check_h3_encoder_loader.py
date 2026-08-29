@@ -56,21 +56,38 @@ vendor_config = importlib.import_module(f"{REPO.name}.vendor_config")
 ENCODER = COMFY / "models" / "text_encoders" / "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 
 
-def _with_mutated_state_dict(mutate):
-    """Run one load with `mutate` applied to the state dict core just read."""
-    original = comfy.utils.load_torch_file
+def _with_incomplete_checkpoint(mutate):
+    """Run one load as if the checkpoint on disk had been mutated.
+
+    `mutate` is applied to BOTH the state dict core reads and the header the
+    inventory guard reads, because a real incomplete file changes both and the
+    guard compares one against the other. Mutating only the in-memory state
+    dict simulates nothing that can happen on disk -- and the guard correctly
+    stayed green when this harness did that, which is how the mistake was
+    found rather than shipped.
+
+    The alternative, writing a mutated 25 GiB copy, buys nothing this does not.
+    """
+    read_file, read_header = comfy.utils.load_torch_file, loader._file_tensors
 
     def reading(*args, **kwargs):
-        out = original(*args, **kwargs)
+        out = read_file(*args, **kwargs)
         # `return_metadata=True` makes this a (state_dict, metadata) pair.
         mutate(out[0] if isinstance(out, tuple) else out)
         return out
 
+    def heading(path):
+        header = read_header(path)
+        mutate(header)
+        return header
+
     comfy.utils.load_torch_file = reading
+    loader._file_tensors = heading
     try:
         return loader.load_guarded_clip(str(ENCODER), None)
     finally:
-        comfy.utils.load_torch_file = original
+        comfy.utils.load_torch_file = read_file
+        loader._file_tensors = read_header
 
 
 def contract_is_derived_from_comfy_not_declared():
@@ -143,10 +160,19 @@ def an_incomplete_checkpoint_cannot_load_quietly():
          lambda sd: sd.__setitem__("model.layers.0.not_a_real_tensor",
                                    __import__("torch").zeros(4)),
          "does not exactly populate"),
+        # Red at CONSTRUCTION, not at the inventory guard: core refuses to load
+        # a [7] tensor into a [5120] parameter by itself. Kept because it
+        # records which of the two shapes this case takes -- the inventory
+        # guard's shape comparison is defence for a mismatch core tolerates,
+        # and this says core does not tolerate this one.
+        ("carries a wrongly shaped tensor",
+         lambda sd: sd.__setitem__("model.layers.25.input_layernorm.weight",
+                                   __import__("torch").zeros(7)),
+         "could not be constructed"),
     )
     for label, mutate, expected in cases:
         try:
-            _with_mutated_state_dict(mutate)
+            _with_incomplete_checkpoint(mutate)
         except ValueError as exc:
             assert expected in str(exc), (label, str(exc)[:200])
         else:

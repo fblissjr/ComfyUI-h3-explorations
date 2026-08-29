@@ -46,16 +46,38 @@ papered over.
 
 from __future__ import annotations
 
-import contextlib
+import importlib
 import inspect
+import json
 import logging
+import struct
 from pathlib import Path
 
 from comfy_api.latest import io
 
-from .h3_awq_encoder import expected_special_token_ids
-
 logger = logging.getLogger(__name__)
+
+def _repo(name: str):
+    """Import a sibling module under either import style this repo uses.
+
+    `nodes.py` loads this file as part of a package, while the bench tools put
+    the repo directory itself on `sys.path` and import its modules top-level
+    (`bench/preflight_graph.py` does exactly that for `h3_awq_encoder`).
+    Supporting both is what lets the static reader derive the same contract the
+    loader stamps, from one implementation rather than two.
+    """
+    if __package__:
+        try:
+            return importlib.import_module(f".{name}", __package__)
+        except ImportError:
+            pass
+    return importlib.import_module(name)
+
+
+def expected_special_token_ids(declared):
+    """`h3_awq_encoder`'s id arithmetic, re-exported so callers need one import."""
+    return _repo("h3_awq_encoder").expected_special_token_ids(declared)
+
 
 #: What the stamped contract calls itself. `snapshot_contract` uses the
 #: snapshot directory's name; there is no directory here, and naming the code
@@ -101,7 +123,7 @@ def native_encoder_contract() -> dict:
     from comfy.text_encoders import minimax
     from comfy.text_encoders.qwen_vl import process_qwen2vl_images
 
-    from . import vendor_config
+    vendor_config = _repo("vendor_config")
 
     image_pixels = _signature_defaults(
         process_qwen2vl_images, ("min_pixels", "max_pixels"))
@@ -142,65 +164,59 @@ def native_encoder_contract() -> dict:
     }
 
 
-@contextlib.contextmanager
-def _capture_load_report():
-    """Record what core's own load reported, without reimplementing it.
-
-    `CLIP.__init__` computes `(missing, unexpected)` and throws them at the
-    logger. Wrapping the method that produces them is the only way to see the
-    lists themselves, and it means this guard cannot drift from core's notion
-    of what counts as missing -- there is no second comparison here to go
-    stale. Scoped to one call and restored in `finally`: nothing in this pack
-    leaves ComfyUI patched.
-    """
-    import comfy.sd
-
-    captured: list[tuple] = []
-    original = comfy.sd.CLIP.load_sd
-
-    def recording(self, sd, full_model=False):
-        result = original(self, sd, full_model=full_model)
-        captured.append(result)
-        return result
-
-    comfy.sd.CLIP.load_sd = recording
-    try:
-        yield captured
-    finally:
-        comfy.sd.CLIP.load_sd = original
+def _file_tensors(path: str) -> dict:
+    """Tensor names and shapes from a safetensors header, without reading data."""
+    with open(path, "rb") as handle:
+        length = struct.unpack("<Q", handle.read(8))[0]
+        header = json.loads(handle.read(length))
+    return {name: tuple(entry.get("shape", ()))
+            for name, entry in header.items() if name != "__metadata__"}
 
 
-def validate_load_report(captured: list, name: str) -> None:
+def validate_inventory(model, path: str, name: str) -> None:
     """Refuse a load that did not exactly populate the H3 model.
 
-    Core reports `unexpected` at DEBUG, so on a normal server the case this
-    catches is invisible: a checkpoint whose keys do not match leaves
-    factory-initialised parameters behind and still returns a CLIP. That is the
-    2026-08-23 escape's shape, caught there by the AWQ adapter's own inventory
-    check and by nothing at all on this path.
+    Compares the checkpoint's own header against the state dict of the module
+    core built from it -- two independent things, rather than a restatement of
+    either. Core loads text encoders with `strict=False` (`comfy/sd.py:431`)
+    and reports unexpected keys at DEBUG (`comfy/sd.py:293`), so on a normal
+    server an incomplete checkpoint quietly keeps factory-initialised
+    parameters and says nothing.
+
+    **This deliberately does not wrap `CLIP.load_sd` to read core's own
+    missing/unexpected pair, which is what it did first.** That needed a global
+    monkeypatch, and two loads racing it could leave the wrapper permanently
+    installed with a capture list that grows on every later load -- a leak and
+    a wrong answer at once. The header is already on disk; comparing it costs
+    one small read and no shared state.
+
+    Measured 2026-08-29: the shipped int8_convrot artifact matches its own
+    header exactly, 1602 tensors either side, so this costs a good file
+    nothing.
     """
-    if not captured:
-        raise RuntimeError(
-            "could not observe ComfyUI's load report; the wrapper's guard did "
-            "not run, so this load is unverified. `comfy.sd.CLIP.load_sd` no "
-            "longer returns the missing/unexpected pair this reads."
-        )
-    missing, unexpected = [], []
-    for report in captured:
-        if not (isinstance(report, tuple) and len(report) == 2):
-            raise RuntimeError(
-                f"ComfyUI's load report changed shape ({type(report)}); this "
-                "guard reads a (missing, unexpected) pair and will not guess."
-            )
-        missing.extend(report[0])
-        unexpected.extend(report[1])
-    if missing or unexpected:
+    provided = _file_tensors(path)
+    expected = {key: tuple(value.shape)
+                for key, value in model.state_dict().items()}
+    missing = sorted(set(expected) - set(provided))
+    unexpected = sorted(set(provided) - set(expected))
+    mismatched = [
+        (key, provided[key], expected[key])
+        for key in sorted(set(expected) & set(provided))
+        if provided[key] != expected[key]
+    ]
+    if missing or unexpected or mismatched:
+        detail = []
+        if missing:
+            detail.append(f"missing={missing[:5]} ({len(missing)})")
+        if unexpected:
+            detail.append(f"unexpected={unexpected[:5]} ({len(unexpected)})")
+        if mismatched:
+            detail.append(f"shape_mismatch={mismatched[:3]} ({len(mismatched)})")
         raise ValueError(
-            f"{name} does not exactly populate ComfyUI's H3 text encoder. "
-            f"missing={sorted(missing)[:6]} unexpected={sorted(unexpected)[:6]} "
-            f"({len(missing)} missing, {len(unexpected)} unexpected). Core "
-            "loads text encoders non-strictly and would have kept the "
-            "factory-initialised weights for anything missing."
+            f"{name} does not exactly populate ComfyUI's H3 text encoder: "
+            + "; ".join(detail)
+            + ". Core loads text encoders non-strictly and would have kept the "
+              "factory-initialised weights for anything missing."
         )
 
 
@@ -209,11 +225,11 @@ def validate_tokenizer(clip) -> None:
 
     The declaration is the release's own `tokenizer_config.json` under
     `vendor_config/`, not an artifact snapshot: this loader serves files that
-    carry no configs of their own, and the release is the thing the DiT was
-    trained against either way. The id arithmetic is shared with
-    `h3_awq_encoder` rather than restated.
+    carry no configs of their own, and the release is what the DiT was trained
+    against either way. The id arithmetic is shared with `h3_awq_encoder`
+    rather than restated -- one rule, two declaration sources.
     """
-    from . import vendor_config
+    vendor_config = _repo("vendor_config")
 
     declared = vendor_config.additional_special_tokens()
     tokenizer = clip.tokenizer.qwen3vl_32b.tokenizer
@@ -221,7 +237,8 @@ def validate_tokenizer(clip) -> None:
     expected = expected_special_token_ids(declared)
     actual = {token: vocab.get(token) for token in declared}
     if actual != expected:
-        wrong = {t: (actual[t], expected[t]) for t in expected if actual[t] != expected[t]}
+        wrong = {t: (actual[t], expected[t])
+                 for t in expected if actual[t] != expected[t]}
         raise ValueError(
             "ComfyUI's tokenizer disagrees with the released tokenizer_config "
             f"about {len(wrong)} token id(s): {wrong} (got, expected). A marker "
@@ -263,31 +280,40 @@ def install_native_contract(clip, name: str = "encoder") -> dict:
     return contract
 
 
-def load_guarded_clip(path: str, embedding_directory):
+def load_guarded_clip(path: str, embedding_directory,
+                      disable_dynamic: bool = False):
     """Core's own H3 load, then the three guards, then the contract."""
     import comfy.sd
 
     name = Path(path).name
-    with _capture_load_report() as captured:
-        try:
-            clip = comfy.sd.load_clip(
-                ckpt_paths=[path], embedding_directory=embedding_directory,
-                clip_type=comfy.sd.CLIPType.MINIMAX,
-            )
-        except Exception as exc:
-            # See `require_h3`: a missing detection key does not fail as a
-            # missing key, it fails as a different model. Say which file and
-            # which stage, and keep the original for the traceback.
-            raise ValueError(
-                f"{name} could not be constructed as a MiniMax H3 text encoder. "
-                "Core detects H3 by the tensors present, so a checkpoint that "
-                "is incomplete or not H3 at all is built as another "
-                f"architecture and fails far from the cause: {type(exc).__name__}: {exc}"
-            ) from exc
-    validate_load_report(captured, name)
-    require_h3(clip, name)
+    try:
+        clip = comfy.sd.load_clip(
+            ckpt_paths=[path], embedding_directory=embedding_directory,
+            clip_type=comfy.sd.CLIPType.MINIMAX,
+            disable_dynamic=disable_dynamic,
+        )
+    except Exception as exc:
+        # See `require_h3`: a missing detection key does not fail as a missing
+        # key, it fails as a different model. Say which file and which stage,
+        # and keep the original for the traceback.
+        raise ValueError(
+            f"{name} could not be constructed as a MiniMax H3 text encoder. "
+            "Core detects H3 by the tensors present, so a checkpoint that is "
+            "incomplete or not H3 at all is built as another architecture and "
+            f"fails far from the cause: {type(exc).__name__}: {exc}"
+        ) from exc
+    model = require_h3(clip, name)
+    validate_inventory(model, path, name)
     validate_tokenizer(clip)
     contract = install_native_contract(clip, name)
+    # `comfy.sd.load_clip` registers core's own rebuilder here
+    # (`comfy/sd.py:1566`). Left alone, a non-dynamic delegate or a multigpu
+    # deepclone would rebuild this CLIP through core and silently drop both the
+    # guards and the stamp -- and `encoder_contract_from_clip` would start
+    # answering `None` mid-session, which is the exact silent substitution the
+    # contract exists to end. Point it at this loader instead.
+    clip.patcher.cached_patcher_init = (
+        load_guarded_model_patcher, (path, embedding_directory))
 
     image_lo, image_hi = contract["image_bounds"]
     video_lo, video_hi = contract["video_bounds"]
@@ -337,3 +363,18 @@ class MiniMaxH3EncoderLoader(io.ComfyNode):
         return io.NodeOutput(
             load_guarded_clip(path, folder_paths.get_folder_paths("embeddings"))
         )
+
+
+def load_guarded_model_patcher(path: str, embedding_directory,
+                               disable_dynamic: bool = False):
+    """Rebuild this CLIP's patcher through the guards, for `cached_patcher_init`.
+
+    `ModelPatcher.clone(disable_dynamic=True)` and `deepclone_multigpu` both
+    reconstruct the model by calling this factory
+    (`comfy/model_patcher.py:436-441`, `:505-512`), and both raise outright if
+    a loader registered none. Registering core's -- which is what
+    `comfy.sd.load_clip` leaves behind -- would rebuild an unguarded, unstamped
+    model.
+    """
+    return load_guarded_clip(
+        path, embedding_directory, disable_dynamic=disable_dynamic).patcher
