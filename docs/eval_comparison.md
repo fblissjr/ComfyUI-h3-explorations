@@ -94,6 +94,47 @@ scoring first. And the demand pairs hold subjects, actions, camera moves,
 dialogue and cut times exactly, so they manipulate demand more cleanly than any
 shot swap can — a shot swap necessarily changes content.
 
+### Scored the same evening: DELTA won, DEMAND was refuted
+
+Both arms landed and the owner's read is that **`shots13` is way better than
+`shots12`**. Measured on them:
+
+| arm | shots | delta | detail (output) |
+|---|---|---|---|
+| `shots13` — **the better one** | 1 + 3 | **0.0122** | 0.0640 |
+| `shots12` — the worse one | 1 + 2 | **0.0209** | 0.0580 |
+
+`shots12` carries 1.7x the delta, and it is the arm judged worse. **Delta
+predicted exactly that and demand predicted the reverse**, so the one arm where
+the two accounts disagreed went to delta.
+
+**The demand prediction on this arm was mine and it failed.** Recorded rather
+than quietly dropped: the ordering was read off the prompt — shot 2 close on
+one crate lowest, shot 1 medium-wide middle, shot 3 wide with crowd and fruit
+highest — making `shots12` the lowest-demand arm and therefore predicted best.
+It was judged worst.
+
+**Output detail cannot rescue it, and note why.** `shots12` has the LOWER
+output detail (0.0580 against 0.0640), which under the demand reading is the
+wrong direction twice: it is the lower-demand arm and it resolved less. That
+number is ambiguous by construction — destroyed detail and a plain scene give
+the same reading — so it does not adjudicate anything. The demand ordering that
+failed was taken from the prompt, where it is unambiguous, which is why the
+failure counts.
+
+**What this does not settle.** One observer, one pair, one seed, and a coarse
+"way better" rather than a scored comparison. `shots23`, the third point, OOMed
+and had not rendered. The two arms are different samples, so this is the
+"does the brief come out" class of evidence — legitimate for a large
+pre-registered perceptual difference, not for a small one.
+
+**What survives for demand.** Nothing on this arm. The
+`h3_text_to_video_{aisle,sortline}_{short,long}` pairs are still worth
+rendering, because they vary demand while holding subjects, actions, camera
+moves, dialogue and cut times exactly, where a shot swap changes content and
+delta together. If long is not worse than short in both scenes, demand is
+finished as an account of this artifact rather than merely losing one arm.
+
 **One reading that was tested and failed**, recorded so it is not re-proposed:
 that shot 3 is bad because many things move independently. Its change is more
 CONCENTRATED than shot 2's — 64.6% of it in the busiest 5% of pixels against
