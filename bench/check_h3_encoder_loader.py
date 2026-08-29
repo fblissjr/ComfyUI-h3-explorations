@@ -167,16 +167,45 @@ def every_core_loadable_encoder_passes_every_guard():
     started = time.monotonic()
     for path in population:
         clip = loader.load_guarded_clip(str(path), None)
-        contract = geometry.encoder_contract_from_clip(clip)
-        assert contract is not None, f"{path.name}: no contract stamped"
-        # Derived from ComfyUI's code path, so it does not vary by artifact.
-        assert contract == loader.native_encoder_contract(), (path.name, contract)
-        # The point of stamping: `encoder` stops being silently downgraded.
-        assert geometry.effective_policy("encoder", contract) == "encoder"
+        # **A native CLIP must NOT claim a processor contract**, and this is the
+        # assertion that keeps it that way. See `install_native_contract`: the
+        # contract's `video_bounds` are applied clip-wide, core's budget is
+        # per-block, and stamping core's number into a clip-wide field would
+        # make `video_policy=encoder` live with the wrong semantics.
+        assert geometry.encoder_contract_from_clip(clip) is None, (
+            f"{path.name}: a native CLIP stamped a contract; that makes "
+            "video_policy=encoder live with clip-wide semantics core does not have")
+        # So the reference path stays exactly what core does, unchanged.
         assert geometry.effective_policy("encoder", None) == "comfy"
+        assert geometry.effective_policy("comfy", None) == "comfy"
         del clip
     names = ", ".join(path.name.replace("qwen3vl_32b_minimax_h3_", "") for path in population)
     return f"{len(population)} encoders ({names}) in {time.monotonic() - started:.1f}s"
+
+
+def stamping_a_native_contract_would_shrink_reference_video():
+    """The measurement behind not stamping. Prove the harm is real, not feared.
+
+    `install_native_contract` withdrew the contract stamp on the strength of
+    this. If a future change makes core's video budget clip-wide, or makes the
+    node apply contract bounds per block, these two stop disagreeing and the
+    decision should be revisited rather than inherited.
+    """
+    conditioning = importlib.import_module(f"{REPO.name}.reference_conditioning")
+    contract = loader.native_encoder_contract()
+    shrunk = []
+    for width, height in ((960, 544), (1344, 768)):
+        for sampled in (31, 62):
+            got = conditioning._configured_qwen_video_size(
+                sampled, width, height, "encoder", contract)
+            if got != (width, height):
+                shrunk.append((f"{width}x{height}", sampled, f"{got[0]}x{got[1]}"))
+    assert shrunk, (
+        "a stamped native contract no longer shrinks reference video. Either "
+        "core's video budget became clip-wide or the node stopped applying "
+        "contract bounds clip-wide; re-read install_native_contract's reasoning "
+        "before trusting either.")
+    return f"{len(shrunk)} of 4 cases shrink, e.g. {shrunk[0][0]}@{shrunk[0][1]} -> {shrunk[0][2]}"
 
 
 def an_incomplete_checkpoint_cannot_load_quietly():
@@ -243,6 +272,8 @@ def main(argv=None) -> int:
         ("contract derived from comfy", contract_is_derived_from_comfy_not_declared),
         ("special-token arithmetic", token_ids_refuse_a_malformed_declaration),
         ("every core-loadable encoder passes", every_core_loadable_encoder_passes_every_guard),
+        ("native contract stays unstamped",
+         stamping_a_native_contract_would_shrink_reference_video),
         ("incomplete checkpoints red", an_incomplete_checkpoint_cannot_load_quietly),
     ]
     ok = True

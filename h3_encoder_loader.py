@@ -271,10 +271,41 @@ def require_h3(clip, name: str):
 
 
 def install_native_contract(clip, name: str = "encoder") -> dict:
-    """Stamp what core's path will do, where the reference nodes read it."""
+    """Record what core's path will do -- WITHOUT stamping `_h3_encoder_contract`.
+
+    **This deliberately does not stamp the contract, and the reason is measured.**
+    The contract's `video_bounds` are applied CLIP-WIDE by
+    `reference_conditioning._configured_qwen_video_size`, which passes
+    `num_frames=sampled_count` to `smart_resize`. Core's 12,845,056 is a
+    PER-BLOCK budget -- `process_video_block` restarts it for every two frames.
+    Those are different semantics for the same number, and stamping core's
+    number into a clip-wide field misdescribes core rather than declaring it.
+
+    Measured 2026-08-29, what stamping would have done to reference video by
+    making `video_policy=encoder` live on the graphs that select it:
+
+        960x544  at 31 sampled frames   960x544 -> 832x480   (-24% pixels)
+        960x544  at 62 sampled frames   960x544 -> 576x320   (-65%)
+        1344x768 at 31 sampled frames  1344x768 -> 832x480   (-61%)
+        1344x768 at 62 sampled frames  1344x768 -> 576x320   (-82%)
+
+    So the third guard this loader was built with is withdrawn. Its premise was
+    that a core-loaded CLIP resolving `encoder` to `comfy` is a silent
+    substitution worth ending. It is not: for a NATIVE encoder, `comfy` IS what
+    core does, and `_compile_reference_records` already says so in as many
+    words -- "the truth of what it was handed, not a fallback". The two guards
+    that remain -- inventory and the released token ids -- are the real ones.
+
+    The static readers are unaffected: `bench/preflight_graph.py` calls
+    `native_encoder_contract()` directly off the graph's loader class and never
+    reads the runtime stamp, so pricing still works.
+
+    `_h3_processor_source` and `_h3_image_bounds` are still recorded, because a
+    capture that wants to say which preprocessing ran should be able to; neither
+    is read by `encoder_contract_from_clip`.
+    """
     model = require_h3(clip, name)
     contract = native_encoder_contract()
-    model._h3_encoder_contract = contract
     model._h3_processor_source = CONTRACT_SOURCE
     model._h3_image_bounds = contract["image_bounds"]
     return contract
