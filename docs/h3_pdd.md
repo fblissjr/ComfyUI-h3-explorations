@@ -86,6 +86,37 @@ as a reference rather than leaving two answers in the tree.
 
 ---
 
+## The two conversion forms, and which file is which
+
+One PDD source converts two ways, and the adaln encoding is the whole
+difference. Both carry the same backbone and the same 32-head bank.
+
+| file | adaln form | size | loads on |
+|---|---|---|---|
+| `minimax_h3_{fl2va,ref2va}_pdd_8step_comfy.safetensors` | baked into the checkpoint's rank-8 curve basis | 1069 MiB | the **pruned** base only |
+| `minimax_h3_fl2va_pdd_8step_adaln2688_comfy.safetensors` | the 2688-dim pairs, plus `silu_temb_grid` | 1594 MiB | **either** base |
+
+The name says the difference: `adaln2688` carries the modulation update in the
+full time space rather than pre-solved into a curve basis. That is what makes
+it the portable one -- on an unpruned checkpoint the node applies it as an
+ordinary weight patch, and on a pruned one it takes the runtime injection. The
+baked file is smaller and cheaper and remains the default, but it is
+basis-specific: it fits only the checkpoint whose `adaln_t_table` it was solved
+against, which is what the table guard checks.
+
+**Built 2026-08-29, and it was the first execution of that path.** Every file
+shipped before it was a `--pruned` conversion, so the converter's no-`--pruned`
+branch and the node's unpruned branch had both never run. The conversion
+succeeded first time: 208 backbone modules, 50 adaln modules, 728 source
+tensors all consumed, bank rows verified verbatim, 780 tensors out.
+
+It is also the first file carrying `h3_pdd.adaln.blocks.N.alpha`. Nothing
+emitted one until this path was exercised, and without it those 50 modules take
+ComfyUI's fallback scale of 1.0 -- right only while alpha/rank is 1.0, which is
+the coincidence the explicit backbone alphas exist to refuse.
+
+---
+
 ## What we built, and why not just a LoRA file
 
 **The published files load nowhere in ComfyUI.** Their module names are
