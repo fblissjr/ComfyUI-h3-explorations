@@ -6,6 +6,11 @@ the assistant lanes died in the space of an hour. This file records what was
 tested, what died, and — more useful than either — the two ways we kept fooling
 ourselves.
 
+**Looking for what to watch and what each file tests?** That is
+[`artifact_axis.md`](artifact_axis.md) section 0, which is the viewing map for
+every arm all three sessions queued this night. This file is the ablation's own
+record and does not restate it.
+
 **The question.** Rendered PDD clips show ghosting, melting faces and object
 morphing partway through. The owner's observations, over several evenings:
 degradation appears at moments of large visual change, the bunker dialogue
@@ -29,8 +34,17 @@ stretch across the same canvas.
 | `shots13` | 1+3 | 362 | ~7.5s | **great** |
 | `shots12` | 1+2 | 362 | ~7.5s | **great**, box did not ghost |
 | `shots23` | 2+3 | 362 | ~7.5s | rendered, unjudged |
-| `shots13_241f` | 1+3 | 241 | ~5.0s | pending |
-| `shots12_241f` | 1+2 | 241 | ~5.0s | pending |
+| `shots13_241f` | 1+3 | 241 | ~5.0s | queued |
+| `shots12_241f` | 1+2 | 241 | ~5.0s | queued, lands last |
+
+The two `_241f` arms were posted directly rather than through the sequential
+runner, so neither depends on a client process surviving. **A consequence worth
+knowing when reading them: they did not get the full model unload between arms
+that the 362-frame arms each got.** The runner does that between its arms and it
+was stopped to post them independently. This canvas is lighter than everything
+queued ahead of them and the pipeline measured bit-identical across submissions,
+so the exposure is an OOM rather than a changed render — and a crashed arm
+cannot write a partial output.
 
 Verdicts are the owner's, free-text, on the muxed file. **One observer, one
 seed, one pair at a time, and a coarse verdict rather than a scored
