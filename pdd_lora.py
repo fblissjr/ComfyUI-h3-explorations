@@ -1050,7 +1050,8 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         pruned = bool(getattr(dm, "use_adaln_curves", False))
 
         backbone = {k: v for k, v in sd.items() if k.startswith("diffusion_model.")}
-        adaln = {k: v for k, v in sd.items() if k.startswith("h3_pdd.adaln.")}
+        adaln = {k: v for k, v in sd.items()
+                 if k.startswith("h3_pdd.adaln.") and not k.endswith(".alpha")}
         # From the converter's own count, not from a key prefix. Counting
         # `h3_pdd.adaln.` missed every `h3_pdd.adaln_baked.` key -- the prefix
         # is not a prefix of the other -- so a file carrying only the baked
@@ -1122,11 +1123,15 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             # and an artifact where it is not would scale the backbone correctly
             # and the modulation not, silently. Written here because the
             # converter's `h3_pdd.adaln.*` namespace carries no alpha of its own.
-            _alpha = meta.get("lora_alpha")
-            if _alpha is not None:
-                for i in {k.split(".")[3] for k in adaln}:
+            for i in {k.split(".")[3] for k in adaln}:
+                # The converter emits `h3_pdd.adaln.blocks.N.alpha`; metadata is
+                # the fallback for a file converted before it did.
+                _a = sd.get(f"h3_pdd.adaln.blocks.{i}.alpha")
+                if _a is None and meta.get("lora_alpha") is not None:
+                    _a = torch.tensor(float(meta["lora_alpha"]))
+                if _a is not None:
                     backbone[f"diffusion_model.blocks.{i}.adaln_proj.linear"
-                             f".alpha"] = torch.tensor(float(_alpha))
+                             f".alpha"] = _a
             adaln_installed = len({k.split(".")[3] for k in adaln})
         elif baked is not None:
             # Pruned, with a bake solved against this checkpoint's own basis.
@@ -1227,6 +1232,20 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         # reported 0 modules while the install loop quietly did not run: four
         # arms rendered with the backbone and heads and NO modulation update,
         # which looks like a plausible render and is a different experiment.
+        # What this covers, per path, because it reads as independent
+        # verification and on one path it is not:
+        #   unpruned  -- `adaln_installed` counts the FILE's keys under the
+        #                expected prefix, so a prefix that matches nothing
+        #                gives 0 and this raises. This is the check that would
+        #                have caught the original defect.
+        #   baked     -- `adaln_installed` counts to `n_adaln`, which came from
+        #                the same metadata as `declared_adaln`, so the two are
+        #                equal by construction. A MISSING baked tensor still
+        #                raises, one loop above, as a KeyError; and a key that
+        #                reaches `loaded` without matching a module is caught by
+        #                `len(applied) != len(loaded)` below. This comparison
+        #                adds nothing there and must not be read as if it did.
+        #   injection -- counts real object patches, so it is meaningful.
         declared_adaln = int(meta.get("adaln_modules") or 0)
         if declared_adaln and adaln_installed != declared_adaln:
             raise RuntimeError(

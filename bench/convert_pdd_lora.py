@@ -76,8 +76,10 @@ that `MiniMaxH3PDDLoRA` reads.
 
     This is possible because the delta's time curve turns out to lie in that
     basis. Measured 2026-08-26 over the 1025-row grid, reconstructed against
-    the true delta: **1.2e-5 to 6.1e-5 relative**, roughly fifty times below
-    bf16's own resolution. The projection is affine -- the basis plus a
+    the true delta: **1.2e-5 to 1.1e-4 relative** over all fifty blocks --
+    an earlier range of "1.2e-5 to 6.1e-5" was the three blocks sampled by
+    hand, and `docs/h3_pdd.md`'s "worst 1.1e-4" is the correct one. Still an
+    order of magnitude below the pruning error the modulation already carries. The projection is affine -- the basis plus a
     constant column -- because the pruned form is an SVD of the CENTRED time
     curve and the mean lives in the bias.
 
@@ -431,6 +433,13 @@ def main(argv=None) -> int:
             k = f"transformer_blocks.{i}.adaln_proj.linear.{suffix}"
             seen.add(k)
             out[f"h3_pdd.adaln.blocks.{i}.{dst}"] = src[k]
+        # The alpha travels WITH the pair. On the unpruned path the node hands
+        # these to `comfy.lora` as an ordinary weight patch, and ComfyUI reads
+        # alpha from a tensor and never from `__metadata__` -- so without one
+        # those 50 modules take a scale of 1.0 while the backbone takes
+        # alpha/rank. That is right only while alpha/rank IS 1.0, which is the
+        # coincidence the explicit backbone alphas above exist to refuse.
+        out[f"h3_pdd.adaln.blocks.{i}.alpha"] = torch.tensor(alpha)
         adaln_modules = i + 1
     for i in range(n_refiner):
         modules += convert_backbone(src, "token_refiner.refiner_blocks",
