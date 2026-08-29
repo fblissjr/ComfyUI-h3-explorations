@@ -104,9 +104,18 @@ Sigmas are the uniform block-width-4 partition of the 32-point grid.
 
 These arms load the **AWQ v2 encoder**, while `h3_config.MODELS["clip"]`
 resolves to the INT8 one and the v2 lane was closed on 2026-08-27. The owner's
-best renders to date come off the closed lane. That is worth knowing and is not
-evidence about the encoder: nothing here varied it, and the arms differ from
-every earlier group in four other ways.
+best renders to date come off the closed lane.
+
+**"The shipped graph" and "what that render ran" are different claims and both
+are true here** (established by the `encoder` session, 2026-08-29): every
+loader node across the shipped graphs names int8_convrot through `CLIPLoader`,
+and these arms override that with AWQ v2. Neither statement contradicts the
+other, and citing one for the other is the error to avoid.
+
+None of this is evidence *about* the encoder: nothing here varied it, and these
+arms differ from every earlier group in four other ways. It is worth knowing
+only so that the lane's assumption about what is in play matches what the
+graphs do.
 
 ## The next test, and why it is this one
 
