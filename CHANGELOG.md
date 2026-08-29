@@ -4,7 +4,7 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
-## 0.96.0
+## 0.97.0
 
 ### Fixed
 
@@ -52,6 +52,8 @@ artifact.
 - **The shipped graphs write `head_strength` explicitly instead of relying on
   the sentinel.** Same behaviour, and no graph JSON carries a negative number
   that is not a negative scale.
+
+## 0.96.0
 
 ### Changed
 
