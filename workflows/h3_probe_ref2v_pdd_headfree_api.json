@@ -7,11 +7,9 @@
     }
   },
   "2": {
-    "class_type": "CLIPLoader",
+    "class_type": "MiniMaxH3EncoderLoader",
     "inputs": {
-      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
-      "type": "minimax",
-      "device": "default"
+      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
     }
   },
   "3": {
@@ -220,6 +218,7 @@
       ],
       "lora_name": "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors",
       "strength": 1.0,
+      "head_strength": 1.0,
       "patch_heads": false,
       "nfe": 0,
       "steps": [

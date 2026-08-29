@@ -47,7 +47,7 @@
     },
     {
       "id": 2,
-      "type": "CLIPLoader",
+      "type": "MiniMaxH3EncoderLoader",
       "pos": [
         -1500,
         140
@@ -70,14 +70,12 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "CLIPLoader"
+        "Node name for S&R": "MiniMaxH3EncoderLoader"
       },
       "widgets_values": [
-        "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
-        "minimax",
-        "default"
+        "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
       ],
-      "title": "Load H3 encoder (core CLIPLoader, ComfyUI-native file)"
+      "title": "Load H3 encoder (core's load, plus the checks core omits)"
     },
     {
       "id": 3,
@@ -216,6 +214,7 @@
       },
       "widgets_values": [
         "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+        1.0,
         1.0,
         true,
         0,

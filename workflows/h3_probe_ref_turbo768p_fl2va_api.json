@@ -7,11 +7,9 @@
     }
   },
   "2": {
-    "class_type": "CLIPLoader",
+    "class_type": "MiniMaxH3EncoderLoader",
     "inputs": {
-      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
-      "type": "minimax",
-      "device": "default"
+      "encoder_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
     }
   },
   "3": {

@@ -1309,17 +1309,22 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
         "1": {"class_type": "UNETLoader",
               "inputs": {"unet_name": unet or MODELS["unet_ref2va" if ref else "unet_fl2va"],
                          "weight_dtype": "default"}},
-        # Core CLIPLoader lists every file in the directory but cannot open a
-        # compressed-tensors W4A16 artifact; the repo adapter opens only those.
-        # The file decides the loader (h3_config.CORE_LOADED_ENCODERS).
+        # The file decides the loader (h3_config.CORE_LOADED_ENCODERS). A
+        # ComfyUI-native artifact goes through `MiniMaxH3EncoderLoader`, which
+        # is core's own load plus the two checks core does not do -- the
+        # checkpoint must exactly populate the model, and the tokenizer must
+        # realise the released special-token ids. It stamps no processor
+        # contract, so preprocessing is bit-for-bit what plain `CLIPLoader`
+        # gives (`h3_encoder_loader.install_native_contract` has the
+        # measurement that decision rests on). A compressed-tensors W4A16
+        # artifact still needs the AWQ adapter, which core cannot open at all.
         # **Resolve the name BEFORE branching on it.** This tested `clip` and
         # then wrote `clip or MODELS["clip"]`, so every graph passing no clip
         # took the adapter branch whatever the default encoder was -- invisible
         # while that default was always a W4A16 artifact, and 66 broken graphs
         # the moment it became a ComfyUI-native one on 2026-08-27.
-        "2": ({"class_type": "CLIPLoader",
-               "inputs": {"clip_name": _encoder, "type": "minimax",
-                          "device": "default"}}
+        "2": ({"class_type": "MiniMaxH3EncoderLoader",
+               "inputs": {"encoder_name": _encoder}}
               if _encoder in CORE_LOADED_ENCODERS else
               {"class_type": "MiniMaxH3AWQEncoderLoader",
                "inputs": {"encoder_name": _encoder, "device": "default"}}),
@@ -1607,6 +1612,13 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             g["18"] = {"class_type": "MiniMaxH3PDDLoRA",
                        "inputs": {"model": model_src, "lora_name": lora[0],
                                   "strength": lora[1],
+                                  # The same number as `strength`, written out
+                                  # rather than left to the -1.0 sentinel that
+                                  # means "follow". Identical behaviour; the
+                                  # graph says what it does, and a reader does
+                                  # not have to know that a negative widget is
+                                  # not a negative scale.
+                                  "head_strength": lora[1],
                                   "patch_heads": pdd_heads,
                                   "nfe": pdd_nfe,
                                   # 0 on a split graph. There, `_sigma_src`
@@ -4734,10 +4746,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     clip = clip or MODELS["clip"]        # resolve before branching; see the API form
     if clip in CORE_LOADED_ENCODERS:
         clip = g.add(
-            "CLIPLoader", (-1500, 140), size=(560, 110),
-            widgets=[clip, "minimax", "default"],
+            "MiniMaxH3EncoderLoader", (-1500, 140), size=(560, 110),
+            widgets=[clip],
             outputs=[_out("CLIP", "CLIP")],
-            title="Load H3 encoder (core CLIPLoader, ComfyUI-native file)",
+            title="Load H3 encoder (core's load, plus the checks core omits)",
         )
     else:
         clip = g.add(
@@ -4788,7 +4800,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                   title="PDD LoRA: what runs that the widgets do not show")
             lora_node = g.add(
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 170),
-                widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
+                # Order is required-then-optional, which is how the
+                # validator derives it from `define_schema`: lora_name and
+                # strength, then head_strength, patch_heads, nfe, steps.
+                widgets=[lora[0], lora[1], lora[1], pdd_heads, pdd_nfe,
                          0 if split_at else _resolved_steps],
                 # `steps` is a socket in the UI form too, fed by the
                 # PrimitiveInt added below, so the value is visible on the

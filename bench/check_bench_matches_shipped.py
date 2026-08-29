@@ -115,7 +115,8 @@ print("text encoder:")
 # `CLIPLoader`, the check reported "missing" -- reading a correct migration as
 # drift. Which loader is right is decided by the file; this check's subject is
 # whether the bench and the shipped graphs AGREE, whichever it is.
-ENCODER_LOADERS = ("CLIPLoader", "MiniMaxH3AWQEncoderLoader")
+ENCODER_LOADERS = ("CLIPLoader", "MiniMaxH3EncoderLoader",
+                   "MiniMaxH3AWQEncoderLoader")
 _loader = next((c for c in ENCODER_LOADERS if node_inputs(SAGE_GRAPH, c)), None)
 want = node_inputs(SAGE_GRAPH, _loader) if _loader else None
 got = built_inputs(_loader) if _loader else None

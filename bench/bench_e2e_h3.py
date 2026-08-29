@@ -306,9 +306,8 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
         # encoder from the shipped graphs the moment the default became a
         # ComfyUI-native build (2026-08-27); `check_bench_matches_shipped`
         # caught it, which is what it is for.
-        "2": ({"class_type": "CLIPLoader",
-               "inputs": {"clip_name": cfg["clip"], "type": "minimax",
-                          "device": "default"}}
+        "2": ({"class_type": "MiniMaxH3EncoderLoader",
+               "inputs": {"encoder_name": cfg["clip"]}}
               if cfg["clip"] in CORE_LOADED_ENCODERS else
               {"class_type": "MiniMaxH3AWQEncoderLoader",
                "inputs": {"encoder_name": cfg["clip"], "device": "default"}}),
