@@ -50,6 +50,18 @@ artifact.
 
 ### Added
 
+- **`bench/build_sidecar_node.py`**: assembles the standalone `MiniMaxH3PDDLoRA`
+  that ships beside the weights on the Hub, so nobody has to clone a research
+  repo to load a LoRA. `pdd_lora.py` imports exactly one module from this pack
+  and that one needs only torch, which is what makes a three-file drop-in
+  possible at all.
+  - Generated rather than hand-copied, because bundling means the node's source
+    lives in two places and a copy with no invalidation goes stale silently.
+    `--check` re-derives it and reports drift; proven to go red on both a
+    modified file and a missing licence, and green after a rebuild.
+  - It does NOT prove the bundle matches what is published. That needs a
+    comparison against the Hub, which the check cannot do offline.
+
 - **`bench/measure_pdd_step_ladder.py` and its record**: what each legal PDD
   step count buys on the shift-12 grid. Written because published guidance was
   about to rest on the final block alone, which is the one statistic on which
