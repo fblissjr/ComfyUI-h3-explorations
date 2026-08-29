@@ -60,6 +60,20 @@ whether those four can be read at all.
 | `shotablation_shots13_241f_` | **the duration control.** The exact two shots you already called great, re-rendered on a 10 s canvas so each shot gets ~5 s again instead of ~7.5 s | **Total content demanded is the variable.** The fix is to write fewer setups per clip, and a 15 s clip can hold two but not three | **Per-shot duration is the variable.** ~5 s is not enough to resolve a setup no matter how few there are, and the fix is to give each shot more time — a three-shot clip would be fine at 22 s |
 | `shotablation_shots12_241f_` | same control, the other pair. Lands **last** of everything, since my runner posts one arm at a time | Both agreeing is the result | One bad and one good means neither account is clean and something else is running it |
 
+**If a clip is missing in the morning, re-queue it — that is not a finding.**
+This canvas OOMs when models are still resident rather than from anything about
+the arm, and a crash in the sampler cannot write a partial file, so a missing
+clip is a missing clip and never a corrupted one.
+
+**One thing to check before trusting these two against the earlier arms.** They
+were posted directly rather than through the sequential runner, so unlike the
+362-frame arms they did NOT get a full model unload between them. Whether that
+can change a render is answered by the audio session's reload arm, which lands
+in `bench/results/2026-08-28_reload_invariance.json`. **If that says the
+pipeline is NOT bit-identical across an unload, come back here** — these two
+arms, and any comparison spanning an unload in any lane, need re-reading. If it
+says identical, there is nothing to do and this paragraph can go.
+
 Why this matters more than it sounds: dropping a shot changed **two** things at
 once, not one. Total demanded content went down, and the surviving shots got
 longer. Every observation from tonight fits both, and they imply opposite fixes.
