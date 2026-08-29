@@ -714,3 +714,126 @@ be wrong here — this is the list worth checking first if output ever looks off
 6. **Fused norm+rope kernels** — vllm-omni states its fast path is not bit-identical to its eager path; ComfyUI's and sglang's fused kernels are the same class of risk and neither has been graded here against an eager reference on this model.
 
 Item 6 is the only one on this list that nothing in this repo currently checks.
+
+---
+
+## 10. Pruned against unpruned: what each path executes, and what you gain
+
+Written 2026-08-29 because "unpruned" reads as "more correct" and, for the
+artifacts on this box, **it is not**. Both fl2va and ref2va exist here in both
+forms; this section traces what each actually runs and measures the difference.
+
+### 10.1 Which path a checkpoint selects, and where
+
+Selection is by **observable, not filename**. `comfy/model_detection.py` looks
+for an `adaln_t_table` key and, finding one, sets `dit_config["adaln_curve_grid"]`
+to its row count. The DiT then branches once at construction:
+
+```
+use_adaln_curves = adaln_curve_grid is not None
+
+pruned    register_buffer("adaln_t_table", [grid, 8] fp32)
+          AdalnProj(apply_silu=False, adaln_dtype=fp32)
+
+unpruned  time_embedder = TimeEmbedder(256 -> 5376 -> 2688), fp32
+          AdalnProj(apply_silu=True,  adaln_dtype=model dtype)
+```
+
+and once per forward, on the distinct timesteps only:
+
+```
+pruned    pos = clamp(t,0,1) * (grid-1)
+          i0  = floor(pos).clamp(max=grid-2)
+          t_emb = lerp(table[i0], table[i0+1], pos-i0)        # [M, 8]
+          -> AdalnProj: linear_8(t_emb)                        # NO SiLU
+
+unpruned  t_emb = time_embedder(t)                             # [M, 2688]
+          -> AdalnProj: linear_2688(SiLU(t_emb))
+```
+
+The dropped `SiLU` is not an optimisation: the table stores the **post-SiLU**
+curve, so applying it again would square the nonlinearity. That is trap #2 in
+§9.13.
+
+### 10.2 What each file actually stores
+
+*measured*, fl2va:
+
+| | pruned | unpruned |
+|---|---|---|
+| file | 19.53 GiB, 932 keys | 31.70 GiB, 1035 keys |
+| `time_embedder` | absent | present, **F32** |
+| `adaln_t_table` | `[1025, 8]` F32 | absent |
+| `blocks.N.adaln_proj.linear.weight` | `(96768, 8)` **F16** | `(96768, 2688)` **I8** |
+
+Note the dtype swap, which is the whole point of this section: pruning does not
+merely shrink the projection, it **moves it out of the quantised set**. Only
+five weight families are int8 in the unpruned file, and `adaln_proj` is one of
+them; in the pruned file it is four, and `adaln_proj` is not.
+
+### 10.3 The measurement
+
+Modulation output for the fifteen distinct timesteps the shipped 8-step PDD
+schedule visits, against the **bf16 release** evaluated in float64 as ground
+truth (*measured*):
+
+| adaln representation | modulation rel-L2, median over the timesteps |
+|---|---|
+| **pruned, F16 rank-8** | **1.9e-4** (blocks 0/25/49: 1.92, 2.11, 2.15 e-4) |
+| **unpruned, I8 full-rank** | **9.3e-4** |
+
+**The pruned checkpoint's modulation is about five times more accurate than the
+unpruned one's.** The rank-8 basis is a very good fit — its residual sits below
+the F16 storage it lives in — while int8 costs more than the truncation saves.
+
+**Caveat on the second row, stated because it is not tight.** That number comes
+from reproducing ComfyUI's per-output-row int8 on the release tensor. It does
+**not** include convrot's rotation, which exists to suppress outliers before
+quantising and should therefore make the shipped file somewhat better than this
+estimate. The 5x gap is wide enough that the ordering is unlikely to flip, but
+the margin is uncertain and a dequantisation of the shipped tensor would settle
+it. Nothing here has done that.
+
+**This does not contradict `evidence.md` #22**, which measured first-step
+*velocity* moving 5.6-9.4% between the two checkpoints. That is the model's
+output after 50 blocks, not the modulation entering them, and it compares two
+files differing in pruning *and* in adaln quantisation at once. The two numbers
+are consistent: a 1e-4 modulation perturbation amplifying to a percent-level
+velocity change across 50 blocks is exactly why a rendered clip cannot A/B a
+numerical knob.
+
+### 10.4 What unpruned actually buys
+
+Not modulation accuracy. Three other things:
+
+1. **PDD's adaln update becomes an ordinary weight patch.** On a pruned base it
+   must either be pre-solved into the rank-8 basis (`--pruned`, residual 1.2e-5
+   to 6.1e-5) or re-injected at run time through 50 forward patches. On an
+   unpruned base `pdd_lora.py` renames the sidecar keys into
+   `diffusion_model.blocks.N.adaln_proj.linear.lora_*` and lets
+   `comfy.lora.load_lora` apply them, with the `applied != loaded` count as its
+   own guard. Simpler path, and the bake residual disappears.
+2. **diffusers and vllm-omni become loadable**, since neither has a curve
+   branch. That is what makes a five-way comparison reachable (§2).
+3. **The time embedder is evaluated exactly** rather than interpolated between
+   two of 1025 grid rows. That gain is already inside the 1.9e-4 above.
+
+### 10.5 What it costs, and the conclusion
+
+12.2 GiB, and — on the evidence above — a 5x worse modulation. ComfyUI's
+dynamic VRAM-to-RAM offload makes 31.70 GiB *runnable* on a 24 GiB card, but
+the adaln projection is touched once per block per step, so it is streamed
+50x8 times per render rather than held.
+
+**So the unpruned file is not the "most correct" DiT, and building a better
+quantised one does not exist as an option** — §7 of this file and the encoder
+lane's headroom record together establish that convrot is deterministic and
+data-free with no calibration to improve, and that the int8 files are
+structurally complete at 534/534 release modules with the release's fp32
+islands preserved.
+
+If the goal is exact modulation, neither file is the answer. The exact AdaLN
+cache in §9.8 is: bf16-exact, ~148 MiB for this schedule, built from the
+release shards that are already on disk. Convert PDD without `--pruned` first —
+that emits the 2688-dim adaln pairs a cache builder needs, and it exercises a
+branch that has never run.
