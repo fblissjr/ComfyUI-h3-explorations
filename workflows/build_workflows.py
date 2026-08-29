@@ -831,6 +831,103 @@ def resolve_default_prompt(task: str, prompt: str | None, *,
     return {"t2v": T2V_PROMPT, "i2v": I2V_PROMPT, "r2v": R2V_PROMPT}[task]
 
 
+
+#: **The description-length pair, and the only controlled test of prompt length
+#: in this repo.** Owner-requested 2026-08-28, after `h3_ref2v_scene_kitchen`
+#: rendered roughly two shots where its prompt asked for four while
+#: `h3_ref2v_scene_subway` honoured all three cuts -- the two differed in
+#: description length among other things, and nothing isolated it.
+#:
+#: **Everything is held except word count.** Same scene, same three shots, same
+#: cut times (00:04.500 and 00:09.000, matching the market arms so the
+#: structure is comparable), same two speakers, same four lines of dialogue
+#: verbatim, same three camera moves verbatim, same subjects, same actions.
+#: The long version ELABORATES existing content -- materials, surfaces, light,
+#: position -- and introduces no new subject, action, camera move or line.
+#: That discipline is the whole experiment: a longer prompt that also adds
+#: content confounds length with complexity and answers nothing.
+#:
+#: **A hardware aisle, chosen for detail density rather than for looking good.**
+#: `docs/eval_comparison.md` records that a scene which cannot express the
+#: defect cannot discriminate it however it is scored, and that the candidate
+#: axis is fine detail near the latent resolution limit rather than delta.
+#: Bins of small fasteners and a pegboard wall are that, in a scene structurally
+#: unlike the produce market so the two are not near-duplicates.
+#:
+#: **Deliberately NOT a marker arm.** No caption, no lyrics, no cutoff -- those
+#: are `h3_ref2v_scene_*`'s job, and a marker here would be a second axis.
+T2V_AISLE_SHORT = """integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a hardware aisle in the afternoon, a pegboard wall of hand tools on the left and open bins of fasteners along a low counter on the right. A clerk in his sixties with a dry, unhurried baritone (S1) stands at the bins with a paper bag open in one hand. The camera trucks left with small amplitude at slow speed as a customer, a woman in her forties with a clipped alto (S2), stops at the counter and says: <d>[English] Quarter inch, or the next size up?</d> Her lips close and she sets a small carton down on the counter edge.
+
+[Shot 2] At 00:04.500, the shot cuts to a close shot of the clerk's hands over an open bin of galvanised bolts, the paper bag held against the rim. The camera holds a static shot. He scoops once, lets the bolts run back into the bin, and answers: <d>[English] The next size up. These will strip on you.</d> His lips close and he folds the top of the bag over twice.
+
+[Shot 3] At 00:09.000, the shot changes to a medium-wide shot of the counter from the aisle, two other customers waiting behind the woman and the pegboard wall receding out of focus. The camera pushes in with small amplitude at slow speed. She takes the bag, weighs it in one hand, and says: <d>[English] Both boxes then. I will come back for the rest.</d> Her lips close and she turns toward the end of the aisle.
+
+overall_soundscape: Steady interior air handling under a high ceiling, the dry rattle of loose metal fasteners settling in a bin, paper creasing, and unhurried footsteps on a sealed concrete floor.
+
+non_diegetic_music: N/A
+"""
+
+#: The long arm. **Same content, elaborated.** Read the two side by side before
+#: changing either: any edit that adds a subject, an action, a camera move or a
+#: line to this one and not to the short one destroys the comparison.
+T2V_AISLE_LONG = """integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a hardware aisle in the afternoon, lit by bare fluorescent tubes in a high open ceiling with daylight reaching the far end from a roller door out of frame. A pegboard wall of hand tools fills the left of frame, wrenches and pliers hung in graded rows on steel hooks with their painted grips turned outward, each tool casting a short hard shadow on the board behind it. Along the right runs a low counter of open bins, galvanised bolts and washers and hex nuts sorted by size, the metal dull and slightly oiled, a folded paper price card wedged at the front of each bin. A clerk in his sixties with a dry, unhurried baritone (S1) stands at the bins in a canvas apron over a checked shirt, sleeves turned back to the forearm, a paper bag open in one hand and his weight settled on one hip. The camera trucks left with small amplitude at slow speed, carrying the pegboard through the foreground, as a customer, a woman in her forties with a clipped alto (S2) in a dark quilted jacket, stops at the counter and says: <d>[English] Quarter inch, or the next size up?</d> Her lips close and she sets a small carton down on the counter edge, one finger still resting on its lid.
+
+[Shot 2] At 00:04.500, the shot cuts to a close shot of the clerk's hands over an open bin of galvanised bolts, the paper bag held against the rim with the thumb hooked inside it, the skin of his knuckles dry and the nails cut short. The camera holds a static shot. He scoops once, tips his palm, and lets the bolts run back into the bin in a thin bright stream that separates into individual threads as it falls, and answers: <d>[English] The next size up. These will strip on you.</d> His lips close and he folds the top of the bag over twice, creasing each fold flat with his thumbnail.
+
+[Shot 3] At 00:09.000, the shot changes to a medium-wide shot of the counter from the aisle, two other customers waiting a pace behind the woman, one holding a length of chain and one with both hands in his pockets, the pegboard wall receding out of focus toward the back of the store. The camera pushes in with small amplitude at slow speed, the bins passing close on the right of frame. She takes the bag, weighs it in one hand, and says: <d>[English] Both boxes then. I will come back for the rest.</d> Her lips close and she turns toward the end of the aisle, the bag swinging once against her thigh.
+
+overall_soundscape: Steady interior air handling under a high open ceiling, the dry rattle of loose metal fasteners settling in a bin and the finer ring of a few running back into the pile, paper creasing twice under a thumb, and unhurried footsteps on a sealed concrete floor with a faint echo off the roof.
+
+non_diegetic_music: N/A
+"""
+
+
+#: **The second description-length pair, on a different scene.** Owner-requested
+#: alongside the aisle pair: "a different scene entirely. not a market. just one
+#: with the same type of shit happening in it."
+#:
+#: **Two scenes rather than one is the point.** A length effect seen on a single
+#: scene is a fact about that scene. Two independent scenes carrying the same
+#: manipulation is the difference between an anecdote and a result, and it costs
+#: two more renders rather than a new design.
+#:
+#: A sorting line: mixed recyclables on a moving belt, four workers picking.
+#: Chosen to match the aisle pair on what is being tested -- many small
+#: high-contrast objects near the latent resolution limit, people moving through
+#: a wide frame -- while sharing nothing of its setting, palette or lighting.
+#: The belt also supplies continuous independent object motion, which the aisle
+#: does not, so the pairs differ on that axis deliberately.
+#:
+#: Same discipline as the aisle: identical dialogue, camera moves, cut times,
+#: shot structure and subjects across the two lengths. The long arm elaborates
+#: and does not extend.
+T2V_SORTLINE_SHORT = """integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a sorting line in a recycling hall, a wide rubber belt running left to right through the frame loaded with mixed plastics, flattened cans and paper, four workers in high-visibility vests standing along its far side picking items into chutes behind them. A supervisor in her fifties with a flat, carrying alto (S1) walks the near side of the belt with a tablet under one arm. The camera trucks right with small amplitude at slow speed, following the belt, as she looks along the line and says: <d>[English] Slow it a notch, we are losing the film plastic.</d> Her lips close and she taps twice on the tablet without looking down.
+
+[Shot 2] At 00:04.500, the shot cuts to a close shot of the belt surface from above, items passing under two pairs of gloved hands that pick and release in short movements. The camera holds a static shot. A worker with a light, quick tenor (S2) answers from off screen: <d>[English] Taking it down now. Watch the third chute.</d> A gloved hand lifts a clear bottle clear of the belt and drops it left out of frame.
+
+[Shot 3] At 00:09.000, the shot changes to a wide shot down the length of the line, the belt receding toward stacked bales at the far wall under high roof lights, all four workers still picking. The camera pulls out with small amplitude at slow speed. The supervisor steps back from the belt, still watching it, and says: <d>[English] Better. Keep it there until the break.</d> Her lips close and she turns along the line toward the bales.
+
+overall_soundscape: A wide rubber belt running continuously under a high metal roof, plastic and aluminium tumbling and knocking against each other, the hollow drop of items into chutes, and a low motor hum with occasional footsteps on a steel walkway.
+
+non_diegetic_music: N/A
+"""
+
+#: The long arm of the sorting-line pair. **Same content, elaborated.**
+T2V_SORTLINE_LONG = """integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a sorting line in a recycling hall, lit from a high metal roof by rows of cold overhead lamps with the far end of the building falling into haze. A wide rubber belt runs left to right through the frame, its surface scuffed pale along the centre where the load rides, carrying mixed plastics in blue and green and clear, flattened aluminium cans, and folded paper that lifts slightly at the edges as it moves. Four workers in high-visibility vests over dark work clothes stand along the far side, gloved to the wrist, picking items into steel chutes set behind them at hip height, each of them working a different fraction of the width. A supervisor in her fifties with a flat, carrying alto (S1) walks the near side in a vest over a grey fleece, a tablet held under one arm and a pen clipped at her collar. The camera trucks right with small amplitude at slow speed, following the belt so the load stays roughly stationary in frame while the hall slides behind it, as she looks along the line and says: <d>[English] Slow it a notch, we are losing the film plastic.</d> Her lips close and she taps twice on the tablet without looking down at it.
+
+[Shot 2] At 00:04.500, the shot cuts to a close shot of the belt surface from above, the rubber grain visible between items, mixed containers and paper passing under two pairs of gloved hands that pick and release in short economical movements, the glove fabric darkened at the fingertips. The camera holds a static shot. A worker with a light, quick tenor (S2) answers from off screen: <d>[English] Taking it down now. Watch the third chute.</d> A gloved hand lifts a clear bottle clear of the belt, turns it once to check the neck, and drops it left out of frame, and the belt visibly eases as the load spaces out.
+
+[Shot 3] At 00:09.000, the shot changes to a wide shot down the length of the line, the belt receding toward stacked and strapped bales at the far wall under the high roof lights, the bales colour-sorted so the stack reads as bands of blue and clear and grey. All four workers are still picking, their movements no longer synchronised now the belt has slowed. The camera pulls out with small amplitude at slow speed, taking in the walkway rail in the near foreground. The supervisor steps back from the belt, still watching it, and says: <d>[English] Better. Keep it there until the break.</d> Her lips close and she turns along the line toward the bales, the tablet swinging down to her side.
+
+overall_soundscape: A wide rubber belt running continuously under a high metal roof, plastic and aluminium tumbling and knocking against each other with the lighter paper making almost no sound, the hollow drop of items into steel chutes at irregular intervals, and a low motor hum that drops in pitch partway through, with occasional footsteps on a steel walkway.
+
+non_diegetic_music: N/A
+"""
+
 MARKET_REF_IMAGES = ("dirk_runway2.jpeg",)
 
 MARKET_REF2V_PROMPT = """subject_definitions:
@@ -6742,6 +6839,45 @@ def main():
                   "one converted file serves both step counts; the heads "
                   "are fused at load for whichever is asked.")),
          "text -> video + audio at 8 steps via PDD, sage on"),
+
+        # **The description-length pair.** Same PDD 4-step settings as the other
+        # t2v PDD arms, so length is the only thing that differs from each
+        # other AND the configuration is the one artifacts show up in. See the
+        # constants for what is held; the short arm is 294 words and the long
+        # 513, a 1.74x ratio, with identical dialogue, camera moves, cut times
+        # and shot structure.
+        *[
+            (f"h3_text_to_video_aisle_{tag}.json", f"t2v-aisle-{tag}", "t2v",
+             prompt,
+             dict(pdd=True, sampler_name="euler",
+                  lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
+                  out_prefix=f"Video/h3_t2v_aisle_{tag}"),
+             note)
+            for tag, prompt, note in (
+                ("short", T2V_AISLE_SHORT,
+                 "the hardware aisle at 294 words -- the control arm of the "
+                 "description-length pair"),
+                ("long", T2V_AISLE_LONG,
+                 "the same scene at 513 words, elaborated and not extended -- "
+                 "no new subject, action, camera move or line"))
+        ],
+
+        # The second pair, different scene, same manipulation. Two independent
+        # scenes is what separates a length effect from a fact about one scene.
+        *[
+            (f"h3_text_to_video_sortline_{tag}.json", f"t2v-sortline-{tag}",
+             "t2v", prompt,
+             dict(pdd=True, sampler_name="euler",
+                  lora=(PDD_FL2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
+                  out_prefix=f"Video/h3_t2v_sortline_{tag}"),
+             note)
+            for tag, prompt, note in (
+                ("short", T2V_SORTLINE_SHORT,
+                 "the sorting line at normal length -- control arm of the "
+                 "second description-length pair"),
+                ("long", T2V_SORTLINE_LONG,
+                 "the same sorting line elaborated, no new content"))
+        ],
 
         ("h3_text_to_video_pdd_4step.json", "texttovideopdd4step", "t2v", LONG_T2V_PROMPT,
          dict(pdd=True, sampler_name="euler",

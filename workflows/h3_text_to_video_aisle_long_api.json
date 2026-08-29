@@ -1,0 +1,256 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+      "type": "minimax",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_fp16.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "6": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 730451892
+    }
+  },
+  "7": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "23",
+        0
+      ],
+      "conditioning": [
+        "26",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "6",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "7",
+        0
+      ],
+      "sigmas": [
+        "18",
+        1
+      ],
+      "latent_image": [
+        "26",
+        1
+      ]
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "audio": [
+        "12",
+        0
+      ],
+      "frame_rate": 24.0,
+      "loop_count": 0,
+      "filename_prefix": "Video/h3_t2v_aisle_long",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true
+    }
+  },
+  "27": {
+    "class_type": "MiniMaxH3Resolution",
+    "inputs": {
+      "shape": "wide",
+      "shape.wide_resolution": "1344x768  7/4  1008 tok/frame  1.00x",
+      "length": 362
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3Conditioning",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "integrated_multimodal_description:\n[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a hardware aisle in the afternoon, lit by bare fluorescent tubes in a high open ceiling with daylight reaching the far end from a roller door out of frame. A pegboard wall of hand tools fills the left of frame, wrenches and pliers hung in graded rows on steel hooks with their painted grips turned outward, each tool casting a short hard shadow on the board behind it. Along the right runs a low counter of open bins, galvanised bolts and washers and hex nuts sorted by size, the metal dull and slightly oiled, a folded paper price card wedged at the front of each bin. A clerk in his sixties with a dry, unhurried baritone (S1) stands at the bins in a canvas apron over a checked shirt, sleeves turned back to the forearm, a paper bag open in one hand and his weight settled on one hip. The camera trucks left with small amplitude at slow speed, carrying the pegboard through the foreground, as a customer, a woman in her forties with a clipped alto (S2) in a dark quilted jacket, stops at the counter and says: <d>[English] Quarter inch, or the next size up?</d> Her lips close and she sets a small carton down on the counter edge, one finger still resting on its lid.\n\n[Shot 2] At 00:04.500, the shot cuts to a close shot of the clerk's hands over an open bin of galvanised bolts, the paper bag held against the rim with the thumb hooked inside it, the skin of his knuckles dry and the nails cut short. The camera holds a static shot. He scoops once, tips his palm, and lets the bolts run back into the bin in a thin bright stream that separates into individual threads as it falls, and answers: <d>[English] The next size up. These will strip on you.</d> His lips close and he folds the top of the bag over twice, creasing each fold flat with his thumbnail.\n\n[Shot 3] At 00:09.000, the shot changes to a medium-wide shot of the counter from the aisle, two other customers waiting a pace behind the woman, one holding a length of chain and one with both hands in his pockets, the pegboard wall receding out of focus toward the back of the store. The camera pushes in with small amplitude at slow speed, the bins passing close on the right of frame. She takes the bag, weighs it in one hand, and says: <d>[English] Both boxes then. I will come back for the rest.</d> Her lips close and she turns toward the end of the aisle, the bag swinging once against her thigh.\n\noverall_soundscape: Steady interior air handling under a high open ceiling, the dry rattle of loose metal fasteners settling in a bin and the finer ring of a few running back into the pile, paper creasing twice under a thumb, and unhurried footsteps on a sealed concrete floor with a faint echo off the roof.\n\nnon_diegetic_music: N/A\n",
+      "width": [
+        "27",
+        0
+      ],
+      "height": [
+        "27",
+        1
+      ],
+      "length": [
+        "27",
+        2
+      ],
+      "canvas": "explicit"
+    }
+  },
+  "18": {
+    "class_type": "MiniMaxH3PDDLoRA",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+      "strength": 1.0,
+      "patch_heads": true,
+      "nfe": 0,
+      "steps": [
+        "61",
+        0
+      ]
+    }
+  },
+  "61": {
+    "class_type": "PrimitiveInt",
+    "inputs": {
+      "value": 4
+    }
+  },
+  "19": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "18",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "20": {
+    "class_type": "MiniMaxH3SageAttention",
+    "inputs": {
+      "model": [
+        "19",
+        0
+      ],
+      "mode": "auto",
+      "patch_token_refiner": false,
+      "head_chunks": 1
+    }
+  },
+  "21": {
+    "class_type": "SolAttnMiniMax",
+    "inputs": {
+      "model": [
+        "20",
+        0
+      ],
+      "selection": "adaptive tau",
+      "selection.tau": 1.0,
+      "start_percent": 0.2,
+      "end_percent": 0.74,
+      "min_tokens": 12288,
+      "sink_conditioning": "exact_kv_and_rows",
+      "morton": false,
+      "morton_curve": "3d",
+      "centroid_tail": true,
+      "reuse_qkv_memory": false,
+      "verbose": false,
+      "dense_blocks": "0-1"
+    }
+  },
+  "23": {
+    "class_type": "SageChainAssert",
+    "inputs": {
+      "model": [
+        "21",
+        0
+      ],
+      "require_override": true,
+      "require_forward_patch": true,
+      "exercise": true,
+      "warn_only": false
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3Preflight",
+    "inputs": {
+      "conditioning": [
+        "5",
+        0
+      ],
+      "samples": [
+        "5",
+        1
+      ]
+    }
+  }
+}
