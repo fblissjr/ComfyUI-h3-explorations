@@ -19,6 +19,20 @@ follow, and they change several rows below:
   local hybrid this file credits as shipped handling is wired and dormant, and
   the reference path that actually runs is native ComfyUI end to end.
 
+**Also corrected 2026-08-29: gap 7 is withdrawn, and it was never real.** A
+mono reference does not raise -- core has upmixed it since `57500fc5`, the
+commit that added H3 support, eighteen days before this file said otherwise.
+Section 7 has the mechanism and the measurement.
+
+**That one is worth reading as a fact about this document, not just about
+mono.** This file's opening rule is "if this file disagrees with an owner, the
+owner is right". Gap 7 did not disagree with its owner; it faithfully reproduced
+an owner that was wrong, and a gate agreed with both by verifying the claim
+against a hand-built latent instead of a real encode. **Deferring to an owner is
+not a substitute for the owner having run anything**, and three artifacts
+agreeing with each other is not three pieces of evidence. Gap 5 below survived
+the same scrutiny on 2026-08-29 and gap 15 was found while applying it.
+
 `MiniMaxH3EncoderLoader` (`h3_encoder_loader.py`, 2026-08-29) is what would
 make `encoder` reachable on a native artifact — it stamps a contract derived
 from core's own signatures. No shipped graph wires it yet, because doing so
@@ -107,7 +121,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 2 | Reference video frame rate assumed, not enforced | behavioural | open | typed nodes normalize from owned loader metadata; shipped graphs also retain and check `force_rate=24` |
 | 3 | Reference image floor (`min_pixels`) | config | open | preflight reports the divergence; no general runtime parity implementation |
 | 4 | Reference image ceiling (`max_pixels`) | config | open | `MiniMaxH3ReferenceConditioning.image_policy` can opt in to one declared ceiling for both towers, off by default; core remains unchanged. **Corrected 2026-08-29**: the shipped encoder is no longer the W4 artifact, so the binding ceiling is core's 12,845,056 px, which no shipped graph reaches. What splits the two towers now is `qwen_short_edge`, deliberately, on 80 of 89 append nodes |
-| 5 | Reference soundtracks not truncated | behavioural | open | all shipped graphs now use typed internal caps; native socket graphs remain exposed unless they trim upstream |
+| 5 | Reference soundtracks not truncated | behavioural | open, **measured 2026-08-29**: 15 s against a 5.167 s target is 786 excess rows | all shipped graphs now use typed internal caps; native socket graphs remain exposed unless they trim upstream |
 | 6 | Reference media never upscaled, and never reported | behavioural | sizing divergence remains; native path does not report the choice | fit nodes report it; the typed conditioner has an opt-in atomic release-video policy, while shipped defaults remain native-compatible |
 | 7 | ~~Mono reference audio raises~~ **withdrawn**; multichannel silently truncated | behavioural | **mono: not a gap, core upmixes.** Multichannel: open | typed nodes refuse >2 channels; core keeps the first two silently |
 | 8 | VAE encode precision, and mean vs sample | behavioural | open | measured only; no claimed fix |
@@ -530,6 +544,20 @@ the reference span and pushes the target streams down the timeline. Both
 independent reviews reach this (`internal/codex/2026-08-21_h3-conditioning-qwen-independent-review.md`
 section 5.3; the cursor formula is in `internal/gemini/minimax_h3_comfyui_end_to_end_trace_and_gap_analysis.md`).
 
+**Confirmed at the real entry point 2026-08-29**, deliberately, because gap 7
+next door turned out never to have been true and the two were filed on the same
+reasoning. Run against the real audio VAE through `_encode_ref_audio` itself
+rather than by reading it:
+
+| soundtrack | `ref_audio_t` | rows | excess over the target's 414 |
+|---|---|---|---|
+| 5 s | 200 | 400 | 0 |
+| 15 s | 600 | 1,200 | **786** |
+
+against the node's default 124-frame target (5.167 s, `audio_t` 207). **Gap 5 is
+real**, nothing in core trims, and the excess is attended at every sampling
+step.
+
 **Native ComfyUI status: open. Handling in this repo:** every shipped graph now
 uses the typed compiler, which derives duration from aligned `frame_count` and
 slices every video soundtrack and standalone reference internally. The former
@@ -802,6 +830,15 @@ owns those numbers.
 - **What sglang does with a reference video shorter than its aligned target**:
   **read, not verified.** It truncates with `ffmpeg -frames:v`; whether the
   encoder then re-aligns was not traced. Cheap to close.
+- **Mono reference audio on native core**: **works, and always did.** Core
+  upmixes in `comfy.sd.VAE.encode` (`vae_encode_crop_pixels`, with the H3 audio
+  VAE declaring `output_channels = 2, pad_channel_value = "replicate"`), which
+  shipped in the H3 support commit. Measured 2026-08-29:
+  [`../bench/results/2026-08-29_ref_audio_channels.json`](../bench/results/2026-08-29_ref_audio_channels.json).
+  A mono source reaches the DiT as exact dual-mono -- the audio VAE treats
+  stereo as a batch axis with no cross-channel coupling, so the two latent
+  channels are bitwise identical, at the two `w`-grid extremes. sglang's `-ac 2`
+  does the same. **Do not re-file this as a gap.**
 
 ---
 

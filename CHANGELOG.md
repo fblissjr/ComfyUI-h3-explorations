@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.96.0
+
+### Changed
+
+- **`comfyui_vendor_gaps.md` brought up to date with the audio work.** Gap 7's
+  withdrawal is now flagged at the top rather than only in its section, because
+  it changes the summary table; gap 5 carries its measurement (15 s against a
+  5.167 s target is 786 excess rows) in both the table and the section; gap 15
+  is added; and mono is recorded under Settled with "do not re-file this as a
+  gap".
+- **And the top block says what gap 7 means for this file specifically.** Its
+  opening rule is "if this file disagrees with an owner, the owner is right".
+  Gap 7 did not disagree with its owner -- it faithfully reproduced an owner
+  that was wrong, and a gate agreed with both by verifying the claim against a
+  hand-built latent instead of a real encode. Deferring to an owner is not a
+  substitute for the owner having run anything, and three artifacts agreeing
+  with each other is not three pieces of evidence. Recorded there because the
+  file's premise is exactly what failed.
+
 ## 0.95.0
 
 ### Measured
