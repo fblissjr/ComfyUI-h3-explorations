@@ -19,6 +19,16 @@ artifact.
   adapter accepts are shaped identically and differ only in these files, so
   until now nothing downstream of the bind could say which still-image budget a
   render had run under.
+- **A "where each file comes from" section at the top of `h3_awq_encoder.py`**,
+  answering the question the module previously only answered by tracing: the
+  checkpoint supplies weights and a copy of its own `config.json` in its
+  safetensors metadata, and every processor, tokenizer and geometry setting is
+  read from a `config/` snapshot selected by matching that metadata. It states
+  that the load path never sees the filename, and that `ARTIFACT_SNAPSHOTS` --
+  which is keyed by filename -- serves only the static readers, so a renamed
+  artifact loads under its own snapshot and is priced under the name's.
+  `bench/build_h3_awq_standalone.py` carries the standalone-correct variant,
+  which says the configs are embedded rather than read from a directory.
 
 ### Changed
 

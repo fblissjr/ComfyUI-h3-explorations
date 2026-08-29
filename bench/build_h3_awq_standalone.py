@@ -113,6 +113,49 @@ The source stays symlinked under ``models/text_encoders``.  Adaptation is
 in-memory and view-based for the 4-bit weights; it does not write a second
 multi-gigabyte checkpoint.  The authoritative small source configs are
 snapshotted under ``config/qwen3vl_32b_minimax_h3_w4a16_awq``.
+
+Where each file comes from when this node runs in ComfyUI
+---------------------------------------------------------
+The checkpoint selected in the node is one ``.safetensors`` under
+``models/text_encoders``.  It carries the weights and, in its safetensors
+metadata, a copy of its own ``config.json``; nothing else.  Every processor,
+tokenizer and geometry setting is read from a config snapshot committed under
+``config/`` in this repo -- never out of the checkpoint, and never from a
+directory beside it, because there is no directory beside it.
+
+Which snapshot answers is decided by CONTENT, not by the filename selected::
+
+    <selected>.safetensors
+      -> safetensors __metadata__["config"]  (stamped by convert_h3_awq_candidate.py)
+      -> compared for equality against every config/*/config.json
+      -> the directory that matches IS the snapshot; no match refuses the load
+
+and every later read goes to that one directory::
+
+    processor_config.json | preprocessor_config.json   still-image processor
+    video_preprocessor_config.json                     Qwen video block patches
+    tokenizer_config.json                              the H3 special-token list
+    config.json                                        depth, dtype, W4A16 contract
+
+The still settings sit under whichever of the first two the artifact carries,
+nested in an ``image_processor`` object or flat at the top level;
+``_still_config_name`` owns that branch, and ``_validate_native_tokenizer``
+owns the matching one for the token list's key.
+
+**Renaming the checkpoint changes nothing here, and one thing elsewhere.**
+The load path never sees the filename -- ``_validate_metadata`` is handed the
+metadata alone -- so a renamed or copied artifact still loads under its own
+snapshot.  ``ARTIFACT_SNAPSHOTS`` below IS keyed by filename, but no part of
+the load path reads it; it serves the static readers
+(``bench/preflight_graph.py``) that see a graph's ``encoder_name`` string and
+never open the file.  So renaming an artifact to another generation's name
+loads it correctly and PRICES it as the other one, and that is the only place
+the two answers disagree.
+
+The generations differ in exactly these config files, the still-image budget
+most of all.  ``install_source_processors`` logs the snapshot it bound and the
+values it took from each file at every bind; read that record rather than
+inferring the budget from a filename.
 '''
 
 _STANDALONE_DOC = '''This is deliberately a custom loader instead of a patch to ``CLIPLoader``.
@@ -127,6 +170,32 @@ write a second multi-gigabyte checkpoint.  Its four small runtime configs are
 embedded from one versioned ComfyUI-h3-explorations snapshot, and this build
 answers for that artifact alone: a checkpoint whose embedded config differs is
 refused rather than loaded under the wrong preprocessing.
+
+Where each file comes from when this node runs in ComfyUI
+---------------------------------------------------------
+The checkpoint selected in the node is one ``.safetensors`` under
+``models/text_encoders``.  It carries the weights and, in its safetensors
+metadata, a copy of its own ``config.json``.  The processor, tokenizer and
+geometry settings are not read from it, and not from any directory: they are
+the four configs embedded in THIS file at build time, held in
+``_EMBEDDED_CONFIG_TEXT`` and digested in ``_EMBEDDED_CONFIG_SHA256``::
+
+    <selected>.safetensors
+      -> safetensors __metadata__["config"]
+      -> compared for equality against the embedded config.json
+      -> equal loads; anything else is refused rather than loaded under the
+         wrong preprocessing
+
+    processor_config.json | preprocessor_config.json   still-image processor
+    video_preprocessor_config.json                     Qwen video block patches
+    tokenizer_config.json                              the H3 special-token list
+    config.json                                        depth, dtype, W4A16 contract
+
+Renaming the checkpoint changes nothing: the load path is handed the
+safetensors metadata alone and never sees the filename.
+
+``install_source_processors`` logs which configs it bound and the values it
+took from each of them at every bind.
 '''
 
 _STANDALONE_FOOTER = f'''
