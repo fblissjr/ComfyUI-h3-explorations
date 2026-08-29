@@ -79,16 +79,27 @@ def _snapshot_has(snapshot, name: str) -> bool:
     return (Path(snapshot) / name).is_file()
 
 
-def _still_settings(snapshot=None) -> dict:
-    """This artifact's still-image processor settings, whatever it calls them."""
+def _still_config_name(snapshot=None) -> str:
+    """Which of ``STILL_CONFIG_NAMES`` this artifact actually carries.
+
+    Split out of :func:`_still_settings` so the bind-time report can name the
+    file it read instead of restating the branch. Which one answered is the
+    first thing to check when a reference arrives at an unexpected size: the
+    two filenames belong to generations that disagree about the bounds inside.
+    """
     for name in STILL_CONFIG_NAMES:
         if _snapshot_has(snapshot, name):
-            cfg = _snapshot_json(snapshot, name)
-            return dict(cfg.get("image_processor", cfg))
+            return name
     raise FileNotFoundError(
         f"{snapshot or CONFIG_SOURCE} carries none of {STILL_CONFIG_NAMES}; a "
         "snapshot must be copied from the artifact's own files."
     )
+
+
+def _still_settings(snapshot=None) -> dict:
+    """This artifact's still-image processor settings, whatever it calls them."""
+    cfg = _snapshot_json(snapshot, _still_config_name(snapshot))
+    return dict(cfg.get("image_processor", cfg))
 
 
 def _snapshot_dirs(root=None) -> tuple:
@@ -135,14 +146,18 @@ def _resolve_snapshot(embedded: dict, root=None):
     )
 
 
-def _quant_contract(snapshot=None) -> dict:
-    cfg = _snapshot_json(snapshot, "config.json")
+def _quant_declaration(cfg: dict) -> dict:
+    """The W4A16 fields a config declares, in the form the contract compares.
+
+    One extraction, read by the check below and by the bind-time report, so the
+    report cannot describe a different set of fields than the one enforced.
+    """
     group = ((cfg.get("quantization_config") or {}).get("config_groups") or {}).get(
         "group_0", {}
     )
     weights = group.get("weights") or {}
     text = cfg.get("text_config") or {}
-    required = {
+    return {
         "format": group.get("format"),
         "bits": weights.get("num_bits"),
         "group_size": weights.get("group_size"),
@@ -151,6 +166,12 @@ def _quant_contract(snapshot=None) -> dict:
         "text_dtype": text.get("dtype"),
         "hidden_size": text.get("hidden_size"),
     }
+
+
+def _quant_contract(snapshot=None) -> dict:
+    cfg = _snapshot_json(snapshot, "config.json")
+    text = cfg.get("text_config") or {}
+    required = _quant_declaration(cfg)
     expected = {
         "format": "pack-quantized", "bits": 4, "group_size": GROUP_SIZE,
         "symmetric": True, "strategy": "group", "text_dtype": "bfloat16",
@@ -741,6 +762,61 @@ def _source_video_block_patches(frames, device, snapshot=None):
     return flatten, grid
 
 
+def _describe(settings: dict) -> str:
+    """Every key/value of one config block, in a stable order."""
+    return ", ".join(f"{key}={settings[key]!r}" for key in sorted(settings))
+
+
+def _source_configs_report(snapshot, bounds: tuple[int, int],
+                           overridden: bool) -> str:
+    """Which config files this bind read, and the values it took from each.
+
+    Unconditional, because the artifact generations this adapter accepts are
+    shaped identically and differ ONLY in these files -- the still-image budget
+    alone moves a 1344x768 reference between a few hundred and a few thousand
+    merged tokens, and nothing downstream of the bind can tell you which budget
+    it ran under. Every value is read back out of the file at the moment it is
+    bound, so this is the artifact's own declaration and not a second copy of
+    one.
+    """
+    source = CONFIG_SOURCE if snapshot is None else str(snapshot)
+    lines = [f"[h3-awq] source configs bound from {source}"]
+
+    still_name = _still_config_name(snapshot)
+    raw = _snapshot_json(snapshot, still_name)
+    shape = "image_processor object" if "image_processor" in raw else "flat"
+    lines.append(f"[h3-awq]   still  {still_name} ({shape}): "
+                 + _describe(_still_settings(snapshot)))
+
+    video_name = "video_preprocessor_config.json"
+    lines.append(f"[h3-awq]   video  {video_name}: "
+                 + _describe(_snapshot_json(snapshot, video_name)))
+
+    tokenizer_name = "tokenizer_config.json"
+    tokenizer = _snapshot_json(snapshot, tokenizer_name)
+    key = ("extra_special_tokens" if tokenizer.get("extra_special_tokens")
+           else "additional_special_tokens")
+    declared = tokenizer.get(key) or []
+    lines.append(f"[h3-awq]   tokens {tokenizer_name}: {len(declared)} special "
+                 f'tokens under "{key}", H3 markers {declared[13:]}')
+
+    config_name = "config.json"
+    cfg = _snapshot_json(snapshot, config_name)
+    layers = (cfg.get("text_config") or {}).get("num_hidden_layers")
+    consumed = min(H3_LAYERS, layers) if isinstance(layers, int) else None
+    lines.append(f"[h3-awq]   model  {config_name}: {layers} decoder layers, "
+                 f"first {consumed} consumed by H3, storage "
+                 f"dtype={cfg.get('dtype')!r}, " + _describe(_quant_declaration(cfg)))
+
+    budget = f"[h3-awq]   still-image budget in force: {bounds[0]}..{bounds[1]} px"
+    if overridden:
+        declared_lo, declared_hi = source_image_pixel_bounds(snapshot)
+        budget += (" -- OVERRIDDEN for this CLIP instance; the artifact still "
+                   f"declares {declared_lo}..{declared_hi}")
+    lines.append(budget)
+    return "\n".join(lines)
+
+
 def install_source_processors(clip, image_bounds: tuple[int, int] | None = None,
                               snapshot=None) -> None:
     """Bind source-config preprocessing to this CLIP instance only.
@@ -786,12 +862,12 @@ def install_source_processors(clip, image_bounds: tuple[int, int] | None = None,
     contract = snapshot_contract(snapshot)
     contract["image_bounds"] = tuple(bounds)
     model._h3_encoder_contract = contract
-    if image_bounds is not None:
+    try:
         logger.info(
-            "[h3-awq] still-image budget overridden to %d..%d px for this CLIP "
-            "instance; the artifact still declares %d..%d",
-            bounds[0], bounds[1], *source_image_pixel_bounds(snapshot),
+            "%s", _source_configs_report(snapshot, bounds, image_bounds is not None)
         )
+    except Exception as exc:  # a report may not be the thing that fails a load
+        logger.info("[h3-awq] could not report the bound source configs: %r", exc)
 
 
 def _validate_loaded_state_contract(clip, provided_shapes: dict[str, tuple]) -> None:

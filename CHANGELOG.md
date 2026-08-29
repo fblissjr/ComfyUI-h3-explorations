@@ -4,6 +4,31 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.87.0
+
+### Added
+
+- **`h3_awq_encoder.py` says which config files it bound and what it took from
+  each**, once per bind, unconditionally. The still-image processor's file
+  (`processor_config.json` or `preprocessor_config.json`, whichever the
+  artifact carries, and whether the settings sit nested or flat) with the
+  settings handed to the processor; `video_preprocessor_config.json` as read;
+  the special-token list in `tokenizer_config.json` with the key it came from
+  and the seven H3 markers; and `config.json`'s declared depth, how much of it
+  H3 consumes, its storage dtype and its W4A16 fields. The generations this
+  adapter accepts are shaped identically and differ only in these files, so
+  until now nothing downstream of the bind could say which still-image budget a
+  render had run under.
+
+### Changed
+
+- The still-image budget override notice folded into that record instead of
+  logging separately. The record names the budget in force and, when it was
+  overridden for one CLIP instance, what the artifact still declares.
+- `_still_settings` and `_quant_contract` now read through `_still_config_name`
+  and `_quant_declaration`, so the report cites the same file choice and the
+  same field set the loader enforces rather than a second copy of either.
+
 ## 0.86.0
 
 ### Corrected by measurement
