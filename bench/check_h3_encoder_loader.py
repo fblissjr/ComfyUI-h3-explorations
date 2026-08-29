@@ -53,7 +53,35 @@ loader = importlib.import_module(f"{REPO.name}.h3_encoder_loader")
 geometry = importlib.import_module(f"{REPO.name}.reference_geometry")
 vendor_config = importlib.import_module(f"{REPO.name}.vendor_config")
 
-ENCODER = COMFY / "models" / "text_encoders" / "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
+ENCODERS_DIR = COMFY / "models" / "text_encoders"
+
+
+def _core_loaded_encoders() -> list:
+    """Every encoder this node is FOR, read from `h3_config` rather than named.
+
+    **Derived because naming one was the wrong population.** This file swept
+    `int8_convrot` alone until 2026-08-29 and passed -- but the node's real
+    population is `CORE_LOADED_ENCODERS`, which is also `nvfp4_awq`, and that
+    one had never been through the guards. It happened to pass. An instrument
+    that covers one member of a set it does not consult reads as coverage
+    without being it, and a third core-loadable encoder would have joined the
+    menu with nothing checking it. Loaded by path so nothing joins `sys.path`.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_h3_config_population", REPO / "workflows" / "h3_config.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return [ENCODERS_DIR / name
+            for name in sorted(getattr(module, "CORE_LOADED_ENCODERS", ()))
+            if (ENCODERS_DIR / name).exists()]
+
+
+#: The one the mutations run against. Which member does not matter -- they
+#: exercise the guard, not the artifact -- so this is the file the shipped
+#: graphs name, and it is asserted to be in the population above.
+ENCODER = ENCODERS_DIR / "qwen3vl_32b_minimax_h3_int8_convrot.safetensors"
 
 
 def _with_incomplete_checkpoint(mutate):
@@ -127,17 +155,28 @@ def token_ids_refuse_a_malformed_declaration():
         raise AssertionError(f"accepted a {label} special-token declaration")
 
 
-def the_shipped_encoder_passes_every_guard():
-    """The control. A guard that refuses the real artifact is worse than none."""
+def every_core_loadable_encoder_passes_every_guard():
+    """The control, over the whole population. A guard that refuses a real
+    artifact is worse than none, and "a real artifact" is every file this node
+    is for -- not the one that happened to get written into this test."""
+    population = _core_loaded_encoders()
+    assert population, "no core-loadable H3 encoder is installed"
+    assert ENCODER in population, (
+        f"{ENCODER.name} is not in CORE_LOADED_ENCODERS; the mutation arm "
+        "runs against a file this node is not for")
     started = time.monotonic()
-    clip = loader.load_guarded_clip(str(ENCODER), None)
-    contract = geometry.encoder_contract_from_clip(clip)
-    assert contract is not None, "the loader did not stamp a contract"
-    assert contract == loader.native_encoder_contract(), contract
-    # The point of stamping: `encoder` stops being silently downgraded.
-    assert geometry.effective_policy("encoder", contract) == "encoder"
-    assert geometry.effective_policy("encoder", None) == "comfy"
-    return f"loaded and verified in {time.monotonic() - started:.1f}s"
+    for path in population:
+        clip = loader.load_guarded_clip(str(path), None)
+        contract = geometry.encoder_contract_from_clip(clip)
+        assert contract is not None, f"{path.name}: no contract stamped"
+        # Derived from ComfyUI's code path, so it does not vary by artifact.
+        assert contract == loader.native_encoder_contract(), (path.name, contract)
+        # The point of stamping: `encoder` stops being silently downgraded.
+        assert geometry.effective_policy("encoder", contract) == "encoder"
+        assert geometry.effective_policy("encoder", None) == "comfy"
+        del clip
+    names = ", ".join(path.name.replace("qwen3vl_32b_minimax_h3_", "") for path in population)
+    return f"{len(population)} encoders ({names}) in {time.monotonic() - started:.1f}s"
 
 
 def an_incomplete_checkpoint_cannot_load_quietly():
@@ -203,7 +242,7 @@ def main(argv=None) -> int:
     cases = [
         ("contract derived from comfy", contract_is_derived_from_comfy_not_declared),
         ("special-token arithmetic", token_ids_refuse_a_malformed_declaration),
-        ("shipped encoder passes", the_shipped_encoder_passes_every_guard),
+        ("every core-loadable encoder passes", every_core_loadable_encoder_passes_every_guard),
         ("incomplete checkpoints red", an_incomplete_checkpoint_cannot_load_quietly),
     ]
     ok = True
