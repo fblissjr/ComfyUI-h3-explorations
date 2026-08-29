@@ -50,11 +50,45 @@ bad, that is probably the floor rather than an answer about prompt length —
 the PDD session's 241-frame arms are the ones that tell us which. So do not
 read "both look bad" as "length does not matter".
 
-### Not mine, running in the same queue
+### The PDD session's arms
 
-The PDD session has duration-control arms at 241 frames, and the audio session
-has a carry probe. Their naming is theirs; ask them. Both were told what is in
-this file.
+**Watch these two before the four aisle/sortline clips**, because they decide
+whether those four can be read at all.
+
+| file starts with | tests | if it looks GOOD | if it looks BAD |
+|---|---|---|---|
+| `shotablation_shots13_241f_` | **the duration control.** The exact two shots you already called great, re-rendered on a 10 s canvas so each shot gets ~5 s again instead of ~7.5 s | **Total content demanded is the variable.** The fix is to write fewer setups per clip, and a 15 s clip can hold two but not three | **Per-shot duration is the variable.** ~5 s is not enough to resolve a setup no matter how few there are, and the fix is to give each shot more time — a three-shot clip would be fine at 22 s |
+| `shotablation_shots12_241f_` | same control, the other pair. Lands **last** of everything, since my runner posts one arm at a time | Both agreeing is the result | One bad and one good means neither account is clean and something else is running it |
+
+Why this matters more than it sounds: dropping a shot changed **two** things at
+once, not one. Total demanded content went down, and the surviving shots got
+longer. Every observation from tonight fits both, and they imply opposite fixes.
+These two arms are the only thing queued that separates them.
+
+### Already judged, for reference
+
+| file starts with | what it was | your verdict |
+|---|---|---|
+| `shotablation_shots13_` | establishing + wide walk-away, 2 shots, 15 s | great |
+| `shotablation_shots12_` | establishing + crate lift, 2 shots, 15 s | great, and you noted the box did not ghost |
+
+That second one killed a third account: the crate lift was the action you had
+named as the failure point across several renders, and it rendered clean here.
+So that shot is not sufficient to cause it.
+
+### The audio session
+
+A carry probe and a seed re-render. Their naming is theirs. The re-render is
+worth a look even so — it decides whether this pipeline is bit-identical across
+a full model unload, which is what settles whether their withdrawal of the `u4`
+result stands.
+
+### One thing this whole file cannot give you
+
+**None of tonight is a scored comparison.** One observer, one seed per arm,
+free-text verdicts, no blinding — this is not
+[`../../eval_comparison.md`](../../eval_comparison.md) section 3. It is enough
+to kill accounts, which is what it did, and not enough to establish one.
 
 ---
 
