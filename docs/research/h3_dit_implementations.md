@@ -157,7 +157,11 @@ mlp{fc1,fc2}, adaln_proj}`, a 2-block `token_refiner` with `final_norm`, a
 
 ### 3.2 Agreed by all five, read in each
 
-- **One packed sequence, full bidirectional self-attention, no mask.**
+- **One packed sequence, full bidirectional self-attention, no mask on every
+  default path.** Not unconditional: sglang passes a
+  `first_segment_sparse_query_block_mask` when its `SUBBLOCK_SPARSE_ATTN`
+  backend is selected, and raises if it is missing. Dense-and-maskless is the
+  default everywhere, not the only reachable path.
   `[text | conditioning | audio | video]`, target audio always immediately
   before target video. Video, audio and text all attend to each other in every
   block. **There is no cross-attention anywhere in H3** — text conditioning is
@@ -189,8 +193,14 @@ mlp{fc1,fc2}, adaln_proj}`, a 2-block `token_refiner` with `final_norm`, a
   MLP do not exist at all, and two of the five have no code path for it. §9.7.
 - **Conditioning anchors** sit at `t = 0.999` visual, `t = 1.0` audio, in every
   implementation that has them.
-- **Two sigma schedules per request**, video shift 12.0 and audio shift 3.0,
-  through the same map `sigma' = s*b / (1 + (s-1)*b)`.
+- **Two sigma schedules per request**, through the same map
+  `sigma' = s*b / (1 + (s-1)*b)`. **The 12.0 / 3.0 pair is the release's
+  declared value and every engine's call-site default — it is not an invariant
+  of the code.** DiffSynth's own scheduler signature defaults to `shift=2.22`
+  and is overridden by its pipeline (*read*); vllm-omni reads the pair from the
+  manifest as a fallback and its Turbo path overrides the video shift
+  (*relayed, not verified here*). An earlier version of this row stated the two
+  numbers as if the code fixed them.
 - **Text conditioning is Qwen3-VL hidden state 50, un-normed**, from a
   verbatim prompt with no chat template and no special tokens for `t2va`.
   ComfyUI truncates the encoder to 50 layers and sets
@@ -278,10 +288,18 @@ evaluation count, where on its uniform path it is the point count. An
 implementation that ports one path's convention to the other is off by a whole
 step (*read*).
 
-**The shipped `simple` scheduler tracks the vendor grid closely.** At the
-shipped step count the final Euler step spans 44.65% of the sigma range under
-ComfyUI `simple`, 44.44% under DiffSynth and 46.15% under the vendor
-construction; `normal` and `beta` diverge far more (*measured*). Tail
+**The shipped `simple` scheduler tracks the vendor grid closely.** The shipped
+step count is **16** — the dominant `BasicScheduler` setting across the graphs,
+with 8, 6 and 4 also present (*measured*). At N=16 the final Euler step spans
+44.65% of the sigma range under ComfyUI `simple`, 44.44% under DiffSynth and
+46.15% under the vendor construction, against 12.60% for `normal` and 18.86%
+for `beta` (*measured*; naming N makes all five reproducible, which the earlier
+wording did not).
+
+**One graph does not use `simple`.** `h3_probe_turbo_768p_owner_api.json` ships
+`beta` at 6 steps (*measured*) — the scheduler that diverges most from the
+vendor grid. Named because this paragraph's argument is that the shipped choice
+tracks the vendor, and one shipped graph is the exception. Tail
 coarseness is what governs quality here — the PDD lane established that, and
 `CLAUDE.md` carries it — so `simple` being the close one matters.
 
@@ -308,10 +326,18 @@ ComfyUI instead carries the audio latent *scaled onto the video schedule* by
 `audio_scale = shift_video / shift_audio`, making the pack an ordinary
 single-schedule flow latent, and undoes the scaling inside `forward()` before
 the network sees it (`comfy/ldm/minimax/model.py`, `MiniMaxH3Model.forward`;
-`comfy/model_sampling.py`, `ModelSamplingAV`). *Inference*: this is an exact
-change of variables, not an approximation — the wrapper converts both the
-latent and the returned velocity — so it should be numerically equivalent to
-holding two schedules. It is nonetheless a different arrangement, and anything
+`comfy/model_sampling.py`, `ModelSamplingAV`). **This is a derivation, not an
+inference, and the earlier label undersold it.** With `s = sigma_v`,
+`a = time_shift_sigma(s, 12, 3)` and `scale = shift_v/shift_a`, the identity
+`s*(1-a)/a == (1-s)*scale` holds exactly, so the pack is an ordinary rectified
+flow in the video sigma and `forward()`'s output line collapses exactly to
+`n - scale*x0_a`. **Exact per forward.**
+
+**It is not exact under a PDD fused head**, and that qualification is
+[`pdd/audio_under_pdd.md`](pdd/audio_under_pdd.md)'s to own: the transform's
+coefficients are frozen at the step's own sigma while a fused head returns the
+block's mean velocity. §9's worked shape is such a render — the record it cites
+carries the per-block drift on that exact schedule. It is nonetheless a different arrangement, and anything
 comparing raw audio latent magnitudes across engines has to divide it out.
 
 ### 4.4 Sequence padding
@@ -358,14 +384,17 @@ reason to add either.**
   the heads only there. Same numbers for the rows that survive. It is also why
   the padded implementations zero their condition rows with a multiply rather
   than a slice.
-- **Where the packed layout is built.** ComfyUI builds it inside the DiT and
-  caches it per shape signature; diffusers requires the caller to supply
+- **Where the packed layout is built.** ComfyUI builds it in `extra_conds`,
+  once per sampling run, and the DiT rebuilds only on a signature miss; diffusers requires the caller to supply
   positions, tags and indices; sglang and DiffSynth build it in a pipeline
   stage. A consequence, not a defect: the diffusers transformer is reusable
   with any layout, and ComfyUI's cannot be driven with one it did not build.
 - **`rope.inv_freq` loaded vs computed.** ComfyUI, sglang and vllm-omni read
-  the buffer from the checkpoint — none of the three contains a theta literal
-  at all. diffusers recomputes it from `rope_theta` and drops the key.
+  the buffer from the checkpoint — none of the three contains a **rope** theta
+  literal. All three *do* carry a `10000.0`, for the **timestep sinusoid**
+  (`comfy/ldm/minimax/model.py:143`); reading that as the rope base is the two-stages
+  confusion `CLAUDE.md` warns about, and this line previously invited it by
+  saying "no theta literal at all". diffusers recomputes it from `rope_theta` and drops the key.
   DiffSynth allocates the parameter and then *never reads it*, rebuilding the
   frequencies each forward — so a checkpoint shipping a non-default `inv_freq`
   is silently ignored there, and would be ignored by diffusers too.
@@ -414,14 +443,15 @@ interleaved**, `[q_h|k_h|v_h] x 56`; the Comfy-Org repacks store it
 | diffusers | converts interleaved -> contiguous offline, in its converter |
 | sglang | branches on a quant-config flag, permutes on load |
 | DiffSynth | ships **two** Comfy subclasses. `MiniMaxH3DiTComfy`'s only delta is the qkv view, `view(S, 3, heads, D)` vs `view(S, heads, 3, D)`; `MiniMaxH3DiTComfyPruned` extends it with `time_embed_dim=8`, the curve lerp and a no-SiLU AdaLN proj (§9.7) |
-| vllm-omni | reorders **unconditionally**, assuming the release layout; the only guard is a row-count assertion |
+| vllm-omni | reorders **unconditionally**, assuming the release layout; its only guard is a row-count check (a `raise ValueError`, not an assert) against `heads * 3 * head_dim` |
 | ComfyUI | splits contiguously **unconditionally**, assuming the repack layout |
 
 The last two rows are the interesting ones: **neither sniffs the layout, and
 they assume opposite things.** A release-native file fed to ComfyUI, or a
 Comfy-Org repack fed to vllm-omni, loads without error and produces noise —
-the row count is identical either way, so the one assertion vllm-omni has
-cannot catch it (*read*). `docs/evidence.md:176-186` already records the
+the row count is identical either way — `56 * 3 * 128 = 21504` under both
+layouts — so vllm-omni's guard is **structurally incapable** of discriminating
+them, not merely insufficient (*read*). §7 finding 5 leans on this. `docs/evidence.md:176-186` already records the
 concrete instance from the ComfyUI side: a DeepBeepMeep bf16 file stores
 `qkv_proj` in release order, so head 0's k rows land where ComfyUI's split
 expects head 1's q.
@@ -451,11 +481,20 @@ it.** `vendor_config/` carries the tokenizer, the pixel bounds, the patch
 geometry and both `model_index.json`s — but not `transformer/config.json` and
 not the two `scheduler_config.json`s. So the architecture constants and the
 eps triple are retyped as Python defaults in `comfy/ldm/minimax/model.py`
-rather than read from the release, which is the exact failure mode
-`vendor_config.py`'s header says it exists to prevent. They are correct today
-(*measured*: every value matches the release). Vendoring the three files and
-adding readers would close it; `bench/check_vendor_config.py` already has the
-shape for it.
+rather than read from the release. They are correct today (*measured*: every
+value matches the release).
+
+**Corrected 2026-08-29: the fix this finding originally proposed cannot reach
+the code it is about.** It said vendoring the three files and adding readers
+"would close it". `comfy/ldm/minimax/model.py` is **ComfyUI core, outside this
+repo**, and `CLAUDE.md` records that nothing here patches core — so no amount
+of vendoring changes core's constructor defaults. The overreach was also in
+citing `vendor_config.py`'s header, which scopes itself to literals *in our
+code*; core's are not that. What is actually available is a **check** that
+grades core's defaults against the release and goes red when upstream changes
+one, which is detection rather than closure. The factual half stands:
+`vendor_config/` carries neither `transformer/config.json` nor either
+`scheduler_config.json`.
 
 **2. `sigma_shift_scales` is vendored but has no reader.** Both
 `vendor_config/*_model_index.json` declare `{"video": 12.0, "audio": 3.0}`, and
@@ -562,7 +601,7 @@ immediately before target video.
 
 | | who builds it | padding |
 |---|---|---|
-| **ComfyUI** | the DiT, in `_forward`, cached by shape signature | none |
+| **ComfyUI** | `MiniMaxH3.extra_conds` in `comfy/model_base.py:2208`, once per sampling run; the DiT's `_forward` rebuilds only when the shape signature misses | none |
 | **diffusers** | the caller must supply positions, tags, timestep indices and three index tensors | none |
 | **sglang** | a pipeline stage | to 64, `cu_seqlens [0, used, S]` |
 | **DiffSynth** | a pipeline stage | to 64, same |
@@ -698,12 +737,15 @@ build new tensors. Same values.
 
 ### 9.10 Attention
 
-One packed document, **full bidirectional, non-causal, no mask**, softmax scale
-`128 ** -0.5`, MHA with no GQA, no bias, no sink, no softcap. All five.
+One packed document, **full bidirectional, non-causal, no mask** on the default
+paths (§3.2), softmax scale `128 ** -0.5`, MHA with no GQA, no bias, no sink,
+no softcap. All five — but ComfyUI passes **no** `scale` argument, so its value
+is SDPA's default rather than an explicit choice, where DiffSynth and sglang
+pass it explicitly (*read*).
 
 | | head layout into the kernel | terminal call |
 |---|---|---|
-| **ComfyUI** | `[S,H,D] -> [1,H,S,D]` (HND) | `torch.nn.functional.scaled_dot_product_attention(..., attn_mask=None, is_causal=False)` |
+| **ComfyUI** | `[S,H,D] -> [1,H,S,D]` (HND) | `optimized_attention(...)`, a module-level backend selection resolving to `attention_pytorch` here, which calls `comfy.ops.scaled_dot_product_attention` — a wrapper that runs inside an `sdpa_kernel` priority context above 128k elements, not raw `F.sdpa` |
 | **diffusers** | `unflatten(-1,(heads,-1))` | `dispatch_attention_fn(..., attn_mask=None, is_causal=False)` |
 | **sglang** | packed `thd`, no batch dim | `flash_attn_varlen_func(..., cu_seqlens, causal=False)` |
 | **DiffSynth** | per-segment `[1,H,L,D]` | a Python loop over `cu_seqlens` calling SDPA per segment |
