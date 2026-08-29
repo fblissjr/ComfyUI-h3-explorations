@@ -1,0 +1,530 @@
+{
+ "question": "does qwen_short_edge change the encoder's view, under each artifact snapshot's declared still-image bounds",
+ "method": "repo functions only: reference_conditioning.qwen_view_size for the view, reference_geometry.qwen_image_size for the bounds (smart_resize from the installed processor), h3_awq_encoder.snapshot_contract for the bounds themselves. No media: geometry depends only on width and height.",
+ "path_policy": "logical identifiers only",
+ "producer": {
+  "file": "measure_qwen_view_under_snapshot.py",
+  "sha256": "cea34a7dfd33038ac273d1e720581688e233015857d4cd509adea555c7e7eb9d",
+  "repository_commit": "d27980e9130162897379e1a7a136f18db954d215",
+  "dirty_against_commit": true
+ },
+ "source_short_edge": 4096,
+ "bounds": {
+  "v1": [
+   200704,
+   301056
+  ],
+  "v2": [
+   65536,
+   16777216
+  ],
+  "native": [
+   3136,
+   12845056
+  ]
+ },
+ "snapshot_sources": {
+  "v1": "qwen3vl_32b_minimax_h3_w4a16_awq",
+  "v2": "qwen3vl_32b_minimax_h3_w4a16_awq_v2",
+  "native": "comfyui-native"
+ },
+ "snapshots_not_installed": [],
+ "rows": [
+  {
+   "aspect": "16:9",
+   "source": [
+    7282,
+    4096
+   ],
+   "qwen_short_edge": 512,
+   "view": [
+    896,
+    512
+   ],
+   "v1": {
+    "bounded_view": [
+     704,
+     384
+    ],
+    "merged_tokens": 264
+   },
+   "v2": {
+    "bounded_view": [
+     896,
+     512
+    ],
+    "merged_tokens": 448
+   },
+   "native": {
+    "bounded_view": [
+     896,
+     512
+    ],
+    "merged_tokens": 448
+   }
+  },
+  {
+   "aspect": "16:9",
+   "source": [
+    7282,
+    4096
+   ],
+   "qwen_short_edge": 1024,
+   "view": [
+    1824,
+    1024
+   ],
+   "v1": {
+    "bounded_view": [
+     704,
+     384
+    ],
+    "merged_tokens": 264
+   },
+   "v2": {
+    "bounded_view": [
+     1824,
+     1024
+    ],
+    "merged_tokens": 1824
+   },
+   "native": {
+    "bounded_view": [
+     1824,
+     1024
+    ],
+    "merged_tokens": 1824
+   }
+  },
+  {
+   "aspect": "16:9",
+   "source": [
+    7282,
+    4096
+   ],
+   "qwen_short_edge": 2048,
+   "view": [
+    3648,
+    2048
+   ],
+   "v1": {
+    "bounded_view": [
+     704,
+     384
+    ],
+    "merged_tokens": 264
+   },
+   "v2": {
+    "bounded_view": [
+     3648,
+     2048
+    ],
+    "merged_tokens": 7296
+   },
+   "native": {
+    "bounded_view": [
+     3648,
+     2048
+    ],
+    "merged_tokens": 7296
+   }
+  },
+  {
+   "aspect": "9:16",
+   "source": [
+    4096,
+    7282
+   ],
+   "qwen_short_edge": 512,
+   "view": [
+    512,
+    896
+   ],
+   "v1": {
+    "bounded_view": [
+     384,
+     704
+    ],
+    "merged_tokens": 264
+   },
+   "v2": {
+    "bounded_view": [
+     512,
+     896
+    ],
+    "merged_tokens": 448
+   },
+   "native": {
+    "bounded_view": [
+     512,
+     896
+    ],
+    "merged_tokens": 448
+   }
+  },
+  {
+   "aspect": "9:16",
+   "source": [
+    4096,
+    7282
+   ],
+   "qwen_short_edge": 1024,
+   "view": [
+    1024,
+    1824
+   ],
+   "v1": {
+    "bounded_view": [
+     384,
+     704
+    ],
+    "merged_tokens": 264
+   },
+   "v2": {
+    "bounded_view": [
+     1024,
+     1824
+    ],
+    "merged_tokens": 1824
+   },
+   "native": {
+    "bounded_view": [
+     1024,
+     1824
+    ],
+    "merged_tokens": 1824
+   }
+  },
+  {
+   "aspect": "9:16",
+   "source": [
+    4096,
+    7282
+   ],
+   "qwen_short_edge": 2048,
+   "view": [
+    2048,
+    3648
+   ],
+   "v1": {
+    "bounded_view": [
+     384,
+     704
+    ],
+    "merged_tokens": 264
+   },
+   "v2": {
+    "bounded_view": [
+     2048,
+     3648
+    ],
+    "merged_tokens": 7296
+   },
+   "native": {
+    "bounded_view": [
+     2048,
+     3648
+    ],
+    "merged_tokens": 7296
+   }
+  },
+  {
+   "aspect": "4:3",
+   "source": [
+    5461,
+    4096
+   ],
+   "qwen_short_edge": 512,
+   "view": [
+    672,
+    512
+   ],
+   "v1": {
+    "bounded_view": [
+     608,
+     448
+    ],
+    "merged_tokens": 266
+   },
+   "v2": {
+    "bounded_view": [
+     672,
+     512
+    ],
+    "merged_tokens": 336
+   },
+   "native": {
+    "bounded_view": [
+     672,
+     512
+    ],
+    "merged_tokens": 336
+   }
+  },
+  {
+   "aspect": "4:3",
+   "source": [
+    5461,
+    4096
+   ],
+   "qwen_short_edge": 1024,
+   "view": [
+    1376,
+    1024
+   ],
+   "v1": {
+    "bounded_view": [
+     608,
+     448
+    ],
+    "merged_tokens": 266
+   },
+   "v2": {
+    "bounded_view": [
+     1376,
+     1024
+    ],
+    "merged_tokens": 1376
+   },
+   "native": {
+    "bounded_view": [
+     1376,
+     1024
+    ],
+    "merged_tokens": 1376
+   }
+  },
+  {
+   "aspect": "4:3",
+   "source": [
+    5461,
+    4096
+   ],
+   "qwen_short_edge": 2048,
+   "view": [
+    2720,
+    2048
+   ],
+   "v1": {
+    "bounded_view": [
+     608,
+     448
+    ],
+    "merged_tokens": 266
+   },
+   "v2": {
+    "bounded_view": [
+     2720,
+     2048
+    ],
+    "merged_tokens": 5440
+   },
+   "native": {
+    "bounded_view": [
+     2720,
+     2048
+    ],
+    "merged_tokens": 5440
+   }
+  },
+  {
+   "aspect": "1:1",
+   "source": [
+    4096,
+    4096
+   ],
+   "qwen_short_edge": 512,
+   "view": [
+    512,
+    512
+   ],
+   "v1": {
+    "bounded_view": [
+     512,
+     512
+    ],
+    "merged_tokens": 256
+   },
+   "v2": {
+    "bounded_view": [
+     512,
+     512
+    ],
+    "merged_tokens": 256
+   },
+   "native": {
+    "bounded_view": [
+     512,
+     512
+    ],
+    "merged_tokens": 256
+   }
+  },
+  {
+   "aspect": "1:1",
+   "source": [
+    4096,
+    4096
+   ],
+   "qwen_short_edge": 1024,
+   "view": [
+    1024,
+    1024
+   ],
+   "v1": {
+    "bounded_view": [
+     544,
+     544
+    ],
+    "merged_tokens": 289
+   },
+   "v2": {
+    "bounded_view": [
+     1024,
+     1024
+    ],
+    "merged_tokens": 1024
+   },
+   "native": {
+    "bounded_view": [
+     1024,
+     1024
+    ],
+    "merged_tokens": 1024
+   }
+  },
+  {
+   "aspect": "1:1",
+   "source": [
+    4096,
+    4096
+   ],
+   "qwen_short_edge": 2048,
+   "view": [
+    2048,
+    2048
+   ],
+   "v1": {
+    "bounded_view": [
+     544,
+     544
+    ],
+    "merged_tokens": 289
+   },
+   "v2": {
+    "bounded_view": [
+     2048,
+     2048
+    ],
+    "merged_tokens": 4096
+   },
+   "native": {
+    "bounded_view": [
+     2048,
+     2048
+    ],
+    "merged_tokens": 4096
+   }
+  }
+ ],
+ "spread": {
+  "v1": {
+   "16:9": {
+    "distinct_token_counts": [
+     264
+    ],
+    "knob_is_inert": true
+   },
+   "9:16": {
+    "distinct_token_counts": [
+     264
+    ],
+    "knob_is_inert": true
+   },
+   "4:3": {
+    "distinct_token_counts": [
+     266
+    ],
+    "knob_is_inert": true
+   },
+   "1:1": {
+    "distinct_token_counts": [
+     256,
+     289
+    ],
+    "knob_is_inert": false
+   },
+   "inert_for_every_aspect": false
+  },
+  "v2": {
+   "16:9": {
+    "distinct_token_counts": [
+     448,
+     1824,
+     7296
+    ],
+    "knob_is_inert": false
+   },
+   "9:16": {
+    "distinct_token_counts": [
+     448,
+     1824,
+     7296
+    ],
+    "knob_is_inert": false
+   },
+   "4:3": {
+    "distinct_token_counts": [
+     336,
+     1376,
+     5440
+    ],
+    "knob_is_inert": false
+   },
+   "1:1": {
+    "distinct_token_counts": [
+     256,
+     1024,
+     4096
+    ],
+    "knob_is_inert": false
+   },
+   "inert_for_every_aspect": false
+  },
+  "native": {
+   "16:9": {
+    "distinct_token_counts": [
+     448,
+     1824,
+     7296
+    ],
+    "knob_is_inert": false
+   },
+   "9:16": {
+    "distinct_token_counts": [
+     448,
+     1824,
+     7296
+    ],
+    "knob_is_inert": false
+   },
+   "4:3": {
+    "distinct_token_counts": [
+     336,
+     1376,
+     5440
+    ],
+    "knob_is_inert": false
+   },
+   "1:1": {
+    "distinct_token_counts": [
+     256,
+     1024,
+     4096
+    ],
+    "knob_is_inert": false
+   },
+   "inert_for_every_aspect": false
+  }
+ }
+}

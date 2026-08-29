@@ -81,12 +81,23 @@ SOURCE_SHORT_EDGE = 4096
 
 
 def _snapshots() -> dict[str, dict]:
-    """Both live snapshots, by the registry rather than by literal bounds."""
+    """Every regime a loaded encoder can put this knob in, by its owner.
+
+    **`native` is the one every shipped graph actually runs, and this tool
+    omitted it until 2026-08-29.** It swept the two AWQ snapshots -- neither of
+    which any `CLIPLoader` in `workflows/` names -- and left out core's own
+    defaults, so the record answered for artifacts nobody loads. It is derived
+    rather than typed: `h3_encoder_loader.native_encoder_contract()` reads the
+    bounds out of `process_qwen2vl_images`' signature, which is what the
+    encoder will really apply.
+    """
     out = {"v1": awq.snapshot_contract(None)}
     v2_dir = awq.ARTIFACT_SNAPSHOTS[
         "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"]
     if v2_dir is not None and Path(v2_dir).is_dir():
         out["v2"] = awq.snapshot_contract(v2_dir)
+    out["native"] = importlib.import_module(
+        f"{REPO.name}.h3_encoder_loader").native_encoder_contract()
     return out
 
 

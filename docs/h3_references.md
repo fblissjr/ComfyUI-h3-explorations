@@ -805,7 +805,20 @@ three regimes and they do not agree:
 |---|---|---|
 | v1 W4 snapshot | 200,704..301,056 | **exactly inert** on every non-square aspect -- 512, 1024 and 2048 all arrive as 264 merged tokens at 16:9 |
 | v2 W4 snapshot | the release's own | live, 448..7,296 merged tokens across that range |
-| **`ENCODER_INT8`, what ships** | **core's `process_qwen2vl_images` defaults, 3,136..12,845,056** | **live, and the widest of the three** |
+| **`ENCODER_INT8`, what ships** | **core's `process_qwen2vl_images` defaults, 3,136..12,845,056** | **live, and cell-for-cell identical to v2** |
+
+**Corrected 2026-08-29: the INT8 row said "the widest of the three". It is
+not, and the v2 row above it already carried the numbers that show why.**
+Native and v2 produce IDENTICAL merged-token counts at every aspect and every
+short edge swept -- 448 / 1,824 / 7,296 at 16:9 -- because neither ceiling
+binds a reference at any legal short edge. Only v1's 301,056 does. v2's ceiling
+is in fact the numerically larger of the two, so "widest" was wrong in both
+readings. The practical half is worth more than the correction: **an encoder
+swap between v2 and the shipped INT8 changes the weights and not the reference
+view**, which makes it a clean single variable for a matched-seed comparison.
+`bench/results/2026-08-29_qwen_view_under_snapshot.json` is the record; its
+generator swept only the two AWQ snapshots until that date and omitted the
+regime every shipped graph actually runs, which is how the claim survived.
 
 **Corrected 2026-08-28: this section said the shipped encoder is v2. It is
 not.** `h3_config.MODELS["clip"]` is `ENCODER_INT8`
