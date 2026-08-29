@@ -396,17 +396,17 @@
         "adaptive tau",
         1.0,
         0.2,
-        0.87,
-        12288,
+        0.74,
+        11776,
         "exact_kv_and_rows",
         false,
-        "3d",
+        "2d_frame",
         true,
         false,
         false,
-        "0-1"
+        "0,1,2,48,49,-1"
       ],
-      "title": "Patch Sol-Attn (end_percent 0.87 - derived from the step count so the LAST step stays dense; default is 0.9)"
+      "title": "Patch Sol-Attn (PDD recipe - end_percent 0.74, min_tokens 11776, dense_blocks '0,1,2,48,49,-1'; h3_config.SOL_PDD_CUDA)"
     },
     {
       "id": 12,

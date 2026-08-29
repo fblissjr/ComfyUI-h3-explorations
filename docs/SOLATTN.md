@@ -388,7 +388,7 @@ owns both spellings; regenerate.
 | `centroid_tail` NEW | True | One pooled tail per query block instead of per row, 64x less routing work. Upstream: ~1.4x on the **operation**, **~5–10% end to end**, ~5e-4 cosine. **Ours measured 2.5% e2e, which makes this the smallest knob in the node, not the largest.** The tooltip's "~1.4x" has been read as end-to-end twice; see `docs/evidence.md`. |
 | `reuse_qkv_memory` NEW | False | Write the output into H3's fused qkv buffer instead of allocating. Upstream: ~1.2 GB at 80k tokens, enough to put attention's peak below the FFN's. Safe for H3, which discards that buffer; leave off for other models. |
 | `verbose` | False | Per-shape dispatch logging, once per distinct shape. |
-| `dense_blocks` | `""` | Blocks kept fully dense, e.g. `0-2,-1`. First and last are the most approximation-sensitive. |
+| `dense_blocks` | `""` | Blocks kept fully dense, e.g. `0-2,-1`. First and last are the most approximation-sensitive. Negative indices count from the end, so `-1` is block 49 on a 50-block DiT (`vendor/sol_attn_minimax.py::parse_blocks`). **The node default is empty; nothing here ships empty.** `SOL_RECOMMENDED_CUDA` has carried `0-1` since 2026-08-26 (NVLabs ships `2` first-dense layers on both their H3 profiles) and `SOL_PDD_CUDA` carries `0,1,2,48,49,-1` since 2026-08-29. |
 | `tau_profile` NEW | unset | Only under `adaptive tau`. Per-block tau, `blocks=tau` separated by `;` or newlines. `force_input`, so it needs a node wired to it — a socket, not a widget value. |
 
 `routed_cap_percent` was here until 2026-08-22 and the v3 node does not
@@ -406,6 +406,50 @@ is the run; **read its caveat before quoting either number** -- synthetic input
 gives a near-uniform softmax and nothing for a router to find, so only the
 ratio between the two selections at one shape means anything, and neither
 absolute figure does.
+
+### Two shipped configs, not one: PDD arms have their own
+
+**Since 2026-08-29, which config a graph carries depends on whether it loads a
+PDD LoRA.** `h3_config.sol_for_graph(pdd, steps)` is the single resolver, and
+the generator and `bench/check_attention_defaults.py` both go through it, so a
+graph is graded against the recipe it is supposed to have rather than against
+one of them.
+
+| knob | `SOL_RECOMMENDED_CUDA` | `SOL_PDD_CUDA` |
+|---|---|---|
+| `end_percent` | derived per step count (`SOL_END_PERCENT_BY_STEPS`) | `0.74` at every step count |
+| `min_tokens` | 12288 | 11776 |
+| `morton_curve` | `3d` | `2d_frame` |
+| `dense_blocks` | `0-1` | `0,1,2,48,49,-1` |
+
+Everything else is shared, so a change to `tau`, `start_percent`,
+`sink_conditioning`, `morton`, `centroid_tail` or `reuse_qkv_memory` still
+reaches both.
+
+**This is an owner decision from watching renders, not a measurement, and the
+distinction matters more here than usual** — it is four knobs moved together on
+one reading, so nothing in it attributes an effect to any single knob. Recorded
+as a decision so a later blind distribution has something to overturn;
+`docs/eval_comparison.md` section 3 is what would do that.
+
+What is worth knowing about each, because two of the four are inert today:
+
+- **`end_percent` 0.74 is the only one that changes what a shipped graph
+  computes.** It is strictly more conservative than the derivation, never less.
+  At 4 steps it is already what the table gives. At 8 steps, shift 12, the band
+  floor moves from sigma 0.642 to 0.8083, which takes the second-to-last step
+  (sigma 0.8) dense as well as the last one (0.6316) — sparse coverage 5 of 8
+  becomes 4 of 8. So it widens the dense tail past the fix that created the
+  table rather than undoing it.
+- **`dense_blocks` costs five of fifty blocks** on the sparse steps against the
+  vendor's two. `-1` resolves to 49 and so is redundant with the literal 49;
+  it is kept because it is what was written and what the widget shows.
+- **`min_tokens` 11776 selects identically to 12288 on everything this repo
+  renders** — DiT calls are 31k-128k tokens, token-refiner calls ~311 rows. On
+  the graphs that exist it is a preference, not a behaviour change.
+- **`morton_curve` is inert while `morton=False`**, which it is on both
+  recipes. It decides which curve someone gets on turning morton on, and
+  `docs/morton.md` records that the `3d` pin rests on one canvas.
 
 **`top-k (SLA)` is not the SLA router, and the difference is the tail.** Under
 either selection Sol still adds a pooled term for every block it did not pick,
@@ -699,10 +743,15 @@ Two consequences, both live:
   `dense_blocks="0"` would cost roughly 1% of total compute **by arithmetic**
   and remove the depth where sparsity is least effective anyway.
 
-**`dense_blocks` and `tau_profile` both ship empty** (`SOL_RECOMMENDED_CUDA`),
-so this is unexploited headroom on the shipped path. The `dense_blocks="0"`
-figure is derived, not measured end-to-end; it needs a paired render before it
-becomes a recommendation.
+**`tau_profile` ships empty; `dense_blocks` no longer does.** **Corrected
+2026-08-29** — this said both ship empty and called `dense_blocks` unexploited
+headroom, which stopped being true on 2026-08-26 when `SOL_RECOMMENDED_CUDA`
+took NVLabs' `0-1`, and is doubly untrue on the distilled arms, where
+`SOL_PDD_CUDA` carries `0,1,2,48,49,-1`. So block 0 is already dense everywhere
+and the outlier above is already paid for. The `dense_blocks="0"` figure below
+remains derived, not measured end-to-end, and neither shipped list was chosen
+from a paired render: `0-1` is the vendor's, and the PDD list is the owner's
+reading of rendered arms.
 
 **The 16.6% is confirmed, by a second path.** It was derived from `video_start`
 when first reported; `bench/count_packed_rows.py` now builds the real
@@ -1307,8 +1356,13 @@ the token floor.
   NVLabs publishes runs `0-1` dense. Costs: seven of fifty blocks was roughly
   54 s on a 362-frame Triton render, and by arithmetic off the 2026-08-16 dense
   pair (860.8 s against 454.0 s over 50 blocks, assuming uniform per-block cost)
-  two blocks is about 16 s of 454, or 3.6%. `SOL_RECOMMENDED_CUDA` still ships
-  it empty; the decision is in [`docs/roadmap.md`](roadmap.md).
+  two blocks is about 16 s of 454, or 3.6%. **Corrected 2026-08-29:** this
+  said `SOL_RECOMMENDED_CUDA` "still ships it empty" and pointed at
+  [`docs/roadmap.md`](roadmap.md) for a decision that had already been taken --
+  the validated list was copied on 2026-08-26 and the config has carried `0-1`
+  since. The PDD arms go further on the owner's reading rather than on a
+  measurement (`SOL_PDD_CUDA`, `0,1,2,48,49,-1`, five of fifty). What is still
+  open is choosing OUR OWN list, which is what needs the retired probe.
 
 ### Record the commit with every measurement
 

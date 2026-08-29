@@ -342,17 +342,28 @@ def main() -> int:
                 f"is a new exception, add it to SOL_EXEMPT_STEMS with a mechanism.")
 
         # --- sol_values ----------------------------------------------------
-        # `end_percent` is the one Sol value that legitimately varies per graph:
-        # the window is a sigma band, so which steps fall inside it depends on
-        # the step count, and the band has to move with it or the dense tail
-        # disappears (h3_config.SOL_END_PERCENT_BY_STEPS). Graded against the
-        # value that step count is SUPPOSED to carry, so a graph at 8 steps
-        # carrying 0.9 -- the state every PDD arm shipped in until 2026-08-26 --
-        # is still caught.
+        # Two things make the expected config vary per graph, and BOTH are
+        # resolved by `h3_config.sol_for_graph` rather than restated here.
+        # That is deliberate: this block used to re-derive the `end_percent`
+        # lookup, which is a second copy of the generator's rule, and a check
+        # that computes its own expectation grades itself (CLAUDE.md, prefer
+        # a control the check compares against).
+        #
+        #   step count   the window is a sigma band, so which steps fall
+        #                inside it depends on the count, and the band has to
+        #                move with it or the dense tail disappears
+        #                (h3_config.SOL_END_PERCENT_BY_STEPS). A graph at 8
+        #                steps carrying 0.9 -- the state every PDD arm
+        #                shipped in until 2026-08-26 -- is still caught.
+        #   PDD          a distilled arm takes h3_config.SOL_PDD_CUDA whole,
+        #                owner decision 2026-08-29, at every step count.
+        #                Decided by `loads_pdd`, the same MECHANISM the
+        #                exemption above uses, so a new PDD arm is graded on
+        #                the right recipe the moment it exists.
         graph_steps = _steps_of(g)
-        expected = dict(h3_config.SOL_RECOMMENDED_CUDA)
-        if graph_steps in h3_config.SOL_END_PERCENT_BY_STEPS:
-            expected["end_percent"] = h3_config.SOL_END_PERCENT_BY_STEPS[graph_steps]
+        graph_pdd = loads_pdd(g)
+        expected = h3_config.sol_for_graph(graph_pdd, graph_steps)
+        source = "SOL_PDD_CUDA" if graph_pdd else "SOL_RECOMMENDED_CUDA"
         for nid, vals, state in sol:
             if state != "live":
                 continue
@@ -360,8 +371,9 @@ def main() -> int:
                 if k in vals and vals[k] != want:
                     problems.append(
                         f"{p.relative_to(_REPO)}: node {nid} {SOL}.{k} is "
-                        f"{vals[k]!r}, h3_config says {want!r}"
-                        + (f" at {graph_steps} steps" if k == "end_percent" else ""))
+                        f"{vals[k]!r}, h3_config.{source} says {want!r}"
+                        + (f" at {graph_steps} steps" if k == "end_percent"
+                           and not graph_pdd else ""))
 
         # --- sage_values ---------------------------------------------------
         dev_field, _dev_why = DEVIATIONS.get(stem, (None, None))
@@ -388,6 +400,10 @@ def main() -> int:
     print(f"  declared: sage mode {h3_config.SAGE_NODE['mode']!r}, "
           f"sol tau {h3_config.SOL_RECOMMENDED_CUDA['tau']}, "
           f"min_tokens {h3_config.SOL_RECOMMENDED_CUDA['min_tokens']}")
+    print(f"  PDD arms graded on SOL_PDD_CUDA instead: "
+          f"end_percent {h3_config.SOL_PDD_CUDA['end_percent']}, "
+          f"min_tokens {h3_config.SOL_PDD_CUDA['min_tokens']}, "
+          f"dense_blocks {h3_config.SOL_PDD_CUDA['dense_blocks']!r}")
     print("  single-frame class: "
           + (f"{checked['single_frame']} graph(s) from GRAPH_DIRS "
              f"{sorted(img_dirs)}" if img_dirs else

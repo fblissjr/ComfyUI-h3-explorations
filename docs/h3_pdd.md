@@ -369,8 +369,12 @@ started this was a render queued after a RAISED render in the same session,
 which is contaminated state rather than an off-grid schedule.
 
 What this does **not** reach: `sampler_name` -- and that gap is worse than
-"enforced by nothing", see below --  -- and `strength`. Sol's `end_percent` is still derived from
-the step count at build time, so hand-editing steps still leaves it stale.
+"enforced by nothing", see below --  -- and `strength`. **Corrected
+2026-08-29:** this said Sol's `end_percent` is derived from the step count at
+build time so hand-editing steps leaves it stale. That was true of PDD graphs
+until they took `h3_config.SOL_PDD_CUDA` whole; their `end_percent` is now a
+constant 0.74 and a hand edit to `steps` leaves it correct. It is still true of
+every non-distilled arm.
 
 #### The shift is now a second place the schedule is decided, and it is asserted rather than removed
 
@@ -481,18 +485,26 @@ released.** Recovering `L_max` is the one thing that would settle it.
 
 Generated against `pdd_math` and `h3_config`, not recalled:
 
-| steps | tiles the grid | block width | vs trained width 4 | the node | Sol `end_percent` |
-|---|---|---|---|---|---|
-| 1 | yes | 32 | past 2x | emits | 0.9 (default) |
-| 2 | yes | 16 | past 2x | emits | 0.9 (default) |
-| 3 | **no** | -- | -- | **raises** | 0.9 (default) |
-| 4 | yes | 8 | **2x, the edge** | emits | 0.74 |
-| 5 | **no** | -- | -- | **raises** | 0.9 (default) |
-| 6 | **no** | -- | -- | **raises** | 0.83 |
-| 7 | **no** | -- | -- | **raises** | 0.9 (default) |
-| 8 | yes | 4 | **trained** | emits | 0.87 |
-| 9 | **no** | -- | -- | **raises** | 0.9 (default) |
-| 10 | **no** | -- | -- | **raises** | 0.9 (default) |
+| steps | tiles the grid | block width | vs trained width 4 | the node |
+|---|---|---|---|---|
+| 1 | yes | 32 | past 2x | emits |
+| 2 | yes | 16 | past 2x | emits |
+| 3 | **no** | -- | -- | **raises** |
+| 4 | yes | 8 | **2x, the edge** | emits |
+| 5 | **no** | -- | -- | **raises** |
+| 6 | **no** | -- | -- | **raises** |
+| 7 | **no** | -- | -- | **raises** |
+| 8 | yes | 4 | **trained** | emits |
+| 9 | **no** | -- | -- | **raises** |
+| 10 | **no** | -- | -- | **raises** |
+
+**A Sol `end_percent` column was here until 2026-08-29 and has been removed
+rather than corrected.** It carried 0.74 at 4 steps, 0.87 at 8 and "0.9
+(default)" everywhere else, which is what the generator did before PDD arms
+took `h3_config.SOL_PDD_CUDA` whole. They now take 0.74 at every count, so the
+column was one value repeated ten times -- a number whose substitution changes
+nobody's next action. The one thing it was telling you is said once instead:
+**a PDD arm's `end_percent` does not move with its step count.**
 
 Emitted sigmas at shift 12, where a schedule exists at all:
 
@@ -509,12 +521,17 @@ Emitted sigmas at shift 12, where a schedule exists at all:
 - **`nfe` does NOT react.** It is an independent override and stays whatever it
   was. The two are allowed to disagree and that disagreement is `nfe`'s whole
   purpose; see its tooltip. Every shipped graph carries 0.
-- **Sol's `end_percent`**, which is a BUILD-TIME lookup in
-  `h3_config.SOL_END_PERCENT_BY_STEPS` and reacts only if the generator runs.
-  Change `steps` on a loaded graph by hand and this goes stale silently -- the
-  edge `h3_config` already documents. Note the table has entries for 4, 6 and 8
-  only; any other count silently takes `SOL_RECOMMENDED_CUDA`'s 0.9, which is
-  the value whose wrongness at 8 steps created the table in the first place.
+- **Sol's `end_percent`** -- **and since 2026-08-29 it does NOT react on a PDD
+  graph, which is the opposite of what this bullet used to say.** PDD arms take
+  `h3_config.SOL_PDD_CUDA` whole, at 0.74 for every step count, so the step
+  table is not consulted for them and editing `steps` by hand leaves nothing
+  stale. It used to say the value was a build-time lookup in
+  `SOL_END_PERCENT_BY_STEPS` that went stale silently on a hand edit; that is
+  now true only of the non-distilled arms, where the table's entries for 4, 6
+  and 8 still apply and any other count still takes `SOL_RECOMMENDED_CUDA`'s
+  0.9. `h3_config.sol_for_graph` is the resolver and the observable; the 0.74
+  is an owner decision from rendered arms rather than a measurement, and
+  `docs/SOLATTN.md` carries what the four PDD knobs cost.
 - **Whether a schedule exists at all.** Only divisors of 32 have one. The sweep
   is mostly `raises`, and that is correct rather than restrictive: at 5 steps
   there is no on-grid schedule to emit, so there is nothing honest to hand the

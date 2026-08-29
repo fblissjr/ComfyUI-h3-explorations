@@ -72,7 +72,7 @@ from h3_config import (  # noqa: E402
     DIALOGUE_REF_IMAGES,
     PDD_MANUAL_EVALS,
     PDD_MANUAL_SIGMAS,
-    SOL_END_PERCENT_BY_STEPS,
+    sol_for_graph,
     TURBO_REF2VA_LORA, TURBO_REF2VA_STEPS, TURBO_REF2VA_SHIFT,
     PDD_FL2VA_LORA, PDD_REF2VA_LORA, PDD_STEPS, PDD_STEPS_FAST,
     PDD_STRENGTH,
@@ -152,14 +152,16 @@ def _sol_widgets(sol):
     return [sol[k] for k in order]
 
 
-def _sol_title(sol, sol_enabled):
-    """Node title, naming `end_percent` when it was derived rather than default.
+def _sol_title(sol, sol_enabled, pdd=False):
+    """Node title, naming `end_percent` when it is not the base recipe's.
 
-    The value is picked by the generator from the step count and cannot be
-    recomputed by the node -- it converts percent to sigma at patch time, before
-    the scheduler downstream has said how many steps there will be. So the
-    widget is static and the only place a reader can learn it was derived is
-    here.
+    The value is picked by the generator -- from the step count on an ordinary
+    arm, from `h3_config.SOL_PDD_CUDA` on a distilled one -- and cannot be
+    recomputed by the node, which converts percent to sigma at patch time,
+    before the scheduler downstream has said how many steps there will be. So
+    the widget is static and the only place a reader can learn where it came
+    from is here. The two reasons are named separately because editing `steps`
+    by hand invalidates one of them and not the other.
     """
     if not sol_enabled:
         return "Patch Sol-Attn (bypassed)"
@@ -167,26 +169,12 @@ def _sol_title(sol, sol_enabled):
     base = SOL_RECOMMENDED_CUDA.get("end_percent")
     if end is None or end == base:
         return "Patch Sol-Attn"
+    if pdd:
+        return (f"Patch Sol-Attn (PDD recipe - end_percent {end:g}, "
+                f"min_tokens {sol.get('min_tokens')}, dense_blocks "
+                f"{sol.get('dense_blocks')!r}; h3_config.SOL_PDD_CUDA)")
     return (f"Patch Sol-Attn (end_percent {end:g} - derived from the step "
             f"count so the LAST step stays dense; default is {base:g})")
-
-
-def sol_for_steps(sol, steps):
-    """`sol`, with `end_percent` lowered so the final sampling step runs dense.
-
-    A graph's step count decides which steps fall inside Sol's sigma band, so
-    the band has to move with it or the dense tail disappears -- which is what
-    happened when the PDD arms halved the steps. See
-    `h3_config.SOL_END_PERCENT_BY_STEPS` for the derivation and why this one is
-    ours rather than the vendor's.
-
-    Untouched at step counts not in the table: 16 and 20 already put their last
-    step below the band, so there is nothing to restore and nothing to pay for.
-    """
-    if sol is None:
-        return None
-    end = SOL_END_PERCENT_BY_STEPS.get(steps)
-    return sol if end is None else dict(sol, end_percent=end)
 
 
 def _distill(lora, pdd, key):
@@ -4929,7 +4917,12 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                          # `steps` by hand leaves it stale, which nothing at
                          # run time will say. See
                          # h3_config.SOL_END_PERCENT_BY_STEPS.
-                         title=_sol_title(sol, sol_enabled))
+                         #
+                         # A PDD arm gets a DIFFERENT title, because its
+                         # values do not come from the step count at all --
+                         # h3_config.SOL_PDD_CUDA is taken whole, so editing
+                         # `steps` on one of those leaves nothing stale.
+                         title=_sol_title(sol, sol_enabled, pdd=pdd))
         if not sol_enabled:
             g._node(sol_node)["mode"] = 4
         g.link(model_src, 0, sol_node, "model", "MODEL")
@@ -7558,7 +7551,7 @@ def main():
                 if k not in ("sol_on", "dense_attn")}
         wf = build_ui(task, sage=(dense_mode == "sage") if dense_mode else not router,
                       preview=True,
-                      sol=(sol_for_steps(SOL_RECOMMENDED_CUDA,
+                      sol=(sol_for_graph(bool(extra.get("pdd", False)),
                                          extra.get("steps", SAMPLING["steps"]))
                            if not (is_image or router or dense_mode) else None),
                       sol_enabled=sol_on, prompt=prompt,
@@ -7583,7 +7576,7 @@ def main():
                      if k not in ("variant_note", "sol_on", "dense_attn")}
         wf = build_api(task, sage=(dense_mode == "sage") if dense_mode else not router,
                        prompt=prompt,
-                       sol=(sol_for_steps(SOL_RECOMMENDED_CUDA,
+                       sol=(sol_for_graph(bool(extra.get("pdd", False)),
                                           extra.get("steps", SAMPLING["steps"]))
                             if sol_on else None),
                        **{**api_extra, "length": graph_length(api_extra)})

@@ -668,6 +668,82 @@ SOL_RECOMMENDED_CUDA = dict(
     dense_blocks="0-1",
 )
 
+
+# The Sol config for a PDD arm, which is NOT SOL_RECOMMENDED_CUDA with a
+# derived `end_percent`. **Owner decision 2026-08-29, from rendering rather
+# than from a controlled measurement**: on the distilled arms this settings
+# group is what has looked best so far. It is a PRIOR in the sense CLAUDE.md
+# means -- no matched-seed distribution behind it, no per-knob attribution --
+# and it is recorded here as a decision so that a later measurement has
+# something to overturn. What overturns it: a blind distribution per knob
+# through `docs/eval_comparison.md` section 3.
+#
+# Four knobs differ from the non-PDD recipe, and each one is here on the
+# owner's reading, not on a number this repo holds:
+#
+#   end_percent  0.74 at EVERY PDD step count, where the derivation in
+#                SOL_END_PERCENT_BY_STEPS gives 0.87 at 8. Strictly more
+#                conservative, never less: at shift 12 and 8 steps the band
+#                floor moves from sigma 0.642 to 0.8083, which takes the
+#                second-to-last step (sigma 0.8) dense as well as the last
+#                one (0.6316). Sparse coverage goes 5 of 8 to 4 of 8; at 4
+#                steps 0.74 is already what the table gives and nothing
+#                moves. So this does not undo the dense-tail fix -- it
+#                widens the dense tail past it.
+#   min_tokens   11776 against 12288. Selects identically on everything this
+#                repo renders (DiT calls 31k-128k tokens, token-refiner calls
+#                ~311 rows), so it is a preference, not a behaviour change,
+#                on the graphs that exist.
+#   morton_curve 2d_frame against the pinned 3d. Inert while `morton=False`,
+#                which it is here; it decides which curve a person gets on
+#                turning morton on. `docs/morton.md` measured 3d ahead on
+#                centroid fidelity at one canvas and records that the pin
+#                rests on that one canvas.
+#   dense_blocks "0,1,2,48,49,-1" against the vendor's "0-1". Adds block 2
+#                and the last two. `-1` resolves to 49 on a 50-block DiT
+#                (`vendor/sol_attn_minimax.py::parse_blocks`), so it is
+#                redundant with the literal 49 and kept because it is what
+#                the owner wrote and what the widget shows. Costs 5 of 50
+#                blocks on the sparse steps rather than 2.
+#
+# Held identical to SOL_RECOMMENDED_CUDA, so a change there still reaches
+# here: selection, tau, start_percent, sink_conditioning, morton,
+# centroid_tail, reuse_qkv_memory, verbose. Spelled as an override dict over
+# that one rather than a second full literal, because a full copy is exactly
+# the second copy this file forbids.
+SOL_PDD_OVERRIDES = dict(
+    end_percent=0.74,
+    min_tokens=11776,
+    morton_curve="2d_frame",
+    dense_blocks="0,1,2,48,49,-1",
+)
+
+SOL_PDD_CUDA = dict(SOL_RECOMMENDED_CUDA, **SOL_PDD_OVERRIDES)
+
+
+def sol_for_graph(pdd, steps):
+    """The Sol config one graph should carry, from what the graph IS.
+
+    The single resolver for both halves of the question, because they were
+    two copies before: the generator derived `end_percent` from the step
+    count and `bench/check_attention_defaults.py` re-derived the same lookup
+    to grade against. A PDD branch written twice would drift the same way.
+
+    `pdd` -- the graph loads a Parallel Decoding Distillation LoRA -- takes
+    SOL_PDD_CUDA whole, at every step count, so `steps` is ignored on that
+    branch. Everything else takes SOL_RECOMMENDED_CUDA with `end_percent`
+    lowered per SOL_END_PERCENT_BY_STEPS, which is untouched at counts the
+    table does not name (16 and 20 already put their last step below the
+    band).
+    """
+    if pdd:
+        return dict(SOL_PDD_CUDA)
+    end = SOL_END_PERCENT_BY_STEPS.get(steps)
+    sol = dict(SOL_RECOMMENDED_CUDA)
+    if end is not None:
+        sol["end_percent"] = end
+    return sol
+
 # `selection` is the v3 node's DynamicCombo: it picks HOW exact key blocks are
 # chosen, and the chosen option brings its own input. "adaptive tau" carries
 # `tau` and is what every graph here ships; "top-k (SLA)" carries

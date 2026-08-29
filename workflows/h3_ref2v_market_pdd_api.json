@@ -243,15 +243,15 @@
       "selection": "adaptive tau",
       "selection.tau": 1.0,
       "start_percent": 0.2,
-      "end_percent": 0.87,
-      "min_tokens": 12288,
+      "end_percent": 0.74,
+      "min_tokens": 11776,
       "sink_conditioning": "exact_kv_and_rows",
       "morton": false,
-      "morton_curve": "3d",
+      "morton_curve": "2d_frame",
       "centroid_tail": true,
       "reuse_qkv_memory": false,
       "verbose": false,
-      "dense_blocks": "0-1"
+      "dense_blocks": "0,1,2,48,49,-1"
     }
   },
   "23": {

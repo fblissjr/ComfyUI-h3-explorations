@@ -204,7 +204,7 @@ All in `workflows/h3_config.py`, all single switches, all regenerate with
 |---|---|---|---|
 | `CANVAS_TIER` | `full` | full / near / fast / draft | 1.00 / 0.91 / 0.73 / 0.58 attention |
 | length | 362 | 17n+5 grid | linear in tokens |
-| `SOL_RECOMMENDED_CUDA` / `SOL_CUDA_DEFAULTS` | Sol **on** in every video graph since 2026-08-14; `tau` 1.0 from 2026-08-20 by owner decision | tau, window, sinks | see `docs/SOLATTN.md`; 1.3 returns only if it shows no difference from 1.0 on the distilled LoRAs while buying meaningful speed |
+| `SOL_RECOMMENDED_CUDA` / `SOL_PDD_CUDA` / `SOL_CUDA_DEFAULTS` | Sol **on** in every video graph since 2026-08-14; `tau` 1.0 from 2026-08-20 by owner decision. **Two shipped configs since 2026-08-29** -- PDD arms take `SOL_PDD_CUDA` (wider dense tail, more dense blocks), everything else `SOL_RECOMMENDED_CUDA`, resolved by `h3_config.sol_for_graph` | tau, window, sinks, dense blocks | see `docs/SOLATTN.md`; 1.3 returns only if it shows no difference from 1.0 on the distilled LoRAs while buying meaningful speed. The PDD split is an owner reading of rendered arms, four knobs moved together, so nothing in it attributes an effect to one knob -- a blind distribution per knob is what would |
 | `TURBO_LORA` / `TURBO_768P_*` / `TURBO_SLA_*` | none shipped by default; probe graphs | the lightx2v rows `bench/check_distill_settings.py` attests | 4-8 steps against 16 |
 | `CACHE_NODE` | probe graphs only, **not canonical** (owner decision 2026-08-20) | EasyCache threshold/window | 1.56-1.74x on deterministic samplers at 16 steps; a 16-step lever with nothing to skip at 4 |
 

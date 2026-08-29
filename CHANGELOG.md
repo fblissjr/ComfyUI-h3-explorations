@@ -4,6 +4,59 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.98.0
+
+### Changed
+
+- **PDD arms now ship their own Sol-Attn config.** `h3_config.SOL_PDD_CUDA`,
+  owner decision from watching rendered distilled arms: `end_percent` 0.74 at
+  every step count, `min_tokens` 11776, `morton_curve` `2d_frame`, and
+  `dense_blocks` `0,1,2,48,49,-1`. Everything else -- `tau` 1.0,
+  `start_percent` 0.2, `sink_conditioning`, `morton` off, `centroid_tail` --
+  stays shared with `SOL_RECOMMENDED_CUDA`, spelled as an override dict over
+  it so a change there still reaches both. 16 graph kinds move, in both
+  formats; no non-PDD graph changes.
+  - **Not a measurement, and stated that way in the config.** Four knobs moved
+    together on one reading, so nothing in it attributes an effect to any one
+    of them. It is recorded as a decision so a later blind distribution has
+    something to overturn.
+  - **Only `end_percent` changes what a shipped graph computes.** It is
+    strictly more conservative than the step-count derivation, never less: at 4
+    steps it is already what `SOL_END_PERCENT_BY_STEPS` gives, and at 8 steps
+    the band floor moves from sigma 0.642 to 0.8083, taking the second-to-last
+    step dense as well as the last one -- sparse coverage 5 of 8 becomes 4 of
+    8. It widens the dense tail past the fix that created that table rather
+    than undoing it. `min_tokens` selects identically to 12288 at every length
+    this repo renders, and `morton_curve` is inert while `morton` is off.
+  - **One resolver, because a PDD branch written twice drifts twice.**
+    `h3_config.sol_for_graph(pdd, steps)` decides both the PDD split and the
+    step-count derivation; `build_workflows.py` and
+    `bench/check_attention_defaults.py` both call it, replacing the generator's
+    local `sol_for_steps` and the check's re-derivation of the same lookup. The
+    check decides PDD by `loads_pdd`, the same mechanism its exemption uses, so
+    a new PDD arm is graded on the right recipe the moment it exists.
+  - Confirmed red on a deliberate violation: a PDD graph hand-edited back to
+    `end_percent` 0.87 and `dense_blocks` `0-1` fails naming `SOL_PDD_CUDA`.
+    Worth running because the outcome was open -- the check's PDD test is a
+    LoRA-loader class and the generator's is a builder flag, and nothing had
+    ever required the two to agree.
+
+### Fixed
+
+- **`docs/SOLATTN.md` claimed `dense_blocks` ships empty, in two places.** It
+  had said so since before 2026-08-26, when `SOL_RECOMMENDED_CUDA` took
+  NVLabs' `0-1`; one passage called the knob "unexploited headroom on the
+  shipped path" and another pointed at `docs/roadmap.md` for a decision that
+  had already been taken. Both corrected, both saying what they used to claim.
+  The knob table's `dense_blocks` row now names what each config ships rather
+  than only the node's default.
+- **`docs/h3_pdd.md` described the wrong mechanism for PDD `end_percent`,
+  twice.** It said the value is a build-time lookup that goes stale silently
+  when `steps` is hand-edited. That is now true only of non-distilled arms. Its
+  1-to-10 evaluation sweep also carried a Sol `end_percent` column, which is
+  one value repeated ten times under the new recipe; the column is deleted and
+  the one thing it conveyed is said once.
+
 ## 0.97.0
 
 ### Fixed
