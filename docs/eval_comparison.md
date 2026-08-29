@@ -69,11 +69,30 @@ WITHIN a clip, frame to frame, cuts masked — busier frames may well be worse
 inside a shot. The table above is ACROSS shots. What does not survive is using
 delta to choose a scene, which is what the rule above was for.
 
-**A hypothesis that fits, and is not established.** One clip, one observer.
-Detail at the latent resolution limit: a wide market shot gives each orange one
-or two latent cells where a stairwell closeup gives a face hundreds, and fewer
-steps means less refinement at exactly that scale. Ghosting fruit and smearing
-faces is what that would look like.
+**The hypothesis, in the owner's correction of it.** First stated here as
+"detail at the latent resolution limit" measured on the render. He corrected
+the quantity the same evening: *"what i meant by ghosted fruit was.... theres
+too much detail in whats being asked of the scene / frames being generated."*
+
+**Demand, not result.** What matters is the fine structure the PROMPT asks to
+be resolved, which is readable from the text before anything renders. Detail
+measured on the output is the wrong quantity twice over: it is downstream of
+the cause, and it is ambiguous between a plain scene and a destroyed one, since
+ghosted fruit reads as low detail. A wide market shot demands each orange be
+resolved in one or two latent cells where a stairwell closeup gives a face
+hundreds, and fewer steps means less refinement at exactly that scale.
+
+**Pre-registered predictions, written before the arms rendered.**
+
+| arms | demand predicts | the account it beats |
+|---|---|---|
+| `h3_text_to_video_{aisle,sortline}_{short,long}` | long worse than short in **both** scenes, damage on the elaborated surfaces | length-of-conditioning: no consistent direction |
+| market shot-count ablation | `shots12` best (lowest total demand), `shots13` worst | delta: `shots12` worst, being the all-high-delta arm |
+
+The two rows oppose each other on `shots12`, which is what makes it worth
+scoring first. And the demand pairs hold subjects, actions, camera moves,
+dialogue and cut times exactly, so they manipulate demand more cleanly than any
+shot swap can — a shot swap necessarily changes content.
 
 **One reading that was tested and failed**, recorded so it is not re-proposed:
 that shot 3 is bad because many things move independently. Its change is more

@@ -832,8 +832,34 @@ def resolve_default_prompt(task: str, prompt: str | None, *,
 
 
 
-#: **The description-length pair, and the only controlled test of prompt length
-#: in this repo.** Owner-requested 2026-08-28, after `h3_ref2v_scene_kitchen`
+#: **The DEMAND pair. Not a length pair, and the difference decides what it
+#: tests.** Owner-requested 2026-08-28 as a length experiment and reframed the
+#: same evening by his own correction: "what i meant by ghosted fruit was....
+#: theres too much detail in whats being asked of the scene / frames being
+#: generated." The axis is detail DEMANDED BY THE PROMPT -- a cause, readable
+#: from the text -- not detail measured in the render, which is a result and is
+#: ambiguous between a plain scene and a destroyed one.
+#:
+#: The long arm elaborates materials, light, surface and position. Under the
+#: demand reading that is not a null manipulation dressed up as more words: it
+#: is precisely asking for more fine structure to be resolved, which is the
+#: thing under test. **So do not describe these as "same scene, more words".
+#: They are "same scene, more detail demanded".**
+#:
+#: **PRE-REGISTERED, before either arm rendered.** Demand predicts the LONG arm
+#: is worse than its short counterpart in BOTH scenes, with the damage
+#: concentrated on the elaborated surfaces. A length-of-conditioning account
+#: predicts no consistent direction. Two scenes agreeing is the result; one is
+#: a fact about that scene.
+#:
+#: Note what this does NOT exclude. Some elaborations name small objects the
+#: short arm does not -- a price card at each bin, a length of chain in a
+#: waiting customer's hand. Under the demand hypothesis that IS the
+#: manipulation rather than a confound, since a small object is demand. What is
+#: excluded, and was the discipline throughout, is any new SUBJECT, ACTION,
+#: CAMERA MOVE or LINE, none of which differ.
+#:
+#: Originally written after `h3_ref2v_scene_kitchen`
 #: rendered roughly two shots where its prompt asked for four while
 #: `h3_ref2v_scene_subway` honoured all three cuts -- the two differed in
 #: description length among other things, and nothing isolated it.
@@ -6855,11 +6881,11 @@ def main():
              note)
             for tag, prompt, note in (
                 ("short", T2V_AISLE_SHORT,
-                 "the hardware aisle at 294 words -- the control arm of the "
-                 "description-length pair"),
+                 "the hardware aisle at low demand -- control arm of the "
+                 "demand pair"),
                 ("long", T2V_AISLE_LONG,
-                 "the same scene at 513 words, elaborated and not extended -- "
-                 "no new subject, action, camera move or line"))
+                 "the same scene with more fine structure demanded -- no new "
+                 "subject, action, camera move or line"))
         ],
 
         # The second pair, different scene, same manipulation. Two independent
