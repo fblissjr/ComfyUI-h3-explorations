@@ -41,13 +41,43 @@
    "rms_db_vs_own_off": 6.36601556402585,
    "gain_vs_own_off": 1.11260386152637,
    "corr_vs_own_off": 0.5346132225613426
+  },
+  "u8_off": {
+   "rms": 0.01697824548985892,
+   "rms_db_vs_own_off": 0.0,
+   "gain_vs_own_off": 1.0,
+   "corr_vs_own_off": 1.0
+  },
+  "u8_start": {
+   "rms": 0.01611697813874359,
+   "rms_db_vs_own_off": -0.4521838392137588,
+   "gain_vs_own_off": 0.6088394373587538,
+   "corr_vs_own_off": 0.6413747824843709
+  },
+  "u8_mean": {
+   "rms": 0.0191752371784957,
+   "rms_db_vs_own_off": 1.056958713023792,
+   "gain_vs_own_off": 0.4973533819167233,
+   "corr_vs_own_off": 0.44036985179606847
   }
  },
+ "widest_block": {
+  "u8": 4,
+  "u4": 8,
+  "opt4": 28
+ },
  "verdict": [
-  "u4: NOISE FLOOR (off vs block_start, same knob, different sample) 0.19 dB",
-  "u4: ablation moves audio energy +1.07 dB against block_start (clears the floor)",
-  "opt4: NOISE FLOOR (off vs block_start, same knob, different sample) 0.03 dB",
-  "opt4: ablation moves audio energy +6.39 dB against block_start (clears the floor)"
+  "u8 (widest block 4): NOISE FLOOR (off vs block_start, same knob, different sample) 0.45 dB",
+  "u8 (widest block 4): ablation moves audio energy +1.51 dB against block_start (clears the floor)",
+  "u4 (widest block 8): NOISE FLOOR (off vs block_start, same knob, different sample) 0.19 dB",
+  "u4 (widest block 8): ablation moves audio energy +1.07 dB against block_start (clears the floor)",
+  "opt4 (widest block 28): NOISE FLOOR (off vs block_start, same knob, different sample) 0.03 dB",
+  "opt4 (widest block 28): ablation moves audio energy +6.39 dB against block_start (clears the floor)"
+ ],
+ "rendered_this_invocation": [
+  "u8_mean",
+  "u8_off",
+  "u8_start"
  ],
  "errors": {},
  "do_not_rely_on": [
