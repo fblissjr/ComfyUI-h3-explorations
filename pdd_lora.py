@@ -563,6 +563,44 @@ class _StepTracker:
                 self.label, dv, da, self.nfe + 1, BOUNDARY_TOLERANCE)
 
 
+class _HeadBank(torch.nn.Module):
+    """The per-interval head bank and the checkpoint's own heads, as buffers.
+
+    Exists so ComfyUI owns these tensors instead of a closure. The closure
+    version worked and cost nothing on the card -- it kept the bank on CPU and
+    moved only the small fused head -- but its memory was invisible to
+    `model_management`: unaccounted, un-offloadable, and held for as long as
+    the cached node output that captured it. Several PDD arms in one session
+    is several copies nothing can reclaim.
+
+    Buffers rather than parameters because nothing here trains, and a buffer
+    still moves with the module under ComfyUI's loader.
+
+    This is deliberately NOT registered on the diffusion model. It is attached
+    with `set_additional_models`, which is how the third-party pack surveyed in
+    `docs/research/pdd/three_pdd_implementations.html` solves the same problem,
+    and it is why the streaming-loader hazard the closure was working around
+    does not apply: nothing here enters the diffusion model's parameter tree.
+    """
+
+    def __init__(self, banks: dict):
+        super().__init__()
+        self._streams = tuple(banks)
+        for stream, (bank_w, bank_b, base_w, base_b) in banks.items():
+            self.register_buffer(f"{stream}_bank_w", bank_w)
+            self.register_buffer(f"{stream}_bank_b", bank_b)
+            self.register_buffer(f"{stream}_base_w", base_w)
+            self.register_buffer(f"{stream}_base_b", base_b)
+
+    def nbytes(self) -> int:
+        """What to declare to ComfyUI, so the accounting is not a guess."""
+        return sum(b.numel() * b.element_size() for b in self.buffers())
+
+    def for_stream(self, stream: str):
+        return (getattr(self, f"{stream}_bank_w"), getattr(self, f"{stream}_bank_b"),
+                getattr(self, f"{stream}_base_w"), getattr(self, f"{stream}_base_b"))
+
+
 class _FusedHeads:
     """The block heads this render actually asks for, fused once each.
 
@@ -584,12 +622,13 @@ class _FusedHeads:
     checkpoint's own `operations.Linear` rather than this one.
     """
 
-    def __init__(self, bank_w, bank_b, base_w, base_b, shift, num_steps,
+    def __init__(self, bank: "_HeadBank", stream: str, shift, num_steps,
                  strength):
-        self.bank_w = bank_w
-        self.bank_b = bank_b
-        self.base_w = base_w
-        self.base_b = base_b
+        # Held by reference, not copied: the tensors belong to `bank`, which
+        # ComfyUI moves. Reading them at fuse time rather than at construction
+        # is what makes an offload-and-reload transparent here.
+        self.bank = bank
+        self.stream = stream
         self.shift = shift
         self.num_steps = num_steps
         self.strength = strength
@@ -603,10 +642,14 @@ class _FusedHeads:
             return hit
         master = self._master.get(block)
         if master is None:
-            w = fuse_block(self.bank_w, self.shift, self.num_steps, *block)
-            b = fuse_block(self.bank_b, self.shift, self.num_steps, *block)
-            master = (self.base_w + self.strength * (w - self.base_w),
-                      self.base_b + self.strength * (b - self.base_b))
+            bank_w, bank_b, base_w, base_b = self.bank.for_stream(self.stream)
+            # fp32 on whatever device the bank currently sits on. The fused
+            # result is small -- one head, not the stack -- so the cast cache
+            # below still moves kilobytes per block rather than the whole bank.
+            w = fuse_block(bank_w, self.shift, self.num_steps, *block)
+            b = fuse_block(bank_b, self.shift, self.num_steps, *block)
+            master = (base_w + self.strength * (w - base_w),
+                      base_b + self.strength * (b - base_b))
             self._master[block] = master
         hit = (master[0].to(device, dtype), master[1].to(device, dtype))
         self._cast[key] = hit
@@ -667,6 +710,10 @@ def _make_final_layer_forward(base_forward, tracker):
 #: The three keys this node takes when it installs the head swap. Anything
 #: already holding one of them owns H3's output projections, and two owners is
 #: a silently wrong render.
+#: The keyed slot the head bank is attached under. Keyed rather than
+#: appended so a second instance of this node replaces its own entry.
+ADDITIONAL_MODELS_KEY = "h3_pdd_head_bank"
+
 HEAD_PATCH_KEYS = ("diffusion_model.final_layer.forward",
                    "diffusion_model.final_layer.video_out.forward",
                    "diffusion_model.final_layer.audio_out.forward")
@@ -910,6 +957,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
     def execute(cls, model, lora_name, strength=1.0, head_strength=-1.0,
                 patch_heads=True, nfe=0, steps=8) -> io.NodeOutput:
         import comfy.lora
+        import comfy.model_patcher
         import comfy.utils
         import folder_paths
 
@@ -1350,12 +1398,11 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             "diffusion_model.forward",
             _make_capture_forward(
                 m.get_model_object("diffusion_model.forward"), tracker))
-        for stream, out_name in (
-                (("video", "video_out"), ("audio", "audio_out"))
-                if (patch_heads and head_strength != 0.0) else ()):
+        streams = (("video", "video_out"), ("audio", "audio_out")) \
+            if (patch_heads and head_strength != 0.0) else ()
+        banks = {}
+        for stream, out_name in streams:
             live = getattr(final_layer, out_name)
-            base_w = live.weight.detach().to(torch.float32).cpu()
-            base_b = live.bias.detach().to(torch.float32).cpu()
             # The bank goes in whole; fusion happens per block on first use.
             # The paper's section 3.1 asks for one fused linear per block rather
             # than an enlarged final layer, which this satisfies -- it just
@@ -1367,14 +1414,30 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     f"{lora_name} carries no per-interval head bank. It was "
                     f"converted before the bank was stored; reconvert with "
                     f"bench/convert_pdd_lora.py.")
-            m.add_object_patch(
-                f"diffusion_model.final_layer.{out_name}.forward",
-                _make_head_forward(
-                    _FusedHeads(bank_w, sd[f"h3_pdd.bank.{stream}.bias"],
-                                base_w, base_b,
-                                shift_v if stream == "video" else shift_a,
-                                num_steps, head_strength),
-                    tracker, stream))
+            banks[stream] = (bank_w.to(torch.float32),
+                             sd[f"h3_pdd.bank.{stream}.bias"].to(torch.float32),
+                             live.weight.detach().to(torch.float32).cpu(),
+                             live.bias.detach().to(torch.float32).cpu())
+
+        if banks:
+            # One module for both streams, so ComfyUI accounts for the bank
+            # once rather than twice, and one patcher attached under a keyed
+            # slot -- keyed so a second instance of this node in the chain
+            # replaces its own entry instead of appending a duplicate.
+            head_bank = _HeadBank(banks)
+            m.set_additional_models(
+                ADDITIONAL_MODELS_KEY,
+                [comfy.model_patcher.ModelPatcher(
+                    head_bank, m.load_device, m.offload_device,
+                    size=head_bank.nbytes())])
+            for stream, out_name in streams:
+                m.add_object_patch(
+                    f"diffusion_model.final_layer.{out_name}.forward",
+                    _make_head_forward(
+                        _FusedHeads(head_bank, stream,
+                                    shift_v if stream == "video" else shift_a,
+                                    num_steps, head_strength),
+                        tracker, stream))
 
         # The step count is deliberately NOT in this line. It is not known here
         # -- the scheduler is downstream -- and printing the file's own count
