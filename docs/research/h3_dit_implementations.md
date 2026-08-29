@@ -64,6 +64,21 @@ here — not because it is more correct, but because it is the one the release
 names. *(read: `coderef/MiniMax-H3/model_index.json`, and the absence of any
 `transformer/*.py` in that tree.)*
 
+**Reference of record is not the same as reachable here, and the gap is
+load-bearing.** diffusers cannot load the pruned curve checkpoint this install
+actually renders with — neither can vllm-omni. So for a real render on this
+box the comparison set is **three**: ComfyUI, sglang and DiffSynth. Read §3.2
+with that in mind: it is a comparison of the *architecture*, and where a row
+describes the released bf16 path rather than the shipped artifact it now says
+so. §9.7 has the detail.
+
+Naming this because the failure mode is live in this repo. The `encoder`
+session found the same shape on 2026-08-29 in a different lane: an instrument
+swept two snapshots and omitted the regime every shipped graph resolves to, so
+a generated record answered for artifacts nobody loads and the claim about the
+regime that ships had nothing measuring it. **An instrument covering the wrong
+population is worse than a missing one, because it reads as coverage.**
+
 What the release does declare, verbatim (*read*):
 
 | declared | value | where |
@@ -153,6 +168,9 @@ mlp{fc1,fc2}, adaln_proj}`, a 2-block `token_refiner` with `final_norm`, a
   of the video's w axis, one per stereo channel.
 - **Timestep is `t = 1 - sigma` in `[0,1]`, unscaled**, and the sinusoidal
   embedding puts **cos before sin**. Both invert the more common convention.
+  **The sinusoid half of that describes the released bf16 path, which is not
+  what this box runs** — on the pruned curve checkpoint the sinusoid and its
+  MLP do not exist at all, and two of the five have no code path for it. §9.7.
 - **Conditioning anchors** sit at `t = 0.999` visual, `t = 1.0` audio, in every
   implementation that has them.
 - **Two sigma schedules per request**, video shift 12.0 and audio shift 3.0,
