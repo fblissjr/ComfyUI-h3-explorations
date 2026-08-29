@@ -100,6 +100,16 @@ WORKFLOWS = HERE.parent / "workflows"
 #: because every artifact this repo ships declares 32.
 NUM_STEPS = 32
 
+#: The block width the shipped banks were distilled at, and the floor of the
+#: envelope `envelope_partition` tiles within. Both artifacts declare 4 in
+#: `pdd_block_size`; a file declaring otherwise would tile differently and this
+#: check would grade the wrong envelope, which is why the node reads it from
+#: metadata rather than from here.
+TRAINED = 4
+
+#: The video shift the emitted schedule is built on.
+SHIFT_VIDEO = 12.0
+
 #: Step counts where `simple` reproduces the closed form exactly: divisors of
 #: the 32-point grid that also divide `simple`'s 1,000-entry table. 16 is a
 #: grid divisor and is deliberately NOT here -- 1000 % 16 != 0.
@@ -219,26 +229,69 @@ def case_knots_round_trip():
     return f"uniform boundaries recovered at {sorted(set(seen))} steps"
 
 
-def case_non_divisor_raises():
-    """An explicit `steps` that does not tile the grid is refused.
+def case_untileable_raises():
+    """An explicit `steps` that tiles the grid by NEITHER route is refused.
 
     Drives `pdd_lora.resolve_emit_steps` itself. The first version of this case
     recomputed the condition and asserted its own arithmetic, which could not
     have failed however the node behaved -- the shape `docs/checks.md` calls a
     check whose input already satisfies the outcome.
+
+    **Narrowed 2026-08-29, and the old form was over-broad.** It asserted that
+    every non-divisor is refused, which was the behaviour but not the
+    requirement: a non-divisor can still tile the grid unevenly inside the
+    trained envelope, and 5, 6 and 7 do. The requirement is that a count
+    reaching the grid by neither route is refused, and 3 and 9 are the cases --
+    too few blocks to reach 32 at the envelope's ceiling, and too many to reach
+    it at the floor. 12 is now covered by `case_envelope_tiling_is_legal`
+    instead, which asserts the boundary from the other side.
     """
-    from pdd_lora import resolve_emit_steps
-    for bad in (3, 5, 6, 7, 12):
+    from pdd_lora import resolve_emit_steps, envelope_partition
+    for bad in (3, 9, 11):
         assert NUM_STEPS % bad, f"{bad} divides {NUM_STEPS}; not a case"
+        assert envelope_partition(NUM_STEPS, bad, TRAINED) is None, (
+            f"{bad} HAS an envelope tiling; it is not an untileable case")
         try:
-            got = resolve_emit_steps(bad, 8, NUM_STEPS)
+            got = resolve_emit_steps(bad, 8, NUM_STEPS, TRAINED)
         except RuntimeError:
             continue
         raise AssertionError(
-            f"steps={bad} does not tile the {NUM_STEPS}-point grid but was "
-            f"accepted, returning {got}. No on-grid schedule exists at that "
-            f"count, so the SIGMAS output would be silently off it.")
-    return "3, 5, 6, 7, 12 all refused as explicit requests"
+            f"steps={bad} tiles the {NUM_STEPS}-point grid by neither a "
+            f"divisor nor the trained envelope, but was accepted, returning "
+            f"{got}. The SIGMAS output would be silently off the grid.")
+    return "3, 9, 11 reach the grid by neither route and are all refused"
+
+
+def case_envelope_tiling_is_legal():
+    """A non-divisor the envelope CAN tile is accepted, and tiles exactly.
+
+    The counterpart to the case above, and the reason it had to narrow. Six
+    evaluations is the one that matters: no uniform partition of 32 exists, the
+    node refused it until 2026-08-29, and the owner had been supplying exactly
+    the partition it now emits by hand through `ManualSigmas` the whole time.
+
+    Asserts three things, because accepting the count is the weakest of them:
+    the widths tile the grid, every width is inside the trained envelope, and
+    the emitted sigmas are the ones the hand-written partition produced.
+    """
+    import torch
+    from pdd_lora import resolve_emit_steps, envelope_partition
+    from pdd_math import partition_bounds
+    for nfe in (5, 6, 7):
+        assert NUM_STEPS % nfe, f"{nfe} divides {NUM_STEPS}; not a case"
+        assert resolve_emit_steps(nfe, 8, NUM_STEPS, TRAINED) == nfe
+        w = envelope_partition(NUM_STEPS, nfe, TRAINED)
+        assert w is not None and sum(w) == NUM_STEPS, f"{nfe}: {w} does not tile"
+        assert all(TRAINED <= x <= 2 * TRAINED for x in w), f"{nfe}: {w} leaves the envelope"
+        assert len(w) == nfe, f"{nfe}: {w} is not {nfe} blocks"
+    six = (1.0 - partition_bounds(SHIFT_VIDEO, NUM_STEPS,
+                                  envelope_partition(NUM_STEPS, 6, TRAINED)))
+    hand = torch.tensor([1.0, 0.972973, 0.923077, 0.878049, 0.8, 0.631579, 0.0])
+    d = float((six - hand).abs().max())
+    assert d < 5e-6, (
+        f"the emitted six-block schedule is {d:.2e} from the hand-written "
+        f"partition this repo has been rendering: {six.tolist()}")
+    return "5, 6, 7 tile inside the envelope; 6 reproduces the hand-written partition"
 
 
 def case_zero_is_inert():
@@ -456,7 +509,8 @@ print("PDD SIGMAS output: the schedule the heads were fused for")
 check("emitted is simple", case_emitted_is_simple)
 check("exactness regime holds", case_exactness_regime_holds)
 check("knots round trip", case_knots_round_trip)
-check("non-divisor raises", case_non_divisor_raises)
+check("untileable raises", case_untileable_raises)
+check("envelope tiling legal", case_envelope_tiling_is_legal)
 check("zero is inert", case_zero_is_inert)
 check("graphs consume it", case_graphs_consume_it)
 check("graph shift matches file", case_graph_shift_matches_file)

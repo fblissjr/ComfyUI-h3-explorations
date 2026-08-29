@@ -59,6 +59,32 @@ def block_bounds(shift: float, num_steps: int, block_size: int) -> torch.Tensor:
     return pdd_time_grid(shift, num_steps)[::block_size].contiguous()
 
 
+def partition_bounds(shift: float, num_steps: int, widths) -> torch.Tensor:
+    """`block_bounds` for a partition that is not uniform.
+
+    `block_bounds` slices the grid at a fixed stride, which can only express a
+    block size that divides `num_steps`. This indexes the same grid at the
+    cumulative sums of `widths`, so any tiling is expressible -- including the
+    ones a divisor cannot reach, of which six blocks of 32 is the one that
+    matters.
+
+    It is the same grid and the same `shifted_sigma`, so the identity
+    `block_bounds` documents still holds: every boundary is a point the 32-grid
+    already contains, and the model is evaluated at times it was fused for.
+    Uniform `widths` reproduce `block_bounds` exactly, which
+    `bench/check_pdd_sigmas.py` asserts rather than assumes.
+    """
+    if sum(widths) != num_steps:
+        raise ValueError(
+            f"partition {list(widths)} sums to {sum(widths)}, not the grid's "
+            f"{num_steps}; the blocks would not tile it.")
+    knots, acc = [0], 0
+    for w in widths:
+        acc += int(w)
+        knots.append(acc)
+    return pdd_time_grid(shift, num_steps)[knots].contiguous()
+
+
 def base_sigma(sigma: torch.Tensor, shift: float) -> torch.Tensor:
     """Undo the flow shift: which point of the UNSHIFTED grid a sigma came from.
 

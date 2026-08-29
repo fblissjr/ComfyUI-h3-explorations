@@ -165,10 +165,10 @@ import torch.nn.functional as F
 from comfy_api.latest import io
 
 try:                                     # loaded as a package by ComfyUI
-    from .pdd_math import (block_bounds, fuse_block, pdd_time_grid,
+    from .pdd_math import (block_bounds, fuse_block, partition_bounds, pdd_time_grid,
                            schedule_knots, silu_temb_grid)
 except ImportError:                      # loaded as a bare module by a script
-    from pdd_math import (block_bounds, fuse_block, pdd_time_grid,
+    from pdd_math import (block_bounds, fuse_block, partition_bounds, pdd_time_grid,
                           schedule_knots, silu_temb_grid)
 
 logger = logging.getLogger(__name__)
@@ -242,6 +242,36 @@ PARTITION_TOLERANCE = 0.015
 TABLE_TOLERANCE = 5e-3
 
 
+def envelope_partition(num_steps: int, nfe: int, trained: int):
+    """Widths for `nfe` blocks tiling `num_steps`, every one inside the
+    trained envelope `[trained, 2*trained]`. `None` when no such tiling exists.
+
+    This is what lets a step count that does NOT divide the grid still be
+    emitted honestly. Six blocks of a 32-point grid is the case that matters:
+    no uniform partition exists, but `[8, 8, 4, 4, 4, 4]` tiles it exactly and
+    every block is inside the envelope the bank was distilled for.
+
+    **Wide blocks go first, deliberately.** Among the hundreds of legal
+    partitions the choice is not free: `CLAUDE.md` records that PDD quality is
+    governed by the coarseness of the tail rather than by the evaluation
+    count, and a partition ending in a narrow block spends its last Euler step
+    on 63.2% of the trajectory where one ending wide spends 80%. Front-loading
+    the excess is the rule that reaches the better tail for every count, and it
+    reproduces the uniform partition exactly whenever one exists.
+    """
+    if nfe < 1 or trained < 1 or not (trained * nfe <= num_steps <= 2 * trained * nfe):
+        return None
+    widths = [trained] * nfe
+    excess = num_steps - trained * nfe
+    for i in range(nfe):
+        if not excess:
+            break
+        add = min(excess, trained)
+        widths[i] += add
+        excess -= add
+    return None if excess else widths
+
+
 def emit_sigmas(shift_v: float, num_steps: int, block_w: int) -> torch.Tensor:
     """The vector the SIGMAS output carries, as the node builds it.
 
@@ -256,7 +286,8 @@ def emit_sigmas(shift_v: float, num_steps: int, block_w: int) -> torch.Tensor:
     return (1.0 - block_bounds(shift_v, num_steps, block_w)).to(torch.float32)
 
 
-def resolve_emit_steps(steps, file_nfe: int, num_steps: int) -> int:
+def resolve_emit_steps(steps, file_nfe: int, num_steps: int,
+                       trained: int = 0) -> int:
     """Evaluations for the SIGMAS output: what `steps` asked for, or the file's.
 
     Lifted out of `MiniMaxH3PDDLoRA.execute` so it can be driven without a
@@ -272,22 +303,37 @@ def resolve_emit_steps(steps, file_nfe: int, num_steps: int) -> int:
         reports it at run time. An earlier version of this raised
         unconditionally and would have refused a 6-step render in flight at
         the time it was written.
-      * **A non-zero request MUST tile the grid.** At such a count no on-grid
-        schedule exists, so there is nothing honest to emit, and raising is the
-        only answer that is not silently off it.
+      * **A non-zero request MUST tile the grid**, by one of two routes. A
+        divisor tiles it uniformly. A non-divisor may still tile it unevenly
+        inside the trained envelope -- `envelope_partition` above -- and six
+        blocks of 32 is exactly that case. Only a count neither route reaches
+        is refused, because then no on-grid schedule exists and there is
+        nothing honest to emit.
+
+    **This refused every non-divisor until 2026-08-29**, including 6, which
+    the owner had been supplying by hand through `ManualSigmas` all along --
+    `h3_config.PDD_MANUAL_SIGMAS` is the very partition this now emits. The
+    refusal was right that a uniform 6 does not exist and wrong that nothing
+    did.
     """
     asked = int(steps)
     if not asked:
         return int(file_nfe)
-    if num_steps % asked:
-        legal = sorted(n for n in range(1, num_steps + 1) if num_steps % n == 0)
-        raise RuntimeError(
-            f"steps={asked} does not divide the file's {num_steps}-point "
-            f"grid, so the blocks cannot tile it and the SIGMAS output would "
-            f"step somewhere these heads were never fused for. Legal here: "
-            f"{legal}. This raises rather than warning because the failure is "
-            f"otherwise silent: the render completes and is merely wrong.")
-    return asked
+    if num_steps % asked == 0:
+        return asked
+    if trained and envelope_partition(num_steps, asked, trained) is not None:
+        return asked
+    legal = sorted(n for n in range(1, num_steps + 1) if num_steps % n == 0)
+    uneven = sorted(n for n in range(1, num_steps + 1)
+                    if num_steps % n and trained
+                    and envelope_partition(num_steps, n, trained) is not None)
+    raise RuntimeError(
+        f"steps={asked} cannot tile the file's {num_steps}-point grid, so the "
+        f"SIGMAS output would step somewhere these heads were never fused "
+        f"for. Uniform counts: {legal}"
+        + (f"; uneven but inside the trained envelope: {uneven}" if uneven else "")
+        + f". This raises rather than warning because the failure is otherwise "
+        f"silent: the render completes and is merely wrong.")
 
 
 def _is_minimax_h3(diffusion_model) -> bool:
@@ -1032,8 +1078,17 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         # graph that does not consume SIGMAS -- including a deliberately
         # off-grid arm at a count that does not tile the grid, which the MODEL
         # path still supports and reports. Only an explicit request is graded.
-        emit_steps = resolve_emit_steps(steps, file_nfe, num_steps)
-        block_w = num_steps // emit_steps
+        _trained = meta.get("pdd_block_size")
+        _trained = int(_trained) if _trained is not None else 0
+        emit_steps = resolve_emit_steps(steps, file_nfe, num_steps, _trained)
+        # Uniform when one exists, so every count that worked before is
+        # bit-identical; the uneven envelope tiling only for the counts that
+        # previously raised.
+        if num_steps % emit_steps == 0:
+            widths = [num_steps // emit_steps] * emit_steps
+        else:
+            widths = envelope_partition(num_steps, emit_steps, _trained)
+        block_w = max(widths)
         # The trained envelope, warned rather than refused. The file records
         # the width it was distilled at; `ComfyUI-UtilsCollection` hard-refuses
         # anything past twice that, on the reasoning that a block averaged from
@@ -1061,7 +1116,13 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 "independent implementation refuses outright, and nothing "
                 "here has measured whether it holds up. Rendering anyway.",
                 emit_steps, block_w, trained_w)
-        sigmas = emit_sigmas(shift_v, num_steps, block_w)
+        sigmas = (1.0 - partition_bounds(shift_v, num_steps, widths)).to(torch.float32)
+        if len(set(widths)) > 1:
+            logger.info(
+                "[h3-pdd] steps=%d does not divide the %d-point grid; emitting "
+                "the envelope tiling %s, widest block %d. Wide blocks lead so "
+                "the final block stays narrow, which is what governs quality "
+                "at low step counts.", emit_steps, num_steps, widths, block_w)
 
         # Partition check. fl2va and ref2va ship identical key sets, so a
         # mismatched pair loads with zero unmatched keys and renders -- the
