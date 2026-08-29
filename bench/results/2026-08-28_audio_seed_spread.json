@@ -1,0 +1,39 @@
+{
+ "date": "2026-08-28",
+ "script": "bench/measure_audio_seed_spread.py",
+ "arm": "u4_off",
+ "seeds": [
+  730451892,
+  111222333,
+  424242424,
+  987654321
+ ],
+ "length": 362,
+ "canvas": "1152x768  3/2  864 tok/frame  0.73x",
+ "grading": "graded within this run only; the base graph's prompt changed in b62e95d after bench/results/2026-08-28_pdd_stream_energy.json was measured",
+ "per_seed": {
+  "730451892": {
+   "rms": 0.01748346470076881
+  },
+  "111222333": {
+   "rms": 0.016279768339514937
+  },
+  "424242424": {
+   "rms": 0.01642396827813536
+  },
+  "987654321": {
+   "rms": 0.023501313004788433
+  }
+ },
+ "range_db": 3.1888781225668543,
+ "sd_db": 1.5039139959745158,
+ "verdict": [
+  "u4 ablation +1.07 dB is INSIDE the seed spread -- not distinguishable from drawing a different sample",
+  "opt4 ablation +6.39 dB is 2.0x the full seed range (spread measured at u4 only)"
+ ],
+ "do_not_rely_on": [
+  "Measured at u4 only. A seed spread does not transfer across partitions, and opt4 is graded against it only as a rough scale.",
+  "Four seeds is a range, not a distribution. It bounds the obvious case; it does not give a confidence interval.",
+  "Audio energy only. Two clips can share an RMS and sound nothing alike, and no clip here was judged by a person."
+ ]
+}

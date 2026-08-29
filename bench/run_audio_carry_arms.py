@@ -236,13 +236,24 @@ def main() -> int:
               f"{row.get('gain_vs_own_off', float('nan')):>13.4f}"
               f"{row.get('corr_vs_own_off', float('nan')):>13.4f}")
 
+    # Merge into any existing record rather than replacing it. Arms are
+    # rendered a partition at a time as the shared card allows, and an
+    # overwrite would silently drop the partitions rendered in an earlier
+    # invocation -- which is most of the dose-response.
+    out = REPO / "bench/results/2026-08-28_audio_carry_ablation.json"
+    merged, prior = dict(rows), {}
+    if out.exists():
+        prior = json.loads(out.read_text())
+        merged = {**prior.get("arms", {}), **rows}
+
     verdict = []
     for part in WIDEST_BLOCK:
         st, mn = f"{part}_start", f"{part}_mean"
-        if st not in rows or mn not in rows:
+        if st not in merged or mn not in merged:
             continue
-        floor = abs(rows[st]["rms_db_vs_own_off"])
-        eff = rows[mn]["rms_db_vs_own_off"] - rows[st]["rms_db_vs_own_off"]
+        rows_src = merged
+        floor = abs(rows_src[st]["rms_db_vs_own_off"])
+        eff = rows_src[mn]["rms_db_vs_own_off"] - rows_src[st]["rms_db_vs_own_off"]
         verdict.append(
             f"{part} (widest block {WIDEST_BLOCK[part]}): NOISE FLOOR "
             f"(off vs block_start, same knob, different sample) {floor:.2f} dB")
@@ -261,15 +272,29 @@ def main() -> int:
     for v in verdict:
         print(f"  {v}")
 
-    out = REPO / "bench/results/2026-08-28_audio_carry_ablation.json"
     out.write_text(json.dumps({
         "date": "2026-08-28",
         "script": "bench/run_audio_carry_arms.py",
         "length": LENGTH, "canvas": CANVAS, "seed": SEED,
         "grading": CROSS_RUN_NOTE,
-        "arms": rows, "widest_block": WIDEST_BLOCK, "verdict": verdict,
-        "errors": {a: res[a]["error"] for a in want if res[a].get("error")},
+        "arms": merged, "widest_block": WIDEST_BLOCK, "verdict": verdict,
+        "rendered_this_invocation": sorted(rows),
+        "errors": {**prior.get("errors", {}),
+                   **{a: res[a]["error"] for a in want if res[a].get("error")}},
         "do_not_rely_on": [
+            "**READ bench/results/2026-08-28_audio_seed_spread.json BEFORE "
+            "ANY NUMBER HERE.** The `clears the floor` verdicts below are "
+            "against the 1e-6 floor, which bounds NUMERICAL noise only. The "
+            "reference distribution that matters is seed variation, and it is "
+            "3.19 dB full range (sd 1.50) across four seeds at u4 with "
+            "nothing else changed. Against THAT: u4's +1.07 dB is INSIDE "
+            "sampling noise and is not a result; only opt4's +6.39 dB clears "
+            "it, by 2.0x, on one pair. The same applies to the spectral "
+            "companion: centroid slope varies 61 Hz/s across those seeds, and "
+            "opt4's ablation moves it 92 Hz/s.",
+            "The fix for that is a PAIRED design -- both modes at the same "
+            "seeds, differenced per seed so the between-seed spread cancels "
+            "-- not more single pairs. This file is single pairs.",
             "ONE pair per partition. block_start is a noise-floor estimate "
             "from a single second sample, not a distribution. An effect "
             "inside it is 'not measurable this way', never 'no effect'.",
