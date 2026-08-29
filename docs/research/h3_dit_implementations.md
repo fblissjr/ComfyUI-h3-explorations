@@ -208,6 +208,16 @@ A/B a numerical change — with `er_sde`, two runs of the *same* arm differ too.
 this repo has no measurement either way, and getting one needs a distribution
 under [`../eval_comparison.md`](../eval_comparison.md) section 3, not a pair.
 
+**Partially priced 2026-08-29.** A three-arm record on one scene
+([`../../bench/results/2026-08-29_market_scene_arms.json`](../../bench/results/2026-08-29_market_scene_arms.json))
+includes a pair differing **only** in `sampler_name`, `dpmpp_2m_sde_gpu`
+against `euler`, at a fixed seed with PDD-emitted sigmas. Both met the brief.
+`euler` with its default `s_churn=0` is exactly the reference integrator --
+deterministic, eta=0, first order -- so the vendor's own integrator is viable
+here. That is one data point and says nothing about which is better; what it
+does buy is **repeatability**, since a same-seed repeat under `euler` is a true
+repeat and under either SDE sampler it is not.
+
 ### 4.2 Step-count semantics: "N steps" means different things
 
 All implementations build the sigma grid with the same shift map over `[1, 0]`.
@@ -387,8 +397,11 @@ independently by diffusers, sglang, DiffSynth and vllm-omni — this install
 already agrees with all four. Recording it as a confirmed non-gap, because it
 was an assumption nobody had checked.
 
-**4. The sampler divergence in §4.1 is unpriced.** It is the one difference
-here that plausibly changes output quality and has no measurement behind it.
+**4. The sampler divergence in §4.1 is now half priced.** The reference
+integrator was shown viable on one scene (§4.1). What is still unmeasured is
+whether either is *better* -- that needs a distribution, not the pair. The
+practical consequence is already actionable though: only the deterministic arm
+gives this install a repeatable baseline.
 
 **5. Nothing guards which qkv layout a loaded checkpoint has.** §6 shows
 ComfyUI assuming contiguous unconditionally, and a wrong-layout file loading

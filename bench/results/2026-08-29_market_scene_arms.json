@@ -1,0 +1,69 @@
+{
+  "date": "2026-08-29",
+  "what": "Three arms on the night-market t2va scene, forming two clean single-variable pairs about a shared hub. Recorded because they existed only as files that looked good, and because the sampler pair prices a divergence docs/research/h3_dit_implementations.md left open.",
+  "recorded_by": "bench/diff_render_graphs.py --diff, against the graphs ComfyUI embedded in each render",
+  "location": "the share's ComfyUI output directory; see start.sh --output-directory",
+  "arms": {
+    "A_nosol": {
+      "file": "Video/BEST_MARKET_SCENE_8STEP_PDD_345frames_nosol.png",
+      "sampler": "dpmpp_2m_sde_gpu",
+      "sol": false
+    },
+    "B_hub": {
+      "file": "Video/yoyo_00002.png",
+      "sampler": "dpmpp_2m_sde_gpu",
+      "sol": true
+    },
+    "C_euler": {
+      "file": "Video/night_market_scene_euler_pdd8step_sol_1152_768_piano_sound_345f.png",
+      "sampler": "euler",
+      "sol": true
+    }
+  },
+  "pairs": {
+    "sol_axis": {
+      "arms": ["A_nosol", "B_hub"],
+      "sole_difference": "the SolAttnMiniMax node; verified field by field on the reachable graph",
+      "sol_settings": {
+        "selection": "adaptive tau",
+        "tau": 1.0,
+        "start_percent": 0.2,
+        "end_percent": 0.74,
+        "min_tokens": 11776,
+        "sink_conditioning": "exact_kv_and_rows",
+        "morton": false,
+        "centroid_tail": true
+      }
+    },
+    "sampler_axis": {
+      "arms": ["B_hub", "C_euler"],
+      "sole_difference": "KSamplerSelect.sampler_name only. Nothing else differs, not even the filename prefix field."
+    }
+  },
+  "shared_configuration": {
+    "seed": 873119850061921,
+    "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+    "encoder": "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors",
+    "pdd_lora": "h3/minimax_h3_fl2va_pdd_8step_comfy.safetensors, strength 1.0, patch_heads true, nfe 0",
+    "resolution": "1152x768, 864 tokens/frame",
+    "length_frames": 345,
+    "prompt_sha256_16": "9a611ee9f0ee7265",
+    "sigmas_source": "MiniMaxH3PDDLoRA SIGMAS output, slot 1, through a VisualizeSigmasKJ passthrough. NOT the ManualSigmas node in the graph, which feeds a preview branch only.",
+    "sigmas": [1.0, 0.988235, 0.972973, 0.952381, 0.923077, 0.878049, 0.8, 0.631579, 0.0],
+    "evaluations": 8,
+    "no_model_sampling_shift_node": "removed; a no-op, since supported_models.py MiniMaxH3 already carries shift 12.0 / audio_shift 3.0 and the node's defaults are the same two numbers"
+  },
+  "derived": {
+    "pdd_head_coverage": "block_w 4 over the 32-point grid; the 8 evaluations tile heads [0,4) [4,8) ... [28,32) exactly. 32 of 32, no duplicates, no gaps.",
+    "sol_active_steps": "4 of 8. percent_to_sigma at shift 12 puts the window at sigma in (0.808290, 0.979592]; steps 3-6 fall inside, 1-2 above, 7-8 below.",
+    "sol_near_boundary": "step 7 at sigma 0.8 misses by 0.008; end_percent 0.75 is the exact boundary that would include it.",
+    "audio_carry_drift": "ComfyUI freezes the audio change-of-variable coefficients at each block's start sigma while a PDD fused head returns the block mean. Coefficient (1 + 3*sigma_a) drift per block on this schedule: 3.4%, 4.2%, 5.4%, 7.1%, 9.9%, 14.6%, 24.0%, 47.4%. The same statistic on a uniform 4-step partition is 60% in the final block. Mechanism is owned by docs/research/pdd/audio_under_pdd.md; these are its values for this schedule."
+  },
+  "what_this_establishes": [
+    "All three arms met the brief; the owner judged each acceptable.",
+    "euler is the integrator all four reference engines use -- deterministic, eta=0, first order, s_churn defaulting to 0 so no noise is injected. This is the first evidence on this box that the vendor's own integrator is viable here, and it partially prices the divergence left open at docs/research/h3_dit_implementations.md section 4.1.",
+    "Because euler is deterministic, arm C is repeatable at a fixed seed in a way arms A and B are not: dpmpp_2m_sde_gpu injects fresh noise every step, so a same-seed repeat of A or B is a different sample."
+  ],
+  "what_this_does_not_establish": "Nothing about which arm is better, on either axis. Sol and the sampler are both numerical changes, so each arm is a different sample rather than a variant of the same one -- the standing rule in CLAUDE.md. n=1 per arm, not blinded, not scored under docs/eval_comparison.md section 3.",
+  "next_test_named": "A same-seed repeat of arm C. If it reproduces, this install gains a repeatable baseline, which is the precondition for every other comparison here -- under A or B a repeat cannot be a true repeat."
+}
