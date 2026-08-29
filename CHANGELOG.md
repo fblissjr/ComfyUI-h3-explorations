@@ -8,6 +8,26 @@ artifact.
 
 ### Fixed
 
+- **Fusing a head crashed whenever ComfyUI put the bank on the GPU.**
+  `fuse_block` derived its plan on the default device and multiplied it against
+  the bank wherever that was, which was fine for as long as the bank lived in a
+  closure and never left the CPU. Handing it to ComfyUI as a managed model made
+  it movable, ComfyUI moved it to cuda, and the first render after that raised
+  `Expected all tensors to be on the same device` from inside the tensordot.
+  The plan now follows the stack, so the fusion happens where the weights are
+  and a 42 MiB round trip stays off the wire. Not specific to any step count --
+  `fuse_block` runs for every block at every count.
+  - The audit that followed found the rest of the run-time paths already
+    device-aware: the tracker moves its table to the embedding's device, and
+    the adaln injection moves all three operands to `x`'s. This was the only
+    gap, precisely because it was the only place both operands used to be CPU
+    by construction.
+  - Graded by a new case, skipped loudly on a CPU-only box. It asserts the
+    result LANDS on the bank's device -- fusing on the CPU and copying back
+    would also avoid the crash, at the cost of the round trip -- and that both
+    devices agree to the bit, since a silent fp64 precision change would be
+    worse than the crash it replaced.
+
 - **`head_strength`'s sentinel was documented and never implemented, so the
   node default applied the distilled head correction backwards.** The input's
   tooltip has said "-1.0, the default, means FOLLOW `strength`" since the

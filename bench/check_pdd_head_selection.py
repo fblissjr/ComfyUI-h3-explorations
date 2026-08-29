@@ -758,10 +758,72 @@ def head_strength_sentinel_is_resolved():
 
 
 
+
+# --- fusing follows the bank wherever ComfyUI put it -------------------------
+
+def fusion_follows_the_bank_device():
+    """A bank on the GPU fuses on the GPU, and to the same numbers.
+
+    ## The escaped defect that earns this case
+
+    Until 2af7f0b the head bank lived in a closure and never left the CPU, so
+    `fuse_block`'s two operands -- a plan derived on the fly, and the bank --
+    were both CPU by construction. Handing the bank to ComfyUI as a managed
+    model was the right change and it made a device split reachable that had
+    never existed: ComfyUI moved the bank to cuda, the plan stayed on the CPU,
+    and the first render after the refactor died inside the tensordot with
+    `Expected all tensors to be on the same device`.
+
+    Every existing case passed, because every one of them builds its own bank
+    on the CPU. `CLAUDE.md`: a correct fix moves where a constraint applies,
+    and it moves it somewhere nobody is looking.
+
+    ## What it grades
+
+    Both halves, because either alone is weak. That the result LANDS on the
+    bank's device -- fusing on the CPU and copying back would also avoid the
+    crash, at the cost of a round trip per block. And that the two devices
+    agree to the bit, since the fusion is fp64 and a silent precision change
+    would be worse than the crash it replaced.
+    """
+    import torch as _t
+    if not _t.cuda.is_available():
+        skipped.append("no CUDA device, so the split this case exists for cannot occur")
+        return "SKIPPED -- CPU only"
+
+    stack = _t.arange(32 * 3 * 4, dtype=_t.float32).reshape(32, 3, 4)
+    cpu = M.fuse_block(stack, 12.0, 32, 0, 8)
+    gpu = M.fuse_block(stack.cuda(), 12.0, 32, 0, 8)
+
+    assert gpu.device.type == "cuda", (
+        f"a bank on cuda fused to {gpu.device}. The fusion ran on the CPU, "
+        f"which means the whole bank crossed the bus to get there and crosses "
+        f"back every time a block is fused.")
+    diff = float((cpu - gpu.cpu()).abs().max())
+    assert diff == 0.0, (
+        f"cpu and cuda fusions differ by {diff}. This is fp64 arithmetic on "
+        f"both sides and must agree exactly; a difference means the plan or "
+        f"the stack lost precision on one path.")
+
+    # And through the object the render actually calls, which is where the
+    # traceback came from -- `_FusedHeads.get` reads the bank by reference and
+    # is the reason a moved bank reaches `fuse_block` at all.
+    bank = {"video": (_t.full((32, 3, 4), 3.0).cuda(), _t.full((32, 3), 3.0).cuda(),
+                      _t.full((3, 4), 1.0).cuda(), _t.full((3,), 1.0).cuda())}
+    fh = P._FusedHeads(P._HeadBank(bank), "video", 12.0, 32, 1.0)
+    w, _ = fh.get((0, 8), _t.device("cuda"), _t.float32)
+    assert w.device.type == "cuda" and abs(float(w.flatten()[0]) - 3.0) < 1e-5, (
+        f"_FusedHeads.get returned {w.device} / {float(w.flatten()[0])} for a "
+        f"bank on cuda")
+    return "cuda bank fuses on cuda, bit-identical to cpu, through _FusedHeads"
+
+
+
 check("today's core signature", todays_core)
 check("the signature #15908 introduces", post_pr_core)
 check("a second owner of the heads is refused", refuses_to_stack)
 check("the head_strength sentinel is resolved", head_strength_sentinel_is_resolved)
+check("fusing follows the bank device", fusion_follows_the_bank_device)
 check("no state outlives its schedule", no_state_outlives_its_schedule)
 
 print()

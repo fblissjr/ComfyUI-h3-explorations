@@ -161,9 +161,23 @@ def fuse_block(stack: torch.Tensor, shift: float, num_steps: int,
     Slices the bank before weighting, so the fp64 intermediate is the block
     rather than the whole 32-head stack -- which matters when this is called
     inside a sampling step rather than once at load.
+
+    **The plan follows the stack's device, and the stack decides.** The grid is
+    derived arithmetic and is born wherever torch defaults to, while the bank
+    is a buffer ComfyUI owns and moves; fusing on the bank's device keeps a
+    42 MiB round trip off the wire every time the two differ.
+
+    That line is here because of a real failure rather than a precaution. Until
+    2af7f0b the bank lived in a closure and never left the CPU, so both
+    operands were CPU by construction and this could not have gone wrong.
+    Handing the bank to ComfyUI made it a managed model, ComfyUI moved it to
+    cuda, and the first render after that raised `Expected all tensors to be on
+    the same device` from inside this tensordot. The refactor was right and it
+    made a previously unreachable device split reachable -- `CLAUDE.md`'s rule
+    about the paths a fix brings to life.
     """
     steps = pdd_time_grid(shift, num_steps).diff()
-    plan = fusion_plan(steps, start, stop)[start:stop]
+    plan = fusion_plan(steps, start, stop)[start:stop].to(stack.device)
     return torch.tensordot(plan, stack[start:stop].to(torch.float64),
                            dims=([0], [0])).to(torch.float32)
 
