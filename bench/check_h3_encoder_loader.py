@@ -156,6 +156,19 @@ def an_incomplete_checkpoint_cannot_load_quietly():
         ("drops a mid-stack layernorm",
          lambda sd: sd.pop("model.layers.25.input_layernorm.weight"),
          "does not exactly populate"),
+        # The final-norm trap, raised by the `dit` session 2026-08-29 and
+        # verified here. ComfyUI builds the stack with `final_norm=False`, so
+        # "layer 50's output" is the last hidden state with NO norm after it;
+        # diffusers refuses a <=50-layer stack outright for this reason, and
+        # DiffSynth sets `language_model.norm = Identity()`. A truncated
+        # quantized artifact that kept its final norm would feed the DiT
+        # post-norm conditioning. Nothing had to be added to catch it: the
+        # inventory guard compares against a model that has no `model.norm.*`,
+        # so the norm arrives as an unexpected tensor.
+        ("keeps the final norm a truncated artifact must drop",
+         lambda sd: sd.__setitem__("model.norm.weight",
+                                   __import__("torch").zeros(5120)),
+         "does not exactly populate"),
         ("carries an unexpected tensor",
          lambda sd: sd.__setitem__("model.layers.0.not_a_real_tensor",
                                    __import__("torch").zeros(4)),
