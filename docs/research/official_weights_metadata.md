@@ -315,6 +315,15 @@ sglang's refusal reads that field rather than inventing the rule. Both blocks
 also carry `sigma_shift_scales` of 12.0 video and 3.0 audio, matching the two
 scheduler configs and what this repo ships.
 
+**How large that split is in the weights is measured separately.**
+[`h3_partition_distance.md`](h3_partition_distance.md) is the companion: this
+file owns what the release *declares*, that one owns what the two partitions
+actually differ by, component by component. The short version, because it
+changes how the declaration reads — the checkpoints are within a few percent at
+the output heads and their key sets are identical, while the PDD LoRAs
+distilled on top of them are near ORTHOGONAL. The split is small in the weights
+and large in what was learned from them.
+
 ---
 
 ## Checked and clean
