@@ -808,6 +808,26 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     ),
                 ),
                 io.Float.Input(
+                    "head_strength", default=-1.0, min=-10.0, max=10.0, step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "Scales the fused OUTPUT HEADS alone, leaving the "
+                        "backbone and adaln update on `strength`. Splitting "
+                        "the two is borrowed from silveroxides' "
+                        "`UC_MiniMaxH3PDDAcc`, which separates `lora_strength` "
+                        "from `head_strength`; the point is that the three "
+                        "mechanisms reach the model on three different "
+                        "surfaces and are worth ablating apart.\n\n"
+                        "-1.0, the default, means FOLLOW `strength` -- the "
+                        "single-knob behaviour every graph had before this "
+                        "input existed, so no saved workflow changes. A "
+                        "sentinel rather than an optional None because the "
+                        "widget is a float and 0.0 is a meaningful value here: "
+                        "0.0 installs no head patches and runs the "
+                        "checkpoint's own heads, which is the headfree control "
+                        "arm."),
+                ),
+                io.Float.Input(
                     "strength", default=1.0, min=-10.0, max=10.0, step=0.01,
                     tooltip=(
                         "Scales all three mechanisms together, and each one "
@@ -887,7 +907,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, model, lora_name, strength=1.0,
+    def execute(cls, model, lora_name, strength=1.0, head_strength=-1.0,
                 patch_heads=True, nfe=0, steps=8) -> io.NodeOutput:
         import comfy.lora
         import comfy.utils
@@ -1285,7 +1305,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         # offload handling. "Exactly the base model" has to mean the base
         # model's own code, or the claim is only nearly true and the control
         # arm is only nearly a control.
-        if patch_heads and strength != 0.0:
+        if patch_heads and head_strength != 0.0:
             # Refuse to stack, rather than clobber. `add_object_patch` is
             # last-writer-wins per key, and the head swaps live on separate
             # keys from the bookkeeping wrapper, so two implementations both
@@ -1332,7 +1352,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 m.get_model_object("diffusion_model.forward"), tracker))
         for stream, out_name in (
                 (("video", "video_out"), ("audio", "audio_out"))
-                if (patch_heads and strength != 0.0) else ()):
+                if (patch_heads and head_strength != 0.0) else ()):
             live = getattr(final_layer, out_name)
             base_w = live.weight.detach().to(torch.float32).cpu()
             base_b = live.bias.detach().to(torch.float32).cpu()
@@ -1353,17 +1373,23 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     _FusedHeads(bank_w, sd[f"h3_pdd.bank.{stream}.bias"],
                                 base_w, base_b,
                                 shift_v if stream == "video" else shift_a,
-                                num_steps, strength),
+                                num_steps, head_strength),
                     tracker, stream))
 
         # The step count is deliberately NOT in this line. It is not known here
         # -- the scheduler is downstream -- and printing the file's own count
         # would read as a statement about this render. `_StepTracker._adopt`
         # logs it once, with the block widths, when the schedule arrives.
+        # Both strengths, and only ever one number when they agree -- a line
+        # reading "strength 1.000 / heads 1.000" on every default render trains
+        # the reader to skip it, and this is the only runtime evidence of which
+        # arm ran.
+        _s = ("%.3f" % strength if head_strength == strength
+              else "%.3f, heads %.3f" % (strength, head_strength))
         logger.info(
-            "[h3-pdd] %s at strength %.3f: %d weight patches, "
+            "[h3-pdd] %s at strength %s: %d weight patches, "
             "%d adaln %s, %s (%d-point grid, shifts %g/%g). Base is %s.",
-            lora_name, strength, len(loaded), adaln_installed,
+            lora_name, _s, len(loaded), adaln_installed,
             ("baked into the curve basis, applied as weight patches"
              if baked is not None else
              "re-injected at run time (pruned base, no bake in this file)"
@@ -1375,7 +1401,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             # heads were patched, while being the only runtime evidence of which
             # arm ran.
             "heads fused per block from the schedule"
-            if (patch_heads and strength != 0.0) else
+            if (patch_heads and head_strength != 0.0) else
             "HEADS NOT PATCHED (control arm: the checkpoint's own heads)"
             if patch_heads else
             "HEADS NOT PATCHED (patch_heads off)",
