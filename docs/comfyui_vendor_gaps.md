@@ -1,6 +1,30 @@
 # Where ComfyUI's H3 path differs from the vendor's
 
-last updated: 2026-08-25
+last updated: 2026-08-29
+
+**Corrected 2026-08-29: this file described the compressed-tensors W4 AWQ
+artifact as the shipped encoder, and it is not.** All 159 encoder-loader nodes
+in `workflows/` are core's `CLIPLoader` naming
+`qwen3vl_32b_minimax_h3_int8_convrot.safetensors` (*measured*). Two things
+follow, and they change several rows below:
+
+- **The W4 artifact's narrow 200,704--301,056-pixel still snapshot is not on
+  the shipped path.** Core's own 3,136--12,845,056 applies instead, and that
+  ceiling binds nothing a reference node produces. Rows that call the W4
+  snapshot "the deployed-path issue" describe a path this install left.
+- **`video_policy=encoder` is selected by most shipped graphs and reached by
+  none of them.** `reference_geometry.effective_policy` downgrades `encoder` to
+  `comfy` for a CLIP that declares nothing, and core's `CLIPLoader` declares
+  nothing (*measured*: `effective_policy("encoder", None) == "comfy"`). So the
+  local hybrid this file credits as shipped handling is wired and dormant, and
+  the reference path that actually runs is native ComfyUI end to end.
+
+`MiniMaxH3EncoderLoader` (`h3_encoder_loader.py`, 2026-08-29) is what would
+make `encoder` reachable on a native artifact — it stamps a contract derived
+from core's own signatures. No shipped graph wires it yet, because doing so
+activates that policy on the 32 graphs feeding reference video for the first
+time. [`h3_conditioning_end_to_end.md`](h3_conditioning_end_to_end.md) §0 owns
+the loader chain this rests on.
 
 Every known divergence between this ComfyUI install and the MiniMax H3 release,
 in one place, with what each one costs a working user.
@@ -82,7 +106,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 1 | Seven special tokens absent from the tokenizer | config | **fixed in the installed checkout by merged PR 15808** | local fallback retired; native behavior is required and audited |
 | 2 | Reference video frame rate assumed, not enforced | behavioural | open | typed nodes normalize from owned loader metadata; shipped graphs also retain and check `force_rate=24` |
 | 3 | Reference image floor (`min_pixels`) | config | open | preflight reports the divergence; no general runtime parity implementation |
-| 4 | Reference image ceiling (`max_pixels`) | config | open | `MiniMaxH3ReferenceConditioning.image_policy` can opt in to one declared ceiling for both towers, off by default; core remains unchanged. Under the shipped W4 encoder the binding ceiling is the artifact's 301,056 px, which nothing handles until v2 |
+| 4 | Reference image ceiling (`max_pixels`) | config | open | `MiniMaxH3ReferenceConditioning.image_policy` can opt in to one declared ceiling for both towers, off by default; core remains unchanged. **Corrected 2026-08-29**: the shipped encoder is no longer the W4 artifact, so the binding ceiling is core's 12,845,056 px, which no shipped graph reaches. What splits the two towers now is `qwen_short_edge`, deliberately, on 80 of 89 append nodes |
 | 5 | Reference soundtracks not truncated | behavioural | open | all shipped graphs now use typed internal caps; native socket graphs remain exposed unless they trim upstream |
 | 6 | Reference media never upscaled, and never reported | behavioural | sizing divergence remains; native path does not report the choice | fit nodes report it; the typed conditioner has an opt-in atomic release-video policy, while shipped defaults remain native-compatible |
 | 7 | Mono reference audio raises | behavioural | open | typed nodes upmix mono and refuse ambiguous multichannel input; legacy preflight reports it |
@@ -105,7 +129,7 @@ block. The practical boundary is:
 | Ref2VA still inside the common interval | inputs from 65,536 through 12,845,056 pixels satisfy both numeric bounds | a processing-policy distinction, not malformed encoding; geometry changes only if another sizing stage acts |
 | tiny or extreme-aspect Ref2VA still | the release floor can enlarge what stock leaves small; stock can hit its lower ceiling before the release | grid and visual-token count can materially differ |
 | Ref2VA video, stock native path | the release has a clip-wide sampled-frame budget; stock budgets each two-frame block independently and never upscales a small source | **MEASURED bounded divergence:** the duration-aware resize begins only for canvas-sized sources at 311+ target frames; it cannot engage inside H3's legal range for the measured 960x544 source |
-| Ref2VA video, this repo's shipped graphs | 39 of 40 shipped graphs select `video_policy=encoder` on 2026-08-25; the one exception, `workflows/h3_probe_release_video_policy_api.json`, is the `release` probe arm | the loaded encoder's duration-aware Qwen stage is locally handled, bound to the CLIP's stamped contract since 2026-08-25 (enforced by `bench/check_reference_runtime.py::encoder_policy_binds_to_the_loaded_clip` and its red mutations M7/M8); the VAE view intentionally remains no-upscale, while `release` is the explicit full-parity option |
+| Ref2VA video, this repo's shipped graphs | most shipped graphs select `video_policy=encoder`; the exception is the `release` probe arm. **Corrected 2026-08-29: selecting it is not running it.** With core's `CLIPLoader` there is no stamped contract, so `encoder` resolves to `comfy` and each two-frame block goes through core's own per-block budget | the loaded encoder's duration-aware Qwen stage is locally handled, bound to the CLIP's stamped contract since 2026-08-25 (enforced by `bench/check_reference_runtime.py::encoder_policy_binds_to_the_loaded_clip` and its red mutations M7/M8); the VAE view intentionally remains no-upscale, while `release` is the explicit full-parity option |
 | current compressed-tensors W4 artifact | its local loader replaces the stock still path with the artifact snapshot's 200,704--301,056-pixel budget | **MEASURED major reduction in Qwen input geometry and visual rows**, but this is an artifact-specific deployed-path gap, not a native-ComfyUI defect |
 
 No row above establishes malformed tensors or a perceptual failure. Patch size,
