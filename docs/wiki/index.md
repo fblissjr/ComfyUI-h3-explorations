@@ -44,6 +44,7 @@ Read these before starting work, in this order.
 | [`docs/research/sglang_h3_pipeline.md`](../../docs/research/sglang_h3_pipeline.md) | **what sglang's H3 pipeline does, stage by stage, at the source level**: request and admission, time grid and canvas, media ingestion, the Qwen3-VL encode, the VAE encodes and seeds, the packed sequen ... |
 | [`docs/research/sglang_comparison.md`](../../docs/research/sglang_comparison.md) | **what the vendor serving path does that we do not, and where ours is the weaker version.** Owns the runtime and optimization comparison against sglang; |
 | [`docs/research/technique_transfer.md`](../../docs/research/technique_transfer.md) | **what transfers from LLM and ViT serving to H3 and what does not**: each technique, the model property it needs, what it becomes here, and its status. |
+| [`docs/research/h3_dit_implementations.md`](../../docs/research/h3_dit_implementations.md) | **the DiT itself, across every implementation of it available here**: module tree, packed sequence, rope, attention, modulation, forward and the sampler that drives it, for ComfyUI against diffusers, ... |
 | [`docs/h3_references.md`](../../docs/h3_references.md) | **every reference type, its processing, measured cost, label rules, and the three sizing knobs — two of which are constantly confused for each other.** Start here for "what should `AppendRefImage` be ... |
 | [`docs/h3_image_editing.md`](../../docs/h3_image_editing.md) | **PARKED 2026-08-27** — the single-frame image gen/edit path in the past tense: what it was, what moved to `archive/`, and what un-parking would take. |
 | [`docs/h3_resolutions.md`](../../docs/h3_resolutions.md) | every legal canvas and what each costs -- it owns the count, do not restate it here. |
@@ -68,6 +69,8 @@ difference between this list and a membership test.
 - `docs/research/ -- 4 file(s), the whole subtree`
 - `docs/research/awq_quantization_suite/README.md`
 - `docs/research/awq_quantization_suite/qwen3vl_32b_w4a16_awq_quantization_report.md`
+- `docs/research/pdd/2026-08-28_scene_complexity.md`
+- `docs/research/pdd/artifact_axis.md`
 - `docs/research/qwen3-vl-special-tokens-post-training/2026-08-26_point_handoff.md`
 - `docs/research/qwen3-vl-special-tokens-post-training/README.md`
 - `docs/research/qwen3-vl-special-tokens-post-training/h3_special_tokens_post_training.md`
