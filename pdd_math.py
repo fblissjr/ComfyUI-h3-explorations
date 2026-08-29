@@ -12,9 +12,10 @@ impossible.
 the file and the node uses `block_bounds` to pick an entry. Neither is true now:
 collapsing the stack pinned a step count into the artifact, and the node has no
 step count at patch time. `block_bounds` survives as the closed form for the
-uniform case, with the checks as its only consumer -- they assert it and
-`schedule_knots` agree to `torch.equal` at every divisor, which is what keeps it
-honest as a reference rather than a second answer.
+uniform case. The checks assert it and `schedule_knots` agree to `torch.equal`
+at every divisor, which is what keeps it honest as a reference rather than a
+second answer -- but they are NOT its only consumer: `pdd_lora.emit_sigmas` is
+`1.0 - block_bounds(...)`, so the node's SIGMAS output goes through it too.
 
 No ComfyUI imports here on purpose: the converter runs without a server, and
 this is the part worth testing without one.

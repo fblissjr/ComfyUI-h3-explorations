@@ -77,7 +77,9 @@ attribute.
 `fusion_plan` the one implementation of a block's weights. Both consumers go
 through them, so the converter and the node cannot disagree about what a block
 means. `block_bounds` is the closed form for the uniform case and is now used
-only by the checks — the node reaches the same boundaries through
+only by the checks — **corrected 2026-08-29: the node is a consumer too**,
+through `emit_sigmas`, which is `1.0 - block_bounds(...)`. The node also reaches
+the same boundaries through
 `schedule_knots`, and `bench/check_pdd_head_selection.py` asserts the two agree
 to `torch.equal` at every divisor, which is what keeps the closed form honest
 as a reference rather than leaving two answers in the tree.
@@ -161,7 +163,13 @@ copies of one idea:
 | `final_layer.audio_out.forward` | the swap, on the other stream's shift |
 
 Plus the weight patches, which go through `comfy.lora` and need no patch point
-at all. **`patch_heads=False` installs none of the four** — the control arm
+at all. **Corrected 2026-08-29: `patch_heads=False` installs ONE of the four.**
+This previously said "none of the four … and does not need the schedule, so it
+does not observe it either". The `diffusion_model.forward` capture patch is
+installed *unconditionally*, outside the gate — moved there on 2026-08-28
+precisely because `h3_probe_ref2v_pdd_headfree` ships `patch_heads: false` and
+was the one arm missing the shift guard. The three head patches are gated; the
+observer is not, and the shift-guard section below depends on that. — the control arm
 runs the backbone and adaln updates against the checkpoint's own heads, and
 does not need the schedule, so it does not observe it either.
 
@@ -242,7 +250,7 @@ caught, if at all, by a static check over the SHIPPED graphs, so a hand-edited
 or hand-built graph had nothing at all.
 
 The node now also **emits** the schedule. `MiniMaxH3PDDLoRA` has a `SIGMAS`
-output, and every shipped non-split PDD graph wires it straight into
+output, and every shipped non-split PDD graph but one wires it straight into
 `SamplerCustomAdvanced` with no `BasicScheduler` in the graph. The sampler
 steps at the boundaries the heads were fused for; there is no scheduler widget
 left to set wrong, and off-grid is not expressible.
@@ -261,7 +269,7 @@ No PDD graph runs 16. `bench/check_pdd_sigmas.py` grades all of it, including
 that the graphs actually consume the output -- perfect sigmas nothing reads
 would be worth nothing.
 
-The new `steps` input is **inert at its default of 0**, which is what keeps a
+The `steps` input is **inert at 0**, which is what keeps a
 deliberately off-grid arm working: 0 means the file's own count and never
 refuses, so a graph driving `BasicScheduler` at a count that does not tile the
 grid is untouched and still reports itself at run time. A non-zero request must
@@ -769,8 +777,12 @@ wrapper), which is a reason to expect they do and not evidence that they do.
 
 **The 6 in the Sol table is a turbo count, not a PDD one** -- worth stating
 because reading that table alone suggests otherwise. Every 6-step arm this repo
-ships is a 768p turbo graph; no PDD graph can run 6, because 6 does not divide
-32 and the node refuses. Checked, not assumed.
+ships is a 768p turbo graph. **Corrected 2026-08-29: this previously said "no
+PDD graph can run 6, because 6 does not divide 32 and the node refuses".** Six
+*evaluations* ship — `workflows/h3_text_to_video_pdd_manual_sigmas_api.json`
+runs the uneven `[8,8,4,4,4,4]` partition this document introduces below. What
+the node refuses is a non-dividing `steps` REQUEST; an explicit knot list that
+tiles the grid unevenly is legal and is the point of that arm.
 
 ---
 
@@ -1090,7 +1102,7 @@ and the same affine adaln solve.
 | a partial patch-key match raises | **adopted.** `add_patches` returns the keys it matched; a shortfall against what `load_lora` resolved raises and names the first unmatched |
 | refuses to stack on an existing `final_layer` object patch | **adopted.** `head_patch_clash` refuses when any of the three head keys is taken |
 | head shapes checked against the live model | **partly.** The partition check tests shape before distance, which catches an enlarged bank; a genuinely mismatched one still surfaces as a torch broadcast error |
-| unconsumed keys in the published file are an error | open, converter-side |
+| ~~unconsumed keys in the published file are an error~~ | **closed since the first PDD commit** — `bench/convert_pdd_lora.py` raises `SystemExit` naming the leftovers. This row was never true |
 | an off-grid sigma RAISES by default, `clamp` opt-in | open, and **not** obviously worth taking -- see below |
 
 Two adopted, one partly. The unconsumed-keys row is worth taking and is cheap.
@@ -1109,8 +1121,10 @@ of truth from the opposite direction, by reading the sampler's schedule at run
 time. Theirs is the simpler graph; ours needs no rewiring and composes with a
 scheduler the user already has. Both beat a widget.
 
-**Two things they do that we cannot.** An uneven partition by construction --
-`nfe=6` as `(8,8,4,4,4,4)` -- and a hard restriction of block sizes to the
+**One thing they do that we cannot** — **corrected 2026-08-29: this said
+"two", and listed an uneven partition first. We ship that partition**, as
+`h3_config.PDD_MANUAL_SIGMAS`, exactly `(8,8,4,4,4,4)`. What remains is a hard
+restriction of block sizes to the
 trained width and twice it. That restriction is a claim we have not tested and
 which our own check should not be read as refuting; see the last row of
 **Enforced by nothing**.
@@ -1502,7 +1516,7 @@ schedulers, audio integrated at shift 3 in its own time.
 
 ComfyUI does not. `comfy/model_sampling.py:328` carries the audio latent
 **scaled onto the video schedule** so the pack is "an ordinary single-schedule
-flow latent", and `comfy/ldm/minimax/model.py:530-551` undoes and redoes that
+flow latent", and `comfy/ldm/minimax/model.py:553-577` undoes and redoes that
 carry around every forward:
 
     carry  = sigma_a / sigma_v                       # before _forward, audio seen clean
@@ -1577,13 +1591,17 @@ By tensor group, on `minimax_h3_ref2va_pdd_8step_comfy.safetensors`:
 | group | MiB | share |
 |---|---|---|
 | **backbone rank-64 LoRA A/B pairs** | **933** | **88%** |
-| adaln baked delta | 83 | 7.8% |
+| adaln baked delta | 92.3 | 8.6% |
 | head bank, 32 replicated heads | 42 | 4.0% |
 | grid / base head / alphas | ~1 | — |
 
 **The head bank is not the cost, and saying it was is a mistake this repo made
 out loud.** It is the part everyone reaches for because it is the unusual thing
-about PDD, and it is 4%. The node fuses the bank down to the requested
+about PDD, and it is 4%. **Corrected 2026-08-29: the node does not fuse at
+load.** `_FusedHeads.get` fuses a span on first use and caches it — which is
+what let the step count move out of the artifact, as this document says in
+three other places. The sentence below described the retired design. The node
+formerly fused the bank down to the requested
 evaluation count at load, so keeping only the fused heads would save about
 31 MiB. Worth doing as tidiness; it is not an answer to anything.
 

@@ -5,7 +5,8 @@ Parallel Decoding Distillation (PDD) is not a step-distillation LoRA and does
 not load through `LoraLoaderModelOnly`. One published file holds three
 mechanisms that reach the model on three different surfaces:
 
-  1. 312 backbone LoRA modules (attn + MLP, 50 blocks + 2 refiner blocks).
+  1. 312 source LoRA modules (attn + MLP, 50 blocks + 2 refiner blocks),
+     emitted as 208 after the q/k/v fuse -- `backbone_modules` in the metadata.
      A weight patch, once the keys are ComfyUI's.
   2. 50 `adaln_proj.linear` LoRA modules. A weight patch on an UNPRUNED
      checkpoint; on a pruned one the 2688-dim time-embedding space it lives in
