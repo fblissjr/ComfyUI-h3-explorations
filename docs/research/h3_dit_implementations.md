@@ -275,10 +275,27 @@ the tail off with `cu_seqlens = [0, used, S]` — diffusers says so explicitly
 while declining to copy it. sglang, DiffSynth and vllm-omni all pad, with that
 exact constant. **diffusers and ComfyUI do not pad at all.**
 
-*Inference*: numerically inert on the real rows, since the padding is a
-separate attention document that real tokens cannot see. It costs compute
-proportional to the padding, and it is the reason the padded implementations
-need a `cu_seqlens` at all.
+**Corrected 2026-08-29. This section previously called padding "numerically
+inert" without qualification. That is true only GIVEN segmentation, and the
+unqualified form is dangerously wrong** -- it reads as a licence to add padding
+to ComfyUI, which has no `cu_seqlens` and no mask.
+
+Padding is inert in the three engines that pad *because* `cu_seqlens` isolates
+it into its own attention document. Add pad rows to an implementation that
+passes `mask=None` and they are not isolated: a pad row's embedding is zero, so
+its q/k/v are zero (the projections are bias-free, and RMSNorm of a zero vector
+is zero), so **its key scores exactly 0 against every query, and `exp(0) = 1`.**
+Each pad row therefore takes a full unit of softmax mass away from the real
+keys.
+
+*Measured* for this document: appending 64 zero pad rows to a 512-row sequence
+under `mask=None` moves the real rows by 6.99% relative L2. The magnitude
+scales with the pad fraction, so on a 89,278-row render rounding to 89,280 the
+practical effect is small -- but it is not zero, and it is a change with no
+benefit, since ComfyUI's SDPA path needs no length alignment.
+
+**So: do not add padding here without adding segmentation, and there is no
+reason to add either.**
 
 ---
 
@@ -427,3 +444,218 @@ not currently exposed — but the failure is silent, the discriminator is cheap
   static: read from source, or measured against a file on disk.
 - **Whether any divergence is visible.** Not attempted, and not answerable
   without a distribution under [`../eval_comparison.md`](../eval_comparison.md).
+
+---
+
+## 9. The forward pass, stage by stage, all five
+
+Written 2026-08-29 at the granularity where an implementation difference could
+hide. Sol and sage are **off** throughout — this is stock ComfyUI native code
+against the four references. Where a row says "same", the arithmetic is the
+same and only the spelling differs.
+
+The worked shape is one `t2va` render: 345 frames at 1152x768, giving
+`latent_t 102`, `lat_h 48`, `lat_w 72`, 864 rows per latent frame, **88,128
+video rows + 1,150 audio rows + text**, run for 8 evaluations.
+
+### 9.1 Text encode
+
+| | |
+|---|---|
+| **ComfyUI** | Qwen3-VL config is built with `num_hidden_layers = 50`, `final_norm = False`, `lm_head = False`. The stack is physically 50 layers, so "layer 50's output" is the last hidden state and no norm follows it. `enable_attention_masks = False`. |
+| **diffusers** | Loads the full 64-layer stack, reads `outputs.hidden_states[50]`, and raises if the stack has 50 or fewer layers — because the last hidden state of a 50-layer stack *would be post-norm* and wrong. |
+| **sglang** | Full stack, layer selected by `MINIMAX_H3_QWEN3VL_SELECTED_LM_LAYER = 50`. |
+| **DiffSynth** | Truncates like ComfyUI: `num_hidden_layers = 50` and `language_model.norm = torch.nn.Identity()`. Its converter drops layers >= 50 and `lm_head`. |
+| **vllm-omni** | Full stack, layer 50. |
+
+**The one that matters:** diffusers' guard names the exact trap the two
+truncating implementations have to avoid, and both avoid it — ComfyUI with
+`final_norm = False`, DiffSynth with an `Identity()`. Same tensor, three
+spellings, one of which raises if you get it wrong.
+
+### 9.2 Text projection and the token refiner
+
+`condition_proj` / `context_embedder` is `Linear(5120 -> 5376, bias=True)`
+everywhere. The refiner is 2 pre-norm blocks, **no RoPE and no AdaLN**, plus a
+final RMSNorm, everywhere.
+
+| | when it runs |
+|---|---|
+| **ComfyUI** | once per sampling run, inside `extra_conds`, result cached as `c_crossattn` |
+| **sglang** | once per request, result passed back in as pre-refined `prompt_embeds` |
+| **diffusers, DiffSynth, vllm-omni** | every forward |
+
+Identical output; ComfyUI and sglang pay it once per render instead of 8 times.
+
+### 9.3 Patchify
+
+Every implementation reshapes `[B,C,T,H,W] -> (b,c,t,pt,h,ph,w,pw)`, permutes
+to `nthwcrpq`, and flattens. ComfyUI and sglang write it as `torch.einsum`,
+diffusers and vllm-omni as `.permute(0,2,4,6,1,3,5,7)`. **Same permutation.**
+Row order is `(t, h, w)` with w fastest; the feature index inside the 96-wide
+row is `4*c + 2*p + q`, channel-major.
+
+Audio packing is channel-major in all five: rows `[0, audio_t)` are channel 0.
+
+### 9.4 Packed sequence
+
+Order is `[text | cond | audio | video]` in all five, target audio always
+immediately before target video.
+
+| | who builds it | padding |
+|---|---|---|
+| **ComfyUI** | the DiT, in `_forward`, cached by shape signature | none |
+| **diffusers** | the caller must supply positions, tags, timestep indices and three index tensors | none |
+| **sglang** | a pipeline stage | to 64, `cu_seqlens [0, used, S]` |
+| **DiffSynth** | a pipeline stage | to 64, same |
+| **vllm-omni** | a pipeline stage | to 64, same |
+
+See §4.4 for why the padding is not a free thing to copy.
+
+### 9.5 Position ids
+
+All five: text at `(row_index, 0, 0)`; video time continuing from `float(text_len)`;
+spatial axes `linspace((1-r)/2, (1+r)/2, dim//2, endpoint=False) * 32` with
+`r = dim / sqrt(lat_h*lat_w)`; temporal spans `5/3 * (1,4,4,4,4)` by exclusive
+cumsum; audio at `h = 0` with `w` pinned to the two extremes of the width grid,
+one per stereo channel. Built in **float64** in all five.
+
+sglang and DiffSynth both keep *two* deliberately non-unified summation orders
+for the temporal span, because numpy pairwise and sequential Python summation
+diverge in the last ulp from n=16. ComfyUI has one order. This is a
+sub-ulp difference and is named only so nobody "fixes" it.
+
+### 9.6 RoPE
+
+Frequencies: `inv_freq[i] = 10000^(-i/16)`, 16 per axis, three axes to 48,
+duplicated to 96. **96 of 128 head dims rotate; dims 96..127 pass through.**
+Convention is halves / rotate-half everywhere — never interleaved.
+
+| | how it is applied |
+|---|---|
+| **ComfyUI** | builds a rotation table `[1, S, 1, 48, 2, 2]` once per forward, then `rms_rope_split_half_` does **RMSNorm and rope in one in-place kernel** on the qkv buffer |
+| **diffusers** | `cos`/`sin` tensors, then `x*cos + rotate_half(x)*sin`, after a separate `norm_q`/`norm_k` |
+| **sglang** | half-width `[cos(48) | sin(48)]` cache in bf16; CUDA path calls `sgl_kernel.rotary_embedding(..., is_neox=True)`, or a fused `fused_inplace_qknorm_rope` with `round_norm_before_rope=True` |
+| **DiffSynth** | `cos`/`sin` computed fp32, cast to bf16 after the trig, then rotate-half |
+| **vllm-omni** | fused Triton `qk_norm_rope`, `is_neox_style=True` |
+
+**Where a real difference could hide:** the order is norm-then-rope in all
+five, and sglang's `round_norm_before_rope=True` exists specifically to make
+its fused kernel match the eager order. ComfyUI's fused kernel does the same.
+vllm-omni notes its fast path round-trips through bf16 mid-kernel and is *not*
+bit-identical to its own eager path.
+
+### 9.7 Timestep embedding
+
+`t = 1 - sigma` in `[0,1]`, **unscaled** — no `*1000` — and the sinusoid is
+`cat([cos, sin])`, cos first, base 10000, half-width 128. All five.
+
+**On the pruned/curve checkpoint this stage does not exist.** ComfyUI, sglang
+and DiffSynth all replace it with a lerp into a sampled curve table and **drop
+the SiLU before the AdaLN linear**, because the table stores the post-SiLU
+curve. diffusers and vllm-omni have no curve branch at all and cannot load such
+a file. See §9.8.
+
+### 9.8 AdaLN
+
+Chunk order `shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp`,
+modality-major, row `= timestep_index * 3 + tag`, tags `0` video `1` text `2`
+audio. Verified against the weights in §3.1. Final layer is `(shift, scale)`,
+one modality, indexed by timestep alone.
+
+| checkpoint | `time_embed_dim` | activation before `adaln_proj.linear` |
+|---|---|---|
+| released bf16 | 2688 | `SiLU(t_emb)` |
+| **pruned / curve (what this box runs)** | **8** | **none** |
+
+**How the modulation is applied is the largest granular divergence in the
+whole forward:**
+
+```
+ComfyUI          for a, b, row in segments:            # 3 slices for t2v
+                     h[a:b].mul_(1 + scale[row]).add_(shift[row])
+                     x[a:b].addcmul_(other[a:b], gate[row])
+
+all four others  scale.index_select(0, adaln_indices)  # gather over ALL rows
+                 hidden * (1 + scale_g) + shift_g      # new tensors
+```
+
+ComfyUI exploits that the sequence is uniform per segment, so it does three
+in-place slice ops. The references gather 89,278 rows for each of six chunks,
+every block, every step. **Same arithmetic; roughly 2,400 full-sequence
+gathers avoided per render, and no intermediate allocations.** On a 24 GiB card
+this is not a micro-optimization.
+
+### 9.9 The block
+
+Identical in all five:
+
+```
+h = norm1(x);  h = h*(1+scale_msa) + shift_msa;  x = x + gate_msa * attn(h)
+h = norm2(x);  h = h*(1+scale_mlp) + shift_mlp;  x = x + gate_mlp * mlp(h)
+```
+
+`scale` enters as `1 + scale`; **`gate` is applied raw** — no `1 +`, no `tanh`
+— in all five. Norms are RMSNorm with learnable weight, eps `1e-5`. MLP is
+SwiGLU over a fused `fc1` of width `2*ffn`; the release stores `[gate; value]`
+and only diffusers swaps it (§6).
+
+ComfyUI accumulates residuals **in place** (`add_`, `addcmul_`); the others
+build new tensors. Same values.
+
+### 9.10 Attention
+
+One packed document, **full bidirectional, non-causal, no mask**, softmax scale
+`128 ** -0.5`, MHA with no GQA, no bias, no sink, no softcap. All five.
+
+| | head layout into the kernel | terminal call |
+|---|---|---|
+| **ComfyUI** | `[S,H,D] -> [1,H,S,D]` (HND) | `torch.nn.functional.scaled_dot_product_attention(..., attn_mask=None, is_causal=False)` |
+| **diffusers** | `unflatten(-1,(heads,-1))` | `dispatch_attention_fn(..., attn_mask=None, is_causal=False)` |
+| **sglang** | packed `thd`, no batch dim | `flash_attn_varlen_func(..., cu_seqlens, causal=False)` |
+| **DiffSynth** | per-segment `[1,H,L,D]` | a Python loop over `cu_seqlens` calling SDPA per segment |
+| **vllm-omni** | `split` then `view(S,heads,128)` | `flash_attn_varlen_func(..., cu_seqlens, causal=False)` |
+
+**The qkv split differs and is the classic trap** (§6): the release stores
+per-head interleaved, the Comfy repacks store contiguous. ComfyUI splits
+contiguously and vllm-omni reorders unconditionally — opposite assumptions,
+neither sniffs.
+
+### 9.11 Final layer and output
+
+| | heads run over |
+|---|---|
+| **ComfyUI** | the two target segments only, sliced first |
+| **all four others** | every row including padding, then `index_select` |
+
+Both output heads are **fp32** in all five, with the activation cast to fp32
+before them.
+
+**Sign:** ComfyUI and DiffSynth negate the DiT output so their sampler's
+`x0 = x - sigma*v` reproduces H3's data-ward `x0 = x + sigma*v`. diffusers,
+sglang and vllm-omni do not negate and put the `+` in the scheduler. The
+negation and the scheduler sign are **one decision made in two places**.
+
+### 9.12 The sampler step
+
+| | |
+|---|---|
+| **ComfyUI** | k-diffusion `sample_euler`, `s_churn=0` so no noise; `d = (x - denoised)/sigma`, `x += d*dt`. Audio rides the video schedule scaled by `shift_v/shift_a`, converted in and out inside `forward()`. |
+| **diffusers, sglang, DiffSynth, vllm-omni** | Euler eta=0 on **two scheduler instances**, one per stream. |
+
+Same integrator; ComfyUI reaches it through a graph node and one schedule
+rather than a hardcoded loop and two.
+
+### 9.13 Where a tiny difference could still hide
+
+Ranked by how silently it would fail, and none of these is currently known to
+be wrong here — this is the list worth checking first if output ever looks off:
+
+1. **qkv layout** — loads clean, renders noise, row count identical either way.
+2. **The curve checkpoint's dropped SiLU** — keep it and modulation is garbage.
+3. **SwiGLU half order** — plausible-looking output, wrong.
+4. **The output sign composed with the scheduler sign** — port half and the ODE runs backwards.
+5. **RoPE halves vs interleaved**, and the 96/128 split — both easy to get subtly wrong.
+6. **Fused norm+rope kernels** — vllm-omni states its fast path is not bit-identical to its eager path; ComfyUI's and sglang's fused kernels are the same class of risk and neither has been graded here against an eager reference on this model.
+
+Item 6 is the only one on this list that nothing in this repo currently checks.
