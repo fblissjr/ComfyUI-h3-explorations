@@ -88,29 +88,37 @@ what settles whether their withdrawal of the `u4` result stands.
 
 ### The order things will actually land in
 
-Everything serialises on one card. Read off the live queue at the time of
-writing, so it is what was posted rather than what anyone intended:
+Everything serialises on one card. Read off the live queue, so this is what was
+posted rather than what anyone intended:
 
-    running   carryprobe/u8_start_v                   audio session
-    then      Video/shotablation_shots13_241f         duration control, arm 1
-    then      Video/h3_t2v_rail_long                  the one to watch first
-    then      Video/h3_t2v_churn_long
+    running   Video/shotablation_shots13_241f     duration control, arm 1
+    then      Video/h3_t2v_rail_long              WATCH THIS FIRST
+    then      Video/h3_t2v_churn_long             its pair
     then      Video/h3_t2v_aisle_short
     then      Video/h3_t2v_aisle_long
     then      Video/h3_t2v_sortline_short
     then      Video/h3_t2v_sortline_long
-    last      Video/h3_t2v_shotablation_shots12_241f  posted separately, arrives last
+    then      carryprobe/u8_mean_v                audio session
+    last      Video/shotablation_shots12_241f     duration control, arm 2
 
-**`shots12_241f` was not in the queue when this was written.** The PDD session
-posts one arm at a time and waits, so it should arrive last — but if it never
-appears, the duration control is a single arm, and one arm going bad could be
-noise rather than a result. Check it exists before reading the duration
-question as settled.
+The audio session's first probe, `carryprobe/u8_start_v`, had already finished
+when this was written; `u8_mean_v` is its pair.
 
-Each render on this shape takes roughly five minutes, so the whole queue is
-around forty. Three arms OOMed on this shape today, all recovered; if something
-is missing in the morning that is the likely reason and it just needs
-re-queueing.
+**Watch `rail_long` before anything else, whatever order they finish in.** It
+is the only clip that can settle three questions at once, and it is the
+cheapest thing here to judge — ghosting on a flat concrete wall with square
+windows needs no second clip to compare against and no scoring, you either see
+the wall warp or you do not.
+
+**Both duration-control arms are queued**, which matters: with only one, a bad
+result could be noise. With both, a split verdict is informative. They sit at
+opposite ends of the queue because the second was posted directly rather than
+through a runner, so `shots12_241f` finishing last is expected, not a failure.
+
+Each 362-frame render takes roughly five minutes, the 241-frame ones less, so
+the whole queue is around forty. Three arms OOMed on this shape today, all
+recovered on a retry. If something is missing in the morning that is the likely
+reason and it just needs re-queueing — it is not a result.
 
 ### One thing this whole file cannot give you
 
