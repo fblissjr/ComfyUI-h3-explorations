@@ -11,6 +11,9 @@ drives it — for a text-to-video+audio (`t2va`) generation.
 [`sglang_comparison.md`](sglang_comparison.md) owns the *runtime and
 optimization* comparison against sglang. [`../h3_references.md`](../h3_references.md)
 owns reference-image conditioning. [`../h3_pdd.md`](../h3_pdd.md) owns PDD.
+[`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) owns what ComfyUI's own
+code does call by call -- loaders, quantization ops, memory, the two VAEs -- for
+one t2va render; this file compares implementations, that one traces ours.
 Where this file touches those, it points and stops.
 
 **Evidence labels**, used inline throughout:
