@@ -222,9 +222,16 @@ a silent dense fallback before believing the number — check the log for
 `cuda-int8`.
 
 **Q2: how much of the CUDA advantage is `centroid_tail`?**
-`shipped` vs `shipped[centroid_tail=0]`. **This one has a deadline** — upstream
-is weighing making the toggle unconditional, and if that lands the question
-becomes unanswerable.
+**CLOSED UNANSWERED 2026-08-29 — the deadline this entry named arrived.** It
+said "upstream is weighing making the toggle unconditional, and if that lands
+the question becomes unanswerable". Sol-Attn merged as comfy-kitchen#117 and
+that is what landed: `centroid_tail` is gone from both entries and the pooled
+tail is always evaluated at the query block's centroid. `shipped[centroid_tail=0]`
+is not a configuration this kernel can run, and the node raises rather than
+pretending. Answering it now needs the old branch build reinstalled, which is
+a deliberate archaeology run and not something to do by accident.
+The original prediction is kept below because a prediction that was never
+scored should not read as one that was.
 *Prediction:* 5–10% on the sampler, per upstream's own e2e figure. If it comes
 out near 1.4x, then the earlier claim this repo retracted (that `centroid_tail`
 *is* the CUDA-over-Triton gap) was right after all and the retraction was

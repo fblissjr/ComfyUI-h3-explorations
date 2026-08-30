@@ -380,6 +380,16 @@ version-controlled here. Updated 2026-08-22, where noted:
   **Rebuilt 2026-08-22 to `0.2.31+sol.23d1a66`**, the same branch five commits
   on, for the rewritten routing kernel and `topk_ratio`. Everything above
   still holds; only the tag moved.
+  **Rebuilt again 2026-08-29 to `0.2.31+sol.dae00a1`** -- and this one is NOT
+  just a tag move. Sol-Attn merged upstream (comfy-kitchen#117) with a
+  reshaped API: `centroid_tail`, `reuse_qkv_memory` and `max_blocks` gone,
+  `tail`, `block_len` and `coarse_gate` added. Measured against the branch
+  build on a matched arm with two controls
+  (`bench/results/2026-08-29_sol_kernel_merge_equivalence.json`): the
+  non-Sol baseline is bit-identical across the swap and the Sol arm differs by
+  **rel L2 7.67e-05** on video, nothing on audio. So every Sol figure above
+  survives, and **a figure quoted to more than three significant figures
+  across the two builds does not.**
 - `nanobind` 2.14.0 added.
 - `custom_nodes/ComfyUI-SolAttn-cuda/` created; its `sol_attn_minimax.py` is a
   **symlink into this repo's `vendor/`**. Editing through the installed path

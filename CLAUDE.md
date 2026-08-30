@@ -414,10 +414,15 @@ repeating work.
 `coderef/` (gitignored) holds the sister checkouts, some symlinked and some
 real clones; `ls -l coderef/` is the list. **`comfy-kitchen-sol`** is the one
 most cited here: `docs/morton.md` and `docs/sol_upstream.md` quote its `.cu`
-files by path, and those ship in no wheel.
+files by path, and those ship in no wheel. **It is no longer where the
+installed kernel comes from** -- Sol-Attn merged upstream on 2026-08-29
+(comfy-kitchen#117) and the build now comes from main, so that checkout is a
+source to read rather than the thing you are running.
 
-**Do not import Python from it.** The built branch is installed
-(`comfy_kitchen_version: 0.2.31+sol.23d1a66`), so
+**Do not import Python from it.** A build is installed
+(`0.2.31+sol.dae00a1` since 2026-08-29, upstream main with Sol-Attn merged;
+`0.2.31+sol.23d1a66`, kijai's branch, before that -- **both call themselves
+0.2.31, so read the local segment, never the version**), so
 `from comfy_kitchen.backends.eager.sol_attn import _pool` works without the
 clone, and its `sol_attn`, `_pool` and `_normalize_key_bias` are structurally
 identical to the vendored `bench/_sol_attn_reference.py`. Requiring the clone

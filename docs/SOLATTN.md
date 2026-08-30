@@ -738,6 +738,46 @@ implementation, where `topk_ratio` changes which blocks are marked exact and
 leaves the tail branch alone. So Sol at `top-k` is a third attention, not a
 cheaper spelling of the router, and no arm here has been rendered under it.
 
+## Where this stands, 2026-08-29
+
+The state a reader needs before anything below, because three things moved on
+one day and two of them change what the rest of this page means.
+
+**The kernel is upstream's now.** Sol-Attn merged as
+Comfy-Org/comfy-kitchen#117 (`dae00a1`) and the installed build is
+`0.2.31+sol.dae00a1`, not kijai's branch. The API changed with it --
+`centroid_tail`, `reuse_qkv_memory` and `max_blocks` are gone; `tail`,
+`block_len` and `coarse_gate` arrived -- so the vendored node reads
+`sol_attn`'s signature and passes what the build accepts. **Both builds call
+themselves 0.2.31**, so read the local version segment, never the version.
+Every Sol figure on this page was taken on the branch build and survives:
+measured on a matched arm with two controls, the non-Sol baseline is
+bit-identical across the swap and the Sol arm differs by rel L2 **7.67e-05**
+(`bench/results/2026-08-29_sol_kernel_merge_equivalence.json`). What does not
+survive is any figure quoted to more than three significant figures across the
+two builds.
+
+**`dense_blocks` is `0-2,32` in both configs, and it is the first value here
+chosen by measurement rather than inherited.** The reasoning is below under
+"What would replace the eyeballing"; the short form is that Sol's error at a
+block and that error's effect at the OUTPUT rank differently, and the second is
+what the knob should be chosen on. Block 0 is where Sol is most accurate and
+where its error matters most; the last five blocks are the worst place in the
+model to spend a dense block.
+
+**`centroid_tail` and `reuse_qkv_memory` are now inert widgets.** The kernel
+evaluates the pooled tail at the centroid unconditionally, which is what
+`True` always did, so nothing about the shipped configuration changed. Asking
+for `False` raises rather than being ignored. `docs/bench_plan.md`'s Q2 --
+how much of the CUDA advantage is `centroid_tail` -- is CLOSED UNANSWERED as a
+result; it named this exact deadline and the deadline arrived.
+
+**Not exposed yet:** `tail=False` (the VSA/SLA fine stage), `block_len`,
+`coarse_gate`, and the chunked QKV producer that upstream reports saves ~5 GB
+of peak at 113k tokens -- which is the length this repo actually renders.
+Reaching any of them needs node inputs this pack does not declare.
+
+
 ### What has actually been measured on it here
 
 #### Selection: top-k against adaptive tau, 2026-08-22
