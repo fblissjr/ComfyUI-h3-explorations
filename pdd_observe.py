@@ -117,6 +117,42 @@ def record(block: int, kind: str, sigma, out: torch.Tensor,
 _path: Path | None = None
 
 
+def _shape_check() -> dict:
+    """Does what was recorded have the shape it should?
+
+    **Both defects this file found were short row counts that looked clean.**
+    `mlp.fc2` never appeared because its forward is not called on the INT8
+    path; two of three modules vanished at production geometry because an
+    `except` swallowed them. In each case the output was a complete-looking
+    result for the modules that survived, and nothing in it said otherwise.
+
+    So the file asserts its own shape: every block that reported at all should
+    have reported the same module set at the same steps. A block or module that
+    is short is named here, at write time, in the file itself. Suggested by the
+    session that had been reading these failures from the outside.
+    """
+    if not _rows:
+        return {"ok": None, "why": "nothing recorded"}
+    blocks = sorted({r["block"] for r in _rows})
+    modules = sorted({r["module"] for r in _rows})
+    sigmas = sorted({r["sigma"] for r in _rows if r["sigma"] is not None})
+    want = len(blocks) * len(modules) * max(len(sigmas), 1)
+    seen = {(r["block"], r["module"], r["sigma"]) for r in _rows}
+    short = [{"block": b, "module": m} for b in blocks for m in modules
+             if sum(1 for s in sigmas if (b, m, s) in seen) != len(sigmas)]
+    return {
+        "ok": len(_rows) == want and not short and not _failures,
+        "rows_recorded": len(_rows), "rows_expected": want,
+        "blocks": len(blocks), "modules": modules, "steps": len(sigmas),
+        "incomplete": short[:20],
+        "n_incomplete": len(short),
+        "why": ("`ok` false means this capture is SHORT. It is not a complete "
+                "result for the modules that did report -- a module missing "
+                "everywhere looks identical to one that was never meant to be "
+                "there. Check `failures` and `incomplete`."),
+    }
+
+
 def flush(meta: dict | None = None) -> str | None:
     """Write everything observed so far. Idempotent, and does NOT clear.
 
@@ -143,6 +179,7 @@ def flush(meta: dict | None = None) -> str | None:
                      "recorded; with 256 bins they can be applied offline once "
                      "known. See this module's docstring."),
         "meta": meta or {},
+        "shape_check": _shape_check(),
         "observations": _rows,
         "failures": _failures,
         "failure_note": ("non-empty means the capture LOST observations. A row "
