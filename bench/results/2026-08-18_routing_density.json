@@ -1,169 +1,180 @@
 {
- "measured": "2026-08-18",
- "produced_by": "bench/analyze_routing.py",
- "what": "host-side Sol routing density per block and per step, raster ordering, 8 of 56 heads",
- "capture": "2026-08-17_ref3_362f_1024x768 (steps 8/14 from its unmanifested _multistep sibling)",
- "capture_caveat": "captures predate the 2026-08-18 ref2va-direct switch: taken on fl2va + ref LoRA; S=98498, 1539 blocks, 16.6% conditioning sink",
- "conclusions": {
-  "per_block": "kernel density flat 28-30% at tau 1.3 for blocks 8-49; block 0 the sole outlier at 35.6%",
-  "per_step": "flat within 1-3 points across steps 3/8/14",
-  "tau": "1.0 vs 1.3 is ~5 points of kernel density (~15-18% more exact work)",
-  "implication": "per-block/per-step tau profiles have little to exploit; known >10x per-head error spread is the remaining structure and needs a per-head threshold in the kernel ABI"
- },
- "rows": [
-  {
-   "block": 0,
-   "step": 3,
-   "tau": 1.0,
-   "ordering_effect_density_pct": 33.89,
-   "kernel_density_pct": 42.98
+  "measured": "2026-08-18",
+  "produced_by": "bench/analyze_routing.py",
+  "what": "host-side Sol routing density per block and per step, raster ordering, 8 of 56 heads",
+  "capture": "2026-08-17_ref3_362f_1024x768 (steps 8/14 from its unmanifested _multistep sibling)",
+  "capture_caveat": "captures predate the 2026-08-18 ref2va-direct switch: taken on fl2va + ref LoRA; S=98498, 1539 blocks, 16.6% conditioning sink",
+  "conclusions": {
+    "per_block": "kernel density flat 28-30% at tau 1.3 for blocks 8-49; block 0 the sole outlier at 35.6%",
+    "per_step": "flat within 1-3 points across steps 3/8/14",
+    "tau": "1.0 vs 1.3 is ~5 points of kernel density (~15-18% more exact work)",
+    "implication": "per-block/per-step tau profiles have little to exploit; known >10x per-head error spread is the remaining structure and needs a per-head threshold in the kernel ABI"
   },
-  {
-   "block": 8,
-   "step": 3,
-   "tau": 1.0,
-   "ordering_effect_density_pct": 17.69,
-   "kernel_density_pct": 33.35
-  },
-  {
-   "block": 16,
-   "step": 3,
-   "tau": 1.0,
-   "ordering_effect_density_pct": 16.92,
-   "kernel_density_pct": 33.16
-  },
-  {
-   "block": 24,
-   "step": 3,
-   "tau": 1.0,
-   "ordering_effect_density_pct": 17.66,
-   "kernel_density_pct": 33.34
-  },
-  {
-   "block": 32,
-   "step": 3,
-   "tau": 1.0,
-   "ordering_effect_density_pct": 18.36,
-   "kernel_density_pct": 34.89
-  },
-  {
-   "block": 40,
-   "step": 3,
-   "tau": 1.0,
-   "ordering_effect_density_pct": 18.52,
-   "kernel_density_pct": 33.99
-  },
-  {
-   "block": 49,
-   "step": 3,
-   "tau": 1.0,
-   "ordering_effect_density_pct": 22.45,
-   "kernel_density_pct": 35.16
-  },
-  {
-   "block": 0,
-   "step": 3,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 24.08,
-   "kernel_density_pct": 35.58
-  },
-  {
-   "block": 0,
-   "step": 8,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 22.59,
-   "kernel_density_pct": 34.95
-  },
-  {
-   "block": 0,
-   "step": 14,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 18.56,
-   "kernel_density_pct": 32.5
-  },
-  {
-   "block": 8,
-   "step": 3,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 11.62,
-   "kernel_density_pct": 28.48
-  },
-  {
-   "block": 16,
-   "step": 3,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 11.58,
-   "kernel_density_pct": 28.55
-  },
-  {
-   "block": 24,
-   "step": 3,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 12.13,
-   "kernel_density_pct": 28.89
-  },
-  {
-   "block": 24,
-   "step": 8,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 12.66,
-   "kernel_density_pct": 29.07
-  },
-  {
-   "block": 24,
-   "step": 14,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 13.35,
-   "kernel_density_pct": 29.43
-  },
-  {
-   "block": 32,
-   "step": 3,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 12.43,
-   "kernel_density_pct": 29.6
-  },
-  {
-   "block": 40,
-   "step": 3,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 12.44,
-   "kernel_density_pct": 29.14
-  },
-  {
-   "block": 40,
-   "step": 8,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 13.48,
-   "kernel_density_pct": 28.81
-  },
-  {
-   "block": 40,
-   "step": 14,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 13.35,
-   "kernel_density_pct": 28.36
-  },
-  {
-   "block": 49,
-   "step": 3,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 13.86,
-   "kernel_density_pct": 28.06
-  },
-  {
-   "block": 49,
-   "step": 8,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 14.34,
-   "kernel_density_pct": 28.78
-  },
-  {
-   "block": 49,
-   "step": 14,
-   "tau": 1.3,
-   "ordering_effect_density_pct": 15.04,
-   "kernel_density_pct": 30.88
+  "rows": [
+    {
+      "block": 0,
+      "step": 3,
+      "tau": 1.0,
+      "ordering_effect_density_pct": 33.89,
+      "kernel_density_pct": 42.98
+    },
+    {
+      "block": 8,
+      "step": 3,
+      "tau": 1.0,
+      "ordering_effect_density_pct": 17.69,
+      "kernel_density_pct": 33.35
+    },
+    {
+      "block": 16,
+      "step": 3,
+      "tau": 1.0,
+      "ordering_effect_density_pct": 16.92,
+      "kernel_density_pct": 33.16
+    },
+    {
+      "block": 24,
+      "step": 3,
+      "tau": 1.0,
+      "ordering_effect_density_pct": 17.66,
+      "kernel_density_pct": 33.34
+    },
+    {
+      "block": 32,
+      "step": 3,
+      "tau": 1.0,
+      "ordering_effect_density_pct": 18.36,
+      "kernel_density_pct": 34.89
+    },
+    {
+      "block": 40,
+      "step": 3,
+      "tau": 1.0,
+      "ordering_effect_density_pct": 18.52,
+      "kernel_density_pct": 33.99
+    },
+    {
+      "block": 49,
+      "step": 3,
+      "tau": 1.0,
+      "ordering_effect_density_pct": 22.45,
+      "kernel_density_pct": 35.16
+    },
+    {
+      "block": 0,
+      "step": 3,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 24.08,
+      "kernel_density_pct": 35.58
+    },
+    {
+      "block": 0,
+      "step": 8,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 22.59,
+      "kernel_density_pct": 34.95
+    },
+    {
+      "block": 0,
+      "step": 14,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 18.56,
+      "kernel_density_pct": 32.5
+    },
+    {
+      "block": 8,
+      "step": 3,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 11.62,
+      "kernel_density_pct": 28.48
+    },
+    {
+      "block": 16,
+      "step": 3,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 11.58,
+      "kernel_density_pct": 28.55
+    },
+    {
+      "block": 24,
+      "step": 3,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 12.13,
+      "kernel_density_pct": 28.89
+    },
+    {
+      "block": 24,
+      "step": 8,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 12.66,
+      "kernel_density_pct": 29.07
+    },
+    {
+      "block": 24,
+      "step": 14,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 13.35,
+      "kernel_density_pct": 29.43
+    },
+    {
+      "block": 32,
+      "step": 3,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 12.43,
+      "kernel_density_pct": 29.6
+    },
+    {
+      "block": 40,
+      "step": 3,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 12.44,
+      "kernel_density_pct": 29.14
+    },
+    {
+      "block": 40,
+      "step": 8,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 13.48,
+      "kernel_density_pct": 28.81
+    },
+    {
+      "block": 40,
+      "step": 14,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 13.35,
+      "kernel_density_pct": 28.36
+    },
+    {
+      "block": 49,
+      "step": 3,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 13.86,
+      "kernel_density_pct": 28.06
+    },
+    {
+      "block": 49,
+      "step": 8,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 14.34,
+      "kernel_density_pct": 28.78
+    },
+    {
+      "block": 49,
+      "step": 14,
+      "tau": 1.3,
+      "ordering_effect_density_pct": 15.04,
+      "kernel_density_pct": 30.88
+    }
+  ],
+  "capture_status": {
+    "captures_cited": [
+      "2026-08-17_ref3_362f_1024x768"
+    ],
+    "still_on_disk": [],
+    "deleted": [
+      "2026-08-17_ref3_362f_1024x768"
+    ],
+    "inventory": "bench/results/2026-08-30_capture_inventory.json",
+    "what_this_means": "A capture listed under `deleted` no longer exists, so the numbers here are a FROZEN measurement rather than a reproducible one -- re-deriving them would need the tensors, and they are gone. The inventory records what each capture held (blocks, steps, sequence lengths, file list, manifest) so this record stays readable without it."
   }
- ]
 }

@@ -1725,5 +1725,16 @@
         }
       ]
     }
-  ]
+  ],
+  "capture_status": {
+    "captures_cited": [
+      "2026-08-20_t2v_362f_1344x768_sla"
+    ],
+    "still_on_disk": [
+      "2026-08-20_t2v_362f_1344x768_sla"
+    ],
+    "deleted": [],
+    "inventory": "bench/results/2026-08-30_capture_inventory.json",
+    "what_this_means": "A capture listed under `deleted` no longer exists, so the numbers here are a FROZEN measurement rather than a reproducible one -- re-deriving them would need the tensors, and they are gone. The inventory records what each capture held (blocks, steps, sequence lengths, file list, manifest) so this record stays readable without it."
+  }
 }

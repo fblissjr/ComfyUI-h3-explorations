@@ -1,0 +1,1553 @@
+{
+  "measured": "2026-08-30",
+  "produced_by": "bench/record_capture_inventory.py",
+  "what": "what each H3 capture contained, recorded so the capture itself can be deleted without orphaning the results that cite it",
+  "captures": [
+    {
+      "capture": "2026-08-20_ref3_362f_1024x768_fl2va",
+      "existed_at_record_time": true,
+      "n_tensor_files": 14,
+      "arms": [],
+      "total_bytes": 59306861191,
+      "total_bytes_parsed_only": 59306861191,
+      "blocks": [
+        0,
+        8,
+        16,
+        24,
+        32,
+        40,
+        49
+      ],
+      "steps": [
+        3,
+        11
+      ],
+      "sequence_lengths": [
+        98498
+      ],
+      "renders": [
+        0
+      ],
+      "unparsed_files": [],
+      "files": [
+        {
+          "file": "qkv_L98498_S98498_b0_s11.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 0,
+          "step": 11,
+          "render": 0,
+          "bytes": 4236204346
+        },
+        {
+          "file": "qkv_L98498_S98498_b0_s3.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 0,
+          "step": 3,
+          "render": 0,
+          "bytes": 4236204337
+        },
+        {
+          "file": "qkv_L98498_S98498_b16_s11.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 16,
+          "step": 11,
+          "render": 0,
+          "bytes": 4236204419
+        },
+        {
+          "file": "qkv_L98498_S98498_b16_s3.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 16,
+          "step": 3,
+          "render": 0,
+          "bytes": 4236204346
+        },
+        {
+          "file": "qkv_L98498_S98498_b24_s11.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 24,
+          "step": 11,
+          "render": 0,
+          "bytes": 4236204419
+        },
+        {
+          "file": "qkv_L98498_S98498_b24_s3.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 24,
+          "step": 3,
+          "render": 0,
+          "bytes": 4236204346
+        },
+        {
+          "file": "qkv_L98498_S98498_b32_s11.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 32,
+          "step": 11,
+          "render": 0,
+          "bytes": 4236204419
+        },
+        {
+          "file": "qkv_L98498_S98498_b32_s3.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 32,
+          "step": 3,
+          "render": 0,
+          "bytes": 4236204346
+        },
+        {
+          "file": "qkv_L98498_S98498_b40_s11.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 40,
+          "step": 11,
+          "render": 0,
+          "bytes": 4236204419
+        },
+        {
+          "file": "qkv_L98498_S98498_b40_s3.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 40,
+          "step": 3,
+          "render": 0,
+          "bytes": 4236204346
+        },
+        {
+          "file": "qkv_L98498_S98498_b49_s11.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 49,
+          "step": 11,
+          "render": 0,
+          "bytes": 4236204419
+        },
+        {
+          "file": "qkv_L98498_S98498_b49_s3.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 49,
+          "step": 3,
+          "render": 0,
+          "bytes": 4236204346
+        },
+        {
+          "file": "qkv_L98498_S98498_b8_s11.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 8,
+          "step": 11,
+          "render": 0,
+          "bytes": 4236204346
+        },
+        {
+          "file": "qkv_L98498_S98498_b8_s3.pt",
+          "length": 98498,
+          "sequence": 98498,
+          "block": 8,
+          "step": 3,
+          "render": 0,
+          "bytes": 4236204337
+        }
+      ],
+      "manifest": {
+        "schema_version": "1.1.0",
+        "timestamp": "2026-08-20T15:25:12.421789+00:00",
+        "provenance": {
+          "git_commit": "139f425701645aa25c36bc6a5dfdff6af5b488cc",
+          "gpu_device": "NVIDIA GeForce RTX 4090",
+          "gpu_power_limit_watts": 330.0,
+          "driver_version": "610.57.04",
+          "cuda_version": "13.3",
+          "pytorch_version": "2.13.0+cu132",
+          "comfyui_version": "0.33.0",
+          "comfy_kitchen_version": "0.2.31+sol.c04ef20"
+        },
+        "workload": {
+          "workflow_file": "workflows/h3_probe_capture_ref3_fl2va_api.json",
+          "canvas": {
+            "width": 1024,
+            "height": 768,
+            "aspect": "4:3",
+            "length": 362,
+            "fps": 24.0,
+            "latent_frames": 107
+          },
+          "models": {
+            "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "clip": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+            "video_vae": "minimax_h3_video_vae_int8_convrot.safetensors",
+            "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
+            "weight_quantization": "int8_convrot",
+            "vae_quantization": "int8_convrot",
+            "loras": []
+          },
+          "sampling": {
+            "sampler_name": "er_sde",
+            "scheduler": "simple",
+            "steps": 16,
+            "denoise": 1.0,
+            "seed": 0,
+            "cfg": 1.0
+          },
+          "attention": {
+            "sage_mode": "auto",
+            "sol_attn": "absent",
+            "head_chunks": 1
+          }
+        },
+        "prompt": {
+          "full_prompt_text": "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the garment shown in <Picture 2>, which <Subject 1> wears in the target video.\n<Subject 3> is the environment in <Picture 3>, which provides the setting for the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 3> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 2> is placed on <Subject 1>.\n<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 3>, then <Subject 1> enters from the left wearing <Subject 2> and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.\n\noverall_soundscape:\nNatural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music:\nN/A",
+          "sections": {
+            "subject_definitions": "<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the garment shown in <Picture 2>, which <Subject 1> wears in the target video.\n<Subject 3> is the environment in <Picture 3>, which provides the setting for the target video.",
+            "summary": "[reference generation] The target video places <Subject 1> inside <Subject 3> for a single continuous shot.",
+            "retention_analysis": "<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): attribute_transfer - the garment from <Picture 2> is placed on <Subject 1>.\n<Subject 3> (appears in [Shot 1]): fully_preserved - the visual setting is retained.",
+            "detailed_description": "The target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 3>, then <Subject 1> enters from the left wearing <Subject 2> and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.",
+            "overall_soundscape": "Natural ambient atmosphere continues throughout the shot.",
+            "non_diegetic_music": "N/A"
+          }
+        },
+        "references": [
+          {
+            "slot": "ref_image_0",
+            "source_file": "h3_refs/h3_refs/subject_performer_stage_662x1177.png",
+            "sha256": "missing",
+            "raw_dimensions": [
+              0,
+              0
+            ],
+            "fitted_dimensions": [
+              0,
+              0
+            ],
+            "latent_rows": 0,
+            "fit_settings": {
+              "allow_upscale": false,
+              "short_edge": 2048,
+              "lift_downstream_clamp": false
+            }
+          },
+          {
+            "slot": "ref_image_1",
+            "source_file": "h3_refs/h3_refs/product_soccer_jersey_1600x1600.png",
+            "sha256": "missing",
+            "raw_dimensions": [
+              0,
+              0
+            ],
+            "fitted_dimensions": [
+              0,
+              0
+            ],
+            "latent_rows": 0,
+            "fit_settings": {
+              "allow_upscale": false,
+              "short_edge": 2048,
+              "lift_downstream_clamp": false
+            }
+          },
+          {
+            "slot": "ref_image_2",
+            "source_file": "h3_refs/h3_refs/scene_loft_couch_duo_2752x1536.png",
+            "sha256": "missing",
+            "raw_dimensions": [
+              0,
+              0
+            ],
+            "fitted_dimensions": [
+              0,
+              0
+            ],
+            "latent_rows": 0,
+            "fit_settings": {
+              "allow_upscale": false,
+              "short_edge": 2048,
+              "lift_downstream_clamp": false
+            }
+          }
+        ],
+        "token_accounting": {
+          "total_sequence_length": 91093,
+          "video_tokens": 82176,
+          "text_tokens": 7711,
+          "reference_tokens": 0,
+          "audio_tokens": 1206
+        },
+        "captured_tensors": [
+          {
+            "filename": "qkv_L98498_S98498_b0_s11.pt",
+            "block": 0,
+            "step": 11,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204346,
+            "sha256": "73ffbc9b084df329868f9c4495525cd34242bdb21d3f19431aaabf33d55ff1bf"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b0_s3.pt",
+            "block": 0,
+            "step": 3,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204337,
+            "sha256": "b1c727c8a0f57e1dd5b17f10f5c6e04968c957297ade03ed515bc5eae2c8f985"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b16_s11.pt",
+            "block": 16,
+            "step": 11,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204419,
+            "sha256": "cfd3c9edbe943f8ec283187e5abfe68a4ceb7634201858495108566e1468446d"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b16_s3.pt",
+            "block": 16,
+            "step": 3,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204346,
+            "sha256": "79c45a6fc3d2e8652f7412b894c4c1de7d2ea284f9c208987f34236a04f8a316"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b24_s11.pt",
+            "block": 24,
+            "step": 11,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204419,
+            "sha256": "aa03c9461c82c10260db047eb86a8204710e040fbe85022ab690068b4a0a0a1f"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b24_s3.pt",
+            "block": 24,
+            "step": 3,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204346,
+            "sha256": "8e8304eb3ca7604182951692c88465586795aab3b791d631e845da0affbc6acd"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b32_s11.pt",
+            "block": 32,
+            "step": 11,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204419,
+            "sha256": "98bf201f5ebd9bf21e1c7bfc479cad0c930cf289956a874d48cb255216a1fc60"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b32_s3.pt",
+            "block": 32,
+            "step": 3,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204346,
+            "sha256": "740d791a5a55a77e1bb95848698b32c259a6639a04928a31358994eb3b995c46"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b40_s11.pt",
+            "block": 40,
+            "step": 11,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204419,
+            "sha256": "1b99ae62f6281b4476673a4b2150a55501a6122190eeac90ddf1928f0bf0fe37"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b40_s3.pt",
+            "block": 40,
+            "step": 3,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204346,
+            "sha256": "d3058d94d78642e9c74f66fd116890dc42e352c6362e8580581f0f70745db6f8"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b49_s11.pt",
+            "block": 49,
+            "step": 11,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204419,
+            "sha256": "20a6cef725227c7e6085036db599814163e14dfb2de9ba8dc348240f107afa60"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b49_s3.pt",
+            "block": 49,
+            "step": 3,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204346,
+            "sha256": "8c2cd7f9ed54f046f7691dccdce44d22065850cfd0abb7344a2853ccd9a31958"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b8_s11.pt",
+            "block": 8,
+            "step": 11,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204346,
+            "sha256": "9d03c9063f03ec814b74b44a2b23dd72cb9f909ed2b3a5a933a471f8fb36bb0a"
+          },
+          {
+            "filename": "qkv_L98498_S98498_b8_s3.pt",
+            "block": 8,
+            "step": 3,
+            "shape": [
+              1,
+              56,
+              98498,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4236204337,
+            "sha256": "d11d4f8414b636a97d7aeee8b148580d1b11b84f55288b911371b426a8061f93"
+          }
+        ]
+      },
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+    },
+    {
+      "capture": "2026-08-20_t2v_362f_1344x768_sla",
+      "existed_at_record_time": true,
+      "n_tensor_files": 6,
+      "arms": [],
+      "total_bytes": 28224014838,
+      "total_bytes_parsed_only": 28224014838,
+      "blocks": [
+        0,
+        24,
+        49
+      ],
+      "steps": [
+        1,
+        2
+      ],
+      "sequence_lengths": [
+        109375
+      ],
+      "renders": [
+        0
+      ],
+      "unparsed_files": [],
+      "files": [
+        {
+          "file": "qkv_L109375_S109375_b0_s1.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 0,
+          "step": 1,
+          "render": 0,
+          "bytes": 4704002467
+        },
+        {
+          "file": "qkv_L109375_S109375_b0_s2.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 0,
+          "step": 2,
+          "render": 0,
+          "bytes": 4704002467
+        },
+        {
+          "file": "qkv_L109375_S109375_b24_s1.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 24,
+          "step": 1,
+          "render": 0,
+          "bytes": 4704002476
+        },
+        {
+          "file": "qkv_L109375_S109375_b24_s2.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 24,
+          "step": 2,
+          "render": 0,
+          "bytes": 4704002476
+        },
+        {
+          "file": "qkv_L109375_S109375_b49_s1.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 49,
+          "step": 1,
+          "render": 0,
+          "bytes": 4704002476
+        },
+        {
+          "file": "qkv_L109375_S109375_b49_s2.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 49,
+          "step": 2,
+          "render": 0,
+          "bytes": 4704002476
+        }
+      ],
+      "manifest": {
+        "schema_version": "1.1.0",
+        "timestamp": "2026-08-20T17:33:41.936636+00:00",
+        "provenance": {
+          "git_commit": "b6b53c99d29cf150d50b280d355b0e13d468fb31",
+          "gpu_device": "NVIDIA GeForce RTX 4090",
+          "gpu_power_limit_watts": 450.0,
+          "driver_version": "610.57.04",
+          "cuda_version": "13.3",
+          "pytorch_version": "2.13.0+cu132",
+          "comfyui_version": "0.33.0",
+          "comfy_kitchen_version": "0.2.31+sol.c04ef20"
+        },
+        "workload": {
+          "workflow_file": "workflows/h3_probe_turbo_768p_sla_dense_api.json",
+          "canvas": {
+            "width": 1024,
+            "height": 768,
+            "aspect": "4:3",
+            "length": 362,
+            "fps": 24.0,
+            "latent_frames": 107
+          },
+          "models": {
+            "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "clip": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+            "video_vae": "minimax_h3_video_vae_int8_convrot.safetensors",
+            "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
+            "weight_quantization": "int8_convrot",
+            "vae_quantization": "int8_convrot",
+            "loras": [
+              {
+                "name": "h3/lightx2v_Minimax-h3-Turbo-SLA/minimax_h3_fl2v_turbo_4step_v0.1_768p_sla_comfyui_bf16.safetensors",
+                "strength": 1.0,
+                "rank": null
+              }
+            ]
+          },
+          "sampling": {
+            "sampler_name": "er_sde",
+            "scheduler": "simple",
+            "steps": 4,
+            "denoise": 1.0,
+            "seed": 0,
+            "cfg": 1.0
+          },
+          "attention": {
+            "sage_mode": "auto",
+            "sol_attn": "absent",
+            "head_chunks": 1
+          }
+        },
+        "prompt": {
+          "full_prompt_text": "integrated_multimodal_description:\n[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium shot frames a courier in a soaked red jacket standing over a bicycle at a city crosswalk in heavy evening rain, wet asphalt throwing back the signal lights, a brick facade with iron railings filling the background. The camera tracks right at medium amplitude and moderate speed as she snaps her helmet strap and pushes off.\n[Shot 2] At 00:04.000, the shot cuts to a low tracking shot running alongside the bicycle as it crosses the junction, spray coming off the tyres, painted lane markings streaming past underneath.\n[Shot 3] At 00:08.000, the camera whip pans up to a wide shot of the street as she cuts between two parked cars, pigeons scattering off the railings, neon shopfront signs reflected in the puddles.\n[Shot 4] At 00:11.500, the shot changes to a close shot of her face under the helmet, rain streaking across the lens, as she glances back over her shoulder and then forward again, breathing hard.\n\noverall_soundscape:\nSteady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.\n\nnon_diegetic_music:\nN/A",
+          "sections": {
+            "overall_soundscape": "Steady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.",
+            "non_diegetic_music": "N/A"
+          }
+        },
+        "references": [],
+        "token_accounting": {
+          "total_sequence_length": 91093,
+          "video_tokens": 82176,
+          "text_tokens": 7711,
+          "reference_tokens": 0,
+          "audio_tokens": 1206
+        },
+        "captured_tensors": [
+          {
+            "filename": "qkv_L109375_S109375_b0_s1.pt",
+            "block": 0,
+            "step": 1,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002467,
+            "sha256": "1c452049057762b4362faad3b854eb45cff77844fd18b0bd9439c91231cfa038"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b0_s2.pt",
+            "block": 0,
+            "step": 2,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002467,
+            "sha256": "6e239ebb044a10e8eec8038d7d8ffee6c924de1778679fd2ed3aeb63adc1447f"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b24_s1.pt",
+            "block": 24,
+            "step": 1,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002476,
+            "sha256": "cf84210d9b5be8b09e2d7149f03d4da0c3d61509700b8c4943c408c75b1633be"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b24_s2.pt",
+            "block": 24,
+            "step": 2,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002476,
+            "sha256": "26685267b933a90313c08688a9ca5607bc54f9c8819976cedee19c22c6f95917"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b49_s1.pt",
+            "block": 49,
+            "step": 1,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002476,
+            "sha256": "b48927041ec5f13b8bb37195bd8022de863fe9188ac6ad1339e2fc593bcbbb05"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b49_s2.pt",
+            "block": 49,
+            "step": 2,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002476,
+            "sha256": "a9b54786fc84366a639f804e5e6824bc756b3b04a7fc35bbba0c56bf3aaa7b6d"
+          }
+        ]
+      },
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+    },
+    {
+      "capture": "2026-08-20_t2v_362f_1344x768_v11",
+      "existed_at_record_time": true,
+      "n_tensor_files": 6,
+      "arms": [],
+      "total_bytes": 28224014838,
+      "total_bytes_parsed_only": 28224014838,
+      "blocks": [
+        0,
+        24,
+        49
+      ],
+      "steps": [
+        1,
+        2
+      ],
+      "sequence_lengths": [
+        109375
+      ],
+      "renders": [
+        0
+      ],
+      "unparsed_files": [],
+      "files": [
+        {
+          "file": "qkv_L109375_S109375_b0_s1.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 0,
+          "step": 1,
+          "render": 0,
+          "bytes": 4704002467
+        },
+        {
+          "file": "qkv_L109375_S109375_b0_s2.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 0,
+          "step": 2,
+          "render": 0,
+          "bytes": 4704002467
+        },
+        {
+          "file": "qkv_L109375_S109375_b24_s1.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 24,
+          "step": 1,
+          "render": 0,
+          "bytes": 4704002476
+        },
+        {
+          "file": "qkv_L109375_S109375_b24_s2.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 24,
+          "step": 2,
+          "render": 0,
+          "bytes": 4704002476
+        },
+        {
+          "file": "qkv_L109375_S109375_b49_s1.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 49,
+          "step": 1,
+          "render": 0,
+          "bytes": 4704002476
+        },
+        {
+          "file": "qkv_L109375_S109375_b49_s2.pt",
+          "length": 109375,
+          "sequence": 109375,
+          "block": 49,
+          "step": 2,
+          "render": 0,
+          "bytes": 4704002476
+        }
+      ],
+      "manifest": {
+        "schema_version": "1.1.0",
+        "timestamp": "2026-08-20T17:33:17.645932+00:00",
+        "provenance": {
+          "git_commit": "b6b53c99d29cf150d50b280d355b0e13d468fb31",
+          "gpu_device": "NVIDIA GeForce RTX 4090",
+          "gpu_power_limit_watts": 450.0,
+          "driver_version": "610.57.04",
+          "cuda_version": "13.3",
+          "pytorch_version": "2.13.0+cu132",
+          "comfyui_version": "0.33.0",
+          "comfy_kitchen_version": "0.2.31+sol.c04ef20"
+        },
+        "workload": {
+          "workflow_file": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/98454fb6-1c8f-4f1c-a6f0-66db1485bd4e/scratchpad/capture_v11_dense_api.json",
+          "canvas": {
+            "width": 1024,
+            "height": 768,
+            "aspect": "4:3",
+            "length": 362,
+            "fps": 24.0,
+            "latent_frames": 107
+          },
+          "models": {
+            "unet": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+            "clip": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+            "video_vae": "minimax_h3_video_vae_int8_convrot.safetensors",
+            "audio_vae": "minimax_h3_audio_vae_fp32.safetensors",
+            "weight_quantization": "int8_convrot",
+            "vae_quantization": "int8_convrot",
+            "loras": [
+              {
+                "name": "h3/lightx2v_Minimax-h3-Turbo/minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors",
+                "strength": 1.0,
+                "rank": null
+              }
+            ]
+          },
+          "sampling": {
+            "sampler_name": "er_sde",
+            "scheduler": "simple",
+            "steps": 4,
+            "denoise": 1.0,
+            "seed": 0,
+            "cfg": 1.0
+          },
+          "attention": {
+            "sage_mode": "auto",
+            "sol_attn": "absent",
+            "head_chunks": 1
+          }
+        },
+        "prompt": {
+          "full_prompt_text": "integrated_multimodal_description:\n[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium shot frames a courier in a soaked red jacket standing over a bicycle at a city crosswalk in heavy evening rain, wet asphalt throwing back the signal lights, a brick facade with iron railings filling the background. The camera tracks right at medium amplitude and moderate speed as she snaps her helmet strap and pushes off.\n[Shot 2] At 00:04.000, the shot cuts to a low tracking shot running alongside the bicycle as it crosses the junction, spray coming off the tyres, painted lane markings streaming past underneath.\n[Shot 3] At 00:08.000, the camera whip pans up to a wide shot of the street as she cuts between two parked cars, pigeons scattering off the railings, neon shopfront signs reflected in the puddles.\n[Shot 4] At 00:11.500, the shot changes to a close shot of her face under the helmet, rain streaking across the lens, as she glances back over her shoulder and then forward again, breathing hard.\n\noverall_soundscape:\nSteady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.\n\nnon_diegetic_music:\nN/A",
+          "sections": {
+            "overall_soundscape": "Steady heavy rain on asphalt and metal, tyre hiss through standing water, the click and rattle of a bicycle chain, a car horn twice in the middle distance, wings clattering as the pigeons take off, her breathing close and rhythmic under the helmet.",
+            "non_diegetic_music": "N/A"
+          }
+        },
+        "references": [],
+        "token_accounting": {
+          "total_sequence_length": 91093,
+          "video_tokens": 82176,
+          "text_tokens": 7711,
+          "reference_tokens": 0,
+          "audio_tokens": 1206
+        },
+        "captured_tensors": [
+          {
+            "filename": "qkv_L109375_S109375_b0_s1.pt",
+            "block": 0,
+            "step": 1,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002467,
+            "sha256": "fd0b83858906047b5baf67671cc8f1e5c04f37989ed6030bdad535db9779dbc2"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b0_s2.pt",
+            "block": 0,
+            "step": 2,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002467,
+            "sha256": "a06302c1bfa2e0954f4aca94e5ad9742331351db8d653f0a34c618276ecc1c2d"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b24_s1.pt",
+            "block": 24,
+            "step": 1,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002476,
+            "sha256": "9c0b41bede47ab83bf1d490ecc4bf8bb00bbb6f4b8d4cd91f06eb5809ec46658"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b24_s2.pt",
+            "block": 24,
+            "step": 2,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002476,
+            "sha256": "9c68671c448236a1b7a723bdd609e2d5003705b53540db919336b58f214fb80e"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b49_s1.pt",
+            "block": 49,
+            "step": 1,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002476,
+            "sha256": "51c4950a5e3a31614102cd2378ef7eadfc6bc183b91ac075ed39869777c097c0"
+          },
+          {
+            "filename": "qkv_L109375_S109375_b49_s2.pt",
+            "block": 49,
+            "step": 2,
+            "shape": [
+              1,
+              56,
+              109375,
+              128
+            ],
+            "dtype": "torch.bfloat16",
+            "size_bytes": 4704002476,
+            "sha256": "d3d899265feebe54b3ea90ef27428096bbda9f5d95dacfcc18a83ae955d77e2d"
+          }
+        ]
+      },
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+    },
+    {
+      "capture": "2026-08-21_pruning",
+      "existed_at_record_time": true,
+      "n_tensor_files": 55,
+      "arms": [
+        "ref3_fl2va_fp8",
+        "ref3_fl2va_pruned",
+        "ref3_fl2va_unpruned",
+        "ref3_ref2va_fp8",
+        "ref3_ref2va_pruned",
+        "ref3_ref2va_pruned_repeat",
+        "ref3_ref2va_unpruned",
+        "t2v_fl2va_pruned",
+        "t2v_fl2va_unpruned",
+        "t2v_ref2va_pruned",
+        "t2v_ref2va_unpruned"
+      ],
+      "total_bytes": 74460047469,
+      "total_bytes_parsed_only": 74414723206,
+      "blocks": [
+        0,
+        12,
+        24,
+        36,
+        49
+      ],
+      "steps": [
+        0
+      ],
+      "sequence_lengths": [
+        22039,
+        36842
+      ],
+      "renders": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "unparsed_files": [
+        {
+          "file": "ref3_fl2va_fp8/final_Lna_S37_s0_r2.pt",
+          "bytes": 4120389
+        },
+        {
+          "file": "ref3_fl2va_pruned/final_Lna_S37_s0_r1.pt",
+          "bytes": 4120389
+        },
+        {
+          "file": "ref3_fl2va_unpruned/final_Lna_S37_s0_r4.pt",
+          "bytes": 4120389
+        },
+        {
+          "file": "ref3_ref2va_fp8/final_Lna_S37_s0_r7.pt",
+          "bytes": 4120389
+        },
+        {
+          "file": "ref3_ref2va_pruned/final_Lna_S37_s0_r6.pt",
+          "bytes": 4120389
+        },
+        {
+          "file": "ref3_ref2va_pruned_repeat/final_Lna_S37_s0_r10.pt",
+          "bytes": 4120397
+        },
+        {
+          "file": "ref3_ref2va_unpruned/final_Lna_S37_s0_r9.pt",
+          "bytes": 4120389
+        },
+        {
+          "file": "t2v_fl2va_pruned/final_Lna_S37_s0.pt",
+          "bytes": 4120365
+        },
+        {
+          "file": "t2v_fl2va_unpruned/final_Lna_S37_s0_r3.pt",
+          "bytes": 4120389
+        },
+        {
+          "file": "t2v_ref2va_pruned/final_Lna_S37_s0_r5.pt",
+          "bytes": 4120389
+        },
+        {
+          "file": "t2v_ref2va_unpruned/final_Lna_S37_s0_r8.pt",
+          "bytes": 4120389
+        }
+      ],
+      "files": [
+        {
+          "file": "ref3_fl2va_fp8/qkv_L36842_S36842_b0_s0_r2.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 0,
+          "step": 0,
+          "render": 2,
+          "bytes": 1584503116
+        },
+        {
+          "file": "ref3_fl2va_fp8/qkv_L36842_S36842_b12_s0_r2.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 12,
+          "step": 0,
+          "render": 2,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_fp8/qkv_L36842_S36842_b24_s0_r2.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 24,
+          "step": 0,
+          "render": 2,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_fp8/qkv_L36842_S36842_b36_s0_r2.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 36,
+          "step": 0,
+          "render": 2,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_fp8/qkv_L36842_S36842_b49_s0_r2.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 49,
+          "step": 0,
+          "render": 2,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_pruned/qkv_L36842_S36842_b0_s0_r1.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 0,
+          "step": 0,
+          "render": 1,
+          "bytes": 1584503116
+        },
+        {
+          "file": "ref3_fl2va_pruned/qkv_L36842_S36842_b12_s0_r1.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 12,
+          "step": 0,
+          "render": 1,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_pruned/qkv_L36842_S36842_b24_s0_r1.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 24,
+          "step": 0,
+          "render": 1,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_pruned/qkv_L36842_S36842_b36_s0_r1.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 36,
+          "step": 0,
+          "render": 1,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_pruned/qkv_L36842_S36842_b49_s0_r1.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 49,
+          "step": 0,
+          "render": 1,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_unpruned/qkv_L36842_S36842_b0_s0_r4.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 0,
+          "step": 0,
+          "render": 4,
+          "bytes": 1584503116
+        },
+        {
+          "file": "ref3_fl2va_unpruned/qkv_L36842_S36842_b12_s0_r4.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 12,
+          "step": 0,
+          "render": 4,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_unpruned/qkv_L36842_S36842_b24_s0_r4.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 24,
+          "step": 0,
+          "render": 4,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_unpruned/qkv_L36842_S36842_b36_s0_r4.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 36,
+          "step": 0,
+          "render": 4,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_fl2va_unpruned/qkv_L36842_S36842_b49_s0_r4.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 49,
+          "step": 0,
+          "render": 4,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_fp8/qkv_L36842_S36842_b0_s0_r7.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 0,
+          "step": 0,
+          "render": 7,
+          "bytes": 1584503116
+        },
+        {
+          "file": "ref3_ref2va_fp8/qkv_L36842_S36842_b12_s0_r7.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 12,
+          "step": 0,
+          "render": 7,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_fp8/qkv_L36842_S36842_b24_s0_r7.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 24,
+          "step": 0,
+          "render": 7,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_fp8/qkv_L36842_S36842_b36_s0_r7.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 36,
+          "step": 0,
+          "render": 7,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_fp8/qkv_L36842_S36842_b49_s0_r7.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 49,
+          "step": 0,
+          "render": 7,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_pruned/qkv_L36842_S36842_b0_s0_r6.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 0,
+          "step": 0,
+          "render": 6,
+          "bytes": 1584503116
+        },
+        {
+          "file": "ref3_ref2va_pruned/qkv_L36842_S36842_b12_s0_r6.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 12,
+          "step": 0,
+          "render": 6,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_pruned/qkv_L36842_S36842_b24_s0_r6.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 24,
+          "step": 0,
+          "render": 6,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_pruned/qkv_L36842_S36842_b36_s0_r6.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 36,
+          "step": 0,
+          "render": 6,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_pruned/qkv_L36842_S36842_b49_s0_r6.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 49,
+          "step": 0,
+          "render": 6,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_pruned_repeat/qkv_L36842_S36842_b0_s0_r10.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 0,
+          "step": 0,
+          "render": 10,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_pruned_repeat/qkv_L36842_S36842_b12_s0_r10.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 12,
+          "step": 0,
+          "render": 10,
+          "bytes": 1584503134
+        },
+        {
+          "file": "ref3_ref2va_pruned_repeat/qkv_L36842_S36842_b24_s0_r10.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 24,
+          "step": 0,
+          "render": 10,
+          "bytes": 1584503134
+        },
+        {
+          "file": "ref3_ref2va_pruned_repeat/qkv_L36842_S36842_b36_s0_r10.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 36,
+          "step": 0,
+          "render": 10,
+          "bytes": 1584503134
+        },
+        {
+          "file": "ref3_ref2va_pruned_repeat/qkv_L36842_S36842_b49_s0_r10.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 49,
+          "step": 0,
+          "render": 10,
+          "bytes": 1584503134
+        },
+        {
+          "file": "ref3_ref2va_unpruned/qkv_L36842_S36842_b0_s0_r9.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 0,
+          "step": 0,
+          "render": 9,
+          "bytes": 1584503116
+        },
+        {
+          "file": "ref3_ref2va_unpruned/qkv_L36842_S36842_b12_s0_r9.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 12,
+          "step": 0,
+          "render": 9,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_unpruned/qkv_L36842_S36842_b24_s0_r9.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 24,
+          "step": 0,
+          "render": 9,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_unpruned/qkv_L36842_S36842_b36_s0_r9.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 36,
+          "step": 0,
+          "render": 9,
+          "bytes": 1584503125
+        },
+        {
+          "file": "ref3_ref2va_unpruned/qkv_L36842_S36842_b49_s0_r9.pt",
+          "length": 36842,
+          "sequence": 36842,
+          "block": 49,
+          "step": 0,
+          "render": 9,
+          "bytes": 1584503125
+        },
+        {
+          "file": "t2v_fl2va_pruned/qkv_L22039_S22039_b0_s0.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 0,
+          "step": 0,
+          "render": 0,
+          "bytes": 947855665
+        },
+        {
+          "file": "t2v_fl2va_pruned/qkv_L22039_S22039_b12_s0.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 12,
+          "step": 0,
+          "render": 0,
+          "bytes": 947855674
+        },
+        {
+          "file": "t2v_fl2va_pruned/qkv_L22039_S22039_b24_s0.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 24,
+          "step": 0,
+          "render": 0,
+          "bytes": 947855674
+        },
+        {
+          "file": "t2v_fl2va_pruned/qkv_L22039_S22039_b36_s0.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 36,
+          "step": 0,
+          "render": 0,
+          "bytes": 947855674
+        },
+        {
+          "file": "t2v_fl2va_pruned/qkv_L22039_S22039_b49_s0.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 49,
+          "step": 0,
+          "render": 0,
+          "bytes": 947855674
+        },
+        {
+          "file": "t2v_fl2va_unpruned/qkv_L22039_S22039_b0_s0_r3.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 0,
+          "step": 0,
+          "render": 3,
+          "bytes": 947855692
+        },
+        {
+          "file": "t2v_fl2va_unpruned/qkv_L22039_S22039_b12_s0_r3.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 12,
+          "step": 0,
+          "render": 3,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_fl2va_unpruned/qkv_L22039_S22039_b24_s0_r3.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 24,
+          "step": 0,
+          "render": 3,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_fl2va_unpruned/qkv_L22039_S22039_b36_s0_r3.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 36,
+          "step": 0,
+          "render": 3,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_fl2va_unpruned/qkv_L22039_S22039_b49_s0_r3.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 49,
+          "step": 0,
+          "render": 3,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_ref2va_pruned/qkv_L22039_S22039_b0_s0_r5.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 0,
+          "step": 0,
+          "render": 5,
+          "bytes": 947855692
+        },
+        {
+          "file": "t2v_ref2va_pruned/qkv_L22039_S22039_b12_s0_r5.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 12,
+          "step": 0,
+          "render": 5,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_ref2va_pruned/qkv_L22039_S22039_b24_s0_r5.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 24,
+          "step": 0,
+          "render": 5,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_ref2va_pruned/qkv_L22039_S22039_b36_s0_r5.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 36,
+          "step": 0,
+          "render": 5,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_ref2va_pruned/qkv_L22039_S22039_b49_s0_r5.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 49,
+          "step": 0,
+          "render": 5,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_ref2va_unpruned/qkv_L22039_S22039_b0_s0_r8.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 0,
+          "step": 0,
+          "render": 8,
+          "bytes": 947855692
+        },
+        {
+          "file": "t2v_ref2va_unpruned/qkv_L22039_S22039_b12_s0_r8.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 12,
+          "step": 0,
+          "render": 8,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_ref2va_unpruned/qkv_L22039_S22039_b24_s0_r8.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 24,
+          "step": 0,
+          "render": 8,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_ref2va_unpruned/qkv_L22039_S22039_b36_s0_r8.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 36,
+          "step": 0,
+          "render": 8,
+          "bytes": 947855701
+        },
+        {
+          "file": "t2v_ref2va_unpruned/qkv_L22039_S22039_b49_s0_r8.pt",
+          "length": 22039,
+          "sequence": 22039,
+          "block": 49,
+          "step": 0,
+          "render": 8,
+          "bytes": 947855701
+        }
+      ],
+      "manifest": null,
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+    }
+  ],
+  "already_absent": [
+    "2026-08-17_ref3_362f_1024x768"
+  ],
+  "capture_root": "names only; captures live outside the repo and their location is not recorded here by policy",
+  "total_bytes_recorded": 190214938336
+}

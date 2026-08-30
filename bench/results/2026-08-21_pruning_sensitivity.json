@@ -292,5 +292,16 @@
     "This is a first-step forward, not a render. It says the velocity differs; it says nothing about how that difference propagates over a full schedule, and nothing about whether anyone could see it. A perceptual claim would need its own blind session under docs/eval_comparison.md section 3.",
     "The entry's pre-registered prediction was S under 1% on both checkpoints. Measured: 5.6% to 9.4%. The prediction was wrong by roughly an order of magnitude and is recorded as wrong rather than quietly dropped.",
     "The entry's profile clause carries no threshold, so the grader implements the weakest testable reading: deepest block at least twice block 0. The measured profile is not a monotone opening -- q error peaks at block 36 and falls back at 49 on both checkpoints. The verdict did not turn on it."
-  ]
+  ],
+  "capture_status": {
+    "captures_cited": [
+      "2026-08-21_pruning"
+    ],
+    "still_on_disk": [
+      "2026-08-21_pruning"
+    ],
+    "deleted": [],
+    "inventory": "bench/results/2026-08-30_capture_inventory.json",
+    "what_this_means": "A capture listed under `deleted` no longer exists, so the numbers here are a FROZEN measurement rather than a reproducible one -- re-deriving them would need the tensors, and they are gone. The inventory records what each capture held (blocks, steps, sequence lengths, file list, manifest) so this record stays readable without it."
+  }
 }

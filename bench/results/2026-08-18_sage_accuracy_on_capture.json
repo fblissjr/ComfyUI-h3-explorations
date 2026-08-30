@@ -702,5 +702,16 @@
     "Captures are 362 frames at 1024x768 with 3 references, Sol-free. Sol-free is established mechanically: `h3_capture.py` indexes steps by sage-forward entries and Sol would cap that at 4 with the shipped window, yet _s8 and _s14 exist.",
     "256 rows per capture, sampled in even strata across the packed sequence. Segment boundaries are not recorded in the capture, so rows are positional, not per-segment.",
     "In the SHIPPED config Sol takes the steps inside its sigma window, so sage runs a minority of steps. This measures the kernel, not the share of the trajectory it touches."
-  ]
+  ],
+  "capture_status": {
+    "captures_cited": [
+      "2026-08-17_ref3_362f_1024x768"
+    ],
+    "still_on_disk": [],
+    "deleted": [
+      "2026-08-17_ref3_362f_1024x768"
+    ],
+    "inventory": "bench/results/2026-08-30_capture_inventory.json",
+    "what_this_means": "A capture listed under `deleted` no longer exists, so the numbers here are a FROZEN measurement rather than a reproducible one -- re-deriving them would need the tensors, and they are gone. The inventory records what each capture held (blocks, steps, sequence lengths, file list, manifest) so this record stays readable without it."
+  }
 }
