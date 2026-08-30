@@ -70,8 +70,19 @@ def record(block: int, kind: str, sigma, out: torch.Tensor,
         return
     try:
         with torch.no_grad():
-            o = out.detach().float()
-            d = delta.detach().float()
+            # **No full-tensor .float().** The first version cast `out` and
+            # `delta` to fp32 before taking norms, which at production geometry
+            # is a 104361 x 21504 copy -- about 9 GiB for one module -- and
+            # OOM'd every `attn.qkv_proj` and `mlp.fc1` observation while
+            # `attn.out_proj` (a quarter the width) survived. The capture then
+            # looked like a complete result for out_proj.
+            #
+            # The reduction is what needs precision, not the operands, so the
+            # row norms are taken in the tensor's own dtype and only the
+            # resulting [rows] vectors are promoted. Same shape of fix as
+            # `analyze_quant_delta.stats`, which chunks for the same reason.
+            o = out.detach()
+            d = delta.detach()
             if o.ndim != 2:
                 o = o.reshape(-1, o.shape[-1])
                 d = d.reshape(-1, d.shape[-1])
@@ -79,8 +90,8 @@ def record(block: int, kind: str, sigma, out: torch.Tensor,
             # Per-row norms first, then binned: a bin's value is the relative
             # perturbation of the rows in it, not the perturbation of a pooled
             # vector. Pooling first would let opposite-signed rows cancel.
-            on = torch.linalg.vector_norm(o, dim=1)
-            dn = torch.linalg.vector_norm(d, dim=1)
+            on = torch.linalg.vector_norm(o, dim=1).float().cpu()
+            dn = torch.linalg.vector_norm(d, dim=1).float().cpu()
             edges = torch.linspace(0, rows, N_BINS + 1).long()
             bins = []
             for i in range(N_BINS):
