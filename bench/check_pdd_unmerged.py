@@ -200,10 +200,22 @@ def main() -> int:
     backbone["diffusion_model.token_refiner.blocks.0.mlp.fc1.lora_A.weight"] = \
         torch.tensor([[1.0]])
     keep, lifted = P.split_unmerged(dict(backbone), frozenset({7}))
-    check("lifts exactly the 4 modules of the named block", len(lifted) == 4,
-          f"got {len(lifted)}")
-    check("lifts 12 tensors out of the patch dict",
-          len(keep) == len(backbone) - 12, f"kept {len(keep)}")
+    n = len(P.UNMERGED_KINDS)
+    check(f"lifts exactly the {n} un-mergeable modules of the named block",
+          len(lifted) == n, f"got {len(lifted)}")
+    check(f"lifts {3 * n} tensors out of the patch dict",
+          len(keep) == len(backbone) - 3 * n, f"kept {len(keep)}")
+    # The one that would have caught the shipped bug, and did not exist until
+    # an observation capture found it by counting rows. `mlp.fc2`'s forward is
+    # never called on the INT8 path -- `linear_input_act` reads the weight and
+    # does the matmul itself -- so lifting it removes its LoRA from the weight
+    # patch and applies nothing in its place.
+    check("mlp.fc2 is NOT un-mergeable (its forward is never called)",
+          "mlp.fc2" not in P.UNMERGED_KINDS,
+          "lifting it silently drops the largest update in the file")
+    _, lifted7 = P.split_unmerged(dict(backbone), frozenset({7}))
+    check("and so it is never lifted",
+          all(k != "mlp.fc2" for _, k in lifted7))
     check("leaves other blocks merged",
           all(".blocks.7." not in k for k in keep))
     check("never lifts the refiner",

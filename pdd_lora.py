@@ -181,6 +181,11 @@ from comfy_api.latest import io
 # unrunnable, which is how `bench/analyze_routing.py` made itself inert and
 # kept its red harness skipped.
 try:
+    from . import pdd_observe
+except ImportError:
+    import pdd_observe
+
+try:
     from .block_spec import parse_blocks
 except ImportError:                       # imported flat, by the bench checks
     from block_spec import parse_blocks
@@ -919,11 +924,33 @@ HEAD_PATCH_KEYS = ("diffusion_model.final_layer.forward",
                    "diffusion_model.final_layer.audio_out.forward")
 
 
-#: The four backbone modules per block that `unmerged_blocks` can lift out of
-#: the weight patch. The refiner's two blocks are deliberately not addressable:
+#: The backbone modules per block that `unmerged_blocks` can lift out of the
+#: weight patch. The refiner's two blocks are deliberately not addressable:
 #: they are a separate stack, they carry 8 of the 208 modules, and nothing has
 #: measured them.
-UNMERGED_KINDS = ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2")
+#:
+#: **`mlp.fc2` is NOT here, and its absence is a correctness fix rather than a
+#: scope choice.** It was included from 2026-08-30 until later the same day,
+#: and on the shipped int8 checkpoints that silently DROPPED its update: an
+#: un-merged module has its LoRA keys removed from the weight patch and its
+#: delta applied by a `forward` object patch instead, and `fc2`'s forward is
+#: never called. `MLP.forward` is
+#: `comfy.ops.linear_input_act(self.fc2, self.fc1(x), "swiglu")`, which on the
+#: INT8 path reads `linear.weight` and does the matmul itself
+#: (`comfy/ops.py:958-978`) rather than calling the module. So the patch point
+#: does not exist there.
+#:
+#: It would have worked on a NON-quantised checkpoint, where the same function
+#: falls back to `linear(act(x))` — which is the worst shape this could have
+#: taken, because the bug is invisible in the fallback and live in the
+#: configuration that ships. Found by an observation capture recording 600
+#: rows where 800 were expected; no assertion would have caught it, because
+#: nothing compared the count.
+#:
+#: `blocks.49.mlp.fc2` carries the largest single update in the PDD file
+#: (0.044 relative, ten times a typical module), so this was not a small
+#: silent loss.
+UNMERGED_KINDS = ("attn.qkv_proj", "attn.out_proj", "mlp.fc1")
 
 
 def unmerged_patch_key(index: int, kind: str) -> str:
@@ -945,7 +972,8 @@ def unmerged_patch_key(index: int, kind: str) -> str:
     return f"diffusion_model.blocks.{index}.{kind}.forward"
 
 
-def _make_unmerged_forward(base_forward, a, b, tracker=None, window=None):
+def _make_unmerged_forward(base_forward, a, b, tracker=None, window=None,
+                           observe_block=-1, observe_kind=""):
     """Add the LoRA at the CALL instead of merging it into the weight.
 
     `y = W_int8 @ x + B @ (A @ x)`, against the merged path's
@@ -981,7 +1009,15 @@ def _make_unmerged_forward(base_forward, a, b, tracker=None, window=None):
                 return out
         av = a.to(inp.device, out.dtype)
         bv = b.to(inp.device, out.dtype)
-        return out + (inp.to(out.dtype) @ av.T) @ bv.T
+        delta = (inp.to(out.dtype) @ av.T) @ bv.T
+        # Free observation: this path already holds `out` and `delta` apart, so
+        # recording the delta's size costs a norm and changes nothing about
+        # what the render produces. Inert unless H3_PDD_OBSERVE is set.
+        if pdd_observe.enabled():
+            pdd_observe.record(
+                observe_block, observe_kind,
+                tracker.sigma if tracker is not None else None, out, delta)
+        return out + delta
     return forward
 
 
@@ -1099,7 +1135,14 @@ def _make_capture_forward(base_forward, tracker):
         _sig = opts.get("sigmas")
         if _sig is not None and len(_sig):
             tracker.sigma = float(_sig[0])
-        return base_forward(*args, **kwargs)
+        result = base_forward(*args, **kwargs)
+        # After the forward, so this step's block observations are included.
+        if pdd_observe.enabled():
+            pdd_observe.flush({"label": tracker.label,
+                               "num_steps": tracker.num_steps,
+                               "shift_v": tracker.shift_v,
+                               "shift_a": tracker.shift_a})
+        return result
     return forward
 
 
@@ -1871,7 +1914,8 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     _make_unmerged_forward(
                         m.get_model_object(key), a,
                         b * (u_strength * alpha / rank),
-                        tracker=tracker, window=u_window))
+                        tracker=tracker, window=u_window,
+                        observe_block=index, observe_kind=kind))
 
         final_layer = m.get_model_object("diffusion_model.final_layer")
         # strength 0 installs NOTHING on the head path. Interpolating to the
