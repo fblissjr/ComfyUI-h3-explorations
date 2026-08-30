@@ -1902,6 +1902,16 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     "un-merged delta applies only inside it.",
                     unmerged_window, u_window[0], u_window[1])
 
+            # Publish which blocks are un-merged, so any OTHER capture taken
+            # from this render records the weight configuration it saw rather
+            # than relying on someone remembering. Requested by the Sol capture
+            # lane: un-merging changes the quantisation (0.01058 merged to
+            # 0.00942 against bf16), so a capture is of a marginally different
+            # model and the file should say so itself.
+            m.model_options.setdefault("transformer_options", {})
+            m.model_options["transformer_options"]["minimax_h3_unmerged_blocks"] = \
+                sorted(unmerged)
+
             for (index, kind), (a, b, alpha, rank) in sorted(lifted.items()):
                 key = unmerged_patch_key(index, kind)
                 # `strength * alpha / rank` folded into B once, on CPU, in the
