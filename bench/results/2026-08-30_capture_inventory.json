@@ -812,7 +812,7 @@
           "comfy_kitchen_version": "0.2.31+sol.c04ef20"
         },
         "workload": {
-          "workflow_file": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/98454fb6-1c8f-4f1c-a6f0-66db1485bd4e/scratchpad/capture_v11_dense_api.json",
+          "workflow_file": "<scratchpad>/capture_v11_dense_api.json",
           "canvas": {
             "width": 1024,
             "height": 768,

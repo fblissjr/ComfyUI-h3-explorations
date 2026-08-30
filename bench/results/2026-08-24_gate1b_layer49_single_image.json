@@ -64,7 +64,7 @@
       "torch": "2.13.0+cu132",
       "transformers": "5.15.0"
     },
-    "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/g1b-single_image-comfy"
+    "_dir": "<scratchpad>/g1b-single_image-comfy"
   },
   "reference_chosen_explicitly": false,
   "arms": {
@@ -138,7 +138,7 @@
           "torch": "2.13.0+cu132",
           "transformers": "5.15.1"
         },
-        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/g1b-single_image-float32"
+        "_dir": "<scratchpad>/g1b-single_image-float32"
       },
       "all": {
         "rows": 1100,
@@ -293,7 +293,7 @@
           "torch": "2.13.0+cu132",
           "transformers": "5.15.1"
         },
-        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/ce-single_image-bfloat16_native"
+        "_dir": "<scratchpad>/ce-single_image-bfloat16_native"
       },
       "all": {
         "rows": 1100,
@@ -444,7 +444,7 @@
           "torch": "2.13.0+cu132",
           "transformers": "5.15.1"
         },
-        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/g1b-single_image-hybrid"
+        "_dir": "<scratchpad>/g1b-single_image-hybrid"
       },
       "all": {
         "rows": 1100,
@@ -600,7 +600,7 @@
           "torch": "2.13.0+cu132",
           "transformers": "5.15.1"
         },
-        "_dir": "/tmp/claude-1000/-home-fbliss-ComfyUI-custom-nodes-ComfyUI-h3-explorations/aaddaa9c-84e2-4a99-8f03-ba73c57f63c3/scratchpad/ce-single_image-comfy_exact"
+        "_dir": "<scratchpad>/ce-single_image-comfy_exact"
       },
       "all": {
         "rows": 1100,
