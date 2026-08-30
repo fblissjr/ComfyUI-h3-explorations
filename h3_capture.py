@@ -278,9 +278,25 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
             except (TypeError, IndexError, ValueError):
                 sigma = None
 
+    # **The weights this capture came from, when they are not the shipped
+    # ones.** `MiniMaxH3PDDLoRA`'s un-merged path applies the LoRA delta at the
+    # call instead of folding it into the quantised weight, which leaves the
+    # stored weight measurably closer to bf16 than the shipped configuration --
+    # measured in that lane at 0.00942 against 0.01058. A capture taken on a
+    # joint render with that path on is therefore graded on activations from a
+    # slightly different model, and that is a caveat about GENERALISATION
+    # rather than a confound: kernels are compared against each other on the
+    # SAME activations, so the model is upstream of the comparison. Recorded
+    # here so the file carries the caveat instead of someone having to
+    # remember which render it came from. Key published by pdd_lora.py.
+    unmerged = None
+    if isinstance(transformer_options, dict):
+        unmerged = transformer_options.get("minimax_h3_unmerged_blocks")
+
     record = {"q": qh, "k": kh, "v": vh,
               "kernel": kernel, "block": int(block), "step": int(step),
-              "sigma": sigma, "seq_len": int(seq), "render": int(render)}
+              "sigma": sigma, "seq_len": int(seq), "render": int(render),
+              "unmerged_blocks": unmerged}
     if segments is not None:
         record["segments"] = segments
 
