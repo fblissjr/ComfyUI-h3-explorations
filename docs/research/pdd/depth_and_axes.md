@@ -165,6 +165,58 @@ matters.
   untouched — and CLAUDE.md's tail findings say the tail is where quality
   lives, so this is the axis the partition work points at.
 
+### Two more axes, both reported by the mask-lane session on 2026-08-30
+
+**The SAMPLER, and it is not free the way it looks.** `docs/h3_pdd.md` records
+that a second-order or stochastic sampler is *structurally invisible* to the
+node's boundary guard: heun evaluates its corrector at `sigmas[i+1]`, which IS
+the next block boundary, so the guard measures ~0 distance and calls it
+healthy while every corrector selects the NEXT block's fused head. Half the
+model evaluations use the wrong head and nothing says so. So sampler is an
+axis with a known trap, not an open dial — and any depth probe must stay on
+euler for the same reason `probe_block_propagation.py` does.
+
+  *Related, and it is an attribution worth keeping straight:*
+  `MiniMaxH3EulerAncestralEta0SchedulerAdapter` carries eta=0 and is therefore
+  plain euler rather than `euler_ancestral`. **It is vllm-omni's, not
+  sglang's** — verified at
+  `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/scheduling_minimax_h3_euler_ancestral.py:105`.
+  It was reported here as sglang's, and both trees carry a file called
+  `time_request.py`, which is how that conflation happens.
+  `docs/research/sglang_h3_pipeline.md` owns sglang;
+  `h3_dit_implementations.md` owns the cross-engine comparison.
+
+**MASK GRANULARITY, and it is gated by ComfyUI rather than by the model.**
+Reported by the mask lane, measured by them, not re-derived here:
+`MiniMaxH3._token_grid_masks` does `ceil(mask * 256) / 256` and
+`_denoise_mask_values` drops the mask entirely once `amin >= 1 - 1e-3`. So the
+finest sub-1 strength the model can be given is 255/256; anything above is
+promoted to 1.0 and discarded. Every value on that grid is bf16-exact, so the
+`_apply_model` cast costs nothing at stock precision.
+
+Three reasons it is not a bench axis today, and the third is the one that
+decides it:
+
+  1. **Nothing here produces a graded mask.** Established rather than
+     inferred: no graded mask node in the conditioning or keyframe lanes, and
+     no shipped graph wires a mask-typed node at all.
+  2. **Reaching off the 1/256 grid needs a process-wide patch** of five
+     ComfyUI methods that does not retire until restart, and it changes an
+     unrelated graph's feather quantisation afterwards. Unusable as an axis
+     without a process boundary between arms — which collides directly with
+     this repo's new cache-state rule.
+  3. **There is an open upstream correctness bug on that path**
+     (Comfy-Org/ComfyUI#15981, #15978, fix proposed in #15988): the model
+     conditions each row at `1 - r*sigma` while `CONST.calculate_denoised`
+     converts with the global sigma. The error scales as
+     `m*(1-r)*sigma*(x0-noise)` — zero at `m=1` and `m=0`, largest in the
+     middle. **So the error varies with the same knob you would be varying**,
+     and the axis is not measurable until the fix lands. That is the
+     disqualifier; the other two are merely obstacles.
+
+  Their writeup is `internal/20260830_motion_context_multiref_analysis.md`.
+  Cite the measurements from it, not the third-party pack.
+
 ### Fixed, and not a free parameter
 
 **The shift.** PDD's block boundaries ARE the shifted schedule at 12/3, bit for
