@@ -15,6 +15,7 @@ deep dives hang off it, each owning a topic this page deliberately does not:
 |---|---|---|
 | [`docs/morton.md`](morton.md) | token order: block geometry, the curves, the capture analysis, the six-arm ordering sweep, the assumption chain | quote it against this page's config values |
 | [`docs/sol_upstream.md`](sol_upstream.md) | what upstream says: the paper, Sol-Engine's per-profile H3 recipes, the other ComfyUI packs | read any number there as comparable to ours |
+| [`docs/research/sglang_h3_pipeline.md`](research/sglang_h3_pipeline.md) §11 | **a second training-free block-sparse attention for H3**, sglang's SubBlock router, documented 2026-08-30. The nearest comparison target Sol has. It **cannot run on this box** -- its resolver rejects anything that is not compute capability 9.0 or 10.0 and fails closed rather than falling back to dense, and this is sm_89 -- so it is a design comparison, not an arm. That page owns it; do not restate its claims here |
 | [`docs/h3_input_impacts.md`](h3_input_impacts.md) | how canvas, frame count and Sol settings interact: the per-canvas Morton `3d` ranking over all 48 legal canvases, the `latent_t % 4` length effect, the token floor crossed with both axes, and block maps | read its geometry tables as a quality ranking |
 
 The rule that keeps them from drifting, after `docs/SOLATTN.md` and
@@ -787,7 +788,8 @@ how much of the CUDA advantage is `centroid_tail` -- is CLOSED UNANSWERED as a
 result; it named this exact deadline and the deadline arrived.
 
 **kijai's branch and upstream main are the same code, and that was worth
-checking rather than assuming.** The `sol_attn` branch moved 34 commits after
+checking rather than assuming -- then re-checking when the METHOD was
+challenged.** The `sol_attn` branch moved 34 commits after
 the merge (VSA support, a chunked QKV producer, top-k guards), which reads like
 a kernel we did not have. It is not: verified 2026-08-30 by a whole-tree
 `diff -rq` between the two checkouts, which reports no difference, and by `cmp`
@@ -795,6 +797,17 @@ of the four Python entry files against the installed `site-packages`. So
 `coderef/comfy-kitchen-sol` at its tip, `coderef/comfy-kitchen` at `dae00a1`,
 and the running kernel are one source. **There was nothing to pull and nothing
 to rebuild** -- the whole remaining gap was the node.
+
+**Re-verified by CONTENT HASH later the same day**, after a peer session found
+that more than half of `coderef/`'s entries are symlinks and that `find` and
+`grep -r` do not follow symlinked directories by default -- so a search over
+`coderef/` can answer about a minority of it and look complete.
+`comfy-kitchen` is one of the symlinks, which put the method behind this claim
+in doubt even though the claim itself survived. Settled the way it should have
+been the first time: a sha256 manifest of every `.py`, `.cu` and `.cuh` in both
+trees, which is immune to how a tool treats symlinks, plus `cmp` of the four
+entry files against `site-packages` through `readlink -f`. The manifests match.
+**The finding stands; the original method was weaker than the finding.**
 
 ### The node is ours now, and what that changed
 
