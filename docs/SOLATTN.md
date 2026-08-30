@@ -648,6 +648,38 @@ number is a timed A/B**, and timing is one of the few things that can be
 compared arm to arm here: CLAUDE.md's different-sample rule is about what the
 clip looks like, not about how long it took.
 
+##### Exact at a block: `MiniMaxH3ExactBlocks`, added 2026-08-29
+
+**Nothing in this pack could reach exact attention at a block before this
+node.** `dense_blocks` reads as "keep these exact" and does not: `dense()`
+hands the call to `previous`, which on every shipped graph is sage. So the knob
+has always chosen sage over Sol, never exact, and the widest reading of "dense"
+is the trap it sets.
+
+The node runs the blocks it names on ComfyUI's own attention -- the override
+stripped from `transformer_options`, so the call lands on whatever backend the
+device resolves, the same path a graph with no attention node would take. Not a
+reference implementation; this box's unaccelerated answer.
+
+**The measured case for it is the last block.** Sage's error grows with depth
+and block 49 is where it breaks down: rel L2 ~0.031 against ~0.005 at block 0,
+and `cos_min` **negative** (-0.04 to -0.11), so on some rows sage's output is
+anti-correlated with the exact answer
+(`bench/results/2026-08-18_sage_accuracy_on_capture.json`). That is also the
+block a distilled output head reads directly.
+
+**No shipped graph wires it, and what it buys end to end is unmeasured** --
+only what it removes at the call. Cost is roughly 1.7x the sage time on the
+blocks it names, on every step, so `48,49` is about +7% of attention rather
+than the per-step blowup that turning sage off entirely would be. It is a
+block-level swap, which is the only shape that makes sense at 4-8 steps.
+
+Ordering: place it AFTER the sage node; either side of Sol works, because both
+of Sol's composition sites skip a forward carrying `_uses_optimized_attention`
+and this one sets it. **That is a branch on a private attribute of a vendored
+module**, so it is asserted rather than trusted --
+`bench/check_exact_blocks.py`, proven red three ways.
+
 ##### The next measurement, and it needs no render
 
 `2026-08-20_ref3_362f_1024x768_fl2va` survives on disk with blocks 0, 8, 16,

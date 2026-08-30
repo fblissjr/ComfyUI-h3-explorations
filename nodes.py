@@ -14,6 +14,7 @@ from .assert_chain import SageChainAssert
 from .keyframe_canvas import MiniMaxH3KeyframeCanvas
 from .marker_arms import MiniMaxH3MarkerArm
 from .conditioning import MiniMaxH3Conditioning
+from .exact_blocks import MiniMaxH3ExactBlocks
 from .h3_awq_encoder import MiniMaxH3AWQEncoderLoader
 from .h3_encoder_loader import MiniMaxH3EncoderLoader
 from .pdd_lora import MiniMaxH3PDDLoRA
@@ -325,7 +326,8 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3AppendRefAudio, MiniMaxH3ReferenceConditioning,
                 MiniMaxH3AWQEncoderLoader, MiniMaxH3EncoderLoader,
                 MiniMaxH3MarkerArm,
-                MiniMaxH3PDDLoRA, MiniMaxH3AudioCarryProbe]
+                MiniMaxH3PDDLoRA, MiniMaxH3AudioCarryProbe,
+                MiniMaxH3ExactBlocks]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

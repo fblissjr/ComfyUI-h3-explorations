@@ -95,6 +95,35 @@ artifact.
 
 ### Added
 
+- **`MiniMaxH3ExactBlocks`: run named DiT blocks on exact attention, neither
+  sage nor Sol.** Nothing in this pack could do that before. `dense_blocks`
+  reads as "keep these exact" and never was: `dense()` hands the call to
+  `previous`, which on every shipped graph is sage.
+  - **The measured case is the last block.** Sage's rel L2 at block 49 is
+    ~0.031 against ~0.005 at block 0, and its `cos_min` there is NEGATIVE, so
+    on some rows its output is anti-correlated with the exact answer. That is
+    also the block a distilled output head reads directly.
+  - Costs about 1.7x the sage time on the blocks it names, so `48,49` is
+    roughly +7% of attention -- a block-level swap rather than the per-step
+    blowup that dropping sage outright would be, which is the only shape that
+    makes sense at 4-8 steps.
+  - **No shipped graph wires it and its end-to-end benefit is unmeasured.**
+    Shipped as a knob, said so in the node description and in `docs/SOLATTN.md`.
+  - Appended to the node list, never inserted: saved graphs match widgets by
+    index.
+- **`bench/check_exact_blocks.py`, because that node branches on somebody
+  else's private attribute.** It stays out of Sol's composition by setting
+  `_uses_optimized_attention`, and an upstream rename would silently return its
+  blocks to sage with every render still succeeding. Asserts that both compose
+  sites in the vendored module still READ that flag -- from the AST, so prose
+  cannot satisfy it -- and that `_exact_forward` strips the override from what
+  it passes down **without mutating the caller's dict**, which would otherwise
+  disable sage and Sol for the whole rest of the model while looking like a
+  two-block change.
+  - **Proven red three ways**, and the outcome was open: the flag renamed
+    upstream (both sites go red), the flag left only as docstring prose (still
+    red), the unmodified source green.
+
 - **`bench/rank_dense_blocks.py`, and it corrects the ranking above.** Ranking
   blocks by Sol's error is the wrong ranking, because **a block in
   `dense_blocks` does not run dense attention** -- `make_override`'s `dense()`
