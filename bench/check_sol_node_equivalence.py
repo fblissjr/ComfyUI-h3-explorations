@@ -64,6 +64,10 @@ Claims, i.e. what breaks if a case is deleted:
     the kernel             If turning it off does not move the output, it is
                            not connected and every case above is comparing a
                            knob that does nothing.
+  (an OOM exits 2, not 1)  a resident model can leave too little VRAM for
+                           these shapes. That is an environment state, not a
+                           result, and it used to die on a raw traceback.
+
   a transposed oracle      RED CONTROL, and the one that earns this file.
     is caught              Compares against a kernel call with heads and tokens
                            swapped. If that still matches, the equality above
@@ -146,6 +150,26 @@ def main():
 
     print("our node's dispatch against the kernel call it should be making:")
     print(f"  B={b} H={h} T={t} D={d} bf16, bitwise\n")
+
+    # **An OOM here is not a failure and must not print as one.** This box runs
+    # a resident ComfyUI, so a model left loaded from a render leaves under a
+    # GiB free while these shapes want about two. Before this guard the check
+    # died on a torch traceback with a non-zero exit, which reads exactly like
+    # a real mismatch -- and a check that goes red while the state is correct
+    # trains a reader to ignore red, which is the one thing docs/checks.md says
+    # is worse than having no check. Exit 2, with the fix named.
+    def guarded(fn, *a, **kw):
+        try:
+            return fn(*a, **kw)
+        except torch.OutOfMemoryError as exc:
+            free, total = torch.cuda.mem_get_info()
+            print(f"  SKIP  every case   not enough VRAM to run the comparison: "
+                  f"{free / 2**30:.2f} GiB free of {total / 2**30:.2f}.\n"
+                  f"        This is an environment state, not a result. A "
+                  f"resident model is the usual cause;\n"
+                  f"        POST /free with unload_models to release it, then "
+                  f"re-run.\n        ({type(exc).__name__})")
+            raise SystemExit(2)
 
     for label, kw in (("at the shipped selection", dict(tau=1.0)),
                       ("under top-k", dict(tau=1.0, topk_ratio=0.10))):
