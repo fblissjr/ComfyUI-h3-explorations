@@ -268,6 +268,18 @@ is scored against a prediction rather than explained afterwards.
   comparison class CLAUDE.md's different-sample rule says cannot answer a
   question about a numerical knob. It is a hint, not a result.
 
+**The two things called "depth" here are not the same quantity, and the
+analogy is thinner than it looks.** Upstream's layer cutoff is *where in depth
+an attention approximation is applied* — which blocks are allowed to run
+sparse. The §3 probe is *where in depth a distillation LoRA changes weights*.
+Both are depth axes; neither is evidence about the other, and the analogy could
+hold or fail without saying anything about the axis it is being borrowed for.
+Written down because a later reader who finds a flat result will reach for the
+upstream line as corroboration, and it does not reach that far. The primary
+support for the prediction is our own coarseness finding, which is about this
+model and is measured; the upstream line is a second voice, not a second
+measurement.
+
 **The prediction, registered.** If the time axis dominates here too, the §3
 probe should find the per-block strength profile flatter than column 1 of the
 §2 table — closer to the 1.086x of quantisation than to the 2.8x of
