@@ -51,6 +51,7 @@ import torch
 N_BINS = 256
 
 _rows: list[dict] = []
+_failures: list[dict] = []
 _dir: Path | None = None
 
 
@@ -98,8 +99,19 @@ def record(block: int, kind: str, sigma, out: torch.Tensor,
                                      / torch.linalg.vector_norm(on)),
                 "bins": bins,
             })
-    except Exception:                      # observation must never break a render
-        pass
+    except Exception as exc:
+        # **Never silent.** This catch existed to keep an observation from
+        # breaking a render, and on 2026-08-30 it did that by swallowing two
+        # of three modules at production geometry -- the capture reported 200
+        # rows where 600 were expected and looked like a complete result for
+        # `attn.out_proj`. A guard that hides its own failures produces a file
+        # that cannot be distinguished from a working one, which is worse than
+        # the crash it prevents.
+        #
+        # Records the failure IN the output, so a capture that lost rows says
+        # so where the rows would have been.
+        _failures.append({"block": int(block), "module": kind,
+                          "error": f"{type(exc).__name__}: {exc}"[:200]})
 
 
 _path: Path | None = None
@@ -132,5 +144,9 @@ def flush(meta: dict | None = None) -> str | None:
                      "known. See this module's docstring."),
         "meta": meta or {},
         "observations": _rows,
+        "failures": _failures,
+        "failure_note": ("non-empty means the capture LOST observations. A row "
+                         "count below blocks x modules x steps is not a "
+                         "complete result for the modules that survived."),
     }, indent=2) + "\n")
     return str(path)
