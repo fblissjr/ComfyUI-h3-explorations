@@ -75,9 +75,20 @@ async def comfy_entrypoint() -> MiniMaxH3PDDExtension:
     return MiniMaxH3PDDExtension()
 '''
 
+#: A one-line notice pinned to the top of the bundle README, for when a
+#: re-upload is not optional -- someone holding the previous copy has to know
+#: to replace it. **Delete it once the upload it refers to is no longer the one
+#: people are holding**; it is dated news, not documentation, and a stale
+#: "update your nodes" line teaches readers to ignore the next real one. Set to
+#: "" for no notice.
+NOTICE = ("**Updated 2026-08-29, about three hours after the first upload.** "
+          "If you downloaded this folder before then, replace it — the first "
+          "copy left the PDD head bank resident on the GPU and made ComfyUI "
+          "report a memory leak on every model load after a PDD render.")
+
 README = '''# MiniMaxH3PDDLoRA — standalone node
 
-The loader for the converted PDD LoRAs in this repo. Drop this folder into
+{notice}The loader for the converted PDD LoRAs in this repo. Drop this folder into
 `custom_nodes/` and restart ComfyUI; it registers one node and nothing else.
 
     custom_nodes/comfyui_minimax_h3_pdd/
@@ -111,7 +122,8 @@ def build(out: Path, check: bool) -> int:
     for name in SOURCES:
         want[name] = (ROOT / name).read_bytes()
     want["__init__.py"] = INIT.format(commit=rev).encode()
-    want["README.md"] = README.format(commit=rev).encode()
+    want["README.md"] = README.format(
+        commit=rev, notice=f"{NOTICE}\n\n" if NOTICE else "").encode()
 
     if check:
         drift = []
