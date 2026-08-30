@@ -707,11 +707,9 @@
     "captures_cited": [
       "2026-08-17_ref3_362f_1024x768"
     ],
-    "still_on_disk": [],
-    "deleted": [
-      "2026-08-17_ref3_362f_1024x768"
-    ],
+    "retained": false,
     "inventory": "bench/results/2026-08-30_capture_inventory.json",
-    "what_this_means": "A capture listed under `deleted` no longer exists, so the numbers here are a FROZEN measurement rather than a reproducible one -- re-deriving them would need the tensors, and they are gone. The inventory records what each capture held (blocks, steps, sequence lengths, file list, manifest) so this record stays readable without it."
+    "what_this_means": "The captures behind these numbers are DELETED. That makes this a frozen measurement, not a reproducible one -- re-deriving it needs the tensors and they are gone. The inventory records what each capture held (blocks, steps, sequence lengths, file list, manifest) so this result stays readable without them.",
+    "why_no_disk_field": "An earlier version carried `still_on_disk`. It was correct for four hours. A record must not restate a fact the filesystem owns."
   }
 }

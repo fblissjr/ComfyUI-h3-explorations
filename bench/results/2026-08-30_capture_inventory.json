@@ -480,7 +480,8 @@
           }
         ]
       },
-      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so.",
+      "retained": false
     },
     {
       "capture": "2026-08-20_t2v_362f_1344x768_sla",
@@ -715,7 +716,8 @@
           }
         ]
       },
-      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so.",
+      "retained": false
     },
     {
       "capture": "2026-08-20_t2v_362f_1344x768_v11",
@@ -950,7 +952,8 @@
           }
         ]
       },
-      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so.",
+      "retained": false
     },
     {
       "capture": "2026-08-21_pruning",
@@ -1542,12 +1545,14 @@
         }
       ],
       "manifest": null,
-      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so."
+      "note": "Written so this capture can be DELETED without its results becoming unreadable. A result citing a capture that no longer exists is a frozen measurement, not a reproducible one, and should say so.",
+      "retained": false
     }
   ],
   "already_absent": [
     "2026-08-17_ref3_362f_1024x768"
   ],
   "capture_root": "names only; captures live outside the repo and their location is not recorded here by policy",
-  "total_bytes_recorded": 190214938336
+  "total_bytes_recorded": 190214938336,
+  "retention": "NONE of the captures inventoried here are retained. They were deleted on 2026-08-30 after this record was written, which is the sequence this file exists to make safe: inventory, then delete. `existed_at_record_time` means it was there when measured, NOT that it is there now."
 }
