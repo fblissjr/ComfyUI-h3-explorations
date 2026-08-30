@@ -382,6 +382,42 @@ repeating work.
   harnesses were rewritten and the pre-port copies left in place, still runnable
   and still returning success unconditionally, with `docs/checks.md` still citing
   them — so the fix shipped and the defect stayed.
+- **An output whose shape is the shape of what SURVIVED is indistinguishable
+  from a complete one. Make a producer assert its own shape at write time.**
+  Not a check on the result -- a check the result carries about itself, because
+  nothing downstream knows what should have been there.
+  - **Three instances on 2026-08-30, two lanes, none caught by review.**
+    `unmerged_blocks` silently dropped `mlp.fc2`: its forward is never called
+    on the INT8 path, so the object patch never fired while the LoRA keys had
+    already been removed from the weight patch. An observation capture recorded
+    only `attn.out_proj` at production geometry because an `except` swallowed
+    two OOMs, and reported a clean 200 rows. And the Sol lane's kernel tag
+    named the route that had been *chosen* rather than the one *taken*, in the
+    tag that exists to remove exactly that defect.
+  - **All three were found by counting rows against an expected shape**, and
+    none had an assertion, because nothing knew the count. The producer knows:
+    blocks x modules x steps is not a mystery at write time.
+  - The general form covers more than counts. A capture that reduces a grouping
+    it did not record has also lost its shape --
+    `bench/grade_sage_on_capture.py` cannot answer a segment-boundary question
+    because it binned positionally and nothing in the file says a grouping was
+    decided and lost. **Record the grouping decision, and assert it.**
+  - `pdd_observe.py::_shape_check` is the worked example; the idea is the mask
+    lane's.
+- **The SERVER PROCESS is the resource, not the GPU.** A capture spec lives in
+  the environment of the process that started ComfyUI, and neither `/queue` nor
+  `nvidia-smi` shows it -- so an idle server can still be an *armed* one, and
+  restarting it silently disarms whoever built that configuration. Checking
+  that the queue is empty and the card free is the check that feels like
+  diligence and answers the wrong question. It cost three renders on
+  2026-08-30, one of them killed mid-flight at 345 frames.
+  - `bench/restart_comfy.sh` refuses when the port owner's environ carries an
+    arming key, `--force` overrides loudly, and `ARMING_KEYS` is one list to
+    extend. It red-proved itself on its first run against a real armed server.
+  - **"I am done with it" and "it is disarmed" are different states.** The
+    guard exists because the first does not imply the second, and the session
+    that said it had handed the server back had left it armed.
+
 - **Capture broadly first; decide what it means second. A probe that varies one
   axis has already assumed the answer is on that axis.** Owner's instruction,
   2026-08-30, and it is aimed at every session: *"get the data first, then
