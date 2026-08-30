@@ -1494,6 +1494,31 @@ other reasons, but the evidence cited does not reach them. Nothing was re-run;
 the rows are kept as the record of what was done. Compare decoded frames
 (`ffmpeg -f rawvideo | md5sum`) if this question ever needs answering again.
 
+**Two mechanisms, not one, and the second is the dangerous one. Extended
+2026-08-30, after a second session hit this independently** -- which is the
+signal that this note was not reachable from where people look.
+
+- `format.tags.comment` carries the whole API prompt under
+  `save_metadata: true`, so **any two ARMS differ in the container by
+  construction**: the thing that makes them different arms is serialised into
+  the file. Confirmed by reading the tag off a shipped render, and it is wider
+  than the `filename_prefix` example above -- every widget of every node is in
+  there.
+- `format.tags.creation_time` is a wall-clock timestamp, so **any two RUNS
+  differ, including two runs of the SAME arm.** Two renders 75 seconds apart
+  read `2026-08-30T19:11:21` and `19:12:36`. This is the one that bites: it
+  makes a container hash report "different" for a pair that is bit-identical in
+  every frame, which reads as non-determinism and is not.
+
+The muxer itself is deterministic -- remuxing one file twice, and re-encoding
+it twice at the same settings, each give identical md5 -- so it is these tags
+and not the codec. **The one-way implication above survives both**: identical
+container still implies identical frames.
+
+`bench/verify_vsa_render.py` hashes the decoded RGB stream and is the tool to
+reach for. It was written for the VSA question but nothing in it is
+VSA-specific.
+
 ## What the renders established, 2026-08-28: the SIGMAS rewiring is inert
 
 Verified on the card, at 1344x768 x 39 frames, t2v PDD 4-step, one seed. Arms
