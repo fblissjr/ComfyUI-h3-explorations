@@ -102,9 +102,19 @@ def build_arm(base: dict, block: int, strength: float, seed: int,
     for cls in ("VAEDecode", "VAEDecodeAudio", "VHS_VideoCombine"):
         for k in [k for k, v in g.items() if v.get("class_type") == cls]:
             del g[k]
+    # H3's sampler output is a packed NestedTensor and `SaveLatent` cannot
+    # serialize it ("'NestedTensor' object has no attribute 'contiguous'").
+    # `probe_block_propagation.py` hit this first and its comment names the
+    # fix: `LTXVSeparateAVLatent` unbinds the two streams, which also means
+    # they are compared apart rather than as one mixed number.
+    g["9000"] = {"class_type": "LTXVSeparateAVLatent",
+                 "inputs": {"av_latent": [sca, 0]}}
     g["9001"] = {"class_type": "SaveLatent",
-                 "inputs": {"samples": [sca, 0],
-                            "filename_prefix": f"h3_pdd_depth/{tag}"}}
+                 "inputs": {"samples": ["9000", 0],
+                            "filename_prefix": f"h3_pdd_depth/{tag}_video"}}
+    g["9002"] = {"class_type": "SaveLatent",
+                 "inputs": {"samples": ["9000", 1],
+                            "filename_prefix": f"h3_pdd_depth/{tag}_audio"}}
     return g
 
 
