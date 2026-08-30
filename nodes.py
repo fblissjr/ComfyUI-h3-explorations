@@ -25,6 +25,7 @@ from .reference_fit import MiniMaxH3ReferenceFit
 from .resolution import MiniMaxH3Resolution
 from .sol_curve_node import MiniMaxH3SolAttnCurve
 from .sol_attn_h3 import MiniMaxH3SolAttn
+from .vsa_attention import MiniMaxH3VSAAttention
 from .vae_precision import MiniMaxH3VAEPrecision
 from .reference_video_fit import MiniMaxH3ReferenceVideoFit
 from .reference_conditioning import (
@@ -328,7 +329,8 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3AWQEncoderLoader, MiniMaxH3EncoderLoader,
                 MiniMaxH3MarkerArm,
                 MiniMaxH3PDDLoRA, MiniMaxH3AudioCarryProbe,
-                MiniMaxH3ExactBlocks, MiniMaxH3SolAttn]
+                MiniMaxH3ExactBlocks, MiniMaxH3SolAttn,
+                MiniMaxH3VSAAttention]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:

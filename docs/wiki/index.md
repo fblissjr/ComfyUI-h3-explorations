@@ -89,4 +89,5 @@ difference between this list and a membership test.
 - `docs/research/qwen3-vl-special-tokens-post-training/brainstorming/codex/2026-08-24-codex-to-claude-encoder.md`
 - `docs/research/qwen3-vl-special-tokens-post-training/canonical/ -- 5 file(s), the whole subtree`
 - `docs/research/vsa/fastvideo_vsa_checkpoint.md`
+- `docs/research/vsa/vsa_node.md`
 

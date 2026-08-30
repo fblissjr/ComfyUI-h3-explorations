@@ -8,6 +8,88 @@ artifact.
 
 ### Added
 
+- **`MiniMaxH3SolAttn`: the Sol-Attn node is ours now, and `pooled_tail` is
+  exposed.** A fork of the vendored upstream node, taken because
+  `vendor/README.md`'s value proposition -- a disagreement with that file is a
+  finding rather than a merge artifact -- was spent on 2026-08-29 when the
+  merged kernel's API change was absorbed by editing it in place. Its own rules
+  give the remedy: fork, rename, record. `centroid_tail` and
+  `reuse_qkv_memory` are gone rather than inert; the kernel API is asserted
+  once at patch time instead of probed per call, because a missing kwarg raises
+  inside `override`, which catches everything and falls through to dense.
+  Output-neutral at the shipped settings and measured, not argued:
+  `bench/check_sol_node_equivalence.py` asserts the two dispatches produce the
+  same bytes at both selections. All 149 graphs regenerated.
+- **`pooled_tail` is the kernel's `tail` and is not `centroid_tail` renamed.**
+  That one asked WHERE the pooled term is evaluated; this asks WHETHER there is
+  one. Off, unselected blocks are dropped outright -- upstream's tests call it
+  the SLA / VSA fine stage, and with top-k selection it reproduces the routing
+  the Turbo-SLA LoRA was distilled under, through `optimized_attention`, which
+  reaches all 52 `Attention` modules rather than the 50 an object patch sees.
+  Nothing has rendered under it and the shipped config leaves it on.
+- **`MiniMaxH3VSAAttention`: FastVideo VSA, blocked on core and saying so.**
+  Replaces the 50 main DiT blocks, groups video tokens into 4x4x4 cubes one per
+  64-row kernel block, and passes each block's learned `to_gate_compress` as
+  `coarse_gate`. It cannot be a widget on the Sol node: the gate is a
+  projection of the block input, taken before `qkv_proj`, and an attention
+  override is handed Q/K/V already built. Accepts any prefix where video is
+  last, so reference graphs are in scope, where the one other implementation
+  restricts itself to plain text/audio/video.
+  **It refuses on a model without a gate rather than running.** On stock
+  ComfyUI a VSA checkpoint's gate keys have no slot and are dropped on load
+  with a warning, and the render then succeeds as the dense base -- a silent
+  dense render the user believes is VSA. Needs Comfy-Org/ComfyUI#15958, still a
+  draft, and that PR is necessary and not sufficient: its own comment says the
+  gate is unused by the dense forward.
+- **`bench/check_vsa_geometry.py`.** The cube reorder cannot fail loudly -- a
+  wrong permutation yields a tensor of the right shape and a successful render
+  -- so the invariants are asserted directly over five shapes ragged in every
+  axis at once. Cube membership is re-derived from the source index rather than
+  from the walk that built it. A red control corrupts the permutation by one
+  block and confirms three invariants catch it.
+- **`bench/check_sol_node_equivalence.py`**, and **`block_spec.py`**, which
+  gives `parse_blocks` a home outside a node module -- four callers were
+  reaching for it and two into the vendored file, which cannot stay true of a
+  read-only reference.
+
+### Changed
+
+- **`bench/_sol_attn_reference.py` was the PRE-MERGE algorithm.** It carried
+  `centroid_tail` and had no `tail`, `block_len` or `coarse_gate`, so from the
+  day the merged kernel was installed the only controlled comparison this repo
+  can make about a numerical Sol knob graded that kernel against an algorithm
+  it does not implement. It passed because the arms exercised only shared
+  parameters. Re-vendored from `dae00a1`, byte-identical to upstream's function.
+- **`bench/check_solattn_correctness.py` gains four cases and two red
+  controls**, covering `tail=False`, top-k with no tail, `block_len` padding
+  and `coarse_gate`. Every one was unreachable before the merge, which is the
+  class no existing case could have covered: there was no argument to pass. Its
+  tail-mode probe is retired -- it existed to DISCOVER which form the kernel
+  implemented, and there is no longer a choice.
+- **`h3_config.SOL_CUDA_DEFAULTS` now describes our node.** Three values moved
+  and all three are the node's own defaults rather than re-tunings; `tau` and
+  `morton_curve` now agree with `SOL_RECOMMENDED_CUDA`, which they did not
+  before, with nothing asserting either.
+
+### Fixed
+
+- **Two doc citations into `coderef/` broke when that checkout advanced to the
+  merged kernel, and only one was caught.** The other stayed in range and now
+  points at an unrelated helper. `bench/check_doc_links.py` can see a line that
+  does not exist, never a line that means something else, so a citation into a
+  file that moves under you is only half-guarded by it. Both re-cited by symbol.
+
+### Verified, and worth recording as a non-finding
+
+- **kijai's `sol_attn` branch tip is content-identical to the installed
+  build.** The branch gained 34 commits after the merge -- VSA support, a
+  chunked QKV producer, top-k guards -- which reads like a kernel we did not
+  have. Whole-tree `diff -rq` between the two checkouts reports no difference,
+  and the four entry files match `site-packages` byte for byte. There was
+  nothing to pull and nothing to rebuild.
+
+### Added, earlier the same day
+
 - **`unmerged_blocks` on `MiniMaxH3PDDLoRA`: apply a block's backbone LoRA at
   the call instead of merging it into the quantised weight.** Takes
   `dense_blocks` syntax; empty is the default and is bit-for-bit the old

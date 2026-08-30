@@ -285,6 +285,17 @@
       "Output"
     ]
   },
+  "MiniMaxH3VSAAttention": {
+    "inputs": [
+      "model",
+      "keep_percent",
+      "pooled_tail"
+    ],
+    "node_id": "MiniMaxH3VSAAttention",
+    "outputs": [
+      "Output"
+    ]
+  },
   "SageChainAssert": {
     "inputs": [
       "model",
