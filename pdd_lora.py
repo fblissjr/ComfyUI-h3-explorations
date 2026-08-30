@@ -393,8 +393,33 @@ def _row_index(row) -> int:
     tensor a graded mask builds -- two-level, half-cosine feather, and a graded
     set with no `m = 1` row, at two sigmas -- and the minimum selected the
     largest `m` in every case. Two code-readings agreeing would not have
-    established this; nothing in the tree produces such a mask, so the branch
-    is unreachable today and no render could have exercised it.
+    established this.
+
+    **The unreachability claim here was wrong and is corrected 2026-08-30.** It
+    said nothing in the tree produces such a mask, so the branch could not have
+    been exercised by any render. That is true of THIS REPO and false of this
+    BOX. `custom_nodes/ComfyUI-H3-Motion-Context-MultiRef` is installed, and
+    its `audio_feather_ticks` **defaults to 8**, building
+    `0.5 - 0.5*cos(pi*i/feather)` over the last 8 audio latent ticks
+    (`existing_video_extension.py::_apply_audio_context_feather`). Driven
+    through core's own expression, that gives 8 distinct mask values, 8
+    distinct `rows_t`, and `rows_t.unique().numel() != 1` -- so
+    `audio_denoise_mask` takes the tensor branch and `audio_seg[2]` arrives
+    here as a LongTensor. At the node's DEFAULT, not at an unusual setting.
+
+    So the branch is reachable by anyone who wires that node, no shipped graph
+    of ours does, and "unreachable" was a statement about our graphs wearing
+    the clothes of a statement about the code. The selection is unaffected --
+    the minimum still picks the largest `m`, confirmed on exactly this
+    feather -- but a reader deciding how carefully to treat this function
+    should know it can run.
+
+    **What it does NOT do**, since the reduction is easy to over-read: it
+    collapses a whole stream's per-row times to ONE index. The PDD head bank is
+    chosen per stream, not per row, so every row except the least-pinned one
+    has its time discarded here. That is a property of the head bank rather
+    than a shortcut taken by this function, and it is why the choice of WHICH
+    row to keep is worth the paragraphs above.
     """
     if torch.is_tensor(row):
         return int(row.min().item())
