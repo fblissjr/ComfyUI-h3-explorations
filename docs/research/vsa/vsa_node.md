@@ -142,14 +142,31 @@ falling through to the original block. Two VSA runs at the same seed produce
 identical pixels, so the difference is attributable to the regime rather than
 to noise.
 
-**A trap worth carrying forward.** The first comparison was done on `md5sum` of
-the mp4 files and was WRONG in a way that looked right. Two renders of identical
-pixels produce different mp4 bytes, because the container carries per-run
-encoder metadata -- so hashing the file reports a difference between any two
-runs, including two runs of the same arm. The tell was that the two VSA runs
-hashed differently while their file sizes matched to the byte.
-`bench/verify_vsa_render.py` compares the DECODED RGB stream instead, and
-exists so nobody repeats it.
+**A trap worth carrying forward, and it has bitten two sessions
+independently.** The first comparison was done on `md5sum` of the mp4 files and
+was WRONG in a way that looked right. Two container tags cause it, and only one
+explains the same-arm case: `format.tags.comment` carries the whole API prompt
+under VHS's `save_metadata`, so any two ARMS differ by construction; and
+`format.tags.creation_time` is a wall clock, so any two RUNS differ, including
+two runs of one arm. The muxer and the codec are not the cause -- remuxing a
+file twice, and re-encoding it twice at the same settings, each give identical
+bytes. `docs/h3_pdd.md` has recorded the first mechanism since 2026-08-27;
+rediscovering it says the note was not reachable from where people look.
+
+The tell was that the two VSA runs hashed differently while their file sizes
+matched to the byte. `bench/verify_vsa_render.py` compares the DECODED RGB
+stream, and exists so nobody repeats it. **The one-way implication survives
+both mechanisms**: identical container still implies identical frames, so
+nothing concluded from a matching hash is withdrawn.
+
+**And the filenames carry no arm information.** `bench/smoke_h3.py` hard-codes
+one `_smoketest` prefix, so every session rendering on this box shares one
+output counter and consecutive files may belong to different sessions -- a peer
+session went looking for its own pair, found a consecutive one, and it was
+this session's. Arm identity lives only in the embedded comment tag, which is
+the same trap wearing a different hat. So the verifier identifies the arms from
+the graph inside each file and fails on a mismatched pair; without that case, a
+wrong pair passes the pixel comparison and reads as a result.
 
 **What it does not establish, and the list is longer than what it does.** No
 quality claim: a rendered pair cannot A/B a numerical change, and this pair
@@ -159,12 +176,13 @@ at the lengths this repo actually renders: 22,121 rows is far below the
 31k-128k of the shipped graphs, and sparse attention's advantage grows with
 length, so this shape is close to the least favourable one available.
 
-**The timing is not a measurement.** Warm, VSA 22.68 s against the dense
-control 24.18 s, one run each. The two share a cached text encode, which is
-what makes them comparable at all; the cold VSA run at 43.43 s includes the
-model load and is comparable to neither. A 1.5 s difference at this scale sits
-inside the run-to-run excursion this repo has measured on e2e renders. **Do not
-quote a speedup from it.**
+**The timing is NOT MEASURED, in either direction.** Warm, VSA 22.68 s against
+the dense control 24.18 s, one run each. One run per arm cannot separate a 6%
+difference from run-to-run excursion, so this is neither evidence of a speedup
+nor evidence of its absence. An earlier wording here said "no speedup", which
+is a claim this sample cannot support either. The two warm numbers share a
+cached text encode, which is what makes them comparable to each other at all;
+the cold run at 43.43 s carries the model load and is comparable to neither.
 
 ## What would settle the rest
 

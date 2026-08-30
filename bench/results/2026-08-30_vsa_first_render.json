@@ -31,7 +31,7 @@
     "dense_control_warm": 24.18,
     "vsa_cold": 43.43
   },
-  "timing_caveat": "ONE run per arm and not a measurement. The cold number includes the model load and is not comparable to either warm one. The two warm numbers share a cached text encode, which is what makes them comparable at all, and a 1.5 s difference at this scale is inside what this repo has measured as run-to-run excursion on e2e renders. Do not quote a speedup from this.",
+  "timing_caveat": "NOT MEASURED, in either direction. One run per arm, 1.5 s apart. That cannot separate a 6% difference from run-to-run excursion, so this is neither evidence of a speedup nor evidence of its absence -- an earlier wording said 'no speedup', which is a claim this sample cannot support either way. The cold number carries the model load and is comparable to neither warm one; the two warm numbers share a cached text encode, which is what makes them comparable to each other at all.",
   "not_established": [
     "any quality claim. A rendered pair cannot A/B a numerical change, and this pair additionally changes the attention regime outright.",
     "that keep_percent 10.0 is right. It is the distillation's published sparsity, unmeasured here.",
@@ -42,5 +42,11 @@
     "bench/smoke_h3.py --workflow h3_probe_vsa_api.json --length 124 --steps 4",
     "bench/smoke_h3.py --workflow h3_probe_vsa_dense_api.json --length 124 --steps 4",
     "bench/verify_vsa_render.py <vsa.mp4> <dense.mp4> <vsa-repeat.mp4>"
-  ]
+  ],
+  "container_hash_trap": {
+    "why_file_hashes_lie": "two mp4 container tags. format.tags.comment carries the whole API prompt under VHS save_metadata, so any two ARMS differ by construction; format.tags.creation_time is a wall clock, so any two RUNS differ, including two runs of one arm. Only the second explains two runs of one graph.",
+    "not_the_cause": "the muxer and the codec. Checked, not assumed: remuxing one file twice and re-encoding it twice at the same settings each give identical bytes.",
+    "one_way_implication_survives": "identical container still implies identical frames, so nothing concluded from a MATCHING hash is withdrawn.",
+    "shared_namespace": "bench/smoke_h3.py hard-codes one _smoketest prefix, so every session on this box shares an output counter and consecutive files may belong to different sessions. Arm identity lives ONLY in the embedded comment tag. Verified for this record: 00007/00009 wire MiniMaxH3VSAAttention, 00008 does not, all three are the VSA checkpoint at seed 730451892; the adjacent 00006 is another session's PDD arm on fl2va at 39 frames."
+  }
 }
