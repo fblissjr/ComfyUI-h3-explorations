@@ -89,39 +89,56 @@ them as keys but still stages them.
 None of this touches the kernel call, the gate projection or the output
 ordering under a real forward. Those are unexercised.
 
-## The blocker, and it has two halves
+## The blocker: half cleared 2026-08-30, half remaining
 
-**Half one: core cannot load the gate.** ComfyUI master carries no
-`gate_compress` in `comfy/ldm/minimax/model.py` and no detection for it in
-`comfy/model_detection.py`. Comfy-Org/ComfyUI#15958 is a draft that adds both,
-in twelve lines. Without it the checkpoint's 150 gate keys have no slot on the
-constructed model and are dropped on load with a warning -- **and the render
-then succeeds, giving you the dense base checkpoint.** That is why
-`_gate_modules` refuses by name: a silent dense render that the user believes
-is VSA is worse than an error.
+**Half one, core cannot load the gate: CLEARED on this box, and only on this
+box.** ComfyUI master carries no `gate_compress`;
+`github.com/comfyanonymous/ComfyUI` PR #15958 adds it in twelve lines across
+two files, and **it is a DRAFT**. Applied here on 2026-08-30 from head
+`10febb01` as an UNCOMMITTED working-tree change on master rather than a merge,
+so `git checkout --` on the two files reverts it and a later `git pull` refuses
+loudly instead of quietly merging a draft.
 
-**Half two: core would not use it anyway.** That PR's own comment says the
-weight is "unused by the dense forward; consumed by sparse attention patches".
-So core loads it and something else has to compute the gate and pass it to
-`sol_attn` as `coarse_gate`. This node is that something. As far as searching
-found on 2026-08-30, the only other one is
+`bench/check_vsa_core_patch.py` is the provenance record. It reports absence
+rather than failing on it -- a machine without the patch is the normal state,
+and failing on it would train a reader to ignore red. What it does fail on is a
+HALF-applied patch, because the two halves fail in opposite directions and one
+of them is silent: with only the model change, every H3 model takes a
+`gate_compress` parameter that detection never sets, so it stays False and
+behaves exactly like stock while `grep` says the support is there.
+
+**Verified against the artifact, not just the source.** Detection sets
+`gate_compress` from the checkpoint's own keys, 50 `to_gate_compress` modules
+are constructed, all 50 gate weights find a slot and no weight key is left
+without one -- executed on meta tensors, so nothing was allocated. Before the
+patch all 50 were dropped on load and the render succeeded as the dense base.
+
+**Consequence worth stating in any measurement taken here:** the H3 model this
+box builds is not the one stock ComfyUI builds.
+
+**Half two, core would not use it anyway: REMAINS.** That PR's own comment says
+the weight is "unused by the dense forward; consumed by sparse attention
+patches". So core now loads the gate and something else still has to compute it
+and pass it to `sol_attn` as `coarse_gate`. This node is that something. As far
+as searching found on 2026-08-30, the only other one is
 `coderef/comfyui-minimax-h3-audio-T8/fast_h3_vsa_advanced.py`.
 
-The kernel half is already here: the installed `comfy_kitchen` exposes
+The kernel half was never blocked: the installed `comfy_kitchen` exposes
 `coarse_gate`, `tail` and `block_len`, and
 `bench/check_solattn_correctness.py` grades all three against the algorithm's
 own eager reference.
 
 ## What would settle it
 
-A render, and nothing short of one. The order:
+A render, and nothing short of one. Steps 1 and 2 are done:
 
-1. Apply #15958 to the ComfyUI checkout. It is additive and touches two files.
-2. Load the checkpoint and confirm the gate keys are no longer dropped.
+1. ~~Apply #15958 to the ComfyUI checkout.~~ Done 2026-08-30, working tree.
+2. ~~Confirm the gate keys are no longer dropped.~~ Done, all 50 placed.
 3. Wire this node with no Sol-Attn node, `keep_percent` at the distillation's
-   own sparsity, `pooled_tail` off.
-4. Compare against the same checkpoint run dense -- which is what it does today
-   without the PR, so that arm already exists.
+   own sparsity, `pooled_tail` off. **Not done.** The gate projection, the
+   kernel call and the output reordering have never run under a real forward.
+4. Compare against the same checkpoint run dense. That arm is free: reverting
+   the two core files gives it, since the gate is then dropped on load.
 
 Step 4 is a weight-level comparison and answers "does each arm satisfy the
 brief", never "which clip is better": a rendered pair cannot A/B a numerical

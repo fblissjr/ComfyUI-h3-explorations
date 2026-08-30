@@ -1,5 +1,38 @@
 """VSA (Video Sparse Attention) for MiniMax-H3, on comfy-kitchen's Sol kernel.
 
+## EXPERIMENTAL, AND NOT FINISHED. Read this before quoting anything from it
+
+**Every input this node needs is a draft or an experiment**, and none of it is
+a release. Nothing here has rendered end to end. Treat a result from this node
+as a report about draft code, not about VSA.
+
+  core support   `github.com/comfyanonymous/ComfyUI` PR #15958, "Minimax-H3:
+                 support FastVideo VSA", by kijai. **A DRAFT**, head `10febb01`
+                 on base `0a33ed6c`, applied to this box on 2026-08-30 as an
+                 UNCOMMITTED working-tree change on master. So the H3 model
+                 this box builds is not the one stock ComfyUI builds, and any
+                 H3 measurement taken here has to say so.
+                 `bench/check_vsa_core_patch.py` is the provenance record and
+                 the thing that notices a half-applied patch.
+  the checkpoint `huggingface.co/Kijai/MiniMax-H3-experimental`,
+                 `minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot`.
+                 The repository says experimental in its name. The artifact
+                 carries NO metadata at all -- no training record, no schedule,
+                 no step count -- so everything it claims about itself lives in
+                 its filename, including the "4step".
+                 `docs/research/vsa/fastvideo_vsa_checkpoint.md` takes it apart.
+  the kernel     `comfy_kitchen`'s `coarse_gate`, from
+                 Comfy-Org/comfy-kitchen#117. This half IS merged and released,
+                 and is the only one of the three that is.
+  the method     VSA, "Faster Video Diffusion with Trainable Sparse Attention"
+                 (arXiv 2505.13389). Not read here beyond its abstract and a
+                 summary; this node follows the KERNEL's contract and the one
+                 other H3 implementation, not the paper.
+
+**What is unexercised.** The gate projection, the kernel call and the output
+reordering under a real forward. `bench/check_vsa_geometry.py` asserts the
+reorder and the refusals, and that is all it asserts.
+
 ## Read this first: VSA is a regime, not a knob on the Sol node
 
 Three arguments arrived on `comfy_kitchen.sol_attn` when Sol-Attn merged
@@ -392,6 +425,12 @@ class MiniMaxH3VSAAttention(io.ComfyNode):
             is_experimental=True,
             category="model/attention/minimax",
             description=(
+                "EXPERIMENTAL AND UNFINISHED. Needs a DRAFT ComfyUI PR "
+                "(comfyanonymous/ComfyUI#15958) for core to load the gate at "
+                "all, and an experimental checkpoint from "
+                "Kijai/MiniMax-H3-experimental whose only self-description is "
+                "its filename. Nothing has been rendered through this node. "
+                "See docs/research/vsa/.\n\n"
                 "FastVideo VSA (Video Sparse Attention) for MiniMax-H3, on "
                 "comfy_kitchen's Sol kernel. Replaces the 50 main DiT blocks: "
                 "video tokens are grouped into 4x4x4 cubes, one cube per "

@@ -41,6 +41,30 @@ artifact.
   dense render the user believes is VSA. Needs Comfy-Org/ComfyUI#15958, still a
   draft, and that PR is necessary and not sufficient: its own comment says the
   gate is unused by the dense forward.
+- **`bench/check_vsa_core_patch.py`, and the draft core patch it records.**
+  VSA needs ComfyUI to build a `to_gate_compress` slot per block, which stock
+  master does not; `comfyanonymous/ComfyUI#15958` is a DRAFT that adds it.
+  Applied to this box on 2026-08-30 from head `10febb01`, as an uncommitted
+  working-tree change rather than a merge, so it reverts with one `git
+  checkout` and a later `git pull` refuses instead of quietly merging a draft.
+  **So the H3 model this box builds is not the one stock ComfyUI builds, and
+  any H3 result taken here has to say so.** `CLAUDE.md`'s "nothing here patches
+  core" shorthand is corrected: still true of the pack, no longer true of the
+  box.
+  The check reports ABSENCE rather than failing on it -- a machine without the
+  patch is the normal state. It fails on a HALF-applied patch, because the two
+  halves fail in opposite directions and one is silent: with only the model
+  change, every H3 model takes a `gate_compress` parameter detection never
+  sets, so it stays False and looks exactly like stock. It also verifies the
+  patch against the artifact rather than only the source -- all 50 gate weights
+  find a slot and no weight key is orphaned, on meta tensors so nothing is
+  allocated. Before the patch all 50 were dropped on load and the render
+  succeeded as the dense base.
+  One case in it was written vacuous and is fixed: it asked whether the running
+  core takes `gate_compress` by importing core FRESH, which reads the same
+  files the check had just read and so agreed by construction. It now compares
+  the port owner's start time against the patched files' mtimes, which is the
+  question that matters.
 - **`bench/check_vsa_geometry.py`.** The cube reorder cannot fail loudly -- a
   wrong permutation yields a tensor of the right shape and a successful render
   -- so the invariants are asserted directly over five shapes ragged in every
