@@ -6948,9 +6948,19 @@ def main():
         #
         # 362 frames, which is the longest length H3 was trained on and the
         # last shot needs it: shot 3 starts at 00:11.000.
+        # **These three carried `length=362` as a literal until 2026-08-30**,
+        # so the owner's move of the long default to 345 did not reach them and
+        # they were the only graphs left off the audio clock. Now on
+        # LONG_LENGTH like everything else.
+        #
+        # Safe for their prompts, checked rather than assumed: the shot cuts
+        # are at 00:06.000 and 00:11.000, both inside 345 frames (14.375s) as
+        # they were inside 362 (15.083s). What changes is the final shot, from
+        # 4.08s to 3.38s, and its direction is "holds still until the final
+        # frame", which does not name a duration.
         ("h3_text_to_video_dialogue.json", "t2v-dialogue", "t2v",
          DIALOGUE_T2V_PROMPT,
-         dict(length=362, out_prefix="Video/h3_t2v_dialogue",
+         dict(length=LONG_LENGTH, out_prefix="Video/h3_t2v_dialogue",
               variant_note=_probe_note(
                   "does the dialogue marker survive at speed",
                   "h3_image_ref_plus_text_to_video_dialogue.json",
@@ -6964,7 +6974,7 @@ def main():
 
         ("h3_image_ref_plus_text_to_video_dialogue.json", "r2v-dialogue", "r2v",
          DIALOGUE_REF2V_PROMPT,
-         dict(length=362, ref_image_count=2, ref_images=DIALOGUE_REF_IMAGES,
+         dict(length=LONG_LENGTH, ref_image_count=2, ref_images=DIALOGUE_REF_IMAGES,
               out_prefix="Video/h3_r2v_dialogue",
               variant_note=_probe_note(
                   "does reference identity hold across seven turn changes",
@@ -6993,7 +7003,7 @@ def main():
          "r2v-dialogue-pdd4", "r2v", DIALOGUE_REF2V_PROMPT,
          dict(pdd=True, sampler_name="euler",
               lora=(PDD_REF2VA_LORA, PDD_STRENGTH), steps=PDD_STEPS_FAST,
-              length=362, ref_image_count=2, ref_images=DIALOGUE_REF_IMAGES,
+              length=LONG_LENGTH, ref_image_count=2, ref_images=DIALOGUE_REF_IMAGES,
               out_prefix="Video/h3_r2v_dialogue_pdd_4step",
               variant_note=_probe_note(
                   "does speaker attribution survive references and a distill",
@@ -7344,11 +7354,16 @@ def main():
         # comparison -- a rendered pair cannot A/B a numerical change, and this
         # one additionally changes the attention regime outright.
         #
-        # 768x768 rather than the shipped 1344x768: cheapest legal canvas, and
-        # the standing rule is to default below 16:9 for anything that is not
-        # a measurement being quoted.
+        # **1152x768 at 345 frames, which is how the owner actually renders**
+        # (instruction 2026-08-30: "any probes need to be at least 1152x768 and
+        # 345 frames... cuz thats how we render"). These arms were 768x768 at
+        # 124 frames until then, chosen off the standing default-below-16:9
+        # habit, and that was the wrong instinct twice over: 22,121 packed rows
+        # against the ~109k a shipped graph packs, so the figure described a
+        # shape nobody renders; and 124 is not exact on the 40 Hz audio clock
+        # (124*40/24 = 206.67) where 345 is (575 exactly).
         ("h3_probe_vsa.json", "t2v-vsa", "t2v", LONG_T2V_PROMPT,
-         dict(width=768, height=768, length=124, steps=4,
+         dict(width=1152, height=768, length=345, steps=4,
               unet=MODELS["unet_vsa"],
               vsa=(VSA_KEEP_PERCENT, False),
               out_prefix="Video/h3_probe_vsa",
@@ -7371,7 +7386,7 @@ def main():
          "FastVideo VSA -- EXPERIMENTAL, draft core PR, first run"),
 
         ("h3_probe_vsa_dense.json", "t2v-vsa-dense", "t2v", LONG_T2V_PROMPT,
-         dict(width=768, height=768, length=124, steps=4,
+         dict(width=1152, height=768, length=345, steps=4,
               unet=MODELS["unet_vsa"],
               dense_attn="sage",
               out_prefix="Video/h3_probe_vsa_dense",

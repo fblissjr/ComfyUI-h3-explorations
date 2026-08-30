@@ -221,6 +221,8 @@
         0,
         4,
         1.0,
+        "",
+        -1.0,
         ""
       ],
       "title": "PDD LoRA (strength 1.0, 4 steps -> SIGMAS)"
@@ -521,7 +523,7 @@
       "widgets_values": [
         "wide",
         "1344x768  7/4  1008 tok/frame  1.00x",
-        362
+        345
       ],
       "title": "Resolution: shape, and what it costs"
     },
@@ -610,7 +612,7 @@
         "integrated_multimodal_description:\n[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a sorting line in a recycling hall, lit from a high metal roof by rows of cold overhead lamps with the far end of the building falling into haze. A wide rubber belt runs left to right through the frame, its surface scuffed pale along the centre where the load rides, carrying mixed plastics in blue and green and clear, flattened aluminium cans, and folded paper that lifts slightly at the edges as it moves. Four workers in high-visibility vests over dark work clothes stand along the far side, gloved to the wrist, picking items into steel chutes set behind them at hip height, each of them working a different fraction of the width. A supervisor in her fifties with a flat, carrying alto (S1) walks the near side in a vest over a grey fleece, a tablet held under one arm and a pen clipped at her collar. The camera trucks right with small amplitude at slow speed, following the belt so the load stays roughly stationary in frame while the hall slides behind it, as she looks along the line and says: <d>[English] Slow it a notch, we are losing the film plastic.</d> Her lips close and she taps twice on the tablet without looking down at it.\n\n[Shot 2] At 00:04.500, the shot cuts to a close shot of the belt surface from above, the rubber grain visible between items, mixed containers and paper passing under two pairs of gloved hands that pick and release in short economical movements, the glove fabric darkened at the fingertips. The camera holds a static shot. A worker with a light, quick tenor (S2) answers from off screen: <d>[English] Taking it down now. Watch the third chute.</d> A gloved hand lifts a clear bottle clear of the belt, turns it once to check the neck, and drops it left out of frame, and the belt visibly eases as the load spaces out.\n\n[Shot 3] At 00:09.000, the shot changes to a wide shot down the length of the line, the belt receding toward stacked and strapped bales at the far wall under the high roof lights, the bales colour-sorted so the stack reads as bands of blue and clear and grey. All four workers are still picking, their movements no longer synchronised now the belt has slowed. The camera pulls out with small amplitude at slow speed, taking in the walkway rail in the near foreground. The supervisor steps back from the belt, still watching it, and says: <d>[English] Better. Keep it there until the break.</d> Her lips close and she turns along the line toward the bales, the tablet swinging down to her side.\n\noverall_soundscape: A wide rubber belt running continuously under a high metal roof, plastic and aluminium tumbling and knocking against each other with the lighter paper making almost no sound, the hollow drop of items into steel chutes at irregular intervals, and a low motor hum that drops in pitch partway through, with occasional footsteps on a steel walkway.\n\nnon_diegetic_music: N/A\n",
         1344,
         768,
-        362,
+        345,
         "explicit"
       ]
     },

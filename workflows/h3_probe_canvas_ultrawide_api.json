@@ -140,7 +140,7 @@
     "inputs": {
       "shape": "ultrawide",
       "shape.ultrawide_resolution": "1536x672  16/7  1008 tok/frame  1.00x",
-      "length": 362
+      "length": 345
     }
   },
   "5": {

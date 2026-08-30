@@ -406,7 +406,7 @@
       "widgets_values": [
         "wide",
         "1344x768  7/4  1008 tok/frame  1.00x",
-        362
+        345
       ],
       "title": "Resolution: shape, and what it costs"
     },
@@ -493,7 +493,7 @@
         "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n<Audio 1> is the voice-timbre reference for <Subject 1> (S1).\n\nsummary:\n[reference generation + audio reference] The target video places <Subject 1> inside <Subject 2> for a single continuous shot, with the voice of <Audio 1>.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n<Audio 1>: reference - only timbre and delivery are referenced, the signal is not copied.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed. <Subject 1> (S1) turns toward the camera and says, in the clear timbre referenced from <Audio 1>, <d>[English] I thought you would have gone by now.</d>\n\noverall_soundscape:\nNatural ambient atmosphere continues throughout the shot. The vocal timbre of <Audio 1> is referenced for the speaking voice, and its signal is not copied.\n\nnon_diegetic_music:\nN/A",
         1344,
         768,
-        362,
+        345,
         "encoder",
         "comfy"
       ]

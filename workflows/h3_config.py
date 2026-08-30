@@ -1614,7 +1614,47 @@ FPS = 24.0
 # 345 and now sits one grid step below the default; the 5% length change should
 # not move a ratio, but it was not re-checked in either direction.
 LENGTH = 124
-LONG_LENGTH = 362
+#: **345 since 2026-08-30, owner instruction, reversing the 2026-08-16
+#: restoration of 362 recorded above.** "345 the new long default yes", after
+#: "thats how we render - 1334x768 or 1152x768 and 345 frames".
+#:
+#: The 2026-08-16 note above is kept rather than rewritten, because its
+#: argument was sound and is not what changed. It reverted 345 -> 362 on the
+#: grounds that 345 was the largest count *diffusers* will emit -- a
+#: portability artifact presented as legality. That reasoning still holds:
+#: `reference_would_emit()` is where the portability question belongs, and 345
+#: is not a model boundary.
+#:
+#: What changed is that 345 has three justifications the 2026-08-16 decision
+#: never weighed, and 362 has none of them:
+#:   1. **It is what the owner renders.** That is the whole instruction and it
+#:      needs no support from the other two.
+#:   2. **It is exact on the audio clock.** H3's audio latent rate is 40 Hz
+#:      against 24 fps, so `frames * 40 / 24` must be an integer for the two
+#:      streams to land on the same grid. 345 gives 575 exactly; **362 gives
+#:      603.33 and does not**. The exact set is `39 + 51k`: 39, 90, 141, 192,
+#:      243, 294, 345. Raised by a peer session 2026-08-30 about a different
+#:      length and verified here by arithmetic.
+#:   3. **362 exceeds the vendor's own duration cap.** The reference pipeline
+#:      hard-codes `max_duration = 15.0` and 362 is 15.083s, which
+#:      `h3_rules.py` already records and calls a portability note.
+#:
+#: **What this does NOT establish.** That a non-integer audio latent count is
+#: off-distribution. The count rounds and 362 renders; nobody has sourced
+#: whether the release ever emits it. So this is "it works is not it was
+#: trained for" as a REASON TO PREFER 345, not a demonstrated defect in 362.
+#:
+#: `h3_rules.MAX_LENGTH` stays 362 deliberately. That constant is the claimed
+#: trained CEILING and answers "what is legal"; this one is the default and
+#: answers "what do we render". Collapsing them would lose the distinction the
+#: 2026-08-16 note spent a week earning.
+#:
+#: **Comparability, stated because the 2026-08-16 note stated it in the other
+#: direction.** Every figure taken at 362 -- and that is most of the Sol work,
+#: the attention ceiling, the tau arms -- now sits one grid step above the
+#: default. A 5% length change should not move a ratio, and it has not been
+#: re-checked in either direction.
+LONG_LENGTH = 345
 
 # Fixed rather than randomised, and deliberately not 1. Every graph and
 # bench arm shares it, which is what makes any two of them comparable: the

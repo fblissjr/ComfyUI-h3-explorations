@@ -221,6 +221,8 @@
         0,
         4,
         1.0,
+        "",
+        -1.0,
         ""
       ],
       "title": "PDD LoRA (strength 1.0, 4 steps -> SIGMAS)"
@@ -539,10 +541,10 @@
         "Node name for S&R": "MiniMaxH3Conditioning"
       },
       "widgets_values": [
-        "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 15.08-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.\n\noverall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.\n\nnon_diegetic_music: N/A",
+        "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 14.38-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.\n\noverall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.\n\nnon_diegetic_music: N/A",
         1152,
         768,
-        362,
+        345,
         "from_keyframe"
       ]
     },

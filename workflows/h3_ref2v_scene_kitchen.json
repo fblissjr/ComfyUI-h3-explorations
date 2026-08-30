@@ -406,7 +406,7 @@
       "widgets_values": [
         "wide",
         "1344x768  7/4  1008 tok/frame  1.00x",
-        362
+        345
       ],
       "title": "Resolution: shape, and what it costs"
     },
@@ -493,7 +493,7 @@
         "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> in a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] Handheld, fast reframing, hard practical light off stainless steel. A medium-wide shot establishes a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. The ticket closest to camera reads \"TABLE 12 - 2 COVERS - FIRE\" in narrow black type on white thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> <Subject 1> works the pass, preserving the face, hair, wardrobe and build established in the reference, slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks, one tossing a pan so the flame climbs above the rim.\n[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in one motion and the flame flares behind her shoulder.\n[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, a thumb wiping a rim clean. <Subject 1> and the cook overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position. The camera stays low across the pass so the stainless surfaces, the loaded ticket rail and the lit burners of the reference setting remain continuously visible behind the hands, steam crossing the lens twice without hiding either face.\n[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam. The camera pedestals up with small amplitude at slow speed as he passes, holding the lit burners and the loaded ticket rail of the reference setting across the top of the frame while the ticket printer starts another run behind the pass and a pan is set down hard on the flat top. <Subject 1> calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>\n\noverall_soundscape:\nA ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.\n\nnon_diegetic_music:\nN/A",
         1344,
         768,
-        362,
+        345,
         "encoder",
         "comfy"
       ]

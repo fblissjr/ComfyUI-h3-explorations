@@ -222,6 +222,8 @@
         0,
         4,
         1.0,
+        "",
+        -1.0,
         ""
       ],
       "title": "PDD LoRA (strength 1.0, 4 steps -> SIGMAS)"
@@ -522,7 +524,7 @@
       "widgets_values": [
         "wide",
         "1344x768  7/4  1008 tok/frame  1.00x",
-        362
+        345
       ],
       "title": "Resolution: shape, and what it costs"
     },
@@ -609,7 +611,7 @@
         "subject_definitions:\n<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.\n<Subject 2> is the environment in <Picture 2>, which provides the setting for the target video.\n\nsummary:\n[reference generation] The target video places <Subject 1> inside <Subject 2> for a single continuous shot.\n\nretention_analysis:\n<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.\n<Subject 2> (appears in [Shot 1]): fully_preserved - the visual setting is retained.\n\ndetailed_description:\nThe target video is in a cinematic live-action style.\n[Shot 1] A medium shot establishes <Subject 2>, then <Subject 1> enters from the left and stops at the center of the frame. The camera trucks right with small amplitude at slow speed.\n\noverall_soundscape:\nNatural ambient atmosphere continues throughout the shot.\n\nnon_diegetic_music:\nN/A",
         1344,
         768,
-        362,
+        345,
         "encoder",
         "comfy"
       ]

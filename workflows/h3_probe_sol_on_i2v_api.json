@@ -155,7 +155,7 @@
       "prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Live-action, cinematic, the subject shown in <Picture 1> holds its position, framing, lighting, and colors exactly as established in the image. The camera pushes in with small amplitude at slow speed while the subject begins to move, the surrounding scene staying continuous with the reference frame.\n\noverall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement.\n\nnon_diegetic_music: N/A",
       "width": 1344,
       "height": 768,
-      "length": 362,
+      "length": 345,
       "canvas": "from_keyframe",
       "first_frame": [
         "15",

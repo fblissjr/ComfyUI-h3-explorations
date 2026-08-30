@@ -140,7 +140,7 @@
     "inputs": {
       "shape": "tall",
       "shape.tall_resolution": "768x1344  4/7  1008 tok/frame  1.00x",
-      "length": 362
+      "length": 345
     }
   },
   "5": {
