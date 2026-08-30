@@ -863,6 +863,24 @@ reorder and padding, and the two regimes are mutually exclusive at the same 50
 blocks) and because it needs a checkpoint that carries the gate. A design
 choice stated as a constraint is the thing this page warns about elsewhere.
 
+### The one silent exception to "Sol is on in every shipped video workflow"
+
+**A masked attention call declines to the fallback backend, and until
+2026-08-30 it did so with no log line at all -- not even under `verbose`.** The
+render succeeds, runs on sage rather than Sol, and nothing says so. That is the
+same shape as the silent dense-fallback this node's patch-time API assertion
+exists to prevent, differing only in that this branch is deliberate, which a
+reader looking at a finished render cannot see.
+
+It now warns once per process. **Unreachable on every shipped graph today** --
+no node here writes `noise_mask`, no shipped graph wires a mask-typed node, and
+the only repo-wide `denoise_mask` is `=None` in one bench script -- so nothing
+is wrong now; it would arrive quietly the day anyone adopts masked H3. Raised
+by a peer session, and worth knowing that `_ineligible`'s own "masked
+attention" reason is DEAD from the override path: `_run` is called with `None`,
+because `override` has already returned dense. The live handling is the one in
+`override`, and it was the silent one.
+
 ### `pooled_tail=False` is SLA, and that is the reason it is exposed
 
 Upstream's own tests call it "the SLA / VSA fine stage". With `top-k (SLA)`

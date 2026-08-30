@@ -146,6 +146,49 @@ def main() -> int:
     check("square rig itself is correct at strength 2.0", err < 1e-12,
           f"max abs {err:.2e}")
 
+    print("\nsigma gate: the window that makes a per-block arm controlled")
+
+    class _Tk:
+        def __init__(self, sigma=None): self.sigma = sigma
+
+    w, a, b, alpha = stub(out_f, in_f, rank, alpha, seed=5)
+    x2 = torch.randn(4, in_f, generator=torch.Generator().manual_seed(13),
+                     dtype=torch.float64)
+    scale = alpha / rank
+    base_only = x2 @ w.T
+    with_delta = x2 @ merged(w, a, b, alpha, rank, 1.0).T
+
+    def gated(sigma, window):
+        f = P._make_unmerged_forward(lambda t: t @ w.T, a, b * scale,
+                                     tracker=_Tk(sigma), window=window)
+        return f(x2)
+
+    cases = [
+        ("no window at all applies the delta", None, 0.5, with_delta),
+        ("sigma inside the window applies it", (0.4, 0.9), 0.8, with_delta),
+        ("sigma below the window does not", (0.4, 0.9), 0.2, base_only),
+        ("sigma above the window does not", (0.4, 0.9), 0.95, base_only),
+        ("sigma exactly at the low edge applies", (0.4, 0.9), 0.4, with_delta),
+        ("sigma exactly at the high edge applies", (0.4, 0.9), 0.9, with_delta),
+    ]
+    for name, window, sigma, want in cases:
+        got = gated(sigma, window)
+        check(name, float((got - want).abs().max()) < 1e-12)
+
+    # The one that matters, and it is a design choice rather than an accident:
+    # a window whose tracker has never seen a sigma applies NOTHING. If it
+    # defaulted open, a windowed arm on a graph where the capture patch never
+    # ran would be silently identical to an unwindowed one -- the arms would
+    # differ in the widget and not in the render, which is the worst shape a
+    # control can have.
+    got = gated(None, (0.4, 0.9))
+    check("unset sigma with a window applies NOTHING",
+          float((got - base_only).abs().max()) < 1e-12,
+          "an unset gate must fail closed")
+    got = gated(None, None)
+    check("unset sigma with NO window still applies",
+          float((got - with_delta).abs().max()) < 1e-12)
+
     print("\nsplit_unmerged: which keys leave the weight-patch dict")
     backbone = {}
     for i in (0, 7, 49):

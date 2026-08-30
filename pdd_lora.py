@@ -453,6 +453,15 @@ class _StepTracker:
         self.forced_nfe = forced_nfe
         self.label = label
         self.warned = False
+        # The sigma of the step currently being evaluated, set by the capture
+        # patch on `diffusion_model.forward` -- the nearest patch point that
+        # sees `transformer_options`. A Linear's forward sees only its input,
+        # so an un-merged block cannot read the schedule itself; this is how
+        # `unmerged_window` reaches it. None until the first forward, and a
+        # window that has never seen a sigma applies NOTHING rather than
+        # everything: an unset gate that defaults open would silently make a
+        # windowed arm identical to an unwindowed one.
+        self.sigma = None
         self._key = object()             # never equal to a real schedule key
         # A schedule is always observed before the first `final_layer` call --
         # the capture patch is on the model's own forward, which strictly
@@ -911,7 +920,7 @@ def unmerged_patch_key(index: int, kind: str) -> str:
     return f"diffusion_model.blocks.{index}.{kind}.forward"
 
 
-def _make_unmerged_forward(base_forward, a, b):
+def _make_unmerged_forward(base_forward, a, b, tracker=None, window=None):
     """Add the LoRA at the CALL instead of merging it into the weight.
 
     `y = W_int8 @ x + B @ (A @ x)`, against the merged path's
@@ -939,6 +948,12 @@ def _make_unmerged_forward(base_forward, a, b):
     """
     def forward(inp):
         out = base_forward(inp)
+        if window is not None:
+            lo, hi = window
+            sig = tracker.sigma if tracker is not None else None
+            # Unset gate applies NOTHING. See `_StepTracker.sigma`.
+            if sig is None or not (lo <= sig <= hi):
+                return out
         av = a.to(inp.device, out.dtype)
         bv = b.to(inp.device, out.dtype)
         return out + (inp.to(out.dtype) @ av.T) @ bv.T
@@ -1052,6 +1067,13 @@ def _make_capture_forward(base_forward, tracker):
         tracker.check_shift(opts.get("minimax_h3_sigma_shift_video"),
                             opts.get("minimax_h3_sigma_shift_audio"))
         tracker.observe(opts.get("sample_sigmas"))
+        # `sigmas` is the CURRENT step, `sample_sigmas` the whole schedule.
+        # Sol reads the same key at the same moment
+        # (`vendor/sol_attn_minimax.py:518`), so a windowed un-merge and a
+        # windowed Sol are gated on one observable rather than two.
+        _sig = opts.get("sigmas")
+        if _sig is not None and len(_sig):
+            tracker.sigma = float(_sig[0])
         return base_forward(*args, **kwargs)
     return forward
 
@@ -1295,6 +1317,50 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "reaches one of PDD's three surfaces."
                     ),
                 ),
+                # APPENDED. See the note on patch_heads.
+                io.Float.Input(
+                    "unmerged_strength", default=-1.0, min=-10.0, max=10.0,
+                    step=0.01, optional=True,
+                    tooltip=(
+                        "Scales the backbone delta of the UN-MERGED blocks "
+                        "alone, leaving merged blocks on `strength`. -1.0, the "
+                        "default, means follow `strength` -- the same sentinel "
+                        "`head_strength` uses, and for the same reason: 0.0 is "
+                        "meaningful here (the block runs undistilled) so it "
+                        "cannot double as 'unset'.\n\n"
+                        "This is the per-block distillation knob. It only "
+                        "reaches blocks named by `unmerged_blocks`, because "
+                        "only those apply their delta at the call where a "
+                        "scale can still be chosen; a merged block's delta is "
+                        "already in the weight."
+                    ),
+                ),
+                # APPENDED. See the note on patch_heads.
+                io.String.Input(
+                    "unmerged_window", default="", optional=True,
+                    tooltip=(
+                        "Sigma window, as `start-end` in percent, in which the "
+                        "un-merged delta applies. Empty -- the default -- "
+                        "applies it at every step, which is what a merged "
+                        "block does.\n\n"
+                        "**This exists to make a per-block experiment "
+                        "controlled, and it is the only way to get one.** A "
+                        "strength change on a MERGED block is a weight patch: "
+                        "it affects every step, so two arms diverge from step "
+                        "0 and become different samples rather than a "
+                        "perturbation and its baseline -- which CLAUDE.md's "
+                        "different-sample rule says cannot answer a question "
+                        "about a numerical knob. Narrowing this window to one "
+                        "step makes every earlier step bit-identical across "
+                        "arms by construction, which is exactly how "
+                        "`bench/probe_block_propagation.py` earns its "
+                        "numbers for Sol.\n\n"
+                        "'0.66-1.0' at shift 12 contains only the final step "
+                        "of a 4-step schedule. Percent is converted through "
+                        "the model's own `percent_to_sigma`, so it means what "
+                        "it means on Sol's `start_percent`."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(), io.Sigmas.Output()],
         )
@@ -1302,7 +1368,8 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
     @classmethod
     def execute(cls, model, lora_name, strength=1.0, head_strength=-1.0,
                 patch_heads=True, nfe=0, steps=8,
-                unmerged_blocks="") -> io.NodeOutput:
+                unmerged_blocks="", unmerged_strength=-1.0,
+                unmerged_window="") -> io.NodeOutput:
         import comfy.lora
         import comfy.utils
         import folder_paths
@@ -1625,32 +1692,6 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 f"entirely normal, with whichever modules did not match left "
                 f"at their base weights. First unmatched: {missing[:3]}.")
 
-        # The un-merged modules, installed as forward patches on the clone.
-        if lifted:
-            taken = unmerged_patch_clash(m.object_patches, unmerged)
-            if taken:
-                raise RuntimeError(
-                    f"{lora_name}: {len(taken)} of the projections "
-                    f"unmerged_blocks asks for are already patched (e.g. "
-                    f"{taken[0]}). `add_object_patch` is last-writer-wins, so "
-                    f"one owner's update would apply and the other's would be "
-                    f"dropped with nothing said. Narrow unmerged_blocks, or "
-                    f"remove whatever else owns these projections.")
-            for (index, kind), (a, b, alpha, rank) in sorted(lifted.items()):
-                key = unmerged_patch_key(index, kind)
-                # `strength * alpha / rank` folded into B once, on CPU, in the
-                # dtype the file stores -- so the hot path is two matmuls and
-                # an add. This is the same scale `comfy.lora` applies on the
-                # merged path, which is what makes the two arms differ only in
-                # WHERE the delta lands.
-                m.add_object_patch(
-                    key,
-                    _make_unmerged_forward(
-                        m.get_model_object(key), a,
-                        b * (strength * alpha / rank)))
-
-
-
         # --- the runtime surfaces -------------------------------------------
         # The step tracker needs a table in whatever space `t_emb` lives in,
         # and that follows `pruned` alone -- NOT whether the adaln update was
@@ -1752,6 +1793,60 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             grid_t_v, grid_t_a, shift_v, num_steps, forced_nfe, file_nfe,
             lora_name, shift_a=shift_a,
             default_shift_v=_ms_shift_v, default_shift_a=_ms_shift_a)
+
+        # The un-merged modules, installed AFTER the tracker exists, because
+        # `unmerged_window` gates on the sigma the tracker records and a
+        # closure cannot be handed an object built two screens later. Nothing
+        # else in this block depends on the ordering; the window does.
+        if lifted:
+            taken = unmerged_patch_clash(m.object_patches, unmerged)
+            if taken:
+                raise RuntimeError(
+                    f"{lora_name}: {len(taken)} of the projections "
+                    f"unmerged_blocks asks for are already patched (e.g. "
+                    f"{taken[0]}). `add_object_patch` is last-writer-wins, so "
+                    f"one owner's update would apply and the other's would be "
+                    f"dropped with nothing said. Narrow unmerged_blocks, or "
+                    f"remove whatever else owns these projections.")
+            # The un-merged blocks' own strength, and the window it applies
+            # in. Both resolved once, here, so the closure below carries
+            # numbers rather than re-deriving them per forward.
+            u_strength = resolve_head_strength(strength, unmerged_strength)
+            u_window = None
+            if str(unmerged_window).strip():
+                try:
+                    _lo_p, _hi_p = [float(x) for x in
+                                    str(unmerged_window).split("-", 1)]
+                except ValueError:
+                    raise RuntimeError(
+                        f"unmerged_window={unmerged_window!r} is not "
+                        f"`start-end` in percent, e.g. '0.66-1.0'.")
+                _ms = model.get_model_object("model_sampling")
+                # percent_to_sigma is DESCENDING in percent, so the window's
+                # low sigma comes from the high percent. Sol converts the same
+                # way; getting it backwards yields an empty window that applies
+                # nothing and looks like a working arm.
+                _s_hi = float(_ms.percent_to_sigma(_lo_p))
+                _s_lo = float(_ms.percent_to_sigma(_hi_p))
+                u_window = (min(_s_lo, _s_hi), max(_s_lo, _s_hi))
+                logger.info(
+                    "[h3-pdd] unmerged_window %s%% -> sigma [%.4f, %.4f]; the "
+                    "un-merged delta applies only inside it.",
+                    unmerged_window, u_window[0], u_window[1])
+
+            for (index, kind), (a, b, alpha, rank) in sorted(lifted.items()):
+                key = unmerged_patch_key(index, kind)
+                # `strength * alpha / rank` folded into B once, on CPU, in the
+                # dtype the file stores -- so the hot path is two matmuls and
+                # an add. This is the same scale `comfy.lora` applies on the
+                # merged path, which is what makes the two arms differ only in
+                # WHERE the delta lands.
+                m.add_object_patch(
+                    key,
+                    _make_unmerged_forward(
+                        m.get_model_object(key), a,
+                        b * (u_strength * alpha / rank),
+                        tracker=tracker, window=u_window))
 
         final_layer = m.get_model_object("diffusion_model.final_layer")
         # strength 0 installs NOTHING on the head path. Interpolating to the

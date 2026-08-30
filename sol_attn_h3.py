@@ -49,9 +49,12 @@ post-merge builds call themselves `0.2.31`.
                     per-token bias -- which on H3 means the conditioning rows
                     and nothing else. It would be a prompt-adherence knob the
                     model was never trained against, so it is documented here
-                    rather than offered. `_ineligible` also declines masked
-                    attention outright, which is the only form core would hand
-                    us one in.
+                    rather than offered. A mask is the only form core would
+                    hand us one in, and `override` declines those before
+                    `_run` is reached -- see the mask branch there.
+                    (`_ineligible`'s "masked attention" reason is dead from
+                    that path, since `_run` passes `None`; it guards a direct
+                    caller.)
   block_len         NOT exposed, and inert for this path. It marks live rows
                     in a caller-PADDED block. H3's packed sequence is
                     contiguous and pads nothing, so the kernel derives the
@@ -184,10 +187,13 @@ def reset_sol_attn_stats():
     _seen.clear()
 
 
-def _log_once(key, message):
+def _log_once(key, message, level=logging.INFO):
+    """Say something once per process. `level` because most of what this
+    reports is diagnostic, but a few things are a silent change to what the
+    model computes and INFO is where those go to be ignored."""
     if key not in _seen:
         _seen.add(key)
-        logging.info(f"[h3-sol] {message}")
+        logging.log(level, f"[h3-sol] {message}")
 
 
 def _log_kernel_failure(exc):
@@ -480,6 +486,12 @@ def _ineligible(q, k, mask, dim_head, min_tokens):
     if dim_head != HEAD_DIM:
         return f"head_dim {dim_head} != 128"
     if mask is not None:
+        # **Dead from the override path, deliberately kept.** `_run` is called
+        # with `None` here because `override` has already returned dense on a
+        # mask, with its own message. This branch is the second line of
+        # defence for a DIRECT caller -- a bench script driving `_run` -- and
+        # is the reason `_ineligible` reads as a complete eligibility test
+        # rather than one with a hole in it.
         return "masked attention"
     if q.shape[1] != k.shape[1]:
         return "cross-attention (kept dense)"
@@ -630,7 +642,25 @@ def make_override(tau=1.0, min_tokens=4096,
                           skip_output_reshape=skip_output_reshape, **kwargs)
 
         if mask is not None:
+            # **Loud, and not gated on `verbose`.** Declining here is a real
+            # change to what the model computes -- the call runs on the
+            # fallback backend instead of Sol -- and a completed render cannot
+            # be told apart from one where Sol ran. That is the same silent
+            # dense-fallback shape as an API mismatch swallowed by the
+            # `except Exception` below, differing only in that this branch is
+            # deliberate, which a reader looking at the output cannot see.
+            #
+            # Once per process, at WARNING, because it is unreachable on every
+            # shipped graph today (no node here writes `noise_mask` and no
+            # graph wires a mask-typed node) and would arrive quietly the day
+            # anyone adopts masked H3. Raised by a peer session 2026-08-30.
             _stats["dense_fallback"] += 1
+            _log_once(("masked",),
+                      "this call carries an attention mask, which the Sol "
+                      "kernel cannot express, so it is running on the fallback "
+                      "backend instead. The render will succeed and will not "
+                      "be a Sol render. Every later masked call is silent.",
+                      level=logging.WARNING)
             return dense()
 
         # Depth gates: a block can be kept dense outright or given its own tau.

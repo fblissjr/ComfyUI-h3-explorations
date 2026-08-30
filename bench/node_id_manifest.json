@@ -128,7 +128,9 @@
       "nfe",
       "steps",
       "head_strength",
-      "unmerged_blocks"
+      "unmerged_blocks",
+      "unmerged_strength",
+      "unmerged_window"
     ],
     "node_id": "MiniMaxH3PDDLoRA",
     "outputs": [

@@ -4825,7 +4825,8 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 170),
                 # Order is required-then-optional, which is how the frontend
                 # derives it from `define_schema`: lora_name, strength, then
-                # patch_heads, nfe, steps, head_strength, unmerged_blocks.
+                # patch_heads, nfe, steps, head_strength, unmerged_blocks,
+                # unmerged_strength, unmerged_window.
                 #
                 # **head_strength is LAST, and this list disagreed with the
                 # schema for most of 2026-08-29.** The input was added at
@@ -4852,8 +4853,13 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                 # `bench/results/2026-08-30_pdd_quant_interaction.json`), not a
                 # recipe, so nothing here sets it until something has measured
                 # that it should.
+                # `unmerged_strength` -1.0 (follow `strength`) and
+                # `unmerged_window` "" (every step) are both the inert values,
+                # so all three un-merge widgets together are a no-op on every
+                # shipped graph. They are a probe surface, not a recipe.
                 widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
-                         0 if split_at else _resolved_steps, lora[1], ""],
+                         0 if split_at else _resolved_steps, lora[1],
+                         "", -1.0, ""],
                 # `steps` is a socket in the UI form too, fed by the
                 # PrimitiveInt added below, so the value is visible on the
                 # canvas rather than inside the loader.
