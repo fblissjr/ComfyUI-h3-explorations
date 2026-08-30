@@ -109,6 +109,16 @@ artifact.
 
 ### Changed
 
+- **`MiniMaxH3SolAttnCurve` is superseded and now says so.** It added the
+  `hilbert` ordering by rebinding `morton_perm` on the live VENDORED module,
+  resolved by identity because a running ComfyUI can hold two module objects
+  for one file. That node is no longer loaded, so this one can only raise --
+  which it does, loudly, by its own zero-is-a-failure rule. `MiniMaxH3SolAttn`
+  owns the Morton code and offers `hilbert` directly in `morton_curve`, so the
+  capability is unchanged and needs one node instead of two. Marked deprecated
+  and its error now names the replacement instead of telling you to install a
+  pack that is deliberately disabled. Wired by no graph.
+
 - **`vendor/sol_attn_minimax.py` is a read-only reference again.** Restored to
   the last genuine upstream drop (v3, `7805cf37`, recovered from `e18bbc0`) and
   the installed pack renamed `.disabled`, which ComfyUI skips. Nothing deleted;

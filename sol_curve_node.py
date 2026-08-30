@@ -81,7 +81,8 @@ class MiniMaxH3SolAttnCurve(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="MiniMaxH3SolAttnCurve",
-            display_name="MiniMax H3 Sol-Attn Curve",
+            is_deprecated=True,
+            display_name="MiniMax H3 Sol-Attn Curve (SUPERSEDED)",
             is_experimental=True,
             category="model/patch/minimax",
             description=(
@@ -122,10 +123,17 @@ class MiniMaxH3SolAttnCurve(io.ComfyNode):
             # Zero is a failure, not a no-op: the render would silently run
             # whatever curve Sol-Attn's own combo was left on, and look fine.
             raise RuntimeError(
-                "Sol-Attn's node is not loaded, so its token ordering cannot "
-                "be overridden. Install ComfyUI-SolAttn-cuda, or remove this "
-                f"node from the graph. Looked for a live module whose file is "
-                f"{_VENDOR.name}."
+                "This node is SUPERSEDED and cannot work any more. It "
+                "overrode the token ordering of the VENDORED Sol-Attn node by "
+                "rebinding `morton_perm` on the live module, and that node is "
+                "no longer loaded: it was retired to a read-only reference on "
+                "2026-08-30 (vendor/README.md).\n\n"
+                "Use `MiniMaxH3SolAttn` instead -- it owns the Morton code and "
+                "offers `hilbert` directly in its `morton_curve` combo, which "
+                "is what this node existed to add. Remove this node from the "
+                "graph; it needs no replacement.\n\n"
+                f"(Looked for a live module whose file is {_VENDOR.name}, and "
+                f"found none, which is the expected state.)"
             )
 
         m = model.clone()
