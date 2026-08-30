@@ -261,9 +261,46 @@ def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
                 if audio is not None:
                     segments.insert(0, (int(audio[0]), int(audio[1]), "audio"))
 
-    record = {"q": qh, "k": kh, "v": vh, "kernel": kernel}
+    # **Index fields are TOP-LEVEL SCALARS, not filename-encoded**, so a
+    # consumer joins on a dict lookup instead of writing its own parser. Asked
+    # for by the PDD lane 2026-08-30, whose own observations key on
+    # `block` / `module` / `sigma`: with these fields the two capture formats
+    # taken from ONE render join exactly -- same seed, same trajectory -- and
+    # without them every consumer re-derives the index from a name and they
+    # drift. The filename keeps carrying them too, for globbing; it is the
+    # convenience copy, and this is the authority.
+    sigma = None
+    if isinstance(transformer_options, dict):
+        sigmas = transformer_options.get("sigmas")
+        if sigmas is not None:
+            try:
+                sigma = float(sigmas[0])
+            except (TypeError, IndexError, ValueError):
+                sigma = None
+
+    record = {"q": qh, "k": kh, "v": vh,
+              "kernel": kernel, "block": int(block), "step": int(step),
+              "sigma": sigma, "seq_len": int(seq), "render": int(render)}
     if segments is not None:
         record["segments"] = segments
+
+    # **The capture asserts its own shape before it is written.** Adopted from
+    # the PDD lane, which hit two silent short-capture bugs in one day: a file
+    # of the wrong length is not detectable later, because nothing downstream
+    # knows what length it should have been. Cheap, and it fails at write time
+    # where the cause is still on screen.
+    for name, t in (("q", qh), ("k", kh), ("v", vh)):
+        if t.shape != qh.shape or t.ndim != 4 or t.shape[2] != seq:
+            raise RuntimeError(
+                f"h3_capture: {name} is {tuple(t.shape)}, expected "
+                f"{tuple(qh.shape)} with {seq} rows. Refusing to write a "
+                f"capture whose shape nothing downstream could check.")
+    if segments is not None and segments[-1][1] != seq:
+        raise RuntimeError(
+            f"h3_capture: segments end at {segments[-1][1]} but the sequence "
+            f"is {seq} rows. A boundary table that does not cover the capture "
+            f"would silently mis-bin every consumer that trusts it.")
+
     torch.save(record, path)
     size = os.path.getsize(path) / 2**30
     print(f"[h3_capture] wrote {name}  {tuple(qh.shape)} {qh.dtype}  "
