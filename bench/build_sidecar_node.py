@@ -28,6 +28,20 @@ relative and absolute, so neither file is modified on the way out.
 
     python bench/build_sidecar_node.py --out <the staged Hub repo>/comfyui_minimax_h3_pdd
     python bench/build_sidecar_node.py --out <same> --check
+
+## Where it goes
+
+The bundle is published to the Hub repo `fbjr/MiniMax-H3-Acc-LoRAs-sidecar`,
+beside the converted weights it loads, as the folder `comfyui_minimax_h3_pdd/`.
+Recorded here because it was not recorded anywhere on 2026-08-29 and had to be
+recovered from a link in the staged README -- the `--out` path says where the
+bundle is STAGED, which is not the same question as where it is PUBLISHED.
+
+    hf upload fbjr/MiniMax-H3-Acc-LoRAs-sidecar <staged>/comfyui_minimax_h3_pdd comfyui_minimax_h3_pdd
+
+That repo's own `README.md` is hand-written and lives only in the staging
+folder -- nothing in this repo generates it, so a notice added to the bundle
+README above does NOT reach the page people land on. Both, or neither.
 """
 
 from __future__ import annotations
