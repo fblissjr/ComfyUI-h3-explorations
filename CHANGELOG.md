@@ -8,6 +8,25 @@ artifact.
 
 ### Added
 
+- **`unmerged_blocks` on `MiniMaxH3PDDLoRA`: apply a block's backbone LoRA at
+  the call instead of merging it into the quantised weight.** Takes
+  `dense_blocks` syntax; empty is the default and is bit-for-bit the old
+  behaviour. Verified on the card at 1344x768 x 39 frames, t2v PDD 4-step: the
+  arm logs `292 weight patches, 16 module(s) un-merged at blocks 7,16,24,49`
+  against the control's `308 weight patches, all merged`, and both render.
+  `bench/check_pdd_unmerged.py` grades the identity that makes the arms
+  comparable, with four deliberate violations.
+- **The bake blocker in `docs/h3_pdd.md` is superseded, in the direction it did
+  not expect.** That section treated the dequantise/add/requantise round trip
+  as the reason not to pre-merge the backbone. Measured: a bake from the bf16
+  release quantises ONCE and lands on 0.00942 at every strength -- exactly the
+  base checkpoint's own error -- while the run-time merge quantises twice and
+  reaches 0.01058 at strength 1.0. So the run-time patching is the lossy
+  option and the bake is not, which is what that section's own "what would
+  settle it" paragraph asked for. It stays deprioritised; the blocker is what
+  changed, not the priority. The section carries a superseded note saying what
+  it used to claim.
+
 - **Merging the PDD LoRA into an int8_convrot module raises that module's
   quantisation error, and the size of the rise tracks the LoRA rather than the
   base.** `ModelPatcher.patch_weight_to_device` dequantises, patches, then

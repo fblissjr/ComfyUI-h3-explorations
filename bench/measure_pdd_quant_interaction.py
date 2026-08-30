@@ -18,6 +18,13 @@ Measured per module, against the bf16 release as truth:
               what a render at strength `s` carries: the distance from the
               weight that runs to the weight an unquantised run would use.
 
+  e_baked_from_release(s)
+              the same distance for `requant(W_ref + s*dW)` -- one
+              quantisation of the release weight plus the delta, which is what
+              an OFFLINE bake would produce and what `unmerged_blocks` gets
+              back by never quantising the delta at all. The run-time path
+              quantises twice; this is the floor it is measured against.
+
 **Red proof, and it is why `e_vs_unpatched` is here.** A column that is flat
 in `s` is only a result if the harness could have seen a slope.
 `e_vs_unpatched(s)` compares the same actual weight against the UNPATCHED
@@ -120,8 +127,19 @@ def main() -> int:
                 for s in strengths:
                     actual = requantize(w_q + s * d, gs)
                     target = w_ref + s * d
+                    # The third arm, and it is a different OPTION rather than a
+                    # control: quantise the release weight plus the delta ONCE,
+                    # which is what an offline bake from the bf16 release would
+                    # produce. The run-time path quantises twice -- the shipped
+                    # int8 is already Q(W_ref), and requantising Q(W_ref) + dW
+                    # rounds a second time onto a grid the delta just moved. So
+                    # this is the floor the merge path is being measured
+                    # against, and the gap between them is what a bake would
+                    # recover that un-merging also recovers.
+                    baked = requantize(target, gs)
                     row["by_strength"][f"{s}"] = {
                         "e_patched": stats(target, actual)["rel_delta"],
+                        "e_baked_from_release": stats(target, baked)["rel_delta"],
                         # the red proof: same actual, unpatched target
                         "e_vs_unpatched": stats(w_ref, actual)["rel_delta"],
                     }
@@ -140,6 +158,8 @@ def main() -> int:
             f"{s}": {
                 "e_patched_mean": float(np.mean(col("e_patched", s))),
                 "e_patched_max": float(np.max(col("e_patched", s))),
+                "e_baked_from_release_mean":
+                    float(np.mean(col("e_baked_from_release", s))),
                 "e_vs_unpatched_mean": float(np.mean(col("e_vs_unpatched", s))),
             } for s in strengths},
     }

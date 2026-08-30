@@ -165,37 +165,25 @@ import torch.nn.functional as F
 from comfy_api.latest import io
 
 # One copy of the block-spec grammar, not two. `dense_blocks` is the syntax a
-# user of this pack already knows, and a second parser here would be the
-# second copy `workflows/h3_config.py`'s rule forbids -- it would also drift,
-# because negative indices and range clamping are exactly the details nobody
-# re-derives identically. `sol_attn_h3` guards its own `comfy_kitchen` import,
-# so this adds no failure mode to loading this node.
+# user of this pack already knows, and a second parser here would be the second
+# copy `workflows/h3_config.py`'s rule forbids -- negative indices and range
+# clamping are exactly the details nobody re-derives identically.
 #
-# **Both spellings, and the flat one is not a courtesy.** ComfyUI loads this
-# file as a package member, so the relative form is what runs in a render;
-# `bench/check_pdd_head_selection.py` does `import pdd_lora` with the repo on
-# `sys.path` and no package at all, so a relative-only import makes that check
-# unrunnable -- which is how `bench/analyze_routing.py` made itself inert and
-# kept its red harness skipped. A check that cannot import the thing it grades
-# is not a check.
+# `block_spec` is its home as of 2026-08-30. It was briefly imported from
+# `sol_attn_h3`, and before that only the vendored `vendor/sol_attn_minimax.py`
+# had it; the Sol-Attn migration moved it out on the grounds that a read-only
+# reference copy which live code imports from is not a reference.
 #
-# **Two homes, tried in order, and that is about a migration in flight rather
-# than about taste.** `parse_blocks` is being moved from the vendored
-# `vendor/sol_attn_minimax.py` to the in-repo `sol_attn_h3.py` by the Sol-Attn
-# node migration. The two definitions are byte-identical today (diffed, not
-# assumed), so either serves; importing only the new one would make this node
-# depend on a file that is not yet in git, and importing only the vendored one
-# would break when it is retired. Take whichever exists.
-try:                                      # the new home, once it lands
-    from .sol_attn_h3 import parse_blocks
-except ImportError:
-    try:
-        from sol_attn_h3 import parse_blocks     # flat, for the bench checks
-    except ImportError:                   # pre-migration: the vendored copy
-        try:
-            from .vendor.sol_attn_minimax import parse_blocks
-        except ImportError:
-            from vendor.sol_attn_minimax import parse_blocks
+# Both spellings, and the flat one is not a courtesy: ComfyUI loads this file
+# as a package member, while `bench/check_pdd_head_selection.py` and
+# `bench/check_pdd_unmerged.py` do `import pdd_lora` with the repo on
+# `sys.path` and no package at all. A relative-only import makes those checks
+# unrunnable, which is how `bench/analyze_routing.py` made itself inert and
+# kept its red harness skipped.
+try:
+    from .block_spec import parse_blocks
+except ImportError:                       # imported flat, by the bench checks
+    from block_spec import parse_blocks
 
 try:                                     # loaded as a package by ComfyUI
     from .pdd_math import (block_bounds, fuse_block, partition_bounds, pdd_time_grid,

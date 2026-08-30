@@ -1669,6 +1669,18 @@ treatment, and the tooling and the discipline for grading it exist.
 
 ### The blocker, which is real and is measurable
 
+> **Superseded 2026-08-30, and in the direction this section did not expect.**
+> It was measured, and the premise below is false against the release weights:
+> a bake from bf16 lands exactly on the base checkpoint's own error, while the
+> run-time patching this section defends is the lossy option. Read
+> "The blocker was measured on 2026-08-30" below before acting on anything
+> here. The paragraphs are kept because the reasoning is what got measured.
+> Nothing else cites this section's conclusion -- checked, because the first
+> version of this note asserted that two files did.
+> `docs/h3_ref2v_distillation.md` and `workflows/h3_config.py` record the same
+> round trip, but as the reason to use `strength=0.01` rather than `0.0` as a
+> control, which is untouched by any of this.
+
 Baking the backbone is NOT the same operation as baking the adaln. The adaln
 bake was a change of *representation* into a basis already present in the
 pruned checkpoint. Merging the backbone means folding a bf16 residual into an
@@ -1711,6 +1723,138 @@ The case for baking the backbone is that it is *correct* — fewer moving parts,
 no transition peak, strength composing natively — not that memory demands it.
 Reaching for a 933 MiB redesign to solve a 17.5 MiB shortfall is the wrong size
 of fix, and the record says so.
+
+### The blocker was measured on 2026-08-30, and it is already being paid
+
+The section above calls the dequantise/add/requantise round trip the blocker
+for *baking* the backbone, and says lossy is a measurement rather than a
+verdict. Two things came out of taking the measurement, and the first is a
+correction to the framing rather than a number.
+
+**That round trip is not a cost of the proposed bake. It is what every PDD
+render already does.** `add_patches` does not hold a residual beside an int8
+weight — `ModelPatcher.patch_weight_to_device` dequantises through
+`convert_weight`, adds the patch, and hands the result to `set_weight`, which
+calls `requantize_from_float(..., scale="recalculate")`.
+`docs/research/comfyui_h3_t2va_trace.md` §4.3 traces both loader paths and
+states that on this box a patched int8 layer **is** requantised. So the
+comparison the section sets up — bake and pay the round trip, against patch at
+run time and do not — has no second arm. Both arms pay it. What baking would
+buy is the deletion of run-time patching, which is the argument the section
+already ends on; it is not a fidelity argument.
+
+**And `scale="recalculate"` means the LoRA moves the quantisation grid, not
+just the weight.** Measured over 28 backbone modules against the bf16 release
+(`bench/measure_pdd_quant_interaction.py`,
+`bench/results/2026-08-30_pdd_quant_interaction.json`), stored-weight relative
+error against `W_ref + s*BA` -- the weight an unquantised run would use:
+
+| strength | 0.0 | 0.5 | 1.0 |
+|---|---|---|---|
+| merged at run time | 0.00942 | 0.00990 | **0.01058** |
+| baked offline from the release | 0.00942 | 0.00942 | **0.00942** |
+
+At strength 0 the round trip is free to eight significant digits, which is the
+harness checking itself. The merged row rises smoothly and monotonically
+(0.00960 at 0.25, 0.01024 at 0.75), so this is a continuous lever rather than a
+threshold, and the rise correlates **0.78** with the module's own
+`||BA|| / ||W||`. The extremes agree: `blocks.49.mlp.fc2` inflates 1.31x and
+carries the largest LoRA in the file, while `blocks.40.mlp.fc1` inflates 1.04x
+and carries nearly the smallest.
+
+**The second row is the finding, and it inverts the section above.** Baking
+from the bf16 release quantises ONCE. The run-time merge quantises twice --
+the shipped int8 is already `Q(W_ref)`, and requantising `Q(W_ref) + dW` rounds
+a second time onto a grid the delta has just moved. So the bake lands exactly
+on the base checkpoint's own error at every strength, and **it is the run-time
+patching that is lossy, not the bake.**
+
+That reverses the blocker. The section above says merging "is lossy in a way
+the adaln bake was not" and treats that as the reason not to bake; it also
+cites `coderef/comfyui-minimax-h3-audio-T8` declining the step for the same
+stated reason. Against the release weights the premise is false. What remains
+true is the narrower thing: **folding a delta into an ALREADY-QUANTISED weight
+is lossy**, which is what happens at run time today and what an offline bake
+would avoid by starting from bf16.
+
+`strength=0.01` remains documented above as the way to price this against
+`0.0`. It prices it end to end; this prices it per module, and per module is
+what a per-block decision needs.
+
+### Where this leaves a per-block schedule, and the knob that came out of it
+
+The obvious plan — scale PDD down in the blocks where quantisation hurts — was
+asked for on 2026-08-30 and does not survive its own measurement, for two
+reasons that are worth keeping separate.
+
+**There is no per-block quantisation sensitivity to key on.**
+`bench/results/2026-08-30_pdd_block_magnitude.json`: int8-vs-bf16 stored-weight
+error spans **1.086x** across the 50 blocks. What spread exists is by module
+KIND, not by depth. PDD's own update spans **6.42x** over the same modules and
+is orthogonal to the weight it patches (cosine ~1e-4, so new structure rather
+than a rescale) — so the profile with structure is the LoRA's, not the
+quantiser's.
+
+**And the lever points the wrong way.** Because the inflation tracks the LoRA,
+"turn PDD down where quantisation hurts most" is the same instruction as "turn
+PDD down where the distillation does the most work". It is anti-aligned a
+second time against `bench/results/2026-08-29_block_propagation.json`, which
+`dense_blocks` was chosen on: perturbations at early blocks reach the output
+hardest, while PDD's update is smallest early and largest at block 49, where
+propagation is lowest.
+
+**So the knob is not a strength schedule, it is a placement one.** The
+inflation comes entirely from folding the delta into an already-quantised
+weight, so both fixes are ways of not doing that, and they are not equal:
+
+| | fidelity at strength 1.0 | run-time cost | what it pins |
+|---|---|---|---|
+| merge at run time (ships today) | 0.01058 | none | nothing |
+| `unmerged_blocks` | 0.00942 | +2.4% FLOPs, +19 MB per block | nothing |
+| offline bake from the release | 0.00942 | **none** | strength and partition into the artifact |
+
+**The bake is the better answer where it applies, and this measurement is what
+the section above asked for.** Its "what would settle it" paragraph said: bake
+one partition, grade it, and if the residual is small enough, ship a pre-merged
+checkpoint per partition and delete 933 MiB of run-time patching. The residual
+is zero against the base checkpoint's own error. The cost is that a baked file
+pins `strength` and the partition -- and the section above already records that
+every shipped PDD node runs `strength` 1.0, so the first pin costs nothing this
+repo currently uses. **It is still DEPRIORITISED by the owner (2026-08-28); the
+blocker is what changed, not the priority.**
+
+`unmerged_blocks` is what to reach for when you do not want a second artifact
+per partition, or when you want the fidelity on some blocks and not the memory
+on all of them. `MiniMaxH3PDDLoRA` takes it in `dense_blocks` syntax; empty is
+the default and is bit-for-bit the old behaviour. It is a set rather than a
+switch because 50 blocks is roughly a gigabyte beside a 24 GB checkpoint, which
+is the same wall `_make_adaln_forward` declined to walk into when it chose not
+to cache its pairs per device. Worst-first from the measurement: 49, 7, 24, 16;
+least worth it, 32 and 40.
+
+`bench/check_pdd_unmerged.py` grades the identity that makes the arms
+comparable at all -- `unmerged(x) == x @ (W + alpha/rank * B @ A).T` in float64
+-- with four deliberate violations. **The unscaled one is why the file
+exists:** PDD's `alpha/rank` is exactly 1.0, so on every artifact this repo
+ships a scale-dropping implementation is bit-identical to a correct one, and a
+check built from the real file could never see it. The stub uses
+`alpha != rank`, and the rig carries its own positive control so that a
+violation cannot "miss" because the rig itself is broken.
+
+**What this does NOT establish.** Every number here is stored-weight distance.
+Nothing has measured what 0.00942 against 0.01058 does to an activation, a
+latent, or a clip, and the different-sample rule means a rendered pair cannot
+answer it -- the controlled version is `grade_sage_on_capture.py`'s method
+against a bf16 reference, and it has not been run. **So the ordering in that
+table is a fidelity ordering, not a quality one**, and nothing here says the
+difference is visible. The requantisation is deterministic where the shipped
+path uses seeded stochastic rounding, so these are its expectation rather than
+one draw. The run-time cost is arithmetic from the shapes, not a timing:
+**nothing has been benchmarked with `unmerged_blocks` set.** Both arms have
+rendered at 1344x768 x 39 frames, t2v PDD 4-step -- `292 weight patches, 16
+module(s) un-merged at blocks 7,16,24,49` against `308 weight patches, all
+merged` -- which is a statement about the code path and about neither speed nor
+quality.
 
 ## Distilled motion looks WRONG, not necessarily greater — and this repo had no record of it
 
