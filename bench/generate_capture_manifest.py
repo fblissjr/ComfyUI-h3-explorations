@@ -660,7 +660,13 @@ def main():
             "comfy_kitchen_version": sub["comfy_kitchen_version"],
         },
         "workload": {
-            "workflow_file": str(wf_path.relative_to(Path.cwd())) if wf_path.is_relative_to(Path.cwd()) else str(wf_path),
+            # Repo-relative when it is inside the repo. When it is not -- a
+            # scratch or session directory -- record the NAME only: the absolute
+            # fallback wrote a machine-specific prefix into a tracked record,
+            # and the filename is the part that identified the workload anyway.
+            "workflow_file": (str(wf_path.relative_to(Path.cwd()))
+                              if wf_path.is_relative_to(Path.cwd())
+                              else wf_path.name),
             "canvas": canvas,
             "models": models,
             "sampling": sampling,
