@@ -137,7 +137,7 @@ class MiniMaxH3ExactBlocks(io.ComfyNode):
         # comfy_kitchen in for every user, including those who never wire it.
         # Shared rather than reimplemented, so the two nodes cannot disagree
         # about what "0-2,-1" means.
-        from .vendor.sol_attn_minimax import parse_blocks
+        from .block_spec import parse_blocks
 
         count = len(dit_blocks)
         wanted = parse_blocks(blocks, count)

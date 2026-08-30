@@ -286,7 +286,7 @@
     },
     {
       "id": 9,
-      "type": "SolAttnMiniMax",
+      "type": "MiniMaxH3SolAttn",
       "pos": [
         -880,
         190
@@ -315,7 +315,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "SolAttnMiniMax"
+        "Node name for S&R": "MiniMaxH3SolAttn"
       },
       "widgets_values": [
         "adaptive tau",
@@ -324,10 +324,9 @@
         0.87,
         12288,
         "exact_kv_and_rows",
-        false,
-        "3d",
         true,
         false,
+        "3d",
         false,
         "0-2,32"
       ],

@@ -88,7 +88,11 @@ import h3_config  # noqa: E402
 from build_workflows import SOL_SELECTION_INPUTS, sol_widget_order  # noqa: E402
 
 WORKFLOWS = _REPO / "workflows"
-SOL = "SolAttnMiniMax"
+# Ours since 2026-08-30, replacing the vendored `SolAttnMiniMax`. One name,
+# because this check grades what the SHIPPED graphs carry and the generator
+# emits exactly one node id -- a graph on the old id is a stale regeneration,
+# which is a finding for this check rather than a second case to accept.
+SOL = "MiniMaxH3SolAttn"
 SAGE = "MiniMaxH3SageAttention"
 
 # `h3_config` states that SAGE_NODE's key order IS the node's declared input

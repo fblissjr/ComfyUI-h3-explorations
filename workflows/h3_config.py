@@ -645,8 +645,34 @@ SOL_RECOMMENDED_CUDA = dict(
     # pin resting on one canvas. `docs/morton.md` has both readings and names
     # the experiment that separates them. Nothing is at risk while
     # `morton=False`; the exposure is the next person who turns it on.
-    morton_curve="3d", centroid_tail=True,
-    reuse_qkv_memory=False, verbose=False,
+    morton_curve="3d",
+    # **`pooled_tail` since 2026-08-30, replacing `centroid_tail` and
+    # `reuse_qkv_memory`, which are gone from the node rather than renamed.**
+    # Do not read this as the same knob under a new name -- it is not.
+    #
+    #   centroid_tail      asked WHERE the pooled term is evaluated, per row or
+    #                      once per query block at its centroid.
+    #                      Comfy-Org/comfy-kitchen#117 made the centroid form
+    #                      unconditional, so the question no longer exists.
+    #   reuse_qkv_memory   asked whether the output went into the fused qkv
+    #                      buffer. Gone from every entry in the same merge.
+    #   pooled_tail        asks WHETHER there is a pooled term at all. True is
+    #                      Sol-Attn; False drops it and leaves a softmax over
+    #                      the routed blocks only, which is what SLA and VSA's
+    #                      fine stage are.
+    #
+    # True here is not a default inherited from anywhere. The pooled correction
+    # is the published method's stated contribution -- the paper's ablation has
+    # its advantage WIDENING as sparsity rises -- and every Sol number this repo
+    # has ever measured was taken with it on. Turning it off on a model that
+    # was not distilled against that routing removes the correction and keeps
+    # the sparsity.
+    #
+    # **Unmeasured here at False, and deliberately so.** The arm that would
+    # justify False is a Turbo-SLA LoRA arm, where the model HAS been distilled
+    # against exactly that routing; on the base model it is a strictly worse
+    # approximation with no compensating training. See docs/SOLATTN.md.
+    pooled_tail=True, verbose=False,
     # **"0-2,32" since 2026-08-29, measured here. "0-1" from 2026-08-26, which
     # was NVLabs' number rather than ours, and "" before that.**
     #
@@ -795,7 +821,20 @@ def sol_for_graph(pdd, steps):
         sol["end_percent"] = end
     return sol
 
-# `selection` is the v3 node's DynamicCombo: it picks HOW exact key blocks are
+# **What `MiniMaxH3SolAttn` gives you untouched, for the arm that wants the
+# node's own answer rather than ours.** Retargeted 2026-08-30 from the vendored
+# upstream node to our fork; `bench/check_sol_kernel.py`'s schema case grades
+# every key here against what the node file declares, so a knob that goes away
+# fails rather than silently stops reaching anything.
+#
+# Three of these differ from what this dict held while it described the
+# vendored node, and all three are the fork's own defaults rather than
+# re-tunings: `tau` 1.0 (was 1.3), `morton_curve` "3d" (was "2d_frame"), and
+# `pooled_tail` in place of `centroid_tail` + `reuse_qkv_memory`. The first two
+# now agree with SOL_RECOMMENDED_CUDA, which they did not before -- the node
+# default and the shipped value had drifted apart with nothing asserting either.
+#
+# `selection` is a DynamicCombo: it picks HOW exact key blocks are
 # chosen, and the chosen option brings its own input. "adaptive tau" carries
 # `tau` and is what every graph here ships; "top-k (SLA)" carries
 # `keep_percent` and is the selection the lightx2v SLA LoRAs were distilled
@@ -807,11 +846,11 @@ def sol_for_graph(pdd, steps):
 # not declare it, and `bench/check_sol_kernel.py`'s schema case fails on a
 # pinned knob the node has never heard of.
 SOL_CUDA_DEFAULTS = dict(
-    selection="adaptive tau", tau=1.3,
+    selection="adaptive tau", tau=1.0,
     start_percent=0.2, end_percent=0.9, min_tokens=12288,
     sink_conditioning="exact_kv_and_rows", morton=False,
-    morton_curve="2d_frame", centroid_tail=True,
-    reuse_qkv_memory=False, verbose=False, dense_blocks="",
+    morton_curve="3d", pooled_tail=True,
+    verbose=False, dense_blocks="",
 )
 
 # Our own node. `auto`, which resolves to fp8_cuda++ on sm89.

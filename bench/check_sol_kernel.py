@@ -8,10 +8,13 @@ sides of any assertion we could write here come from our own tree. It does not c
 and nothing about whether the kernel is correct. `check_solattn_correctness.py`
 is the check for that, and `smoke_h3.py` is still the only thing that submits.
 
-Why it exists. `comfy_kitchen.sol_attn` ships only on kijai's fork, branch
-`sol_attn`, which is unmerged and publishes no wheel. The build we install
-from that branch declares version `0.2.31` -- byte-identical to the PyPI
-version ComfyUI pins in `requirements.txt`. So the fork build and the stock
+Why it exists. `comfy_kitchen.sol_attn` used to ship only on kijai's unmerged
+`sol_attn` branch. **It is upstream now** -- Comfy-Org/comfy-kitchen#117
+(`dae00a1`) -- but the reason this file exists survived the merge unchanged,
+because the merged build ALSO declares version `0.2.31`, the same string as
+the PyPI wheel that has no `sol_attn` at all. Three different builds, one
+version string; only the local segment of the dist-info name separates them.
+So the fork build, the merged build and the stock
 wheel are indistinguishable to `pip list`, and a `pip install -r
 requirements.txt --force-reinstall`, a Manager repair, or a fresh venv
 silently swaps the stock wheel back in. The node then falls back to dense on
@@ -28,9 +31,12 @@ parked as of 2026-08-27 and ship no longer).
 
 So presence is gated by "does a graph wire the node that needs *this
 dependency*". `SolAttnPatch` (kijai's Triton pack) also does Sol-Attn and does
-not touch `comfy_kitchen` at all, so it must not arm this check. Only
-`SolAttnMiniMax` does. Because shipped video graphs wire `SolAttnMiniMax`,
-the presence of `comfy_kitchen.sol_attn` is actively verified.
+not touch `comfy_kitchen` at all, so it must not arm this check. Two nodes do:
+`MiniMaxH3SolAttn`, ours, which every shipped graph wires since 2026-08-30,
+and `SolAttnMiniMax`, the vendored upstream node those graphs wired before it.
+**Either arms the gate**, because a graph left on the old id still renders and
+still needs the kernel -- and that is precisely the graph where a silent dense
+fallback would go unnoticed.
 
 Claims, i.e. what breaks if a case is deleted:
 
@@ -47,14 +53,17 @@ Claims, i.e. what breaks if a case is deleted:
                      H3's real sequence length -- it would raise mid-render,
                      not degrade.
   schema             every key in `SOL_CUDA_DEFAULTS` is an input the node
-                     actually declares. The node is upstream's and its inputs
-                     are expected to change -- upstream is weighing making
-                     `centroid_tail` unconditional, which would remove it. A
-                     pinned key that no longer exists is a hard error at
-                     execute, and a key upstream RENAMES is worse: the pin
+                     actually declares. A pinned key that no longer exists is a
+                     hard error at execute, and a RENAMED key is worse: the pin
                      silently stops reaching the knob it names while the bench
                      arm keeps printing under the old name. Parsed from the
                      node file with `ast`, so this stays free of ComfyUI.
+                     **This case earned itself on 2026-08-29**, when the merge
+                     removed `centroid_tail` -- which this file's own header
+                     had predicted. The node is ours now rather than upstream's,
+                     so the drift it guards is our own edit rather than a drop
+                     landing underneath us; that is a smaller risk, not no
+                     risk, and the case costs nothing.
 
   no_triton_graphs   no shipped graph wires the Triton Sol node. Both nodes
                      are legal and both render, so a graph that drifted back
@@ -63,24 +72,33 @@ Claims, i.e. what breaks if a case is deleted:
                      one. The generator derives the id from one constant, so
                      this catches a hand-edited graph or a stale regeneration.
 
-  vendored           the file ComfyUI loads is the one this repo tracks. Before
-                     2026-08-14 three untracked copies of this node existed on
-                     one box and nothing could say which was running; a
-                     measurement is meaningless if the code under it is
-                     unidentified.
+  vendored           the VENDORED node ComfyUI loads is the one this repo
+                     tracks. Before 2026-08-14 three untracked copies of that
+                     node existed on one box and nothing could say which was
+                     running; a measurement is meaningless if the code under it
+                     is unidentified. Ours needs no such case -- it is a module
+                     in this pack, tracked by git like every other node here --
+                     which is one of the things the fork bought.
   node_version       the tracked file's sha256 is a version we have named and
                      dated. Upstream publishes this node through conversation
                      rather than a repository, so an unrecorded hash FAILS
                      rather than warns -- it forces the drop to be recorded in
                      vendor/README.md before it can be run.
 
-  signature          our node calls `sol_attn` with `centroid_tail` and the
-                     direct CUDA entry with `reuse_qkv_memory`. Both arrived
-                     on the branch within days of each other, and the branch
-                     rebases. A rename lands as a TypeError inside the
-                     override, which `make_override` catches and converts to a
-                     silent dense fallback -- so the kwarg going away is
-                     invisible at render time by construction.
+  signature          `comfy_kitchen.sol_attn` still accepts every kwarg the
+                     node passes. **This is the case that cannot be replaced by
+                     a runtime error**, because there is no runtime error: a
+                     missing kwarg raises a TypeError inside `_run`, and
+                     `make_override`'s `override` catches every exception and
+                     falls through to dense. The render then succeeds, slower
+                     and numerically different, and says nothing.
+
+                     `sol_attn_h3.py::_require_kernel` asserts the same thing
+                     at PATCH time, where an exception does reach the user.
+                     Both exist deliberately: this one runs without CUDA, a
+                     model or a server and tells you before you queue anything;
+                     that one catches an install swapped out between this check
+                     and the render.
 
 Shown red: 2026-08-14, against the stock PyPI `comfy-kitchen==0.2.31` still
 installed at the time, with `--require`. `present` failed, and `cuda_backend`
@@ -105,13 +123,15 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parent.parent
 
-# Where the node file may be. Since 2026-08-14 it is VENDORED into this repo
-# (vendor/README.md) and the installed path is a symlink into it, so the
-# tracked file and the running file cannot diverge.
-_NODE_PATHS = (
-    _REPO / "vendor" / "sol_attn_minimax.py",
-    _REPO.parent / "ComfyUI-SolAttn-cuda" / "sol_attn_minimax.py",
-)
+# The node `SOL_CUDA_DEFAULTS` describes. Ours since 2026-08-30; it is a module
+# in this pack, so there is one path and no symlink to chase.
+#
+# **The schema case went red the moment this still pointed at the vendored
+# file**, which is the case doing its job rather than an inconvenience: the
+# config had moved to `pooled_tail` and was being graded against a node that
+# declares `centroid_tail`. A pin graded against the wrong node file is exactly
+# the silent-drift failure this case exists for.
+_NODE_PATHS = (_REPO / "sol_attn_h3.py",)
 
 # Where ComfyUI loads the node from. Should be a symlink INTO vendor/, so the
 # tracked file and the running file cannot diverge -- see vendor/README.md.
@@ -174,7 +194,15 @@ def declared_inputs(path):
 
 # The node that needs THIS dependency. `SolAttnPatch` is kijai's Triton pack
 # and does not touch comfy_kitchen, so it deliberately does not arm the gate.
-CUDA_SOL_NODE = "SolAttnMiniMax"
+#
+# **Ours since 2026-08-30.** Both this and the vendored `SolAttnMiniMax` need
+# `comfy_kitchen.sol_attn`, so either one in a graph should arm the presence
+# case -- a graph left on the old node still renders and still needs the
+# kernel. Listing both is not belt-and-braces: shipped graphs move to the new
+# id in one regeneration, and a graph that did NOT move is exactly the state
+# where a silent dense fallback would go unnoticed.
+CUDA_SOL_NODE = "MiniMaxH3SolAttn"
+VENDORED_SOL_NODE = "SolAttnMiniMax"
 
 # The Triton node. Shipped graphs migrated off it on 2026-08-14 (`8a12646`)
 # and must not drift back: both nodes are valid, both load, both render, and a
@@ -200,8 +228,19 @@ TRITON_SOL_NODE = "SolAttnPatch"
 # and adapts, so their absence is a capability difference rather than a defect.
 # Reported either way, because "which build is installed" is the first thing
 # anyone debugging a Sol number needs and both builds call themselves 0.2.31.
-REQUIRED_KWARGS = ("tau", "scale", "sink_blocks", "sink_q", "topk_ratio")
-OPTIONAL_KWARGS = ("centroid_tail", "reuse_qkv_memory", "max_blocks")
+REQUIRED_KWARGS = ("tau", "scale", "sink_blocks", "sink_q", "topk_ratio",
+                   "tail")
+# **Empty since 2026-08-30, and kept as an empty tuple rather than deleted.**
+# `sol_attn_h3.py` adapts to nothing: it asserts the signature once at patch
+# time and refuses, because there is one supported kernel now. So every kwarg
+# it passes is required and this list has nothing to hold. It stays because a
+# future capability the node passes conditionally belongs here, and because an
+# empty list is a visible statement that nothing is conditional -- deleting it
+# would leave a reader unable to tell that from an oversight.
+#
+# What it used to hold, all removed from the kernel by comfy-kitchen#117:
+# `centroid_tail`, `reuse_qkv_memory`, `max_blocks`.
+OPTIONAL_KWARGS = ()
 
 failures = []
 skipped = []
@@ -287,8 +326,10 @@ if version == "0.2.31" and has_sol:
     print("       note        version is indistinguishable from the stock "
           "PyPI wheel; presence of sol_attn is the only signal.")
 
-armed_by = graphs_wiring(CUDA_SOL_NODE)
-print(f"\nsol_attn presence (gate: graphs wiring {CUDA_SOL_NODE}):")
+armed_by = sorted(set(graphs_wiring(CUDA_SOL_NODE))
+                  | set(graphs_wiring(VENDORED_SOL_NODE)))
+print(f"\nsol_attn presence (gate: graphs wiring {CUDA_SOL_NODE} or "
+      f"{VENDORED_SOL_NODE}):")
 if armed_by:
     check("present", has_sol,
           f"required by {len(armed_by)} graph(s): {', '.join(armed_by[:3])}"
@@ -296,8 +337,9 @@ if armed_by:
 elif args.require:
     check("present", has_sol, "--require given; no graph wires it")
 else:
-    skip("present", f"no shipped graph wires {CUDA_SOL_NODE}; absent is the "
-                    "expected state, not a failure")
+    skip("present", f"no shipped graph wires {CUDA_SOL_NODE} or "
+                    f"{VENDORED_SOL_NODE}; absent is the expected state, not "
+                    f"a failure")
 
 print("\nthe CUDA backend carries it, not only the eager reference:")
 if not has_sol:
@@ -330,27 +372,13 @@ else:
         print(f"        optional present: {have or 'none'}; "
               f"absent: {[k for k in OPTIONAL_KWARGS if k not in have] or 'none'}")
 
-        # The one place an absent optional is NOT merely a capability
-        # difference. `centroid_tail=False` is a different computation, and a
-        # build without the kwarg evaluates the tail at the centroid
-        # unconditionally -- so a config asking for False cannot be honoured.
-        # The node raises rather than silently ignoring it; this says so before
-        # a render does.
-        if "centroid_tail" not in have and not SOL_RECOMMENDED_CUDA.get(
-                "centroid_tail", True):
-            check("centroid_tail_expressible", False,
-                  "h3_config asks for centroid_tail=False and this kernel has "
-                  "no such argument -- the merged build always evaluates the "
-                  "tail at the query block's centroid. The node refuses at "
-                  "PATCH time, so the render fails on SolAttnMiniMax before "
-                  "sampling. (Corrected 2026-08-29: this said 'every Sol call "
-                  "would raise', which was true of an earlier placement of the "
-                  "guard and was the defect -- raising per call put the "
-                  "exception inside `override`'s catch-all, which turned it "
-                  "into a silent full-dense render.)")
-        else:
-            check("centroid_tail_expressible", True,
-                  "the shipped centroid_tail is what this kernel can do")
+        # **`centroid_tail_expressible` was RETIRED here on 2026-08-30.** It
+        # checked that a config asking for `centroid_tail=False` could be
+        # honoured by the installed kernel. Neither the kernel nor the node has
+        # that argument now, so the case had no subject: it graded a key that
+        # `SOL_RECOMMENDED_CUDA` no longer carries, against a signature that no
+        # longer has it, and could only ever pass. The `schema` case below is
+        # what catches a config pinning a knob the node does not declare.
     cuda = sys.modules.get("comfy_kitchen.backends.cuda")
     if cuda is None or not hasattr(cuda, "sol_attn"):
         skip("signature_cuda", "backends.cuda.sol_attn unavailable")
@@ -374,6 +402,11 @@ check("no_triton_graphs", not triton_graphs,
       f"0 of {len(graph_paths(_REPO / 'workflows'))} graphs")
 
 print("\nthe node ComfyUI loads is the one this repo tracks:")
+# Ours is a first-class module in this pack, loaded by `nodes.py`, so there is
+# no symlink to verify and no hash to pin -- git tracks it like every other
+# node here. The cases below cover the VENDORED node, which is upstream's and
+# is provenance-tracked by hand because upstream publishes it through
+# conversation rather than a repository.
 if not _VENDORED.is_file():
     skip("vendored", f"no vendored copy at {_VENDORED}")
     skip("node_version", "nothing to hash")
@@ -400,7 +433,7 @@ else:
 print("\nSOL_CUDA_DEFAULTS pins only knobs the node declares:")
 node_file = next((p for p in _NODE_PATHS if p.is_file()), None)
 if node_file is None:
-    skip("schema", f"node file not found in {[str(p) for p in _NODE_PATHS]}")
+    skip("schema", f"node file not found: {[p.name for p in _NODE_PATHS]}")
 else:
     sys.path.insert(0, str(_REPO / "workflows"))
     try:

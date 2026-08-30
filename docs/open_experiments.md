@@ -1151,9 +1151,23 @@ branch is a thin slice.
 
 ### The layout problem is already solved in-tree
 
-Expected to be the hard part; it is not. `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/sage_attention/sol_attn_route.cu:509-528` already
-runs bf16 PV inside the Sol codebase, and `coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/sage_attention/sol_layout.cuh:104-116` already
-carries `mma_bf16` and `pack_bf2`. The INT8 QK score tile feeds a 16-bit A
+Expected to be the hard part; it is not.
+`coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/sage_attention/sol_attn_route.cu::mma_bf16`
+already runs bf16 PV inside the Sol codebase, and
+`coderef/comfy-kitchen-sol/comfy_kitchen/backends/cuda/sage_attention/sol_layout.cuh::pack_bf2`
+already carries the helpers it needs.
+
+**Cited by symbol since 2026-08-30, and the reason is a silent miss.** Both
+were line ranges into those two files -- lines 509-528 of the routing kernel
+and 104-116 of the layout header -- taken when that checkout sat at kijai's
+pre-merge tip. Advancing it to the
+merged code rewrote the routing kernel, and the two citations came apart
+DIFFERENTLY: the first went out of range and `bench/check_doc_links.py` caught
+it, while the second stayed in range and now points at a staging helper with
+nothing to do with the claim. **The range check can only see a line that does not
+exist, never a line that means something else**, so a citation into a file that
+moves under you is only half-guarded by it. The claim itself survived both --
+bf16 PV is still there -- which is exactly why nothing else would have noticed. The INT8 QK score tile feeds a 16-bit A
 operand with no shuffle and no permutation -- two adjacent n8 tiles are exactly
 the `m16n8k16` A layout. Sage does the same (`RS_32_to_16` in its
 `attn_utils.cuh` is a pure convert, no lane exchange). Read from both sources,

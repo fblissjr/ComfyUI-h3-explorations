@@ -46,13 +46,36 @@ What each case claims, i.e. what breaks if it is deleted:
       difference and every case above proves nothing. A check that cannot fail
       is decoration.
 
-  tail mode (diagnostic, not a case)
-      `centroid_tail` shares one pooled tail across a query block instead of
-      computing it per row, and it is worth ~5e-4 cosine -- well inside the
-      0.998 bar, so a kernel graded against the wrong mode still passes. So it
-      is MEASURED (agreement against the reference in both modes, better one
-      wins) and the graded cases use the matching oracle. Grading cross-mode
-      was a live defect here until 2026-08-14; see `docs/checks.md`.
+  tail=False, topk + tail=False, block_len, coarse_gate
+      **Added 2026-08-30, and every one of them was unreachable before
+      comfy-kitchen#117 merged.** That is the class no existing case could
+      have covered: until the merge there was no argument to pass. Each is
+      reachable from a node this repo now ships, so a silent disagreement
+      reaches a render. The tail=False cases are graded at a looser bar for
+      upstream's stated reason -- with no pooled term, every int8-vs-fp32
+      routing flip shows in full.
+
+  dead rows do not reach the live output
+      An exact-equality claim under `block_len`, not a cosine one. Perturbing
+      the padding must not move a live row; if it does, a dead row is leaking
+      into a key or a block mean, which is the failure that would corrupt VSA
+      cube tiling and nothing else here would catch.
+
+  coarse_gate changes the output / cuda tail=True vs reference tail=False
+      Red controls for the two new branches. The first says the metric can see
+      the coarse term at all; the second says it can see the pooled tail --
+      the paper's actual contribution. If either passes, the cases they guard
+      are decoration.
+
+  tail mode (RETIRED 2026-08-30)
+      `centroid_tail` used to be a toggle, and grading against the wrong mode
+      passed anyway because the modes differ by less than the bar -- so this
+      file MEASURED which mode the kernel was in and picked the matching
+      oracle. The merged kernel evaluates the tail at the query block's
+      centroid unconditionally and the argument is gone from both sides, so
+      there is no mode left to discover. Recorded rather than deleted because
+      the defect it fixed (grading cross-mode, live here until 2026-08-14) is
+      in `docs/checks.md`.
 
 Exit codes: 0 all graded cases passed, 1 a case failed, 2 nothing was graded
 (no CUDA, or the installed comfy_kitchen has no `sol_attn` -- the expected
@@ -125,6 +148,13 @@ def main():
                     help="the shipped value, from workflows/h3_config.py")
     ap.add_argument("--bar", type=float, default=0.998,
                     help="upstream's own CUDA-vs-eager tolerance")
+    ap.add_argument("--notail-bar", type=float, default=0.99,
+                    help="tolerance for tail=False cases. Looser on purpose, "
+                         "and it is upstream's own number: without the pooled "
+                         "term every int8-vs-fp32 routing flip shows in full "
+                         "(tests/test_sol_attn.py::test_no_tail_matches_eager)")
+    ap.add_argument("--topk", type=float, default=0.2,
+                    help="keep-fraction for the SLA selection cases")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
 
@@ -175,35 +205,115 @@ def main():
     report("cuda == reference at tau -inf",
            cosine(cuda_sol(q, k, v, tau=DENSE_TAU), ref_dense), args.bar)
 
-    # 3. Which tail mode is the kernel on? MEASURED, not assumed, and it runs
-    #    before the graded cases because it decides which oracle they use.
-    #    `centroid_tail` is worth ~5e-4 cosine -- well inside the 0.998 bar --
-    #    so a kernel graded against the wrong mode passes anyway. That defect
-    #    was live in this file until 2026-08-14; see docs/checks.md.
-    ref_tau = reference(q, k, v, tau=args.tau, centroid_tail=False)
-    ref_centroid = reference(q, k, v, tau=args.tau, centroid_tail=True)
-    mode_gap = cosine(ref_tau, ref_centroid)
+    # 3. The measurement, at the tau we ship. Both sides route the same blocks
+    #    by the same rule, so the residual is INT8 against full precision, not
+    #    algorithm.
+    #
+    #    **This replaced a tail-mode probe on 2026-08-30.** That probe ran the
+    #    reference twice, at `centroid_tail` True and False, to DISCOVER which
+    #    form the kernel implemented, because grading against the wrong one
+    #    passed anyway (the modes differ by less than the bar). The merged
+    #    kernel removed the argument -- it always evaluates the tail at the
+    #    query block's centroid -- so there is no longer a mode to discover,
+    #    and the reference has no such parameter to run twice.
     cuda_tau = cuda_sol(q, k, v, tau=args.tau)
-
-    c_centroid = cosine(cuda_tau, ref_centroid)
-    c_perrow = cosine(cuda_tau, ref_tau)
-    cuda_centroid = c_centroid >= c_perrow
-    cuda_ref = ref_centroid if cuda_centroid else ref_tau
-    print(f"\n  tail mode measured (the modes differ by cos {mode_gap:.6f}, "
-          f"and the bar is {args.bar}):")
-    print(f"    cuda  centroid_tail={'True ' if cuda_centroid else 'False'} "
-          f"(centroid {c_centroid:.6f} vs per-row {c_perrow:.6f})\n")
-
-    # 4. The measurement, at the tau we ship, against the matching mode.
+    ref_tau = reference(q, k, v, tau=args.tau)
     report(f"cuda == reference at tau {args.tau}",
-           cosine(cuda_tau, cuda_ref), args.bar)
+           cosine(cuda_tau, ref_tau), args.bar)
 
-    # 5. Red control. A far larger tau routes far fewer blocks; if the metric
-    #    cannot tell that apart from the real thing, cases 2 and 4 prove
-    #    nothing. Graded in the kernel's own tail mode for the same reason as
-    #    case 4 -- a cross-mode control would fail for the wrong reason and
-    #    still look like it worked.
-    cuda_wrong = reference(q, k, v, tau=args.tau * 20, centroid_tail=cuda_centroid)
+    # 4-7 grade paths that were DEAD before comfy-kitchen#117 and are live
+    # after it, which is the one class no existing case can cover by
+    # construction: until the merge there was nothing to call. Each is
+    # reachable from `MiniMaxH3SolAttn` or from the VSA node, so a silent
+    # disagreement here reaches a render.
+
+    # 4. `tail=False` -- upstream's tests call it "the SLA / VSA fine stage".
+    #    Softmax over the routed blocks only, no pooled correction.
+    #
+    #    Graded at a LOOSER bar, and the reason is upstream's own: "without the
+    #    tail every int8-vs-fp32 block-selection flip shows in full"
+    #    (`tests/test_sol_attn.py::test_no_tail_matches_eager`, which asserts
+    #    cos > 0.99). The pooled term normally absorbs a block the two
+    #    implementations disagree about routing; remove it and the whole block
+    #    is gone from one side. Holding this to the tail=True bar would be
+    #    grading a different quantity against the same number.
+    cuda_notail = cuda_sol(q, k, v, tau=args.tau, tail=False)
+    ref_notail = reference(q, k, v, tau=args.tau, tail=False)
+    report(f"cuda == reference at tau {args.tau}, tail=False",
+           cosine(cuda_notail, ref_notail), args.notail_bar)
+
+    # 5. Top-k selection with no tail. Not an arbitrary pair: it is what SLA
+    #    IS, and it is the exact call `MiniMaxH3SolAttn` makes for its
+    #    "top-k (SLA)" selection once `tail` is off.
+    cuda_sla = cuda_sol(q, k, v, topk_ratio=args.topk, tail=False)
+    ref_sla = reference(q, k, v, topk_ratio=args.topk, tail=False)
+    report(f"cuda == reference at topk {args.topk}, tail=False",
+           cosine(cuda_sla, ref_sla), args.notail_bar)
+
+    # 6. `block_len`: zero-padded tiles, where only the first N rows of each
+    #    64-row block are live. Nothing in H3's own packing needs it -- the
+    #    packed sequence is contiguous -- but VSA's cube tiling does, one cube
+    #    per block, and that is the only way this repo will ever call it.
+    #    Dead rows must be excluded from keys, from values and from the pooled
+    #    means; the second assertion is upstream's own test for exactly that.
+    n_blocks = (t + 63) // 64
+    gen = torch.Generator(device="cuda").manual_seed(args.seed + 1)
+    block_len = torch.randint(1, 65, (n_blocks,), device="cuda",
+                              generator=gen).to(torch.int32)
+    lengths = block_len.clone()
+    if t % 64:
+        lengths[-1] = min(int(lengths[-1]), t % 64)
+    live = (torch.arange(t, device="cuda") % 64) < lengths.repeat_interleave(64)[:t]
+    cuda_pad = cuda_sol(q, k, v, tau=args.tau, block_len=block_len)
+    ref_pad = reference(q, k, v, tau=args.tau, block_len=block_len)
+    report(f"cuda == reference at tau {args.tau}, block_len",
+           cosine(cuda_pad[:, live], ref_pad[:, live]), args.bar)
+
+    #    Dead rows are really dead: perturb them and nothing live may move.
+    #    An exact-equality claim, not a cosine one -- if a dead row leaks into
+    #    a key or a block mean, the live output changes and this goes red.
+    qd, kd, vd = (x.clone() for x in (q, k, v))
+    for x in (qd, kd, vd):
+        x[:, ~live] = torch.randn_like(x[:, ~live]) * 3
+    leaked = not torch.equal(
+        cuda_sol(qd, kd, vd, tau=args.tau, block_len=block_len)[:, live],
+        cuda_pad[:, live])
+    report("dead rows do not reach the live output",
+           0.0 if leaked else 1.0, 0.5)
+
+    # 7. `coarse_gate`: VSA's gated coarse branch, `gate * softmax(q_mean
+    #    k_mean^T) v_mean` added per block. Graded with every query block in
+    #    sink_q so selection cannot blur what the gate did, which is upstream's
+    #    own construction, and at a tight bar because with routing pinned the
+    #    only thing left between the two sides is the coarse arithmetic.
+    gate = torch.randn(q.shape, device="cuda", dtype=torch.bfloat16) * 0.5
+    coarse_kw = dict(tau=args.tau, tail=False, block_len=block_len,
+                     sink_q=[0, n_blocks], coarse_gate=gate)
+    cuda_coarse = cuda_sol(q, k, v, **coarse_kw)
+    ref_coarse = reference(q, k, v, **coarse_kw)
+    report("cuda == reference with coarse_gate (VSA branch)",
+           cosine(cuda_coarse[:, live], ref_coarse[:, live]), 0.999)
+
+    # 8. Red control for the gate: with every block routed, the coarse term is
+    #    the ONLY difference from masked dense attention. If this passes, cases
+    #    7 and the whole VSA path are being graded by a metric that cannot see
+    #    the branch they exist to add.
+    no_gate = cuda_sol(q, k, v, tau=args.tau, tail=False, block_len=block_len,
+                       sink_q=[0, n_blocks])
+    report("coarse_gate changes the output",
+           cosine(cuda_coarse[:, live], no_gate[:, live]), 0.999, want_pass=False)
+
+    # 9. Red control for the tail. The pooled term is what separates Sol-Attn
+    #    from plain block-sparse attention -- the paper's contribution, not a
+    #    side knob -- so a metric that cannot tell the two apart cannot
+    #    adjudicate any case above.
+    report(f"cuda tail=True vs reference tail=False",
+           cosine(cuda_tau, ref_notail), args.bar, want_pass=False)
+
+    # 10. Red control. A far larger tau routes far fewer blocks; if the metric
+    #    cannot tell that apart from the real thing, every graded case proves
+    #    nothing.
+    cuda_wrong = reference(q, k, v, tau=args.tau * 20)
     report(f"cuda tau {args.tau} vs reference at tau {args.tau * 20}",
            cosine(cuda_tau, cuda_wrong), args.bar, want_pass=False)
 
@@ -235,8 +345,8 @@ def main():
           f"but only once measured\n  somewhere the method's premise holds. "
           f"That run is gate B0b in\n  internal/plan_2026-08-16_sol_fp16_and_triton_retirement.md.")
 
-    print(f"\n  distance from the algorithm, in the kernel's own tail mode: "
-          f"{cosine(cuda_tau, cuda_ref):.6f}")
+    print(f"\n  distance from the algorithm, at the shipped tail: "
+          f"{cosine(cuda_tau, ref_tau):.6f}")
     print("  Same algorithm on both sides, so this is kernel arithmetic (INT8 "
           "vs full\n  precision), not a quality ranking of a render. It cannot "
           "see behaviour at\n  40k tokens.")

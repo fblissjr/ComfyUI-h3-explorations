@@ -218,7 +218,8 @@
         true,
         0,
         6,
-        1.0
+        1.0,
+        ""
       ],
       "title": "PDD LoRA (strength 1.0, 6 steps -> SIGMAS)"
     },
@@ -326,7 +327,7 @@
     },
     {
       "id": 10,
-      "type": "SolAttnMiniMax",
+      "type": "MiniMaxH3SolAttn",
       "pos": [
         -880,
         190
@@ -355,7 +356,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "SolAttnMiniMax"
+        "Node name for S&R": "MiniMaxH3SolAttn"
       },
       "widgets_values": [
         "adaptive tau",
@@ -364,10 +365,9 @@
         0.74,
         12288,
         "exact_kv_and_rows",
-        false,
-        "3d",
         true,
         false,
+        "3d",
         false,
         "0-2,32"
       ],

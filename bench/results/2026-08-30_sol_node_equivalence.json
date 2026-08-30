@@ -1,0 +1,24 @@
+{
+  "what": "our forked Sol node's dispatch against the vendored node's, at matched settings, on synthetic input",
+  "comfy_kitchen": "0.2.31+sol.dae00a1",
+  "shape": {
+    "batch": 1,
+    "heads": 8,
+    "tokens": 16384,
+    "head_dim": 128,
+    "dtype": "bfloat16"
+  },
+  "scope": "the dispatch only. The sink, the sigma window, dense_blocks, Morton and the override chaining are unmodified by the fork and are not exercised here.",
+  "not_a_quality_measurement": "synthetic torch.randn gives a near-uniform softmax, so there is nothing for a block router to find. Cosines here are floors.",
+  "cases": {
+    "identical at shipped settings": {
+      "bit_identical": true,
+      "tau": 1.0
+    },
+    "identical under top-k": {
+      "bit_identical": true,
+      "topk_ratio": 0.1
+    },
+    "pooled_tail_cos_on_vs_off": 0.7794305086135864
+  }
+}

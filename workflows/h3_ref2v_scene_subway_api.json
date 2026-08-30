@@ -222,7 +222,7 @@
     }
   },
   "21": {
-    "class_type": "SolAttnMiniMax",
+    "class_type": "MiniMaxH3SolAttn",
     "inputs": {
       "model": [
         "20",
@@ -236,8 +236,7 @@
       "sink_conditioning": "exact_kv_and_rows",
       "morton": false,
       "morton_curve": "3d",
-      "centroid_tail": true,
-      "reuse_qkv_memory": false,
+      "pooled_tail": true,
       "verbose": false,
       "dense_blocks": "0-2,32"
     }

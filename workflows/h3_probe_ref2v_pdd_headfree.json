@@ -221,7 +221,8 @@
         false,
         0,
         8,
-        1.0
+        1.0,
+        ""
       ],
       "title": "PDD LoRA (strength 1.0, HEADS OFF -- control arm, 8 steps -> SIGMAS)"
     },

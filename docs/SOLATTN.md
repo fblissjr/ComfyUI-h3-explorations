@@ -786,10 +786,71 @@ for `False` raises rather than being ignored. `docs/bench_plan.md`'s Q2 --
 how much of the CUDA advantage is `centroid_tail` -- is CLOSED UNANSWERED as a
 result; it named this exact deadline and the deadline arrived.
 
-**Not exposed yet:** `tail=False` (the VSA/SLA fine stage), `block_len`,
-`coarse_gate`, and the chunked QKV producer that upstream reports saves ~5 GB
-of peak at 113k tokens -- which is the length this repo actually renders.
-Reaching any of them needs node inputs this pack does not declare.
+**kijai's branch and upstream main are the same code, and that was worth
+checking rather than assuming.** The `sol_attn` branch moved 34 commits after
+the merge (VSA support, a chunked QKV producer, top-k guards), which reads like
+a kernel we did not have. It is not: verified 2026-08-30 by a whole-tree
+`diff -rq` between the two checkouts, which reports no difference, and by `cmp`
+of the four Python entry files against the installed `site-packages`. So
+`coderef/comfy-kitchen-sol` at its tip, `coderef/comfy-kitchen` at `dae00a1`,
+and the running kernel are one source. **There was nothing to pull and nothing
+to rebuild** -- the whole remaining gap was the node.
+
+### The node is ours now, and what that changed
+
+**Since 2026-08-30 every shipped graph wires `MiniMaxH3SolAttn`, a node in this
+pack, not the vendored `SolAttnMiniMax`.** `sol_attn_h3.py`'s header lists the
+four local changes; `vendor/README.md` records why forking was the right call
+rather than a fourth in-place edit. The migration is output-neutral at the
+shipped settings and that is **measured, not argued**: the two dispatches
+produce the same bytes at both selections
+(`bench/check_sol_node_equivalence.py`,
+`bench/results/2026-08-30_sol_node_equivalence.json`). Nothing on this page
+moves.
+
+`centroid_tail` and `reuse_qkv_memory` are gone from the node rather than
+inert. `pooled_tail` is new. **It is not `centroid_tail` renamed**, and the
+difference is the whole point: `centroid_tail` asked WHERE the pooled term is
+evaluated, `pooled_tail` asks WHETHER there is one.
+
+### What the kernel exposes, and what this pack does with each
+
+Read from the signature and from
+`coderef/comfy-kitchen-sol/comfy_kitchen/constraints.py::sol_attn_common_call_rule`.
+
+| kernel argument | status here | what it does |
+|---|---|---|
+| `tau` / `topk_ratio` | exposed, `selection` | threshold or SLA-style top-k |
+| `scale`, `sink_blocks`, `sink_q` | derived | the conditioning sink |
+| `tail` | exposed as `pooled_tail` | ON, unselected blocks contribute one pooled term each. OFF, they are dropped: softmax over routed blocks only |
+| `key_bias` | **not exposed, deliberate** | per-key log-space bias, legal only where the biased keys are sink-covered -- on H3 that is the conditioning rows and nothing else. An untrained prompt-adherence knob; documented in `sol_attn_h3.py`, not offered |
+| `block_len` | **not exposed, inert here** | live rows per 64-row block, for a caller that PADS. H3's packed sequence is contiguous, so the kernel derives the ragged final block from T. VSA's cube tiling is the one caller that needs it |
+| `coarse_gate` | **not reachable from this node** | VSA's gated coarse branch. It is a learned projection of the BLOCK INPUT, and an `optimized_attention_override` is handed Q/K/V already built |
+| `sol_attn_chunked` | **not reachable from this node** | consumes fused qkv projection chunks and does rope and RMSNorm itself, so there is nothing for an attention override to receive. Upstream reports ~5 GB less peak at 113k tokens, which is a length this repo renders |
+
+The last two are not knobs anyone forgot to wire. **Both need the BLOCK forward
+replaced rather than attention overridden**, which is a different node with a
+different failure surface, and for `coarse_gate` also a checkpoint that carries
+the gate.
+
+### `pooled_tail=False` is SLA, and that is the reason it is exposed
+
+Upstream's own tests call it "the SLA / VSA fine stage". With `top-k (SLA)`
+selection it reproduces the routing the lightx2v Turbo-SLA LoRA was distilled
+under -- on the CUDA kernel, through `optimized_attention`, which reaches all
+52 `Attention` modules rather than the 50 that `MiniMaxH3SLARouter`'s object
+patch could see. That node is deprecated in part for exactly that gap
+(`docs/open_experiments.md` #20), and this closes it, with one caveat: the two
+token-refiner calls sit at ~311 rows and `min_tokens` declines them, so
+covering them means dropping that threshold deliberately.
+
+**Nothing here has rendered under it.** `pooled_tail=False` on the base model
+deletes the published method's own correction and keeps the sparsity, which is
+a worse approximation with no compensating training. The arm that would justify
+it is a Turbo-SLA LoRA arm. Graded against the algorithm's eager reference at
+small shapes, the kernel implements it faithfully
+(`bench/check_solattn_correctness.py`, four cases added 2026-08-30 covering
+`tail`, `block_len` and `coarse_gate`); that is arithmetic, not quality.
 
 
 ### What has actually been measured on it here
