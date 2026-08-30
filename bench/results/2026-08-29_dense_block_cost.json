@@ -1,0 +1,55 @@
+{
+ "measured": "2026-08-29",
+ "produced_by": "bench/time_dense_blocks.py",
+ "what": "wall-clock cost of dense_blocks, same graph and seed, only that string varying",
+ "base_graph": "h3_text_to_video_api.json",
+ "steps": 4,
+ "seed": 730451892,
+ "sol_window": {
+  "start_percent": 0.2,
+  "end_percent": 0.74
+ },
+ "rows": [
+  {
+   "dense_blocks": "",
+   "blocks": 0,
+   "seconds": [
+    150.398
+   ],
+   "best": 150.398,
+   "delta_vs_first": 0.0
+  },
+  {
+   "dense_blocks": "0-1",
+   "blocks": 2,
+   "seconds": [
+    152.541
+   ],
+   "best": 152.541,
+   "delta_vs_first": 2.1430000000000007
+  },
+  {
+   "dense_blocks": "0-2,32",
+   "blocks": 4,
+   "seconds": [
+    154.526
+   ],
+   "best": 154.526,
+   "delta_vs_first": 4.128000000000014
+  },
+  {
+   "dense_blocks": "0-5,48-49",
+   "blocks": 8,
+   "seconds": [
+    158.476
+   ],
+   "best": 158.476,
+   "delta_vs_first": 8.078000000000003
+  }
+ ],
+ "caveats": [
+  "Wall clock only. Says nothing about quality.",
+  "First render discarded as warm-up; the model stays resident across arms.",
+  "One box, one canvas, one length. Per-block cost is not uniform -- block 0 routes ~29.8% exact against ~11% deeper, so it is the cheapest block to force dense."
+ ]
+}

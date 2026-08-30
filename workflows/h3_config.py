@@ -669,119 +669,78 @@ SOL_RECOMMENDED_CUDA = dict(
 )
 
 
-# The Sol config for a PDD arm, which is NOT SOL_RECOMMENDED_CUDA with a
-# derived `end_percent`. **Owner decision 2026-08-29, from rendering rather
-# than from a controlled measurement**: on the distilled arms this settings
-# group is what has looked best so far. It is a PRIOR in the sense CLAUDE.md
-# means -- no matched-seed distribution behind it, no per-knob attribution --
-# and it is recorded here as a decision so that a later measurement has
-# something to overturn. What overturns it: a blind distribution per knob
-# through `docs/eval_comparison.md` section 3.
+# The Sol config for a PDD arm. **Two knobs, both measured on this box on
+# 2026-08-29; it carried five that afternoon and three of them were dropped
+# for having no evidence behind them.**
 #
-# Four knobs differ from the non-PDD recipe, and each one is here on the
-# owner's reading, not on a number this repo holds:
+#   end_percent   0.74 at EVERY PDD step count, against the step-count
+#                 derivation in SOL_END_PERCENT_BY_STEPS, which gives 0.87 at
+#                 8. This one is ARITHMETIC, not a measurement, and it is the
+#                 only knob here that is: `percent_to_sigma(0.75)` is 0.8
+#                 EXACTLY at shift 12, and 0.8 is index 24 of PDD's 32-point
+#                 grid -- where the final block of the 4-evaluation partition
+#                 begins. So 0.74 is one widget step onto the safe side of
+#                 "run dense over the coarsest schedule's last block": a fixed
+#                 point on the SIGMA PATH rather than on the step grid, which
+#                 is why one constant serves both PDD step counts where the
+#                 step table needs a row each. Strictly more conservative than
+#                 the derivation, never less -- at 8 steps it takes the
+#                 second-to-last evaluation dense as well as the last, so
+#                 sparse coverage goes 5 of 8 to 4 of 8.
+#                 **Untested prediction it makes:** at 8 evaluations 0.87
+#                 should be WORSE than 0.74 if the mechanism is trajectory-
+#                 pinned rather than grid-pinned. Nothing has run that.
 #
-#   end_percent  0.74 at EVERY PDD step count, where the derivation in
-#                SOL_END_PERCENT_BY_STEPS gives 0.87 at 8. Strictly more
-#                conservative, never less: at shift 12 and 8 steps the band
-#                floor moves from sigma 0.642 to 0.8083, which takes the
-#                second-to-last step (sigma 0.8) dense as well as the last
-#                one (0.6316). Sparse coverage goes 5 of 8 to 4 of 8; at 4
-#                steps 0.74 is already what the table gives and nothing
-#                moves. So this does not undo the dense-tail fix -- it
-#                widens the dense tail past it.
-#   min_tokens   11776 against 12288. Selects identically on everything this
-#                repo renders (DiT calls 31k-128k tokens, token-refiner calls
-#                ~311 rows), so it is a preference, not a behaviour change,
-#                on the graphs that exist.
-#   morton_curve 2d_frame against the pinned 3d. Inert while `morton=False`,
-#                which it is here; it decides which curve a person gets on
-#                turning morton on. `docs/morton.md` measured 3d ahead on
-#                centroid fidelity at one canvas and records that the pin
-#                rests on that one canvas.
-#   dense_blocks "0-5,48-49" against the vendor's "0-1". Widens the vendor's
-#                front band and adds a tail pair. Until 2026-08-29 this was
-#                "0,1,2,48,49,-1", where `-1` resolved to 49 on a 50-block DiT
-#                (`vendor/sol_attn_minimax.py::parse_blocks`), making it the
-#                same five blocks as "0-2,48-49" -- confirmed by calling the
-#                function, not by reading it. Costs 8 of 50 blocks on the
-#                sparse steps rather than 2, and those eight are SAGE blocks,
-#                NOT exact ones: `dense()` hands the call to `previous`, which
-#                on every shipped graph is sage. Nothing here reaches exact
-#                attention at a block, and the widest reading of "dense" is
-#                the trap this knob sets.
+#   dense_blocks  "0-2,32", the measured top four.
+#                 `bench/results/2026-08-29_block_propagation.json`: Sol run at
+#                 exactly ONE block, sage everywhere else, reading the output
+#                 latent against a sage-everywhere baseline. Video rel L2 --
+#                     0  0.0306   32 0.0272   1  0.0272   2  0.0254
+#                     24 0.0247   8  0.0243   16 0.0239   40 0.0177
+#                     49 0.0128   48 0.0110   45 0.0109
+#                 Video and audio independently rank the SAME four highest,
+#                 and block 32 replicated at a second seed (video +5% and
+#                 +14% over block 16, audio +25% and +31%).
+#                 Cost is `bench/results/2026-08-29_dense_block_cost.json`:
+#                 **1.01 s per dense block** at 4 steps, linear from 2 to 8
+#                 blocks, against a 0.9 s noise floor. Four blocks is +4.1 s
+#                 on a 150 s render, 2.7%.
+#                 **This REVERSES the local error ranking** in
+#                 `2026-08-29_dense_block_ranking.json`, which put block 0
+#                 last and block 40 first. Propagation is why: an early
+#                 block's error is carried through the rest of the model,
+#                 block 40's and 49's are not. That file is still right about
+#                 what it measures; it just does not decide this knob.
+#                 **The tail is the worst place to spend a block** -- 45, 48
+#                 and 49 are the three lowest measured, so the "0,1,2,48,49"
+#                 this shipped that morning spent two of its five on the
+#                 bottom of the ranking.
 #
-# Held identical to SOL_RECOMMENDED_CUDA, so a change there still reaches
-# here: selection, tau, start_percent, sink_conditioning, morton,
-# centroid_tail, reuse_qkv_memory, verbose. Spelled as an override dict over
-# that one rather than a second full literal, because a full copy is exactly
-# the second copy this file forbids.
+# **Dropped 2026-08-29, all three for the same reason: no evidence, and no
+# effect either.** Keeping them made SOL_PDD_CUDA look like a five-knob
+# finding when it was one derivation and one measurement.
+#   min_tokens 11776   Inert. Every PDD graph packs 60,972 to 113,032 rows
+#                      (`bench/preflight_graph.py` over all of them), so 11776
+#                      and the inherited 12288 select identically on every one.
+#   morton_curve       Inert while `morton=False`, which both configs are. The
+#     "2d_frame"       inherited `3d` at least has a centroid-fidelity
+#                      measurement behind it.
+#   dense_blocks       See above -- the widening to "0-5,48-49" was extrapolated
+#     "0-5,48-49"      from a three-point decay and is withdrawn.
 #
-# **Two of these have a calculable answer and the literals are placeholders.**
-# `docs/SOLATTN.md`, "What would replace the eyeballing, knob by knob":
-#   end_percent   `percent_to_sigma(0.75)` is 0.8 EXACTLY at shift 12, and 0.8
-#                 is index 24 of PDD's 32-point grid -- the start of the final
-#                 block at 4 evaluations. So 0.74 is, one widget step out, the
-#                 rule "run dense over the coarsest schedule's last block": a
-#                 fixed point on the SIGMA PATH rather than on the step grid,
-#                 which is why one constant serves both step counts where
-#                 SOL_END_PERCENT_BY_STEPS needs a row each. Worth writing as
-#                 an expression only after the 0.74-against-0.87 arm at 8
-#                 evaluations has run; until then it is a prettier spelling of
-#                 the same literal.
-#   dense_blocks  measured evidence exists at THIS tau and points elsewhere.
-#                 A block named here does NOT run dense attention: `dense()`
-#                 hands the call to `previous`, which on every shipped graph is
-#                 SAGE. So what the knob buys is Sol's error MINUS sage's, and
-#                 `bench/results/2026-08-29_dense_block_ranking.json` does that
-#                 subtraction: block 40 removes the most (0.209) and ships
-#                 nowhere, block 0 the least (0.093) of any block in the model,
-#                 block 49 a sound mid-table 0.160. So `0,1,2` is the weak half
-#                 of this list and `48,49` the sound half. 1, 2 and 48 appear
-#                 in no capture. What the ranking cannot see is propagation --
-#                 error at an early block travels through 49 more -- and that
-#                 is the gap between "worst approximated" and "worth keeping
-#                 dense".
+# Everything else is shared with SOL_RECOMMENDED_CUDA and reaches here through
+# it: selection, tau 1.0, start_percent 0.2, sink_conditioning, morton off,
+# centroid_tail, reuse_qkv_memory. Spelled as an override dict rather than a
+# second full literal, because a full copy is the second copy this file forbids.
+#
+# **What none of this establishes.** One box, one canvas, two seeds, and a
+# fidelity proxy rather than a person looking at a clip. The probe also ran on
+# the BASE model, so PDD's fused output head was not in the path -- which is
+# the one argument for the tail that the measurement cannot see, and it is not
+# enough to reinstate 48-49 against a measured ranking that puts them last.
 SOL_PDD_OVERRIDES = dict(
     end_percent=0.74,
-    min_tokens=11776,
-    morton_curve="2d_frame",
-    # "0-5,48-49" since 2026-08-29, was "0,1,2,48,49,-1" (the same five blocks
-    # -- `-1` resolved to 49). **Widened at the FRONT on a measurement, and
-    # that measurement reversed the ranking this file carried hours earlier.**
-    #
-    # `bench/results/2026-08-29_block_propagation.json`: letting Sol run at
-    # exactly one block, everything else sage, and reading the output latent.
-    # Video rel L2 against a sage-everywhere baseline --
-    #     block 0   0.0306      block 2   0.0254
-    #     block 1   0.0272      block 49  0.0128
-    # -- the REVERSE of the local error ranking in
-    # `2026-08-29_dense_block_ranking.json`, where 0 is Sol's most accurate
-    # block. Propagation is why: block 0's error is carried through 49 more
-    # blocks, block 49's lands on the head. **So the vendor's front-loaded
-    # `0-1` was right and this repo's local ranking was measuring the wrong
-    # thing.**
-    #
-    # **Blocks 3, 4 and 5 are EXTRAPOLATED, not measured**, and that is the
-    # weakest number in this dict. The measured front decays about 9% per
-    # block (0.0306 -> 0.0254 over three), which if continued puts block 5
-    # near 0.019 -- still ~1.5x block 49. It cannot continue at that rate or
-    # it would reach zero long before 49, so the curve flattens somewhere
-    # unmeasured and the band edge is a guess inside that flattening. The
-    # sweep that settles it was interrupted at 4 of 12 arms to free the
-    # server; resume with `--blocks 8,16,24,32,40,45,48`.
-    #
-    # The cutoff is budget, not data. On a 4-step PDD arm Sol runs 2 of 4
-    # steps, so a dense block costs about 1.5 s of a ~200 s render (0.75%);
-    # 8 blocks against 5 is roughly +2 s.
-    #
-    # `48-49` is retained and is the WEAKEST part of this set. The probe cannot
-    # see the case for it: its baseline runs sage at 49 too, so it measures
-    # Sol-against-sage there and not sage-against-exact, and sage is
-    # pathological at 49 (`cos_min` NEGATIVE, -0.04 to -0.11). It also ran on
-    # the BASE model, so PDD's fused output head -- the reason to protect the
-    # last blocks at all -- was not in the path.
-    dense_blocks="0-5,48-49",
+    dense_blocks="0-2,32",
 )
 
 SOL_PDD_CUDA = dict(SOL_RECOMMENDED_CUDA, **SOL_PDD_OVERRIDES)

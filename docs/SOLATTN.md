@@ -571,6 +571,41 @@ distance between "which block Sol approximates worst" and "which block to keep
 dense".** Closing it is one experiment: perturb one block's attention output by
 its measured sparsity error and read the change at the output head.
 
+##### The paper's own dense-layer policy is not evidence about H3
+
+Worth stating before someone reaches for it as corroboration, which is what
+happened here on 2026-08-29 and was corrected by the owner within the hour.
+
+The paper says, verbatim: *"for Wan2.1, HunyuanVideo, Bernini, and Ideogram 4,
+we use dense attention during the first 20% of denoising steps and in the first
+layer"*. That is a **first-layer-only** dense policy and it is where our
+`start_percent` 0.2 comes from -- the node's tooltip says as much.
+
+**None of those models is MiniMax-H3, and H3 did not exist when the paper was
+submitted** (arXiv 2607.24027, 2026-07-27; no mention of MiniMax, H3, or the
+architecture anywhere in it). H3 support for this kernel came later and from a
+third party: Comfy-Org/comfy-kitchen#117, opened 2026-08-13 and merged
+2026-08-29, which reports its own H3 figures and describes them as additions to
+the original method.
+
+So the paper is evidence that a front-loaded dense policy works on five other
+diffusion transformers. It is not evidence about this one, and the two H3
+sources that ARE architecture-specific disagree with it on the count: NVLabs
+ships `0-1` on both their H3 profiles, and the propagation measurement below is
+ours. **Cite the paper for the mechanism and for where 0.2 came from, never for
+which blocks H3 wants dense.**
+
+**The cost half does not transfer either, and it fails harder than the quality
+half.** Those models do not sit in attention the way this one does. H3 packs
+109k-113k rows on the graphs here, attention is O(T squared) against the FFN's
+O(T), and Sol-Attn is worth **1.896x on the whole sampler** on this box (860.8 s
+dense against 454.0 s, 2026-08-16) -- a ratio only reachable when attention is
+most of the run. A dense-layer policy is a quality-per-second trade, so a
+recipe tuned where attention is a smaller share of the step is answering a
+different question even where the architecture is otherwise comparable. Read
+the paper's layer count as "what those models needed", never as "what a dense
+block is worth".
+
 ##### Propagation, measured -- and it reverses the ranking above
 
 **Measured 2026-08-29, and the local ranking loses.**
@@ -583,70 +618,72 @@ actually be chosen on. `bench/results/2026-08-29_block_propagation.json`:
 | block | video rel L2 | audio rel L2 |
 |---|---|---|
 | 0 | **0.0306** | 0.0412 |
+| 32 | 0.0272 | **0.0471** |
 | 1 | 0.0272 | 0.0436 |
 | 2 | 0.0254 | 0.0405 |
-| 49 | **0.0128** | 0.0255 |
-
-**Four arms of a planned twelve.** The sweep was interrupted to free the server
-for another session; each arm is an independent render whose latent persists,
-so `--score-existing` recovers what completed and
-`--blocks 8,16,24,32,40,45,48` resumes the rest. The blocks that decide whether
-the middle of the model deserves anything -- 24, 32, 40 -- are among the
-missing, so nothing here speaks to the local ranking's claim that 40 is the
-strongest candidate.
+| 24 | 0.0247 | 0.0352 |
+| 8 | 0.0243 | 0.0366 |
+| 16 | 0.0239 | 0.0378 |
+| 40 | 0.0177 | 0.0297 |
+| 49 | 0.0128 | 0.0255 |
+| 48 | 0.0110 | 0.0232 |
+| 45 | 0.0109 | 0.0253 |
 
 **Block 0 is the block Sol approximates BEST and the block whose error matters
-MOST at the output. Block 49 is the reverse.** The two rankings are opposed, and
-propagation is the reason: block 0's error is carried through 49 more blocks
-while block 49's lands on the head. **So the vendor's front-loaded `0-1` was
-right, and the local ranking two sections up was measuring the wrong thing** --
-it is kept above because it is correct about what it measures, not because it
-should decide this knob.
+MOST at the output. The tail is the reverse, and the last five blocks are the
+worst place in the model to spend a dense block.** The two rankings are opposed
+because propagation is what separates them: an early block's error is carried
+through the rest of the model, block 45's and 49's are not. **So the vendor's
+front-loaded `0-1` was right, and the local ranking two sections up was
+measuring the wrong thing** -- it is kept above because it is correct about what
+it measures, not because it should decide this knob.
+
+**Video and audio independently rank the same four highest** -- 0, 1, 2, 32 --
+and **block 32 is a real second peak, replicated at a second seed**: against
+block 16 it is +14% and +5% on video, +25% and +31% on audio, where the scatter
+among 8/16/24 is about 4%. Block 0's dominance is the most stable thing in the
+table (0.0306 and 0.0316 across seeds).
+
+**Cost, measured rather than derived** (`bench/time_dense_blocks.py`,
+`bench/results/2026-08-29_dense_block_cost.json`): **1.01 s per dense block** at
+4 steps, linear from 2 to 8 blocks, against a 0.9 s noise floor and a 150.4 s
+baseline. Four blocks is +4.1 s, 2.7%. The per-block cost is UNIFORM, which
+refutes the guess that block 0 would be cheapest because the router already
+keeps ~29.8% of its blocks exact.
+
+That first timing run was wrong and is worth recording: the warm-up used the
+same spec as the first timed arm, so the reference was served from ComfyUI's
+cache in 3.0 s and the per-block figure came out at 19.51 s, off by more than an
+order of magnitude. The arm times were also quantised to exactly 3.0 s -- the
+poll interval, not the effect. The harness now reads the server's own
+`execution_start`/`execution_success` span and refuses an arm whose SAMPLER was
+cached.
 
 The probe is controlled by construction and its determinism is checked rather
-than assumed: two independent baseline renders came back **bit-identical**, so
-every delta is caused by the arm. Sol's window is set to contain only the final
-step of four, so steps 0-2 are identical across arms and nothing re-samples
-after the measured forward -- CLAUDE.md's different-sample rule does not bite,
-because no trajectory diverges.
+than assumed: two independent baseline renders came back **bit-identical**,
+including across a full ComfyUI restart and another session's render in
+between, so every delta is caused by the arm. Sol's window is set to contain
+only the final step of four, so steps 0-2 are identical across arms and nothing
+re-samples after the measured forward -- CLAUDE.md's different-sample rule does
+not bite, because no trajectory diverges.
 
 **What it cannot see, and both limits cut the same way -- against the tail
 pair.** Its baseline runs sage at block 49 too, so it measures Sol against sage
-there, never sage against exact -- and sage is pathological at 49 (`cos_min`
+there and never sage against exact -- and sage is pathological at 49 (`cos_min`
 NEGATIVE). And it ran on the BASE model, so PDD's fused output head, the reason
-to protect the last blocks at all, was not in the path.
+to protect the last blocks at all, was not in the path. Neither is enough to
+reinstate 48-49 against a measured ranking that puts them last.
 
-**So "too many, or the wrong ones" now has an answer for the front and not for
-the back.** The front band is right and was worth widening: `SOL_PDD_CUDA` went
-to `0-5,48-49` on 2026-08-29. Two parts of that are weaker than the measured
-front: **blocks 3-5 are extrapolated** from a three-point decay that must
-flatten somewhere unmeasured, and **`48-49` rests on an argument the probe
-cannot reach** -- its baseline runs sage at 49 too, and PDD's fused head was
-absent. **`0,1,2,48,49` is
-therefore two good blocks, one unmeasured neighbour of a good block, and two
-blocks the evidence argues against** — and `40` is missing.
-
-`-1` in the previous spelling of that list was not a sixth block. `parse_blocks` resolves it to `50 + (-1)
-= 49` and returns a frozenset, so `"0,1,2,48,49,-1"`, `"0,1,2,48,49"` and
-`"0-2,48-49"` are the same five blocks. Verified by calling the function, not
-by reading it.
-
-##### The cost of `dense_blocks`, as arithmetic
-
-From the 2026-08-16 dense pair (860.8 s against 454.0 s, 362 frames, 16 steps,
-11 of them sparse, **Triton era**), assuming uniform per-block cost: about
-**0.74 s per block per sparse step**. Against the vendor's `0-1`, the three
-extra blocks cost roughly
-
-- **4-step arm:** 3 blocks x 2 sparse steps ~ **4.4 s**
-- **8-step arm:** 3 x 4 ~ **8.9 s**, beside `end_percent`'s ~37 s for the
-  sparse step it removes
-
-**Order of magnitude only** — different kernel, different canvas, and uniform
-per-block cost is exactly what the block-0 outlier above refutes. **The honest
-number is a timed A/B**, and timing is one of the few things that can be
-compared arm to arm here: CLAUDE.md's different-sample rule is about what the
-clip looks like, not about how long it took.
+**Where this landed.** `SOL_PDD_CUDA` carries `dense_blocks="0-2,32"` -- the
+measured top four, +4.1 s. Two earlier states are withdrawn: the owner's
+original `0,1,2,48,49`, which spent two of five blocks on the bottom of the
+ranking, and the same day's widening to `0-5,48-49`, whose blocks 3-5 were
+extrapolated from a three-point decay that turned out to be a plateau.
+`SOL_RECOMMENDED_CUDA` is deliberately left at the vendor's `0-1`: the
+measurement is a base-model one and so applies there most directly, but `0-1`
+carries H3-specific external validation and two seeds is not enough to overturn
+it across every non-distilled graph. That is a pending question, not an
+oversight.
 
 ##### Exact at a block: `MiniMaxH3ExactBlocks`, added 2026-08-29
 

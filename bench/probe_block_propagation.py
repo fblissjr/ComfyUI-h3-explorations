@@ -159,7 +159,17 @@ def build_arm(base: dict, block: int | None, seed: int) -> tuple[dict, str]:
     return g, tag
 
 
-def submit(graph: dict, host: str, timeout: float) -> dict[str, tuple[str, str]]:
+def submit(graph: dict, host: str, timeout: float,
+           cache_watch: str | None = None) -> tuple[dict, dict]:
+    """Queue one graph and wait. Returns (latents, meta).
+
+    `meta["server_ms"]` is the SERVER's own execution span, from the
+    `execution_start` and `execution_success` timestamps ComfyUI records in
+    history -- not this loop's wall clock, which is quantised to the poll
+    interval below. That distinction is not academic: the first version of
+    `time_dense_blocks.py` reported arm differences of exactly 3.0 s, which was
+    the poll interval rather than the effect.
+    """
     client = str(uuid.uuid4())
     body = json.dumps({"prompt": graph, "client_id": client}).encode()
     req = urllib.request.Request(f"http://{host}/prompt", data=body,
@@ -196,7 +206,30 @@ def submit(graph: dict, host: str, timeout: float) -> dict[str, tuple[str, str]]
         if set(found) != {"video", "audio"}:
             raise SystemExit(f"expected a video and an audio latent, got "
                              f"{sorted(found)}: {json.dumps(outs)[:400]}")
-        return found
+        stamps = {m[0]: m[1].get("timestamp") for m in status.get("messages", [])
+                  if isinstance(m, (list, tuple)) and len(m) == 2
+                  and isinstance(m[1], dict)}
+        server_ms = None
+        if stamps.get("execution_start") and stamps.get("execution_success"):
+            server_ms = stamps["execution_success"] - stamps["execution_start"]
+        # `execution_cached` naming the node in `cache_watch` -- the SAMPLER --
+        # means ComfyUI served a previous identical run and nothing was
+        # computed. Watching one named node rather than "is anything cached",
+        # because the four loaders are cached on every render after the first
+        # and a flag that fires every time is a flag nobody can act on.
+        #
+        # This is how the first timing run produced a 3.0 s "render" and a
+        # per-block cost off by more than an order of magnitude: the warm-up
+        # had the same inputs as the first timed arm, so the sampler was served
+        # from cache while SaveLatent still re-ran and wrote a file.
+        cached = False
+        if cache_watch is not None:
+            for m in status.get("messages", []):
+                if (isinstance(m, (list, tuple)) and len(m) == 2
+                        and m[0] == "execution_cached"
+                        and cache_watch in (m[1] or {}).get("nodes", [])):
+                    cached = True
+        return found, {"prompt_id": pid, "server_ms": server_ms, "cached": cached}
     raise SystemExit(f"timed out after {timeout}s waiting for {pid}")
 
 
@@ -263,7 +296,7 @@ def main() -> int:
         label = "baseline (sage only)" if block is None else f"Sol at block {block} only"
         print(f"  {tag:9s} {label} ...", end="", flush=True)
         t0 = time.time()
-        got = submit(graph, args.host, args.timeout)
+        got, _meta = submit(graph, args.host, args.timeout)
         dt = time.time() - t0
         timings[tag] = dt
         paths = {}

@@ -507,6 +507,79 @@ def case_ui_and_api_agree():
 
 print("PDD SIGMAS output: the schedule the heads were fused for")
 check("emitted is simple", case_emitted_is_simple)
+def case_pdd_end_percent_keeps_last_step_dense():
+    """`SOL_PDD_CUDA`'s flat `end_percent` leaves the FINAL evaluation dense,
+    at every step count a PDD graph can legally run.
+
+    That property is the entire argument for one constant where
+    `SOL_END_PERCENT_BY_STEPS` needs a row per count, and until 2026-08-29
+    nothing asserted it. It is also newly load-bearing: `resolve_emit_steps`
+    refused every non-divisor until that day, so 4 and 8 were the only counts
+    reachable and a constant tuned on them could not be wrong anywhere else.
+    Since 1b8b54d the envelope route admits 5, 6 and 7 as well -- three step
+    counts nobody has ever checked this against.
+
+    Losing the dense final step is the defect the step table was written for:
+    at shift 12 that evaluation covers the largest jump in the schedule and is
+    where PDD's fused heads deviate most from the base, so a sparse one stacks
+    two approximations on the step that can least afford either.
+
+    Both shifts, because a graph may carry either and the answer must not
+    depend on which.
+    """
+    from pdd_lora import resolve_emit_steps, envelope_partition
+    from h3_config import SOL_PDD_CUDA
+    import comfy.model_sampling
+    import comfy.samplers
+
+    checked = []
+    for shift in SHIFTS:
+        sampling = comfy.model_sampling.ModelSamplingDiscreteFlow(None)
+        sampling.set_parameters(shift=shift)
+        hi = float(sampling.percent_to_sigma(SOL_PDD_CUDA["start_percent"]))
+        lo = float(sampling.percent_to_sigma(SOL_PDD_CUDA["end_percent"]))
+        for steps in range(1, 9):
+            # Only counts the node will actually emit. Asking about an illegal
+            # one would assert a property of a schedule no graph can run.
+            legal = (NUM_STEPS % steps == 0
+                     or envelope_partition(NUM_STEPS, steps, TRAINED) is not None)
+            if not legal:
+                continue
+            # ...and only counts within 2x the trained block width. 1 and 2
+            # evaluations tile the grid and the node emits them, but at widths
+            # 32 and 16 against a trained 4 they are 8x and 4x out, past the
+            # edge this repo already calls 4 "2x, the edge". No graph runs
+            # them.
+            #
+            # **This exclusion is load-bearing and was found by this check
+            # going red, not assumed.** At 2 evaluations the flat 0.74 DOES
+            # leave the final evaluation sparse: the schedule is 1.0 and
+            # 0.9231, and 0.9231 sits inside the band. So the property below
+            # is true over the usable range and false just outside it -- worth
+            # knowing before anyone reaches for a 2-step PDD arm.
+            if NUM_STEPS // steps > 2 * TRAINED:
+                continue
+            assert resolve_emit_steps(steps, 8, NUM_STEPS, TRAINED) == steps
+            sigmas = [float(x) for x in comfy_simple(shift, steps)][:-1]
+            last = sigmas[-1]
+            # OUTSIDE the band, either side. Above `sigma_start` is dense too,
+            # and asserting only `last < lo` called a 1-step schedule broken
+            # when its single evaluation sits at 1.0, above the warm-up edge.
+            assert not (lo <= last <= hi), (
+                f"shift {shift}, {steps} steps: the final evaluation sits at "
+                f"sigma {last:.4f}, INSIDE Sol's band [{lo:.4f}, {hi:.4f}] "
+                f"(end_percent {SOL_PDD_CUDA['end_percent']}, start_percent "
+                f"{SOL_PDD_CUDA['start_percent']}). The last step would run "
+                f"SPARSE, which is the defect SOL_END_PERCENT_BY_STEPS exists "
+                f"to prevent -- at shift 12 that evaluation covers the largest "
+                f"jump in the schedule and is where PDD's fused heads deviate "
+                f"most from the base.")
+            sparse = sum(1 for x in sigmas if lo <= x <= hi)
+            checked.append(f"{steps}@{shift:g}:{sparse}/{steps}")
+    assert checked, "no legal step count was exercised"
+    return "sparse steps " + " ".join(checked)
+
+
 check("exactness regime holds", case_exactness_regime_holds)
 check("knots round trip", case_knots_round_trip)
 check("untileable raises", case_untileable_raises)
@@ -515,6 +588,8 @@ check("zero is inert", case_zero_is_inert)
 check("graphs consume it", case_graphs_consume_it)
 check("graph shift matches file", case_graph_shift_matches_file)
 check("ui and api agree", case_ui_and_api_agree)
+check("pdd end_percent keeps last step dense",
+      case_pdd_end_percent_keeps_last_step_dense)
 
 if failures:
     print(f"\nFAILED: {', '.join(failures)}")

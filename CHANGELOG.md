@@ -8,66 +8,54 @@ artifact.
 
 ### Changed
 
-- **`SOL_PDD_CUDA`'s `dense_blocks` is `0-5,48-49`, was `0,1,2,48,49,-1`** (the
-  same five blocks -- `-1` resolved to 49). Widened at the FRONT, on a
-  measurement that reversed what this repo believed hours earlier.
-  - `bench/probe_block_propagation.py` lets Sol run at exactly one block, sage
-    everywhere else, and reads the output latent. **Block 0 -- the block Sol
-    approximates BEST -- moves the output MOST (0.0306), and block 49 moves it
-    LEAST (0.0128).** Propagation is why: an early block's error is carried
-    through the rest of the model, block 49's lands on the head. So the
-    vendor's front-loaded `0-1` was right and the local error ranking added
-    earlier that day was measuring the wrong thing. That ranking is kept,
-    because it is correct about what it measures; it just does not decide this
-    knob.
-  - **Blocks 3-5 are extrapolated, not measured**, from a three-point decay
-    (0.0306, 0.0272, 0.0254) that must flatten somewhere unmeasured. Named as
-    the weakest number in the dict rather than left to look measured.
-  - **`48-49` is retained on an argument the probe cannot reach.** Its baseline
-    runs sage at block 49 too, so it measures Sol against sage there and never
-    sage against exact -- and sage is pathological at 49. It also ran on the
-    base model, so PDD's fused output head was not in the path.
-  - The probe's determinism is checked rather than assumed: two independent
-    baseline renders came back **bit-identical**, so every delta is caused by
-    the arm. Sol's window contains only the final step of four, so steps 0-2
-    are identical across arms and nothing re-samples afterwards -- CLAUDE.md's
-    different-sample rule does not apply, because no trajectory diverges.
-  - Ran 4 of 12 arms; stopped to free the server for another session.
-    `--score-existing` recovers completed arms from disk, so an interrupted
-    sweep loses only the arm in flight.
+- **`SOL_PDD_CUDA` is now TWO knobs, measured, where it shipped with five that
+  morning.** `end_percent` 0.74 and `dense_blocks` `"0-2,32"`. Three overrides
+  were dropped for having no evidence and no effect: `min_tokens` 11776 (inert
+  -- every PDD graph packs 60,972 to 113,032 rows, so it and the inherited
+  12288 select identically on all of them), `morton_curve` `2d_frame` (inert
+  while `morton=False`, and the inherited `3d` at least has a measurement
+  behind it), and an intermediate widening to `0-5,48-49` whose blocks 3-5
+  were extrapolated.
+  - **`dense_blocks` rests on `bench/probe_block_propagation.py`**, which runs
+    Sol at exactly ONE block with sage everywhere else and reads the output
+    latent. **Block 0 -- the block Sol approximates BEST -- moves the output
+    MOST (0.0306); blocks 45, 48 and 49 move it LEAST (0.0109-0.0128).** So the
+    tail is the worst place in the model to spend a dense block, and the
+    original `0,1,2,48,49` spent two of five there. Video and audio
+    independently rank the same four highest, and block 32 -- a genuine second
+    peak -- replicated at a second seed (+25% and +31% over block 16 on audio).
+  - **This reverses `bench/rank_dense_blocks.py`**, added hours earlier, which
+    put block 0 last and block 40 first. Propagation is the difference. That
+    file stands: it is right about what it measures and simply does not decide
+    this knob.
+  - **Cost is measured, not derived**: `bench/time_dense_blocks.py` gives
+    **1.01 s per dense block** at 4 steps, linear from 2 to 8 blocks, against a
+    0.9 s noise floor. Four blocks is +4.1 s on a 150.4 s render. Per-block
+    cost is UNIFORM, refuting the guess that block 0 would be cheapest.
+  - **The first timing run was wrong and the harness now refuses that shape.**
+    Its warm-up shared a spec with the first timed arm, so the reference came
+    back from ComfyUI's cache in 3.0 s and per-block cost printed as 19.51 s.
+    Arm times were also quantised to exactly 3.0 s, the poll interval. It now
+    reads the server's own execution span and refuses any arm whose SAMPLER was
+    cached.
+  - **`SOL_RECOMMENDED_CUDA` deliberately stays at the vendor's `0-1`.** The
+    measurement is a base-model one and applies there most directly, but `0-1`
+    has H3-specific external validation and two seeds is not enough to overturn
+    it across every non-distilled graph.
 
-- **PDD arms now ship their own Sol-Attn config.** `h3_config.SOL_PDD_CUDA`,
-  owner decision from watching rendered distilled arms: `end_percent` 0.74 at
-  every step count, `min_tokens` 11776, `morton_curve` `2d_frame`, and
-  `dense_blocks` `0,1,2,48,49,-1`. Everything else -- `tau` 1.0,
-  `start_percent` 0.2, `sink_conditioning`, `morton` off, `centroid_tail` --
-  stays shared with `SOL_RECOMMENDED_CUDA`, spelled as an override dict over
-  it so a change there still reaches both. 16 graph kinds move, in both
-  formats; no non-PDD graph changes.
-  - **Not a measurement, and stated that way in the config.** Four knobs moved
-    together on one reading, so nothing in it attributes an effect to any one
-    of them. It is recorded as a decision so a later blind distribution has
-    something to overturn.
-  - **Only `end_percent` changes what a shipped graph computes.** It is
-    strictly more conservative than the step-count derivation, never less: at 4
-    steps it is already what `SOL_END_PERCENT_BY_STEPS` gives, and at 8 steps
-    the band floor moves from sigma 0.642 to 0.8083, taking the second-to-last
-    step dense as well as the last one -- sparse coverage 5 of 8 becomes 4 of
-    8. It widens the dense tail past the fix that created that table rather
-    than undoing it. `min_tokens` selects identically to 12288 at every length
-    this repo renders, and `morton_curve` is inert while `morton` is off.
-  - **One resolver, because a PDD branch written twice drifts twice.**
-    `h3_config.sol_for_graph(pdd, steps)` decides both the PDD split and the
-    step-count derivation; `build_workflows.py` and
-    `bench/check_attention_defaults.py` both call it, replacing the generator's
-    local `sol_for_steps` and the check's re-derivation of the same lookup. The
-    check decides PDD by `loads_pdd`, the same mechanism its exemption uses, so
-    a new PDD arm is graded on the right recipe the moment it exists.
-  - Confirmed red on a deliberate violation: a PDD graph hand-edited back to
-    `end_percent` 0.87 and `dense_blocks` `0-1` fails naming `SOL_PDD_CUDA`.
-    Worth running because the outcome was open -- the check's PDD test is a
-    LoRA-loader class and the generator's is a builder flag, and nothing had
-    ever required the two to agree.
+- **`check_pdd_sigmas.py` now asserts the flat `end_percent` keeps the final
+  evaluation dense at every legal PDD step count**, at both shipped shifts.
+  That property is the entire argument for one constant, and nothing asserted
+  it. **It is newly load-bearing**: `resolve_emit_steps` refused every
+  non-divisor until 2026-08-29, so 4 and 8 were the only reachable counts;
+  the envelope route now admits 5, 6 and 7 as well. Verified 2/4, 2/5, 3/6,
+  4/7, 4/8 sparse, identical at shift 12 and shift 6.
+  - **Scoped to counts within 2x the trained block width, and the exclusion was
+    found by the check going red rather than assumed**: at 2 evaluations the
+    flat 0.74 genuinely does leave the last step sparse. The property is true
+    over the usable range and false just outside it, which is worth knowing
+    before anyone reaches for a 2-step arm.
+  - Shown red at `end_percent` 0.9, naming the sigma and the band.
 
 - **Wrote down what would replace the eyeballing, before the shipped values
   close the question.** `docs/SOLATTN.md` gains a derivation per knob, pointed
