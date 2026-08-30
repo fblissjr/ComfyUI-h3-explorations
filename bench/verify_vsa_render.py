@@ -46,6 +46,23 @@ carries no container at all.
 concluded from a MATCHING file hash is withdrawn: identical container still
 implies identical frames.
 
+## Do not delete the arm-identity case as redundant
+
+It looks like belt-and-braces beside the pixel comparison. It is not: without
+it, **the pixel comparison cannot fail in the way its name implies.**
+
+That check asks "do these two files differ". A wrong pair differs. A pair from
+two different sessions differs. Two unrelated renders differ. So on any input
+except the exact right one it returns the same verdict it returns on success --
+which is CLAUDE.md's oldest rule, a check whose input already satisfies the
+expected outcome cannot fail, wearing a new coat.
+
+Demonstrated rather than argued: run this with another session's PDD render as
+the `vsa` argument and the pixel case still prints `ok VSA differs from its
+dense control`. The whole file passes on a comparison that never involved VSA.
+The identity case is what converts "these differ" into "VSA differs from ITS
+control", and it is the only part that makes the name true.
+
 ## Why it checks the arms rather than trusting the filenames
 
 `bench/smoke_h3.py` hard-codes one `_smoketest` prefix, so every session

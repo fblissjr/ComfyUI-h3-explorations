@@ -109,6 +109,32 @@ artifact.
 
 ### Changed
 
+- **`vendor/sol_attn_minimax.py` is a read-only reference again.** Restored to
+  the last genuine upstream drop (v3, `7805cf37`, recovered from `e18bbc0`) and
+  the installed pack renamed `.disabled`, which ComfyUI skips. Nothing deleted;
+  the symlink still points here, so renaming it back restores the old
+  arrangement exactly. The property a vendored file exists to provide -- a
+  disagreement with it is a finding rather than a merge artifact -- was spent
+  on 2026-08-29 when the merged kernel's API change was absorbed by editing it
+  in place. The restored file cannot run on the installed kernel (it passes
+  `centroid_tail`, which #117 removed, and that raises inside the override's
+  catch-all and becomes a silent dense render), which is why it is disabled
+  rather than merely superseded. `check_sol_kernel.py` now asserts the hash is
+  a recorded version, is NOT one of ours, and is not loaded by ComfyUI.
+- **`bench/check_sol_node_equivalence.py` grades against the KERNEL, not the
+  algorithm, and the first draft got that wrong.** Its baseline was the
+  vendored node, which no longer runs, so it was repointed rather than left to
+  skip. Written first against the eager reference, it read as a marginal
+  failure at cos 0.994-0.998 depending on shape and seed, and the instinct was
+  to loosen the bar. Measured instead: the dispatch is BITWISE identical to a
+  direct `sol_attn` call, and every bit of that spread was the kernel's INT8
+  arithmetic against fp32 -- a property `check_solattn_correctness.py` already
+  owns, which a loosened tolerance here would have silently absorbed. **A
+  tolerance where an equality is available is a check that cannot see small
+  defects.** The kernel oracle also needs no O(T^2) score tensor, so it runs at
+  16k tokens instead of a toy shape, and gains a sink case and a
+  transposed-oracle red control.
+
 - **`bench/_sol_attn_reference.py` was the PRE-MERGE algorithm.** It carried
   `centroid_tail` and had no `tail`, `block_len` or `coarse_gate`, so from the
   day the merged kernel was installed the only controlled comparison this repo

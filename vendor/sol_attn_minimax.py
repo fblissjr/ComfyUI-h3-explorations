@@ -404,52 +404,6 @@ def _ineligible(q, k, mask, dim_head, min_tokens):
     return None
 
 
-_KERNEL_KWARGS: dict = {}
-
-
-def _kernel_entry(reuse_qkv_memory=False):
-    """The `sol_attn` this call will use, and the parameter names IT accepts.
-
-    **Per entry, not per package.** The registry entry and the direct CUDA
-    entry do not carry the same parameters: on kijai's branch build
-    `reuse_qkv_memory` is a parameter of `backends.cuda.sol_attn` and NOT of
-    the top-level `comfy_kitchen.sol_attn`. Introspecting the top-level one and
-    then calling the CUDA one -- which this function replaced -- made the reuse
-    path permanently unreachable on the very build the signature adaptation
-    exists to keep working, and logged that the build "does not accept it"
-    while the entry about to be called did.
-
-    Cached per callable. `inspect.signature` on a nanobind entry can fail, and
-    a failure here must not take a render down: an empty set makes every
-    optional kwarg look unavailable, which is the conservative branch -- the
-    call is then made with the arguments every version has taken.
-    """
-    fn = getattr(_ck, "sol_attn", None)
-    if reuse_qkv_memory:
-        try:
-            from comfy_kitchen.backends import cuda as _ck_cuda
-            fn = getattr(_ck_cuda, "sol_attn", fn)
-        except Exception:                            # no CUDA backend built
-            pass
-    key = id(fn)
-    if key not in _KERNEL_KWARGS:
-        import inspect
-        try:
-            _KERNEL_KWARGS[key] = set(inspect.signature(fn).parameters)
-        except (TypeError, ValueError):
-            _KERNEL_KWARGS[key] = set()
-    return fn, _KERNEL_KWARGS[key]
-
-
-def kernel_accepts(name, reuse_qkv_memory=False) -> bool:
-    """Whether the entry this config would call takes `name`.
-
-    Public so `bench/check_sol_kernel.py` grades the same entry the render
-    uses rather than re-deriving which one that is.
-    """
-    return name in _kernel_entry(reuse_qkv_memory)[1]
-
-
 def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
          tau, min_tokens, verbose, sink_blocks=(0, 0), sink_q=(0, 0),
          centroid_tail=True, reuse_qkv_memory=False, topk_ratio=0.0):
@@ -469,49 +423,23 @@ def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
             _log_once((tuple(qs.shape), reason), f"dense {tuple(qs.shape)}: {reason}")
         return None
 
-    # Which optional kwargs this kernel build accepts, read from the SIGNATURE
-    # rather than from a version string. The two are not interchangeable: both
-    # builds call themselves 0.2.31, and upstream reshaped this API when
-    # Sol-Attn merged (Comfy-Org/comfy-kitchen#117, dae00a1) -- `centroid_tail`
-    # and `reuse_qkv_memory` are gone from the merged entries, and `tail`,
-    # `block_len` and `coarse_gate` arrived. Branching on the observable is the
-    # house rule, and here it is also the only thing that works: a pinned
-    # version would have to be edited for every rebuild.
-    # The entry this call will use, and what IT accepts -- read from the
-    # SIGNATURE rather than from a version string. The two are not
-    # interchangeable: both builds call themselves 0.2.31, and upstream
-    # reshaped this API when Sol-Attn merged (Comfy-Org/comfy-kitchen#117,
-    # dae00a1) -- `centroid_tail` and `reuse_qkv_memory` are gone from the
-    # merged entries, `tail`, `block_len` and `coarse_gate` arrived.
-    #
-    # `centroid_tail=False` against a build that dropped it is refused at PATCH
-    # time by `_apply_patch`, not here: an exception raised inside this
-    # function is caught by `override`'s `except Exception -> dense()`, so a
-    # guard here would produce the silent full-dense render it exists to
-    # prevent. Nothing in this function may rely on raising to reach a user.
-    fn, accepts = _kernel_entry(reuse_qkv_memory)
-
-    kwargs = dict(tau=tau, scale=scale,
-                  sink_blocks=list(sink_blocks), sink_q=list(sink_q),
-                  topk_ratio=topk_ratio)
-    if "centroid_tail" in accepts:
-        kwargs["centroid_tail"] = centroid_tail
-
-    if reuse_qkv_memory and "reuse_qkv_memory" in accepts:
+    if reuse_qkv_memory:
         # `out` goes into q/k/v's storage (H3's fused qkv buffer), shaving the
         # output allocation off peak VRAM; H3 discards that buffer after
         # attention.
-        out = fn(qs, ks, vs, reuse_qkv_memory=True, **kwargs)
+        from comfy_kitchen.backends import cuda as _ck_cuda
+        out = _ck_cuda.sol_attn(
+            qs, ks, vs, tau=tau, scale=scale,
+            sink_blocks=list(sink_blocks), sink_q=list(sink_q),
+            centroid_tail=centroid_tail, reuse_qkv_memory=True,
+            topk_ratio=topk_ratio,
+        )  # BTHD
     else:
-        if reuse_qkv_memory:
-            # Announce rather than ignore: the knob was asked for and the entry
-            # about to be called has no way to honour it, so the render is
-            # correct and its peak VRAM is not what the graph asked for.
-            _log_once(("no_reuse_qkv",),
-                      "[sol_attn] reuse_qkv_memory requested but the sol_attn "
-                      "entry this build exposes does not accept it; running "
-                      "with the output allocated separately")
-        out = fn(qs, ks, vs, **kwargs)  # BTHD
+        out = _ck.sol_attn(
+            qs, ks, vs, tau=tau, scale=scale,
+            sink_blocks=list(sink_blocks), sink_q=list(sink_q),
+            centroid_tail=centroid_tail, topk_ratio=topk_ratio,
+        )  # BTHD
     _stats["sparse"] += 1
     if verbose:
         sel = (f"topk={topk_ratio:.3f}" if topk_ratio else f"tau={tau}")
@@ -710,28 +638,6 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
             f"[sol_attn] Morton skipped: {type(diffusion_model).__name__} is not "
             "MiniMax-H3. Sol-Attn itself still applies.")
 
-    # Refuse a configuration this kernel cannot express, HERE rather than in
-    # `_run`. Upstream made the centroid-evaluated tail unconditional when
-    # Sol-Attn merged, so `True` is exactly what the kernel now does and
-    # dropping the kwarg is behaviour-preserving -- but `False` is a different
-    # computation, and swallowing the request would change the math silently.
-    #
-    # **Patch time is the only place this can be said.** Raised from `_run`,
-    # which is where it lived until a review caught it,
-    # `override`'s `except Exception -> dense()` swallows it: every eligible
-    # call raises, is caught, and falls through to sage, producing a fully
-    # dense render that reports success at roughly 1.9x the time. A guard
-    # written to stop a silent change of math instead produced a silent change
-    # of kernel. From here it propagates out of `execute` and fails the node
-    # before anything renders.
-    if not centroid_tail and not kernel_accepts("centroid_tail", reuse_qkv_memory):
-        raise RuntimeError(
-            "centroid_tail=False is not available in this comfy_kitchen build: "
-            "its sol_attn evaluates the pooled tail at the query block's "
-            "centroid unconditionally, so there is no way to ask for the "
-            "per-row form. Set centroid_tail=True, or install a build whose "
-            "sol_attn still takes the argument.")
-
     blocks = getattr(diffusion_model, "blocks", None)
     count = len(blocks) if blocks is not None else 0
     dense = parse_blocks(dense_blocks, count)
@@ -859,26 +765,15 @@ class SolAttnMiniMax(io.ComfyNode):
                                        "axis."),
                 io.Boolean.Input("centroid_tail", default=True,
                                  tooltip="Evaluate the pooled branch once per 64-token query "
-                                         "block at its centroid instead of per row. ~1.4x on "
-                                         "the OPERATION -- about 2.5% end to end here, which "
-                                         "makes it the smallest knob in this node, not the "
-                                         "largest. **Turning it OFF requires a kernel that "
-                                         "still takes the argument**: upstream made the "
-                                         "centroid form unconditional when Sol-Attn merged "
-                                         "(comfy-kitchen#117), so on that build False is "
-                                         "refused at patch time rather than silently "
-                                         "ignored."),
+                                         "block at its centroid instead of per row. ~1.4x "
+                                         "faster; turn OFF for a quality A/B."),
                 io.Boolean.Input("reuse_qkv_memory", default=False,
                                  tooltip="Write the attention output into the model's fused "
                                          "qkv buffer instead of a fresh allocation, cutting "
                                          "peak VRAM by one output-sized tensor (~1.2 GB at "
-                                         "80k tokens, upstream's figure). Safe for "
-                                         "MiniMax-H3, which discards that buffer after "
-                                         "attention; leave OFF for other models unless you "
-                                         "know theirs does too. **Inert on a kernel whose "
-                                         "sol_attn does not take it** -- the merged upstream "
-                                         "build dropped it -- in which case the node says so "
-                                         "in the log once and allocates normally."),
+                                         "80k tokens). Safe for MiniMax-H3, which discards "
+                                         "that buffer after attention; leave OFF for other "
+                                         "models unless you know theirs does too."),
                 io.Boolean.Input("verbose", default=False),
                 io.String.Input("dense_blocks", default="",
                                 tooltip="Transformer blocks to keep dense, e.g. '0-2,-1'. "

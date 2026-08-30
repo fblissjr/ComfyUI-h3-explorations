@@ -1,28 +1,44 @@
-# vendor/ — third-party code we run but do not own
+# vendor/ — third-party code we read but no longer run
 
 Files here are **upstream's, kept verbatim and git-tracked**. They live in this
 repo for one reason: before 2026-08-14 the CUDA Sol-Attn node existed in three
 untracked copies on this machine and nothing could say which one was running.
 
-## The arrangement
+## The arrangement, changed 2026-08-30
+
+`sol_attn_minimax.py` is now a **read-only reference**. The node that runs is
+`sol_attn_h3.py`, a first-class module in this pack, tracked by git like every
+other node here and free to change.
 
 ```
-vendor/sol_attn_minimax.py                              <- tracked, THE source of truth
-  ^
-  | symlink
-custom_nodes/ComfyUI-SolAttn-cuda/sol_attn_minimax.py   <- what ComfyUI loads
+vendor/sol_attn_minimax.py     <- upstream's, PRISTINE at the last genuine drop (v3)
+                                  read to compare against; never loaded
+sol_attn_h3.py                 <- ours, a fork of it, what every graph wires
 ```
 
-The installed path is a **symlink**, not a copy, so the tracked file and the
-running file cannot diverge. Verified: ComfyUI's loader imports through it
-(`spec_from_file_location` follows symlinks) and reports the same 14 inputs.
+The installed pack is renamed `ComfyUI-SolAttn-cuda.disabled`, which ComfyUI
+skips (`nodes.py`, `module_path.endswith(".disabled")`). Its symlink still
+points here, so renaming it back restores the old arrangement exactly. Nothing
+was deleted.
 
-Consequence worth knowing: the node pack now depends on this repo being
-present at that relative path. That is a real coupling and it is the price of
-the guarantee.
+**Why the change.** The value of a vendored file is that it is upstream's: when
+it and our expectations disagree, that disagreement is a finding rather than a
+merge artifact. **That property was spent on 2026-08-29**, when the merged
+kernel's API change was absorbed by editing this file in place — v3.1 and v3.2
+in the table below are OURS, not drops, and while either was here the repo had
+no pristine upstream copy at all. The remedy is the third option in the rules
+below, which is the one they say not to reach for casually: fork it, rename it
+so the fork is obvious, record the divergence. `sol_attn_h3.py`'s header is
+that record.
 
-`bench/check_sol_kernel.py` fails if the installed path stops resolving here,
-or if the file's hash is not one of the versions recorded below.
+**The restored file does not run on the installed kernel, and that is fine.**
+v3 passes `centroid_tail` unconditionally, which comfy-kitchen#117 removed, so
+loading it would raise inside the attention override's catch-all and become a
+silent full-dense render. That is exactly why it is disabled rather than merely
+superseded.
+
+`bench/check_sol_kernel.py` asserts all of it: that the hash is a recorded
+version, that it is NOT one of ours, and that ComfyUI is not loading it.
 
 ## The rule: do not edit these files
 
@@ -59,6 +75,7 @@ checked on 2026-08-14 and neither `kijai/ComfyUI-SolAttn_triton` nor any
 | `3a5f0051fce61d9d` | v1 | 2026-08-14 10:48 | first drop. `sink_q = sink_blocks`, so `exact_kv_and_rows` runs every conditioning query row dense, references included. |
 | `d856ba83557d18fb` | v2 | 2026-08-14 14:19 | `sink_q` narrowed to the **target audio** segment only. `PackedLayout` patch also captures the `audio` bounds, `_SPANS` carries them, `rope_freqs` publishes `sol_h3_audio_span`, `_sink_blocks` uses it and falls back to v1 behaviour when absent. **No schema change** — same 14 inputs, same order, same defaults, so no graph regeneration is needed across this upgrade. |
 | `7805cf3706bf9b91` | v3 | 2026-08-22 | **Schema change, unlike v1 to v2.** `tau` and `tau_profile` fold into a `selection` DynamicCombo whose other option is `top-k (SLA)` (`keep_percent`), and `routed_cap_percent` is gone. Every graph regenerated; a graph carrying the old inputs passes ComfyUI's prompt validation and dies at execute. Requires a kernel with `topk_ratio` -- it passes the argument unconditionally -- so the node and `comfy-kitchen` `0.2.31+sol.23d1a66` move together. |
+| `7805cf3706bf9b91` | **v3, RESTORED 2026-08-30** | — | The file reverted to this. Not a new drop: the last genuine upstream one, recovered from `e18bbc0`. Everything below it in this table is ours and is no longer on disk. |
 | `1c55a4b51011041a` | v3.1 | 2026-08-29 | **OURS, not a drop from upstream** -- the first entry in this table we wrote rather than received, and the reason is that upstream MERGED. Sol-Attn landed in comfy-kitchen main as #117 (`dae00a1`) with a reshaped API: `centroid_tail`, `reuse_qkv_memory` and `max_blocks` gone from both entries, `tail`, `block_len` and `coarse_gate` added. The kernel call now reads `sol_attn`'s SIGNATURE and passes only what that build accepts, so one node drives both the branch build and the merged one -- necessary rather than tidy, because both declare version `0.2.31`. `centroid_tail=False` RAISES instead of being dropped: the merged kernel always evaluates the pooled tail at the query block's centroid, which is what `True` did, so our config is behaviour-preserving, but `False` is a computation this build cannot express and swallowing the request would change the math silently. **No schema change** -- same inputs, same order, same defaults, so no graph regeneration is needed. `centroid_tail` and `reuse_qkv_memory` remain as widgets and are now inert on this kernel; they are kept because removing a widget re-points every later value in every saved graph. |
 
 **Every measurement in `docs/SOLATTN.md` dated 2026-08-14 was taken on v1**,

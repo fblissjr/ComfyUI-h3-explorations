@@ -176,13 +176,45 @@ at the lengths this repo actually renders: 22,121 rows is far below the
 31k-128k of the shipped graphs, and sparse attention's advantage grows with
 length, so this shape is close to the least favourable one available.
 
-**The timing is NOT MEASURED, in either direction.** Warm, VSA 22.68 s against
-the dense control 24.18 s, one run each. One run per arm cannot separate a 6%
-difference from run-to-run excursion, so this is neither evidence of a speedup
-nor evidence of its absence. An earlier wording here said "no speedup", which
-is a claim this sample cannot support either. The two warm numbers share a
-cached text encode, which is what makes them comparable to each other at all;
-the cold run at 43.43 s carries the model load and is comparable to neither.
+**The timing at THIS length is not measured, in either direction.** Warm, VSA
+22.68 s against the dense control 24.18 s, one run each. One run per arm cannot
+separate 6% from run-to-run excursion, so it is neither evidence of a speedup
+nor of its absence. An earlier wording said "no speedup", which this sample
+cannot support either. **A longer shape settles it -- see below.**
+
+**The shape was the least favourable available, and that is now measured
+rather than hedged.** `bench/preflight_graph.py` prices any graph statically,
+without touching the card: this arm packs 22,121 rows, against 109,457 for the
+shipped t2v graphs and 63,233 for the cheapest square-canvas probe. So it sat
+below every shipped graph, by 3x against the cheapest and 5x against the
+common ones -- and sparse attention's advantage grows with length.
+
+## Length scaling, 2026-08-30
+
+Record: `bench/results/2026-08-30_vsa_length_scaling.json`. Same two arms, same
+seed and sampler, 768x768, at 124 frames and again at 362.
+
+| packed rows | VSA | dense (sage) | verdict |
+|---|---|---|---|
+| 22,121 | 22.68 s | 24.18 s | not measured, one run each, 1.5 s apart |
+| 63,233 | 71.55, 68.83 s | 102.43, 102.50 s | **attributable**, two runs each |
+
+At the longer shape the between-arm gap is about 32 s while the largest
+within-arm spread is 2.72 s -- an order of magnitude smaller, which is what
+makes it attributable where the first pair was not. VSA is about **1.46x**
+faster than sage on the same checkpoint there.
+
+**Two points is a direction, not a curve.** What it shows is that the
+advantage is length-dependent and appears where sparse attention predicts it
+should, which is the thing the first render could not see.
+
+**And it is still not a quality result.** Speed says nothing about output. The
+control is SAGE, not Sol-Attn, so this says nothing about VSA against the
+sparse attention this repo actually ships. 63,233 rows is still below every
+shipped t2v graph. And at both lengths the correctness side holds
+independently: VSA differs from its control and each arm reproduces itself at
+the same seed, on decoded pixels, with the arms identified from the graph
+embedded in each file.
 
 ## What would settle the rest
 

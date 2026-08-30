@@ -1,46 +1,73 @@
 #!/usr/bin/env python3
-"""Check that our forked Sol node computes what the vendored one computed.
+"""Grade our Sol node's DISPATCH against the algorithm's own eager reference.
 
-`sol_attn_h3.py` is a fork of `vendor/sol_attn_minimax.py` (see that file's
-header for the four local changes). Three of the four are schema or plumbing;
-the fourth removed two arguments. This asserts what that is supposed to mean:
-**at the settings this repo ships, the two dispatch paths produce the SAME
-BYTES**, so migrating a graph from one node to the other cannot move a render.
+## What this covers that `check_solattn_correctness.py` does not
 
-Why bit-identical rather than a tolerance. Both paths call
-`comfy_kitchen.sol_attn` with the same arguments -- the vendored node stopped
-passing `centroid_tail` the moment the merged kernel stopped accepting it, and
-the fork passes `tail=True`, which is that kernel's default. So there is no
-approximation between them to tolerate. A tolerance here would pass on a real
-divergence; equality is the only bar that says what we mean.
+That file grades the KERNEL against the algorithm's eager reference. This
+grades everything our node does AROUND the kernel: the BHND-to-BTHD transpose
+and back, the scale it forwards, the sink pair it derives, and the tail flag it
+passes. A defect in any of those produces a plausible tensor of the right shape
+and a successful render.
 
-This is the control `docs/eval_comparison.md` cannot give us. A rendered pair
-cannot A/B a numerical change -- the trajectory diverges completely from any
-perturbation -- so the comparison has to happen at the CALL. That is the same
-argument `bench/grade_sage_on_capture.py` rests on.
+The distinction is the reshape. `optimized_attention` hands H3's attention over
+as BHND with `skip_reshape=True`, the kernel wants BTHD, and the output goes
+back as BHND. Getting that wrong transposes heads against tokens -- which does
+not raise, because both are legal sizes.
 
-What each case claims:
+## The oracle is the KERNEL, not the algorithm, and the first draft got that wrong
 
-  vendored node imports    the fork's baseline still exists and still loads.
-                           When `vendor/sol_attn_minimax.py` is retired to a
-                           read-only reference this SKIPS rather than fails,
-                           and a skip exits 2 -- a check that did not run must
-                           not read as one that passed.
-  identical at shipped     the migration is output-neutral at the settings
-    settings               `h3_config.SOL_RECOMMENDED_CUDA` carries.
-  identical under top-k    the other selection, which no shipped graph uses
-                           and which a bench arm can reach.
-  pooled_tail changes it   the red control. `tail` is the one argument the
-                           fork added, so if turning it off does NOT move the
-                           output, this file is comparing a knob that is not
-                           connected and every case above proves nothing.
+This file was first written to compare the dispatch against the eager
+reference, and the numbers looked like a marginal failure: cosine ~0.994 to
+0.998 depending on shape and seed, sometimes under the bar. The instinct was
+to loosen the bar. That would have been wrong twice over.
 
-**Scope, and it is narrower than "the fork is safe".** This grades `_run`,
-the dispatch. It does not exercise the sink derivation, the sigma window,
-`dense_blocks`, the Morton reorder or the override chaining -- those are
-unmodified by the fork rather than verified by this file, and "unmodified" is
-a claim about a diff, not a measurement. The node's composition seam is
-covered by `bench/smoke_h3.py` and by nothing else.
+Measured instead: **the dispatch is BITWISE identical to a direct
+`comfy_kitchen.sol_attn` call** on the same inputs. Every bit of that spread
+was the kernel's INT8 arithmetic against fp32 -- which is not the node's doing,
+is a property `check_solattn_correctness.py` already owns, and would have been
+silently absorbed into a loosened tolerance here.
+
+So the oracle is the kernel. That gives an exact claim rather than a tolerance,
+it isolates the layer this file is about, and it needs no O(T^2) score tensor,
+so it runs at a realistic sequence length instead of a toy one. **A tolerance
+where an equality is available is a check that cannot see small defects.**
+
+## Why it no longer compares against the vendored node
+
+**It used to, and that comparison is finished rather than broken.** Until
+2026-08-30 this file asserted that our forked node produced the SAME BYTES as
+the vendored upstream one at the shipped settings, which is what made migrating
+145 graphs safe. It passed, at both selections, and the result is recorded in
+`bench/results/2026-08-30_sol_node_equivalence.json`.
+
+That comparison cannot be re-run and should not be resurrected. `vendor/`
+now holds the PRE-MERGE upstream drop, restored to be a pristine reference:
+its `_run` passes `centroid_tail` to a kernel that no longer accepts it, so it
+raises rather than producing a baseline. Keeping a check that can only skip
+would be worse than none -- so the baseline moved to the algorithm, which is
+the more durable control anyway and one this repo already trusts.
+
+Claims, i.e. what breaks if a case is deleted:
+
+  dispatch == kernel       our node's `_run` produces the SAME BYTES as calling
+                           `comfy_kitchen.sol_attn` directly with the transpose
+                           done by hand. Catches a transpose, a dropped scale,
+                           or a sink pair built wrong.
+  top-k dispatch           the same through the other selection, which no
+                           shipped graph uses and a bench arm can reach.
+  sink pair reaches        a non-zero sink must change the output. The sink is
+    the kernel             derived from H3's layout and passed through two
+                           call frames; if it stopped arriving, every
+                           conditioning row would be routed sparsely and the
+                           render would merely look worse.
+  pooled_tail reaches      RED CONTROL. `tail` is the argument the fork added.
+    the kernel             If turning it off does not move the output, it is
+                           not connected and every case above is comparing a
+                           knob that does nothing.
+  a transposed oracle      RED CONTROL, and the one that earns this file.
+    is caught              Compares against a kernel call with heads and tokens
+                           swapped. If that still matches, the equality above
+                           is not seeing layout at all.
 
 Needs CUDA and a comfy_kitchen carrying the merged `sol_attn`. Exit 0 all
 passed, 1 a case failed, 2 nothing was graded.
@@ -51,9 +78,7 @@ passed, 1 a case failed, 2 nothing was graded.
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
-from datetime import date
 from pathlib import Path
 
 import torch
@@ -62,7 +87,7 @@ REPO = Path(__file__).resolve().parent.parent
 COMFY = REPO.parent.parent
 
 
-def load_module(name, path, package_dir=None):
+def load(name, path, package_dir=None):
     spec = importlib.util.spec_from_file_location(
         name, path,
         submodule_search_locations=[str(package_dir)] if package_dir else None)
@@ -72,112 +97,95 @@ def load_module(name, path, package_dir=None):
     return module
 
 
+def cosine(a, b):
+    a, b = a.float().flatten(), b.float().flatten()
+    return float(a @ b / (a.norm() * b.norm()))
+
+
 def main():
     if not torch.cuda.is_available():
         print("no CUDA; the kernel cannot run. Nothing checked.")
         return 2
     sys.path.insert(0, str(COMFY))
+    sys.path.insert(0, str(REPO / "bench"))
 
-    # Our node, loaded as a package member so its relative imports resolve.
-    load_module("h3x", REPO / "__init__.py", package_dir=REPO)
-    ours = load_module("h3x.sol_attn_h3", REPO / "sol_attn_h3.py")
+    load("h3x", REPO / "__init__.py", package_dir=REPO)
+    node = load("h3x.sol_attn_h3", REPO / "sol_attn_h3.py")
+    import comfy_kitchen as ck                              # noqa: E402
+    if not hasattr(ck, "sol_attn"):
+        print("this comfy_kitchen has no sol_attn; nothing to grade.")
+        return 2
 
-    vendored_path = REPO / "vendor" / "sol_attn_minimax.py"
-    theirs = None
-    if vendored_path.is_file():
-        try:
-            theirs = load_module("_vendored_sol", vendored_path)
-        except Exception as exc:
-            print(f"  SKIP vendored node imports   {exc}")
-    else:
-        print(f"  SKIP vendored node imports   no file at vendor/{vendored_path.name}")
-
-    # A shape in the regime the gate actually selects: above min_tokens, more
-    # than one block, and head_dim 128 because the kernel requires it.
     torch.manual_seed(0)
+    # A realistic length, which the kernel oracle allows and an O(T^2) eager
+    # oracle would not.
     b, h, t, d = 1, 8, 16384, 128
+    # BHND, which is how `optimized_attention` hands H3's attention over.
     q, k, v = (torch.randn(b, h, t, d, device="cuda", dtype=torch.bfloat16)
                for _ in range(3))
     common = dict(skip_reshape=True, skip_output_reshape=True, scale=None,
                   min_tokens=12288, verbose=False)
 
-    failures, skipped, record = [], [], {}
+    failures = []
 
     def check(name, ok, detail=""):
         print(f"  {'ok  ' if ok else 'FAIL'} {name}" + (f"   {detail}" if detail else ""))
         if not ok:
             failures.append(name)
 
-    def ours_run(**kw):
-        # tau is positional-required on both sides; the top-k case does not
-        # name it and the kernel ignores it there, so pin the shipped value.
-        return ours._run(q, k, v, h, **{**common, "tau": 1.0, **kw})
+    def dispatch(**kw):
+        return node._run(q, k, v, h, **{**common, "tau": 1.0, **kw})
 
-    def theirs_run(**kw):
-        # Positional, because the vendored signature still carries the two
-        # arguments the merged kernel dropped and we must not pass them by name.
-        return theirs._run(q, k, v, h, common["skip_reshape"],
-                           common["skip_output_reshape"], common["scale"],
-                           kw.get("tau", 1.0), common["min_tokens"],
-                           common["verbose"], (0, 0), (0, 0), True, False,
-                           kw.get("topk_ratio", 0.0))
+    def kernel(transpose_oracle=False, **kw):
+        """The kernel call the dispatch should be making, done by hand."""
+        qs, ks, vs = (x.transpose(1, 2).contiguous() for x in (q, k, v))
+        if transpose_oracle:                      # heads against tokens
+            qs, ks, vs = (x.transpose(1, 2).contiguous() for x in (qs, ks, vs))
+        out = ck.sol_attn(qs, ks, vs, **kw)
+        return out.transpose(1, 2)
 
-    if theirs is None:
-        skipped.append("vendored node imports")
-        skipped.append("identical at shipped settings")
-        skipped.append("identical under top-k")
-    else:
-        check("vendored node imports", True, "the fork's baseline is loadable")
-        for label, kw in (("identical at shipped settings", dict(tau=1.0)),
-                          ("identical under top-k", dict(topk_ratio=0.10))):
-            a, bb = ours_run(**kw), theirs_run(**kw)
-            same = torch.equal(a, bb)
-            record[label] = {"bit_identical": bool(same), **kw}
-            check(label, same,
-                  "same bytes" if same else
-                  f"DIFFER: max abs {float((a.float() - bb.float()).abs().max()):.3e}")
+    print("our node's dispatch against the kernel call it should be making:")
+    print(f"  B={b} H={h} T={t} D={d} bf16, bitwise\n")
 
-    # Red control: the argument the fork added must be connected to something.
-    on, off = ours_run(tau=1.0, tail=True), ours_run(tau=1.0, tail=False)
-    moved = not torch.equal(on, off)
-    a, bb = on.float().flatten(), off.float().flatten()
-    cos = float(a @ bb / (a.norm() * bb.norm()))
-    record["pooled_tail_cos_on_vs_off"] = cos
-    check("pooled_tail changes the output", moved,
-          f"cos {cos:.6f} on synthetic input -- a floor, not a quality figure"
-          if moved else
-          "pooled_tail is not reaching the kernel; every case above is vacuous")
+    for label, kw in (("at the shipped selection", dict(tau=1.0)),
+                      ("under top-k", dict(tau=1.0, topk_ratio=0.10))):
+        got, want = dispatch(**kw), kernel(**{**kw, "tail": True})
+        same = torch.equal(got, want)
+        check(f"dispatch == kernel {label}", same,
+              "same bytes" if same else
+              f"DIFFER: max abs "
+              f"{float((got.float() - want.float()).abs().max()):.3e}")
 
-    out = REPO / "bench" / "results" / f"{date.today()}_sol_node_equivalence.json"
-    try:
-        import importlib.metadata
-        build = importlib.metadata.version("comfy-kitchen")
-    except Exception:
-        build = "unknown"
+    sink = dispatch(tau=1.0, sink_blocks=(0, 4), sink_q=(0, 4))
+    check("sink pair reaches the kernel",
+          torch.equal(sink, kernel(tau=1.0, tail=True,
+                                   sink_blocks=[0, 4], sink_q=[0, 4]))
+          and not torch.equal(sink, dispatch(tau=1.0)),
+          "a non-zero sink both arrives and changes the output")
 
-    out.write_text(json.dumps({
-        "what": "our forked Sol node's dispatch against the vendored node's, "
-                "at matched settings, on synthetic input",
-        "comfy_kitchen": build,
-        "shape": {"batch": b, "heads": h, "tokens": t, "head_dim": d,
-                  "dtype": "bfloat16"},
-        "scope": "the dispatch only. The sink, the sigma window, dense_blocks, "
-                 "Morton and the override chaining are unmodified by the fork "
-                 "and are not exercised here.",
-        "not_a_quality_measurement": "synthetic torch.randn gives a "
-                                     "near-uniform softmax, so there is nothing "
-                                     "for a block router to find. Cosines here "
-                                     "are floors.",
-        "cases": record,
-    }, indent=2) + "\n")
-    print(f"\nrecord: bench/results/{out.name}")
+    print("\nred controls:")
+    base = dispatch(tau=1.0)
+    off = dispatch(tau=1.0, tail=False)
+    moved = not torch.equal(base, off)
+    c = cosine(base, off)
+    check("pooled_tail reaches the kernel", moved,
+          f"cos {c:.6f} against tail=True -- connected" if moved else
+          "turning the pooled tail off changed nothing; it is not reaching "
+          "the kernel and every case above is vacuous")
 
+    swapped = kernel(transpose_oracle=True, tau=1.0, tail=True)
+    caught = not (swapped.shape == base.shape and torch.equal(base, swapped))
+    check("a transposed oracle is caught", caught,
+          "a heads/tokens swap does not match, so the equality above is "
+          "actually seeing layout"
+          if caught else
+          "a transposed oracle still matches; this file cannot see the defect "
+          "class it exists for")
+
+    print()
     if failures:
         print(f"FAILED: {len(failures)} case(s): {', '.join(failures)}")
         return 1
-    if skipped:
-        print(f"INCOMPLETE: {len(skipped)} case(s) skipped: {', '.join(skipped)}")
-        return 2
     print("all cases passed")
     return 0
 

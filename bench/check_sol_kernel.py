@@ -133,9 +133,17 @@ _REPO = Path(__file__).resolve().parent.parent
 # the silent-drift failure this case exists for.
 _NODE_PATHS = (_REPO / "sol_attn_h3.py",)
 
-# Where ComfyUI loads the node from. Should be a symlink INTO vendor/, so the
-# tracked file and the running file cannot diverge -- see vendor/README.md.
+# **RETIRED 2026-08-30.** `vendor/sol_attn_minimax.py` was the node ComfyUI
+# loaded, through a symlink from `ComfyUI-SolAttn-cuda/`. It is now a READ-ONLY
+# REFERENCE -- upstream's node, pristine at the last genuine drop -- and the
+# node that runs is `sol_attn_h3.py` in this pack.
+#
+# So "not installed" is the CORRECT state and the cases below say so rather
+# than skipping. The pack directory is renamed `.disabled`, which ComfyUI skips
+# (`nodes.py`, `module_path.endswith(".disabled")`), so the arrangement is
+# reversible by renaming it back.
 _INSTALLED = _REPO.parent / "ComfyUI-SolAttn-cuda" / "sol_attn_minimax.py"
+_DISABLED = _REPO.parent / "ComfyUI-SolAttn-cuda.disabled" / "sol_attn_minimax.py"
 _VENDORED = _REPO / "vendor" / "sol_attn_minimax.py"
 
 # sha256 -> label. Upstream publishes this file through conversation, not a
@@ -143,6 +151,15 @@ _VENDORED = _REPO / "vendor" / "sol_attn_minimax.py"
 # rather than a warning: it forces a version to be named and dated before it
 # can be run, which is exactly what was missing when three untracked copies
 # existed on this box and none was authoritative.
+# Hashes that are OURS rather than upstream's. Kept separate from the lineage
+# table because they answer a different question: not "which version is this"
+# but "is this file still upstream's at all". Both were written here on
+# 2026-08-29, in place, which is what the fork in `sol_attn_h3.py` undid.
+OUR_NODE_VERSIONS = {
+    "1c55a4b51011041a03e62ed73458c9ce280ffd8ca6fc5f353b2806d978504ac1": "v3.1",
+    "30625d8734b53c23f1f17d1036be822eb28fbb108cb2972a689b12c2090606b5": "v3.2",
+}
+
 KNOWN_NODE_VERSIONS = {
     "3a5f0051fce61d9da1a0b1aaaf03bc16af654d7be59a929bcde395a058918d73":
         "v1 (2026-08-14 10:48) -- sink_q = whole conditioning range",
@@ -401,34 +418,44 @@ check("no_triton_graphs", not triton_graphs,
       if triton_graphs else
       f"0 of {len(graph_paths(_REPO / 'workflows'))} graphs")
 
-print("\nthe node ComfyUI loads is the one this repo tracks:")
-# Ours is a first-class module in this pack, loaded by `nodes.py`, so there is
-# no symlink to verify and no hash to pin -- git tracks it like every other
-# node here. The cases below cover the VENDORED node, which is upstream's and
-# is provenance-tracked by hand because upstream publishes it through
-# conversation rather than a repository.
+print("\nthe vendored upstream node is a pristine reference, not the running node:")
 if not _VENDORED.is_file():
-    skip("vendored", f"no vendored copy at {_VENDORED}")
+    skip("vendored_reference", f"no vendored copy at vendor/{_VENDORED.name}")
     skip("node_version", "nothing to hash")
 else:
     digest = hashlib.sha256(_VENDORED.read_bytes()).hexdigest()
-    if not _INSTALLED.exists():
-        skip("vendored", f"node not installed at {_INSTALLED}")
-    else:
-        same = _INSTALLED.resolve() == _VENDORED.resolve()
-        how = "symlink" if _INSTALLED.is_symlink() else "copy"
-        if not same and _INSTALLED.is_file():
-            same = hashlib.sha256(_INSTALLED.read_bytes()).hexdigest() == digest
-        check("vendored", same,
-              f"installed is a {how} of the tracked file"
-              if same else
-              f"{_INSTALLED} differs from {_VENDORED} -- the running node is "
-              f"not the tracked one")
+    # The point of this file is that it is UPSTREAM'S. A copy carrying our
+    # edits answers "does this reproduce on stock?" with "we do not know",
+    # which is the whole property it exists to provide. It was lost between
+    # 2026-08-29 and 2026-08-30, when the merged kernel's API change was
+    # absorbed by editing it in place, and restored by reverting to the last
+    # genuine drop.
+    ours = digest in OUR_NODE_VERSIONS
+    check("vendored_reference", not ours,
+          "pristine upstream drop; a disagreement with it is a finding"
+          if not ours else
+          f"the vendored file is OURS ({OUR_NODE_VERSIONS[digest]}), not "
+          f"upstream's. A reference carrying our edits cannot adjudicate "
+          f"anything -- fork it under its own name instead (sol_attn_h3.py "
+          f"is how that was done).")
     label = KNOWN_NODE_VERSIONS.get(digest)
     check("node_version", label is not None,
           label if label else
           f"sha256 {digest[:16]}... is not a recorded version; add it to "
           f"KNOWN_NODE_VERSIONS and vendor/README.md before running it")
+
+    live = _INSTALLED.exists()
+    check("not_loaded_by_comfyui", not live,
+          "correctly absent: the pack is renamed .disabled, which ComfyUI "
+          "skips, so the reference cannot be executed by accident"
+          if not live else
+          f"{_INSTALLED.parent.name}/ is live again, so ComfyUI is loading the "
+          f"PRE-MERGE upstream node. Its `_run` passes `centroid_tail` to a "
+          f"kernel that dropped it, which raises inside `override`'s "
+          f"catch-all and becomes a silent full-dense render.")
+    if _DISABLED.exists():
+        print(f"        the disabled pack still points into vendor/, so "
+              f"renaming it back restores the old arrangement exactly")
 
 print("\nSOL_CUDA_DEFAULTS pins only knobs the node declares:")
 node_file = next((p for p in _NODE_PATHS if p.is_file()), None)

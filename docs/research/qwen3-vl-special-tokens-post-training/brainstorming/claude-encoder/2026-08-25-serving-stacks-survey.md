@@ -182,9 +182,12 @@ would use; that is a build convenience, not a lever.
   refuses if `h3_awq_w4a16` is already registered with a different contract.
 
 **The interaction that v2 changes is Sol's exact sink.**
-`custom_nodes/ComfyUI-SolAttn-cuda/sol_attn_minimax.py::_sink_blocks` covers rows
+`sol_attn_h3.py::_sink_blocks` covers rows
 `[0, video_start)`: text, keyframe cond and cond audio, reference image,
-reference audio, and the target audio. [`SOLATTN.md`](../../../../SOLATTN.md)
+reference audio, and the target audio. (Path corrected 2026-08-30: this cited
+the installed `ComfyUI-SolAttn-cuda` pack, which is retired -- the node moved
+into this repo as `sol_attn_h3.py`. The function and its behaviour are
+unchanged; only where it lives moved.) [`SOLATTN.md`](../../../../SOLATTN.md)
 already records that "images and videos pay in two segments, and the text
 segment is inside the sink as well, so a reference grows the exact region
 twice". A reference still costs about 264 to 294 text-segment rows under the

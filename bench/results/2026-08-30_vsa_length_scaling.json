@@ -1,0 +1,60 @@
+{
+  "what": "VSA against a dense control on the same checkpoint, at two sequence lengths, to see whether the sparse advantage appears where it is supposed to",
+  "date": "2026-08-30",
+  "stack": "DRAFT throughout: core PR 15958 (head 10febb01) in the working tree, Kijai/MiniMax-H3-experimental checkpoint, comfy_kitchen 0.2.31+sol.dae00a1. Only the kernel is released.",
+  "arms": {
+    "vsa": "h3_probe_vsa_api.json, keep_percent 10.0, pooled_tail False",
+    "dense": "h3_probe_vsa_dense_api.json, same checkpoint, sage only"
+  },
+  "matched": {
+    "seed": 730451892,
+    "steps": 4,
+    "canvas": "768x768",
+    "sampler": "er_sde/simple",
+    "shift_video": 12.0
+  },
+  "lengths": {
+    "124_frames": {
+      "packed_rows": 22121,
+      "vsa_seconds": [
+        22.68
+      ],
+      "dense_seconds": [
+        24.18
+      ],
+      "verdict": "NOT MEASURED. One run per arm, 1.5 s apart -- that cannot separate 6% from excursion in either direction."
+    },
+    "362_frames": {
+      "packed_rows": 63233,
+      "vsa_seconds": [
+        71.55,
+        68.83
+      ],
+      "dense_seconds": [
+        102.43,
+        102.5
+      ],
+      "vsa_mean": 70.19,
+      "dense_mean": 102.47,
+      "ratio_dense_over_vsa": 1.46,
+      "within_arm_spread_seconds": {
+        "vsa": 2.72,
+        "dense": 0.07
+      },
+      "verdict": "ATTRIBUTABLE. The between-arm gap is about 32 s and the largest within-arm spread is 2.72 s, an order of magnitude smaller. Two samples per arm, not one."
+    }
+  },
+  "finding": "The advantage is length-dependent and appears where sparse attention predicts it should. At 22k rows the difference is inside excursion; at 63k rows VSA is about 1.46x faster than sage on the same checkpoint. TWO POINTS, so this is a direction and not a curve.",
+  "correctness_alongside": "At both lengths VSA differs from its dense control and each arm reproduces itself at the same seed, verified on decoded pixels with the arms identified from the graph embedded in each file (bench/verify_vsa_render.py).",
+  "not_established": [
+    "ANY quality claim. Speed says nothing about output, a rendered pair cannot A/B a numerical change, and these arms differ in attention regime outright.",
+    "that this transfers to the shipped canvas. 63,233 rows is still below every shipped t2v graph, which prices at 109,457.",
+    "a comparison against Sol-Attn. The control here is sage, not Sol, so this says nothing about VSA against the sparse attention this repo actually ships.",
+    "that keep_percent 10.0 is right; it is the distillation's published sparsity, unmeasured here."
+  ],
+  "reproduce": [
+    "bench/smoke_h3.py --workflow h3_probe_vsa_api.json --length 362 --steps 4",
+    "bench/smoke_h3.py --workflow h3_probe_vsa_dense_api.json --length 362 --steps 4",
+    "bench/verify_vsa_render.py <vsa> <dense> <vsa-repeat>"
+  ]
+}

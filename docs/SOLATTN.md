@@ -803,10 +803,23 @@ pack, not the vendored `SolAttnMiniMax`.** `sol_attn_h3.py`'s header lists the
 four local changes; `vendor/README.md` records why forking was the right call
 rather than a fourth in-place edit. The migration is output-neutral at the
 shipped settings and that is **measured, not argued**: the two dispatches
-produce the same bytes at both selections
-(`bench/check_sol_node_equivalence.py`,
-`bench/results/2026-08-30_sol_node_equivalence.json`). Nothing on this page
+produced the same bytes at both selections
+(`bench/results/2026-08-30_sol_node_equivalence.json`). Nothing on this page
 moves.
+
+**The vendored node is a read-only reference since 2026-08-30**, restored to
+the last genuine upstream drop and disabled in `custom_nodes/`. `vendor/README.md`
+owns why; the short form is that the property a vendored file exists to provide
+-- a disagreement with it is a finding -- was spent when the merged kernel's
+API change was absorbed by editing it in place. So the one-time migration
+comparison above cannot be re-run, and `bench/check_sol_node_equivalence.py`
+was repointed rather than left to skip: it now asserts our dispatch is
+**bitwise identical to the kernel call it should be making**, which is a
+stronger claim than the tolerance it started with and isolates the layer it is
+about. Its first draft graded against the eager algorithm and read as a
+marginal failure at cos 0.994-0.998; every bit of that was the kernel's INT8
+arithmetic against fp32, which `check_solattn_correctness.py` already owns and
+a loosened tolerance here would have absorbed.
 
 `centroid_tail` and `reuse_qkv_memory` are gone from the node rather than
 inert. `pooled_tail` is new. **It is not `centroid_tail` renamed**, and the

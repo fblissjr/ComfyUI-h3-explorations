@@ -48,5 +48,16 @@
     "not_the_cause": "the muxer and the codec. Checked, not assumed: remuxing one file twice and re-encoding it twice at the same settings each give identical bytes.",
     "one_way_implication_survives": "identical container still implies identical frames, so nothing concluded from a MATCHING hash is withdrawn.",
     "shared_namespace": "bench/smoke_h3.py hard-codes one _smoketest prefix, so every session on this box shares an output counter and consecutive files may belong to different sessions. Arm identity lives ONLY in the embedded comment tag. Verified for this record: 00007/00009 wire MiniMaxH3VSAAttention, 00008 does not, all three are the VSA checkpoint at seed 730451892; the adjacent 00006 is another session's PDD arm on fl2va at 39 frames."
+  },
+  "shape_is_least_favourable_measured": {
+    "this_arm_rows": 22121,
+    "shipped_rows_sampled": {
+      "h3_text_to_video": 109457,
+      "h3_probe_sol_on": 109457,
+      "h3_first_frame_to_video": 109199,
+      "h3_probe_square_canvas": 63233
+    },
+    "priced_by": "bench/preflight_graph.py, statically, no card touched",
+    "so": "22,121 rows is below every shipped graph sampled, by 3x against the cheapest and 5x against the common ones. Sparse attention's advantage grows with sequence length, so this is close to the least favourable shape available -- a MEASURED statement now, not a hedge."
   }
 }
