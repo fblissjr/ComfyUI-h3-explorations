@@ -27,11 +27,31 @@ output for a SAMPLE of rows, computed against the FULL key set, is exact for
 those rows -- not an approximation of them. Sampling costs coverage, not
 fidelity, and coverage is reported.
 
-Rows are sampled per segment rather than uniformly. H3 packs
-`[text | refs | audio | video]` into one sequence and video is the large
-majority, so a uniform sample is a video sample wearing a general label. The
-segments have different statistics and the reference rows are the ones pinned
-across every step, which is where a quantisation error would compound.
+Rows are sampled in equal-count POSITIONAL strata, not per segment, and this
+paragraph said the opposite until 2026-08-30. **The file contradicted itself**:
+`sample_rows` slices the sequence into even position ranges, and its own inline
+comment says why anything else is impossible -- segment boundaries are not
+recorded in the capture, and inventing them would be a fabrication.
+
+The motivation the old wording carried is still right and is why the strata
+exist at all. H3 packs `[text | refs | audio | video]` into one sequence and
+video is the large majority, so a uniform sample is a video sample wearing a
+general label; the segments have different statistics, and the reference rows
+are pinned across every step, which is where a quantisation error would
+compound. Positional strata are a PROXY for that, resting on video being the
+trailing span. They are not the thing itself.
+
+**So this file cannot currently answer a question about segment BOUNDARIES** --
+whether a quantisation block straddling two segments is worse than one inside a
+segment. A peer session read the old wording, reasonably concluded the data was
+already here, and built a hypothesis on it. What would make that answerable is
+recording the real boundaries at capture time: core builds them as
+`PackedLayout.segments`, and this repo already reads them elsewhere
+(`sol_attn_h3.py::_video_span` publishes the video span from exactly that
+structure). Do not derive them from the manifest's `token_accounting` instead
+-- `bench/generate_capture_manifest.py` hardcodes `text_tokens = 7711` and
+`audio_tokens = 1206` as literals, so boundaries built from it would inherit
+two constants nobody measured for the capture in hand.
 
 ## The control
 
