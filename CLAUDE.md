@@ -382,6 +382,25 @@ repeating work.
   harnesses were rewritten and the pre-port copies left in place, still runnable
   and still returning success unconditionally, with `docs/checks.md` still citing
   them — so the fix shipped and the defect stayed.
+- **ComfyUI caches, so the SECOND run of a thing is not the same measurement as
+  the first.** Node outputs are cached by input hash, models stay resident
+  between prompts, and weights stay staged -- so a warm arm skips load, skips
+  encode when the prompt and references are unchanged, and pays no staging
+  cost. **A VRAM figure or a wall time is a statement about a cache state as
+  much as about a configuration**, and two arms are only comparable if they
+  were equally warm. Say which state you measured in; if you are comparing
+  arms, either restart between them or run each twice and use the second.
+  - The related trap, and it bit on 2026-08-30: **a log line is not
+    timestamped with your prompt.** A staging line read as belonging to the
+    arm just submitted actually belonged to an earlier arm, because another
+    session had restarted the server underneath and the current process was
+    writing its stdout somewhere else entirely. `/history` carries the
+    submitted graph and is the observable; the log is a convenience that can
+    silently belong to someone else's run. Confirm the arm from the prompt
+    record before quoting anything a log said about it.
+  - This does not touch the offline measurements -- anything reading
+    safetensors and computing on CPU has no cache state to be wrong about.
+    It bites renders, timings and memory figures.
 - **A rendered clip cannot A/B a numerical change.** The sampling trajectory
   diverges completely from any perturbation, on **any** sampler. Measured
   2026-08-18: two arms differing only in sage `mode` diverge at **frame 0**, at

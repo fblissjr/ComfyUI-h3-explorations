@@ -11,6 +11,16 @@
 - [`2026-08-27_handoff.md`](2026-08-27_handoff.md) — superseded on its central
   question by the above, and carries a dated in-place correction to its item 2.
 
+**Depth and the remaining axes**, opened 2026-08-30:
+[`depth_and_axes.md`](depth_and_axes.md) — where in the DiT running undistilled
+or over-distilled makes the most difference, what is already settled about
+per-block *quantisation* (and why that is a different question), the four
+measured depth profiles and the ways they disagree, and an inventory of every
+PDD axis: exposed, structurally present but unreachable, and fixed. **Read its
+§3 before repointing `probe_block_propagation.py`** — that probe is controlled
+by a property of Sol's shape that a strength change does not share, and running
+it naively returns numbers that mean nothing.
+
 **Audio under PDD**, opened 2026-08-28 and handed to the `audioclaude` session:
 [`audio_under_pdd.md`](audio_under_pdd.md) is the finding and the reasoning —
 why a fused head's block-MEAN velocity meets an instantaneous change of variable
