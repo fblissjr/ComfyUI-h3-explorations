@@ -61,5 +61,37 @@
       "ref_audio_t_crop_disabled": 207,
       "rows_lost": 2
     }
+  ],
+  "video_time_axis": [
+    {
+      "label": "canvas_32_aligned",
+      "given": [
+        124,
+        768,
+        1344
+      ],
+      "got": [
+        124,
+        768,
+        1344,
+        3
+      ],
+      "frames_kept": true
+    },
+    {
+      "label": "canvas_unaligned",
+      "given": [
+        124,
+        100,
+        100
+      ],
+      "got": [
+        124,
+        96,
+        96,
+        3
+      ],
+      "frames_kept": true
+    }
   ]
 }

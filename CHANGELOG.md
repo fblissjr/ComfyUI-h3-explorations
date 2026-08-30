@@ -39,9 +39,10 @@ artifact.
   and narrows it to a multiple of 800, taking half off the front. Measured
   against the real audio VAE with `crop_input = False` as the matched control
   (`bench/audit_ref_audio_crop.py`): the shipped 124-frame trim of 165,333
-  samples loses 266 leading samples and one latent step, so the reference audio
-  arrives up to 12.5 ms early against reference video, which is not cropped on
-  its time axis. Prompted by the upstream PR that proposes the one-line fix.
+  samples loses 266 leading samples, 8.3 ms, and one latent step. The worst
+  case over all lengths is 399 samples, 12.5 ms. Reference video is not shifted
+  with it, measured in the same script: its time axis is dim 0, so the crop
+  never reaches it. Prompted by the upstream PR that proposes the one-line fix.
 - **Gap 5's measurement is recorded as having been blind to it.** Its arms were
   5 s and 15 s, both exact multiples of 800, which is precisely the input on
   which the crop is a no-op. Nothing in gap 5 is withdrawn.

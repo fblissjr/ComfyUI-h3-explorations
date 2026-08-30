@@ -130,6 +130,30 @@ def main() -> int:
               f"ref_audio_t {t_shipped} -> {t_fixed}  "
               f"rows lost {entry['rows_lost']}")
 
+    # The paired claim: the same crop is a no-op on the video reference, so a
+    # soundtrack drifts against its own frames. Asserted from reading first,
+    # then measured here -- `_prepare_reference_video` hands `vae.encode` a
+    # `[T, H, W, C]` batch, so T is dim 0 and `dims = shape[1:-1]` never sees
+    # it. H and W ARE narrowed to a multiple of 16; shipped graphs escape that
+    # by snapping the canvas to 32, which is a property of `_resize`, not of
+    # the crop.
+    print()
+    video = comfy.sd.VAE.__new__(comfy.sd.VAE)
+    video.crop_input = True
+    video.downscale_ratio = (lambda a: a, 16, 16)   # the H3 video VAE's shape contract
+    video.output_channels = 3
+    video.pad_channel_value = None
+    video_rows = []
+    for label, (t, h, w) in (("canvas_32_aligned", (SHIPPED_FRAME_COUNT, 768, 1344)),
+                             ("canvas_unaligned", (SHIPPED_FRAME_COUNT, 100, 100))):
+        got = tuple(video.vae_encode_crop_pixels(torch.zeros(t, h, w, 3)).shape)
+        video_rows.append(dict(label=label, given=[t, h, w], got=list(got),
+                               frames_kept=got[0] == t))
+        print(f"  video {label:18} [T={t},{h},{w}] -> {got}  frames kept={got[0] == t}")
+    print(f"  the time axis is dim 0 on video, so the crop never reaches it; "
+          f"H/W are narrowed to a multiple of "
+          f"{video.spacial_compression_encode()}")
+
     print()
     ms = ratio / SAMPLE_RATE * 1000
     print(f"  one latent step is {ratio} samples = {ms:.2f} ms at {SAMPLE_RATE} Hz")
@@ -142,7 +166,7 @@ def main() -> int:
              crop_input_default=True,
              shipped_frame_count=SHIPPED_FRAME_COUNT,
              shipped_trim_samples=SHIPPED_TRIM_SAMPLES,
-             cases=rows), indent=2) + "\n")
+             cases=rows, video_time_axis=video_rows), indent=2) + "\n")
     print(f"  wrote {out.relative_to(HERE.parent)}")
     return 0
 
