@@ -211,6 +211,32 @@ class MiniMaxH3SageAttention(io.ComfyNode):
             previous=to.get("optimized_attention_override"),
         )
 
+        # **The seam that lets a capture see Sol's calls.** Sol composes with a
+        # foreign attention forward by gating it: the calls Sol takes run
+        # ComfyUI's STOCK forward to reach `optimized_attention`, and only the
+        # ones it declines run ours. So `h3_capture`, which lives inside our
+        # forward, recorded exactly the COMPLEMENT of Sol's work on every
+        # shipped graph -- the token-refiner calls, the dense blocks, and the
+        # steps outside Sol's sigma band -- and said nothing about it. A
+        # sage capture wearing a general label.
+        #
+        # Sol's composition already prefers `sol_take_forward` over the stock
+        # forward when one is published, describing it as "a cooperating
+        # patch's forward that reaches optimized_attention while keeping its
+        # own low-VRAM behavior". Nothing published it until 2026-08-30. This
+        # does: same projection, same fused rope, same capture, same memory
+        # handling, then `optimized_attention` instead of sage's kernel, so
+        # Sol still does the attention and the capture still fires -- tagged
+        # `sol` rather than `sage`.
+        #
+        # Inert when Sol is absent: nothing reads the key. Inert when capture
+        # is off: the delegate is the same forward, and the only difference at
+        # run time is which function the attention goes to.
+        to["sol_take_forward"] = make_minimax_attn_forward(
+            kernel_fn, kernel_kwargs, head_chunks=head_chunks,
+            clone_v=mode_releases_qkv(mode), via_optimized_attention=True,
+        )
+
         logger.info(
             "[h3] MiniMax H3 self-attention on sage (mode=%s, head_chunks=%s, "
             "%d attention modules patched, sage registered as the "

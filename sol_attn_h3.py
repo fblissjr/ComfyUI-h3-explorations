@@ -397,6 +397,20 @@ def install_h3_morton(model):
         if options is not None:
             options["sol_h3_video_span"] = bounds
             options["sol_h3_audio_span"] = audio
+            # The FULL segment table, for `h3_capture`. The two spans above are
+            # what Sol's own sink needs; a capture consumer needs every
+            # boundary, because `[text | cond | ref | audio | video]` have
+            # different activation statistics and a consumer without the table
+            # can only bin by position and hope -- which is why
+            # `bench/grade_sage_on_capture.py` samples positional strata and
+            # cannot answer whether error concentrates at a segment edge.
+            # Published here because this is the one place the layout object
+            # is in scope, and it costs a reference to a list core already
+            # built. Requested by three lanes on 2026-08-30.
+            segments = getattr(_layout, "segments", None)
+            if segments:
+                options["h3_segments"] = [
+                    (int(a), int(b), str(kind)) for a, b, kind in segments]
         if getattr(model, "_sol_morton_active", False):
             if span is None:
                 _h3_log_once("video grid does not match the segment; Morton inactive")
@@ -635,6 +649,18 @@ def make_override(tau=1.0, min_tokens=4096,
     def override(func, q, k, v, heads, mask=None, attn_precision=None,
                  skip_reshape=False, skip_output_reshape=False, **kwargs):
 
+        # **The route this call actually took, published for the capture.**
+        # A caller cannot know it in advance: Sol's composition gate upstream
+        # decides only on `min_tokens` and the sigma window, while
+        # `dense_blocks`, eligibility and kernel failure are decided HERE. So a
+        # capture tagged before this function runs claims an attribution it
+        # cannot support -- which is what the first verification run produced,
+        # tagging a block in `dense_blocks` as `sol` when it had run on sage.
+        def route(name):
+            options = kwargs.get("transformer_options")
+            if isinstance(options, dict):
+                options["h3_attn_route"] = name
+
         def dense():
             target = func if previous is None else partial(previous, func)
             return target(q, k, v, heads, mask=mask, attn_precision=attn_precision,
@@ -655,6 +681,7 @@ def make_override(tau=1.0, min_tokens=4096,
             # graph wires a mask-typed node) and would arrive quietly the day
             # anyone adopts masked H3. Raised by a peer session 2026-08-30.
             _stats["dense_fallback"] += 1
+            route("masked")
             _log_once(("masked",),
                       "this call carries an attention mask, which the Sol "
                       "kernel cannot express, so it is running on the fallback "
@@ -669,6 +696,7 @@ def make_override(tau=1.0, min_tokens=4096,
             block = kwargs.get("transformer_options", {}).get("sol_block")
         if block in dense_blocks:
             _stats["dense_block"] += 1
+            route("dense_block")
             return dense()
         block_tau = tau_profile.get(block, tau) if tau_profile else tau
 
@@ -680,6 +708,7 @@ def make_override(tau=1.0, min_tokens=4096,
                 if (sigma_start is not None and sigma > sigma_start) or \
                    (sigma_end is not None and sigma < sigma_end):
                     _stats["outside_range"] += 1
+                    route("outside_range")
                     return dense()
 
         tokens = q.shape[2] if skip_reshape else q.shape[1]
@@ -696,8 +725,13 @@ def make_override(tau=1.0, min_tokens=4096,
         except Exception as exc:
             _stats["errors"] += 1
             _log_kernel_failure(exc)
+            route("kernel_error")
             return dense()
-        return dense() if out is None else out
+        if out is None:
+            route("ineligible")
+            return dense()
+        route("sol")
+        return out
 
     return override
 

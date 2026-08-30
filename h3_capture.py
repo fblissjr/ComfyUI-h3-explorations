@@ -119,11 +119,32 @@ def _sync_spec():
 _sync_spec()
 
 
-def maybe_capture(module, q, k, v, length_hint=None):
+def maybe_capture(module, q, k, v, length_hint=None, kernel="sage",
+                  transformer_options=None):
     """Save this call's q/k/v if it matches the requested (block, step).
 
     Called from the sage forward after rope. Cheap and returns immediately
     when disabled, which is every normal render.
+
+    **`kernel` says WHICH kernel then took this call, and it is not
+    decoration.** Every shipped video graph wires sage AND Sol, and the two
+    split the calls between them: Sol takes the DiT blocks inside its sigma
+    window that are not in `dense_blocks`, sage takes the rest -- the two
+    token-refiner calls below `min_tokens`, the dense blocks, and every step
+    outside the band. A capture with no tag cannot say which of those it
+    holds, and until 2026-08-30 it could not hold the Sol ones at ALL: this
+    function is called from our sage forward, and Sol's composition routes
+    around that forward on the calls it takes, so a capture on a shipped graph
+    silently recorded exactly the complement of Sol's work. See
+    `attention.py`'s `sol_take_forward`, which is what closes it.
+
+    **`transformer_options` is read for the packed layout's segment
+    boundaries only**, and nothing else. `[text | cond | ref | audio | video]`
+    have genuinely different activation statistics, and without the boundaries
+    a consumer can only bin by position and hope -- which is why
+    `bench/grade_sage_on_capture.py` samples positional strata and cannot
+    answer whether error concentrates at a segment edge. Recording them costs
+    a tuple. Requested independently by three lanes on 2026-08-30.
 
     Block index is assigned by first-seen order rather than read off the
     module, because the attention modules carry no index and a patch-time tag
@@ -215,12 +236,39 @@ def maybe_capture(module, q, k, v, length_hint=None):
     # keeps matching. Without it a second render collides with the first on
     # every name.
     suffix = f"_r{render}" if render else ""
+    # The kernel goes in the FILENAME as well as the payload. A consumer
+    # globbing a directory should not have to load a multi-GiB tensor to find
+    # out which arm a file belongs to -- that is the same mistake as reading
+    # arm identity off a render's filename, which cost a wrong pair earlier
+    # today. `_ksage` / `_ksol`, absent when the tag is the historical default,
+    # so pre-2026-08-30 captures keep matching every existing glob.
+    ktag = "" if kernel == "sage" else f"_k{kernel}"
     name = (f"qkv_L{length_hint if length_hint is not None else 'na'}"
-            f"_S{seq}_b{block}_s{step}{suffix}.pt")
+            f"_S{seq}_b{block}_s{step}{ktag}{suffix}.pt")
     path = os.path.join(_config["dir"], name)
-    torch.save({"q": qh, "k": kh, "v": vh}, path)
+    # Segment bounds, when the layout published them. `sol_h3_video_span` is
+    # what the Sol node's rope hook publishes; the full table is preferred and
+    # the span is the fallback, so a capture taken with Sol absent still says
+    # where video starts rather than saying nothing.
+    segments = None
+    if isinstance(transformer_options, dict):
+        segments = transformer_options.get("h3_segments")
+        if segments is None:
+            span = transformer_options.get("sol_h3_video_span")
+            audio = transformer_options.get("sol_h3_audio_span")
+            if span is not None:
+                segments = [(int(span[0]), int(span[1]), "video")]
+                if audio is not None:
+                    segments.insert(0, (int(audio[0]), int(audio[1]), "audio"))
+
+    record = {"q": qh, "k": kh, "v": vh, "kernel": kernel}
+    if segments is not None:
+        record["segments"] = segments
+    torch.save(record, path)
     size = os.path.getsize(path) / 2**30
-    print(f"[h3_capture] wrote {name}  {tuple(qh.shape)} {qh.dtype}  {size:.2f} GiB")
+    print(f"[h3_capture] wrote {name}  {tuple(qh.shape)} {qh.dtype}  "
+          f"kernel={kernel}  segments={'yes' if segments else 'NO'}  "
+          f"{size:.2f} GiB")
 
 
 def wants_final():

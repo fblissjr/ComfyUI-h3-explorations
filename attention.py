@@ -308,7 +308,7 @@ def make_sage_override(kernel_fn, kernel_kwargs, previous=None):
 
 
 def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
-                              clone_v=False):
+                              clone_v=False, via_optimized_attention=False):
     """Build a replacement `Attention.forward` bound to one sage kernel.
 
     `kernel_fn(qkv_list, **kernel_kwargs)` must consume the `[q, k, v]`
@@ -382,6 +382,12 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
     def forward(self, x, rope_freqs=None, transformer_options={}):
         import comfy.model_management
         import comfy.quant_ops
+        # `via_optimized_attention` builds the SAME forward but hands the
+        # attention to `optimized_attention` instead of to `kernel_fn`, so an
+        # installed override -- Sol -- takes it. Everything above the dispatch
+        # is shared deliberately: the projection, the fused rope, the capture
+        # and the memory handling are what this forward exists for, and a
+        # second copy of them would be a second thing to keep correct.
 
         # KJNodes' MiniMaxLowVRAMAttention patches the *block* forward to hand
         # `x` over in a single-item list, so attention can free the block's
@@ -430,8 +436,46 @@ def make_minimax_attn_forward(kernel_fn, kernel_kwargs, head_chunks=1,
         # is set in the environment -- no node input and no graph change,
         # because a capture at real length writes gigabytes per call and must
         # not be reachable by opening a workflow.
-        if _capture.enabled:
-            _capture.maybe_capture(self, q, k, v, length_hint=s)
+        # On the sage path the kernel is known here, so capture here. On the
+        # delegate path it is NOT: `optimized_attention` reaches Sol's
+        # override, which decides `dense_blocks`, eligibility and kernel
+        # failure itself and can hand the call back to sage. Tagging before
+        # that call claims an attribution this frame cannot support -- the
+        # first verification run tagged a `dense_blocks` block as `sol` when
+        # it had run on sage. So the delegate captures AFTER, reading the
+        # route the override published. Costs nothing: `qh/kh/vh` below are
+        # views of this same storage, so holding q/k/v across the call keeps
+        # no extra bytes alive.
+        if _capture.enabled and not via_optimized_attention:
+            _capture.maybe_capture(
+                self, q, k, v, length_hint=s, kernel="sage",
+                transformer_options=transformer_options)
+
+        if via_optimized_attention:
+            # Hand off with the layout core itself uses: BHND and
+            # `skip_reshape=True`. Head chunking is not applied -- the
+            # override owns the whole call, and chunking here would hand it
+            # head groups it never asked for.
+            from comfy.ldm.modules.attention import optimized_attention
+            qh, kh, vh = (t[0].transpose(0, 1).unsqueeze(0) for t in (q, k, v))
+            if isinstance(transformer_options, dict):
+                # Cleared so a stale value from the previous call cannot be
+                # read as this one's. An override that publishes nothing then
+                # shows as `unknown` rather than as whatever ran last.
+                transformer_options.pop("h3_attn_route", None)
+            out = optimized_attention(qh, kh, vh, self.heads, mask=None,
+                                      skip_reshape=True,
+                                      transformer_options=transformer_options)
+            if _capture.enabled:
+                taken = "unknown"
+                if isinstance(transformer_options, dict):
+                    taken = transformer_options.get("h3_attn_route", "unknown")
+                _capture.maybe_capture(
+                    self, q, k, v, length_hint=s, kernel=taken,
+                    transformer_options=transformer_options)
+            del q, k, v
+            _trace.route(s, "sol_delegate")
+            return self.out_proj(out.squeeze(0))
 
         n = head_chunks
         if n <= 1 and isinstance(transformer_options, dict):
