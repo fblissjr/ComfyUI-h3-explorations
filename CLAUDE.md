@@ -221,7 +221,7 @@ repeating work.
 | [`docs/research/conditioning_nodes.md`](docs/research/conditioning_nodes.md) | what was built against the two conditioning defects, what was deliberately not built, and the **five load-bearing contracts in `MiniMaxH3ReferenceToVideo` that live only in code comments**. Read it before replacing a conditioning node -- that list is the acceptance criteria and nothing asserts any of it |
 | [`docs/research/official_weights_metadata.md`](docs/research/official_weights_metadata.md) | what the published release declares against what ComfyUI assumes: the tokenizer's seven unreachable H3 special tokens, the partition split that lives in the weights, and the list of things checked and found clean. **Read before writing a prompt that uses a marker** |
 | [`docs/research/h3_partition_distance.md`](docs/research/h3_partition_distance.md) | **how far apart fl2va and ref2va actually are, measured per component.** The companion to the file above: that one owns what the release DECLARES about the split, this one what the weights differ by. The two checkpoints are within a few percent at the output heads with identical key sets, while the PDD LoRAs distilled on them are near ORTHOGONAL -- and the divergence runs one way with depth, perfectly unrelated through block 30 and converging toward the output. Read it before assuming a wrong-partition load degrades gracefully, or before merging anything across partitions |
-| [`docs/research/sglang_h3_pipeline.md`](docs/research/sglang_h3_pipeline.md) | **what sglang's H3 pipeline does, stage by stage, at the source level**: request and admission, time grid and canvas, media ingestion, the Qwen3-VL encode, the VAE encodes and seeds, the packed sequence and positions, the DiT forward, the denoise loop, decode and output, the runtime and quality gates, and 27 numbered insights. Compares nothing; read it before `sglang_comparison.md` |
+| [`docs/research/sglang_h3_pipeline.md`](docs/research/sglang_h3_pipeline.md) | **what sglang's H3 pipeline does, stage by stage, at the source level**: request and admission, time grid and canvas, media ingestion, the Qwen3-VL encode, the VAE encodes and seeds, the packed sequence and positions, the DiT forward, the denoise loop, decode and output, the runtime and quality gates, SubBlock sparse attention, and its numbered insights. Compares nothing; read it before `sglang_comparison.md` |
 | [`docs/research/sglang_comparison.md`](docs/research/sglang_comparison.md) | **what the vendor serving path does that we do not, and where ours is the weaker version.** Owns the runtime and optimization comparison against sglang; the reference-conditioning comparison is `h3_references.md`'s and is not restated there. Read it before proposing an optimization -- it records what is already priced, and one hypothesis it killed |
 | [`docs/research/technique_transfer.md`](docs/research/technique_transfer.md) | **what transfers from LLM and ViT serving to H3 and what does not**: each technique, the model property it needs, what it becomes here, and its status. Read before proposing a borrow from the LLM world; the two open ones are named there with their first measurement |
 | [`docs/research/h3_dit_implementations.md`](docs/research/h3_dit_implementations.md) | **the DiT itself, across every implementation of it available here**: module tree, packed sequence, rope, attention, modulation, forward and the sampler that drives it, for ComfyUI against diffusers, sglang, DiffSynth and vllm-omni. Owns the numerical comparison; defers to `sglang_comparison.md` for runtime and to `h3_references.md` for reference conditioning. The release ships no DiT code, so diffusers is the reference of record -- its own `model_index.json` names that class. Read it before reimplementing a stage or concluding a knob is wrong |
@@ -437,6 +437,19 @@ files by path, and those ship in no wheel. **It is no longer where the
 installed kernel comes from** -- Sol-Attn merged upstream on 2026-08-29
 (comfy-kitchen#117) and the build now comes from main, so that checkout is a
 source to read rather than the thing you are running.
+
+**`find` and `grep -r` over `coderef/` answer about a MINORITY of it, silently.**
+More than half its entries are symlinks (`ls -l coderef/` is the list, and it
+is the only list -- do not truncate it with `head`), and neither tool follows a
+symlinked directory by default. So a search that returns one hit has not
+established that there is only one. On 2026-08-30 this produced a committed
+wrong attribution: `find coderef/ -name scheduling_minimax_h3_euler_ancestral.py`
+returned vllm-omni alone, the file was written up as "vllm-omni's, not
+sglang's", and `find -L` shows sglang carries it too. **Use `find -L` and
+`grep -r --dereference-recursive`**, or search the real paths. This is the
+same shape as the `graph_paths` rule below -- a bare walk passing green over a
+subset -- and it is worse here, because the subset looks like a complete
+answer rather than an empty one.
 
 **Do not import Python from it.** A build is installed
 (`0.2.31+sol.dae00a1` since 2026-08-29, upstream main with Sol-Attn merged;
