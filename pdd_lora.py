@@ -369,12 +369,32 @@ def _row_index(row) -> int:
     """The `t_emb` row a stream's segment refers to.
 
     `final_layer` is handed an int normally, and a per-token LongTensor when a
-    denoise mask puts rows at different strengths. In that case the stream's
-    own timestep is the SMALLEST row value: masked rows are pinned toward the
-    conditioning timestep (`rows_t = (1 - m * sigma).clamp(max=t_pin)`), so the
-    fully-denoised rows -- the ones on the sampler's actual trajectory -- carry
-    the minimum. Taking the max or the mean would read a pinned conditioning
-    row and select a head for a time the sampler never visits.
+    NON-UNIFORM denoise mask puts rows at different strengths. A uniform mask,
+    graded or not, collapses to one level and takes the int path
+    (`rows_t.unique().numel() == 1` in `_forward`), so the tensor case needs a
+    mask that varies across rows.
+
+    Taking the minimum is right, and the reason matters because the obvious one
+    is wrong. `rows_t = (1 - m * sigma).clamp(max=t_pin)` is strictly
+    decreasing in `m` for `sigma > 0`, and `t_row` indexes ascending `t`, so
+    the minimum row is always the LARGEST `m` present. That is the row closest
+    to the sampler's own `t_v = 1 - sigma`, which is the time the head bank
+    must be indexed at. Max or mean would read a more strongly pinned row and
+    select a head for a time the sampler never visits.
+
+    **This docstring used to justify the minimum differently** -- it said the
+    fully-denoised rows carry the minimum and are the ones on the sampler's
+    actual trajectory. That holds for a binary mask, where the two levels make
+    "fully denoised" unambiguous. Under a graded mask there may be no row at
+    `m = 1` at all, and then the minimum is merely the least-pinned row rather
+    than an unpinned one. The selection is unchanged; the reason for it is.
+
+    Verified by driving, not by reading: `_row_index` was fed the per-token
+    tensor a graded mask builds -- two-level, half-cosine feather, and a graded
+    set with no `m = 1` row, at two sigmas -- and the minimum selected the
+    largest `m` in every case. Two code-readings agreeing would not have
+    established this; nothing in the tree produces such a mask, so the branch
+    is unreachable today and no render could have exercised it.
     """
     if torch.is_tensor(row):
         return int(row.min().item())
