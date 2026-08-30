@@ -382,6 +382,35 @@ repeating work.
   harnesses were rewritten and the pre-port copies left in place, still runnable
   and still returning success unconditionally, with `docs/checks.md` still citing
   them — so the fix shipped and the defect stayed.
+- **Capture broadly first; decide what it means second. A probe that varies one
+  axis has already assumed the answer is on that axis.** Owner's instruction,
+  2026-08-30, and it is aimed at every session: *"get the data first, then
+  figure out what data is missing to better inform you."* The failure it names
+  is not a wrong hypothesis, it is a narrow CAPTURE -- a run that records one
+  number per arm cannot be re-asked a question, so a design that guessed wrong
+  costs the whole render budget rather than an analysis pass.
+  - **The instance that earns it is this repo's own.** A per-block PDD strength
+    probe was designed, built and launched on 2026-08-30 varying block and
+    strength while holding the sigma schedule at the uniform 4-evaluation
+    partition. The owner then pointed out that a less steep schedule is the
+    axis he already knows moves PDD -- so the probe pinned the axis with a
+    known effect and swept two that were speculative. It records one rel L2 per
+    arm, so it cannot be re-scored for anything else.
+  - **Prefer a capture that can be re-asked**: per-step and per-block tensors
+    written once, scored many ways offline, over a harness that reduces to a
+    single number per render. `h3_capture.py` and the `grade_*_on_capture.py`
+    family exist for exactly this, and they cost card time once.
+  - This does not license capturing everything: a capture at H3's real length
+    writes gigabytes per call, which is why `h3_capture.py` is inert without
+    `H3_CAPTURE`. It licenses spending the design effort on WHAT TO RECORD
+    rather than on which single axis to sweep.
+  - **Where the effect is already known, do not re-derive it as an unknown.**
+    PDD's schedule axis is not open: `docs/research/pdd/` and the partition
+    bullets above record that coarseness and where it lands govern quality, and
+    `workflows/h3_text_to_video_pdd_manual_sigmas*.json` already ships the
+    tail-weighted six-evaluation partition as `ManualSigmas`. A new probe's job
+    is to add granularity to that, not to rediscover it.
+
 - **ComfyUI caches, so the SECOND run of a thing is not the same measurement as
   the first.** Node outputs are cached by input hash, models stay resident
   between prompts, and weights stay staged -- so a warm arm skips load, skips
