@@ -30,9 +30,18 @@ artifact.
 - **`MiniMaxH3VSAAttention`: FastVideo VSA, blocked on core and saying so.**
   Replaces the 50 main DiT blocks, groups video tokens into 4x4x4 cubes one per
   64-row kernel block, and passes each block's learned `to_gate_compress` as
-  `coarse_gate`. It cannot be a widget on the Sol node: the gate is a
-  projection of the block input, taken before `qkv_proj`, and an attention
-  override is handed Q/K/V already built. Accepts any prefix where video is
+  `coarse_gate`. **Separate from the Sol node by design, not necessity** --
+  corrected 2026-08-30, having first been written as "cannot be a widget on the
+  Sol node". An override is handed Q/K/V already built, but a forward pre-hook
+  can stash the block input into `transformer_options`, which is the route
+  `MiniMaxH3SolAttn` already uses to publish the block index; verified by
+  executing the pattern. The real reasons are that VSA needs the cube reorder
+  and padding alongside the gate, and that the two regimes are mutually
+  exclusive at the same 50 blocks. Only `sol_attn_chunked` is genuinely
+  unreachable from an override: it exists to never materialise Q/K/V, and by
+  the time an override runs they are built and rope is applied, so its saving
+  is spent and feeding it post-rope tensors would apply rope twice.
+  Accepts any prefix where video is
   last, so reference graphs are in scope, where the one other implementation
   restricts itself to plain text/audio/video.
   **It refuses on a model without a gate rather than running.** On stock

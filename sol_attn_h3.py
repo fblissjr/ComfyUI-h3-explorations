@@ -57,16 +57,28 @@ post-merge builds call themselves `0.2.31`.
                     contiguous and pads nothing, so the kernel derives the
                     ragged final block from T on its own. The one caller that
                     needs it is VSA cube tiling -- see the VSA node.
-  coarse_gate       NOT exposed here, and it cannot be. It is a learned
-                    projection of the BLOCK INPUT, and this node installs an
-                    `optimized_attention_override`, which receives Q/K/V
-                    already built. Reaching it means replacing the block
-                    forward, which is a different node.
+  coarse_gate       NOT exposed here, and the reason is a DESIGN CHOICE rather
+                    than an impossibility. **Corrected 2026-08-30: this said it
+                    "cannot be", which is wrong.** It is a learned projection of
+                    the BLOCK INPUT, and an override receives Q/K/V already
+                    built -- but a forward pre-hook on `Attention` can stash `x`
+                    and the module into `transformer_options`, which the
+                    override does receive. That is exactly what
+                    `_install_block_index` below already does for the block
+                    index, and it was verified by executing the pattern rather
+                    than by reading. So it is reachable from here; VSA lives in
+                    its own node because it ALSO needs the cube reorder and the
+                    padding, and because the two regimes are mutually exclusive
+                    at the same 50 blocks, not because this hook cannot see the
+                    gate.
 
-`sol_attn_chunked`, the second entry, is also out of reach from here for the
-same structural reason: it consumes fused qkv projection chunks and applies
-rope and RMSNorm itself, so there is nothing left for an attention override to
-be handed.
+`sol_attn_chunked`, the second entry, IS structurally out of reach, and the
+difference from the row above is worth keeping. It exists to never materialise
+Q/K/V -- it consumes chunks of the fused `qkv_proj` output and applies rope and
+RMSNorm itself. By the time an override is called, `qkv_proj` has already run
+in full and rope has already been applied, so its saving is spent and feeding
+it post-rope tensors would apply rope twice. No hook recovers an allocation
+that already happened.
 
 ## `pooled_tail`, which is the one new knob with teeth
 

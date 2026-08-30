@@ -838,13 +838,17 @@ Read from the signature and from
 | `tail` | exposed as `pooled_tail` | ON, unselected blocks contribute one pooled term each. OFF, they are dropped: softmax over routed blocks only |
 | `key_bias` | **not exposed, deliberate** | per-key log-space bias, legal only where the biased keys are sink-covered -- on H3 that is the conditioning rows and nothing else. An untrained prompt-adherence knob; documented in `sol_attn_h3.py`, not offered |
 | `block_len` | **not exposed, inert here** | live rows per 64-row block, for a caller that PADS. H3's packed sequence is contiguous, so the kernel derives the ragged final block from T. VSA's cube tiling is the one caller that needs it |
-| `coarse_gate` | **not reachable from this node** | VSA's gated coarse branch. It is a learned projection of the BLOCK INPUT, and an `optimized_attention_override` is handed Q/K/V already built |
-| `sol_attn_chunked` | **not reachable from this node** | consumes fused qkv projection chunks and does rope and RMSNorm itself, so there is nothing for an attention override to receive. Upstream reports ~5 GB less peak at 113k tokens, which is a length this repo renders |
+| `coarse_gate` | **not exposed, by choice** | VSA's gated coarse branch, a learned projection of the BLOCK INPUT. An override is handed Q/K/V already built, but a pre-hook can stash the block input into `transformer_options` -- the route this node already uses for the block index -- so it IS reachable. It lives in its own node because VSA also needs the cube reorder and padding, and because the two regimes are mutually exclusive at the same 50 blocks |
+| `sol_attn_chunked` | **structurally unreachable** | it exists to never materialise Q/K/V, and by the time an override runs `qkv_proj` has run in full and rope is applied -- so its saving is already spent and feeding it post-rope tensors would apply rope twice. Upstream reports ~5 GB less peak at 113k tokens, which is a length this repo renders |
 
-The last two are not knobs anyone forgot to wire. **Both need the BLOCK forward
-replaced rather than attention overridden**, which is a different node with a
-different failure surface, and for `coarse_gate` also a checkpoint that carries
-the gate.
+**Corrected 2026-08-30.** This said both were unreachable and that both "need
+the BLOCK forward replaced". Only `sol_attn_chunked` does. `coarse_gate` is
+reachable from an override via a pre-hook that stashes the block input, which
+is the route `_install_block_index` already uses -- verified by executing the
+pattern. It sits in its own node for design reasons (VSA also needs the cube
+reorder and padding, and the two regimes are mutually exclusive at the same 50
+blocks) and because it needs a checkpoint that carries the gate. A design
+choice stated as a constraint is the thing this page warns about elsewhere.
 
 ### `pooled_tail=False` is SLA, and that is the reason it is exposed
 

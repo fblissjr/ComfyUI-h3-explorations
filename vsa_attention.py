@@ -46,11 +46,21 @@ branch". VSA is:
     block_len         because the tiles are PADDED, one cube per 64-row block
     topk_ratio        SLA-style selection rather than a tau threshold
 
-`MiniMaxH3SolAttn` cannot reach the last two, and not because nobody wired
-them. It installs an `optimized_attention_override`, which is handed Q, K and V
-already built -- but the gate is a projection of the BLOCK INPUT, taken before
-`qkv_proj`, and the cube tiling has to reorder and pad the sequence before the
-projection too. **Both need the block forward replaced.** That is this node.
+`MiniMaxH3SolAttn` does none of it, and the honest reason is separation rather
+than impossibility. **Corrected 2026-08-30**, which previously said the gate
+"cannot be reached" from an attention override. It can: the override is handed
+Q, K and V already built, but a forward pre-hook on `Attention` can stash the
+BLOCK INPUT into `transformer_options`, which the override does receive -- and
+that pack already uses exactly this route to publish the block index. Verified
+by executing the pattern, not by reading it.
+
+What is actually true is that VSA needs three things together, the gate, the
+cube reorder and the padding, and doing all of it inside an attention override
+would put a second and incompatible reordering into a hook that already owns
+the Morton one. The two regimes are mutually exclusive at the same 50 blocks
+regardless. Replacing the block forward keeps them apart and matches the one
+other implementation. **That is a design argument and should not be dressed up
+as a constraint.**
 
 ## What it needs, and what happens today without it
 

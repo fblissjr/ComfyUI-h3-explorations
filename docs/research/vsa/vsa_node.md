@@ -33,15 +33,24 @@ evaluations, which is what a PDD arm does by other means. Note that nothing in
 the artifact supports the 4-step claim -- it carries no metadata at all -- so
 that is a reading of a filename, not a property anyone here has verified.
 
-## Why it cannot be a widget on the Sol node
+## Why it is a separate node, which is not the same as "why it must be"
 
-`MiniMaxH3SolAttn` installs an `optimized_attention_override`. That hook is
-handed Q, K and V **already built**. VSA needs two things upstream of that:
+**Corrected 2026-08-30.** This section said VSA *cannot* be a widget on the Sol
+node because an `optimized_attention_override` is handed Q, K and V already
+built. That is true of the hook and false as a conclusion: a forward pre-hook
+on `Attention` can stash the block input into `transformer_options`, which the
+override receives, and `MiniMaxH3SolAttn` already uses exactly that route to
+publish the block index. Verified by executing the pattern rather than reading
+it. So the gate is reachable from there.
 
-- the gate is `to_gate_compress(x)`, a projection of the BLOCK INPUT, taken
-  before `qkv_proj`;
-- the cube tiling reorders and pads the sequence, so the projection itself has
-  to run on the padded rows.
+The real reasons are weaker and worth stating as what they are:
+
+- VSA needs the gate, the cube reorder AND the padding together, and putting a
+  second reordering inside a hook that already owns the Morton one is a
+  collision, not an impossibility;
+- the two regimes are **mutually exclusive** at the same 50 blocks, so sharing
+  a node would mean one silently winning;
+- the one other H3 implementation replaces the block forward too.
 
 So the block forward is replaced, through `patches_replace["dit"]`, on the 50
 main blocks. The 2 token-refiner blocks carry no gate and are left alone -- an
