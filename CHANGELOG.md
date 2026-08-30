@@ -4,6 +4,24 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.0
+
+### Added
+
+- **Gap 16: the generic VAE crop narrows the reference waveform's sample axis,
+  and this repo's own trim is what puts us on a length where it bites.**
+  `comfy/sd.py` leaves `crop_input` at its `True` default on the H3 audio
+  branch, so `vae_encode_crop_pixels` treats the sample axis as a spatial one
+  and narrows it to a multiple of 800, taking half off the front. Measured
+  against the real audio VAE with `crop_input = False` as the matched control
+  (`bench/audit_ref_audio_crop.py`): the shipped 124-frame trim of 165,333
+  samples loses 266 leading samples and one latent step, so the reference audio
+  arrives up to 12.5 ms early against reference video, which is not cropped on
+  its time axis. Prompted by the upstream PR that proposes the one-line fix.
+- **Gap 5's measurement is recorded as having been blind to it.** Its arms were
+  5 s and 15 s, both exact multiples of 800, which is precisely the input on
+  which the crop is a no-op. Nothing in gap 5 is withdrawn.
+
 ## 0.98.0
 
 ### Fixed

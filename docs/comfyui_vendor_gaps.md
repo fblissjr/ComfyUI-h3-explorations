@@ -129,6 +129,7 @@ Priority is by what it costs a working user, not by how interesting it is.
 | 10-13 | Partition gate, AdaLN cache, CUDA graphs, step caching | behavioural | architectural differences | researched or explicitly declined; no native-equivalence claim |
 | 14 | DiT fp32 island collapses to bf16 under the int8 load | behavioural | open, and core-side | **nothing**; measured only, and 5-20x below the quantization error already present |
 | 15 | Reference-audio encode crashes under VRAM pressure instead of tiling | behavioural | open, core-side (`extra_1d_channel` unset) | **nothing**; trimming the soundtrack shrinks the encode but does not fix it |
+| 16 | Generic VAE crop narrows the reference waveform's SAMPLE axis | behavioural | open, core-side (`crop_input` unset); [Comfy-Org/ComfyUI#15972](https://github.com/Comfy-Org/ComfyUI/pull/15972) proposes the one-line fix, open as of 2026-08-30 | **nothing**; the shipped trim lands on a non-aligned length, so every soundtracked graph here is exposed |
 
 ### Processor-policy impact by conditioning role
 
@@ -558,6 +559,15 @@ against the node's default 124-frame target (5.167 s, `audio_t` 207). **Gap 5 is
 real**, nothing in core trims, and the excess is attended at every sampling
 step.
 
+**That measurement was blind to gap 16 below, and the reason is worth keeping.**
+Both durations are whole seconds, so both sample counts are exact multiples of
+800 -- the audio VAE's `downscale_ratio`, and the modulus the generic crop
+narrows to. An aligned input is precisely the input on which that crop is a
+no-op, so the arms could not have observed it however carefully they were run.
+`CLAUDE.md`'s rule names the shape: a check whose input already satisfies the
+expected outcome cannot fail. Nothing in the table above is withdrawn -- the
+excess rows are real and the row counts stand for whole-second soundtracks.
+
 **Native ComfyUI status: open. Handling in this repo:** every shipped graph now
 uses the typed compiler, which derives duration from aligned `frame_count` and
 slices every video soundtrack and standalone reference internally. The former
@@ -762,6 +772,65 @@ audio branch the way both peer VAEs do would route it correctly.
 **Handling in this repo: none, and enforced by nothing.** Trimming the
 soundtrack (gap 5) makes it far less likely by shrinking the encode, but that is
 a mitigation, not a fix.
+
+---
+
+## 16. The generic VAE crop narrows the reference waveform's sample axis
+
+Owner: this file. Added 2026-08-30, prompted by
+[Comfy-Org/ComfyUI#15972](https://github.com/Comfy-Org/ComfyUI/pull/15972)
+(open, opened 2026-08-29), which proposes the fix as one line:
+`self.crop_input = False` on the H3 audio branch.
+
+`comfy/sd.py:515` defaults `crop_input` to `True`, and the H3 audio branch
+(`:1030-1046`) never clears it, so `vae_encode_crop_pixels` runs on every
+reference-audio encode. `_encode_ref_audio` presents `[1, samples, channels]`
+(`comfy_extras/nodes_minimax_h3.py:77`), so `dims = pixels.shape[1:-1]` is the
+**sample** axis. The crop narrows it to a multiple of
+`spacial_compression_encode()` -- which for this VAE is the audio
+`downscale_ratio`, 800 -- taking `(samples % 800) // 2` off the **front** and
+the remainder off the back.
+
+*measured* against the real audio VAE through `_encode_ref_audio` itself, with
+`crop_input = False` as the matched control arm
+([`../bench/audit_ref_audio_crop.py`](../bench/audit_ref_audio_crop.py),
+[record](../bench/results/2026-08-30_ref_audio_crop.json)):
+
+| case | samples | dropped front | dropped back | `ref_audio_t` shipped | crop disabled |
+|---|---|---|---|---|---|
+| aligned | 64,000 | 0 | 0 | 80 | 80 |
+| the PR's own case | 437,333 | 266 | 267 | 546 | **547** |
+| shipped trim | 165,333 | 266 | 267 | 206 | **207** |
+
+Two consequences, and the second is the one that reaches a render here.
+
+**A latent step is lost whenever the length is not a multiple of 800** -- two
+packed rows, since audio packs stereo. Minor on its own.
+
+**The reference audio is shifted earlier against the reference video by up to
+12.5 ms**, because the leading samples go. The video reference is *not* shifted:
+its tensor is `[T, H, W, C]`, so the time axis is dim 0, the batch dim, and
+`dims` covers only H and W -- which every shipped graph has already snapped to
+32, a multiple of the video VAE's 16. So the same crop is a no-op on video and
+live on audio, and a paired soundtrack drifts against its own frames.
+
+**This repo is exposed on its default settings, not just on hand-built graphs.**
+`_prepare_audio` caps a soundtrack at `round(duration * sample_rate)` with
+`duration = frame_count / FPS` (`reference_conditioning.py:563,224`), and the
+`length` widget defaults to 124 (`reference_conditioning.py:960`). That is
+`round(124 / 24 * 32000)` = 165,333 samples, remainder 533 -- the same remainder
+as the PR's case, and not an accident: both come from H3's 24 fps grid against a
+32 kHz rate, which share no factor that lands on 800. **The trim gap 5 added is
+what puts us on a non-aligned length**; an untrimmed whole-second soundtrack
+would have been aligned by luck.
+
+**Native ComfyUI status: open, core-side.** The PR's one line is the fix, and
+the H3 audio VAE's own right-padding then handles the non-aligned tail.
+**Handling in this repo: none, and enforced by nothing.** Rounding
+`_prepare_audio`'s cap up to a multiple of 800 would sidestep it locally, but
+that trades a core defect for a second copy of the modulus, and it cannot
+recover the leading samples for a soundtrack that is already shorter than the
+target.
 
 ---
 
@@ -1020,6 +1089,7 @@ A gap with no assertion behind it is a gap that will come back.
 | 9, VAE tiling | not a gap in installed native H3 path | policy documented from native source; no custom fix |
 | 14, fp32 island | open, core-side (`comfy/ops.py`) | **nothing enforces it**; magnitudes measured 2026-08-29 |
 | 15, audio encode OOM fallback | open, core-side (`comfy/sd.py`) | **nothing**; reproduced 2026-08-29 |
+| 16, waveform sample-axis crop | open, core-side (`comfy/sd.py`); PR 15972 proposes the fix | **nothing**; measured 2026-08-30, and the shipped default trim is a non-aligned length |
 
 For the stock native path, the image floor remains the most reachable still
 boundary and the clip-wide video policy remains a bounded source/length

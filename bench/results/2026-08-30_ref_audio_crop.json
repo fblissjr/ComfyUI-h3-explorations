@@ -1,0 +1,65 @@
+{
+  "vae": "minimax_h3_audio_vae_fp32.safetensors",
+  "sample_rate": 32000,
+  "spacial_compression_encode": 800,
+  "crop_input_default": true,
+  "shipped_frame_count": 124,
+  "shipped_trim_samples": 165333,
+  "cases": [
+    {
+      "label": "aligned",
+      "samples": 64000,
+      "remainder": 0,
+      "kept": 64000,
+      "dropped_front": 0,
+      "dropped_back": 0,
+      "ref_audio_t_shipped": 80,
+      "ref_audio_t_crop_disabled": 80,
+      "rows_lost": 0
+    },
+    {
+      "label": "pr_15972",
+      "samples": 437333,
+      "remainder": 533,
+      "kept": 436800,
+      "dropped_front": 266,
+      "dropped_back": 267,
+      "ref_audio_t_shipped": 546,
+      "ref_audio_t_crop_disabled": 547,
+      "rows_lost": 2
+    },
+    {
+      "label": "rem_odd",
+      "samples": 64401,
+      "remainder": 401,
+      "kept": 64000,
+      "dropped_front": 200,
+      "dropped_back": 201,
+      "ref_audio_t_shipped": 80,
+      "ref_audio_t_crop_disabled": 81,
+      "rows_lost": 2
+    },
+    {
+      "label": "rem_even",
+      "samples": 64400,
+      "remainder": 400,
+      "kept": 64000,
+      "dropped_front": 200,
+      "dropped_back": 200,
+      "ref_audio_t_shipped": 80,
+      "ref_audio_t_crop_disabled": 81,
+      "rows_lost": 2
+    },
+    {
+      "label": "shipped_trim",
+      "samples": 165333,
+      "remainder": 533,
+      "kept": 164800,
+      "dropped_front": 266,
+      "dropped_back": 267,
+      "ref_audio_t_shipped": 206,
+      "ref_audio_t_crop_disabled": 207,
+      "rows_lost": 2
+    }
+  ]
+}
