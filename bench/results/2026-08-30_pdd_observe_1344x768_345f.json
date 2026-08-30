@@ -159027,5 +159027,12 @@
     }
   ],
   "failures": [],
-  "failure_note": "non-empty means the capture LOST observations. A row count below blocks x modules x steps is not a complete result for the modules that survived."
+  "failure_note": "non-empty means the capture LOST observations. A row count below blocks x modules x steps is not a complete result for the modules that survived.",
+  "sigma_axis_confound": {
+    "finding": "The four sigma points are NOT four samples of one regime. Sol runs on three of them and not on the fourth.",
+    "detail": "SOL_PDD_CUDA is start_percent 0.2, end_percent 0.74, and percent_to_sigma(0.75) is 0.8 EXACTLY at shift 12. The captured sigmas are 1.0, 0.9730, 0.9231 and 0.8000, so the last one sits on Sol's floor and is the one step Sol declines. The joint capture's kernel tags show it directly: blocks 24 and 49 read `sol` at step 1 and `sage` at step 3.",
+    "why_it_matters_here": "This observation is of the PDD delta at a LINEAR projection, so it does not depend on which attention kernel ran -- but its INPUT does. The delta is B @ A @ x, and x is what the block received from the attention above it. So the sigma-axis spread of 1.21x is partly a schedule effect and partly an attention-regime change, and nothing here separates them. **Do not read 1.21x as the schedule axis.**",
+    "what_would_separate_them": "Re-run with Sol bypassed entirely, so all four steps share one attention regime. The block axis is unaffected either way -- every block sees the same regime at a given step -- so the 16.6x stands.",
+    "credit": "Raised by the Sol capture lane from its own kernel tags, on the same render. This is the joint capture paying for itself: a confound in one lane's numbers, visible only in the other lane's field."
+  }
 }
