@@ -225,6 +225,24 @@ independently: VSA differs from its control and each arm reproduces itself at
 the same seed, on decoded pixels, with the arms identified from the graph
 embedded in each file.
 
+## This capture cannot be re-asked, and that is a defect in it
+
+Recorded against CLAUDE.md's `capture broadly first` rule (owner, 2026-08-30).
+The two length arms recorded **two numbers**: total wall time, and a hash of
+the decoded pixels. So the 1.46x cannot be split between attention and
+everything else -- and attention is the only part VSA touches. No latents were
+kept, so no fidelity question can be scored offline at all. VRAM, one of the
+two things a sparse kernel is for, was not recorded.
+
+The next VSA measurement should record the output LATENT rather than the
+encoded video, per-step time and peak VRAM, and `PackedLayout.segments` --
+which no capture currently carries and which is what blocks the
+segment-boundary question for sage as well as for VSA. One field, two lanes.
+
+The 1.46x is not withdrawn; two samples per arm against an order-of-magnitude
+smaller spread is a sound wall-time observation. What is recorded is that it is
+the only question those two renders can answer.
+
 ## What would settle the rest
 
 1. ~~Apply #15958 to the ComfyUI checkout.~~ Done 2026-08-30, working tree.

@@ -56,5 +56,22 @@
     "bench/smoke_h3.py --workflow h3_probe_vsa_api.json --length 362 --steps 4",
     "bench/smoke_h3.py --workflow h3_probe_vsa_dense_api.json --length 362 --steps 4",
     "bench/verify_vsa_render.py <vsa> <dense> <vsa-repeat>"
-  ]
+  ],
+  "capture_is_narrow_and_cannot_be_re_asked": {
+    "rule": "CLAUDE.md cf459e3, owner 2026-08-30: capture broadly first, decide what it means second. A run recording one number per arm cannot be re-asked a question.",
+    "what_this_run_recorded": "total wall time per arm, and a sha256 of the decoded RGB stream. That is two numbers.",
+    "questions_it_therefore_cannot_answer": [
+      "where the time goes -- no per-step or per-stage timing, so the 1.46x cannot be split between attention and everything else, and attention is the only part VSA touches.",
+      "whether the difference from dense is concentrated anywhere -- no latents kept, so no fidelity metric can be computed offline at all.",
+      "what VRAM did, which is one of the two things a sparse kernel is for.",
+      "whether error sits at segment boundaries, which is the open question a peer raised about sage's per-block quantisation and which the same capture would have served."
+    ],
+    "what_a_re_askable_capture_would_record": [
+      "the output latent, not the encoded mp4 -- every fidelity question is then an offline scoring pass rather than a re-render.",
+      "per-step wall time and peak VRAM.",
+      "attention outputs at a few depths, which is what h3_capture.py and the grade_*_on_capture.py family already exist for.",
+      "PackedLayout.segments, which is NOT currently in any capture and is what blocks the segment-boundary question for sage as well as VSA. One field, two lanes."
+    ],
+    "not_withdrawn": "the 1.46x stands as a wall-time observation with two samples per arm and a gap an order of magnitude over the spread. What is recorded here is that it is the ONLY question these two renders can answer."
+  }
 }
