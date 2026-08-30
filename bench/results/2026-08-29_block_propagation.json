@@ -1,0 +1,47 @@
+{
+ "measured": "2026-08-29",
+ "produced_by": "bench/probe_block_propagation.py",
+ "what": "effect on the output latent of letting Sol run at exactly one DiT block, against a sage-everywhere baseline. Folds together Sol's local error at that block and how much of it survives to the output, which is the quantity dense_blocks should be chosen on.",
+ "base_graph": "h3_text_to_video_api.json",
+ "steps": 4,
+ "sampler": "euler",
+ "seed": 730451892,
+ "sol_window": {
+  "start_percent": 0.66,
+  "end_percent": 1.0,
+  "note": "contains only the final step, sigma 0.8 at shift 12 -- steps 0-2 are identical across arms"
+ },
+ "baseline": "Sol node REMOVED, sage at all 50 blocks",
+ "rows": [
+  {
+   "block": 0,
+   "rel_l2_video": 0.03061128966510296,
+   "rel_l2_audio": 0.04115692898631096,
+   "rel_l2": 0.03061128966510296
+  },
+  {
+   "block": 1,
+   "rel_l2_video": 0.027171384543180466,
+   "rel_l2_audio": 0.04355735704302788,
+   "rel_l2": 0.027171384543180466
+  },
+  {
+   "block": 2,
+   "rel_l2_video": 0.025379318743944168,
+   "rel_l2_audio": 0.040458500385284424,
+   "rel_l2": 0.025379318743944168
+  },
+  {
+   "block": 49,
+   "rel_l2_video": 0.01277879811823368,
+   "rel_l2_audio": 0.025470249354839325,
+   "rel_l2": 0.01277879811823368
+  }
+ ],
+ "caveats": [
+  "One seed, one prompt, one canvas, one step.",
+  "video and audio are reported apart; `rel_l2` mirrors the video column so a reader who ignores the split gets the larger stream.",
+  "Sol at one block is not Sol at five; the per-block errors need not add linearly. Read the ranking, not a budget.",
+  "The measured step is the last of four, sigma 0.8 -- where the 4-evaluation PDD partition's final block begins."
+ ]
+}

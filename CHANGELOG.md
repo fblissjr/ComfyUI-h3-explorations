@@ -8,6 +8,34 @@ artifact.
 
 ### Changed
 
+- **`SOL_PDD_CUDA`'s `dense_blocks` is `0-5,48-49`, was `0,1,2,48,49,-1`** (the
+  same five blocks -- `-1` resolved to 49). Widened at the FRONT, on a
+  measurement that reversed what this repo believed hours earlier.
+  - `bench/probe_block_propagation.py` lets Sol run at exactly one block, sage
+    everywhere else, and reads the output latent. **Block 0 -- the block Sol
+    approximates BEST -- moves the output MOST (0.0306), and block 49 moves it
+    LEAST (0.0128).** Propagation is why: an early block's error is carried
+    through the rest of the model, block 49's lands on the head. So the
+    vendor's front-loaded `0-1` was right and the local error ranking added
+    earlier that day was measuring the wrong thing. That ranking is kept,
+    because it is correct about what it measures; it just does not decide this
+    knob.
+  - **Blocks 3-5 are extrapolated, not measured**, from a three-point decay
+    (0.0306, 0.0272, 0.0254) that must flatten somewhere unmeasured. Named as
+    the weakest number in the dict rather than left to look measured.
+  - **`48-49` is retained on an argument the probe cannot reach.** Its baseline
+    runs sage at block 49 too, so it measures Sol against sage there and never
+    sage against exact -- and sage is pathological at 49. It also ran on the
+    base model, so PDD's fused output head was not in the path.
+  - The probe's determinism is checked rather than assumed: two independent
+    baseline renders came back **bit-identical**, so every delta is caused by
+    the arm. Sol's window contains only the final step of four, so steps 0-2
+    are identical across arms and nothing re-samples afterwards -- CLAUDE.md's
+    different-sample rule does not apply, because no trajectory diverges.
+  - Ran 4 of 12 arms; stopped to free the server for another session.
+    `--score-existing` recovers completed arms from disk, so an interrupted
+    sweep loses only the arm in flight.
+
 - **PDD arms now ship their own Sol-Attn config.** `h3_config.SOL_PDD_CUDA`,
   owner decision from watching rendered distilled arms: `end_percent` 0.74 at
   every step count, `min_tokens` 11776, `morton_curve` `2d_frame`, and

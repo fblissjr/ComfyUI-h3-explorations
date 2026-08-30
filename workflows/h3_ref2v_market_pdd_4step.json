@@ -405,9 +405,9 @@
         true,
         false,
         false,
-        "0,1,2,48,49,-1"
+        "0-5,48-49"
       ],
-      "title": "Patch Sol-Attn (PDD recipe - end_percent 0.74, min_tokens 11776, dense_blocks '0,1,2,48,49,-1'; h3_config.SOL_PDD_CUDA)"
+      "title": "Patch Sol-Attn (PDD recipe - end_percent 0.74, min_tokens 11776, dense_blocks '0-5,48-49'; h3_config.SOL_PDD_CUDA)"
     },
     {
       "id": 12,

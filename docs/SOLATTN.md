@@ -571,15 +571,62 @@ distance between "which block Sol approximates worst" and "which block to keep
 dense".** Closing it is one experiment: perturb one block's attention output by
 its measured sparsity error and read the change at the output head.
 
-**So "too many, or the wrong ones" has a measured half and an unmeasured
-half.** Measured: `0` is the weakest candidate of any block in the model, `40`
-the strongest and unshipped, `49` a sound mid-table pick. Unmeasured:
-propagation, which is the one thing that could justify the early blocks anyway,
-and blocks 1, 2 and 48, which appear in no capture. **`0,1,2,48,49` is
+##### Propagation, measured -- and it reverses the ranking above
+
+**Measured 2026-08-29, and the local ranking loses.**
+`bench/probe_block_propagation.py` lets Sol run at exactly ONE block, sage
+everywhere else, and reads the output latent against a sage-everywhere
+baseline. That folds together how large Sol's error is at that block AND how
+much survives to the output, which is the quantity `dense_blocks` should
+actually be chosen on. `bench/results/2026-08-29_block_propagation.json`:
+
+| block | video rel L2 | audio rel L2 |
+|---|---|---|
+| 0 | **0.0306** | 0.0412 |
+| 1 | 0.0272 | 0.0436 |
+| 2 | 0.0254 | 0.0405 |
+| 49 | **0.0128** | 0.0255 |
+
+**Four arms of a planned twelve.** The sweep was interrupted to free the server
+for another session; each arm is an independent render whose latent persists,
+so `--score-existing` recovers what completed and
+`--blocks 8,16,24,32,40,45,48` resumes the rest. The blocks that decide whether
+the middle of the model deserves anything -- 24, 32, 40 -- are among the
+missing, so nothing here speaks to the local ranking's claim that 40 is the
+strongest candidate.
+
+**Block 0 is the block Sol approximates BEST and the block whose error matters
+MOST at the output. Block 49 is the reverse.** The two rankings are opposed, and
+propagation is the reason: block 0's error is carried through 49 more blocks
+while block 49's lands on the head. **So the vendor's front-loaded `0-1` was
+right, and the local ranking two sections up was measuring the wrong thing** --
+it is kept above because it is correct about what it measures, not because it
+should decide this knob.
+
+The probe is controlled by construction and its determinism is checked rather
+than assumed: two independent baseline renders came back **bit-identical**, so
+every delta is caused by the arm. Sol's window is set to contain only the final
+step of four, so steps 0-2 are identical across arms and nothing re-samples
+after the measured forward -- CLAUDE.md's different-sample rule does not bite,
+because no trajectory diverges.
+
+**What it cannot see, and both limits cut the same way -- against the tail
+pair.** Its baseline runs sage at block 49 too, so it measures Sol against sage
+there, never sage against exact -- and sage is pathological at 49 (`cos_min`
+NEGATIVE). And it ran on the BASE model, so PDD's fused output head, the reason
+to protect the last blocks at all, was not in the path.
+
+**So "too many, or the wrong ones" now has an answer for the front and not for
+the back.** The front band is right and was worth widening: `SOL_PDD_CUDA` went
+to `0-5,48-49` on 2026-08-29. Two parts of that are weaker than the measured
+front: **blocks 3-5 are extrapolated** from a three-point decay that must
+flatten somewhere unmeasured, and **`48-49` rests on an argument the probe
+cannot reach** -- its baseline runs sage at 49 too, and PDD's fused head was
+absent. **`0,1,2,48,49` is
 therefore two good blocks, one unmeasured neighbour of a good block, and two
 blocks the evidence argues against** — and `40` is missing.
 
-`-1` in that list is not a sixth block. `parse_blocks` resolves it to `50 + (-1)
+`-1` in the previous spelling of that list was not a sixth block. `parse_blocks` resolves it to `50 + (-1)
 = 49` and returns a frozenset, so `"0,1,2,48,49,-1"`, `"0,1,2,48,49"` and
 `"0-2,48-49"` are the same five blocks. Verified by calling the function, not
 by reading it.

@@ -699,15 +699,17 @@ SOL_RECOMMENDED_CUDA = dict(
 #                turning morton on. `docs/morton.md` measured 3d ahead on
 #                centroid fidelity at one canvas and records that the pin
 #                rests on that one canvas.
-#   dense_blocks "0,1,2,48,49,-1" against the vendor's "0-1". Adds block 2
-#                and the last two. `-1` resolves to 49 on a 50-block DiT
-#                (`vendor/sol_attn_minimax.py::parse_blocks`), so it is
-#                redundant with the literal 49 and kept because it is what
-#                the owner wrote and what the widget shows. Confirmed by
-#                calling the function rather than reading it: this string,
-#                "0,1,2,48,49" and "0-2,48-49" all resolve to the same five.
-#                Costs 5 of 50 blocks on the sparse steps rather than 2, and
-#                those five are SAGE blocks, not exact ones.
+#   dense_blocks "0-5,48-49" against the vendor's "0-1". Widens the vendor's
+#                front band and adds a tail pair. Until 2026-08-29 this was
+#                "0,1,2,48,49,-1", where `-1` resolved to 49 on a 50-block DiT
+#                (`vendor/sol_attn_minimax.py::parse_blocks`), making it the
+#                same five blocks as "0-2,48-49" -- confirmed by calling the
+#                function, not by reading it. Costs 8 of 50 blocks on the
+#                sparse steps rather than 2, and those eight are SAGE blocks,
+#                NOT exact ones: `dense()` hands the call to `previous`, which
+#                on every shipped graph is sage. Nothing here reaches exact
+#                attention at a block, and the widest reading of "dense" is
+#                the trap this knob sets.
 #
 # Held identical to SOL_RECOMMENDED_CUDA, so a change there still reaches
 # here: selection, tau, start_percent, sink_conditioning, morton,
@@ -744,7 +746,42 @@ SOL_PDD_OVERRIDES = dict(
     end_percent=0.74,
     min_tokens=11776,
     morton_curve="2d_frame",
-    dense_blocks="0,1,2,48,49,-1",
+    # "0-5,48-49" since 2026-08-29, was "0,1,2,48,49,-1" (the same five blocks
+    # -- `-1` resolved to 49). **Widened at the FRONT on a measurement, and
+    # that measurement reversed the ranking this file carried hours earlier.**
+    #
+    # `bench/results/2026-08-29_block_propagation.json`: letting Sol run at
+    # exactly one block, everything else sage, and reading the output latent.
+    # Video rel L2 against a sage-everywhere baseline --
+    #     block 0   0.0306      block 2   0.0254
+    #     block 1   0.0272      block 49  0.0128
+    # -- the REVERSE of the local error ranking in
+    # `2026-08-29_dense_block_ranking.json`, where 0 is Sol's most accurate
+    # block. Propagation is why: block 0's error is carried through 49 more
+    # blocks, block 49's lands on the head. **So the vendor's front-loaded
+    # `0-1` was right and this repo's local ranking was measuring the wrong
+    # thing.**
+    #
+    # **Blocks 3, 4 and 5 are EXTRAPOLATED, not measured**, and that is the
+    # weakest number in this dict. The measured front decays about 9% per
+    # block (0.0306 -> 0.0254 over three), which if continued puts block 5
+    # near 0.019 -- still ~1.5x block 49. It cannot continue at that rate or
+    # it would reach zero long before 49, so the curve flattens somewhere
+    # unmeasured and the band edge is a guess inside that flattening. The
+    # sweep that settles it was interrupted at 4 of 12 arms to free the
+    # server; resume with `--blocks 8,16,24,32,40,45,48`.
+    #
+    # The cutoff is budget, not data. On a 4-step PDD arm Sol runs 2 of 4
+    # steps, so a dense block costs about 1.5 s of a ~200 s render (0.75%);
+    # 8 blocks against 5 is roughly +2 s.
+    #
+    # `48-49` is retained and is the WEAKEST part of this set. The probe cannot
+    # see the case for it: its baseline runs sage at 49 too, so it measures
+    # Sol-against-sage there and not sage-against-exact, and sage is
+    # pathological at 49 (`cos_min` NEGATIVE, -0.04 to -0.11). It also ran on
+    # the BASE model, so PDD's fused output head -- the reason to protect the
+    # last blocks at all -- was not in the path.
+    dense_blocks="0-5,48-49",
 )
 
 SOL_PDD_CUDA = dict(SOL_RECOMMENDED_CUDA, **SOL_PDD_OVERRIDES)
