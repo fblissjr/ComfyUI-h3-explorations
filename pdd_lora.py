@@ -612,34 +612,89 @@ class _StepTracker:
 class _HeadBank(torch.nn.Module):
     """The per-interval head bank and the checkpoint's own heads, as buffers.
 
-    Exists so ComfyUI owns these tensors instead of a closure. The closure
-    version worked and cost nothing on the card -- it kept the bank on CPU and
-    moved only the small fused head -- but its memory was invisible to
-    `model_management`: unaccounted, un-offloadable, and held for as long as
-    the cached node output that captured it. Several PDD arms in one session
-    is several copies nothing can reclaim.
+    A module rather than four loose tensors so the bank has one owner, one
+    device, and something a test can drive -- `bench/check_pdd_head_selection.py`
+    constructs it directly. Buffers rather than parameters because nothing here
+    trains, and a buffer still moves with the module.
 
-    Buffers rather than parameters because nothing here trains, and a buffer
-    still moves with the module under ComfyUI's loader.
+    **It stays on the CPU and is handed to `model_management` by nothing.**
+    That is a reversal, and the reversed version is worth stating because it
+    was argued for at length: between 2af7f0b and now it was attached to the
+    model patcher with `set_additional_models`, so ComfyUI accounted for it,
+    could offload it, and would replace it under a keyed slot. The argument was
+    that a closure's memory is invisible and unreclaimable for as long as the
+    node-output cache holds it. Measured against a render, that argument bought
+    less than it cost:
 
-    This is deliberately NOT registered on the diffusion model. It is attached
-    with `set_additional_models`, which is how the third-party pack surveyed in
-    `docs/research/pdd/three_pdd_implementations.html` solves the same problem,
-    and it is why the streaming-loader hazard the closure was working around
-    does not apply: nothing here enters the diffusion model's parameter tree.
+    * **What it was buying is 42 MiB of HOST ram per cached arm** (the bank as
+      stored, `docs/h3_pdd.md`'s composition table), on a box whose host peaks
+      are measured in tens of gibibytes. Accounted or not, nothing was ever
+      going to reclaim it under pressure that mattered.
+    * **What it cost is card memory, where this workload is actually tight.**
+      Attached, ComfyUI loads the bank to `load_device`; the buffers are fp32,
+      so that is ~87 MiB resident on the card for the whole render, plus the
+      fp32 masters `_FusedHeads` then caches on the bank's device rather than
+      the host's. The 2026-08-28 ref2va failure recorded in
+      `bench/results/2026-08-28_pdd_ref2va_memory_marginality.json` was short
+      by 17.5 MiB. This change is several times that, in the wrong direction.
+    * **It cost a crash** -- `fuse_block` derived its plan on the default
+      device and had never met a bank that was not on the CPU (0.97.0). The
+      fix is kept: the fusion follows the stack, so the module is still free to
+      move, it just is not moved any more.
+    * **And it left `model_management`'s leak detector permanently red.**
+      `ModelPatcher.clone` re-clones every entry in `additional_models`, so
+      each run wrapped the same `_HeadBank` in a fresh throwaway patcher;
+      `LoadedModel` holds the patcher only weakly, so once the clone chain was
+      collected the entry reported `is_dead` -- module alive, patcher gone --
+      for the rest of the server's life. Observed 2026-08-29 as `WARNING,
+      memory leak with model _HeadBank` on every subsequent load, each one
+      dragging a full `gc.collect()` with it. Whether the retention it points
+      at is real is NOT established here; what is established is that removing
+      the attachment removes the entry, because there is no patcher left to
+      load. A detector that goes red on a correct state is worse than no
+      detector.
+
+    **What core does with side weights, checked rather than assumed.** Three
+    shapes exist upstream and `set_additional_models` was the wrong one of them:
+
+    * `ModelPatcher.patches` -- LoRA residuals. Plain CPU tensors, invisible to
+      `model_management`, cast to the device at patch time, shared across
+      clones by a list slice. This is the shape here, and it is the ordinary
+      one for weight-sized side data riding along with a patcher.
+    * A single long-lived `ModelPatcher` shared by reference. ControlNet builds
+      `control_model_wrapped` once and every `copy()` assigns the SAME object
+      (`comfy/controlnet.py`); it reaches sampling through the conditioning's
+      `get_models()`, never through a per-clone dict, which is why it is
+      managed and still never goes stale. Available to a node that returns
+      CONDITIONING; this one returns a MODEL.
+    * `set_additional_models` -- used in core by `comfy/multigpu.py` alone, for
+      whole-model clones on other devices, which is the case the per-clone copy
+      is written for.
+
+    Still deliberately not registered on the diffusion model either: nothing
+    here enters the DiT's parameter tree, which is the streaming-loader hazard
+    every one of these shapes was avoiding.
     """
 
     def __init__(self, banks: dict):
         super().__init__()
         self._streams = tuple(banks)
         for stream, (bank_w, bank_b, base_w, base_b) in banks.items():
-            self.register_buffer(f"{stream}_bank_w", bank_w)
-            self.register_buffer(f"{stream}_bank_b", bank_b)
-            self.register_buffer(f"{stream}_base_w", base_w)
-            self.register_buffer(f"{stream}_base_b", base_b)
+            # `.cpu()` is the invariant, not a formality: nothing moves this
+            # module now, so where it is constructed is where it stays, and
+            # `_FusedHeads` fuses there and casts only the small result.
+            self.register_buffer(f"{stream}_bank_w", bank_w.cpu())
+            self.register_buffer(f"{stream}_bank_b", bank_b.cpu())
+            self.register_buffer(f"{stream}_base_w", base_w.cpu())
+            self.register_buffer(f"{stream}_base_b", base_b.cpu())
 
     def nbytes(self) -> int:
-        """What to declare to ComfyUI, so the accounting is not a guess."""
+        """Resident size, for anything that wants to price the bank.
+
+        Nothing declares this to ComfyUI any more -- see above -- so it is a
+        measurement rather than a contract. Kept because the number is the
+        argument.
+        """
         return sum(b.numel() * b.element_size() for b in self.buffers())
 
     def for_stream(self, stream: str):
@@ -784,10 +839,6 @@ def _make_final_layer_forward(base_forward, tracker):
 #: The three keys this node takes when it installs the head swap. Anything
 #: already holding one of them owns H3's output projections, and two owners is
 #: a silently wrong render.
-#: The keyed slot the head bank is attached under. Keyed rather than
-#: appended so a second instance of this node replaces its own entry.
-ADDITIONAL_MODELS_KEY = "h3_pdd_head_bank"
-
 HEAD_PATCH_KEYS = ("diffusion_model.final_layer.forward",
                    "diffusion_model.final_layer.video_out.forward",
                    "diffusion_model.final_layer.audio_out.forward")
@@ -1031,7 +1082,6 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
     def execute(cls, model, lora_name, strength=1.0, head_strength=-1.0,
                 patch_heads=True, nfe=0, steps=8) -> io.NodeOutput:
         import comfy.lora
-        import comfy.model_patcher
         import comfy.utils
         import folder_paths
 
@@ -1511,16 +1561,10 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                              live.bias.detach().to(torch.float32).cpu())
 
         if banks:
-            # One module for both streams, so ComfyUI accounts for the bank
-            # once rather than twice, and one patcher attached under a keyed
-            # slot -- keyed so a second instance of this node in the chain
-            # replaces its own entry instead of appending a duplicate.
+            # One module for both streams. NOT attached with
+            # `set_additional_models` -- see `_HeadBank`'s docstring for the
+            # render that reversed that, and what it cost.
             head_bank = _HeadBank(banks)
-            m.set_additional_models(
-                ADDITIONAL_MODELS_KEY,
-                [comfy.model_patcher.ModelPatcher(
-                    head_bank, m.load_device, m.offload_device,
-                    size=head_bank.nbytes())])
             for stream, out_name in streams:
                 m.add_object_patch(
                     f"diffusion_model.final_layer.{out_name}.forward",

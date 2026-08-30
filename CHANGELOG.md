@@ -95,6 +95,40 @@ artifact.
 
 ### Fixed
 
+- **The PDD head bank is back on the CPU, and out of `model_management`'s
+  hands.** 2af7f0b attached it to the model patcher with
+  `set_additional_models` so ComfyUI could account for it and offload it under
+  pressure. A render says that trade goes the wrong way. What it bought is
+  42 MiB of HOST ram per cached arm, on a box whose peaks are tens of
+  gibibytes; what it cost is ~87 MiB of CARD memory for the whole render (the
+  buffers are fp32 and ComfyUI loads them to `load_device`), plus the fp32
+  fused masters, which now cached on the card too. The ref2va failure in
+  `bench/results/2026-08-28_pdd_ref2va_memory_marginality.json` was short by
+  17.5 MiB. It had also already cost the device crash fixed in 0.97.0.
+  - **And it left the leak detector permanently red.**
+    `ModelPatcher.clone` re-clones every `additional_models` entry, so each run
+    wrapped the same `_HeadBank` in a throwaway patcher; `LoadedModel` holds
+    the patcher only weakly, so once a clone chain was collected the entry
+    reported `is_dead` -- module alive, patcher gone -- and every subsequent
+    model load logged `WARNING, memory leak with model _HeadBank` and dragged a
+    full `gc.collect()` with it. Whether the retention it points at is real is
+    NOT established; what is established is that with no patcher there is no
+    entry.
+  - **`set_additional_models` was the wrong shape, checked against core rather
+    than assumed.** Core uses it in one place, `comfy/multigpu.py`, for
+    whole-model clones on other devices -- the case its per-clone copy is
+    written for. For weight-sized side data riding along with a patcher, core's
+    own shape is `ModelPatcher.patches`: plain CPU tensors, unmanaged, cast at
+    use, shared across clones by a list slice. That is what this is now. The
+    managed alternative, if it is ever wanted, is ControlNet's: ONE long-lived
+    patcher every `copy()` shares by reference, reached through the
+    conditioning's `get_models()` -- not available to a node that returns MODEL.
+  - The 0.97.0 device fix stays, and so does its case: the module is still free
+    to move and the fusion still follows the stack, it just is not moved any
+    more. `_HeadBank.__init__` pins its buffers to the CPU so where it is built
+    is where it stays. `nbytes` is kept as a measurement now that nothing
+    declares it.
+
 - **`docs/SOLATTN.md` claimed `dense_blocks` ships empty, in two places.** It
   had said so since before 2026-08-26, when `SOL_RECOMMENDED_CUDA` took
   NVLabs' `0-1`; one passage called the knob "unexploited headroom on the
