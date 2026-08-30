@@ -10,12 +10,22 @@ distribution, and the competing real-activation figure came from an uncommitted
 script across a repo boundary. The withdrawal names exactly one thing that
 restores it: grade a kernel against a capture. That is this file.
 
-**What is being decided.** `workflows/h3_config.py` ships
-`mode="fp16 (most accurate)"`, the one mode with no `sageattn_consume` entry
-point, and `check_bench_matches_shipped.py` records its cost against `auto`.
-After the withdrawal, the *numeric* half of that decision is gone and only the
-owner's perceptual verdict remains. This measures the numeric half again on
-inputs the model actually produces.
+**What is being decided.** `h3_config.SAGE_NODE` ships `mode="auto"`, which on
+sm89 resolves to `fp8_cuda++`. After the withdrawal, the *numeric* half of that
+decision is gone and only the owner's perceptual verdict remains. This measures
+the numeric half again on inputs the model actually produces.
+
+**This paragraph used to say `h3_config` ships `mode="fp16 (most accurate)"`,
+the one mode with no `sageattn_consume` entry point.** That was true when this
+file was written and stopped being true on 2026-08-18, when the mode was
+measured and flipped back to `auto`; `h3_config` carries that history. The
+stale sentence was read as current on 2026-08-30 and produced a wrong claim
+about what ships, along with a memory-cost concern that does not apply --
+`fp8_cuda++` does release q/k/v, and the caller-side clone is tied to
+`mode_releases_qkv` precisely because the fp16 and fp8 paths differ there.
+**Do not restate the shipped mode here.** `h3_config.SAGE_NODE` is the
+observable and this sentence is a cache with no invalidation; the only reason
+a mode is named above at all is to say which one the numbers below grade.
 
 ## Why a sampled reference, and why that is not a compromise
 
