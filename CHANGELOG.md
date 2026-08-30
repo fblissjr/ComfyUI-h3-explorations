@@ -8,6 +8,30 @@ artifact.
 
 ### Added
 
+- **Merging the PDD LoRA into an int8_convrot module raises that module's
+  quantisation error, and the size of the rise tracks the LoRA rather than the
+  base.** `ModelPatcher.patch_weight_to_device` dequantises, patches, then
+  requantises with `scale="recalculate"`, so PDD moves the quantisation grid.
+  Measured against the bf16 release over 28 backbone modules
+  (`bench/measure_pdd_quant_interaction.py`,
+  `bench/results/2026-08-30_pdd_quant_interaction.json`): the mean stored-weight
+  error goes from 0.00942 unpatched to 0.01058 at strength 1.0, smooth and
+  monotone through the intermediate strengths, and correlating 0.78 with the
+  module's own `||BA||/||W||`. `blocks.49.mlp.fc2` is worst at 1.31x. At
+  strength 0 the round trip is free to eight digits, which is the harness
+  checking itself; `e_vs_unpatched` is carried as the control that the
+  measurement can see a strength effect at all.
+- **There is no per-block quantisation sensitivity to key a schedule off, and
+  PDD's own per-block magnitude has the structure instead.**
+  `bench/measure_pdd_block_magnitude.py` and
+  `bench/results/2026-08-30_pdd_block_magnitude.json`: int8-vs-bf16 stored-weight
+  error spans 1.086x across the 50 blocks, while PDD's update spans 6.42x, is
+  smallest around blocks 29-47 and spikes at block 49. The update is orthogonal
+  to the weight it patches (cosine ~1e-4), so it is new structure rather than a
+  rescale. Consequence for any "scale PDD down where quantisation hurts" plan:
+  the two profiles are not the same variable, and the second one is anti-aligned
+  with the propagation ranking in `2026-08-29_block_propagation.json`.
+
 - **Gap 16: the generic VAE crop narrows the reference waveform's sample axis,
   and this repo's own trim is what puts us on a length where it bites.**
   `comfy/sd.py` leaves `crop_input` at its `True` default on the H3 audio
