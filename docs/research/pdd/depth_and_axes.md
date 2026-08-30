@@ -243,6 +243,38 @@ the correspondence the whole mechanism rests on.
 
 ---
 
+## 4b. A reason to doubt the depth axis before measuring it
+
+**Two independent lines now say the TIME axis dominates the DEPTH axis in this
+model.** Neither is about PDD strength, and one is weak evidence, but together
+they are a reason to predict the §3 probe finds less structure than the depth
+tables suggest — which is worth writing down BEFORE running it, so the result
+is scored against a prediction rather than explained afterwards.
+
+- **Ours, measured.** CLAUDE.md records that PDD quality is governed by the
+  sigma schedule's COARSENESS and specifically by where the coarseness lands —
+  two arms with the same evaluation count and the same block-width multiset,
+  differing only in whether the wide blocks sit at the front or the end, render
+  differently. That is a statement about the time partition, and it is the
+  strongest quality result this lane has.
+- **Upstream's, reported and not verified anywhere here.**
+  `docs/research/sglang_h3_pipeline.md` §11 records sglang's SubBlock sparse
+  backend claiming that its step cutoff and its layer cutoff "behave nothing
+  alike": dropping the LAYER cutoff to zero sits inside the run-to-run noise
+  floor, while dropping the STEP cutoff to zero leaves the sample essentially
+  uncorrelated with dense. **Read that with two discounts.** It is about
+  attention sparsity, not distillation strength, so it transfers only as an
+  analogy; and every number behind it is a rendered-clip cosine, which is the
+  comparison class CLAUDE.md's different-sample rule says cannot answer a
+  question about a numerical knob. It is a hint, not a result.
+
+**The prediction, registered.** If the time axis dominates here too, the §3
+probe should find the per-block strength profile flatter than column 1 of the
+§2 table — closer to the 1.086x of quantisation than to the 2.8x of
+propagation. A flat result would then be a real finding rather than a failed
+experiment, and the axis worth spending on next is the partition shape and the
+per-interval head weighting, both of which are in §4's unreachable list.
+
 ## 5. Not established
 
 Everything in §1 is stored-weight distance. Everything in §2 column 1 is one
