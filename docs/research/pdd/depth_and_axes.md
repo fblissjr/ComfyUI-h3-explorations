@@ -176,15 +176,33 @@ model evaluations use the wrong head and nothing says so. So sampler is an
 axis with a known trap, not an open dial — and any depth probe must stay on
 euler for the same reason `probe_block_propagation.py` does.
 
-  *Related, and it is an attribution worth keeping straight:*
+  *Related, and this paragraph is a correction of itself:*
   `MiniMaxH3EulerAncestralEta0SchedulerAdapter` carries eta=0 and is therefore
-  plain euler rather than `euler_ancestral`. **It is vllm-omni's, not
-  sglang's** — verified at
+  plain euler rather than `euler_ancestral`. **This file claimed on 2026-08-30
+  that the class is "vllm-omni's, not sglang's". That was wrong and is
+  withdrawn.** The class exists in BOTH trees — sglang's at
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/models/schedulers/scheduling_minimax_h3_euler_ancestral.py:137`
+  and vllm-omni's at
   `coderef/vllm-omni/vllm_omni/diffusion/models/minimax_h3/scheduling_minimax_h3_euler_ancestral.py:105`.
-  It was reported here as sglang's, and both trees carry a file called
-  `time_request.py`, which is how that conflation happens.
-  `docs/research/sglang_h3_pipeline.md` owns sglang;
-  `h3_dit_implementations.md` owns the cross-engine comparison.
+  They are near-identical and not identical, so one vendors the other and the
+  direction is not established.
+
+  **The cause was a search that did not follow symlinks**, not a naming
+  collision: `coderef/sglang` is a symlink, and `find`/`grep -r` skip those by
+  default, so the search that "established" the attribution could only ever
+  have returned vllm-omni. CLAUDE.md now carries the general rule.
+
+  **What is true about sglang's sampler is narrower than either version said.**
+  Its H3 pipeline does not instantiate the adapter at all —
+  `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines/minimax_h3_pipeline.py:45-48`
+  says the
+  scheduler is intentionally absent, `model_index` carries `scheduler=null`,
+  and stages accept `scheduler=None`. The denoise loop runs its own in-place
+  step. So sglang does run deterministic euler, but in the loop rather than
+  through that class, and the class is where the math is *documented* rather
+  than where it *executes*. Reported by the mask-lane session, verified here by
+  reading both files. `docs/research/sglang_h3_pipeline.md` owns sglang and
+  already attributes the class correctly.
 
 **MASK GRANULARITY, and it is gated by ComfyUI rather than by the model.**
 Reported by the mask lane, measured by them, not re-derived here:
