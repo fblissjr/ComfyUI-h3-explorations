@@ -329,7 +329,7 @@
         true,
         false,
         false,
-        "0-1"
+        "0-2,32"
       ],
       "title": "Patch Sol-Attn (end_percent 0.87 - derived from the step count so the LAST step stays dense; default is 0.9)"
     },
@@ -1045,7 +1045,7 @@
         true,
         false,
         false,
-        "0-1"
+        "0-2,32"
       ],
       "title": "Patch Sol-Attn (stage 2)"
     },

@@ -647,25 +647,45 @@ SOL_RECOMMENDED_CUDA = dict(
     # `morton=False`; the exposure is the next person who turns it on.
     morton_curve="3d", centroid_tail=True,
     reuse_qkv_memory=False, verbose=False,
-    # "0-1" since 2026-08-26, and it is the vendor's number rather than ours.
-    # NVLabs ships `SOL_ATTN_FIRST_DENSE_LAYERS = 2` on BOTH their H3 configs --
-    # the 8xGB200 rack one and the single-card RTX 5090 one -- and every sparse
-    # config in their tree carries `stage2_dense_layers = "0-1"`. That it is
-    # identical on a consumer single card and on a rack is what makes it
-    # portable: it is a statement about where this model is numerically
-    # fragile, not about hardware. Ulysses degree, VAE sharding and compile
-    # settings differ between those two configs; the Sol policy does not.
+    # **"0-2,32" since 2026-08-29, measured here. "0-1" from 2026-08-26, which
+    # was NVLabs' number rather than ours, and "" before that.**
     #
-    # We shipped "" until today, which was the one place our recipe was less
-    # conservative than the vendor's tested one. Costs 2 of 50 blocks on the
-    # sparse steps. The node logs `keeping blocks [0, 1] dense of 50` when it
-    # takes, and warns loudly if it cannot index blocks, so this is verifiable
-    # from the log rather than assumed.
+    # `bench/results/2026-08-29_block_propagation.json` runs Sol at exactly ONE
+    # block with sage everywhere else and reads the output latent, which is the
+    # quantity this knob should be chosen on -- it folds together how large
+    # Sol's error is at a block and how much of it survives to the output.
+    # Video rel L2 against a sage-everywhere baseline:
+    #     0  0.0306   32 0.0272   1  0.0272   2  0.0254
+    #     24 0.0247   8  0.0243   16 0.0239   40 0.0177
+    #     49 0.0128   48 0.0110   45 0.0109
+    # Video and audio rank the SAME four highest, and block 32 replicated at a
+    # second seed. **The probe ran on the BASE model** -- this graph -- so it is
+    # this config the measurement bears on most directly, and SOL_PDD_CUDA
+    # inherits it.
     #
-    # Their `SOL_ATTN_THRESH_TYPE = "diag"` is deliberately NOT copied: no such
-    # input exists on our node or in `comfy_kitchen.sol_attn`, so there is
-    # nothing to map it onto.
-    dense_blocks="0-1",
+    # It keeps the vendor's front and extends it. NVLabs ship `0-1` on both
+    # their H3 profiles and that survives: blocks 0 and 1 are first and third
+    # here. What it adds is block 2 and block 32, and what it refutes is any
+    # instinct to protect the TAIL -- 45, 48 and 49 are the three lowest
+    # measured, less than half of block 0.
+    #
+    # **Do not read the Sol paper's "first layer" as agreement.** It says, of
+    # Wan2.1, HunyuanVideo, Bernini and Ideogram 4, that it runs dense "in the
+    # first layer" -- none of them this architecture, and H3 did not exist when
+    # it was submitted. Its cost trade does not transfer either: those models do
+    # not sit in attention the way this one does, where Sol is worth 1.896x on
+    # the whole sampler. See docs/SOLATTN.md.
+    #
+    # Cost is measured, not assumed: 1.01 s per dense block at 4 steps, linear
+    # from 2 to 8 blocks (`bench/results/2026-08-29_dense_block_cost.json`).
+    # Four blocks against the vendor's two is about +2 s on a 150 s render. At
+    # 16 steps Sol covers 11 of them rather than 2, so the same two extra
+    # blocks cost proportionally more there and still land near 1% -- priced,
+    # not measured at that step count.
+    #
+    # **One box, two seeds, and a fidelity proxy rather than a person looking
+    # at a clip.** Nothing here is a perceptual result.
+    dense_blocks="0-2,32",
 )
 
 
@@ -691,7 +711,9 @@ SOL_RECOMMENDED_CUDA = dict(
 #                 should be WORSE than 0.74 if the mechanism is trajectory-
 #                 pinned rather than grid-pinned. Nothing has run that.
 #
-#   dense_blocks  "0-2,32", the measured top four.
+#   dense_blocks  INHERITED from SOL_RECOMMENDED_CUDA since 2026-08-29 evening,
+#                 where the reasoning now lives. Kept here only as the record
+#                 of how this dict got there:
 #                 `bench/results/2026-08-29_block_propagation.json`: Sol run at
 #                 exactly ONE block, sage everywhere else, reading the output
 #                 latent against a sage-everywhere baseline. Video rel L2 --
@@ -738,9 +760,13 @@ SOL_RECOMMENDED_CUDA = dict(
 # the BASE model, so PDD's fused output head was not in the path -- which is
 # the one argument for the tail that the measurement cannot see, and it is not
 # enough to reinstate 48-49 against a measured ranking that puts them last.
+# **ONE knob.** `dense_blocks` was here from 2026-08-29 morning until that
+# evening, when the propagation measurement moved SOL_RECOMMENDED_CUDA to the
+# same "0-2,32" -- so it is inherited now rather than restated, which is the
+# rule this file exists to keep. A PDD arm differs from the base recipe in
+# exactly one value, and that value is the one with a derivation behind it.
 SOL_PDD_OVERRIDES = dict(
     end_percent=0.74,
-    dense_blocks="0-2,32",
 )
 
 SOL_PDD_CUDA = dict(SOL_RECOMMENDED_CUDA, **SOL_PDD_OVERRIDES)

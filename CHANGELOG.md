@@ -8,6 +8,52 @@ artifact.
 
 ### Changed
 
+- **`SOL_RECOMMENDED_CUDA`'s `dense_blocks` is `0-2,32`, was the vendor's
+  `0-1`.** The propagation probe ran on the BASE model, so this config is the
+  one it bears on most directly and `SOL_PDD_CUDA` now inherits the value
+  rather than restating it -- **a PDD arm differs from the base recipe in
+  exactly ONE knob**, `end_percent`, which is the one with a derivation behind
+  it. Every shipped graph moves, not just the distilled ones.
+  - It keeps the vendor's front and extends it: NVLabs' `0-1` survives (blocks
+    0 and 1 rank first and third), and what it adds is 2 and 32. What it
+    refutes is protecting the TAIL -- 45, 48 and 49 are the three lowest
+    measured, under half of block 0.
+  - Cost at 16 steps is priced, not measured: Sol covers 11 steps there rather
+    than 2, so two extra blocks cost proportionally more and still land near
+    1%. Said as a price rather than a figure.
+
+### Fixed
+
+- **`MiniMaxH3PDDLoRA`'s widget order disagreed with its own schema, and every
+  UI graph on disk was wrong for most of 2026-08-29.** `head_strength` was
+  added at input position 2 that afternoon while the generator emitted it
+  third, so neither matched the other: a loaded graph read `patch_heads` as
+  1.0, `nfe` as True and `steps` as 0.
+  - The input is now APPENDED, which is the rule `nodes.py` and
+    `MiniMaxH3SageAttention` both state and the reason for it -- saved graphs
+    match `widgets_values` by INDEX, so an insertion re-points every later
+    value in every graph already on disk. The tooltip's "no saved workflow
+    changes" was true of the SENTINEL and never of the ORDER; two different
+    claims.
+  - **This is what `check_distill_settings.py` had been red about since the
+    morning.** It was reporting an `nfe` of True on a node whose `nfe` is an
+    Int -- the value it was really reading was `patch_heads`. Read as a graph
+    defect for three sessions. It is green now, and nothing about the graph was
+    ever wrong.
+  - `bench/check_node_ids.py` caught the insertion the day it happened and was
+    overruled by nobody; it simply went unread. Its manifest is now updated
+    deliberately, recording the append plus the two genuinely new nodes.
+
+- **The build-time validator now type-checks each widget value against the
+  widget it lands on**, which is the gap that let the above validate clean: it
+  compared the COUNT of values against the schema and never their types, so six
+  values for six widgets passed while three of them were on the wrong widget.
+  Lenient by design -- FLOAT accepts an int, linked widgets are skipped -- so
+  it fires on a positional shift rather than on formatting.
+  - **Proven red on the exact defect**: restoring the old order fails the build
+    naming `patch_heads is BOOLEAN but got 1.0` and `nfe is INT but got True`,
+    and writes nothing.
+
 - **`SOL_PDD_CUDA` is now TWO knobs, measured, where it shipped with five that
   morning.** `end_percent` 0.74 and `dense_blocks` `"0-2,32"`. Three overrides
   were dropped for having no evidence and no effect: `min_tokens` 11776 (inert

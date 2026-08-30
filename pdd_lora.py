@@ -980,26 +980,6 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     ),
                 ),
                 io.Float.Input(
-                    "head_strength", default=-1.0, min=-10.0, max=10.0, step=0.01,
-                    optional=True,
-                    tooltip=(
-                        "Scales the fused OUTPUT HEADS alone, leaving the "
-                        "backbone and adaln update on `strength`. Splitting "
-                        "the two is borrowed from silveroxides' "
-                        "`UC_MiniMaxH3PDDAcc`, which separates `lora_strength` "
-                        "from `head_strength`; the point is that the three "
-                        "mechanisms reach the model on three different "
-                        "surfaces and are worth ablating apart.\n\n"
-                        "-1.0, the default, means FOLLOW `strength` -- the "
-                        "single-knob behaviour every graph had before this "
-                        "input existed, so no saved workflow changes. A "
-                        "sentinel rather than an optional None because the "
-                        "widget is a float and 0.0 is a meaningful value here: "
-                        "0.0 installs no head patches and runs the "
-                        "checkpoint's own heads, which is the headfree control "
-                        "arm."),
-                ),
-                io.Float.Input(
                     "strength", default=1.0, min=-10.0, max=10.0, step=0.01,
                     tooltip=(
                         "Scales all three mechanisms together, and each one "
@@ -1073,6 +1053,41 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "For denoise below 1.0, send SIGMAS through "
                         "SplitSigmasDenoise and take low_sigmas."
                     ),
+                ),
+                # APPENDED, not placed beside `strength` where it reads
+                # better. **It WAS beside it, from 2026-08-29 afternoon until
+                # that evening, and that was a defect**: saved graphs store
+                # `widgets_values` as a bare list matched by INDEX, so an input
+                # inserted at position 2 re-points every later value in every
+                # graph already on disk -- `strength` would have been read as
+                # `head_strength`, `patch_heads` as `strength`, and so on.
+                # `bench/check_node_ids.py` caught it and was overruled by
+                # nobody; it is the same rule `MiniMaxH3SageAttention` states
+                # over `head_chunks`.
+                #
+                # The tooltip's "no saved workflow changes" was and is true of
+                # the SENTINEL -- -1.0 means follow `strength`, so the
+                # single-knob behaviour is preserved. It was never true of the
+                # widget ORDER, and those are different claims.
+                io.Float.Input(
+                    "head_strength", default=-1.0, min=-10.0, max=10.0, step=0.01,
+                    optional=True,
+                    tooltip=(
+                        "Scales the fused OUTPUT HEADS alone, leaving the "
+                        "backbone and adaln update on `strength`. Splitting "
+                        "the two is borrowed from silveroxides' "
+                        "`UC_MiniMaxH3PDDAcc`, which separates `lora_strength` "
+                        "from `head_strength`; the point is that the three "
+                        "mechanisms reach the model on three different "
+                        "surfaces and are worth ablating apart.\n\n"
+                        "-1.0, the default, means FOLLOW `strength` -- the "
+                        "single-knob behaviour every graph had before this "
+                        "input existed, so no saved workflow changes. A "
+                        "sentinel rather than an optional None because the "
+                        "widget is a float and 0.0 is a meaningful value here: "
+                        "0.0 installs no head patches and runs the "
+                        "checkpoint's own heads, which is the headfree control "
+                        "arm."),
                 ),
             ],
             outputs=[io.Model.Output(), io.Sigmas.Output()],

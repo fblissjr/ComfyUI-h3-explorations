@@ -4788,11 +4788,27 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                   title="PDD LoRA: what runs that the widgets do not show")
             lora_node = g.add(
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 170),
-                # Order is required-then-optional, which is how the
-                # validator derives it from `define_schema`: lora_name and
-                # strength, then head_strength, patch_heads, nfe, steps.
-                widgets=[lora[0], lora[1], lora[1], pdd_heads, pdd_nfe,
-                         0 if split_at else _resolved_steps],
+                # Order is required-then-optional, which is how the frontend
+                # derives it from `define_schema`: lora_name, strength, then
+                # patch_heads, nfe, steps, head_strength.
+                #
+                # **head_strength is LAST, and this list disagreed with the
+                # schema for most of 2026-08-29.** The input was added at
+                # position 2 that afternoon and this list put it third, so
+                # neither matched: a loaded graph read `patch_heads` as 1.0,
+                # `nfe` as True and `steps` as 0. `check_distill_settings.py`
+                # is what noticed, by reporting an `nfe` of True on a graph
+                # whose nfe is an Int -- the value it was really reading was
+                # `patch_heads`.
+                #
+                # Nothing structural stops this recurring: the build-time
+                # validator checks that every node and input EXISTS in the
+                # served schema, not that this list is in the schema's ORDER,
+                # so a positional drift validates clean. Changing the input
+                # list in `pdd_lora.py` means changing this line in the same
+                # commit.
+                widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
+                         0 if split_at else _resolved_steps, lora[1]],
                 # `steps` is a socket in the UI form too, fed by the
                 # PrimitiveInt added below, so the value is visible on the
                 # canvas rather than inside the loader.
@@ -5856,6 +5872,42 @@ def validate_ui(wf: dict, oi: dict, label: str) -> list[str]:
               f"name it in _FRONTEND_EXTRA_WIDGETS. A surplus is not allowed "
               f"on the grounds that some other node has one.")
         else:
+            # Each value must be TYPE-COMPATIBLE with the widget it lands on.
+            # The length check above is not enough and that gap cost a real
+            # defect: on 2026-08-29 `MiniMaxH3PDDLoRA` declared
+            # [..., patch_heads, nfe, steps, head_strength] while the generator
+            # emitted [..., head_strength, patch_heads, nfe, steps]. Six values
+            # for six widgets, so the count agreed and this validator passed --
+            # while every loaded graph read `patch_heads` as 1.0, `nfe` as True
+            # and `steps` as 0. What noticed was `check_distill_settings.py`
+            # reporting an `nfe` of True, three sessions later.
+            #
+            # Types are the observable that separates the two orders. Kept
+            # deliberately lenient: FLOAT accepts an int (a 1 for a 1.0 is how
+            # JSON round-trips), and anything fed by a socket is skipped, so
+            # this fires on a genuine positional shift rather than on
+            # formatting.
+            for (wname, wtype, _wcfg), got in zip(wants, vals):
+                if isinstance(got, (list, dict)) or got is None:
+                    continue          # linked widget or a nested combo payload
+                ok = True
+                if wtype == "BOOLEAN":
+                    ok = isinstance(got, bool)
+                elif wtype == "INT":
+                    ok = isinstance(got, int) and not isinstance(got, bool)
+                elif wtype == "FLOAT":
+                    ok = (isinstance(got, (int, float))
+                          and not isinstance(got, bool))
+                elif wtype == "STRING":
+                    ok = isinstance(got, str)
+                elif isinstance(wtype, list):
+                    ok = isinstance(got, (str, int, float, bool))
+                if not ok:
+                    e(f"node {n['id']} ({n['type']}): widget {wname!r} is "
+                      f"{wtype} but got {got!r} ({type(got).__name__}). "
+                      f"widgets_values maps POSITIONALLY, so this is a shifted "
+                      f"list, not a bad value -- the generator's widget order "
+                      f"disagrees with the schema's {names}")
             for (wname, wvalue, _why), got in zip(extras, vals[len(wants):]):
                 _EXTRA_WIDGETS_SEEN[(n["type"], wname)] = True
                 if got != wvalue:

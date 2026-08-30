@@ -71,6 +71,25 @@
       "Output"
     ]
   },
+  "MiniMaxH3EncoderLoader": {
+    "inputs": [
+      "encoder_name"
+    ],
+    "node_id": "MiniMaxH3EncoderLoader",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3ExactBlocks": {
+    "inputs": [
+      "model",
+      "blocks"
+    ],
+    "node_id": "MiniMaxH3ExactBlocks",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3KeyframeCanvas": {
     "inputs": [
       "first_frame",
@@ -107,7 +126,8 @@
       "strength",
       "patch_heads",
       "nfe",
-      "steps"
+      "steps",
+      "head_strength"
     ],
     "node_id": "MiniMaxH3PDDLoRA",
     "outputs": [

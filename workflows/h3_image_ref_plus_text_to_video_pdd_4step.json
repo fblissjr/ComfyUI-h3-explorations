@@ -218,10 +218,10 @@
       "widgets_values": [
         "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors",
         1.0,
-        1.0,
         true,
         0,
-        4
+        4,
+        1.0
       ],
       "title": "PDD LoRA (strength 1.0, 4 steps -> SIGMAS)"
     },
