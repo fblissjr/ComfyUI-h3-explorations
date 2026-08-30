@@ -1,0 +1,89 @@
+{
+ "measured": "2026-08-29",
+ "produced_by": "bench/rank_dense_blocks.py",
+ "what": "error that dense_blocks REMOVES per block: Sol's total minus sage's, because a dense block runs sage rather than exact attention",
+ "inputs": [
+  "2026-08-19_sol_error_per_head_tau1.0.json",
+  "2026-08-18_sage_accuracy_on_capture.json"
+ ],
+ "sol_tau": 1.0,
+ "sol_capture": "2026-08-18_ref3_362f_1024x768_ref2va",
+ "sage_mode": "auto",
+ "sequence": 98498,
+ "shipped_dense_blocks": {
+  "SOL_RECOMMENDED_CUDA": "0-1",
+  "SOL_PDD_CUDA": "0,1,2,48,49,-1"
+ },
+ "rows": [
+  {
+   "block": 0,
+   "sol_total_rel_l2": 0.09723865080441842,
+   "sol_sparsity_rel_l2": 0.09096184929385372,
+   "sol_quant_rel_l2": 0.027987675197213215,
+   "sage_rel_l2": 0.004619122759439213,
+   "removed_by_dense": 0.09261952804497921,
+   "sol_over_sage": 21.051324216424103
+  },
+  {
+   "block": 8,
+   "sol_total_rel_l2": 0.11797655951607136,
+   "sol_sparsity_rel_l2": 0.11334311806323222,
+   "sol_quant_rel_l2": 0.027092473674689217,
+   "sage_rel_l2": 0.00974655803966795,
+   "removed_by_dense": 0.10823000147640341,
+   "sol_over_sage": 12.10443307636535
+  },
+  {
+   "block": 16,
+   "sol_total_rel_l2": 0.14453658807084926,
+   "sol_sparsity_rel_l2": 0.13457408415323358,
+   "sol_quant_rel_l2": 0.035206336679138375,
+   "sage_rel_l2": 0.009517808707964433,
+   "removed_by_dense": 0.13501877936288484,
+   "sol_over_sage": 15.185910171729141
+  },
+  {
+   "block": 24,
+   "sol_total_rel_l2": 0.15658754641592096,
+   "sol_sparsity_rel_l2": 0.14839507979645955,
+   "sol_quant_rel_l2": 0.03329533055813065,
+   "sage_rel_l2": 0.00940060201977284,
+   "removed_by_dense": 0.14718694439614813,
+   "sol_over_sage": 16.657182815160258
+  },
+  {
+   "block": 32,
+   "sol_total_rel_l2": 0.17186158669590323,
+   "sol_sparsity_rel_l2": 0.1593851670843988,
+   "sol_quant_rel_l2": 0.04332606285226199,
+   "sage_rel_l2": 0.010079487121205606,
+   "removed_by_dense": 0.16178209957469764,
+   "sol_over_sage": 17.05062813506992
+  },
+  {
+   "block": 40,
+   "sol_total_rel_l2": 0.22249966298306909,
+   "sol_sparsity_rel_l2": 0.20965953892053885,
+   "sol_quant_rel_l2": 0.04801659459946497,
+   "sage_rel_l2": 0.01374416710923811,
+   "removed_by_dense": 0.20875549587383097,
+   "sol_over_sage": 16.18866106724768
+  },
+  {
+   "block": 49,
+   "sol_total_rel_l2": 0.19090006674297294,
+   "sol_sparsity_rel_l2": 0.15372131675492695,
+   "sol_quant_rel_l2": 0.1353685367002112,
+   "sage_rel_l2": 0.030630034040593224,
+   "removed_by_dense": 0.16027003270237972,
+   "sol_over_sage": 6.232447097184999
+  }
+ ],
+ "caveats": [
+  "Arithmetic over two existing records, not a new measurement.",
+  "The two come from different captures and different harnesses; read the ranking, not a single value.",
+  "Measured blocks only. 1, 2 and 48 appear in no capture.",
+  "Says nothing about propagation: error AT a block is not impact ON the output, and an early block's error travels through the rest of the model while block 49's does not.",
+  "sage's own cos_min goes NEGATIVE at block 49 (-0.04 to -0.11), so the replacement is at its own worst exactly there. The subtraction still favours dense, but by less than the Sol column alone suggests."
+ ]
+}

@@ -523,13 +523,39 @@ capture. Relative L2, at steps 3 and 11:
 | 49 | 0.165 / 0.143 | **0.135 / 0.135** |
 
 Read straight, that says **block 0 is where Sol is most accurate, not least**,
-and **block 40 is where it is worst — and nothing keeps 40 dense.** Block 49 is
-mid on sparsity but carries roughly four times every other block's quantization
-error, so its total is the highest measured; that half of the shipped list has
-support. Blocks 1, 2 and 48 have never been measured, because the captures hold
-0, 8, 16, 24, 32, 40 and 49 only.
+and **block 40 is where it is worst.** Blocks 1, 2 and 48 have never been
+measured, because the captures hold 0, 8, 16, 24, 32, 40 and 49 only.
 
-`h3_config.SOL_ARTIFACT_INSURANCE` already encodes this ranking as
+**But ranking on Sol's error is the wrong ranking, and it took a second look to
+see why.** A block named in `dense_blocks` does not run dense attention.
+`vendor/sol_attn_minimax.py::make_override`'s `dense()` hands the call to
+`previous`, and on every shipped graph `previous` is **sage**. So the knob swaps
+Sol's approximation for sage's, and what it buys is the difference, not Sol's
+error. `bench/rank_dense_blocks.py` does that subtraction over the two records
+this repo already holds (`bench/results/2026-08-29_dense_block_ranking.json`):
+
+| block | Sol total | sage | **removed by dense** |
+|---|---|---|---|
+| 40 | 0.2225 | 0.0137 | **0.2088** |
+| 32 | 0.1719 | 0.0101 | 0.1618 |
+| 49 | 0.1909 | **0.0306** | 0.1603 |
+| 24 | 0.1566 | 0.0094 | 0.1472 |
+| 16 | 0.1445 | 0.0095 | 0.1350 |
+| 8 | 0.1180 | 0.0097 | 0.1082 |
+| 0 | 0.0972 | 0.0046 | **0.0926** |
+
+**Block 49 is a reasonable pick and block 0 is the weakest one in the model.**
+49 sits mid-table rather than at the top, and it is the one block where the
+correction matters: its sage figure is 6.6x block 0's, so ranking on Sol alone
+would have put it second and the honest subtraction puts it third — Sol is only
+6.2x sage there against 15-21x everywhere else. Both kernels are worst at block
+49, which is why. Sage's `cos_min` at that block goes **negative** (-0.04 to
+-0.11 across steps): on some rows the replacement is anti-correlated with the
+exact answer. Dense still wins there by a factor of six, so this is a caveat on
+the size of the win, not a reason to drop 49.
+
+**Block 40 is the best measured candidate and no config keeps it dense.**
+`h3_config.SOL_ARTIFACT_INSURANCE` already encodes that region as
 `"33-35,39-42"`, described there as the two highest-error regions. It has never
 shipped.
 
@@ -545,10 +571,18 @@ distance between "which block Sol approximates worst" and "which block to keep
 dense".** Closing it is one experiment: perturb one block's attention output by
 its measured sparsity error and read the change at the output head.
 
-**So "too many, or the wrong ones" is answerable and currently unanswered.** The
-measured half says 0 is the weakest candidate in the model and 40 the strongest;
-the unmeasured half says early blocks might still be right for a reason error
-ranking cannot see.
+**So "too many, or the wrong ones" has a measured half and an unmeasured
+half.** Measured: `0` is the weakest candidate of any block in the model, `40`
+the strongest and unshipped, `49` a sound mid-table pick. Unmeasured:
+propagation, which is the one thing that could justify the early blocks anyway,
+and blocks 1, 2 and 48, which appear in no capture. **`0,1,2,48,49` is
+therefore two good blocks, one unmeasured neighbour of a good block, and two
+blocks the evidence argues against** — and `40` is missing.
+
+`-1` in that list is not a sixth block. `parse_blocks` resolves it to `50 + (-1)
+= 49` and returns a frozenset, so `"0,1,2,48,49,-1"`, `"0,1,2,48,49"` and
+`"0-2,48-49"` are the same five blocks. Verified by calling the function, not
+by reading it.
 
 ##### The cost of `dense_blocks`, as arithmetic
 
@@ -571,7 +605,9 @@ clip looks like, not about how long it took.
 
 `2026-08-20_ref3_362f_1024x768_fl2va` survives on disk with blocks 0, 8, 16,
 24, 32, 40, 49 at steps 3 and 11, and has only ever been analysed at tau 1.3 on
-three of them. Running `bench/analyze_sol_error.py` at **tau 1.0** across all
+three of them. It would also let `bench/rank_dense_blocks.py` run within ONE
+capture instead of subtracting across two, which is that script's weakest
+assumption. Running `bench/analyze_sol_error.py` at **tau 1.0** across all
 seven gives the per-block ranking on **fl2va, the partition the t2v PDD arms
 actually run**, against a ranking currently taken from ref2va. No render, no
 server; it needs the card free and `--heads 0` for all 56, or every row is a

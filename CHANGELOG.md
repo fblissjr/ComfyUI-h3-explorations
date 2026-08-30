@@ -65,6 +65,34 @@ artifact.
     been measured. Stated with its counter-reading: error at a block is not
     impact on the output, and nothing here measures propagation.
 
+### Added
+
+- **`bench/rank_dense_blocks.py`, and it corrects the ranking above.** Ranking
+  blocks by Sol's error is the wrong ranking, because **a block in
+  `dense_blocks` does not run dense attention** -- `make_override`'s `dense()`
+  hands the call to `previous`, which on every shipped graph is sage. What the
+  knob buys is the DIFFERENCE. The script subtracts the two records this repo
+  already holds and writes
+  `bench/results/2026-08-29_dense_block_ranking.json`.
+  - **Block 40 removes the most error (0.209) and is in no shipped list.
+    Block 0 removes the least of any block in the model (0.093). Block 49 is a
+    sound mid-table 0.160.** So `SOL_PDD_CUDA`'s `0,1,2,48,49` is the weak half
+    and the sound half together, and the strongest available candidate is
+    absent.
+  - **The correction matters most exactly at block 49**, which is why the
+    subtraction was worth doing: sage is 6.6x worse there than at block 0, so
+    Sol beats it by only 6.2x against 15-21x elsewhere. Ranking on Sol alone
+    puts 49 second; the honest figure puts it third. Sage's own `cos_min` at
+    block 49 is NEGATIVE (-0.04 to -0.11) -- on some rows the replacement is
+    anti-correlated with the exact answer. Dense still wins there by six times,
+    so this bounds the size of the win rather than removing it.
+  - Refuses rather than prints when the two records sit at different sequence
+    lengths, since Sol's error is length-dependent and two lengths are two
+    operating points. Confirmed red on a doctored input.
+  - **`-1` is not a sixth block.** `parse_blocks` resolves it to 49 and returns
+    a frozenset, so `"0,1,2,48,49,-1"`, `"0,1,2,48,49"` and `"0-2,48-49"` are
+    the same five blocks. Verified by calling the function.
+
 ### Fixed
 
 - **`docs/SOLATTN.md` claimed `dense_blocks` ships empty, in two places.** It

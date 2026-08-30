@@ -703,8 +703,11 @@ SOL_RECOMMENDED_CUDA = dict(
 #                and the last two. `-1` resolves to 49 on a 50-block DiT
 #                (`vendor/sol_attn_minimax.py::parse_blocks`), so it is
 #                redundant with the literal 49 and kept because it is what
-#                the owner wrote and what the widget shows. Costs 5 of 50
-#                blocks on the sparse steps rather than 2.
+#                the owner wrote and what the widget shows. Confirmed by
+#                calling the function rather than reading it: this string,
+#                "0,1,2,48,49" and "0-2,48-49" all resolve to the same five.
+#                Costs 5 of 50 blocks on the sparse steps rather than 2, and
+#                those five are SAGE blocks, not exact ones.
 #
 # Held identical to SOL_RECOMMENDED_CUDA, so a change there still reaches
 # here: selection, tau, start_percent, sink_conditioning, morton,
@@ -725,13 +728,18 @@ SOL_RECOMMENDED_CUDA = dict(
 #                 evaluations has run; until then it is a prettier spelling of
 #                 the same literal.
 #   dense_blocks  measured evidence exists at THIS tau and points elsewhere.
-#                 `bench/results/2026-08-19_sol_error_per_head_tau1.0.json`
-#                 ranks block 0 as Sol's MOST accurate and block 40 as its
-#                 worst; 1, 2 and 48 have never been measured. Block 49 earns
-#                 its place on quantization error rather than sparsity. What
-#                 the ranking cannot see is propagation -- error at an early
-#                 block travels through 49 more -- and that is the gap between
-#                 "worst approximated" and "worth keeping dense".
+#                 A block named here does NOT run dense attention: `dense()`
+#                 hands the call to `previous`, which on every shipped graph is
+#                 SAGE. So what the knob buys is Sol's error MINUS sage's, and
+#                 `bench/results/2026-08-29_dense_block_ranking.json` does that
+#                 subtraction: block 40 removes the most (0.209) and ships
+#                 nowhere, block 0 the least (0.093) of any block in the model,
+#                 block 49 a sound mid-table 0.160. So `0,1,2` is the weak half
+#                 of this list and `48,49` the sound half. 1, 2 and 48 appear
+#                 in no capture. What the ranking cannot see is propagation --
+#                 error at an early block travels through 49 more -- and that
+#                 is the gap between "worst approximated" and "worth keeping
+#                 dense".
 SOL_PDD_OVERRIDES = dict(
     end_percent=0.74,
     min_tokens=11776,
