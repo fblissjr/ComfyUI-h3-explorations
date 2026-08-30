@@ -1857,13 +1857,26 @@ repo currently uses. **It is still DEPRIORITISED by the owner (2026-08-28); the
 blocker is what changed, not the priority.**
 
 `unmerged_blocks` is what to reach for when you do not want a second artifact
-per partition, or when you want the fidelity on some blocks and not the memory
-on all of them. `MiniMaxH3PDDLoRA` takes it in `dense_blocks` syntax; empty is
-the default and is bit-for-bit the old behaviour. It is a set rather than a
-switch because 50 blocks is roughly a gigabyte beside a 24 GB checkpoint, which
-is the same wall `_make_adaln_forward` declined to walk into when it chose not
-to cache its pairs per device. Worst-first from the measurement: 49, 7, 24, 16;
-least worth it, 32 and 40.
+per partition. `MiniMaxH3PDDLoRA` takes it in `dense_blocks` syntax; empty is
+the default and is bit-for-bit the old behaviour.
+
+**It is not the memory trade this document first said it was, and the
+correction runs in the knob's favour.** The first version of this section
+priced un-merging at +19 MB resident per block -- roughly a gigabyte for all
+50, and called it the same wall `_make_adaln_forward` declined to walk into --
+by reasoning that the A/B pairs become resident. They are resident either way.
+`add_patches` holds the patch tensors for the ModelPatcher's lifetime, which is
+exactly the 933 MiB the run-time footprint table above attributes to those
+pairs. Measured rather than reasoned the second time: both arms of the
+2026-08-30 smoke staged **19995 MB, identically**, at 292 patches against 308.
+Un-merging changes who owns those tensors, not whether they are held.
+
+So the trade is compute, not memory: two extra small matmuls per module per
+forward, about +2.4% FLOPs on an un-merged block's linear layers, and in bf16
+rather than int8. **That is arithmetic from the shapes and has not been
+timed.** Which also means there is no memory argument for keeping the set
+small -- worst-first by inflation is 49, 7, 24, 16 and least worth it 32 and
+40, but `0-49` is not the wall this section originally implied.
 
 `bench/check_pdd_unmerged.py` grades the identity that makes the arms
 comparable at all -- `unmerged(x) == x @ (W + alpha/rank * B @ A).T` in float64
