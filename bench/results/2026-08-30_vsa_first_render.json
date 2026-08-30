@@ -1,0 +1,46 @@
+{
+  "what": "first end-to-end run of MiniMaxH3VSAAttention on kijai's FastVideo VSA-distilled H3 checkpoint, against a dense control on the same checkpoint",
+  "date": "2026-08-30",
+  "answers": "a MECHANICAL question only: does VSA run, is its gate consumed, is it deterministic. NOT whether the output is good.",
+  "stack": {
+    "core": "comfyanonymous/ComfyUI#15958 head 10febb01, a DRAFT, applied to this box's working tree",
+    "checkpoint": "minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot (Kijai/MiniMax-H3-experimental)",
+    "kernel": "comfy_kitchen 0.2.31+sol.dae00a1",
+    "node": "MiniMaxH3VSAAttention, keep_percent 10.0, pooled_tail False"
+  },
+  "arms": {
+    "vsa": "workflows/h3_probe_vsa_api.json",
+    "dense_control": "workflows/h3_probe_vsa_dense_api.json (same checkpoint, sage only)"
+  },
+  "matched": {
+    "seed": 730451892,
+    "steps": 4,
+    "canvas": "768x768",
+    "frames": 124,
+    "packed_sequence_rows": 22121
+  },
+  "engaged": "log line '[h3-vsa] VSA on 50 blocks, keep 10.0% of key blocks, 4x4x4 cubes, pooled_tail=False', and no fallback warning",
+  "pixel_digests": {
+    "vsa": "ff3036ad22942754",
+    "dense_control": "054ddf962055d126",
+    "vsa_repeat": "ff3036ad22942754"
+  },
+  "verdict": "VSA differs from its dense control and reproduces itself at the same seed, so the gate is consumed and the path is deterministic.",
+  "timing_seconds": {
+    "vsa_warm": 22.68,
+    "dense_control_warm": 24.18,
+    "vsa_cold": 43.43
+  },
+  "timing_caveat": "ONE run per arm and not a measurement. The cold number includes the model load and is not comparable to either warm one. The two warm numbers share a cached text encode, which is what makes them comparable at all, and a 1.5 s difference at this scale is inside what this repo has measured as run-to-run excursion on e2e renders. Do not quote a speedup from this.",
+  "not_established": [
+    "any quality claim. A rendered pair cannot A/B a numerical change, and this pair additionally changes the attention regime outright.",
+    "that keep_percent 10.0 is right. It is the distillation's published sparsity, unmeasured here.",
+    "anything at the lengths this repo normally renders. 22,121 rows is far below the 31k-128k of the shipped graphs, and sparse attention's win grows with length."
+  ],
+  "reproduce": [
+    "bench/restart_comfy.sh --newer-than vsa_attention.py",
+    "bench/smoke_h3.py --workflow h3_probe_vsa_api.json --length 124 --steps 4",
+    "bench/smoke_h3.py --workflow h3_probe_vsa_dense_api.json --length 124 --steps 4",
+    "bench/verify_vsa_render.py <vsa.mp4> <dense.mp4> <vsa-repeat.mp4>"
+  ]
+}

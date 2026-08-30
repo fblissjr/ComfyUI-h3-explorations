@@ -143,6 +143,25 @@ MODELS = dict(
     # The filenames end `-int8`, not `_int8_convrot`; `substrate.py` tags them.
     unet_hybrid_b30="minimax_h3_hybrid_fl2va_ref2va_b30-49-int8.safetensors",
     unet_hybrid_adaln_all="minimax_h3_hybrid_fl2va_ref2va_adaln_all-int8.safetensors",
+    # **EXPERIMENTAL, and every word of that is load-bearing.** kijai's
+    # FastVideo VSA distillation, from a repository that says experimental in
+    # its own name. The artifact carries NO metadata at all, so everything it
+    # claims about itself -- including "4step" -- lives in its filename;
+    # `docs/research/vsa/fastvideo_vsa_checkpoint.md` takes it apart.
+    #
+    # It is the pruned fl2va base plus one `to_gate_compress` linear per main
+    # block and nothing else: 150 keys added, none removed, no shape changed,
+    # and the trunk measurably unmoved. So it is a base checkpoint carrying a
+    # gate, not a different model.
+    #
+    # **Loading it needs a DRAFT ComfyUI PR** (comfyanonymous/ComfyUI#15958,
+    # head 10febb01, applied to this box's working tree 2026-08-30). Without
+    # it the 150 gate keys have no slot, are dropped on load, and the render
+    # SUCCEEDS as the dense base. `bench/check_vsa_core_patch.py` is the
+    # provenance record; `MiniMaxH3VSAAttention` refuses rather than let a
+    # dense render pass for VSA.
+    unet_vsa=("minimax_h3_fastvideo_vsa_datafree_1300step"
+              "_4step_int8_convrot.safetensors"),
     clip=ENCODER_INT8,
     # The fp16 video VAE, and it is the best build available in ComfyUI's
     # format. **Measured 2026-08-21** against the official release's fp32
@@ -547,6 +566,15 @@ SOL_BASELINE_124F = dict(
 #: will say so. `bench/check_attention_defaults.py` catches it for shipped
 #: graphs; a hand-edited one is on the person editing it.
 SOL_END_PERCENT_BY_STEPS = {4: 0.74, 6: 0.83, 8: 0.87}
+
+#: VSA's key-block keep fraction, as a percent. The published sparsity is 0.90,
+#: so 10 here, and the T8 pack independently ships the same value.
+#:
+#: **This is the distillation's own value, not a quality dial.** The checkpoint
+#: was trained with this routing; moving away from it is off-distribution in
+#: exactly the direction the distillation cannot compensate for. Nothing here
+#: has measured it, and there is no bf16 VSA release to measure against.
+VSA_KEEP_PERCENT = 10.0
 
 SOL_RECOMMENDED_CUDA = dict(
     # "adaptive tau" since the v3 node (2026-08-22). It is the threshold

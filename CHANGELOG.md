@@ -41,6 +41,26 @@ artifact.
   dense render the user believes is VSA. Needs Comfy-Org/ComfyUI#15958, still a
   draft, and that PR is necessary and not sufficient: its own comment says the
   gate is unused by the dense forward.
+- **VSA rendered, once, and its gate is genuinely consumed.** Two arms,
+  `h3_probe_vsa` and `h3_probe_vsa_dense`, matched at one seed on the same
+  checkpoint and differing only in whether the node is wired. The node logs
+  `VSA on 50 blocks` with no fallback warning, its output DIFFERS from the
+  dense control, and two VSA runs at the same seed produce identical pixels --
+  so the replacement is not quietly falling through to the original block.
+  `bench/results/2026-08-30_vsa_first_render.json`.
+  **This answers a mechanical question and no other.** No quality claim: a
+  rendered pair cannot A/B a numerical change, and this pair changes the
+  attention regime outright. The shape is 22,121 packed rows against the
+  31k-128k the shipped graphs run, which is close to the least favourable
+  length for sparse attention. The timing (warm, VSA 22.68 s against 24.18 s,
+  one run each) is inside known run-to-run excursion and is not a speedup.
+- **`bench/verify_vsa_render.py`, and the trap it exists for.** The first
+  comparison hashed the mp4 FILES and was wrong in a way that looked right: two
+  renders of identical pixels produce different mp4 bytes, because the
+  container carries per-run encoder metadata, so file hashes differ between any
+  two runs including two of the same arm. Caught because the two VSA runs
+  hashed differently while their file sizes matched to the byte. This compares
+  the decoded RGB stream instead.
 - **`bench/check_vsa_core_patch.py`, and the draft core patch it records.**
   VSA needs ComfyUI to build a `to_gate_compress` slot per block, which stock
   master does not; `comfyanonymous/ComfyUI#15958` is a DRAFT that adds it.

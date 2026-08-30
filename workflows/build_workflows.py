@@ -56,6 +56,7 @@ from h3_config import (  # noqa: E402
     ENCODER_V2, ENCODER_INT8, CORE_LOADED_ENCODERS, IMAGE_VAE, IMAGE_EDIT_BUDGET,
     ASPECTS, CANVAS, FPS, LENGTH, LONG_LENGTH, MODELS,
     SAMPLING, SAGE_NODE, SEED, SIGMA_SHIFT, SOL_RECOMMENDED_CUDA,
+    VSA_KEEP_PERCENT,
     CACHE_NODE, CACHE_NODE_CLASS,
     TURBO_LORA, TURBO_LORA_STRENGTH, TURBO_SHIFT, TURBO_STEPS,
     TURBO_768P_LORA, TURBO_768P_SHIFT, TURBO_768P_STEPS,
@@ -1258,6 +1259,7 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               single_frame: bool = False,
               cache: dict | None = None,
               sla_router: float | None = None,
+              vsa: tuple[float, bool] | None = None,
               vae_encoder: str | None = None,
               clip: str | None = None,
               out_prefix: str | None = None, **canvas) -> dict:
@@ -1689,6 +1691,26 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                        **({} if head_chunks is None
                           else {"head_chunks": head_chunks}))}}
         model_src = ["20", 0]
+    if vsa is not None:
+        # FastVideo VSA, an ALTERNATIVE TO SOL rather than a companion: both
+        # decide how the same 50 main blocks attend, and VSA wins by replacing
+        # the block forward outright, so a Sol node in the same graph would be
+        # silently inert. Refused rather than ordered.
+        #
+        # sage STAYS, and that is the one difference from the `sla_router` arm
+        # above. VSA replaces the 50 MAIN blocks; the 2 token-refiner blocks
+        # carry no gate and are not VSA's business, so sage keeps them.
+        # Node id 46: 45 is the router and 47 is taken.
+        if sol is not None:
+            raise SystemExit("vsa replaces the DiT block forward and Sol-Attn "
+                             "overrides attention on the same 50 blocks; pass "
+                             "sol=None with vsa")
+        keep_percent, pooled_tail = vsa
+        g["46"] = {"class_type": "MiniMaxH3VSAAttention",
+                   "inputs": {"model": model_src,
+                              "keep_percent": keep_percent,
+                              "pooled_tail": pooled_tail}}
+        model_src = ["46", 0]
     if sol is not None:
         # After sage, never before -- SolAttn composes with the attention
         # patches it finds, and reversed it overwrites ours and you silently
@@ -4708,6 +4730,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              unet: str | None = None, lora: tuple[str, float] | None = None,
              out_prefix: str | None = None, title: str | None = None,
              sla_router: float | None = None,
+             vsa: tuple[float, bool] | None = None,
              vae_encoder: str | None = None,
              clip: str | None = None,
              **canvas) -> dict:
@@ -4896,6 +4919,10 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                             title="SLA top-k router (comparative arm)")
         g.link(model_src, 0, router_node, "model", "MODEL")
         model_src = router_node
+    if vsa is not None and sol is not None:
+        raise SystemExit("vsa replaces the DiT block forward and Sol-Attn "
+                         "overrides attention on the same 50 blocks; pass "
+                         "sol=None with vsa")
     if sage:
         sage_node = g.add("MiniMaxH3SageAttention", (-880, 0), size=(360, 110),
                           widgets=[SAGE_NODE["mode"],
@@ -4906,6 +4933,20 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                           outputs=[_out("MODEL", "MODEL")])
         g.link(model_src, 0, sage_node, "model", "MODEL")
         model_src = sage_node
+
+    if vsa is not None:
+        # See the API builder for why sage stays and Sol may not: VSA replaces
+        # the 50 main blocks' forward, sage keeps the 2 token-refiner blocks,
+        # and a Sol node here would be silently inert.
+        keep_percent, pooled_tail = vsa
+        vsa_node = g.add("MiniMaxH3VSAAttention", (-880, 140), size=(380, 100),
+                         widgets=[keep_percent, pooled_tail],
+                         inputs=[_in("model", "MODEL")],
+                         outputs=[_out("MODEL", "MODEL")],
+                         title="VSA (EXPERIMENTAL - draft core PR, "
+                               "experimental checkpoint)")
+        g.link(model_src, 0, vsa_node, "model", "MODEL")
+        model_src = vsa_node
 
     if sol is not None:
         # After sage, never before. SolAttn composes by walking the model's
@@ -7280,6 +7321,67 @@ def main():
                   "rather than the question being closed by the default flip.")),
          "same references, WITH the reference pipeline's upscale"),
 
+        # ---- FastVideo VSA, and its dense control ------------------------
+        #
+        # **The first two arms in this repo whose entire stack is drafts and
+        # experiments.** Read `docs/research/vsa/vsa_node.md` before either.
+        # Core support for loading the gate is a DRAFT PR applied to this box's
+        # working tree; the checkpoint says experimental in its repository name
+        # and carries no metadata at all. Only the kernel half is released.
+        #
+        # **These answer a MECHANICAL question, not a quality one.** Does the
+        # gate get built, computed and consumed, and does the render survive
+        # the cube reorder? Nothing here is a recipe: the checkpoint's "4step"
+        # is a reading of its filename, since the artifact carries no schedule,
+        # no step count and no sampler. So `steps` below is that reading and
+        # not a validated setting, and the pair must not be read as a quality
+        # comparison -- a rendered pair cannot A/B a numerical change, and this
+        # one additionally changes the attention regime outright.
+        #
+        # 768x768 rather than the shipped 1344x768: cheapest legal canvas, and
+        # the standing rule is to default below 16:9 for anything that is not
+        # a measurement being quoted.
+        ("h3_probe_vsa.json", "t2v-vsa", "t2v", LONG_T2V_PROMPT,
+         dict(width=768, height=768, length=124, steps=4,
+              unet=MODELS["unet_vsa"],
+              vsa=(VSA_KEEP_PERCENT, False),
+              out_prefix="Video/h3_probe_vsa",
+              variant_note=_probe_note(
+                  "whether VSA runs at all on H3, and whether its gate is "
+                  "actually consumed",
+                  "h3_probe_vsa_dense.json",
+                  "MiniMaxH3VSAAttention replaces the 50 main DiT blocks: "
+                  "video tokens regrouped into 4x4x4 cubes one per 64-row "
+                  "kernel block, each block's learned `to_gate_compress` "
+                  "passed to the kernel as `coarse_gate`, no pooled tail. "
+                  "sage keeps the 2 token-refiner blocks, which have no gate.",
+                  "That it completes, and that the node did not refuse. The "
+                  "node refuses when no gate is present, which is what a "
+                  "silently-dropped gate looks like.",
+                  "Unknown, and deliberately unpredicted. The gate projection, "
+                  "the kernel call and the output reordering have never run "
+                  "under a real forward; the geometry is asserted statically "
+                  "by `bench/check_vsa_geometry.py` and that is all.")),
+         "FastVideo VSA -- EXPERIMENTAL, draft core PR, first run"),
+
+        ("h3_probe_vsa_dense.json", "t2v-vsa-dense", "t2v", LONG_T2V_PROMPT,
+         dict(width=768, height=768, length=124, steps=4,
+              unet=MODELS["unet_vsa"],
+              dense_attn="sage",
+              out_prefix="Video/h3_probe_vsa_dense",
+              variant_note=_probe_note(
+                  "what the VSA checkpoint does with no sparse attention",
+                  "h3_probe_vsa.json",
+                  "The same checkpoint under sage alone. The gate weights are "
+                  "loaded and never read, which is what the dense forward does "
+                  "with them by design -- the draft PR's own comment says the "
+                  "gate is unused by it.",
+                  "That the checkpoint is a working H3 model independently of "
+                  "VSA, so a failure in its twin is attributable to the "
+                  "attention regime rather than to the weights.",
+                  "It renders. This is the control, not the experiment.")),
+         "the VSA checkpoint under sage alone -- the control"),
+
         ("h3_probe_square_canvas.json", "t2v-1to1", "t2v", LONG_T2V_PROMPT,
          dict(width=768, height=768,
               out_prefix="Video/h3_probe_square",
@@ -7620,16 +7722,23 @@ def main():
         # and a bypassed node in the graph is an invitation to switch it on.
         dense = extra.get("dense_attn", False)
         dense_mode = ("none" if dense is True else dense) or None
-        sol_on = False if (is_image or router or dense_mode) else bool(extra.get("sol_on", True))
+        # A VSA arm suppresses Sol for a sharper reason than a router arm
+        # does: they are mutually exclusive at the block forward, and the
+        # builder refuses the pair rather than ordering them.
+        vsa_on = extra.get("vsa") is not None
+        sol_on = False if (is_image or router or dense_mode or vsa_on) \
+            else bool(extra.get("sol_on", True))
         rest = {k: v for k, v in extra.items()
                 if k not in ("sol_on", "dense_attn")}
         wf = build_ui(task, sage=(dense_mode == "sage") if dense_mode else not router,
                       preview=True,
                       sol=(sol_for_graph(bool(extra.get("pdd", False)),
                                          extra.get("steps", SAMPLING["steps"]))
-                           if not (is_image or router or dense_mode) else None),
+                           if not (is_image or router or dense_mode or vsa_on)
+                           else None),
                       sol_enabled=sol_on, prompt=prompt,
                       title=f"h3-{label}-" + ("sla-router" if router else
+                                              "vsa" if vsa_on else
                                               "dense" if dense_mode == "none" else
                                               "sage" + ("-sol" if sol_on else "")),
                       **{**rest, "length": graph_length(rest)})
@@ -7645,7 +7754,9 @@ def main():
         router = extra.get("sla_router") is not None
         dense = extra.get("dense_attn", False)
         dense_mode = ("none" if dense is True else dense) or None
-        sol_on = False if (is_image or router or dense_mode) else bool(extra.get("sol_on", True))
+        vsa_on = extra.get("vsa") is not None
+        sol_on = False if (is_image or router or dense_mode or vsa_on) \
+            else bool(extra.get("sol_on", True))
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("variant_note", "sol_on", "dense_attn")}
         wf = build_api(task, sage=(dense_mode == "sage") if dense_mode else not router,

@@ -7,10 +7,10 @@ what is verified about it.** It does not own the checkpoint
 ([`fastvideo_vsa_checkpoint.md`](fastvideo_vsa_checkpoint.md)) or the kernel
 ([`../../SOLATTN.md`](../../SOLATTN.md)), and asserts nothing against either.
 
-**Nothing here has rendered.** Every claim below is either static, or executed
-against a stub, or read from a source. The one thing that would settle whether
-this works is a render, and it cannot happen on this install yet -- see the
-blocker.
+**It has now rendered, once, and that answers a mechanical question only.**
+2026-08-30: VSA runs, its gate is consumed, and it reproduces itself at a fixed
+seed. Nothing about output QUALITY is established and nothing here should be
+read as a recommendation. See "The first render" below.
 
 ## VSA is a fourth regime, not a knob
 
@@ -128,17 +128,57 @@ The kernel half was never blocked: the installed `comfy_kitchen` exposes
 `bench/check_solattn_correctness.py` grades all three against the algorithm's
 own eager reference.
 
-## What would settle it
+## The first render, 2026-08-30
 
-A render, and nothing short of one. Steps 1 and 2 are done:
+Record: `bench/results/2026-08-30_vsa_first_render.json`. Arms are
+`workflows/h3_probe_vsa.json` and `workflows/h3_probe_vsa_dense.json`, matched
+at seed 730451892, 4 steps, 768x768, 124 frames, 22,121 packed rows.
+
+**What it establishes.** VSA runs to completion. The node logs `VSA on 50
+blocks` with no fallback warning, and -- the part that actually settles it --
+its output differs from the dense control on the same checkpoint at the same
+seed, so the gate is genuinely consumed rather than the replacement quietly
+falling through to the original block. Two VSA runs at the same seed produce
+identical pixels, so the difference is attributable to the regime rather than
+to noise.
+
+**A trap worth carrying forward.** The first comparison was done on `md5sum` of
+the mp4 files and was WRONG in a way that looked right. Two renders of identical
+pixels produce different mp4 bytes, because the container carries per-run
+encoder metadata -- so hashing the file reports a difference between any two
+runs, including two runs of the same arm. The tell was that the two VSA runs
+hashed differently while their file sizes matched to the byte.
+`bench/verify_vsa_render.py` compares the DECODED RGB stream instead, and
+exists so nobody repeats it.
+
+**What it does not establish, and the list is longer than what it does.** No
+quality claim: a rendered pair cannot A/B a numerical change, and this pair
+changes the attention regime outright. Not that `keep_percent` 10.0 is right --
+it is the distillation's published sparsity and is unmeasured here. And nothing
+at the lengths this repo actually renders: 22,121 rows is far below the
+31k-128k of the shipped graphs, and sparse attention's advantage grows with
+length, so this shape is close to the least favourable one available.
+
+**The timing is not a measurement.** Warm, VSA 22.68 s against the dense
+control 24.18 s, one run each. The two share a cached text encode, which is
+what makes them comparable at all; the cold VSA run at 43.43 s includes the
+model load and is comparable to neither. A 1.5 s difference at this scale sits
+inside the run-to-run excursion this repo has measured on e2e renders. **Do not
+quote a speedup from it.**
+
+## What would settle the rest
 
 1. ~~Apply #15958 to the ComfyUI checkout.~~ Done 2026-08-30, working tree.
 2. ~~Confirm the gate keys are no longer dropped.~~ Done, all 50 placed.
-3. Wire this node with no Sol-Attn node, `keep_percent` at the distillation's
-   own sparsity, `pooled_tail` off. **Not done.** The gate projection, the
-   kernel call and the output reordering have never run under a real forward.
-4. Compare against the same checkpoint run dense. That arm is free: reverting
-   the two core files gives it, since the gate is then dropped on load.
+3. ~~Run it, with a dense control.~~ Done; see above.
+4. **A length where sparse attention is supposed to win.** The shipped canvas
+   at a shipped frame count, which is 31k-128k rows against this run's 22k.
+5. **A sampler recipe.** The checkpoint's "4step" is a filename, not a
+   property; the artifact carries no schedule. Whether 4 steps and this repo's
+   default sampler are what it was distilled for is unknown, and a bad recipe
+   would look exactly like a bad regime.
+6. **Anything perceptual**, which needs `docs/eval_comparison.md` section 3 --
+   many seeds per arm, judged blind, recorded as a distribution.
 
 Step 4 is a weight-level comparison and answers "does each arm satisfy the
 brief", never "which clip is better": a rendered pair cannot A/B a numerical
