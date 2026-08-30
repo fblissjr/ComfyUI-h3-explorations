@@ -1510,6 +1510,14 @@ signal that this note was not reachable from where people look.
   makes a container hash report "different" for a pair that is bit-identical in
   every frame, which reads as non-determinism and is not.
 
+**Knowing only the first is worse than knowing neither, which is why this note
+now carries both.** The comment mechanism predicts that two runs of ONE graph
+produce identical containers -- true of that mechanism, false of the file. A
+reader who has only that half watches a same-arm pair hash differently and has
+just been handed evidence against the explanation they were given, with nothing
+to reach for. That is what happened on 2026-08-30, to a session that had not
+read this note; it would have happened to one that had.
+
 The muxer itself is deterministic -- remuxing one file twice, and re-encoding
 it twice at the same settings, each give identical md5 -- so it is these tags
 and not the codec. **The one-way implication above survives both**: identical
