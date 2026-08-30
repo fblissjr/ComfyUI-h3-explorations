@@ -141,8 +141,10 @@ def main() -> int:
 
     print(f"\n  {args.steps} steps, Sol window 0.2-0.74 (the shipped PDD window, "
           f"2 sparse steps of {args.steps})\n")
-    print("    dense_blocks    n  best (s)   vs none")
-    ref = min(times[args.specs[0]]) if times[args.specs[0]] else None
+    ref_spec = args.specs[0]
+    ref_blocks = len(_expand(ref_spec))
+    print(f"    dense_blocks    n  best (s)   vs {ref_spec or '(none)'}")
+    ref = min(times[ref_spec]) if times[ref_spec] else None
     rows = []
     for spec in args.specs:
         ts = times[spec]
@@ -154,12 +156,24 @@ def main() -> int:
         print(f"    {spec or '(none)':<14s} {n:2d}  {best:7.1f}   {delta:+6.1f}")
 
     # Per-block marginal cost, which is the number the recipe argument needs.
-    span = [r for r in rows if r["blocks"] > 0]
+    #
+    # Divided by the block count DIFFERENCE against the reference arm, not by
+    # the widest arm's absolute count. Those coincide only when `--specs[0]`
+    # names zero blocks, which is the default and was the only shape this was
+    # ever run in -- so with any custom `--specs` whose first entry has blocks,
+    # the old form understated the cost silently (0.75 s/block instead of 1.01
+    # on `--specs 0-1 0-2,32 0-5,48-49`).
+    span = [r for r in rows if r["blocks"] > ref_blocks]
     if span and ref is not None:
         widest = max(span, key=lambda r: r["blocks"])
-        if widest["blocks"]:
-            print(f"\n    ~{widest['delta_vs_first'] / widest['blocks']:.2f} s per "
-                  f"dense block at {args.steps} steps, from the widest arm")
+        extra = widest["blocks"] - ref_blocks
+        print(f"\n    ~{widest['delta_vs_first'] / extra:.2f} s per dense block "
+              f"at {args.steps} steps, from {widest['dense_blocks']!r} "
+              f"({widest['blocks']}) against {ref_spec or '(none)'} "
+              f"({ref_blocks}) -- {extra} block(s) apart")
+    elif ref is not None:
+        print("\n    no arm has more blocks than the reference, so there is no "
+              "marginal cost to report")
 
     if args.write:
         OUT.write_text(json.dumps({
@@ -170,6 +184,9 @@ def main() -> int:
             "base_graph": BASE_GRAPH.name,
             "steps": args.steps, "seed": args.seed,
             "sol_window": {"start_percent": 0.2, "end_percent": 0.74},
+            "reference_arm": {"dense_blocks": ref_spec, "blocks": ref_blocks,
+                              "note": "delta_vs_first is measured against THIS "
+                                      "arm, not against zero blocks"},
             "rows": rows,
             "caveats": [
                 "Wall clock only. Says nothing about quality.",

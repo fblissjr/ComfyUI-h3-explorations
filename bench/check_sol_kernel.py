@@ -132,8 +132,18 @@ KNOWN_NODE_VERSIONS = {
         "v3 (2026-08-22) -- tau/tau_profile folded into a `selection` "
         "DynamicCombo alongside top-k, routed_cap_percent dropped; needs a "
         "kernel with topk_ratio (0.2.31+sol.23d1a66 or later)",
+    "30625d8734b53c23f1f17d1036be822eb28fbb108cb2972a689b12c2090606b5":
+        "v3.2 (2026-08-29, review fixes) -- OURS. Same signature adaptation as "
+        "v3.1, with three defects a review found: the kwargs are probed on the "
+        "ENTRY about to be called (the registry and CUDA entries do not carry "
+        "the same parameters, so probing one and calling the other made the "
+        "reuse path unreachable on kijai's branch build); the "
+        "`centroid_tail=False` refusal moved from `_run` to `_apply_patch`, "
+        "because raising inside `_run` is caught by `override`'s catch-all and "
+        "becomes the silent full-dense render the guard existed to prevent; "
+        "and both widget tooltips now describe the merged kernel",
     "1c55a4b51011041a03e62ed73458c9ce280ffd8ca6fc5f353b2806d978504ac1":
-        "v3.1 (2026-08-29) -- OURS, not upstream's: the kernel call reads "
+        "v3.1 (2026-08-29) -- SUPERSEDED by v3.2 within the hour. OURS, not upstream's: the kernel call reads "
         "`sol_attn`'s signature and passes `centroid_tail` and "
         "`reuse_qkv_memory` only where they exist, so one node drives both "
         "kijai's branch build and the merged upstream (#117, dae00a1) which "
@@ -331,8 +341,13 @@ else:
             check("centroid_tail_expressible", False,
                   "h3_config asks for centroid_tail=False and this kernel has "
                   "no such argument -- the merged build always evaluates the "
-                  "tail at the query block's centroid. Every Sol call would "
-                  "raise.")
+                  "tail at the query block's centroid. The node refuses at "
+                  "PATCH time, so the render fails on SolAttnMiniMax before "
+                  "sampling. (Corrected 2026-08-29: this said 'every Sol call "
+                  "would raise', which was true of an earlier placement of the "
+                  "guard and was the defect -- raising per call put the "
+                  "exception inside `override`'s catch-all, which turned it "
+                  "into a silent full-dense render.)")
         else:
             check("centroid_tail_expressible", True,
                   "the shipped centroid_tail is what this kernel can do")

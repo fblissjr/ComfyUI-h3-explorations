@@ -74,16 +74,31 @@ def check_contract(problems):
                 f"MiniMaxH3ExactBlocks documents was renamed or removed, so its "
                 f"ordering claim needs re-deriving against the new shape")
             continue
-        # A string constant equal to the flag anywhere under this function's
-        # AST is the observable: `getattr(fwd, "_uses_optimized_attention",
-        # False)`. Comments are not in the AST, and a docstring is an Expr
-        # whose value is a Constant -- excluded below so prose cannot pass.
-        found = False
+        # The observable is a string constant equal to the flag used as a
+        # VALUE -- `getattr(fwd, "_uses_optimized_attention", False)`.
+        # Comments are not in the AST at all, so only docstrings could
+        # masquerade.
+        #
+        # **Corrected 2026-08-29.** This skipped `ast.Expr` nodes whose value
+        # is a Constant, with a comment claiming that excluded docstrings. It
+        # did not: `ast.walk` is breadth-first over a queue, so the Expr's
+        # Constant child is already enqueued by the time the Expr is
+        # `continue`d, and a function whose body is exactly the bare string
+        # `"_uses_optimized_attention"` satisfied the check. What actually
+        # kept the red-proof honest was `node.value == FLAG` exact equality --
+        # the prose control used a multi-line docstring, which is not equal to
+        # the flag. Docstrings are now excluded by SUBTRACTING them, which is
+        # the only way that works against a walk.
+        docstring_constants = set()
         for fn in funcs[site]:
             for node in ast.walk(fn):
                 if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
-                    continue          # a bare string statement: docstring
-                if isinstance(node, ast.Constant) and node.value == FLAG:
+                    docstring_constants.add(id(node.value))
+        found = False
+        for fn in funcs[site]:
+            for node in ast.walk(fn):
+                if (isinstance(node, ast.Constant) and node.value == FLAG
+                        and id(node) not in docstring_constants):
                     found = True
         if not found:
             problems.append(
@@ -165,11 +180,12 @@ def check_forward(problems):
     else:
         print("  ok    no mutation   the caller's transformer_options is intact")
 
-    for key in ("sigmas", "sol_block"):
-        if key not in passed:
-            problems.append(f"_exact_forward dropped {key!r} on the way down; "
-                            f"it must remove ONLY the override")
-    print("  ok    passes rest   everything but the override is forwarded")
+    dropped = [k for k in ("sigmas", "sol_block") if k not in passed]
+    for key in dropped:
+        problems.append(f"_exact_forward dropped {key!r} on the way down; "
+                        f"it must remove ONLY the override")
+    if not dropped:
+        print("  ok    passes rest   everything but the override is forwarded")
 
 
 def main() -> int:

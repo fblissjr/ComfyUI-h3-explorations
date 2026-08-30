@@ -388,7 +388,7 @@ owns both spellings; regenerate.
 | `centroid_tail` NEW | True | One pooled tail per query block instead of per row, 64x less routing work. Upstream: ~1.4x on the **operation**, **~5–10% end to end**, ~5e-4 cosine. **Ours measured 2.5% e2e, which makes this the smallest knob in the node, not the largest.** The tooltip's "~1.4x" has been read as end-to-end twice; see `docs/evidence.md`. |
 | `reuse_qkv_memory` NEW | False | Write the output into H3's fused qkv buffer instead of allocating. Upstream: ~1.2 GB at 80k tokens, enough to put attention's peak below the FFN's. Safe for H3, which discards that buffer; leave off for other models. |
 | `verbose` | False | Per-shape dispatch logging, once per distinct shape. |
-| `dense_blocks` | `""` | Blocks kept fully dense, e.g. `0-2,-1`. First and last are the most approximation-sensitive. Negative indices count from the end, so `-1` is block 49 on a 50-block DiT (`vendor/sol_attn_minimax.py::parse_blocks`). **The node default is empty; nothing here ships empty.** `SOL_RECOMMENDED_CUDA` has carried `0-1` since 2026-08-26 (NVLabs ships `2` first-dense layers on both their H3 profiles) and `SOL_PDD_CUDA` carries `0,1,2,48,49,-1` since 2026-08-29. |
+| `dense_blocks` | `""` | Blocks kept fully dense, e.g. `0-2,-1`. First and last are the most approximation-sensitive. Negative indices count from the end, so `-1` is block 49 on a 50-block DiT (`vendor/sol_attn_minimax.py::parse_blocks`). **The node default is empty; nothing here ships empty.** **Both configs carry `0-2,32` since 2026-08-29**, measured -- see the propagation section. `SOL_RECOMMENDED_CUDA` carried NVLabs' `0-1` from 2026-08-26 until then, and `SOL_PDD_CUDA` briefly carried `0,1,2,48,49,-1` and then `0-5,48-49` on the same day; both are withdrawn. |
 | `tau_profile` NEW | unset | Only under `adaptive tau`. Per-block tau, `blocks=tau` separated by `;` or newlines. `force_input`, so it needs a node wired to it — a socket, not a widget value. |
 
 `routed_cap_percent` was here until 2026-08-22 and the v3 node does not
@@ -418,17 +418,27 @@ one of them.
 | knob | `SOL_RECOMMENDED_CUDA` | `SOL_PDD_CUDA` |
 |---|---|---|
 | `end_percent` | derived per step count (`SOL_END_PERCENT_BY_STEPS`) | `0.74` at every step count |
-| `min_tokens` | 12288 | 11776 |
-| `morton_curve` | `3d` | `2d_frame` |
-| `dense_blocks` | `0-1` | `0,1,2,48,49,-1` |
+
+**That is the whole of it — one knob.** `SOL_PDD_OVERRIDES` holds `end_percent`
+and nothing else; `min_tokens`, `morton_curve` and `dense_blocks` are inherited.
+
+**This table had four rows for most of 2026-08-29 and every one of them is
+withdrawn.** It read `min_tokens` 12288/11776, `morton_curve` `3d`/`2d_frame`
+and `dense_blocks` `0-1`/`0,1,2,48,49,-1`. The first two were dropped as
+provably inert (every PDD graph packs 60,972-113,032 rows, so both `min_tokens`
+values select identically; `morton_curve` is unreachable with `morton=False`),
+and `dense_blocks` became `0-2,32` in BOTH configs once the propagation
+measurement landed. A stale comparison table is the failure this repo names
+most often: prose stating a fact the code already knows, with no invalidation.
 
 Everything else is shared, so a change to `tau`, `start_percent`,
 `sink_conditioning`, `morton`, `centroid_tail` or `reuse_qkv_memory` still
 reaches both.
 
 **This is an owner decision from watching renders, not a measurement, and the
-distinction matters more here than usual** — it is four knobs moved together on
-one reading, so nothing in it attributes an effect to any single knob. Recorded
+distinction mattered more than usual while this was four knobs moved together
+on one reading** — nothing in that state attributed an effect to any single
+knob, which is why three of the four were dropped rather than defended. Recorded
 as a decision so a later blind distribution has something to overturn;
 `docs/eval_comparison.md` section 3 is what would do that.
 
@@ -679,11 +689,15 @@ measured top four, +4.1 s. Two earlier states are withdrawn: the owner's
 original `0,1,2,48,49`, which spent two of five blocks on the bottom of the
 ranking, and the same day's widening to `0-5,48-49`, whose blocks 3-5 were
 extrapolated from a three-point decay that turned out to be a plateau.
-`SOL_RECOMMENDED_CUDA` is deliberately left at the vendor's `0-1`: the
-measurement is a base-model one and so applies there most directly, but `0-1`
-carries H3-specific external validation and two seeds is not enough to overturn
-it across every non-distilled graph. That is a pending question, not an
-oversight.
+`SOL_RECOMMENDED_CUDA` **also carries `0-2,32` since 2026-08-29**, on the
+owner's instruction and on the argument that the probe ran on the BASE model,
+so this config is the one it bears on most directly. **Corrected the same day:**
+this paragraph said the base config was "deliberately left at the vendor's
+`0-1`", which was true for about twenty minutes and then contradicted both
+`h3_config.py` and the state block at the top of this file. A reader who
+stopped here configured the opposite of what ships. What remains true is the
+caution: `0-1` had H3-specific external validation behind it, and two seeds is
+thin ground on which to overturn it across every non-distilled graph.
 
 ##### Exact at a block: `MiniMaxH3ExactBlocks`, added 2026-08-29
 
@@ -1066,7 +1080,7 @@ Two consequences, both live:
 2026-08-29** — this said both ship empty and called `dense_blocks` unexploited
 headroom, which stopped being true on 2026-08-26 when `SOL_RECOMMENDED_CUDA`
 took NVLabs' `0-1`, and is doubly untrue on the distilled arms, where
-`SOL_PDD_CUDA` carries `0,1,2,48,49,-1`. So block 0 is already dense everywhere
+`SOL_PDD_CUDA` carries `0-2,32` (it carried `0,1,2,48,49,-1` when this was written). So block 0 is already dense everywhere
 and the outlier above is already paid for. The `dense_blocks="0"` figure below
 remains derived, not measured end-to-end, and neither shipped list was chosen
 from a paired render: `0-1` is the vendor's, and the PDD list is the owner's
@@ -1680,7 +1694,7 @@ the token floor.
   [`docs/roadmap.md`](roadmap.md) for a decision that had already been taken --
   the validated list was copied on 2026-08-26 and the config has carried `0-1`
   since. The PDD arms go further on the owner's reading rather than on a
-  measurement (`SOL_PDD_CUDA`, `0,1,2,48,49,-1`, five of fifty). What is still
+  measurement (`SOL_PDD_CUDA`, now `0-2,32`, four of fifty). What is still
   open is choosing OUR OWN list, which is what needs the retired probe.
 
 ### Record the commit with every measurement
@@ -1864,12 +1878,12 @@ about 2 hours.
 
 | question | why it matters | blocker |
 |---|---|---|
-| `centroid_tail` on/off, e2e | separates the toggle from the kernel | **none — has a deadline, upstream may remove the toggle** |
+| ~~`centroid_tail` on/off, e2e~~ | separates the toggle from the kernel | **CLOSED UNANSWERED 2026-08-29 — the deadline arrived.** comfy-kitchen#117 made the centroid form unconditional, so the arm is not a configuration this kernel can run. `docs/bench_plan.md` Q2 has the long form |
 | `sink_conditioning` at reference load | **De-prioritised 2026-08-16.** The "23-point swing, biggest lever there is" was v1 arithmetic; recomputed against the v2 node it is ~0.5 points, below the bench's noise floor. Measuring it would now cost a reference-wired bench to resolve a rounding error | still needs reference wiring, but there is no longer a reason to build it for this |
 | `start_percent` 0.0–0.4 | zero measurements, ever | none, arms exist |
 | `min_tokens` 4096 vs 12288 | our pin is a third of the node's crossover | none |
 | re-baseline the frontier above 60k tokens | most numbers here are the wrong regime | GPU hours |
 | CUDA e2e vs Triton e2e, ours | we have upstream's 1.4x, not our own | **the Triton pack is deleted**; recover from `kijai/ComfyUI-SolAttn_triton@842c4ea` first |
 | **comfy-kitchen's 4090 kernel vs NVLabs' own** | since PR #464 (2026-08-15) there are two independent sm89 implementations; which is faster or more accurate here is unknown, and it is the only external cross-check available on this card | one Python dep (`cutlass.cute`) and a seam -- their API has no `sink_q`, so `exact_kv_and_rows`'s query half needs doing at the integration layer. See [`docs/sol_upstream.md`](sol_upstream.md) |
-| **`dense_blocks="0-1"`** | every H3 profile NVLabs ships runs the first two blocks dense and we ship none; it is the one place their tested recipe is strictly more conservative | nothing. It is a config decision, costed in [`docs/roadmap.md`](roadmap.md) |
+| ~~**`dense_blocks="0-1"`**~~ | **DONE, and overtaken.** NVLabs' `0-1` was adopted 2026-08-26; both configs now ship `0-2,32` on this repo's own propagation measurement, which ranks block 0 first and the last five blocks last | nothing further. The open question is now whether `0-2,32` beats `0-1` perceptually, which needs `docs/eval_comparison.md` section 3 |
 | quality at tau 1.3, watched to the end | the artifact is temporal and length-dependent | a human watching |

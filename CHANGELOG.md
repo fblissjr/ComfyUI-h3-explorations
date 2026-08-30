@@ -6,6 +6,78 @@ artifact.
 
 ## 0.98.0
 
+### Fixed
+
+- **The `centroid_tail=False` guard produced the exact failure it was written to
+  prevent, and a code review caught it.** It raised from `_run`, which
+  `make_override.override` wraps in `except Exception -> dense()`. So on the
+  merged kernel a graph asking for `centroid_tail=False` did not fail: every
+  eligible call raised, was swallowed, and fell through to sage — a fully dense
+  render reporting success at roughly 1.9x the time. A guard against a silent
+  change of MATH produced a silent change of KERNEL. It now lives in
+  `_apply_patch`, where it propagates out of `execute` and fails the node
+  before sampling; confirmed by rendering the refused configuration and getting
+  an error on `SolAttnMiniMax` rather than a clean video.
+  - **Nothing inside `_run` may rely on raising to reach a user.** Said in the
+    code beside the dispatch, because the catch-all is several hundred lines
+    away from the thing it silences.
+- **The kernel-signature probe read the wrong entry.** `_kernel_kwargs()`
+  introspected `comfy_kitchen.sol_attn` and the result gated a call to
+  `comfy_kitchen.backends.cuda.sol_attn`. On kijai's branch build — the build
+  the whole adaptation exists to keep working — `reuse_qkv_memory` is a
+  parameter of the CUDA entry and NOT of the registry entry, so the reuse path
+  was unreachable there and the log claimed the build "does not accept it"
+  while the entry about to be called did. Now probed per entry, cached per
+  callable, and exposed as `kernel_accepts()` so `check_sol_kernel.py` grades
+  the same entry the render uses.
+- **`bench/check_exact_blocks.py`'s docstring exclusion was a no-op**, and its
+  recorded red-proof reason was wrong with it. `ast.walk` is breadth-first, so
+  the Expr's Constant child is already enqueued when the Expr is skipped — a
+  function body that is exactly `"_uses_optimized_attention"` satisfied the
+  contract check. The control that "proved" prose could not pass went red
+  because a multi-line docstring is not equal to the flag. Docstring constants
+  are now subtracted, and the fix is re-proved on the case the old code could
+  not catch. `docs/checks.md` records the corrected reason: **a control that
+  goes red for a reason other than the recorded one is a control nobody can
+  rely on.**
+- **`bench/time_dense_blocks.py`'s per-block cost was only correct for its
+  default `--specs`.** It divided the delta against the reference arm by the
+  widest arm's ABSOLUTE block count; those coincide only when the first spec
+  names zero blocks. Any custom `--specs` understated the cost silently. Now
+  divided by the block-count difference, with the reference arm named in the
+  header and recorded in the result.
+- **Six stale rows in `docs/SOLATTN.md`**, all written earlier the same day.
+  The `SOL_RECOMMENDED_CUDA`-vs-`SOL_PDD_CUDA` table still had four rows after
+  three of the overrides were dropped; one paragraph said the base config was
+  "deliberately left at the vendor's `0-1`" while `h3_config.py` and the top of
+  the same file said `0-2,32`; and the open-questions table still listed the
+  `centroid_tail` arm as live and `dense_blocks="0-1"` as unadopted. Corrected
+  with what each used to claim.
+- **Both `SolAttnMiniMax` widget tooltips described the old kernel** —
+  `centroid_tail` invited the user to "turn OFF for a quality A/B", which on
+  this build is a refused configuration, and `reuse_qkv_memory` promised a
+  saving it can no longer deliver. The tooltip is the surface a user actually
+  reads; `vendor/README.md` recording them as inert was not enough.
+
+### Added
+
+- **`bench/restart_comfy.sh`, because the same mistake landed three times in
+  one day.** It stops ComfyUI **by port owner** (not by process pattern, which
+  picks the `uv run` wrapper and leaves the server holding the socket), waits
+  for the port, starts detached, waits for readiness, and then asserts the new
+  process's start time POSTDATES every path given with `--newer-than`
+  (`--kernel` resolves the installed `comfy_kitchen` dist-info). Exits 4 if
+  not.
+  - The three escaped instances: a "merged kernel is bit-identical" claim taken
+    against a process that started 82 seconds before the wheel was installed; a
+    red-proof of a new guard that failed in the wrong place because the server
+    predated the guard by an hour; and a graph validation against a schema
+    missing a new node. Every one produced a plausible result rather than an
+    error, and all three had one cause — `pkill ... ; nohup ./start.sh &` in a
+    single compound command, where the kill takes the shell down before the
+    launch runs and `start.sh` logs "Port 8188 is already in use" into a file
+    nobody reads.
+
 ### Changed
 
 - **Moved to the merged upstream Sol-Attn kernel**, 0.2.31+sol.dae00a1
