@@ -81,18 +81,31 @@ from h3_config import (  # noqa: E402
 
 
 
-# The Sol-Attn node every graph wires. Switched from kijai's Triton pack
-# (`SolAttnPatch`) to the CUDA one on 2026-08-14; see SOL_RECOMMENDED_CUDA in
-# h3_config.py for what that does and does not carry over.
+# The Sol-Attn node every graph wires. Third node in this slot: kijai's Triton
+# pack (`SolAttnPatch`) until 2026-08-14, then the vendored upstream CUDA node
+# (`SolAttnMiniMax`), then ours (`MiniMaxH3SolAttn`) from 2026-08-30.
+#
+# **The last move is a fork, not an upgrade, and it changes the graph.** The
+# vendored node kept `centroid_tail` and `reuse_qkv_memory` as inert widgets
+# after comfy-kitchen#117 removed them from the kernel, because dropping a
+# widget re-points every later value in every saved graph carrying that node
+# id. A new node id pays no such debt, so ours drops them and adds
+# `pooled_tail`. Every graph is regenerated; a graph carrying the old node
+# still loads and still runs, on the vendored file, which is why that file is
+# kept as a read-only reference rather than deleted.
+#
+# The migration is output-neutral at the shipped settings and that is
+# measured, not argued: `bench/check_sol_node_equivalence.py` asserts the two
+# dispatches produce the SAME BYTES at both selections.
 #
 # It is a node id in saved graphs, so it obeys the one rule in CLAUDE.md: the
 # UI form matches `widgets_values` POSITIONALLY against the schema, so the
 # widget order below must stay in the node's declared input order, widgets
 # only (`model` is a socket, not a widget). Verified against a live
 # /object_info, which is the only thing that can confirm it.
-SOL_NODE = "SolAttnMiniMax"
+SOL_NODE = "MiniMaxH3SolAttn"
 
-# `selection` is a DynamicCombo (v3 node, 2026-08-22): choosing an option adds
+# `selection` is a DynamicCombo: choosing an option adds
 # that option's own inputs to the node, and the two graph forms encode them
 # DIFFERENTLY, which is the whole reason this lives in one place.
 #
@@ -119,9 +132,8 @@ SOL_SELECTION_INPUTS = {
 # Widgets after the selection group, in the node's declared input order
 # (`model` is a socket, not a widget).
 SOL_TAIL_WIDGETS = ("start_percent", "end_percent", "min_tokens",
-                    "sink_conditioning", "morton", "morton_curve",
-                    "centroid_tail", "reuse_qkv_memory", "verbose",
-                    "dense_blocks")
+                    "sink_conditioning", "pooled_tail", "morton",
+                    "morton_curve", "verbose", "dense_blocks")
 
 
 def sol_widget_order(sol):
@@ -4790,7 +4802,7 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                 "MiniMaxH3PDDLoRA", (-1500, 560), size=(560, 170),
                 # Order is required-then-optional, which is how the frontend
                 # derives it from `define_schema`: lora_name, strength, then
-                # patch_heads, nfe, steps, head_strength.
+                # patch_heads, nfe, steps, head_strength, unmerged_blocks.
                 #
                 # **head_strength is LAST, and this list disagreed with the
                 # schema for most of 2026-08-29.** The input was added at
@@ -4807,8 +4819,18 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                 # so a positional drift validates clean. Changing the input
                 # list in `pdd_lora.py` means changing this line in the same
                 # commit.
+                #
+                # `unmerged_blocks` APPENDED 2026-08-30, empty on every shipped
+                # graph. Empty is "merge everything", which is bit-for-bit what
+                # these graphs did before the input existed -- so this is a
+                # widget-count change and not a behaviour change, and a graph
+                # regenerated today renders identically to one from yesterday.
+                # It is a knob for an experiment (`bench/check_pdd_unmerged.py`,
+                # `bench/results/2026-08-30_pdd_quant_interaction.json`), not a
+                # recipe, so nothing here sets it until something has measured
+                # that it should.
                 widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
-                         0 if split_at else _resolved_steps, lora[1]],
+                         0 if split_at else _resolved_steps, lora[1], ""],
                 # `steps` is a socket in the UI form too, fed by the
                 # PrimitiveInt added below, so the value is visible on the
                 # canvas rather than inside the loader.

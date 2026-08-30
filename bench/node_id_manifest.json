@@ -127,7 +127,8 @@
       "patch_heads",
       "nfe",
       "steps",
-      "head_strength"
+      "head_strength",
+      "unmerged_blocks"
     ],
     "node_id": "MiniMaxH3PDDLoRA",
     "outputs": [
@@ -240,6 +241,25 @@
       "head_chunks"
     ],
     "node_id": "MiniMaxH3SageAttention",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3SolAttn": {
+    "inputs": [
+      "model",
+      "selection",
+      "start_percent",
+      "end_percent",
+      "min_tokens",
+      "sink_conditioning",
+      "pooled_tail",
+      "morton",
+      "morton_curve",
+      "verbose",
+      "dense_blocks"
+    ],
+    "node_id": "MiniMaxH3SolAttn",
     "outputs": [
       "Output"
     ]

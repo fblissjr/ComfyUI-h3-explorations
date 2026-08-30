@@ -164,6 +164,39 @@ import torch
 import torch.nn.functional as F
 from comfy_api.latest import io
 
+# One copy of the block-spec grammar, not two. `dense_blocks` is the syntax a
+# user of this pack already knows, and a second parser here would be the
+# second copy `workflows/h3_config.py`'s rule forbids -- it would also drift,
+# because negative indices and range clamping are exactly the details nobody
+# re-derives identically. `sol_attn_h3` guards its own `comfy_kitchen` import,
+# so this adds no failure mode to loading this node.
+#
+# **Both spellings, and the flat one is not a courtesy.** ComfyUI loads this
+# file as a package member, so the relative form is what runs in a render;
+# `bench/check_pdd_head_selection.py` does `import pdd_lora` with the repo on
+# `sys.path` and no package at all, so a relative-only import makes that check
+# unrunnable -- which is how `bench/analyze_routing.py` made itself inert and
+# kept its red harness skipped. A check that cannot import the thing it grades
+# is not a check.
+#
+# **Two homes, tried in order, and that is about a migration in flight rather
+# than about taste.** `parse_blocks` is being moved from the vendored
+# `vendor/sol_attn_minimax.py` to the in-repo `sol_attn_h3.py` by the Sol-Attn
+# node migration. The two definitions are byte-identical today (diffed, not
+# assumed), so either serves; importing only the new one would make this node
+# depend on a file that is not yet in git, and importing only the vendored one
+# would break when it is retired. Take whichever exists.
+try:                                      # the new home, once it lands
+    from .sol_attn_h3 import parse_blocks
+except ImportError:
+    try:
+        from sol_attn_h3 import parse_blocks     # flat, for the bench checks
+    except ImportError:                   # pre-migration: the vendored copy
+        try:
+            from .vendor.sol_attn_minimax import parse_blocks
+        except ImportError:
+            from vendor.sol_attn_minimax import parse_blocks
+
 try:                                     # loaded as a package by ComfyUI
     from .pdd_math import (block_bounds, fuse_block, partition_bounds, pdd_time_grid,
                            schedule_knots, silu_temb_grid)
@@ -844,6 +877,127 @@ HEAD_PATCH_KEYS = ("diffusion_model.final_layer.forward",
                    "diffusion_model.final_layer.audio_out.forward")
 
 
+#: The four backbone modules per block that `unmerged_blocks` can lift out of
+#: the weight patch. The refiner's two blocks are deliberately not addressable:
+#: they are a separate stack, they carry 8 of the 208 modules, and nothing has
+#: measured them.
+UNMERGED_KINDS = ("attn.qkv_proj", "attn.out_proj", "mlp.fc1", "mlp.fc2")
+
+
+def unmerged_patch_key(index: int, kind: str) -> str:
+    """The object-patch key one un-merged backbone module takes.
+
+    A free function for the same reason `adaln_patch_key` is one: the clash
+    check watches these keys, and `bench/check_pdd_unmerged.py` grades the
+    predicate without a loaded H3.
+
+    **The owner segment matters and is not arbitrary.** Sol-Attn composes with
+    any `.forward` patch whose owner segment contains "attn"
+    (`vendor/sol_attn_minimax.py`), and it reads the owner as
+    `key.rsplit(".", 2)[-2]` -- the IMMEDIATE parent module. For these keys
+    that is `qkv_proj`, `out_proj`, `fc1`, `fc2`, none of which contain
+    "attn", so Sol leaves them alone rather than gating them behind its sigma
+    window. Had the owner been the `attn` module itself, the LoRA would have
+    applied only inside that window and nothing would have said so.
+    """
+    return f"diffusion_model.blocks.{index}.{kind}.forward"
+
+
+def _make_unmerged_forward(base_forward, a, b):
+    """Add the LoRA at the CALL instead of merging it into the weight.
+
+    `y = W_int8 @ x + B @ (A @ x)`, against the merged path's
+    `y = Q(dequant(W_int8) + BA) @ x`. The difference is not stylistic. On an
+    `int8_convrot` checkpoint `ModelPatcher.patch_weight_to_device`
+    dequantises, patches, and calls
+    `requantize_from_float(..., scale="recalculate")` -- so a merged LoRA moves
+    the quantisation grid, and the module's stored-weight error against the
+    bf16 release rises with strength
+    (`bench/results/2026-08-30_pdd_quant_interaction.json`: 0.00942 -> 0.01058
+    at strength 1.0, correlating 0.78 with the module's own `||BA||/||W||`).
+    Applying at the call leaves the quantised weight untouched, so the base
+    keeps its shipped error and the delta is exact in the compute dtype.
+
+    `b` arrives with `strength * alpha / rank` already folded in, so this is
+    two matmuls and an add per call with no scalar arithmetic in the hot path.
+
+    `a` and `b` are cast per call and NOT cached per device, which is
+    `_make_adaln_forward`'s reasoning and its numbers: caching across all 50
+    blocks would pin roughly a gigabyte beside a 24 GB checkpoint on a 24 GB
+    card. That is also the argument for this knob being a block SET rather than
+    a boolean -- at 9.4M LoRA parameters per block the resident cost is about
+    19 MB a block, so it is affordable exactly to the extent that it is
+    selective.
+    """
+    def forward(inp):
+        out = base_forward(inp)
+        av = a.to(inp.device, out.dtype)
+        bv = b.to(inp.device, out.dtype)
+        return out + (inp.to(out.dtype) @ av.T) @ bv.T
+    return forward
+
+
+def unmerged_patch_clash(object_patches, blocks, kinds=UNMERGED_KINDS):
+    """Which un-merge patch keys are already taken, for the blocks requested.
+
+    Same rule as the head and adaln guards: `add_object_patch` is
+    last-writer-wins, so a second owner of one of these projections would leave
+    one implementation's LoRA applied and the other's silently dropped.
+    """
+    return [unmerged_patch_key(i, k) for i in sorted(blocks) for k in kinds
+            if unmerged_patch_key(i, k) in object_patches]
+
+
+def split_unmerged(backbone, blocks, kinds=UNMERGED_KINDS):
+    """Partition the backbone patch dict into (merged, per-module un-merged).
+
+    Returns `(backbone_without_them, {(block, kind): (A, B, alpha, rank)})`.
+    Mutates nothing; the caller hands the first half to `comfy.lora.load_lora`
+    exactly as before, so the `len(applied) != len(loaded)` guard keeps
+    grading the whole of what it is given.
+
+    A block naming no module here is a caller error rather than a silent
+    no-op -- an un-merge that quietly merged would be the failure this whole
+    path exists to avoid.
+    """
+    keep, lifted = {}, {}
+    wanted = {(i, k) for i in blocks for k in kinds}
+    seen = set()
+    for key, value in backbone.items():
+        parts = key.split(".")
+        # diffusion_model.blocks.N.<kind...>.<slot>
+        if len(parts) >= 5 and parts[1] == "blocks":
+            try:
+                index = int(parts[2])
+            except ValueError:
+                keep[key] = value
+                continue
+            kind = ".".join(parts[3:-1])
+            if kind.endswith(".lora_A") or kind.endswith(".lora_B"):
+                kind = kind.rsplit(".", 1)[0]
+            if (index, kind) in wanted:
+                lifted.setdefault((index, kind), {})[parts[-1]
+                                                    if parts[-1] == "alpha"
+                                                    else ".".join(parts[-2:])] = value
+                seen.add((index, kind))
+                continue
+        keep[key] = value
+    missing = sorted(wanted - seen)
+    if missing:
+        raise RuntimeError(
+            f"unmerged_blocks named {len(missing)} module(s) this file does "
+            f"not carry, e.g. block {missing[0][0]} {missing[0][1]}. An "
+            f"un-merge that silently merged is the exact failure this path "
+            f"exists to avoid, so this refuses rather than falling back.")
+    out = {}
+    for (index, kind), slots in lifted.items():
+        a = slots["lora_A.weight"]
+        b = slots["lora_B.weight"]
+        alpha = float(slots["alpha"].item())
+        out[(index, kind)] = (a, b, alpha, int(a.shape[0]))
+    return keep, out
+
+
 def adaln_patch_key(index: int) -> str:
     """The object-patch key the runtime adaln injection takes for one block.
 
@@ -1089,13 +1243,47 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "checkpoint's own heads, which is the headfree control "
                         "arm."),
                 ),
+                # APPENDED. See the note on patch_heads, and the longer one on
+                # head_strength about what inserting rather than appending cost.
+                io.String.Input(
+                    "unmerged_blocks", default="", optional=True,
+                    tooltip=(
+                        "Blocks whose backbone LoRA is applied at the CALL "
+                        "instead of merged into the weight. Same syntax as "
+                        "Sol-Attn's dense_blocks: '0-2,49', '32', '-1'. Empty "
+                        "-- the default -- merges everything, which is what "
+                        "every graph did before this input existed.\n\n"
+                        "Why it exists: on an int8_convrot checkpoint a merged "
+                        "LoRA is dequantised, added, and REQUANTISED with a "
+                        "recalculated scale, so it moves the quantisation grid "
+                        "rather than only the weight. Measured over 28 modules "
+                        "against the bf16 release, mean stored-weight error "
+                        "goes 0.00942 -> 0.01058 at strength 1.0, and the rise "
+                        "correlates 0.78 with the module's own ||BA||/||W|| "
+                        "-- so it is worst exactly where the distillation does "
+                        "the most work. Un-merging returns those modules to "
+                        "the checkpoint's shipped error at full LoRA "
+                        "strength.\n\n"
+                        "It is a set rather than a switch because it is not "
+                        "free: about +2.4% FLOPs and +19 MB resident per "
+                        "block, so all 50 is roughly a gigabyte beside a 24 GB "
+                        "checkpoint. Worst-first from that measurement: 49, 7, "
+                        "24, 16. Least worth it: 32 and 40.\n\n"
+                        "The adaln update is NOT affected and is never lifted "
+                        "-- adaln_proj.linear is F16 in the shipped "
+                        "checkpoints, so there is no requantisation to avoid. "
+                        "Nor are the output heads, which are F32. This knob "
+                        "reaches one of PDD's three surfaces."
+                    ),
+                ),
             ],
             outputs=[io.Model.Output(), io.Sigmas.Output()],
         )
 
     @classmethod
     def execute(cls, model, lora_name, strength=1.0, head_strength=-1.0,
-                patch_heads=True, nfe=0, steps=8) -> io.NodeOutput:
+                patch_heads=True, nfe=0, steps=8,
+                unmerged_blocks="") -> io.NodeOutput:
         import comfy.lora
         import comfy.utils
         import folder_paths
@@ -1369,6 +1557,27 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     sd[f"h3_pdd.adaln_baked.blocks.{i}.diff_b"]
                 adaln_installed += 1
 
+        # `unmerged_blocks`: lift these blocks' backbone modules out of the
+        # weight patch and apply them at the call instead. Parsed against the
+        # LIVE block count, so a negative index means what it means everywhere
+        # else in this pack, and a spec naming a block this model does not have
+        # is clamped by the shared parser rather than by a second copy of its
+        # grammar here.
+        #
+        # At strength 0.0 nothing is lifted, because nothing is applied: the
+        # documented meaning of 0.0 on this node is the base model, and an
+        # un-merge patch installing a zero delta would still route four
+        # projections per block through this module's matmul instead of the
+        # checkpoint's own `operations.Linear`. Same argument the head gate
+        # makes one screen below, and for the same reason -- "exactly the base
+        # model" has to mean the base model's own code.
+        unmerged = frozenset()
+        if str(unmerged_blocks).strip() and strength != 0.0:
+            unmerged = parse_blocks(unmerged_blocks, len(dm.blocks))
+        lifted = {}
+        if unmerged:
+            backbone, lifted = split_unmerged(backbone, unmerged)
+
         key_map = comfy.lora.model_lora_keys_unet(model.model, {})
         loaded = comfy.lora.load_lora(backbone, key_map, log_missing=True)
         if not loaded:
@@ -1396,6 +1605,30 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 f"keys on this model. A partial match renders and looks "
                 f"entirely normal, with whichever modules did not match left "
                 f"at their base weights. First unmatched: {missing[:3]}.")
+
+        # The un-merged modules, installed as forward patches on the clone.
+        if lifted:
+            taken = unmerged_patch_clash(m.object_patches, unmerged)
+            if taken:
+                raise RuntimeError(
+                    f"{lora_name}: {len(taken)} of the projections "
+                    f"unmerged_blocks asks for are already patched (e.g. "
+                    f"{taken[0]}). `add_object_patch` is last-writer-wins, so "
+                    f"one owner's update would apply and the other's would be "
+                    f"dropped with nothing said. Narrow unmerged_blocks, or "
+                    f"remove whatever else owns these projections.")
+            for (index, kind), (a, b, alpha, rank) in sorted(lifted.items()):
+                key = unmerged_patch_key(index, kind)
+                # `strength * alpha / rank` folded into B once, on CPU, in the
+                # dtype the file stores -- so the hot path is two matmuls and
+                # an add. This is the same scale `comfy.lora` applies on the
+                # merged path, which is what makes the two arms differ only in
+                # WHERE the delta lands.
+                m.add_object_patch(
+                    key,
+                    _make_unmerged_forward(
+                        m.get_model_object(key), a,
+                        b * (strength * alpha / rank)))
 
 
 
@@ -1599,10 +1832,17 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         # arm ran.
         _s = ("%.3f" % strength if head_strength == strength
               else "%.3f, heads %.3f" % (strength, head_strength))
+        # The un-merge is named in the same line, and named as ABSENT by
+        # default, because it changes where the backbone update lands and this
+        # line is the only runtime evidence of which arm ran. A knob that is
+        # silent when off and silent when on cannot be read back off a log.
+        _um = ("all merged" if not lifted else
+               "%d module(s) un-merged at blocks %s"
+               % (len(lifted), ",".join(str(i) for i in sorted(unmerged))))
         logger.info(
-            "[h3-pdd] %s at strength %s: %d weight patches, "
+            "[h3-pdd] %s at strength %s: %d weight patches, %s, "
             "%d adaln %s, %s (%d-point grid, shifts %g/%g). Base is %s.",
-            lora_name, _s, len(loaded), adaln_installed,
+            lora_name, _s, len(loaded), _um, adaln_installed,
             ("baked into the curve basis, applied as weight patches"
              if baked is not None else
              "re-injected at run time (pruned base, no bake in this file)"
