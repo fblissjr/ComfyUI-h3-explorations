@@ -2,7 +2,12 @@
 
 ## Handoffs — newest first, and read the newest before anything else here
 
-- [`2026-08-28_handoff.md`](2026-08-28_handoff.md) — **current.** What the paper
+- [`2026-08-30_handoff.md`](2026-08-30_handoff.md) — **current.** The depth
+  question and the method correction that reshaped it: what is settled about
+  per-block quantisation, the one clean observation capture and the two things
+  it does not say, the four next steps in order, and the multi-session working
+  rules the day earned.
+- [`2026-08-28_handoff.md`](2026-08-28_handoff.md) — What the paper
   says about variable NFE and why it overturns the previous handoff's central
   conclusion; the six-evaluation arm the node refuses but the paper permits; the
   audio-refinement path; six prioritised action items with sources; the measured
