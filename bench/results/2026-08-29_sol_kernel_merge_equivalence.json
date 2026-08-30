@@ -1,0 +1,40 @@
+{
+ "measured": "2026-08-29",
+ "produced_by": "bench/probe_block_propagation.py, compared by hand; see CHANGELOG 0.98.0",
+ "what": "whether the merged upstream Sol-Attn kernel (Comfy-Org/comfy-kitchen#117, dae00a1) reproduces the branch build (0.2.31+sol.23d1a66) this repo's numbers were measured on",
+ "why": "the merged kernel reshaped the API -- centroid_tail, reuse_qkv_memory and max_blocks are gone from both entries, tail/block_len/coarse_gate arrived -- so the node had to change to call it, and every Sol figure in this repo was taken on the older build",
+ "builds": {
+  "before": "0.2.31+sol.23d1a66 (kijai's branch)",
+  "after": "0.2.31+sol.dae00a1 (upstream main, PR #117 merged 2026-08-29)"
+ },
+ "graph": "h3_text_to_video_api.json, 4 steps euler, seed 730451892, Sol windowed to the final step, dense_blocks 0-48 so Sol runs at block 49 alone",
+ "comparisons": [
+  {
+   "name": "control: branch against branch",
+   "arms": "b49 19:39 and b49 22:32, same kernel, three hours and a server restart apart",
+   "video": {"bit_identical": true, "max_abs": 0.0, "rel_l2": 0.0},
+   "audio": {"bit_identical": true, "max_abs": 0.0, "rel_l2": 0.0},
+   "reads": "the pipeline is deterministic, so any difference below is caused by the thing that changed"
+  },
+  {
+   "name": "baseline across the swap",
+   "arms": "sage at all 50 blocks, NO Sol node in the graph, 22:29 branch against 22:39 merged",
+   "video": {"bit_identical": true, "max_abs": 0.0, "rel_l2": 0.0},
+   "audio": {"bit_identical": true, "max_abs": 0.0, "rel_l2": 0.0},
+   "reads": "the non-Sol path is untouched by the kernel swap. This is what makes the next row attributable to the Sol kernel rather than to the restart, the rebuild or the node edit"
+  },
+  {
+   "name": "Sol arm across the swap",
+   "arms": "Sol at block 49 only, 22:32 branch against 22:42 merged",
+   "video": {"bit_identical": false, "max_abs": 0.025, "rel_l2": 7.67e-05},
+   "audio": {"bit_identical": true, "max_abs": 0.0, "rel_l2": 0.0},
+   "reads": "the two kernels agree to about 1e-4 relative, not bitwise. Audio is unchanged because those rows ride the exact sink path rather than the routed one"
+  }
+ ],
+ "conclusion": "The merged kernel is NOT bit-equivalent to the branch build, and agrees to rel L2 7.67e-05 on the output latent -- roughly four orders of magnitude below the 0.0128 single-block effect this harness measures, and below every Sol figure in this repo. Existing measurements are not invalidated; a number quoted to more than three significant figures across the two builds is.",
+ "caveats": [
+  "One graph, one seed, one block, one step count.",
+  "This compares OUTPUT LATENTS after a 4-step sample, not the kernel's own output at the call. A per-call comparison on captured activations would bound it tighter.",
+  "It says nothing about the merged kernel's NEW capabilities (tail=False, block_len, coarse_gate, the chunked QKV producer), none of which the vendored node exposes yet."
+ ]
+}

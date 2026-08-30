@@ -404,6 +404,30 @@ def _ineligible(q, k, mask, dim_head, min_tokens):
     return None
 
 
+_KERNEL_KWARGS = None
+
+
+def _kernel_kwargs():
+    """Parameter names `comfy_kitchen.sol_attn` accepts, cached.
+
+    Read once per process. `inspect.signature` on a nanobind entry can fail,
+    and a failure here must not take the render down -- an empty set makes
+    every optional kwarg look unavailable, which is the conservative branch:
+    the call is made with the arguments every version has taken.
+    """
+    global _KERNEL_KWARGS
+    if _KERNEL_KWARGS is None:
+        import inspect
+        names = set()
+        for fn in (getattr(_ck, "sol_attn", None),):
+            try:
+                names |= set(inspect.signature(fn).parameters)
+            except (TypeError, ValueError):
+                pass
+        _KERNEL_KWARGS = names
+    return _KERNEL_KWARGS
+
+
 def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
          tau, min_tokens, verbose, sink_blocks=(0, 0), sink_q=(0, 0),
          centroid_tail=True, reuse_qkv_memory=False, topk_ratio=0.0):
@@ -423,23 +447,50 @@ def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
             _log_once((tuple(qs.shape), reason), f"dense {tuple(qs.shape)}: {reason}")
         return None
 
-    if reuse_qkv_memory:
+    # Which optional kwargs this kernel build accepts, read from the SIGNATURE
+    # rather than from a version string. The two are not interchangeable: both
+    # builds call themselves 0.2.31, and upstream reshaped this API when
+    # Sol-Attn merged (Comfy-Org/comfy-kitchen#117, dae00a1) -- `centroid_tail`
+    # and `reuse_qkv_memory` are gone from the merged entries, and `tail`,
+    # `block_len` and `coarse_gate` arrived. Branching on the observable is the
+    # house rule, and here it is also the only thing that works: a pinned
+    # version would have to be edited for every rebuild.
+    accepts = _kernel_kwargs()
+
+    kwargs = dict(tau=tau, scale=scale,
+                  sink_blocks=list(sink_blocks), sink_q=list(sink_q),
+                  topk_ratio=topk_ratio)
+
+    if "centroid_tail" in accepts:
+        kwargs["centroid_tail"] = centroid_tail
+    elif not centroid_tail:
+        # Do NOT silently drop it. Upstream made the centroid-evaluated tail
+        # UNCONDITIONAL when it merged, so `True` is exactly what the kernel
+        # now does and dropping the kwarg is behaviour-preserving -- but
+        # `False` is a different computation that this build cannot express,
+        # and swallowing the request would change the math without saying so.
+        raise RuntimeError(
+            "centroid_tail=False is not available in this comfy_kitchen build: "
+            "the merged kernel evaluates the pooled tail at the query block's "
+            "centroid unconditionally. Set it True, or install a build whose "
+            "sol_attn still takes the argument.")
+
+    if reuse_qkv_memory and "reuse_qkv_memory" in accepts:
         # `out` goes into q/k/v's storage (H3's fused qkv buffer), shaving the
         # output allocation off peak VRAM; H3 discards that buffer after
         # attention.
         from comfy_kitchen.backends import cuda as _ck_cuda
-        out = _ck_cuda.sol_attn(
-            qs, ks, vs, tau=tau, scale=scale,
-            sink_blocks=list(sink_blocks), sink_q=list(sink_q),
-            centroid_tail=centroid_tail, reuse_qkv_memory=True,
-            topk_ratio=topk_ratio,
-        )  # BTHD
+        out = _ck_cuda.sol_attn(qs, ks, vs, reuse_qkv_memory=True, **kwargs)
     else:
-        out = _ck.sol_attn(
-            qs, ks, vs, tau=tau, scale=scale,
-            sink_blocks=list(sink_blocks), sink_q=list(sink_q),
-            centroid_tail=centroid_tail, topk_ratio=topk_ratio,
-        )  # BTHD
+        if reuse_qkv_memory:
+            # Announce rather than ignore: the knob was asked for and this
+            # build has no way to honour it, so the render is correct and its
+            # peak VRAM is not what the graph asked for.
+            _log_once(("no_reuse_qkv",),
+                      "[sol_attn] reuse_qkv_memory requested but this "
+                      "comfy_kitchen build does not accept it; running the "
+                      "normal entry, output allocated separately")
+        out = _ck.sol_attn(qs, ks, vs, **kwargs)  # BTHD
     _stats["sparse"] += 1
     if verbose:
         sel = (f"topk={topk_ratio:.3f}" if topk_ratio else f"tau={tau}")

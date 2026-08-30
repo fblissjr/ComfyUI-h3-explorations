@@ -8,6 +8,44 @@ artifact.
 
 ### Changed
 
+- **Moved to the merged upstream Sol-Attn kernel**, 0.2.31+sol.dae00a1
+  (Comfy-Org/comfy-kitchen#117, merged 2026-08-29), from kijai's branch build
+  0.2.31+sol.23d1a66 that every Sol figure here was measured on.
+  - **The merged API is not the branch API.** `centroid_tail`,
+    `reuse_qkv_memory` and `max_blocks` are gone from both entries; `tail`,
+    `block_len` and `coarse_gate` arrived. Installing it against the old node
+    breaks every Sol render -- and breaks it SILENTLY, because a TypeError
+    inside the override is caught and converted to a dense fallback.
+  - **The vendored node now reads `sol_attn`'s signature and passes what it
+    accepts**, so one node drives both builds. Branching on the observable
+    rather than a version is not a style choice here: both builds call
+    themselves 0.2.31.
+  - **`centroid_tail=False` raises rather than being dropped.** The merged
+    kernel evaluates the pooled tail at the query block's centroid
+    unconditionally -- which is what `True` always did, so our config is
+    behaviour-preserving -- but `False` is a different computation this build
+    cannot express, and swallowing it would change the math silently.
+  - **Equivalence measured, not assumed**
+    (`bench/results/2026-08-29_sol_kernel_merge_equivalence.json`). Two
+    controls make it attributable: branch-against-branch is bit-identical
+    three hours and a restart apart, and the sage-only baseline is
+    bit-identical across the swap. The Sol arm differs by **rel L2 7.67e-05**
+    on video and not at all on audio -- about four orders of magnitude below
+    the 0.0128 effect the harness measures. Existing numbers stand; a figure
+    quoted to more than three significant figures across the two builds does
+    not.
+  - `bench/check_sol_kernel.py` now splits REQUIRED kwargs (passed on every
+    call; missing means nothing renders) from OPTIONAL ones the node adapts
+    around, prints which are present, and fails if `h3_config` asks for a
+    `centroid_tail` this kernel cannot express.
+  - `vendor/rebuild_kernel.sh` takes `SRC=` so it can build any checkout or
+    worktree, and exports `VIRTUAL_ENV` for `--no-build-isolation` -- without
+    which uv reports a MISSING BUILD DEPENDENCY rather than a missing
+    environment, which sends you installing setuptools where it already is.
+  - **Not yet exposed**: `tail=False` (VSA), `block_len`, `coarse_gate` and the
+    chunked QKV producer (~5 GB peak at 113k tokens, our exact regime). Those
+    need node inputs, and adding them is a separate change.
+
 - **`SOL_RECOMMENDED_CUDA`'s `dense_blocks` is `0-2,32`, was the vendor's
   `0-1`.** The propagation probe ran on the BASE model, so this config is the
   one it bears on most directly and `SOL_PDD_CUDA` now inherits the value

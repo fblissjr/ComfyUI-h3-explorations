@@ -132,6 +132,15 @@ KNOWN_NODE_VERSIONS = {
         "v3 (2026-08-22) -- tau/tau_profile folded into a `selection` "
         "DynamicCombo alongside top-k, routed_cap_percent dropped; needs a "
         "kernel with topk_ratio (0.2.31+sol.23d1a66 or later)",
+    "1c55a4b51011041a03e62ed73458c9ce280ffd8ca6fc5f353b2806d978504ac1":
+        "v3.1 (2026-08-29) -- OURS, not upstream's: the kernel call reads "
+        "`sol_attn`'s signature and passes `centroid_tail` and "
+        "`reuse_qkv_memory` only where they exist, so one node drives both "
+        "kijai's branch build and the merged upstream (#117, dae00a1) which "
+        "dropped them. `centroid_tail=False` raises rather than being "
+        "silently ignored, because the merged kernel always evaluates the "
+        "tail at the centroid and swallowing the request would change the "
+        "math without saying so",
 }
 
 
@@ -168,9 +177,21 @@ TRITON_SOL_NODE = "SolAttnPatch"
 # What `internal/refs/sol_attn_minimax.py` actually passes. `_run()` calls the
 # registry entry for the normal path and reaches into `backends.cuda` directly
 # for the reuse path, so the two are checked separately.
-REGISTRY_KWARGS = ("tau", "scale", "sink_blocks", "sink_q", "max_blocks",
-                   "centroid_tail")
-CUDA_KWARGS = REGISTRY_KWARGS + ("reuse_qkv_memory",)
+# **Split into required and optional on 2026-08-29, when the prediction in
+# this file's own header came true.** It said upstream was "weighing making
+# `centroid_tail` unconditional, which would remove it". Sol-Attn merged as
+# Comfy-Org/comfy-kitchen#117 (dae00a1) and that is exactly what happened:
+# `centroid_tail`, `reuse_qkv_memory` and `max_blocks` are gone from both
+# entries, and `tail`, `block_len` and `coarse_gate` arrived.
+#
+# REQUIRED is what the node passes on EVERY call, so a build missing any of
+# these cannot render at all. OPTIONAL is what it passes only when the kernel
+# takes it -- `vendor/sol_attn_minimax.py::_kernel_kwargs` reads the signature
+# and adapts, so their absence is a capability difference rather than a defect.
+# Reported either way, because "which build is installed" is the first thing
+# anyone debugging a Sol number needs and both builds call themselves 0.2.31.
+REQUIRED_KWARGS = ("tau", "scale", "sink_blocks", "sink_q", "topk_ratio")
+OPTIONAL_KWARGS = ("centroid_tail", "reuse_qkv_memory", "max_blocks")
 
 failures = []
 skipped = []
@@ -181,7 +202,7 @@ skipped = []
 # graph wires the Triton node" case still prints a confident count. See
 # h3_config.GRAPH_DIRS.
 sys.path.insert(0, str(_REPO / "workflows"))
-from h3_config import graph_paths  # noqa: E402
+from h3_config import graph_paths, SOL_RECOMMENDED_CUDA  # noqa: E402
 
 
 def check(name, ok, detail=""):
@@ -286,24 +307,46 @@ print("\nthe signature still accepts what our node passes:")
 if not has_sol:
     skip("signature", "sol_attn absent; nothing to introspect")
 else:
-    gone = missing_params(ck.sol_attn, REGISTRY_KWARGS)
+    gone = missing_params(ck.sol_attn, REQUIRED_KWARGS)
     if gone is None:
         check("signature", False, "comfy_kitchen.sol_attn is not introspectable")
     else:
         check("signature", not gone,
-              f"registry entry missing {gone}" if gone
-              else f"registry entry accepts {len(REGISTRY_KWARGS)} kwargs")
+              f"registry entry missing {gone}, which the node passes on EVERY "
+              f"call -- no render can succeed" if gone
+              else f"registry entry accepts all {len(REQUIRED_KWARGS)} required kwargs")
+        have = [k for k in OPTIONAL_KWARGS
+                if not missing_params(ck.sol_attn, (k,))]
+        print(f"        optional present: {have or 'none'}; "
+              f"absent: {[k for k in OPTIONAL_KWARGS if k not in have] or 'none'}")
+
+        # The one place an absent optional is NOT merely a capability
+        # difference. `centroid_tail=False` is a different computation, and a
+        # build without the kwarg evaluates the tail at the centroid
+        # unconditionally -- so a config asking for False cannot be honoured.
+        # The node raises rather than silently ignoring it; this says so before
+        # a render does.
+        if "centroid_tail" not in have and not SOL_RECOMMENDED_CUDA.get(
+                "centroid_tail", True):
+            check("centroid_tail_expressible", False,
+                  "h3_config asks for centroid_tail=False and this kernel has "
+                  "no such argument -- the merged build always evaluates the "
+                  "tail at the query block's centroid. Every Sol call would "
+                  "raise.")
+        else:
+            check("centroid_tail_expressible", True,
+                  "the shipped centroid_tail is what this kernel can do")
     cuda = sys.modules.get("comfy_kitchen.backends.cuda")
     if cuda is None or not hasattr(cuda, "sol_attn"):
         skip("signature_cuda", "backends.cuda.sol_attn unavailable")
     else:
-        gone = missing_params(cuda.sol_attn, CUDA_KWARGS)
+        gone = missing_params(cuda.sol_attn, REQUIRED_KWARGS)
         if gone is None:
             check("signature_cuda", False, "not introspectable")
         else:
             check("signature_cuda", not gone,
                   f"direct CUDA entry missing {gone}" if gone
-                  else f"direct CUDA entry accepts {len(CUDA_KWARGS)} kwargs")
+                  else f"direct CUDA entry accepts all required kwargs")
 
 import hashlib
 

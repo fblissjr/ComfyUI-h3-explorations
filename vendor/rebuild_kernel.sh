@@ -14,7 +14,7 @@
 #   it was guarding against. The change lives in vendor/patches/ instead, and
 #   is applied only for the duration of a build.
 #
-# Why the patch exists at all: the branch declares version "0.2.31", identical
+# Why the patch exists at all: the source declares version "0.2.31", identical
 # to the PyPI wheel ComfyUI pins, so a fork build and the stock wheel are
 # indistinguishable to `pip list` -- and a stock wheel silently has no
 # sol_attn, which makes every Sol call fall back to dense with no error.
@@ -24,7 +24,17 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC="$REPO/coderef/comfy-kitchen-sol"
+# Default is kijai's branch checkout, which is where Sol-Attn lived while it
+# was unmerged. **Overridable since 2026-08-29**, when PR #117 landed the
+# kernel in comfy-kitchen main (dae00a1) and the branch stopped being the only
+# place to get it. Point SRC at any clean checkout or worktree:
+#
+#   SRC=/path/to/worktree vendor/rebuild_kernel.sh 89
+#
+# A worktree is the polite way to build a specific upstream commit: both
+# existing checkouts under coderef/ belong to somebody else and this script's
+# whole design is to leave them as it found them.
+SRC="${SRC:-$REPO/coderef/comfy-kitchen-sol}"
 PATCH="$REPO/vendor/patches/001-local-version-tag.patch"
 ARCH="${1:-89}"
 # Derived from this checkout, not typed: the repo sits at
@@ -61,6 +71,15 @@ fi
 VER="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)"
 echo "== version: $VER"
 
+# `--no-build-isolation` means the build uses an EXISTING environment rather
+# than a fresh one, and uv picks that up from VIRTUAL_ENV. Neither checkout has
+# a .venv of its own, so without this uv finds nothing, and the failure is
+# reported as a MISSING BUILD DEPENDENCY ("No module named 'setuptools'")
+# rather than as a missing environment -- which sends you off installing
+# setuptools somewhere it already is. Derived from $PY so it follows the
+# interpreter override rather than being a second place to configure the venv.
+export VIRTUAL_ENV="$(cd "$(dirname "$PY")/.." && pwd)"
+echo "== building against $VIRTUAL_ENV"
 COMFY_CUDA_ARCHS="$ARCH" uv build --wheel --no-build-isolation .
 # By exact version, not a glob: dist/ keeps every wheel ever built here, so
 # `comfy_kitchen-*.whl` grew to match more than one the first time this script
