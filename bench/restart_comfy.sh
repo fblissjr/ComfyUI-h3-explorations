@@ -34,9 +34,31 @@
 #   bench/restart_comfy.sh --newer-than <(...)   # any number of --newer-than
 #   bench/restart_comfy.sh --kernel              # shorthand: the installed
 #                                                # comfy_kitchen dist-info
+#   bench/restart_comfy.sh --force               # restart even if the running
+#                                                # server is ARMED for capture
 #
 # Exit codes: 0 ok, 1 usage/setup, 2 port never freed, 3 never came up,
-#             4 came up but is OLDER than something it must postdate.
+#             4 came up but is OLDER than something it must postdate,
+#             5 the running server is ARMED and --force was not given.
+#
+# ## Why exit 5 exists
+#
+# **The server process is the shared resource, not the GPU.** H3_CAPTURE and
+# H3_PDD_OBSERVE live in the ENVIRONMENT of the process that starts the server,
+# so a restart silently disarms whatever another session configured -- and
+# nothing in /queue, nvidia-smi or /system_stats shows that a server is armed.
+# Checking that the queue is empty and the card is free feels like diligence
+# and answers the wrong question: an idle server can still be a configured one.
+#
+# On 2026-08-30 that cost a peer session three renders in half an hour, one of
+# them a 345-frame job mid-flight. The worst of the three was a restart done to
+# be TIDY -- clearing this session own stale capture spec before handing the
+# server over, which cleared the peer spec in the same action.
+#
+# So the port owner environment is read from /proc/<pid>/environ and a restart
+# that would disarm somebody REFUSES, naming what is armed. Before this, that
+# operation succeeded and emitted nothing, which is this repo most-repeated
+# failure shape.
 
 set -uo pipefail
 
@@ -44,7 +66,12 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMFY="${COMFY:-$REPO/../..}"
 PORT="${PORT:-8188}"
 MODE="${MODE:-default}"
+FORCE="${FORCE:-0}"
 NEWER=()
+
+# Environment keys that make a running server a CONFIGURED resource rather than
+# a replaceable one. Add to this list; do not branch on it elsewhere.
+ARMING_KEYS="H3_CAPTURE H3_PDD_OBSERVE"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -57,6 +84,7 @@ while [ $# -gt 0 ]; do
             [ -n "$ck" ] || { echo "no comfy_kitchen dist-info under $COMFY/.venv"; exit 1; }
             NEWER+=("$ck"); shift ;;
         --mode) MODE="$2"; shift 2 ;;
+        --force) FORCE=1; shift ;;
         *) echo "unknown argument: $1"; exit 1 ;;
     esac
 done
@@ -64,6 +92,37 @@ done
 [ -x "$COMFY/start.sh" ] || { echo "no start.sh at $COMFY"; exit 1; }
 
 port_pid() { ss -lptnH "sport = :$PORT" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -1; }
+
+# --- refuse to disarm somebody else ---------------------------------------
+# Read from the PORT OWNER's own environment, not from this shell's: the
+# question is what the RUNNING server was started with, and this shell may
+# never have had it.
+armed_pid="$(port_pid)"
+if [ -n "$armed_pid" ] && [ -r "/proc/$armed_pid/environ" ]; then
+    armed=""
+    for key in $ARMING_KEYS; do
+        val="$(tr '\0' '\n' < "/proc/$armed_pid/environ" 2>/dev/null | grep "^$key=" | head -1)"
+        if [ -n "$val" ]; then
+            armed="$armed
+  $val"
+        fi
+    done
+    if [ -n "$armed" ]; then
+        if [ "$FORCE" = "1" ]; then
+            echo "== WARNING: pid $armed_pid is ARMED and --force was given; restarting anyway:$armed"
+        else
+            echo "REFUSING: the server on :$PORT (pid $armed_pid) is ARMED for capture:$armed"
+            echo
+            echo "Restarting would silently disarm it. That environment belongs to whichever"
+            echo "session started the server, which may not be this one -- an empty queue and"
+            echo "a free card do not tell you a server is unconfigured."
+            echo
+            echo "Ask the peer that armed it (ListAgents shows live sessions), or pass --force"
+            echo "if you know the capture is finished or is yours."
+            exit 5
+        fi
+    fi
+fi
 
 # --- stop ------------------------------------------------------------------
 # By PORT OWNER, not by pattern. `pgrep -f main.py | head -1` picks the `uv
