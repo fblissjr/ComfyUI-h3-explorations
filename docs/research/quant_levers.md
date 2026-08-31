@@ -198,12 +198,23 @@ blocks 0/12/25/37/49
 that landed; `noise_over_delta` is `‖Q(W+d) − (W+d)‖ / ‖d‖`, the error the
 merge injects measured against the **update** rather than the weight:
 
-| LoRA | arm | realised | noise / ‖d‖ | stored-weight err |
-|---|---|---|---|---|
-| PDD | deterministic | 0.395 mean, **0.020 worst** | 0.86 | 0.004709 |
-| PDD | stochastic *(ships)* | 1.0000 | 1.85 | 0.009370 |
-| turbo | deterministic | **0.025 mean, 0.0001 worst** | 1.03 | 0.000389 |
-| turbo | stochastic *(ships)* | 0.9999 | **11.87 mean, 26.6 max** | 0.002368 |
+| LoRA | arm | realised | noise / ‖d‖ |
+|---|---|---|---|
+| PDD, **all 200 modules** | deterministic | 0.341 mean, **0.0043 worst** | 0.86 |
+| PDD, **all 200 modules** | stochastic *(ships)* | 1.0000 | **median 1.981**, max 3.121 |
+| turbo, 20 modules | deterministic | **0.025 mean, 0.0001 worst** | 1.03 |
+| turbo, 20 modules | stochastic *(ships)* | 0.9999 | **11.87 mean, 26.6 max** |
+
+**On PDD, 194 of 200 modules carry more noise than update** (97%), and the
+median is almost exactly 2x. By kind: `mlp.fc2` 2.222, `mlp.fc1` 2.038,
+`attn.out_proj` 1.978, `attn.qkv_proj` 1.424.
+
+**A 20-module sample was optimistic and a 5-block one more so.** This table
+first carried 1.85 mean and 0.395 realised from 20 modules across 5 blocks; the
+full sweep gives 1.981 median and 0.341 realised, and the worst realised module
+moves from 0.020 to **0.0043**. A peer session running an independently written
+statistic over a different 100-module subset got median **1.979** against this
+file's 1.981 — the agreement is what makes either quotable.
 
 **The two metrics rank the arms oppositely.** RTN has the lower stored-weight
 distance *because it barely applies the LoRA*. Dose-responsive throughout:
@@ -211,6 +222,12 @@ distance *because it barely applies the LoRA*. Dose-responsive throughout:
 `blocks.25.mlp.fc2` at 0.33% realises 0.020, and the turbo LoRA — whose deltas
 average **0.038%** of the weight, `alpha/rank` 0.0625 against PDD's 1.0 —
 realises 0.025.
+
+So this is **not a turbo-only effect and not a lightx2v property**. The
+governing variable is delta magnitude against the quantisation step, and it is
+one continuous relationship with turbo at the low-delta end (median delta/step
+~0.005, noise ~12x) and PDD further along it (~0.08, noise ~2x) — not two
+phenomena.
 
 **And `realised_along_d` alone still concludes too early.** It says the shipped
 stochastic arm is fine, because it is: 1.0000. But a sub-step delta is realised
@@ -241,9 +258,21 @@ independent measurement, not from re-reading this file.
 
 `unmerged_blocks` **avoids the whole question** — it never requantises, so
 neither the √2, the discard, nor the full-step noise applies, and the delta
-stays exact in bf16. That makes it worth far more than its measured 11.6%, and
-**the amount is per-LoRA**: on turbo the shipped merge injects ~12x the
-update's magnitude in noise, so un-merging is not a refinement there.
+stays exact in bf16.
+
+**It is now the main lever in this inventory rather than one of several**, and
+that is a change of standing rather than of number: of the six levers listed
+above, two have been withdrawn today and one is inert on a quarter of the
+modules. Its value is far more than the 11.6% stored-weight figure implies and
+is **per-LoRA** — on PDD the merge carries ~2x the update in noise on 97% of
+modules, on turbo ~12x.
+
+**Also relevant to what it is not needed for**: the shipped VSA artifact
+(`minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot`) carries **0
+`lora_*` keys** — 500 block weights, 150 gate keys, 250 `comfy_quant` blobs. It
+is a fully baked checkpoint, never merged and never requantised at load, so it
+inherits none of this as shipped. A future VSA shipping as a LoRA would inherit
+all of it.
 
 **What it is NOT: the shipped turbo graphs are not rendering with a discarded
 LoRA.** Discarding is the RTN failure, and RTN does not ship —

@@ -1688,12 +1688,24 @@ as a sweep.
   Every capture inventoried in `2026-08-30_capture_inventory.json` was deleted
   the day it was written, so this needs a fresh render, and
   `bench/restart_comfy.sh`'s arming rule applies to the server that runs it.
-- Offline, per kind, on the same captured `x`: `int8_linear(x, W_q, s,
-  convrot=True, gs=256)` against `F.linear(x.to(bf16), W_ref.to(bf16))` — the
-  runtime error. Then two decompositions against the same reference:
-  exact weight with quantised activation (activation term alone), and
-  quantised weight with exact activation (weight term alone, which is what
-  every existing record measures).
+- Offline, four arms kept explicit, and **the activation-only arm is subtler
+  than an earlier draft of this entry said**. It is not "exact weight with
+  quantised activation": the runtime activation is ROTATED before it is
+  quantised, so the reference weight must be represented in the **matching
+  rotated basis** or the arms are not comparable. Corrected 2026-08-31 from an
+  external review.
+
+  | arm | weight | activation | measures |
+  |---|---|---|---|
+  | reference | released BF16 `W` | BF16 `X` | the denominator |
+  | runtime W8A8 | shipped `Q(W)` | rotated, row-quantised `X` | the actual combined error |
+  | weight-only | dequantised `Q(W)` | BF16 `X` | what every existing record measures |
+  | activation-only | BF16 `W` **in the matching rotated basis** | rotated, row-quantised `X` | the term nothing has measured |
+
+- **Do not name a flag as an arm until its output has been checked against the
+  arithmetic it is meant to implement.** `full_precision_matrix_mult` is the
+  concrete reason: it was entered in the lever inventory from a source trace,
+  and an executable probe found it changes nothing at all on H3.
 - Only then sweep `gs` in {256, 1024} on `out_proj` and `fc2` against the same
   `x`. It is a re-score of one capture, not a second render.
 
@@ -1731,6 +1743,27 @@ and both fatal to the naive observer** (`research/quant_levers.md` §3):
   at one or two preselected `(block, knot)` cells only, or is computed online.
   A joint render replaces a duplicate render of the SAME scene — it does not
   replace the second scene/seed generalisation needs.
+
+**Two more things the capture must get right**, same source:
+
+- **Keep the canonical Sol stack ENABLED.** `h3_capture.py`'s docstring says a
+  capture must bypass Sol; that is right for the kernel-accuracy question and
+  wrong here. Bypassing Sol changes the downstream `out_proj` and MLP
+  activation distributions away from the workflow being characterised. Preserve
+  the per-cell kernel tag instead, and treat a fully dense capture as a control
+  arm rather than the default.
+- **An instrumented run's TIMING is void.** CPU copies, reductions and
+  synchronisation do not change deterministic tensor values when written
+  correctly, but they do change wall time and peak pressure. So the
+  `convrot_groupsize` timing arm this entry gates cannot be run in the same
+  process — it needs an uninstrumented one, after the statistical arms have
+  chosen what to time.
+
+The full contract — attention cells, `H3_CAPTURE` syntax, sidecar fields,
+storage budgets (20 Q/K/V cells ≈ 84 GiB; all four linear inputs ≈ 6.27 GiB per
+(block, step); a naive all-modules capture ≈ 2.45 TiB) and seven acceptance
+checks — is in `internal/codex/2026-08-31_joint-tier1-capture-and-quant-reachability-review.md`
+and is deliberately NOT restated here.
 
 **Blocker:** one render's worth of card time, plus the capture spec on the
 server that runs it. Nothing else — the scoring is CPU and needs no server.

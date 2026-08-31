@@ -1,0 +1,3649 @@
+{
+  "measured": "2026-08-31",
+  "produced_by": "bench/measure_merge_realisation.py",
+  "question": "how much of a LoRA delta survives being merged into an int8_convrot weight, under each rounding mode",
+  "base": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+  "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+  "rounding_note": "stochastic is a draw from the same distribution as the shipped path, not the realisation a given key produces -- the RNG stream differs",
+  "is_not": "a runtime or perceptual measurement. Stored weights only, and int8_convrot is W8A8, so this sees one of two roundings. docs/open_experiments.md #23",
+  "shape": {
+    "rows": 200,
+    "expected": 200
+  },
+  "summary": {
+    "realised_along_d": {
+      "deterministic_mean": 0.3411361394985579,
+      "deterministic_min": 0.0042809429578483105,
+      "stochastic_mean": 0.9999995097517967
+    },
+    "e_vs_target": {
+      "deterministic_mean": 0.004491707391571254,
+      "stochastic_mean": 0.009189384200144559
+    },
+    "noise_over_delta": {
+      "deterministic_mean": 0.9172887702286243,
+      "stochastic_mean": 2.001519252061844,
+      "stochastic_max": 3.1211981773376465
+    },
+    "delta_rel_mean": 0.005315616723382845,
+    "orderings_disagree": true
+  },
+  "modules": [
+    {
+      "block": 0,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0031370597425848246,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.19540871679782867,
+          "e_vs_target": 0.003087134100496769,
+          "noise_over_delta": 0.9840912222862244
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000678300857544,
+          "e_vs_target": 0.007474089507013559,
+          "noise_over_delta": 2.3825290203094482
+        }
+      }
+    },
+    {
+      "block": 0,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.004730526823550463,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.2188146561384201,
+          "e_vs_target": 0.004613872151821852,
+          "noise_over_delta": 0.9753496646881104
+        },
+        "stochastic": {
+          "realised_along_d": 0.9996945261955261,
+          "e_vs_target": 0.010513200424611568,
+          "noise_over_delta": 2.222438335418701
+        }
+      }
+    },
+    {
+      "block": 0,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.004594602156430483,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.25417205691337585,
+          "e_vs_target": 0.004482868127524853,
+          "noise_over_delta": 0.9756860733032227
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002892017364502,
+          "e_vs_target": 0.009116699919104576,
+          "noise_over_delta": 1.9842289686203003
+        }
+      }
+    },
+    {
+      "block": 0,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004896407015621662,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.23635384440422058,
+          "e_vs_target": 0.004811469931155443,
+          "noise_over_delta": 0.9826626181602478
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998735785484314,
+          "e_vs_target": 0.009690855629742146,
+          "noise_over_delta": 1.9791960716247559
+        }
+      }
+    },
+    {
+      "block": 1,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005310527980327606,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4973785877227783,
+          "e_vs_target": 0.004684751387685537,
+          "noise_over_delta": 0.8821808099746704
+        },
+        "stochastic": {
+          "realised_along_d": 0.999864399433136,
+          "e_vs_target": 0.009128212928771973,
+          "noise_over_delta": 1.7189247608184814
+        }
+      }
+    },
+    {
+      "block": 1,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0064089614897966385,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4183409512042999,
+          "e_vs_target": 0.005785451270639896,
+          "noise_over_delta": 0.902725338935852
+        },
+        "stochastic": {
+          "realised_along_d": 1.000712513923645,
+          "e_vs_target": 0.01187087967991829,
+          "noise_over_delta": 1.852257251739502
+        }
+      }
+    },
+    {
+      "block": 1,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0033770164009183645,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.16620273888111115,
+          "e_vs_target": 0.0033422778360545635,
+          "noise_over_delta": 0.9897199869155884
+        },
+        "stochastic": {
+          "realised_along_d": 1.000467300415039,
+          "e_vs_target": 0.008042621426284313,
+          "noise_over_delta": 2.381592273712158
+        }
+      }
+    },
+    {
+      "block": 1,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.006328717805445194,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.46220308542251587,
+          "e_vs_target": 0.0057386416010558605,
+          "noise_over_delta": 0.9067792892456055
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999227523803711,
+          "e_vs_target": 0.010462932288646698,
+          "noise_over_delta": 1.6532779932022095
+        }
+      }
+    },
+    {
+      "block": 2,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007352464832365513,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6865506768226624,
+          "e_vs_target": 0.005704883951693773,
+          "noise_over_delta": 0.7759369611740112
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997917413711548,
+          "e_vs_target": 0.009934917092323303,
+          "noise_over_delta": 1.3512754440307617
+        }
+      }
+    },
+    {
+      "block": 2,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.00677397008985281,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.45576968789100647,
+          "e_vs_target": 0.0060243611223995686,
+          "noise_over_delta": 0.8893498182296753
+        },
+        "stochastic": {
+          "realised_along_d": 0.9996778964996338,
+          "e_vs_target": 0.0121805090457201,
+          "noise_over_delta": 1.7981547117233276
+        }
+      }
+    },
+    {
+      "block": 2,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.004172411281615496,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.22285638749599457,
+          "e_vs_target": 0.00409081531688571,
+          "noise_over_delta": 0.9804536700248718
+        },
+        "stochastic": {
+          "realised_along_d": 1.0007410049438477,
+          "e_vs_target": 0.008758270181715488,
+          "noise_over_delta": 2.099111557006836
+        }
+      }
+    },
+    {
+      "block": 2,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004178444854915142,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.15584959089756012,
+          "e_vs_target": 0.004174430388957262,
+          "noise_over_delta": 0.9990473985671997
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000981092453003,
+          "e_vs_target": 0.009167884476482868,
+          "noise_over_delta": 2.194108009338379
+        }
+      }
+    },
+    {
+      "block": 3,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.00958438403904438,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.8215212225914001,
+          "e_vs_target": 0.006312612444162369,
+          "noise_over_delta": 0.658669114112854
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999711513519287,
+          "e_vs_target": 0.01047926489263773,
+          "noise_over_delta": 1.0934250354766846
+        }
+      }
+    },
+    {
+      "block": 3,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005744768772274256,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.27383407950401306,
+          "e_vs_target": 0.0054699634201824665,
+          "noise_over_delta": 0.9521727561950684
+        },
+        "stochastic": {
+          "realised_along_d": 1.0008121728897095,
+          "e_vs_target": 0.011650742962956429,
+          "noise_over_delta": 2.0280795097351074
+        }
+      }
+    },
+    {
+      "block": 3,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.004055027849972248,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.1560264229774475,
+          "e_vs_target": 0.004063109867274761,
+          "noise_over_delta": 1.002005934715271
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997366070747375,
+          "e_vs_target": 0.008803538046777248,
+          "noise_over_delta": 2.171046018600464
+        }
+      }
+    },
+    {
+      "block": 3,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0037516027223318815,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.0799909457564354,
+          "e_vs_target": 0.003816538956016302,
+          "noise_over_delta": 1.017317771911621
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000050067901611,
+          "e_vs_target": 0.008856767788529396,
+          "noise_over_delta": 2.360816240310669
+        }
+      }
+    },
+    {
+      "block": 4,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.008875735104084015,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7859292030334473,
+          "e_vs_target": 0.006114929914474487,
+          "noise_over_delta": 0.6889772415161133
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999852180480957,
+          "e_vs_target": 0.010356318205595016,
+          "noise_over_delta": 1.1668599843978882
+        }
+      }
+    },
+    {
+      "block": 4,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006219231523573399,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.3816096782684326,
+          "e_vs_target": 0.005776194855570793,
+          "noise_over_delta": 0.9287728071212769
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000832080841064,
+          "e_vs_target": 0.011174678802490234,
+          "noise_over_delta": 1.7968122959136963
+        }
+      }
+    },
+    {
+      "block": 4,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.005221495404839516,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.41268134117126465,
+          "e_vs_target": 0.004826490767300129,
+          "noise_over_delta": 0.9243663549423218
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999232292175293,
+          "e_vs_target": 0.009295100346207619,
+          "noise_over_delta": 1.7801916599273682
+        }
+      }
+    },
+    {
+      "block": 4,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0035229306668043137,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.03780299797654152,
+          "e_vs_target": 0.003610131796449423,
+          "noise_over_delta": 1.0247565507888794
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004370212554932,
+          "e_vs_target": 0.008733929134905338,
+          "noise_over_delta": 2.4791758060455322
+        }
+      }
+    },
+    {
+      "block": 5,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.008404838852584362,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7349834442138672,
+          "e_vs_target": 0.006303409114480019,
+          "noise_over_delta": 0.7500016093254089
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001896619796753,
+          "e_vs_target": 0.01055026426911354,
+          "noise_over_delta": 1.2553073167800903
+        }
+      }
+    },
+    {
+      "block": 5,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007532126735895872,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4803887605667114,
+          "e_vs_target": 0.006676366087049246,
+          "noise_over_delta": 0.8864030241966248
+        },
+        "stochastic": {
+          "realised_along_d": 1.000262975692749,
+          "e_vs_target": 0.01240313146263361,
+          "noise_over_delta": 1.6467301845550537
+        }
+      }
+    },
+    {
+      "block": 5,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.004244394600391388,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.1892569363117218,
+          "e_vs_target": 0.004221892450004816,
+          "noise_over_delta": 0.9947094321250916
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998854994773865,
+          "e_vs_target": 0.008877478539943695,
+          "noise_over_delta": 2.091600179672241
+        }
+      }
+    },
+    {
+      "block": 5,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.003779534948989749,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.05865404009819031,
+          "e_vs_target": 0.003861459204927087,
+          "noise_over_delta": 1.021693468093872
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998725652694702,
+          "e_vs_target": 0.008939552120864391,
+          "noise_over_delta": 2.36529278755188
+        }
+      }
+    },
+    {
+      "block": 6,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.009222238324582577,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.8093553185462952,
+          "e_vs_target": 0.006186237093061209,
+          "noise_over_delta": 0.6708232164382935
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999313950538635,
+          "e_vs_target": 0.010357091203331947,
+          "noise_over_delta": 1.1231024265289307
+        }
+      }
+    },
+    {
+      "block": 6,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006733073852956295,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.44157519936561584,
+          "e_vs_target": 0.006108571775257587,
+          "noise_over_delta": 0.907260537147522
+        },
+        "stochastic": {
+          "realised_along_d": 0.999789297580719,
+          "e_vs_target": 0.011516627855598927,
+          "noise_over_delta": 1.710478663444519
+        }
+      }
+    },
+    {
+      "block": 6,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.006695934571325779,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6224638819694519,
+          "e_vs_target": 0.005582026205956936,
+          "noise_over_delta": 0.8336718082427979
+        },
+        "stochastic": {
+          "realised_along_d": 1.000146746635437,
+          "e_vs_target": 0.00985208060592413,
+          "noise_over_delta": 1.471401572227478
+        }
+      }
+    },
+    {
+      "block": 6,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004033596720546484,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.12436799705028534,
+          "e_vs_target": 0.004070915747433901,
+          "noise_over_delta": 1.009259581565857
+        },
+        "stochastic": {
+          "realised_along_d": 0.999701201915741,
+          "e_vs_target": 0.00906288344413042,
+          "noise_over_delta": 2.24686598777771
+        }
+      }
+    },
+    {
+      "block": 7,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.01706891693174839,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.9596216082572937,
+          "e_vs_target": 0.007351445034146309,
+          "noise_over_delta": 0.4307609498500824
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000286102294922,
+          "e_vs_target": 0.011247174814343452,
+          "noise_over_delta": 0.6590328812599182
+        }
+      }
+    },
+    {
+      "block": 7,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007057304494082928,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4349246323108673,
+          "e_vs_target": 0.0064033446833491325,
+          "noise_over_delta": 0.9073415398597717
+        },
+        "stochastic": {
+          "realised_along_d": 0.9992252588272095,
+          "e_vs_target": 0.011999192647635937,
+          "noise_over_delta": 1.7002623081207275
+        }
+      }
+    },
+    {
+      "block": 7,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.005607562605291605,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.45029860734939575,
+          "e_vs_target": 0.005100474692881107,
+          "noise_over_delta": 0.9095901250839233
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000028610229492,
+          "e_vs_target": 0.009527791291475296,
+          "noise_over_delta": 1.6991329193115234
+        }
+      }
+    },
+    {
+      "block": 7,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004048379138112068,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.17314861714839935,
+          "e_vs_target": 0.00403118971735239,
+          "noise_over_delta": 0.9957625269889832
+        },
+        "stochastic": {
+          "realised_along_d": 0.9995760321617126,
+          "e_vs_target": 0.00897397380322218,
+          "noise_over_delta": 2.2167022228240967
+        }
+      }
+    },
+    {
+      "block": 8,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.008209064602851868,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7176823019981384,
+          "e_vs_target": 0.006237783934921026,
+          "noise_over_delta": 0.7598941922187805
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000174045562744,
+          "e_vs_target": 0.010477270931005478,
+          "noise_over_delta": 1.2763534784317017
+        }
+      }
+    },
+    {
+      "block": 8,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006426048465073109,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.37878137826919556,
+          "e_vs_target": 0.0059918505139648914,
+          "noise_over_delta": 0.9324401617050171
+        },
+        "stochastic": {
+          "realised_along_d": 1.0005159378051758,
+          "e_vs_target": 0.011388294398784637,
+          "noise_over_delta": 1.7722243070602417
+        }
+      }
+    },
+    {
+      "block": 8,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.006671958137303591,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5849891901016235,
+          "e_vs_target": 0.005703152623027563,
+          "noise_over_delta": 0.8548194766044617
+        },
+        "stochastic": {
+          "realised_along_d": 1.0003187656402588,
+          "e_vs_target": 0.009998890571296215,
+          "noise_over_delta": 1.498687982559204
+        }
+      }
+    },
+    {
+      "block": 8,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004247062839567661,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.13899587094783783,
+          "e_vs_target": 0.0042713964357972145,
+          "noise_over_delta": 1.0057398080825806
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997774362564087,
+          "e_vs_target": 0.0092503372579813,
+          "noise_over_delta": 2.178077459335327
+        }
+      }
+    },
+    {
+      "block": 9,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007811842020601034,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7007704973220825,
+          "e_vs_target": 0.005996589083224535,
+          "noise_over_delta": 0.7676546573638916
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001047849655151,
+          "e_vs_target": 0.0102615375071764,
+          "noise_over_delta": 1.313632845878601
+        }
+      }
+    },
+    {
+      "block": 9,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006059552077203989,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.28041648864746094,
+          "e_vs_target": 0.005828436464071274,
+          "noise_over_delta": 0.9618695974349976
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001592636108398,
+          "e_vs_target": 0.011480445973575115,
+          "noise_over_delta": 1.8946232795715332
+        }
+      }
+    },
+    {
+      "block": 9,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.008054550737142563,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7408185601234436,
+          "e_vs_target": 0.006038859952241182,
+          "noise_over_delta": 0.7497794032096863
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000298023223877,
+          "e_vs_target": 0.010192977264523506,
+          "noise_over_delta": 1.2655508518218994
+        }
+      }
+    },
+    {
+      "block": 9,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004407889675348997,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.17053359746932983,
+          "e_vs_target": 0.004399262368679047,
+          "noise_over_delta": 0.998049795627594
+        },
+        "stochastic": {
+          "realised_along_d": 0.9994778633117676,
+          "e_vs_target": 0.009342624805867672,
+          "noise_over_delta": 2.1195383071899414
+        }
+      }
+    },
+    {
+      "block": 10,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.008032974787056446,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7225204706192017,
+          "e_vs_target": 0.006040364038199186,
+          "noise_over_delta": 0.7519673109054565
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002577304840088,
+          "e_vs_target": 0.010284951888024807,
+          "noise_over_delta": 1.280377745628357
+        }
+      }
+    },
+    {
+      "block": 10,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007127332501113415,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5157575011253357,
+          "e_vs_target": 0.00621291808784008,
+          "noise_over_delta": 0.8717184662818909
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001229047775269,
+          "e_vs_target": 0.011490886099636555,
+          "noise_over_delta": 1.6122565269470215
+        }
+      }
+    },
+    {
+      "block": 10,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.008460541255772114,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.781899094581604,
+          "e_vs_target": 0.006019962020218372,
+          "noise_over_delta": 0.7115641832351685
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998273253440857,
+          "e_vs_target": 0.010100705549120903,
+          "noise_over_delta": 1.1939111948013306
+        }
+      }
+    },
+    {
+      "block": 10,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004688515327870846,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.2081868201494217,
+          "e_vs_target": 0.004646459128707647,
+          "noise_over_delta": 0.9910410642623901
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002541542053223,
+          "e_vs_target": 0.009574279189109802,
+          "noise_over_delta": 2.042093515396118
+        }
+      }
+    },
+    {
+      "block": 11,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.01217600330710411,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.8975609540939331,
+          "e_vs_target": 0.006822665221989155,
+          "noise_over_delta": 0.5603824257850647
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000313520431519,
+          "e_vs_target": 0.010842802003026009,
+          "noise_over_delta": 0.890578031539917
+        }
+      }
+    },
+    {
+      "block": 11,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006218096241354942,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.39120781421661377,
+          "e_vs_target": 0.005754031706601381,
+          "noise_over_delta": 0.925373911857605
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998623728752136,
+          "e_vs_target": 0.011027316562831402,
+          "noise_over_delta": 1.7734332084655762
+        }
+      }
+    },
+    {
+      "block": 11,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.006868529133498669,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6123501658439636,
+          "e_vs_target": 0.005711991805583239,
+          "noise_over_delta": 0.8316419720649719
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001264810562134,
+          "e_vs_target": 0.010006600990891457,
+          "noise_over_delta": 1.4569190740585327
+        }
+      }
+    },
+    {
+      "block": 11,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004622177220880985,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.17883804440498352,
+          "e_vs_target": 0.004612220451235771,
+          "noise_over_delta": 0.9978603720664978
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000475645065308,
+          "e_vs_target": 0.009571487084031105,
+          "noise_over_delta": 2.0708045959472656
+        }
+      }
+    },
+    {
+      "block": 12,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007997884415090084,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7273824214935303,
+          "e_vs_target": 0.006067854817956686,
+          "noise_over_delta": 0.7587127089500427
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998484253883362,
+          "e_vs_target": 0.010255358181893826,
+          "noise_over_delta": 1.2823100090026855
+        }
+      }
+    },
+    {
+      "block": 12,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005874285474419594,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.37340113520622253,
+          "e_vs_target": 0.005457634571939707,
+          "noise_over_delta": 0.9290822744369507
+        },
+        "stochastic": {
+          "realised_along_d": 1.0008152723312378,
+          "e_vs_target": 0.010768994688987732,
+          "noise_over_delta": 1.8332635164260864
+        }
+      }
+    },
+    {
+      "block": 12,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.005684341304004192,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4584120213985443,
+          "e_vs_target": 0.005134528502821922,
+          "noise_over_delta": 0.9032950401306152
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997308254241943,
+          "e_vs_target": 0.00957309640944004,
+          "noise_over_delta": 1.6841527223587036
+        }
+      }
+    },
+    {
+      "block": 12,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.005117017775774002,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.2691274881362915,
+          "e_vs_target": 0.004990049172192812,
+          "noise_over_delta": 0.9751985669136047
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998506307601929,
+          "e_vs_target": 0.009840796701610088,
+          "noise_over_delta": 1.9231735467910767
+        }
+      }
+    },
+    {
+      "block": 13,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007847419008612633,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7158716917037964,
+          "e_vs_target": 0.006014497485011816,
+          "noise_over_delta": 0.7664499282836914
+        },
+        "stochastic": {
+          "realised_along_d": 1.000217080116272,
+          "e_vs_target": 0.010229845531284809,
+          "noise_over_delta": 1.3036274909973145
+        }
+      }
+    },
+    {
+      "block": 13,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005538856610655785,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.30041640996932983,
+          "e_vs_target": 0.005299806594848633,
+          "noise_over_delta": 0.9568520188331604
+        },
+        "stochastic": {
+          "realised_along_d": 0.9996252655982971,
+          "e_vs_target": 0.010681720450520515,
+          "noise_over_delta": 1.9285281896591187
+        }
+      }
+    },
+    {
+      "block": 13,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0051434882916510105,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.3555227518081665,
+          "e_vs_target": 0.004848047625273466,
+          "noise_over_delta": 0.9425734281539917
+        },
+        "stochastic": {
+          "realised_along_d": 0.9996929168701172,
+          "e_vs_target": 0.009402570314705372,
+          "noise_over_delta": 1.8280787467956543
+        }
+      }
+    },
+    {
+      "block": 13,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.005600105971097946,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.3961513340473175,
+          "e_vs_target": 0.0052050817757844925,
+          "noise_over_delta": 0.9294753670692444
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004624128341675,
+          "e_vs_target": 0.009970956481993198,
+          "noise_over_delta": 1.780521273612976
+        }
+      }
+    },
+    {
+      "block": 14,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.012373154051601887,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.9083982110023499,
+          "e_vs_target": 0.006863228511065245,
+          "noise_over_delta": 0.5547326803207397
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001591444015503,
+          "e_vs_target": 0.010855026543140411,
+          "noise_over_delta": 0.877376914024353
+        }
+      }
+    },
+    {
+      "block": 14,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0063597396947443485,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4078616499900818,
+          "e_vs_target": 0.005848858039826155,
+          "noise_over_delta": 0.919680655002594
+        },
+        "stochastic": {
+          "realised_along_d": 1.00015389919281,
+          "e_vs_target": 0.01121650543063879,
+          "noise_over_delta": 1.7636953592300415
+        }
+      }
+    },
+    {
+      "block": 14,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.005678755231201649,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.45903822779655457,
+          "e_vs_target": 0.005132708232849836,
+          "noise_over_delta": 0.9038662314414978
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000503063201904,
+          "e_vs_target": 0.009581886231899261,
+          "noise_over_delta": 1.6873633861541748
+        }
+      }
+    },
+    {
+      "block": 14,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004632264841347933,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.20473068952560425,
+          "e_vs_target": 0.00455790851265192,
+          "noise_over_delta": 0.9839577674865723
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002144575119019,
+          "e_vs_target": 0.009516219608485699,
+          "noise_over_delta": 2.054354190826416
+        }
+      }
+    },
+    {
+      "block": 15,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.01108574029058218,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.8713276982307434,
+          "e_vs_target": 0.006830534897744656,
+          "noise_over_delta": 0.6161981225013733
+        },
+        "stochastic": {
+          "realised_along_d": 1.000077247619629,
+          "e_vs_target": 0.010876784101128578,
+          "noise_over_delta": 0.981219470500946
+        }
+      }
+    },
+    {
+      "block": 15,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0074190436862409115,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5398057699203491,
+          "e_vs_target": 0.006405579391866922,
+          "noise_over_delta": 0.8634147644042969
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998570680618286,
+          "e_vs_target": 0.011657142080366611,
+          "noise_over_delta": 1.57127845287323
+        }
+      }
+    },
+    {
+      "block": 15,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.006010408978909254,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4978063106536865,
+          "e_vs_target": 0.005322952289134264,
+          "noise_over_delta": 0.8856449723243713
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997379183769226,
+          "e_vs_target": 0.009750247932970524,
+          "noise_over_delta": 1.622268557548523
+        }
+      }
+    },
+    {
+      "block": 15,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.00490197166800499,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.2537168562412262,
+          "e_vs_target": 0.004765739198774099,
+          "noise_over_delta": 0.9722216129302979
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998660683631897,
+          "e_vs_target": 0.0096892099827528,
+          "noise_over_delta": 1.9766209125518799
+        }
+      }
+    },
+    {
+      "block": 16,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007472263183444738,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.670390784740448,
+          "e_vs_target": 0.005898255854845047,
+          "noise_over_delta": 0.7893734574317932
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001060962677002,
+          "e_vs_target": 0.01018904522061348,
+          "noise_over_delta": 1.363616943359375
+        }
+      }
+    },
+    {
+      "block": 16,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.008064820431172848,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6480366587638855,
+          "e_vs_target": 0.006480734329670668,
+          "noise_over_delta": 0.8035988211631775
+        },
+        "stochastic": {
+          "realised_along_d": 1.0005370378494263,
+          "e_vs_target": 0.011424059048295021,
+          "noise_over_delta": 1.4165617227554321
+        }
+      }
+    },
+    {
+      "block": 16,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.004800081718713045,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.2958325147628784,
+          "e_vs_target": 0.00463090930134058,
+          "noise_over_delta": 0.9647678732872009
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001424551010132,
+          "e_vs_target": 0.009233105927705765,
+          "noise_over_delta": 1.9235538244247437
+        }
+      }
+    },
+    {
+      "block": 16,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004483329597860575,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.17719975113868713,
+          "e_vs_target": 0.004430774133652449,
+          "noise_over_delta": 0.9882909059524536
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999581575393677,
+          "e_vs_target": 0.009456110186874866,
+          "noise_over_delta": 2.1091995239257812
+        }
+      }
+    },
+    {
+      "block": 17,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007507368456572294,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6745611429214478,
+          "e_vs_target": 0.006014351267367601,
+          "noise_over_delta": 0.8011513948440552
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999369978904724,
+          "e_vs_target": 0.010255773551762104,
+          "noise_over_delta": 1.3661367893218994
+        }
+      }
+    },
+    {
+      "block": 17,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007277686148881912,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5757548809051514,
+          "e_vs_target": 0.006122221238911152,
+          "noise_over_delta": 0.8412489295005798
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997206926345825,
+          "e_vs_target": 0.011074226349592209,
+          "noise_over_delta": 1.5216995477676392
+        }
+      }
+    },
+    {
+      "block": 17,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.005655938293784857,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4248257279396057,
+          "e_vs_target": 0.005203597713261843,
+          "noise_over_delta": 0.9200484752655029
+        },
+        "stochastic": {
+          "realised_along_d": 1.000072956085205,
+          "e_vs_target": 0.009685823693871498,
+          "noise_over_delta": 1.7125511169433594
+        }
+      }
+    },
+    {
+      "block": 17,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004998292773962021,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.25751498341560364,
+          "e_vs_target": 0.004854473751038313,
+          "noise_over_delta": 0.9712395071983337
+        },
+        "stochastic": {
+          "realised_along_d": 1.000019907951355,
+          "e_vs_target": 0.00977255031466484,
+          "noise_over_delta": 1.9552042484283447
+        }
+      }
+    },
+    {
+      "block": 18,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007228787522763014,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6339696049690247,
+          "e_vs_target": 0.00600347900763154,
+          "noise_over_delta": 0.8305146098136902
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999576807022095,
+          "e_vs_target": 0.010262909345328808,
+          "noise_over_delta": 1.4197593927383423
+        }
+      }
+    },
+    {
+      "block": 18,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007260738871991634,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5528604388237,
+          "e_vs_target": 0.006256681401282549,
+          "noise_over_delta": 0.861729621887207
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000436305999756,
+          "e_vs_target": 0.011136085726320744,
+          "noise_over_delta": 1.5337674617767334
+        }
+      }
+    },
+    {
+      "block": 18,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.005373848602175713,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.39949125051498413,
+          "e_vs_target": 0.005008404143154621,
+          "noise_over_delta": 0.9320157170295715
+        },
+        "stochastic": {
+          "realised_along_d": 0.999979555606842,
+          "e_vs_target": 0.009479629807174206,
+          "noise_over_delta": 1.7640677690505981
+        }
+      }
+    },
+    {
+      "block": 18,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0059682102873921394,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4553859233856201,
+          "e_vs_target": 0.005405736155807972,
+          "noise_over_delta": 0.9057769775390625
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999589920043945,
+          "e_vs_target": 0.010124586522579193,
+          "noise_over_delta": 1.6964606046676636
+        }
+      }
+    },
+    {
+      "block": 19,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.00722596375271678,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6485849022865295,
+          "e_vs_target": 0.005907689221203327,
+          "noise_over_delta": 0.8175808191299438
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998016953468323,
+          "e_vs_target": 0.010161825455725193,
+          "noise_over_delta": 1.4063221216201782
+        }
+      }
+    },
+    {
+      "block": 19,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006082572974264622,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.3817209005355835,
+          "e_vs_target": 0.005625494755804539,
+          "noise_over_delta": 0.924873411655426
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999268054962158,
+          "e_vs_target": 0.011076681315898895,
+          "noise_over_delta": 1.821089267730713
+        }
+      }
+    },
+    {
+      "block": 19,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.005643410608172417,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4576420485973358,
+          "e_vs_target": 0.005122197791934013,
+          "noise_over_delta": 0.9076605439186096
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998752474784851,
+          "e_vs_target": 0.009544567205011845,
+          "noise_over_delta": 1.6913105249404907
+        }
+      }
+    },
+    {
+      "block": 19,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004167085979133844,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.1333424299955368,
+          "e_vs_target": 0.004188866820186377,
+          "noise_over_delta": 1.0052368640899658
+        },
+        "stochastic": {
+          "realised_along_d": 0.9996065497398376,
+          "e_vs_target": 0.009209748357534409,
+          "noise_over_delta": 2.210139274597168
+        }
+      }
+    },
+    {
+      "block": 20,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.009811417199671268,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.8244067430496216,
+          "e_vs_target": 0.006655433680862188,
+          "noise_over_delta": 0.6783732771873474
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998300075531006,
+          "e_vs_target": 0.010762273333966732,
+          "noise_over_delta": 1.0969741344451904
+        }
+      }
+    },
+    {
+      "block": 20,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007499181665480137,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5784568786621094,
+          "e_vs_target": 0.006321089342236519,
+          "noise_over_delta": 0.8429213166236877
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998286366462708,
+          "e_vs_target": 0.01147411111742258,
+          "noise_over_delta": 1.5300800800323486
+        }
+      }
+    },
+    {
+      "block": 20,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.006951112300157547,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6339719295501709,
+          "e_vs_target": 0.005728067364543676,
+          "noise_over_delta": 0.8240774273872375
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999017715454102,
+          "e_vs_target": 0.009992903098464012,
+          "noise_over_delta": 1.437644600868225
+        }
+      }
+    },
+    {
+      "block": 20,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0042644343338906765,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.10875138640403748,
+          "e_vs_target": 0.004316242411732674,
+          "noise_over_delta": 1.0121604204177856
+        },
+        "stochastic": {
+          "realised_along_d": 1.000022530555725,
+          "e_vs_target": 0.009377812035381794,
+          "noise_over_delta": 2.1991004943847656
+        }
+      }
+    },
+    {
+      "block": 21,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.008152230642735958,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.726587176322937,
+          "e_vs_target": 0.006272450089454651,
+          "noise_over_delta": 0.7694391012191772
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999954104423523,
+          "e_vs_target": 0.010457910597324371,
+          "noise_over_delta": 1.2828680276870728
+        }
+      }
+    },
+    {
+      "block": 21,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0066580926068127155,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5254866480827332,
+          "e_vs_target": 0.005769975017756224,
+          "noise_over_delta": 0.8666272163391113
+        },
+        "stochastic": {
+          "realised_along_d": 1.0006377696990967,
+          "e_vs_target": 0.010598896071314812,
+          "noise_over_delta": 1.5919119119644165
+        }
+      }
+    },
+    {
+      "block": 21,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0051473816856741905,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.32026711106300354,
+          "e_vs_target": 0.004952221643179655,
+          "noise_over_delta": 0.9621018171310425
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000122785568237,
+          "e_vs_target": 0.00948978029191494,
+          "noise_over_delta": 1.8436442613601685
+        }
+      }
+    },
+    {
+      "block": 21,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004803293850272894,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.2785528600215912,
+          "e_vs_target": 0.0046364739537239075,
+          "noise_over_delta": 0.9652866125106812
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001310110092163,
+          "e_vs_target": 0.009524215944111347,
+          "noise_over_delta": 1.9828858375549316
+        }
+      }
+    },
+    {
+      "block": 22,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006591986399143934,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5524868369102478,
+          "e_vs_target": 0.0057638478465378284,
+          "noise_over_delta": 0.8743883967399597
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999064803123474,
+          "e_vs_target": 0.010113093070685863,
+          "noise_over_delta": 1.5341784954071045
+        }
+      }
+    },
+    {
+      "block": 22,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006014617625623941,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.41122618317604065,
+          "e_vs_target": 0.005549834109842777,
+          "noise_over_delta": 0.9227438569068909
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997111558914185,
+          "e_vs_target": 0.01042519137263298,
+          "noise_over_delta": 1.7333457469940186
+        }
+      }
+    },
+    {
+      "block": 22,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.004824546631425619,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.29220953583717346,
+          "e_vs_target": 0.00468004634603858,
+          "noise_over_delta": 0.9700663685798645
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998233318328857,
+          "e_vs_target": 0.009231925010681152,
+          "noise_over_delta": 1.9135665893554688
+        }
+      }
+    },
+    {
+      "block": 22,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004162158351391554,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.1392906755208969,
+          "e_vs_target": 0.004185014870017767,
+          "noise_over_delta": 1.0054967403411865
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997668266296387,
+          "e_vs_target": 0.009186385199427605,
+          "noise_over_delta": 2.20713210105896
+        }
+      }
+    },
+    {
+      "block": 23,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.007170313037931919,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6283353567123413,
+          "e_vs_target": 0.005921177100390196,
+          "noise_over_delta": 0.8258102536201477
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002968311309814,
+          "e_vs_target": 0.01024560909718275,
+          "noise_over_delta": 1.4289268255233765
+        }
+      }
+    },
+    {
+      "block": 23,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.008337250910699368,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7011786699295044,
+          "e_vs_target": 0.006440742872655392,
+          "noise_over_delta": 0.7725434303283691
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001622438430786,
+          "e_vs_target": 0.011107264086604118,
+          "noise_over_delta": 1.332275629043579
+        }
+      }
+    },
+    {
+      "block": 23,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.006387264467775822,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5434142351150513,
+          "e_vs_target": 0.005609763320535421,
+          "noise_over_delta": 0.8782889246940613
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999240040779114,
+          "e_vs_target": 0.009934701025485992,
+          "noise_over_delta": 1.555419921875
+        }
+      }
+    },
+    {
+      "block": 23,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004382989834994078,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.1764691323041916,
+          "e_vs_target": 0.004362932406365871,
+          "noise_over_delta": 0.9954316020011902
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998263120651245,
+          "e_vs_target": 0.009314318187534809,
+          "noise_over_delta": 2.1251227855682373
+        }
+      }
+    },
+    {
+      "block": 24,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.008316711522638798,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7614582777023315,
+          "e_vs_target": 0.00599076971411705,
+          "noise_over_delta": 0.7203561663627625
+        },
+        "stochastic": {
+          "realised_along_d": 1.000075101852417,
+          "e_vs_target": 0.010183100588619709,
+          "noise_over_delta": 1.224460244178772
+        }
+      }
+    },
+    {
+      "block": 24,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005784915294498205,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.36757490038871765,
+          "e_vs_target": 0.005437755491584539,
+          "noise_over_delta": 0.940001368522644
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004664659500122,
+          "e_vs_target": 0.010466726496815681,
+          "noise_over_delta": 1.809337854385376
+        }
+      }
+    },
+    {
+      "block": 24,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.006048574578016996,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5559308528900146,
+          "e_vs_target": 0.0052550858817994595,
+          "noise_over_delta": 0.8688297271728516
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999110102653503,
+          "e_vs_target": 0.009537314996123314,
+          "noise_over_delta": 1.5768159627914429
+        }
+      }
+    },
+    {
+      "block": 24,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004368852358311415,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.20112448930740356,
+          "e_vs_target": 0.004319318570196629,
+          "noise_over_delta": 0.9886717796325684
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998651146888733,
+          "e_vs_target": 0.009240295737981796,
+          "noise_over_delta": 2.115060329437256
+        }
+      }
+    },
+    {
+      "block": 25,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.009370804764330387,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.8222184181213379,
+          "e_vs_target": 0.006001717876642942,
+          "noise_over_delta": 0.640497624874115
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001184940338135,
+          "e_vs_target": 0.010234776884317398,
+          "noise_over_delta": 1.0922455787658691
+        }
+      }
+    },
+    {
+      "block": 25,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.004691787529736757,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.18852727115154266,
+          "e_vs_target": 0.004654609132558107,
+          "noise_over_delta": 0.9920830130577087
+        },
+        "stochastic": {
+          "realised_along_d": 0.9994420409202576,
+          "e_vs_target": 0.009821620769798756,
+          "noise_over_delta": 2.093379259109497
+        }
+      }
+    },
+    {
+      "block": 25,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.006148006301373243,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.564622163772583,
+          "e_vs_target": 0.00532032735645771,
+          "noise_over_delta": 0.8653932213783264
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999154210090637,
+          "e_vs_target": 0.009607717394828796,
+          "noise_over_delta": 1.5627710819244385
+        }
+      }
+    },
+    {
+      "block": 25,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0033056598622351885,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.01988123171031475,
+          "e_vs_target": 0.0033966614864766598,
+          "noise_over_delta": 1.0275325775146484
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999989867210388,
+          "e_vs_target": 0.00852088164538145,
+          "noise_over_delta": 2.5776734352111816
+        }
+      }
+    },
+    {
+      "block": 26,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005820420570671558,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.44112467765808105,
+          "e_vs_target": 0.005376861430704594,
+          "noise_over_delta": 0.9238084554672241
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001782178878784,
+          "e_vs_target": 0.009805235080420971,
+          "noise_over_delta": 1.6846554279327393
+        }
+      }
+    },
+    {
+      "block": 26,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005838992074131966,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4023720622062683,
+          "e_vs_target": 0.005407506134361029,
+          "noise_over_delta": 0.9261166453361511
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997920393943787,
+          "e_vs_target": 0.01052937563508749,
+          "noise_over_delta": 1.8033138513565063
+        }
+      }
+    },
+    {
+      "block": 26,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.00492695951834321,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.30825769901275635,
+          "e_vs_target": 0.004762036260217428,
+          "noise_over_delta": 0.9665406942367554
+        },
+        "stochastic": {
+          "realised_along_d": 0.999779462814331,
+          "e_vs_target": 0.009290698915719986,
+          "noise_over_delta": 1.885713815689087
+        }
+      }
+    },
+    {
+      "block": 26,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0038047777488827705,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.08186511695384979,
+          "e_vs_target": 0.003872218308970332,
+          "noise_over_delta": 1.017736792564392
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997168183326721,
+          "e_vs_target": 0.008890450932085514,
+          "noise_over_delta": 2.3366808891296387
+        }
+      }
+    },
+    {
+      "block": 27,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006345688831061125,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6094891428947449,
+          "e_vs_target": 0.005253342445939779,
+          "noise_over_delta": 0.8278754353523254
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001108646392822,
+          "e_vs_target": 0.009567691013216972,
+          "noise_over_delta": 1.5077745914459229
+        }
+      }
+    },
+    {
+      "block": 27,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.004402989987283945,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.15471231937408447,
+          "e_vs_target": 0.004387249704450369,
+          "noise_over_delta": 0.9964303374290466
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997355937957764,
+          "e_vs_target": 0.009904514066874981,
+          "noise_over_delta": 2.24950909614563
+        }
+      }
+    },
+    {
+      "block": 27,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.004152332898229361,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.20373326539993286,
+          "e_vs_target": 0.004126773215830326,
+          "noise_over_delta": 0.9938501119613647
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998658895492554,
+          "e_vs_target": 0.008736355230212212,
+          "noise_over_delta": 2.1039750576019287
+        }
+      }
+    },
+    {
+      "block": 27,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0037949448451399803,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.12651854753494263,
+          "e_vs_target": 0.00382978399284184,
+          "noise_over_delta": 1.0091837644577026
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004363059997559,
+          "e_vs_target": 0.00876147486269474,
+          "noise_over_delta": 2.308730125427246
+        }
+      }
+    },
+    {
+      "block": 28,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005661803297698498,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4864066243171692,
+          "e_vs_target": 0.005043897777795792,
+          "noise_over_delta": 0.8908740282058716
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998355507850647,
+          "e_vs_target": 0.009460663422942162,
+          "noise_over_delta": 1.670981526374817
+        }
+      }
+    },
+    {
+      "block": 28,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005399886053055525,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4040091931819916,
+          "e_vs_target": 0.004997381009161472,
+          "noise_over_delta": 0.925466775894165
+        },
+        "stochastic": {
+          "realised_along_d": 0.9994087219238281,
+          "e_vs_target": 0.009902464225888252,
+          "noise_over_delta": 1.8338408470153809
+        }
+      }
+    },
+    {
+      "block": 28,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0035907085984945297,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.13349072635173798,
+          "e_vs_target": 0.003626088844612241,
+          "noise_over_delta": 1.0098611116409302
+        },
+        "stochastic": {
+          "realised_along_d": 1.000139594078064,
+          "e_vs_target": 0.008244290947914124,
+          "noise_over_delta": 2.2960245609283447
+        }
+      }
+    },
+    {
+      "block": 28,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.003230295842513442,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.029367560520768166,
+          "e_vs_target": 0.0033088750205934048,
+          "noise_over_delta": 1.0243289470672607
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002785921096802,
+          "e_vs_target": 0.008354218676686287,
+          "noise_over_delta": 2.586216688156128
+        }
+      }
+    },
+    {
+      "block": 29,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.00485070887953043,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.38502904772758484,
+          "e_vs_target": 0.004540886729955673,
+          "noise_over_delta": 0.9361403584480286
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000083446502686,
+          "e_vs_target": 0.008953236974775791,
+          "noise_over_delta": 1.845781922340393
+        }
+      }
+    },
+    {
+      "block": 29,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0034996706526726484,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.0904981791973114,
+          "e_vs_target": 0.0035464426036924124,
+          "noise_over_delta": 1.0133637189865112
+        },
+        "stochastic": {
+          "realised_along_d": 0.9991500377655029,
+          "e_vs_target": 0.008634178899228573,
+          "noise_over_delta": 2.4671380519866943
+        }
+      }
+    },
+    {
+      "block": 29,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0037060559261590242,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.1789378523826599,
+          "e_vs_target": 0.0037041804753243923,
+          "noise_over_delta": 0.9995012879371643
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001741647720337,
+          "e_vs_target": 0.008248359896242619,
+          "noise_over_delta": 2.2256598472595215
+        }
+      }
+    },
+    {
+      "block": 29,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0030400953255593777,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.023090781643986702,
+          "e_vs_target": 0.0031232067849487066,
+          "noise_over_delta": 1.027345061302185
+        },
+        "stochastic": {
+          "realised_along_d": 1.000356674194336,
+          "e_vs_target": 0.008134466595947742,
+          "noise_over_delta": 2.6757445335388184
+        }
+      }
+    },
+    {
+      "block": 30,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.004313543438911438,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.31075698137283325,
+          "e_vs_target": 0.004140125121921301,
+          "noise_over_delta": 0.9598062038421631
+        },
+        "stochastic": {
+          "realised_along_d": 0.999933660030365,
+          "e_vs_target": 0.008610398508608341,
+          "noise_over_delta": 1.9961508512496948
+        }
+      }
+    },
+    {
+      "block": 30,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0029930993914604187,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.03645350784063339,
+          "e_vs_target": 0.003054893808439374,
+          "noise_over_delta": 1.0206451416015625
+        },
+        "stochastic": {
+          "realised_along_d": 0.99900883436203,
+          "e_vs_target": 0.00825895369052887,
+          "noise_over_delta": 2.7593302726745605
+        }
+      }
+    },
+    {
+      "block": 30,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.00289936363697052,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.03721873462200165,
+          "e_vs_target": 0.0029790543485432863,
+          "noise_over_delta": 1.0274899005889893
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004009008407593,
+          "e_vs_target": 0.007690065540373325,
+          "noise_over_delta": 2.6523396968841553
+        }
+      }
+    },
+    {
+      "block": 30,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.002920654369518161,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.0237995944917202,
+          "e_vs_target": 0.0029976980295032263,
+          "noise_over_delta": 1.0263794660568237
+        },
+        "stochastic": {
+          "realised_along_d": 1.0005122423171997,
+          "e_vs_target": 0.007960165850818157,
+          "noise_over_delta": 2.7254745960235596
+        }
+      }
+    },
+    {
+      "block": 31,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0032552932389080524,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.11696195602416992,
+          "e_vs_target": 0.0032904467079788446,
+          "noise_over_delta": 1.0108040571212769
+        },
+        "stochastic": {
+          "realised_along_d": 1.000077724456787,
+          "e_vs_target": 0.007909659296274185,
+          "noise_over_delta": 2.4297966957092285
+        }
+      }
+    },
+    {
+      "block": 31,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.002779947593808174,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.019939126446843147,
+          "e_vs_target": 0.0028458640445023775,
+          "noise_over_delta": 1.0237126350402832
+        },
+        "stochastic": {
+          "realised_along_d": 0.9993220567703247,
+          "e_vs_target": 0.007923532277345657,
+          "noise_over_delta": 2.8502485752105713
+        }
+      }
+    },
+    {
+      "block": 31,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0029993567150086164,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.07506418228149414,
+          "e_vs_target": 0.003063316224142909,
+          "noise_over_delta": 1.0213274955749512
+        },
+        "stochastic": {
+          "realised_along_d": 0.9996773600578308,
+          "e_vs_target": 0.007701525464653969,
+          "noise_over_delta": 2.5677335262298584
+        }
+      }
+    },
+    {
+      "block": 31,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.002769353101029992,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.015093985944986343,
+          "e_vs_target": 0.002846132032573223,
+          "noise_over_delta": 1.0277354717254639
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997629523277283,
+          "e_vs_target": 0.00781955849379301,
+          "noise_over_delta": 2.8236353397369385
+        }
+      }
+    },
+    {
+      "block": 32,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0037050037644803524,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.25675612688064575,
+          "e_vs_target": 0.003616556292399764,
+          "noise_over_delta": 0.9761319160461426
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001872777938843,
+          "e_vs_target": 0.008089474402368069,
+          "noise_over_delta": 2.183401346206665
+        }
+      }
+    },
+    {
+      "block": 32,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0024915412068367004,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.007974219508469105,
+          "e_vs_target": 0.002555117243900895,
+          "noise_over_delta": 1.025519609451294
+        },
+        "stochastic": {
+          "realised_along_d": 1.0005468130111694,
+          "e_vs_target": 0.007693910039961338,
+          "noise_over_delta": 3.0880210399627686
+        }
+      }
+    },
+    {
+      "block": 32,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0028529642149806023,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.04267319664359093,
+          "e_vs_target": 0.002928429516032338,
+          "noise_over_delta": 1.026452898979187
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000662803649902,
+          "e_vs_target": 0.0076201558113098145,
+          "noise_over_delta": 2.670964479446411
+        }
+      }
+    },
+    {
+      "block": 32,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.002887111622840166,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.034605301916599274,
+          "e_vs_target": 0.0029529838357120752,
+          "noise_over_delta": 1.0228137969970703
+        },
+        "stochastic": {
+          "realised_along_d": 0.9993007183074951,
+          "e_vs_target": 0.007861459627747536,
+          "noise_over_delta": 2.7229440212249756
+        }
+      }
+    },
+    {
+      "block": 33,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0033868325408548117,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.15334759652614594,
+          "e_vs_target": 0.0033952025696635246,
+          "noise_over_delta": 1.002472996711731
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998350739479065,
+          "e_vs_target": 0.007960010319948196,
+          "noise_over_delta": 2.350285530090332
+        }
+      }
+    },
+    {
+      "block": 33,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0025447909720242023,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.01736324280500412,
+          "e_vs_target": 0.0026119486428797245,
+          "noise_over_delta": 1.0263937711715698
+        },
+        "stochastic": {
+          "realised_along_d": 0.9990442395210266,
+          "e_vs_target": 0.0075256600975990295,
+          "noise_over_delta": 2.9572904109954834
+        }
+      }
+    },
+    {
+      "block": 33,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0026383879594504833,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.02019539661705494,
+          "e_vs_target": 0.0027156465221196413,
+          "noise_over_delta": 1.029284954071045
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998511075973511,
+          "e_vs_target": 0.007405668497085571,
+          "noise_over_delta": 2.8068981170654297
+        }
+      }
+    },
+    {
+      "block": 33,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.00285033299587667,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.03563122823834419,
+          "e_vs_target": 0.0029237743001431227,
+          "noise_over_delta": 1.025771975517273
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004615783691406,
+          "e_vs_target": 0.007819010876119137,
+          "noise_over_delta": 2.743208408355713
+        }
+      }
+    },
+    {
+      "block": 34,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.003286215476691723,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.15155752003192902,
+          "e_vs_target": 0.0032907964196056128,
+          "noise_over_delta": 1.0013967752456665
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999577403068542,
+          "e_vs_target": 0.007860040292143822,
+          "noise_over_delta": 2.3918278217315674
+        }
+      }
+    },
+    {
+      "block": 34,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.002397052012383938,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.0042809429578483105,
+          "e_vs_target": 0.002461508847773075,
+          "noise_over_delta": 1.0268926620483398
+        },
+        "stochastic": {
+          "realised_along_d": 1.0007144212722778,
+          "e_vs_target": 0.007481655105948448,
+          "noise_over_delta": 3.1211981773376465
+        }
+      }
+    },
+    {
+      "block": 34,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0025215698406100273,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.012632776983082294,
+          "e_vs_target": 0.002602777210995555,
+          "noise_over_delta": 1.0322096347808838
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002212524414062,
+          "e_vs_target": 0.007291358895599842,
+          "noise_over_delta": 2.8916079998016357
+        }
+      }
+    },
+    {
+      "block": 34,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.002559996908530593,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00958946906030178,
+          "e_vs_target": 0.0026317231822758913,
+          "noise_over_delta": 1.028020977973938
+        },
+        "stochastic": {
+          "realised_along_d": 0.9996731877326965,
+          "e_vs_target": 0.00757103506475687,
+          "noise_over_delta": 2.9574475288391113
+        }
+      }
+    },
+    {
+      "block": 35,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.003682090202346444,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.2876371741294861,
+          "e_vs_target": 0.003553811926394701,
+          "noise_over_delta": 0.9651660323143005
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998552799224854,
+          "e_vs_target": 0.007975747808814049,
+          "noise_over_delta": 2.166102409362793
+        }
+      }
+    },
+    {
+      "block": 35,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.002391412854194641,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.004997207783162594,
+          "e_vs_target": 0.0024584890343248844,
+          "noise_over_delta": 1.0280511379241943
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997805953025818,
+          "e_vs_target": 0.007457421161234379,
+          "noise_over_delta": 3.1184234619140625
+        }
+      }
+    },
+    {
+      "block": 35,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.002625551773235202,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.026471871882677078,
+          "e_vs_target": 0.0026971474289894104,
+          "noise_over_delta": 1.0272736549377441
+        },
+        "stochastic": {
+          "realised_along_d": 1.0005437135696411,
+          "e_vs_target": 0.0073772091418504715,
+          "noise_over_delta": 2.8097879886627197
+        }
+      }
+    },
+    {
+      "block": 35,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0028940285556018353,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.03834820166230202,
+          "e_vs_target": 0.0029659161809831858,
+          "noise_over_delta": 1.024847388267517
+        },
+        "stochastic": {
+          "realised_along_d": 0.9996480345726013,
+          "e_vs_target": 0.007854324765503407,
+          "noise_over_delta": 2.713995933532715
+        }
+      }
+    },
+    {
+      "block": 36,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.003649663645774126,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.2642362415790558,
+          "e_vs_target": 0.0035521402023732662,
+          "noise_over_delta": 0.9732837677001953
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004101991653442,
+          "e_vs_target": 0.008028569631278515,
+          "noise_over_delta": 2.199821949005127
+        }
+      }
+    },
+    {
+      "block": 36,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0028967764228582382,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.031776778399944305,
+          "e_vs_target": 0.0029571561608463526,
+          "noise_over_delta": 1.0208500623703003
+        },
+        "stochastic": {
+          "realised_along_d": 0.9994844198226929,
+          "e_vs_target": 0.008127288892865181,
+          "noise_over_delta": 2.805649518966675
+        }
+      }
+    },
+    {
+      "block": 36,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0024599668104201555,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.01505510974675417,
+          "e_vs_target": 0.0025398689322173595,
+          "noise_over_delta": 1.032483458518982
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999036192893982,
+          "e_vs_target": 0.007179213222116232,
+          "noise_over_delta": 2.9184255599975586
+        }
+      }
+    },
+    {
+      "block": 36,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0033061730209738016,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.11424701660871506,
+          "e_vs_target": 0.0033354833722114563,
+          "noise_over_delta": 1.0088694095611572
+        },
+        "stochastic": {
+          "realised_along_d": 0.999929666519165,
+          "e_vs_target": 0.008108850568532944,
+          "noise_over_delta": 2.4526493549346924
+        }
+      }
+    },
+    {
+      "block": 37,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.004057764541357756,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.35875219106674194,
+          "e_vs_target": 0.0038119605742394924,
+          "noise_over_delta": 0.9394338130950928
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002939701080322,
+          "e_vs_target": 0.008191395550966263,
+          "noise_over_delta": 2.0187180042266846
+        }
+      }
+    },
+    {
+      "block": 37,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0028596073389053345,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.021197741851210594,
+          "e_vs_target": 0.002927049295976758,
+          "noise_over_delta": 1.0235847234725952
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997943043708801,
+          "e_vs_target": 0.008053943514823914,
+          "noise_over_delta": 2.8164522647857666
+        }
+      }
+    },
+    {
+      "block": 37,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0028578308410942554,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.09650405496358871,
+          "e_vs_target": 0.002903648652136326,
+          "noise_over_delta": 1.0160316228866577
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997420310974121,
+          "e_vs_target": 0.007423682138323784,
+          "noise_over_delta": 2.597661256790161
+        }
+      }
+    },
+    {
+      "block": 37,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.003781945677474141,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.19481705129146576,
+          "e_vs_target": 0.0037536199670284986,
+          "noise_over_delta": 0.9925130009651184
+        },
+        "stochastic": {
+          "realised_along_d": 1.000119686126709,
+          "e_vs_target": 0.008450009860098362,
+          "noise_over_delta": 2.2343084812164307
+        }
+      }
+    },
+    {
+      "block": 38,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005615774542093277,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6551790237426758,
+          "e_vs_target": 0.004523339681327343,
+          "noise_over_delta": 0.8054825663566589
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001137256622314,
+          "e_vs_target": 0.008626580238342285,
+          "noise_over_delta": 1.5361568927764893
+        }
+      }
+    },
+    {
+      "block": 38,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0028747874312102795,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.021449552848935127,
+          "e_vs_target": 0.0029374798759818077,
+          "noise_over_delta": 1.0218148231506348
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004818439483643,
+          "e_vs_target": 0.008357243612408638,
+          "noise_over_delta": 2.907102346420288
+        }
+      }
+    },
+    {
+      "block": 38,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.002480786759406328,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.040810585021972656,
+          "e_vs_target": 0.0025502899661660194,
+          "noise_over_delta": 1.028014898300171
+        },
+        "stochastic": {
+          "realised_along_d": 1.0005004405975342,
+          "e_vs_target": 0.007076210342347622,
+          "noise_over_delta": 2.8524010181427
+        }
+      }
+    },
+    {
+      "block": 38,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.003359458176419139,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.1284809112548828,
+          "e_vs_target": 0.0033834425266832113,
+          "noise_over_delta": 1.0071446895599365
+        },
+        "stochastic": {
+          "realised_along_d": 0.9992586970329285,
+          "e_vs_target": 0.008116938173770905,
+          "noise_over_delta": 2.4161577224731445
+        }
+      }
+    },
+    {
+      "block": 39,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005257925949990749,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6252052187919617,
+          "e_vs_target": 0.004289465025067329,
+          "noise_over_delta": 0.8158217668533325
+        },
+        "stochastic": {
+          "realised_along_d": 1.000135898590088,
+          "e_vs_target": 0.00840910617262125,
+          "noise_over_delta": 1.5993443727493286
+        }
+      }
+    },
+    {
+      "block": 39,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0031982874497771263,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.06249178946018219,
+          "e_vs_target": 0.0032524571288377047,
+          "noise_over_delta": 1.016940951347351
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997269511222839,
+          "e_vs_target": 0.008222670294344425,
+          "noise_over_delta": 2.570970058441162
+        }
+      }
+    },
+    {
+      "block": 39,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0025897398591041565,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.05465620011091232,
+          "e_vs_target": 0.0026514672208577394,
+          "noise_over_delta": 1.0238370895385742
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998777508735657,
+          "e_vs_target": 0.007175726816058159,
+          "noise_over_delta": 2.770833969116211
+        }
+      }
+    },
+    {
+      "block": 39,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.00290502212010324,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.044695984572172165,
+          "e_vs_target": 0.002972623100504279,
+          "noise_over_delta": 1.0232723951339722
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998998045921326,
+          "e_vs_target": 0.007802594918757677,
+          "noise_over_delta": 2.685903787612915
+        }
+      }
+    },
+    {
+      "block": 40,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0038967703003436327,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.3681890368461609,
+          "e_vs_target": 0.0036407066509127617,
+          "noise_over_delta": 0.9342963695526123
+        },
+        "stochastic": {
+          "realised_along_d": 1.0003280639648438,
+          "e_vs_target": 0.007963787764310837,
+          "noise_over_delta": 2.0437071323394775
+        }
+      }
+    },
+    {
+      "block": 40,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0031603656243532896,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.04978625848889351,
+          "e_vs_target": 0.0032241407316178083,
+          "noise_over_delta": 1.0201784372329712
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997351765632629,
+          "e_vs_target": 0.00825330801308155,
+          "noise_over_delta": 2.6115012168884277
+        }
+      }
+    },
+    {
+      "block": 40,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0023647097405046225,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.028789961710572243,
+          "e_vs_target": 0.0024355831556022167,
+          "noise_over_delta": 1.0299748182296753
+        },
+        "stochastic": {
+          "realised_along_d": 1.000166893005371,
+          "e_vs_target": 0.006951581686735153,
+          "noise_over_delta": 2.9397287368774414
+        }
+      }
+    },
+    {
+      "block": 40,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.003241186961531639,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.08532620966434479,
+          "e_vs_target": 0.0032944653648883104,
+          "noise_over_delta": 1.0164421796798706
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999250173568726,
+          "e_vs_target": 0.008122667670249939,
+          "noise_over_delta": 2.5060887336730957
+        }
+      }
+    },
+    {
+      "block": 41,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.004369599279016256,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.4839750826358795,
+          "e_vs_target": 0.00386024103499949,
+          "noise_over_delta": 0.8834404945373535
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998586773872375,
+          "e_vs_target": 0.00806597713381052,
+          "noise_over_delta": 1.845949649810791
+        }
+      }
+    },
+    {
+      "block": 41,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0032183260191231966,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.06908292323350906,
+          "e_vs_target": 0.003274062415584922,
+          "noise_over_delta": 1.0173194408416748
+        },
+        "stochastic": {
+          "realised_along_d": 0.99886554479599,
+          "e_vs_target": 0.0082563990727067,
+          "noise_over_delta": 2.5654354095458984
+        }
+      }
+    },
+    {
+      "block": 41,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.002526195254176855,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.07065989822149277,
+          "e_vs_target": 0.002577590523287654,
+          "noise_over_delta": 1.020344853401184
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999229907989502,
+          "e_vs_target": 0.007023849990218878,
+          "noise_over_delta": 2.7804064750671387
+        }
+      }
+    },
+    {
+      "block": 41,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0034468129742890596,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.10239054262638092,
+          "e_vs_target": 0.0034801075235009193,
+          "noise_over_delta": 1.0096657276153564
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004297494888306,
+          "e_vs_target": 0.008319082669913769,
+          "noise_over_delta": 2.4135727882385254
+        }
+      }
+    },
+    {
+      "block": 42,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005017535760998726,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6093050241470337,
+          "e_vs_target": 0.00413488270714879,
+          "noise_over_delta": 0.824096143245697
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000511407852173,
+          "e_vs_target": 0.008239355869591236,
+          "noise_over_delta": 1.6421314477920532
+        }
+      }
+    },
+    {
+      "block": 42,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0031966285314410925,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.07462556660175323,
+          "e_vs_target": 0.003244408406317234,
+          "noise_over_delta": 1.0149482488632202
+        },
+        "stochastic": {
+          "realised_along_d": 0.9995163679122925,
+          "e_vs_target": 0.00830837246030569,
+          "noise_over_delta": 2.5991082191467285
+        }
+      }
+    },
+    {
+      "block": 42,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0027298510540276766,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.12519142031669617,
+          "e_vs_target": 0.0027525825425982475,
+          "noise_over_delta": 1.008329153060913
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999102354049683,
+          "e_vs_target": 0.007136622443795204,
+          "noise_over_delta": 2.614295721054077
+        }
+      }
+    },
+    {
+      "block": 42,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0031068911775946617,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.08735774457454681,
+          "e_vs_target": 0.0031506321392953396,
+          "noise_over_delta": 1.0140798091888428
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999633431434631,
+          "e_vs_target": 0.007900690659880638,
+          "noise_over_delta": 2.542959690093994
+        }
+      }
+    },
+    {
+      "block": 43,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0064524137414991856,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7568510174751282,
+          "e_vs_target": 0.00462150014936924,
+          "noise_over_delta": 0.7162583470344543
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001686811447144,
+          "e_vs_target": 0.008647221140563488,
+          "noise_over_delta": 1.340180516242981
+        }
+      }
+    },
+    {
+      "block": 43,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0032674374524503946,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.09604722261428833,
+          "e_vs_target": 0.0032991396728903055,
+          "noise_over_delta": 1.0097013711929321
+        },
+        "stochastic": {
+          "realised_along_d": 0.9994973540306091,
+          "e_vs_target": 0.008341792970895767,
+          "noise_over_delta": 2.5530049800872803
+        }
+      }
+    },
+    {
+      "block": 43,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0036271438002586365,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.31391018629074097,
+          "e_vs_target": 0.0034607388079166412,
+          "noise_over_delta": 0.954129159450531
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999750852584839,
+          "e_vs_target": 0.0077164508402347565,
+          "noise_over_delta": 2.1274330615997314
+        }
+      }
+    },
+    {
+      "block": 43,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.003823219332844019,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.19193784892559052,
+          "e_vs_target": 0.003778379177674651,
+          "noise_over_delta": 0.9882777333259583
+        },
+        "stochastic": {
+          "realised_along_d": 1.0010241270065308,
+          "e_vs_target": 0.008517540991306305,
+          "noise_over_delta": 2.2278590202331543
+        }
+      }
+    },
+    {
+      "block": 44,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005205597262829542,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6165420413017273,
+          "e_vs_target": 0.004308061674237251,
+          "noise_over_delta": 0.8275920152664185
+        },
+        "stochastic": {
+          "realised_along_d": 1.000257134437561,
+          "e_vs_target": 0.008371833711862564,
+          "noise_over_delta": 1.608255386352539
+        }
+      }
+    },
+    {
+      "block": 44,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.002623779233545065,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.03831195831298828,
+          "e_vs_target": 0.0026789074763655663,
+          "noise_over_delta": 1.0210096836090088
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004658699035645,
+          "e_vs_target": 0.007673942483961582,
+          "noise_over_delta": 2.9247632026672363
+        }
+      }
+    },
+    {
+      "block": 44,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.00276328157633543,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.1349533349275589,
+          "e_vs_target": 0.002775761764496565,
+          "noise_over_delta": 1.0045233964920044
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997988343238831,
+          "e_vs_target": 0.007176117040216923,
+          "noise_over_delta": 2.5969724655151367
+        }
+      }
+    },
+    {
+      "block": 44,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0034468176309019327,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.1449367105960846,
+          "e_vs_target": 0.003448617411777377,
+          "noise_over_delta": 1.00052809715271
+        },
+        "stochastic": {
+          "realised_along_d": 1.001086711883545,
+          "e_vs_target": 0.008192189037799835,
+          "noise_over_delta": 2.3767542839050293
+        }
+      }
+    },
+    {
+      "block": 45,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.004731864668428898,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.5758658647537231,
+          "e_vs_target": 0.003983465489000082,
+          "noise_over_delta": 0.8418476581573486
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999452233314514,
+          "e_vs_target": 0.00806486327201128,
+          "noise_over_delta": 1.7043918371200562
+        }
+      }
+    },
+    {
+      "block": 45,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.002735041081905365,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.052363321185112,
+          "e_vs_target": 0.0027798705268651247,
+          "noise_over_delta": 1.0163938999176025
+        },
+        "stochastic": {
+          "realised_along_d": 0.999972939491272,
+          "e_vs_target": 0.007816939614713192,
+          "noise_over_delta": 2.858079195022583
+        }
+      }
+    },
+    {
+      "block": 45,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0033696494065225124,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.28670814633369446,
+          "e_vs_target": 0.003223434556275606,
+          "noise_over_delta": 0.9566163420677185
+        },
+        "stochastic": {
+          "realised_along_d": 0.9997466802597046,
+          "e_vs_target": 0.007532055024057627,
+          "noise_over_delta": 2.2352826595306396
+        }
+      }
+    },
+    {
+      "block": 45,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.003303677309304476,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.09743557870388031,
+          "e_vs_target": 0.003332969732582569,
+          "noise_over_delta": 1.0088703632354736
+        },
+        "stochastic": {
+          "realised_along_d": 1.0004019737243652,
+          "e_vs_target": 0.00816250778734684,
+          "noise_over_delta": 2.470743179321289
+        }
+      }
+    },
+    {
+      "block": 46,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.004943301901221275,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6150162816047668,
+          "e_vs_target": 0.004064109176397324,
+          "noise_over_delta": 0.8221567869186401
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002872943878174,
+          "e_vs_target": 0.008106676861643791,
+          "noise_over_delta": 1.639955759048462
+        }
+      }
+    },
+    {
+      "block": 46,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0028341093566268682,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.06389913707971573,
+          "e_vs_target": 0.002875817706808448,
+          "noise_over_delta": 1.0147191286087036
+        },
+        "stochastic": {
+          "realised_along_d": 1.000547170639038,
+          "e_vs_target": 0.007857459597289562,
+          "noise_over_delta": 2.772468328475952
+        }
+      }
+    },
+    {
+      "block": 46,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0030123938340693712,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.2555910646915436,
+          "e_vs_target": 0.0028925978112965822,
+          "noise_over_delta": 0.9602358937263489
+        },
+        "stochastic": {
+          "realised_along_d": 1.00034761428833,
+          "e_vs_target": 0.0072139534167945385,
+          "noise_over_delta": 2.3947665691375732
+        }
+      }
+    },
+    {
+      "block": 46,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.005101180635392666,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.34596583247184753,
+          "e_vs_target": 0.004796209279447794,
+          "noise_over_delta": 0.9402291774749756
+        },
+        "stochastic": {
+          "realised_along_d": 0.9995161890983582,
+          "e_vs_target": 0.009552263654768467,
+          "noise_over_delta": 1.872586727142334
+        }
+      }
+    },
+    {
+      "block": 47,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.005019561853259802,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.6473650336265564,
+          "e_vs_target": 0.003984917886555195,
+          "noise_over_delta": 0.7938839793205261
+        },
+        "stochastic": {
+          "realised_along_d": 1.0002812147140503,
+          "e_vs_target": 0.007949242368340492,
+          "noise_over_delta": 1.5836652517318726
+        }
+      }
+    },
+    {
+      "block": 47,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0029494380578398705,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.08704964816570282,
+          "e_vs_target": 0.002979873213917017,
+          "noise_over_delta": 1.010318398475647
+        },
+        "stochastic": {
+          "realised_along_d": 1.0000355243682861,
+          "e_vs_target": 0.007922263815999031,
+          "noise_over_delta": 2.686023235321045
+        }
+      }
+    },
+    {
+      "block": 47,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0028577542398124933,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.31840720772743225,
+          "e_vs_target": 0.002666035434231162,
+          "noise_over_delta": 0.9329211115837097
+        },
+        "stochastic": {
+          "realised_along_d": 0.999927282333374,
+          "e_vs_target": 0.006823771633207798,
+          "noise_over_delta": 2.3878304958343506
+        }
+      }
+    },
+    {
+      "block": 47,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.006117525044828653,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.532157301902771,
+          "e_vs_target": 0.005265751387923956,
+          "noise_over_delta": 0.8607796430587769
+        },
+        "stochastic": {
+          "realised_along_d": 0.999882161617279,
+          "e_vs_target": 0.009868128225207329,
+          "noise_over_delta": 1.613119125366211
+        }
+      }
+    },
+    {
+      "block": 48,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.006485183257609606,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7919747829437256,
+          "e_vs_target": 0.004450787324458361,
+          "noise_over_delta": 0.6863144040107727
+        },
+        "stochastic": {
+          "realised_along_d": 0.9998658895492554,
+          "e_vs_target": 0.008147952146828175,
+          "noise_over_delta": 1.2564195394515991
+        }
+      }
+    },
+    {
+      "block": 48,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0030835310462862253,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.16604581475257874,
+          "e_vs_target": 0.0030456199310719967,
+          "noise_over_delta": 0.9877042770385742
+        },
+        "stochastic": {
+          "realised_along_d": 1.0001803636550903,
+          "e_vs_target": 0.007692229468375444,
+          "noise_over_delta": 2.494614601135254
+        }
+      }
+    },
+    {
+      "block": 48,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.005929828621447086,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.7079877853393555,
+          "e_vs_target": 0.00428788922727108,
+          "noise_over_delta": 0.72312331199646
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999877214431763,
+          "e_vs_target": 0.008330642245709896,
+          "noise_over_delta": 1.404905915260315
+        }
+      }
+    },
+    {
+      "block": 48,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.004815783817321062,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.3384261727333069,
+          "e_vs_target": 0.004529229830950499,
+          "noise_over_delta": 0.9405030608177185
+        },
+        "stochastic": {
+          "realised_along_d": 1.000199556350708,
+          "e_vs_target": 0.00921993050724268,
+          "noise_over_delta": 1.9145359992980957
+        }
+      }
+    },
+    {
+      "block": 49,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.008247009478509426,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.8525134325027466,
+          "e_vs_target": 0.004961966071277857,
+          "noise_over_delta": 0.6016775965690613
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999220371246338,
+          "e_vs_target": 0.008839393965899944,
+          "noise_over_delta": 1.0718464851379395
+        }
+      }
+    },
+    {
+      "block": 49,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.003528427565470338,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.12711478769779205,
+          "e_vs_target": 0.0035156572703272104,
+          "noise_over_delta": 0.996374785900116
+        },
+        "stochastic": {
+          "realised_along_d": 0.9996995329856873,
+          "e_vs_target": 0.008807666599750519,
+          "noise_over_delta": 2.4961867332458496
+        }
+      }
+    },
+    {
+      "block": 49,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.013021686114370823,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.9259040951728821,
+          "e_vs_target": 0.006181560922414064,
+          "noise_over_delta": 0.47477108240127563
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999178051948547,
+          "e_vs_target": 0.010096200741827488,
+          "noise_over_delta": 0.7754325866699219
+        }
+      }
+    },
+    {
+      "block": 49,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.04427371174097061,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.9953005909919739,
+          "e_vs_target": 0.008098985068500042,
+          "noise_over_delta": 0.18309223651885986
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999974966049194,
+          "e_vs_target": 0.01211623940616846,
+          "noise_over_delta": 0.2739095687866211
+        }
+      }
+    }
+  ],
+  "findings": [
+    "ROUND-TO-NEAREST DISCARDS A SUB-STEP LORA. Projected onto the delta's own direction, deterministic rounding realises 0.341 of it on average and as little as 0.004 on the worst module; stochastic rounding realises 1.0000, which is what `E[Q_s(x)] = x` predicts.",
+    "THE TWO METRICS RANK THE ARMS OPPOSITELY, which is the point. Deterministic has the lower stored-weight distance (0.004492 against 0.009189) BECAUSE it barely moves the weight, and the target is close to the weight. A stored-weight metric rewards the arm that does not apply the update.",
+    "SO THE MEASURED sqrt(2) DOES NOT LICENSE A DETERMINISTIC MERGE. That constant is correct for rounding a FIXED tensor and was verified to seven figures; the error was carrying it to merging, which is a different problem. ComfyUI's choice of stochastic rounding in `set_weight` looks deliberate and correct."
+  ],
+  "not_measured": [
+    "whether either arm is distinguishable in a render.",
+    "the activation rounding, which this lane has never seen.",
+    "other LoRAs. A peer session measured delta_rms/step at median 0.0805 for PDD and 0.0050 for the turbo LoRA -- alpha/rank 1.0 against 0.0625 -- so the discard should be far worse on turbo, and that is unmeasured here."
+  ],
+  "producer": {
+    "file": "measure_merge_realisation.py",
+    "sha256": "dd45e90b2cbcb968fcc74b0d05b1874b44d0719b29a5278a99765a399476de7c",
+    "repository_commit": "e1ef197417e34f4cbe64b09371acaace5584f759",
+    "dirty_against_commit": false
+  }
+}
