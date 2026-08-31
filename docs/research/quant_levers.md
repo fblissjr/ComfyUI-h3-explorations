@@ -61,10 +61,38 @@ The shipped bytes are exactly what stock `TensorWiseINT8Layout.quantize` emits
 at gs 256 from the release BF16.
 
 **This is the DiT record that did not exist**, and its absence is what let
-§10.5 reason from the encoder's. Note the DiT and the encoder differ in source
-precision: the encoder needed **fp32** to reproduce (bf16 gave 7.9% differing
-int8 values), the DiT reproduces from its own **bf16**, which is the only
-precision the release ships for it.
+§10.5 reason from the encoder's.
+
+**Verified at the byte level 2026-08-31, after a peer session could not
+reproduce it.** Comparing error norms is not comparing bytes, and the original
+version of this section claimed the stronger thing from the weaker
+measurement. The direct test — shipped stored int8 against a deterministic
+reproduction, integer for integer:
+
+| module | int8 values differing | max abs |
+|---|---|---|
+| `blocks.0.attn.qkv_proj` | 6 of 115,605,504 | 1 |
+| `blocks.25.mlp.fc1` | 13 of 154,140,672 | 1 |
+| `blocks.49.attn.out_proj` | 5 of 38,535,168 | 1 |
+
+**The reproduction must be computed in fp32, and that is the whole of the
+disagreement.** Quantising the same bf16 release tensor without casting up
+gives 8.663% / 8.727% / 6.734% differing on those three modules — the peer's
+figures, reproduced to three decimals. The Hadamard rotation in bf16 loses
+enough precision to change rounding decisions near ties. It is a **compute**
+dtype effect, not a source dtype one.
+
+**And that corrects a claim this section used to make.** It said the encoder
+"needed fp32 to reproduce" while the DiT "reproduces from its own bf16",
+presenting the two models as differing in source precision. They do not differ,
+and the encoder record does not say they do:
+`measure_int8_convrot_headroom.py` builds both arms from the **same** bf16
+tensor — `weight.float().cuda()` against `weight.clone().cuda()` — so its
+`reproduced_from_bf16_int8_values_differing_pct: 7.87` is the identical
+compute-precision artifact under a field name that invites the misreading.
+There was never an encoder/DiT divergence; it was invented from a variable
+name. **So: both models' int8 builds reproduce exactly, in fp32, and neither
+measurement says anything about the precision the vendor quantised from.**
 
 ### 2. Stochastic rounding costs exactly √2, and it is on the shipped path
 
