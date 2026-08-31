@@ -168,7 +168,15 @@ def main() -> int:
           f"per arm\n")
 
     arms: dict[str, list[dict]] = {}
-    for name, (lora_path, base_path) in arms_present.items():
+    total_arms = len(arms_present)
+    for arm_index, (name, (lora_path, base_path)) in enumerate(
+            arms_present.items(), start=1):
+        # **Progress, flushed.** The first version of this printed nothing until
+        # it finished, which on the full sweep is about an hour -- so it could
+        # not be monitored, triaged, or distinguished from a hang, and the only
+        # way to estimate remaining time was to model the work by hand. A long
+        # job that reports nothing is a job you cannot decide to stop.
+        print(f"  [{arm_index}/{total_arms}] {name} ...", flush=True)
         rows = []
         with safe_open(str(base_path), framework="pt") as base:
             base_keys = set(base.keys())
@@ -197,6 +205,9 @@ def main() -> int:
                             "noise_over_delta": float((applied - d).norm()
                                                       / d.norm()),
                         })
+                        if len(rows) % 25 == 0:
+                            print(f"      {len(rows)}/{expected} modules",
+                                  flush=True)
             # **The producer asserts its own shape.** An output whose shape is
             # the shape of what survived is indistinguishable from a complete
             # one, and blocks x kinds is not a mystery at write time.
