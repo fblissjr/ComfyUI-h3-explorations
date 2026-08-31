@@ -114,6 +114,29 @@ showed: fl2va runs `fc2` 2.222 > `fc1` 2.038 > `out_proj` 1.978 > `qkv` 1.424,
 while ref2va runs `out_proj` 2.066 > `fc2` 2.051 > `fc1` 1.824 > `qkv` 1.430.
 Only `qkv_proj` being the least affected is common to both.
 
+**The ranking is denominator-dependent, and the two denominators disagree.**
+Everything above is the perturbation against the DELTA. Against the WEIGHT, on
+the same 200 modules per arm:
+
+| arm | &#124;d&#124;/&#124;W&#124; | noise/&#124;d&#124; | **noise/&#124;W&#124;** | worst module |
+|---|---|---|---|---|
+| PDD fl2va | 0.00476 | 1.981 | **0.921%** | 1.240% |
+| PDD ref2va | 0.00511 | 1.848 | **0.947%** | 1.285% |
+| turbo fl2v | 0.00014 | 12.156 | **0.172%** | 0.495% |
+
+**Turbo looks 6x worse than PDD against the delta and is 5x better against the
+weight.** Both are true. Turbo's delta is 34x smaller relative to the weight,
+so twelve times a very small thing is still small, while twice PDD's larger
+delta is not. The alarming 12x is substantially an artifact of dividing by a
+tiny denominator.
+
+Which denominator matters depends on the question — `noise/|d|` asks how much
+of the LoRA's intent survives, `noise/|W|` asks how much the model moved — and
+**the output impact, which would decide between them, is unmeasured.** So
+neither is "the" answer and neither should be quoted alone. This is the third
+metric in this file to rank these arms differently, after stored-weight
+distance and `realised`; `../checks.md` carries the rule.
+
 Round-to-nearest, which does not ship, realises 0.467 mean / 0.020 worst on PDD
 and 0.025 mean / 0.0001 worst on turbo — it discards a sub-step update rather
 than adding noise to it.
