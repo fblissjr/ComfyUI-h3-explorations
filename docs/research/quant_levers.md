@@ -208,6 +208,24 @@ merge injects measured against the **update** rather than the weight:
 **On PDD, 194 of 200 modules carry more noise than update** (97%), and the
 median is almost exactly 2x.
 
+**But "twice the update" is the alarming denominator, not the decision-relevant
+one, and both lanes were quoting it.** Computed 2026-08-31 from the same record:
+
+| the same fact, three denominators | PDD | turbo |
+|---|---|---|
+| noise / ‖d‖ — *what was being quoted* | 1.981 | 10.49 |
+| noise / ‖W‖ | **0.921%** | 0.207% |
+| base int8 error already carried, / ‖W‖ | 0.910% | 0.910% |
+
+So the merge injects an error term **about the same size as the entire int8
+quantisation the checkpoint already carries** — which against the bf16 release
+moves total stored-weight error from 0.936% to 1.045%, the **+11.6%** this file
+reports elsewhere. Three true sentences, and they read as alarming, negligible
+and modest respectively. **Quote the +11.6% against the release**: it is the
+one that answers "how much worse is the merged model", which is the question a
+reader is actually asking. The 2x figure answers "how faithfully is the update
+delivered", which is a different and narrower question.
+
 **By kind, ON fl2va** — and the scope is load-bearing, corrected 2026-08-31:
 `mlp.fc2` 2.222 > `mlp.fc1` 2.038 > `attn.out_proj` 1.978 > `attn.qkv_proj`
 1.424. Everything in this file's merge section is measured on
