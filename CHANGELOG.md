@@ -4,6 +4,31 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.4
+
+### Fixed
+
+- **`MiniMaxH3AppendRefImage.qwen_short_edge` rendered differently through the
+  UI than through an API prompt that omitted it.** The schema declared
+  `REF_QWEN_SHORT_EDGE`; `execute()`'s signature defaulted to `0`. ComfyUI does
+  not inject a schema default for an input an API prompt omits, so the two are
+  independent -- and `0` is the one value that leaves the reference view
+  unclamped in the TEXT segment, where it competes with the prompt rather than
+  merely lengthening the sequence. Every shipped API graph sets the key
+  explicitly, so no shipped render moves; the exposure was hand-built prompts
+  and any external consumer. `0` stays legal when asked for on purpose -- six
+  graph arms do -- it is just no longer what you get by omission.
+
+### Documentation
+
+- **`docs/checks.md` gains rows for `check_sol_node_equivalence.py`,
+  `check_vsa_core_patch.py` and `check_vsa_geometry.py`**, which were on disk
+  and invisible to the index. Three of the six `check_doc_inventory.py`
+  reports; the rest belong to other lanes.
+- **`check_sol_kernel.py`'s row said it gates presence on a graph wiring
+  `SolAttnMiniMax`.** It gates on either node id, and the vendored one has not
+  been what a shipped graph wires since 2026-08-30.
+
 ## 0.99.3
 
 ### Fixed

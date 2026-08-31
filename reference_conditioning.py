@@ -828,7 +828,18 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, image, size_policy, references=None, qwen_short_edge=0):
+    # `qwen_short_edge` defaults to the SCHEMA's value, not 0. ComfyUI does not
+    # inject a schema default for an input an API prompt omits, so a bare
+    # signature default is what that path actually gets -- and 0 is the one
+    # value CLAUDE.md says must not reach the shipped encoder, because it
+    # leaves the reference view unclamped in the TEXT segment where it competes
+    # with the prompt rather than merely lengthening the sequence. So the UI
+    # path rendered at 512 and an API prompt omitting the key rendered
+    # unclamped, silently. Corrected 2026-08-31; every shipped API graph sets
+    # the key explicitly, so no shipped render moves. 0 stays LEGAL when asked
+    # for on purpose -- six graph arms do -- it just is not the default.
+    def execute(cls, image, size_policy, references=None,
+                qwen_short_edge=REF_QWEN_SHORT_EDGE):
         # A DynamicCombo arrives as ONE nested dict: the selected key under the
         # input's own id, and the chosen option's inputs alongside it. NOT as
         # flattened kwargs. `MiniMaxH3Resolution.execute` carries the scar from
