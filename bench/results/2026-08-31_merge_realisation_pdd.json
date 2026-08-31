@@ -20,6 +20,11 @@
       "deterministic_mean": 0.004708658752497286,
       "stochastic_mean": 0.009369830996729434
     },
+    "noise_over_delta": {
+      "deterministic_mean": 0.8618531733751297,
+      "stochastic_mean": 1.845093846321106,
+      "stochastic_max": 2.8164522647857666
+    },
     "delta_rel_mean": 0.007408818323165178,
     "orderings_disagree": true
   },
@@ -32,11 +37,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.19540871679782867,
-          "e_vs_target": 0.003087134100496769
+          "e_vs_target": 0.003087134100496769,
+          "noise_over_delta": 0.9840912222862244
         },
         "stochastic": {
           "realised_along_d": 1.0000678300857544,
-          "e_vs_target": 0.007474089507013559
+          "e_vs_target": 0.007474089507013559,
+          "noise_over_delta": 2.3825290203094482
         }
       }
     },
@@ -48,11 +55,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.2188146561384201,
-          "e_vs_target": 0.004613872151821852
+          "e_vs_target": 0.004613872151821852,
+          "noise_over_delta": 0.9753496646881104
         },
         "stochastic": {
           "realised_along_d": 0.9996945261955261,
-          "e_vs_target": 0.010513200424611568
+          "e_vs_target": 0.010513200424611568,
+          "noise_over_delta": 2.222438335418701
         }
       }
     },
@@ -64,11 +73,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.25417205691337585,
-          "e_vs_target": 0.004482868127524853
+          "e_vs_target": 0.004482868127524853,
+          "noise_over_delta": 0.9756860733032227
         },
         "stochastic": {
           "realised_along_d": 1.0002892017364502,
-          "e_vs_target": 0.009116699919104576
+          "e_vs_target": 0.009116699919104576,
+          "noise_over_delta": 1.9842289686203003
         }
       }
     },
@@ -80,11 +91,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.23635384440422058,
-          "e_vs_target": 0.004811469931155443
+          "e_vs_target": 0.004811469931155443,
+          "noise_over_delta": 0.9826626181602478
         },
         "stochastic": {
           "realised_along_d": 0.9998735785484314,
-          "e_vs_target": 0.009690855629742146
+          "e_vs_target": 0.009690855629742146,
+          "noise_over_delta": 1.9791960716247559
         }
       }
     },
@@ -96,11 +109,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.7273824214935303,
-          "e_vs_target": 0.006067854817956686
+          "e_vs_target": 0.006067854817956686,
+          "noise_over_delta": 0.7587127089500427
         },
         "stochastic": {
           "realised_along_d": 0.9998484253883362,
-          "e_vs_target": 0.010255358181893826
+          "e_vs_target": 0.010255358181893826,
+          "noise_over_delta": 1.2823100090026855
         }
       }
     },
@@ -112,11 +127,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.37340113520622253,
-          "e_vs_target": 0.005457634571939707
+          "e_vs_target": 0.005457634571939707,
+          "noise_over_delta": 0.9290822744369507
         },
         "stochastic": {
           "realised_along_d": 1.0008152723312378,
-          "e_vs_target": 0.010768994688987732
+          "e_vs_target": 0.010768994688987732,
+          "noise_over_delta": 1.8332635164260864
         }
       }
     },
@@ -128,11 +145,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.4584120213985443,
-          "e_vs_target": 0.005134528502821922
+          "e_vs_target": 0.005134528502821922,
+          "noise_over_delta": 0.9032950401306152
         },
         "stochastic": {
           "realised_along_d": 0.9997308254241943,
-          "e_vs_target": 0.00957309640944004
+          "e_vs_target": 0.00957309640944004,
+          "noise_over_delta": 1.6841527223587036
         }
       }
     },
@@ -144,11 +163,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.2691274881362915,
-          "e_vs_target": 0.004990049172192812
+          "e_vs_target": 0.004990049172192812,
+          "noise_over_delta": 0.9751985669136047
         },
         "stochastic": {
           "realised_along_d": 0.9998506307601929,
-          "e_vs_target": 0.009840796701610088
+          "e_vs_target": 0.009840796701610088,
+          "noise_over_delta": 1.9231735467910767
         }
       }
     },
@@ -160,11 +181,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.8222184181213379,
-          "e_vs_target": 0.006001717876642942
+          "e_vs_target": 0.006001717876642942,
+          "noise_over_delta": 0.640497624874115
         },
         "stochastic": {
           "realised_along_d": 1.0001184940338135,
-          "e_vs_target": 0.010234776884317398
+          "e_vs_target": 0.010234776884317398,
+          "noise_over_delta": 1.0922455787658691
         }
       }
     },
@@ -176,11 +199,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.18852727115154266,
-          "e_vs_target": 0.004654609132558107
+          "e_vs_target": 0.004654609132558107,
+          "noise_over_delta": 0.9920830130577087
         },
         "stochastic": {
           "realised_along_d": 0.9994420409202576,
-          "e_vs_target": 0.009821620769798756
+          "e_vs_target": 0.009821620769798756,
+          "noise_over_delta": 2.093379259109497
         }
       }
     },
@@ -192,11 +217,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.564622163772583,
-          "e_vs_target": 0.00532032735645771
+          "e_vs_target": 0.00532032735645771,
+          "noise_over_delta": 0.8653932213783264
         },
         "stochastic": {
           "realised_along_d": 0.9999154210090637,
-          "e_vs_target": 0.009607717394828796
+          "e_vs_target": 0.009607717394828796,
+          "noise_over_delta": 1.5627710819244385
         }
       }
     },
@@ -208,11 +235,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.01988123171031475,
-          "e_vs_target": 0.0033966614864766598
+          "e_vs_target": 0.0033966614864766598,
+          "noise_over_delta": 1.0275325775146484
         },
         "stochastic": {
           "realised_along_d": 0.9999989867210388,
-          "e_vs_target": 0.00852088164538145
+          "e_vs_target": 0.00852088164538145,
+          "noise_over_delta": 2.5776734352111816
         }
       }
     },
@@ -224,11 +253,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.35875219106674194,
-          "e_vs_target": 0.0038119605742394924
+          "e_vs_target": 0.0038119605742394924,
+          "noise_over_delta": 0.9394338130950928
         },
         "stochastic": {
           "realised_along_d": 1.0002939701080322,
-          "e_vs_target": 0.008191395550966263
+          "e_vs_target": 0.008191395550966263,
+          "noise_over_delta": 2.0187180042266846
         }
       }
     },
@@ -240,11 +271,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.021197741851210594,
-          "e_vs_target": 0.002927049295976758
+          "e_vs_target": 0.002927049295976758,
+          "noise_over_delta": 1.0235847234725952
         },
         "stochastic": {
           "realised_along_d": 0.9997943043708801,
-          "e_vs_target": 0.008053943514823914
+          "e_vs_target": 0.008053943514823914,
+          "noise_over_delta": 2.8164522647857666
         }
       }
     },
@@ -256,11 +289,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.09650405496358871,
-          "e_vs_target": 0.002903648652136326
+          "e_vs_target": 0.002903648652136326,
+          "noise_over_delta": 1.0160316228866577
         },
         "stochastic": {
           "realised_along_d": 0.9997420310974121,
-          "e_vs_target": 0.007423682138323784
+          "e_vs_target": 0.007423682138323784,
+          "noise_over_delta": 2.597661256790161
         }
       }
     },
@@ -272,11 +307,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.19481705129146576,
-          "e_vs_target": 0.0037536199670284986
+          "e_vs_target": 0.0037536199670284986,
+          "noise_over_delta": 0.9925130009651184
         },
         "stochastic": {
           "realised_along_d": 1.000119686126709,
-          "e_vs_target": 0.008450009860098362
+          "e_vs_target": 0.008450009860098362,
+          "noise_over_delta": 2.2343084812164307
         }
       }
     },
@@ -288,11 +325,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.8525134325027466,
-          "e_vs_target": 0.004961966071277857
+          "e_vs_target": 0.004961966071277857,
+          "noise_over_delta": 0.6016775965690613
         },
         "stochastic": {
           "realised_along_d": 0.9999220371246338,
-          "e_vs_target": 0.008839393965899944
+          "e_vs_target": 0.008839393965899944,
+          "noise_over_delta": 1.0718464851379395
         }
       }
     },
@@ -304,11 +343,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.12711478769779205,
-          "e_vs_target": 0.0035156572703272104
+          "e_vs_target": 0.0035156572703272104,
+          "noise_over_delta": 0.996374785900116
         },
         "stochastic": {
           "realised_along_d": 0.9996995329856873,
-          "e_vs_target": 0.008807666599750519
+          "e_vs_target": 0.008807666599750519,
+          "noise_over_delta": 2.4961867332458496
         }
       }
     },
@@ -320,11 +361,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.9259040951728821,
-          "e_vs_target": 0.006181560922414064
+          "e_vs_target": 0.006181560922414064,
+          "noise_over_delta": 0.47477108240127563
         },
         "stochastic": {
           "realised_along_d": 0.9999178051948547,
-          "e_vs_target": 0.010096200741827488
+          "e_vs_target": 0.010096200741827488,
+          "noise_over_delta": 0.7754325866699219
         }
       }
     },
@@ -336,11 +379,13 @@
       "arms": {
         "deterministic": {
           "realised_along_d": 0.9953005909919739,
-          "e_vs_target": 0.008098985068500042
+          "e_vs_target": 0.008098985068500042,
+          "noise_over_delta": 0.18309223651885986
         },
         "stochastic": {
           "realised_along_d": 0.9999974966049194,
-          "e_vs_target": 0.01211623940616846
+          "e_vs_target": 0.01211623940616846,
+          "noise_over_delta": 0.2739095687866211
         }
       }
     }
@@ -357,8 +402,8 @@
   ],
   "producer": {
     "file": "measure_merge_realisation.py",
-    "sha256": "05113a29a2bff50a42507543ce5f76c26d2f9885de8bef91c5429a402020af59",
-    "repository_commit": "c90ffe8fbd25ff0e19ca1bca10e26ac60829ad59",
-    "dirty_against_commit": true
+    "sha256": "dd45e90b2cbcb968fcc74b0d05b1874b44d0719b29a5278a99765a399476de7c",
+    "repository_commit": "c14299186bae76f297ecf8ffd6807910375be9ec",
+    "dirty_against_commit": false
   }
 }

@@ -236,7 +236,23 @@ artifact.
   **A stored-weight metric rewards the arm that does nothing**, and this repo
   recommended that arm on the strength of one — inside the file whose own scope
   line warns about exactly that. ComfyUI's stochastic `set_weight` now looks
-  deliberate and correct. The sub-step observation came from a peer session.
+  deliberate and correct. The sub-step observation came from a peer session,
+  whose independent implementation reproduced the worst-module figure (0.0199
+  against 0.01988) on a different subset.
+- **Both merge arms are bad on the turbo LoRA, for opposite reasons, and
+  `realised_along_d` alone concluded too early.** Records
+  `bench/results/2026-08-31_merge_realisation_{pdd,turbo}.json`. A sub-step
+  delta is realised as a sparse set of FULL-step jumps, so the direction is
+  right and the per-weight representation is not: the shipped stochastic merge
+  applies the turbo update and injects **11.87x its magnitude in noise on
+  average, 26.6x worst**, against 1.85x for PDD. Deterministic rounding instead
+  discards it — 0.025 realised on turbo, 0.0001 worst. `noise_over_delta` was
+  added to the producer because neither existing column shows this.
+- **The shipped turbo graphs are NOT rendering with a discarded LoRA**, which
+  the discard finding could be misread as. Discarding is the RTN failure and
+  RTN does not ship: `comfy.utils.string_to_seed` is non-zero on all 200 module
+  keys (minimum 12054335), so the stochastic branch runs everywhere and the
+  update is realised. The shipped defect is noise, not absence.
 
 ### Measured
 

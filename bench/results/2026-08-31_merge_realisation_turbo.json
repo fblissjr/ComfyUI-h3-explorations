@@ -1,0 +1,409 @@
+{
+  "measured": "2026-08-31",
+  "produced_by": "bench/measure_merge_realisation.py",
+  "question": "how much of a LoRA delta survives being merged into an int8_convrot weight, under each rounding mode",
+  "base": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+  "lora": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+  "rounding_note": "stochastic is a draw from the same distribution as the shipped path, not the realisation a given key produces -- the RNG stream differs",
+  "is_not": "a runtime or perceptual measurement. Stored weights only, and int8_convrot is W8A8, so this sees one of two roundings. docs/open_experiments.md #23",
+  "shape": {
+    "rows": 20,
+    "expected": 20
+  },
+  "summary": {
+    "realised_along_d": {
+      "deterministic_mean": 0.012742979670474597,
+      "deterministic_min": 5.3980231314199045e-05,
+      "stochastic_mean": 0.9989577621221543
+    },
+    "e_vs_target": {
+      "deterministic_mean": 0.00038859095948282627,
+      "stochastic_mean": 0.0023683408740907907
+    },
+    "noise_over_delta": {
+      "deterministic_mean": 1.027063289284706,
+      "stochastic_mean": 11.866860342025756,
+      "stochastic_max": 26.606220245361328
+    },
+    "delta_rel_mean": 0.00038158770948939493,
+    "orderings_disagree": true
+  },
+  "modules": [
+    {
+      "block": 0,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0006994126597419381,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.009586933068931103,
+          "e_vs_target": 0.0007219447870738804,
+          "noise_over_delta": 1.0322164297103882
+        },
+        "stochastic": {
+          "realised_along_d": 0.9994672536849976,
+          "e_vs_target": 0.003282208228483796,
+          "noise_over_delta": 4.692809581756592
+        }
+      }
+    },
+    {
+      "block": 0,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0006591467536054552,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.0011107693426311016,
+          "e_vs_target": 0.0006724544218741357,
+          "noise_over_delta": 1.0201940536499023
+        },
+        "stochastic": {
+          "realised_along_d": 1.0017222166061401,
+          "e_vs_target": 0.004090533126145601,
+          "noise_over_delta": 6.205829620361328
+        }
+      }
+    },
+    {
+      "block": 0,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.00017489929450675845,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.000538883323315531,
+          "e_vs_target": 0.00018062478920910507,
+          "noise_over_delta": 1.0327365398406982
+        },
+        "stochastic": {
+          "realised_along_d": 0.9986675381660461,
+          "e_vs_target": 0.0019220496760681272,
+          "noise_over_delta": 10.989472389221191
+        }
+      }
+    },
+    {
+      "block": 0,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.00010419395403005183,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00014726702647749335,
+          "e_vs_target": 0.00010728021152317524,
+          "noise_over_delta": 1.02962064743042
+        },
+        "stochastic": {
+          "realised_along_d": 0.9974822402000427,
+          "e_vs_target": 0.0015503905015066266,
+          "noise_over_delta": 14.879854202270508
+        }
+      }
+    },
+    {
+      "block": 12,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 6.623731314903125e-05,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00015208996774163097,
+          "e_vs_target": 6.846919859526679e-05,
+          "noise_over_delta": 1.0336956977844238
+        },
+        "stochastic": {
+          "realised_along_d": 0.9967971444129944,
+          "e_vs_target": 0.0012365414295345545,
+          "noise_over_delta": 18.668359756469727
+        }
+      }
+    },
+    {
+      "block": 12,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 7.159040251281112e-05,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00016737754049245268,
+          "e_vs_target": 7.362415635725483e-05,
+          "noise_over_delta": 1.0284079313278198
+        },
+        "stochastic": {
+          "realised_along_d": 0.9888338446617126,
+          "e_vs_target": 0.0013539295177906752,
+          "noise_over_delta": 18.91216278076172
+        }
+      }
+    },
+    {
+      "block": 12,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 5.398111170507036e-05,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00013952871086075902,
+          "e_vs_target": 5.579991920967586e-05,
+          "noise_over_delta": 1.0336941480636597
+        },
+        "stochastic": {
+          "realised_along_d": 0.9977888464927673,
+          "e_vs_target": 0.0011002185055986047,
+          "noise_over_delta": 20.381561279296875
+        }
+      }
+    },
+    {
+      "block": 12,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 3.7336620152927935e-05,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 5.3980231314199045e-05,
+          "e_vs_target": 3.84783124900423e-05,
+          "noise_over_delta": 1.0305794477462769
+        },
+        "stochastic": {
+          "realised_along_d": 1.000693440437317,
+          "e_vs_target": 0.0009933853289112449,
+          "noise_over_delta": 26.606220245361328
+        }
+      }
+    },
+    {
+      "block": 25,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.00019063269428443164,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00022860140597913414,
+          "e_vs_target": 0.0001968807919183746,
+          "noise_over_delta": 1.0327767133712769
+        },
+        "stochastic": {
+          "realised_along_d": 1.0018304586410522,
+          "e_vs_target": 0.0018224247032776475,
+          "noise_over_delta": 9.559885025024414
+        }
+      }
+    },
+    {
+      "block": 25,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.000120437158329878,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.0001687891926849261,
+          "e_vs_target": 0.00012384507863316685,
+          "noise_over_delta": 1.028296709060669
+        },
+        "stochastic": {
+          "realised_along_d": 0.9986758828163147,
+          "e_vs_target": 0.0016786535270512104,
+          "noise_over_delta": 13.938011169433594
+        }
+      }
+    },
+    {
+      "block": 25,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.00012128900561947376,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00022069888655096292,
+          "e_vs_target": 0.00012532665277831256,
+          "noise_over_delta": 1.0332900285720825
+        },
+        "stochastic": {
+          "realised_along_d": 0.998238742351532,
+          "e_vs_target": 0.001609752420336008,
+          "noise_over_delta": 13.27204704284668
+        }
+      }
+    },
+    {
+      "block": 25,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 4.255860039847903e-05,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00012081193563062698,
+          "e_vs_target": 4.378940866445191e-05,
+          "noise_over_delta": 1.0289208889007568
+        },
+        "stochastic": {
+          "realised_along_d": 1.0042920112609863,
+          "e_vs_target": 0.0010592249454930425,
+          "noise_over_delta": 24.888633728027344
+        }
+      }
+    },
+    {
+      "block": 37,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0003546730149537325,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.0011491485638543963,
+          "e_vs_target": 0.00036633407580666244,
+          "noise_over_delta": 1.032881259918213
+        },
+        "stochastic": {
+          "realised_along_d": 0.9991963505744934,
+          "e_vs_target": 0.0026153356302529573,
+          "noise_over_delta": 7.373955249786377
+        }
+      }
+    },
+    {
+      "block": 37,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0002342010848224163,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00016511252033524215,
+          "e_vs_target": 0.0002413544716546312,
+          "noise_over_delta": 1.030544400215149
+        },
+        "stochastic": {
+          "realised_along_d": 1.000281572341919,
+          "e_vs_target": 0.0023400005884468555,
+          "noise_over_delta": 9.991422653198242
+        }
+      }
+    },
+    {
+      "block": 37,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0005003443220630288,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00035947191645391285,
+          "e_vs_target": 0.0005164159229025245,
+          "noise_over_delta": 1.032119870185852
+        },
+        "stochastic": {
+          "realised_along_d": 0.9988558888435364,
+          "e_vs_target": 0.003085819073021412,
+          "noise_over_delta": 6.167384147644043
+        }
+      }
+    },
+    {
+      "block": 37,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.00032017446937970817,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 6.113003473728895e-05,
+          "e_vs_target": 0.00032935437047854066,
+          "noise_over_delta": 1.028671383857727
+        },
+        "stochastic": {
+          "realised_along_d": 0.9990745782852173,
+          "e_vs_target": 0.0026022831443697214,
+          "noise_over_delta": 8.127700805664062
+        }
+      }
+    },
+    {
+      "block": 49,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "delta_rel": 0.0013532644370570779,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.21063748002052307,
+          "e_vs_target": 0.001312923850491643,
+          "noise_over_delta": 0.9701895117759705
+        },
+        "stochastic": {
+          "realised_along_d": 1.0006752014160156,
+          "e_vs_target": 0.004235038533806801,
+          "noise_over_delta": 3.1294960975646973
+        }
+      }
+    },
+    {
+      "block": 49,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "delta_rel": 0.00019141542725265026,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.00019878764578606933,
+          "e_vs_target": 0.00019591102318372577,
+          "noise_over_delta": 1.0234849452972412
+        },
+        "stochastic": {
+          "realised_along_d": 0.9966456890106201,
+          "e_vs_target": 0.0022125893738120794,
+          "noise_over_delta": 11.559083938598633
+        }
+      }
+    },
+    {
+      "block": 49,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "delta_rel": 0.0007411522092297673,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.0016677441308274865,
+          "e_vs_target": 0.0007662623538635671,
+          "noise_over_delta": 1.0338844060897827
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999908804893494,
+          "e_vs_target": 0.0036215134896337986,
+          "noise_over_delta": 4.886350154876709
+        }
+      }
+    },
+    {
+      "block": 49,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "delta_rel": 0.0015948136569932103,
+      "arms": {
+        "deterministic": {
+          "realised_along_d": 0.027984987944364548,
+          "e_vs_target": 0.001634745392948389,
+          "noise_over_delta": 1.025060772895813
+        },
+        "stochastic": {
+          "realised_along_d": 0.9999454617500305,
+          "e_vs_target": 0.004954925738275051,
+          "noise_over_delta": 3.106966972351074
+        }
+      }
+    }
+  ],
+  "findings": [
+    "ROUND-TO-NEAREST DISCARDS A SUB-STEP LORA. Projected onto the delta's own direction, deterministic rounding realises 0.013 of it on average and as little as 0.000 on the worst module; stochastic rounding realises 0.9990, which is what `E[Q_s(x)] = x` predicts.",
+    "THE TWO METRICS RANK THE ARMS OPPOSITELY, which is the point. Deterministic has the lower stored-weight distance (0.000389 against 0.002368) BECAUSE it barely moves the weight, and the target is close to the weight. A stored-weight metric rewards the arm that does not apply the update.",
+    "SO THE MEASURED sqrt(2) DOES NOT LICENSE A DETERMINISTIC MERGE. That constant is correct for rounding a FIXED tensor and was verified to seven figures; the error was carrying it to merging, which is a different problem. ComfyUI's choice of stochastic rounding in `set_weight` looks deliberate and correct."
+  ],
+  "not_measured": [
+    "whether either arm is distinguishable in a render.",
+    "the activation rounding, which this lane has never seen.",
+    "other LoRAs. A peer session measured delta_rms/step at median 0.0805 for PDD and 0.0050 for the turbo LoRA -- alpha/rank 1.0 against 0.0625 -- so the discard should be far worse on turbo, and that is unmeasured here."
+  ],
+  "producer": {
+    "file": "measure_merge_realisation.py",
+    "sha256": "dd45e90b2cbcb968fcc74b0d05b1874b44d0719b29a5278a99765a399476de7c",
+    "repository_commit": "c14299186bae76f297ecf8ffd6807910375be9ec",
+    "dirty_against_commit": false
+  }
+}

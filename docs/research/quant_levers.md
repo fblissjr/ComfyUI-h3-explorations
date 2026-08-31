@@ -102,21 +102,41 @@ delta most weights never cross a midpoint, so the update is simply thrown away.
 Stochastic rounding is **unbiased** by construction, `E[Q_s(x)] = x`, so the
 update lands in expectation.
 
-Measured, `bench/measure_merge_realisation.py` →
-[`bench/results/2026-08-31_merge_realisation.json`](../../bench/results/2026-08-31_merge_realisation.json),
-20 modules across blocks 0/12/25/37/49. `realised_along_d` is
-`<Q(W+d) − Q(W), d> / <d, d>` — the fraction of the delta that actually landed:
+Measured, `bench/measure_merge_realisation.py`, 20 modules per LoRA across
+blocks 0/12/25/37/49
+([PDD](../../bench/results/2026-08-31_merge_realisation_pdd.json),
+[turbo](../../bench/results/2026-08-31_merge_realisation_turbo.json)).
+`realised_along_d` is `<Q(W+d) − Q(W), d> / <d, d>`, the fraction of the delta
+that landed; `noise_over_delta` is `‖Q(W+d) − (W+d)‖ / ‖d‖`, the error the
+merge injects measured against the **update** rather than the weight:
 
-| arm | realised along d | stored-weight error |
-|---|---|---|
-| deterministic (RTN) | **0.395 mean, 0.020 worst** | 0.004709 |
-| stochastic (shipped) | **0.99996** | 0.009370 |
+| LoRA | arm | realised | noise / ‖d‖ | stored-weight err |
+|---|---|---|---|---|
+| PDD | deterministic | 0.395 mean, **0.020 worst** | 0.86 | 0.004709 |
+| PDD | stochastic *(ships)* | 1.0000 | 1.85 | 0.009370 |
+| turbo | deterministic | **0.025 mean, 0.0001 worst** | 1.03 | 0.000389 |
+| turbo | stochastic *(ships)* | 0.9999 | **11.87 mean, 26.6 max** | 0.002368 |
 
 **The two metrics rank the arms oppositely.** RTN has the lower stored-weight
-distance *because it barely applies the LoRA*, and the target is close to the
-unmerged weight. And it is dose-responsive: `blocks.49.mlp.fc2`, with the
-largest delta at 4.4% of the weight, realises 0.995; `blocks.25.mlp.fc2`, the
-smallest at 0.33%, realises 0.020.
+distance *because it barely applies the LoRA*. Dose-responsive throughout:
+`blocks.49.mlp.fc2` at 4.4% of the weight realises 0.995 under RTN,
+`blocks.25.mlp.fc2` at 0.33% realises 0.020, and the turbo LoRA — whose deltas
+average **0.038%** of the weight, `alpha/rank` 0.0625 against PDD's 1.0 —
+realises 0.025.
+
+**And `realised_along_d` alone still concludes too early.** It says the shipped
+stochastic arm is fine, because it is: 1.0000. But a sub-step delta is realised
+as a sparse set of **full-step jumps**, so the direction is right and the
+per-weight representation is not — on turbo the shipped merge applies the
+update and injects **twelve times its magnitude in noise**, 26.6x on the worst
+module. **Both merge arms are bad on turbo, for opposite reasons**, and each
+metric here is blind to one of them.
+
+The PDD arm was replicated independently by a peer session, written fresh
+rather than importing this statistic: their `deterministic_min` is 0.0199
+against this file's 0.01988, on a different subset. Their record is
+`bench/results/2026-08-31_stochastic_rounding.json`, retracted and re-issued
+because its original conclusion was the same wrong inference this file made.
 
 **So a stored-weight metric rewards the arm that does nothing**, and this file
 recommended that arm on the strength of one. ComfyUI's choice of stochastic
@@ -132,11 +152,17 @@ independent measurement, not from re-reading this file.
 ### 2c. What survives
 
 `unmerged_blocks` **avoids the whole question** — it never requantises, so
-neither the √2 nor the discard applies, and the delta stays exact in bf16.
-That makes it worth more than its measured 11.6%, and **more on some LoRAs than
-others**: on a LoRA whose delta is a smaller fraction of a step, merging loses
-proportionally more of the update, so the turbo LoRAs should benefit far more
-than PDD. Unmeasured here.
+neither the √2, the discard, nor the full-step noise applies, and the delta
+stays exact in bf16. That makes it worth far more than its measured 11.6%, and
+**the amount is per-LoRA**: on turbo the shipped merge injects ~12x the
+update's magnitude in noise, so un-merging is not a refinement there.
+
+**What it is NOT: the shipped turbo graphs are not rendering with a discarded
+LoRA.** Discarding is the RTN failure, and RTN does not ship —
+`comfy.utils.string_to_seed` returns a non-zero seed on all 200 module keys
+(checked, minimum 12054335), so `_round_int8` takes the stochastic branch on
+every module and the update is realised. The shipped defect is noise, not
+absence, and it is the quieter of the two.
 
 A patched model and an unpatched one also differ in their **weights** before a
 single sampler step runs, which is upstream of `CLAUDE.md`'s different-sample
