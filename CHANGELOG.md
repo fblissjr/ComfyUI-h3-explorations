@@ -4,6 +4,23 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.5
+
+### Added
+
+- **`bench/check_literal_widgets.py`, and a standing rule in CLAUDE.md: a
+  numeric input means the quantity it names, and a MODE gets its own named
+  input.** `qwen_short_edge=0` is not a short edge of zero pixels, it is "no
+  separate encoder view"; `nfe=0` and `steps=0` are "the file's own count";
+  `reference_video_fit.short_edge=0` is "report only"; `keyframe_canvas.length=0`
+  is "no length". Five widgets where a number quietly selects a branch.
+  The check flags a declared numeric input whose own value is tested falsy or
+  against zero, following a one-hop rename and the `x or fallback` idiom. It
+  cannot distinguish a sentinel from a guard, so two allowlists carry that
+  judgement and a stale entry fails. Existing sentinels are recorded as debt
+  with a replacement named, because converting a widget to a combo re-points
+  saved graph values by index and needs every graph regenerated.
+
 ## 0.99.4
 
 ### Fixed
