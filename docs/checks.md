@@ -76,6 +76,43 @@ state is correct is worse than no check. The `shown red` column records which
 checks have a construction; **the tallies live in the table, not in this
 prose.**
 
+### A metric that ranks two arms is a claim about the metric
+
+**Adopted 2026-08-31, after two wrong conclusions were published in
+consecutive commits, in the file whose own opening line warns about scope.**
+The instance is worth stating in full because both halves were made by people
+who had just written the warning.
+
+One LoRA delta merged into an `int8_convrot` weight, three metrics, three
+different blind spots:
+
+| metric | what it prefers | what it cannot see |
+|---|---|---|
+| stored-weight distance `‖Q(W+d) − (W+d)‖ / ‖W+d‖` | round-to-nearest | that RTN wins **because it barely applies the update** — the target is close to the unmerged weight, so doing nothing scores well |
+| realisation `<Q(W+d) − Q(W), d> / <d, d>` | stochastic | that a sub-step delta is realised as sparse **full-step jumps** — the direction is right, the per-weight representation is not |
+| noise against the update `‖Q(W+d) − (W+d)‖ / ‖d‖` | neither | (it is the one that shows both failures, and nobody was recording it) |
+
+The first metric said deterministic rounding was better and a lever was
+proposed on it. The second refuted that and said the shipped stochastic path
+was fine. The third showed the shipped path applies the turbo LoRA and injects
+**twelve times its magnitude in noise**. Records:
+`bench/results/2026-08-31_merge_realisation_{pdd,turbo}.json`,
+`bench/measure_merge_realisation.py`.
+
+**The generalisation is not "use more metrics".** It is that *a ranking is a
+property of the metric until you have named what the metric is blind to*, and
+the naming has to happen before the ranking is published, not after a peer
+refutes it. The cheap discipline: when a measurement orders two arms, write
+down in the same sentence what would have to be true for the loser to actually
+be better. If that sentence is hard to write, the ranking is not ready.
+
+**What made it recoverable was a second implementation, not a second reading.**
+Both corrections came from a peer session writing the statistic fresh rather
+than importing it, and the agreement between implementations — worst-module
+0.0199 against 0.01988 on different subsets — is what made either number
+trustworthy. That is `CLAUDE.md`'s "re-reading your own work does not meet the
+standard", and here it cost two published conclusions to relearn.
+
 ### Drive the expression, never restate it
 
 **A check that RESTATES the expression it grades cannot fail when the
