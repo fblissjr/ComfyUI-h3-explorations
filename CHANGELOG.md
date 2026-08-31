@@ -57,8 +57,32 @@ artifact.
   one checkpoint it cannot load on. Older files are still classified by key
   prefix, which needs no metadata.
 
+### Added
+
+- **`bench/analyze_pdd_unmerge_curve.py` and
+  `bench/results/2026-08-31_pdd_unmerge_recovery.json`** — what un-merging N
+  blocks recovers, and whether picking N pays. It asserts the 50x4 module shape
+  before aggregating, so a partial source cannot yield a ranking that looks
+  complete.
+- **`bench/results/2026-08-31_pdd_quant_interaction_all_blocks.json`** — the
+  quant-interaction measurement over all 200 backbone modules rather than 28.
+
 ### Documentation
 
+- **The `unmerged_blocks` worst-first ranking is corrected, in the tooltip and
+  in `docs/h3_pdd.md`.** The 7-block sample said "49, 7, 24, 16"; over all 50,
+  49 and 7 hold at 1st and 5th but 24 and 16 are mid-pack at 17th and 16th.
+  Worst-first is `49, 15, 20, 11, 7, 10, 18, 23, 14, 17`. The sample's mean
+  generalised (1.1164x against 1.1234x, correlation 0.751 against 0.78); its
+  detail did not.
+- **There is no hotspot to target, which changes what the knob is for.** Block
+  inflation spans 1.131x, so worst-first is mildly concave rather than steep --
+  the worst 5 recover 15.3% of the gap against 10% for any 5. Picking a subset
+  buys compute and gives up fidelity, not the reverse.
+- **Inflation and stored error rank the module kinds oppositely.**
+  `attn.qkv_proj` has the highest inflation under PDD and the lowest error
+  before it; `attn.out_proj` the reverse. Only the second bears on the re-bake
+  question, and the two had been read as one ranking.
 - **The claim that a better quantised DiT "does not exist as an option" is
   withdrawn** (`docs/research/h3_dit_implementations.md` §10.5). It carried an
   ENCODER record to a DiT conclusion, attributed to §7 things §7 does not
