@@ -38,6 +38,32 @@ support below.
                  summary; this node follows the KERNEL's contract and the one
                  other H3 implementation, not the paper.
 
+## A known defect, unreachable today, and it must be fixed before un-parking
+
+`_publish_layout` mutates the SHARED model object directly --
+`diffusion_model._forward = ...` and `diffusion_model.rope_freqs = ...` -- not
+through `ModelPatcher`. `ModelPatcher` undoes `object_patches` on unpatch; a
+plain attribute assignment it does not. So once this node has executed once,
+the wrappers live for the life of the LOADED model, survive removing the node
+from the graph, and keep publishing `h3_vsa_layout` into every later forward's
+`transformer_options` -- including other lanes' renders. `_FORWARD_PATCHED` is
+keyed on `id(diffusion_model)` and is a module global, so it prevents double
+wrapping rather than providing any cleanup.
+
+**It cannot have leaked, and the reason is the refusal rather than the design.**
+`execute` raises at `_gate_modules` (line ~527) when the model has no
+`to_gate_compress`, which is every model on this box while
+Comfy-Org/ComfyUI#15958 is unmerged; `_publish_layout` is line ~544 and is
+never reached. That is the same shape as the PDD lane's observer arming itself
+with nothing to record: a real defect bounded to zero by a gate in front of it,
+which is a different finding from an escape.
+
+**The fix when VSA is un-parked** is `add_object_patch("diffusion_model._forward", ...)`
+and the same for `rope_freqs`, so the patcher owns the lifetime. Five other
+places in this pack patch `diffusion_model.forward` THROUGH the patcher
+(`nodes.py`, `audio_carry_probe.py`, `quant_observe.py`, and PDD's), so this
+node is the only one taking the irreversible route. Do not un-park without it.
+
 **What is unexercised. Corrected 2026-08-31** -- this used to say the gate
 projection, the kernel call and the output reordering had never run under a
 real forward. They have: it rendered on 2026-08-30 against a dense control,
