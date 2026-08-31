@@ -23,7 +23,24 @@ Per `(block, kind, step)`, all reduced online -- nothing large is written:
                 rounding problem the weight side cannot see. Quantiles rather
                 than the raw vector because 104k floats x 200 cells x steps is
                 not a reduction.
-  x_norm/out_norm, rows, dtype, and the kernel that actually RAN.
+  x_norm/out_norm, rows, dtype, and the step/sigma/capture_id joined from
+                the outer patch.
+
+**No `kernel` column, deliberately.** The contract asks for the attention
+route actually taken per (block, step), and a linear's forward cannot see it:
+`h3_capture.py` receives it as an argument from the attention node, and
+nothing publishes it where a hook on `attn.out_proj` could read it. Reading
+the CONFIGURED route from `transformer_options` instead would name the route
+chosen rather than the one taken -- the exact defect the Sol lane found in its
+own tag on 2026-08-30. So the attribution comes from the joint `H3_CAPTURE`
+record, which has it from the node that ran it, joined on `capture_id` plus
+(block, step). A column that is structurally always null is worse than an
+absent one.
+
+**No `knot` column either, for the same reason**: the grid mapping belongs to
+the PDD tracker, and re-deriving it here would be a second authority that can
+disagree with the first. `sample_sigmas` is recorded instead, so the knot is
+computable offline by whoever owns the grid.
 
 ## Three traps this file exists to not fall into
 
@@ -163,7 +180,7 @@ def _token_summary(tok: torch.Tensor) -> dict:
 
 
 def record(block: int, kind: str, x: torch.Tensor,
-           out: torch.Tensor | None = None, kernel: str | None = None) -> None:
+           out: torch.Tensor | None = None) -> None:
     """One `(block, kind, step)` observation of a linear's INPUT.
 
     Never raises into a render -- but never silently either. A swallowed
@@ -183,9 +200,7 @@ def record(block: int, kind: str, x: torch.Tensor,
                 "block": int(block),
                 "kind": kind,
                 "step": _context.get("step"),
-                "knot": _context.get("knot"),
                 "sigma": _context.get("sigma"),
-                "kernel": kernel,
                 "rows": int(t.shape[0]),
                 "in_features": int(t.shape[-1]),
                 "dtype": str(t.dtype),
@@ -280,6 +295,10 @@ def flush(meta: dict | None = None, expect_blocks: int = 0) -> str | None:
                           "inferred from positions -- a capture that reduces a "
                           "grouping it did not record has lost its shape."),
         "capture_id": _context.get("capture_id"),
+        "sample_sigmas": _context.get("sample_sigmas"),
+        "join_note": ("capture_id plus (block, step) is the join to an "
+                      "H3_CAPTURE record taken in the same render. Attention "
+                      "route attribution lives there, not here."),
         "meta": meta or {},
         "shape_check": _shape_check(expect_blocks),
         "observations": _rows,

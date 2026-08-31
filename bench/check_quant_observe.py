@@ -184,6 +184,101 @@ def main() -> int:
             "still red with all four kinds at both blocks -- the assertion is "
             "not measuring what it claims")
 
+
+    def outer_patch_chains_rather_than_replaces():
+        """The composition bug, red-proved against a stub ModelPatcher.
+
+        **The existing cases could not have caught this**: they drive the
+        wrappers directly and never run `execute`, so nothing exercised how the
+        patches are INSTALLED. The first version took `dm.forward` -- the raw
+        bound method -- for the outer patch, which on any graph wiring
+        `MiniMaxH3PDDLoRA` would silently replace that node's step tracker,
+        because `add_object_patch` is last-writer-wins. Found by an external
+        review before it ran.
+
+        The property asserted is that a forward installed BEFORE this observer
+        still executes after it, which is exactly what chaining from
+        `get_model_object` buys and what chaining from `dm.forward` loses.
+        """
+        calls = []
+
+        class StubLinear:
+            def forward(self, x):
+                return x
+
+        class StubMLP:
+            def __init__(self):
+                self.fc1 = StubLinear()
+                self.fc2 = StubLinear()
+
+        class StubAttn:
+            def __init__(self):
+                self.qkv_proj = StubLinear()
+                self.out_proj = StubLinear()
+
+        class StubBlock:
+            def __init__(self):
+                self.attn = StubAttn()
+                self.mlp = StubMLP()
+
+        class StubDM:
+            def __init__(self):
+                self.blocks = [StubBlock(), StubBlock()]
+
+            def forward(self, *a, **kw):
+                calls.append("raw")
+
+        class StubModel:
+            def __init__(self, dm):
+                self.dm = dm
+                self.object_patches = {}
+
+            def clone(self):
+                n = StubModel(self.dm)
+                n.object_patches = dict(self.object_patches)
+                return n
+
+            def add_object_patch(self, k, v):
+                self.object_patches[k] = v
+
+            def get_model_object(self, name):
+                if name in self.object_patches:
+                    return self.object_patches[name]
+                if name == "diffusion_model":
+                    return self.dm
+                obj = self.dm
+                for part in name.split(".")[1:]:
+                    # `blocks.0` indexes a list; ComfyUI's own resolver does
+                    # the same, and a stub that only does getattr would fail
+                    # on the real key shape rather than on the property.
+                    obj = obj[int(part)] if part.isdigit() else getattr(obj, part)
+                return obj
+
+        dm = StubDM()
+        model = StubModel(dm)
+
+        def prior(*a, **kw):
+            calls.append("prior")
+            return dm.forward(*a, **kw)
+
+        model.add_object_patch("diffusion_model.forward", prior)
+
+        real_is_h3 = qo._is_minimax_h3
+        qo._is_minimax_h3 = lambda _dm: True
+        try:
+            arm(tmp)
+            out = qo.MiniMaxH3QuantObserve.execute(model, blocks="-1")
+        finally:
+            qo._is_minimax_h3 = real_is_h3
+
+        patched = out.result[0] if hasattr(out, "result") else out[0]
+        patched.object_patches["diffusion_model.forward"](
+            None, None, None, {})
+        assert "prior" in calls, (
+            f"the forward installed before this observer did not run: {calls}. "
+            f"Chaining from `dm.forward` instead of `get_model_object` "
+            f"replaces it, which on a PDD graph kills head selection silently.")
+
     def inert_without_the_env_var():
         m = build_mlp()
         obs._rows.clear(); obs._failures.clear()
@@ -200,6 +295,8 @@ def main() -> int:
     check("linear wrapper records and returns", linear_wrapper_records_and_returns)
     check("shape check is red when a kind is missing",
           shape_check_is_red_when_a_kind_is_missing)
+    check("outer patch chains rather than replaces",
+          outer_patch_chains_rather_than_replaces)
     check("inert without the env var", inert_without_the_env_var)
 
     if FAILED:

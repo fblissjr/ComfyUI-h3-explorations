@@ -45,6 +45,7 @@ reasoning `pdd_lora.py` records for its own patches.
 from __future__ import annotations
 
 import logging
+import uuid
 
 from comfy_api.latest import io
 
@@ -115,7 +116,7 @@ def make_mlp_forward(mlp, block: int):
     return forward
 
 
-def make_outer_forward(base_forward, expect_blocks: int):
+def make_outer_forward(base_forward, expect_blocks: int, capture_id: str):
     """Publish step, sigma and the packed layout, then flush.
 
     The module hooks cannot see any of this from where they sit, and the two
@@ -134,7 +135,13 @@ def make_outer_forward(base_forward, expect_blocks: int):
             layout = payload.get("layout") if isinstance(payload, dict) else None
             segs = getattr(layout, "segments", None)
             dit_observe.set_context(
-                step=step, sigma=sig,
+                capture_id=capture_id, step=step, sigma=sig,
+                # The schedule itself rather than a derived knot index: the
+                # grid mapping belongs to the PDD tracker, and re-deriving it
+                # here would be a second authority that can disagree. Recorded
+                # so the knot is computable offline by whoever owns the grid.
+                sample_sigmas=[float(s_) for s_ in sched]
+                if sched is not None else None,
                 segments=[[int(a_), int(b_), str(k_)] for a_, b_, k_ in segs]
                 if segs else None)
         except Exception as exc:                     # noqa: BLE001
@@ -210,36 +217,35 @@ class MiniMaxH3QuantObserve(io.ComfyNode):
                 f"{len(dm.blocks)} blocks.")
 
         m = model.clone()
-        taken = []
+        # **Chain from the PATCHED forward, never from the raw bound method.**
+        # `add_object_patch` is last-writer-wins and `get_model_object` returns
+        # whatever patch is already installed, so `m.get_model_object(key)` is
+        # the only correct base -- it composes with an owner that got there
+        # first instead of replacing it.
+        #
+        # Corrected 2026-08-31 before this ever ran, by an external review. The
+        # first version took `dm.forward`, the UNPATCHED method, for the outer
+        # patch: on any graph wiring `MiniMaxH3PDDLoRA` -- which patches the
+        # same key to publish its step tracker -- this observer would have
+        # silently replaced it and broken head selection. Worse, that version
+        # carried a collision REFUSAL for the 150 block keys and neither
+        # chained nor refused on the one key most likely to collide.
         for i in sorted(want):
             blk = dm.blocks[i]
             assert_mlp_shape(blk.mlp)
-            for kind, mod in (("attn.qkv_proj", blk.attn.qkv_proj),
-                              ("attn.out_proj", blk.attn.out_proj)):
+            for kind in ("attn.qkv_proj", "attn.out_proj"):
                 key = f"diffusion_model.blocks.{i}.{kind}.forward"
-                if key in (m.object_patches or {}):
-                    taken.append(key)
-                    continue
-                m.add_object_patch(key, make_linear_forward(mod.forward, i, kind))
+                m.add_object_patch(
+                    key, make_linear_forward(m.get_model_object(key), i, kind))
             key = f"diffusion_model.blocks.{i}.mlp.forward"
-            if key in (m.object_patches or {}):
-                taken.append(key)
-            else:
-                m.add_object_patch(key, make_mlp_forward(blk.mlp, i))
+            m.add_object_patch(key, make_mlp_forward(blk.mlp, i))
 
-        if taken:
-            # `add_object_patch` is last-writer-wins, so a second owner would
-            # leave one instrument silently unpatched. Same refusal the PDD
-            # node makes over its adaln patch points.
-            raise RuntimeError(
-                f"{len(taken)} patch point(s) this observer needs are already "
-                f"taken (e.g. {taken[0]}). Something upstream owns these "
-                f"forwards; refusing rather than clobbering it, because the "
-                f"loser records nothing and the file looks complete.")
-
+        capture_id = f"quant-{uuid.uuid4().hex[:12]}"
         m.add_object_patch(
             "diffusion_model.forward",
-            make_outer_forward(dm.forward, expect_blocks=len(want)))
+            make_outer_forward(m.get_model_object("diffusion_model.forward"),
+                               expect_blocks=len(want),
+                               capture_id=capture_id))
 
         logger.info(
             "[h3-quant-observe] armed: %d block(s), 4 kinds, writing to %s. "
