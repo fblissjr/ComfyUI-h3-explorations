@@ -2412,12 +2412,21 @@ def graph_schedule(graph) -> tuple:
         before anything reading this does.
       * a `ManualSigmas` node -> the step count is `len(vector) - 1`, and the
         scheduler is **`manual`**. Added 2026-08-28 with the tail-weighted PDD
-        partition, which is the first graph whose schedule is neither a
-        `BasicScheduler` curve nor a count the PDD node can emit: the node's
-        SIGMAS output only expresses counts that DIVIDE the 32-point grid, and
-        `[8,8,4,4,4,4]` is six evaluations. Reading it off the vector is not a
-        convenience -- it is the only place the count exists on that graph, and
-        three checks went red at once when it did not.
+        partition, the first graph whose schedule is neither a
+        `BasicScheduler` curve nor -- at the time -- a count the PDD node could
+        emit. Reading it off the vector is not a convenience: it is the only
+        place the count exists on that graph, and three checks went red at
+        once when it did not.
+        **Corrected 2026-08-31.** This said the node's SIGMAS output "only
+        expresses counts that DIVIDE the 32-point grid". True when written on
+        2026-08-28 and false since 2026-08-29, when `resolve_emit_steps` gained
+        the envelope route -- six IS emittable now, as `[8,8,4,4,4,4]`. The
+        graph still wires `ManualSigmas`, which remains correct and is graded
+        against `partition_bounds` by `bench/check_distill_grid.py`. This was
+        the fourth place carrying that withdrawn claim; the others were the
+        node's `steps` tooltip, `docs/h3_pdd.md`'s sweep table, and
+        `check_distill_grid` itself, which was RED on a correct graph because
+        of it.
       * neither -> `(None, None)`, and the caller decides whether that is a
         failure. It still is for every current caller.
 
@@ -2478,6 +2487,36 @@ def graph_schedule(graph) -> tuple:
     if steps is None and pdd_steps is not None:
         return pdd_steps, "simple"
     return steps, scheduler
+
+
+def manual_sigmas(graph):
+    """The explicit sigma vector a `ManualSigmas` node states, or None.
+
+    The companion to the `manual` branch above, which returns only the COUNT.
+    A caller grading whether that vector is on the LoRA's grid needs the values
+    -- `bench/check_distill_grid.py` compares them against
+    `pdd_math.partition_bounds`, which is the only honest grading for a
+    schedule no scheduler produces.
+
+    Goes through `resolve_widget` for the same reason everything else here
+    does: a linked widget must read as the value behind it.
+    """
+    nodes = (graph.get("nodes") if isinstance(graph.get("nodes"), list)
+             else list(graph.values()))
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        if (n.get("type") or n.get("class_type")) != "ManualSigmas":
+            continue
+        got = resolve_widget(graph, n, "sigmas", _widget(n.get("widgets_values"), 0))
+        if got.ok and isinstance(got.value, str):
+            try:
+                vals = [float(x) for x in got.value.split(",") if x.strip()]
+            except ValueError:
+                return None
+            if len(vals) >= 2:
+                return vals
+    return None
 
 
 def graph_paths(workflows, pattern: str = "*.json", include_bench: bool = False) -> list:

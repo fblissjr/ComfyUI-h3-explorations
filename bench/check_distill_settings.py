@@ -323,6 +323,16 @@ def pdd_grid(lora_name):
     return _pdd_meta(lora_name, "pdd_num_steps")
 
 
+def pdd_block_size(lora_name):
+    """`pdd_block_size` -- the width the head bank was distilled at, or None.
+
+    Needed to grade a step count that does NOT divide the grid: those tile it
+    unevenly, and whether a given uneven tiling is legal is a question about
+    the trained envelope `[trained, 2*trained]` rather than about divisibility.
+    """
+    return _pdd_meta(lora_name, "pdd_block_size")
+
+
 def pdd_nfe(lora_name):
     """`pdd_nfe` from the converted file's own metadata, or None if unreadable.
 

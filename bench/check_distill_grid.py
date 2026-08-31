@@ -125,10 +125,12 @@ WORKFLOWS = REPO / "workflows"
 VENDOR_README = REPO / "coderef" / "Minimax-H3-Turbo" / "README.md"
 
 from h3_config import graph_paths  # noqa: E402
-from pdd_math import block_bounds  # noqa: E402
+import h3_config  # noqa: E402
+from pdd_math import block_bounds, partition_bounds  # noqa: E402
+from pdd_lora import envelope_partition  # noqa: E402
 from check_distill_settings import (  # noqa: E402
     LEGAL, OWNER_RECIPE, PACK_STEPS, classify, classify_pack, classify_pdd,
-    pdd_grid, pdd_nfe, is_turbo,
+    pdd_grid, pdd_nfe, pdd_block_size, is_turbo,
     read_api, read_ui,
 )
 
@@ -606,15 +608,57 @@ def main() -> int:
                 bad.append(f"{rel}: could not read `pdd_num_steps` from "
                            f"{names[0]}, so there is no grid to grade against")
                 continue
-            if nfe < 1 or grid % nfe:
-                bad.append(f"{rel}: {nfe} evaluations do not divide the "
-                           f"{grid}-point grid, so the blocks do not tile it")
+            # TWO routes tile the grid, and this graded only the first until
+            # 2026-08-31. A divisor tiles it uniformly; a non-divisor may still
+            # tile it UNEVENLY inside the trained envelope, which is what
+            # `resolve_emit_steps` accepts and what the shipped
+            # `..._manual_sigmas` graphs run at six. Grading only divisibility
+            # made this check RED on a graph the project ships on purpose --
+            # `docs/checks.md`'s rule that a red on correct state is worse than
+            # no check. Both `envelope_partition` and `partition_bounds` are
+            # imported from the node and `pdd_math` rather than restated here,
+            # so deleting either reddens this rather than silently agreeing.
+            widths = None
+            if nfe < 1:
+                bad.append(f"{rel}: {nfe} evaluations is not a step count")
                 continue
+            if grid % nfe:
+                trained = pdd_block_size(names[0])
+                widths = (envelope_partition(grid, nfe, int(trained))
+                          if trained else None)
+                if widths is None:
+                    bad.append(
+                        f"{rel}: {nfe} evaluations neither divide the "
+                        f"{grid}-point grid nor tile it inside the trained "
+                        f"envelope, so no on-grid schedule exists")
+                    continue
             sv, sa = found.shift
+            if found.scheduler == "manual":
+                # No scheduler produces this vector -- the graph STATES it, so
+                # grading it through `calculate_sigmas` is a category error and
+                # raised `invalid scheduler manual` until 2026-08-31. The
+                # honest comparison is the vector the graph carries against the
+                # boundaries the heads were fused at, which is exactly what
+                # `partition_bounds` computes for an uneven tiling.
+                stated = h3_config.manual_sigmas(json.loads(path.read_text()))
+                if stated is None or widths is None:
+                    bad.append(f"{rel}: scheduler is `manual` but its vector "
+                               f"or its envelope partition could not be read")
+                    continue
+                want_v = [1.0 - float(t)
+                          for t in partition_bounds(sv, grid, widths).tolist()]
+                dev = deviation(stated, want_v)
+                if dev > 1e-5:
+                    bad.append(
+                        f"{rel}: its ManualSigmas vector deviates {dev:.6f} "
+                        f"from the boundaries its heads were fused at "
+                        f"(partition {widths}, shift {sv})")
+                continue
             video, audio = comfy_grid(sv, sa, found.scheduler, found.steps)
             for label, got, shift in (("video", video, sv), ("audio", audio, sa)):
-                want = [1.0 - float(t) for t in
-                        block_bounds(shift, grid, grid // nfe).tolist()]
+                bounds = (partition_bounds(shift, grid, widths) if widths
+                          else block_bounds(shift, grid, grid // nfe))
+                want = [1.0 - float(t) for t in bounds.tolist()]
                 dev = deviation(got, want)
                 if dev > 1e-6:
                     bad.append(

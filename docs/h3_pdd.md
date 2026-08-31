@@ -524,18 +524,35 @@ released.** Recovering `L_max` is the one thing that would settle it.
 
 Generated against `pdd_math` and `h3_config`, not recalled:
 
-| steps | tiles the grid | block width | vs trained width 4 | the node |
+| steps | tiles the grid | partition | vs trained width 4 | the node |
 |---|---|---|---|---|
-| 1 | yes | 32 | past 2x | emits |
-| 2 | yes | 16 | past 2x | emits |
+| 1 | yes, divisor | `[32]` | past 2x | emits |
+| 2 | yes, divisor | `[16,16]` | past 2x | emits |
 | 3 | **no** | -- | -- | **raises** |
-| 4 | yes | 8 | **2x, the edge** | emits |
-| 5 | **no** | -- | -- | **raises** |
-| 6 | **no** | -- | -- | **raises** |
-| 7 | **no** | -- | -- | **raises** |
-| 8 | yes | 4 | **trained** | emits |
+| 4 | yes, divisor | `[8,8,8,8]` | **2x, the edge** | emits |
+| 5 | yes, **envelope** | `[8,8,8,4,4]` | **2x, the edge** | emits |
+| 6 | yes, **envelope** | `[8,8,4,4,4,4]` | **2x, the edge** | emits |
+| 7 | yes, **envelope** | `[8,4,4,4,4,4,4]` | **2x, the edge** | emits |
+| 8 | yes, divisor | `[4]*8` | **trained** | emits |
 | 9 | **no** | -- | -- | **raises** |
 | 10 | **no** | -- | -- | **raises** |
+
+**Corrected 2026-08-31, and the withdrawn version was load-bearing.** Rows 5,
+6 and 7 read **raises** here until today. That was true until 2026-08-29, when
+`resolve_emit_steps` gained the second route: a count that does not DIVIDE the
+32-point grid may still tile it UNEVENLY inside the trained envelope, which is
+what `envelope_partition` computes. Six is the case that matters -- it is the
+tail-weighted partition the owner had been supplying by hand through
+`ManualSigmas`, and `h3_config.PDD_MANUAL_SIGMAS` is that same partition. The
+node's `steps` tooltip carried the same stale claim and was corrected the same
+day; it had survived a tooltip rewrite whose entire purpose was accuracy,
+which is what a inherited sentence does. Found by an external reviewer reading
+the source rather than by anyone here re-reading their own work.
+
+The partitions above are **generated from `pdd_lora.envelope_partition` and
+`resolve_emit_steps`, driven, not recalled** -- the previous table said it was
+generated too, and had gone stale anyway, so prefer driving the function to
+trusting this table.
 
 **A Sol `end_percent` column was here until 2026-08-29 and has been removed
 rather than corrected.** It carried 0.74 at 4 steps, 0.87 at 8 and "0.9
