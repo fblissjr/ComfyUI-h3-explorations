@@ -184,6 +184,49 @@ artifact.
 
 ### Added
 
+- **`bench/analyze_weight_outliers.py` and
+  `bench/results/2026-08-31_dit_weight_outliers.json`** — Tier 0 of the
+  quantisation-lever plan: the DiT headroom measurement that had never been
+  run, plus the outlier structure the rotation does or does not flatten, over
+  all 200 backbone modules. CPU only.
+- **[`docs/research/quant_levers.md`](docs/research/quant_levers.md)** — the
+  owner doc for what can be changed about H3's quantisation. Nothing owned
+  this, which is how a withdrawn claim sat in `h3_dit_implementations.md`
+  §10.5.
+
+### Measured
+
+- **The DiT int8 build is at its format floor.** `e_shipped` 0.0093617314051
+  against a deterministic reproduction's 0.0093617314403 — ten significant
+  figures, on all 200 modules, from the release **bf16** (the encoder needed
+  fp32). This is the DiT record whose absence let §10.5 reason from the
+  encoder's.
+- **Stochastic rounding costs exactly √2, and it is on the shipped merge
+  path.** `e_stochastic / e_deterministic` = 1.4142150 over 200 modules
+  against √2 = 1.4142136 — seven significant figures, predicted from the grid
+  geometry (1/6 against 1/12 of a cell). `comfy/model_patcher.py:928` passes
+  `seed=string_to_seed(key)` into `set_weight`, so **any LoRA merged onto an
+  int8_convrot module carries √2 the requantisation error a deterministic bake
+  would**, and every merge number published here was measured deterministically
+  — the optimistic case.
+- **`attn.out_proj`'s excess is explained**, closing a `not_measured` line in
+  `2026-08-28_quant_hotspots_ref2va.json`. Its outliers span wider than 256
+  channels: median row kurtosis after the shipped rotation is ≈0.00 on
+  qkv_proj, fc1 and fc2, and 0.16-0.68 on out_proj. A 1024-wide rotation
+  reaches them.
+- **`convrot_groupsize` 1024 buys 10.2% on `attn.out_proj` and 0.17% on
+  `mlp.fc2`** — strongest shallow (15.4% over blocks 0-9, 7.2% at 30-39), 49
+  of 50 blocks at or above 5%. Block 0 alone reads 20.8%, so a one-block
+  measurement would have overstated it twofold. **It is a trade, not a free
+  win**: `_should_use_convrot_fused_kernel` requires `group_size == 256`, so
+  gs 1024 loses the kernel that fuses the activation rotation, the row-wise
+  quantisation and the SwiGLU, per forward.
+- **Two invariant violations, both named rather than smoothed**: `gs 64` beats
+  `gs 256` on one module by 3.8e-06 (a near-tie), and the rotation raised
+  `group_disagreement` on two out_proj modules — a property of that metric,
+  which is a ratio across groups, not the within-group spread the Hadamard
+  optimises.
+
 - **`bench/analyze_pdd_unmerge_curve.py` and
   `bench/results/2026-08-31_pdd_unmerge_recovery.json`** — what un-merging N
   blocks recovers, and whether picking N pays. It asserts the 50x4 module shape

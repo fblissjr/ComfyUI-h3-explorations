@@ -1702,3 +1702,21 @@ the three relative L2s above, per kind.
 
 **Blocker:** one render's worth of card time, plus the capture spec on the
 server that runs it. Nothing else — the scoring is CPU and needs no server.
+
+**Narrowed 2026-08-31 by the weight-side pass.**
+`bench/analyze_weight_outliers.py` answered everything answerable without a
+card ([`research/quant_levers.md`](research/quant_levers.md)), which changes
+what this entry has to establish rather than closing it:
+
+- The second bullet above is no longer speculative on the weight side.
+  `convrot_groupsize` 1024 buys 10.2% on `attn.out_proj` and nothing on
+  `mlp.fc2`, and out_proj's excess is explained — its outliers span wider than
+  256 channels, which a 1024-wide rotation reaches and the shipped one does
+  not. What this entry must now decide is whether that survives to the output,
+  and whether it pays for the **fused CUDA kernel** it costs:
+  `_should_use_convrot_fused_kernel` requires `group_size == 256`, so an arm
+  must be TIMED and not only scored.
+- The first bullet is unchanged and is still the point of the entry.
+- One prediction is now cheap to score against something real: the weight-side
+  kind ranking is out_proj worst, and T2 says the runtime ranking will differ
+  from it.

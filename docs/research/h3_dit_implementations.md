@@ -968,8 +968,18 @@ Two in-format levers therefore remain open rather than closed:
   priced out rather than impossible: out_proj at bf16 is +1.8 GiB across 50
   blocks, and fp8 is strictly worse than int8 here (0.0265 against 0.0104).
 
+**Both were measured on the weight side on 2026-08-31**, and
+[`quant_levers.md`](quant_levers.md) is now the owner of this question —
+including the DiT headroom record whose ABSENCE is what let this paragraph
+reason from the encoder's. In summary: the DiT build is at its format floor
+(reproduced to ten significant figures from the release bf16 on all 200
+modules); `convrot_groupsize` 1024 buys **10.2%** on `attn.out_proj` alone and
+0.17% on `mlp.fc2`, strongest in the shallow blocks; and it costs the fused
+CUDA kernel, which requires `group_size == 256`, so it is a trade rather than a
+free win.
+
 Neither is worth turning until the runtime decomposition exists —
-`docs/open_experiments.md` #23.
+`docs/open_experiments.md` #23. Everything above is one of the two roundings.
 
 If the goal is exact modulation, neither file is the answer. The exact AdaLN
 cache in §9.8 is: bf16-exact, ~148 MiB for this schedule, built from the
