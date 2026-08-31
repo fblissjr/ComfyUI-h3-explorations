@@ -23,7 +23,6 @@ from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
 from .reference_fit import MiniMaxH3ReferenceFit
 from .resolution import MiniMaxH3Resolution
-from .sol_curve_node import MiniMaxH3SolAttnCurve
 from .sol_attn_h3 import MiniMaxH3SolAttn
 from .vsa_attention import MiniMaxH3VSAAttention
 from .vae_precision import MiniMaxH3VAEPrecision
@@ -346,7 +345,7 @@ class H3ExplorationsExtension(ComfyExtension):
         # the end silently re-points every later entry in every existing graph.
         return [MiniMaxH3SageAttention, SageChainAssert, MiniMaxH3KeyframeCanvas,
                 MiniMaxH3ReferenceFit, MiniMaxH3Resolution, MiniMaxH3Preflight,
-                MiniMaxH3ProvenanceStamp, MiniMaxH3SolAttnCurve,
+                MiniMaxH3ProvenanceStamp,
                 MiniMaxH3SLARouter, MiniMaxH3VAEPrecision,
                 MiniMaxH3Conditioning,
                 MiniMaxH3ReferenceVideoFit,

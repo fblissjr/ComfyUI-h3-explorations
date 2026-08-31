@@ -210,11 +210,11 @@ def _expand(spec: str) -> set[int]:
     """
     if not spec.strip():
         return set()
-    sys.path.insert(0, str(REPO.parent))          # custom_nodes/
-    sys.path.insert(0, str(REPO.parents[1]))      # ComfyUI root, must win
-    mod = __import__(f"{REPO.name}.vendor.sol_attn_minimax",
-                     fromlist=["parse_blocks"])
-    return set(mod.parse_blocks(spec, 50))
+    # `parse_blocks` left the Sol node for `block_spec.py`; it was reached
+    # through `vendor/sol_attn_minimax.py` until 2026-08-31, which is not
+    # the running node and carries its own older copy.
+    from _live_sol import block_spec
+    return set(block_spec().parse_blocks(spec, 50))
 
 
 if __name__ == "__main__":

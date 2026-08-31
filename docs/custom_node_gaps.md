@@ -63,11 +63,10 @@ without it, **convenience** means the graph could be wired by hand instead, and
 | `MiniMaxH3VAEPrecision` | instrumentation | the fp32 probe arm, not the canonical graphs |
 | `MiniMaxH3ProvenanceStamp` | instrumentation | bench only |
 | `MiniMaxH3MarkerArm` | instrumentation | **no** |
-| `MiniMaxH3SolAttnCurve` | instrumentation | **no** |
 | `MiniMaxH3AWQEncoderLoader` | format adapter | **no** |
 
-Six registered nodes are wired by no shipped graph. That is not six pieces of
-dead code, and the distinction matters:
+The registered nodes wired by no shipped graph are not dead code, and the
+distinction matters:
 
 - `MiniMaxH3KeyframeCanvas` was **folded into its consumer** —
   `keyframe_canvas.py::resolve_keyframe_geometry` is called by
@@ -86,9 +85,13 @@ dead code, and the distinction matters:
 - `MiniMaxH3AWQEncoderLoader` is a **format adapter with no current consumer**,
   but live code: `bench/preflight_graph.py` and `workflows/h3_config.py` both
   read its `ARTIFACT_SNAPSHOTS`. See §5.1.
-- `MiniMaxH3MarkerArm` and `MiniMaxH3SolAttnCurve` are research instruments.
-  CLAUDE.md already warns that `MiniMaxH3SolAttnCurve` is the Hilbert
-  permutation node and **not** the Sol node the graphs wire; confirmed *read*.
+- `MiniMaxH3MarkerArm` is a research instrument.
+- **`MiniMaxH3SolAttnCurve` was deleted on 2026-08-31** and is no longer in
+  this table. It supplied a `hilbert` token ordering by rebinding
+  `morton_perm` on the vendored Sol node; that node stopped being loaded on
+  2026-08-30, so the rebind patched nothing and its `execute` could only
+  raise. `MiniMaxH3SolAttn` owns the Morton code and offers `hilbert` in its
+  own `morton_curve` combo.
 
 **The Sol node every shipped graph wires is this repo's own file.**
 `ComfyUI-SolAttn-cuda/sol_attn_minimax.py` is a symlink to

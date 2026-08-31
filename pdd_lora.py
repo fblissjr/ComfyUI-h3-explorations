@@ -157,8 +157,11 @@ vendor's forward-hook counter, stated as capabilities rather than as hazards.
 
 from __future__ import annotations
 
+import functools
+import importlib.util
 import logging
 import os
+from pathlib import Path
 
 import torch
 import torch.nn.functional as F
@@ -1194,6 +1197,59 @@ def _make_adaln_forward(base, a, b, grid, table, strength):
     return forward
 
 
+@functools.lru_cache(maxsize=1)
+def shipped_pdd_loras() -> tuple[str, ...]:
+    """The BAKED PDD files, in graph order, read from `workflows/h3_config.py`.
+
+    These are the menu default and the head of the option list. The ordering
+    matters because ComfyUI selects a combo's FIRST option when no default
+    applies, and the alphabetical population puts `..._adaln2688_comfy` ahead
+    of `..._comfy` -- so a freshly dragged node used to start on the portable
+    file rather than the one that fits the checkpoint every shipped graph
+    loads. Both work on a pruned base; only the baked one avoids installing 50
+    runtime forward patches to get there. `docs/h3_pdd.md` has the pairing.
+
+    Read, never copied -- `h3_config.PDD_FL2VA_LORA` / `PDD_REF2VA_LORA` are
+    the same strings the graphs wire, and a second copy of a filename here
+    would drift from them the first time one moved. Loaded from its path
+    rather than imported, which is `h3_awq_encoder.shipped_encoder_name`'s
+    reasoning and adds nothing to `sys.path`.
+
+    An empty tuple is ordinary, not an error: the standalone distribution
+    carries this module with no `workflows/` beside it, and a name absent from
+    the loras directory must not become a menu item either way -- the caller
+    intersects with the real population.
+    """
+    path = Path(__file__).resolve().parent / "workflows" / "h3_config.py"
+    try:
+        spec = importlib.util.spec_from_file_location("_h3_config_pdd_default",
+                                                      path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        names = (getattr(module, "PDD_FL2VA_LORA", None),
+                 getattr(module, "PDD_REF2VA_LORA", None))
+    except Exception:
+        return ()
+    return tuple(n for n in names if isinstance(n, str))
+
+
+def pdd_lora_options(population) -> list[str]:
+    """PDD files from `population`, baked-and-shipped first, rest in order.
+
+    Reordering a combo's options is safe for saved graphs in a way reordering
+    its INPUTS is not: `widgets_values` stores a combo's chosen STRING, while
+    inputs are matched positionally. That distinction is the reason this can be
+    done at all -- see the note on `head_strength` for what moving an input
+    costs.
+
+    A name in `h3_config` that is not on disk is dropped rather than offered,
+    so the menu never lists something the loader would fail to open.
+    """
+    pdd = [n for n in population if "pdd" in n.lower()]
+    head = [n for n in shipped_pdd_loras() if n in pdd]
+    return head + [n for n in pdd if n not in head]
+
+
 class MiniMaxH3PDDLoRA(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -1231,8 +1287,8 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 io.Model.Input("model"),
                 io.Combo.Input(
                     "lora_name",
-                    options=[n for n in folder_paths.get_filename_list("loras")
-                             if "pdd" in n.lower()],
+                    options=pdd_lora_options(
+                        folder_paths.get_filename_list("loras")),
                     tooltip=(
                         "A CONVERTED PDD file -- run bench/convert_pdd_lora.py "
                         "first. The published alibaba-pai weights load nowhere "
@@ -1240,6 +1296,15 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                         "`lora_down`/`lora_up` suffixes that no adapter "
                         "matches, so every tensor is skipped with a log line "
                         "and the render comes out an undistilled 8-step pass.\n\n"
+                        "THE DEFAULT IS RIGHT for this box: the menu opens on "
+                        "the fl2va BAKED file, with ref2va baked second, "
+                        "because every shipped graph loads a pruned "
+                        "int8_convrot checkpoint and that is the file which "
+                        "fits it without installing 50 runtime forward "
+                        "patches. Until 2026-08-31 the menu opened on the "
+                        "`_adaln2688` file instead -- not by decision, but "
+                        "because the list was alphabetical and `adaln2688` "
+                        "sorts before `comfy`.\n\n"
                         "TWO THINGS MUST MATCH, and both are refused loudly "
                         "rather than rendered wrong:\n\n"
                         "1. PARTITION. An fl2va file on a ref2va checkpoint, or "

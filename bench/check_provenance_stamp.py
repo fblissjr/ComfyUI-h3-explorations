@@ -93,7 +93,11 @@ def _load(name: str, path: Path):
 def main() -> int:
     try:
         prov = _load("_h3_provenance_probe", REPO / "provenance.py")
-        sol = _load("_h3_sol_node_probe", REPO / "vendor" / "sol_attn_minimax.py")
+        # The LIVE node, not the pristine vendored reference: this grades
+        # what `make_override` actually closes over, and the vendored file
+        # has not been the running node since 2026-08-30.
+        from _live_sol import live_sol
+        sol = live_sol()
     except Exception as exc:  # noqa: BLE001
         print(f"could not import provenance.py / the CUDA Sol node: "
               f"{type(exc).__name__}: {exc}")
@@ -126,8 +130,11 @@ def main() -> int:
     # Pick a knob that is BOTH a real parameter and currently recorded. If the
     # key list regresses to the Triton vocabulary this finds nothing to flip
     # and says so, rather than passing vacuously.
-    flippable = [k for k in ("centroid_tail", "reuse_qkv_memory",
-                             "routed_cap_percent", "tau")
+    # Updated 2026-08-31: `centroid_tail`, `reuse_qkv_memory` and
+    # `routed_cap_percent` are gone from the live node, so a list naming only
+    # those would find nothing to flip and report a vacuous pass -- which is
+    # the failure this list was written to avoid, arriving by the other route.
+    flippable = [k for k in ("tail", "topk_ratio", "tau")
                  if k in params and k in keys]
     if not flippable:
         report("closure_is_read_not_declared", False,

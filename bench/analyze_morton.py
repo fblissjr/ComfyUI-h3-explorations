@@ -105,11 +105,8 @@ def load_shipped_morton():
     keeps re-learning. `_independent_perm` below is the cross-check, and they
     are asserted equal before any number is printed.
     """
-    path = REPO / "vendor" / "sol_attn_minimax.py"
-    spec = importlib.util.spec_from_file_location("_sol_vendor", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    from _live_sol import live_sol
+    return live_sol()
 
 
 def _independent_perm(grid, curve):

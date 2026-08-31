@@ -195,69 +195,10 @@ def hilbert_perm(grid, device="cpu"):
     return hit[0].to(device), hit[1].to(device)
 
 
-def _live_modules(path):
-    """Every loaded module object whose file is `path`, resolved by identity.
-
-    A running ComfyUI can hold more than one module object for one file: the
-    custom-node loader registers by file path, and a dotted import of the same
-    file builds a second, independent object with its own copy of every
-    module-level function. Patching one and not the other logs success while the
-    server goes on running the unpatched copy.
-    """
-    import os
-    want = os.path.realpath(path)
-    out = []
-    for module in list(sys.modules.values()):
-        f = getattr(module, "__file__", None)
-        if not f:
-            continue
-        try:
-            if os.path.realpath(f) == want and hasattr(module, "morton_perm"):
-                out.append(module)
-        except OSError:
-            continue
-    return out
-
-
-def install(vendor_path) -> int:
-    """Rebind `morton_perm` on every live copy of the node so it knows our curves.
-
-    Idempotent, and returns how many module objects were patched. **Zero is a
-    failure**, not a no-op: it means the node is not loaded, or is loaded from a
-    different file than the one passed, and the caller should say so rather than
-    report success.
-
-    **Call this from `execute()`, never from `__init__.py`.** ComfyUI imports
-    custom-node packages in bare `os.listdir` order with no sort
-    (`ComfyUI/nodes.py:2356`), so there is no guarantee `ComfyUI-SolAttn-cuda`
-    is imported before this package -- it depends on directory entry order, and
-    it works today by accident. An import-time rebind that runs first finds
-    nothing in `sys.modules`, patches zero modules, and has no caller to fail:
-    the render then runs the unpatched curve and looks fine. Deferring to
-    execute time is what makes the zero above loud instead of silent.
-
-    This is the same class of failure as the two-module trap in CLAUDE.md
-    (patching a copy of a module and reporting success) and it has the same
-    tell: the log line says it worked. Any future scheme that needs to intercept
-    Sol-Attn *earlier* than this -- to read the override's parameters, say -- has
-    to solve the ordering problem rather than assume it, and must keep a
-    zero-is-a-failure check at execute time regardless of where it installs.
-    """
-    patched = 0
-    for module in _live_modules(vendor_path):
-        original = getattr(module, "_curve_original_morton_perm", None)
-        if original is None:
-            original = module.morton_perm
-            module._curve_original_morton_perm = original
-
-        def dispatch(grid, device, curve="3d", _original=original):
-            if curve in OURS:
-                return hilbert_perm(grid, device)
-            return _original(grid, device, curve)
-
-        module.morton_perm = dispatch
-        patched += 1
-    if patched:
-        logging.info(f"[sol_curves] added {OURS} to {patched} live copy(ies) of "
-                     f"the Sol-Attn node")
-    return patched
+# `install()` and `_live_modules()` lived here until 2026-08-31. They rebound
+# `morton_perm` on the live copy of `vendor/sol_attn_minimax.py`, because that
+# node's combo could not express `hilbert` and editing upstream's file was not
+# an option. `MiniMaxH3SolAttn` owns the Morton code and dispatches `hilbert`
+# to `hilbert_perm` below directly, so there is nothing left to patch -- and
+# the vendored node is not loaded by ComfyUI at all. `OURS` is kept: it is the
+# list of curves this module supplies, which is still true.

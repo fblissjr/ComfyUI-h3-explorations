@@ -41,7 +41,10 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-SOL_SRC = REPO / "vendor" / "sol_attn_minimax.py"
+#: The LIVE Sol node. Was `vendor/sol_attn_minimax.py` until 2026-08-31,
+#: which stopped being the running node on 2026-08-30 -- so this graded a
+#: compose contract in a file ComfyUI does not load.
+SOL_SRC = REPO / "sol_attn_h3.py"
 FLAG = "_uses_optimized_attention"
 
 # The two functions in the vendored module that must keep skipping our forward.

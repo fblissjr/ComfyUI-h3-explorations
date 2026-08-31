@@ -85,13 +85,8 @@ REPO = Path(__file__).resolve().parent.parent
 
 def load_shipped_morton():
     """The permutation the node installs. Imported, never reimplemented."""
-    import importlib.util
-    sys.path.insert(0, str(REPO.parent.parent))
-    path = REPO / "vendor" / "sol_attn_minimax.py"
-    spec = importlib.util.spec_from_file_location("_sol_vendor", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    from _live_sol import live_sol
+    return live_sol()
 
 
 def latent_t(length):

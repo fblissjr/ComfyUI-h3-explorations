@@ -71,7 +71,7 @@ from comfy_api.latest import io
 
 logger = logging.getLogger(__name__)
 
-STAMP_SCHEMA_VERSION = 3
+STAMP_SCHEMA_VERSION = 4
 
 # Every Sol setting that exists only inside the override closure. Anything here
 # that introspection cannot reach becomes an explicit "not detected" IN THE
@@ -96,10 +96,26 @@ STAMP_SCHEMA_VERSION = 3
 # the three: 0.0 means the tau threshold chose the blocks and
 # anything else means top-k did, so a sidecar without it cannot say which
 # selection rule produced the render.
+# Re-derived 2026-08-31 against `sol_attn_h3.py`'s `make_override`, and this
+# is the THIRD time this list has been found describing a node that is not the
+# one running -- the two corrections above are the other two. It was wrong in
+# both directions again: it asked for `centroid_tail` and `reuse_qkv_memory`,
+# which comfy-kitchen#117 removed and the fork dropped rather than kept inert,
+# so both recorded "not detected" on every render; and it omitted `tail`, the
+# knob the node exposes as `pooled_tail`, which decides whether unselected
+# blocks contribute a pooled term at all -- the single largest behavioural
+# switch on the node, absent from the record entirely.
+#
+# **It went undetected because its guard was grading the wrong file.**
+# `check_provenance_stamp.py` loaded `vendor/sol_attn_minimax.py`, which stopped
+# being the running node on 2026-08-30, so the check stayed green against a
+# retired signature while the stamp drifted. The guard was repointed at the live
+# node on 2026-08-31 and went red immediately. Derive this list from
+# `make_override`, never from memory of what the node used to take.
 SOL_CLOSURE_KEYS = (
     "tau", "min_tokens", "sigma_start", "sigma_end", "verbose",
     "sink_conditioning", "dense_blocks", "tau_profile",
-    "topk_ratio", "centroid_tail", "reuse_qkv_memory",
+    "topk_ratio", "tail",
 )
 
 NOT_DETECTED = "not detected"

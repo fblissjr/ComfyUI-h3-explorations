@@ -472,8 +472,8 @@ qwen. `MiniMaxH3SageAttention` and `MiniMaxH3SLARouter` take the same MODEL
 input, and the sage node's own description says to connect it between the model
 loader and the sampler; its `patch_token_refiner` option patches the DiT's text
 token-refiner blocks, not the encoder. (An earlier draft of this paragraph named
-this repo's `MiniMaxH3SolAttnCurve` instead. That is a real node but it appears
-in **zero** shipped graphs, so it could not support a claim about what the
+this repo's `MiniMaxH3SolAttnCurve` instead. That was a real node at the time
+(it was deleted on 2026-08-31) but it appeared in **zero** shipped graphs, so it could not support a claim about what the
 graphs do; corrected 2026-08-26 after a code review caught it, which is the
 CLAUDE.md tell -- check what the thing attaches to, and here also whether any
 graph wires it -- applied to the paragraph that cites the rule.) The encoder

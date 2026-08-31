@@ -27,6 +27,17 @@ artifact.
 
 ### Changed
 
+- **`MiniMaxH3PDDLoRA` now opens on the BAKED PDD file, not the `adaln2688`
+  one.** The combo listed whatever `folder_paths` returned, and ComfyUI selects
+  a combo's first option — alphabetically `..._adaln2688_comfy` sorts ahead of
+  `..._comfy`, so a freshly dragged node started on the portable file. Both
+  work on a pruned base; only the baked one gets there without installing 50
+  runtime forward patches, and every shipped graph loads a pruned
+  int8_convrot checkpoint. The head of the list is now
+  `h3_config.PDD_FL2VA_LORA` then `PDD_REF2VA_LORA`, read from that file rather
+  than copied, and intersected with what is actually on disk. Reordering combo
+  OPTIONS is safe for saved graphs — `widgets_values` stores a combo's chosen
+  string, where inputs are matched positionally.
 - **`MiniMaxH3PDDLoRA`'s tooltips lead with what to set.** Every one was
   rewritten to open with the operative instruction ("Leave at 1.0", "EXPERIMENT
   ONLY", "ACCURACY KNOB, off by default") before the reasoning, and the repo

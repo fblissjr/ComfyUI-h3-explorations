@@ -266,16 +266,6 @@
       "Output"
     ]
   },
-  "MiniMaxH3SolAttnCurve": {
-    "inputs": [
-      "model",
-      "curve"
-    ],
-    "node_id": "MiniMaxH3SolAttnCurve",
-    "outputs": [
-      "Output"
-    ]
-  },
   "MiniMaxH3VAEPrecision": {
     "inputs": [
       "vae",

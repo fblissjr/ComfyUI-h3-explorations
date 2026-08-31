@@ -1231,8 +1231,10 @@ measured.** They do not beat each other consistently: `3d` leads centroid
 fidelity, `hilbert` leads mass concentration, and `hilbert` has the higher floor
 at block 49 (min 0.8740 against `3d`'s 0.8636). The two metrics disagree about
 the ranking, which is why both are bench arms and neither is a new default.
-`hilbert` comes from `sol_curves.py` and needs the `MiniMaxH3SolAttnCurve`
-node; `3d` needs nothing, it is already on Sol-Attn's own combo.
+`hilbert` comes from `sol_curves.py`. **Corrected 2026-08-31:** this said it
+needs the `MiniMaxH3SolAttnCurve` node, which was deleted -- `hilbert` and `3d`
+are both values of `MiniMaxH3SolAttn`'s own `morton_curve` combo now, and
+neither needs a second node.
 
 Taking `3d` alone against the shipped curve, it scores higher on centroid
 fidelity at every depth sampled. State that as the measurement it is: it says
@@ -1448,9 +1450,12 @@ one. Opposite signs, so it is not a Morton effect, and it matches
 allocator rather than the arm. Had the control not been run, a 3.7 GB saving
 would have been reported as a finding.
 
-**The `hilbert` arm completing is the node's live verification.**
-`MiniMaxH3SolAttnCurve` raises when the permutation patch does not install, so
-a clean run is proof the curve engaged rather than an assumption.
+**The `hilbert` arm completing was the node's live verification.**
+`MiniMaxH3SolAttnCurve` raised when the permutation patch did not install, so a
+clean run proved the curve engaged rather than assuming it. That node was
+deleted on 2026-08-31 and the argument does not carry over: `hilbert` is now a
+plain combo value on `MiniMaxH3SolAttn`, so **nothing about a clean run proves
+the curve engaged.** Read `morton_curve` off the provenance stamp instead.
 
 Clips, in arm order, for whoever watches them: `h3_sage_ab_00093` (morton off),
 `00094` (`2d_frame`), `00095` (`3d`), `00096` (`hilbert`), `00097`

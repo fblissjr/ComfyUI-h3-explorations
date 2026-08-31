@@ -375,13 +375,8 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
                    "inputs": {"model": model_src, "chunks": ffn_chunks,
                               "seq_threshold": 4096}}
         model_src = ["22", 0]
-    curve = None
     if sol is not None:
-        # `_curve` is not a Sol-Attn knob; it selects an ordering that node's
-        # combo cannot express, via our own node downstream. Popped before the
-        # dict reaches the node, which would reject the key.
         sol = dict(sol)
-        curve = sol.pop("_curve", None)
         # Node id 21 for both backends: they are alternatives, never both in
         # one graph, and keeping the id stable keeps the timing breakdown
         # comparable across a --sol-backend switch.
@@ -399,12 +394,6 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
         g["21"] = {"class_type": class_type,
                    "inputs": {"model": model_src, **merged}}
         model_src = ["21", 0]
-    if curve:
-        # AFTER 21. It overwrites the transformer option that node sets, so
-        # reversed it would be the one overwritten.
-        g["23"] = {"class_type": "MiniMaxH3SolAttnCurve",
-                   "inputs": {"model": model_src, "curve": curve}}
-        model_src = ["23", 0]
     g["8"]["inputs"]["model"] = model_src
     g["9"]["inputs"]["model"] = model_src
     return g
@@ -546,8 +535,11 @@ ARMS = {
     "shipped+morton2d": (True, dict(SOL_RECOMMENDED_CUDA, morton=True)),
     "shipped+morton3d": (True, dict(SOL_RECOMMENDED_CUDA, morton=True,
                                     morton_curve="3d")),
+    # `hilbert` was reached through a second node until 2026-08-31, because
+    # the vendored node's combo could not express it. `MiniMaxH3SolAttn` owns
+    # the Morton code and offers it directly, so this is one node fewer.
     "shipped+hilbert": (True, dict(SOL_RECOMMENDED_CUDA, morton=True,
-                                   _curve="hilbert")),
+                                   morton_curve="hilbert")),
     # Sol-Engine's own control, copied from config/wan21_t2v_14b/reorder_only.toml:
     # reordering on, every layer forced dense. The permutation is output-neutral
     # under dense attention, so this arm isolates what reordering COSTS from
@@ -887,12 +879,11 @@ def main():
                 continue
             # A leading underscore marks a bench-level key that is NOT a node
             # input: `build_prompt` pops it before the dict reaches the node.
-            # `_curve` is the one, and it selects an ordering through our own
-            # MiniMaxH3SolAttnCurve rather than through Sol-Attn's combo.
-            # Exempting only `_`-prefixed keys keeps this guard doing its job
-            # for every real knob, which is the whole point of it: it caught
-            # this on the first run rather than letting the arm render as a
-            # silently different configuration.
+            # **There are none left** -- `_curve` was the only one and it
+            # retired on 2026-08-31 when `morton_curve` gained `hilbert`. The
+            # exemption stays because it costs nothing and re-arms the moment
+            # someone adds a bench-level key; the guard keeps doing its job for
+            # every real knob, which is the whole point of it.
             keys = {k for k in (ARMS[name][1] or {}) if not k.startswith("_")}
             orphan = sorted(keys - set(sol_knobs()))
             if orphan:

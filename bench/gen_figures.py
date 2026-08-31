@@ -837,15 +837,11 @@ FRAME = 2          # not frame 0: at 1344x768 a frame is 15.75 blocks, so frame 
 
 
 def _vendor():
-    import importlib.util
-    import sys
-    sys.path.insert(0, str(REPO.parent.parent))
-    spec = importlib.util.spec_from_file_location(
-        "_v", REPO / "vendor" / "sol_attn_minimax.py")
-    assert spec is not None and spec.loader is not None, "module spec unresolved"
-    v = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(v)
-    return v
+    """The LIVE Sol node. Named `_vendor` when that WAS the vendored file;
+    repointed 2026-08-31, since the vendored copy is a pristine reference
+    ComfyUI does not load and cannot run on the installed kernel."""
+    from _live_sol import live_sol
+    return live_sol()
 
 
 def block_map(grid, curve, frame):

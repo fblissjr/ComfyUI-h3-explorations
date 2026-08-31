@@ -49,7 +49,7 @@ def build():
     h.baseline(unmutated)
 
     h.case("M1 node_id renamed", MUTATION,
-           mutate(lambda m: m["MiniMaxH3SolAttnCurve"].__setitem__("node_id", "MiniMaxH3SolCurve")))
+           mutate(lambda m: m["MiniMaxH3Preflight"].__setitem__("node_id", "MiniMaxH3Preflite")))
     h.case("M2 inputs reordered", MUTATION,
            mutate(lambda m: m["MiniMaxH3SageAttention"]["inputs"].reverse()))
     h.case("M3 input INSERTED in the middle (the 2026-08-10 head_chunks bug)", MUTATION,
@@ -59,7 +59,7 @@ def build():
     h.case("M5 a registered node disappears", MUTATION,
            mutate(lambda m: m.pop("MiniMaxH3Preflight")))
     h.case("M6 input APPENDED at the end (permitted, must still be recorded)", MUTATION,
-           mutate(lambda m: m["MiniMaxH3SolAttnCurve"]["inputs"].append("tail_knob")))
+           mutate(lambda m: m["MiniMaxH3Resolution"]["inputs"].append("tail_knob")))
     h.case("M7 a new node appears (permitted, must still be recorded)", MUTATION,
            mutate(lambda m: m.__setitem__("MiniMaxH3BrandNew",
                                           {"node_id": "X", "inputs": [], "outputs": []})))
