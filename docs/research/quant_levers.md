@@ -306,6 +306,26 @@ modules. Its value is far more than the 11.6% stored-weight figure implies and
 is **per-LoRA** — on PDD the merge carries ~2x the update in noise on 97% of
 modules, on turbo ~12x.
 
+> **Correction added 2026-08-31 by the Sol lane, after this lane's session
+> ended.** The two figures above are correct and are `noise/|d|`. **The
+> ordering they imply reverses on the other denominator**, and the "worth most
+> where the delta is smallest, therefore most on turbo" reading — which the Sol
+> lane supplied and this file took — does not survive it. Against the WEIGHT,
+> same 200 modules per arm: PDD fl2va **0.921%**, PDD ref2va **0.947%**, turbo
+> **0.172%**. Turbo's delta is 34x smaller relative to the weight, so twelve
+> times a very small thing is still small. **On this denominator PDD carries
+> about five times turbo's absolute perturbation.**
+>
+> The lever's promotion to main lever is unaffected — it sidesteps
+> requantisation whatever the denominator. What is withdrawn is the per-artifact
+> ORDERING under it. Which denominator is the right one depends on whether the
+> question is how much of the LoRA's intent survives or how much the model
+> moved, and the output impact that would decide it is unmeasured, so neither
+> may be quoted alone. Third metric in this thread to rank these arms
+> differently — §2b's own rule, third instance.
+> [`merge_requantisation.md`](merge_requantisation.md) carries the table;
+> commit `dc4e6b5`.
+
 **Also relevant to what it is not needed for**: the shipped VSA artifact
 (`minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot`) carries **0
 `lora_*` keys**. It is a fully baked checkpoint, never merged and never
