@@ -194,6 +194,23 @@ artifact.
   this, which is how a withdrawn claim sat in `h3_dit_implementations.md`
   §10.5.
 
+### Fixed
+
+- **The "deterministic merge" lever is WITHDRAWN, hours after it was proposed,
+  and it would have made things worse.** The measured √2 stands — it is a
+  statement about rounding a FIXED tensor. Merging is a different problem: the
+  delta is **smaller than one int8 step**, so round-to-nearest, being biased,
+  simply discards most of it, while stochastic rounding is unbiased by
+  construction. `bench/measure_merge_realisation.py` and
+  `bench/results/2026-08-31_merge_realisation.json`, 20 modules: RTN realises
+  **0.395 of the delta on average and 0.020 on the worst module**; stochastic
+  realises **0.99996**. The stored-weight metric ranks them the OTHER way
+  (0.004709 against 0.009370) precisely because RTN barely applies the LoRA.
+  **A stored-weight metric rewards the arm that does nothing**, and this repo
+  recommended that arm on the strength of one — inside the file whose own scope
+  line warns about exactly that. ComfyUI's stochastic `set_weight` now looks
+  deliberate and correct. The sub-step observation came from a peer session.
+
 ### Measured
 
 - **The DiT int8 build is at its format floor.** `e_shipped` 0.0093617314051
@@ -2960,7 +2977,7 @@ were taken on the relay alone.
 ### Added
 
 - **`bench/select_gate6_ablation_rows.py`** and
-  `bench/results/2026-08-25_gate6_upscale_ablation_rows.json`: the render
+  `bench/results/archive/v2_encoder/2026-08-25_gate6_upscale_ablation_rows.json`: the render
   population for the Gate 6 reference-upscale ablation. Computed from the
   shipped sizing code before selecting anything, because the population follows
   from it: **the three arms differ if and only if a still's short edge is below

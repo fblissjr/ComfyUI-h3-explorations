@@ -29,7 +29,7 @@ bf16 Qwen3-VL.
 | lever | what it changes | status | needs |
 |---|---|---|---|
 | **`unmerged_blocks`** | applies a LoRA at the call so the base weight is never requantised | **ships today**, off by default | a decision on whether it matters at the output |
-| **deterministic merge** | replaces the merge path's stochastic rounding with round-to-nearest | **arithmetic, not a hypothesis** — see below | our node merging itself rather than via `add_patches` |
+| ~~deterministic merge~~ | ~~replaces the merge path's stochastic rounding with round-to-nearest~~ | **WITHDRAWN 2026-08-31, hours after it was written** — it makes things worse, see §2 | — |
 | **`convrot_groupsize` 1024** | a wider Hadamard, spreading outliers further before rounding | **measured on the weight side**, and it is one module kind | a CPU requant of 50 tensors, and a timing arm |
 | **`full_precision_matrix_mult`** | per-module escape to a bf16 matmul, killing **both** roundings there | available, unmeasured | editing the module's `comfy_quant` blob — `comfy/ops.py:1150` reads it before the format branch, so **no core patch** |
 | **SmoothQuant via `pre_quant_scale`** | migrates activation outliers into the weight | reachable, gated on #23 | the scale as a module attribute (`add_object_patch` → `comfy.utils.set_attr`, a plain `setattr` that backs up the old value) **plus** a rebaked weight |
@@ -86,11 +86,61 @@ module carries √2 the requantisation error a deterministic bake would** — an
 every stored-weight number this repo has published for the merge path was
 measured deterministically, so they are the optimistic case.
 
-Two consequences beyond this lane. `unmerged_blocks` avoids it entirely, which
-makes the knob worth more than its measured 11.6%. And a patched model and an
-unpatched one differ in their **weights** before a single sampler step runs,
-which is upstream of `CLAUDE.md`'s different-sample rule rather than an
-instance of it.
+### 2b. And the lever that followed from it is WITHDRAWN
+
+**This file said, hours earlier, that switching the merge to deterministic
+rounding was "arithmetic, not a hypothesis" and needed no further evidence.
+That is wrong, and it is wrong in the direction that matters.** The √2 stands —
+it is a statement about **rounding a fixed tensor**. Merging is a different
+problem, and carrying the constant across was the error.
+
+The delta being merged is **smaller than one int8 step** (a peer session
+measured `delta_rms / step` at median 0.0805 for PDD and 0.0050 for the turbo
+LoRA, whose `alpha/rank` is 0.0625 against PDD's 1.0 — a 16x scale difference
+that explains the gap). Round-to-nearest is a **biased** map: for a sub-step
+delta most weights never cross a midpoint, so the update is simply thrown away.
+Stochastic rounding is **unbiased** by construction, `E[Q_s(x)] = x`, so the
+update lands in expectation.
+
+Measured, `bench/measure_merge_realisation.py` →
+[`bench/results/2026-08-31_merge_realisation.json`](../../bench/results/2026-08-31_merge_realisation.json),
+20 modules across blocks 0/12/25/37/49. `realised_along_d` is
+`<Q(W+d) − Q(W), d> / <d, d>` — the fraction of the delta that actually landed:
+
+| arm | realised along d | stored-weight error |
+|---|---|---|
+| deterministic (RTN) | **0.395 mean, 0.020 worst** | 0.004709 |
+| stochastic (shipped) | **0.99996** | 0.009370 |
+
+**The two metrics rank the arms oppositely.** RTN has the lower stored-weight
+distance *because it barely applies the LoRA*, and the target is close to the
+unmerged weight. And it is dose-responsive: `blocks.49.mlp.fc2`, with the
+largest delta at 4.4% of the weight, realises 0.995; `blocks.25.mlp.fc2`, the
+smallest at 0.33%, realises 0.020.
+
+**So a stored-weight metric rewards the arm that does nothing**, and this file
+recommended that arm on the strength of one. ComfyUI's choice of stochastic
+rounding in `set_weight` now looks deliberate and correct, and the proposal was
+to revert it. This is the same failure the file's own scope line warns about,
+committed inside the file that carries the warning — the tell was available
+and not taken: a √2 in the weight domain licenses nothing about a merge until
+you ask what the weight domain cannot see.
+
+Credit where due: the sub-step observation came from a peer session's
+independent measurement, not from re-reading this file.
+
+### 2c. What survives
+
+`unmerged_blocks` **avoids the whole question** — it never requantises, so
+neither the √2 nor the discard applies, and the delta stays exact in bf16.
+That makes it worth more than its measured 11.6%, and **more on some LoRAs than
+others**: on a LoRA whose delta is a smaller fraction of a step, merging loses
+proportionally more of the update, so the turbo LoRAs should benefit far more
+than PDD. Unmeasured here.
+
+A patched model and an unpatched one also differ in their **weights** before a
+single sampler step runs, which is upstream of `CLAUDE.md`'s different-sample
+rule rather than an instance of it.
 
 ### 3. The rotation is worth 27%, and it does not finish on one module kind
 
@@ -182,8 +232,11 @@ vectors; it is cheap (in_features floats per module) and the shapes match what
 1. **#23 first, before any rebake.** Everything above is one of two roundings.
    A 10% weight-side win on out_proj may or may not survive to the output, and
    the fused-kernel cost is on the activation side where nothing is measured.
-2. **The deterministic merge needs no further evidence.** √2 is arithmetic,
-   confirmed on 200 real modules to seven figures.
+2. **The deterministic merge is withdrawn** (§2b). The √2 is real and the
+   inference from it was not. What replaces it as the cheap lever is
+   `unmerged_blocks`, which sidesteps the rounding entirely — and the open
+   question is which LoRAs it helps most, since the loss scales with how small
+   the delta is against one int8 step.
 3. **The permutation lever needs a capture that keeps its shape.**
 
 ## See also
