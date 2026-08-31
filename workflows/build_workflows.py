@@ -5129,20 +5129,33 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                            # DynamicCombo's sub-widget ORDER against the schema
                            # it came from, only that the graph is well-formed.
                            #
-                           # ALWAYS emit qwen_short_edge, even at 0. build_api
-                           # omits it at 0 on the reasoning that 0 is the
-                           # node's default and writing it would touch every
-                           # reference graph for nothing -- which is correct
-                           # THERE, because the API form is keyed by name and
-                           # an absent key takes the schema default. It is
-                           # invalid here: the UI form matches widget values
-                           # BY POSITION, so an omitted value does not default,
-                           # it shifts every later widget up one slot. That
-                           # reasoning was copied across the format boundary on
-                           # 2026-08-25 and corrupted 40 UI graphs until
-                           # 2026-08-26.
-                           widgets=["max", _ref_short_edge(), ref_upscale,
-                                    ref_qwen_short_edge],
+                           # `qwen_view` is a DynamicCombo since 2026-08-31,
+                           # so the SELECTION occupies a slot and the size
+                           # follows it ONLY under `separate`. Under `shared`
+                           # there is no size widget at all -- emitting one
+                           # would shift nothing here (it is last) but would
+                           # not match the schema, and `check_workflow_schema`
+                           # grades exactly that against the served node.
+                           #
+                           # The retired advice this replaces said to ALWAYS
+                           # emit `qwen_short_edge`, even at 0, because the UI
+                           # form matches BY POSITION and an omitted value
+                           # shifts every later widget up one slot. That
+                           # reasoning was right and is preserved by emitting
+                           # the SELECTION unconditionally; what is gone is
+                           # the value 0, which no longer exists on this node.
+                           #
+                           # This half was missed on the first pass of the
+                           # rename: the API branch was converted and this one
+                           # kept emitting the bare number, so 42 UI graphs
+                           # carried `qwen_view = 512`. Same shape as the
+                           # 2026-08-27 miss recorded above, and caught by the
+                           # same check.
+                           widgets=(["max", _ref_short_edge(), ref_upscale,
+                                     "separate", ref_qwen_short_edge]
+                                    if ref_qwen_short_edge else
+                                    ["max", _ref_short_edge(), ref_upscale,
+                                     "shared"]),
                            inputs=append_inputs,
                            outputs=[_out("references", "MINIMAX_H3_REFERENCES")],
                            title=f"Append Picture {i + 1}")

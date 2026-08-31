@@ -727,6 +727,7 @@
         "max",
         2048,
         false,
+        "separate",
         512
       ],
       "title": "Append Picture 1"
@@ -774,6 +775,7 @@
         "max",
         2048,
         false,
+        "separate",
         512
       ],
       "title": "Append Picture 2"

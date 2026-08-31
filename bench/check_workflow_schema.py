@@ -163,15 +163,34 @@ def expand_dynamic_combo(spec, wants, values):
     shows up here as a count or type mismatch, which is the intended failure.
     """
     out = []
-    for i, (name, typ, choices) in enumerate(wants):
+    # A cursor into `values`, NOT the index into `wants`.
+    #
+    # **This used to be `enumerate(wants)`**, which is correct only while a
+    # node has at most ONE DynamicCombo: expanding one appends its revealed
+    # widgets to `out`, so every later entry in `wants` sits further along in
+    # `values` than its own index. `MiniMaxH3AppendRefImage` became the first
+    # node here with two (`size_policy` and, from 2026-08-31, `qwen_view`), and
+    # the second one read the FIRST one's revealed widget as its selection --
+    # `qwen_view` graded against the value of `dit_short_edge`. 42 correct UI
+    # graphs failed.
+    #
+    # This is the repo's "an assumption that has only ever met one
+    # implementation is not a tested assumption", in a check rather than in
+    # shipped code, and it is the second defect of exactly this shape in this
+    # function -- see the forceInput note below.
+    cursor = 0
+    for name, typ, choices in wants:
         out.append((name, typ, choices))
         if typ != "COMBO":
+            cursor += 1
             continue
         opts = next((o for _s, n, _t, o in _inputs(spec) if n == name), {}) or {}
         options = opts.get("options")
-        if not isinstance(options, list) or not options or i >= len(values):
+        if not isinstance(options, list) or not options or cursor >= len(values):
+            cursor += 1
             continue
-        chosen = values[i]
+        chosen = values[cursor]
+        revealed = 0
         for option in options:
             if not isinstance(option, dict) or option.get("key") != chosen:
                 continue
@@ -191,6 +210,8 @@ def expand_dynamic_combo(spec, wants, values):
                         out.append((nm, "COMBO", choices_of(val[0], o)))
                     else:
                         out.append((nm, val[0], None))
+                    revealed += 1
+        cursor += 1 + revealed
     return out
 
 

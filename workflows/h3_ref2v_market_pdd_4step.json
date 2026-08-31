@@ -690,6 +690,7 @@
         "max",
         2048,
         false,
+        "separate",
         512
       ],
       "title": "Append Picture 1"

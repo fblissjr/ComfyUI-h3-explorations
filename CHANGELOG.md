@@ -6,6 +6,26 @@ artifact.
 
 ## 0.99.6
 
+### Fixed
+
+- **The UI half of the `qwen_view` rename was missed on the first pass**, which
+  is this repo's own "editing the generator is half the change" landing on the
+  person who wrote the API half. The API branch emitted the dotted form while
+  the UI branch kept writing the bare number, so 42 UI graphs carried
+  `qwen_view = 512`. Caught by `check_workflow_schema.py`, which grades UI
+  widget values against the served node -- the same check that caught the
+  identical miss on `size_policy` on 2026-08-27.
+- **`check_workflow_schema.py::expand_dynamic_combo` indexed `values` by
+  position in `wants`.** That is correct only while a node has at most ONE
+  DynamicCombo: expanding one inserts its revealed widgets, so every later
+  entry sits further along in `values` than its own index.
+  `MiniMaxH3AppendRefImage` became the first node here with two, and the second
+  read the first's revealed widget as its selection -- `qwen_view` graded
+  against the value of `dit_short_edge`, failing 42 CORRECT graphs. Now walks a
+  cursor. Same shape as this function's earlier `forceInput` defect, and the
+  same "an assumption that has only ever met one implementation is not a tested
+  assumption" rule, this time inside a check.
+
 ### Changed
 
 - **`bench/results/` is archived by closed lane, not by date, and the date
