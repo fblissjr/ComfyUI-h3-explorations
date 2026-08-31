@@ -1914,8 +1914,42 @@ So the trade is compute, not memory: two extra small matmuls per module per
 forward, about +2.4% FLOPs on an un-merged block's linear layers, and in bf16
 rather than int8. **That is arithmetic from the shapes and has not been
 timed.** Which also means there is no memory argument for keeping the set
-small -- worst-first by inflation is 49, 7, 24, 16 and least worth it 32 and
-40, but `0-49` is not the wall this section originally implied.
+small, and `0-49` is not the wall this section originally implied.
+
+**Measured over all 200 modules 2026-08-31, and it settles whether to target.**
+`bench/measure_pdd_quant_interaction.py` over all 50 blocks
+([`bench/results/2026-08-31_pdd_quant_interaction_all_blocks.json`](../bench/results/2026-08-31_pdd_quant_interaction_all_blocks.json)),
+aggregated by [`bench/analyze_pdd_unmerge_curve.py`](../bench/analyze_pdd_unmerge_curve.py)
+([record](../bench/results/2026-08-31_pdd_unmerge_recovery.json)). The mean
+holds: 0.009362 merged-free against 0.010452 at strength 1.0, **1.1164x**,
+against the 7-block sample's 1.1234x; the correlation with `||BA||/||W||` is
+0.751 over 200 modules against 0.78 over 28; and `e_baked_from_release` is flat
+at 0.009362 at every strength, now over the whole checkpoint.
+
+**There is no hotspot.** Block inflation spans **1.131x** across all 50, so the
+worst-first recovery curve is only mildly concave -- the worst 5 recover 15.3%
+of the gap against 10% for any 5, and the premium peaks around 18 points near
+the halfway mark (worst-25 recovers 68.2% for +1.2% FLOPs). **A subset is a
+compute optimisation, not a fidelity one**, and whoever picks one should say
+which of the two they are buying.
+
+**The old worst-first list was half right and is corrected here.** It said
+`49, 7, 24, 16`. Blocks 49 and 7 do rank 1st and 5th of 50; **24 and 16 are
+mid-pack at 17th and 16th**. Worst-first over all 50 is
+`49, 15, 20, 11, 7, 10, 18, 23, 14, 17`, and `least worth it: 32 and 40` holds
+-- they rank 46th and 44th, inside a quiet band running roughly 31-36.
+
+**Inflation and stored error rank the module KINDS oppositely, which the
+sample's framing hid.** `attn.qkv_proj` has the highest inflation (1.164x) and
+the *lowest* error before PDD (0.00883); `attn.out_proj` has the highest error
+before PDD (0.01041) and nearly the lowest inflation (1.099x). "Which kind
+quantises worst" and "which kind PDD damages most" are different questions with
+reversed answers, and `docs/research/h3_dit_implementations.md` §10.5 is where
+the first one is discussed.
+
+All of the above is **stored-weight only**, which is one of int8_convrot's two
+roundings -- see `docs/open_experiments.md` #23. Un-merging also keeps the
+delta out of the *activation* quantisation, and no figure here counts that.
 
 `bench/check_pdd_unmerged.py` grades the identity that makes the arms
 comparable at all -- `unmerged(x) == x @ (W + alpha/rank * B @ A).T` in float64
