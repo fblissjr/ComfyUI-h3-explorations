@@ -55,10 +55,12 @@ MODEL_FILENAME = "qwen3vl_32b_minimax_h3_w4a16_awq_v2-comfy.safetensors"
 # holdout numbers in its table come from
 # `bench/results/2026-08-25_four_encoders_holdout_layer50.json`, which it cites.
 STANDALONE_FILENAME = "comfyui_minimax_h3_awq_loader.py"
-# The encoder comparison is READ from the recorded run, never retyped into the
-# card. `docs/evidence.md` owns which numbers may be quoted at all; this build
-# fails rather than shipping a card whose table nobody can trace.
-HOLDOUT_RESULT = REPO / "bench" / "results" / "2026-08-25_four_encoders_holdout_layer50.json"
+# **This used to say the comparison is READ from the recorded run and that the
+# build "fails rather than shipping a card whose table nobody can trace".
+# Withdrawn: no card is shipped.** The constant it guarded was assigned and
+# never read, so the failure it promised could not happen; both went when the
+# README emission did. `docs/evidence.md` still owns which numbers may be
+# quoted, and the Hub card is hand-maintained against it -- enforced by nothing.
 COMPARE_WORKFLOW_FILENAME = "comfyui_minimax_h3_encoder_ab_compare.json"
 # Repo-relative directory the generated workflows are emitted into. The loader
 # and the Hugging Face checkpoint files stay at the root; see build().
