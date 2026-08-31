@@ -130,10 +130,28 @@ so twelve times a very small thing is still small, while twice PDD's larger
 delta is not. The alarming 12x is substantially an artifact of dividing by a
 tiny denominator.
 
-Which denominator matters depends on the question — `noise/|d|` asks how much
-of the LoRA's intent survives, `noise/|W|` asks how much the model moved — and
-**the output impact, which would decide between them, is unmeasured.** So
-neither is "the" answer and neither should be quoted alone. This is the third
+**The reference point that makes these interpretable** — the PDD lane's, and
+the best framing produced today — is what the checkpoint ALREADY carries.
+Base int8 error against the BF16 release, verified here over the same 200
+modules: median **0.910%**, range 0.881–1.256%. So:
+
+    PDD merge noise      0.921% of the weight
+    base int8 error      0.910% of the weight   <- already there, before any LoRA
+
+**The merge injects an error term about the size of the entire int8
+quantisation.** Against the release that is the **+11.6%** on total
+stored-weight error the lever inventory already reported (0.936% -> 1.045%).
+
+Three true sentences about one fact — "twice the update", "0.92% of the
+weight", "+11.6% on the total" — reading as alarming, negligible and modest.
+**Quote the +11.6% against the release**: it answers "how much worse is the
+merged model", which is what a reader is asking. The 2x answers "how faithfully
+is the update delivered", which is narrower and is what both lanes led with all
+day.
+
+Which denominator matters depends on the question, and **the output impact,
+which would settle it, is unmeasured.** So neither is "the" answer and neither
+should be quoted alone. This is the third
 metric in this file to rank these arms differently, after stored-weight
 distance and `realised`; `../checks.md` carries the rule.
 

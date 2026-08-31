@@ -214,8 +214,15 @@ one, and both lanes were quoting it.** Computed 2026-08-31 from the same record:
 | the same fact, three denominators | PDD | turbo |
 |---|---|---|
 | noise / ‖d‖ — *what was being quoted* | 1.981 | 10.49 |
-| noise / ‖W‖ | **0.921%** | 0.207% |
+| noise / ‖W‖ | **0.921%** | 0.172% |
 | base int8 error already carried, / ‖W‖ | 0.910% | 0.910% |
+
+> **Turbo cell corrected 2026-08-31 by the Sol lane: 0.207% -> 0.172%.** The
+> 0.207% came from `2026-08-31_merge_realisation_turbo.json`, which holds **20
+> modules**; the full sweep in `2026-08-31_merge_noise.json` holds 200 and gives
+> 0.172%. A 20% error on the median, from a subsample, in the correction that
+> closes the day — which is §2b's own subsampling rule catching its author. The
+> PDD column is 200 modules in both records and is unchanged.
 
 So the merge injects an error term **about the same size as the entire int8
 quantisation the checkpoint already carries** — which against the bf16 release
