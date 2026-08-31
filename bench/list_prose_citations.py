@@ -84,11 +84,25 @@ def code_lines(path: Path) -> set[int]:
     }
 
 
+#: A markdown link, and any `](target)` fragment a truncation leaves behind.
+LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+DANGLING = re.compile(r"\]\([^)\s]*\)?")
+
+
 def claim(lines: list[str], i: int) -> str:
-    """The sentence around line `i`, so a verdict needs no second file open."""
+    """The sentence around line `i`, so a verdict needs no second file open.
+
+    Link TARGETS are stripped, keeping the link text. Not cosmetic: a quoted
+    relative link resolves against the quoting file, so copying one into this
+    worksheet re-points it at a path that does not exist from here, and
+    `bench/check_doc_links.py` grades it as a broken pointer. The first version
+    of this script put 185 of those into the corpus in one run -- every one a
+    false failure, in the check whose whole job is to make a real one visible.
+    """
     lead = re.compile(r"^\s*(#:|#|//|\*|-|\||>)?\s?")
     take = [lead.sub("", lines[j]).strip() for j in range(max(0, i - 2), min(len(lines), i + 3))]
-    return " ".join(t for t in take if t)[:400]
+    text = " ".join(t for t in take if t)
+    return DANGLING.sub("", LINK.sub(r"\1", text))[:400]
 
 
 def main() -> int:

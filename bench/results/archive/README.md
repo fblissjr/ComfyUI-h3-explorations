@@ -25,8 +25,15 @@ Deliberately **not** archived, and the reason each time:
 - The raw arm records (`*_arms.jsonl`, `*_smoke.jsonl`) behind verdicts that
   `docs/evidence.md` and `docs/SOLATTN.md` still cite. Splitting a verdict from
   its substrate is how a result stops being reproducible.
-- The `_sla` and `_v11` variants: `h3_probe_turbo_768p_sla_router` is a live
-  graph, so that lane is not closed.
+- The `_sla` and `_v11` variants. **The reason first given here was wrong** --
+  it said `h3_probe_turbo_768p_sla_router` is a live graph, and no such graph
+  exists (corrected in CLAUDE.md the same day; `SOL_EXEMPT_STEMS` names
+  `h3_probe_turbo_768p_sla_dense`). The real reason is stronger: these are
+  derived from the `2026-08-20_t2v_362f_1344x768_sla` and `_v11` captures,
+  which were deleted on 2026-08-30, so the records are the only surviving
+  trace and nothing can regenerate them. `2026-08-30_capture_inventory.json`
+  is the authority, and its whole purpose was to make that deletion safe by
+  recording what each capture held.
 - `2026-08-25_refview_b_qwen2048_int8_occupancy.json` and its query log: the
   reference-view ablation is an open experiment (CLAUDE.md), and this is the
   only occupancy measurement of one of its arms.
