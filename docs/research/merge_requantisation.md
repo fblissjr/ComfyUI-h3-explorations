@@ -50,6 +50,22 @@ CPU only, fixed seed, `int8_convrot` at the layout's own group size.
                       update landing along its own direction
   noise / |d|         `‖Q(W+d) − Q(W) − d‖ / ‖d‖` — what rides along
 
+**`W` here is the DEQUANTISED SHIPPED WEIGHT, not the BF16 release.** Every
+figure below is relative to what the int8 file already holds, so the base's own
+quantisation error is outside the frame by construction. The spelling does not
+make that obvious and it is the first thing to check before comparing these
+numbers against anything measured against the release.
+
+**Two spellings are in use across the two lanes and they agree.** This file
+uses `‖Q(W+d) − Q(W) − d‖`; `quant_levers.md` uses `‖Q(W+d) − (W+d)‖`. They
+differ by `‖Q(W) − W‖`, the base's requantisation residual, which is NOT zero —
+measured at 1.2e-04, 6.1e-05 and 8.4e-06 of `‖d‖` on three modules, moving the
+final statistic by at most 1.2e-06. So the agreement is real and the reason
+sometimes given for it — that `Q(W) == W` because `W` is already dequantised —
+is very nearly true rather than true. **The residual scales as `1/‖d‖`**, so it
+stays negligible for these two LoRAs and would not for an arbitrarily small
+one; a future arm should re-check rather than inherit the equivalence.
+
 **The three rank the arms differently and that is the finding**, recorded as a
 rule in [`../checks.md`](../checks.md): stored-weight distance prefers the arm
 that does nothing, realisation prefers the arm that adds noise, and only
@@ -99,6 +115,18 @@ would inherit all of it**, which is worth knowing before that choice is made
 rather than after.
 
 **PDD's output heads.** `add_object_patch`, applied at the call. Unaffected.
+
+**`mlp.fc2.forward` is never called on the shipped INT8 path.**
+`comfy.ops.linear_input_act` owns it for the SwiGLU fusion, and that helper
+ignores both `pre_quant_scale` and `_full_precision_mm`. So anything that
+patches a LINEAR's forward silently misses fc2 and looks clean across the other
+three kinds — the same reachability fact behind the 2026-08-30 `unmerged_blocks`
+defect that dropped fc2. **Checked for this pack: nothing here patches a
+linear's forward.** `exact_blocks.py:155` patches `blocks.{i}.attn.forward`,
+and `sol_attn_h3.py:870` only COMPOSES with patches whose owner segment already
+contains `attn`; the VSA node replaces a whole DiT block, which reaches fc2
+through the ordinary call. Recorded because the trap is one lane over and the
+next person to add an object patch here will not know it.
 
 **`unmerged_blocks`.** Moves a backbone LoRA from a weight patch to a forward
 patch, so it never requantises and sidesteps this entirely. Its value is
