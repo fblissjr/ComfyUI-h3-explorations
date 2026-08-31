@@ -286,12 +286,42 @@ def case_envelope_tiling_is_legal():
         assert len(w) == nfe, f"{nfe}: {w} is not {nfe} blocks"
     six = (1.0 - partition_bounds(SHIFT_VIDEO, NUM_STEPS,
                                   envelope_partition(NUM_STEPS, 6, TRAINED)))
-    hand = torch.tensor([1.0, 0.972973, 0.923077, 0.878049, 0.8, 0.631579, 0.0])
+    # IMPORTED, not restated. This used to hold its own literal copy of the
+    # vector, so `h3_config.PDD_MANUAL_SIGMAS` could have drifted and this
+    # would still have passed -- the "helper the check defines rather than
+    # imports" trap in CLAUDE.md, one level out. The config string is what the
+    # shipped `..._manual_sigmas` graph actually renders, so that is the thing
+    # worth grading.
+    from h3_config import PDD_MANUAL_SIGMAS
+    hand = torch.tensor([float(x) for x in PDD_MANUAL_SIGMAS.split(",")])
     d = float((six - hand).abs().max())
     assert d < 5e-6, (
         f"the emitted six-block schedule is {d:.2e} from the hand-written "
         f"partition this repo has been rendering: {six.tolist()}")
-    return "5, 6, 7 tile inside the envelope; 6 reproduces the hand-written partition"
+
+    # **The 6dp rounding is load-bearing; do not "simplify" it away.** The
+    # config string is a 6-decimal rendering of the derivation, not the
+    # derivation: they differ by 2.2e-07 on 0.878049 against
+    # 0.8780487804878049, which is 3-4 ULP at float32. Substituting the raw
+    # derived value would change the emitted sigmas bitwise, and by CLAUDE.md's
+    # different-sample rule every `..._manual_sigmas` arm rendered before that
+    # substitution would stop being comparable with every one after it. So the
+    # config keeps a string and this asserts the string is exactly what the
+    # derivation rounds to. `repr(round(v, 6))` is the formatter that
+    # round-trips: `%g` renders the 1.0 and 0.0 endpoints as "1" and "0".
+    #
+    # It is asserted here rather than derived in `h3_config` because that
+    # module imports without torch and several checks rely on it -- and
+    # `partition_bounds` returns a tensor. Re-deriving the maths in pure Python
+    # there would be a second copy of the maths instead of a second copy of the
+    # vector, which is not an improvement.
+    rendered = ", ".join(repr(round(float(v), 6)) for v in six.tolist())
+    assert rendered == PDD_MANUAL_SIGMAS, (
+        f"h3_config.PDD_MANUAL_SIGMAS is no longer what the six-block "
+        f"partition rounds to.\n  config:  {PDD_MANUAL_SIGMAS}\n  derived: "
+        f"{rendered}")
+    return ("5, 6, 7 tile inside the envelope; 6 reproduces "
+            "h3_config.PDD_MANUAL_SIGMAS exactly at 6dp")
 
 
 def case_zero_is_inert():

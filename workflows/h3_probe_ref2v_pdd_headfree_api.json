@@ -220,7 +220,7 @@
       ],
       "lora_name": "h3/minimax_h3_ref2va_pdd_8step_comfy.safetensors",
       "strength": 1.0,
-      "head_strength": 1.0,
+      "head_strength": -1.0,
       "patch_heads": false,
       "nfe": 0,
       "steps": [

@@ -104,6 +104,41 @@ artifact.
 
 ### Changed
 
+- **Every PDD graph's widget values now match the node's own defaults**, on the
+  owner's rule that a workflow's PDD values should not differ from the node's
+  defaults without a reason. Auditing all nine widgets across the 20 PDD nodes
+  found exactly one unintended divergence: `head_strength`, at a literal `1.0`
+  in all 20, where the schema default is the `-1.0` sentinel meaning "follow
+  `strength`". `resolve_head_strength` follows only on exactly `-1.0`, so a
+  shipped graph and a freshly created node behaved identically at
+  `strength=1.0` and diverged the moment anyone edited `strength` — backbone
+  scaling while the heads stayed pinned. Both builders now emit `-1.0`. No
+  shipped graph changes behaviour. Nothing graded this: `check_literal_widgets`
+  and `check_pdd_head_selection` both read the node, never the graphs. The
+  other two divergences are deliberate and stay — `patch_heads=False` on
+  `h3_probe_ref2v_pdd_headfree`, and the per-arm `steps`.
+- **The PDD node's sentinel meanings are now on the widget row**, not only in
+  the tooltip: `head_strength (-1 follows strength)`, `nfe (0 = use steps)`,
+  and the three `unmerged_*` labels. `display_name` only — no input `id`,
+  default, or declaration order changed, so none of the saved graphs wiring
+  this node are re-pointed.
+
+### Fixed
+
+- **`h3_config.PDD_MANUAL_SIGMAS` was ungraded, and a third copy of it was
+  hiding in the check meant to grade it.** `check_pdd_sigmas.py` asserted the
+  emitted six-block schedule against its own hardcoded literal, so the config
+  string could have drifted freely and the check would still have passed — the
+  "helper the check defines rather than imports" trap, one level out from where
+  CLAUDE.md states it. It now imports the config value, and additionally
+  asserts that `repr(round(v, 6))` of the derivation reproduces it exactly.
+  Red-proved by a one-digit change. **The 6dp rounding is load-bearing**: the
+  literal differs from the raw derivation by 2.2e-07 (3-4 ULP at float32), so
+  substituting the derived value would move the emitted sigmas bitwise and
+  break comparability with every `..._manual_sigmas` arm rendered so far. The
+  literal stays in `h3_config` rather than becoming a derivation because that
+  module imports without torch and several checks depend on that.
+
 - **The PDD graphs no longer wire `MiniMaxH3SigmaShift`** (owner's call). At
   the checkpoint's own 12/3 it patched the model into what it already was, so
   it read as a knob while being a no-op — and the one thing it invited you to

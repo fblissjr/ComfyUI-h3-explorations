@@ -1627,7 +1627,9 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                                   # graph says what it does, and a reader does
                                   # not have to know that a negative widget is
                                   # not a negative scale.
-                                  "head_strength": lora[1],
+                                  # -1.0, not lora[1] -- the sentinel for
+                                  # "follow strength". See the UI builder.
+                                  "head_strength": -1.0,
                                   "patch_heads": pdd_heads,
                                   "nfe": pdd_nfe,
                                   # 0 on a split graph. There, `_sigma_src`
@@ -4898,8 +4900,17 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
                 # `unmerged_window` "" (every step) are both the inert values,
                 # so all three un-merge widgets together are a no-op on every
                 # shipped graph. They are a probe surface, not a recipe.
+                # `head_strength` is -1.0, NOT `lora[1]`. -1.0 is the schema's
+                # sentinel for "follow `strength`", so this makes a shipped
+                # graph behave like a freshly created node. It used to pass
+                # `lora[1]`, which pinned the heads to a literal 1.0: identical
+                # while `strength` is 1.0, and silently divergent the moment
+                # anyone edited `strength` on a shipped graph, because
+                # `resolve_head_strength` only follows when it sees exactly
+                # -1.0. Nothing graded it -- both checks naming `head_strength`
+                # read the node, never the graphs.
                 widgets=[lora[0], lora[1], pdd_heads, pdd_nfe,
-                         0 if split_at else _resolved_steps, lora[1],
+                         0 if split_at else _resolved_steps, -1.0,
                          "", -1.0, ""],
                 # `steps` is a socket in the UI form too, fed by the
                 # PrimitiveInt added below, so the value is visible on the
