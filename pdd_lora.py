@@ -1204,15 +1204,28 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
             category="loaders/minimax",
             description=(
                 "Loads a Parallel Decoding Distillation LoRA converted by "
-                "bench/convert_pdd_lora.py. PDD is not step distillation: the "
-                "trajectory is a 32-point grid whose final output head is "
-                "replicated per interval, and each sampling step decodes a "
-                "block of those heads as one mean velocity. The block "
-                "boundaries are exactly the plain 8-step shifted schedule, so "
-                "a PDD arm changes the sampler's step count and NOTHING else "
-                "-- the shift stays at the checkpoint's own 12/3. Place where "
-                "a LoRA loader goes: before MiniMaxH3SigmaShift and before the "
-                "attention nodes."
+                "bench/convert_pdd_lora.py.\n\n"
+                "TO USE IT: pick the file matching your checkpoint's "
+                "partition (fl2va / ref2va), wire SIGMAS to your sampler, set "
+                "`steps` to the step count you want, and leave everything "
+                "else alone. Place it where a LoRA loader goes -- before "
+                "MiniMaxH3SigmaShift and before the attention nodes.\n\n"
+                "WHAT IT DOES: PDD is not step distillation. The trajectory is "
+                "a 32-point grid whose final output head is replicated per "
+                "interval, and each sampling step decodes a block of those "
+                "heads as one mean velocity. The block boundaries are exactly "
+                "the plain 8-step shifted schedule, so a PDD arm changes the "
+                "sampler's step count and NOTHING else -- the shift stays at "
+                "the checkpoint's own 12/3.\n\n"
+                "ONE FILE, THREE SURFACES, and `strength` scales all of them:\n"
+                "  backbone  208 modules, an ordinary weight patch\n"
+                "  adaln      50 modules, a weight patch in whichever time "
+                "basis this checkpoint uses\n"
+                "  heads     the per-interval output heads, swapped per step "
+                "-- this is PDD's actual mechanism\n\n"
+                "Inputs below `steps` are experiment knobs. Their defaults are "
+                "the shipped configuration and none of them needs setting for "
+                "an ordinary render."
             ),
             inputs=[
                 io.Model.Input("model"),
@@ -1221,87 +1234,116 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     options=[n for n in folder_paths.get_filename_list("loras")
                              if "pdd" in n.lower()],
                     tooltip=(
-                        "A CONVERTED PDD file. The published alibaba-pai "
-                        "weights do not load here or anywhere else in "
-                        "ComfyUI: their keys are diffusers-side and their "
-                        "suffixes are bare `lora_down`/`lora_up`, which no "
-                        "ComfyUI adapter matches, so every one of the 728 "
-                        "tensors would be skipped with a log line and the "
-                        "render would come out as an undistilled 8-step pass. "
-                        "Run bench/convert_pdd_lora.py first."
+                        "A CONVERTED PDD file -- run bench/convert_pdd_lora.py "
+                        "first. The published alibaba-pai weights load nowhere "
+                        "in ComfyUI: their keys are diffusers-side with bare "
+                        "`lora_down`/`lora_up` suffixes that no adapter "
+                        "matches, so every tensor is skipped with a log line "
+                        "and the render comes out an undistilled 8-step pass.\n\n"
+                        "TWO THINGS MUST MATCH, and both are refused loudly "
+                        "rather than rendered wrong:\n\n"
+                        "1. PARTITION. An fl2va file on a ref2va checkpoint, or "
+                        "the reverse. The two have identical key sets, so this "
+                        "would otherwise render with no unmatched key and "
+                        "merely be wrong.\n\n"
+                        "2. MODULATION FORM. A plain `..._comfy` file carries "
+                        "the modulation update BAKED into a pruned "
+                        "checkpoint's rank-8 curve basis and fits that "
+                        "checkpoint only. An `..._adaln2688_comfy` file "
+                        "carries it in the full 2688-wide time space and fits "
+                        "EITHER build. If you are unsure which checkpoint you "
+                        "have, read its `blocks.0.adaln_proj.linear.weight`: "
+                        "[96768, 8] is pruned/curve-form, [96768, 2688] is "
+                        "unpruned.\n\n"
+                        "Do not read the file's `h3_pdd_base` metadata to "
+                        "answer 2 -- it records the checkpoint the partition "
+                        "check was taken against, which for a baked file is "
+                        "the unpruned one it will refuse to load on. Files "
+                        "converted after 2026-08-31 carry `h3_pdd_adaln_form` "
+                        "and `h3_pdd_loads_on`, which answer it directly."
                     ),
                 ),
                 io.Float.Input(
                     "strength", default=1.0, min=-10.0, max=10.0, step=0.01,
                     tooltip=(
-                        "Scales all three mechanisms together, and each one "
-                        "through the path that owns it: the backbone and the "
-                        "adaln update are ordinary ComfyUI weight patches, so "
-                        "they take strength natively, and each fused head is "
-                        "base + strength * (fused - base) against the "
-                        "checkpoint's own head. 1.0 is the vendor's default "
-                        "and what their published clips were rendered at.\n\n"
-                        "0.0 installs nothing at all and is exactly the base "
-                        "model, heads included. Note that is a DIFFERENT "
-                        "control from the one h3_config recommends for plain "
-                        "LoRAs: there 0.0 short-circuits the "
+                        "Leave at 1.0. That is the vendor's default and what "
+                        "their published clips were rendered at.\n\n"
+                        "It scales all three surfaces together, each through "
+                        "the path that owns it: backbone and adaln are "
+                        "ordinary weight patches and take strength natively; "
+                        "each fused head is `base + strength * (fused - base)` "
+                        "against the checkpoint's own head.\n\n"
+                        "0.0 installs nothing on any surface and is exactly "
+                        "the base model. Careful: that is a DIFFERENT control "
+                        "from the one h3_config recommends for plain LoRAs, "
+                        "where 0.0 short-circuits the "
                         "dequantise/add/requantise round trip and 0.01 is the "
-                        "like-for-like baseline. Use 0.01 to isolate the "
-                        "backbone's numerical cost, 0.0 to get the base model."
+                        "like-for-like baseline. Here, 0.0 for the base model; "
+                        "0.01 to price the backbone's numerical cost."
                     ),
                 ),
                 # APPENDED, not inserted. Saved graphs match widget values by
                 # index, so a new widget ahead of `strength` would land an old
                 # graph's float on this boolean. Same rule as the head_chunks
                 # input on MiniMaxH3SageAttention.
+                #
+                # Tooltips below were rewritten 2026-08-31 to lead with what to
+                # set rather than with how the input came to exist. The repo
+                # history they used to carry is not lost: the withdrawn "+19 MB
+                # per block" pricing of `unmerged_blocks` is recorded in
+                # `docs/h3_pdd.md` (measured identical at 19995 MB across both
+                # arms of the 2026-08-30 smoke), and the widget-ordering defect
+                # is the comment above and the one on `head_strength`.
                 io.Boolean.Input(
                     "patch_heads", default=True, optional=True,
                     tooltip=(
+                        "Leave ON. This is PDD's actual mechanism.\n\n"
                         "Off runs the backbone and adaln updates against the "
-                        "checkpoint's OWN output heads -- PDD's whole "
-                        "mechanism disabled, everything else applied. That is "
-                        "the control for whether the per-interval heads earn "
-                        "their complexity: measured against the base head the "
-                        "fused heads sit 0.005 apart early and 0.015 apart at "
-                        "the last step, so if this arm is indistinguishable "
-                        "the head machinery is not what is doing the work. "
-                        "On by default; turning it off is an experiment, not "
-                        "a fallback."
+                        "checkpoint's OWN output heads -- everything applied "
+                        "except the thing PDD is. It is the control arm for "
+                        "whether the per-interval heads earn their complexity "
+                        "(against the base head the fused heads sit 0.005 "
+                        "apart early and 0.015 apart at the last step), not a "
+                        "fallback for anything."
                     ),
                 ),
                 # APPENDED. See the note on patch_heads.
                 io.Int.Input(
                     "nfe", default=0, min=0, max=64, optional=True,
                     tooltip=(
-                        "Leave at 0.\n\n"
-                        "Forces the head blocks to a fixed count and ignores "
-                        "the sampler's schedule. The one use is decoding one "
-                        "part of the 32-point grid while stepping another, "
-                        "which is an experiment rather than a setting. It "
-                        "logs on every run where it is non-zero.\n\n"
-                        "Not the same knob as `steps`: `steps` picks the "
-                        "schedule, `nfe` picks the blocks. They are allowed to "
-                        "disagree, and that disagreement is the experiment."
+                        "EXPERIMENT ONLY. Leave at 0 -- 0 is the ordinary "
+                        "mode, not 'unset'.\n\n"
+                        "Non-zero forces the head blocks to a fixed count and "
+                        "ignores the sampler's schedule entirely. Its one use "
+                        "is decoding one part of the 32-point grid while "
+                        "stepping another. It logs on every run where it is "
+                        "non-zero.\n\n"
+                        "If you are wondering how this differs from `steps`: "
+                        "`steps` picks the SCHEDULE the sampler walks, `nfe` "
+                        "picks the HEAD BLOCKS that decode it. Normally they "
+                        "agree because both come from the same schedule. "
+                        "Setting `nfe` makes them disagree on purpose, which "
+                        "is the whole experiment."
                     ),
                 ),
                 # APPENDED. See the note on patch_heads.
                 io.Int.Input(
                     "steps", default=8, min=0, max=64, optional=True,
                     tooltip=(
-                        "How many sampling steps this arm runs. This is what "
-                        "the SIGMAS output emits.\n\n"
-                        "Set it to the same number your sampler runs. Legal "
-                        "values are 1, 2, 4, 8, 16 and 32 -- the counts that "
+                        "The step count for this arm, and what the SIGMAS "
+                        "output emits. Wire SIGMAS to your sampler and this is "
+                        "the only place the count needs setting.\n\n"
+                        "Legal values: 1, 2, 4, 8, 16, 32 -- the counts that "
                         "divide this LoRA's 32-point grid. Anything else "
                         "raises, because there is no valid schedule at that "
                         "count.\n\n"
-                        "The shipped graphs WIRE this from a PrimitiveInt so "
-                        "the arm's step count is one visible number in the "
-                        "workflow rather than a widget buried in this node -- "
-                        "a 4-step graph has a PrimitiveInt of 4 feeding it.\n\n"
-                        "0 falls back to whatever count the LoRA file itself "
-                        "records (its `pdd_nfe`), which is derived rather than "
-                        "fixed. Use 0 only when SIGMAS is unwired.\n\n"
+                        "0 means 'take the count from the file' and is for the "
+                        "case where SIGMAS is UNWIRED and something else "
+                        "supplies the schedule (e.g. ManualSigmas). If SIGMAS "
+                        "is wired, set a real number.\n\n"
+                        "The shipped graphs wire this from a PrimitiveInt so "
+                        "the step count is one visible number in the workflow "
+                        "rather than a widget buried in this node.\n\n"
                         "For denoise below 1.0, send SIGMAS through "
                         "SplitSigmasDenoise and take low_sigmas."
                     ),
@@ -1325,64 +1367,61 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     "head_strength", default=-1.0, min=-10.0, max=10.0, step=0.01,
                     optional=True,
                     tooltip=(
-                        "Scales the fused OUTPUT HEADS alone, leaving the "
-                        "backbone and adaln update on `strength`. Splitting "
-                        "the two is borrowed from silveroxides' "
-                        "`UC_MiniMaxH3PDDAcc`, which separates `lora_strength` "
-                        "from `head_strength`; the point is that the three "
-                        "mechanisms reach the model on three different "
-                        "surfaces and are worth ablating apart.\n\n"
-                        "-1.0, the default, means FOLLOW `strength` -- the "
-                        "single-knob behaviour every graph had before this "
-                        "input existed, so no saved workflow changes. A "
-                        "sentinel rather than an optional None because the "
-                        "widget is a float and 0.0 is a meaningful value here: "
-                        "0.0 installs no head patches and runs the "
-                        "checkpoint's own heads, which is the headfree control "
-                        "arm."),
+                        "EXPERIMENT ONLY. Leave at -1.0, which means FOLLOW "
+                        "`strength`.\n\n"
+                        "It scales the fused OUTPUT HEADS alone, leaving the "
+                        "backbone and adaln update on `strength`, so the three "
+                        "surfaces can be ablated apart. 0.0 here installs no "
+                        "head patches and runs the checkpoint's own heads -- "
+                        "the same arm as `patch_heads` off.\n\n"
+                        "-1.0 is a sentinel rather than an optional None "
+                        "because this is a float widget and 0.0 is a "
+                        "meaningful value, so it cannot double as 'unset'. "
+                        "Borrowed from silveroxides' `UC_MiniMaxH3PDDAcc`, "
+                        "which separates `lora_strength` from `head_strength` "
+                        "the same way."),
                 ),
                 # APPENDED. See the note on patch_heads, and the longer one on
                 # head_strength about what inserting rather than appending cost.
                 io.String.Input(
                     "unmerged_blocks", default="", optional=True,
                     tooltip=(
-                        "Blocks whose backbone LoRA is applied at the CALL "
-                        "instead of merged into the weight. Same syntax as "
-                        "Sol-Attn's dense_blocks: '0-2,49', '32', '-1'. Empty "
-                        "-- the default -- merges everything, which is what "
-                        "every graph did before this input existed.\n\n"
-                        "Why it exists: on an int8_convrot checkpoint a merged "
-                        "LoRA is dequantised, added, and REQUANTISED with a "
-                        "recalculated scale, so it moves the quantisation grid "
-                        "rather than only the weight. Measured over 28 modules "
-                        "against the bf16 release, mean stored-weight error "
-                        "goes 0.00942 -> 0.01058 at strength 1.0, and the rise "
-                        "correlates 0.78 with the module's own ||BA||/||W|| "
-                        "-- so it is worst exactly where the distillation does "
-                        "the most work. Un-merging returns those modules to "
-                        "the checkpoint's shipped error at full LoRA "
-                        "strength.\n\n"
-                        "**It costs no memory.** Corrected 2026-08-30: an "
-                        "earlier version of this tooltip claimed +19 MB per "
-                        "block, reasoning that the A/B pairs become resident. "
-                        "They are resident EITHER WAY -- `add_patches` holds "
-                        "the patch tensors for the ModelPatcher's lifetime, "
-                        "which is what `docs/h3_pdd.md` attributes 933 MiB of "
-                        "the artifact's run-time footprint to. Both arms of "
-                        "the 2026-08-30 smoke staged 19995 MB, identically, "
-                        "at 292 patches against 308. Un-merging moves who owns "
-                        "those tensors, not whether they are held.\n\n"
-                        "The real cost is COMPUTE: two extra small matmuls per "
-                        "module per forward, about +2.4% FLOPs on the linear "
-                        "layers of an un-merged block, in bf16 rather than "
-                        "int8. That is arithmetic from the shapes and has "
-                        "NOT been timed. Worst-first by inflation: 49, 7, 24, "
-                        "16. Least worth it: 32 and 40.\n\n"
-                        "The adaln update is NOT affected and is never lifted "
-                        "-- adaln_proj.linear is F16 in the shipped "
-                        "checkpoints, so there is no requantisation to avoid. "
-                        "Nor are the output heads, which are F32. This knob "
-                        "reaches one of PDD's three surfaces."
+                        "ACCURACY KNOB, off by default. Names the blocks "
+                        "whose backbone LoRA is applied at the CALL instead of "
+                        "merged into the weight. Syntax is Sol-Attn's "
+                        "dense_blocks: '0-2,49', '32', '-1' for all. Empty "
+                        "merges everything.\n\n"
+                        "WHY YOU MIGHT SET IT. On an int8_convrot checkpoint a "
+                        "merged LoRA is dequantised, added, and REQUANTISED "
+                        "with a recalculated scale -- so it moves the "
+                        "quantisation grid rather than only the weight. "
+                        "Measured against the bf16 release, mean stored-weight "
+                        "error goes 0.00942 unpatched to 0.01058 at strength "
+                        "1.0, and the rise correlates 0.78 with the module's "
+                        "own ||BA||/||W||, i.e. it is worst exactly where the "
+                        "distillation does the most work. Un-merging returns "
+                        "those modules to the checkpoint's shipped error at "
+                        "full LoRA strength, and keeps the delta exact in bf16 "
+                        "-- slightly better than an offline bake, which rounds "
+                        "the delta onto the grid too.\n\n"
+                        "WHAT IT COSTS. No memory: `add_patches` holds the "
+                        "patch tensors either way, and both arms of the "
+                        "2026-08-30 smoke staged 19995 MB identically. The "
+                        "cost is COMPUTE -- two extra small matmuls per module "
+                        "per forward, about +2.4% FLOPs on an un-merged "
+                        "block's linears, in bf16 rather than int8. That is "
+                        "arithmetic from the shapes and has NOT been timed.\n\n"
+                        "WHAT IT DOES NOT REACH. Only the backbone, one of "
+                        "PDD's three surfaces. adaln_proj.linear is F16 in the "
+                        "shipped checkpoints and the output heads are F32, so "
+                        "neither requantises and neither is ever lifted.\n\n"
+                        "Worst-first by inflation: 49, 7, 24, 16. Least worth "
+                        "it: 32 and 40. That ranking is from 7 sampled blocks "
+                        "-- see docs/h3_pdd.md before treating it as complete.\n\n"
+                        "The measurement is stored-weight only, and "
+                        "int8_convrot is W8A8, so it does not price the "
+                        "activation rounding this also avoids on the delta. "
+                        "See docs/open_experiments.md #23."
                     ),
                 ),
                 # APPENDED. See the note on patch_heads.
@@ -1390,43 +1429,42 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                     "unmerged_strength", default=-1.0, min=-10.0, max=10.0,
                     step=0.01, optional=True,
                     tooltip=(
-                        "Scales the backbone delta of the UN-MERGED blocks "
-                        "alone, leaving merged blocks on `strength`. -1.0, the "
-                        "default, means follow `strength` -- the same sentinel "
-                        "`head_strength` uses, and for the same reason: 0.0 is "
-                        "meaningful here (the block runs undistilled) so it "
-                        "cannot double as 'unset'.\n\n"
-                        "This is the per-block distillation knob. It only "
-                        "reaches blocks named by `unmerged_blocks`, because "
-                        "only those apply their delta at the call where a "
-                        "scale can still be chosen; a merged block's delta is "
-                        "already in the weight."
+                        "EXPERIMENT ONLY. Leave at -1.0, which means follow "
+                        "`strength`. Inert unless `unmerged_blocks` names "
+                        "something.\n\n"
+                        "This is the per-block distillation knob: it scales "
+                        "the backbone delta of the UN-MERGED blocks alone, "
+                        "leaving merged blocks on `strength`. It can only "
+                        "reach un-merged blocks, because only those apply "
+                        "their delta at the call where a scale is still a "
+                        "choice; a merged block's delta is already in the "
+                        "weight. 0.0 runs those blocks undistilled -- which is "
+                        "why -1.0 rather than 0.0 is the 'unset' sentinel."
                     ),
                 ),
                 # APPENDED. See the note on patch_heads.
                 io.String.Input(
                     "unmerged_window", default="", optional=True,
                     tooltip=(
-                        "Sigma window, as `start-end` in percent, in which the "
-                        "un-merged delta applies. Empty -- the default -- "
-                        "applies it at every step, which is what a merged "
-                        "block does.\n\n"
-                        "**This exists to make a per-block experiment "
-                        "controlled, and it is the only way to get one.** A "
-                        "strength change on a MERGED block is a weight patch: "
-                        "it affects every step, so two arms diverge from step "
-                        "0 and become different samples rather than a "
-                        "perturbation and its baseline -- which CLAUDE.md's "
-                        "different-sample rule says cannot answer a question "
+                        "EXPERIMENT ONLY. Leave empty. Inert unless "
+                        "`unmerged_blocks` names something.\n\n"
+                        "A sigma window, `start-end` in percent, in which the "
+                        "un-merged delta applies; empty applies it at every "
+                        "step, which is what a merged block does.\n\n"
+                        "It is here because it is the ONLY way to ask a "
+                        "controlled question about a per-block change. A "
+                        "strength change on a merged block is a weight patch "
+                        "affecting every step, so two arms diverge from step 0 "
+                        "and are different samples rather than a perturbation "
+                        "and its baseline -- which cannot answer anything "
                         "about a numerical knob. Narrowing this window to one "
                         "step makes every earlier step bit-identical across "
-                        "arms by construction, which is exactly how "
-                        "`bench/probe_block_propagation.py` earns its "
-                        "numbers for Sol.\n\n"
+                        "arms by construction. Same method as "
+                        "`bench/probe_block_propagation.py` uses for Sol.\n\n"
                         "'0.66-1.0' at shift 12 contains only the final step "
-                        "of a 4-step schedule. Percent is converted through "
-                        "the model's own `percent_to_sigma`, so it means what "
-                        "it means on Sol's `start_percent`."
+                        "of a 4-step schedule. Percent goes through the "
+                        "model's own `percent_to_sigma`, so it means what it "
+                        "means on Sol's `start_percent`."
                     ),
                 ),
             ],
@@ -1833,6 +1871,31 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
         #   injection -- counts real object patches, so it is meaningful.
         declared_adaln = int(meta.get("adaln_modules") or 0)
         if declared_adaln and adaln_installed != declared_adaln:
+            # The overwhelmingly common way to land here is a form/base
+            # mismatch, and the generic count message made that look like a
+            # corrupt file. Name the actual pairing, from observables on both
+            # sides: which adaln form the FILE carries (a key prefix) against
+            # whether the CHECKPOINT is in curve form (`use_adaln_curves`).
+            # Metadata is not consulted -- `h3_pdd_base` records the
+            # `--base` argument, which for a baked file is the UNPRUNED
+            # checkpoint it will refuse to load on, so it points at the wrong
+            # answer here.
+            _has_baked = any(k.startswith("h3_pdd.adaln_baked.") for k in sd)
+            _has_2688 = any(k.startswith("h3_pdd.adaln.") for k in sd)
+            if _has_baked and not _has_2688 and not pruned:
+                raise RuntimeError(
+                    f"{lora_name} carries its modulation update BAKED into a "
+                    f"pruned checkpoint's rank-8 curve basis, and this "
+                    f"checkpoint is not in curve form "
+                    f"(`adaln_proj.linear.weight` is the full 2688-wide time "
+                    f"space, not 8). The two cannot meet: none of its "
+                    f"{declared_adaln} adaln modules can be applied here. "
+                    f"Load the `_adaln2688` conversion of this LoRA, which "
+                    f"carries the update in the full time space and works on "
+                    f"EITHER base; or load the pruned build of this "
+                    f"checkpoint. Refusing rather than rendering the backbone "
+                    f"and heads with no modulation update, which looks "
+                    f"entirely normal.")
             raise RuntimeError(
                 f"{lora_name} declares {declared_adaln} adaln modules but "
                 f"{adaln_installed} reached the model. A PDD arm without its "

@@ -38,6 +38,7 @@ CPU only, no server. A sample of modules across depth, not all 200.
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
 import json
 import sys
 from pathlib import Path
@@ -172,7 +173,7 @@ def main() -> int:
         / summary["by_strength"][f"{lo}"]["e_vs_unpatched_mean"])
 
     out = {
-        "measured": "2026-08-30",
+        "measured": _dt.date.today().isoformat(),
         "produced_by": "bench/measure_pdd_quant_interaction.py",
         "question": ("does the PDD LoRA's strength change the quantisation "
                      "error a module carries, which is what a per-block "
@@ -184,7 +185,12 @@ def main() -> int:
         "rounding": ("deterministic; the shipped path uses seeded stochastic "
                      "rounding, so these are its expectation"),
         "is_not": ("an activation or output measurement. Stored-weight "
-                   "distance only"),
+                   "distance only -- and that is ONE of the two roundings this "
+                   "path performs. int8_convrot is W8A8: `int8_linear` rotates "
+                   "the activation online and quantises it per TOKEN before the "
+                   "int8 GEMM, so a stored-weight distance is blind to the "
+                   "activation rounding entirely. Nothing here licenses a claim "
+                   "about what a module costs at run time."),
         "summary": summary,
         "modules": rows,
     }

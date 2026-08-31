@@ -583,6 +583,19 @@ def main(argv=None) -> int:
         "h3_pdd_converter_version": CONVERTER_VERSION,
         "h3_pdd_source": args.pdd.name,
         "h3_pdd_base": args.base.name,
+        # `h3_pdd_base` is the `--base` argument -- the checkpoint the partition
+        # check was taken against. For a `--pruned` conversion that is the
+        # UNPRUNED file, which is the one base this artifact will refuse to load
+        # on, so it is exactly the wrong thing to read when asking "what does
+        # this fit". These two say so directly. Added 2026-08-31; a file older
+        # than that carries neither, and the node classifies by key prefix
+        # instead, which is the observable and needs no metadata at all.
+        "h3_pdd_adaln_form": "baked" if args.pruned is not None else "2688",
+        "h3_pdd_loads_on": ("the pruned/curve-form build of this partition only"
+                            if args.pruned is not None
+                            else "either the pruned or the unpruned build"),
+        "h3_pdd_pruned_base": (args.pruned.name if args.pruned is not None
+                               else ""),
         # Informational only. The node compares the TENSOR by distance; this
         # is here so two converted files can be told apart by eye.
         "base_video_out_sha256": hashlib.sha256(

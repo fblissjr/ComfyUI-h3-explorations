@@ -706,5 +706,6 @@
         }
       }
     }
-  ]
+  ],
+  "weight_only_caveat_2026-08-31": "Added 2026-08-31. int8_convrot is W8A8: `comfy_kitchen`'s `int8_linear` rotates the activation online with the same Hadamard and quantises it PER TOKEN before an int8 GEMM whose accumulation is exact (docs/research/comfyui_h3_t2va_trace.md sections 1.7-1.8: 'all the error is in the two roundings'). Every number in this file is a stored-WEIGHT distance and is blind to the activation rounding by construction. It therefore cannot rank module kinds by what they cost at run time, and a flat result for a knob whose job is to spread outliers is not evidence the knob is inert. The runtime decomposition is docs/open_experiments.md #23. This field records a caveat that was always true of the measurement and was dropped by prose citing it."
 }

@@ -921,12 +921,55 @@ dynamic VRAM-to-RAM offload makes 31.70 GiB *runnable* on a 24 GiB card, but
 the adaln projection is touched once per block per step, so it is streamed
 50x8 times per render rather than held.
 
-**So the unpruned file is not the "most correct" DiT, and building a better
-quantised one does not exist as an option** — §7 of this file and the encoder
-lane's headroom record together establish that convrot is deterministic and
-data-free with no calibration to improve, and that the int8 files are
-structurally complete at 534/534 release modules with the release's fp32
-islands preserved.
+**So the unpruned file is not the "most correct" DiT.**
+
+**Corrected 2026-08-31, and the withdrawn half mattered.** This paragraph used
+to continue: *"and building a better quantised one does not exist as an
+option — §7 of this file and the encoder lane's headroom record together
+establish that convrot is deterministic and data-free with no calibration to
+improve, and that the int8 files are structurally complete at 534/534 release
+modules with the release's fp32 islands preserved."* Three defects in one
+sentence. It carried an ENCODER record
+(`bench/results/2026-08-29_int8_convrot_headroom.json`, subject
+`qwen3vl_32b_minimax_h3_int8_convrot.safetensors`) to a DiT conclusion, which
+is the two-models crossing `CLAUDE.md` names. §7 establishes none of what is
+attributed to it — read it. And "534/534 release modules" appears nowhere else
+in this repo and is sourced to nothing.
+
+What survives is the mechanism, and only for the weights: convrot IS a
+deterministic, data-free transform, so there is no calibration population to
+improve, and that is as true of the DiT as of the encoder. What does NOT
+survive is the conclusion, because **the lane it rests on measures one of the
+two roundings.** `int8_convrot` is W8A8: §1.7-1.8 of
+[`comfyui_h3_t2va_trace.md`](comfyui_h3_t2va_trace.md) traces `int8_linear`
+rotating the activation online and quantising it **per token** before an int8
+GEMM whose accumulation is exact — "all the error is in the two roundings".
+Every quant-quality record here
+(`2026-08-21_quant_delta_*`, `2026-08-28_quant_hotspots_ref2va`,
+`2026-08-29_int8_convrot_headroom`) is a stored-WEIGHT distance and is blind to
+the activation rounding by construction. `docs/evidence.md` carries that
+caveat on the source measurement; this paragraph dropped it and then reasoned
+past it.
+
+Two in-format levers therefore remain open rather than closed:
+
+- **`convrot_groupsize` per module.** It is per-tensor metadata (the
+  `comfy_quant` blob), currently 256 on every linear.
+  `_build_hadamard` demands a power of **4** that divides `in_features`, and
+  the DiT's dimensions are not uniform: `attn.qkv_proj` and `mlp.fc1` take
+  5376 = 2^8·21 and are **capped at 256**, while `attn.out_proj` (7168 = 2^10·7)
+  and `mlp.fc2` (14336 = 2^11·7) admit **1024**. The kind with the worst
+  stored-weight error is one of the two that can take a wider group, and the
+  rotation's purpose is to spread outliers before rounding — so this is
+  precisely the knob a weight-only sweep could not evaluate.
+- **Per-module scheme.** `int8_linear` rejects any `weight_scale` that is not
+  scalar or per-output-channel, so a per-GROUP weight scale is closed without a
+  core change; but precision escalation on one kind is expressible. It is
+  priced out rather than impossible: out_proj at bf16 is +1.8 GiB across 50
+  blocks, and fp8 is strictly worse than int8 here (0.0265 against 0.0104).
+
+Neither is worth turning until the runtime decomposition exists —
+`docs/open_experiments.md` #23.
 
 If the goal is exact modulation, neither file is the answer. The exact AdaLN
 cache in §9.8 is: bf16-exact, ~148 MiB for this schedule, built from the

@@ -104,6 +104,45 @@ baked file is smaller and cheaper and remains the default, but it is
 basis-specific: it fits only the checkpoint whose `adaln_t_table` it was solved
 against, which is what the table guard checks.
 
+### Which file for which checkpoint
+
+**The observable on the checkpoint side is
+`blocks.0.adaln_proj.linear.weight`'s shape**, and it is where the `2688` in
+the filename comes from:
+
+    [96768,    8]  -> pruned / curve form.   `adaln_t_table` present.
+    [96768, 2688]  -> unpruned / full form.  `adaln_t_table` absent.
+
+Every `*_pruned_*` build is the first, as are the `fastvideo_vsa` and the
+`hybrid_fl2va_ref2va_*` files; the two 31.7 GiB `minimax_h3_{fl2va,ref2va}_int8_convrot`
+files are the second. The node itself branches on `use_adaln_curves`, an
+attribute of the loaded model, and never on a filename.
+
+| checkpoint | `..._pdd_8step_comfy` (baked) | `..._pdd_8step_adaln2688_comfy` |
+|---|---|---|
+| pruned / curve form | **use this** -- 50 `diff`/`diff_b` weight patches, no forward patches | works, via 50 runtime forward patches and `silu_temb_grid` |
+| unpruned / full form | **raises** -- see below | **use this** -- an ordinary weight patch |
+
+Prefer the baked file wherever it fits: the bake residual is 1.2e-5 to 6.1e-5,
+and it avoids installing 50 object patches the injection path needs.
+
+**The failure is refused, not rendered.** A baked file on an unpruned
+checkpoint installs none of its 50 adaln modules, and the `declared_adaln`
+guard in `pdd_lora.py` catches that -- since 2026-08-31 with a message naming
+the form mismatch and the fix, because the generic count message read like a
+corrupt file. The reverse pairing does not fail at all; `adaln2688` is
+genuinely portable.
+
+**Do not answer this from `h3_pdd_base` metadata.** It records the converter's
+`--base` argument, which is the checkpoint the partition check was taken
+against -- for a baked file, the UNPRUNED one it will refuse to load on. So
+every baked file on disk names, in its own metadata, the one base it cannot
+use. Files converted after 2026-08-31 also carry `h3_pdd_adaln_form`,
+`h3_pdd_loads_on` and `h3_pdd_pruned_base`, which answer the question
+directly; older ones are classified by key prefix
+(`h3_pdd.adaln_baked.` against `h3_pdd.adaln.`, which is not a prefix of the
+other and has been read as one before).
+
 **Built 2026-08-29, and it was the first execution of that path.** Every file
 shipped before it was a `--pruned` conversion, so the converter's no-`--pruned`
 branch and the node's unpruned branch had both never run. The conversion
@@ -1843,7 +1882,7 @@ weight, so both fixes are ways of not doing that, and they are not equal:
 | | fidelity at strength 1.0 | run-time cost | what it pins |
 |---|---|---|---|
 | merge at run time (ships today) | 0.01058 | none | nothing |
-| `unmerged_blocks` | 0.00942 | +2.4% FLOPs, +19 MB per block | nothing |
+| `unmerged_blocks` | 0.00942 | +2.4% FLOPs, no memory | nothing |
 | offline bake from the release | 0.00942 | **none** | strength and partition into the artifact |
 
 **The bake is the better answer where it applies, and this measurement is what

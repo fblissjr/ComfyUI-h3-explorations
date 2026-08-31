@@ -77,6 +77,13 @@ def main() -> int:
         "is_not": "Sol's kernel INT8. See this file's docstring -- "
                   "analyze_sol_error.py's quant_l2 is a different quantity and "
                   "the two were crossed once.",
+        "is_also_not": "a runtime error. int8_convrot is W8A8: `int8_linear` "
+                       "rotates the activation online and quantises it per "
+                       "TOKEN before an int8 GEMM whose accumulation is exact, "
+                       "so the error a module carries at run time is TWO "
+                       "roundings and this file sees one. A ranking of module "
+                       "kinds by stored-weight error is not a ranking of what "
+                       "they cost. See docs/open_experiments.md #23.",
         "by_block": {
             "spread_max_over_min": spread,
             "block_49_rank_of_50": rank49,
@@ -100,9 +107,18 @@ def main() -> int:
             f"{by_kind['attn.qkv_proj']['row_rel_max']:.5f}.",
             "Under fp8_scaled all four kinds are equal to four decimal places, so "
             "out_proj's excess is a property of the INT8 SCHEME rather than of the "
-            "out_proj weights. That is what makes it a candidate for different "
-            "treatment in a re-bake; it is also the only lane here the bf16 "
-            "release is needed for.",
+            "out_proj weights. It is also the only lane here the bf16 release is "
+            "needed for.",
+            "AMENDED 2026-08-31. The finding above used to end `that is what "
+            "makes it a candidate for different treatment in a RE-BAKE`. "
+            "Withdrawn: a re-bake changes the weight rounding, and this file "
+            "cannot see whether the weight rounding is what out_proj's error is "
+            "made of at run time -- see `is_also_not`. The in-format lever that "
+            "does address outlier spreading is `convrot_groupsize`, and the "
+            "DiT's dimensions single out_proj out for it: `_build_hadamard` "
+            "wants a power of 4 dividing in_features, so qkv_proj and fc1 "
+            "(5376 = 2^8*21) are capped at the shipped 256 while out_proj "
+            "(7168) and fc2 (14336) admit 1024. Evaluating it needs activations.",
         ],
         "not_measured": [
             "whether out_proj's excess reaches the output. This is stored-weight "

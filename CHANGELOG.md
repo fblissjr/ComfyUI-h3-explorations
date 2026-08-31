@@ -4,6 +4,76 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.2
+
+### Fixed
+
+- **A baked PDD file on an unpruned checkpoint now says what is wrong and how
+  to fix it.** It installed none of its 50 adaln modules and tripped the
+  generic `declared_adaln` guard, whose message ("declares 50 adaln modules but
+  0 reached the model") reads as a corrupt file rather than a form mismatch.
+  The new message names both sides from observables -- the file's adaln key
+  prefix against the checkpoint's `use_adaln_curves` -- and names the two
+  fixes. Metadata is deliberately not consulted: `h3_pdd_base` records the
+  converter's `--base`, which for a baked file is the unpruned checkpoint it
+  will refuse to load on, so it points at the wrong answer.
+- **`docs/h3_pdd.md`'s trade table still priced `unmerged_blocks` at "+19 MB
+  per block"** -- the figure the same section withdraws two paragraphs later,
+  measured identical at 19995 MB across both arms of the 2026-08-30 smoke. The
+  row now reads "no memory".
+- **`bench/measure_pdd_quant_interaction.py` hardcoded `"measured":
+  "2026-08-30"`**, so any re-run would stamp its record with the first run's
+  date. It reads the clock now.
+
+### Changed
+
+- **`MiniMaxH3PDDLoRA`'s tooltips lead with what to set.** Every one was
+  rewritten to open with the operative instruction ("Leave at 1.0", "EXPERIMENT
+  ONLY", "ACCURACY KNOB, off by default") before the reasoning, and the repo
+  history several of them carried -- a widget-ordering defect, a withdrawn
+  memory figure, which upstream node an input was borrowed from -- moved to
+  code comments or to `docs/h3_pdd.md`, which already held it. The node
+  `description` now states the three surfaces and says that everything below
+  `steps` is an experiment knob. **No widget was added, removed or reordered**,
+  so every saved graph reads the same values.
+- **`lora_name`'s tooltip now answers "which file for which checkpoint"**, the
+  question the node previously left to trial and error, including the
+  checkpoint-side observable (`blocks.0.adaln_proj.linear.weight` is
+  `[96768, 8]` pruned, `[96768, 2688]` unpruned).
+- **`bench/convert_pdd_lora.py` records what its output fits.** New metadata
+  `h3_pdd_adaln_form`, `h3_pdd_loads_on` and `h3_pdd_pruned_base`. Until now
+  the only base a file named was `--base`, which on the `--pruned` path is the
+  one checkpoint it cannot load on. Older files are still classified by key
+  prefix, which needs no metadata.
+
+### Documentation
+
+- **The claim that a better quantised DiT "does not exist as an option" is
+  withdrawn** (`docs/research/h3_dit_implementations.md` §10.5). It carried an
+  ENCODER record to a DiT conclusion, attributed to §7 things §7 does not
+  establish, and cited a "534/534 release modules" figure sourced to nothing.
+  What survives is that convrot is a deterministic, data-free transform with no
+  calibration to improve. What does not is the conclusion, because the lane it
+  rests on measures one of the **two** roundings: `int8_convrot` is W8A8, and
+  `int8_linear` rotates the activation online and quantises it per token before
+  the GEMM.
+- **Three quant records now carry that caveat in the record itself**
+  (`2026-08-28_quant_hotspots_ref2va`, `2026-08-29_int8_convrot_headroom`,
+  `2026-08-30_pdd_quant_interaction`), and their producers emit it. The
+  hotspots finding that made `attn.out_proj` "a candidate for different
+  treatment in a re-bake" is amended: a re-bake changes the weight rounding,
+  and that file cannot see whether the weight rounding is what out_proj's
+  runtime error is made of.
+- **`docs/open_experiments.md` #23**: what INT8 costs at run time, per module
+  kind, with the weight/activation decomposition, a pre-registered decision
+  rule, and the observation that the DiT's dimensions single out `attn.out_proj`
+  for the one in-format lever -- `_build_hadamard` wants a power of 4 dividing
+  `in_features`, so `qkv_proj` and `fc1` (5376) are capped at the shipped 256
+  while `out_proj` (7168) and `fc2` (14336) admit 1024.
+- **`docs/h3_pdd.md` gains a "which file for which checkpoint" table**: the
+  shape observable, what each pairing does, which to prefer, and why
+  `h3_pdd_base` is the wrong field to read.
+
 ## 0.99.1
 
 ### Fixed

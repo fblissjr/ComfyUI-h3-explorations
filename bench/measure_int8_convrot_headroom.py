@@ -23,6 +23,16 @@ Everything is measured on the weights, not on a render. That is deliberate:
 `CLAUDE.md` records that a rendered clip cannot A/B a numerical change, and a
 weight comparison is controlled by construction.
 
+**What that costs, stated 2026-08-31 after this record was cited past its
+scope.** `int8_convrot` is W8A8. `int8_linear` rotates the ACTIVATION online
+with the same Hadamard and quantises it per token before an int8 GEMM whose
+accumulation is exact, so the error a module carries at run time is two
+roundings and every arm below sees one. The groupsize sweep in particular is
+weakened by this rather than merely narrowed: the rotation exists to spread
+outliers before rounding, and the activation is the side with the outliers. A
+flat groupsize result on stored weights does NOT establish that the knob is
+inert. See `docs/open_experiments.md` #23.
+
 Needs both encoder files and a CUDA device (the convrot kernels are CUDA-only).
 """
 
@@ -159,8 +169,14 @@ def main(argv=None) -> int:
         "modules_sampled": list(MODULES),
         "not_established": (
             "end-to-end encoder output fidelity, which is "
-            "2026-08-25_four_encoders_holdout_layer50.json's; and whether a "
-            "per-group scale would help, which this format cannot express"
+            "2026-08-25_four_encoders_holdout_layer50.json's; whether a "
+            "per-group scale would help, which this format cannot express; and "
+            "-- added 2026-08-31 -- ANY runtime behaviour at all. int8_convrot "
+            "is W8A8 and this measures the weight rounding only, so a flat "
+            "groupsize result here does not establish that convrot_groupsize is "
+            "inert. The rotation's purpose is to spread outliers before "
+            "rounding and the activation is the side with the outliers. "
+            "docs/open_experiments.md #23"
         ),
         "producer": producer_provenance(__file__),
         **measured,

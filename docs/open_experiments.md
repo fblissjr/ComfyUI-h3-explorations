@@ -1624,3 +1624,81 @@ ComfyUI on this card; the first action is a one-step render with it alone,
 output read end to end (a 34 GB file on a 24 GB card goes through partial
 offload, and that path is the untested one). Then the canvas question to the
 owner, then the tap, then the arms.
+
+
+## 23. What INT8 actually costs at run time, per module kind
+
+**Tests:** how much of a module's `int8_convrot` error is the WEIGHT rounding
+and how much is the ACTIVATION rounding, per module kind, at production
+geometry. Everything this repo has measured about int8 fidelity is the first
+term; the second has never been looked at.
+
+**Why it is not already answered.** `int8_convrot` is W8A8, and
+[`research/comfyui_h3_t2va_trace.md`](research/comfyui_h3_t2va_trace.md)
+sections 1.7-1.8 trace why: `int8_linear` rotates the activation online with
+the same Hadamard, quantises it **per token**, runs an int8 GEMM whose int32
+accumulation is exact, and scales in fp32 — "all the error is in the two
+roundings". Every quant record here
+(`2026-08-21_quant_delta_*`, `2026-08-28_quant_hotspots_ref2va`,
+`2026-08-29_int8_convrot_headroom`, `2026-08-30_pdd_quant_interaction`) is a
+stored-weight distance. `docs/evidence.md` states that caveat correctly on the
+source measurement; two files then cited those records past it, and both were
+corrected on 2026-08-31.
+
+**Decision it changes.** Three, and none of them can move without this:
+
+- **Whether `attn.out_proj` deserves different treatment.** It is the worst
+  kind on stored weights (1.18x qkv_proj on the mean, row_rel p95 0.0128
+  against 0.0101) and its input is the attention output, the most
+  outlier-heavy activation in the block. Those two facts point at different
+  levers and the records cannot separate them.
+- **Whether `convrot_groupsize` is a live knob.** The encoder sweep found it
+  flat, on weights. The rotation's whole job is to spread outliers before
+  rounding, and the activation is the side with the outliers, so that result
+  does not transfer. The DiT's dimensions make this specific rather than
+  hypothetical: `_build_hadamard` wants a power of 4 dividing `in_features`,
+  so `attn.qkv_proj` and `mlp.fc1` (5376 = 2^8·21) are **capped at the shipped
+  256**, while `attn.out_proj` (7168 = 2^10·7) and `mlp.fc2` (14336 = 2^11·7)
+  admit **1024**. The kind that is worst is one of the two that can take a
+  wider group.
+- **`docs/research/h3_dit_implementations.md` §10.5**, which until 2026-08-31
+  said building a better quantised DiT "does not exist as an option" on the
+  strength of the weight-only lane.
+
+**Method: captured activations, then everything offline.** One capture, scored
+many ways — the capture-broadly-first rule, and the reason not to design this
+as a sweep.
+
+- Capture `attn.out_proj` **input** (and one `qkv_proj` input as the control
+  kind) at 1344x768, one or two `(block, step)` pairs. At 98k x 7168 in bf16
+  that is ~1.4 GB per pair, a third of what the existing qkv captures cost.
+  Every capture inventoried in `2026-08-30_capture_inventory.json` was deleted
+  the day it was written, so this needs a fresh render, and
+  `bench/restart_comfy.sh`'s arming rule applies to the server that runs it.
+- Offline, per kind, on the same captured `x`: `int8_linear(x, W_q, s,
+  convrot=True, gs=256)` against `F.linear(x.to(bf16), W_ref.to(bf16))` — the
+  runtime error. Then two decompositions against the same reference:
+  exact weight with quantised activation (activation term alone), and
+  quantised weight with exact activation (weight term alone, which is what
+  every existing record measures).
+- Only then sweep `gs` in {256, 1024} on `out_proj` and `fc2` against the same
+  `x`. It is a re-score of one capture, not a second render.
+
+**Pre-registered prediction and decision rule.** Let `E_rt`, `E_act`, `E_wt` be
+the three relative L2s above, per kind.
+
+- Prediction: `E_act > E_wt` on `attn.out_proj`, and the gap between kinds in
+  `E_rt` does **not** follow the stored-weight ranking.
+- The stored-weight lane's implicit claim **survives** if `E_wt / E_rt >= 0.8`
+  on every kind, i.e. the weight rounding dominates and the existing ranking
+  transfers. Then a re-bake is the right lever after all and groupsize is
+  noise.
+- It is **refuted** if `E_act > E_wt` on any kind, which makes every
+  kind-ranking in this repo a statement about half the error, and makes
+  `convrot_groupsize` the first thing to sweep.
+- If `E_rt` is within a few percent of `E_wt + E_act` on all kinds the two
+  terms are independent and can be reasoned about separately; if it is not,
+  they interact through the rotation and only `E_rt` is quotable.
+
+**Blocker:** one render's worth of card time, plus the capture spec on the
+server that runs it. Nothing else — the scoring is CPU and needs no server.
