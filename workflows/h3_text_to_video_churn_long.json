@@ -10,8 +10,8 @@
   },
   "id": "b51998b7-c8be-5643-84de-682c963b4bf2",
   "revision": 0,
-  "last_node_id": 26,
-  "last_link_id": 27,
+  "last_node_id": 25,
+  "last_link_id": 26,
   "nodes": [
     {
       "id": 1,
@@ -65,7 +65,7 @@
           "name": "CLIP",
           "type": "CLIP",
           "links": [
-            8
+            7
           ]
         }
       ],
@@ -97,8 +97,8 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            7,
-            23
+            6,
+            22
           ]
         }
       ],
@@ -130,7 +130,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            25
+            24
           ]
         }
       ],
@@ -162,7 +162,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## What this node does that the UI does not show\n\n**The step count is not set here.** It is read from the sampler's own sigma\nschedule while the render runs. To change the arm, change `steps` on\nBasicScheduler; `nfe` here is an override and stays 0.\n\n**Three surfaces are patched, and only one is a normal LoRA:**\n\n- backbone attention and MLP weights\n- the adaln modulation update, pre-solved into this checkpoint's curve basis\n- the two output projections in `final_layer`\n\n**The output heads are swapped every sampling step.** The file carries a\n32-interval bank; the block a step spans is fused on first use and cached.\n\n**It refuses rather than renders** when the file was converted against the\nother partition -- fl2va and ref2va share every tensor name, so a mismatch\nwould otherwise load with nothing unmatched and simply be wrong -- or when\nanother node already owns the output heads.\n\n`patch_heads` off applies the backbone and adaln updates against the\ncheckpoint's own heads. That is the control arm for whether the head\nmachinery is what is doing the work.\n"
+        "## What this node does that the UI does not show\n\n**The step count comes in on the `steps` socket, and this node emits the\nschedule.** The `PDD steps` PrimitiveInt on the canvas is the one number that\nsets the arm; SIGMAS runs from this node's second output straight into\n`SamplerCustomAdvanced`. There is no `BasicScheduler` in a PDD graph to change\n-- this note used to say there was, which described the topology before this\nnode emitted SIGMAS. (The `manual_sigmas` graph is the exception: its schedule\ncomes from `ManualSigmas` and the socket is 0.)\n\n**`nfe` stays 0, and 0 is not an evaluation count.** It is a mode: 0 means\n\"take the count from `steps`\", and a non-zero value overrides it. That is the\nfalsy-sentinel shape this repo is migrating away from -- a numeric widget\nshould mean the quantity it names -- and it is carried as accepted debt in\n`bench/check_literal_widgets.py::SENTINELS` rather than fixed, because\nconverting a number to a combo re-points every later widget value in every\nsaved graph.\n\n**There is no sigma-shift node either, and that is deliberate.** This node\nbuilds its schedule from the shift its file was fused at, and the fused heads\nare a function of that same shift, so `check_shift` REFUSES a render whose\nshift disagrees -- a raise at step 0, not a warning. At the checkpoint's own\n12/3 a `ModelSamplingMiniMaxH3` node would patch the model into what it\nalready is, so it is omitted here rather than left sitting as a knob that only\nbreaks things. With it absent, `check_shift` compares against the model's\nclass default instead, which is the same 12/3.\n\n**Three surfaces are patched, and only one is a normal LoRA:**\n\n- backbone attention and MLP weights\n- the adaln modulation update, pre-solved into this checkpoint's curve basis\n- the two output projections in `final_layer`\n\n**The output heads are swapped every sampling step.** The file carries a\n32-interval bank; the block a step spans is fused on first use and cached.\n\n**It refuses rather than renders** when the file was converted against the\nother partition -- fl2va and ref2va share every tensor name, so a mismatch\nwould otherwise load with nothing unmatched and simply be wrong -- or when\nanother node already owns the output heads.\n\n`patch_heads` off applies the backbone and adaln updates against the\ncheckpoint's own heads. That is the control arm for whether the head\nmachinery is what is doing the work.\n"
       ],
       "title": "PDD LoRA: what runs that the widgets do not show"
     },
@@ -207,7 +207,7 @@
           "name": "SIGMAS",
           "type": "SIGMAS",
           "links": [
-            21
+            20
           ]
         }
       ],
@@ -262,10 +262,10 @@
     },
     {
       "id": 8,
-      "type": "MiniMaxH3SigmaShift",
+      "type": "MiniMaxH3SageAttention",
       "pos": [
-        -1500,
-        700
+        -880,
+        0
       ],
       "size": [
         360,
@@ -291,45 +291,6 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "MiniMaxH3SigmaShift"
-      },
-      "widgets_values": [
-        12.0,
-        3.0
-      ],
-      "title": "Sigma shift (video 12, audio 3)"
-    },
-    {
-      "id": 9,
-      "type": "MiniMaxH3SageAttention",
-      "pos": [
-        -880,
-        0
-      ],
-      "size": [
-        360,
-        110
-      ],
-      "flags": {},
-      "order": 17,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 4
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            5
-          ]
-        }
-      ],
-      "properties": {
         "Node name for S&R": "MiniMaxH3SageAttention"
       },
       "widgets_values": [
@@ -339,7 +300,7 @@
       ]
     },
     {
-      "id": 10,
+      "id": 9,
       "type": "MarkdownNote",
       "pos": [
         -880,
@@ -363,7 +324,7 @@
       "title": "Sol-Attn: what runs that the widgets do not show"
     },
     {
-      "id": 11,
+      "id": 10,
       "type": "MiniMaxH3SolAttn",
       "pos": [
         -880,
@@ -374,13 +335,13 @@
         330
       ],
       "flags": {},
-      "order": 18,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 5
+          "link": 4
         }
       ],
       "outputs": [
@@ -388,7 +349,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            6
+            5
           ]
         }
       ],
@@ -411,7 +372,7 @@
       "title": "Patch Sol-Attn (PDD recipe - end_percent 0.74, min_tokens 12288, dense_blocks '0-2,32'; h3_config.SOL_PDD_CUDA)"
     },
     {
-      "id": 12,
+      "id": 11,
       "type": "ModelPreviewOverrideKJ",
       "pos": [
         -460,
@@ -422,13 +383,13 @@
         200
       ],
       "flags": {},
-      "order": 19,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 6
+          "link": 5
         },
         {
           "name": "vae",
@@ -442,7 +403,7 @@
           "name": "MODEL",
           "type": "MODEL",
           "links": [
-            9
+            8
           ]
         }
       ],
@@ -460,7 +421,7 @@
       "title": "Preview (taeh3)"
     },
     {
-      "id": 13,
+      "id": 12,
       "type": "MiniMaxH3Resolution",
       "pos": [
         -1900,
@@ -479,21 +440,21 @@
           "name": "width",
           "type": "INT",
           "links": [
-            11
+            10
           ]
         },
         {
           "name": "height",
           "type": "INT",
           "links": [
-            12
+            11
           ]
         },
         {
           "name": "length",
           "type": "INT",
           "links": [
-            13
+            12
           ]
         },
         {
@@ -528,7 +489,7 @@
       "title": "Resolution: shape, and what it costs"
     },
     {
-      "id": 14,
+      "id": 13,
       "type": "MiniMaxH3Conditioning",
       "pos": [
         -460,
@@ -545,12 +506,12 @@
         {
           "name": "clip",
           "type": "CLIP",
-          "link": 8
+          "link": 7
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 7
+          "link": 6
         },
         {
           "name": "first_frame",
@@ -567,7 +528,7 @@
         {
           "name": "width",
           "type": "INT",
-          "link": 11,
+          "link": 10,
           "widget": {
             "name": "width"
           }
@@ -575,7 +536,7 @@
         {
           "name": "height",
           "type": "INT",
-          "link": 12,
+          "link": 11,
           "widget": {
             "name": "height"
           }
@@ -583,7 +544,7 @@
         {
           "name": "length",
           "type": "INT",
-          "link": 13,
+          "link": 12,
           "widget": {
             "name": "length"
           }
@@ -594,14 +555,14 @@
           "name": "positive",
           "type": "CONDITIONING",
           "links": [
-            14
+            13
           ]
         },
         {
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            15
+            14
           ]
         }
       ],
@@ -617,7 +578,7 @@
       ]
     },
     {
-      "id": 15,
+      "id": 14,
       "type": "RandomNoise",
       "pos": [
         40,
@@ -636,7 +597,7 @@
           "name": "NOISE",
           "type": "NOISE",
           "links": [
-            18
+            17
           ]
         }
       ],
@@ -649,7 +610,7 @@
       ]
     },
     {
-      "id": 16,
+      "id": 15,
       "type": "KSamplerSelect",
       "pos": [
         40,
@@ -668,7 +629,7 @@
           "name": "SAMPLER",
           "type": "SAMPLER",
           "links": [
-            20
+            19
           ]
         }
       ],
@@ -680,7 +641,7 @@
       ]
     },
     {
-      "id": 17,
+      "id": 16,
       "type": "BasicGuider",
       "pos": [
         40,
@@ -691,18 +652,18 @@
         70
       ],
       "flags": {},
-      "order": 21,
+      "order": 20,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 10
+          "link": 9
         },
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 16
+          "link": 15
         }
       ],
       "outputs": [
@@ -710,7 +671,7 @@
           "name": "GUIDER",
           "type": "GUIDER",
           "links": [
-            19
+            18
           ]
         }
       ],
@@ -719,7 +680,7 @@
       }
     },
     {
-      "id": 18,
+      "id": 17,
       "type": "SamplerCustomAdvanced",
       "pos": [
         400,
@@ -730,33 +691,33 @@
         150
       ],
       "flags": {},
-      "order": 22,
+      "order": 21,
       "mode": 0,
       "inputs": [
         {
           "name": "noise",
           "type": "NOISE",
-          "link": 18
+          "link": 17
         },
         {
           "name": "guider",
           "type": "GUIDER",
-          "link": 19
+          "link": 18
         },
         {
           "name": "sampler",
           "type": "SAMPLER",
-          "link": 20
+          "link": 19
         },
         {
           "name": "sigmas",
           "type": "SIGMAS",
-          "link": 21
+          "link": 20
         },
         {
           "name": "latent_image",
           "type": "LATENT",
-          "link": 17
+          "link": 16
         }
       ],
       "outputs": [
@@ -764,8 +725,8 @@
           "name": "output",
           "type": "LATENT",
           "links": [
-            22,
-            24
+            21,
+            23
           ]
         },
         {
@@ -779,11 +740,50 @@
       }
     },
     {
-      "id": 19,
+      "id": 18,
       "type": "VAEDecode",
       "pos": [
         780,
         0
+      ],
+      "size": [
+        260,
+        60
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 21
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 22
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            25
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      }
+    },
+    {
+      "id": 19,
+      "type": "VAEDecodeAudio",
+      "pos": [
+        780,
+        110
       ],
       "size": [
         260,
@@ -796,51 +796,12 @@
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 22
-        },
-        {
-          "name": "vae",
-          "type": "VAE",
           "link": 23
-        }
-      ],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": [
-            26
-          ]
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "VAEDecode"
-      }
-    },
-    {
-      "id": 20,
-      "type": "VAEDecodeAudio",
-      "pos": [
-        780,
-        110
-      ],
-      "size": [
-        260,
-        60
-      ],
-      "flags": {},
-      "order": 24,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "samples",
-          "type": "LATENT",
-          "link": 24
         },
         {
           "name": "vae",
           "type": "VAE",
-          "link": 25
+          "link": 24
         }
       ],
       "outputs": [
@@ -848,7 +809,7 @@
           "name": "AUDIO",
           "type": "AUDIO",
           "links": [
-            27
+            26
           ]
         }
       ],
@@ -857,7 +818,7 @@
       }
     },
     {
-      "id": 21,
+      "id": 20,
       "type": "VHS_VideoCombine",
       "pos": [
         1080,
@@ -868,18 +829,18 @@
         520
       ],
       "flags": {},
-      "order": 25,
+      "order": 24,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 26
+          "link": 25
         },
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 27,
+          "link": 26,
           "shape": 7
         },
         {
@@ -919,7 +880,7 @@
       }
     },
     {
-      "id": 22,
+      "id": 21,
       "type": "SageChainAssert",
       "pos": [
         -480,
@@ -930,13 +891,13 @@
         130
       ],
       "flags": {},
-      "order": 20,
+      "order": 19,
       "mode": 0,
       "inputs": [
         {
           "name": "model",
           "type": "MODEL",
-          "link": 9
+          "link": 8
         }
       ],
       "outputs": [
@@ -944,7 +905,7 @@
           "name": "model",
           "type": "MODEL",
           "links": [
-            10
+            9
           ]
         }
       ],
@@ -960,7 +921,7 @@
       "title": "Assert the attention chain composed"
     },
     {
-      "id": 23,
+      "id": 22,
       "type": "MiniMaxH3Preflight",
       "pos": [
         -60,
@@ -977,12 +938,12 @@
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 14
+          "link": 13
         },
         {
           "name": "samples",
           "type": "LATENT",
-          "link": 15
+          "link": 14
         }
       ],
       "outputs": [
@@ -990,14 +951,14 @@
           "name": "conditioning",
           "type": "CONDITIONING",
           "links": [
-            16
+            15
           ]
         },
         {
           "name": "samples",
           "type": "LATENT",
           "links": [
-            17
+            16
           ]
         },
         {
@@ -1017,7 +978,7 @@
       "title": "Preflight: what this render costs"
     },
     {
-      "id": 24,
+      "id": 23,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1041,7 +1002,7 @@
       "title": "Canvas + length: what is actually selectable"
     },
     {
-      "id": 25,
+      "id": 24,
       "type": "MarkdownNote",
       "pos": [
         -2180,
@@ -1060,12 +1021,12 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Node order is load-bearing\n\n```\nLoad Diffusion Model\n  -> ModelSamplingMiniMaxH3       (sigma shift; anywhere before the fork)\n  -> MiniMax H3 SageAttention     (this repo)\n  -> SolAttnMiniMax               (must be AFTER)\n  -> BasicScheduler + BasicGuider (MODEL forks to BOTH)\n```\n\n**Sol-Attn must come second.** It composes with the attention patch it\nfinds; reversed, it overwrites ours and you silently get sage only, with no\nerror and no log line saying so.\n\n**The sigma shift is here to be changed, not because it does anything at\n12/3.** Those are the base checkpoint's training shifts, so the node is a\nno-op as shipped. The turbo LoRAs inherit the sampler's shift instead of\ncarrying their own, and the 4-step v1.1 768p one was\ndistilled at video shift **6** -- and that is the variant trained at 1344x768,\nthis canvas. Load it without changing this and you sample it off a schedule it\nnever saw.\nSteps move with it too: 16 is a base-model number, these want 4 or 8. The\n4-step v0.1 and 8-step v1.0 were both distilled at 12/3 and need no change\nhere.\n\n**MODEL forks to two consumers.** Rewiring only the guider leaves the\nscheduler reading sigmas off the unpatched model, and the render still\nsucceeds -- which is why that mistake survives.\n\n## Check it is actually running, once per graph change\n\nTurn `verbose` on in Patch Sol-Attn (MiniMax) for one render, then off. You want three\nlines. **Read them in the terminal** -- piping or redirecting block-buffers\nthe output and they may not appear even when everything is fine.\n\n```\nsage routing: arch=sm89 ... pv_accum=fp32+fp16 -> fp8_cuda++\n[sol_attn] chaining onto an existing attention override\n[sol_attn] sparse (1, ..., 56, 128) tau=1.0 int8 pointer\n```\n\nLine 1: sage engaged on the fast kernel. Line 3: sparse engaged at your tau.\n**Line 2 is the order check** -- it only prints when Sol-Attn finds sage's\noverride already installed. Missing means the nodes are backwards and you\nare paying full price for a render that otherwise looks fine.\n\n## What each node is here for\n\n- **ModelPreviewOverrideKJ** -- taeh3 preview, and it is arguably the\n  largest optimization here rather than a convenience. Killing a bad seed at\n  90s instead of 11 minutes saves ~9.5 min; the entire kernel and sparsity\n  stack saves ~7 min per render. If one render in three is a bad seed the\n  preview beats everything else combined -- and they compound rather than\n  compete.\n- **MiniMax H3 SageAttention** -- INT8-QK / FP8-PV kernel on all 50 DiT\n  attention forwards, plus an `optimized_attention_override` registration.\n  That second part is what lets Sol-Attn compose instead of bypassing sage.\n- **Patch Sol-Attn (MiniMax)** -- block-sparse attention, on the CUDA\n  kernel (`comfy_kitchen.sol_attn`). Settings are pinned from\n  `workflows/h3_config.py`; edit there and regenerate, not here.\n\n## Deliberately absent\n\n- **MiniMaxH3MemoryEfficientSageAttentionPatch** (KJNodes) -- same job as\n  our node, patches the same key, so they conflict. Ours also registers the\n  override.\n- **MiniMaxLowVRAMAttention** -- head chunking. ~3227 MiB saved at 4 groups\n  (measured; three times the ~1070 this note carried before 2026-08-13), but\n  1000 attention calls become 4000. On 24GB freed VRAM converts to wall-clock\n  at a ~2.6% ceiling. Take it only if you are actually hitting OOM.\n- **MiniMaxChunkFeedForward** -- at 362 frames attention peaks ~17.8 GiB\n  against FFN's 9-12, so it chunks a peak that is not binding. Short-clip\n  feature.\n- **PathchSageAttentionKJ** -- global no-guard sage switch. Prefer the\n  per-workflow node.\n"
+        "## Node order is load-bearing\n\n```\nLoad Diffusion Model\n  -> ModelSamplingMiniMaxH3       (core's MiniMaxH3SigmaShift; sigma shift,\n                                   anywhere before the fork. NOT in the PDD\n                                   graphs -- see below)\n  -> MiniMax H3 SageAttention     (this repo)\n  -> Patch Sol-Attn (MiniMax)     (this repo's MiniMaxH3SolAttn; must be AFTER)\n  -> BasicScheduler + BasicGuider (MODEL forks to BOTH)\n```\n\n`ModelSamplingMiniMaxH3` is the picker name; `MiniMaxH3SigmaShift` is the id\nyou will see in an API graph. Same node.\n\n**Sol-Attn must come second.** It composes with the attention patch it\nfinds; reversed, it overwrites ours and you silently get sage only, with no\nerror and no log line saying so.\n\n**The sigma shift is here to be changed, not because it does anything at\n12/3.** Those are the base checkpoint's training shifts, so the node is a\nno-op as shipped -- which is why the PDD graphs omit it entirely: there the\nPDD node emits the schedule from its own fused shift, and moving this one\nmakes `check_shift` raise at step 0. It is a knob for the turbo arms, not a\nfixture. The turbo LoRAs inherit the sampler's shift instead of\ncarrying their own, and the 4-step v1.1 768p one was\ndistilled at video shift **6** -- and that is the variant trained at 1344x768,\nthis canvas. Load it without changing this and you sample it off a schedule it\nnever saw.\nSteps move with it too: 16 is a base-model number, these want 4 or 8. The\n4-step v0.1 and 8-step v1.0 were both distilled at 12/3 and need no change\nhere.\n\n**MODEL forks to two consumers.** Rewiring only the guider leaves the\nscheduler reading sigmas off the unpatched model, and the render still\nsucceeds -- which is why that mistake survives.\n\n## Check it is actually running, once per graph change\n\nTurn `verbose` on in Patch Sol-Attn (MiniMax) for one render, then off. You want three\nlines. **Read them in the terminal** -- piping or redirecting block-buffers\nthe output and they may not appear even when everything is fine.\n\n```\nsage routing: arch=sm89 ... pv_accum=fp32+fp16 -> fp8_cuda++\n[sol_attn] chaining onto an existing attention override\n[sol_attn] sparse (1, ..., 56, 128) tau=1.0 int8 pointer\n```\n\nLine 1: sage engaged on the fast kernel. Line 3: sparse engaged at your tau.\n**Line 2 is the order check** -- it only prints when Sol-Attn finds sage's\noverride already installed. Missing means the nodes are backwards and you\nare paying full price for a render that otherwise looks fine.\n\n## What each node is here for\n\n- **ModelPreviewOverrideKJ** -- taeh3 preview, and it is arguably the\n  largest optimization here rather than a convenience. Killing a bad seed at\n  90s instead of 11 minutes saves ~9.5 min; the entire kernel and sparsity\n  stack saves ~7 min per render. If one render in three is a bad seed the\n  preview beats everything else combined -- and they compound rather than\n  compete.\n- **MiniMax H3 SageAttention** -- INT8-QK / FP8-PV kernel on all 50 DiT\n  attention forwards, plus an `optimized_attention_override` registration.\n  That second part is what lets Sol-Attn compose instead of bypassing sage.\n- **Patch Sol-Attn (MiniMax)** -- block-sparse attention, on the CUDA\n  kernel (`comfy_kitchen.sol_attn`). Settings are pinned from\n  `workflows/h3_config.py`; edit there and regenerate, not here.\n\n## Deliberately absent\n\n- **MiniMaxH3MemoryEfficientSageAttentionPatch** (KJNodes) -- same job as\n  our node, patches the same key, so they conflict. Ours also registers the\n  override.\n- **MiniMaxLowVRAMAttention** -- head chunking. ~3227 MiB saved at 4 groups\n  (measured; three times the ~1070 this note carried before 2026-08-13), but\n  1000 attention calls become 4000. On 24GB freed VRAM converts to wall-clock\n  at a ~2.6% ceiling. Take it only if you are actually hitting OOM.\n- **MiniMaxChunkFeedForward** -- at 362 frames attention peaks ~17.8 GiB\n  against FFN's 9-12, so it chunks a peak that is not binding. Short-clip\n  feature.\n- **PathchSageAttentionKJ** -- global no-guard sage switch. Prefer the\n  per-workflow node.\n"
       ],
       "title": "Which nodes, and the order that matters"
     },
     {
-      "id": 26,
+      "id": 25,
       "type": "MarkdownNote",
       "pos": [
         -2860,
@@ -1118,13 +1079,13 @@
       4,
       8,
       0,
-      9,
+      10,
       0,
       "MODEL"
     ],
     [
       5,
-      9,
+      10,
       0,
       11,
       0,
@@ -1132,177 +1093,169 @@
     ],
     [
       6,
-      11,
-      0,
-      12,
-      0,
-      "MODEL"
-    ],
-    [
-      7,
       3,
       0,
-      14,
+      13,
       1,
       "VAE"
     ],
     [
-      8,
+      7,
       2,
       0,
-      14,
+      13,
       0,
       "CLIP"
     ],
     [
-      9,
-      12,
+      8,
+      11,
       0,
-      22,
+      21,
+      0,
+      "MODEL"
+    ],
+    [
+      9,
+      21,
+      0,
+      16,
       0,
       "MODEL"
     ],
     [
       10,
-      22,
+      12,
       0,
-      17,
-      0,
-      "MODEL"
-    ],
-    [
-      11,
       13,
-      0,
-      14,
       4,
       "INT"
     ],
     [
+      11,
       12,
-      13,
       1,
-      14,
+      13,
       5,
       "INT"
     ],
     [
-      13,
-      13,
+      12,
+      12,
       2,
-      14,
+      13,
       6,
       "INT"
     ],
     [
-      14,
-      14,
+      13,
+      13,
       0,
-      23,
+      22,
       0,
       "CONDITIONING"
     ],
     [
-      15,
       14,
+      13,
       1,
-      23,
+      22,
       1,
       "LATENT"
     ],
     [
-      16,
-      23,
+      15,
+      22,
       0,
-      17,
+      16,
       1,
       "CONDITIONING"
     ],
     [
-      17,
-      23,
+      16,
+      22,
       1,
-      18,
+      17,
       4,
       "LATENT"
     ],
     [
-      18,
-      15,
+      17,
+      14,
       0,
-      18,
+      17,
       0,
       "NOISE"
     ],
     [
-      19,
-      17,
-      0,
       18,
+      16,
+      0,
+      17,
       1,
       "GUIDER"
     ],
     [
-      20,
-      16,
+      19,
+      15,
       0,
-      18,
+      17,
       2,
       "SAMPLER"
     ],
     [
-      21,
+      20,
       6,
       1,
-      18,
+      17,
       3,
       "SIGMAS"
     ],
     [
-      22,
+      21,
+      17,
+      0,
       18,
       0,
-      19,
-      0,
       "LATENT"
+    ],
+    [
+      22,
+      3,
+      0,
+      18,
+      1,
+      "VAE"
     ],
     [
       23,
-      3,
+      17,
+      0,
+      19,
+      0,
+      "LATENT"
+    ],
+    [
+      24,
+      4,
       0,
       19,
       1,
       "VAE"
     ],
     [
-      24,
+      25,
       18,
       0,
       20,
       0,
-      "LATENT"
-    ],
-    [
-      25,
-      4,
-      0,
-      20,
-      1,
-      "VAE"
+      "IMAGE"
     ],
     [
       26,
       19,
       0,
-      21,
-      0,
-      "IMAGE"
-    ],
-    [
-      27,
       20,
-      0,
-      21,
       1,
       "AUDIO"
     ]

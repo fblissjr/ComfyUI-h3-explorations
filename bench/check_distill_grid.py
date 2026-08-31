@@ -590,8 +590,17 @@ def main() -> int:
                 continue
             seen += 1
             rel = path.relative_to(REPO)
-            if found.shift is None or found.steps is None or found.scheduler is None:
-                bad.append(f"{rel}: loads a PDD LoRA but its shift, steps or "
+            # The shift is deliberately NOT required here. Since 2026-08-31 the
+            # PDD graphs ship with no `MiniMaxH3SigmaShift` -- at the
+            # checkpoint's own 12/3 it patched the model into what it already
+            # was -- so `found.shift` is None on every one of them, and nothing
+            # in this case reads it: the grid is graded from `steps`, `pdd_nfe`
+            # and the file's `pdd_num_steps`. Requiring it here would fail all
+            # 20 for a value the case does not use. The absent shift IS graded,
+            # by `check_pdd_sigmas.py` against ComfyUI's own model config and
+            # by `check_distill_settings.py` against the base pair.
+            if found.steps is None or found.scheduler is None:
+                bad.append(f"{rel}: loads a PDD LoRA but its steps or "
                            f"scheduler could not be read")
                 continue
             # The graph's nfe when it sets one; the file's is only a default
@@ -632,7 +641,25 @@ def main() -> int:
                         f"{grid}-point grid nor tile it inside the trained "
                         f"envelope, so no on-grid schedule exists")
                     continue
-            sv, sa = found.shift
+            # None means no `MiniMaxH3SigmaShift` in the graph, which is how
+            # every PDD graph ships since 2026-08-31. The render then runs the
+            # checkpoint's class default, so that is the pair the fused
+            # boundaries must be graded against. Read from ComfyUI's own model
+            # config rather than retyped, for the same reason `comfy_grid`
+            # above refuses to guess when ComfyUI is unreachable: a literal
+            # here would agree with itself after core moved the real value.
+            if found.shift is None:
+                try:
+                    from comfy.supported_models import MiniMaxH3
+                except ImportError as exc:
+                    raise AssertionError(
+                        f"{rel} carries no MiniMaxH3SigmaShift, so its shift is "
+                        f"the checkpoint's own default -- and ComfyUI is not "
+                        f"importable from {COMFY} to read it: {exc}") from exc
+                sv = float(MiniMaxH3.sampling_settings["shift"])
+                sa = float(MiniMaxH3.sampling_settings["audio_shift"])
+            else:
+                sv, sa = found.shift
             if found.scheduler == "manual":
                 # No scheduler produces this vector -- the graph STATES it, so
                 # grading it through `calculate_sigmas` is a category error and

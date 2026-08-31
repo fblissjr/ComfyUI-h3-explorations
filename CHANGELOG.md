@@ -6,6 +6,41 @@ artifact.
 
 ## 0.99.7
 
+### Changed
+
+- **The PDD graphs no longer wire `MiniMaxH3SigmaShift`** (owner's call). At
+  the checkpoint's own 12/3 it patched the model into what it already was, so
+  it read as a knob while being a no-op — and the one thing it invited you to
+  do, move the shift, is what `pdd_lora.py::check_shift` raises on at step 0.
+  Verified redundant at every surface it touches rather than assumed: the class
+  it installs (`ModelSamplingAV + CONST`) is what `ModelType.FLOW_AV` already
+  selects, its values match `MiniMaxH3.sampling_settings`, and the DiT falls
+  back to its own `sigma_shift_video/audio` constructor defaults when the
+  `transformer_options` keys are absent — all three land on 12.0/3.0. With the
+  node gone `check_shift` compares against the model's class default instead,
+  which is the same pair. 20 graphs and their API twins; non-PDD graphs keep
+  it, and the generator's condition is `shift == SIGMA_SHIFT` rather than
+  `not pdd`, so a PDD arm fused at another shift gets the node back.
+
+### Fixed
+
+- **Three graph notes described a topology that had moved.** All 20 PDD graphs
+  told you to change `steps` on a `BasicScheduler` none of them has — the PDD
+  node has emitted SIGMAS since 2026-08-28 and `steps` arrives on a socket from
+  a `PrimitiveInt`. The node-order note named `SolAttnMiniMax`, withdrawn on
+  2026-08-30; the graphs wire `MiniMaxH3SolAttn`. The same note gave
+  `ModelSamplingMiniMaxH3` with no hint it is the picker name for
+  `MiniMaxH3SigmaShift`, which cost this session a wrong "that node is dead"
+  call — `/object_info` is keyed by node_id, and the display name is not in it.
+  The `nfe` widget's falsy-sentinel meaning is now stated rather than implied.
+- **Three checks asserted the shift node's presence** and went red on the
+  correct state once it was removed — the "gains an absent state, revisit every
+  assertion" rule, met head on. `check_pdd_sigmas.py` and `check_distill_grid.py`
+  now read the fallback from ComfyUI's own `MiniMaxH3.sampling_settings` rather
+  than a repo-side literal, so neither can agree with itself after core moves
+  the real value; `check_distill_settings.py` normalises the absent case and
+  says which check grades it against the observable.
+
 ### Retracted
 
 - **The merged-arm reading in `2026-08-31_stochastic_rounding.json` ranked the

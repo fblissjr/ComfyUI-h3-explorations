@@ -395,8 +395,20 @@ def case_graphs_consume_it():
     return f"{len(graded)} PDD graph(s) sample from the node{tail}"
 
 
+def _checkpoint_default_shift() -> float:
+    """The video shift a graph runs with no `MiniMaxH3SigmaShift` in it.
+
+    Read from ComfyUI's own model config, which is where the DiT, the sampler
+    and `pdd_lora.py::check_shift` all end up when the node is absent -- rather
+    than from `h3_config.SIGMA_SHIFT`, which is this repo's second copy of the
+    same numbers and would agree with itself forever.
+    """
+    from comfy.supported_models import MiniMaxH3
+    return float(MiniMaxH3.sampling_settings["shift"])
+
+
 def case_graph_shift_matches_file():
-    """Each PDD graph's `MiniMaxH3SigmaShift` equals its file's own shift.
+    """Each PDD graph's shift equals its file's own shift.
 
     **This is the gap the rewiring opened, and it is real.** The PDD node sits
     UPSTREAM of `MiniMaxH3SigmaShift`, so the schedule it emits is built from
@@ -431,9 +443,18 @@ def case_graph_shift_matches_file():
                   if isinstance(n, dict)
                   and n.get("class_type") == "MiniMaxH3SigmaShift"]
         if not shifts:
-            problems.append(f"{path.name}: no MiniMaxH3SigmaShift to compare")
-            continue
-        gshift = float(shifts[0]["shift_video"])
+            # ABSENT IS NOT MISSING. Since 2026-08-31 the PDD graphs ship
+            # without a shift node, because at the checkpoint's own 12/3 it
+            # patched the model into what it already was. So the shift the
+            # render runs is the checkpoint's class default, and that is what
+            # the file must match. Read it off ComfyUI rather than retyping
+            # it: `h3_config.SIGMA_SHIFT` is this repo's copy of the same
+            # numbers, and a check that compares one copy against another
+            # would go green on a core change that moved the real one.
+            # `pdd_lora.py::check_shift` takes the same fallback at run time.
+            gshift = float(_checkpoint_default_shift())
+        else:
+            gshift = float(shifts[0]["shift_video"])
         f = loras / pdd[0]["inputs"]["lora_name"]
         if not f.exists():
             skipped.append(path.name)

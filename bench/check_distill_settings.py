@@ -741,7 +741,18 @@ def main():
                 # PDD: base shift, and the step count the artifact was fused
                 # for. Not a turbo row and not the pack range.
                 if classify_pdd(lora):
-                    assert found.shift == BASE_SHIFT, (
+                    # `None` means the graph carries no `MiniMaxH3SigmaShift`,
+                    # which since 2026-08-31 is how the PDD graphs ship: at the
+                    # checkpoint's own 12/3 the node patched the model into
+                    # what it already was, so it was dropped rather than left
+                    # as a knob that `pdd_lora.py::check_shift` raises on. An
+                    # absent node therefore RUNS the base shift, and that is
+                    # what this compares. `BASE_SHIFT` here is a retyped copy
+                    # of ComfyUI's `MiniMaxH3.sampling_settings`; the check
+                    # that grades the absent case against the real one is
+                    # `check_pdd_sigmas.py::_checkpoint_default_shift`.
+                    effective = BASE_SHIFT if found.shift is None else found.shift
+                    assert effective == BASE_SHIFT, (
                         f"{path.name}: {lora} is a PDD arm, whose block "
                         f"boundaries ARE the base schedule -- it must sit at "
                         f"{BASE_SHIFT[0]}/{BASE_SHIFT[1]}, has {found.shift}")

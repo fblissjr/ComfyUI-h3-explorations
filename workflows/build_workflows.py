@@ -1667,17 +1667,36 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                         "inputs": {"model": model_src, "lora_name": lora[0],
                                    "strength_model": lora[1]}})
         model_src = ["18", 0]
-    # Always present, at the base checkpoint's own 12/3, so it changes nothing
-    # by default. It is here to be edited: the turbo LoRAs carry their own
-    # training shifts (the 768p 4-step wants 6/3), and a graph without this
-    # node gives you nowhere to set that and no hint you needed to. Upstream of
-    # sage so the sage-then-Sol adjacency below stays intact -- this patches
-    # model sampling, which is a different surface from either of them.
+    # At the base checkpoint's own 12/3, so it changes nothing by default. It
+    # is here to be edited: the turbo LoRAs carry their own training shifts
+    # (the 768p 4-step wants 6/3), and a graph without this node gives you
+    # nowhere to set that and no hint you needed to. Upstream of sage so the
+    # sage-then-Sol adjacency below stays intact -- this patches model
+    # sampling, which is a different surface from either of them.
+    #
+    # OMITTED FROM PDD GRAPHS at the default shift, on the owner's call
+    # 2026-08-31, because there it is a no-op that reads as a knob. The PDD
+    # node emits SIGMAS from the shift its file was fused at, so the schedule
+    # never comes off `model_sampling` here; and every surface this node
+    # touches already carries 12/3 without it -- `ModelSamplingAV + CONST` is
+    # what `ModelType.FLOW_AV` selects anyway (`comfy/model_base.py`), the
+    # values match `MiniMaxH3.sampling_settings` (`comfy/supported_models.py`),
+    # and the DiT falls back to its own `sigma_shift_video/audio` ctor defaults
+    # when the `transformer_options` keys are absent (`comfy/ldm/minimax/
+    # model.py`). `pdd_lora.py::check_shift` covers the absent case explicitly:
+    # no key means it compares against the model's class default instead.
+    # So it patched the model into what it already was, while inviting an edit
+    # that `check_shift` raises on at step 0.
+    #
+    # The condition is `sh == SIGMA_SHIFT`, not `not pdd`, so a PDD arm fused
+    # at some other shift gets the node back rather than silently losing the
+    # only place to set it.
     # Node id 19; 18 is the LoRA and 20/21/22 are already spoken for.
-    g["19"] = {"class_type": "MiniMaxH3SigmaShift",
-               "inputs": {"model": model_src,
-                          **(shift if shift is not None else SIGMA_SHIFT)}}
-    model_src = ["19", 0]
+    sh = shift if shift is not None else SIGMA_SHIFT
+    if not (pdd and sh == SIGMA_SHIFT):
+        g["19"] = {"class_type": "MiniMaxH3SigmaShift",
+                   "inputs": {"model": model_src, **sh}}
+        model_src = ["19", 0]
     if sage:
         g["20"] = {"class_type": "MiniMaxH3SageAttention",
                    "inputs": {"model": model_src, **dict(
@@ -2140,11 +2159,16 @@ _NOTE_NODES = f"""\
 
 ```
 Load Diffusion Model
-  -> ModelSamplingMiniMaxH3       (sigma shift; anywhere before the fork)
+  -> ModelSamplingMiniMaxH3       (core's MiniMaxH3SigmaShift; sigma shift,
+                                   anywhere before the fork. NOT in the PDD
+                                   graphs -- see below)
   -> MiniMax H3 SageAttention     (this repo)
-  -> SolAttnMiniMax               (must be AFTER)
+  -> Patch Sol-Attn (MiniMax)     (this repo's MiniMaxH3SolAttn; must be AFTER)
   -> BasicScheduler + BasicGuider (MODEL forks to BOTH)
 ```
+
+`ModelSamplingMiniMaxH3` is the picker name; `MiniMaxH3SigmaShift` is the id
+you will see in an API graph. Same node.
 
 **Sol-Attn must come second.** It composes with the attention patch it
 finds; reversed, it overwrites ours and you silently get sage only, with no
@@ -2152,7 +2176,10 @@ error and no log line saying so.
 
 **The sigma shift is here to be changed, not because it does anything at
 12/3.** Those are the base checkpoint's training shifts, so the node is a
-no-op as shipped. The turbo LoRAs inherit the sampler's shift instead of
+no-op as shipped -- which is why the PDD graphs omit it entirely: there the
+PDD node emits the schedule from its own fused shift, and moving this one
+makes `check_shift` raise at step 0. It is a knob for the turbo arms, not a
+fixture. The turbo LoRAs inherit the sampler's shift instead of
 carrying their own, and the {turbo_label(TURBO_768P_LORA)} one was
 distilled at video shift **6** -- and that is the variant trained at 1344x768,
 this canvas. Load it without changing this and you sample it off a schedule it
@@ -2216,9 +2243,30 @@ are paying full price for a render that otherwise looks fine.
 _NOTE_PDD_NODE = """\
 ## What this node does that the UI does not show
 
-**The step count is not set here.** It is read from the sampler's own sigma
-schedule while the render runs. To change the arm, change `steps` on
-BasicScheduler; `nfe` here is an override and stays 0.
+**The step count comes in on the `steps` socket, and this node emits the
+schedule.** The `PDD steps` PrimitiveInt on the canvas is the one number that
+sets the arm; SIGMAS runs from this node's second output straight into
+`SamplerCustomAdvanced`. There is no `BasicScheduler` in a PDD graph to change
+-- this note used to say there was, which described the topology before this
+node emitted SIGMAS. (The `manual_sigmas` graph is the exception: its schedule
+comes from `ManualSigmas` and the socket is 0.)
+
+**`nfe` stays 0, and 0 is not an evaluation count.** It is a mode: 0 means
+"take the count from `steps`", and a non-zero value overrides it. That is the
+falsy-sentinel shape this repo is migrating away from -- a numeric widget
+should mean the quantity it names -- and it is carried as accepted debt in
+`bench/check_literal_widgets.py::SENTINELS` rather than fixed, because
+converting a number to a combo re-points every later widget value in every
+saved graph.
+
+**There is no sigma-shift node either, and that is deliberate.** This node
+builds its schedule from the shift its file was fused at, and the fused heads
+are a function of that same shift, so `check_shift` REFUSES a render whose
+shift disagrees -- a raise at step 0, not a warning. At the checkpoint's own
+12/3 a `ModelSamplingMiniMaxH3` node would patch the model into what it
+already is, so it is omitted here rather than left sitting as a knob that only
+breaks things. With it absent, `check_shift` compares against the model's
+class default instead, which is the same 12/3.
 
 **Three surfaces are patched, and only one is a normal LoRA:**
 
@@ -4893,19 +4941,20 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
             g.link(steps_const, 0, lora_node, "steps", "INT")
         model_src = lora_node
 
-    # See the matching note in build_api. Titled with its values because the
-    # whole reason it is in the graph is that a turbo LoRA needs them changed,
-    # and a node showing "ModelSamplingMiniMaxH3" and nothing else does not
-    # prompt anyone to look.
+    # See the matching note in build_api, which carries the reasoning and the
+    # PDD omission. Titled with its values because the whole reason it is in
+    # the graph is that a turbo LoRA needs them changed, and a node showing
+    # "ModelSamplingMiniMaxH3" and nothing else does not prompt anyone to look.
     sh = shift if shift is not None else SIGMA_SHIFT
-    sigma_node = g.add("MiniMaxH3SigmaShift", (-1500, 700), size=(360, 110),
-                       widgets=[sh["shift_video"], sh["shift_audio"]],
-                       inputs=[_in("model", "MODEL")],
-                       outputs=[_out("MODEL", "MODEL")],
-                       title=f"Sigma shift (video {sh['shift_video']:g}, "
-                             f"audio {sh['shift_audio']:g})")
-    g.link(model_src, 0, sigma_node, "model", "MODEL")
-    model_src = sigma_node
+    if not (pdd and sh == SIGMA_SHIFT):
+        sigma_node = g.add("MiniMaxH3SigmaShift", (-1500, 700), size=(360, 110),
+                           widgets=[sh["shift_video"], sh["shift_audio"]],
+                           inputs=[_in("model", "MODEL")],
+                           outputs=[_out("MODEL", "MODEL")],
+                           title=f"Sigma shift (video {sh['shift_video']:g}, "
+                                 f"audio {sh['shift_audio']:g})")
+        g.link(model_src, 0, sigma_node, "model", "MODEL")
+        model_src = sigma_node
 
     sage_node = None
     if vsa is not None and sol is not None:
