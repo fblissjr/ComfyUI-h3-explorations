@@ -25,6 +25,37 @@ anything.** So this measures the ratio on actual H3 DiT weights through the
 actual kernel, which is the only way to find out whether the assumption holds
 where it is being applied. A derivation is an inference; this is the check on it.
 
+## RETRACTED 2026-08-31, the same day: the merged arm's reading was backwards
+
+**This file's original headline said "merging a small LoRA into an int8
+checkpoint is lossy REGARDLESS of rounding mode; the rounding mode decides how
+much worse", on the strength of round-to-nearest showing SMALLER stored-weight
+error than stochastic. That ranking is withdrawn.**
+
+The stored-weight metric rewards the arm that does nothing. When the delta is
+below one quantisation step, the merged target sits close to the unmerged
+weight, so an arm that discards the update scores well on distance-to-target.
+Round-to-nearest is biased: most weights never cross a midpoint, so the update
+is thrown away. Stochastic rounding is unbiased by construction --
+`E[Q_s(x)] = x` -- so it lands.
+
+Measured, not argued, with the fraction of the delta that survives along its
+own direction, `<Q(W+d) - Q(W), d> / <d, d>`:
+
+    PDD 8step     RTN realises 0.467 mean, 0.020 worst    stochastic 1.0000
+    turbo 8step   RTN realises 0.025 mean, 0.0001 worst   stochastic 0.9999
+
+So **ComfyUI's stochastic `set_weight` is deliberate and correct**, and the
+sqrt(2) is a real but second-order cost paid to get an unbiased update. The
+statistic and the PDD arm are pddclaude's
+(`bench/measure_merge_realisation.py`, withdrawn lever in `b653466`); the turbo
+arm and the independent re-derivation are this file's. Two implementations
+agree on PDD's worst case to four figures.
+
+**The general lesson, and it is CLAUDE.md's**: a metric that says one arm is
+fine is a claim about the metric until you have checked what it is blind to.
+This one was blind to whether the update happened at all.
+
 ## What this does NOT establish
 
 That the difference is visible in a render, or that it matters. It is a weight-
@@ -235,12 +266,24 @@ def main() -> int:
                     "here is faithful. Without that the merged arm's ratios "
                     "would be unreadable -- they depend on the base being "
                     "exactly on-grid."),
-        "headline": ("the LoRA delta is ~0.1% of ONE int8 quantisation step, "
-                     "so round-to-nearest alone already loses most of it "
-                     "(err rms 1.03x delta rms) and stochastic rounding is "
-                     "~18x worse again. Merging a small LoRA into an int8 "
-                     "checkpoint is lossy REGARDLESS of rounding mode; the "
-                     "rounding mode decides how much worse."),
+        "headline": ("the LoRA delta is well BELOW one int8 quantisation step "
+                     "-- turbo at ~0.5% of it, PDD at ~8% -- so the merge is "
+                     "lossy either way. But the ROUNDING MODES DO NOT RANK the "
+                     "way stored-weight error suggests."),
+        "retracted_2026-08-31": (
+            "This record first said round-to-nearest was the better arm and "
+            "stochastic was ~18x worse, from stored-weight error alone. "
+            "WITHDRAWN. That metric rewards the arm that does nothing: below "
+            "one step the merged target is close to the unmerged weight, RTN "
+            "is biased and discards the update, stochastic is unbiased and "
+            "lands it. Fraction of the delta realised along its own "
+            "direction, <Q(W+d)-Q(W), d>/<d,d>: PDD RTN 0.467 mean / 0.020 "
+            "worst against stochastic 1.0000; turbo RTN 0.025 mean / 0.0001 "
+            "worst against stochastic 0.9999. ComfyUI's stochastic set_weight "
+            "is deliberate and correct. Statistic and PDD arm are "
+            "pddclaude's (bench/measure_merge_realisation.py); the turbo arm "
+            "and an independent re-derivation are this file's, and the two "
+            "implementations agree on PDD's worst case to four figures."),
         "not_established": [
             "that the difference is visible in any render",
             "that a LoRA applied at the CALL rather than merged suffers this "

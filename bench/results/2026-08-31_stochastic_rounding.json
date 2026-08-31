@@ -353,7 +353,8 @@
     }
   },
   "control": "round-to-nearest applied to the int8 base ALONE returns err rms 4.6e-08 against its own values, so the base is on the grid and the dequantise/requantise round-trip used here is faithful. Without that the merged arm's ratios would be unreadable -- they depend on the base being exactly on-grid.",
-  "headline": "the LoRA delta is ~0.1% of ONE int8 quantisation step, so round-to-nearest alone already loses most of it (err rms 1.03x delta rms) and stochastic rounding is ~18x worse again. Merging a small LoRA into an int8 checkpoint is lossy REGARDLESS of rounding mode; the rounding mode decides how much worse.",
+  "headline": "the LoRA delta is well BELOW one int8 quantisation step -- turbo at ~0.5% of it, PDD at ~8% -- so the merge is lossy either way. But the ROUNDING MODES DO NOT RANK the way stored-weight error suggests.",
+  "retracted_2026-08-31": "This record first said round-to-nearest was the better arm and stochastic was ~18x worse, from stored-weight error alone. WITHDRAWN. That metric rewards the arm that does nothing: below one step the merged target is close to the unmerged weight, RTN is biased and discards the update, stochastic is unbiased and lands it. Fraction of the delta realised along its own direction, <Q(W+d)-Q(W), d>/<d,d>: PDD RTN 0.467 mean / 0.020 worst against stochastic 1.0000; turbo RTN 0.025 mean / 0.0001 worst against stochastic 0.9999. ComfyUI's stochastic set_weight is deliberate and correct. Statistic and PDD arm are pddclaude's (bench/measure_merge_realisation.py); the turbo arm and an independent re-derivation are this file's, and the two implementations agree on PDD's worst case to four figures.",
   "not_established": [
     "that the difference is visible in any render",
     "that a LoRA applied at the CALL rather than merged suffers this -- it does not requantise, which makes it the control",

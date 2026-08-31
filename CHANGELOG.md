@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.7
+
+### Retracted
+
+- **The merged-arm reading in `2026-08-31_stochastic_rounding.json` ranked the
+  rounding modes backwards, and is withdrawn the same day it landed.** It said
+  round-to-nearest was the better arm and stochastic ~18x worse, from
+  stored-weight error alone. **That metric rewards the arm that does nothing.**
+  Below one quantisation step the merged target sits close to the unmerged
+  weight, so an arm that discards the update scores well on distance-to-target.
+  RTN is biased and throws most of the update away; stochastic is unbiased by
+  construction (`E[Q_s(x)] = x`) and lands it.
+  - Fraction of the delta realised along its own direction,
+    `<Q(W+d) - Q(W), d> / <d, d>`: PDD RTN **0.467** mean / 0.020 worst against
+    stochastic 1.0000; turbo RTN **0.025** mean / 0.0001 worst against
+    stochastic 0.9999.
+  - **So ComfyUI's stochastic `set_weight` is deliberate and correct**, and the
+    sqrt(2) is a real but second-order cost paid to get an unbiased update.
+  - The statistic and the PDD arm are pddclaude's
+    (`bench/measure_merge_realisation.py`, `b653466`, which withdrew a
+    deterministic-merge lever on the same evidence). The turbo arm and an
+    independent re-derivation are this lane's; two implementations agree on
+    PDD's worst case to four figures.
+  - CLAUDE.md already has the general form: a metric that says one arm is fine
+    is a claim about the metric until you have checked what it is blind to.
+    This one was blind to whether the update happened at all.
+
 ## 0.99.6
 
 ### Fixed
