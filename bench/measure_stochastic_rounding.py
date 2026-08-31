@@ -78,10 +78,23 @@ change" rule in CLAUDE.md, which is about sampling divergence.
             almost exactly the right value and stochastic rounding still
             gambles the full step. The generic arm cannot show this.
 
-**There is no full BF16 H3 DiT on this box.** The obvious candidate,
-`lightx2v_.../minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors`, is a
-LORA despite its name -- 624 keys, all `lora_A`/`lora_B`. That is what supplies
-the delta below rather than a base.
+**Corrected 2026-08-31.** This said "there is no full BF16 H3 DiT on this
+box". That is FALSE. The release DiT is here as sharded transformer
+directories under `MiniMaxAI_MiniMax-H3/{FL2VA,Ref2VA}/transformer`, 450 block
+weights in BF16 (the 13 F32 tensors are biases). A name-based search for
+`*bf16*` missed it because the shards are named
+`diffusion_pytorch_model-*.safetensors` INSIDE a directory -- the same class of
+miss as searching `coderef/` without `-L`, which CLAUDE.md already warns about.
+
+So the generic arm below uses fp8_scaled dequantised when the release itself
+was available and would have been the stronger source. The 2.000 stands, and
+independently agrees with the sqrt(2) another lane measured from the release --
+but the weaker source was an error rather than a constraint, and this file
+claimed the opposite.
+
+What IS true of `minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors` is
+that it is a LORA despite its name -- 624 keys, all `lora_A`/`lora_B` -- which
+is what supplies the delta below rather than a base.
 
     python bench/measure_stochastic_rounding.py
 """
