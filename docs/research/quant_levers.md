@@ -57,8 +57,11 @@ release. CPU only.
 
 `e_shipped` **0.0093617314051** against a deterministic reproduction's
 **0.0093617314403** — equal to ten significant figures, on all 200 modules.
-The shipped bytes are exactly what stock `TensorWiseINT8Layout.quantize` emits
-at gs 256 from the release BF16.
+The shipped file reproduces from stock `TensorWiseINT8Layout.quantize` at
+gs 256 from the release BF16, **to within a handful of ties** — not
+byte-identical, and the distinction is kept deliberately: see the table below,
+where a few values per module still differ at max abs 1, roughly one in twenty
+million.
 
 **This is the DiT record that did not exist**, and its absence is what let
 §10.5 reason from the encoder's.
@@ -74,6 +77,13 @@ reproduction, integer for integer:
 | `blocks.0.attn.qkv_proj` | 6 of 115,605,504 | 1 |
 | `blocks.25.mlp.fc1` | 13 of 154,140,672 | 1 |
 | `blocks.49.attn.out_proj` | 5 of 38,535,168 | 1 |
+
+Six, thirteen and five differing values is not zero. They are almost certainly
+genuine ties resolving differently and they are not evidence of a different
+recipe — but "exactly" would be a second unsupported byte claim in the
+paragraph that exists to withdraw the first one, and it would not survive
+someone re-running this on another box. **Reproduces to within a handful of
+ties** is the claim.
 
 **The reproduction must be computed in fp32, and that is the whole of the
 disagreement.** Quantising the same bf16 release tensor without casting up

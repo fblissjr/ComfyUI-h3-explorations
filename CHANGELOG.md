@@ -258,9 +258,15 @@ artifact.
 
 - **The DiT int8 build is at its format floor.** `e_shipped` 0.0093617314051
   against a deterministic reproduction's 0.0093617314403 — ten significant
-  figures, on all 200 modules, from the release **bf16** (the encoder needed
-  fp32). This is the DiT record whose absence let §10.5 reason from the
-  encoder's.
+  figures, on all 200 modules. **Corrected 2026-08-31**: that is an agreement
+  of error NORMS, and the byte claim originally written from it was verified
+  separately and is weaker than stated — the file reproduces to within a
+  handful of ties (6, 13 and 5 differing values per module at max abs 1,
+  roughly one in twenty million), not byte-identically. The reproduction must
+  be computed in fp32; in bf16 the Hadamard rotation loses enough precision to
+  move ~8% of values, which is a compute dtype effect and **not** the
+  encoder/DiT source-precision difference this entry first claimed. There is no
+  such difference — see `docs/research/quant_levers.md` §1.
 - **Stochastic rounding costs exactly √2, and it is on the shipped merge
   path.** `e_stochastic / e_deterministic` = 1.4142150 over 200 modules
   against √2 = 1.4142136 — seven significant figures, predicted from the grid
