@@ -1,0 +1,368 @@
+{
+  "what": "MSE cost of ComfyUI's stochastic-rounding requantisation on the weight-merge path, against round-to-nearest, measured through comfy_kitchen's own int8_convrot kernel",
+  "date": "2026-08-31",
+  "group_size": 256,
+  "seed_function": "matches comfy.utils.string_to_seed on probe keys",
+  "analytic_prediction_uniform_offsets": 2.0,
+  "arms": {
+    "generic": {
+      "tensors": 20,
+      "ratio_min": 1.9995374509819843,
+      "ratio_mean": 1.999997742426777,
+      "ratio_max": 2.0007763405585237,
+      "all_reproducible_under_fixed_seed": true,
+      "per_tensor": [
+        {
+          "key": "blocks.0.attn.qkv_proj",
+          "rtn_mse": 5.502477620211721e-07,
+          "sr_mse": 1.1003631925632362e-06,
+          "ratio": 1.9997595056477433,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.0.attn.out_proj",
+          "rtn_mse": 9.450369020669314e-07,
+          "sr_mse": 1.8896366782428231e-06,
+          "ratio": 1.9995374509819843,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.0.mlp.fc1",
+          "rtn_mse": 1.3383262285060482e-06,
+          "sr_mse": 2.67696464106848e-06,
+          "ratio": 2.000233264543229,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.0.mlp.fc2",
+          "rtn_mse": 1.838904722717416e-06,
+          "sr_mse": 3.6781025301024783e-06,
+          "ratio": 2.0001593800179127,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.12.attn.qkv_proj",
+          "rtn_mse": 1.1699185051838867e-06,
+          "sr_mse": 2.340186028959579e-06,
+          "ratio": 2.0002983272683172,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.12.attn.out_proj",
+          "rtn_mse": 1.618310193407524e-06,
+          "sr_mse": 3.237130840716418e-06,
+          "ratio": 2.0003154240166374,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.12.mlp.fc1",
+          "rtn_mse": 1.6556814443902113e-06,
+          "sr_mse": 3.3112510209321044e-06,
+          "ratio": 1.9999324339541902,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.12.mlp.fc2",
+          "rtn_mse": 1.883252480183728e-06,
+          "sr_mse": 3.7663753573724534e-06,
+          "ratio": 1.999931181295994,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.25.attn.qkv_proj",
+          "rtn_mse": 1.4467779010374215e-06,
+          "sr_mse": 2.893301825679373e-06,
+          "ratio": 1.9998244537773988,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.25.attn.out_proj",
+          "rtn_mse": 1.9296619484521216e-06,
+          "sr_mse": 3.859475327772088e-06,
+          "ratio": 2.000078475335002,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.25.mlp.fc1",
+          "rtn_mse": 2.130451548509882e-06,
+          "sr_mse": 4.261583853804041e-06,
+          "ratio": 2.000319536384084,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.25.mlp.fc2",
+          "rtn_mse": 2.143687197531108e-06,
+          "sr_mse": 4.287193405616563e-06,
+          "ratio": 1.9999155709630299,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.37.attn.qkv_proj",
+          "rtn_mse": 2.037894773820881e-06,
+          "sr_mse": 4.075594915775582e-06,
+          "ratio": 1.9999044936624404,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.37.attn.out_proj",
+          "rtn_mse": 3.712935949806706e-06,
+          "sr_mse": 7.424548130074982e-06,
+          "ratio": 1.9996434709468933,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.37.mlp.fc1",
+          "rtn_mse": 2.530853862481308e-06,
+          "sr_mse": 5.061485353508033e-06,
+          "ratio": 1.9999121357981668,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.37.mlp.fc2",
+          "rtn_mse": 2.950456064354512e-06,
+          "sr_mse": 5.90106401432422e-06,
+          "ratio": 2.000051478690712,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.49.attn.qkv_proj",
+          "rtn_mse": 1.5095017715793801e-06,
+          "sr_mse": 3.018907364094048e-06,
+          "ratio": 1.9999362842319741,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.49.attn.out_proj",
+          "rtn_mse": 4.271055331628304e-06,
+          "sr_mse": 8.540549970348366e-06,
+          "ratio": 1.9996345884595115,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.49.mlp.fc1",
+          "rtn_mse": 1.5931000234559178e-06,
+          "sr_mse": 3.1858671718509868e-06,
+          "ratio": 1.9997910520017903,
+          "reproducible": true
+        },
+        {
+          "key": "blocks.49.mlp.fc2",
+          "rtn_mse": 3.19237869916833e-07,
+          "sr_mse": 6.387235771398991e-07,
+          "ratio": 2.0007763405585237,
+          "reproducible": true
+        }
+      ],
+      "ratio_caveat": "clean ratio: the generic arm's weights are unrelated to the int8 grid, which is the condition the analytic 2x assumes."
+    },
+    "merged": {
+      "tensors": 20,
+      "ratio_min": 9.161206775646614,
+      "ratio_mean": 173.7400242724422,
+      "ratio_max": 655.0860274079921,
+      "all_reproducible_under_fixed_seed": true,
+      "per_tensor": [
+        {
+          "key": "blocks.0.attn.qkv_proj",
+          "rtn_mse": 3.5933964692702602e-09,
+          "sr_mse": 7.445358107815991e-08,
+          "ratio": 20.719556473900525,
+          "reproducible": true,
+          "delta_ms": 3.3732929782814836e-09,
+          "sr_rms_over_delta_rms": 4.698029770816623
+        },
+        {
+          "key": "blocks.0.attn.out_proj",
+          "rtn_mse": 2.9638207443838382e-09,
+          "sr_mse": 1.0947919548698337e-07,
+          "ratio": 36.93853472563621,
+          "reproducible": true,
+          "delta_ms": 2.8477811220284366e-09,
+          "sr_rms_over_delta_rms": 6.20029703105535
+        },
+        {
+          "key": "blocks.0.mlp.fc1",
+          "rtn_mse": 5.628285615344453e-10,
+          "sr_mse": 6.17134361391436e-08,
+          "ratio": 109.64872850605452,
+          "reproducible": true,
+          "delta_ms": 5.274509717878573e-10,
+          "sr_rms_over_delta_rms": 10.816800395542577
+        },
+        {
+          "key": "blocks.0.mlp.fc2",
+          "rtn_mse": 2.428658940623052e-10,
+          "sr_mse": 5.0191506062446933e-08,
+          "ratio": 206.6634603274955,
+          "reproducible": true,
+          "delta_ms": 2.2886165185198593e-10,
+          "sr_rms_over_delta_rms": 14.809097744949955
+        },
+        {
+          "key": "blocks.12.attn.qkv_proj",
+          "rtn_mse": 6.984299250056836e-11,
+          "sr_mse": 2.2457655290963885e-08,
+          "ratio": 321.5448606498516,
+          "reproducible": true,
+          "delta_ms": 6.538654340193517e-11,
+          "sr_rms_over_delta_rms": 18.53267099972387
+        },
+        {
+          "key": "blocks.12.attn.out_proj",
+          "rtn_mse": 8.120993461036008e-11,
+          "sr_mse": 2.7726370532832334e-08,
+          "ratio": 341.41599381727906,
+          "reproducible": true,
+          "delta_ms": 7.679357844070367e-11,
+          "sr_rms_over_delta_rms": 19.00133254678745
+        },
+        {
+          "key": "blocks.12.mlp.fc1",
+          "rtn_mse": 6.645563960239187e-11,
+          "sr_mse": 2.469023563378414e-08,
+          "ratio": 371.5295764438853,
+          "reproducible": true,
+          "delta_ms": 6.212073910827343e-11,
+          "sr_rms_over_delta_rms": 19.93628852080793
+        },
+        {
+          "key": "blocks.12.mlp.fc2",
+          "rtn_mse": 3.1885553225530217e-11,
+          "sr_mse": 2.088778039421868e-08,
+          "ratio": 655.0860274079921,
+          "reproducible": true,
+          "delta_ms": 3.000646606188262e-11,
+          "sr_rms_over_delta_rms": 26.383883532907834
+        },
+        {
+          "key": "blocks.25.attn.qkv_proj",
+          "rtn_mse": 7.116815470276094e-10,
+          "sr_mse": 6.020349019308924e-08,
+          "ratio": 84.5932994111391,
+          "reproducible": true,
+          "delta_ms": 6.669417795812649e-10,
+          "sr_rms_over_delta_rms": 9.500946503227217
+        },
+        {
+          "key": "blocks.25.attn.out_proj",
+          "rtn_mse": 3.0891605939942224e-10,
+          "sr_mse": 5.6761905398161616e-08,
+          "ratio": 183.74540161011706,
+          "reproducible": true,
+          "delta_ms": 2.9216301600243355e-10,
+          "sr_rms_over_delta_rms": 13.938494344943251
+        },
+        {
+          "key": "blocks.25.mlp.fc1",
+          "rtn_mse": 4.3106451741437013e-10,
+          "sr_mse": 6.777773364774475e-08,
+          "ratio": 157.23338597732908,
+          "reproducible": true,
+          "delta_ms": 4.0350645047482203e-10,
+          "sr_rms_over_delta_rms": 12.960396270868232
+        },
+        {
+          "key": "blocks.25.mlp.fc2",
+          "rtn_mse": 4.7078743681261415e-11,
+          "sr_mse": 2.712821078887373e-08,
+          "ratio": 576.2305590085548,
+          "reproducible": true,
+          "delta_ms": 4.4489589096086135e-11,
+          "sr_rms_over_delta_rms": 24.693427682921016
+        },
+        {
+          "key": "blocks.37.attn.qkv_proj",
+          "rtn_mse": 3.540149062786213e-09,
+          "sr_mse": 1.751787976900232e-07,
+          "ratio": 49.48345241489683,
+          "reproducible": true,
+          "delta_ms": 3.3220772799325005e-09,
+          "sr_rms_over_delta_rms": 7.26165990471738
+        },
+        {
+          "key": "blocks.37.attn.out_proj",
+          "rtn_mse": 2.1920223414184647e-09,
+          "sr_mse": 2.0451993520964606e-07,
+          "ratio": 93.30193919342106,
+          "reproducible": true,
+          "delta_ms": 2.0637491715547185e-09,
+          "sr_rms_over_delta_rms": 9.954956514475802
+        },
+        {
+          "key": "blocks.37.mlp.fc1",
+          "rtn_mse": 8.707380594330516e-09,
+          "sr_mse": 3.0994289090813254e-07,
+          "ratio": 35.59542247526658,
+          "reproducible": true,
+          "delta_ms": 8.169062759577628e-09,
+          "sr_rms_over_delta_rms": 6.159631389110299
+        },
+        {
+          "key": "blocks.37.mlp.fc2",
+          "rtn_mse": 3.6482727949760374e-09,
+          "sr_mse": 2.248703054874568e-07,
+          "ratio": 61.637470146728376,
+          "reproducible": true,
+          "delta_ms": 3.4439946450248726e-09,
+          "sr_rms_over_delta_rms": 8.080436490138446
+        },
+        {
+          "key": "blocks.49.attn.qkv_proj",
+          "rtn_mse": 3.3511835084709674e-08,
+          "sr_mse": 3.537880388648773e-07,
+          "ratio": 10.557107301661881,
+          "reproducible": true,
+          "delta_ms": 3.5640383089230454e-08,
+          "sr_rms_over_delta_rms": 3.150651670824784
+        },
+        {
+          "key": "blocks.49.attn.out_proj",
+          "rtn_mse": 1.3077136040706705e-09,
+          "sr_mse": 1.666017084289706e-07,
+          "ratio": 127.39923168985189,
+          "reproducible": true,
+          "delta_ms": 1.2485187328437064e-09,
+          "sr_rms_over_delta_rms": 11.55160137710236
+        },
+        {
+          "key": "blocks.49.mlp.fc1",
+          "rtn_mse": 1.2102510993372562e-08,
+          "sr_mse": 2.7007081371266395e-07,
+          "ratio": 22.315271092135923,
+          "reproducible": true,
+          "delta_ms": 1.1342548233983507e-08,
+          "sr_rms_over_delta_rms": 4.879591982796114
+        },
+        {
+          "key": "blocks.49.mlp.fc2",
+          "rtn_mse": 9.416912583048997e-09,
+          "sr_mse": 8.627028336150033e-08,
+          "ratio": 9.161206775646614,
+          "reproducible": true,
+          "delta_ms": 8.961380970617938e-09,
+          "sr_rms_over_delta_rms": 3.102723977843692
+        }
+      ],
+      "sr_rms_over_delta_rms": {
+        "min": 3.102723977843692,
+        "mean": 11.78064593257801,
+        "max": 26.383883532907834,
+        "reading": "RMS of the noise stochastic rounding adds, over RMS of the LoRA delta being merged. Above 1 means the requantisation noise is larger than the weight change the LoRA was making."
+      },
+      "ratio_caveat": "the SR/RTN ratio is inflated here and is NOT the headline: the merged tensor sits near the grid the base was quantised on, so RTN's error collapses toward zero and the ratio measures how far below one quantisation step the delta is. sr_rms_over_delta_rms is the interpretable quantity."
+    }
+  },
+  "control": "round-to-nearest applied to the int8 base ALONE returns err rms 4.6e-08 against its own values, so the base is on the grid and the dequantise/requantise round-trip used here is faithful. Without that the merged arm's ratios would be unreadable -- they depend on the base being exactly on-grid.",
+  "headline": "the LoRA delta is ~0.1% of ONE int8 quantisation step, so round-to-nearest alone already loses most of it (err rms 1.03x delta rms) and stochastic rounding is ~18x worse again. Merging a small LoRA into an int8 checkpoint is lossy REGARDLESS of rounding mode; the rounding mode decides how much worse.",
+  "not_established": [
+    "that the difference is visible in any render",
+    "that a LoRA applied at the CALL rather than merged suffers this -- it does not requantise, which makes it the control",
+    "whether the PDD LoRAs behave the same; only the turbo LoRA the shipped graphs wire was measured",
+    "that it applies to a module which never goes through set_weight -- an un-merged block applies at the call and never requantises, which makes it a usable control"
+  ],
+  "reproduce": "python bench/measure_stochastic_rounding.py",
+  "arms_source": {
+    "generic": "minimax_h3_fl2va_pruned_fp8_scaled.safetensors (dequantised; real H3 weights off the grid)",
+    "merged": "minimax_h3_fl2va_pruned_int8_convrot.safetensors dequantised + minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors delta -- the tensor set_weight receives on a LoRA'd render"
+  }
+}
