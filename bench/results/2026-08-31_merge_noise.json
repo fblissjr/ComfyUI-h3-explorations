@@ -1,0 +1,377 @@
+{
+  "what": "how much of a merged LoRA delta survives requantisation into int8_convrot, and how much noise rides along with it",
+  "date": "2026-08-31",
+  "produced_by": "bench/measure_merge_noise.py",
+  "base": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+  "group_size": 256,
+  "seed": 12345,
+  "blocks_sampled": [
+    0,
+    25
+  ],
+  "kinds": [
+    "attn.qkv_proj",
+    "attn.out_proj",
+    "mlp.fc1",
+    "mlp.fc2"
+  ],
+  "finding": "the driving variable is delta magnitude against ONE quantisation step, not the LoRA's provenance. Across both shipped artifacts the relationship is monotone and continuous -- one curve with the turbo LoRA at the low-delta end, not two phenomena. PDD is not clear of it.",
+  "is_not": "a runtime or perceptual measurement. Stored weights only. The update LANDS (realised ~1.0) and the noise is unbiased and random-direction; nothing here says any of it is visible at the output, and the PDD LoRAs demonstrably produce working renders.",
+  "vsa_scope": {
+    "checked": true,
+    "artifact": "minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors",
+    "lora_keys": 0,
+    "block_weights": 516,
+    "gate_keys": 150,
+    "in_scope": false,
+    "reading": "a full baked checkpoint: never merged, never requantised at load, so nothing in this record applies to it. A future VSA shipping as a LoRA would inherit all of it."
+  },
+  "arms": {
+    "pdd_fl2va__pruned": {
+      "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+      "base": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "modules": 8,
+      "delta_over_step_median": 0.0734747555466656,
+      "noise_over_delta_median": 2.038803517818451,
+      "noise_over_delta_min": 1.0922447443008423,
+      "noise_over_delta_max": 2.5776705741882324,
+      "modules_where_noise_exceeds_update": 8,
+      "realised_median": 0.9999572038650513,
+      "per_module": [
+        {
+          "module": "blocks.0.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.05636399494074999,
+          "realised": 1.0000678300857544,
+          "noise_over_delta": 2.3825278282165527
+        },
+        {
+          "module": "blocks.0.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.05909362238918381,
+          "realised": 0.9996945261955261,
+          "noise_over_delta": 2.2224369049072266
+        },
+        {
+          "module": "blocks.0.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.07918655711892571,
+          "realised": 1.0002892017364502,
+          "noise_over_delta": 1.984228491783142
+        },
+        {
+          "module": "blocks.0.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.07598090521872788,
+          "realised": 0.9998735785484314,
+          "noise_over_delta": 1.9791945219039917
+        },
+        {
+          "module": "blocks.25.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.15791237112817483,
+          "realised": 1.0001184940338135,
+          "noise_over_delta": 1.0922447443008423
+        },
+        {
+          "module": "blocks.25.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.07096860587460332,
+          "realised": 0.9994420409202576,
+          "noise_over_delta": 2.0933785438537598
+        },
+        {
+          "module": "blocks.25.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.10265583731950906,
+          "realised": 0.9999154210090637,
+          "noise_over_delta": 1.5627703666687012
+        },
+        {
+          "module": "blocks.25.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.051679169560156994,
+          "realised": 0.9999989867210388,
+          "noise_over_delta": 2.5776705741882324
+        }
+      ]
+    },
+    "pdd_ref2va__pruned": {
+      "lora": "minimax_h3_ref2va_pdd_8step_comfy.safetensors",
+      "base": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+      "modules": 8,
+      "delta_over_step_median": 0.0843973472004291,
+      "noise_over_delta_median": 1.8144516348838806,
+      "noise_over_delta_min": 1.3906773328781128,
+      "noise_over_delta_max": 2.1301634311676025,
+      "modules_where_noise_exceeds_update": 8,
+      "realised_median": 0.9997631311416626,
+      "per_module": [
+        {
+          "module": "blocks.0.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.06922640143887626,
+          "realised": 0.999779224395752,
+          "noise_over_delta": 2.035022735595703
+        },
+        {
+          "module": "blocks.0.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.06661690471984076,
+          "realised": 0.9993948936462402,
+          "noise_over_delta": 2.0885279178619385
+        },
+        {
+          "module": "blocks.0.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.12270825017411882,
+          "realised": 0.9996736645698547,
+          "noise_over_delta": 1.4332870244979858
+        },
+        {
+          "module": "blocks.0.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.12057503900385975,
+          "realised": 0.9994916319847107,
+          "noise_over_delta": 1.3906773328781128
+        },
+        {
+          "module": "blocks.25.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.11581770294660364,
+          "realised": 0.9997876882553101,
+          "noise_over_delta": 1.4455897808074951
+        },
+        {
+          "module": "blocks.25.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.08385584777136411,
+          "realised": 1.0005031824111938,
+          "noise_over_delta": 1.8260633945465088
+        },
+        {
+          "module": "blocks.25.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.08493884662949411,
+          "realised": 0.9997470378875732,
+          "noise_over_delta": 1.8028398752212524
+        },
+        {
+          "module": "blocks.25.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.0682188659139081,
+          "realised": 1.0000126361846924,
+          "noise_over_delta": 2.1301634311676025
+        }
+      ]
+    },
+    "pdd_fl2va__unpruned": {
+      "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+      "base": "minimax_h3_fl2va_int8_convrot.safetensors",
+      "modules": 8,
+      "delta_over_step_median": 0.0734747555466656,
+      "noise_over_delta_median": 2.038803517818451,
+      "noise_over_delta_min": 1.0922447443008423,
+      "noise_over_delta_max": 2.5776705741882324,
+      "modules_where_noise_exceeds_update": 8,
+      "realised_median": 0.9999572038650513,
+      "per_module": [
+        {
+          "module": "blocks.0.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.05636399494074999,
+          "realised": 1.0000678300857544,
+          "noise_over_delta": 2.3825278282165527
+        },
+        {
+          "module": "blocks.0.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.05909362238918381,
+          "realised": 0.9996945261955261,
+          "noise_over_delta": 2.2224369049072266
+        },
+        {
+          "module": "blocks.0.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.07918655711892571,
+          "realised": 1.0002892017364502,
+          "noise_over_delta": 1.984228491783142
+        },
+        {
+          "module": "blocks.0.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.07598090521872788,
+          "realised": 0.9998735785484314,
+          "noise_over_delta": 1.9791945219039917
+        },
+        {
+          "module": "blocks.25.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.15791237112817483,
+          "realised": 1.0001184940338135,
+          "noise_over_delta": 1.0922447443008423
+        },
+        {
+          "module": "blocks.25.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.07096860587460332,
+          "realised": 0.9994420409202576,
+          "noise_over_delta": 2.0933785438537598
+        },
+        {
+          "module": "blocks.25.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.10265583731950906,
+          "realised": 0.9999154210090637,
+          "noise_over_delta": 1.5627703666687012
+        },
+        {
+          "module": "blocks.25.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.051679169560156994,
+          "realised": 0.9999989867210388,
+          "noise_over_delta": 2.5776705741882324
+        }
+      ]
+    },
+    "pdd_fl2va_adaln2688__pruned": {
+      "lora": "minimax_h3_fl2va_pdd_8step_adaln2688_comfy.safetensors",
+      "base": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "modules": 8,
+      "delta_over_step_median": 0.0734747555466656,
+      "noise_over_delta_median": 2.038803517818451,
+      "noise_over_delta_min": 1.0922447443008423,
+      "noise_over_delta_max": 2.5776705741882324,
+      "modules_where_noise_exceeds_update": 8,
+      "realised_median": 0.9999572038650513,
+      "per_module": [
+        {
+          "module": "blocks.0.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.05636399494074999,
+          "realised": 1.0000678300857544,
+          "noise_over_delta": 2.3825278282165527
+        },
+        {
+          "module": "blocks.0.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.05909362238918381,
+          "realised": 0.9996945261955261,
+          "noise_over_delta": 2.2224369049072266
+        },
+        {
+          "module": "blocks.0.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.07918655711892571,
+          "realised": 1.0002892017364502,
+          "noise_over_delta": 1.984228491783142
+        },
+        {
+          "module": "blocks.0.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.07598090521872788,
+          "realised": 0.9998735785484314,
+          "noise_over_delta": 1.9791945219039917
+        },
+        {
+          "module": "blocks.25.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.15791237112817483,
+          "realised": 1.0001184940338135,
+          "noise_over_delta": 1.0922447443008423
+        },
+        {
+          "module": "blocks.25.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.07096860587460332,
+          "realised": 0.9994420409202576,
+          "noise_over_delta": 2.0933785438537598
+        },
+        {
+          "module": "blocks.25.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.10265583731950906,
+          "realised": 0.9999154210090637,
+          "noise_over_delta": 1.5627703666687012
+        },
+        {
+          "module": "blocks.25.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.051679169560156994,
+          "realised": 0.9999989867210388,
+          "noise_over_delta": 2.5776705741882324
+        }
+      ]
+    },
+    "turbo_fl2v__pruned": {
+      "lora": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+      "base": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "modules": 8,
+      "delta_over_step_median": 0.0025156422214473364,
+      "noise_over_delta_median": 12.130743980407715,
+      "noise_over_delta_min": 4.692809104919434,
+      "noise_over_delta_max": 24.88861083984375,
+      "modules_where_noise_exceeds_update": 8,
+      "realised_median": 0.9990713000297546,
+      "per_module": [
+        {
+          "module": "blocks.0.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.012477652819922632,
+          "realised": 0.999467134475708,
+          "noise_over_delta": 4.692809104919434
+        },
+        {
+          "module": "blocks.0.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.008224767512282289,
+          "realised": 1.0017218589782715,
+          "noise_over_delta": 6.20582389831543
+        },
+        {
+          "module": "blocks.0.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.003013916695724342,
+          "realised": 0.9986673593521118,
+          "noise_over_delta": 10.98946762084961
+        },
+        {
+          "module": "blocks.0.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.0016180311546146215,
+          "realised": 0.9974828958511353,
+          "noise_over_delta": 14.879798889160156
+        },
+        {
+          "module": "blocks.25.attn.qkv_proj",
+          "kind": "attn.qkv_proj",
+          "delta_over_step": 0.003144775928983442,
+          "realised": 1.0018304586410522,
+          "noise_over_delta": 9.559870719909668
+        },
+        {
+          "module": "blocks.25.attn.out_proj",
+          "kind": "attn.out_proj",
+          "delta_over_step": 0.0018234666712659288,
+          "realised": 0.9986754655838013,
+          "noise_over_delta": 13.937994956970215
+        },
+        {
+          "module": "blocks.25.mlp.fc1",
+          "kind": "mlp.fc1",
+          "delta_over_step": 0.002017367747170331,
+          "realised": 0.998238205909729,
+          "noise_over_delta": 13.27202033996582
+        },
+        {
+          "module": "blocks.25.mlp.fc2",
+          "kind": "mlp.fc2",
+          "delta_over_step": 0.0006644626109296929,
+          "realised": 1.00429105758667,
+          "noise_over_delta": 24.88861083984375
+        }
+      ]
+    }
+  },
+  "reproduce": "python bench/measure_merge_noise.py"
+}

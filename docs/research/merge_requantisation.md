@@ -45,6 +45,17 @@ branch. Any statement about RTN below is about a hypothetical arm.
 `bench/measure_merge_noise.py` → `bench/results/2026-08-31_merge_noise.json`.
 CPU only, fixed seed, `int8_convrot` at the layout's own group size.
 
+**Read `blocks_sampled` in that record before quoting it.** It is written by
+every invocation, including a `--stride` shape check, so the file name does not
+tell you the coverage and the record is the only thing that does. The figures
+in the table below are corroborated by two fuller sweeps named beneath it.
+
+**And note what `check_doc_links.py` does not do**: it resolves a citation
+against the FILESYSTEM, not against git, deliberately, so that new untracked
+work is not a false red. A committed document citing an UNTRACKED file
+therefore passes green and is broken for anyone who clones. That happened to
+this file on 2026-08-31 and was caught by a human reader, not by a check.
+
   delta / step        `rms(d)` against ONE quantisation step, `2 * mean(scale)`
   realised            `<Q(W+d) − Q(W), d> / <d, d>` — the fraction of the
                       update landing along its own direction
@@ -62,9 +73,28 @@ differ by `‖Q(W) − W‖`, the base's requantisation residual, which is NOT z
 measured at 1.2e-04, 6.1e-05 and 8.4e-06 of `‖d‖` on three modules, moving the
 final statistic by at most 1.2e-06. So the agreement is real and the reason
 sometimes given for it — that `Q(W) == W` because `W` is already dequantised —
-is very nearly true rather than true. **The residual scales as `1/‖d‖`**, so it
-stays negligible for these two LoRAs and would not for an arbitrarily small
-one; a future arm should re-check rather than inherit the equivalence.
+is very nearly true rather than true.
+
+**What the residual is, and the threshold it sets.** The requantisation IS
+idempotent at the INTEGER level: re-quantising `W` deterministically reproduces
+the shipped int8 exactly, **0 differing values** on every module tested. So the
+residual is not a rounding disagreement — it is the fp32 un-rotate/re-rotate
+round trip, and it is near-constant as a fraction of the weight,
+`‖Q(W) − W‖ / ‖W‖` measured at 3.71e-07, 3.74e-07, 3.74e-07 and 3.91e-07 across
+four modules spanning depth and all four kinds. That turns the scaling into a
+number:
+
+    contamination  ≈  3.7e-07 / r        where  r = ‖d‖ / ‖W‖
+
+    PDD    r ≈ 0.0074   ->  ~5e-05     predicted 1.18e-04 vs measured 1.19e-04
+    turbo  r ≈ 0.00038  ->  ~1e-03     (the four-module fit is within ~5%)
+    r ≈ 3.7e-05         ->  ~1e-02     one percent of the statistic
+
+**A LoRA whose delta is below roughly 4e-05 of the weight puts one percent into
+this statistic**, and below that the two spellings stop agreeing usefully. Both
+shipped LoRAs are two to three orders of magnitude clear of it. Check `r`
+rather than inherit the equivalence. Mechanism and constant from the PDD lane,
+verified here on a fourth module it did not test.
 
 **The three rank the arms differently and that is the finding**, recorded as a
 rule in [`../checks.md`](../checks.md): stored-weight distance prefers the arm
@@ -80,6 +110,16 @@ A separate 100-module sweep of PDD fl2va across all 50 blocks put
 `noise/|d|` above 1 on **99 of 100 modules**, median 1.979, range
 0.877–3.121, and ordered the kinds `mlp.fc2` 2.207 > `mlp.fc1` 1.924 >
 `attn.out_proj` 1.833 > `attn.qkv_proj` 1.534.
+
+**A separate implementation in the PDD lane covered all 200 modules** and
+agrees in the third decimal: median 1.981, mean 2.002, above 1.0 on 194 of 200
+(97%), same kind ordering (`fc2` 2.222 > `fc1` 2.038 > `out_proj` 1.978 > `qkv`
+1.424), and RTN realised 0.341 mean with a worst module of 0.0043.
+`quant_levers.md` and `bench/results/2026-08-31_merge_realisation_pdd_all_blocks.json`
+are that record. Two implementations, two subsets, agreement to the third
+decimal — which is what makes these quotable at all. **Both lanes' small
+samples were optimistic in the same direction**, because the two module kinds
+easiest to sample are the two least affected.
 
 **The driving variable is delta magnitude against one step, not the LoRA's
 provenance.** Across 72 modules of both artifacts the relationship is monotone
@@ -108,8 +148,12 @@ node does**, because that decides whether a weight patch happens at all.
 ## 4. Out of scope, with the check that says so
 
 **VSA, as shipped.** `minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot`
-carries **0 `lora_*` keys**, 516 block weights and 150 `to_gate_compress`
-keys — a full baked checkpoint. It is never merged and never requantised at
+carries **0 `lora_*` keys** and 150 `to_gate_compress` keys — a full baked
+checkpoint. **Corrected 2026-08-31:** this said "516 block weights", which
+conflated two populations and read as a contradiction beside other counts. The
+disambiguated figures, verified independently in two lanes: **500
+`blocks.*.weight` (the DiT) plus 16 `token_refiner.blocks.*.weight` = 516**,
+against 524 `.weight` keys in total. It is never merged and never requantised at
 load, so nothing in this file applies to it. **A future VSA shipping as a LoRA
 would inherit all of it**, which is worth knowing before that choice is made
 rather than after.
