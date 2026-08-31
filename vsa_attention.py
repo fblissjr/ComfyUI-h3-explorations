@@ -3,17 +3,26 @@
 ## EXPERIMENTAL, AND NOT FINISHED. Read this before quoting anything from it
 
 **Every input this node needs is a draft or an experiment**, and none of it is
-a release. Nothing here has rendered end to end. Treat a result from this node
-as a report about draft code, not about VSA.
+a release. Treat a result from this node as a report about draft code, not
+about VSA.
+
+**This node cannot run on this box as of 2026-08-31, by decision.** It refuses
+at execute, which is the designed behaviour and not a defect -- see core
+support below.
 
   core support   `github.com/comfyanonymous/ComfyUI` PR #15958, "Minimax-H3:
-                 support FastVideo VSA", by kijai. **A DRAFT**, head `10febb01`
-                 on base `0a33ed6c`, applied to this box on 2026-08-30 as an
-                 UNCOMMITTED working-tree change on master. So the H3 model
-                 this box builds is not the one stock ComfyUI builds, and any
-                 H3 measurement taken here has to say so.
-                 `bench/check_vsa_core_patch.py` is the provenance record and
-                 the thing that notices a half-applied patch.
+                 support FastVideo VSA", by kijai. **Still a DRAFT and still
+                 open**, head `10febb01` on base `0a33ed6c`.
+                 **Corrected 2026-08-31.** This used to say the patch was
+                 "applied to this box on 2026-08-30 as an UNCOMMITTED
+                 working-tree change on master". It is NOT applied: a `git
+                 reset` and two pulls took the checkout to master `95d755cd`
+                 and carried the uncommitted change away with it. The decision
+                 taken rather than re-applying: **wait for the merge.** So core
+                 here is stock, no `to_gate_compress` slot is built, and
+                 `_gate_modules` refuses by name.
+                 `bench/check_vsa_core_patch.py` is the provenance record; it
+                 grades absence as correct and notices a half-applied patch.
   the checkpoint `huggingface.co/Kijai/MiniMax-H3-experimental`,
                  `minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot`.
                  The repository says experimental in its name. The artifact
@@ -29,8 +38,15 @@ as a report about draft code, not about VSA.
                  summary; this node follows the KERNEL's contract and the one
                  other H3 implementation, not the paper.
 
-**What is unexercised.** The gate projection, the kernel call and the output
-reordering under a real forward. `bench/check_vsa_geometry.py` asserts the
+**What is unexercised. Corrected 2026-08-31** -- this used to say the gate
+projection, the kernel call and the output reordering had never run under a
+real forward. They have: it rendered on 2026-08-30 against a dense control,
+recorded in `bench/results/2026-08-30_vsa_first_render.json` and
+`_vsa_length_scaling.json`. Those runs were taken on the patched working tree
+described above, which no longer exists on this box, so they are not
+reproducible here until #15958 merges. Still unexercised: production canvas and
+frame count (those ran at 22k rows), any sampler recipe matched to the
+checkpoint, and anything perceptual. `bench/check_vsa_geometry.py` asserts the
 reorder and the refusals, and that is all it asserts.
 
 ## Read this first: VSA is a regime, not a knob on the Sol node

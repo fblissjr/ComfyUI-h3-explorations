@@ -56,7 +56,15 @@ UPSTREAM_REPO = "github.com/comfyanonymous/ComfyUI"
 PR_NUMBER = 15958
 PR_TITLE = "Minimax-H3: support FastVideo VSA"
 PR_AUTHOR = "kijai"
-PR_STATE = "DRAFT as of 2026-08-30"
+PR_STATE = "DRAFT, still open as of 2026-08-31"
+#: **The decision, 2026-08-31: do not apply it. Wait for the merge.**
+#: It was applied to this box's working tree on 2026-08-30 and is GONE --
+#: a `git reset` followed by two pulls took master to 95d755cd and carried
+#: the uncommitted change away with it. Rather than re-apply a draft, this
+#: box now tracks stock ComfyUI and waits. So ABSENT is the expected state
+#: here, and every case below grades that state as correct rather than as
+#: a shortfall -- see the checkpoint case for the one that used to not.
+PR_APPLY_POLICY = "wait for merge; do not apply the draft"
 #: The PR head this box's working tree was patched from, applied 2026-08-30 as
 #: an UNCOMMITTED working-tree change on master rather than a merge. That is
 #: deliberate: `git checkout -- <the two files>` reverts it, and a later
@@ -99,9 +107,12 @@ def main():
     hits = [rel for rel, ok in present.items() if ok]
     misses = [rel for rel, ok in present.items() if not ok]
 
+    patched = bool(hits) and not misses
+
     if not hits:
         print("  none  the patch is ABSENT, which is stock ComfyUI and is not a "
               "failure.")
+        print(f"        Policy: {PR_APPLY_POLICY}.")
         print("        H3 VSA checkpoints load with their gate keys DROPPED and "
               "render as\n        the dense base. MiniMaxH3VSAAttention refuses "
               "rather than let that pass.")
@@ -183,11 +194,30 @@ def main():
     # is not on the box, which is the normal state for anyone who has not
     # downloaded 30-odd GB.
     #
+    # **And skipped when the patch is absent, which is the fix for a defect
+    # this file argued against and then committed.** The docstring above says
+    # absence is legitimate and that failing on it "would train a reader to
+    # ignore red" -- then this case failed on exactly that, because it asked
+    # whether the gate keys find a slot without first asking whether anything
+    # was supposed to build one. Patch absent plus checkpoint present is a
+    # coherent state (it is stock ComfyUI with a file downloaded), and since
+    # 2026-08-31 it is the DECIDED state. Red there is noise. The case still
+    # has teeth where they belong: with the patch applied, a checkpoint whose
+    # gate keys find no slot is a real failure and still fails.
+    #
     # Nothing is allocated: the state dict is meta tensors carrying only the
     # real shapes, because detection reads `.shape` on a handful of entries and
     # the model is constructed under `torch.device("meta")`.
     ckpt = COMFY / "models" / "diffusion_models" / VSA_CHECKPOINT
-    if not ckpt.exists():
+    if not patched:
+        skipped.append("the checkpoint's gate keys find a slot")
+        print(f"  SKIP  the checkpoint's gate keys find a slot   "
+              f"the patch is absent, so NO gate slot is built and all gate "
+              f"weights\n        would be dropped on load. That is what stock "
+              f"ComfyUI does and what this\n        box has chosen; it is not a "
+              f"shortfall to grade. MiniMaxH3VSAAttention\n        refuses on "
+              f"such a model, which is the control that matters here.")
+    elif not ckpt.exists():
         skipped.append("the checkpoint's gate keys find a slot")
         print(f"  SKIP  the checkpoint's gate keys find a slot   "
               f"{VSA_CHECKPOINT} is not in models/diffusion_models")

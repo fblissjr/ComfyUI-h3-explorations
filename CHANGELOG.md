@@ -4,6 +4,44 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.1
+
+### Fixed
+
+- **`bench/check_vsa_core_patch.py` no longer goes red on the state it argues
+  is correct.** Its docstring holds that a missing patch is legitimate and that
+  failing on it "would train a reader to ignore red" -- then its checkpoint
+  case failed on exactly that, because it asked whether the gate keys find a
+  slot without first asking whether anything was supposed to build one. Patch
+  absent plus checkpoint present is stock ComfyUI with a file downloaded. That
+  case is now gated on the patch actually being present, so the run reports
+  INCOMPLETE rather than FAILED, and it keeps its teeth where they belong: with
+  the patch applied, gate keys that find no slot still fail.
+
+### Changed
+
+- **The VSA core patch is not applied, and waiting for the merge is now the
+  decision.** Comfy-Org/ComfyUI#15958 is still an open draft. It was applied to
+  the ComfyUI working tree on 2026-08-30; a `git reset` and two pulls carried
+  it away, and rather than re-apply a draft this box tracks stock core. The
+  working-tree arrangement was chosen so a `git pull` would refuse rather than
+  merge silently -- a reset is the case it does not cover, which is worth
+  keeping. `MiniMaxH3VSAAttention` refuses at execute on stock core, which is
+  the designed behaviour.
+
+### Corrected
+
+- **Three files claimed the VSA core patch was applied; all withdrawn.**
+  `CLAUDE.md`, `docs/research/vsa/vsa_node.md` and `vsa_attention.py` each said
+  the ComfyUI checkout carried the draft in its working tree. It does not.
+- **`vsa_attention.py` said nothing had rendered end to end, and that the gate
+  projection, kernel call and output reordering had never run under a real
+  forward.** Both withdrawn: it rendered on 2026-08-30 against a dense control
+  (`bench/results/2026-08-30_vsa_first_render.json`,
+  `_vsa_length_scaling.json`). Those runs used the patched tree and are not
+  reproducible here until #15958 merges. Production length, a matched sampler
+  recipe and anything perceptual remain unexercised.
+
 ## 0.99.0
 
 ### Added

@@ -98,15 +98,22 @@ them as keys but still stages them.
 None of this touches the kernel call, the gate projection or the output
 ordering under a real forward. Those are unexercised.
 
-## The blocker: half cleared 2026-08-30, half remaining
+## The blocker: cleared for one day, and back by decision
 
-**Half one, core cannot load the gate: CLEARED on this box, and only on this
-box.** ComfyUI master carries no `gate_compress`;
+**Corrected 2026-08-31.** This section used to say half the blocker was
+"CLEARED on this box, and only on this box", the patch having been applied on
+2026-08-30 as an uncommitted working-tree change. **That is withdrawn: the
+patch is gone and is not coming back until it merges.** A `git reset` followed
+by two pulls took the checkout to master `95d755cd` and carried the
+uncommitted change away with it; the working-tree arrangement was chosen so a
+pull would refuse rather than merge a draft, and a reset is the case it does
+not cover. Rather than re-apply, the decision on 2026-08-31 is to **wait for
+#15958 to merge**. So core here is stock and the blocker stands in full.
+
+ComfyUI master carries no `gate_compress`;
 `github.com/comfyanonymous/ComfyUI` PR #15958 adds it in twelve lines across
-two files, and **it is a DRAFT**. Applied here on 2026-08-30 from head
-`10febb01` as an UNCOMMITTED working-tree change on master rather than a merge,
-so `git checkout --` on the two files reverts it and a later `git pull` refuses
-loudly instead of quietly merging a draft.
+two files, it is **still a DRAFT and still open** at head `10febb01`, and it
+still applies cleanly to current master (verified 2026-08-31).
 
 `bench/check_vsa_core_patch.py` is the provenance record. It reports absence
 rather than failing on it -- a machine without the patch is the normal state,
@@ -245,9 +252,16 @@ the only question those two renders can answer.
 
 ## What would settle the rest
 
-1. ~~Apply #15958 to the ComfyUI checkout.~~ Done 2026-08-30, working tree.
-2. ~~Confirm the gate keys are no longer dropped.~~ Done, all 50 placed.
-3. ~~Run it, with a dense control.~~ Done; see above.
+1. **#15958 merging.** It was applied to the working tree on 2026-08-30 and
+   that is withdrawn -- see the correction above. The decision is to wait for
+   the merge rather than carry a draft, so this is now a blocker held by
+   upstream and not by us. `bench/check_vsa_core_patch.py` reports the state.
+2. ~~Confirm the gate keys are no longer dropped.~~ Done 2026-08-30, all 50
+   placed -- **on the patched tree, which no longer exists here.** The check
+   now skips this case rather than failing it, because absence is the state we
+   chose.
+3. ~~Run it, with a dense control.~~ Done 2026-08-30; see above. Not
+   reproducible on this box until step 1.
 4. **A length where sparse attention is supposed to win.** The shipped canvas
    at a shipped frame count, which is 31k-128k rows against this run's 22k.
 5. **A sampler recipe.** The checkpoint's "4step" is a filename, not a
