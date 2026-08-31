@@ -1470,13 +1470,21 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
             # exist only under `max`; nothing emits them for `match`.
             append_inputs["size_policy.dit_short_edge"] = _ref_short_edge()
             append_inputs["size_policy.allow_upscale"] = ref_upscale
-            # ALWAYS written, including 0. It used to be emitted only when
-            # truthy, which left the two shared-view arms (refview a/c) taking
-            # whatever the node defaulted to -- so moving that default would
-            # have silently retuned two arms of a comparison. Writing it every
-            # time means the graph states the value and nothing rides on a
-            # default that can move underneath it.
-            append_inputs["qwen_short_edge"] = ref_qwen_short_edge
+            # `qwen_view` is a DynamicCombo since 2026-08-31, replacing an
+            # Int whose 0 meant "no separate view". Dotted members again, and
+            # the size exists only under `separate` -- emitting it under
+            # `shared` is what the old flat form did and is exactly the
+            # unreachable-input state the combo removes.
+            #
+            # The SELECTION is always written, which preserves what the old
+            # comment here defended: the two shared-view arms (refview a/c)
+            # must state their choice rather than inherit a node default that
+            # can move underneath them and silently retune a comparison.
+            if ref_qwen_short_edge:
+                append_inputs["qwen_view"] = "separate"
+                append_inputs["qwen_view.qwen_short_edge"] = ref_qwen_short_edge
+            else:
+                append_inputs["qwen_view"] = "shared"
             g[append_id] = {"class_type": "MiniMaxH3AppendRefImage",
                             "inputs": append_inputs}
             chain = [append_id, 0]
@@ -2348,19 +2356,19 @@ be one you made on purpose.
 
 These graphs use this repo's `MiniMaxH3AppendRefImage`, not native ComfyUI's
 autogrow image sockets. Each append carries its own `size_policy`,
-`short_edge`, `allow_upscale` and `qwen_short_edge`, and *MiniMax H3 Reference
+`short_edge`, `allow_upscale` and `qwen_view`, and *MiniMax H3 Reference
 Conditioning* performs ONE resize with the target canvas in scope.
 
 **Do not add a Reference Resolution node.** It is DEPRECATED as of 2026-08-28
 and no graph here wires it. Chaining it in front of the append resamples
-twice, it cannot express `match`, and it has no `qwen_short_edge`.
+twice, it cannot express `match`, and it has no `qwen_view`.
 
-### There are TWO budgets, and they are only the same number at qwen_short_edge 0
+### There are TWO budgets, and they are only the same number under `qwen_view = shared`
 
 | budget | what sets it | what it costs |
 |---|---|---|
 | **DiT rows** | `size_policy` + `short_edge` + `allow_upscale` | attended at EVERY sampling step, alongside video |
-| **vision tokens** | `qwen_short_edge` (or the above, when it is 0) | sit in the TEXT segment **ahead of your prompt** |
+| **vision tokens** | `qwen_view.qwen_short_edge` (or the above, under `shared`) | sit in the TEXT segment **ahead of your prompt** |
 
 ### short_edge is a CEILING, not a target
 

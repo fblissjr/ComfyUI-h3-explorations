@@ -78,10 +78,16 @@ LITERAL_ZERO = {
 #: replacement named so it is a decision rather than a shrug.
 SENTINELS = {
     ("reference_conditioning.py", "qwen_short_edge"): (
-        "0 means no separate text-encoder view; any other value is a pixel "
-        "short edge. Replacement: a DynamicCombo whose options are `shared "
-        "view` and `separate view (short_edge=N)`, which is the shape "
-        "`size_policy` on the same node already uses."),
+        "**MIGRATED 2026-08-31 and kept here deliberately.** The widget is now "
+        "`qwen_view`, a DynamicCombo of `separate` / `shared`, and the size "
+        "lives under `separate` with min=CANVAS_MULTIPLE -- so 0 is no longer "
+        "typeable and no longer selects anything. What still trips this check "
+        "is `record.qwen_short_edge`, a DATACLASS FIELD on "
+        "`RuntimeImageReference` where 0 remains the internal spelling for one "
+        "shared view. That is a derived value nobody enters, which is outside "
+        "what this rule governs -- but the check reads declared input NAMES "
+        "and cannot see the difference, so the entry stays rather than the "
+        "detector growing a special case it would be wrong about later."),
     ("reference_video_fit.py", "short_edge"): (
         "0 means REPORTING ONLY -- the node measures and warns and resizes "
         "nothing. Replacement: a boolean `resize` beside the size, or a "

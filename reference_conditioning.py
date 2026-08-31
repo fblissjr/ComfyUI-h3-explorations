@@ -797,30 +797,54 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
                         "not apply."
                     ),
                 ),
-                io.Int.Input(
-                    "qwen_short_edge", default=REF_QWEN_SHORT_EDGE,
-                    min=0, max=4096, step=32, optional=True,
+                # A DynamicCombo since 2026-08-31, and it was an Int whose
+                # 0 meant "no separate view at all". That is the falsy-sentinel
+                # shape CLAUDE.md names: a number that quietly selects a mode,
+                # so the person setting it had to know 0 was not a size. Same
+                # trade `size_policy` took above and for the same reason --
+                # saved-graph widget positions move, and a node that cannot
+                # mislead is worth it. The unreachable-input argument applies
+                # doubly here, because the old 0 ALSO made the size box inert
+                # while leaving it on screen.
+                io.DynamicCombo.Input(
+                    "qwen_view",
+                    options=[
+                        io.DynamicCombo.Option("separate", [
+                            io.Int.Input(
+                                "qwen_short_edge",
+                                default=REF_QWEN_SHORT_EDGE,
+                                min=CANVAS_MULTIPLE, max=4096, step=32,
+                                tooltip=(
+                                    "Shorter side, in pixels, of the copy the "
+                                    "TEXT ENCODER reads. The video model still "
+                                    "gets the full-size image sized by "
+                                    "size_policy above.\n\n"
+                                    "512 is a sensible default, not a tuned "
+                                    "one: it rests on a single render at one "
+                                    "seed. Cite it as a default, never as "
+                                    "measured."
+                                ),
+                            ),
+                        ]),
+                        io.DynamicCombo.Option("shared", []),
+                    ],
                     tooltip=(
-                        "Give the text encoder a smaller copy of this image "
-                        "than the video model gets.\n\n"
+                        "Whether the text encoder reads its own smaller copy "
+                        "of this image, or the same one the video model "
+                        "gets.\n\n"
                         "The image is used twice: the video model encodes it "
                         "as reference frames, and the text encoder reads it "
                         "alongside your prompt. Those are separate costs.\n\n"
-                        "0 means the text encoder gets the SAME image as "
-                        "the video model, sized by size_policy above. That is "
-                        "a deliberate choice, not 'off' -- use it when both "
-                        "should see identical input.\n\n"
-                        "Any other value: the text encoder gets its own copy "
-                        "with its shorter side at that many pixels, while the "
-                        "video model still gets the full-size one.\n\n"
-                        "Why you want this: the text encoder's copy competes "
-                        "with your prompt, because both share one budget. Two "
-                        "full-size references can leave the prompt under 10% "
-                        "of it, which weakens how closely the model follows "
-                        "what you wrote. Setting 512 keeps the reference "
-                        "detail the video model sees while giving the prompt "
-                        "its space back.\n\n"
-                        "512 is a sensible default, not a tuned one."
+                        "separate -- the text encoder gets its own copy at "
+                        "the size you set. This is what you usually want: the "
+                        "encoder's copy competes with your prompt, because "
+                        "both share one budget, and two full-size references "
+                        "can leave the prompt under 10% of it, which weakens "
+                        "how closely the model follows what you wrote.\n\n"
+                        "shared -- the text encoder gets the SAME image as "
+                        "the video model, sized by size_policy above. A "
+                        "deliberate choice for when both should see identical "
+                        "input, not an 'off' switch."
                     ),
                 ),
             ],
@@ -838,8 +862,10 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
     # unclamped, silently. Corrected 2026-08-31; every shipped API graph sets
     # the key explicitly, so no shipped render moves. 0 stays LEGAL when asked
     # for on purpose -- six graph arms do -- it just is not the default.
-    def execute(cls, image, size_policy, references=None,
-                qwen_short_edge=REF_QWEN_SHORT_EDGE):
+    # `qwen_view` before `references` because it is REQUIRED in the schema
+    # and `references` is optional; a signature default on a required input
+    # is the split this node just spent a commit fixing on the other knob.
+    def execute(cls, image, size_policy, qwen_view, references=None):
         # A DynamicCombo arrives as ONE nested dict: the selected key under the
         # input's own id, and the chosen option's inputs alongside it. NOT as
         # flattened kwargs. `MiniMaxH3Resolution.execute` carries the scar from
@@ -875,11 +901,28 @@ class MiniMaxH3AppendRefImage(io.ComfyNode):
         if short_edge < CANVAS_MULTIPLE:
             raise ValueError(
                 f"short_edge must be at least {CANVAS_MULTIPLE}, got {short_edge}")
-        qwen_short_edge = int(qwen_short_edge)
-        if qwen_short_edge and qwen_short_edge < CANVAS_MULTIPLE:
-            raise ValueError(
-                f"qwen_short_edge must be 0 or at least {CANVAS_MULTIPLE}, "
-                f"got {qwen_short_edge}")
+        # Same nested-dict unpacking as `size_policy` above. `None` is what an
+        # API prompt omitting the input yields; it takes the schema's first
+        # option, which is `separate` at REF_QWEN_SHORT_EDGE -- so omission and
+        # the UI agree, which is the defect this input carried until
+        # 2026-08-31 in the other direction.
+        view = (qwen_view if isinstance(qwen_view, str)
+                else qwen_view["qwen_view"])
+        if view not in ("separate", "shared"):
+            raise ValueError(f"unknown qwen_view {view!r}")
+        if view == "shared":
+            # 0 remains the INTERNAL representation of "one shared view" on
+            # `RuntimeImageReference`, where it is a derived value rather than
+            # something anyone types. The widget no longer offers it.
+            qwen_short_edge = 0
+        elif isinstance(qwen_view, str):
+            qwen_short_edge = REF_QWEN_SHORT_EDGE
+        else:
+            qwen_short_edge = int(qwen_view["qwen_short_edge"])
+            if qwen_short_edge < CANVAS_MULTIPLE:
+                raise ValueError(
+                    f"qwen_short_edge must be at least {CANVAS_MULTIPLE}, "
+                    f"got {qwen_short_edge}")
         return io.NodeOutput(
             _reference_tuple(references)
             + (RuntimeImageReference(

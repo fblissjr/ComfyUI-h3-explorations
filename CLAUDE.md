@@ -151,7 +151,12 @@ repeating work.
     on the typed path `allow_upscale` on the append node is the whole of it.
     `reference_fit.py`'s own docstring is the current statement, and two of that
     node's inputs are inert.
-  - **`qwen_short_edge` must not be 0 on the shipped encoder.** Reference tokens
+  - **The text encoder must not share the video model's view on the shipped
+    encoder.** The knob is `qwen_view` on `MiniMaxH3AppendRefImage`, a combo of
+    `separate` (with its own `qwen_short_edge`) and `shared`; **it was a flat
+    `qwen_short_edge` Int whose 0 meant shared until 2026-08-31**, so older
+    notes and graphs name that. `shared` is the state this bullet warns about.
+    Reference tokens
     land in the TEXT segment ahead of the prompt, so they compete with it rather
     than merely lengthening the sequence, and unclamped they can crowd the
     prompt into a small minority of its own segment. The knob is *exactly inert*
@@ -176,7 +181,7 @@ repeating work.
   would take to find out it was wrong — if the answer is "a record nobody has
   written", say so in the sentence that uses it.
   - Four instances on 2026-08-28, all found by asking the same question of
-    values nobody doubted. `qwen_short_edge=512` is a prior resting on one
+    values nobody doubted. `qwen_view.qwen_short_edge=512` is a prior resting on one
     render at one seed. `ref_upscale=True` cost 6,300 extra reference rows per
     step for a benefit this repo has never measured, and was flipped once asked.
     `nfe=0` was the ordinary mode wearing a falsy sentinel. Sol's `tau=1.0` DOES
@@ -367,7 +372,7 @@ repeating work.
   own pipeline ever produce this input?** Instances: a third-party pack pins
   audio at a fractional negative keyframe index that stock nodes cannot produce
   and the release never emits — it works because core applies no cast and no
-  bounds check. Our own `qwen_short_edge` view split currently answers no to
+  bounds check. Our own `qwen_view` split currently answers no to
   the same question, which is why it is priced rather than proven.
 - **The same standard applies to claims, and re-reading your own work does not
   meet it.** On 2026-08-13, eight substantive defects were found here and in the

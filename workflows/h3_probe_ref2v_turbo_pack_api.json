@@ -193,7 +193,8 @@
       "size_policy": "max",
       "size_policy.dit_short_edge": 2048,
       "size_policy.allow_upscale": false,
-      "qwen_short_edge": 512
+      "qwen_view": "separate",
+      "qwen_view.qwen_short_edge": 512
     }
   },
   "28": {

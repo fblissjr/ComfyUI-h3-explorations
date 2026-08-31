@@ -159,7 +159,7 @@ def append_is_copy_on_add_and_ordered():
     audio_out = R.MiniMaxH3AppendRefAudio.execute(_audio()).args[0]
     before = tuple(audio_out)
     image_out = R.MiniMaxH3AppendRefImage.execute(
-        _frames(1), {"size_policy": "match"}, references=audio_out
+        _frames(1), {"size_policy": "match"}, "shared", references=audio_out
     ).args[0]
     assert audio_out == before and len(audio_out) == 1, audio_out
     assert len(image_out) == 2 and image_out[:1] == audio_out, image_out
@@ -711,17 +711,31 @@ def qwen_view_is_separate_from_the_vae_view():
     assert qw * qh <= v1["image_bounds"][1], (
         f"the v1 contract's ceiling did not clamp the Qwen view: {qw}x{qh}")
 
+    # `qwen_view` is a DynamicCombo since 2026-08-31; the size arrives nested
+    # under the `separate` option, not as a flat kwarg.
+    def _sep(n):
+        return {"qwen_view": "separate", "qwen_short_edge": n}
+
     # The node refuses a sub-grid value and records the field.
     try:
-        R.MiniMaxH3AppendRefImage.execute(source, _max_policy(), qwen_short_edge=16)
+        R.MiniMaxH3AppendRefImage.execute(source, _max_policy(), _sep(16))
     except ValueError as exc:
         assert "qwen_short_edge" in str(exc), exc
     else:
         raise AssertionError("a sub-grid qwen_short_edge was accepted")
-    records = R.MiniMaxH3AppendRefImage.execute(source, _max_policy(), qwen_short_edge=960).args[0]
+    records = R.MiniMaxH3AppendRefImage.execute(
+        source, _max_policy(), _sep(960)).args[0]
     assert records[-1].qwen_short_edge == 960
+    # `shared` is now the only way to reach the one-view path, and it is named
+    # rather than typed as a zero.
+    #
+    # **This case used to assert that OMITTING the input yielded 0**, which
+    # encoded the defect fixed on 2026-08-31: the schema said 512 and
+    # `execute`'s signature said 0, and ComfyUI does not inject a schema
+    # default for an omitted API input, so the two paths rendered differently.
+    # Omission is no longer expressible -- `qwen_view` is required.
     assert R.MiniMaxH3AppendRefImage.execute(
-        source, _max_policy()).args[0][-1].qwen_short_edge == 0
+        source, _max_policy(), "shared").args[0][-1].qwen_short_edge == 0
 
 
 def preflight_prices_the_two_views():

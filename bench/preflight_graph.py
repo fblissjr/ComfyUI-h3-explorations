@@ -351,7 +351,40 @@ def _reference_media(inputs: dict, graph: dict):
             # retired fit node further down still has an input of that
             # name that must NOT follow this rename.
             short_edge = _value("dit_short_edge", 2048, group="size_policy")
-            qwen_short_edge = _value("qwen_short_edge", 0)
+            # `qwen_view` is a DynamicCombo since 2026-08-31, replacing a flat
+            # `qwen_short_edge` Int whose 0 meant "shared view". Same rename
+            # shape as `size_policy` above, and this reader refused to price
+            # rather than default when it hit it -- which is the behaviour the
+            # docstring above argues for, working.
+            #
+            # `shared` carries no size member at all, so reading it as absent
+            # would report a defect on a correct graph. It maps to 0, which is
+            # still preflight's internal spelling for one shared view.
+            qwen_view = _value("qwen_view", None)
+            if qwen_view == "shared":
+                if "qwen_view" in absent:
+                    absent.remove("qwen_view")
+                qwen_short_edge = 0
+            elif qwen_view is not None:
+                # A `separate` view always carries a size, so the schema
+                # default is the right fallback rather than None.
+                # 512 is `h3_config.REF_QWEN_SHORT_EDGE` and the node's schema
+                # default, written as a literal because this reader is
+                # deliberately standalone -- same as the 2048 above, which is
+                # `REF_IMAGE_SHORT_EDGE`. Inherited, not measured: it rests on
+                # one render at one seed.
+                qwen_short_edge = _value("qwen_short_edge", 512,
+                                         group="qwen_view")
+            else:
+                # Neither spelling: an older graph on the flat Int, or a
+                # hand-built one. 0 is what the retired node did with the key
+                # missing, so it is a reading of that graph rather than a guess.
+                #
+                # **The default must not be None here.** `_value` returns None
+                # for a value WIRED to another node, and `linked` below is
+                # computed from exactly that -- so a None default reports an
+                # absent input as linked, which is a different defect entirely.
+                qwen_short_edge = _value("qwen_short_edge", 0)
             image_policies[key] = {
                 "size_policy": size_policy,
                 "allow_upscale": (None if allow_upscale is None

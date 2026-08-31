@@ -113,7 +113,7 @@ whole of it. The sentence you may remember -- that the floor needs
 NATIVE path, where core's `MiniMaxH3ReferenceToVideo` hardcodes its own clamp
 and a second node has to pre-empt it. `MiniMaxH3ReferenceFit` was **deprecated
 2026-08-28**: no graph here wires it, chaining it into the append resamples
-twice, it cannot express `match`, and it has no `qwen_short_edge`.
+twice, it cannot express `match`, and it has no `qwen_view`.
 
 Two separate knobs decide the final size and they are constantly confused for
 each other. See **Sizing a reference image** below; the short version is that
@@ -702,7 +702,7 @@ charged in the text segment on top of the reference segment. **What that second
 charge comes to was removed on 2026-08-28 as unsupported.** The figure that
 stood here ("75-160 rows above the reference segment itself, measured") cites
 the ladder above, which does not contain it, and a source trace could not derive
-it: with `qwen_short_edge=0` and no clamp the two counts are identical by
+it: under `qwen_view = shared` and no clamp the two counts are identical by
 construction, both `(w/32)*(h/32)`, and the only genuine extra is the per-
 reference `<Picture N>: ` label plus its vision delimiters — a handful of
 tokens. It may rest on a measurement that was never recorded here. **Price the
@@ -775,7 +775,11 @@ encoder was calibrated on.
 
 ### A third knob, 2026-08-25: a Qwen view of its own
 
-`MiniMaxH3AppendRefImage.qwen_short_edge` (default 0) gives the text encoder a
+**Renamed 2026-08-31.** This was a flat `qwen_short_edge` Int with default 0,
+where 0 meant "no separate view" -- a number selecting a mode, which is the
+shape CLAUDE.md's literal-widget rule forbids and which also rendered
+differently through the UI than through an API prompt that omitted it.
+`MiniMaxH3AppendRefImage.qwen_view` gives the text encoder a
 view of the reference that the video VAE does not encode. With 0, Qwen sees
 the same tensor the VAE encodes, which is every graph built before the knob
 existed. With N, the conditioner is shown the *source* scaled so its shorter
@@ -790,7 +794,7 @@ Why this breaks no contract is section 1b of
 indexes a Qwen token against a latent patch, the deployed v1 path has always
 run VAE-fine / Qwen-coarse, and video is 2 fps pairs against 24 fps latents by
 design. What it changes is the cost split in the table above: only the Qwen
-column grows. A 640x480 reference at `qwen_short_edge=2048` costs the same 300
+column grows. A 640x480 reference at `qwen_view.qwen_short_edge=2048` costs the same 300
 reference-latent rows as choice A and the same 5,440 Qwen tokens as choice B,
 which is the B arm of the reference-view ablation (A: no upscale; B: Qwen-only
 2048; C: full parity). Whether B helps is unmeasured and is the owner's blind
@@ -801,7 +805,7 @@ encoder's own processor applies its bounds afterwards, so this knob is only ever
 worth as much as the selected artifact's still-image budget allows. There are
 three regimes and they do not agree:
 
-| encoder | still bounds | what `qwen_short_edge` does |
+| encoder | still bounds | what `qwen_view.qwen_short_edge` does |
 |---|---|---|
 | v1 W4 snapshot | 200,704..301,056 | **exactly inert** on every non-square aspect -- 512, 1024 and 2048 all arrive as 264 merged tokens at 16:9 |
 | v2 W4 snapshot | the release's own | live, 448..7,296 merged tokens across that range |

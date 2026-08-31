@@ -83,9 +83,16 @@ def main():
         # alone, so all three are legitimately absent and the values beside
         # them are the defaults, not readings.
         assert policies == {"ref_images.ref_image_0": {
-            "size_policy": "max", "allow_upscale": False, "short_edge": 2048, "qwen_short_edge": 0,
+            "size_policy": "max", "allow_upscale": False, "short_edge": 2048,
+            "qwen_short_edge": 0,
             "linked": [],
-            "absent": ["allow_upscale", "dit_short_edge", "qwen_short_edge"],
+            # `qwen_view` joined the list on 2026-08-31 when the flat
+            # `qwen_short_edge` Int became a DynamicCombo. Both names are
+            # recorded absent: the fixture carries neither spelling, and 0 is
+            # a reading of what the retired node did with the key missing
+            # rather than a guess.
+            "absent": ["allow_upscale", "dit_short_edge", "qwen_view",
+                       "qwen_short_edge"],
         }}, policies
 
     def malformed_chain_is_not_partially_reported():

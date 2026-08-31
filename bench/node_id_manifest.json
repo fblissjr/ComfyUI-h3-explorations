@@ -24,7 +24,7 @@
       "image",
       "references",
       "size_policy",
-      "qwen_short_edge"
+      "qwen_view"
     ],
     "node_id": "MiniMaxH3AppendRefImage",
     "outputs": [

@@ -31,6 +31,42 @@ artifact.
   audio lanes. `bench/results/archive/README.md` carries the rule and the
   exclusions.
 
+## 0.99.6
+
+### Changed
+
+- **`MiniMaxH3AppendRefImage.qwen_short_edge` is now `qwen_view`, a
+  DynamicCombo of `separate` / `shared`.** It was an Int whose `0` meant "no
+  separate text-encoder view" -- a number selecting a mode, which is the shape
+  the literal-widget rule added in 0.99.5 forbids. The size lives under
+  `separate` with `min=CANVAS_MULTIPLE`, so `0` is no longer typeable and the
+  size box is no longer on screen while inert. Same trade `size_policy` took
+  on this node on 2026-08-27: saved-graph widget positions move, and a node
+  that cannot mislead is worth it.
+  - **All 163 graphs regenerated and validated against a live server**, with an
+    exact 1:1 mapping and no behaviour change: 78 at 512, 3 at 2048, and the
+    six deliberate shared-view arms (`refview_a`, `refview_c` and the parity
+    arms) now say `shared` where they said `0`.
+  - `0` survives only as the internal spelling on `RuntimeImageReference`,
+    a derived field nobody types. `check_literal_widgets.py`'s allowlist entry
+    stays and says so, rather than the detector growing a special case.
+
+### Fixed
+
+- **`bench/preflight_graph.py` could not read the new spelling and said so
+  loudly**, refusing to price rather than defaulting -- which is exactly what
+  its own docstring argues for, and it caught this rename the way it was
+  written to. Now reads `qwen_view` and its nested size, and maps `shared` to
+  the internal 0.
+  - While fixing it: a `None` default would have reported an ABSENT input as
+    `linked`, because `_value` returns `None` for a value wired to another
+    node and `linked` is computed from exactly that. Absent and wired are
+    different defects and the fallbacks are non-`None` again.
+- **`check_reference_runtime.py` asserted the defect fixed in 0.99.4.** Its
+  last case required that OMITTING the input yield 0, which is the schema-vs-
+  signature split itself written down as an expectation. Omission is no longer
+  expressible; `shared` is named instead.
+
 ## 0.99.5
 
 ### Added

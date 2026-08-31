@@ -207,7 +207,7 @@
       "size_policy": "max",
       "size_policy.dit_short_edge": 2048,
       "size_policy.allow_upscale": false,
-      "qwen_short_edge": 0
+      "qwen_view": "shared"
     }
   },
   "51": {
@@ -224,7 +224,7 @@
       ],
       "size_policy.dit_short_edge": 2048,
       "size_policy.allow_upscale": false,
-      "qwen_short_edge": 0
+      "qwen_view": "shared"
     }
   },
   "52": {
@@ -241,7 +241,7 @@
       ],
       "size_policy.dit_short_edge": 2048,
       "size_policy.allow_upscale": false,
-      "qwen_short_edge": 0
+      "qwen_view": "shared"
     }
   },
   "19": {
