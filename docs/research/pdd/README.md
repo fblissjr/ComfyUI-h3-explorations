@@ -2,7 +2,16 @@
 
 ## Handoffs — newest first, and read the newest before anything else here
 
-- [`2026-08-30_handoff.md`](2026-08-30_handoff.md) — **current.** The depth
+- [`2026-08-31_handoff.md`](2026-08-31_handoff.md) — **current.** What merging
+  a PDD LoRA onto an int8 module costs, measured over all 200 modules: the
+  backbone requantises and the output heads do not, the update lands but the
+  requantisation perturbs the weights by more than the update on 97% of
+  modules, and which PDD file and which base are now closed questions. Also the
+  Tier 1 observer's state and the four review defects that reproduced against
+  it. **Everything in it is stored-weight; nothing was rendered**, and the
+  proportion question in its §3 is the cheap one still open.
+- [`2026-08-30_handoff.md`](2026-08-30_handoff.md) — superseded as current by
+  the above, and unchanged on its own subject. The depth
   question and the method correction that reshaped it: what is settled about
   per-block quantisation, the one clean observation capture and the two things
   it does not say, the four next steps in order, and the multi-session working
