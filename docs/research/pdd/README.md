@@ -8,8 +8,12 @@
   requantisation perturbs the weights by more than the update on 97% of
   modules, and which PDD file and which base are now closed questions. Also the
   Tier 1 observer's state and the four review defects that reproduced against
-  it. **Everything in it is stored-weight; nothing was rendered**, and the
-  proportion question in its §3 is the cheap one still open.
+  it. **Everything in it is stored-weight; nothing was rendered.** Read **§6
+  before quoting any number from it** — the headline changed twice at the end
+  of the day and the third framing is the one to use: the merge injects an
+  error about the size of the entire int8 quantisation the checkpoint already
+  carries, which is +11.6% on total stored-weight error against the release.
+  §7 records the decision to HOLD on the Tier 1 gate, and why.
 - [`tier1_gate.md`](tier1_gate.md) — **the gate, and undated because it is a
   standing precondition rather than a day's state.** Nine items that must be
   true before the Tier 1 activation observer is given a render: the dedicated
