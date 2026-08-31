@@ -79,9 +79,13 @@ WANT = [
     ("sparse ran  ", "] sparse (", True),
 ]
 
-# Both Sol node ids: the Triton pack's and the CUDA one. A graph carrying
-# either should have its Sol lines checked.
-SOL_NODE_IDS = ("SolAttnPatch", "SolAttnMiniMax")
+# Every Sol node id a graph on this box can carry: the Triton pack's, the
+# vendored CUDA one, and ours since 2026-08-30. A graph carrying any should
+# have its Sol lines checked. **`MiniMaxH3SolAttn` was missing until
+# 2026-08-31**, so this went quietly blind to every regenerated graph -- it
+# found no Sol node and checked nothing, which reads exactly like a graph
+# that wires no Sol.
+SOL_NODE_IDS = ("SolAttnPatch", "SolAttnMiniMax", "MiniMaxH3SolAttn")
 
 
 def main() -> int:

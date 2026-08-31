@@ -235,7 +235,11 @@ def _sol_attn_state(wf: dict) -> str:
     stated an intent; this states what the graph does, and the two are only the
     same while somebody keeps them so.
     """
-    state, _ = _class_state(wf, "SolAttnMiniMax")
+    # Both ids: ours since 2026-08-30 and the vendored one older captures
+    # carry. Only the vendored name was here until 2026-08-31, so a current
+    # graph recorded `sol_attn: absent` -- a manifest asserting Sol was off
+    # on a render that had it on.
+    state, _ = _class_state(wf, "MiniMaxH3SolAttn", "SolAttnMiniMax")
     return state
 
 
@@ -404,7 +408,7 @@ def extract_from_workflow(wf: dict, input_base: Path):
     # fraction of an 8-step run than a 16-step one, which is how the PDD arms
     # silently lost their dense final step. A manifest recording only
     # `sol_attn: wired` cannot tell two renders apart that differed in it.
-    _sol_state, _sol_nodes = _class_state(wf, "SolAttnMiniMax")
+    _sol_state, _sol_nodes = _class_state(wf, "MiniMaxH3SolAttn", "SolAttnMiniMax")
     _sol_cfg = _sol_nodes[0][1] if _sol_state == "wired" else {}
     _sage_state, _sage_nodes = _class_state(wf, "MiniMaxH3SageAttention")
     attention = {

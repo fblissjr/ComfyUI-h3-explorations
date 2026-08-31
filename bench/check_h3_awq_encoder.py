@@ -494,6 +494,7 @@ def standalone_distribution_contract():
                 "MiniMaxH3Conditioning", "MiniMaxH3ReferenceConditioning",
                 "MiniMaxH3Resolution", "MiniMaxH3Preflight",
                 "MiniMaxH3SageAttention", "SageChainAssert", "SolAttnMiniMax",
+                "MiniMaxH3SolAttn",
             } & set(types_)), workflow_name
             for create_video in (n for n in nodes if n.get("type") == "CreateVideo"):
                 assert create_video.get("widgets_values") == [24, 8, "sRGB"]

@@ -4,7 +4,7 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
-## 0.99.2
+## 0.99.3
 
 ### Fixed
 
@@ -84,6 +84,53 @@ artifact.
 - **`docs/h3_pdd.md` gains a "which file for which checkpoint" table**: the
   shape observable, what each pairing does, which to prefer, and why
   `h3_pdd_base` is the wrong field to read.
+
+## 0.99.2
+
+### Removed
+
+- **`MiniMaxH3SolAttnCurve` is deleted.** It existed to add a `hilbert` token
+  ordering the vendored Sol node's combo could not express, by rebinding
+  `morton_perm` on that module at execute time. That node stopped being loaded
+  on 2026-08-30, so the rebind patched nothing and `execute()` could only
+  raise. `MiniMaxH3SolAttn` owns the Morton code and offers `hilbert` directly.
+  `sol_curves.install()` and `_live_modules()` go with it; `hilbert_perm`,
+  `verify_adjacency` and `OURS` stay, because the Sol node and two bench
+  scripts use them. The node id leaves `bench/node_id_manifest.json`, and the
+  two red-harness cases that mutated its entry now mutate other nodes.
+
+### Fixed
+
+- **Six scripts were reading `vendor/sol_attn_minimax.py` as though it were the
+  running node.** It has not been since 2026-08-30, and it cannot run on the
+  installed kernel at all -- it passes `centroid_tail`, which
+  comfy-kitchen#117 removed. They now go through `bench/_live_sol.py`, one
+  loader that imports `sol_attn_h3.py` as a member of a synthetic package so
+  its relative import resolves without executing the pack's `__init__.py`.
+  This is the 2026-08-17 rule repeating: building the replacement is not the
+  change, repointing everything that cites it is.
+- **`provenance.py::SOL_CLOSURE_KEYS` was recording knobs that no longer exist
+  and missing one that does, for the third time.** It asked for `centroid_tail`
+  and `reuse_qkv_memory`, both gone from the live node, so both stamped "not
+  detected" on every render; and it omitted `tail`, the knob exposed as
+  `pooled_tail`, which decides whether unselected blocks contribute a pooled
+  term at all. **Its guard could not catch it because the guard was loading the
+  retired file** -- repointing `check_provenance_stamp.py` at the live node
+  turned it red immediately. `STAMP_SCHEMA_VERSION` 3 -> 4, per the precedent
+  that a key change bumps it. The control's candidate list named only knobs the
+  node no longer has, so it would have reported a vacuous pass.
+- **Seven bench scripts looked for the Sol node under its retired id alone.**
+  `smoke_h3.py`, `preflight_graph.py`, `generate_capture_manifest.py`,
+  `probe_block_propagation.py`, `time_dense_blocks.py`,
+  `check_h3_awq_encoder.py` and `bench_e2e_h3.py` all keyed on
+  `SolAttnMiniMax`. The readers now accept both ids, because saved graphs
+  predating 2026-08-30 legitimately carry the old one; the builders emit the
+  live id. The worst of these was silent: `generate_capture_manifest.py`
+  recorded `sol_attn: absent` for a render that had Sol on.
+- **`check_bench_matches_shipped.py` was red before this work and is green
+  after.** It found the graph's Sol node by a `"SolAttn"` prefix, which
+  `MiniMaxH3SolAttn` does not have, so it reported the graph as wiring `None`;
+  and `bench_e2e_h3.py` built `SolAttnMiniMax`, a class ComfyUI does not load.
 
 ## 0.99.1
 

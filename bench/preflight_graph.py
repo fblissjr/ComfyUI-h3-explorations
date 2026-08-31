@@ -1634,7 +1634,11 @@ def price(node: dict, graph: dict) -> list[str]:
 # capture probe and what the UI writes when you press Ctrl-B. An ACTIVE node
 # wired to nothing is not a decision anyone makes on purpose, so that is the
 # only state reported as a defect. Muted and bypassed are reported as-is.
-ATTN_NODES = ("MiniMaxH3SageAttention", "SolAttnMiniMax")
+# `MiniMaxH3SolAttn` is ours since 2026-08-30 and was ABSENT here until
+# 2026-08-31, so the active-but-unwired report could not fire on the node
+# every shipped graph now carries. The vendored id stays: saved graphs
+# predating the switch still wire it.
+ATTN_NODES = ("MiniMaxH3SageAttention", "SolAttnMiniMax", "MiniMaxH3SolAttn")
 _OUTPUT_TYPES = {"VHS_VideoCombine", "SaveImage", "PreviewImage", "SaveAudio",
                  "SaveAnimatedWEBP", "SaveWEBM", "SaveVideo", "PreviewAny"}
 

@@ -52,13 +52,21 @@ PREFIX = "latents/h3_dense_block_cost/arm"
 def build(base: dict, spec: str, steps: int, seed: int, tag: str) -> tuple[dict, str]:
     g = json.loads(json.dumps(base))
 
-    def one(cls):
-        hits = [k for k, v in g.items() if v.get("class_type") == cls]
+    def one(*classes):
+        """The single node matching any of `classes`.
+
+        Takes alternatives because the Sol node id changed on
+        2026-08-30 and this looked for the vendored name alone until
+        2026-08-31 -- against a regenerated graph it found zero and
+        exited, which at least failed loudly rather than silently.
+        """
+        hits = [k for k, v in g.items()
+                if v.get("class_type") in classes]
         if len(hits) != 1:
-            raise SystemExit(f"expected one {cls}, found {len(hits)}")
+            raise SystemExit(f"expected one of {classes}, found {len(hits)}")
         return hits[0]
 
-    sol, sched, sampler, noise = (one("SolAttnMiniMax"), one("BasicScheduler"),
+    sol, sched, sampler, noise = (one("MiniMaxH3SolAttn", "SolAttnMiniMax"), one("BasicScheduler"),
                                   one("KSamplerSelect"), one("RandomNoise"))
     g[sched]["inputs"]["steps"] = steps
     g[sampler]["inputs"]["sampler_name"] = "euler"

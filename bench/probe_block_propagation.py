@@ -105,13 +105,21 @@ def build_arm(base: dict, block: int | None, seed: int) -> tuple[dict, str]:
 
     # Find the nodes by class rather than by id, so a regenerated base graph
     # that renumbers does not silently probe the wrong thing.
-    def one(cls):
-        hits = [k for k, v in g.items() if v.get("class_type") == cls]
+    def one(*classes):
+        """The single node matching any of `classes`.
+
+        Takes alternatives because the Sol node id changed on
+        2026-08-30 and this looked for the vendored name alone until
+        2026-08-31 -- against a regenerated graph it found zero and
+        exited, which at least failed loudly rather than silently.
+        """
+        hits = [k for k, v in g.items()
+                if v.get("class_type") in classes]
         if len(hits) != 1:
-            raise SystemExit(f"expected exactly one {cls}, found {len(hits)}")
+            raise SystemExit(f"expected exactly one of {classes}, found {len(hits)}")
         return hits[0]
 
-    sol, sched, sampler, noise = (one("SolAttnMiniMax"), one("BasicScheduler"),
+    sol, sched, sampler, noise = (one("MiniMaxH3SolAttn", "SolAttnMiniMax"), one("BasicScheduler"),
                                  one("KSamplerSelect"), one("RandomNoise"))
 
     g[sched]["inputs"]["steps"] = PROBE_STEPS

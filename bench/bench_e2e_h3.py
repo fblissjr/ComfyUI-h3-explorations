@@ -203,7 +203,11 @@ def sol_node():
     from h3_config import SOL_BASELINE_124F, SOL_CUDA_DEFAULTS
     return {
         "triton": ("SolAttnPatch", SOL_BASELINE_124F),
-        "cuda": ("SolAttnMiniMax", SOL_CUDA_DEFAULTS),
+        # Ours since 2026-08-30. Was "SolAttnMiniMax" until 2026-08-31,
+        # a node ComfyUI does not load (its pack is renamed `.disabled`),
+        # so every cuda-backend arm this built named a class the server
+        # would reject. check_bench_matches_shipped.py was already red.
+        "cuda": ("MiniMaxH3SolAttn", SOL_CUDA_DEFAULTS),
     }[SOL_BACKEND]
 
 
@@ -382,7 +386,7 @@ def build_prompt(cfg, *, sage, seed, sol=None, head_chunks=1, ffn_chunks=1):
         # comparable across a --sol-backend switch.
         class_type, defaults = sol_node()
         merged = {**defaults, **sol}
-        if class_type == "SolAttnMiniMax":
+        if class_type == "MiniMaxH3SolAttn":
             # The CUDA node's `selection` is a DynamicCombo, so the option's
             # own inputs are keyed under it with a dot in the API form. Routed
             # through the generator's translator rather than spelled again

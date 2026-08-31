@@ -149,7 +149,11 @@ sol_class, _ = bench.sol_node()
 want_cls = None
 graph = json.loads((_REPO / "workflows" / SOL_GRAPH).read_text())
 for node in graph.values():
-    if str(node.get("class_type", "")).startswith("SolAttn"):
+    # Ours is `MiniMaxH3SolAttn`, which does NOT start with "SolAttn" --
+    # so this matched nothing on every current graph and reported the
+    # graph as wiring None rather than naming a mismatch.
+    if str(node.get("class_type", "")) in ("MiniMaxH3SolAttn",
+                                           "SolAttnMiniMax", "SolAttnPatch"):
         want_cls = node["class_type"]
         break
 check("sol_node_matches", want_cls == sol_class,
