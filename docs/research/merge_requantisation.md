@@ -101,10 +101,31 @@ rule in [`../checks.md`](../checks.md): stored-weight distance prefers the arm
 that does nothing, realisation prefers the arm that adds noise, and only
 `noise/|d|` sees the third failure.
 
-| arm | delta/step | realised (stochastic) | realised (RTN, hypothetical) | noise/&#124;d&#124; |
-|---|---|---|---|---|
-| PDD fl2va 8step | 0.0735 | 1.0000 | 0.467 mean, 0.020 worst | ~2.0 |
-| turbo fl2v 8step | 0.0025 | 0.9991 | 0.025 mean, 0.0001 worst | ~12 |
+**All 200 modules per arm — 50 blocks x 4 kinds, no subsampling.**
+
+| arm | delta/step | realised | noise/&#124;d&#124; median | min | max | noise > update |
+|---|---|---|---|---|---|---|
+| PDD fl2va (ships) | 0.07557 | 1.0000 | 1.981 | 0.274 | 3.121 | 194/200 (97%) |
+| PDD ref2va (ships) | 0.08284 | 1.0000 | 1.848 | 0.239 | 3.209 | 193/200 (96%) |
+| turbo fl2v | 0.00232 | 0.9991 | **12.156** | 3.107 | **27.313** | **200/200** |
+
+Per kind, and **the ordering is partition-dependent**, which no subsample
+showed: fl2va runs `fc2` 2.222 > `fc1` 2.038 > `out_proj` 1.978 > `qkv` 1.424,
+while ref2va runs `out_proj` 2.066 > `fc2` 2.051 > `fc1` 1.824 > `qkv` 1.430.
+Only `qkv_proj` being the least affected is common to both.
+
+Round-to-nearest, which does not ship, realises 0.467 mean / 0.020 worst on PDD
+and 0.025 mean / 0.0001 worst on turbo — it discards a sub-step update rather
+than adding noise to it.
+
+**What subsampling cost, measured.** An earlier 100-module half of the PDD
+fl2va arm gave median 1.979 against the full 1.981 — the centre to three
+decimals — but a minimum of 0.877 against the true **0.274**, a 3.2x error on
+the low tail, and 99% against 97% above 1.0. The turbo maximum moved 24.889 ->
+27.313 the same way. **Subsets preserved the centre and missed the tail**, in
+both directions and on every arm, which is why this table is not subsampled and
+why the smaller samples earlier in the day were optimistic in a structured
+rather than a random way.
 
 A separate 100-module sweep of PDD fl2va across all 50 blocks put
 `noise/|d|` above 1 on **99 of 100 modules**, median 1.979, range
@@ -135,10 +156,14 @@ Each varies exactly one thing against the shipped PDD arm. All identical to
 four decimal places on the same modules, which is the point — a difference
 would have been attributable.
 
+Across all 200 modules, not a sample — **every summary statistic is identical
+to the digit**, medians, minima, maxima, counts and all four per-kind medians.
+
 | varied | result |
 |---|---|
-| base pruned vs unpruned | **no difference.** Pruning touches AdaLN; only the backbone merges |
-| PDD variant `adaln2688` vs shipped | **no difference.** The variants differ in the adaln/head payload, which does not merge |
+| base pruned vs unpruned | **no difference.** median 1.981, min 0.274, max 3.121, 194/200 on both. Pruning touches AdaLN; only the backbone merges |
+| PDD variant `adaln2688` vs shipped | **no difference**, same five figures again. The variants differ in the adaln/head payload, which does not merge |
+| fl2va vs ref2va partition | **a real but small difference** — 1.981 against 1.848 — and a DIFFERENT per-kind ordering. The one thing here that is not invariant |
 
 So "which PDD file" and "which base" do not change the merge cost. **Which
 node does**, because that decides whether a weight patch happens at all.
