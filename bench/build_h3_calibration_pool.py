@@ -62,9 +62,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 OUT = REPO / "bench" / "results"
-POOL = OUT / "2026-08-24_h3_calibration_pool.jsonl"
-EXCLUDED = OUT / "2026-08-24_h3_calibration_pool_excluded.jsonl"
-SUMMARY = OUT / "2026-08-24_h3_calibration_pool_summary.json"
+#: The v2 encoder calibration lane closed 2026-08-27 (rejected at Gate 5),
+#: so this producer writes into the archive beside the records it made
+#: rather than resurrecting them in the live results directory.
+ARCHIVE = OUT / "archive" / "v2_encoder"
+POOL = ARCHIVE / "2026-08-24_h3_calibration_pool.jsonl"
+EXCLUDED = ARCHIVE / "2026-08-24_h3_calibration_pool_excluded.jsonl"
+SUMMARY = ARCHIVE / "2026-08-24_h3_calibration_pool_summary.json"
 
 KEYFRAME_DECL = re.compile(r"<Picture (\d+)> is the (first|last) frame")
 MARKERS = ("<d>", "</d>", "<|cutoff|>", "<|lyrics_start|>", "<|lyrics_end|>",

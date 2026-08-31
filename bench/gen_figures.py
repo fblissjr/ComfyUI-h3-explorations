@@ -677,67 +677,6 @@ def fig_power_pair() -> Figure:
                   anchor="The plan critique found the defect before the card did")
 
 
-def fig_router_gate() -> Figure:
-    rec = "2026-08-20_sla_router_gate.json"
-    d = load(rec)
-    arms = [("dense_limit", GOOD, False),
-            ("router", SIGNAL, False),
-            ("lut_zeroed", WARN, False),
-            ("lut_permuted", WARN, True),
-            ("sol_tau_1", ALT, False),
-            ("sol_tau_1.3", ALT, True)]
-    groups, markers = [], {}
-    for c in d["cells"]:
-        gl = f"block {c['block']}, head {c['head']}"
-        groups.append((gl, {k: v["rel_l2_mean"] for k, v in c["arms"].items()}))
-        markers[gl] = (c["verdict"]["bar"],
-                       f"bar {c['verdict']['bar']:.4f}")
-    p = grouped_bars_log(
-        groups, arms, markers=markers,
-        axis_title="relative L2 vs the float64 row reference (log)",
-        legend_entries=[("dense limit (sparsity 0)", GOOD, False),
-                        ("the router under test", SIGNAL, False),
-                        ("lut corruptions", WARN, False),
-                        ("eager Sol on the same rows", ALT, False)])
-    svg = compose([p], "SLA router graded on captured activations",
-                  "Relative L2 against a float64 row reference, per arm, per "
-                  "cell, on a log axis, with each cell's pass bar drawn as a "
-                  "rule.", defs=HATCH_DEF)
-
-    dl = [c["arms"]["dense_limit"]["rel_l2_mean"] for c in d["cells"]]
-    ro = [c["arms"]["router"]["rel_l2_mean"] for c in d["cells"]]
-    corrupt = [min(c["arms"]["lut_zeroed"]["rel_l2_mean"],
-                   c["arms"]["lut_permuted"]["rel_l2_mean"]) for c in d["cells"]]
-    worst_ratio = min(corrupt[i] / ro[i] for i in range(len(ro)))
-    cap = (f"The gate the kernel had to pass before a render went through it: "
-           f"{d['rows']} rows per cell at sparsity {d['sparsity_ratio']}, "
-           f"blocks {d['blocks_mn'][0]}x{d['blocks_mn'][1]}, vendor source "
-           f"<code>{d['vendor_source_commit']}</code>. At sparsity 0 the same "
-           f"kernel comes back at {min(dl):.4f}–{max(dl):.4f}, under every "
-           f"cell's bar. The bar is {d['band_factor']:.0f}x the sage "
-           f"band measured on the same rows "
-           f"(<code>{d['sage_record']}</code>), so it moves with the cell "
-           f"rather than being a factor somebody chose. Both deliberate lut "
-           f"corruptions land above the router in all "
-           f"{len(d['cells'])} cells, the closest by "
-           f"{worst_ratio:.1f}x. <code>all_pass</code> is "
-           f"{str(d['all_pass']).lower()}.")
-    note = ("The first criterion asked the corruptions to exceed 3x the "
-            "router's error and failed on the cell whose router error is "
-            "already near saturation, visible here as the router bar that "
-            "sits closest to the corruptions. The shipped criterion is "
-            "\"worse than the router and 10x worse than the dense "
-            "limit\".")
-    return Figure("fig-router-gate", "The router gate", svg, cap,
-                  [f"bench/results/{rec} :: cells[].arms[].rel_l2_mean",
-                   f"bench/results/{rec} :: cells[].verdict.bar, band_factor, "
-                   f"sage_record",
-                   f"bench/results/{rec} :: rows, sparsity_ratio, blocks_mn, "
-                   f"vendor_source_commit, all_pass"],
-                  anchor="Every new instrument was shown it could fail",
-                  notes=[note])
-
-
 CARD_SOURCES = [
     ("2026-08-20_sla_arms.jsonl", ALT, "SLA pair"),
     ("2026-08-20_power_limit_pair.jsonl", None, "power pair"),
@@ -823,7 +762,7 @@ def fig_day_order(commit_range: str) -> Figure:
 def postmortem_figures(commit_range: str) -> list[Figure]:
     """The 2026-08-20 postmortem's figures, in reading order."""
     return [fig_day_order(commit_range), fig_basis_sign(), fig_block49(),
-            fig_power_pair(), fig_router_gate()]
+            fig_power_pair()]
 
 
 # --------------------------------------------------------------------------

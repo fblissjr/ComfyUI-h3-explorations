@@ -62,8 +62,8 @@ REPO = BENCH.parent
 COMFY = REPO.parents[1]
 
 DATASET_REPO = "StellarVoyager/H3-IR"
-POOL = BENCH / "results" / "2026-08-24_h3_calibration_pool.jsonl"
-EXCLUDED = BENCH / "results" / "2026-08-24_h3_calibration_pool_excluded.jsonl"
+POOL = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl"
+EXCLUDED = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool_excluded.jsonl"
 BUNDLE_SCHEMA = "h3-native-calibration-bundle-v1"
 
 IMAGE_PAD = 151655

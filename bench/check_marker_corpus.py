@@ -441,7 +441,7 @@ def main() -> int:
 
     root, _ = pinned_snapshot()
     pool_media: dict[str, str] = {}
-    pool_path = BENCH / "results" / "2026-08-24_h3_calibration_pool.jsonl"
+    pool_path = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl"
     for line in pool_path.read_text().splitlines():
         pool_media.update(json.loads(line).get("media_sha256") or {})
 

@@ -1372,6 +1372,19 @@ most of the blocks.
 
 ## 20. The SLA LoRA under its training router
 
+**PARTLY RETIRED 2026-08-31.** The router half cannot be run here any
+more: `MiniMaxH3SLARouter` and `vendor/sla_sparse_triton.py` were removed
+(the arm itself was retired 2026-08-28 by owner decision, for the reason
+below -- it patched `diffusion_model.blocks`, 50 of the 52 `Attention`
+modules the LoRA adapts, so it never answered the question it was named
+for). **The second half is still open and still reachable**: whether the
+Turbo-SLA LoRA behaves differently under Sol-Attn than under dense
+attention, which the two shipped `h3_probe_turbo_768p_sla*` arms address
+without the node. Sol's `top-k (SLA)` selection is NOT a substitute for
+the router -- it keeps a pooled term for every unpicked block, which
+`docs/SOLATTN.md` records as making it a third attention rather than a
+cheaper spelling.
+
 **Tests:** whether lightx2v's Turbo-SLA LoRA behaves differently under the
 attention it was distilled with than under Sol-Attn or dense attention, and
 whether a student trained to survive a top-k block cut produces attention that

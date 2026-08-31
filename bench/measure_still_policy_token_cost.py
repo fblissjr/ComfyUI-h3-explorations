@@ -42,9 +42,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 COMFY = REPO.parents[1]
-POOL = REPO / "bench/results/2026-08-24_h3_calibration_pool.jsonl"
+POOL = REPO / "bench/results/archive/v2_encoder/2026-08-24_h3_calibration_pool.jsonl"
 CACHE = Path.home() / ".cache/huggingface/hub/datasets--StellarVoyager--H3-IR"
-REPORT = REPO / "bench/results/2026-08-24_still_policy_token_cost.json"
+REPORT = REPO / "bench/results/archive/v2_encoder/2026-08-24_still_policy_token_cost.json"
 
 HIDDEN_SIZE = 5120
 CACHE_DTYPE_BYTES = 2  # bfloat16 activations in IntermediatesCache

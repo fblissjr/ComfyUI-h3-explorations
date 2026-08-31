@@ -18,7 +18,7 @@ not the same question as what cap the candidate should declare, and this file
 reached a wrong conclusion once by treating them as one.
 
 Producer: [`measure_still_policy_token_cost.py`](../../../../bench/measure_still_policy_token_cost.py).
-Output: [`2026-08-24_still_policy_token_cost.json`](../../../../bench/results/2026-08-24_still_policy_token_cost.json).
+Output: [`2026-08-24_still_policy_token_cost.json`](../../../../bench/results/archive/v2_encoder/2026-08-24_still_policy_token_cost.json).
 
 The two policies are executed, not reimplemented: `native` calls
 `process_qwen2vl_images` with the arguments `Qwen3VL.preprocess_embed` passes,

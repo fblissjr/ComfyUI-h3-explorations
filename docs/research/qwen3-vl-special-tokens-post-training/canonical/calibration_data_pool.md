@@ -87,11 +87,11 @@ SHA-256 `2b609c96114791837c075eea2252be252eb01c22c7245d68eb2ee8450fbbae1a`.
 
 Outputs:
 
-- [`2026-08-24_h3_calibration_pool.jsonl`](../../../../bench/results/2026-08-24_h3_calibration_pool.jsonl),
+- [`2026-08-24_h3_calibration_pool.jsonl`](../../../../bench/results/archive/v2_encoder/2026-08-24_h3_calibration_pool.jsonl),
   SHA-256 `00febc71610f53a2336020bc5157c6377b46b752922a573a6653458892701887`;
-- [`2026-08-24_h3_calibration_pool_excluded.jsonl`](../../../../bench/results/2026-08-24_h3_calibration_pool_excluded.jsonl),
+- [`2026-08-24_h3_calibration_pool_excluded.jsonl`](../../../../bench/results/archive/v2_encoder/2026-08-24_h3_calibration_pool_excluded.jsonl),
   SHA-256 `c7473fa6bf5113210a2732910bf1f78b5c40444c69ae10d390bb8383101bc86a`;
-- [`2026-08-24_h3_calibration_pool_summary.json`](../../../../bench/results/2026-08-24_h3_calibration_pool_summary.json),
+- [`2026-08-24_h3_calibration_pool_summary.json`](../../../../bench/results/archive/v2_encoder/2026-08-24_h3_calibration_pool_summary.json),
   SHA-256 `a661cba1fdf8f349be923adb290a1100edaa4286f073a62eb1664aeadc3a39b0`.
 
 **MEASURED, repaired after an escaped video defect.** The builder now opens and

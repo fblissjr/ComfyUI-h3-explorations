@@ -40,6 +40,19 @@ merging". This file measures the quantity the other metric is blind to.
                      is the OPPOSITE of `realised_along_d`'s, which is the
                      whole point.
 
+`noise_over_delta`   `||Q(W+d) - (W+d)|| / ||d||`
+                     the error the merge injects, measured against the UPDATE
+                     rather than against the weight. Added 2026-08-31 after
+                     the first version of this file concluded too early.
+                     `realised_along_d` alone says stochastic rounding is
+                     fine -- it realises 1.0000 -- but a sub-step delta is
+                     realised as a sparse set of FULL-step jumps, so the
+                     direction is right and the per-weight representation is
+                     not. On the turbo LoRA this reaches 19-25x: the merge
+                     applies the update and injects twenty times its magnitude
+                     in noise. **Both merge arms are bad there, for opposite
+                     reasons**, and only this column shows the second one.
+
 Stored weights only, like everything in this lane. Nothing here says either
 arm is visible in a render, and `docs/open_experiments.md` #23 is the runtime
 question. CPU only, no server.
@@ -134,14 +147,16 @@ def main() -> int:
                         "realised_along_d": float((realised * d).sum() / dd),
                         "e_vs_target": float((merged - target).norm()
                                              / target.norm()),
+                        "noise_over_delta": float((merged - target).norm()
+                                                  / d.norm()),
                     }
                 rows.append(row)
                 det, sto = row["arms"]["deterministic"], row["arms"]["stochastic"]
                 print(f"  {mod:26s} |d|/|W| {row['delta_rel']:.5f}   "
                       f"realised RTN {det['realised_along_d']:6.3f} "
                       f"stoch {sto['realised_along_d']:6.3f}   "
-                      f"e RTN {det['e_vs_target']:.6f} "
-                      f"stoch {sto['e_vs_target']:.6f}", flush=True)
+                      f"noise/|d| RTN {det['noise_over_delta']:6.2f} "
+                      f"stoch {sto['noise_over_delta']:6.2f}", flush=True)
 
     expected = len(blocks) * len(KINDS)
     if len(rows) != expected:
@@ -160,6 +175,12 @@ def main() -> int:
         "e_vs_target": {
             "deterministic_mean": mean("deterministic", "e_vs_target"),
             "stochastic_mean": mean("stochastic", "e_vs_target"),
+        },
+        "noise_over_delta": {
+            "deterministic_mean": mean("deterministic", "noise_over_delta"),
+            "stochastic_mean": mean("stochastic", "noise_over_delta"),
+            "stochastic_max": float(max(
+                r["arms"]["stochastic"]["noise_over_delta"] for r in rows)),
         },
         "delta_rel_mean": float(np.mean([r["delta_rel"] for r in rows])),
     }

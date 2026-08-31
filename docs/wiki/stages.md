@@ -30,7 +30,6 @@ checkout is and is not evidence of.
 | sigma shift | core `MiniMaxH3SigmaShift` | [`../../workflows/h3_config.py`](../../workflows/h3_config.py)'s `SAMPLING` note | `check_distill_settings.py` (shift and step count) | diffusers' named H3 scheduler |
 | attention patch | `attention.py`, `MiniMaxH3SageAttention` | [`../SOLATTN.md`](../SOLATTN.md) | `check_attention_defaults.py` — by reachability, and values not presence | sglang (dense FA varlen); LightX2V for the kernel choice on this card |
 | sparse attention | the vendored Sol node | [`../SOLATTN.md`](../SOLATTN.md) | same | `comfy-kitchen-sol`, for sources that ship in no wheel |
-| sparse router arm | `MiniMaxH3SLARouter`, `vendor/sla_sparse_triton.py` | [`../open_experiments.md`](../open_experiments.md) #20 | **nothing** covers that it patches the modules the SLA LoRA adapts — and it does not | LightX2V, which is where SLA came from |
 | chain order | `SageChainAssert` | [`../custom_node_gaps.md`](../custom_node_gaps.md) | itself, at call time — and **nothing** asserts it stays wired | — |
 | step distillation | `MiniMaxH3PDDLoRA`, `pdd_math.py` | [`../h3_pdd.md`](../h3_pdd.md) | `check_pdd_sigmas.py`, `check_pdd_head_selection.py`, `check_distill_grid.py` | [`../research/pdd/pdd_implementations.md`](../research/pdd/pdd_implementations.md) — four other implementations |
 

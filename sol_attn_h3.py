@@ -94,7 +94,8 @@ That is not a speed knob to reach for on this model. It is there because it is
 what SLA is -- with `top-k (SLA)` selection it reproduces the routing the
 lightx2v Turbo-SLA LoRA was distilled under, on the CUDA kernel and through
 `optimized_attention`, which reaches all 52 `Attention` modules rather than
-the 50 that `MiniMaxH3SLARouter`'s object patch could see. Covering the two
+the 50 a per-module object patch on `diffusion_model.blocks` can see -- the
+limitation that retired the `MiniMaxH3SLARouter` arm (removed 2026-08-31). Covering the two
 token-refiner calls also needs `min_tokens` dropped below their ~311 rows;
 at the shipped threshold they stay dense.
 

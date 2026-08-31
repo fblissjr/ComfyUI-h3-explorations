@@ -64,8 +64,8 @@ from pathlib import Path
 BENCH = Path(__file__).resolve().parent
 sys.path.insert(0, str(BENCH))
 
-POOL = BENCH / "results" / "2026-08-24_h3_calibration_pool.jsonl"
-MAP = BENCH / "results" / "2026-08-25_pool_component_map_corrected.json"
+POOL = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl"
+MAP = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-25_pool_component_map_corrected.json"
 
 STRATA = ("extreme", "moderate", "mild", "control")
 
@@ -201,7 +201,7 @@ def main() -> int:
                         help="holdout bundle whose families are excluded")
     parser.add_argument("--seed", type=int, default=20260825)
     parser.add_argument("--out", type=Path,
-                        default=BENCH / "results" / "2026-08-25_gate6_upscale_ablation_rows.json")
+                        default=BENCH / "results" / "archive" / "v2_encoder" / "2026-08-25_gate6_upscale_ablation_rows.json")
     args = parser.parse_args()
 
     from build_h3_calibration_pool import pinned_snapshot

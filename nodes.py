@@ -248,96 +248,6 @@ class MiniMaxH3SageAttention(io.ComfyNode):
         return io.NodeOutput(m)
 
 
-class MiniMaxH3SLARouter(io.ComfyNode):
-    """Run MiniMax H3's self-attention through the sparse top-k block router
-    the lightx2v Turbo-SLA LoRA was distilled under, on its Triton kernel."""
-
-    @classmethod
-    def define_schema(cls):
-        return io.Schema(
-            node_id="MiniMaxH3SLARouter",
-            display_name="MiniMax H3 SLA Router (DEPRECATED, sparse top-k, Triton)",
-            category="model/attention/minimax",
-            description=(
-                "DEPRECATED 2026-08-28 by owner decision, and wired by no "
-                "shipped graph. Kept registered because `node_id` is "
-                "append-only and an externally saved graph may bind to it; it "
-                "still runs. Retired for two reasons, and the second is the "
-                "one that matters: it was not used, AND it is an INCOMPLETE "
-                "reproduction of what the LoRA it exists to test was "
-                "distilled under. The Turbo-SLA LoRA's 208 modules are the 50 "
-                "DiT blocks PLUS the 2 token_refiner blocks -- read from the "
-                "artifact header on 2026-08-28 -- and this node patches "
-                "`diffusion_model.blocks` only, so it answers 'the LoRA under "
-                "a router like the one it was trained with'. "
-                "`docs/open_experiments.md` #20 owns that gap. Do not read a "
-                "result from this node as the distillation's own attention.\n\n"
-                "Replaces H3's self-attention with the sparse top-k block "
-                "router LightX2V calls SLA: mean-pooled q against mean-pooled "
-                "(k - mean k) scores each 64x64 block pair, the top "
-                "(1 - sparsity_ratio) of key blocks per query block are kept, "
-                "and a Triton flash kernel attends over only those. This is "
-                "the attention lightx2v's Turbo-SLA 768p LoRA was distilled "
-                "with (sparse branch only; no linear branch ships). Not "
-                "Sol-Attn, not sage: a comparative arm. Connect between the "
-                "model loader and the sampler, with no SolAttn node after it."
-            ),
-            inputs=[
-                io.Model.Input("model"),
-                io.Float.Input(
-                    "sparsity_ratio", default=0.85, min=0.0, max=0.99, step=0.01,
-                    tooltip=(
-                        "Fraction of key blocks DROPPED per query block; the "
-                        "release ran 0.85 (keep 15%). 0.0 keeps every block and "
-                        "is a bf16 flash kernel, which agrees with dense "
-                        "attention to bf16 accumulation. Block size is 64/64; "
-                        "the release ran 128/64 through SpargeAttn's sage2 "
-                        "operator, which is not built here."
-                    ),
-                ),
-            ],
-            outputs=[io.Model.Output()],
-        )
-
-    @classmethod
-    def execute(cls, model, sparsity_ratio=0.85) -> io.NodeOutput:
-        diffusion_model = model.get_model_object("diffusion_model")
-        if not _is_minimax_h3(diffusion_model):
-            raise RuntimeError(
-                f"This node only patches MiniMax H3; got "
-                f"{type(diffusion_model).__name__}."
-            )
-        from .vendor.sla_sparse_triton import sla_sparse_attention
-
-        def kernel_fn(qkv, sparsity_ratio=0.85):
-            # `make_minimax_attn_forward` hands [q, k, v] as [1, s, H, D]
-            # views of one fused buffer (NHD); the kernel wants contiguous
-            # [B, H, L, D]. Three copies of ~1.4 GB each at S~98k -- priced,
-            # not hidden (docs/roadmap.md, the regime section).
-            q, k, v = qkv
-            qkv.clear()
-            qh = q.transpose(1, 2).contiguous()
-            kh = k.transpose(1, 2).contiguous()
-            vh = v.transpose(1, 2).contiguous()
-            out, _lut, _topk = sla_sparse_attention(qh, kh, vh, sparsity_ratio=sparsity_ratio)
-            # NHD and contiguous: the forward `.view`s the output into
-            # [s, H*D], which a transposed view cannot satisfy -- the first
-            # render through this node failed on exactly that (2026-08-20).
-            return out.transpose(1, 2).contiguous()
-
-        forward = make_minimax_attn_forward(kernel_fn, {"sparsity_ratio": float(sparsity_ratio)},
-                                            head_chunks=1, clone_v=False)
-        m = model.clone()
-        targets = [(f"diffusion_model.blocks.{i}", b.attn)
-                   for i, b in enumerate(diffusion_model.blocks)]
-        for path, attn in targets:
-            m.add_object_patch(f"{path}.attn.forward", forward.__get__(attn, attn.__class__))
-        logger.info("[h3] MiniMax H3 self-attention on the SLA top-k router "
-                    "(sparsity_ratio=%.2f, 64/64 blocks, Triton; %d modules patched)",
-                    sparsity_ratio, len(targets))
-        return io.NodeOutput(m)
-
-
 class H3ExplorationsExtension(ComfyExtension):
     async def get_node_list(self):
         # Append only. A saved graph stores widget values as a bare list matched
@@ -346,7 +256,7 @@ class H3ExplorationsExtension(ComfyExtension):
         return [MiniMaxH3SageAttention, SageChainAssert, MiniMaxH3KeyframeCanvas,
                 MiniMaxH3ReferenceFit, MiniMaxH3Resolution, MiniMaxH3Preflight,
                 MiniMaxH3ProvenanceStamp,
-                MiniMaxH3SLARouter, MiniMaxH3VAEPrecision,
+                MiniMaxH3VAEPrecision,
                 MiniMaxH3Conditioning,
                 MiniMaxH3ReferenceVideoFit,
                 MiniMaxH3AppendRefImage, MiniMaxH3AppendRefVideo,

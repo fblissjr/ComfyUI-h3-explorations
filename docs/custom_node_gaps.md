@@ -59,7 +59,6 @@ without it, **convenience** means the graph could be wired by hand instead, and
 | `MiniMaxH3ReferenceFit` | convenience, **DEPRECATED 2026-08-28** | **no** |
 | `MiniMaxH3ReferenceVideoFit` | convenience | **no** |
 | `MiniMaxH3Preflight` | instrumentation | yes |
-| `MiniMaxH3SLARouter` | instrumentation (comparative arm) | one arm |
 | `MiniMaxH3VAEPrecision` | instrumentation | the fp32 probe arm, not the canonical graphs |
 | `MiniMaxH3ProvenanceStamp` | instrumentation | bench only |
 | `MiniMaxH3MarkerArm` | instrumentation | **no** |
@@ -226,7 +225,7 @@ is a bug; all three will mislead anyone pricing a render from the file.
 | `MiniMaxH3ReferenceToVideo` | `MiniMaxH3ReferenceConditioning` + three appends | replaces | sockets become an ordered tuple; suffix pairing becomes ownership; frame rate normalised from loader metadata; mono upmixed; soundtrack capped; latent grid read off the VAE rather than the pixels |
 | `MiniMaxH3AddGuide` | none | — | arbitrary-frame guides are reachable only through core, and chain onto ours unchanged |
 | `MiniMaxH3SigmaShift` | none | consumed | a core node, used as-is on every graph |
-| `optimized_attention` / `_override` | `MiniMaxH3SageAttention`, `MiniMaxH3SLARouter` | replaces | per-module forward object patch |
+| `optimized_attention` / `_override` | `MiniMaxH3SageAttention` | replaces | per-module forward object patch |
 | core `CLIPLoader` | `MiniMaxH3AWQEncoderLoader` | alternate format | contract stamping (§5.1) |
 | one `vae_dtype` | `MiniMaxH3VAEPrecision` | wraps | encode and decode split apart |
 | `LoraLoaderModelOnly` | `MiniMaxH3PDDLoRA` | supplements | core's loader applies the backbone and silently skips the mechanisms that are not weight patches |
@@ -321,7 +320,7 @@ covers it, and it is cheap to check at the call rather than at the output.
 
 **7. The SLA router does not cover what the SLA LoRA was distilled on**
 (*measured*, from the artifact header). The Turbo-SLA LoRA carries modules for
-the fifty DiT blocks **and the token refiner**. `MiniMaxH3SLARouter` patches the
+the fifty DiT blocks **and the token refiner**. The retired `MiniMaxH3SLARouter` patched the
 DiT blocks only. `docs/open_experiments.md` #20 named this gap; the LoRA's own
 key set is the confirmation it lacked. Two further asymmetries, both *read*: the
 distillation pooled queries in larger blocks than our router does, and the

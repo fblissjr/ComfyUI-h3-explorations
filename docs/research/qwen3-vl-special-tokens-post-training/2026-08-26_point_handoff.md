@@ -93,7 +93,7 @@ Sessions may or may not survive the night; the names and what each owns:
 - **mr_data**: the calibration-set review harness
   (`bench/review_v2_calibration_bundle.py`), the near-duplicate adjudication
   and the corrected family map
-  (`bench/results/2026-08-25_pool_component_map_corrected.json`), the marker
+  (`bench/results/archive/v2_encoder/2026-08-25_pool_component_map_corrected.json`), the marker
   corpus (`bench/marker_corpus/`), the Gate 6 render population
   (stratified by upscale factor, one null-control row), the T2VA bundle.
   **Read the family map's own `caveat` field before relying on its count.**

@@ -66,8 +66,8 @@ REPO = BENCH.parent
 sys.path.insert(0, str(BENCH))
 
 SELECTOR = BENCH / "select_v2_calibration_rows.py"
-POOL = BENCH / "results" / "2026-08-24_h3_calibration_pool.jsonl"
-COMPONENT_MAP = BENCH / "results" / "2026-08-25_pool_component_map_corrected.json"
+POOL = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl"
+COMPONENT_MAP = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-25_pool_component_map_corrected.json"
 DEFAULT_SOURCE = REPO / "coderef" / "llm-compressor" / "models" / "qwen3-vl-32b-bf16"
 
 # The last commit that touched the selector before the stratum work. Pinned
@@ -185,7 +185,21 @@ def arm_baseline_revision(source: Path, tmp: Path) -> tuple[dict, list[str]]:
     scratch.mkdir()
     for sibling in BENCH.glob("*.py"):
         (scratch / sibling.name).symlink_to(sibling)
-    (scratch / "results").symlink_to(BENCH / "results")
+    # `results` is rebuilt entry by entry rather than symlinked wholesale, so
+    # the archived records can be re-exposed at the FLAT names the baseline
+    # revision knew. The pool moved to `results/archive/v2_encoder/` on
+    # 2026-08-31 when the v2 lane was archived; the pre-change selector predates
+    # that and hardcodes the flat path, which is correct for what it is -- a
+    # frozen copy of how the code looked. Rewriting history to match today's
+    # layout would defeat the control. Nothing is written into the repo.
+    results = scratch / "results"
+    results.mkdir()
+    for entry in (BENCH / "results").iterdir():
+        (results / entry.name).symlink_to(entry)
+    for archived in (BENCH / "results" / "archive" / "v2_encoder").iterdir():
+        flat = results / archived.name
+        if not flat.exists():
+            flat.symlink_to(archived)
     baseline = scratch / "baseline_selector.py"
     baseline.write_text(show.stdout)
     out_old, out_new = tmp / "base_old.json", tmp / "base_new.json"

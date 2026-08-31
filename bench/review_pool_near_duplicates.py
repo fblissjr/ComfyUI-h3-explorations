@@ -62,7 +62,7 @@ from review_v2_calibration_bundle import (  # noqa: E402
     reduce_image,
 )
 
-POOL = BENCH / "results" / "2026-08-24_h3_calibration_pool.jsonl"
+POOL = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl"
 
 
 def bucket_keys(bits: int, bands: int = 8) -> list[tuple[int, int]]:

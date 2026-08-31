@@ -1258,7 +1258,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
               split_base_last: bool = True,
               single_frame: bool = False,
               cache: dict | None = None,
-              sla_router: float | None = None,
               vsa: tuple[float, bool] | None = None,
               vae_encoder: str | None = None,
               clip: str | None = None,
@@ -1679,19 +1678,6 @@ def build_api(task: str, *, sage: bool = True, prompt: str | None = None,
                "inputs": {"model": model_src,
                           **(shift if shift is not None else SIGMA_SHIFT)}}
     model_src = ["19", 0]
-    if sla_router is not None:
-        # The SLA top-k router in place of the sage+Sol chain: a comparative
-        # arm (the attention the Turbo-SLA LoRA was distilled under), never a
-        # default. Callers pass sage=False and sol=None with it; the assert
-        # below then runs warn-only, which is right -- the router takes the
-        # call and there is no sage for the chain assert to find. Node id 45:
-        # 40-44 are the split chain and the cache.
-        if sage or sol is not None:
-            raise SystemExit("sla_router is an alternative to the sage+Sol chain; "
-                             "pass sage=False and sol=None with it")
-        g["45"] = {"class_type": "MiniMaxH3SLARouter",
-                   "inputs": {"model": model_src, "sparsity_ratio": sla_router}}
-        model_src = ["45", 0]
     if sage:
         g["20"] = {"class_type": "MiniMaxH3SageAttention",
                    "inputs": {"model": model_src, **dict(
@@ -4737,7 +4723,6 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
              first_frame: bool = True,
              unet: str | None = None, lora: tuple[str, float] | None = None,
              out_prefix: str | None = None, title: str | None = None,
-             sla_router: float | None = None,
              vsa: tuple[float, bool] | None = None,
              vae_encoder: str | None = None,
              clip: str | None = None,
@@ -4923,16 +4908,6 @@ def build_ui(task: str, *, sage: bool = True, prompt: str | None = None,
     model_src = sigma_node
 
     sage_node = None
-    if sla_router is not None:
-        if sage or sol is not None:
-            raise SystemExit("sla_router is an alternative to the sage+Sol chain; "
-                             "pass sage=False and sol=None with it")
-        router_node = g.add("MiniMaxH3SLARouter", (-880, -140), size=(360, 90),
-                            widgets=[sla_router],
-                            inputs=[_in("model", "MODEL")], outputs=[_out("MODEL", "MODEL")],
-                            title="SLA top-k router (comparative arm)")
-        g.link(model_src, 0, router_node, "model", "MODEL")
-        model_src = router_node
     if vsa is not None and sol is not None:
         raise SystemExit("vsa replaces the DiT block forward and Sol-Attn "
                          "overrides attention on the same 50 blocks; pass "
@@ -7747,14 +7722,10 @@ def main():
     # but the canonical shipped default across all video workflows is ON.
     for fname, label, task, prompt, extra, note in GRAPHS:
         is_image = bool(extra.get("single_frame", False))
-        # An SLA-router arm replaces the sage+Sol chain outright: no sage
-        # node, no Sol node, and the chain assert warn-only. One graph kind,
-        # exempted by mechanism in check_attention_defaults.
-        router = extra.get("sla_router") is not None
         # An arm that patches the DiT's self-attention not at all: no sage,
         # no Sol, whatever
         # kernel ComfyUI resolves on its own. Distinct from the repo's usual
-        # "dense" (sage alone) and from the router arm. It exists for probes
+        # "dense" (sage alone). It exists for probes
         # whose subject is a numerical mechanism somewhere else in the model:
         # both sage and Sol change attention numerics, so leaving them in puts
         # two approximations in the path of an experiment about a third.
@@ -7764,23 +7735,22 @@ def main():
         # and a bypassed node in the graph is an invitation to switch it on.
         dense = extra.get("dense_attn", False)
         dense_mode = ("none" if dense is True else dense) or None
-        # A VSA arm suppresses Sol for a sharper reason than a router arm
-        # does: they are mutually exclusive at the block forward, and the
-        # builder refuses the pair rather than ordering them.
+        # A VSA arm suppresses Sol because the two are mutually exclusive at
+        # the block forward; the builder refuses the pair rather than ordering
+        # them.
         vsa_on = extra.get("vsa") is not None
-        sol_on = False if (is_image or router or dense_mode or vsa_on) \
+        sol_on = False if (is_image or dense_mode or vsa_on) \
             else bool(extra.get("sol_on", True))
         rest = {k: v for k, v in extra.items()
                 if k not in ("sol_on", "dense_attn")}
-        wf = build_ui(task, sage=(dense_mode == "sage") if dense_mode else not router,
+        wf = build_ui(task, sage=(dense_mode == "sage") if dense_mode else True,
                       preview=True,
                       sol=(sol_for_graph(bool(extra.get("pdd", False)),
                                          extra.get("steps", SAMPLING["steps"]))
-                           if not (is_image or router or dense_mode or vsa_on)
+                           if not (is_image or dense_mode or vsa_on)
                            else None),
                       sol_enabled=sol_on, prompt=prompt,
-                      title=f"h3-{label}-" + ("sla-router" if router else
-                                              "vsa" if vsa_on else
+                      title=f"h3-{label}-" + ("vsa" if vsa_on else
                                               "dense" if dense_mode == "none" else
                                               "sage" + ("-sol" if sol_on else "")),
                       **{**rest, "length": graph_length(rest)})
@@ -7793,15 +7763,14 @@ def main():
     # different configuration than the set above.
     for fname, label, task, prompt, extra, _note in GRAPHS:
         is_image = bool(extra.get("single_frame", False))
-        router = extra.get("sla_router") is not None
         dense = extra.get("dense_attn", False)
         dense_mode = ("none" if dense is True else dense) or None
         vsa_on = extra.get("vsa") is not None
-        sol_on = False if (is_image or router or dense_mode or vsa_on) \
+        sol_on = False if (is_image or dense_mode or vsa_on) \
             else bool(extra.get("sol_on", True))
         api_extra = {k: v for k, v in extra.items()
                      if k not in ("variant_note", "sol_on", "dense_attn")}
-        wf = build_api(task, sage=(dense_mode == "sage") if dense_mode else not router,
+        wf = build_api(task, sage=(dense_mode == "sage") if dense_mode else True,
                        prompt=prompt,
                        sol=(sol_for_graph(bool(extra.get("pdd", False)),
                                           extra.get("steps", SAMPLING["steps"]))

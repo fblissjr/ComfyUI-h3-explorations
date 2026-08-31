@@ -132,7 +132,7 @@ stills. That is a limit of the family at that geometry, recorded rather than
 worked around.
 
 **The corrected family map caught what the pairwise arm cannot.** mr_data's
-pool-wide review (`bench/results/2026-08-25_pool_component_map_corrected.json`,
+pool-wide review (`bench/results/archive/v2_encoder/2026-08-25_pool_component_map_corrected.json`,
 partial and saying so) merges exact components along adjudicated duplicate
 edges. The trimmed calibration bundle was pairwise green against the holdout
 and still shared one corrected family with it: holdout row train-00808 sits in

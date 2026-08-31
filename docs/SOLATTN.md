@@ -378,7 +378,7 @@ owns both spellings; regenerate.
 | option | default | what it does |
 |---|---|---|
 | `selection` NEW | `adaptive tau` | Which rule picks the exact key blocks. `adaptive tau` is the threshold every number on this page was measured under and what every graph here ships. `top-k (SLA)` is the other option and brings `keep_percent` instead of `tau`. |
-| `keep_percent` NEW | 10.0 | Only under `top-k (SLA)`. Percent of key blocks each query block keeps exactly, a fixed density everywhere rather than one that varies per head and block; sinks and the diagonal still ride on top. **This is not `MiniMaxH3SLARouter`** — read the row below the table before treating the two as arms of one comparison. |
+| `keep_percent` NEW | 10.0 | Only under `top-k (SLA)`. Percent of key blocks each query block keeps exactly, a fixed density everywhere rather than one that varies per head and block; sinks and the diagonal still ride on top. **This is not a hard top-k router** — read the row below the table before treating the two as arms of one comparison. |
 | `tau` | 1.3 | Only under `adaptive tau`. Routing threshold in sigmas of the proxy row. A key block is exact when its mean score over the query block clears `tau * sqrt(var)`. Higher is sparser. Upstream densities: 1.0 keeps ~16% exact, 1.5 ~7%, 2.0 ~2.7%. |
 | `start_percent` | 0.2 | Dense before this point. **Never measured** — see the step table below, it is badly non-linear. |
 | `end_percent` | 0.9 | Dense after this point. Also never measured. |
@@ -747,8 +747,11 @@ agreement at production S, which is the weakest link in any number it prints.
 
 **`top-k (SLA)` is not the SLA router, and the difference is the tail.** Under
 either selection Sol still adds a pooled term for every block it did not pick,
-so nothing leaves the softmax. `MiniMaxH3SLARouter` — the arm the Turbo-SLA
-LoRA was distilled under — drops unpicked blocks outright. Read in the eager
+so nothing leaves the softmax. A hard top-k router — the attention the
+Turbo-SLA LoRA was distilled under — drops unpicked blocks outright. (This
+named `MiniMaxH3SLARouter`, our implementation of that router. The arm was
+retired 2026-08-28 and the node removed 2026-08-31; the contrast it drew is
+still the point, so it is stated against the router rather than the node.) Read in the eager
 implementation, where `topk_ratio` changes which blocks are marked exact and
 leaves the tail branch alone. So Sol at `top-k` is a third attention, not a
 cheaper spelling of the router, and no arm here has been rendered under it.
@@ -886,7 +889,7 @@ because `override` has already returned dense. The live handling is the one in
 Upstream's own tests call it "the SLA / VSA fine stage". With `top-k (SLA)`
 selection it reproduces the routing the lightx2v Turbo-SLA LoRA was distilled
 under -- on the CUDA kernel, through `optimized_attention`, which reaches all
-52 `Attention` modules rather than the 50 that `MiniMaxH3SLARouter`'s object
+52 `Attention` modules rather than the 50 that a `diffusion_model.blocks` object
 patch could see. That node is deprecated in part for exactly that gap
 (`docs/open_experiments.md` #20), and this closes it, with one caveat: the two
 token-refiner calls sit at ~311 rows and `min_tokens` declines them, so

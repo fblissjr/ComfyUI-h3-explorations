@@ -66,7 +66,7 @@ guaranteed its first row even if that row overshoots its target; after that a
 row is admitted only if it fits inside the stratum's remaining target.
 
 A **language** overlay is deliberately not a third axis: the pool row schema
-(`bench/results/2026-08-24_h3_calibration_pool.jsonl`) records `channel`,
+(`bench/results/archive/v2_encoder/2026-08-24_h3_calibration_pool.jsonl`) records `channel`,
 `primary_role`, `picture_roles` and an `overlays` block of
 `wide_or_tall`/`small_source`/`markers`/`audio_label`/`video_audio_track`, and
 no language field. A language tag *is* observable inside the `<d>[...]` blocks
@@ -123,8 +123,8 @@ BENCH = Path(__file__).resolve().parent
 REPO = BENCH.parent
 sys.path.insert(0, str(BENCH))
 sys.path.insert(0, str(REPO))
-POOL = BENCH / "results" / "2026-08-24_h3_calibration_pool.jsonl"
-TEXT_ONLY_POOL = BENCH / "results" / "2026-08-24_h3_calibration_pool_excluded.jsonl"
+POOL = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool.jsonl"
+TEXT_ONLY_POOL = BENCH / "results" / "archive" / "v2_encoder" / "2026-08-24_h3_calibration_pool_excluded.jsonl"
 
 from h3_producer_provenance import producer_provenance  # noqa: E402
 
