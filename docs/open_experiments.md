@@ -1713,6 +1713,25 @@ the three relative L2s above, per kind.
   terms are independent and can be reasoned about separately; if it is not,
   they interact through the rotation and only `E_rt` is quotable.
 
+**Two implementation traps, both found by an executable probe on 2026-08-31
+and both fatal to the naive observer** (`research/quant_levers.md` §3):
+
+- **`mlp.fc2.forward` is never called on the shipped INT8 path.**
+  `comfy.ops.linear_input_act` owns it for the SwiGLU fusion. So the planned
+  200 object patches on `blocks.N.<kind>.forward` would have fired on 150 and
+  reported a clean-looking record over three kinds. This repo already paid for
+  this once — `unmerged_blocks` silently dropped fc2 on 2026-08-30 for exactly
+  this reason. The observer must reach fc2 through the fused helper, and must
+  **assert its own 50x4 shape** rather than aggregate what fired.
+- **The capture can be joint with the attention lane, but the products must be
+  separate.** One instrumented render emits a sparse set of full Q/K/V tensors
+  for the attention question and an all-50-block statistical sidecar for this
+  one. Saving full linear inputs for all 200 modules is terabytes and is not
+  the plan; exact offline error decomposition, if wanted, gets full snapshots
+  at one or two preselected `(block, knot)` cells only, or is computed online.
+  A joint render replaces a duplicate render of the SAME scene — it does not
+  replace the second scene/seed generalisation needs.
+
 **Blocker:** one render's worth of card time, plus the capture spec on the
 server that runs it. Nothing else — the scoring is CPU and needs no server.
 

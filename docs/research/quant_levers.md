@@ -31,8 +31,8 @@ bf16 Qwen3-VL.
 | **`unmerged_blocks`** | applies a LoRA at the call so the base weight is never requantised | **ships today**, off by default | a decision on whether it matters at the output |
 | ~~deterministic merge~~ | ~~replaces the merge path's stochastic rounding with round-to-nearest~~ | **WITHDRAWN 2026-08-31, hours after it was written** — it makes things worse, see §2 | — |
 | **`convrot_groupsize` 1024** | a wider Hadamard, spreading outliers further before rounding | **measured on the weight side**, and it is one module kind | a CPU requant of 50 tensors, and a timing arm |
-| **`full_precision_matrix_mult`** | per-module escape to a bf16 matmul, killing **both** roundings there | available, unmeasured | editing the module's `comfy_quant` blob — `comfy/ops.py:1150` reads it before the format branch, so **no core patch** |
-| **SmoothQuant via `pre_quant_scale`** | migrates activation outliers into the weight | reachable, gated on #23 | the scale as a module attribute (`add_object_patch` → `comfy.utils.set_attr`, a plain `setattr` that backs up the old value) **plus** a rebaked weight |
+| ~~`full_precision_matrix_mult`~~ | ~~per-module escape to a bf16 matmul~~ | **WITHDRAWN 2026-08-31 — INERT on H3, and it never killed both roundings.** See §3 | — |
+| **SmoothQuant via `pre_quant_scale`** | migrates activation outliers into the weight | **reachable on ordinary linears, INERT on `mlp.fc2`** (§3), gated on #23 | the scale as a module attribute (`add_object_patch` → `comfy.utils.set_attr`) **plus** a rebaked weight, **plus** a route into the fused fc2 helper |
 | **GPTQ rounding** | picks int8 values minimising `‖(W−Ŵ)X‖` rather than `‖W−Ŵ‖` | not started | Hessians, and a reason to believe it transfers from LLMs to a DiT |
 | channel permutation | permuting `fc1`'s output rows and `fc2`'s input columns identically — an exact-equivalence transform that changes which channels share a rotation group | **cannot be assessed from what is recorded** | a capture that keeps per-channel structure instead of a median |
 
@@ -103,6 +103,56 @@ compute-precision artifact under a field name that invites the misreading.
 There was never an encoder/DiT divergence; it was invented from a variable
 name. **So: both models' int8 builds reproduce exactly, in fp32, and neither
 measurement says anything about the precision the vendor quantised from.**
+
+### 3. Two levers were reachable only on paper, and an executable probe killed one
+
+**Added 2026-08-31 after an external reviewer ran the code instead of reading
+it.** Both rows below were entered in this file's inventory from a source
+trace. Both were wrong, and the probe is four lines:
+
+```
+full_precision_mm changes the output?      False   max|d| 0.0
+flag arm vs explicit dequant BF16 matmul:   rel L2 0.0086
+fused fc2 helper honours the flag?          False
+pre_quant_scale works on Linear.forward?    True (bitwise == scaling the input 2x)
+fused fc2 helper honours pre_quant_scale?   False
+```
+
+**`full_precision_matrix_mult` is inert on H3, and it was mis-described
+besides.** Two separate errors:
+
+- Even working, it would not "kill **both** roundings". It bypasses the online
+  activation quantisation and runs a BF16 matmul against the **already-rounded**
+  int8 weight, dequantised. The weight rounding stays. That sentence was in the
+  inventory and is withdrawn.
+- It does not work here at all. Toggling it produces **bit-identical output**,
+  and the arm sits 0.86% from an explicit dequantised BF16 matmul — i.e. it is
+  still running the int8 kernel. The cause is that the quantised tensor's
+  **logical** dtype is already `bfloat16`, so `cast_bias_weight` sees no dtype
+  mismatch, hands the weight through unchanged, and `F.linear`'s
+  quantized-tensor dispatch re-enters the int8 path. `comfy/ops.py:1150` does
+  read the flag from the `comfy_quant` blob; reaching the flag is not the same
+  as the flag doing anything.
+
+**`pre_quant_scale` is live on ordinary linears and dead on `mlp.fc2`.** On a
+normal `Linear.forward` it is bit-identical to scaling the input, so the
+SmoothQuant runtime half is real. But `mlp.fc2.forward` **is not called on the
+shipped INT8 path at all** — `comfy.ops.linear_input_act` owns it for the
+SwiGLU fusion, and that helper ignores both `pre_quant_scale` and
+`_full_precision_mm`. So SmoothQuant reaches three of the four kinds, and the
+fourth needs a route into the fused helper.
+
+**The fc2 fused path is a general trap, and this repo has already paid for it
+once**: `unmerged_blocks` silently dropped `mlp.fc2` on 2026-08-30 for exactly
+this reason — the object patch on `mlp.fc2.forward` never fired while the LoRA
+keys had already left the weight patch. Anything patching a linear's `forward`
+on this model must account for fc2 separately. **That includes
+`docs/open_experiments.md` #23's observer**, whose planned 200 object patches
+would have silently recorded 150.
+
+Source reading put both rows in the table; running the code took one out and
+halved the other. Third lever withdrawn today, and the only one that was never
+live at all.
 
 ### 2. Stochastic rounding costs exactly √2, and it is on the shipped path
 
