@@ -106,6 +106,19 @@ refutes it. The cheap discipline: when a measurement orders two arms, write
 down in the same sentence what would have to be true for the loser to actually
 be better. If that sentence is hard to write, the ranking is not ready.
 
+**A subset preserves the centre and loses the tail, and that was measured
+rather than suspected.** Same lane, later the same day: a 100-module half of a
+200-module population reproduced the median to three decimals — 1.979 against
+1.981 — and got the MINIMUM wrong by 3.2x, 0.877 against 0.274. The maximum
+moved the same way on another arm, 24.889 against 27.313. So a subsample
+agreeing on the headline is not evidence it agrees anywhere else, and the
+statistics people quote from a sample (median, mean) are exactly the ones that
+survive subsampling while the ones that bound the claim do not. **A proposal to
+replace the running full sweep with stride sampling was declined by the owner
+on the day both sessions had already recorded that their small samples were
+optimistic structurally rather than randomly.** He was right and the sweep is
+the reason any of the tail figures here are real.
+
 **What made it recoverable was a second implementation, not a second reading.**
 Both corrections came from a peer session writing the statistic fresh rather
 than importing it, and the agreement between implementations — worst-module

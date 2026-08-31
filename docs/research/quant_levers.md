@@ -206,8 +206,29 @@ merge injects measured against the **update** rather than the weight:
 | turbo, 20 modules | stochastic *(ships)* | 0.9999 | **11.87 mean, 26.6 max** |
 
 **On PDD, 194 of 200 modules carry more noise than update** (97%), and the
-median is almost exactly 2x. By kind: `mlp.fc2` 2.222, `mlp.fc1` 2.038,
-`attn.out_proj` 1.978, `attn.qkv_proj` 1.424.
+median is almost exactly 2x.
+
+**By kind, ON fl2va** — and the scope is load-bearing, corrected 2026-08-31:
+`mlp.fc2` 2.222 > `mlp.fc1` 2.038 > `attn.out_proj` 1.978 > `attn.qkv_proj`
+1.424. Everything in this file's merge section is measured on
+`minimax_h3_fl2va_pruned_int8_convrot` with the fl2va PDD file, and this
+ordering was stated here without saying so.
+
+**The ordering does not transfer across partitions.** A peer session's
+200-module ref2va arm runs `attn.out_proj` 2.066 > `mlp.fc2` 2.051 >
+`mlp.fc1` 1.824 > `attn.qkv_proj` 1.430 — a different ranking, with only
+`qkv_proj` being least affected common to both. Their record, not verified
+here; the fl2va arm is the one this file measured and their fl2va figures
+agree with it. **Do not carry a kind ordering across the partition boundary**,
+which is the same shape as this repo's standing rule about carrying encoder
+facts to DiT conclusions.
+
+Two invariances from the same sweep, and they are stronger than a sampled
+check could give: **pruned against unpruned, and `adaln2688` against the
+shipped conversion, agree on every summary statistic to the digit across 200
+modules** — medians, minima, maxima, counts, and all four per-kind medians. So
+"which PDD file" and "which base" do not move this. Only which node, and which
+partition.
 
 **A 20-module sample was optimistic and a 5-block one more so.** This table
 first carried 1.85 mean and 0.395 realised from 20 modules across 5 blocks; the
