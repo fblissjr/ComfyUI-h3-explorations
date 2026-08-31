@@ -10,6 +10,13 @@
   Tier 1 observer's state and the four review defects that reproduced against
   it. **Everything in it is stored-weight; nothing was rendered**, and the
   proportion question in its §3 is the cheap one still open.
+- [`tier1_gate.md`](tier1_gate.md) — **the gate, and undated because it is a
+  standing precondition rather than a day's state.** Nine items that must be
+  true before the Tier 1 activation observer is given a render: the dedicated
+  capture graph, the arming key, the disk budget, the full-input allowlist, the
+  open join to `H3_CAPTURE`, the absent offline scorer, the four-arm
+  decomposition, the composition test against a real model, and the canvas.
+  Read it before arming anything. Restates none of the handoff above.
 - [`2026-08-30_handoff.md`](2026-08-30_handoff.md) — superseded as current by
   the above, and unchanged on its own subject. The depth
   question and the method correction that reshaped it: what is settled about
