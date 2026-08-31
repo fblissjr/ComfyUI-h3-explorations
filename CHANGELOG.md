@@ -211,6 +211,33 @@ artifact.
 
 ### Added
 
+- **`dit_observe.py`, `quant_observe.py` (`MiniMaxH3QuantObserve`) and
+  `bench/check_quant_observe.py`** — Tier 1 of `docs/open_experiments.md` #23:
+  the observer that records what each quantised linear's INPUT looks like, per
+  block and per step, so the ACTIVATION half of int8_convrot's two roundings
+  can be measured. Records per-input-channel absmax and RMS (the absmax vector
+  IS the SmoothQuant scale), the per-token max distribution the dynamic
+  quantiser acts on, and `PackedLayout.segments` as the authority for row
+  modalities. Two gates: the node must be wired AND `H3_QUANT_OBSERVE` set.
+- **The observer reaches `mlp.fc2` through an `MLP.forward` wrapper**, because
+  `mlp.fc2.forward` is never called on the shipped INT8 path —
+  `comfy.ops.linear_input_act` owns it for the SwiGLU fusion. The naive design
+  records three kinds and looks complete, which is the defect `unmerged_blocks`
+  shipped on 2026-08-30. `_shape_check` asserts four kinds and does not infer
+  them from what reported.
+
+### Fixed
+
+- **Both observers armed themselves with their environment variable unset.**
+  `enabled()` returned `bool(str(_dir))` with `_dir = Path("")`, and
+  `str(Path(""))` is `"."`, so the disabled state evaluated TRUE.
+  `pdd_observe.py` shipped that expression, so it would record and write JSON
+  into the server's working directory on any render that set
+  `unmerged_blocks` — the knob this repo spent today recommending. Arming is
+  now its own boolean rather than a property of a path's spelling. Found by
+  `check_quant_observe::inert_without_the_env_var` on its first run, a case
+  that looked like a formality.
+
 - **`bench/analyze_weight_outliers.py` and
   `bench/results/2026-08-31_dit_weight_outliers.json`** — Tier 0 of the
   quantisation-lever plan: the DiT headroom measurement that had never been

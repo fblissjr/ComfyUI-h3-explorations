@@ -1,294 +1,304 @@
 {
- "MiniMaxH3AWQEncoderLoader": {
-  "inputs": [
-   "encoder_name",
-   "device"
-  ],
-  "node_id": "MiniMaxH3AWQEncoderLoader",
-  "outputs": [
-   "Output"
-  ]
- },
- "MiniMaxH3AppendRefAudio": {
-  "inputs": [
-   "audio",
-   "references"
-  ],
-  "node_id": "MiniMaxH3AppendRefAudio",
-  "outputs": [
-   "references"
-  ]
- },
- "MiniMaxH3AppendRefImage": {
-  "inputs": [
-   "image",
-   "references",
-   "size_policy",
-   "qwen_view"
-  ],
-  "node_id": "MiniMaxH3AppendRefImage",
-  "outputs": [
-   "references"
-  ]
- },
- "MiniMaxH3AppendRefVideo": {
-  "inputs": [
-   "frames",
-   "video_info",
-   "soundtrack",
-   "references"
-  ],
-  "node_id": "MiniMaxH3AppendRefVideo",
-  "outputs": [
-   "references"
-  ]
- },
- "MiniMaxH3AudioCarryProbe": {
-  "inputs": [
-   "model",
-   "mode"
-  ],
-  "node_id": "MiniMaxH3AudioCarryProbe",
-  "outputs": [
-   "Output"
-  ]
- },
- "MiniMaxH3Conditioning": {
-  "inputs": [
-   "clip",
-   "vae",
-   "prompt",
-   "width",
-   "height",
-   "length",
-   "first_frame",
-   "last_frame",
-   "canvas"
-  ],
-  "node_id": "MiniMaxH3Conditioning",
-  "outputs": [
-   "positive",
-   "Output"
-  ]
- },
- "MiniMaxH3EncoderLoader": {
-  "inputs": [
-   "encoder_name"
-  ],
-  "node_id": "MiniMaxH3EncoderLoader",
-  "outputs": [
-   "Output"
-  ]
- },
- "MiniMaxH3ExactBlocks": {
-  "inputs": [
-   "model",
-   "blocks"
-  ],
-  "node_id": "MiniMaxH3ExactBlocks",
-  "outputs": [
-   "Output"
-  ]
- },
- "MiniMaxH3KeyframeCanvas": {
-  "inputs": [
-   "first_frame",
-   "mode",
-   "width",
-   "height",
-   "last_frame",
-   "length"
-  ],
-  "node_id": "MiniMaxH3KeyframeCanvas",
-  "outputs": [
-   "width",
-   "height",
-   "first_frame",
-   "last_frame",
-   "attn_cost_vs_1to1",
-   "length"
-  ]
- },
- "MiniMaxH3MarkerArm": {
-  "inputs": [
-   "clip",
-   "arm"
-  ],
-  "node_id": "MiniMaxH3MarkerArm",
-  "outputs": [
-   "Output"
-  ]
- },
- "MiniMaxH3PDDLoRA": {
-  "inputs": [
-   "model",
-   "lora_name",
-   "strength",
-   "patch_heads",
-   "nfe",
-   "steps",
-   "head_strength",
-   "unmerged_blocks",
-   "unmerged_strength",
-   "unmerged_window"
-  ],
-  "node_id": "MiniMaxH3PDDLoRA",
-  "outputs": [
-   "Output",
-   "Output"
-  ]
- },
- "MiniMaxH3Preflight": {
-  "inputs": [
-   "conditioning",
-   "samples"
-  ],
-  "node_id": "MiniMaxH3Preflight",
-  "outputs": [
-   "conditioning",
-   "samples",
-   "sequence_length",
-   "report"
-  ]
- },
- "MiniMaxH3ProvenanceStamp": {
-  "inputs": [
-   "latent",
-   "model",
-   "sigmas",
-   "note",
-   "clip"
-  ],
-  "node_id": "MiniMaxH3ProvenanceStamp",
-  "outputs": [
-   "latent"
-  ]
- },
- "MiniMaxH3ReferenceConditioning": {
-  "inputs": [
-   "clip",
-   "vae",
-   "audio_vae",
-   "references",
-   "prompt",
-   "width",
-   "height",
-   "length",
-   "video_policy",
-   "image_policy"
-  ],
-  "node_id": "MiniMaxH3ReferenceConditioning",
-  "outputs": [
-   "positive",
-   "Output"
-  ]
- },
- "MiniMaxH3ReferenceFit": {
-  "inputs": [
-   "image",
-   "allow_upscale",
-   "short_edge",
-   "lift_downstream_clamp",
-   "keep_towers_matched"
-  ],
-  "node_id": "MiniMaxH3ReferenceFit",
-  "outputs": [
-   "image",
-   "latent_rows"
-  ]
- },
- "MiniMaxH3ReferenceVideoFit": {
-  "inputs": [
-   "frames",
-   "short_edge",
-   "keep_towers_matched"
-  ],
-  "node_id": "MiniMaxH3ReferenceVideoFit",
-  "outputs": [
-   "frames",
-   "latent_rows"
-  ]
- },
- "MiniMaxH3Resolution": {
-  "inputs": [
-   "shape",
-   "length"
-  ],
-  "node_id": "MiniMaxH3Resolution",
-  "outputs": [
-   "width",
-   "height",
-   "length",
-   "video_tokens",
-   "tokens_per_frame",
-   "attn_cost_vs_16_9",
-   "summary"
-  ]
- },
- "MiniMaxH3SageAttention": {
-  "inputs": [
-   "model",
-   "mode",
-   "patch_token_refiner",
-   "head_chunks"
-  ],
-  "node_id": "MiniMaxH3SageAttention",
-  "outputs": [
-   "Output"
-  ]
- },
- "MiniMaxH3SolAttn": {
-  "inputs": [
-   "model",
-   "selection",
-   "start_percent",
-   "end_percent",
-   "min_tokens",
-   "sink_conditioning",
-   "pooled_tail",
-   "morton",
-   "morton_curve",
-   "verbose",
-   "dense_blocks"
-  ],
-  "node_id": "MiniMaxH3SolAttn",
-  "outputs": [
-   "Output"
-  ]
- },
- "MiniMaxH3VAEPrecision": {
-  "inputs": [
-   "vae",
-   "encoder",
-   "decoder"
-  ],
-  "node_id": "MiniMaxH3VAEPrecision",
-  "outputs": [
-   "Output"
-  ]
- },
- "MiniMaxH3VSAAttention": {
-  "inputs": [
-   "model",
-   "keep_percent",
-   "pooled_tail"
-  ],
-  "node_id": "MiniMaxH3VSAAttention",
-  "outputs": [
-   "Output"
-  ]
- },
- "SageChainAssert": {
-  "inputs": [
-   "model",
-   "require_override",
-   "require_forward_patch",
-   "exercise",
-   "warn_only"
-  ],
-  "node_id": "SageChainAssert",
-  "outputs": [
-   "model"
-  ]
- }
+  "MiniMaxH3AWQEncoderLoader": {
+    "inputs": [
+      "encoder_name",
+      "device"
+    ],
+    "node_id": "MiniMaxH3AWQEncoderLoader",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3AppendRefAudio": {
+    "inputs": [
+      "audio",
+      "references"
+    ],
+    "node_id": "MiniMaxH3AppendRefAudio",
+    "outputs": [
+      "references"
+    ]
+  },
+  "MiniMaxH3AppendRefImage": {
+    "inputs": [
+      "image",
+      "references",
+      "size_policy",
+      "qwen_view"
+    ],
+    "node_id": "MiniMaxH3AppendRefImage",
+    "outputs": [
+      "references"
+    ]
+  },
+  "MiniMaxH3AppendRefVideo": {
+    "inputs": [
+      "frames",
+      "video_info",
+      "soundtrack",
+      "references"
+    ],
+    "node_id": "MiniMaxH3AppendRefVideo",
+    "outputs": [
+      "references"
+    ]
+  },
+  "MiniMaxH3AudioCarryProbe": {
+    "inputs": [
+      "model",
+      "mode"
+    ],
+    "node_id": "MiniMaxH3AudioCarryProbe",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3Conditioning": {
+    "inputs": [
+      "clip",
+      "vae",
+      "prompt",
+      "width",
+      "height",
+      "length",
+      "first_frame",
+      "last_frame",
+      "canvas"
+    ],
+    "node_id": "MiniMaxH3Conditioning",
+    "outputs": [
+      "positive",
+      "Output"
+    ]
+  },
+  "MiniMaxH3EncoderLoader": {
+    "inputs": [
+      "encoder_name"
+    ],
+    "node_id": "MiniMaxH3EncoderLoader",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3ExactBlocks": {
+    "inputs": [
+      "model",
+      "blocks"
+    ],
+    "node_id": "MiniMaxH3ExactBlocks",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3KeyframeCanvas": {
+    "inputs": [
+      "first_frame",
+      "mode",
+      "width",
+      "height",
+      "last_frame",
+      "length"
+    ],
+    "node_id": "MiniMaxH3KeyframeCanvas",
+    "outputs": [
+      "width",
+      "height",
+      "first_frame",
+      "last_frame",
+      "attn_cost_vs_1to1",
+      "length"
+    ]
+  },
+  "MiniMaxH3MarkerArm": {
+    "inputs": [
+      "clip",
+      "arm"
+    ],
+    "node_id": "MiniMaxH3MarkerArm",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3PDDLoRA": {
+    "inputs": [
+      "model",
+      "lora_name",
+      "strength",
+      "patch_heads",
+      "nfe",
+      "steps",
+      "head_strength",
+      "unmerged_blocks",
+      "unmerged_strength",
+      "unmerged_window"
+    ],
+    "node_id": "MiniMaxH3PDDLoRA",
+    "outputs": [
+      "Output",
+      "Output"
+    ]
+  },
+  "MiniMaxH3Preflight": {
+    "inputs": [
+      "conditioning",
+      "samples"
+    ],
+    "node_id": "MiniMaxH3Preflight",
+    "outputs": [
+      "conditioning",
+      "samples",
+      "sequence_length",
+      "report"
+    ]
+  },
+  "MiniMaxH3ProvenanceStamp": {
+    "inputs": [
+      "latent",
+      "model",
+      "sigmas",
+      "note",
+      "clip"
+    ],
+    "node_id": "MiniMaxH3ProvenanceStamp",
+    "outputs": [
+      "latent"
+    ]
+  },
+  "MiniMaxH3QuantObserve": {
+    "inputs": [
+      "model",
+      "blocks"
+    ],
+    "node_id": "MiniMaxH3QuantObserve",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3ReferenceConditioning": {
+    "inputs": [
+      "clip",
+      "vae",
+      "audio_vae",
+      "references",
+      "prompt",
+      "width",
+      "height",
+      "length",
+      "video_policy",
+      "image_policy"
+    ],
+    "node_id": "MiniMaxH3ReferenceConditioning",
+    "outputs": [
+      "positive",
+      "Output"
+    ]
+  },
+  "MiniMaxH3ReferenceFit": {
+    "inputs": [
+      "image",
+      "allow_upscale",
+      "short_edge",
+      "lift_downstream_clamp",
+      "keep_towers_matched"
+    ],
+    "node_id": "MiniMaxH3ReferenceFit",
+    "outputs": [
+      "image",
+      "latent_rows"
+    ]
+  },
+  "MiniMaxH3ReferenceVideoFit": {
+    "inputs": [
+      "frames",
+      "short_edge",
+      "keep_towers_matched"
+    ],
+    "node_id": "MiniMaxH3ReferenceVideoFit",
+    "outputs": [
+      "frames",
+      "latent_rows"
+    ]
+  },
+  "MiniMaxH3Resolution": {
+    "inputs": [
+      "shape",
+      "length"
+    ],
+    "node_id": "MiniMaxH3Resolution",
+    "outputs": [
+      "width",
+      "height",
+      "length",
+      "video_tokens",
+      "tokens_per_frame",
+      "attn_cost_vs_16_9",
+      "summary"
+    ]
+  },
+  "MiniMaxH3SageAttention": {
+    "inputs": [
+      "model",
+      "mode",
+      "patch_token_refiner",
+      "head_chunks"
+    ],
+    "node_id": "MiniMaxH3SageAttention",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3SolAttn": {
+    "inputs": [
+      "model",
+      "selection",
+      "start_percent",
+      "end_percent",
+      "min_tokens",
+      "sink_conditioning",
+      "pooled_tail",
+      "morton",
+      "morton_curve",
+      "verbose",
+      "dense_blocks"
+    ],
+    "node_id": "MiniMaxH3SolAttn",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3VAEPrecision": {
+    "inputs": [
+      "vae",
+      "encoder",
+      "decoder"
+    ],
+    "node_id": "MiniMaxH3VAEPrecision",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "MiniMaxH3VSAAttention": {
+    "inputs": [
+      "model",
+      "keep_percent",
+      "pooled_tail"
+    ],
+    "node_id": "MiniMaxH3VSAAttention",
+    "outputs": [
+      "Output"
+    ]
+  },
+  "SageChainAssert": {
+    "inputs": [
+      "model",
+      "require_override",
+      "require_forward_patch",
+      "exercise",
+      "warn_only"
+    ],
+    "node_id": "SageChainAssert",
+    "outputs": [
+      "model"
+    ]
+  }
 }

@@ -53,14 +53,29 @@ N_BINS = 256
 _rows: list[dict] = []
 _failures: list[dict] = []
 _dir: Path | None = None
+#: Arming is its own flag; see `enabled`. A path spelling is not a state.
+_armed: bool | None = None
 
 
 def enabled() -> bool:
-    global _dir
-    if _dir is None:
+    """Armed only by the environment, and `""` is not a directory.
+
+    **Corrected 2026-08-31.** This read `return bool(str(_dir))` with `_dir`
+    set to `Path("")` when the variable was unset -- and `str(Path(""))` is
+    `"."`, not `""`, so the disabled state evaluated TRUE and the module armed
+    itself against the current working directory. Found by
+    `bench/check_quant_observe.py::inert_without_the_env_var`, written for the
+    other observer, on the first run of a case that looked like a formality.
+
+    The arming decision is now its own boolean rather than a property of a
+    path's spelling, because that spelling is where the bug lived.
+    """
+    global _dir, _armed
+    if _armed is None:
         d = os.environ.get("H3_PDD_OBSERVE", "").strip()
-        _dir = Path(d) if d else Path("")
-    return bool(str(_dir))
+        _armed = bool(d)
+        _dir = Path(d) if d else None
+    return _armed
 
 
 def record(block: int, kind: str, sigma, out: torch.Tensor,

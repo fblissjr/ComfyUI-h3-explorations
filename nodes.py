@@ -21,6 +21,7 @@ from .pdd_lora import MiniMaxH3PDDLoRA
 from .audio_carry_probe import MiniMaxH3AudioCarryProbe
 from .preflight import MiniMaxH3Preflight
 from .provenance import MiniMaxH3ProvenanceStamp
+from .quant_observe import MiniMaxH3QuantObserve
 from .reference_fit import MiniMaxH3ReferenceFit
 from .resolution import MiniMaxH3Resolution
 from .sol_attn_h3 import MiniMaxH3SolAttn
@@ -265,7 +266,8 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3MarkerArm,
                 MiniMaxH3PDDLoRA, MiniMaxH3AudioCarryProbe,
                 MiniMaxH3ExactBlocks, MiniMaxH3SolAttn,
-                MiniMaxH3VSAAttention]
+                MiniMaxH3VSAAttention,
+                MiniMaxH3QuantObserve]
 
 
 async def comfy_entrypoint() -> H3ExplorationsExtension:
