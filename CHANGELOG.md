@@ -4,6 +4,102 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.8
+
+### Retracted
+
+- **The day's `+11.6%` headline is measured in a rounding regime the shipped
+  path does not use. The number is `+40%`.** `bench/measure_pdd_quant_interaction.py`
+  rounds to nearest and its record says so — *"deterministic; the shipped path
+  uses seeded stochastic rounding, so these are its expectation"*. **Round-to-nearest
+  is the expectation of the WEIGHT under stochastic rounding, not of the
+  ERROR**: `E[Q_s(x)] = x` is why the deterministic-merge lever was withdrawn,
+  and `E‖Q_s(x) − x‖ > ‖Q_rtn(x) − x‖` is the √2 the same day measured. A
+  distance statistic cannot borrow the first identity.
+  - All 200 int8 modules, `bench/measure_merge_rounding_regimes.py`: merged
+    under RTN **1.1164x** the base error, merged under the shipped stochastic
+    path **1.4046x**, worse on **200 of 200** modules, the gap **3.48x** larger.
+  - **The arithmetic was never in doubt.** A second implementation reproduces
+    `e_shipped`, `e_patched` and `e_baked_from_release` **bit-identically**, and
+    the two RTN bodies of code agree elementwise to 0.0. Only the regime label
+    was wrong, and it sat in the record's own `rounding` field where it read as
+    a disclosure rather than a claim.
+- **"A bake pins strength AND the partition" is withdrawn. It pins strength.**
+  The partition never reaches the backbone: `emit_steps`, `widths` and
+  `block_w` feed only the `SIGMAS` output, `_StepTracker` and `_FusedHeads`,
+  and the head bank is fused per span at run time. `bench/convert_pdd_lora.py`
+  had already RETIRED its `h3_pdd.head.*` payload on 2026-08-27 because *"that
+  pinned a step count into the artifact"* — so the claim described a file
+  format this repo had deliberately removed four days earlier.
+  - That was the whole cost of baking, and it is why `unmerged_blocks` was
+    framed as the lever to reach for. One baked artifact serves every step
+    count.
+
+### Added
+
+- **`bench/measure_merge_rounding_regimes.py`** — merged-under-RTN, merged-under-
+  the-shipped-seed and baked, over all 200 int8 modules against the BF16
+  release. Carries two controls: two independent RTN implementations that must
+  agree elementwise, and a **cross-backend** check that meets the other
+  implementation of the shipped quantiser.
+- **`bench/measure_bake_realisation.py`** — `realised_along_d` for the same
+  three arms, each against its OWN no-LoRA baseline. Exists because
+  `e_baked ≈ e_shipped` is equally consistent with "the rounding kept the
+  delta" and "the rounding threw it away and landed back on the base", and this
+  lane has already had one ranking reversed by exactly that question.
+
+### Fixed
+
+- **`_StepTracker.check_shift`'s error named a node the reader cannot find.**
+  With `MiniMaxH3SigmaShift` dropped from the PDD graphs (`44374a4`), the
+  `graph_shift is None` branch went from unreachable-on-anything-shipped to the
+  only path those graphs take, and its message still said *"this graph runs
+  MiniMaxH3SigmaShift at ..."*. Split on which branch produced the number; both
+  exercised. No behaviour change. `CLAUDE.md`'s "which code paths were dead
+  before the fix and are live after", met on somebody else's fix.
+
+### Measured
+
+- **The offline bake wins on BOTH statistics rather than trading them**, which
+  is the first thing in this lane that is not a denominator argument. It lands
+  at the base checkpoint's own stored-weight error to seven digits
+  (`1.0000019x`) AND realises the update at `1.0000` (min `0.9986`, all 200
+  modules) — where RTN merging buys its lower distance by discarding, at
+  `0.341` mean realised and `0.0043` on its worst module.
+  - The mechanism: a merge starts from `W_q`, already ON the int8 grid, so a
+    sub-step delta rounds back to the same codes. A bake starts from
+    `W_release`, OFF the grid, so the delta shifts where the rounding lands and
+    survives in the codes.
+- **Only 200 weights in the DiT are int8, and they are all `blocks.*`
+  linears.** `token_refiner.*` is BF16 and `blocks.N.adaln_proj.linear` is F16,
+  so neither requantises. The 200-module population every record in this lane
+  measures is the WHOLE affected set, not a sample of the file's 208 backbone
+  modules.
+- **A stochastic-rounding figure measured on CPU is not the draw a GPU load
+  makes.** `comfy_kitchen`'s registry resolves `quantize_int8_convrot_weight`
+  to the eager implementation on CPU and a CUDA one on GPU; on the same seed
+  they draw different noise (about a third of codes differ by one step) while
+  agreeing on magnitude to `1.0e-04` and both landing at √2 of RTN. So every
+  stochastic MEAN in this lane is the shipped path's and every per-module
+  stochastic figure is one draw from it. Checked rather than assumed.
+
+### Changed
+
+- **The offline bake enters `docs/research/quant_levers.md`'s inventory**, which
+  had no row for it, at the top. Its 2026-08-28 deprioritisation is recorded as
+  history rather than a standing no, on the owner's call that a decision that
+  old does not bind this lane.
+- **`docs/research/pdd/2026-08-31_handoff.md` gains what tomorrow starts from**:
+  the lever ordering with `unmerged_blocks`' 150-of-200 reach beside the bake's
+  200, the four steps in order, and the two things that are NOT available — no
+  runnable BF16 H3 DiT on this box (the release is 62 GB of diffusers shards and
+  no comfy-layout BF16 DiT exists), and no same-seed pair that can A/B a weight
+  change.
+- **`docs/h3_pdd.md`'s sigma-shift subsection is rewritten** for `44374a4`. Its
+  argument against removing the node was answered rather than overruled: both
+  branches it listed were real, the list was not exhaustive, and the third route
+  reads the value from what the RUNTIME falls back to when the node is absent.
+
 ## 0.99.7
 
 ### Changed

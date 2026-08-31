@@ -42,6 +42,16 @@ branch. Any statement about RTN below is about a hypothetical arm.
 
 ## 2. Measured: three statistics, each blind to the next
 
+> **A fourth was added 2026-08-31** and it is not in the table below, because
+> it is measured against a different reference and belongs to
+> [`quant_levers.md`](quant_levers.md) §7: `e` against `W_release + d`, the
+> weight an unquantised run would use, under BOTH rounding regimes. It is the
+> one that shows the shipped merge costs **+40%** rather than the +11.6% quoted
+> from a round-to-nearest reproduction. Everything below is unaffected — it is
+> relative to the dequantised shipped weight, as the next paragraph but one
+> says.
+
+
 `bench/measure_merge_noise.py` → `bench/results/2026-08-31_merge_noise.json`.
 CPU only, fixed seed, `int8_convrot` at the layout's own group size.
 
@@ -252,6 +262,18 @@ therefore per-LoRA and larger where the delta is smaller.
 - Whether the `ref2va` PDD pairing behaves like `fl2va` beyond a shape check.
 - Whether a LoRA applied through `unmerged_blocks` produces a different output,
   as opposed to different weights.
+- **Whether the per-module stochastic values anywhere in this lane are the ones
+  a GPU load produces.** They are not, and this was checked rather than
+  assumed on 2026-08-31: `comfy_kitchen`'s registry resolves
+  `quantize_int8_convrot_weight` to the eager implementation on CPU and to a
+  CUDA one on GPU, and on the SAME seed the two draw different noise — about a
+  third of the int8 codes differ by one step. They agree on magnitude to
+  within 0.01% and both sit at exactly √2 of round-to-nearest
+  (`cross_backend` in
+  [`../../bench/results/2026-08-31_merge_rounding_regimes.json`](../../bench/results/2026-08-31_merge_rounding_regimes.json)).
+  **So every stochastic MEAN in this lane is the shipped path's and every
+  per-module stochastic figure is one draw from it.** Nothing quoted here
+  changes; what changes is what a single row may be said to be.
 
 ---
 
@@ -268,6 +290,14 @@ same way.
 - `realised` then hid the third failure, and `noise/|d|` was added.
 - A 10-module sample understated PDD's `noise/|d|` because it omitted the two
   worst module kinds; the 100-module sweep corrected it.
+- The headline was then quoted from a **round-to-nearest** reproduction while
+  the shipped path rounds stochastically, on the reasoning that RTN is "its
+  expectation". RTN is the expectation of the WEIGHT, not of the ERROR, and a
+  distance statistic cannot borrow that identity — corrected to +40% the same
+  evening ([`quant_levers.md`](quant_levers.md) §7). **The arithmetic was never
+  wrong**: a second implementation reproduces all three published RTN means
+  bit-identically. The REGIME LABEL was, and it sat in the record's own
+  `rounding` field where it read as a disclosure rather than a claim.
 
 **Every one of those was caught by a second IMPLEMENTATION, never by a second
 reading.** Two lanes wrote the statistics independently and agreed on the turbo

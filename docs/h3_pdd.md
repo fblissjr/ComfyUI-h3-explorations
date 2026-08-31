@@ -415,29 +415,54 @@ until they took `h3_config.SOL_PDD_CUDA` whole; their `end_percent` is now a
 constant 0.74 and a hand edit to `steps` leaves it correct. It is still true of
 every non-distilled arm.
 
-#### The shift is now a second place the schedule is decided, and it is asserted rather than removed
+#### The shift was a second place the schedule is decided, and the node is now GONE from the PDD graphs
 
-The PDD node sits UPSTREAM of `MiniMaxH3SigmaShift`, so the schedule it emits is
-built from the shift recorded in its own file, not from the graph's shift
-widget. While `BasicScheduler` owned the schedule it read the shift off the
-patched model and followed the widget. Those agree on every shipped graph and
-would diverge the moment a PDD graph was set to another shift -- the sampler
-stepping one curve while the model integrates another.
+**Removed 2026-08-31 (`44374a4`), on the owner's call.** This section used to
+argue against removing it and the argument was answered rather than overruled;
+the reasoning is kept below because the route that beat it generalises.
 
-**Removing the widget from PDD graphs was measured and is inert**: with
-`MiniMaxH3SigmaShift` deleted outright, two runs came back pixel-identical to
-the settled group, and `comfy/supported_models.py`'s H3 entry declares
-`shift 12.0 / audio_shift 3.0` as the default for the model class, so this is a
-property of every H3 checkpoint and not of the one that was rendered.
+The PDD node emits the schedule from the shift recorded in its OWN file, not
+from the graph's shift widget. While `BasicScheduler` owned the schedule it
+read the shift off the patched model and followed the widget. Those agree on
+every shipped graph and would diverge the moment a PDD graph was set to another
+shift -- the sampler stepping one curve while the model integrates another. So
+on a PDD graph the widget was a knob that could only do harm, at a value that
+did nothing.
 
-**It was not removed anyway, and the reason is worth stating because it argues
-against the obvious move.** `check_distill_grid.py` and
-`check_distill_settings.py` both read the graph's shift off that node, and both
-are cheap static checks that touch no model file. Delete the node and the shift
-has exactly one authority left -- the PDD file's metadata -- so either those two
-checks start opening safetensors, or `h3_config` grows a constant that is a
-second copy of what the file already says. Removing one duplication would
-create another, in a worse place.
+**That it does nothing was measured**: with `MiniMaxH3SigmaShift` deleted
+outright, two runs came back pixel-identical to the settled group, and
+`comfy.supported_models.MiniMaxH3.sampling_settings` declares
+`shift 12.0 / audio_shift 3.0` for the model class -- so it is a property of
+every H3 checkpoint, not of the one that was rendered.
+
+**What this section got wrong, and it is a useful shape.** It said removal was
+blocked because `check_distill_grid.py` and `check_distill_settings.py` read
+the graph's shift off that node, leaving only two ways out -- those checks open
+safetensors, or `h3_config` grows a constant that is a second copy of the
+file's own metadata -- and that removing one duplication would create another
+in a worse place. **Both branches were real; the list was not exhaustive.**
+The third route reads the value from **ComfyUI's own model config**, which is
+where the DiT, the sampler and `pdd_lora.py::check_shift` all land when the
+node is absent: `bench/check_pdd_sigmas.py::_checkpoint_default_shift` imports
+`comfy.supported_models.MiniMaxH3.sampling_settings`, and
+`bench/check_distill_grid.py` does the same for its `None` case. No safetensors open,
+no new repo-side literal.
+
+**It is strictly better than what it replaced**, which is the part worth
+carrying forward. `bench/check_distill_settings.py::BASE_SHIFT = (12.0, 3.0)` was
+already a retyped second copy, and a retyped copy agrees with itself forever --
+it would have gone on passing if core moved the real value. That literal still
+stands, deliberately, with the comment at its use site naming
+`_checkpoint_default_shift` as the check that grades it against the real one.
+
+**The generalisation, since this cost a whole subsection of wrong reasoning**:
+when a value has to come from somewhere and both obvious sources are bad, ask
+what the RUNTIME falls back to when the thing is absent. That fallback is an
+authority nobody has to maintain, and it is usually already imported.
+
+The generator condition is `shift == SIGMA_SHIFT`, not `not pdd`, so a PDD arm
+deliberately fused at another shift gets the node back. Non-PDD graphs are
+untouched and still wire it.
 
 **Closed at run time, 2026-08-28, and without moving anything.**
 `MiniMaxH3SigmaShift` writes its value into `transformer_options`
@@ -1906,15 +1931,99 @@ weight, so both fixes are ways of not doing that, and they are not equal:
 the section above asked for.** Its "what would settle it" paragraph said: bake
 one partition, grade it, and if the residual is small enough, ship a pre-merged
 checkpoint per partition and delete 933 MiB of run-time patching. The residual
-is zero against the base checkpoint's own error. The cost is that a baked file
-pins `strength` and the partition -- and the section above already records that
-every shipped PDD node runs `strength` 1.0, so the first pin costs nothing this
-repo currently uses. **It is still DEPRIORITISED by the owner (2026-08-28); the
-blocker is what changed, not the priority.**
+is zero against the base checkpoint's own error.
 
-`unmerged_blocks` is what to reach for when you do not want a second artifact
-per partition. `MiniMaxH3PDDLoRA` takes it in `dense_blocks` syntax; empty is
-the default and is bit-for-bit the old behaviour.
+**"Per partition" is withdrawn 2026-08-31, and it was the whole cost.** This
+paragraph used to say a baked file pins `strength` *and the partition*, and the
+row above said the same. It pins `strength` alone, so **one baked artifact
+serves every step count** and the second-artifact-per-partition objection --
+which is why `unmerged_blocks` was framed as the thing to reach for -- does not
+exist. Traced, not rendered; the observables are in the section below.
+
+**And the 2026-08-28 deprioritisation is stale as a constraint.** It was taken
+when the blocker was believed to be bake-side loss, and the owner's position on
+2026-08-31 is that a decision that old no longer binds this lane. Cite it as
+history, not as a standing "no".
+
+`unmerged_blocks` is what to reach for when you want the fix without a second
+artifact at all -- an existing checkpoint, a strength you are still sweeping, or
+a LoRA you are iterating on. `MiniMaxH3PDDLoRA` takes it in `dense_blocks`
+syntax; empty is the default and is bit-for-bit the old behaviour. It is also
+the only one of the two that touches the ACTIVATION rounding, which is a
+separate advantage and is priced two sections below.
+
+### What a backbone bake pins, traced 2026-08-31
+
+This section exists because "the bake pins the partition" was stated in three
+places for three days and is false, and because nobody had traced which of the
+node's surfaces a bake would actually take over. **This is a source trace. No
+baked artifact has been built and none has been rendered.**
+
+**Only 200 modules requantise, and they are all backbone linears.** Every `I8`
+`.weight` in `minimax_h3_fl2va_pruned_int8_convrot` is a `blocks.*` linear --
+200 of them, 50 blocks x 4 kinds, with no other family. `token_refiner.*` is
+BF16 and `blocks.N.adaln_proj.linear` is F16. So the 8 refiner modules and the
+50 adaln updates the node also patches are ordinary float patches that pay none
+of this, and the 200-module population every record in this lane measures is
+the WHOLE affected set rather than a sample of the file's 208 backbone modules.
+Read it off the checkpoint (`safe_open`, dtype per key), not from here.
+
+**The partition never reaches the backbone.** `execute` derives `emit_steps`
+from `resolve_emit_steps`, then `widths` and `block_w` from
+`envelope_partition`. Those three feed exactly three things: the `SIGMAS`
+output, `_StepTracker`, and `_FusedHeads`. The `backbone` dict is built from
+the file's `diffusion_model.*` keys before any of that exists and is handed to
+`add_patches` untouched by it. `_FusedHeads.get` fuses a head per `(start,
+end)` span **at run time** from the full 32-interval bank, so the head payload
+is partition-independent as stored and partition-dependent only in the sampling
+loop. Nothing about 4, 6 or 8 evaluations changes a backbone weight.
+
+**So a backbone bake pins `strength`, and that is the entire list.** After it,
+the node would still own the refiner patch, the 50 adaln `diff`/`diff_b`
+patches, the head bank at `head_strength`, the `SIGMAS` emission, and the step
+tracker -- every knob except backbone strength.
+
+**And the artifact format already settled this once, which is the stronger
+citation.** [`../bench/convert_pdd_lora.py`](../bench/convert_pdd_lora.py)
+RETIRED its `h3_pdd.head.*` payload on 2026-08-27 for exactly this reason: it
+held the 32 heads collapsed to `nfe` fused ones, and *"that pinned a step count
+into the artifact"*. The bank that replaced it is the published stack verbatim,
+so *"one file serves every block size the grid divides by"*. A step count has
+not been expressible in a PDD artifact since. **"A bake pins the partition" was
+therefore describing a file format this repo deliberately removed four days
+before the claim was written**, and the trace above is the second witness
+rather than the first.
+
+**Which is also the footgun, and it needs a contract before anything is
+built.** `strength` today scales backbone, refiner, adaln and (via the
+`head_strength` sentinel) the heads together. Against a baked checkpoint it
+would scale the last three while the backbone sat pinned at whatever the bake
+used, so `strength=0.5` would render a configuration nobody asked for and would
+look entirely normal. A baked artifact must declare its baked strength in
+metadata and the node must refuse a mismatch rather than warn -- the same shape
+as the `adaln_installed` guard, and for the same reason.
+
+**The sharper one: a baked checkpoint plus the unmodified sidecar applies the
+backbone LoRA TWICE.** The bake changes the checkpoint; it does not change the
+LoRA file, and `execute` merges every `diffusion_model.blocks.*` key it finds.
+That renders, and it renders a model at effectively double backbone strength
+with correct heads -- so it looks like a PDD render with something subtly wrong,
+which is the hardest failure to attribute. The two ways out, and the choice
+should be made before a converter is written rather than discovered by whoever
+runs the first arm:
+
+- **a stripped sidecar** whose `diffusion_model.blocks.*` keys are removed and
+  whose `h3_pdd.*` payload and refiner keys remain. Needs no node change beyond
+  the strength guard, and `len(applied) != len(loaded)` keeps grading what is
+  left. The baked checkpoint and its sidecar then only work as a pair, which is
+  the thing to make un-mixable by NAME.
+- **detection in the node**, reading a bake marker off the checkpoint and
+  skipping the backbone. One artifact pair fewer, one more branch in a node
+  that already has several, and it fails open if the marker is ever absent.
+
+**Neither has been built.** `unmerged_blocks` needs none of this, which is a
+real advantage of it that the fidelity table above does not show: it is a knob
+on the shipped artifacts, so it costs a render and no provenance surface.
 
 **It is not the memory trade this document first said it was, and the
 correction runs in the knob's favour.** The first version of this section

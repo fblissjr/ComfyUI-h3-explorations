@@ -546,16 +546,23 @@ class _StepTracker:
 
         **This closes a gap the SIGMAS rewiring opened and a static check could
         not reach.** The schedule this node emits is built from the shift in its
-        own file, because the node sits UPSTREAM of `MiniMaxH3SigmaShift` and
-        cannot see the widget at patch time. `bench/check_pdd_sigmas.py` asserts
-        the two agree, but only across SHIPPED graphs -- a hand-edited or
-        hand-built one had nothing, and the symptom was a sampler stepping one
-        curve while the model integrates another, with no error anywhere.
+        own file; when a graph carries `MiniMaxH3SigmaShift` this node sits
+        UPSTREAM of it and cannot see the widget at patch time.
+        `bench/check_pdd_sigmas.py` asserts the two agree, but only across
+        SHIPPED graphs -- a hand-edited or hand-built one had nothing, and the
+        symptom was a sampler stepping one curve while the model integrates
+        another, with no error anywhere.
 
         `MiniMaxH3SigmaShift` puts its value in `transformer_options`
         (`comfy_extras/nodes_minimax_h3.py`), which this patch already receives,
         so the mismatch is observable at the first forward without moving any
         node or reordering the chain.
+
+        **Since `44374a4` the shipped PDD graphs carry no such node**, so the
+        arguments arrive as `None` and the comparison is against the model
+        class's own defaults, captured at patch time. That is the case the
+        `absent` branch below exists for; it is not a degraded mode, it is now
+        the ordinary one.
 
         Raises rather than warns, and the reason is the one the owner gave:
         the failure it replaces cost debugging time chasing nothing. A named
@@ -586,19 +593,33 @@ class _StepTracker:
         gv = self.default_shift_v if graph_shift is None else float(graph_shift)
         ga = (self.default_shift_a if graph_audio_shift is None
               else float(graph_audio_shift))
-        for got, want, name in ((gv, self.shift_v, "shift_video"),
-                                (ga, self.shift_a, "shift_audio")):
+        # **Which branch produced the number decides what the message may say,
+        # and since 2026-08-31 the absent branch is the ONLY one a shipped PDD
+        # graph takes** -- `44374a4` dropped `MiniMaxH3SigmaShift` from all 20
+        # of them. Before that this branch was unreachable on anything shipped,
+        # so its message was never read in anger; it names a node to go and set,
+        # which on those graphs does not exist and cannot be found. CLAUDE.md's
+        # rule about a fix moving a constraint somewhere nobody is looking,
+        # met by somebody else's fix.
+        absent = (graph_shift is None, graph_audio_shift is None)
+        for got, want, name, gone in ((gv, self.shift_v, "shift_video", absent[0]),
+                                      (ga, self.shift_a, "shift_audio", absent[1])):
             if got is None or abs(float(got) - float(want)) <= 1e-6:
                 continue
+            where = (f"carries no MiniMaxH3SigmaShift, so it runs the "
+                     f"checkpoint's own {name}={float(got)}" if gone else
+                     f"runs MiniMaxH3SigmaShift at {name}={float(got)}")
+            fix = (f"use a PDD file fused at {float(got)}, or add a "
+                   f"MiniMaxH3SigmaShift set to {float(want)}" if gone else
+                   f"set MiniMaxH3SigmaShift back to {float(want)} (the value "
+                   f"the file records), or use a PDD file fused at "
+                   f"{float(got)}")
             raise RuntimeError(
-                f"[h3-pdd] this graph runs MiniMaxH3SigmaShift at {name}="
-                f"{float(got)}, but the PDD file was fused at {float(want)}. "
-                f"The fused heads and the schedule this node emits are BOTH "
-                f"functions of the shift, so the sampler would step one curve "
-                f"while the model integrates another and the render would "
-                f"complete looking merely wrong. Set MiniMaxH3SigmaShift back "
-                f"to {float(want)} (the value the file records), or use a PDD "
-                f"file fused at {float(got)}.")
+                f"[h3-pdd] this graph {where}, but the PDD file was fused at "
+                f"{float(want)}. The fused heads and the schedule this node "
+                f"emits are BOTH functions of the shift, so the sampler would "
+                f"step one curve while the model integrates another and the "
+                f"render would complete looking merely wrong. {fix}.")
 
     def observe(self, sample_sigmas) -> None:
         """Adopt the sampler's schedule, once per distinct schedule.
@@ -1375,6 +1396,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 # APPENDED. See the note on patch_heads.
                 io.Int.Input(
                     "nfe", default=0, min=0, max=64, optional=True,
+                    display_name="nfe (0 = use steps)",
                     tooltip=(
                         "EXPERIMENT ONLY. Leave at 0 -- 0 is the ordinary "
                         "mode, not 'unset'.\n\n"
@@ -1444,6 +1466,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 io.Float.Input(
                     "head_strength", default=-1.0, min=-10.0, max=10.0, step=0.01,
                     optional=True,
+                    display_name="head_strength (-1 follows strength)",
                     tooltip=(
                         "EXPERIMENT ONLY. Leave at -1.0, which means FOLLOW "
                         "`strength`.\n\n"
@@ -1463,6 +1486,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 # head_strength about what inserting rather than appending cost.
                 io.String.Input(
                     "unmerged_blocks", default="", optional=True,
+                    display_name="unmerged_blocks (empty = merge all)",
                     tooltip=(
                         "ACCURACY KNOB, off by default. Names the blocks "
                         "whose backbone LoRA is applied at the CALL instead of "
@@ -1516,6 +1540,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 # APPENDED. See the note on patch_heads.
                 io.Float.Input(
                     "unmerged_strength", default=-1.0, min=-10.0, max=10.0,
+                    display_name="unmerged_strength (-1 follows strength)",
                     step=0.01, optional=True,
                     tooltip=(
                         "EXPERIMENT ONLY. Leave at -1.0, which means follow "
@@ -1534,6 +1559,7 @@ class MiniMaxH3PDDLoRA(io.ComfyNode):
                 # APPENDED. See the note on patch_heads.
                 io.String.Input(
                     "unmerged_window", default="", optional=True,
+                    display_name="unmerged_window (empty = every step)",
                     tooltip=(
                         "EXPERIMENT ONLY. Leave empty. Inert unless "
                         "`unmerged_blocks` names something.\n\n"

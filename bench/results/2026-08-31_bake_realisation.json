@@ -1,0 +1,2047 @@
+{
+  "measured": "2026-08-31",
+  "produced_by": "bench/measure_bake_realisation.py",
+  "question": "whether an offline bake delivers the LoRA update or only appears to, given that its stored-weight distance is indistinguishable from the base checkpoint's own",
+  "statistic": "<Q(W + d) - Q(W), d> / <d, d>, each arm against its own no-LoRA baseline",
+  "checkpoint": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+  "lora": "minimax_h3_fl2va_pdd_8step_comfy.safetensors",
+  "reference": "MiniMaxAI_MiniMax-H3/FL2VA/transformer",
+  "shape_check": {
+    "expected": 200,
+    "got": 200,
+    "kinds": [
+      "attn.out_proj",
+      "attn.qkv_proj",
+      "mlp.fc1",
+      "mlp.fc2"
+    ],
+    "ok": true
+  },
+  "is_not": "a runtime, activation or output measurement. Stored weights only. Nothing here was rendered.",
+  "summary": {
+    "merge_rtn": {
+      "mean": 0.3411361409826705,
+      "min": 0.0042809428095516525,
+      "max": 0.9953007253614223,
+      "median": 0.2899233366362698,
+      "below_0_9": 196
+    },
+    "merge_stoch": {
+      "mean": 1.000027750690836,
+      "min": 0.9983734835467286,
+      "max": 1.0011829123475124,
+      "median": 1.00001265472653,
+      "below_0_9": 0
+    },
+    "bake_rtn": {
+      "mean": 1.0000183880540525,
+      "min": 0.9986492122341586,
+      "max": 1.0012115831128334,
+      "median": 1.0000217946030387,
+      "below_0_9": 0
+    }
+  },
+  "modules": [
+    {
+      "block": 0,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 493214495,
+      "pdd_rel": 0.0031238338913373437,
+      "merge_rtn": 0.19540872649334803,
+      "merge_stoch": 1.0000165549452462,
+      "bake_rtn": 1.0004864040263588
+    },
+    {
+      "block": 0,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2030141570,
+      "pdd_rel": 0.004736540381170752,
+      "merge_rtn": 0.2188146650028722,
+      "merge_stoch": 1.0002969790596075,
+      "bake_rtn": 1.0004695033997697
+    },
+    {
+      "block": 0,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 946839702,
+      "pdd_rel": 0.004599603491586193,
+      "merge_rtn": 0.2541720777797378,
+      "merge_stoch": 1.0002193703619369,
+      "bake_rtn": 1.0000898695610754
+    },
+    {
+      "block": 0,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 3068176245,
+      "pdd_rel": 0.004900995761615925,
+      "merge_rtn": 0.2363538106291663,
+      "merge_stoch": 1.0000505042232473,
+      "bake_rtn": 0.99967044101538
+    },
+    {
+      "block": 1,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 172867551,
+      "pdd_rel": 0.005328198600018685,
+      "merge_rtn": 0.4973786606418552,
+      "merge_stoch": 1.0002109552703264,
+      "bake_rtn": 0.9999262710941056
+    },
+    {
+      "block": 1,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1848239170,
+      "pdd_rel": 0.006411253256755215,
+      "merge_rtn": 0.418340988392883,
+      "merge_stoch": 0.9995049343560415,
+      "bake_rtn": 1.0000132313091779
+    },
+    {
+      "block": 1,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2517053703,
+      "pdd_rel": 0.00339068792104678,
+      "merge_rtn": 0.16620272464112784,
+      "merge_stoch": 0.9999692134208931,
+      "bake_rtn": 0.9998487853107267
+    },
+    {
+      "block": 1,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 411580132,
+      "pdd_rel": 0.006331159296638539,
+      "merge_rtn": 0.46220302909307864,
+      "merge_stoch": 1.000460711566541,
+      "bake_rtn": 1.0000552541433814
+    },
+    {
+      "block": 2,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 859116191,
+      "pdd_rel": 0.007382065488312212,
+      "merge_rtn": 0.6865506961333577,
+      "merge_stoch": 1.0000824465098608,
+      "bake_rtn": 0.9999890806180364
+    },
+    {
+      "block": 2,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1464944898,
+      "pdd_rel": 0.006773693963502286,
+      "merge_rtn": 0.4557696372742632,
+      "merge_stoch": 1.0000662447783986,
+      "bake_rtn": 0.9999731201214718
+    },
+    {
+      "block": 2,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 3218048501,
+      "pdd_rel": 0.004168960360350883,
+      "merge_rtn": 0.2228563988746411,
+      "merge_stoch": 1.0002573521322664,
+      "bake_rtn": 0.999756798743863
+    },
+    {
+      "block": 2,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 826311190,
+      "pdd_rel": 0.004178236777367996,
+      "merge_rtn": 0.15584957134506286,
+      "merge_stoch": 0.9999956091370387,
+      "bake_rtn": 1.000075565503323
+    },
+    {
+      "block": 3,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 605910623,
+      "pdd_rel": 0.009645663929912712,
+      "merge_rtn": 0.8215212075816734,
+      "merge_stoch": 0.9999272654405977,
+      "bake_rtn": 0.9998227539672931
+    },
+    {
+      "block": 3,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1081683394,
+      "pdd_rel": 0.005743467754562158,
+      "merge_rtn": 0.2738340892210263,
+      "merge_stoch": 0.9998071762625905,
+      "bake_rtn": 1.0002133628078647
+    },
+    {
+      "block": 3,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 296162404,
+      "pdd_rel": 0.004048484921841257,
+      "merge_rtn": 0.15602644693477866,
+      "merge_stoch": 0.999721470886561,
+      "bake_rtn": 0.9996222176021978
+    },
+    {
+      "block": 3,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2670203783,
+      "pdd_rel": 0.0037557487142819116,
+      "merge_rtn": 0.07999094524938002,
+      "merge_stoch": 0.9996903162718797,
+      "bake_rtn": 1.0001224607059602
+    },
+    {
+      "block": 4,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1103382559,
+      "pdd_rel": 0.008976234792878058,
+      "merge_rtn": 0.7859292042018375,
+      "merge_stoch": 0.9998726856309653,
+      "bake_rtn": 0.999864372324598
+    },
+    {
+      "block": 4,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 631247746,
+      "pdd_rel": 0.00621966307260142,
+      "merge_rtn": 0.38160964687939014,
+      "merge_stoch": 1.000340960493827,
+      "bake_rtn": 1.0001652812997184
+    },
+    {
+      "block": 4,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 3965643793,
+      "pdd_rel": 0.005227451154072646,
+      "merge_rtn": 0.41268133766500714,
+      "merge_stoch": 0.9999026118169432,
+      "bake_rtn": 0.9999851344408949
+    },
+    {
+      "block": 4,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 1657924594,
+      "pdd_rel": 0.0035274190692601484,
+      "merge_rtn": 0.037802998210406474,
+      "merge_stoch": 0.9993962904738879,
+      "bake_rtn": 1.0009703827760557
+    },
+    {
+      "block": 5,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1458318559,
+      "pdd_rel": 0.00841216795165912,
+      "merge_rtn": 0.7349834980043759,
+      "merge_stoch": 0.9999381884994228,
+      "bake_rtn": 1.000010947554265
+    },
+    {
+      "block": 5,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 847804226,
+      "pdd_rel": 0.007535372629856969,
+      "merge_rtn": 0.4803887249883238,
+      "merge_stoch": 1.0006215513253303,
+      "bake_rtn": 0.9997804430175268
+    },
+    {
+      "block": 5,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1110867328,
+      "pdd_rel": 0.004236302770597723,
+      "merge_rtn": 0.1892569595361852,
+      "merge_stoch": 1.0001302523727318,
+      "bake_rtn": 0.9998135628489514
+    },
+    {
+      "block": 5,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 3434707555,
+      "pdd_rel": 0.0037828251732419933,
+      "merge_rtn": 0.058654044972739586,
+      "merge_stoch": 1.0004288779673216,
+      "bake_rtn": 0.9996979142427201
+    },
+    {
+      "block": 6,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1872003487,
+      "pdd_rel": 0.009250353813825479,
+      "merge_rtn": 0.8093552726640878,
+      "merge_stoch": 0.9998146797677818,
+      "bake_rtn": 0.9999106008029001
+    },
+    {
+      "block": 6,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 200333826,
+      "pdd_rel": 0.0067388549840588065,
+      "merge_rtn": 0.44157516045937323,
+      "merge_stoch": 1.0004705086188157,
+      "bake_rtn": 0.9998693832196411
+    },
+    {
+      "block": 6,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1811859826,
+      "pdd_rel": 0.006712760188043057,
+      "merge_rtn": 0.6224638370399351,
+      "merge_stoch": 1.0001714132108346,
+      "bake_rtn": 1.000233265940002
+    },
+    {
+      "block": 6,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 3849440913,
+      "pdd_rel": 0.0040355279762213985,
+      "merge_rtn": 0.12436800895809486,
+      "merge_stoch": 0.9998609402332314,
+      "bake_rtn": 0.9997136934606157
+    },
+    {
+      "block": 7,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2025645407,
+      "pdd_rel": 0.017109237409736106,
+      "merge_rtn": 0.9596217215901698,
+      "merge_stoch": 1.0000476443062076,
+      "bake_rtn": 1.0000148079860973
+    },
+    {
+      "block": 7,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 483966658,
+      "pdd_rel": 0.0070619972321224024,
+      "merge_rtn": 0.4349246309494104,
+      "merge_stoch": 1.0000029000931534,
+      "bake_rtn": 1.0002809497299703
+    },
+    {
+      "block": 7,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 3314964707,
+      "pdd_rel": 0.005610351675193741,
+      "merge_rtn": 0.45029857452536776,
+      "merge_stoch": 1.0001042497738608,
+      "bake_rtn": 1.0000446253622746
+    },
+    {
+      "block": 7,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 1259953920,
+      "pdd_rel": 0.004051760386074004,
+      "merge_rtn": 0.17314863915989898,
+      "merge_stoch": 0.9999979002794194,
+      "bake_rtn": 1.0004937037730848
+    },
+    {
+      "block": 8,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2754018591,
+      "pdd_rel": 0.008214688723908984,
+      "merge_rtn": 0.7176823349550056,
+      "merge_stoch": 1.0000892791513472,
+      "bake_rtn": 1.0003523642526062
+    },
+    {
+      "block": 8,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3225593474,
+      "pdd_rel": 0.006430580517110387,
+      "merge_rtn": 0.378781411756255,
+      "merge_stoch": 1.000568715893601,
+      "bake_rtn": 0.9994589350104381
+    },
+    {
+      "block": 8,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1266434009,
+      "pdd_rel": 0.0066883418294640855,
+      "merge_rtn": 0.5849892465421747,
+      "merge_stoch": 0.9998922211079591,
+      "bake_rtn": 0.9998309392002165
+    },
+    {
+      "block": 8,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 3321051194,
+      "pdd_rel": 0.00424930934629333,
+      "merge_rtn": 0.13899587237449332,
+      "merge_stoch": 0.9999482417017211,
+      "bake_rtn": 1.0000614332231568
+    },
+    {
+      "block": 9,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3004078559,
+      "pdd_rel": 0.007865584359718836,
+      "merge_rtn": 0.7007705424698852,
+      "merge_stoch": 1.000285982329433,
+      "bake_rtn": 0.999976493693925
+    },
+    {
+      "block": 9,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3614097986,
+      "pdd_rel": 0.0060613243293557335,
+      "merge_rtn": 0.28041650148488206,
+      "merge_stoch": 1.0000231956976604,
+      "bake_rtn": 0.9997922345519963
+    },
+    {
+      "block": 9,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 3843337800,
+      "pdd_rel": 0.008055764893494232,
+      "merge_rtn": 0.7408185327627129,
+      "merge_stoch": 1.000002988704861,
+      "bake_rtn": 1.0001015867646585
+    },
+    {
+      "block": 9,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 1805363627,
+      "pdd_rel": 0.004409842048231568,
+      "merge_rtn": 0.17053360420789454,
+      "merge_stoch": 1.000881293422871,
+      "bake_rtn": 1.000119431402852
+    },
+    {
+      "block": 10,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1415715542,
+      "pdd_rel": 0.008086050193945836,
+      "merge_rtn": 0.722520409897656,
+      "merge_stoch": 1.0002517208755382,
+      "bake_rtn": 1.000115467853068
+    },
+    {
+      "block": 10,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 805716299,
+      "pdd_rel": 0.007131168914601979,
+      "merge_rtn": 0.5157575043933672,
+      "merge_stoch": 1.0003612773079487,
+      "bake_rtn": 0.9996491877288197
+    },
+    {
+      "block": 10,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 596217969,
+      "pdd_rel": 0.008447958075143867,
+      "merge_rtn": 0.7818990996593582,
+      "merge_stoch": 0.9999903117223453,
+      "bake_rtn": 0.99993372845926
+    },
+    {
+      "block": 10,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2902890386,
+      "pdd_rel": 0.004694534464402358,
+      "merge_rtn": 0.20818678256796497,
+      "merge_stoch": 1.0004192720621183,
+      "bake_rtn": 0.9998164090261754
+    },
+    {
+      "block": 11,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1128955414,
+      "pdd_rel": 0.012226835120021854,
+      "merge_rtn": 0.8975608993299098,
+      "merge_stoch": 0.9999520152267304,
+      "bake_rtn": 0.9999669658966591
+    },
+    {
+      "block": 11,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 657335691,
+      "pdd_rel": 0.006221767256633441,
+      "merge_rtn": 0.391207844976354,
+      "merge_stoch": 0.9997444177604456,
+      "bake_rtn": 1.000060803764113
+    },
+    {
+      "block": 11,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2380333536,
+      "pdd_rel": 0.006876223126718138,
+      "merge_rtn": 0.6123500810142507,
+      "merge_stoch": 0.9999497683431877,
+      "bake_rtn": 0.9999507260663172
+    },
+    {
+      "block": 11,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 57542147,
+      "pdd_rel": 0.004624177584218132,
+      "merge_rtn": 0.1788380645920104,
+      "merge_stoch": 1.0001478283550584,
+      "bake_rtn": 0.9999160357425505
+    },
+    {
+      "block": 12,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2050151254,
+      "pdd_rel": 0.008042499752573588,
+      "merge_rtn": 0.7273824637440138,
+      "merge_stoch": 1.0000377088493606,
+      "bake_rtn": 0.9997883745799436
+    },
+    {
+      "block": 12,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 508987595,
+      "pdd_rel": 0.0058776760503067545,
+      "merge_rtn": 0.37340111432448014,
+      "merge_stoch": 1.0011201493128807,
+      "bake_rtn": 0.9994027904390022
+    },
+    {
+      "block": 12,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2754196754,
+      "pdd_rel": 0.005682928064903309,
+      "merge_rtn": 0.458411996102565,
+      "merge_stoch": 1.0001146193744288,
+      "bake_rtn": 1.0000794208526849
+    },
+    {
+      "block": 12,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 715567857,
+      "pdd_rel": 0.005123477065296799,
+      "merge_rtn": 0.2691274754140939,
+      "merge_stoch": 0.9996524749187671,
+      "bake_rtn": 1.0001913278135606
+    },
+    {
+      "block": 13,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1830467478,
+      "pdd_rel": 0.007888064899828484,
+      "merge_rtn": 0.7158716561145552,
+      "merge_stoch": 0.9996770620277619,
+      "bake_rtn": 0.9998975146800937
+    },
+    {
+      "block": 13,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 159312907,
+      "pdd_rel": 0.0055399545633363365,
+      "merge_rtn": 0.30041644184963145,
+      "merge_stoch": 0.9993110873493884,
+      "bake_rtn": 1.0002569864888429
+    },
+    {
+      "block": 13,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 172041347,
+      "pdd_rel": 0.005143960692194027,
+      "merge_rtn": 0.3555227902582039,
+      "merge_stoch": 0.9998116941112698,
+      "bake_rtn": 0.9999885842049221
+    },
+    {
+      "block": 13,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2228101984,
+      "pdd_rel": 0.0056057739015402,
+      "merge_rtn": 0.3961513368931468,
+      "merge_stoch": 0.9999241472597333,
+      "bake_rtn": 0.9998909962232254
+    },
+    {
+      "block": 14,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 147032534,
+      "pdd_rel": 0.012408895087334495,
+      "merge_rtn": 0.9083982191299879,
+      "merge_stoch": 0.9997666390387626,
+      "bake_rtn": 0.999894786038008
+    },
+    {
+      "block": 14,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1822937675,
+      "pdd_rel": 0.006362535821487651,
+      "merge_rtn": 0.40786159923820264,
+      "merge_stoch": 1.0001027072325006,
+      "bake_rtn": 1.0002458683495636
+    },
+    {
+      "block": 14,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 4156087542,
+      "pdd_rel": 0.005675169490860632,
+      "merge_rtn": 0.45903821859460936,
+      "merge_stoch": 1.0000814961289761,
+      "bake_rtn": 1.0000849045710911
+    },
+    {
+      "block": 14,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2033703701,
+      "pdd_rel": 0.004631392012448624,
+      "merge_rtn": 0.20473065462664927,
+      "merge_stoch": 0.9997664460575656,
+      "bake_rtn": 1.0004515232893918
+    },
+    {
+      "block": 15,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 535555350,
+      "pdd_rel": 0.011155979954468959,
+      "merge_rtn": 0.8713277165329599,
+      "merge_stoch": 0.9999701928030948,
+      "bake_rtn": 0.9999241100399674
+    },
+    {
+      "block": 15,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2073015947,
+      "pdd_rel": 0.00742030625652224,
+      "merge_rtn": 0.5398056989508738,
+      "merge_stoch": 1.0001612279990455,
+      "bake_rtn": 1.0000472078065201
+    },
+    {
+      "block": 15,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1506823527,
+      "pdd_rel": 0.005999970263679822,
+      "merge_rtn": 0.4978063678665296,
+      "merge_stoch": 0.9998824088856643,
+      "bake_rtn": 1.000103956866101
+    },
+    {
+      "block": 15,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 3613346436,
+      "pdd_rel": 0.004903132497691794,
+      "merge_rtn": 0.2537168624317958,
+      "merge_stoch": 1.0000834851400946,
+      "bake_rtn": 1.0001820177021066
+    },
+    {
+      "block": 16,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 647184470,
+      "pdd_rel": 0.007540624650424215,
+      "merge_rtn": 0.6703908587267511,
+      "merge_stoch": 1.000055814485839,
+      "bake_rtn": 0.9999477744651994
+    },
+    {
+      "block": 16,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1123490763,
+      "pdd_rel": 0.008071581688373053,
+      "merge_rtn": 0.648036770548741,
+      "merge_stoch": 0.9998019991188295,
+      "bake_rtn": 1.0000528832687028
+    },
+    {
+      "block": 16,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1880684949,
+      "pdd_rel": 0.004790139974364392,
+      "merge_rtn": 0.29583253702380824,
+      "merge_stoch": 0.9999172247583122,
+      "bake_rtn": 0.9999436618675185
+    },
+    {
+      "block": 16,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 4271373942,
+      "pdd_rel": 0.004478102336703203,
+      "merge_rtn": 0.17719976069786195,
+      "merge_stoch": 0.9996550288020871,
+      "bake_rtn": 0.9999227900396747
+    },
+    {
+      "block": 17,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 834348182,
+      "pdd_rel": 0.007554690889877989,
+      "merge_rtn": 0.6745611665687464,
+      "merge_stoch": 1.000328097513771,
+      "bake_rtn": 0.9999558301359109
+    },
+    {
+      "block": 17,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1440710411,
+      "pdd_rel": 0.007278668497449356,
+      "merge_rtn": 0.5757548101766147,
+      "merge_stoch": 1.0000627194303382,
+      "bake_rtn": 1.0001818647988172
+    },
+    {
+      "block": 17,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 3731908612,
+      "pdd_rel": 0.005651406530904741,
+      "merge_rtn": 0.4248257382211944,
+      "merge_stoch": 1.0002641819777518,
+      "bake_rtn": 1.0000351430251009
+    },
+    {
+      "block": 17,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 1358917607,
+      "pdd_rel": 0.005000516503057019,
+      "merge_rtn": 0.25751496765405674,
+      "merge_stoch": 1.0002682460142907,
+      "bake_rtn": 1.0000452197898553
+    },
+    {
+      "block": 18,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3978378454,
+      "pdd_rel": 0.007251069006935335,
+      "merge_rtn": 0.6339696143988576,
+      "merge_stoch": 1.000007816510491,
+      "bake_rtn": 0.9998248730898499
+    },
+    {
+      "block": 18,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2303027019,
+      "pdd_rel": 0.007260868394410238,
+      "merge_rtn": 0.5528604149288032,
+      "merge_stoch": 1.0005322338454175,
+      "bake_rtn": 1.000365183395802
+    },
+    {
+      "block": 18,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1352273726,
+      "pdd_rel": 0.005374991648310392,
+      "merge_rtn": 0.3994912459119318,
+      "merge_stoch": 0.9997991489929435,
+      "bake_rtn": 0.9999618103012957
+    },
+    {
+      "block": 18,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 3725920477,
+      "pdd_rel": 0.005970035531432965,
+      "merge_rtn": 0.45538599270181684,
+      "merge_stoch": 1.0007170786645379,
+      "bake_rtn": 1.0001861603766304
+    },
+    {
+      "block": 19,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 4194916374,
+      "pdd_rel": 0.007266703579241639,
+      "merge_rtn": 0.6485848590442591,
+      "merge_stoch": 1.000113929979971,
+      "bake_rtn": 1.0001455408070594
+    },
+    {
+      "block": 19,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2657944459,
+      "pdd_rel": 0.006083951875861522,
+      "merge_rtn": 0.3817208466398845,
+      "merge_stoch": 1.000450766367683,
+      "bake_rtn": 0.9999701650527909
+    },
+    {
+      "block": 19,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 4277313199,
+      "pdd_rel": 0.00564106098494337,
+      "merge_rtn": 0.45764206302312194,
+      "merge_stoch": 1.000077452350569,
+      "bake_rtn": 0.9997940742869748
+    },
+    {
+      "block": 19,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 1887279436,
+      "pdd_rel": 0.004165000522469755,
+      "merge_rtn": 0.1333424131432541,
+      "merge_stoch": 1.000369701857273,
+      "bake_rtn": 0.9997528244854602
+    },
+    {
+      "block": 20,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 579281899,
+      "pdd_rel": 0.009854486803593994,
+      "merge_rtn": 0.8244067521778492,
+      "merge_stoch": 0.9999085591247802,
+      "bake_rtn": 1.0001208425966128
+    },
+    {
+      "block": 20,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1189312630,
+      "pdd_rel": 0.007502911612534175,
+      "merge_rtn": 0.578456836514125,
+      "merge_stoch": 0.9994382686877185,
+      "bake_rtn": 0.999777727794673
+    },
+    {
+      "block": 20,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1880345589,
+      "pdd_rel": 0.006958881485258245,
+      "merge_rtn": 0.6339718521368352,
+      "merge_stoch": 0.999769529363577,
+      "bake_rtn": 1.0002487611511124
+    },
+    {
+      "block": 20,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 4271688726,
+      "pdd_rel": 0.004260427378893027,
+      "merge_rtn": 0.10875138733212547,
+      "merge_stoch": 0.999826247583152,
+      "bake_rtn": 0.9994500471865148
+    },
+    {
+      "block": 21,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 900679467,
+      "pdd_rel": 0.008184608092795934,
+      "merge_rtn": 0.7265872003498761,
+      "merge_stoch": 0.9998659447391078,
+      "bake_rtn": 1.0000425427180215
+    },
+    {
+      "block": 21,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1372265654,
+      "pdd_rel": 0.006657576136098484,
+      "merge_rtn": 0.5254866596888691,
+      "merge_stoch": 1.0000608246521976,
+      "bake_rtn": 0.9998101708815185
+    },
+    {
+      "block": 21,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 3732626020,
+      "pdd_rel": 0.005153486467992176,
+      "merge_rtn": 0.3202671134223639,
+      "merge_stoch": 1.0002075934021102,
+      "bake_rtn": 0.999812623634601
+    },
+    {
+      "block": 21,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 1358192007,
+      "pdd_rel": 0.004808039936759292,
+      "merge_rtn": 0.2785528488745995,
+      "merge_stoch": 0.9999708177478134,
+      "bake_rtn": 1.00029255131041
+    },
+    {
+      "block": 22,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 215476843,
+      "pdd_rel": 0.00663948223883629,
+      "merge_rtn": 0.5524868057914077,
+      "merge_stoch": 1.000089597226793,
+      "bake_rtn": 0.9997480518837893
+    },
+    {
+      "block": 22,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1756606966,
+      "pdd_rel": 0.006015507136133961,
+      "merge_rtn": 0.4112261984311255,
+      "merge_stoch": 1.0003196339634914,
+      "bake_rtn": 1.000063593118399
+    },
+    {
+      "block": 22,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 4155764374,
+      "pdd_rel": 0.004835947113555366,
+      "merge_rtn": 0.2922095202046585,
+      "merge_stoch": 1.0000126239243665,
+      "bake_rtn": 0.9998620325337145
+    },
+    {
+      "block": 22,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2034035061,
+      "pdd_rel": 0.004160876810773686,
+      "merge_rtn": 0.13929067734039924,
+      "merge_stoch": 0.9998102711555372,
+      "bake_rtn": 0.9995166751882864
+    },
+    {
+      "block": 23,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 469733035,
+      "pdd_rel": 0.007224028641253452,
+      "merge_rtn": 0.6283354017635362,
+      "merge_stoch": 1.0001833432770262,
+      "bake_rtn": 1.0000860104704734
+    },
+    {
+      "block": 23,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2140919094,
+      "pdd_rel": 0.008345336195960484,
+      "merge_rtn": 0.7011786726421297,
+      "merge_stoch": 1.0002926713851972,
+      "bake_rtn": 1.0000301441918864
+    },
+    {
+      "block": 23,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1507557127,
+      "pdd_rel": 0.006406051634047305,
+      "merge_rtn": 0.5434143054838596,
+      "merge_stoch": 1.0001308134776636,
+      "bake_rtn": 1.0002803560171631
+    },
+    {
+      "block": 23,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 3612637412,
+      "pdd_rel": 0.004385262918051558,
+      "merge_rtn": 0.17646911503915852,
+      "merge_stoch": 1.0003325017434856,
+      "bake_rtn": 1.0000658301095027
+    },
+    {
+      "block": 24,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2116464875,
+      "pdd_rel": 0.008401888152235056,
+      "merge_rtn": 0.7614582674342424,
+      "merge_stoch": 1.0000750348104914,
+      "bake_rtn": 0.9999081853602707
+    },
+    {
+      "block": 24,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 440593270,
+      "pdd_rel": 0.0057871192907474394,
+      "merge_rtn": 0.3675749034056352,
+      "merge_stoch": 1.0008516374178982,
+      "bake_rtn": 0.9995346936038311
+    },
+    {
+      "block": 24,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2753726322,
+      "pdd_rel": 0.006067207427051986,
+      "merge_rtn": 0.5559308754608029,
+      "merge_stoch": 1.000207967770661,
+      "bake_rtn": 0.9997301853062123
+    },
+    {
+      "block": 24,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 716013713,
+      "pdd_rel": 0.004371976839696644,
+      "merge_rtn": 0.20112449205315802,
+      "merge_stoch": 1.000429705561057,
+      "bake_rtn": 1.0004542086238821
+    },
+    {
+      "block": 25,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1762579499,
+      "pdd_rel": 0.009520738973606514,
+      "merge_rtn": 0.8222184992055158,
+      "merge_stoch": 1.0000126855286935,
+      "bake_rtn": 1.0000093160265655
+    },
+    {
+      "block": 25,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 225087414,
+      "pdd_rel": 0.004691601308603479,
+      "merge_rtn": 0.1885272884768638,
+      "merge_stoch": 1.0001332581037439,
+      "bake_rtn": 0.9997196214099984
+    },
+    {
+      "block": 25,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 172627683,
+      "pdd_rel": 0.006176562591412973,
+      "merge_rtn": 0.5646221649880232,
+      "merge_stoch": 1.0000533338989228,
+      "bake_rtn": 1.0003445619202627
+    },
+    {
+      "block": 25,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2227507456,
+      "pdd_rel": 0.0033093547433621627,
+      "merge_rtn": 0.019881231570919887,
+      "merge_stoch": 0.9996475484089261,
+      "bake_rtn": 1.000067377569694
+    },
+    {
+      "block": 26,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1349941611,
+      "pdd_rel": 0.0058481956502160716,
+      "merge_rtn": 0.4411247492954124,
+      "merge_stoch": 0.999843250309672,
+      "bake_rtn": 1.0003220648521907
+    },
+    {
+      "block": 26,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 873603830,
+      "pdd_rel": 0.005842781617380739,
+      "merge_rtn": 0.4023720595374264,
+      "merge_stoch": 1.0000544904010609,
+      "bake_rtn": 0.9996120049030585
+    },
+    {
+      "block": 26,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 595763729,
+      "pdd_rel": 0.0049499451478986975,
+      "merge_rtn": 0.3082577314147689,
+      "merge_stoch": 0.9999342849540872,
+      "bake_rtn": 1.0003147463134174
+    },
+    {
+      "block": 26,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2903352818,
+      "pdd_rel": 0.0038084116236461168,
+      "merge_rtn": 0.08186510573583389,
+      "merge_stoch": 1.0002893854830865,
+      "bake_rtn": 0.9993980169882845
+    },
+    {
+      "block": 27,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1197350315,
+      "pdd_rel": 0.0064231821067663114,
+      "merge_rtn": 0.6094891471681233,
+      "merge_stoch": 0.9997905990440629,
+      "bake_rtn": 1.0000844146841839
+    },
+    {
+      "block": 27,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 591021622,
+      "pdd_rel": 0.00440581987636212,
+      "merge_rtn": 0.15471233507130908,
+      "merge_stoch": 1.0007941507532414,
+      "bake_rtn": 0.9996389051672616
+    },
+    {
+      "block": 27,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2380936064,
+      "pdd_rel": 0.004172284563055582,
+      "merge_rtn": 0.2037332619562565,
+      "merge_stoch": 1.0001763556870662,
+      "bake_rtn": 1.0002951402471136
+    },
+    {
+      "block": 27,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 56964195,
+      "pdd_rel": 0.003800589920076759,
+      "merge_rtn": 0.12651855057307618,
+      "merge_stoch": 1.0004423629639194,
+      "bake_rtn": 1.0001454779042473
+    },
+    {
+      "block": 28,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2613315051,
+      "pdd_rel": 0.005707686067378935,
+      "merge_rtn": 0.48640663287523156,
+      "merge_stoch": 0.9999927191115042,
+      "bake_rtn": 0.9998127533020996
+    },
+    {
+      "block": 28,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 4288700022,
+      "pdd_rel": 0.005406758978941643,
+      "merge_rtn": 0.4040091535768602,
+      "merge_stoch": 0.9998981006730444,
+      "bake_rtn": 1.0006601018046077
+    },
+    {
+      "block": 28,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 50353338,
+      "pdd_rel": 0.003601834269221273,
+      "merge_rtn": 0.13349073023321437,
+      "merge_stoch": 0.9999430821446272,
+      "bake_rtn": 1.0001817183712391
+    },
+    {
+      "block": 28,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2374980441,
+      "pdd_rel": 0.0032365537479059994,
+      "merge_rtn": 0.029367563703671454,
+      "merge_stoch": 0.9999014545527661,
+      "bake_rtn": 1.000166358184528
+    },
+    {
+      "block": 29,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2364301611,
+      "pdd_rel": 0.00487245436011111,
+      "merge_rtn": 0.385029057011168,
+      "merge_stoch": 1.0002481318246828,
+      "bake_rtn": 1.0000954163745408
+    },
+    {
+      "block": 29,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3901242038,
+      "pdd_rel": 0.003502173645077288,
+      "merge_rtn": 0.09049817826831842,
+      "merge_stoch": 1.00036585001213,
+      "bake_rtn": 0.9999322031667277
+    },
+    {
+      "block": 29,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2909324587,
+      "pdd_rel": 0.0037163457688500663,
+      "merge_rtn": 0.1789378527133218,
+      "merge_stoch": 0.9999153519308687,
+      "bake_rtn": 0.9996648769138287
+    },
+    {
+      "block": 29,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 602391240,
+      "pdd_rel": 0.0030448152989172297,
+      "merge_rtn": 0.023090781316054725,
+      "merge_stoch": 1.0005640291411229,
+      "bake_rtn": 0.9995326829474357
+    },
+    {
+      "block": 30,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3119827263,
+      "pdd_rel": 0.00434703410018645,
+      "merge_rtn": 0.3107569797132585,
+      "merge_stoch": 1.0004562387051237,
+      "bake_rtn": 1.0001683716329883
+    },
+    {
+      "block": 30,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3717239458,
+      "pdd_rel": 0.0029950171118261035,
+      "merge_rtn": 0.03645351511593837,
+      "merge_stoch": 1.0001260744530585,
+      "bake_rtn": 0.9993903182203344
+    },
+    {
+      "block": 30,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 4155834550,
+      "pdd_rel": 0.0029132483302405573,
+      "merge_rtn": 0.03721873300059685,
+      "merge_stoch": 1.000309161984056,
+      "bake_rtn": 1.0006420094076622
+    },
+    {
+      "block": 30,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2033846101,
+      "pdd_rel": 0.002925858853943099,
+      "merge_rtn": 0.023799592828144183,
+      "merge_stoch": 0.9998022495756107,
+      "bake_rtn": 1.0000411850157631
+    },
+    {
+      "block": 31,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2933698047,
+      "pdd_rel": 0.0032737583369847837,
+      "merge_rtn": 0.1169619520215893,
+      "merge_stoch": 0.9996976952545948,
+      "bake_rtn": 1.000008341263269
+    },
+    {
+      "block": 31,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3401119330,
+      "pdd_rel": 0.0027810528692272913,
+      "merge_rtn": 0.019939126628672362,
+      "merge_stoch": 0.9992559631730326,
+      "bake_rtn": 1.000852242908545
+    },
+    {
+      "block": 31,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1507692839,
+      "pdd_rel": 0.0030191286444689884,
+      "merge_rtn": 0.07506418720597513,
+      "merge_stoch": 1.0002237715646696,
+      "bake_rtn": 0.9997936950313615
+    },
+    {
+      "block": 31,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 3612513988,
+      "pdd_rel": 0.002771777491450904,
+      "merge_rtn": 0.015093987619104387,
+      "merge_stoch": 1.0005676944172313,
+      "bake_rtn": 1.000642061687252
+    },
+    {
+      "block": 32,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2544107711,
+      "pdd_rel": 0.003748784404284192,
+      "merge_rtn": 0.25675609617408074,
+      "merge_stoch": 1.0000094998932474,
+      "bake_rtn": 0.9992053595263806
+    },
+    {
+      "block": 32,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 4089469730,
+      "pdd_rel": 0.0024912907204210897,
+      "merge_rtn": 0.007974218597327241,
+      "merge_stoch": 0.9985403956255728,
+      "bake_rtn": 1.0012115831128334
+    },
+    {
+      "block": 32,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1880434133,
+      "pdd_rel": 0.00286926817434838,
+      "merge_rtn": 0.04267319562766213,
+      "merge_stoch": 0.9996422162166639,
+      "bake_rtn": 1.0001335468789678
+    },
+    {
+      "block": 32,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 4271514166,
+      "pdd_rel": 0.0028920347104474365,
+      "merge_rtn": 0.0346053052670247,
+      "merge_stoch": 0.9996995765393845,
+      "bake_rtn": 1.000284909320947
+    },
+    {
+      "block": 33,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2156684415,
+      "pdd_rel": 0.0034084000949965313,
+      "merge_rtn": 0.15334758363123724,
+      "merge_stoch": 0.9997861132703351,
+      "bake_rtn": 0.9996679530703726
+    },
+    {
+      "block": 33,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3840425954,
+      "pdd_rel": 0.0025452875875002067,
+      "merge_rtn": 0.01736324155451458,
+      "merge_stoch": 0.9994150986289428,
+      "bake_rtn": 0.9998891021559257
+    },
+    {
+      "block": 33,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 3732780100,
+      "pdd_rel": 0.0026469813691056532,
+      "merge_rtn": 0.020195397133981725,
+      "merge_stoch": 1.0001543730748008,
+      "bake_rtn": 1.0005034358615452
+    },
+    {
+      "block": 33,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 1358082983,
+      "pdd_rel": 0.0028545052744956482,
+      "merge_rtn": 0.035631223568051776,
+      "merge_stoch": 0.9996796001008197,
+      "bake_rtn": 0.9996428613579038
+    },
+    {
+      "block": 34,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3847576127,
+      "pdd_rel": 0.0033042273405405605,
+      "merge_rtn": 0.1515575249082167,
+      "merge_stoch": 0.9995165302498661,
+      "bake_rtn": 1.0002967388003474
+    },
+    {
+      "block": 34,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2167472546,
+      "pdd_rel": 0.002396574483905124,
+      "merge_rtn": 0.0042809428095516525,
+      "merge_stoch": 1.0011829123475124,
+      "bake_rtn": 0.9993412427211865
+    },
+    {
+      "block": 34,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 595872817,
+      "pdd_rel": 0.002529358912752467,
+      "merge_rtn": 0.012632775923897955,
+      "merge_stoch": 1.0004958390016556,
+      "bake_rtn": 0.999770301548537
+    },
+    {
+      "block": 34,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2903198674,
+      "pdd_rel": 0.0025600948247750544,
+      "merge_rtn": 0.00958946817579753,
+      "merge_stoch": 1.0002327772903294,
+      "bake_rtn": 0.9996938852875112
+    },
+    {
+      "block": 35,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 4068294399,
+      "pdd_rel": 0.0037211055175690754,
+      "merge_rtn": 0.2876371530678811,
+      "merge_stoch": 0.9999601436191635,
+      "bake_rtn": 1.0002850146500235
+    },
+    {
+      "block": 35,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2518246754,
+      "pdd_rel": 0.0023909243309519867,
+      "merge_rtn": 0.004997208447623213,
+      "merge_stoch": 1.0008961431407493,
+      "bake_rtn": 1.000873721452061
+    },
+    {
+      "block": 35,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2381110688,
+      "pdd_rel": 0.0026349896269578484,
+      "merge_rtn": 0.026471874912242697,
+      "merge_stoch": 1.0000649813400149,
+      "bake_rtn": 1.0002623602071063
+    },
+    {
+      "block": 35,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 56875587,
+      "pdd_rel": 0.0028989723929623698,
+      "merge_rtn": 0.03834820582215725,
+      "merge_stoch": 1.0000520312779613,
+      "bake_rtn": 1.00016841102534
+    },
+    {
+      "block": 36,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3406140351,
+      "pdd_rel": 0.0036933650840425946,
+      "merge_rtn": 0.2642362375647597,
+      "merge_stoch": 1.0001055745760163,
+      "bake_rtn": 0.999842562455533
+    },
+    {
+      "block": 36,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2942421026,
+      "pdd_rel": 0.0028982692233430426,
+      "merge_rtn": 0.03177678015911898,
+      "merge_stoch": 0.9999695768428264,
+      "bake_rtn": 1.0002806402295952
+    },
+    {
+      "block": 36,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2753849682,
+      "pdd_rel": 0.0024712432087193167,
+      "merge_rtn": 0.015055107862731213,
+      "merge_stoch": 0.9999634666067702,
+      "bake_rtn": 1.0004432634667977
+    },
+    {
+      "block": 36,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 715878065,
+      "pdd_rel": 0.0033119383167174317,
+      "merge_rtn": 0.11424701660139476,
+      "merge_stoch": 0.9997929924156956,
+      "bake_rtn": 0.9998945400824129
+    },
+    {
+      "block": 37,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3693999999,
+      "pdd_rel": 0.004100920726109392,
+      "merge_rtn": 0.35875217458759334,
+      "merge_stoch": 0.999938155774053,
+      "bake_rtn": 1.0004413564606467
+    },
+    {
+      "block": 37,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3091836130,
+      "pdd_rel": 0.0028609772683889164,
+      "merge_rtn": 0.021197743283638357,
+      "merge_stoch": 0.9997801521376204,
+      "bake_rtn": 1.0002980425481791
+    },
+    {
+      "block": 37,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 172816579,
+      "pdd_rel": 0.0028823856786336422,
+      "merge_rtn": 0.09650405229039172,
+      "merge_stoch": 0.9999772264719138,
+      "bake_rtn": 0.9996486317575773
+    },
+    {
+      "block": 37,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2227437344,
+      "pdd_rel": 0.0037903762240926718,
+      "merge_rtn": 0.19481706508585594,
+      "merge_stoch": 1.000529936641679,
+      "bake_rtn": 1.0004654881483093
+    },
+    {
+      "block": 38,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 12054335,
+      "pdd_rel": 0.005679548179026483,
+      "merge_rtn": 0.6551790060095365,
+      "merge_stoch": 0.9998111908608921,
+      "bake_rtn": 0.9997672669862327
+    },
+    {
+      "block": 38,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1691595938,
+      "pdd_rel": 0.0028763351072227865,
+      "merge_rtn": 0.02144955428812858,
+      "merge_stoch": 1.0000027775132962,
+      "bake_rtn": 0.9997042538457784
+    },
+    {
+      "block": 38,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2225512441,
+      "pdd_rel": 0.002495186562887864,
+      "merge_rtn": 0.04081058855897206,
+      "merge_stoch": 1.0005136744239376,
+      "bake_rtn": 0.9999838806029138
+    },
+    {
+      "block": 38,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 170498074,
+      "pdd_rel": 0.003364902081588974,
+      "merge_rtn": 0.12848090773333398,
+      "merge_stoch": 0.9995239706553134,
+      "bake_rtn": 1.0008755238540077
+    },
+    {
+      "block": 39,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 396332031,
+      "pdd_rel": 0.005333556585195999,
+      "merge_rtn": 0.6252051890713417,
+      "merge_stoch": 1.0002142222946402,
+      "bake_rtn": 0.9998537591587181
+    },
+    {
+      "block": 39,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 1945882722,
+      "pdd_rel": 0.0031994732031704527,
+      "merge_rtn": 0.06249179169929579,
+      "merge_stoch": 0.999401930498029,
+      "bake_rtn": 0.9994329025268212
+    },
+    {
+      "block": 39,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 718147176,
+      "pdd_rel": 0.002603706657030939,
+      "merge_rtn": 0.054656198925289994,
+      "merge_stoch": 0.9995747436711607,
+      "bake_rtn": 1.0006066454311204
+    },
+    {
+      "block": 39,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2755725707,
+      "pdd_rel": 0.0029111491557244303,
+      "merge_rtn": 0.0446959791156149,
+      "merge_stoch": 1.0005847270685992,
+      "bake_rtn": 1.000089555996866
+    },
+    {
+      "block": 40,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3477950865,
+      "pdd_rel": 0.003942964406769051,
+      "merge_rtn": 0.36818907859242817,
+      "merge_stoch": 0.9997097303687975,
+      "bake_rtn": 1.000474476875368
+    },
+    {
+      "block": 40,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2871593484,
+      "pdd_rel": 0.003161732707672808,
+      "merge_rtn": 0.04978625965990044,
+      "merge_stoch": 1.0004331913814417,
+      "bake_rtn": 0.9986492122341586
+    },
+    {
+      "block": 40,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 3609689341,
+      "pdd_rel": 0.002382337519112442,
+      "merge_rtn": 0.028789962901239724,
+      "merge_stoch": 1.0003094516112132,
+      "bake_rtn": 1.000168939808542
+    },
+    {
+      "block": 40,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 1504213790,
+      "pdd_rel": 0.0032465117031140415,
+      "merge_rtn": 0.08532621753543768,
+      "merge_stoch": 0.9995389507701997,
+      "bake_rtn": 1.0001273223215035
+    },
+    {
+      "block": 41,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3630511441,
+      "pdd_rel": 0.004401464473018026,
+      "merge_rtn": 0.48397508731986877,
+      "merge_stoch": 1.000033361780249,
+      "bake_rtn": 0.999609009951786
+    },
+    {
+      "block": 41,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3154210508,
+      "pdd_rel": 0.003220441457457488,
+      "merge_rtn": 0.06908291860786295,
+      "merge_stoch": 1.0002088873534603,
+      "bake_rtn": 0.9998421869536042
+    },
+    {
+      "block": 41,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2035281260,
+      "pdd_rel": 0.0025421248320001712,
+      "merge_rtn": 0.07065989439231868,
+      "merge_stoch": 1.0001986415582085,
+      "bake_rtn": 1.0002450222971384
+    },
+    {
+      "block": 41,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 4156615311,
+      "pdd_rel": 0.0034499231492711798,
+      "merge_rtn": 0.10239054569618439,
+      "merge_stoch": 0.9999787912517527,
+      "bake_rtn": 1.0000851800465256
+    },
+    {
+      "block": 42,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3776813073,
+      "pdd_rel": 0.005093190139584478,
+      "merge_rtn": 0.6093049720004651,
+      "merge_stoch": 1.0001883611124647,
+      "bake_rtn": 1.0001034796591206
+    },
+    {
+      "block": 42,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2239349644,
+      "pdd_rel": 0.0031990418004846748,
+      "merge_rtn": 0.07462556025601906,
+      "merge_stoch": 0.9995121145624069,
+      "bake_rtn": 0.9998516693902288
+    },
+    {
+      "block": 42,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 1351047582,
+      "pdd_rel": 0.002754605343438813,
+      "merge_rtn": 0.1251914113959385,
+      "merge_stoch": 0.9991697170037775,
+      "bake_rtn": 1.000040153257944
+    },
+    {
+      "block": 42,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 3725090429,
+      "pdd_rel": 0.003112891602512571,
+      "merge_rtn": 0.08735775105262822,
+      "merge_stoch": 1.0003402641285282,
+      "bake_rtn": 0.9994592314014576
+    },
+    {
+      "block": 43,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 4130733265,
+      "pdd_rel": 0.0065079744413142964,
+      "merge_rtn": 0.7568509866253498,
+      "merge_stoch": 1.0001894195188874,
+      "bake_rtn": 1.0000823765150884
+    },
+    {
+      "block": 43,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 2454824780,
+      "pdd_rel": 0.0032712946741250476,
+      "merge_rtn": 0.09604722051423818,
+      "merge_stoch": 0.9983734835467286,
+      "bake_rtn": 1.0004707492461176
+    },
+    {
+      "block": 43,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 4277127183,
+      "pdd_rel": 0.0036534813340231265,
+      "merge_rtn": 0.31391017920686776,
+      "merge_stoch": 1.0001616896897503,
+      "bake_rtn": 0.9997345821301167
+    },
+    {
+      "block": 43,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 1885392876,
+      "pdd_rel": 0.0038323044056626713,
+      "merge_rtn": 0.19193783251314595,
+      "merge_stoch": 0.9996696850707233,
+      "bake_rtn": 1.0001466262819183
+    },
+    {
+      "block": 44,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2481767057,
+      "pdd_rel": 0.0052627473744343446,
+      "merge_rtn": 0.6165419507339945,
+      "merge_stoch": 0.9999213041969937,
+      "bake_rtn": 1.0001417486320916
+    },
+    {
+      "block": 44,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 4152924428,
+      "pdd_rel": 0.0026264326003210842,
+      "merge_rtn": 0.03831196213351499,
+      "merge_stoch": 1.0003500414982687,
+      "bake_rtn": 0.9996803658001744
+    },
+    {
+      "block": 44,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 51785850,
+      "pdd_rel": 0.0027893263047210843,
+      "merge_rtn": 0.1349533245644115,
+      "merge_stoch": 1.000664403963864,
+      "bake_rtn": 0.9995825060706647
+    },
+    {
+      "block": 44,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2375628697,
+      "pdd_rel": 0.0034495254060487564,
+      "merge_rtn": 0.1449367250520952,
+      "merge_stoch": 1.0001506712615373,
+      "bake_rtn": 0.9998291932069212
+    },
+    {
+      "block": 45,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2227480145,
+      "pdd_rel": 0.00479142401685539,
+      "merge_rtn": 0.5758659251353411,
+      "merge_stoch": 0.999889440379506,
+      "bake_rtn": 0.9997567363054095
+    },
+    {
+      "block": 45,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3768647116,
+      "pdd_rel": 0.0027379027100636337,
+      "merge_rtn": 0.05236331992031712,
+      "merge_stoch": 0.9995328537837506,
+      "bake_rtn": 0.9998701628737015
+    },
+    {
+      "block": 45,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2910757355,
+      "pdd_rel": 0.0034057343599491205,
+      "merge_rtn": 0.2867081384765711,
+      "merge_stoch": 0.9996701139939942,
+      "bake_rtn": 0.9996271641343291
+    },
+    {
+      "block": 45,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 603039240,
+      "pdd_rel": 0.0033059709245167913,
+      "merge_rtn": 0.09743557098251938,
+      "merge_stoch": 0.9997553672032875,
+      "bake_rtn": 0.9998239537951699
+    },
+    {
+      "block": 46,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 3183217425,
+      "pdd_rel": 0.0050093731833650325,
+      "merge_rtn": 0.6150162656492237,
+      "merge_stoch": 0.9999509006356736,
+      "bake_rtn": 1.0001423391932895
+    },
+    {
+      "block": 46,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3654832268,
+      "pdd_rel": 0.002836728159395469,
+      "merge_rtn": 0.06389913892868195,
+      "merge_stoch": 1.0000618425422134,
+      "bake_rtn": 1.0004845459445435
+    },
+    {
+      "block": 46,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2226525465,
+      "pdd_rel": 0.003049764131806523,
+      "merge_rtn": 0.2555910568304974,
+      "merge_stoch": 1.000316510848572,
+      "bake_rtn": 1.0000940944068069
+    },
+    {
+      "block": 46,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 171512570,
+      "pdd_rel": 0.005106855948355738,
+      "merge_rtn": 0.3459658223316764,
+      "merge_stoch": 0.9999780085742509,
+      "bake_rtn": 1.0001578173798495
+    },
+    {
+      "block": 47,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 2861854673,
+      "pdd_rel": 0.0050870051357193,
+      "merge_rtn": 0.6473650533592582,
+      "merge_stoch": 0.9994631882128912,
+      "bake_rtn": 0.9998590716908079
+    },
+    {
+      "block": 47,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 3471848524,
+      "pdd_rel": 0.0029526167565571172,
+      "merge_rtn": 0.08704964187247383,
+      "merge_stoch": 1.0004102659540561,
+      "bake_rtn": 0.9998364987415832
+    },
+    {
+      "block": 47,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 719225992,
+      "pdd_rel": 0.0028922736792957693,
+      "merge_rtn": 0.31840723405592725,
+      "merge_stoch": 0.9999673434677712,
+      "bake_rtn": 1.0003753416923788
+    },
+    {
+      "block": 47,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2756805483,
+      "pdd_rel": 0.006130821391390485,
+      "merge_rtn": 0.5321572615285255,
+      "merge_stoch": 0.9996049224731153,
+      "bake_rtn": 1.00002878121998
+    },
+    {
+      "block": 48,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1980659601,
+      "pdd_rel": 0.006531341541136279,
+      "merge_rtn": 0.7919748008991464,
+      "merge_stoch": 0.9999106175766354,
+      "bake_rtn": 1.000168856781482
+    },
+    {
+      "block": 48,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 308947980,
+      "pdd_rel": 0.0030894618521059426,
+      "merge_rtn": 0.16604581357571566,
+      "merge_stoch": 0.9995132634949135,
+      "bake_rtn": 1.001182228617023
+    },
+    {
+      "block": 48,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 2754929586,
+      "pdd_rel": 0.005980655700417711,
+      "merge_rtn": 0.7079878066696539,
+      "merge_stoch": 1.0000090086895181,
+      "bake_rtn": 1.0002158721419454
+    },
+    {
+      "block": 48,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 716956753,
+      "pdd_rel": 0.004827738892477444,
+      "merge_rtn": 0.3384261899533151,
+      "merge_stoch": 1.0002784152048765,
+      "bake_rtn": 0.9997012966995121
+    },
+    {
+      "block": 49,
+      "kind": "attn.qkv_proj",
+      "groupsize": 256,
+      "seed": 1629885265,
+      "pdd_rel": 0.008338701511148154,
+      "merge_rtn": 0.8525134367574569,
+      "merge_stoch": 0.999933528960696,
+      "bake_rtn": 1.0000037246438378
+    },
+    {
+      "block": 49,
+      "kind": "attn.out_proj",
+      "groupsize": 256,
+      "seed": 88230092,
+      "pdd_rel": 0.0035299039628971696,
+      "merge_rtn": 0.1271147904486896,
+      "merge_stoch": 0.9993626034941969,
+      "bake_rtn": 1.0001444395876045
+    },
+    {
+      "block": 49,
+      "kind": "mlp.fc1",
+      "groupsize": 256,
+      "seed": 173830691,
+      "pdd_rel": 0.013079728252457535,
+      "merge_rtn": 0.9259041806550916,
+      "merge_stoch": 0.9998340625062729,
+      "bake_rtn": 1.000111069817302
+    },
+    {
+      "block": 49,
+      "kind": "mlp.fc2",
+      "groupsize": 256,
+      "seed": 2228450752,
+      "pdd_rel": 0.04430982892411332,
+      "merge_rtn": 0.9953007253614223,
+      "merge_stoch": 0.9999980310945399,
+      "bake_rtn": 0.9999365241578254
+    }
+  ],
+  "reproduce": "python bench/measure_bake_realisation.py --lora <lora> --base <base> --reference <release>/FL2VA/transformer --out <out>"
+}

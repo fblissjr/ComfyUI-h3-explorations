@@ -28,6 +28,7 @@ bf16 Qwen3-VL.
 
 | lever | what it changes | status | needs |
 |---|---|---|---|
+| **offline bake from the release** | quantises `W_release + dW` ONCE, so the merge's second rounding never happens | **measured on the weight side, and it is the only lever that is not denominator-dependent** (§7). Nothing built, nothing rendered | a converter, a declared bake strength the node refuses to contradict, and a render |
 | **`unmerged_blocks`** | applies a LoRA at the call so the base weight is never requantised | **ships today**, off by default | a decision on whether it matters at the output |
 | ~~deterministic merge~~ | ~~replaces the merge path's stochastic rounding with round-to-nearest~~ | **WITHDRAWN 2026-08-31, hours after it was written** — it makes things worse, see §2 | — |
 | **`convrot_groupsize` 1024** | a wider Hadamard, spreading outliers further before rounding | **measured on the weight side**, and it is one module kind | a CPU requant of 50 tensors, and a timing arm |
@@ -35,6 +36,13 @@ bf16 Qwen3-VL.
 | **SmoothQuant via `pre_quant_scale`** | migrates activation outliers into the weight | **reachable on ordinary linears, INERT on `mlp.fc2`** (§3), gated on #23 | the scale as a module attribute (`add_object_patch` → `comfy.utils.set_attr`) **plus** a rebaked weight, **plus** a route into the fused fc2 helper |
 | **GPTQ rounding** | picks int8 values minimising `‖(W−Ŵ)X‖` rather than `‖W−Ŵ‖` | not started | Hessians, and a reason to believe it transfers from LLMs to a DiT |
 | channel permutation | permuting `fc1`'s output rows and `fc2`'s input columns identically — an exact-equivalence transform that changes which channels share a rotation group | **cannot be assessed from what is recorded** | a capture that keeps per-channel structure instead of a median |
+
+**On the bake row, because the reason it is not already built is stale.** The
+bake was DEPRIORITISED by the owner on 2026-08-28, when the blocker was
+believed to be loss on the bake side; `../h3_pdd.md` then measured that the
+loss is on the run-time side instead and the priority was never revisited.
+**The owner's position on 2026-08-31 is that a decision that old does not bind
+this lane.** So the row above is open work, not a settled no.
 
 **Closed. Do not revisit:**
 
@@ -441,6 +449,95 @@ vectors; it is cheap (in_features floats per module) and the shapes match what
 
 ---
 
+## 7. The +11.6% is measured in a rounding regime the shipped path does not use
+
+**Measured 2026-08-31**, `bench/measure_merge_rounding_regimes.py` →
+[`../../bench/results/2026-08-31_merge_rounding_regimes.json`](../../bench/results/2026-08-31_merge_rounding_regimes.json),
+all 200 int8 modules of `fl2va` at strength 1.0, against the BF16 release.
+
+The headline this lane quotes -- **+11.6%** on stored-weight error against the
+release -- comes from `bench/measure_pdd_quant_interaction.py`, whose own
+record says `"rounding": "deterministic; the shipped path uses seeded
+stochastic rounding, so these are its expectation"`. **That parenthetical is
+doing more work than it looks, and it is wrong in a specific way.**
+
+Round-to-nearest is the expectation of the **WEIGHT** under stochastic
+rounding — `E[Q_s(x)] = x`, which is exactly why the deterministic-merge lever
+was withdrawn in §2b. It is **not** the expectation of the **ERROR**:
+`E‖Q_s(x) − x‖ > ‖Q_rtn(x) − x‖`, by the √2 §2 measured. So the RTN column
+cannot stand in for the shipped path on a distance statistic, which is what
+every figure in this lane is.
+
+| arm | mean `e` vs `W_ref + d` | inflation over base | `realised_along_d` |
+|---|---|---|---|
+| base int8, no LoRA | 0.009362 | 1.0000 | — |
+| merged, round-to-nearest — **the published +11.6%** | 0.010452 | **1.1164** | 0.341 mean, 0.0043 min, 196/200 under 0.9 |
+| merged, seeded stochastic — **what ships** | 0.013150 | **1.4046** | 1.0000, min 0.9984 |
+| baked offline from the release, once | 0.009362 | **1.0000019** | 1.0000, min 0.9986 |
+
+**So the shipped merge costs about +40%, not +11.6%**, and the gap it opens is
+**3.48x** the gap the published number describes. It is worse on **200 of 200**
+modules, per kind from 1.377x (`out_proj`) to 1.462x (`qkv_proj`), per module
+from 1.247x to 1.619x. The mean sits just under √2 (1.405 against 1.414),
+which is what it should be: requantising from float REPLACES the base's
+rounding rather than adding to it, so the merged weight carries one fresh
+stochastic rounding of `W_ref + d` and inherits nothing.
+
+**Both numbers are real and they decompose.** +11.6% is the SYSTEMATIC part —
+where the merged weight sits once the rounding noise is averaged out. The
+shipped path adds unbiased noise on top of that, taking it to +40%. Quote
+whichever answers the question, and say which: "how far has the merged weight
+moved" is +40%, "how far would it move if rounding were free" is +11.6%.
+
+### The bake is the only lever here that is not denominator-dependent
+
+Three statistics have now ranked the arms three different ways in this lane
+(§2b, §2c and the correction under it), which is why the fourth column above
+is there rather than a distance alone. `realised_along_d` is the statistic that
+reversed the deterministic-merge lever, and it is the one to check before
+believing any arm that wins on distance:
+`bench/measure_bake_realisation.py` →
+[`../../bench/results/2026-08-31_bake_realisation.json`](../../bench/results/2026-08-31_bake_realisation.json),
+same 200 modules, each arm against its OWN no-LoRA baseline.
+
+**The bake ties the shipped path on delivery and beats it on distance.** It
+realises 1.0000 (min 0.9986 — nothing hides in the tail) while landing at the
+base checkpoint's own error to seven digits. RTN merging is the arm that wins
+on distance by discarding: 0.341 mean realised, 0.0043 on its worst module.
+**That is the first thing in this lane that is not a denominator argument**,
+and it is the reason the bake sits at the top of the inventory.
+
+**The mechanism, because it explains why merging and baking differ at all.** A
+merge starts from `W_q`, which is already ON the int8 grid, so a delta below
+one quantisation step rounds straight back to the same codes. A bake starts
+from `W_release`, which is OFF the grid, so the delta shifts where the rounding
+lands and survives in the codes.
+
+### What this section does NOT establish
+
+- **That the shipped path should change to RTN.** It should not; §2b withdrew
+  that and this strengthens the withdrawal, because RTN buys its lower distance
+  by not delivering the update.
+- **Anything at the output.** Stored weights, no render, and the noise is
+  unbiased and random-direction. A 40% inflation on a 0.94% error is still a
+  1.3% error.
+- **That a single stochastic figure anywhere is the value a GPU load
+  produces.** `cross_backend` in the record: `comfy_kitchen`'s registry
+  resolves `quantize_int8_convrot_weight` to the eager implementation on CPU
+  and a CUDA one on GPU, and on the same seed they draw DIFFERENT noise — about
+  a third of the codes differ by one step — while agreeing on magnitude to
+  1.0e-04 and both landing at √2 of RTN (1.41412 and 1.41426). **The means
+  above are the shipped path's; a single module's stochastic value is one draw
+  from it.** Checked rather than assumed, under `CLAUDE.md`'s rule that an
+  assumption which has only ever met one implementation is not a tested one.
+- **Any doubt about the published RTN numbers.** A second implementation
+  reproduces `e_shipped`, `e_patched` and `e_baked_from_release` **bit-identically**
+  (all three equal to the last digit of a float64 repr), and the two
+  independent RTN bodies of code agree elementwise to 0.0. The regime was
+  mislabelled; the arithmetic was not.
+
+---
+
 ## What follows
 
 1. **#23 first, before any rebake.** Everything above is one of two roundings.
@@ -452,6 +549,15 @@ vectors; it is cheap (in_features floats per module) and the shapes match what
    question is which LoRAs it helps most, since the loss scales with how small
    the delta is against one int8 step.
 3. **The permutation lever needs a capture that keeps its shape.**
+4. **Quote +40%, not +11.6%, for what the shipped merge costs** (§7), and say
+   which regime any figure came from. The published RTN numbers are correct and
+   reproduce bit-identically; they are the systematic half.
+5. **The bake is the lever to build next, and it is not gated on #23.** It wins
+   on both statistics rather than trading them (§7), reaches all 200 modules
+   where `unmerged_blocks` reaches 150, and costs nothing at run time. What it
+   needs is a converter, a declared bake strength the node refuses to
+   contradict, and a render — `../h3_pdd.md` has the contract and the two
+   footguns.
 
 ## See also
 
