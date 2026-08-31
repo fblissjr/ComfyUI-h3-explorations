@@ -52,11 +52,11 @@ dirty flag). Three harness commits exist since the readiness record's
 
 Reports, all under `bench/results/`:
 
-- [`2026-08-25_gate2a_abort_control.json`](../../../../../bench/results/2026-08-25_gate2a_abort_control.json)
-- [`2026-08-25_gate2a_primary_escalation.json`](../../../../../bench/results/2026-08-25_gate2a_primary_escalation.json)
-- [`2026-08-25_gate2a_stress_2048.json`](../../../../../bench/results/2026-08-25_gate2a_stress_2048.json)
-- [`2026-08-25_sdpa_backend_selection_primary.json`](../../../../../bench/results/2026-08-25_sdpa_backend_selection_primary.json)
-- [`2026-08-25_sdpa_backend_selection_stress.json`](../../../../../bench/results/2026-08-25_sdpa_backend_selection_stress.json)
+- [`2026-08-25_gate2a_abort_control.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_gate2a_abort_control.json)
+- [`2026-08-25_gate2a_primary_escalation.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_gate2a_primary_escalation.json)
+- [`2026-08-25_gate2a_stress_2048.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_gate2a_stress_2048.json)
+- [`2026-08-25_sdpa_backend_selection_primary.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_sdpa_backend_selection_primary.json)
+- [`2026-08-25_sdpa_backend_selection_stress.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_sdpa_backend_selection_stress.json)
 
 Producers: [`pilot_sequential_feasibility.py`](../../../../../bench/pilot_sequential_feasibility.py),
 [`probe_sdpa_backend_selection.py`](../../../../../bench/probe_sdpa_backend_selection.py),

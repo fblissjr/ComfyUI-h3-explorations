@@ -95,8 +95,8 @@ therefore dominated by visual-row share and is not a reliable wrong-layer
 control unless results are split by position class.
 
 - [`compare_transformers_comfy_layer50.py`](../../../../bench/compare_transformers_comfy_layer50.py)
-- [`2026-08-24_crossstack_layer50_mixed.json`](../../../../bench/results/2026-08-24_crossstack_layer50_mixed.json)
-- [`2026-08-24_crossstack_layer50_controls.json`](../../../../bench/results/2026-08-24_crossstack_layer50_controls.json)
+- [`2026-08-24_crossstack_layer50_mixed.json`](../../../../bench/results/archive/v2_encoder/2026-08-24_crossstack_layer50_mixed.json)
+- [`2026-08-24_crossstack_layer50_controls.json`](../../../../bench/results/archive/v2_encoder/2026-08-24_crossstack_layer50_controls.json)
 
 This narrowed the earlier conclusion rather than retracting it. The two
 implementations agree closely when their precision configuration is matched;
@@ -150,10 +150,10 @@ The stable evidence is grouped by fixture:
 
 | fixture | interpolation | vision/DeepStack | layer 49 |
 |---|---|---|---|
-| single image | [position](../../../../bench/results/2026-08-24_gate1b_position_single_image.json) | [vision](../../../../bench/results/2026-08-24_gate1b_vision_single_image.json) | [layer 49](../../../../bench/results/2026-08-24_gate1b_layer49_single_image.json) |
-| multi-image | [position](../../../../bench/results/2026-08-24_gate1b_position_multi_image.json) | [vision](../../../../bench/results/2026-08-24_gate1b_vision_multi_image.json) | [layer 49](../../../../bench/results/2026-08-24_gate1b_layer49_multi_image.json) |
-| keyframe | [position](../../../../bench/results/2026-08-24_gate1b_position_keyframe_only.json) | [vision](../../../../bench/results/2026-08-24_gate1b_vision_keyframe_only.json) | [layer 49](../../../../bench/results/2026-08-24_gate1b_layer49_keyframe_only.json) |
-| mixed keyframe/reference | [position](../../../../bench/results/2026-08-24_gate1b_position_mixed_keyframe_reference.json) | [vision](../../../../bench/results/2026-08-24_gate1b_vision_mixed_keyframe_reference.json) | [layer 49](../../../../bench/results/2026-08-24_gate1b_layer49_mixed_keyframe_reference.json) |
+| single image | [position](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_position_single_image.json) | [vision](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_vision_single_image.json) | [layer 49](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_layer49_single_image.json) |
+| multi-image | [position](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_position_multi_image.json) | [vision](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_vision_multi_image.json) | [layer 49](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_layer49_multi_image.json) |
+| keyframe | [position](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_position_keyframe_only.json) | [vision](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_vision_keyframe_only.json) | [layer 49](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_layer49_keyframe_only.json) |
+| mixed keyframe/reference | [position](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_position_mixed_keyframe_reference.json) | [vision](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_vision_mixed_keyframe_reference.json) | [layer 49](../../../../bench/results/archive/v2_encoder/2026-08-24_gate1b_layer49_mixed_keyframe_reference.json) |
 
 ## Decision and limits
 

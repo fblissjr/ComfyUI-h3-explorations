@@ -68,7 +68,7 @@ must be queried at the real tensor shape and causal mode. The artifact labels
 that arm `auto`, not as a named fused kernel. Earlier long-fixture memory and
 timing behavior remains a resource observation, not backend attribution.
 
-- [`2026-08-24_effective_mask_equivalence.json`](../../../../bench/results/2026-08-24_effective_mask_equivalence.json)
+- [`2026-08-24_effective_mask_equivalence.json`](../../../../bench/results/archive/v2_encoder/2026-08-24_effective_mask_equivalence.json)
 
 **DECISION.** Keep the raw attention mask and its hash in the presentation
 record. Before the effective calibration batch is built, assert that every

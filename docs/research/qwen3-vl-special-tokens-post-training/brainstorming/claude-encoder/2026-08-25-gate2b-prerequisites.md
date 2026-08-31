@@ -107,10 +107,10 @@ math on both sides:
 | keyframe 48x84 | 2,007 | 0.0 / 0.0 / 0.0 | yes |
 | mixed 84x48 + 22x22 | 1,746 | 0.0 / 0.0 / 0.0 | yes |
 
-- [`2026-08-25_storage_axis_layer49_single_image.json`](../../../../../bench/results/2026-08-25_storage_axis_layer49_single_image.json)
-- [`2026-08-25_storage_axis_layer49_multi_image.json`](../../../../../bench/results/2026-08-25_storage_axis_layer49_multi_image.json)
-- [`2026-08-25_storage_axis_layer49_keyframe_only.json`](../../../../../bench/results/2026-08-25_storage_axis_layer49_keyframe_only.json)
-- [`2026-08-25_storage_axis_layer49_mixed_keyframe_reference.json`](../../../../../bench/results/2026-08-25_storage_axis_layer49_mixed_keyframe_reference.json)
+- [`2026-08-25_storage_axis_layer49_single_image.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_storage_axis_layer49_single_image.json)
+- [`2026-08-25_storage_axis_layer49_multi_image.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_storage_axis_layer49_multi_image.json)
+- [`2026-08-25_storage_axis_layer49_keyframe_only.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_storage_axis_layer49_keyframe_only.json)
+- [`2026-08-25_storage_axis_layer49_mixed_keyframe_reference.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_storage_axis_layer49_mixed_keyframe_reference.json)
 
 Because the arm is bit-identical to `comfy_exact`, it inherits the accepted
 Gate 1B residuals against deployed ComfyUI exactly; the kernel-axis files below
@@ -119,7 +119,7 @@ reproduce them (5.9e-2, 4.7e-4, 2.9e-3, 5.1e-2 on vision rows).
 ### Through the bridge
 
 **MEASURED**, primary escalation, grouped-query math held fixed
-([`2026-08-25_gate2a_primary_bf16_store.json`](../../../../../bench/results/2026-08-25_gate2a_primary_bf16_store.json)),
+([`2026-08-25_gate2a_primary_bf16_store.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_gate2a_primary_bf16_store.json)),
 beside the FP32-resident record:
 
 | | FP32 storage | BF16 storage, FP32 compute |
@@ -195,8 +195,8 @@ Read across the rows:
 ### Early-tap control: compounding, measured
 
 The same four arms at decoder layers 0 and 24 on the two sensitive fixtures
-([`2026-08-25_kernel_axis_tap24_single_image.json`](../../../../../bench/results/2026-08-25_kernel_axis_tap24_single_image.json),
-[`2026-08-25_kernel_axis_tap24_mixed_keyframe_reference.json`](../../../../../bench/results/2026-08-25_kernel_axis_tap24_mixed_keyframe_reference.json),
+([`2026-08-25_kernel_axis_tap24_single_image.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_kernel_axis_tap24_single_image.json),
+[`2026-08-25_kernel_axis_tap24_mixed_keyframe_reference.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_kernel_axis_tap24_mixed_keyframe_reference.json),
 and the `tap0` pair).
 
 **MEASURED**, relative L2 on vision rows against ComfyUI:
@@ -254,8 +254,8 @@ efficient for the expanded shape):
 | primary | 5 | 25,250 | 10,358 | **completed** | 6.44 / 7.73 | 3.94 / 3.36 | 118.2 | 650 | 116.1 |
 | stress | 2 | 10,081 | 8,981 | **completed** | 5.68 / 6.77 | 3.46 / 2.91 | 119.0 | 260 | 53.6 |
 
-- [`2026-08-25_gate2a_primary_bf16_store_expanded_kv.json`](../../../../../bench/results/2026-08-25_gate2a_primary_bf16_store_expanded_kv.json)
-- [`2026-08-25_gate2a_stress_bf16_store_expanded_kv.json`](../../../../../bench/results/2026-08-25_gate2a_stress_bf16_store_expanded_kv.json)
+- [`2026-08-25_gate2a_primary_bf16_store_expanded_kv.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_gate2a_primary_bf16_store_expanded_kv.json)
+- [`2026-08-25_gate2a_stress_bf16_store_expanded_kv.json`](../../../../../bench/results/archive/v2_encoder/2026-08-25_gate2a_stress_bf16_store_expanded_kv.json)
 
 The 10,358-token row's warm transient is 3.4 GiB where the math path would
 allocate a 25.6 GiB logit tensor; the expansion's own cost (eight KV heads

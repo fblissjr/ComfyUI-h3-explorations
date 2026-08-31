@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.6
+
+### Changed
+
+- **`bench/results/` is archived by closed lane, not by date, and the date
+  cutoff that prompted it was refuted by measurement.** The proposal was to move
+  everything before 2026-08-26. Mapping every result filename against the files
+  that cite it showed that axis is close to orthogonal to liveness: most
+  pre-cutoff results were cited by tracked code or docs -- several by checks
+  that read them at runtime -- while ten post-cutoff results were cited by
+  nothing. A flat cutoff would have broken the majority of what it moved and
+  stranded the dead files it left behind.
+- Three closed lanes moved to `bench/results/archive/`, each with a README
+  saying what closed it and what superseded it: the v2 text-encoder calibration
+  lane (rejected at Gate 5, closed 2026-08-27; `h3_config.MODELS["clip"]` is the
+  artifact of record), the finished LoRA and DiT file-comparison survey, and the
+  parked single-frame image swap. Citations that pointed at a moved file were
+  rewritten to its new path in the same commit; `bench/check_doc_links.py` is
+  what proves it landed.
+- Deliberately left in place, because absence of a citation is not evidence a
+  record is dead: raw arm records backing verdicts `docs/evidence.md` and
+  `docs/SOLATTN.md` still cite, the `_sla` and `_v11` variants (the SLA router
+  graph is live), the reference-view occupancy measurement (that ablation is an
+  open experiment), and everything from the currently active PDD, marker and
+  audio lanes. `bench/results/archive/README.md` carries the rule and the
+  exclusions.
+
 ## 0.99.5
 
 ### Added

@@ -70,8 +70,8 @@ The direction was consistent per image:
 
 Evidence:
 
-- [`current real-image comparison`](../../../../bench/results/2026-08-24_layer50_bf16_vs_w4_current_real3.json)
-- [`release-bounds real-image comparison`](../../../../bench/results/2026-08-24_layer50_bf16_vs_w4_release_bounds_real3.json)
+- [`current real-image comparison`](../../../../bench/results/archive/v2_encoder/2026-08-24_layer50_bf16_vs_w4_current_real3.json)
+- [`release-bounds real-image comparison`](../../../../bench/results/archive/v2_encoder/2026-08-24_layer50_bf16_vs_w4_release_bounds_real3.json)
 
 **INTERPRETATION.** More source detail reaches Qwen under the wider budget, but
 the current W4 language weights track BF16 substantially less closely on that
@@ -86,8 +86,8 @@ under `max` with upscaling off, moved from 264 to 2,040 merged visual tokens.
 Vision cosine changed from 0.999298 to 0.926524 and vision relative L2 from
 0.109391 to 0.397593. The direction agrees with all three real images.
 
-- [`current 1080p controlled comparison`](../../../../bench/results/2026-08-24_layer50_bf16_vs_w4_current_1080p_max.json)
-- [`release-bounds 1080p controlled comparison`](../../../../bench/results/2026-08-24_layer50_bf16_vs_w4_release_bounds_1080p_max.json)
+- [`current 1080p controlled comparison`](../../../../bench/results/archive/v2_encoder/2026-08-24_layer50_bf16_vs_w4_current_1080p_max.json)
+- [`release-bounds 1080p controlled comparison`](../../../../bench/results/archive/v2_encoder/2026-08-24_layer50_bf16_vs_w4_release_bounds_1080p_max.json)
 
 **MEASURED.** A separate vendor-upscale stress fixture used a 3648x2048
 reference. It moved from 264 to 7,296 merged visual tokens. Its flattened
@@ -96,8 +96,8 @@ was 0.921369 versus 0.933595, while the vision tokenwise cosine mean fell from
 0.979722 to 0.962720 and its low tail worsened. This is why one synthetic
 fixture was not used to decide the serving policy.
 
-- [`current 2048-upscale stress comparison`](../../../../bench/results/2026-08-24_layer50_bf16_vs_w4_current_single_ref.json)
-- [`release-bounds 2048-upscale stress comparison`](../../../../bench/results/2026-08-24_layer50_bf16_vs_w4_release_bounds_single_ref.json)
+- [`current 2048-upscale stress comparison`](../../../../bench/results/archive/v2_encoder/2026-08-24_layer50_bf16_vs_w4_current_single_ref.json)
+- [`release-bounds 2048-upscale stress comparison`](../../../../bench/results/archive/v2_encoder/2026-08-24_layer50_bf16_vs_w4_release_bounds_single_ref.json)
 
 **MEASURED.** Under the current artifact policy, the original controlled
 six-family substrate produced aggregate cosine 0.989304. Text rows were
@@ -106,7 +106,7 @@ the weakest family at 0.943023 overall and 0.921021 on vision rows. This is the
 first numerical BF16-versus-current-W4 layer-50 baseline; it is not a corpus
 estimate.
 
-- [`current-policy controlled-family comparison`](../../../../bench/results/2026-08-24_layer50_bf16_vs_w4_current_controlled.json)
+- [`current-policy controlled-family comparison`](../../../../bench/results/archive/v2_encoder/2026-08-24_layer50_bf16_vs_w4_current_controlled.json)
 
 ## Feasibility observation
 

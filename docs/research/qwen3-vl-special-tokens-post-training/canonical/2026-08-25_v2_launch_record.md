@@ -18,7 +18,7 @@ was large.
 
 The cost had been visible in the Gate 2B arms and was not read as a budget:
 peak RSS 65.97 GiB at 1,100 tokens and 68.54 GiB at 8,703 with the weights
-resident at 63.9 (`bench/results/2026-08-25_gate2b_row1_expanded_kv.json`,
+resident at 63.9 (`bench/results/archive/v2_encoder/2026-08-25_gate2b_row1_expanded_kv.json`,
 `..._rows3_expanded_kv.json`). A 2-decoder-layer probe on the first 8 bundle
 rows pinned it at scale: **110,331 tokens peaked at 50.8 GiB with only the
 2-layer model resident, about 428 KB of host per population token**, of which
@@ -275,7 +275,7 @@ closed, so the artifact does not carry its recipe. The run record
 (`bench/results/2026-08-25_v2_calibration_run.json`) does, and is the
 provenance until the emit path is fixed. Both go to the next point.
 
-**Overfit test, MEASURED 18:25** (`bench/results/2026-08-25_v2_calibration_rows_layer50.json`,
+**Overfit test, MEASURED 18:25** (`bench/results/archive/v2_encoder/2026-08-25_v2_calibration_rows_layer50.json`,
 same comparator, v2's own 29 calibration rows): v2's median relative L2 is
 11% below v1's there (0.336 vs 0.378; better on 18 of 29 rows, text 24 of
 29) against 7% above it on the unseen holdout. Reading, stated before the
