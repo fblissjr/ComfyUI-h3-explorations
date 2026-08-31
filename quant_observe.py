@@ -103,9 +103,12 @@ def make_mlp_forward(mlp, block: int):
         dit_observe.record(block, "mlp.fc1", x)
         h = mlp.fc1(x)
         try:
-            act = comfy.ops.INPUT_ACT_EAGER["swiglu"](h)
-            dit_observe.record(block, "mlp.fc2", act)
-            del act
+            # The swiglu is handed to the recorder as a PER-CHUNK transform,
+            # never applied to the whole activation: `INPUT_ACT_EAGER["swiglu"]`
+            # returns a new tensor, and at production geometry that is 2.79 GiB
+            # -- the allocation `linear_input_act`'s fusion exists to avoid.
+            dit_observe.record(block, "mlp.fc2", h,
+                               transform=comfy.ops.INPUT_ACT_EAGER["swiglu"])
         except Exception as exc:                     # noqa: BLE001
             # Recorded, never swallowed: a missing fc2 is the exact failure
             # `_shape_check` exists to catch, so it must reach the record.
@@ -125,7 +128,14 @@ def make_outer_forward(base_forward, expect_blocks: int, capture_id: str):
     """
     def forward(x, timestep, context, transformer_options={}, *a, **kw):
         try:
-            sig = float(timestep.flatten()[0]) if timestep is not None else None
+            # `timestep` is on the 0..1000 scale; core converts with
+            # `sigma_v = timestep.flatten()[0] / 1000.0`
+            # (`comfy/ldm/minimax/model.py:561`). Comparing the raw value
+            # against `sample_sigmas`, which are 0..1, made every step label
+            # the argmin of ~1000 against ~1.0 -- i.e. the same entry every
+            # time. Corrected 2026-08-31 before it ran.
+            raw = float(timestep.flatten()[0]) if timestep is not None else None
+            sig = None if raw is None else raw / 1000.0
             sched = transformer_options.get("sample_sigmas")
             step = None
             if sched is not None and sig is not None:
@@ -135,7 +145,7 @@ def make_outer_forward(base_forward, expect_blocks: int, capture_id: str):
             layout = payload.get("layout") if isinstance(payload, dict) else None
             segs = getattr(layout, "segments", None)
             dit_observe.set_context(
-                capture_id=capture_id, step=step, sigma=sig,
+                capture_id=capture_id, step=step, sigma=sig, timestep_raw=raw,
                 # The schedule itself rather than a derived knot index: the
                 # grid mapping belongs to the PDD tracker, and re-deriving it
                 # here would be a second authority that can disagree. Recorded

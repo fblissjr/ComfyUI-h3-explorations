@@ -185,6 +185,86 @@ def main() -> int:
             "not measuring what it claims")
 
 
+
+    def fc2_does_not_materialise_the_activation():
+        """The bug the small-shape cases could not see: 2.79 GiB at production.
+
+        `INPUT_ACT_EAGER["swiglu"]` returns a NEW tensor, so applying it to the
+        whole fc1 output allocates `rows x ffn` -- 104361 x 14336, about
+        2.79 GiB -- which is exactly the allocation `linear_input_act`'s fusion
+        exists to avoid, on a 24 GiB card holding a 19.5 GiB checkpoint. Every
+        other case here runs 64 rows, where the difference is invisible.
+
+        Measured rather than asserted structurally: run enough rows that the
+        chunked path and the whole-tensor path differ by more than allocator
+        noise, and require the peak to sit nearer one chunk than the whole.
+        """
+        ffn = 1024
+        rows = 16 * obs.chunk_rows(ffn, 2)
+        big = torch.randn(rows, ffn * 2, device="cuda", dtype=torch.bfloat16)
+        whole = rows * ffn * 2                      # bytes, bf16, if not chunked
+        arm(tmp)
+        torch.cuda.synchronize()
+        torch.cuda.reset_peak_memory_stats()
+        before = torch.cuda.memory_allocated()
+        obs.record(0, "mlp.fc2", big,
+                   transform=ops.INPUT_ACT_EAGER["swiglu"])
+        torch.cuda.synchronize()
+        peak = torch.cuda.max_memory_allocated() - before
+        # The property is that peak does NOT grow with rows -- a threshold
+        # against the whole-activation size only holds at one row count, which
+        # is how the first version of this case failed against working code.
+        small = torch.randn(obs.chunk_rows(ffn, 2), ffn * 2,
+                            device="cuda", dtype=torch.bfloat16)
+        arm(tmp)
+        torch.cuda.synchronize()
+        torch.cuda.reset_peak_memory_stats()
+        b2 = torch.cuda.memory_allocated()
+        obs.record(0, "mlp.fc2", small,
+                   transform=ops.INPUT_ACT_EAGER["swiglu"])
+        torch.cuda.synchronize()
+        one = torch.cuda.max_memory_allocated() - b2
+        assert peak < one * 1.5, (
+            f"peak grew with rows: {peak / 2**20:.0f} MiB over 16 chunks "
+            f"against {one / 2**20:.0f} MiB over one. The transform must be "
+            f"applied PER CHUNK; applied whole it reproduces the "
+            f"{whole / 2**20:.0f} MiB allocation the fused path avoids.")
+        assert peak < whole, (
+            f"peak {peak / 2**20:.0f} MiB is not below the whole activation's "
+            f"{whole / 2**20:.0f} MiB, so nothing was saved")
+        r = obs._rows[0]
+        assert r["in_features"] == ffn, (
+            f"in_features {r['in_features']} should be the POST-swiglu width "
+            f"{ffn}; recording {ffn * 2} means the transform never ran")
+
+    def step_index_uses_the_sigma_scale():
+        """`timestep` is 0..1000 and `sample_sigmas` are 0..1.
+
+        Core converts with `sigma_v = timestep.flatten()[0] / 1000.0`
+        (`comfy/ldm/minimax/model.py:561`). Comparing the raw value against the
+        schedule makes every step the argmin of ~1000 against ~1.0 -- the same
+        entry every time -- so every row carries the wrong step label while the
+        file looks complete. Red-proves the scale, not merely the plumbing.
+        """
+        sched = [1.0, 0.973, 0.923, 0.8, 0.0]
+        arm(tmp)
+
+        def base(x, t, c, to, *a, **kw):
+            return None
+
+        fwd = qo.make_outer_forward(base, expect_blocks=1, capture_id="cid")
+        for want, sigma in ((1, 0.973), (3, 0.8)):
+            fwd(None, torch.tensor([sigma * 1000.0]), None,
+                {"sample_sigmas": sched})
+            got = obs._context.get("step")
+            assert got == want, (
+                f"timestep {sigma * 1000.0} against schedule {sched} mapped to "
+                f"step {got}, expected {want}. Comparing the raw 0..1000 value "
+                f"to 0..1 sigmas pins every step to one index.")
+        assert abs(obs._context["sigma"] - 0.8) < 1e-6, (
+            f"sigma recorded as {obs._context['sigma']}, expected 0.8 -- the "
+            f"raw timestep is 1000x the sigma")
+
     def outer_patch_chains_rather_than_replaces():
         """The composition bug, red-proved against a stub ModelPatcher.
 
@@ -295,6 +375,9 @@ def main() -> int:
     check("linear wrapper records and returns", linear_wrapper_records_and_returns)
     check("shape check is red when a kind is missing",
           shape_check_is_red_when_a_kind_is_missing)
+    check("fc2 does not materialise the activation",
+          fc2_does_not_materialise_the_activation)
+    check("step index uses the sigma scale", step_index_uses_the_sigma_scale)
     check("outer patch chains rather than replaces",
           outer_patch_chains_rather_than_replaces)
     check("inert without the env var", inert_without_the_env_var)

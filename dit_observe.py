@@ -85,10 +85,24 @@ from pathlib import Path
 
 import torch
 
-#: Rows per reduction chunk. Bounds peak scratch to CHUNK x in_features rather
-#: than rows x in_features -- 8192 x 14336 in bf16 is ~224 MiB against 2.79 GiB
-#: for the whole thing, and the reduction is exact either way.
-CHUNK_ROWS = 8192
+#: Target bytes per reduction chunk, of the tensor being reduced. A fixed ROW
+#: count was wrong: `in_features` runs 5376 to 14336 across the four kinds, so
+#: 8192 rows is 88 MiB on qkv_proj and 224 MiB on fc2, and the fp32 squaring
+#: multiplies whatever that is by about eight. Measured on this box, a fixed
+#: 8192 rows peaked at a constant 128 MiB for a 1024-wide activation --
+#: correctly independent of row count, but scaling with WIDTH, which at
+#: production fc2 would have been about 1.8 GiB beside a 19.5 GiB checkpoint on
+#: a 24 GiB card. Budgeting bytes makes the peak flat in both.
+CHUNK_BYTES = 32 * 1024 * 1024
+
+#: Floor, so a very wide module still makes progress rather than degenerating
+#: to one row per pass.
+MIN_CHUNK_ROWS = 256
+
+
+def chunk_rows(width: int, itemsize: int) -> int:
+    """Rows per pass for a `width`-wide tensor of `itemsize` elements."""
+    return max(MIN_CHUNK_ROWS, CHUNK_BYTES // max(width * itemsize, 1))
 
 #: Bins for the per-token amax histogram. Linear over the observed range, with
 #: the range recorded, so a log view is recoverable offline.
@@ -138,19 +152,34 @@ def set_context(**kw) -> None:
     _context.update({k: v for k, v in kw.items() if v is not None})
 
 
-def _channel_stats(x: torch.Tensor):
+def _channel_stats(x: torch.Tensor, transform=None):
     """Per-channel absmax and sum-of-squares, in row chunks.
 
     Returns fp32 CPU vectors of length `in_features`. The accumulation is fp32
     because a sum over 104k rows in bf16 loses the tail; the OPERANDS stay in
     their own dtype, which is the distinction that keeps this inside memory.
+
+    **`transform` is applied PER CHUNK and exists for `mlp.fc2`.** That module's
+    true input is `swiglu(fc1(x))`, and `comfy.ops.INPUT_ACT_EAGER["swiglu"]`
+    is an ordinary function returning a new tensor -- so applying it to the
+    whole activation materialises 104361 x 14336, about 2.79 GiB, which is
+    precisely what `linear_input_act`'s fusion exists to avoid. Doing it here
+    would have OOM'd the first production capture on a 24 GiB card holding a
+    19.5 GiB checkpoint. Found by an external review; the small-shape test
+    could not see it, because 64 rows fit anywhere.
     """
-    n_in = x.shape[-1]
+    probe = x[:1] if transform is None else transform(x[:1])
+    n_in = probe.shape[-1]
+    # Budget against the tensor actually reduced, which for fc2 is the
+    # POST-transform width, not the fc1 output's.
+    step = chunk_rows(n_in, probe.element_size())
     amax = torch.zeros(n_in, dtype=torch.float32, device=x.device)
     sumsq = torch.zeros(n_in, dtype=torch.float32, device=x.device)
     tok = []
-    for i in range(0, x.shape[0], CHUNK_ROWS):
-        c = x[i:i + CHUNK_ROWS]
+    for i in range(0, x.shape[0], step):
+        c = x[i:i + step]
+        if transform is not None:
+            c = transform(c)
         a = c.abs()
         amax = torch.maximum(amax, a.amax(dim=0).float())
         sumsq += (c.float() ** 2).sum(dim=0)
@@ -180,7 +209,7 @@ def _token_summary(tok: torch.Tensor) -> dict:
 
 
 def record(block: int, kind: str, x: torch.Tensor,
-           out: torch.Tensor | None = None) -> None:
+           out: torch.Tensor | None = None, transform=None) -> None:
     """One `(block, kind, step)` observation of a linear's INPUT.
 
     Never raises into a render -- but never silently either. A swallowed
@@ -195,14 +224,14 @@ def record(block: int, kind: str, x: torch.Tensor,
             t = x.detach()
             if t.ndim != 2:
                 t = t.reshape(-1, t.shape[-1])
-            amax, rms, tok = _channel_stats(t)
+            amax, rms, tok = _channel_stats(t, transform)
             row = {
                 "block": int(block),
                 "kind": kind,
                 "step": _context.get("step"),
                 "sigma": _context.get("sigma"),
                 "rows": int(t.shape[0]),
-                "in_features": int(t.shape[-1]),
+                "in_features": len(amax),
                 "dtype": str(t.dtype),
                 "x_norm": float(torch.linalg.vector_norm(t.float())
                                 if t.numel() < 2 ** 24 else
@@ -287,7 +316,7 @@ def flush(meta: dict | None = None, expect_blocks: int = 0) -> str | None:
         "timing_void": ("wall time, stage time and peak VRAM from a run with "
                         "this armed are meaningless -- reductions and CPU "
                         "copies change them. Values are unaffected."),
-        "chunk_rows": CHUNK_ROWS,
+        "chunk_bytes": CHUNK_BYTES,
         "n_token_bins": N_TOKEN_BINS,
         "segments": _context.get("segments"),
         "segments_note": ("PackedLayout.segments as (start, end, kind), the "
