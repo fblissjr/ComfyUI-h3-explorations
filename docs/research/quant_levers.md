@@ -269,9 +269,14 @@ modules, on turbo ~12x.
 
 **Also relevant to what it is not needed for**: the shipped VSA artifact
 (`minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot`) carries **0
-`lora_*` keys** — 500 block weights, 150 gate keys, 250 `comfy_quant` blobs. It
-is a fully baked checkpoint, never merged and never requantised at load, so it
-inherits none of this as shipped. A future VSA shipping as a LoRA would inherit
+`lora_*` keys**. It is a fully baked checkpoint, never merged and never
+requantised at load, so it inherits none of this as shipped.
+
+Its weight counts, stated unambiguously because a bare "block weights" figure
+has already been read two ways: **500** `blocks.*.weight` (the DiT), **16**
+`token_refiner.blocks.*.weight`, **524** `.weight` keys in total, plus 150 gate
+keys and 250 `comfy_quant` blobs. A "516" in circulation is the two block
+families summed and is not wrong, only ambiguous against the 500. A future VSA shipping as a LoRA would inherit
 all of it.
 
 **What it is NOT: the shipped turbo graphs are not rendering with a discarded
