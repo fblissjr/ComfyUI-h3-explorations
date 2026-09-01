@@ -70,6 +70,16 @@ Claims, i.e. what breaks if a case is deleted:
       the query-weighted `routed_density.mean` is 0.5667 and the
       pair-weighted `ordering_effect_density` is 0.5833, both to 1e-9, so the
       two names cannot be read as one number.
+  render_row_names_the_workflow
+      the first call under a prompt id writes a `render` row: the running
+      graph is read from the server's queue, hashed as provenance.py hashes
+      it, and matched to the shipped file -- `h3_text_to_video_pdd_api.json`
+      submitted as-is names itself, carries `summary.pdd` with the LoRA and
+      its linked step count, and is `process_render_index` 0; a modified copy
+      under a second prompt id gets a null `workflow_file` with a reason and
+      index 1 with the first id as prior; without a server the row says the
+      prompt was unavailable. This is what lets a reader tell a PDD record
+      from a base one, and a cold render from a warm one, without the file.
   undefined_adaptive_figures_are_null
       every query block inside sink_q leaves no free pair: `routed_density`
       is null, `ordering_effect_density.overall` is null with numerator and
@@ -630,6 +640,76 @@ def main() -> int:
         assert r["forced"]["diag_min"] is None and r["forced"]["diag_max"] is None
         obs.arm(None)
 
+    def render_row_names_the_workflow():
+        import json
+        d = newdir("render")
+        obs.arm(f"dir={d}")
+        wf = Path(node.__file__).resolve().parent / "workflows"
+        shipped = json.loads((wf / "h3_text_to_video_pdd_api.json").read_text())
+        modified = json.loads(json.dumps(shipped))
+        modified["5"]["inputs"]["prompt"] = "a different prompt"
+        stub = types.ModuleType("server")
+        running = {0: (0, "prompt-W", shipped, {}, [], False), 1: (1, "prompt-X", modified, {}, [], False)}
+        stub.PromptServer = types.SimpleNamespace(instance=types.SimpleNamespace(
+            prompt_queue=types.SimpleNamespace(currently_running=running)))
+        had = sys.modules.get("server")
+        sys.modules["server"] = stub
+        try:
+            with CurrentNodeContext("prompt-W", "10", None):
+                call(make(), opts())
+                call(make(), opts(sol_block=6))          # second call: no second render row
+            with CurrentNodeContext("prompt-X", "10", None):
+                call(make(), opts())
+        finally:
+            if had is not None:
+                sys.modules["server"] = had
+            else:
+                del sys.modules["server"]
+        _, rows = rows_in(d)
+        renders = [r for r in rows if r["kind"] == "render"]
+        assert [r["prompt_id"] for r in renders] == ["prompt-W", "prompt-X"], renders
+        w, x = renders
+        assert w["workflow_file"] == "h3_text_to_video_pdd_api.json" and w["match"].startswith("shipped"), w
+        assert w["process_render_index"] == 0 and w["prior_prompt_ids"] == []
+        assert w["summary"]["pdd"]["lora_name"].endswith("pdd_8step_comfy.safetensors"), w["summary"]["pdd"]
+        assert w["summary"]["pdd"]["steps"] == 8 and w["summary"]["sampler"] == "euler"
+        assert w["summary"]["resolution"]["length"] == 345 and w["summary"]["sol_nodes"] == 1
+        assert w["graph_sha256"] == obs.graph_sha256(shipped)
+        assert x["workflow_file"] is None and x["match"].startswith("no shipped graph"), x
+        assert x["process_render_index"] == 1 and x["prior_prompt_ids"] == ["prompt-W"]
+        assert x["summary"]["pdd"]["steps"] == 8       # the summary still describes the graph
+        # the render row precedes its first call row
+        seqs = {r["prompt_id"]: r["seq"] for r in renders}
+        first_call = {}
+        for r in rows:
+            if r["kind"] == "call":
+                first_call.setdefault(r["prompt_id"], r["seq"])
+        assert all(seqs[p] < first_call[p] for p in seqs)
+        obs.arm(None)
+        # no server module at all: the row says so rather than guessing
+        d2 = newdir("render_noserver")
+        obs.arm(f"dir={d2}")
+        had = sys.modules.pop("server", None)
+        try:
+            import builtins
+            real_import = builtins.__import__
+
+            def no_server(name, *a, **k):
+                if name == "server":
+                    raise ImportError("no server here")
+                return real_import(name, *a, **k)
+            builtins.__import__ = no_server
+            with CurrentNodeContext("prompt-Y", "10", None):
+                call(make(), opts())
+        finally:
+            builtins.__import__ = real_import
+            if had is not None:
+                sys.modules["server"] = had
+        _, rows2 = rows_in(d2)
+        y = [r for r in rows2 if r["kind"] == "render"][0]
+        assert y["workflow_file"] is None and y["match"].startswith("prompt unavailable"), y["match"]
+        obs.arm(None)
+
     def raw_off_writes_no_sidecar():
         d = newdir("rawoff")
         obs.arm(f"dir={d},raw=0")
@@ -652,7 +732,8 @@ def main() -> int:
                    observer_only_block_indexing, composed_patch_calls_are_recorded,
                    forced_metadata_is_computed_not_inferred,
                    query_and_pair_weighting_differ_on_nonuniform_forced,
-                   undefined_adaptive_figures_are_null, raw_off_writes_no_sidecar):
+                   undefined_adaptive_figures_are_null, render_row_names_the_workflow,
+                   raw_off_writes_no_sidecar):
             check(fn.__name__, fn)
     finally:
         obs.arm(None)

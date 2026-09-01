@@ -265,7 +265,14 @@ class SageChainAssert(io.ComfyNode):
                 except Exception as exc:
                     out["error"] = exc
 
-            worker = threading.Thread(target=_probe, name=f"sage-chain-probe-{seq}")
+            # The fresh thread is for sage's thread-local dispatch value (above);
+            # it must still carry ComfyUI's executing context, which is a
+            # contextvar and does NOT cross a Thread on its own. Without the
+            # copy, an armed `sol_observe` records this probe with no prompt
+            # id -- which is exactly what the first live record showed.
+            import contextvars
+            worker = threading.Thread(target=contextvars.copy_context().run, args=(_probe,),
+                                      name=f"sage-chain-probe-{seq}")
             worker.start()
             worker.join()
             del q, k, v

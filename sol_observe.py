@@ -51,6 +51,22 @@ Row kinds, all carrying `schema`:
             call row references. Settings are NOT process-global: one server
             can execute patched models from different Sol nodes, so they do
             not belong in the header.
+  render    once per prompt id, the first time a call carries it: WHICH
+            WORKFLOW the render ran under. The running prompt's graph is read
+            from the server's queue, hashed the way `provenance.py` hashes a
+            graph, and matched against every shipped file under `workflows/`
+            (through `h3_config.graph_paths`), so `workflow_file` names the
+            shipped graph when the submitted one is byte-for-byte a shipped
+            one and is null with a reason otherwise. A summary of the graph
+            travels with it -- PDD LoRA and its step count, UNET, sampler,
+            scheduler steps, canvas and length -- so a reader can tell a PDD
+            render from a base one without the file. `process_render_index`
+            says how many prompts this process had already run (0 = cold, the
+            first render after a restart; a restart is a new file with its own
+            header and pid), because ComfyUI keeps models and node outputs
+            resident between prompts and a warm render is a different cache
+            state from a cold one. Routed counts are a function of the
+            inputs alone; the index is there so that claim can be checked.
   call      one per override call, every route, not only Sol. Identity, step,
             block, shape, selection, sinks, the route actually taken, and for
             a Sol route the density summaries and the raw pointer.
@@ -228,6 +244,8 @@ _seq = 0
 _header_written = False
 _configs_written: set = set()
 _estimates_logged: set = set()
+_renders_seen: dict = {}          # prompt_id -> process render index
+_shipped_hashes: dict | None = None
 
 
 def _writer_reset() -> None:
@@ -244,6 +262,7 @@ def _writer_reset() -> None:
     _header_written = False
     _configs_written.clear()
     _estimates_logged.clear()
+    _renders_seen.clear()
 
 
 def paths() -> dict:
@@ -336,6 +355,109 @@ def _write_row(row: dict, raw_bytes: bytes | None = None) -> dict | None:
         _jsonl.write(json.dumps(row) + "\n")
         _jsonl.flush()
         return pointer
+
+
+def graph_sha256(prompt) -> str:
+    """The graph's identity, hashed exactly as `provenance.py` and
+    `substrate.graph` hash it, so the three records join."""
+    blob = json.dumps(prompt, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(blob).hexdigest()
+
+
+def _shipped_graph_hashes() -> dict:
+    """sha256 -> shipped file name for every graph `h3_config.graph_paths`
+    walks, bench graphs included. Computed once per process."""
+    global _shipped_hashes
+    if _shipped_hashes is not None:
+        return _shipped_hashes
+    table = {}
+    try:
+        import importlib.util
+        wf = Path(__file__).resolve().parent / "workflows"
+        spec = importlib.util.spec_from_file_location("_h3_config_for_observe", wf / "h3_config.py")
+        cfg = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cfg)
+        for path in cfg.graph_paths(wf, include_bench=True):
+            try:
+                table[graph_sha256(json.loads(path.read_text()))] = str(path.relative_to(wf))
+            except (OSError, ValueError):
+                continue
+    except Exception as exc:                          # noqa: BLE001 -- identity, not the render
+        logging.warning(f"{_LOG} could not hash the shipped graphs: {exc}")
+    _shipped_hashes = table
+    return table
+
+
+def _running_prompt(prompt_id: str):
+    """(prompt graph, extra_data) for the prompt the server is executing,
+    or (None, why). The queue keeps `(number, prompt_id, prompt, extra_data,
+    outputs, ...)` per running item."""
+    try:
+        import server
+        queue = server.PromptServer.instance.prompt_queue
+        running = list(queue.currently_running.values())
+    except Exception as exc:                          # noqa: BLE001
+        return None, f"prompt unavailable: {type(exc).__name__}: {exc}"[:200]
+    for item in running:
+        if len(item) > 2 and item[1] == prompt_id:
+            return item[2], None
+    return None, "prompt unavailable: not in the server's running queue"
+
+
+def _linked(graph: dict, value, key="value"):
+    """Resolve a literal or a [node_id, slot] link to a literal, one hop."""
+    if isinstance(value, list) and len(value) == 2 and str(value[0]) in graph:
+        return graph[str(value[0])].get("inputs", {}).get(key)
+    return value
+
+
+def graph_summary(graph: dict) -> dict:
+    """What kind of render a graph is, from its nodes. Best-effort and
+    literal: fields are null when the graph has no such node."""
+    by_type: dict = {}
+    for k, n in graph.items():
+        if isinstance(n, dict) and "class_type" in n:
+            by_type.setdefault(n["class_type"], []).append(n)
+    first = lambda ct: (by_type.get(ct) or [None])[0]    # noqa: E731
+    pdd = first("MiniMaxH3PDDLoRA")
+    res = first("MiniMaxH3Resolution")
+    sched = first("BasicScheduler")
+    return {
+        "class_types": sorted(by_type),
+        "pdd": None if pdd is None else {
+            "lora_name": pdd["inputs"].get("lora_name"),
+            "steps": _linked(graph, pdd["inputs"].get("steps")),
+            "strength": pdd["inputs"].get("strength"),
+            "nfe": pdd["inputs"].get("nfe")},
+        "unet": (first("UNETLoader") or {}).get("inputs", {}).get("unet_name"),
+        "sampler": (first("KSamplerSelect") or {}).get("inputs", {}).get("sampler_name"),
+        "scheduler": None if sched is None else {
+            "scheduler": sched["inputs"].get("scheduler"), "steps": _linked(graph, sched["inputs"].get("steps"))},
+        "resolution": None if res is None else {
+            k2: v for k2, v in res["inputs"].items() if not isinstance(v, list)},
+        "sol_nodes": len(by_type.get("MiniMaxH3SolAttn", [])),
+        "sage_nodes": len(by_type.get("MiniMaxH3SageAttention", [])),
+    }
+
+
+def _ensure_render(prompt_id: str | None) -> None:
+    """Write the `render` row the first time a prompt id is seen."""
+    if prompt_id is None or prompt_id in _renders_seen:
+        return
+    index = len(_renders_seen)
+    _renders_seen[prompt_id] = index
+    graph, why = _running_prompt(prompt_id)
+    row = {"kind": "render", "prompt_id": prompt_id, "process_render_index": index,
+           "prior_prompt_ids": [p for p, i in _renders_seen.items() if i < index],
+           "graph_sha256": None, "workflow_file": None, "match": why, "summary": None}
+    if graph is not None:
+        sha = graph_sha256(graph)
+        shipped = _shipped_graph_hashes()
+        row.update({"graph_sha256": sha, "workflow_file": shipped.get(sha),
+                    "match": ("shipped graph, byte-identical" if sha in shipped
+                              else "no shipped graph matches this hash; a modified or foreign graph"),
+                    "summary": graph_summary(graph)})
+    _write_row(row)
 
 
 def config_digest(settings: dict) -> str:
@@ -590,6 +712,8 @@ def record(*, route: str, reason: str | None, counts: torch.Tensor | None, optio
     if not enabled():
         return
     digest = _ensure_config(settings)
+    identity = _identity()
+    _ensure_render(identity.get("prompt_id"))
     sigmas = options.get("sigmas") if isinstance(options, dict) else None
     sigma = None
     if sigmas is not None:
@@ -600,7 +724,7 @@ def record(*, route: str, reason: str | None, counts: torch.Tensor | None, optio
     ntb = (int(tokens) + BLOCK - 1) // BLOCK
     row = {
         "kind": "call", "t_wall": time.time(), "config": digest,
-        **_identity(),
+        **identity,
         "conditioning_uuids": _uuids(options), "cond_or_uncond": _cond_or_uncond(options),
         "block": None if block is None else int(block),
         "scope": "dit" if block is not None else "unknown",

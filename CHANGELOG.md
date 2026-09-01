@@ -21,6 +21,46 @@ artifact.
   `docs/prompt_audit.md` item 4 record that, with the commands, so it is not
   forgotten. Nothing has rendered.
 
+## 0.99.23
+
+### Added
+
+- **The Sol route record names the workflow it ran under.** A `render` row
+  per prompt id: the running graph read from the server's queue, hashed as
+  `provenance.py` hashes a graph, matched by hash to the shipped file under
+  `workflows/` (null with a reason when the submission was modified), with a
+  summary of PDD LoRA and step count, UNET, sampler, scheduler, canvas and
+  length, and `process_render_index` so a cold first render and a warm
+  repeat are told apart. Asked for by the owner on the first live capture,
+  where two graphs shared one file and only their Sol windows differed.
+- `bench/grade_sol_record.py`: the structural grader for a live record
+  (every forward carries blocks 0-49 once; routes match the window and the
+  dense list; counts, raw pointers and CRCs on `sol` rows only; one prompt
+  id, known to `/history`). Expected refiner and probe row counts are
+  parameters, because the first record proved both depend on the graph and
+  the run.
+- **First live records**, under `internal/sol_observe/` (gitignored): the
+  canonical PDD graph as shipped, 400 rows over eight forwards, graded
+  clean; the canonical 16-step base graph in its own file; each with a
+  `provenance.md` explaining the header's dirty marker and what else the
+  file holds.
+
+### Fixed
+
+- **The chain assert's live probe ran on a fresh thread without ComfyUI's
+  executing context**, so an armed observer recorded it with no prompt id.
+  The thread now runs under a copied context. The first live record shows
+  the defect: two probe rows labelled `no_executing_context`.
+- `bench/grade_sol_record.py` imported the observer as a bare module; it
+  goes through `bench/_live_sol.py` like every other bench script.
+
+### Notes
+
+- The shipped t2v graphs hand the sampler already-projected text, so a
+  forward has NO sampler-time refiner attention calls; the "two refiner rows
+  per forward" expectation in the review notes was a source read of a path
+  these graphs do not take. The grader takes the count as a parameter.
+
 ## 0.99.22
 
 ### Fixed

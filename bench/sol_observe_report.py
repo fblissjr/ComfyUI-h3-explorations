@@ -77,6 +77,15 @@ def main() -> int:
               f"pack {h.get('pack_git_head')}, pid {h.get('pid')} on {h.get('host')}, "
               f"device {h.get('device')}, raw sidecar {'on' if h.get('raw_sidecar') else 'off'}, "
               f"timing quotable: {h.get('timing_quotable')}")
+    for r in rows:
+        if r.get("kind") == "render":
+            sm = r.get("summary") or {}
+            pdd = sm.get("pdd")
+            print(f"render {r['prompt_id']}: workflow {r.get('workflow_file') or '(unmatched)'} [{r.get('match')}], "
+                  f"process render index {r.get('process_render_index')} "
+                  f"({'cold, first in this process' if r.get('process_render_index') == 0 else 'warm'}), "
+                  f"{'PDD ' + str(pdd.get('steps')) + ' evaluations, ' + str(pdd.get('lora_name')) if pdd else 'no PDD node'}, "
+                  f"sampler {sm.get('sampler')}, scheduler {sm.get('scheduler')}, unet {sm.get('unet')}")
     for d, s in configs.items():
         sel = f"topk {s.get('topk_ratio')}" if s.get("topk_ratio") else f"tau {s.get('tau')}"
         print(f"config {d}: {sel}, tail {s.get('tail')}, window sigma [{s.get('sigma_end')}, "

@@ -919,12 +919,33 @@ docstring is the schema; the parts that matter when reading a file:
 - **Timing from an armed render is not quotable**; the header says so. Each
   Sol call synchronizes once to copy its counts.
 
+- **The record names the workflow it ran under, and whether the process was
+  cold.** A `render` row per prompt id carries the running graph's hash
+  (hashed as `provenance.py` hashes it), the shipped file it is byte-identical
+  to when it is one, a summary (PDD LoRA and step count, UNET, sampler,
+  scheduler, canvas, length), and `process_render_index`: 0 is the first
+  prompt after a restart, anything higher ran with models and node outputs
+  already resident. A restart is a new file with its own header and pid.
+  Routed counts are a function of the inputs, so cold and warm renders of
+  one graph at one seed must agree bitwise; that is a control, not an
+  assumption.
+
 What it cannot say: WHICH key blocks were chosen (`blk_idx` is not recorded)
 and what the route cost in error. `bench/check_sol_observe.py` grades the
 recorder; the count semantics are pinned upstream in
 `tests/test_sol_attn.py` on the branch, as equalities at both tau extremes.
-The live `/history` join has not been exercised on a render yet (the server
-was down when this shipped) -- see the uncontrolled row in `docs/checks.md`.
+`bench/grade_sol_record.py` grades a live record structurally -- every
+forward carries blocks 0-49 once, routes match the window and the dense
+list, counts only on `sol` rows, CRCs verify, the prompt id joins `/history`
+-- and `bench/sol_observe_report.py` reads one. **First live record
+2026-09-01**: the canonical PDD graph as shipped, 400 rows, eight forwards,
+four inside the window at 46 `sol` plus the four dense blocks and four
+outside as `composed_patch`, graded clean. Two things that record corrected
+before anyone quoted it: the shipped t2v graphs hand the sampler
+already-projected text, so there are NO sampler-time refiner rows (the
+"two per forward" expectation was a source read of a path these graphs do
+not take), and the chain assert's probe runs on a fresh thread that did not
+inherit the executing context until `assert_chain.py` copied it in.
 
 ### The one silent exception to "Sol is on in every shipped video workflow"
 
