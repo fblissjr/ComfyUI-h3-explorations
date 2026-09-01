@@ -93,26 +93,31 @@ its scene headings against the verdicts here rather than trusting a count. **All
 finding the catch-all row above already carried. They are listed individually
 only so the catalogue's scene names all resolve to something here.
 
-### Two misalignments recorded rather than fixed
+### Misalignments: one closed, one withdrawn, one open
 
-Neither breaks a **stated** guide rule, so neither is a defect. Both are real,
-unenforced, and easy to mistake for settled — `prompting.md` §14.3 is the long
-form and owns them.
+`prompting.md` §14.3 is the long form and owns all three.
 
-1. **Shot line breaks.** Every vendor multi-shot specimen — base-en's one worked
-   example and MiniMax's own reproducible t2va API payload — runs shots inline
-   in a single paragraph. Of our multi-shot t2va prompts only
-   `DIALOGUE_T2V_PROMPT` does; `LONG_T2V_PROMPT` and all four aisle/sortline
-   arms break a line per shot. The length experiment is unaffected because both
-   its arms break identically, but a prompt copied out of them inherits it.
-2. **Dialogue turns per shot.** `DIALOGUE_T2V_PROMPT`, the shipped dialogue
-   default, puts four `<d>` blocks in `[Shot 1]` and three in `[Shot 2]`, where
-   `internal/PROMPTING.md` §4.3 asks for one speaking turn per shot. The guides
-   state no limit and show only one-per-shot at n=2. The prompt is inside the
-   speech budget and uses the explicit ordering wording §4.3 offers as the
-   alternative, but does not close the first mouth between turns.
-   **Unrendered, so this is two of our own documents disagreeing, not evidence
-   about the model.**
+1. **Shot line breaks — CLOSED 2026-09-01.** Vendor practice, and a third-party
+   corpus, run multi-shot prompts inline in one paragraph with no
+   counterexample. `LONG_T2V_PROMPT` and the four aisle/sortline arms were
+   collapsed in the generator and every carrying graph rebuilt; word counts are
+   unchanged, only newlines. **Clips of those scenes from before that date are
+   not matched-seed comparable with clips after it.** The length-experiment
+   pairs changed identically, so that experiment is intact.
+2. **Mouth closing — WITHDRAWN.** This file previously recorded our dialogue
+   prompts as diverging on it. They do not. The rule is positional — cue when
+   the shot continues, never when the line ends the shot — and our corpus
+   matches the vendor and third-party corpora on both axes. The earlier finding
+   came from a per-line ratio, which is the wrong statistic for a positional
+   rule.
+3. **Turns per shot — OPEN, and the strongest of the three.** The vendor uses
+   exactly one `<d>` per shot in every specimen, and the dagthomas corpus in
+   every dialogue-carrying shot without exception. A handful of our shots carry
+   more, concentrated in the two `DIALOGUE_*` prompts and the two ref2v scene
+   arms. No guide states a cap (`prompting.md` §12.12), the prompts are inside
+   the speech budget, and nothing has been rendered — so this is a divergence
+   from unanimous practice, not a rule violation. `bench/diff_prompt_corpus.py`
+   reports it.
 
 **Checked and found clean:** ref-en *states* one line per item in
 `subject_definitions` (ref-en:37) and `retention_analysis` (ref-en:157). Every

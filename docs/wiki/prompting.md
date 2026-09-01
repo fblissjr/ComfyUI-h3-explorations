@@ -129,19 +129,35 @@ clip per arm cannot support it however carefully it is stacked.
 
 ---
 
-## 6. Open, and recorded rather than fixed
+## 6. Open, closed, and withdrawn
 
-Neither breaks a **stated** guide rule. Both are unenforced and easy to mistake
-for settled; `prompting.md` §14.3 owns them.
+`prompting.md` §14.3 owns all three; `bench/diff_prompt_corpus.py` re-derives them.
 
-- **Shot line breaks.** Every vendor multi-shot specimen runs shots inline in one
-  paragraph. Of our multi-shot t2va prompts, only `DIALOGUE_T2V_PROMPT` does.
-- **Dialogue turns per shot.** Our shipped dialogue default puts four `<d>`
-  blocks in one shot; `internal/PROMPTING.md` §4.3 asks for one. The guides state
-  no limit. Unrendered, so this is two of our own documents disagreeing rather
-  than evidence about the model.
+- **Shot line breaks — CLOSED.** Vendor practice and a third-party corpus both
+  run multi-shot prompts inline, with no counterexample. Ours were split; they
+  were conformed on 2026-09-01. Clips of the changed scenes from before that
+  date are not matched-seed comparable with clips after it.
+- **Mouth closing — WITHDRAWN.** The rule is positional (cue when the shot
+  continues, never when the line ends the shot), and we already followed it. The
+  earlier finding was a per-line ratio, which is the wrong statistic.
+- **Turns per shot — OPEN.** Every vendor and third-party specimen uses exactly
+  one dialogue block per shot. A few of ours carry more. No guide states a cap
+  and nothing has been rendered.
 
-**The distinction doing the work in both:** a guide **statement** is a rule; a
+**How these get found at all:** `bench/diff_prompt_corpus.py` extracts
+mechanical features from the vendor corpus and ours and reports every feature
+where the vendor never varies and we do. That is the shape of all three. Neither
+`preflight_graph.py` nor `check_prompt_guide_conformance.py` could have found
+them — one encodes the stated rules, the other refuses to assert anything the
+guide does not state, and these are all things the vendor does consistently and
+never says.
+
+**Its limit is the real one:** the feature list is hand-authored, so it finds
+only divergences someone thought to encode. Three of its own statistics were
+wrong before they were right, and each crude version hid the finding its sharp
+version surfaced. Read a clean report as "nothing on the axes we thought of".
+
+**The distinction doing the work throughout:** a guide **statement** is a rule; a
 guide **example** is not. Two rules have been invented here by reading examples
 as rules, and both were retracted. `prompting.md` marks every GUIDE rule *stated*
 or *shown* for exactly this reason.

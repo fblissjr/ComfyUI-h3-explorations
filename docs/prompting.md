@@ -1384,6 +1384,7 @@ not carry equal weight and two of them are not authorities at all.
 | 3 | the vendor's prompt-writing skill | `coderef/MiniMax-H3/.claude/skills/h3-prompt-writing/` | **a router, not a rule set** | nothing; it states no rule of its own |
 | 4 | this file | `docs/prompting.md` | our reading, layered GUIDE / OWNER / HOUSE / OPEN | depends on the layer, which every rule names |
 | 5 | `internal/PROMPTING.md` | gitignored | **superseded 2026-08-28, being sunset** | nothing; cite this file instead |
+| 6 | `coderef/comfyui_dagthomas/data/h3` | gitignored | **third-party, and its base guide is a FORK of the vendor's** | nothing — see §14.2b before quoting it |
 
 ### 14.2 The vendor's skill adds no rule, and its guides are byte-identical to ours
 
@@ -1404,35 +1405,78 @@ Checked 2026-09-01:
 **So there is no fourth authority.** A session that finds the skill and reads it
 as new guidance has found a second pointer to the guides we already have.
 
-### 14.3 Where our shipped prompts diverge from vendor practice
+### 14.2b The dagthomas corpus: useful, and carrying a forked guide
 
-Neither of these is a defect against a stated rule. Both are recorded because
-they are real, unenforced, and easy to mistake for settled.
+`coderef/comfyui_dagthomas/data/h3` is a third-party pack
+(`dagthomas/comfyui_dagthomas`) with a substantial H3 prompt corpus. It is
+worth reading — it independently corroborated the inline finding and supplied
+the positional mouth-cue rule in §14.3. **But check what you are quoting.**
 
-**Shot line breaks — we are split, and the vendor is not.** Every vendor
-multi-shot specimen runs shots inline in one paragraph (§12.11). Of our
-multi-shot t2va prompts, only `DIALOGUE_T2V_PROMPT` does; `LONG_T2V_PROMPT` and
-all four `T2V_AISLE_*` / `T2V_SORTLINE_*` scene arms put each shot on its own
-line. Enforced by nothing. The description-length experiment those arms belong
-to is unaffected — both its arms break lines identically, so the manipulation is
-not confounded — but a prompt copied out of them inherits the divergence.
+- **`guide_ref_en.md` is byte-identical to the vendor's** (SHA-256 `1e574f35…`).
+- **`guide_base_en.md` is NOT. It is a FORK** — hash `3e7757fa…` against the
+  vendor's `2cfebc09…`, with changed lines: passages added and vendor
+  paragraphs rewritten, in the vendor's own register, unmarked as edits.
+- **`guide_chain_en.md` and `guide_crossover_en.md` correspond to nothing the
+  vendor ships.** The release has base-en and ref-en only.
 
-**Dialogue turns per shot — our own default breaks our own house rule.**
-`DIALOGUE_T2V_PROMPT` puts four `<d>` blocks in `[Shot 1]` and three in
-`[Shot 2]`. `internal/PROMPTING.md` §4.3 says one speaking turn per shot. The
-guides say nothing (§12.12), the prompt is inside the §3.4 speech budget, and it
-uses the explicit ordering wording ("answers immediately", "says at once") that
-§4.3 itself offers as the sanctioned alternative — but it does not close the
-first speaker's mouth between turns, which §4.3 asks for in the same breath.
-**Unrendered and unmeasured, so this is a disagreement between two of our own
-documents, not evidence about the model.**
+**The trap is that hashing one guide and generalising gets you the wrong
+answer**, which is a live risk here because §14.2 does exactly that check
+against MiniMax's own skill bundle and it passes there. The fork's edits
+contradict stated vendor rules: it rewrites base-en's "1-4 English sentences in
+one continuous paragraph" for `overall_soundscape` into one sentence as a comma
+list, rewrites the `non_diegetic_music` sentence budget, and adds shot-count and
+word-count rules the vendor states nowhere, attributed to a thousand-prompt
+measurement with no corpus behind it. Its own examples contradict two of those
+added numbers.
+
+**So use its EXAMPLES as evidence of practice, never its guide text as
+authority.** Established 2026-09-01 by a peer session; the hashes re-checked here.
+
+### 14.3 Where our shipped prompts diverged, and what happened to each
+
+**Shot line breaks — CLOSED 2026-09-01, we conformed.** Every vendor
+multi-shot specimen runs shots inline in one unbroken paragraph, and a peer
+session found the same in a third corpus: `coderef/comfyui_dagthomas/data/h3`
+is inline in every multi-shot specimen that follows the official three-field
+grammar, and breaks lines only inside a four-section format it invented itself.
+Three independent corpora, no counterexample. `LONG_T2V_PROMPT` and the four
+aisle/sortline arms were collapsed to one line per field in the generator and
+every carrying graph rebuilt; word counts are unchanged, only newlines.
+**Consequence: clips of those scenes rendered before 2026-09-01 are not
+matched-seed comparable with clips after it.** The aisle and sortline pairs
+changed identically, so the description-length experiment they belong to is
+intact.
+
+**Mouth closing — WITHDRAWN 2026-09-01, we were already conformant.** This
+section previously recorded our dialogue prompts as diverging on it. **That was
+a bad statistic, not a finding.** The rule is POSITIONAL, not per-line: a cue
+follows a dialogue line when the shot CONTINUES past it, and never when the
+line ENDS the shot. Cross-tabbed that way:
+
+| | cue | no cue |
+|---|---|---|
+| shot continues | ours 32, dagthomas 17 | ours 12, dagthomas 7 |
+| line ends the shot | **ours 0, dagthomas 0** | ours 1, dagthomas 16 |
+
+Our mid-shot cue rate is 73% against their 71%, and neither corpus ever cues a
+shot-final line. A per-line ratio reports that as roughly half-compliant, which
+is how the false finding arose. `base_en` states the cue only for VOICEOVER
+(:136); §5.6's [HOUSE] label was right all along.
+
+**Turns per shot — OPEN, and now the strongest of the three.** The vendor uses
+exactly one `<d>` per shot in every specimen; dagthomas uses exactly one in
+every dialogue-carrying shot across its whole corpus, with no exception. Ours is
+mostly one, with a handful of shots carrying more, concentrated in the two
+`DIALOGUE_*` prompts and the two ref2v scene arms. No guide states a cap
+(§12.12), the prompts are inside the speech budget, and nothing has been
+rendered — so this is a divergence from unanimous vendor and third-party
+practice rather than a rule violation. `bench/diff_prompt_corpus.py` reports it.
 
 **Checked and found clean:** ref-en *states* one line per item in
 `subject_definitions` (ref-en:37) and `retention_analysis` (ref-en:157). Every
 shipped ref2va prompt satisfies both. A first pass here flagged twelve of them by
 counting labels per line, which is the wrong test — ref-en:37 explicitly allows a
-source-only `<Picture N>` to be cited inside another item's line, and that is
-exactly what ours do.
+source-only `<Picture N>` to be cited inside another item's line.
 
 ### 14.4 The shot regex defect this reconciliation found
 
