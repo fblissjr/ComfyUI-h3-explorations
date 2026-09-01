@@ -23,6 +23,15 @@ and it is why "every check" and "every row" are not the same set.
 `sed` whose pattern silently fails to match copies the file through unchanged
 and exits 0, so the "mutant" is a plausible file of plausible size at the
 expected path, the check reports on it correctly, and the proof was vacuous.
+
+**Why this needs its own assertion rather than better tooling: NOTHING
+DOWNSTREAM OF THE MUTATION CAN DETECT IT.** The check ran correctly. The exit
+code was honest. The file size, the path and the timestamps were all right.
+Every signal available was telling the truth *about the wrong artifact*, so no
+amount of hardening the grader or reading its output more carefully reaches
+this class — a tool cannot report a failure it did not have. It has to be
+asserted UPSTREAM, at the mutation, which is the one place the two artifacts can
+still be compared.
 Two instances on 2026-09-01, both in red proofs: one where a peer's substitution
 never matched and the clean result was read as a refutation, and one where a
 `grep -c` exiting 1 on ZERO MATCHES was read as "file missing". The cheap
