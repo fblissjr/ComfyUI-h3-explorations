@@ -71,7 +71,22 @@ NEWER=()
 
 # Environment keys that make a running server a CONFIGURED resource rather than
 # a replaceable one. Add to this list; do not branch on it elsewhere.
-ARMING_KEYS="H3_CAPTURE H3_PDD_OBSERVE"
+#
+# **H3_QUANT_OBSERVE added 2026-08-31, and it had been missing since the
+# observer landed the same day.** `dit_observe.py` gates the Tier 1 quant
+# observer on it (`os.environ.get("H3_QUANT_OBSERVE")`), so a server armed for
+# that capture was NOT protected by the guard that exists to stop exactly this,
+# and this script would have killed it without refusing. The commit that added
+# the observer is `31b0d4a`, whose own message is "find that both observers were
+# armed by default" -- the arming was thought about and the guard was not.
+#
+# The general form, since this list will grow again: **a new arming key is half
+# the change.** Adding the env gate protects the capture from firing by
+# accident; adding it here protects the capture from being disarmed by someone
+# who cannot see it. Grep for the key in the module that reads it, not in the
+# docs that describe it -- `docs/research/pdd/tier1_gate.md` item 2 asked for
+# exactly this and it still had not been done.
+ARMING_KEYS="H3_CAPTURE H3_PDD_OBSERVE H3_QUANT_OBSERVE"
 
 while [ $# -gt 0 ]; do
     case "$1" in

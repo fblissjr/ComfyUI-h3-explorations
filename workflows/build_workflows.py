@@ -31,10 +31,16 @@ current costs about twelve seconds and needs no server:**
 
     build_workflows.py --out "$TMP" --no-validate && diff -rq "$TMP" workflows
 
-Zero differing files means the tree matches this file. Measured 2026-08-31 --
-12.1s, 157 files, no diff. Nobody knew this was cheap, which is why the rule
-above ("nothing is true of a graph until it is rebuilt") had been enforced by
-remembering to run it.
+Zero differing files means the tree matches this file. Measured 2026-08-31 by
+two sessions independently, at 11.4s, 11.6s and 12.1s, no diff each time.
+Nobody knew this was cheap, which is why the rule above ("nothing is true of a
+graph until it is rebuilt") had been enforced by remembering to run it.
+
+The file COUNT is deliberately not quoted here. The first version said 157,
+which is neither the 156 at the top level nor the 159 including `bench/`, and
+no reader's next action changes on the number -- the command's own output is
+the answer. `CLAUDE.md`'s rule: substitute a different plausible value, and if
+nothing changes, the number is decorative.
 
 Deliberately NOT a check in `bench/`. The state it catches -- generator edited,
 graphs not rebuilt -- is real, and it happened on 2026-08-31 when this file
