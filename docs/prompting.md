@@ -1455,22 +1455,40 @@ line ENDS the shot. Cross-tabbed that way:
 
 | | cue | no cue |
 |---|---|---|
-| shot continues | ours 32, dagthomas 17 | ours 12, dagthomas 7 |
-| line ends the shot | **ours 0, dagthomas 0** | ours 1, dagthomas 16 |
+| shot continues | ours 32, dagthomas 17, vendor 2 | ours 12, dagthomas 7, vendor 4 |
+| line ends the shot | ours 0, dagthomas 0, vendor 0 | ours 1, dagthomas 16, vendor 1 |
 
-Our mid-shot cue rate is 73% against their 71%, and neither corpus ever cues a
-shot-final line. A per-line ratio reports that as roughly half-compliant, which
-is how the false finding arose. `base_en` states the cue only for VOICEOVER
-(:136); §5.6's [HOUSE] label was right all along.
+**The provenance matters and is weaker than it looks.** The pattern is a
+dagthomas observation that our corpus happens to satisfy — our mid-shot rate is
+73% against their 71%. **The vendor corpus does not corroborate it**: its
+decisive shot-final cell holds a single line, which is consistent with the rule
+and establishes nothing, and its mid-shot cell runs the *other* way at 2 of 6.
+So do not cite the positional rule as vendor practice. The only STATED vendor
+rule here remains base-en:136, for voiceover, which nothing contradicts, and
+§5.6's [HOUSE] label was right all along.
 
-**Turns per shot — OPEN, and now the strongest of the three.** The vendor uses
-exactly one `<d>` per shot in every specimen; dagthomas uses exactly one in
-every dialogue-carrying shot across its whole corpus, with no exception. Ours is
-mostly one, with a handful of shots carrying more, concentrated in the two
-`DIALOGUE_*` prompts and the two ref2v scene arms. No guide states a cap
-(§12.12), the prompts are inside the speech budget, and nothing has been
-rendered — so this is a divergence from unanimous vendor and third-party
-practice rather than a rule violation. `bench/diff_prompt_corpus.py` reports it.
+It is still the right STATISTIC — it is what turned an apparent 43% cue rate
+into zero counterexamples and retracted the misalignment — but a statistic being
+right does not make its source authoritative.
+
+**Turns per shot — OPEN, and narrower than first stated.** A first pass here
+recorded "the vendor uses exactly one `<d>` per shot in every specimen". **That
+was wrong, and it was wrong by counting shot headers across a whole prompt
+rather than inside the narrative field.** The vendor's reproducible ref2va
+payload puts TWO dialogue turns in ONE shot; its second `[Shot 1]` string is a
+cross-reference inside `retention_analysis`, not a header. So:
+
+- **Base format:** every vendor specimen is one turn per shot, and
+  `DIALOGUE_T2V_PROMPT` is not. This is the divergence
+  `bench/diff_prompt_corpus.py` still reports.
+- **Reference format:** the vendor is SPLIT — one turn in the guide's worked
+  example, two in the payload — so it asserts nothing, and our two ref2v scene
+  arms at two turns are doing exactly what the vendor payload does. They are
+  **not** outliers and were withdrawn from this finding.
+
+What survives: the two `DIALOGUE_*` prompts stack more turns in a shot than any
+vendor specimen of either format. No guide states a cap (§12.12), both are
+inside the speech budget, and nothing has been rendered.
 
 **Checked and found clean:** ref-en *states* one line per item in
 `subject_definitions` (ref-en:37) and `retention_analysis` (ref-en:157). Every

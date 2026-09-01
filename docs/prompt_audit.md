@@ -107,17 +107,21 @@ only so the catalogue's scene names all resolve to something here.
 2. **Mouth closing — WITHDRAWN.** This file previously recorded our dialogue
    prompts as diverging on it. They do not. The rule is positional — cue when
    the shot continues, never when the line ends the shot — and our corpus
-   matches the vendor and third-party corpora on both axes. The earlier finding
-   came from a per-line ratio, which is the wrong statistic for a positional
-   rule.
-3. **Turns per shot — OPEN, and the strongest of the three.** The vendor uses
-   exactly one `<d>` per shot in every specimen, and the dagthomas corpus in
-   every dialogue-carrying shot without exception. A handful of our shots carry
-   more, concentrated in the two `DIALOGUE_*` prompts and the two ref2v scene
-   arms. No guide states a cap (`prompting.md` §12.12), the prompts are inside
-   the speech budget, and nothing has been rendered — so this is a divergence
-   from unanimous practice, not a rule violation. `bench/diff_prompt_corpus.py`
-   reports it.
+   satisfies it. The earlier finding came from a per-line ratio, which is the
+   wrong statistic for a positional rule. **Provenance caveat:** the pattern is
+   a third-party corpus observation, NOT vendor practice — the vendor's
+   shot-final cell holds one line and its mid-shot cell runs the other way. Do
+   not cite it as vendor.
+3. **Turns per shot — OPEN, and narrower than first stated.** A first pass
+   claimed the vendor is always one turn per shot. **Wrong**: its ref2va
+   payload puts two turns in one shot, and the second `[Shot 1]` in that file
+   is a `retention_analysis` cross-reference rather than a header. Base-format
+   vendor specimens are all one turn, so `DIALOGUE_T2V_PROMPT` diverges there;
+   the reference-format vendor is split, so **the two ref2v scene arms are
+   doing what the vendor payload does and are withdrawn from this finding.**
+   What survives is that both `DIALOGUE_*` prompts stack more turns per shot
+   than any vendor specimen. No guide states a cap, both are inside the speech
+   budget, and nothing has been rendered.
 
 **Checked and found clean:** ref-en *states* one line per item in
 `subject_definitions` (ref-en:37) and `retention_analysis` (ref-en:157). Every

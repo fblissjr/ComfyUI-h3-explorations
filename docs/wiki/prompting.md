@@ -139,10 +139,14 @@ clip per arm cannot support it however carefully it is stacked.
   date are not matched-seed comparable with clips after it.
 - **Mouth closing — WITHDRAWN.** The rule is positional (cue when the shot
   continues, never when the line ends the shot), and we already followed it. The
-  earlier finding was a per-line ratio, which is the wrong statistic.
-- **Turns per shot — OPEN.** Every vendor and third-party specimen uses exactly
-  one dialogue block per shot. A few of ours carry more. No guide states a cap
-  and nothing has been rendered.
+  earlier finding was a per-line ratio, which is the wrong statistic. The
+  positional pattern is a third-party observation, **not vendor practice** — the
+  vendor corpus does not corroborate it.
+- **Turns per shot — OPEN, base format only.** Vendor base specimens use one
+  dialogue block per shot and `DIALOGUE_T2V_PROMPT` does not. The vendor is
+  SPLIT in reference format — its own payload puts two turns in one shot — so
+  our ref2v scene arms are within vendor practice, not outliers. No guide states
+  a cap and nothing has been rendered.
 
 **How these get found at all:** `bench/diff_prompt_corpus.py` extracts
 mechanical features from the vendor corpus and ours and reports every feature
