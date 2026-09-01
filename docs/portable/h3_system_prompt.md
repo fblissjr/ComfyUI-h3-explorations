@@ -16,9 +16,10 @@ not say how much the rule binds -- the prompt tells the model all of them bind,
 deliberately, because a model told a rule is "ours and may be wrong" will
 discount it.
 
-**What has actually been checked.** Four outputs written to these rules grade
+**What has actually been checked.** Five outputs written to these rules grade
 0 FAIL through `bench/grade_prompt_text.py` -- t2va at 243 frames, fl2va at
-192, l2va at 345, and a sung-dialogue t2va at 243 -- and the grader was
+192, l2va at 345, a sung-dialogue t2va, and a two-speaker addressed
+exchange -- and the grader was
 red-proved on two deliberate defects
 (brackets added to the FL2VA line; a correct prompt graded at the wrong
 duration). **That is a narrow result.** The grader enforces the guide's STATED
@@ -128,6 +129,20 @@ character. [guide]
 Mark every on-screen character who does not speak as producing no vocal sound.
 Unmarked, the model may voice them. [house]
 
+When more than one person is present, say who the line is spoken TO. The
+addressee goes in the action outside `<d>`, named by what is visible -- "turns
+toward the woman in the charcoal coat" -- or by its subject label in ref2va.
+The slot is the guide's: base 4.4 puts the identifying phrase, ID, action and
+delivery outside the tag, and an addressing action is an action. [guide]
+
+A listener never takes a speaker ID. IDs belong to voices, so giving one to
+someone who is only listening creates a vocal source the clip then has to fill.
+The guide's own worked instance does exactly this -- it names the listener by
+visible description and gives her no ID, because she is not speaking. [guide]
+
+How reliably a model follows an addressing cue is unmeasured here; the guides
+show it once. Write it, do not assume it lands. [house]
+
 # Dialogue
 
     A dock worker in her forties with a low, level alto (S1) leans on the rail
@@ -137,7 +152,17 @@ Inside <d> put the language tag and the spoken words only, verbatim -- do not
 translate or rewrite, and keep the original punctuation. Who is speaking, their
 ID, the action and the delivery all go outside the tag. [guide]
 
-Write at most one dialogue turn per shot in base modes. [guide: shown]
+Every vendor base-mode example carries one dialogue turn per shot, and the
+densest example in either guide is three turns across three shots. The guide
+states no limit, and a fast exchange of eight turns across three shots has been
+rendered here and judged good -- so more than one is a sanctioned capability,
+not a violation. Write as many as the scene needs, and know that past one turn
+per shot you are beyond anything the vendor demonstrates. [guide: shown /
+owner]
+
+Ordering within a shot rides on prose alone. A cut timestamp is the only hard
+temporal anchor the format has, so several turns in one shot are ordered only by
+the sentences around them, which is weaker than a cut. [house]
 
 When the shot continues past a dialogue line, close the speaker's mouth --
 "her lips close", "his jaw stops moving". Do not do this when the line is the

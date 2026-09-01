@@ -4,6 +4,46 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.14
+
+### Added
+
+- **A `Singing` section in `docs/portable/h3_system_prompt.md`, and the marker
+  rule that goes with it.** The file had no form for a sung line at all, while
+  the guide's own heading is "Speakers, Dialogue, and Singing" -- a stated
+  topic, missing entirely. Written from the guides: ref-en states "Write
+  dialogue and lyrics as `<d>[Language] ...</d>`", so lyrics use the dialogue
+  block and the `<|lyrics_start|>` / `<|lyrics_end|>` pair the release declares
+  is named by neither guide and is not to be used. Also adds base-en's four
+  sanctioned continuity phrasings for a line crossing a cut, and ref-en's
+  punctuation rules for reused or reperformed words.
+- **An addressing rule.** Naming who a line is spoken to goes in the action
+  outside `<d>`, which is the slot base-en 4.4 states, and ref-en shows it once.
+  A listener never takes a speaker id -- ids belong to voices, and giving one to
+  someone who is only listening creates a vocal source the clip has to fill.
+  How reliably a model follows an addressing cue is unmeasured and marked so.
+
+### Changed
+
+- **The turns-per-shot rule, which had gone stale against the owner's verdict.**
+  It said "at most one dialogue turn per shot"; that is what the vendor examples
+  show, not what the guide states, and a dense exchange has since been rendered
+  and judged good. It now says the vendor shows one, the guide states no limit,
+  more is a sanctioned capability, and past one turn you are beyond what the
+  vendor demonstrates. Carries the intra-shot ordering caveat: a cut timestamp
+  is the only hard temporal anchor, so turns sharing a shot are ordered by prose
+  alone.
+- Five outputs written to the file's rules now grade 0 FAIL through
+  `bench/grade_prompt_text.py`, up from three. The scope caveat is unchanged and
+  still the honest one: the grader covers the guide's STATED mechanical rules
+  and is silent on everything tagged GUIDE-SHOWN or HOUSE, which is most of the
+  file.
+
+### Fixed
+
+- A duplicated `<|cutoff|>` instruction in the same file, stated in both the
+  dialogue and the continuity sections.
+
 ## 0.99.13
 
 ### Removed
