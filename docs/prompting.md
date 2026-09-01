@@ -4,8 +4,8 @@ last updated: 2026-09-01
 
 **The single source of truth for writing an H3 prompt, in any mode.** Everything
 needed is restated here: the closed vocabularies in full, the exact Part One
-templates, the section layouts, all seven markers, five graded worked examples
-per keyframe mode, what the model actually receives, and where every source that
+templates, the section layouts, all seven markers, graded worked examples
+per mode, what the model actually receives, and where every source that
 claims to govern a prompt disagrees with the others. **You do not need
 `internal/` and you should not need any other file.**
 
@@ -1330,20 +1330,23 @@ repo's standard failure: prose stating a fact the code already knows.
 
 ### Withdrawn 2026-09-01
 
+Each withdrawn claim is quoted as it stood. **The replacement is a pointer, not
+a new count** — that is what made these rot: they cached a fact the graphs
+already know, and a corrected count would rot the same way.
+
 - **"L2VA has no shipped prompt, and `scene_prompt()`'s L2VA branch returns
-  `[Shot N]` and `S.SS` unsubstituted."** Both halves are false.
-  `h3_last_frame_to_video_api` ships an L2VA prompt with Part One fully
-  resolved, and `l2v_prompt(length)` is what builds it. The `scene_prompt()`
-  defect was fixed on 2026-08-28 and the fix is recorded in that function's own
-  comment; the function remains uncalled, so the bug never reached a graph.
-- **"No shipped graph carries any marker but `<d>`."** False since the scene
-  arms shipped: `h3_ref2v_scene_kitchen` and `h3_ref2v_scene_subway`, in both
-  their UI and API forms, carry `<|lyrics_start|>`, `<|lyrics_end|>`,
-  `<|caption_start|>`, `<|caption_end|>` and `<|cutoff|>`.
+  `[Shot N]` and `S.SS` unsubstituted."** Both halves are false. For what
+  L2VA actually ships, read `prompt_catalogue.md`, or ask the graphs:
+
+      python bench/grade_prompt_text.py --list-donors
+
+  The `scene_prompt()` defect was fixed on 2026-08-28 and that function's own
+  comment records it; the function remains uncalled, so it never reached a
+  graph.
+- **"No shipped graph carries any marker but `<d>`."** False. The markers each
+  scene carries are a column in `prompt_catalogue.md`, derived from the graphs.
 - **"Every generated ref2va prompt is one shot at 42-68 words."** False as a
-  universal. Most still are, but a minority now sit inside ref §5.2's 350-500
-  band — both scene arms among them, at four shots each. Derive the current
-  split rather than trusting this sentence:
+  universal. For the current distribution:
 
       python bench/preflight_graph.py workflows/*.json | grep 'the guide asks 350-500'
 
@@ -1361,9 +1364,9 @@ repo's standard failure: prose stating a fact the code already knows.
   2026-09-01 and is exercised only by §10.3.2, §10.3.5, §10.4.3 and §10.4.5.
   That dead branch was carrying a defect: see §14.
 - **Nothing regenerates `prompt_catalogue.md`.** It has a `--check` mode and no
-  caller, which is how it went eight scenes stale before 2026-09-01. This repo
-  has no test runner by design (`docs/checks.md`), so the discipline is to run it
-  before trusting it, not to wire a gate.
+  caller, and it had gone stale by 2026-09-01. This repo has no test runner by
+  design (`docs/checks.md`), so the discipline is to run it before trusting it,
+  not to wire a gate.
 
 ---
 

@@ -49,8 +49,8 @@ in backticks rather than linked.
 | what canvases and lengths are legal | [`docs/h3_resolutions.md`](../h3_resolutions.md), [`docs/h3_geometry_and_nodes.md`](../h3_geometry_and_nodes.md) |
 | how do I compare two prompts fairly | [`docs/eval_comparison.md`](../eval_comparison.md) — and read the warning in §5 below first |
 
-**The catalogue is generated and nothing regenerates it.** It went eight scenes
-stale before 2026-09-01. Run this before trusting it:
+**The catalogue is generated and nothing regenerates it**, and it has been stale
+before. Run this before trusting it:
 
     python bench/build_prompt_catalogue.py --check
 
@@ -58,22 +58,22 @@ stale before 2026-09-01. Run this before trusting it:
 
 ## 3. At least five worked examples per mode
 
-`docs/prompting.md` §10 carries seventeen examples. **Every one is graded, and
-the grading is reproducible** — see §4. Shipped prompts are additional examples,
-but they are *what we render*, not *what is exemplary*: read them through the
-audit's verdict.
+`docs/prompting.md` §10 carries worked examples for every mode, and **every one
+is graded** — see §4. Shipped prompts are additional examples, but they are *what
+we render*, not *what is exemplary*: read them through the audit's verdict.
 
-| mode | worked examples in §10 | shipped scenes | total |
-|---|---|---|---|
-| **T2VA** | §10.1 | 8 | 9 |
-| **I2VA** | §10.2.1 – §10.2.5 | 1 | 6 |
-| **FL2VA** | §10.3.1 – §10.3.5 | 1 | 6 |
-| **L2VA** | §10.4.1 – §10.4.5 | 1 | 6 |
-| **Ref2VA** | §10.5 | 18 | 19 |
+| mode | worked examples in §10 | shipped |
+|---|---|---|
+| **T2VA** | §10.1 | see [`prompt_catalogue.md`](../prompt_catalogue.md) |
+| **I2VA** | §10.2.1 – §10.2.5 | as above |
+| **FL2VA** | §10.3.1 – §10.3.5 | as above |
+| **L2VA** | §10.4.1 – §10.4.5 | as above |
+| **Ref2VA** | §10.5 | as above |
 
-Shipped counts are as of 2026-09-01 and are a property of the graphs, not of this
-page. Re-derive them from [`prompt_catalogue.md`](../prompt_catalogue.md) rather
-than trusting the column.
+The shipped column is deliberately a pointer. How many scenes exist per mode is
+a property of the graphs, and a number written here would be a second copy of it
+with nothing to invalidate it. `bench/grade_prompt_text.py --list-donors` names
+the canonical graph per mode; the catalogue lists them all.
 
 **The keyframe modes are where the examples were needed.** Each shipped exactly
 one prompt, so a reader had one specimen and no sense of the range. The four new

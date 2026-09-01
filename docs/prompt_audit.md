@@ -63,10 +63,11 @@ Ordered by blast radius — how many graphs carry the scene.
 
 ### Verdicts added 2026-09-01
 
-**The table above covered 12 of the 29 scenes the catalogue now lists.** The gap
-was not neglect: `prompt_catalogue.md` was itself eight scenes stale until
-2026-09-01, so seventeen scenes had never appeared in a document this file is
-keyed to. Every one is graded below. **All of them pass
+**The table above did not cover every scene the catalogue lists.** The gap was
+not neglect: `prompt_catalogue.md` was itself stale until 2026-09-01, so the
+missing scenes had never appeared in the document this file is keyed to. Every
+one is graded below. To check that this file still covers the catalogue, compare
+its scene headings against the verdicts here rather than trusting a count. **All of them pass
 `check_prompt_guide_conformance.py` and none carries a FAIL from
 `preflight_graph.py`** — the verdicts are about judgement, not mechanics.
 
