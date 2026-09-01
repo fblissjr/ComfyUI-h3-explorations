@@ -19,6 +19,19 @@ it. The second generates a file and, under `--check`, refuses a stale one.
 Listing both is deliberate -- each has a red control and defends real ground --
 and it is why "every check" and "every row" are not the same set.
 
+**A deliberate violation that never applied is a green you will believe.** A
+`sed` whose pattern silently fails to match copies the file through unchanged
+and exits 0, so the "mutant" is a plausible file of plausible size at the
+expected path, the check reports on it correctly, and the proof was vacuous.
+Two instances on 2026-09-01, both in red proofs: one where a peer's substitution
+never matched and the clean result was read as a refutation, and one where a
+`grep -c` exiting 1 on ZERO MATCHES was read as "file missing". The cheap
+discipline is one line before grading: assert the mutant differs from the
+original -- `cmp -s orig mutant && echo "MUTATION DID NOT APPLY"`, or compare
+hashes. **Verify the attempt reached the subject before believing either
+outcome**, and re-run any proof whose mutation you did not confirm: three of
+this repo's own were re-run that way and all three were real.
+
 ## The standard
 
 A check over **mechanically specified** behaviour -- a graph's JSON, a schema

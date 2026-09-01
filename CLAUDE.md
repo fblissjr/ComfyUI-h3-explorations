@@ -395,6 +395,14 @@ repeating work.
     can only confirm the claim's wording, never the artifact's content.** That
     `do not use` grep came from a peer's message rather than from the page, so
     it was structurally incapable of finding what the page said.
+  - **The hardest variant is a GOOD pattern against a corpus your own pipeline
+    already destroyed.** Searching an HTML page for `<|cutoff|>` by calling
+    `html.unescape` and THEN stripping tags turns `&lt;|cutoff|&gt;` into a
+    literal `<|cutoff|>` that the tag-stripper eats as an element: the pattern
+    was right, the page contained the token, and the preprocessing removed the
+    evidence before the search ran. Every other instance here is a bad pattern
+    against a good corpus, which is easier to spot because the pattern is
+    suspect. Read the raw bytes when a search of derived text comes back empty.
   - **It runs both ways, and the false POSITIVE is the half nobody catalogues.**
     A peer grepped for a repo name to check whether anything cited it and got
     two hits; both were `MiniMaxH3TEModel`, a text-encoder class. A hit is
