@@ -455,13 +455,33 @@ def audit_covers_catalogue() -> int:
         return 1
     scenes = re.findall(r"^## (.+)$", cat.read_text(encoding="utf-8"), re.M)
     audit = aud.read_text(encoding="utf-8")
-    # WORD-BOUNDED, not substring. `T2V_RAIL_LONG` is a substring of
-    # `T2V_RAIL_LONGG`, so a plain `in` test passes a scene whose verdict was
-    # renamed out from under it -- which is precisely the drift this is for.
-    # Caught 2026-09-01 while red-proving: the proof did not go red, and the
-    # check was the reason, not the proof.
-    missing = [s for s in scenes
-               if not re.search(r"(?<![\w:])" + re.escape(s) + r"(?![\w])", audit)]
+    # BINDS THE VERDICT, NOT THE MENTION -- and it did not until 2026-09-01.
+    #
+    # The first version asked only whether the scene NAME appeared anywhere in
+    # the audit, while printing "all N scenes resolve to a verdict". A scene
+    # named once in a passing prose sentence, with its verdict row deleted,
+    # passed clean: demonstrated by removing `T2V_RAIL_LONG`'s row and leaving
+    # "Incidentally T2V_RAIL_LONG rendered fine last week." So the check
+    # asserted a weaker property than its own success message claimed.
+    #
+    # Borrowed from a sister project that found the same shape in its contract
+    # test: it bound a diagnostic's EXISTENCE rather than its CONDITION, and so
+    # could not catch the spec and the implementation disagreeing about scope.
+    # **A check whose message names a property it does not test is worse than
+    # one that says less**, because the message is what people quote.
+    #
+    # The verdict vocabulary is deliberately generous -- the audit records
+    # outcomes as well as verdicts ("closed", "withdrawn", "rewritten") -- since
+    # the question is whether a scene was ADJUDICATED, not which word was used.
+    VERDICT = re.compile(
+        r"\b(keep|revise|rewrite|discard|rewritten|revised|closed|withdrawn)\b",
+        re.I)
+    missing = []
+    for s in scenes:
+        mentions = [ln for ln in audit.splitlines()
+                    if re.search(r"(?<![\w:])" + re.escape(s) + r"(?![\w])", ln)]
+        if not any(VERDICT.search(ln) for ln in mentions):
+            missing.append(s)
     if missing:
         print(f"  FAIL  {len(missing)} catalogue scene(s) have no verdict in "
               f"prompt_audit.md:")
