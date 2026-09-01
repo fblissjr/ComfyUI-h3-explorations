@@ -33,9 +33,10 @@ design goes through them.
    file with no documented shift) runs as a `bench/run_graph_arms.py --set`
    patch, not as a shipped row.
 
-4. **How a prompt is written.** The owner's conditioning formats live in
-   `internal/2026-8-20-system-prompts/` (owner-local, gitignored: one file per
-   task -- t2v, fl2va first/last frame, i2v and keyframe, ref2va). A t2v prompt
+4. **How a prompt is written.** `docs/prompting.md` owns this end to end, and
+   the `h3-prompt` sibling skill routes into it by task. **This step used to
+   name `internal/2026-8-20-system-prompts/`, which does not exist** -- a dead
+   pointer to a gitignored directory, corrected 2026-09-01. A t2v prompt
    is the three-field layout; a reference prompt is the six-field layout whose
    `<Picture N>` labels must name exactly the references the graph wires
    (`bench/check_ref_prompt_labels.py` enforces that, and `_ref_prompt()` in

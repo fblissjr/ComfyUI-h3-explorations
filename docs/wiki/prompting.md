@@ -10,6 +10,37 @@ about how to prompt H3, where did it come from, and how much does it bind?*
 
 ---
 
+## 0. If you are an agent, start with the skill
+
+`.claude/skills/h3-prompt` routes by TASK — writing one, editing a shipped one,
+converting between modes, judging whether one is good — to the file that owns
+each answer and the command that verifies the result. It restates no rule, so it
+cannot drift into a second authority.
+
+**This page and that skill exist for different readers.** The skill is what an
+agent hits when it says "I need to write an H3 prompt". This page is the map: it
+answers where a claim came from and what guards it.
+
+### The whole lane, and what guards each edge
+
+| from | to | how, and what guards it |
+|---|---|---|
+| vendor guides | alignment templates, camera vocabulary | **parsed at import** by `preflight_graph.py` / `check_prompt_guide_conformance.py` / `check_camera_vocabulary.py`; a missing guide is a loud error, never a silent pass |
+| `build_workflows.py` | `workflows/*.json` | generated; graphs are never hand-edited, and nothing is true of a graph until rebuilt |
+| the graphs | `prompt_catalogue.md` | generated; `build_prompt_catalogue.py --check` |
+| catalogue scenes | `prompt_audit.md` verdicts | hand-written, **coverage checked** by `check_prompt_docs_sync.py` |
+| vendor guides | `prompting.md`'s quoted vocabularies | retyped for readers, **checked per instance** |
+| `prompting.md` §10 | still grades clean | **re-run through `preflight_graph.grade`** |
+| `prompting.md` §10 | the portable standard's examples | **checked verbatim** |
+| `CLAUDE.md` | `docs/wiki/index.md` | generated; `build_wiki_index.py --check` |
+| dated snapshots | frozen | pinned by hash; **never** graded against current sources |
+| shipped prompts | vendor practice | `diff_prompt_corpus.py`, a report rather than a gate |
+
+**Enforced by nothing, and deliberately:** the manual's prose — the rules
+themselves, their layer assignments, the reasoning. No mechanism can diff those.
+What catches an error there is a second implementation computing it fresh, not a
+second reading.
+
 ## 1. The five sources, ranked
 
 Only the first binds. Two of the five are not authorities at all, and both have

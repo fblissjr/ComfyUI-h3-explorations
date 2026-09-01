@@ -4,6 +4,34 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.12
+
+### Added
+
+- **`.claude/skills/h3-prompt`** -- the agent entry point for prompt work,
+  routing by TASK (write one, edit a shipped one, convert between modes, judge
+  one) to the file that owns each answer and the command that verifies the
+  result. Restates no rule, so it cannot become a second authority.
+
+### Fixed
+
+- **`h3-experiment` routed prompt-writing to a directory that does not exist.**
+  Its step 4 named `internal/2026-8-20-system-prompts/` -- gitignored and
+  absent -- and neither shipped skill named `docs/prompting.md` at all. So an
+  agent asking where to go to write a prompt was sent nowhere, while the
+  manual sat unreferenced by any entry point.
+
+### Removed
+
+- **`bench/check_uncontrolled_claims.py`, built and deleted the same day.** Its
+  escaped instance was real, but correcting the two documents was the fix and
+  the check was not: across `docs/`, 132 lines claim nothing guards something
+  and exactly one cites a numbered guide section -- the row already corrected.
+  It scanned zero subjects and printed "this run proves nothing" every run.
+  Widening it to the rest needs judgement about prose, which means false reds.
+  A check that cannot fail is not a cheap safety net; it is a green light
+  nobody earned. Retirement and reasoning recorded in `docs/checks.md`.
+
 ## 0.99.11
 
 ### Fixed
