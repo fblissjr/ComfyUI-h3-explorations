@@ -138,6 +138,21 @@ every worked example against §10 verbatim, and each quoted guide sentence
 against the guide. **Run it after editing either file.** Its prose is not
 checkable and is not checked; a green run means the quotations still match.
 
+**A second portable artifact exists**, and that is a risk worth naming:
+[`docs/portable/h3_system_prompt.md`](../portable/h3_system_prompt.md) is a
+writer-model system prompt — CORE plus one block per mode — derived from the
+standard rather than from the manual directly. **Two portable artifacts can
+disagree.** It is not generated from the standard, which would be the real fix
+and is unbuilt; instead its three Part One strings are taken from the
+guide-parsed constants and `bench/check_prompt_docs_sync.py` grades them, so it
+cannot drift silently. It is a draft, and its own header says so.
+
+**What "grades clean" covers for it, and does not.** Outputs written to its
+rules pass the grader's *stated mechanical* rules. A control that broke a
+GUIDE-SHOWN rule — shots on separate lines — stayed green, correctly, because
+the grader refuses to enforce shown rules. So most of that file is untested by
+construction, which is a property of the rule layers rather than of the file.
+
 **Dated snapshots live beside it**, e.g.
 `docs/portable/2026-09-01_h3_prompt_standard.html` — a frozen record of what was
 published and shared on that date, carrying a banner saying so. **A snapshot is
