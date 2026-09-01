@@ -9,8 +9,8 @@ per mode, what the model actually receives, and where every source that
 claims to govern a prompt disagrees with the others. **You do not need
 `internal/` and you should not need any other file.**
 
-`internal/PROMPTING.md` is superseded and being retired into this file; §14.5
-says what has moved and what has not. §14 is the reconciliation across all five
+`internal/PROMPTING.md` was superseded and is now DELETED (2026-09-01); §14.5
+says where its content went. §14 is the reconciliation across all five
 sources — read it before citing any of them, because two are not authorities.
 
 Companions, neither of which is a source for the rules themselves:
@@ -1397,7 +1397,13 @@ not carry equal weight and two of them are not authorities at all.
 | 2 | the vendor's own API payloads | `coderef/MiniMax-H3/scripts/readme/*.sh` (gitignored) | evidence of practice, not a rule | you are doing something the vendor's own pipeline never emits |
 | 3 | the vendor's prompt-writing skill | `coderef/MiniMax-H3/.claude/skills/h3-prompt-writing/` | **a router, not a rule set** | nothing; it states no rule of its own |
 | 4 | this file | `docs/prompting.md` | our reading, layered GUIDE / OWNER / HOUSE / OPEN | depends on the layer, which every rule names |
-| 5 | `internal/PROMPTING.md` | gitignored | **superseded 2026-08-28, being sunset** | nothing; cite this file instead |
+| ~~5~~ | ~~`internal/PROMPTING.md`~~ | **deleted 2026-09-01** | — | — |
+
+**Row 5 is struck rather than removed.** `internal/PROMPTING.md` was ranked
+here while it existed, and a reader who remembers being told to weigh it needs
+to know it is gone rather than find it silently absent. **A ranked source that
+does not exist is worse than an omitted one** — the row implies you could
+consult it. Its content is in §14.5.
 
 ### 14.2 The vendor's skill adds no rule, and its guides are byte-identical to ours
 
@@ -1524,186 +1530,31 @@ newly-live branch is red-proved: a two-shot FL2VA claiming `from Shot 1` now
 fails. **This is the standing "a fix moves where a constraint applies" case —
 the branch was dead, so nothing covered it, so the defect sat in it.**
 
-### 14.5 What `internal/PROMPTING.md` still uniquely holds
+### 14.5 Where `internal/PROMPTING.md`'s content went
 
-It has carried a SUPERSEDED banner since 2026-08-28 and is being sunset into
-this file. Its own banner names what had already rotted: §2.1's headline that
-ComfyUI does not tokenize `<d>` as such (false on this install since the core
-tokenizer merge), and two instructions to wire `MiniMaxH3VendorTokens`, a node
-deleted 2026-08-27. **Do not follow it.**
+**That file is DELETED as of 2026-09-01.** This section used to be headed "what
+it still uniquely holds" and named §7 and §7b -- its LLM prompt-writer system
+prompts -- as content that had NOT moved and as "the only reason to open the
+file". **Both halves are now wrong, and left here rather than reworded because
+the section spent a day telling readers to open something that no longer
+exists.**
 
-What has moved here: §1's model facts and the Context-IR framing, §2's
+What moved into this file: §1's model facts and the Context-IR framing, §2's
 presentation contract, §3's five diagnoses, §4's frame grid and speech budget
 including the open two-parameter problem, §5's documented-to-work list, and §6's
-user-message contract — see §15. What has NOT moved, and is the only reason to
-open the file: **§7 and §7b, the LLM prompt-writer system prompts.** Those are a
-tool for driving a writer model, not a statement of the rules, and
-`internal/prompts/2026-08-22_{t2va,i2va,fl2va,ref2va}_system_prompt.md` are a
-separately-authored set covering the same ground per mode.
+user-message contract. All of it is §15.
 
----
+**What closed the §7/§7b gap:** [`docs/portable/h3_system_prompt.md`](portable/h3_system_prompt.md),
+a writer-model system prompt — a CORE section plus one block per mode — derived
+from the portable standard and tracked. It is a draft and says so. Its Part One
+strings are graded against the guide-parsed constants by
+`bench/check_prompt_docs_sync.py`, so it cannot drift silently, but **"grades
+clean" there covers the STATED mechanical rules only** — a control breaking a
+GUIDE-SHOWN rule correctly stays green, because the grader refuses to enforce
+shown rules. Most of that file is untested by construction.
 
-## 15. What the model is, and what actually reaches it
-
-Migrated from `internal/PROMPTING.md` §§1-6 on 2026-09-01 so that file can be
-retired. **Everything checkable here was re-derived against source on that date
-rather than copied on trust** — that file had been wrong before and carries a
-SUPERSEDED banner. Each claim below says which it is.
-
-### 15.1 What H3 is, and why the prompt carries the whole job
-
-H3 generates **video and 32 kHz audio jointly, in one denoising pass, from one
-block of text.** There is no TTS stage, no separate audio model, and no script
-field: the same DiT that draws the mouth generates the voice coming out of it.
-Anything you want to hear has to be in the same text that describes what you
-want to see. Guidance is CFG-distilled, so **there is no negative prompt
-channel** — a "do not show X" sentence conditions on the tokens of that
-sentence.
-
-**MiniMax do not intend the model to take your prompt directly.** They ship a
-second hosted system, H3-Context-IR, whose only job is to turn a short idea into
-the structured document H3-Base consumes, and their model card calls it critical
-to output quality. It is API-only. **Running H3 locally means you are the
-Context-IR**, and that is why the guides read like an output spec rather than
-like advice — they document Context-IR's output format.
-
-**Do not hand a writer model the name "H3-Context-IR".** H3 postdates the
-training cutoff of any model you would run this on, so the name retrieves
-nothing and invites confabulation about what that system does; those inventions
-then compete with the rules you actually wrote. State the properties instead.
-The same failure in the other direction is a writer reaching for Sora or Veo
-conventions to fill the gap. *(Reasoning, not measurement — carried forward from
-`internal/PROMPTING.md` §1, which records it as a correction to its own earlier
-draft.)*
-
-### 15.2 What ComfyUI actually sends the encoder
-
-**Verified 2026-09-01 against `comfy/text_encoders/minimax.py`.**
-
-- Conditioning is the **unnormalized hidden state after LM layer 50**; the
-  converted checkpoint is truncated there (`comfy/text_encoders/minimax.py:15`).
-- The presentation is **not chat-templated** — raw token ids, no system or user
-  roles, vision blocks spliced inline (`comfy/text_encoders/minimax.py:3`).
-- **Your prompt is passed through verbatim.** `tokenize_with_weights` ends with
-  `add_text(text)` (`comfy/text_encoders/minimax.py:197`) after every label; nothing is stripped,
-  parsed, reformatted, or reordered.
-- **Nothing injects a duration, an alignment line, or shot scaffolding.** What
-  ComfyUI prepends is only the `"<Picture i>: "` / `"<Video k>: "` /
-  `"<Audio j>: "` label per reference, plus a `"<%.1f seconds>"` marker before
-  every 2-frame temporal block of a reference video. Everything else is yours,
-  **and the writer is blind to clip length unless you tell it.**
-
-**Consequence: the prompt is conditioning, not instruction.** There is no
-assistant deciding whether to comply. Descriptive text naming what is on screen
-conditions the generation; an imperative conditions on the tokens of the
-imperative.
-
-**Reference ordinals follow item order, and a video's soundtrack jumps the
-queue.** Counters are per kind and independent, so the same file can be
-`<Video 1>` and `<Audio 2>`. A reference video's soundtrack takes its
-`<Audio j>` label **before its own `<Video k>`**, and the standalone audio loop
-runs after — so one soundtracked video plus one standalone clip gives
-`<Audio 1>` = the soundtrack. Verified in both
-`comfy_extras/nodes_minimax_h3.py:335,346` and this pack's
-`reference_conditioning.py:655-696`.
-
-### 15.3 The five ways prompts go wrong here
-
-Carried forward from `internal/PROMPTING.md` §3. These are diagnoses from
-observed outputs, not measurements.
-
-1. **The writer does not know what H3 is**, so it writes for a generic
-   text-to-video model: it hedges, writes instructions rather than descriptions,
-   and has no reason to treat the audio fields as load-bearing. §15.1 is the fix.
-2. **Named characters come back as generic archetypes.** H3 renders what is
-   *described*, not what is *named* — the DiT was trained on caption-shaped
-   descriptions of pixels, so a bare proper noun gives it nothing to draw. The
-   fix is a **cast sheet pass**: expand every named character, IP or real person
-   once into a canonical visual noun phrase plus a voice line, then reuse that
-   exact phrase verbatim on every mention. Keep the name too; never rely on it.
-   Naming the *property* as a style anchor is worth doing.
-3. **Nothing in the prompt knows how long the clip is** (§15.2), so a writer
-   picks cut timestamps by feel and overruns the clip. §3.3 is the fix.
-4. **Line breaking has no single convention** and the vendor's own artifacts use
-   two — see §12.11 and §14.3, which is where this now lives.
-5. **Characters talk over each other**, from three causes: two speakers in one
-   shot with no time anchor (a timestamped cut is the only hard temporal anchor
-   the format offers); a **compound speaker id used by mistake** — `(S4,S5)` is
-   the documented notation for literal simultaneous group speech, so it
-   instructs two characters to say the line in unison; and simply too many
-   speakers for the runtime. Every on-screen character not given an explicit
-   "produces no vocal sound" is a candidate for the model to voice anyway.
-
-### 15.4 The speech budget, and why its shape is unsettled
-
-`internal/PROMPTING.md` §4.2 proposed `max_words_in_shot = 2.5 x (shot_seconds
-- 1.0)`, anchored on MiniMax's own ref2va script: 5 seconds, one shot, 11 spoken
-words. **That anchor does not fit the formula** — it allows 10 — and the formula
-has two free parameters where one observation can constrain at most one. A
-one-parameter form fits the same point exactly:
-
-| shot | `2.5 x (s - 1.0)` | `2.2 x s` |
-|---|---|---|
-| 2 s | 2.5 | 4.4 |
-| 3 s | 5.0 | 6.6 |
-| 5 s | 10.0 | **11.0 (exact)** |
-| 10 s | 22.5 | 22.0 |
-
-Both are equally "validated" by the corpus and they diverge by up to 1.8x
-exactly where the decisions are tightest. **The `-1.0` intercept is doing all
-the work in the short-shot regime, where there is no data at all** — and the
-familiar "cutting costs you words" tradeoff is *generated by* that intercept.
-Under `2.2 x s` cutting is free and the fewer-longer-shots argument disappears.
-
-**So treat every short-shot budget as possibly 1.8x too tight, and do not cite
-either form as measured.** [OPEN] Weak corroboration only: an independently
-built third-party kit of 26 worked examples has a densest dialogue density of
-0.71 words/sec, roughly a fifth of this budget, with no two-speaker example
-anywhere in it. That is revealed preference from someone staying far under any
-plausible ceiling; it supports the direction and says nothing about the constant.
-
-### 15.5 The user-message contract for a writer model
-
-If you drive an LLM to write these, the user turn needs more than an idea:
-
-```
-idea:     <one or two lines>
-frames:   243            # prefer frames; seconds alone cannot be snapped honestly
-task:     t2v            # t2v | i2v | fl2v | l2v | ref2v
-```
-
-**Give frames, not seconds.** "10 seconds" does not determine a frame count —
-240 snaps to 243 (10.125 s) but 250 snaps to 260 (10.833 s) — so a writer handed
-seconds cannot honestly produce the `S.SS` a Part One line needs (§3.3).
-
-For ref2va the turn also needs the reference list **in the order the items are
-built**, because that is what fixes the ordinals, including the soundtrack rule
-in §15.2:
-
-```
-refs:  1 image (identity), 1 video with sound (camera motion), 1 audio (voice)
-       -> <Picture 1>, <Audio 1> = video soundtrack, <Video 1>, <Audio 2> = voice
-```
-
-Aspect ratio is a workflow setting, not a prompt fact; leave it out.
-
-### 15.6 Third-party observations, held at arm's length
-
-None of these is measured here. They are recorded because they are actionable
-and cheap to test, and because a reader who meets them elsewhere should know
-this repo has neither confirmed nor refuted them. [3rd]
-
-- **H3 defaults to moving the camera.** Say nothing and expect a slow drift; the
-  reported fix is naming the moves it should *not* make rather than asking for a
-  static shot.
-- **Negative constraints are contested.** One vendor-adjacent guide calls
-  negative lists where "most of the quality lives"; another ran matched A/B
-  pairs and could not show they did anything, narrowing their advice to
-  on-screen text and camera movement only — the two things the model volunteers
-  unprompted.
-- **One primary change per beat**, or two changes collapse into whichever is
-  easier to render.
-- **Wardrobe drifts even when faces hold**, so name the garment in text as well
-  as showing it in a reference.
-- **Quiet scenes come back genuinely quiet** and may need gain in post.
-
+**A sibling set survives and is worth reading before revising it:**
+`internal/prompts/2026-08-22_{t2va,i2va,fl2va,ref2va}_system_prompt.md`,
+externally authored and corrected against the guides. **Four modes, not five —
+there is no l2va draft**, so do not assume parity across the set. They are
+gitignored, so they are named rather than linked.

@@ -52,7 +52,7 @@ been mistaken for one.
 | 2 | **the vendor's own API payloads** — `coderef/MiniMax-H3/scripts/readme/*.sh` | evidence of practice | you are doing something the vendor's pipeline never emits |
 | 3 | **the vendor's prompt-writing skill** — `coderef/MiniMax-H3/.claude/skills/h3-prompt-writing/` | **a router; states no rule** | nothing |
 | 4 | [`docs/prompting.md`](../prompting.md) | our reading, every rule layered | depends on the layer, which the rule names |
-| 5 | `internal/PROMPTING.md` | **superseded, being retired** | nothing — cite source 4 |
+| ~~5~~ | ~~`internal/PROMPTING.md`~~ | **deleted 2026-09-01** — struck, not removed, so it is not found silently absent | — |
 
 Sources 1, 2, 3 and 5 are gitignored and do not ship, which is why they are named
 in backticks rather than linked.

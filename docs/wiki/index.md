@@ -72,7 +72,6 @@ difference between this list and a membership test.
 
 - `docs/drift_frontier.md`
 - `docs/prompt_length_experiment.md`
-- `docs/portable/h3_system_prompt.md`
 - `docs/research/ -- 4 file(s), the whole subtree`
 - `docs/research/awq_quantization_suite/README.md`
 - `docs/research/awq_quantization_suite/qwen3vl_32b_w4a16_awq_quantization_report.md`
