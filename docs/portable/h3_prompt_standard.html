@@ -320,6 +320,20 @@ clothing are carried into the target video.
     <p>Reference labels appear in <code>detailed_description</code> and stay consistent across all sections. Write the body in English; preserve the original language only for dialogue and lyrics inside <code>&lt;d&gt;</code>, and for text visibly present in the scene.</p></div>
   <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Length: 350–500 words for generation tasks</h4>
     <p>Dialogue-dense content prioritises fitting the complete spoken timeline over hitting a word count, and editing descriptions scale with source complexity instead. <strong>A single shot does not justify a short description</strong> — distribute detail across shots by information load.</p></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Speaker IDs in Ref2VA: six rules that are easy to miss</h4>
+    <p>The base speaker rules apply, plus these. All stated in ref-en §5.4, and all of them are the kind of thing a writer gets wrong silently.</p>
+    <ul>
+      <li><strong>When a referenced subject speaks, keep BOTH labels</strong> — <code>&lt;Subject 2&gt; (S1) turns toward the woman and says, &lt;d&gt;…&lt;/d&gt;</code>. The label identifies the referenced subject; the ID identifies the actual speaker.</li>
+      <li><strong>Off-screen keeps the same form</strong> and is marked <code>off-screen</code>.</li>
+      <li><strong>A speaker matching no defined subject</strong> takes a stable voice description plus its <code>(Sx)</code>.</li>
+      <li><strong>Assign <code>(Sx)</code> once, in the order of actual vocal events</strong> in the target video, then reuse that ID at every vocal event.</li>
+      <li><strong>An <code>&lt;Audio N&gt;</code> bound to a target speaker reuses that speaker's ID and never assigns a new one</strong> independently.</li>
+      <li><strong>Never write <code>(Sx)</code> in <code>retention_analysis</code>.</strong></li>
+    </ul>
+    <p><strong>And the one that decides which system you are in:</strong> verbal content existing only inside a directly reused BGM or complete soundtrack uses <code>&lt;Audio N&gt;</code>; a voice physically produced by a person, character or narrator uses <code>(Sx)</code>.</p></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Words reused from a reference belong to the source</h4>
+    <p>When dialogue, narration or lyrics from reference audio are <strong>directly reused</strong>, or the request explicitly asks for their reperformance: reproduce the exact source words in their original language inside <code>&lt;d&gt;</code>. Write <code>[unclear]</code> for a span that cannot be made out — <strong>never a guess and never a paraphrase</strong>.</p>
+    <p><strong>The mirror rule, and the one people miss:</strong> when only <strong>timbre, rhythm, emotion or delivery</strong> is referenced, do <em>not</em> carry the reference's words across at all. That asset supplies how something sounds, not what is said.</p></div>
   <div class="rule"><h4><span class="chip c-house">House</span>Ordinals follow the order items are built, and soundtracks jump the queue</h4>
     <p>Counters are per kind and independent, so the same file can be <code>&lt;Video 1&gt;</code> and <code>&lt;Audio 2&gt;</code>. A reference video's soundtrack takes its <code>&lt;Audio&gt;</code> ordinal <strong>before its own <code>&lt;Video&gt;</code> label</strong>, and standalone audio is numbered after. One soundtracked video plus one standalone clip gives <code>&lt;Audio 1&gt;</code> = the soundtrack.</p></div>
 </section>

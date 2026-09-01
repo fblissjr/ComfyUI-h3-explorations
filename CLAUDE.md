@@ -395,10 +395,25 @@ repeating work.
     can only confirm the claim's wording, never the artifact's content.** That
     `do not use` grep came from a peer's message rather than from the page, so
     it was structurally incapable of finding what the page said.
+  - **It runs both ways, and the false POSITIVE is the half nobody catalogues.**
+    A peer grepped for a repo name to check whether anything cited it and got
+    two hits; both were `MiniMaxH3TEModel`, a text-encoder class. A hit is
+    evidence about your pattern too.
   - The fix is structural, not care: **derive the set and inspect it, or read
     the section.** Probing with a phrasing you invented tests your memory. And
     `grep -c` returning 0 looks like a measurement while being a statement
     about one string.
+- **Agreement between two things you connected is not corroboration, and you
+  cannot tell from the artifact which it was.** Two of this repo's siblings
+  share an owner and deliberately trade ideas, so their agreeing with us is
+  consistency rather than independent confirmation -- and on 2026-09-01 that
+  was miscounted twice in one message, as "a third independent confirmation"
+  and as "three codebases converging". **The artifact does not record whether
+  an agreement was borrowed or reached separately**, and weeks later shared
+  content reads as convergence to whoever finds it. So the fix is not to stop
+  borrowing: it is to record the provenance ON the agreement. Same shape as the
+  baseline rule below, one level up.
+
 - **The same standard applies to claims, and re-reading your own work does not
   meet it.** On 2026-08-13, eight substantive defects were found here and in the
   sage fork; not one was caught by whoever wrote it. Every one came from a

@@ -101,6 +101,68 @@ def text_of(page: str) -> str:
     return flat(html.unescape(re.sub(r"<[^>]+>", " ", page)))
 
 
+# THE ONE PLACE A SECOND COPY IS THE POINT.
+#
+# Everything else in this file DERIVES its expected value from the guide,
+# which kills transcription drift. But a derived expectation cannot contradict
+# the thing it derives from: `preflight_graph._base_alignment_templates()`
+# parses these three strings out of `vendor_guides/base_en.md` at import, and
+# if that parse were subtly wrong -- a regex that clipped a trailing clause, a
+# fence that moved -- every downstream comparison would agree with the wrong
+# parse and stay green forever. Derivation cannot catch a MISREADING.
+#
+# So these three are transcribed BY HAND from base_en.md lines 16, 22 and 28,
+# read directly rather than copied from the parser's output, and asserted equal
+# to what the parser produces. Two independent readings that can disagree.
+# Borrowed from a sister project whose reference contract states the principle:
+# "a spec derived from the implementation cannot contradict it, and therefore
+# cannot catch it being wrong."
+#
+# **Only these three, and deliberately.** A hand-written copy of the camera
+# table or the marker set would be long, would be exactly what transcription
+# drift attacks, and would rot into failing for the wrong reason -- derivation
+# is right for those. These three earn it: short, exact-match, effectively
+# never change, and getting one wrong is SILENT in the render.
+INDEPENDENT_ALIGNMENT = {
+    "I2VA": "For the target video, at 0.00 seconds into the target video, "
+            "<Picture 1> (from [Shot 1]) is fully referenced.",
+    "FL2VA": "How the reference pictures align with the target video \u2014 "
+             "Picture 1 (from Shot 1) aligns with the 0.00-second mark of the "
+             "target video; Picture 2 (from Shot N) aligns with the S.SS-second "
+             "mark of the target video.",
+    "L2VA": "How the reference pictures align with the target video \u2014 "
+            "<Picture 1> (from [Shot N]) aligns with the S.SS-second mark of "
+            "the target video.",
+}
+
+
+def parser_agrees_with_hand_reading() -> int:
+    """Does the guide parser produce what a human reading the guide produces?"""
+    from preflight_graph import BASE_ALIGNMENT
+    bad = 0
+    for mode, expected in sorted(INDEPENDENT_ALIGNMENT.items()):
+        got = BASE_ALIGNMENT.get(mode)
+        if got is None:
+            print(f"  FAIL  the guide parser produced no {mode} template")
+            bad += 1
+        elif flat(got) != flat(expected):
+            print(f"  FAIL  {mode}: the guide PARSER and a hand reading of the "
+                  f"guide disagree. One of them is wrong -- read base_en.md and "
+                  f"decide which.")
+            print(f"        parser: {flat(got)[:100]}")
+            print(f"        hand  : {flat(expected)[:100]}")
+            bad += 1
+    extra = sorted(set(BASE_ALIGNMENT) - set(INDEPENDENT_ALIGNMENT))
+    if extra:
+        print(f"  FAIL  the parser produced {', '.join(extra)}, which no hand "
+              f"reading covers; add it here or explain why it is not checked")
+        bad += 1
+    if not bad:
+        print(f"  ok    parser and hand reading agree on all "
+              f"{len(INDEPENDENT_ALIGNMENT)} Part One templates")
+    return bad
+
+
 def guides_unchanged() -> int:
     """The two vendor guides must hash to what `vendor_guides/sha256.json` says.
 
@@ -462,6 +524,7 @@ def main() -> int:
     fails = 0
 
     fails += guides_unchanged()
+    fails += parser_agrees_with_hand_reading()
 
     from preflight_graph import BASE_ALIGNMENT
     for mode, template in sorted(BASE_ALIGNMENT.items()):
