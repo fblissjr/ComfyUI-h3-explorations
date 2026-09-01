@@ -21,6 +21,27 @@ artifact.
   `docs/prompt_audit.md` item 4 record that, with the commands, so it is not
   forgotten. Nothing has rendered.
 
+## 0.99.22
+
+### Fixed
+
+- **Three record-semantics defects in the first Sol telemetry revision, all
+  from Codex's review before any live capture existed.** Outside Sol's sigma
+  window the canonical graph's 50 DiT calls run on Sage's per-block forward
+  patch and never reach the override, so they were absent from the record;
+  the composition gate now writes them as `route: composed_patch` with its
+  verdict leading the reason, block label and all. `routed_density.mean` was
+  presented as `bench/analyze_routing.py`'s number and is not: it weighs
+  every query block equally, while that script weighs pairs; the record now
+  carries the pair-weighted `ordering_effect_density` (overall, per head,
+  per segment) beside the query-weighted distribution, and the docs say
+  which is which. `forced.sink` was the minimum of the forced vector, which
+  is an edge diagonal when there is no sink; the sink cardinality and the
+  diagonal contribution are now computed from their own definitions. Three
+  check cases pin each, including a five-block fixture where the two
+  weightings read 0.5667 and 0.5833. No workflow, default or PDD file
+  changed.
+
 ## 0.99.20
 
 ### Added

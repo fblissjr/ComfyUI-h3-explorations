@@ -895,11 +895,25 @@ docstring is the schema; the parts that matter when reading a file:
   uses; `executing_node_id` is the node running the forward, normally the
   sampler. The block label is published by a pre-hook and CLEARED by a paired
   post-hook, so a row without one is `scope: unknown`, not "token refiner".
-- **Two densities, the same two `analyze_routing.py` prints.** `kernel_density`
-  is `cnt / NTB` with the forced sink and diagonal pairs included: the cost.
-  `routed_density` is `(cnt - forced) / (NTB - forced)` on rows outside
-  `sink_q`: the adaptive share tau or top-k chose. Segment figures are
-  overlap-weighted QUERY-segment means; the full segment table is on the row.
+- **Three figures, and the weighting is in the name.** `kernel_density` is
+  `cnt / NTB` with the forced sink and diagonal pairs included: the cost.
+  `ordering_effect_density` is `sum(cnt - forced) / sum(NTB - forced)` over
+  rows outside `sink_q`, PAIR-weighted: the number `analyze_routing.py`
+  computes and the one that joins the depth table above. `routed_density` is
+  the distribution of the per-query-block fraction, QUERY-weighted, so its
+  mean differs from the ratio wherever `forced` varies (sequence edges, a
+  sink meeting the diagonal); it is statistics, not the join key. **The first
+  revision called the last two "the same density"; Codex's review showed a
+  five-block case where they read 0.5667 and 0.5833.** Segment figures carry
+  both, overlap-weighted; the full segment table is on the row.
+- **A canonical render has calls the override never sees.** Sage's per-block
+  forward patch sits under Sol, and Sol's composition gate hands a declined
+  call straight to it, so on an outside-window step the 50 DiT calls run on
+  Sage without touching `optimized_attention`. Those are recorded from the
+  gate as `route: composed_patch` with the verdict leading the reason
+  (`outside_range: ...` or `ineligible: ...`), block label and all, no counts.
+  The first revision missed them and would have shown a dense step as two
+  refiner rows; the same review found it from the source.
 - **The producer asserts its own shape** -- floor, ceiling, `sink_q` rows at
   NTB -- and a failure aborts the render rather than thinning the file.
 - **Timing from an armed render is not quotable**; the header says so. Each

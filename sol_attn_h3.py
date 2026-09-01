@@ -821,11 +821,43 @@ def make_override(tau=1.0, min_tokens=4096,
     return override
 
 
+def _record_composed(module, gate, options, tensor, reason):
+    """A call Sol's composition gate declined ran on the composed foreign
+    forward (Sage on the canonical graphs) and never reached the override --
+    so the override's recorder never saw it. Until 2026-09-01 that left every
+    outside-window DiT call of a canonical render absent from the record
+    (Codex's review). Same builder as the override, `path="composed_patch"`,
+    no counts: nothing here reroutes the call's numerics."""
+    settings = gate.get("settings") if isinstance(gate, dict) else None
+    if not settings:
+        return
+    if torch.is_tensor(tensor) and tensor.ndim in (2, 3):
+        tokens = tensor.shape[0] if tensor.ndim == 2 else tensor.shape[1]
+        batch = 1 if tensor.ndim == 2 else tensor.shape[0]
+    else:
+        tokens, batch = 0, 0
+    block = options.get("sol_block") if isinstance(options, dict) else None
+    profile = settings.get("tau_profile") or {}
+    tau = settings.get("tau", 0.0)
+    block_tau = profile.get(str(block), tau) if block is not None else tau
+    sink, sink_q = _sink_blocks(options, tokens, settings.get("sink_conditioning", "off"))
+    sol_observe.record(
+        route="composed_patch", reason=reason, counts=None, options=options, settings=settings,
+        block=block, block_tau=block_tau, tokens=tokens, batch=batch,
+        heads=getattr(module, "heads", None) or 0, sink=sink, sink_q=sink_q,
+        tail=bool(settings.get("tail", True)), topk_ratio=float(settings.get("topk_ratio", 0.0)),
+        min_tokens=int(settings.get("min_tokens", 0)), path="composed_patch")
+
+
 def _compose_module_patch(module, patched_forward):
     """Gate an object-patched attention forward (e.g. KJNodes' mem-efficient
     Sage): calls Sol-Attn would take run the stock forward and reach the
     override; the rest keeps the patch. Gate params come from
     transformer_options["sol_compose"]; when absent the patch runs as-is.
+
+    A declined call is recorded by `_record_composed` when the observer is
+    armed, with the gate's own verdict as the route, because it will not
+    reach the override's recorder.
     """
     stock = type(module).forward
 
@@ -837,17 +869,26 @@ def _compose_module_patch(module, patched_forward):
         x = args[0] if args else None
         # KJNodes' low-VRAM block patch hands x over in a single-item list.
         tensor = x[0] if isinstance(x, list) and len(x) == 1 and torch.is_tensor(x[0]) else x
-        take = gate is not None and torch.is_tensor(tensor) and tensor.device.type == "cuda" \
-            and tensor.dtype == torch.bfloat16 and tensor.ndim in (2, 3)
+        declined = None                      # the gate's verdict, once it says no
+        take = gate is not None
+        if take and not (torch.is_tensor(tensor) and tensor.device.type == "cuda"
+                         and tensor.dtype == torch.bfloat16 and tensor.ndim in (2, 3)):
+            take = False
+            declined = "ineligible: input is not a cuda bf16 2D/3D tensor"
         if take:
             # H3 packs tokens first (s, dim); Wan/LTX2 are batch-first.
             tokens = tensor.shape[0] if tensor.ndim == 2 else tensor.shape[1]
-            take = tokens >= gate["min_tokens"]
+            if tokens < gate["min_tokens"]:
+                take = False
+                declined = f"ineligible: seq {tokens} < {gate['min_tokens']}"
         if take:
             sigmas = options.get("sigmas")
             if sigmas is not None:
                 sigma = float(sigmas[0])
-                take = not (sigma > gate["sigma_start"] or sigma < gate["sigma_end"])
+                if sigma > gate["sigma_start"] or sigma < gate["sigma_end"]:
+                    take = False
+                    declined = (f"outside_range: sigma {sigma:.4g} outside "
+                                f"[{gate['sigma_end']}, {gate['sigma_start']}]")
         if take:
             delegate = options.get("sol_take_forward")
             if delegate is not None:
@@ -858,6 +899,8 @@ def _compose_module_patch(module, patched_forward):
                 x.clear()  # the stock forward wants the tensor; consume the hand-off list
                 args = (tensor,) + args[1:]
             return stock(module, *args, **kwargs)
+        if declined is not None and sol_observe.enabled():
+            _record_composed(module, gate, options, tensor, declined)
         return patched_forward(*args, **kwargs)
 
     forward._sol_composed = True
@@ -982,7 +1025,9 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
 
     m.model_options["transformer_options"]["sol_compose"] = {
         "sigma_start": sigma_start, "sigma_end": sigma_end,
-        "min_tokens": min_tokens}
+        "min_tokens": min_tokens,
+        # for `_record_composed`: a declined call is recorded from the gate
+        "settings": settings}
     m.model_options["transformer_options"]["optimized_attention_override"] = \
         make_override(tau=tau, min_tokens=min_tokens,
                       sigma_start=sigma_start, sigma_end=sigma_end,

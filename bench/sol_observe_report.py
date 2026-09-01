@@ -133,27 +133,32 @@ def main() -> int:
         print("\nno Sol rows")
         return 0
     kd = [r["kernel_density"]["mean"] for r in sol if r.get("kernel_density")]
+    oe = [r["ordering_effect_density"]["overall"] for r in sol
+          if r.get("ordering_effect_density") and r["ordering_effect_density"].get("overall") is not None]
     rd = [r["routed_density"]["mean"] for r in sol if r.get("routed_density")]
-    print(f"\nSol rows: {len(sol)}; kernel density mean over rows {_fmt(sum(kd) / len(kd)) if kd else '-'}, "
-          f"adaptive (routed) density mean over rows {_fmt(sum(rd) / len(rd)) if rd else '-'}; "
-          f"shape_ok false on {sum(1 for r in sol if not r.get('shape_ok'))} row(s)")
+    print(f"\nSol rows: {len(sol)}; mean over rows of: kernel density {_fmt(sum(kd) / len(kd)) if kd else '-'}, "
+          f"ordering-effect density (pair-weighted, the analyze_routing.py number) "
+          f"{_fmt(sum(oe) / len(oe)) if oe else '-'}, routed density (query-weighted) "
+          f"{_fmt(sum(rd) / len(rd)) if rd else '-'}; shape_ok false on "
+          f"{sum(1 for r in sol if not r.get('shape_ok'))} row(s)")
     if args.block_table:
         by_block = defaultdict(list)
         for r in sol:
             by_block[(r.get("block"), r.get("schedule", {}).get("schedule_index"))].append(r)
         blocks = sorted({b for b, _ in by_block if b is not None})
         idxs = sorted({i for _, i in by_block if i is not None})
-        print("\nadaptive density, block x step (mean over heads and query blocks):")
+        print("\nordering-effect density (pair-weighted), block x step:")
         print("  block " + "".join(f"{i:>8}" for i in idxs))
         for b in blocks:
             cells = []
             for i in idxs:
                 rs = by_block.get((b, i), [])
-                vals = [r["routed_density"]["mean"] for r in rs if r.get("routed_density")]
+                vals = [r["ordering_effect_density"]["overall"] for r in rs
+                        if r.get("ordering_effect_density") and r["ordering_effect_density"].get("overall") is not None]
                 cells.append(_fmt(sum(vals) / len(vals), 8) if vals else f"{'-':>8}")
             print(f"  {b:>5} " + "".join(cells))
     if args.segments:
-        print("\nper-segment adaptive density (overlap-weighted query segments), mean over Sol rows per step:")
+        print("\nper-segment ordering-effect density (pair-weighted with row overlaps), mean over Sol rows per step:")
         by_step = defaultdict(list)
         for r in sol:
             if r.get("per_segment"):
@@ -162,8 +167,8 @@ def main() -> int:
             acc = defaultdict(list)
             for r in rs:
                 for s in r["per_segment"]:
-                    if s.get("routed") is not None:
-                        acc[(s["kind"], s["start"], s["stop"])].append(s["routed"])
+                    if s.get("ordering_effect") is not None:
+                        acc[(s["kind"], s["start"], s["stop"])].append(s["ordering_effect"])
             cells = ", ".join(f"{k[0]}[{k[1]}:{k[2]}) {sum(v) / len(v):.4f}" for k, v in acc.items())
             print(f"  step {i}: {cells if cells else '(no defined segment rows)'}")
     return 0

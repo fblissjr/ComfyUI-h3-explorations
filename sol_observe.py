@@ -90,22 +90,43 @@ here is read inside the call:
 
 ## Denominators, stated in every row
 
-`NTB = ceil(T / 64)` key blocks. Two densities, the same two
-`bench/analyze_routing.py` prints, so the vocabulary does not fork:
+`NTB = ceil(T / 64)` key blocks, and `forced[q] = |sink range| + |{q-1, q,
+q+1} that exist and are not sink|` as a set, with sink_q rows at NTB. Three
+figures, and the weighting is part of each name because two of them were
+once called "the same density" and are not (Codex's review, 2026-09-01):
 
-  kernel_density   cnt / NTB over every query block. Forced pairs INCLUDED:
-                   what the exact stage actually walked. The cost number.
-  routed_density   (cnt - forced) / (NTB - forced) over query blocks NOT in
-                   sink_q, where forced = |sink range| + |{q-1, q, q+1} that
-                   exist and are not sink|, as a set. The ADAPTIVE share --
-                   what tau or top-k selected beyond the mandatory pairs.
-                   Null where the denominator is zero.
+  kernel_density
+      cnt / NTB over every query block; forced pairs INCLUDED. What the
+      exact stage actually walked: the cost number. Query- and pair-weighted
+      means coincide here because the denominator is constant.
+  ordering_effect_density
+      sum(cnt - forced) / sum(NTB - forced) over query blocks NOT in sink_q:
+      PAIR-weighted, one ratio per call and one per head. This is the number
+      `bench/analyze_routing.py::densities` computes and the one that joins
+      the tables in `docs/SOLATTN.md`. Null where the denominator is zero.
+  routed_density
+      the distribution of the per-query-block fraction
+      (cnt - forced) / (NTB - forced) over the same rows: min, p50, p95, max,
+      mean. QUERY-weighted: every query block weighs the same regardless of
+      how many free pairs it has, so its mean differs from the ratio above
+      wherever forced varies -- at the sequence edges and where the diagonal
+      meets a sink. Distribution statistics, not the join key.
 
-sink_q rows are NTB by construction and are counted, never averaged into the
-routed figure. Segment figures are QUERY-segment densities, overlap-weighted:
-a 64-row block crossing a segment boundary contributes to each side by the
-rows it holds there. The full segment table is stored on the row so the raw
-counts can be re-reduced any other way later.
+sink_q rows are NTB by construction and are counted, never averaged into an
+adaptive figure. Segment figures are QUERY-segment quantities, overlap-
+weighted: a 64-row block crossing a boundary contributes to each side by the
+rows it holds there; `ordering_effect` in a segment entry aggregates
+numerator and denominator with those weights, `routed` averages the
+per-block fractions. The full segment table is stored on the
+row so the raw counts can be re-reduced any other way later.
+
+`route: composed_patch` is a call Sol's composition gate declined, so the
+composed foreign forward -- Sage on the canonical graphs -- ran directly: no
+kernel, no counts, and the gate's own verdict (`outside_range` or
+`ineligible`) leads the reason. `path` carries the same distinction
+(`override` or `composed_patch`) on every row. Without those rows the
+outside-window DiT calls of a canonical render were absent from the file,
+which is what the first implementation did.
 
 ## The producer asserts its own shape, and a failure aborts the capture
 
@@ -277,11 +298,16 @@ def _header() -> dict:
                              "its counts to the host; wall times from an "
                              "armed render are not measurements"),
         "denominators": {
-            "kernel_density": "cnt / NTB over every query block; sink and diagonal pairs INCLUDED",
-            "routed_density": ("(cnt - forced) / (NTB - forced) over query blocks not in sink_q, "
-                               "forced = |sink| + |{q-1,q,q+1} existing and not sink| as a set; "
-                               "null where the denominator is zero"),
-            "per_segment": "overlap-weighted QUERY-segment means of the two above",
+            "forced": "|sink range clamped to [0, NTB)| + |{q-1,q,q+1} existing and not sink| as a set; sink_q rows are NTB",
+            "kernel_density": "cnt / NTB over every query block; forced pairs INCLUDED",
+            "ordering_effect_density": ("sum(cnt - forced) / sum(NTB - forced) over query blocks not in sink_q: "
+                                        "PAIR-weighted, the bench/analyze_routing.py number; null on a zero denominator"),
+            "routed_density": ("distribution of (cnt - forced) / (NTB - forced) per query block not in sink_q: "
+                               "QUERY-weighted, every block weighs the same; statistics, not the join key"),
+            "per_segment": ("overlap-weighted QUERY-segment figures: `ordering_effect` aggregates numerator and "
+                            "denominator with the row weights, `routed` averages per-block fractions"),
+            "path": ("override = reached optimized_attention_override; composed_patch = Sol's gate declined "
+                     "and the composed foreign forward ran, no counts (route composed_patch, gate verdict in reason)"),
         },
     }
 
@@ -389,22 +415,53 @@ def _nanmean_or_none(x: torch.Tensor) -> float | None:
 
 def densities(counts: torch.Tensor, forced: torch.Tensor, ntb: int,
               sink_q) -> tuple[torch.Tensor, torch.Tensor]:
-    """(kernel (B,H,NQ), routed (B,H,NQ) with NaN where undefined)."""
+    """(kernel (B,H,NQ), adaptive (B,H,NQ) per-query fraction with NaN where
+    undefined -- sink_q rows and zero denominators). Query-weighted by
+    construction: reduce `adaptive` with a mean and every block weighs the
+    same. For the pair-weighted ratio use `ordering_effect`."""
     c = counts.double()
     kernel = c / ntb
     f = forced.double().view(1, 1, -1)
     den = ntb - f
-    routed = torch.where(den > 0, (c - f) / den.clamp_min(1), torch.full_like(c, float("nan")))
+    adaptive = torch.where(den > 0, (c - f) / den.clamp_min(1), torch.full_like(c, float("nan")))
     q0 = max(0, min(int(sink_q[0]), ntb))
     q1 = max(q0, min(int(sink_q[1]), ntb))
     if q1 > q0:
-        routed[:, :, q0:q1] = float("nan")
-    return kernel, routed
+        adaptive[:, :, q0:q1] = float("nan")
+    return kernel, adaptive
 
 
-def segment_densities(kernel: torch.Tensor, routed: torch.Tensor, segments, tokens: int) -> list | None:
-    """Overlap-weighted QUERY-segment means. A 64-row block straddling a
-    boundary counts toward each side by the rows it holds there. Preserves
+def ordering_effect(counts: torch.Tensor, forced: torch.Tensor, ntb: int, sink_q,
+                    weights: torch.Tensor | None = None) -> tuple[float | None, list, int, int]:
+    """PAIR-weighted adaptive density: sum(cnt - forced) / sum(NTB - forced)
+    over query blocks outside sink_q, overall and per head, plus the two
+    integer sums. `weights` (NQ,) multiplies both sums per query block --
+    the segment reducer passes row overlaps. This is
+    `bench/analyze_routing.py::densities`'s ordering-effect density."""
+    c = counts.double()
+    f = forced.double().view(1, 1, -1)
+    q0 = max(0, min(int(sink_q[0]), ntb))
+    q1 = max(q0, min(int(sink_q[1]), ntb))
+    live = torch.ones(ntb, dtype=torch.float64)
+    if q1 > q0:
+        live[q0:q1] = 0.0
+    if weights is not None:
+        live = live * weights.double()
+    num = ((c - f) * live).sum(dim=(0, 2))                       # per head
+    den = ((ntb - f).expand_as(c) * live).sum(dim=(0, 2))
+    per_head = [float(n / d) if float(d) > 0 else None for n, d in zip(num, den)]
+    n_all, d_all = float(num.sum()), float(den.sum())
+    overall = n_all / d_all if d_all > 0 else None
+    return overall, per_head, int(round(n_all)), int(round(d_all))
+
+
+def segment_densities(kernel: torch.Tensor, adaptive: torch.Tensor, segments, tokens: int,
+                      counts: torch.Tensor | None = None, forced: torch.Tensor | None = None,
+                      ntb: int | None = None, sink_q=(0, 0)) -> list | None:
+    """Overlap-weighted QUERY-segment figures. A 64-row block straddling a
+    boundary counts toward each side by the rows it holds there. `kernel` and
+    `adaptive_query_weighted` average per-block values; `ordering_effect`
+    aggregates numerator and denominator with the same weights. Preserves
     every occurrence and kind in the table, in order."""
     if not segments:
         return None
@@ -414,8 +471,8 @@ def segment_densities(kernel: torch.Tensor, routed: torch.Tensor, segments, toke
         a, b, kind = int(entry[0]), int(entry[1]), str(entry[2])
         b = min(b, int(tokens))
         if b <= a:
-            out.append({"kind": kind, "start": a, "stop": b, "rows": 0,
-                        "query_blocks": None, "kernel": None, "routed": None})
+            out.append({"kind": kind, "start": a, "stop": b, "rows": 0, "query_blocks": None,
+                        "kernel": None, "routed": None, "ordering_effect": None})
             continue
         q0, q1 = a // BLOCK, (b - 1) // BLOCK
         q1 = min(q1, nq - 1)
@@ -423,14 +480,20 @@ def segment_densities(kernel: torch.Tensor, routed: torch.Tensor, segments, toke
         w = (torch.minimum(torch.tensor(b), (qs + 1) * BLOCK)
              - torch.maximum(torch.tensor(a), qs * BLOCK)).double()     # rows of this segment per block
         ks = kernel[:, :, q0:q1 + 1]
-        rs = routed[:, :, q0:q1 + 1]
+        rs = adaptive[:, :, q0:q1 + 1]
         wk = w.view(1, 1, -1).expand_as(ks)
         kd = float((ks * wk).sum() / wk.sum())
         mask = ~torch.isnan(rs)
         wr = (wk * mask.float()).sum()
         rd = float((torch.nan_to_num(rs) * wk).sum() / wr) if float(wr) > 0 else None
+        oe = None
+        if counts is not None and forced is not None and ntb is not None:
+            full_w = torch.zeros(nq, dtype=torch.float64)
+            full_w[q0:q1 + 1] = w
+            oe = ordering_effect(counts, forced, ntb, sink_q, weights=full_w)[0]
         out.append({"kind": kind, "start": a, "stop": b, "rows": b - a,
-                    "query_blocks": [q0, q1 + 1], "kernel": kd, "routed": rd})
+                    "query_blocks": [q0, q1 + 1], "kernel": kd,
+                    "routed": rd, "ordering_effect": oe})
     return out
 
 
@@ -517,10 +580,13 @@ def _topk_budget(ntb: int, sink_blocks, ratio: float) -> int | None:
 
 def record(*, route: str, reason: str | None, counts: torch.Tensor | None, options,
            settings: dict, block, block_tau, tokens: int, batch: int, heads: int,
-           sink, sink_q, tail: bool, topk_ratio: float, min_tokens: int) -> None:
+           sink, sink_q, tail: bool, topk_ratio: float, min_tokens: int,
+           path: str = "override") -> None:
     """One call row. Raises SolObserveError rather than writing a row it
     cannot stand behind; the caller must not catch that inside the kernel
-    fallback."""
+    fallback. `path` names the code that executed the call: `override`, or
+    `composed_patch` when Sol's composition gate declined it and the composed
+    foreign forward ran instead (no kernel, no counts)."""
     if not enabled():
         return
     digest = _ensure_config(settings)
@@ -548,7 +614,7 @@ def record(*, route: str, reason: str | None, counts: torch.Tensor | None, optio
                        "topk_ratio": 0.0, "budget": None}),
         "tail": bool(tail), "sink_blocks": [int(sink[0]), int(sink[1])],
         "sink_q": [int(sink_q[0]), int(sink_q[1])], "min_tokens": int(min_tokens),
-        "route": route, "reason": reason,
+        "route": route, "reason": reason, "path": path,
     }
     if route != "sol":
         _write_row(row)
@@ -566,24 +632,36 @@ def record(*, route: str, reason: str | None, counts: torch.Tensor | None, optio
                     "counts_shape": list(c.shape), "counts_dtype": str(c.dtype)})
         raise SolObserveError(f"blk_cnt failed its shape check: {why}")
 
-    kernel, routed = densities(c, forced, ntb, sink_q)
+    kernel, adaptive = densities(c, forced, ntb, sink_q)
     q0 = max(0, min(int(sink_q[0]), ntb))
     q1 = max(q0, min(int(sink_q[1]), ntb))
+    # The named decomposition is computed from its own definitions, never
+    # from the minimum of the sum: with no sink the minimum forced count is
+    # still an edge diagonal, and reporting it as the sink was the defect
+    # Codex's review found on the first revision.
+    s0 = max(0, min(int(sink[0]), ntb))
+    s1 = max(s0, min(int(sink[1]), ntb))
+    sink_count = s1 - s0
+    outside_q = [i for i in range(ntb) if not (q0 <= i < q1)]
+    diag = (forced[outside_q] - sink_count) if outside_q else None
+    oe_overall, oe_heads, oe_num, oe_den = ordering_effect(c, forced, ntb, sink_q)
     segments = _segments(options)
     row.update({
-        "forced": {"sink": int(forced.min()) if ntb else 0,
-                   "sink_range_clamped": [max(0, min(int(sink[0]), ntb)), max(0, min(int(sink[1]), ntb))],
-                   "diag_min": int((forced[[i for i in range(ntb) if not (q0 <= i < q1)]]
-                                    - forced.min()).min()) if q1 - q0 < ntb else None,
-                   "diag_max": int((forced[[i for i in range(ntb) if not (q0 <= i < q1)]]
-                                    - forced.min()).max()) if q1 - q0 < ntb else None},
+        "forced": {"sink": sink_count, "sink_range_clamped": [s0, s1],
+                   "diag_min": int(diag.min()) if diag is not None else None,
+                   "diag_max": int(diag.max()) if diag is not None else None,
+                   "rows_outside_sink_q": len(outside_q)},
         "sink_q_rows": q1 - q0,
         "kernel_density": _stats(kernel.flatten()),
-        "routed_density": _stats(routed.flatten()),
+        "ordering_effect_density": {"overall": oe_overall, "numerator": oe_num,
+                                    "denominator": oe_den, "weighting": "pair"},
+        "routed_density": dict(_stats(adaptive.flatten()) or {}, weighting="query") or None,
         "per_head": {"kernel_mean": [float(x) for x in kernel.mean(dim=(0, 2))],   # float64 reductions
-                     "routed_mean": [_nanmean_or_none(routed[:, h]) for h in range(routed.shape[1])]},
+                     "ordering_effect": oe_heads,
+                     "routed_mean": [_nanmean_or_none(adaptive[:, h]) for h in range(adaptive.shape[1])]},
         "segments": segments,
-        "per_segment": segment_densities(kernel, routed, segments, tokens),
+        "per_segment": segment_densities(kernel, adaptive, segments, tokens,
+                                         counts=c, forced=forced, ntb=ntb, sink_q=sink_q),
         "shape_ok": True, "shape_why": None,
     })
     raw_bytes = None

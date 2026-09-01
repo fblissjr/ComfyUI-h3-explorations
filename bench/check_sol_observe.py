@@ -49,6 +49,27 @@ Claims, i.e. what breaks if a case is deleted:
   raw_off_writes_no_sidecar
       `raw=0` leaves no `.u16` file and no raw pointer, and the row is
       otherwise complete.
+  composed_patch_calls_are_recorded
+      **the integration hole Codex's review found (2026-09-01).** On the
+      canonical graph Sage's per-block forward patch sits under Sol, and
+      Sol's composition gate hands a declined call straight to it, so the
+      override -- and its recorder -- never runs for the 50 DiT calls of an
+      outside-window step. Drives `_compose_module_patch` with a foreign
+      forward: outside the window and below min_tokens the foreign forward
+      runs, the stock forward does not, and one `route: composed_patch` row
+      appears with the true block index and the gate's verdict leading the
+      reason; inside the window the stock forward runs and the wrapper
+      writes nothing (the override records that call in a real render).
+  forced_metadata_is_computed_not_inferred
+      `forced.sink` is the clamped sink cardinality and `diag_min/max` the
+      diagonal contribution outside sink_q: no sink gives 0 / 2 / 3, a sink
+      overlapping the diagonal gives 4 / 0 / 3. The first revision reported
+      the MINIMUM of the sum as the sink, which reads 2 with no sink at all.
+  query_and_pair_weighting_differ_on_nonuniform_forced
+      Codex's five-block fixture (counts all 4, no sink, forced [2,3,3,3,2]):
+      the query-weighted `routed_density.mean` is 0.5667 and the
+      pair-weighted `ordering_effect_density` is 0.5833, both to 1e-9, so the
+      two names cannot be read as one number.
 
 Needs CUDA and an installed comfy_kitchen whose `sol_attn` takes `blk_cnt`;
 exits 2 SKIP without either rather than passing on a weaker path.
@@ -254,6 +275,12 @@ def main() -> int:
         assert sol["raw"]["nbytes"] == b * h * n * 2 and "crc32" in sol["raw"]
         assert 0 < sol["kernel_density"]["mean"] <= 1.0
         assert sol["routed_density"] is not None and 0 <= sol["routed_density"]["mean"] <= 1.0
+        assert sol["routed_density"]["weighting"] == "query"
+        assert sol["ordering_effect_density"]["weighting"] == "pair"
+        assert 0 <= sol["ordering_effect_density"]["overall"] <= 1.0
+        assert all(r["path"] == "override" for r in callrows)
+        # no sink: the named decomposition must say so, not report the edge diagonal as a sink
+        assert (sol["forced"]["sink"], sol["forced"]["diag_min"], sol["forced"]["diag_max"]) == (0, 2, 3), sol["forced"]
         assert rows[0]["denominators"]["kernel_density"].startswith("cnt / NTB")
         # the dense_block row names the block; the ineligible row still has one
         assert callrows[1]["reason"] == "block 3 in dense_blocks"
@@ -349,6 +376,19 @@ def main() -> int:
         assert sol["routed_density"]["n"] == routed.size
         for hh in range(h):
             assert abs(routed[:, hh].mean() - sol["per_head"]["routed_mean"][hh]) < 1e-9
+        # the PAIR-weighted ratio, summed over free pairs the way analyze_routing.py does
+        free = np.broadcast_to((n - forced)[None, None, :] * (~sinkq)[None, None, :], counts.shape)
+        num = ((counts - forced[None, None, :]) * (~sinkq)[None, None, :]).sum()
+        pair = num / free.sum()                      # both sums over every (b, h, q) outside sink_q
+        oe = sol["ordering_effect_density"]
+        assert abs(pair - oe["overall"]) < 1e-9, (pair, oe)
+        assert oe["numerator"] == int(num) and oe["denominator"] == int(free.sum())
+        for hh in range(h):
+            ph = ((counts[:, hh] - forced[None, :]) * (~sinkq)[None, :]).sum() / free[:, hh].sum()
+            assert abs(ph - sol["per_head"]["ordering_effect"][hh]) < 1e-9
+        # forced decomposition with a sink that overlaps the diagonal
+        assert (sol["forced"]["sink"], sol["forced"]["diag_min"], sol["forced"]["diag_max"]) == (4, 0, 3), sol["forced"]
+        assert sol["forced"]["sink_range_clamped"] == [0, 4]
         # segments: overlap-weighted query-segment kernel density, recomputed
         assert [s["kind"] for s in sol["per_segment"]] == ["text", "audio", "video"]
         for seg, (a, bb, _kind) in zip(sol["per_segment"], segs):
@@ -356,7 +396,15 @@ def main() -> int:
             w = np.array([min(bb, (qb + 1) * 64) - max(a, qb * 64) for qb in range(q0, q1 + 1)], float)
             kd = (kernel[:, :, q0:q1 + 1] * w[None, None, :]).sum() / (w.sum() * b * h)
             assert abs(kd - seg["kernel"]) < 1e-9, (seg, kd)
-        assert sol["per_segment"][1]["routed"] is None or sol["per_segment"][1]["routed"] >= 0
+            # pair-weighted with the same row weights, sink_q rows excluded
+            live = (~sinkq)[q0:q1 + 1] * w
+            snum = ((counts[:, :, q0:q1 + 1] - forced[None, None, q0:q1 + 1]) * live[None, None, :]).sum()
+            sden = (np.broadcast_to((n - forced)[None, None, q0:q1 + 1] * live[None, None, :],
+                                    counts[:, :, q0:q1 + 1].shape)).sum()   # over every head, like snum
+            want = snum / sden if sden > 0 else None
+            got = seg["ordering_effect"]
+            assert (want is None and got is None) or abs(want - got) < 1e-9, (seg, want)
+        assert sol["per_segment"][1]["routed"] is None and sol["per_segment"][1]["ordering_effect"] is None
         assert sol["segments"] == [list(s) for s in segs]
         obs.arm(None)
 
@@ -477,6 +525,85 @@ def main() -> int:
         assert "sol_block" not in o
         obs.arm(None)
 
+    def composed_patch_calls_are_recorded():
+        d = newdir("composed")
+        obs.arm(f"dir={d}")
+        seen = {"stock": 0, "patched": 0}
+
+        class Attn(torch.nn.Module):
+            heads = 2
+
+            def forward(self, x, transformer_options=None):
+                seen["stock"] += 1
+                return x
+
+        def patched(x, transformer_options=None):
+            seen["patched"] += 1
+            return x
+
+        attn = Attn()
+        wrapped = node._compose_module_patch(attn, patched)
+        gate = {"sigma_start": 10.0, "sigma_end": 0.1, "min_tokens": 64, "settings": settings()}
+        x = torch.zeros(t, 256, device="cuda", dtype=torch.bfloat16)
+        base = {"sol_compose": gate, "sample_sigmas": torch.tensor([2.0, 1.0, 0.5, 0.0]), "sol_block": 12}
+        wrapped(x, transformer_options={**base, "sigmas": torch.tensor([20.0])})   # outside the window
+        wrapped(x[:32], transformer_options={**base, "sigmas": torch.tensor([1.0])})  # below min_tokens
+        assert seen == {"stock": 0, "patched": 2}, seen
+        _, rows = rows_in(d)
+        callrows = [r for r in rows if r["kind"] == "call"]
+        assert len(callrows) == 2, [r["route"] for r in callrows]
+        for r in callrows:
+            assert r["route"] == "composed_patch" and r["path"] == "composed_patch", (r["route"], r["path"])
+            assert r["block"] == 12 and r["scope"] == "dit" and r["H"] == 2 and r["B"] == 1
+            assert r.get("raw") is None and "kernel_density" not in r
+        assert callrows[0]["reason"].startswith("outside_range: sigma 20"), callrows[0]["reason"]
+        assert callrows[0]["T"] == t and callrows[0]["schedule"]["state"] == "no_match"
+        assert callrows[1]["reason"] == "ineligible: seq 32 < 64", callrows[1]["reason"]
+        # inside the window the gate takes the call: stock forward, and this wrapper writes nothing
+        wrapped(x, transformer_options={**base, "sigmas": torch.tensor([1.0])})
+        assert seen == {"stock": 1, "patched": 2}, seen
+        _, rows2 = rows_in(d)
+        assert len([r for r in rows2 if r["kind"] == "call"]) == 2
+        # without settings in the gate there is nothing truthful to write, so nothing is
+        wrapped(x, transformer_options={**base, "sol_compose": {k: v for k, v in gate.items() if k != "settings"},
+                                        "sigmas": torch.tensor([20.0])})
+        _, rows3 = rows_in(d)
+        assert len([r for r in rows3 if r["kind"] == "call"]) == 2
+        obs.arm(None)
+
+    def forced_metadata_is_computed_not_inferred():
+        # the pure function first, so the arithmetic is graded without a kernel
+        f = obs.forced_counts(8, (0, 0), (0, 0))
+        assert f.tolist() == [2, 3, 3, 3, 3, 3, 3, 2]
+        f = obs.forced_counts(8, (0, 2), (0, 0))
+        assert f.tolist() == [2, 3, 4, 5, 5, 5, 5, 4], f.tolist()      # diagonal shrinks where it meets the sink
+        f = obs.forced_counts(8, (2, 40), (6, 7))
+        # range clamped to the blocks that exist; rows 3-5 and 7 have their whole diagonal inside the sink
+        assert f.tolist() == [8, 8, 7, 6, 6, 6, 8, 6], f.tolist()
+        # and through a record: the row's named decomposition on a real kernel call
+        d = newdir("forcedmeta")
+        obs.arm(f"dir={d}")
+        call(make(), opts())
+        call(make(sink_conditioning="exact_kv_and_rows"),
+             opts(sol_h3_video_span=(256, t), sol_h3_audio_span=(128, 256)))
+        _, rows = rows_in(d)
+        a, bb = [r["forced"] for r in rows if r["kind"] == "call"]
+        assert (a["sink"], a["diag_min"], a["diag_max"], a["rows_outside_sink_q"]) == (0, 2, 3, n), a
+        assert (bb["sink"], bb["diag_min"], bb["diag_max"], bb["rows_outside_sink_q"]) == (4, 0, 3, n - 2), bb
+        obs.arm(None)
+
+    def query_and_pair_weighting_differ_on_nonuniform_forced():
+        counts = torch.full((1, 1, 5), 4, dtype=torch.int32)
+        forced = obs.forced_counts(5, (0, 0), (0, 0))
+        assert forced.tolist() == [2, 3, 3, 3, 2]
+        _kernel, adaptive = obs.densities(counts, forced, 5, (0, 0))
+        query_weighted = float(adaptive.mean())
+        pair, per_head, num, den = obs.ordering_effect(counts, forced, 5, (0, 0))
+        assert abs(query_weighted - 0.5666666667) < 1e-9, query_weighted
+        assert abs(pair - 0.5833333333) < 1e-9 and (num, den) == (7, 12), (pair, num, den)
+        assert per_head == [pair]
+        assert abs(query_weighted - pair) > 1e-3        # the fixture is nonuniform, so the two differ
+
     def raw_off_writes_no_sidecar():
         d = newdir("rawoff")
         obs.arm(f"dir={d},raw=0")
@@ -496,7 +623,10 @@ def main() -> int:
                    identity_does_not_mix_prompts, wrong_slice_is_red_and_escapes_the_fallback,
                    summaries_agree_with_an_independent_reduction,
                    armed_with_old_wheel_fails_at_patch_time, stale_block_label_is_cleared,
-                   observer_only_block_indexing, raw_off_writes_no_sidecar):
+                   observer_only_block_indexing, composed_patch_calls_are_recorded,
+                   forced_metadata_is_computed_not_inferred,
+                   query_and_pair_weighting_differ_on_nonuniform_forced,
+                   raw_off_writes_no_sidecar):
             check(fn.__name__, fn)
     finally:
         obs.arm(None)
