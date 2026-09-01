@@ -302,6 +302,23 @@ def case_no_denied_motion(corpus) -> list[str]:
     return []
 
 
+# THE OWNER HAS ADJUDICATED `denied_motion`, AND IT IS NOT A DEFECT LIST.
+#
+# Standing ruling, 2026-09-01: **camera wording that aligns with common
+# cinematography is acceptable**, and base_en 4.3's table is the attested
+# vocabulary rather than a closed set to police. A `dolly` on a graph built
+# around a rail dolly is the honest description of the shot.
+#
+# So these rows are FYI, not findings, and that is why they warn rather than
+# fail. Left emitting on purpose: the table is still what keeps a prompt
+# in-distribution, and a reader deciding between `Truck Right` and a phrase the
+# vendor never uses should see the difference. **Do not "fix" a warned term
+# without a rendering reason, and do not re-open the question from this output
+# alone** -- `docs/prompting.md` section 8 carries the ruling.
+#
+# Revisit only if output quality gives a reason to. Recorded here so the next
+# reader meets the adjudication where the warnings are, not three files away.
+
 def main() -> int:
     corpus = prompts()
     if not corpus:
