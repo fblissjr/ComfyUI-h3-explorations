@@ -405,8 +405,18 @@ a result.
 3. **One marker scene**, plus **its §4.5 double-quoted control**. Neither is
    interpretable alone — and PROMPTING.md says outright the caption marker is
    unmeasured.
-4. **A `<scenetrans>` line across a cut** — the one guide mechanism whose token
-   does not appear in the release's list. Whatever happens is informative.
+4. **A `<scenetrans>` line across a cut, rendered both ways, and a truncated
+   line rendered both ways** — the two markers this repo and the sister engine
+   spell differently. `<scenetrans>` matches no declared token: this repo
+   writes the continuity in prose only, the sister engine requires the tag in
+   both halves. `<|cutoff|>` is the declared token: this repo writes it tight
+   against `</d>`, the sister engine writes the guide's `<cutoff>` after a
+   space. Neither side has rendered either form, and no gate on either side
+   can see the difference — `grade_prompt_text.py` passed `</d> <cutoff>`
+   with no warning on 2026-09-01. Four arms, matched seeds, read as
+   meets-the-brief per arm and never as A/B (`docs/eval_comparison.md`).
+   Both repos proposed this render independently on 2026-09-01. Whatever
+   happens is informative.
 5. **Wire `REF_SCENE_SHOTS` through `scene=`** — one argument, and the ref2va
    budget gap mostly closes.
 6. **A motion sweep** over the §4.3 types nothing exercises: `Zoom`, `Tilt`,

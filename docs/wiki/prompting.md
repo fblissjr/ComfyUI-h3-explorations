@@ -202,7 +202,7 @@ Each is owned elsewhere; this is the index.
 | on-screen text must be **typed literally**, or the model draws the texture of English | `prompting.md` §6 |
 | `(S4,S5)` means **literal unison**, not "and also this character" | `prompting.md` §15.3 |
 | there is **no negative prompt channel** — guidance is CFG-distilled | `prompting.md` §15.1 |
-| **camera-motion vocabulary is enforced by nothing** | `prompting.md` §13 |
+| **camera-motion vocabulary is checked by `bench/check_camera_vocabulary.py`** — amplitude and speed red/green, motion type a WARN-level denylist, since 2026-08-28; this row said "enforced by nothing" until 2026-09-01 | `prompting.md` §11, §13 |
 
 **The trap that outranks all of these: a rendered clip cannot A/B a prompt
 change.** Two arms differing in any way draw different samples, not better and

@@ -4,6 +4,47 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.18
+
+### Fixed
+
+- **`docs/prompting.md` §15 is back.** `a52999d` rewrote §14.5 to say the retired
+  internal file's content "is §15" and, in the same commit and without saying
+  so, removed the whole of §15 -- six subsections migrated and re-derived that
+  morning. The manual's last heading was 14 while §14.5, the wiki page and
+  `docs/portable/h3_system_prompt.md` all routed readers to §15. Restored
+  verbatim from the parent commit, with a note at its head saying so. Found by
+  the sister engine's session reading this tree at `b3823c5` as a wrong section
+  number; it was a missing section.
+- **The addressing rule was in both derived extracts and not in the manual.**
+  Say who a line is spoken to, outside `<d>`, and never give a listener a
+  speaker id. Now §5.9, with its layers -- the slot is base §4.4 *stated*,
+  naming the addressee is ref §5.4 *shown*, the listener rule follows from base
+  §4.4's no-id-for-non-vocalisers -- and a §11 ledger row saying it is checked
+  by nothing. Same lag §5.8 records for singing, and the same finder.
+- **Three §11 ledger rows and one wiki row said camera vocabulary is checked by
+  nothing.** `bench/check_camera_vocabulary.py` has graded every shipped
+  prompt's amplitude and speed red/green since 2026-08-28 and reports known-bad
+  motion phrases as warnings; §13 said so and the ledger did not. The rows now
+  name the check and what it cannot see: a novel out-of-table motion phrase is
+  caught by neither case.
+
+### Changed
+
+- **`docs/prompt_audit.md` item 4 covers both marker disagreements.** The
+  split-line render now also renders a truncated line with the guide's
+  `<cutoff>` and the declared `<|cutoff|>`, because the sister engine writes the
+  guide spellings and this repo the declared ones, neither side has rendered
+  either, and neither side's gate can see the difference. Both repos proposed
+  the same render independently on 2026-09-01.
+
+### Notes
+
+- Two of the three findings came from the sister engine reading this tree; the
+  third grew when checked. The prose-lost-to-code rule at the top of `CLAUDE.md`
+  applied within a single commit here: the sentence saying the content was in
+  §15 and the deletion of §15 share an author and a timestamp.
+
 ## 0.99.17
 
 ### Fixed

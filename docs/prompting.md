@@ -504,6 +504,35 @@ means `<d>` and nothing more, and using the markers is us testing whether the
 declared tokens do anything. Do not read §7's structure as a licence, and do not
 read this paragraph as a ban.
 
+### 5.9 Who a line is spoken to
+
+**Added 2026-09-01, the same lag §5.8 records for singing:** both derived
+extracts carried this rule while this file had only the quoted ref §5.4 example
+in §5.7 and no rule sentence, so for a day the portable standard was ahead of
+the file it says it derives from.
+
+When more than one person is present, say who the line is spoken **to**. The
+addressee goes in the action outside `<d>`, named by what is visible — "turns
+toward the woman in the charcoal coat" — or by its subject label in ref2va. ref
+§5.4's own instance:
+
+```text
+<Subject 2> (S1) turns toward the woman and says, <d>[English] Last summer, I went to my grandfather's house. He talked about you.</d>
+```
+
+- **The slot is GUIDE.** base §4.4, *stated*: the identifying phrase, id,
+  action and delivery go outside `<d>`, and an addressing action is an action.
+- **Naming the addressee is GUIDE-*shown*, not stated.** ref §5.4 shows it once
+  and neither guide states it as a rule; a joined-line search of both guides
+  for "spoken to", "addressee" and "listener" finds nothing. Doing it whenever
+  a second person is present is HOUSE.
+- **A listener never takes a speaker id.** base §4.4, *stated*: characters who
+  never vocalise receive no id. Ids belong to voices, so an id on someone who
+  is only listening declares a vocal source the clip then has to fill. The
+  example above gives the woman no id because she does not speak.
+- How reliably a model follows an addressing cue is **unmeasured** here; the
+  guides show it once. Write it, and do not assume it lands. [OPEN]
+
 ## 6. On-screen text
 
 base §4.5, *stated*: place any **banner, sign, label, subtitle, or neon text**
@@ -1252,9 +1281,9 @@ its own, so this table describes it too. It exits nonzero on FAIL only.
 | cut times fall inside the video duration | GUIDE base §4.2 | `preflight_graph.py` |
 | `[Shot N] At MM:SS.mmm` format | GUIDE ref §5.1 (*stated*), base §4.2 (*shown*) | nothing — a malformed header makes preflight's shot list empty and takes three rules inert |
 | the five cut phrasings; dissolve/fade/wipe on request only | GUIDE base §4.2 | nothing |
-| camera motion type from the twelve-row table | GUIDE base §4.3 | **nothing** — this is the escaped instance: a shipped prompt carried `whip pan`, `tracks left` and `at medium amplitude and moderate speed` and every gate passed it |
-| amplitude only `with small/large amplitude` | GUIDE base §4.3 | nothing |
-| speed only `at slow/fast speed` | GUIDE base §4.3 | nothing |
+| camera motion type from the twelve-row table | GUIDE base §4.3 | `check_camera_vocabulary.py`, partially: `vocab_matches_guide` pins the check's own motion list to §4.3 (red/green) and `denied_motion` reports known-bad phrases as WARN and never goes red, so a novel out-of-table phrase is caught by neither. This was the escaped instance: a shipped prompt carried `whip pan`, `tracks left` and `at medium amplitude and moderate speed` and every gate passed it. The check has run since 2026-08-28 and this row said "nothing" until 2026-09-01 |
+| amplitude only `with small/large amplitude` | GUIDE base §4.3 | `check_camera_vocabulary.py` (`modifiers_in_set`, red/green over every shipped prompt since 2026-08-28; this row said "nothing" until 2026-09-01) |
+| speed only `at slow/fast speed` | GUIDE base §4.3 | `check_camera_vocabulary.py` (`modifiers_in_set`, same case as amplitude) |
 | motion written as natural English inside the shot | GUIDE base §4.3 | nothing |
 | style and initial composition open `[Shot 1]` (base) | GUIDE base §4.1 | nothing |
 | style stated in one or two sentences **before** `[Shot 1]` (ref2va) | GUIDE ref §5.2 | nothing |
@@ -1262,6 +1291,7 @@ its own, so this table describes it too. It exits nonzero on FAIL only.
 | non-vocalising characters get no id | GUIDE base §4.4 | nothing |
 | compound `(S1,S2)` only for already-numbered speakers | GUIDE base §4.4 | nothing |
 | identity established where the speaker first **appears** | GUIDE base §4.4 | **nothing**, and not mechanizable |
+| the addressee is named outside `<d>`, and a listener takes no id | GUIDE base §4.4 (*stated*: the slot, and no id for a non-vocaliser); ref §5.4 (*shown*: naming the addressee); HOUSE that it is done whenever a second person is present | nothing |
 | `<d>` contains only a language tag and the verbatim words | GUIDE base §4.4 | `preflight_graph.py` checks the tag and that no marker sits inside |
 | `<d>` appears only in the main field | GUIDE ref §6 (ref2va); implied base §2.2 | `check_prompt_guide_conformance.py`, `preflight_graph.py` |
 | `says in an off-screen voiceover`, then lips-remain-closed | GUIDE base §4.4 | nothing |
@@ -1610,3 +1640,175 @@ so nothing there survives in history and nothing there should be cited as though
 it will still be present. **If you are about to depend on a file under
 `internal/`, copy what you need into the tracked tree first** — that is the
 lesson the vendor guides taught this morning, and the same day proved it twice.
+
+## 15. What the model is, and what actually reaches it
+
+**Removed and restored the same day.** `a52999d` (2026-09-01), whose message
+describes a rewrite of §14.5 and the striking of two ranking rows, also dropped
+this whole section, while the §14.5 it wrote says the migrated content "is
+§15". Restored verbatim from that commit's parent later the same day. If the
+removal was meant, record the reason here and repoint §14.5,
+`docs/wiki/prompting.md` and `docs/portable/h3_system_prompt.md`, which all
+route readers here.
+
+Migrated from `internal/PROMPTING.md` §§1-6 on 2026-09-01 so that file can be
+retired. **Everything checkable here was re-derived against source on that date
+rather than copied on trust** — that file had been wrong before and carries a
+SUPERSEDED banner. Each claim below says which it is.
+
+### 15.1 What H3 is, and why the prompt carries the whole job
+
+H3 generates **video and 32 kHz audio jointly, in one denoising pass, from one
+block of text.** There is no TTS stage, no separate audio model, and no script
+field: the same DiT that draws the mouth generates the voice coming out of it.
+Anything you want to hear has to be in the same text that describes what you
+want to see. Guidance is CFG-distilled, so **there is no negative prompt
+channel** — a "do not show X" sentence conditions on the tokens of that
+sentence.
+
+**MiniMax do not intend the model to take your prompt directly.** They ship a
+second hosted system, H3-Context-IR, whose only job is to turn a short idea into
+the structured document H3-Base consumes, and their model card calls it critical
+to output quality. It is API-only. **Running H3 locally means you are the
+Context-IR**, and that is why the guides read like an output spec rather than
+like advice — they document Context-IR's output format.
+
+**Do not hand a writer model the name "H3-Context-IR".** H3 postdates the
+training cutoff of any model you would run this on, so the name retrieves
+nothing and invites confabulation about what that system does; those inventions
+then compete with the rules you actually wrote. State the properties instead.
+The same failure in the other direction is a writer reaching for Sora or Veo
+conventions to fill the gap. *(Reasoning, not measurement — carried forward from
+`internal/PROMPTING.md` §1, which records it as a correction to its own earlier
+draft.)*
+
+### 15.2 What ComfyUI actually sends the encoder
+
+**Verified 2026-09-01 against `comfy/text_encoders/minimax.py`.**
+
+- Conditioning is the **unnormalized hidden state after LM layer 50**; the
+  converted checkpoint is truncated there (`comfy/text_encoders/minimax.py:15`).
+- The presentation is **not chat-templated** — raw token ids, no system or user
+  roles, vision blocks spliced inline (`comfy/text_encoders/minimax.py:3`).
+- **Your prompt is passed through verbatim.** `tokenize_with_weights` ends with
+  `add_text(text)` (`comfy/text_encoders/minimax.py:197`) after every label; nothing is stripped,
+  parsed, reformatted, or reordered.
+- **Nothing injects a duration, an alignment line, or shot scaffolding.** What
+  ComfyUI prepends is only the `"<Picture i>: "` / `"<Video k>: "` /
+  `"<Audio j>: "` label per reference, plus a `"<%.1f seconds>"` marker before
+  every 2-frame temporal block of a reference video. Everything else is yours,
+  **and the writer is blind to clip length unless you tell it.**
+
+**Consequence: the prompt is conditioning, not instruction.** There is no
+assistant deciding whether to comply. Descriptive text naming what is on screen
+conditions the generation; an imperative conditions on the tokens of the
+imperative.
+
+**Reference ordinals follow item order, and a video's soundtrack jumps the
+queue.** Counters are per kind and independent, so the same file can be
+`<Video 1>` and `<Audio 2>`. A reference video's soundtrack takes its
+`<Audio j>` label **before its own `<Video k>`**, and the standalone audio loop
+runs after — so one soundtracked video plus one standalone clip gives
+`<Audio 1>` = the soundtrack. Verified in both
+`comfy_extras/nodes_minimax_h3.py:335,346` and this pack's
+`reference_conditioning.py:655-696`.
+
+### 15.3 The five ways prompts go wrong here
+
+Carried forward from `internal/PROMPTING.md` §3. These are diagnoses from
+observed outputs, not measurements.
+
+1. **The writer does not know what H3 is**, so it writes for a generic
+   text-to-video model: it hedges, writes instructions rather than descriptions,
+   and has no reason to treat the audio fields as load-bearing. §15.1 is the fix.
+2. **Named characters come back as generic archetypes.** H3 renders what is
+   *described*, not what is *named* — the DiT was trained on caption-shaped
+   descriptions of pixels, so a bare proper noun gives it nothing to draw. The
+   fix is a **cast sheet pass**: expand every named character, IP or real person
+   once into a canonical visual noun phrase plus a voice line, then reuse that
+   exact phrase verbatim on every mention. Keep the name too; never rely on it.
+   Naming the *property* as a style anchor is worth doing.
+3. **Nothing in the prompt knows how long the clip is** (§15.2), so a writer
+   picks cut timestamps by feel and overruns the clip. §3.3 is the fix.
+4. **Line breaking has no single convention** and the vendor's own artifacts use
+   two — see §12.11 and §14.3, which is where this now lives.
+5. **Characters talk over each other**, from three causes: two speakers in one
+   shot with no time anchor (a timestamped cut is the only hard temporal anchor
+   the format offers); a **compound speaker id used by mistake** — `(S4,S5)` is
+   the documented notation for literal simultaneous group speech, so it
+   instructs two characters to say the line in unison; and simply too many
+   speakers for the runtime. Every on-screen character not given an explicit
+   "produces no vocal sound" is a candidate for the model to voice anyway.
+
+### 15.4 The speech budget, and why its shape is unsettled
+
+`internal/PROMPTING.md` §4.2 proposed `max_words_in_shot = 2.5 x (shot_seconds
+- 1.0)`, anchored on MiniMax's own ref2va script: 5 seconds, one shot, 11 spoken
+words. **That anchor does not fit the formula** — it allows 10 — and the formula
+has two free parameters where one observation can constrain at most one. A
+one-parameter form fits the same point exactly:
+
+| shot | `2.5 x (s - 1.0)` | `2.2 x s` |
+|---|---|---|
+| 2 s | 2.5 | 4.4 |
+| 3 s | 5.0 | 6.6 |
+| 5 s | 10.0 | **11.0 (exact)** |
+| 10 s | 22.5 | 22.0 |
+
+Both are equally "validated" by the corpus and they diverge by up to 1.8x
+exactly where the decisions are tightest. **The `-1.0` intercept is doing all
+the work in the short-shot regime, where there is no data at all** — and the
+familiar "cutting costs you words" tradeoff is *generated by* that intercept.
+Under `2.2 x s` cutting is free and the fewer-longer-shots argument disappears.
+
+**So treat every short-shot budget as possibly 1.8x too tight, and do not cite
+either form as measured.** [OPEN] Weak corroboration only: an independently
+built third-party kit of 26 worked examples has a densest dialogue density of
+0.71 words/sec, roughly a fifth of this budget, with no two-speaker example
+anywhere in it. That is revealed preference from someone staying far under any
+plausible ceiling; it supports the direction and says nothing about the constant.
+
+### 15.5 The user-message contract for a writer model
+
+If you drive an LLM to write these, the user turn needs more than an idea:
+
+```
+idea:     <one or two lines>
+frames:   243            # prefer frames; seconds alone cannot be snapped honestly
+task:     t2v            # t2v | i2v | fl2v | l2v | ref2v
+```
+
+**Give frames, not seconds.** "10 seconds" does not determine a frame count —
+240 snaps to 243 (10.125 s) but 250 snaps to 260 (10.833 s) — so a writer handed
+seconds cannot honestly produce the `S.SS` a Part One line needs (§3.3).
+
+For ref2va the turn also needs the reference list **in the order the items are
+built**, because that is what fixes the ordinals, including the soundtrack rule
+in §15.2:
+
+```
+refs:  1 image (identity), 1 video with sound (camera motion), 1 audio (voice)
+       -> <Picture 1>, <Audio 1> = video soundtrack, <Video 1>, <Audio 2> = voice
+```
+
+Aspect ratio is a workflow setting, not a prompt fact; leave it out.
+
+### 15.6 Third-party observations, held at arm's length
+
+None of these is measured here. They are recorded because they are actionable
+and cheap to test, and because a reader who meets them elsewhere should know
+this repo has neither confirmed nor refuted them. [3rd]
+
+- **H3 defaults to moving the camera.** Say nothing and expect a slow drift; the
+  reported fix is naming the moves it should *not* make rather than asking for a
+  static shot.
+- **Negative constraints are contested.** One vendor-adjacent guide calls
+  negative lists where "most of the quality lives"; another ran matched A/B
+  pairs and could not show they did anything, narrowing their advice to
+  on-screen text and camera movement only — the two things the model volunteers
+  unprompted.
+- **One primary change per beat**, or two changes collapse into whichever is
+  easier to render.
+- **Wardrobe drifts even when faces hold**, so name the garment in text as well
+  as showing it in a reference.
+- **Quiet scenes come back genuinely quiet** and may need gain in post.
