@@ -10,7 +10,7 @@ arms -- including the two edits and the continuation -- it passed clean. The
 axis those arms exist to vary had collapsed and every check was green.
 
 So this one takes its vocabulary from
-`internal/official_prompt_guides/*_ref_en.md` by parsing the guide's own
+`vendor_guides/ref_en.md` by parsing the guide's own
 tables. When the guide and the generator disagree, the guide wins, and no
 number in here is computed by this file.
 
@@ -86,15 +86,15 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO / "workflows"
-GUIDE = (REPO / "internal" / "official_prompt_guides"
-         / "minimax-h3-official-VIDEO_PROMPT_WRITING_GUIDE_ref_en.md")
+GUIDE = (REPO / "vendor_guides"
+         / "ref_en.md")
 
 # THE SECOND GUIDE. The release ships two and they do not share a section list;
 # this file graded every prompt against the six-section one and reached only the
 # graphs wiring `MiniMaxH3ReferenceToVideo`, so the base-format population was
 # not wrong -- it was invisible.
-BASE_GUIDE = (REPO / "internal" / "official_prompt_guides"
-              / "minimax-h3-official-VIDEO_PROMPT_WRITING_GUIDE_base_en.md")
+BASE_GUIDE = (REPO / "vendor_guides"
+              / "base_en.md")
 
 # Non-recursive `WORKFLOWS.glob` would have stopped seeing the image graphs
 # when they moved to `workflows/image/` on 2026-08-16, and this file's counts

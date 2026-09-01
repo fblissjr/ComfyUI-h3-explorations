@@ -77,7 +77,7 @@ repeating work.
   `bench/results/2026-08-27_marker_tokenization_alignment.json`. **Do not
   re-raise the missing literal as a finding.**
 - **The DiT was trained on MiniMax's own prompt-writing structure, and it
-  differs by mode.** `internal/official_prompt_guides/` holds the base and ref
+  differs by mode.** `vendor_guides/` holds the base and ref
   guides. Prompt structure is not a free parameter you may restructure to chase
   an effect; deviating trades a trained-on layout for an untrained one.
 - **1344x768 is a trained canvas, and small canvases have inverted a finding.**

@@ -50,8 +50,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "workflows"))
-GUIDE = REPO / "internal" / "official_prompt_guides" / \
-    "minimax-h3-official-VIDEO_PROMPT_WRITING_GUIDE_base_en.md"
+GUIDE = REPO / "vendor_guides" / \
+    "base_en.md"
 
 CONDITIONERS = ("MiniMaxH3Conditioning", "MiniMaxH3ReferenceConditioning",
                 "MiniMaxH3ImageToVideo", "MiniMaxH3ReferenceToVideo")

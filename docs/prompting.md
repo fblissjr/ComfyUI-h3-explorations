@@ -24,7 +24,7 @@ Collapsing these is how two invented rules shipped here and were retracted.
 
 | layer | what it is | breaking it means |
 |---|---|---|
-| **GUIDE** | the vendor's own text, `internal/official_prompt_guides/` base_en and ref_en, cited by section | the prompt is **off-distribution** from what the model was trained on |
+| **GUIDE** | the vendor's own text, `vendor_guides/base_en.md` and `ref_en.md`, cited by section | the prompt is **off-distribution** from what the model was trained on |
 | **OWNER** | a deliberate design decision made here | not the vendor's, not a defect; cannot be cited as authority |
 | **HOUSE** | our inference from measurement or experience | may itself be wrong; check before relying |
 | **OPEN** | contradictory, unsourced, or unverifiable | do not build a checker on it |
@@ -1391,7 +1391,7 @@ not carry equal weight and two of them are not authorities at all.
 
 | # | source | on disk | standing | a violation means |
 |---|---|---|---|---|
-| 1 | the vendor's two guides | `internal/official_prompt_guides/` (gitignored) | **the only authority** | the prompt is off-distribution from what the model was trained on |
+| 1 | the vendor's two guides | [`vendor_guides/`](../vendor_guides/) | **the only authority** | the prompt is off-distribution from what the model was trained on |
 | 2 | the vendor's own API payloads | `coderef/MiniMax-H3/scripts/readme/*.sh` (gitignored) | evidence of practice, not a rule | you are doing something the vendor's own pipeline never emits |
 | 3 | the vendor's prompt-writing skill | `coderef/MiniMax-H3/.claude/skills/h3-prompt-writing/` | **a router, not a rule set** | nothing; it states no rule of its own |
 | 4 | this file | `docs/prompting.md` | our reading, layered GUIDE / OWNER / HOUSE / OPEN | depends on the layer, which every rule names |
@@ -1406,7 +1406,7 @@ Checked 2026-09-01:
 
 - **The two copies are identical** (`diff -rq`, no differences).
 - **Its `references/base-en.txt` and `references/ref-en.txt` are byte-identical
-  to our `internal/official_prompt_guides/` copies** — same size, same SHA-256.
+  to our `vendor_guides/` copies** — same size, same SHA-256.
   So our guide corpus is the vendor's own text, and that is now verified rather
   than assumed.
 - **`SKILL.md` is 35 lines and defers entirely to those two files.** Its three
@@ -1432,7 +1432,7 @@ the positional mouth-cue rule in §14.3. **But check what you are quoting.**
   dangerous — most of the file still reads as authentic because most of it is.
   Re-derive the delta rather than trusting a number:
 
-      diff internal/official_prompt_guides/*base_en.md \
+      diff vendor_guides/base_en.md \
            coderef/comfyui_dagthomas/data/h3/guide_base_en.md
 
   **If you re-derive it in Python, pass `autojunk=False`.** `difflib` treats

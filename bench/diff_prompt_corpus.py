@@ -60,7 +60,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "workflows"))
 
-GUIDES = REPO / "internal" / "official_prompt_guides"
+GUIDES = REPO / "vendor_guides"
 PAYLOADS = REPO / "coderef" / "MiniMax-H3" / "scripts" / "readme"
 
 MAIN_BASE = "integrated_multimodal_description"
@@ -147,8 +147,8 @@ def vendor_specimens() -> tuple[list[dict], list[dict]]:
     """(base-format, ref-format) vendor prompts, from guides and payloads."""
     base, ref = [], []
     for path, field, bucket in (
-            (sorted(GUIDES.glob("*base_en.md")), MAIN_BASE, base),
-            (sorted(GUIDES.glob("*ref_en.md")), MAIN_REF, ref)):
+            (sorted(GUIDES.glob("base_en.md")), MAIN_BASE, base),
+            (sorted(GUIDES.glob("ref_en.md")), MAIN_REF, ref)):
         if not path:
             continue
         text = path[0].read_text(encoding="utf-8")

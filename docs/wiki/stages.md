@@ -38,7 +38,7 @@ checkout is and is not evidence of.
 | stage | our code | owner | guard | compare against |
 |---|---|---|---|---|
 | encoder load | core `CLIPLoader`; `MiniMaxH3AWQEncoderLoader` is the alternate | [`../h3_awq_encoder.md`](../h3_awq_encoder.md) | `check_h3_awq_encoder.py` | — |
-| prompt structure | the generator's prompt constants | `internal/official_prompt_guides/` | `preflight_graph.py` grades sections, markers, labels — **reports, never refuses**; motion vocabulary is **nothing** | sglang's presentation stage |
+| prompt structure | the generator's prompt constants | `vendor_guides/` | `preflight_graph.py` grades sections, markers, labels — **reports, never refuses**; motion vocabulary is **nothing** | sglang's presentation stage |
 | text encode | core `comfy/text_encoders/minimax.py` | [`../research/official_weights_metadata.md`](../research/official_weights_metadata.md) | — | all four; they agree here |
 | keyframes | `MiniMaxH3Conditioning`, `keyframe_canvas.py` | [`../h3_conditioning_end_to_end.md`](../h3_conditioning_end_to_end.md) | `check_conditioning_behaviour.py`, against core as reference | sglang |
 | reference ingestion | the three `AppendRef*` nodes | [`../h3_references.md`](../h3_references.md) | `check_reference_runtime.py` — order, fps, duration, mono, policy | sglang, DiffSynth, diffusers |

@@ -17,7 +17,7 @@ been mistaken for one.
 
 | # | source | standing | a violation means |
 |---|---|---|---|
-| 1 | **the vendor's two guides** — `internal/official_prompt_guides/base_en`, `ref_en` | the only authority | the prompt is **off-distribution** from what the model was trained on |
+| 1 | **the vendor's two guides** — `vendor_guides/base_en.md`, `ref_en.md` | the only authority | the prompt is **off-distribution** from what the model was trained on |
 | 2 | **the vendor's own API payloads** — `coderef/MiniMax-H3/scripts/readme/*.sh` | evidence of practice | you are doing something the vendor's pipeline never emits |
 | 3 | **the vendor's prompt-writing skill** — `coderef/MiniMax-H3/.claude/skills/h3-prompt-writing/` | **a router; states no rule** | nothing |
 | 4 | [`docs/prompting.md`](../prompting.md) | our reading, every rule layered | depends on the layer, which the rule names |

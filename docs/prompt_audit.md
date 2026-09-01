@@ -14,7 +14,7 @@ not interchangeable:
 
 | | what it is | what a violation means |
 |---|---|---|
-| the official guides | the vendor's own text, `internal/official_prompt_guides/` (base and ref) | the prompt is **off-distribution** from what the model was trained on |
+| the official guides | the vendor's own text, `vendor_guides/` (base and ref) | the prompt is **off-distribution** from what the model was trained on |
 | `internal/PROMPTING.md` | house rules, derived from the guides plus experience on this box | the prompt deviates from **what we decided**, which may mean the rule is wrong |
 | the STATED RULE / NOT A RULE notes above `LONG_T2V_PROMPT` | the existing adjudication of which guide sentences are rules at all | a NOT A RULE finding is not a defect |
 
