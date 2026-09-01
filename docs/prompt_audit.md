@@ -1,6 +1,6 @@
 # Prompt audit: what follows the guides, and what to do about it
 
-last updated: 2026-08-28
+last updated: 2026-09-01
 
 The judgement half of [`prompt_catalogue.md`](prompt_catalogue.md), which is
 generated and states no opinion. This one is written by hand, keyed to the scene
@@ -52,7 +52,7 @@ Ordered by blast radius — how many graphs carry the scene.
 | `derived:h3_probe_capture_ref3` | ref2va | revise | same budget gap |
 | `derived:h3_probe_cache_easy` | ref2va | keep | a cache probe; scene content is not what it measures |
 | `derived:h3_first_last_frame_to_video` | fl2va | keep | conforms |
-| `I2V_PROMPT` | fl2va | keep | conforms |
+| `I2V_PROMPT` | i2va | keep | conforms. **Was listed as fl2va until 2026-09-01; that was wrong** -- it carries base-en's I2VA Part One template and ships in `h3_first_frame_to_video*`, and the fl2va scene is `derived:h3_first_last_frame_to_video` |
 | `derived:h3_probe_ref2v_split_turbo_pack` | ref2va | revise | budget |
 | `DIALOGUE_REF2V_PROMPT` (stairwell) | ref2va | ~~rewrite~~ **done `d5be353`, `f5b3651`** | shot-header format the guides both contradict, and it silently defeated preflight. Headers fixed; soundscape closed |
 | `derived:h3_probe_release_video_policy` | ref2va | keep | a policy probe |
@@ -60,6 +60,64 @@ Ordered by blast radius — how many graphs carry the scene.
 | `R2V_PROMPT` (ten-second) | ref2va | **rewrite** | describes 10 s on a 15.083 s graph |
 | r2v-swap family | ref2va | revise | defines a `<Picture N>` ref §2.2 says not to define |
 | the remaining `derived:` ref2va scenes | ref2va | revise | the budget gap is systematic |
+
+### Verdicts added 2026-09-01
+
+**The table above covered 12 of the 29 scenes the catalogue now lists.** The gap
+was not neglect: `prompt_catalogue.md` was itself eight scenes stale until
+2026-09-01, so seventeen scenes had never appeared in a document this file is
+keyed to. Every one is graded below. **All of them pass
+`check_prompt_guide_conformance.py` and none carries a FAIL from
+`preflight_graph.py`** — the verdicts are about judgement, not mechanics.
+
+| scene | mode | verdict | why |
+|---|---|---|---|
+| `T2V_AISLE_SHORT` / `T2V_AISLE_LONG` | t2va | **keep** | a matched description-length pair: identical dialogue, cuts, camera moves and subjects, elaborated only. The content IS the manipulation, so a content edit to one and not the other destroys the experiment. Do not "improve" either alone |
+| `T2V_SORTLINE_SHORT` / `T2V_SORTLINE_LONG` | t2va | **keep** | the second length pair, on an independent scene, for the same reason. Two scenes carrying one manipulation is what separates a result from an anecdote |
+| `T2V_RAIL_LONG` / `T2V_CHURN_LONG` | t2va | **keep** | a pre-registered predictability-versus-delta pair, both ~500 words and one shot, no dialogue. Delta predicts rail is worst; predictability predicts rail is clean. They cannot both be right, which is the point |
+| `MARKET_REF2V_PROMPT` | ref2va | **keep** | three shots, two speakers, and inside ref §5.2's word band — one of the few that is. Nothing to revise |
+| `derived:h3_ref2v_scene_kitchen` | ref2va | **keep** | four shots, inside the word band, and the first shipped prompt to carry the lyrics, caption and cutoff markers. `docs/scene_arm_renders.md` is its viewing guide |
+| `derived:h3_ref2v_scene_subway` | ref2va | **keep** | as kitchen. **Not an arm of the same experiment** — different scene, reference and speaker count, so nothing is learned by comparing the two to each other |
+| `derived:h3_last_frame_to_video` | l2va | **keep** | the L2VA prompt whose absence §13 of `prompting.md` reported until 2026-09-01. Part One resolves fully; conforms |
+| `derived:h3_ref_audio_voice` | ref2va | revise | budget only: `detailed_description` sits in the low forties against 350-500 |
+| `derived:h3_ref_image_audio` | ref2va | revise | budget only |
+| `derived:h3_ref_video_continue` | ref2va | revise | budget only |
+| `derived:h3_ref_video_motion` | ref2va | revise | budget only |
+| `derived:h3_ref_video_only` | ref2va | revise | budget only |
+| `derived:h3_ref_video_to_video` | ref2va | revise | budget only |
+| `derived:h3_ref_video_edit` | ref2va | **keep** | inside the word band |
+| `derived:h3_ref_video_image_edit` | ref2va | **keep** | inside the word band, and the densest label set that ships — five items, each correctly on its own line |
+
+**The budget `revise` rows are one defect, not six**, and they are the same
+finding the catch-all row above already carried. They are listed individually
+only so the catalogue's scene names all resolve to something here.
+
+### Two misalignments recorded rather than fixed
+
+Neither breaks a **stated** guide rule, so neither is a defect. Both are real,
+unenforced, and easy to mistake for settled — `prompting.md` §14.3 is the long
+form and owns them.
+
+1. **Shot line breaks.** Every vendor multi-shot specimen — base-en's one worked
+   example and MiniMax's own reproducible t2va API payload — runs shots inline
+   in a single paragraph. Of our multi-shot t2va prompts only
+   `DIALOGUE_T2V_PROMPT` does; `LONG_T2V_PROMPT` and all four aisle/sortline
+   arms break a line per shot. The length experiment is unaffected because both
+   its arms break identically, but a prompt copied out of them inherits it.
+2. **Dialogue turns per shot.** `DIALOGUE_T2V_PROMPT`, the shipped dialogue
+   default, puts four `<d>` blocks in `[Shot 1]` and three in `[Shot 2]`, where
+   `internal/PROMPTING.md` §4.3 asks for one speaking turn per shot. The guides
+   state no limit and show only one-per-shot at n=2. The prompt is inside the
+   speech budget and uses the explicit ordering wording §4.3 offers as the
+   alternative, but does not close the first mouth between turns.
+   **Unrendered, so this is two of our own documents disagreeing, not evidence
+   about the model.**
+
+**Checked and found clean:** ref-en *states* one line per item in
+`subject_definitions` (ref-en:37) and `retention_analysis` (ref-en:157). Every
+shipped ref2va prompt satisfies both. A first pass flagged twelve by counting
+labels per line; that test is wrong, because ref-en:37 explicitly allows a
+source-only `<Picture N>` to be cited inside another item's line.
 
 ---
 

@@ -1196,7 +1196,18 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     out.extend(marker_rules(prompt, dd))
     out.extend(embedding_notes(prompt))
 
-    shots = re.findall(r"\[Shot (\d+)\]([^\n]*)", dd)
+    # STOP EACH SHOT'S BODY AT THE NEXT SHOT HEADER, not at end of line. The
+    # guides put the whole description in ONE unbroken paragraph with
+    # `[Shot 2]` running inline (base-en's own worked examples do this), so a
+    # greedy `[^\n]*` swallowed every later header and `findall` returned a
+    # SINGLE pair for a multi-shot prompt. `shots[-1][0]` was then "1" whatever
+    # the prompt actually ended on, and `_expected_base_alignment` demanded
+    # `from Shot 1` -- telling an author to write a guide-violating line.
+    #
+    # It bit nothing shipped because every shipped fl2va and l2va prompt is one
+    # shot, and the t2va path returns before reading `shots` at all. Found
+    # 2026-09-01 writing the first multi-shot keyframe examples.
+    shots = re.findall(r"\[Shot (\d+)\]((?:(?!\[Shot \d+\])[^\n])*)", dd)
     if shots and shots[0][0] == "1" and re.match(r"\s*At \d", shots[0][1]):
         out.append(("FAIL", "[Shot 1] carries a timestamp; it must not"))
     stamps = [int(a) * 60 + float(b)

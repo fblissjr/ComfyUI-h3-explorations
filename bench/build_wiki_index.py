@@ -53,7 +53,19 @@ CLAUDE = REPO / "CLAUDE.md"
 OUT = REPO / "docs" / "wiki" / "index.md"
 
 # A routing row: `| [`docs/x.md`](docs/x.md) | what it answers |`
-ROW = re.compile(r"^\|\s*\[`(docs/[^`]+\.md)`\]\([^)]+\)\s*\|\s*(.+?)\s*\|\s*$")
+#
+# **The first cell may name MORE THAN ONE document.** `prompt_catalogue.md` and
+# `prompt_audit.md` share a row because they are a generated/hand-written pair
+# and routing to one without the other is misleading. Until 2026-09-01 this
+# pattern required the cell to hold exactly one link, so that row matched
+# nothing and BOTH prompt documents were silently absent from the generated
+# router -- not reported as unreachable either, since other documents link
+# them. A parser that drops a row it cannot shape is the failure this file's
+# own `parsed no routing rows` guard exists to catch, one row at a time.
+ROW = re.compile(r"^\|\s*(\[`docs/[^`]+\.md`\]\([^)]+\)(?:\s*\+\s*\[`docs/[^`]+\.md`\]\([^)]+\))*)\s*\|\s*(.+?)\s*\|\s*$")
+
+# Every `docs/...md` path named inside a matched first cell, in order.
+ROW_PATHS = re.compile(r"\[`(docs/[^`]+\.md)`\]")
 
 # The two tables that carry routing blurbs, by the heading above them.
 SECTIONS = {
@@ -62,9 +74,12 @@ SECTIONS = {
 }
 
 
-def parse_claude(text: str) -> list[tuple[str, str, str]]:
-    """Return (path, blurb, section-label) for every routing row, in file order."""
-    rows: list[tuple[str, str, str]] = []
+def parse_claude(text: str) -> list[tuple[tuple[str, ...], str, str]]:
+    """Return (paths, blurb, section-label) for every routing row, in file order.
+
+    `paths` is a tuple because one row may route to several documents.
+    """
+    rows: list[tuple[tuple[str, ...], str, str]] = []
     current: str | None = None
     for line in text.splitlines():
         stripped = line.strip()
@@ -80,9 +95,11 @@ def parse_claude(text: str) -> list[tuple[str, str, str]]:
         if m:
             # The wiki's own entry point has a row in CLAUDE.md so a reader can
             # find it. Filtered here so the generated router never lists itself.
-            if m.group(1).startswith("docs/wiki/"):
+            paths = tuple(p for p in ROW_PATHS.findall(m.group(1))
+                          if not p.startswith("docs/wiki/"))
+            if not paths:
                 continue
-            rows.append((m.group(1), m.group(2), current))
+            rows.append((paths, m.group(2), current))
     return rows
 
 
@@ -213,6 +230,11 @@ def first_sentence(blurb: str, limit: int = 200) -> str:
     return blurb
 
 
+def links(paths: tuple[str, ...]) -> str:
+    """Render a row's documents as one cell, joined the way CLAUDE.md joins them."""
+    return " + ".join(f"[`{p}`](../../{p})" for p in paths)
+
+
 def render(rows, unrouted) -> str:
     start = [r for r in rows if r[2] == "start here"]
     ref = [r for r in rows if r[2] == "reference"]
@@ -240,6 +262,10 @@ def render(rows, unrouted) -> str:
     w("| [`stages.md`](stages.md) | one row per stage of a render: our code, the "
       "document that owns it, the check that guards it, and the implementation to "
       "compare against |")
+    w("| [`prompting.md`](prompting.md) | **prompting: where every rule, example "
+      "and verdict comes from.** The five sources that claim to govern a prompt "
+      "ranked by authority, which document owns which question, at least five "
+      "worked examples per mode, and how to grade a draft before rendering it |")
     w("")
     w("## Start here")
     w("")
@@ -247,15 +273,15 @@ def render(rows, unrouted) -> str:
     w("")
     w("| # | file | what it answers |")
     w("|---|---|---|")
-    for i, (path, blurb, _) in enumerate(start, 1):
-        w(f"| {i} | [`{path}`](../../{path}) | {blurb} |")
+    for i, (paths, blurb, _) in enumerate(start, 1):
+        w(f"| {i} | {links(paths)} | {blurb} |")
     w("")
     w("## Reference, when you touch the thing it covers")
     w("")
     w("| file | what it answers |")
     w("|---|---|")
-    for path, blurb, _ in ref:
-        w(f"| [`{path}`](../../{path}) | {first_sentence(blurb)} |")
+    for paths, blurb, _ in ref:
+        w(f"| {links(paths)} | {first_sentence(blurb)} |")
     w("")
     w("## Documents nothing reaches")
     w("")
@@ -292,7 +318,7 @@ def main() -> int:
         print("FAIL  parsed no routing rows from CLAUDE.md -- table shape changed?")
         return 2
 
-    routed = {p for p, _, _ in rows}
+    routed = {p for paths, _, _ in rows for p in paths}
     on_disk = docs_on_disk()
     unrouted = unreachable(routed, on_disk)
 

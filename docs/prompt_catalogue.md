@@ -8,19 +8,27 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 | scene | graphs | words | shots | speakers | markers |
 |---|---|---|---|---|---|
-| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | 17 | 281 | 3 | 2 | `<d>` |
+| [`LONG_T2V_PROMPT`](#long-t2v-prompt) | 19 | 281 | 3 | 2 | `<d>` |
 | [`derived:h3_image_ref_plus_text_to_video`](#derivedh3-image-ref-plus-text-to-video) | 11 | 135 | 1 | 0 | — |
 | [`derived:h3_probe_capture_ref3`](#derivedh3-probe-capture-ref3) | 11 | 173 | 1 | 0 | — |
 | [`derived:h3_probe_cache_easy`](#derivedh3-probe-cache-easy) | 5 | 264 | 1 | 0 | — |
-| [`derived:h3_first_last_frame_to_video`](#derivedh3-first-last-frame-to-video) | 4 | 159 | 1 | 0 | — |
 | [`I2V_PROMPT`](#i2v-prompt) | 3 | 90 | 1 | 0 | — |
 | [`MARKET_REF2V_PROMPT`](#market-ref2v-prompt) | 3 | 573 | 3 | 2 | `<d>` |
+| [`derived:h3_first_last_frame_to_video`](#derivedh3-first-last-frame-to-video) | 3 | 159 | 1 | 0 | — |
 | [`derived:h3_probe_ref2v_split_turbo_pack`](#derivedh3-probe-ref2v-split-turbo-pack) | 3 | 303 | 1 | 0 | — |
 | [`DIALOGUE_REF2V_PROMPT`](#dialogue-ref2v-prompt) | 2 | 625 | 3 | 2 | `<d>` |
 | [`derived:h3_probe_release_video_policy`](#derivedh3-probe-release-video-policy) | 2 | 183 | 1 | 0 | — |
 | [`DIALOGUE_T2V_PROMPT`](#dialogue-t2v-prompt) | 1 | 228 | 3 | 2 | `<d>` |
 | [`R2V_PROMPT`](#r2v-prompt) | 1 | 281 | 1 | 0 | — |
+| [`T2V_AISLE_LONG`](#t2v-aisle-long) | 1 | 513 | 3 | 2 | `<d>` |
+| [`T2V_AISLE_SHORT`](#t2v-aisle-short) | 1 | 294 | 3 | 2 | `<d>` |
+| [`T2V_CHURN_LONG`](#t2v-churn-long) | 1 | 420 | 1 | 0 | — |
+| [`T2V_RAIL_LONG`](#t2v-rail-long) | 1 | 518 | 1 | 0 | — |
+| [`T2V_SORTLINE_LONG`](#t2v-sortline-long) | 1 | 518 | 3 | 2 | `<d>` |
+| [`T2V_SORTLINE_SHORT`](#t2v-sortline-short) | 1 | 322 | 3 | 2 | `<d>` |
 | [`derived:h3_last_frame_to_video`](#derivedh3-last-frame-to-video) | 1 | 137 | 1 | 0 | — |
+| [`derived:h3_ref2v_scene_kitchen`](#derivedh3-ref2v-scene-kitchen) | 1 | 520 | 4 | 1 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
+| [`derived:h3_ref2v_scene_subway`](#derivedh3-ref2v-scene-subway) | 1 | 488 | 4 | 2 | `<d>`, `<|lyrics_start|>`, `<|caption_start|>`, `<|cutoff|>` |
 | [`derived:h3_ref_audio_voice`](#derivedh3-ref-audio-voice) | 1 | 213 | 1 | 1 | `<d>` |
 | [`derived:h3_ref_image_audio`](#derivedh3-ref-image-audio) | 1 | 184 | 1 | 0 | — |
 | [`derived:h3_ref_video_continue`](#derivedh3-ref-video-continue) | 1 | 181 | 1 | 0 | — |
@@ -34,7 +42,7 @@ Scenes are ordered by how many graphs carry them, so the defaults that reach the
 
 ## LONG_T2V_PROMPT
 
-Carried by **17** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
+Carried by **19** graph(s). Sections: `integrated_multimodal_description`, `overall_soundscape`, `non_diegetic_music`.
 
 <details><summary>graphs</summary>
 
@@ -49,11 +57,13 @@ Carried by **17** graph(s). Sections: `integrated_multimodal_description`, `over
 - `h3_probe_turbo_768p_sla_api`
 - `h3_probe_turbo_768p_sla_dense_api`
 - `h3_probe_turbo_home_canvas_api`
+- `h3_probe_vsa_api`
+- `h3_probe_vsa_dense_api`
 - `h3_text_to_video_api`
 - `h3_text_to_video_pdd_4step_api`
 - `h3_text_to_video_pdd_api`
+- `h3_text_to_video_pdd_manual_sigmas_api`
 - `h3_text_to_video_stamped_api`
-- `h3_text_to_video_turbo_4step_768p_api`
 - `h3_text_to_video_turbo_api`
 
 </details>
@@ -202,29 +212,6 @@ non_diegetic_music:
 A slow instrumental score follows the tempo and instrumentation of <Audio 2>.
 ```
 
-## derived:h3_first_last_frame_to_video
-
-Carried by **4** graph(s). Sections: none.
-
-<details><summary>graphs</summary>
-
-- `h3_first_last_frame_to_video_api`
-- `h3_first_last_frame_to_video_pdd_4step_api`
-- `h3_first_last_frame_to_video_pdd_api`
-- `h3_first_last_frame_to_video_turbo_4step_768p_api`
-
-</details>
-
-```text
-How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 15.08-second mark of the target video.
-
-integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.
-
-overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.
-
-non_diegetic_music: N/A
-```
-
 ## I2V_PROMPT
 
 Carried by **3** graph(s). Sections: none.
@@ -280,6 +267,28 @@ Loose crowd murmur under a high roof, wooden crates knocking hollow as they stac
 
 non_diegetic_music:
 N/A
+```
+
+## derived:h3_first_last_frame_to_video
+
+Carried by **3** graph(s). Sections: none.
+
+<details><summary>graphs</summary>
+
+- `h3_first_last_frame_to_video_api`
+- `h3_first_last_frame_to_video_pdd_4step_api`
+- `h3_first_last_frame_to_video_pdd_api`
+
+</details>
+
+```text
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot that begins in the exact state of the opening frame and ends in the exact state of the closing frame. The subject holds the opening position, framing, lighting and colors, then moves steadily through the space while the camera trucks right with small amplitude at slow speed. Wardrobe, palette and the surrounding scene stay continuous throughout, and the subject's pose, placement and the camera's position, angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: Quiet room tone with a low ambient hum continues throughout, joined by soft physical sounds from the subject's movement and a single settling sound as the motion comes to rest.
+
+non_diegetic_music: N/A
 ```
 
 ## derived:h3_probe_ref2v_split_turbo_pack
@@ -440,6 +449,136 @@ The target video is in a cinematic live-action style with realistic natural text
 [Shot 1] The shot opens on a wide establishing frame of <Subject 2>, organic spatial depth and clean perspective lines under the ambient light of the environment. From 0.0s to 3.0s, <Subject 1> enters steadily into frame from camera-left, stepping forward in full view while preserving the complete identity, form, and wardrobe specified by <Picture 1>. From 3.0s to 7.0s, the camera trucks right at slow speed, staying level with <Subject 1> as they reach the centre of the frame and pause in a natural resting posture, the lens holding sharp focus on <Subject 1> while <Subject 2> falls away behind them with gentle focal roll-off. From 7.0s to 11.0s, <Subject 1> turns toward the primary ambient light source of the environment, glancing slightly off-camera with a measured, contemplative expression, their profile clearly visible without abrupt shifts in posture. From 11.0s to 15.0s, the camera holds a static shot on a balanced medium framing of <Subject 1> against <Subject 2>, preserving subject presence, lighting equilibrium, and environmental continuity until the final frame, with no cuts.
 ```
 
+## T2V_AISLE_LONG
+
+Carried by **1** graph(s). Sections: `integrated_multimodal_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_text_to_video_aisle_long_api`
+
+</details>
+
+```text
+integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a hardware aisle in the afternoon, lit by bare fluorescent tubes in a high open ceiling with daylight reaching the far end from a roller door out of frame. A pegboard wall of hand tools fills the left of frame, wrenches and pliers hung in graded rows on steel hooks with their painted grips turned outward, each tool casting a short hard shadow on the board behind it. Along the right runs a low counter of open bins, galvanised bolts and washers and hex nuts sorted by size, the metal dull and slightly oiled, a folded paper price card wedged at the front of each bin. A clerk in his sixties with a dry, unhurried baritone (S1) stands at the bins in a canvas apron over a checked shirt, sleeves turned back to the forearm, a paper bag open in one hand and his weight settled on one hip. The camera trucks left with small amplitude at slow speed, carrying the pegboard through the foreground, as a customer, a woman in her forties with a clipped alto (S2) in a dark quilted jacket, stops at the counter and says: <d>[English] Quarter inch, or the next size up?</d> Her lips close and she sets a small carton down on the counter edge, one finger still resting on its lid.
+
+[Shot 2] At 00:04.500, the shot cuts to a close shot of the clerk's hands over an open bin of galvanised bolts, the paper bag held against the rim with the thumb hooked inside it, the skin of his knuckles dry and the nails cut short. The camera holds a static shot. He scoops once, tips his palm, and lets the bolts run back into the bin in a thin bright stream that separates into individual threads as it falls, and answers: <d>[English] The next size up. These will strip on you.</d> His lips close and he folds the top of the bag over twice, creasing each fold flat with his thumbnail.
+
+[Shot 3] At 00:09.000, the shot changes to a medium-wide shot of the counter from the aisle, two other customers waiting a pace behind the woman, one holding a length of chain and one with both hands in his pockets, the pegboard wall receding out of focus toward the back of the store. The camera pushes in with small amplitude at slow speed, the bins passing close on the right of frame. She takes the bag, weighs it in one hand, and says: <d>[English] Both boxes then. I will come back for the rest.</d> Her lips close and she turns toward the end of the aisle, the bag swinging once against her thigh.
+
+overall_soundscape: Steady interior air handling under a high open ceiling, the dry rattle of loose metal fasteners settling in a bin and the finer ring of a few running back into the pile, paper creasing twice under a thumb, and unhurried footsteps on a sealed concrete floor with a faint echo off the roof.
+
+non_diegetic_music: N/A
+```
+
+## T2V_AISLE_SHORT
+
+Carried by **1** graph(s). Sections: `integrated_multimodal_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_text_to_video_aisle_short_api`
+
+</details>
+
+```text
+integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a hardware aisle in the afternoon, a pegboard wall of hand tools on the left and open bins of fasteners along a low counter on the right. A clerk in his sixties with a dry, unhurried baritone (S1) stands at the bins with a paper bag open in one hand. The camera trucks left with small amplitude at slow speed as a customer, a woman in her forties with a clipped alto (S2), stops at the counter and says: <d>[English] Quarter inch, or the next size up?</d> Her lips close and she sets a small carton down on the counter edge.
+
+[Shot 2] At 00:04.500, the shot cuts to a close shot of the clerk's hands over an open bin of galvanised bolts, the paper bag held against the rim. The camera holds a static shot. He scoops once, lets the bolts run back into the bin, and answers: <d>[English] The next size up. These will strip on you.</d> His lips close and he folds the top of the bag over twice.
+
+[Shot 3] At 00:09.000, the shot changes to a medium-wide shot of the counter from the aisle, two other customers waiting behind the woman and the pegboard wall receding out of focus. The camera pushes in with small amplitude at slow speed. She takes the bag, weighs it in one hand, and says: <d>[English] Both boxes then. I will come back for the rest.</d> Her lips close and she turns toward the end of the aisle.
+
+overall_soundscape: Steady interior air handling under a high ceiling, the dry rattle of loose metal fasteners settling in a bin, paper creasing, and unhurried footsteps on a sealed concrete floor.
+
+non_diegetic_music: N/A
+```
+
+## T2V_CHURN_LONG
+
+Carried by **1** graph(s). Sections: `integrated_multimodal_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_text_to_video_churn_long_api`
+
+</details>
+
+```text
+integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, one continuous handheld take with no cuts, the operator moving fast through a crowded indoor night market under a low ceiling. The camera shakes strongly and reframes constantly, swinging between subjects without settling, so the framing changes several times a second and no composition is held. Strings of coloured LED bulbs hang in overlapping rows overhead and change colour rapidly and independently of one another, red to green to orange to blue, each string on its own timing, so the light on every surface shifts continuously and unpredictably and no two moments share a colour cast. Dozens of people move through the frame in all directions at once, crossing in front of and behind each other, some entering fast from the frame edge and some stopping abruptly, their faces catching different colours as they pass under different strings. Vendors push loaded handcarts through the crowd at varying speeds, and stacked goods on the carts shift and settle as they move. Steam rises in irregular bursts from three separate food stalls and drifts across the lens unpredictably, sometimes obscuring the frame almost completely and sometimes clearing at once. Hanging fabric banners swing at different rates in the moving air, printed with dense patterns. Reflections from the LED strings travel across metal surfaces, wet floor tiles and glass cabinets, none of them in step with each other. The camera passes close to a stall of small bright objects, loses focus, regains it on a different subject entirely, then swings up toward the ceiling lights and back down into the crowd. A child is carried past on someone's shoulders and turns to look back the way they came. Two people stop directly in front of the lens and move apart again. A stack of empty crates is lifted from a cart and set down out of frame. Paper wrappers blow along the floor at ankle height in irregular gusts from the extractor. A vendor throws a cloth over a display and it settles unevenly. Someone lights a burner and the flame jumps. Nothing in the frame holds still for longer than a moment, no element continues on a predictable path, and the direction of travel changes repeatedly throughout the take without settling.
+
+overall_soundscape: A dense crowded indoor market at night, many overlapping voices at different distances with no single conversation legible, metal handcart wheels on tile, sizzling from several stalls at once, a hand bell struck irregularly, and the low roar of a ceiling extractor throughout.
+
+non_diegetic_music: N/A
+```
+
+## T2V_RAIL_LONG
+
+Carried by **1** graph(s). Sections: `integrated_multimodal_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_text_to_video_rail_long_api`
+
+</details>
+
+```text
+integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, one continuous take with no cuts, shot on a rail dolly so the camera moves with no vibration whatsoever. A two-storey boxy concrete house stands square to the road in flat overcast afternoon light, its front face a plain grey slab broken by four identical square windows in two rows, a shallow flat roof with a thin metal drip edge, and a single dark door set slightly left of centre with two concrete steps below it. A low wall of the same grey concrete runs along the front of the plot, unbroken, with a strip of clipped grass between it and the house. Three young cypress trees stand evenly spaced along the wall, still, with no wind moving them. The camera trucks right with small amplitude at slow speed on the rail, holding the house at the same height in frame throughout and keeping its front face parallel to the sensor, so the building translates steadily across the frame from the right side to the left without rotating, tilting or changing size. Nothing in the scene moves except by that translation: no people, no vehicles, no animals, no leaves moving, no doors or windows opening, no shadows shifting, no lighting change of any kind, no reflections travelling across the glass. The light stays flat and even from an overcast sky for the whole take, so exposure and colour do not change. As the camera continues, the far edge of the house passes out of frame on the left and a plain grey neighbouring wall of similar height enters from the right, of the same material and finish, continuing the same steady rate of travel. The concrete surface holds its texture and its slight staining below the windows throughout, the window frames stay square and their spacing stays even, and the drip edge along the roof stays a single unbroken straight line for the entire shot. The concrete is board-formed, the horizontal seams from the shuttering visible as faint regular lines across the whole facade, with small blowholes clustered near the base and a darker band of weathering rising about a foot from the ground. Each window is a plain aluminium frame with a single fixed pane, no glazing bars, the glass reflecting only flat grey sky with no detail in it. The door is painted dark and flat with a plain lever handle and no glazing, and the two concrete steps below it have a chipped front edge on the upper step. The clipped grass is uniform and short with a straight mown edge along the wall. The cypress trees are the same height as each other, narrow, and evenly dense from top to bottom. All of this holds exactly as it is for the whole take. The take ends with the camera still travelling at the same rate, mid-move, without slowing or stopping.
+
+overall_soundscape: Flat outdoor ambience under an overcast sky with no wind, a distant steady road hum well behind the house, and the faint continuous mechanical run of a dolly on rails. No voices, no footsteps, no birds.
+
+non_diegetic_music: N/A
+```
+
+## T2V_SORTLINE_LONG
+
+Carried by **1** graph(s). Sections: `integrated_multimodal_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_text_to_video_sortline_long_api`
+
+</details>
+
+```text
+integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a sorting line in a recycling hall, lit from a high metal roof by rows of cold overhead lamps with the far end of the building falling into haze. A wide rubber belt runs left to right through the frame, its surface scuffed pale along the centre where the load rides, carrying mixed plastics in blue and green and clear, flattened aluminium cans, and folded paper that lifts slightly at the edges as it moves. Four workers in high-visibility vests over dark work clothes stand along the far side, gloved to the wrist, picking items into steel chutes set behind them at hip height, each of them working a different fraction of the width. A supervisor in her fifties with a flat, carrying alto (S1) walks the near side in a vest over a grey fleece, a tablet held under one arm and a pen clipped at her collar. The camera trucks right with small amplitude at slow speed, following the belt so the load stays roughly stationary in frame while the hall slides behind it, as she looks along the line and says: <d>[English] Slow it a notch, we are losing the film plastic.</d> Her lips close and she taps twice on the tablet without looking down at it.
+
+[Shot 2] At 00:04.500, the shot cuts to a close shot of the belt surface from above, the rubber grain visible between items, mixed containers and paper passing under two pairs of gloved hands that pick and release in short economical movements, the glove fabric darkened at the fingertips. The camera holds a static shot. A worker with a light, quick tenor (S2) answers from off screen: <d>[English] Taking it down now. Watch the third chute.</d> A gloved hand lifts a clear bottle clear of the belt, turns it once to check the neck, and drops it left out of frame, and the belt visibly eases as the load spaces out.
+
+[Shot 3] At 00:09.000, the shot changes to a wide shot down the length of the line, the belt receding toward stacked and strapped bales at the far wall under the high roof lights, the bales colour-sorted so the stack reads as bands of blue and clear and grey. All four workers are still picking, their movements no longer synchronised now the belt has slowed. The camera pulls out with small amplitude at slow speed, taking in the walkway rail in the near foreground. The supervisor steps back from the belt, still watching it, and says: <d>[English] Better. Keep it there until the break.</d> Her lips close and she turns along the line toward the bales, the tablet swinging down to her side.
+
+overall_soundscape: A wide rubber belt running continuously under a high metal roof, plastic and aluminium tumbling and knocking against each other with the lighter paper making almost no sound, the hollow drop of items into steel chutes at irregular intervals, and a low motor hum that drops in pitch partway through, with occasional footsteps on a steel walkway.
+
+non_diegetic_music: N/A
+```
+
+## T2V_SORTLINE_SHORT
+
+Carried by **1** graph(s). Sections: `integrated_multimodal_description`.
+
+<details><summary>graphs</summary>
+
+- `h3_text_to_video_sortline_short_api`
+
+</details>
+
+```text
+integrated_multimodal_description:
+[Shot 1] Live-action, cinematic, handheld, shallow depth of field. A medium-wide shot frames a sorting line in a recycling hall, a wide rubber belt running left to right through the frame loaded with mixed plastics, flattened cans and paper, four workers in high-visibility vests standing along its far side picking items into chutes behind them. A supervisor in her fifties with a flat, carrying alto (S1) walks the near side of the belt with a tablet under one arm. The camera trucks right with small amplitude at slow speed, following the belt, as she looks along the line and says: <d>[English] Slow it a notch, we are losing the film plastic.</d> Her lips close and she taps twice on the tablet without looking down.
+
+[Shot 2] At 00:04.500, the shot cuts to a close shot of the belt surface from above, items passing under two pairs of gloved hands that pick and release in short movements. The camera holds a static shot. A worker with a light, quick tenor (S2) answers from off screen: <d>[English] Taking it down now. Watch the third chute.</d> A gloved hand lifts a clear bottle clear of the belt and drops it left out of frame.
+
+[Shot 3] At 00:09.000, the shot changes to a wide shot down the length of the line, the belt receding toward stacked bales at the far wall under high roof lights, all four workers still picking. The camera pulls out with small amplitude at slow speed. The supervisor steps back from the belt, still watching it, and says: <d>[English] Better. Keep it there until the break.</d> Her lips close and she turns along the line toward the bales.
+
+overall_soundscape: A wide rubber belt running continuously under a high metal roof, plastic and aluminium tumbling and knocking against each other, the hollow drop of items into chutes, and a low motor hum with occasional footsteps on a steel walkway.
+
+non_diegetic_music: N/A
+```
+
 ## derived:h3_last_frame_to_video
 
 Carried by **1** graph(s). Sections: none.
@@ -451,13 +590,81 @@ Carried by **1** graph(s). Sections: none.
 </details>
 
 ```text
-How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 15.08-second mark of the target video.
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 14.38-second mark of the target video.
 
 integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot in a quiet interior. A woman in a dark jacket crosses the room unhurriedly, passing a window that throws a soft band of daylight across the floor. The camera trucks right with small amplitude at slow speed, holding her in frame as she moves. Her pace settles, her shoulders come level, and her position, wardrobe, the lighting and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
 
 overall_soundscape: Quiet room tone with a low ambient hum throughout, unhurried footsteps on a hard floor, and the faint settle of fabric as the movement comes to rest.
 
 non_diegetic_music: N/A
+```
+
+## derived:h3_ref2v_scene_kitchen
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref2v_scene_kitchen_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] Handheld, fast reframing, hard practical light off stainless steel. A medium-wide shot establishes a restaurant line mid-service, four burners lit, steam crossing the lens, a ticket rail loaded above the pass. The ticket closest to camera reads "TABLE 12 - 2 COVERS - FIRE" in narrow black type on white thermal paper. <|caption_start|>TABLE 12 - 2 COVERS - FIRE<|caption_end|> <Subject 1> works the pass, preserving the face, hair, wardrobe and build established in the reference, slaps the rail and calls down the line: <d>[English] Two on twelve, fire it now.</d> His lips close and he snaps the ticket free with two fingers. The camera tracks right at large amplitude and fast speed past three cooks, one tossing a pan so the flame climbs above the rim.
+[Shot 2] At 00:03.500, the shot cuts to a close shot of a young line cook with a light, quick soprano (S2) at the flat top, moving fast, who answers without looking up: <d>[English] Two on twelve, heard.</d> Her lips close, and she sings along under her breath with a radio on the shelf behind her: <|lyrics_start|><d>[English] Keep it moving, keep it hot.</d><|lyrics_end|> Her lips close as she flips two portions in one motion and the flame flares behind her shoulder.
+[Shot 3] At 00:07.500, the camera pushes in fast with large amplitude on the pass as plates land in a row, hands entering frame from three directions, a thumb wiping a rim clean. <Subject 1> and the cook overlap with no gap between them: <d>[English] Where is my second plate.</d> <d>[English] Behind you, behind you.</d> Both sets of lips close as a plate is spun into position. The camera stays low across the pass so the stainless surfaces, the loaded ticket rail and the lit burners of the reference setting remain continuously visible behind the hands, steam crossing the lens twice without hiding either face.
+[Shot 4] At 00:11.500, the shot changes to a low shot as a runner lifts both plates and turns for the door, the kitchen receding behind him in a blur of steam. The camera pedestals up with small amplitude at slow speed as he passes, holding the lit burners and the loaded ticket rail of the reference setting across the top of the frame while the ticket printer starts another run behind the pass and a pan is set down hard on the flat top. <Subject 1> calls after him already reading the next ticket: <d>[English] And tell them the special is</d><|cutoff|>
+
+overall_soundscape:
+A ticket printer chattering in bursts, a metal rail slapped flat, pans ringing on a flat top with sharp oil crackle, a gas burner whumping as it catches, plates set down hard in quick succession, and a thin radio behind everything.
+
+non_diegetic_music:
+N/A
+```
+
+## derived:h3_ref2v_scene_subway
+
+Carried by **1** graph(s). Sections: `subject_definitions`, `summary`, `retention_analysis`, `detailed_description`, `overall_soundscape`, `non_diegetic_music`.
+
+<details><summary>graphs</summary>
+
+- `h3_ref2v_scene_subway_api`
+
+</details>
+
+```text
+subject_definitions:
+<Subject 1> is the main character in <Picture 1>, whose face, hair, and clothing are carried into the target video.
+
+summary:
+[reference generation] The target video places <Subject 1> in a single continuous shot.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1]): fully_preserved - face, hair, and clothing are retained.
+
+detailed_description:
+The target video is in a cinematic live-action style.
+[Shot 1] Handheld with fast reframing under cool platform fluorescents. A wide shot establishes a crowded underground platform, tiled columns receding, a train braking into frame from the right, still moving fast. A tiled platform sign above her head reads "NORTHBOUND - PLATFORM 2" in white capitals on a dark blue ground. <|caption_start|>NORTHBOUND - PLATFORM 2<|caption_end|> <Subject 1> stands over an open guitar case, preserving the face, hair, wardrobe and build established in the reference, strums once, and sings into the arriving noise: <|lyrics_start|><d>[English] Nobody waits on the northbound line.</d><d>[English] Everybody's leaving on time.</d><|lyrics_end|> Her lips close on the last word as the headlights wash across her face and commuters surge past in both directions, one man breaking into a run.
+[Shot 2] At 00:03.500, the shot cuts to a tight two-shot of two commuters shouldering fast through the crowd, the camera tracking with them at large amplitude. A woman in a soaked raincoat with a clipped, urgent contralto (S2) turns her head without slowing and says: <d>[English] Do not stop, it is the last one.</d> Her lips close. Her companion, a man in his thirties with a breathless, higher tenor (S3), answers half a step behind her: <d>[English] I know, I know, go, go.</d> His lips close and he shoves his bag under one arm as they cut left around a column.
+[Shot 3] At 00:07.000, the camera whip pans to a low wide shot of the platform edge as the doors open and the crowd compresses inward, a dropped umbrella skidding across the tiles. <Subject 1> keeps playing through it, her identity unchanged from the reference, and sings over the crowd: <|lyrics_start|><d>[English] Hold the door and hold your line.</d><|lyrics_end|> Her lips close. The camera holds wide long enough to keep the tiled columns, the platform edge markings and the overhead signage of the reference setting continuously visible behind her while the crowd moves across the frame in both directions, coats and bags passing close to the lens without occluding her face.
+[Shot 4] At 00:11.000, the shot changes to a close shot inside the carriage looking out through the closing doors, the woman in the raincoat pressed against the glass, breathing hard, calling back to her companion still on the platform: <d>[English] Get the next one and meet me at the</d><|cutoff|>
+
+overall_soundscape:
+Brake squeal rising and cutting out as a train settles, a dense crowd shuffling and coats brushing, a single guitar strummed hard over the noise, an umbrella skittering across tile, a two-tone door chime, and pneumatic doors sealing with a hard thump.
+
+non_diegetic_music:
+N/A
 ```
 
 ## derived:h3_ref_audio_voice

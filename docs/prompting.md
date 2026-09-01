@@ -1,15 +1,22 @@
 # How to write an H3 prompt
 
-last updated: 2026-08-28
+last updated: 2026-09-01
 
-A working manual. Everything needed to write a conformant prompt for any mode is
-restated here: the closed vocabularies in full, the exact Part One templates, the
-section layouts, and one worked example per mode. You do not need `internal/` to
-use this file, and you should not need any other file to write a prompt.
+**The single source of truth for writing an H3 prompt, in any mode.** Everything
+needed is restated here: the closed vocabularies in full, the exact Part One
+templates, the section layouts, all seven markers, five graded worked examples
+per keyframe mode, what the model actually receives, and where every source that
+claims to govern a prompt disagrees with the others. **You do not need
+`internal/` and you should not need any other file.**
 
-Companions: [`prompt_catalogue.md`](prompt_catalogue.md) is what we currently
-render (generated); [`prompt_audit.md`](prompt_audit.md) is whether those follow
-these rules. Neither is a source for the rules themselves.
+`internal/PROMPTING.md` is superseded and being retired into this file; §14.5
+says what has moved and what has not. §14 is the reconciliation across all five
+sources — read it before citing any of them, because two are not authorities.
+
+Companions, neither of which is a source for the rules themselves:
+[`prompt_catalogue.md`](prompt_catalogue.md) is what we currently render
+(generated from the graphs); [`prompt_audit.md`](prompt_audit.md) is whether
+those follow these rules.
 
 ## Four layers, and every rule says which one it is
 
@@ -887,10 +894,29 @@ All HOUSE, all worth having.
 
 ## 10. Worked examples
 
-**These five are mine, not the guides'.** They are written to this manual and are
+**These are mine, not the guides'.** They are written to this manual and are
 conformant against every GUIDE rule above; where a HOUSE rule is contested I say
 so rather than pretending the example settles it. The guides' own worked examples
 are base §5 Cases 1-4 and ref §7.
+
+**Every example below is GRADED, and the command is the claim.** Until
+2026-09-01 this section asserted that its examples "grade clean through
+`preflight_graph.py`" and nothing checked it -- preflight reads graphs, and
+these are loose text. `bench/grade_prompt_text.py` closes that: it wraps a
+prompt in a shipped graph of the requested mode and runs the same grader.
+
+    python bench/grade_prompt_text.py --mode fl2va --length 345 example.txt
+
+**A prompt is conformant AT A DURATION**, which is why every heading names one.
+`S.SS` in Part One and every `At MM:SS.mmm` cut resolve against the snapped
+length, so the same text is correct at 345 frames and wrong at 192. Pass
+`--length` to grade at the duration the example is written for.
+
+**For ref2va, pass `--like` a graph that wires the references the prompt
+declares.** Reference labels are graded against the donor's sockets, so 10.5
+reports two FAILs against a one-picture donor and none against
+`h3_ref_image_audio_api`, which wires the two pictures and one audio clip it
+names. The tool says so when every failure is of that shape.
 
 ### 10.1 T2VA — 243 frames, 10.125 s, two shots
 
@@ -902,7 +928,9 @@ overall_soundscape: Diesel engine rumble carries under a steady wash of water ag
 non_diegetic_music: A single sustained low synth tone at a slow tempo, joined by a soft brushed-snare pulse that rises briefly and drops away before the final frame.
 ```
 
-### 10.2 I2VA — 192 frames, 8.000 s, one shot
+### 10.2 I2VA — five examples
+
+#### 10.2.1 — 192 frames, 8.000 s, one shot
 
 ```text
 For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
@@ -914,7 +942,65 @@ overall_soundscape: Low workshop room tone continues throughout under the hum of
 non_diegetic_music: N/A
 ```
 
-### 10.3 FL2VA — 192 frames, 8.000 s, one shot, no bracketed labels
+#### 10.2.2 — 345 frames, 14.375 s
+
+**No dialogue, one shot, camera opening out.** The picture's framing is held by the opening clause, and the only non-speaker on screen is given `produces no vocal sound`.
+
+```text
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, wardrobe and composition established in <Picture 1>, a bench joiner in a canvas apron stands over a half-planed board in a timber workshop, low sun coming through sawdust in the air behind her. She sets her weight, draws the plane the length of the board, and a single curled shaving lifts and falls to the floor. She produces no vocal sound. The camera pulls out with small amplitude at slow speed, opening the frame to the racked chisels along the back wall.
+
+overall_soundscape: The long dry rasp of a hand plane on softwood repeats at an unhurried pace, each pass ending in the light tick of a shaving dropping to boards. Room tone is close and wooden, with a faint hum from a strip light overhead.
+
+non_diegetic_music: N/A
+```
+
+#### 10.2.3 — 345 frames, 14.375 s
+
+**Two shots, one speaking turn, dialogue in the second.** The cut carries the timestamp; `[Shot 1]` does not.
+
+```text
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, wardrobe and composition established in <Picture 1>, a woman in a grey linen shirt stands among staged seedling trays in a glasshouse, flat overcast light falling through the panes above her. She lifts one tray to eye level and turns it slowly. The camera pushes in with small amplitude at slow speed toward her hands. [Shot 2] At 00:07.000, the camera cuts to a close shot of the tray against her chest. The woman, on-screen, with a warm unhurried mezzo (S1), looks up and says: <d>[English] These two came up early.</d> Her lips close and her jaw stops moving as she sets the tray down on the bench.
+
+overall_soundscape: A steady wash of rain on glass carries throughout, with the hollow knock of a plastic tray set on a wooden bench and the faint drip of condensation running down a pane.
+
+non_diegetic_music: N/A
+```
+
+#### 10.2.4 — 345 frames, 14.375 s
+
+**Documentary register, no dialogue, `non_diegetic_music` in use.** A tilt, which is one of the vocabulary's less-used types.
+
+```text
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, documentary, holding the exact framing, lighting, wardrobe and composition established in <Picture 1>, a fisherman in oilskins coils a wet mooring line on a harbour wall at first light, the hull of a small trawler filling the background. He works the coil twice around his forearm, drops it over a bollard, and straightens. He produces no vocal sound. The camera tilts up with small amplitude at slow speed from his hands to the masts behind him.
+
+overall_soundscape: Water slaps against stone in an irregular rhythm under a constant low wind. Wet rope drags across concrete, a bollard takes the line with a dull knock, and gulls call intermittently at a distance.
+
+non_diegetic_music: A sparse sustained string chord at a slow tempo, swelling gently as the frame opens upward and holding without resolution.
+```
+
+#### 10.2.5 — 345 frames, 14.375 s
+
+**One shot, one speaking turn, mouth closed on the line.** Shows the identity-and-voice clause sitting immediately before the `<d>` block.
+
+```text
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, wardrobe and composition established in <Picture 1>, an archivist in a charcoal cardigan stands at a reading-room table under a green shaded lamp, a shallow box of loose photographs open in front of her. She lifts one print, angles it toward the lamp, and studies it. The archivist, on-screen, with a quiet precise alto (S1), says: <d>[English] This one was never catalogued.</d> Her lips settle closed and she lays the print face up on the table. The camera trucks left with small amplitude at slow speed along the edge of the table.
+
+overall_soundscape: Deep room tone in a high-ceilinged reading room with a long soft reverb tail. Stiff photographic paper flexes and settles, and a chair creaks once somewhere off to the side.
+
+non_diegetic_music: N/A
+```
+
+### 10.3 FL2VA — five examples
+
+#### 10.3.1 — 192 frames, 8.000 s, one shot, no bracketed labels
 
 ```text
 How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 8.00-second mark of the target video.
@@ -926,7 +1012,65 @@ overall_soundscape: Quiet kitchen room tone continues throughout with a faint re
 non_diegetic_music: Two alternating piano notes at a slow tempo, joined by a low sustained string that fades as the paper stops moving.
 ```
 
-### 10.4 L2VA — 158 frames, 6.583 s, one shot
+#### 10.3.2 — 345 frames, 14.375 s
+
+**One shot, no dialogue.** The convergence is described as observable events -- strokes shortening, a hand taking the lane rope -- rather than as a transition into the picture.
+
+```text
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot in a tiled municipal pool hall, hard overhead light breaking on the water. A swimmer in a black cap pushes off the near wall and crosses the frame left to right in four unhurried strokes, the wake spreading behind her and flattening. She produces no vocal sound. The camera trucks right with small amplitude at slow speed, holding her shoulders in frame as she moves. Her stroke shortens, she reaches the far lane rope and takes hold of it, and her position, the settling water, the lighting and the camera's angle and framing converge on Picture 2 at the end.
+
+overall_soundscape: Water breaks and closes over a steady four-count stroke rhythm, with a long hard reverb tail bouncing off tile throughout. A ventilation hum sits low under everything, and the lane rope rattles once as it is taken.
+
+non_diegetic_music: N/A
+```
+
+#### 10.3.3 — 345 frames, 14.375 s
+
+**Two shots, so Part One names `Shot 2`.** This is the case that no shipped graph exercises; see the note under section 13.
+
+```text
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 2) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a wide shot holds a chalkboard wall in an empty lecture room, late afternoon light raking across it from tall windows. A lecturer in a rolled-sleeve shirt works left to right, filling the board with diagrams, his back mostly to camera. He produces no vocal sound. The camera pans right with small amplitude at slow speed, following the writing as it advances. [Shot 2] At 00:08.000, the camera cuts to a medium shot from the far side of the room, the filled board now behind him. He sets the chalk in the tray, steps back once to take in the whole board, and folds his arms. His stance, the finished board, the raking light and the camera's angle and framing converge on Picture 2 at the end.
+
+overall_soundscape: Chalk taps and drags against slate in short irregular bursts, each stroke ending with a dry click. The room carries a long empty reverb, with distant corridor footsteps passing once and fading.
+
+non_diegetic_music: A single piano figure at a slow tempo, thinning to one sustained note as the writing stops.
+```
+
+#### 10.3.4 — 345 frames, 14.375 s
+
+**Animation, one shot.** A style anchor in the opening clause, and a non-human subject given `produces no vocal sound`.
+
+```text
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Animation, glossy 3D CG, one continuous shot on a kitchen counter at night, a single pendant lamp throwing a warm pool of light onto the worktop. A short round robot with a dented copper shell and one oversized lens rolls in from frame left, stops at a spilled bag of flour, and begins sweeping it into a pile with a flat paddle arm. It produces no vocal sound. The camera pushes in with small amplitude at slow speed toward the worktop. The pile grows compact under the paddle, the robot lowers its lens toward it, and its position, the swept surface, the lamp's pool of light and the camera's angle and framing converge on Picture 2 at the end.
+
+overall_soundscape: A fine granular sweep of powder across a hard worktop repeats in short strokes, with small servo whirs starting and stopping between them. The kitchen is otherwise quiet, with a refrigerator hum holding underneath.
+
+non_diegetic_music: Light pizzicato strings at a moderate tempo, playful and even, settling to a single held note as the sweeping stops.
+```
+
+#### 10.3.5 — 345 frames, 14.375 s
+
+**Two shots with one speaking turn.** Dialogue finishes in the first shot so the final frame can be still and closed-mouthed.
+
+```text
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 2) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot frames a guard in a navy uniform at a museum door, the gallery beyond her lit low for closing. She checks a wall clock, then walks the length of the doorway and puts her hand on the frame. The guard, on-screen, with a level unhurried contralto (S1), says: <d>[English] Two minutes, then we lock up.</d> Her lips close and her jaw stops moving as she turns back to the gallery. The camera trucks left with small amplitude at slow speed alongside her. [Shot 2] At 00:08.500, the camera cuts to a wide shot of the gallery from behind her, the far lights already out. She reaches the last switch, holds still a moment, and lowers her hand. Her position, the darkened gallery, the remaining doorway light and the camera's angle and framing converge on Picture 2 at the end.
+
+overall_soundscape: Hard-soled footsteps carry across a stone gallery floor with a long cold reverb. Switches throw with a heavy mechanical clack, and the room tone drops noticeably as each bank of lights goes out.
+
+non_diegetic_music: N/A
+```
+
+### 10.4 L2VA — five examples
+
+#### 10.4.1 — 158 frames, 6.583 s, one shot
 
 ```text
 How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 6.58-second mark of the target video.
@@ -936,6 +1080,62 @@ integrated_multimodal_description: [Shot 1] Live-action, cinematic, a close shot
 overall_soundscape: Empty corridor reverb carries a distant door closing twice. Rubber soles squeak on polished floor, a bag strap slides across fabric, and a metal latch clicks once near the end.
 
 non_diegetic_music: A sparse celeste figure at a slow tempo over one sustained low string, thinning to a single held note at the close.
+```
+
+#### 10.4.2 — 345 frames, 14.375 s
+
+**One shot, no dialogue.** An inferred opening that arrives at the supplied last frame only at the final frame.
+
+```text
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, one continuous shot in a narrow record shop, afternoon light coming in through a window at the front. A man in a corduroy jacket works along a rack of sleeves, pulling one part way out, considering it, and pushing it back. He produces no vocal sound. The camera trucks right with small amplitude at slow speed, staying level with his hands as he moves down the rack. He slows, draws one sleeve fully out, and turns it to face him, and his stance, the held sleeve, the window light and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: Stiff cardboard sleeves slide and knock against each other in an irregular rhythm. The shop carries a close dry room tone, with muffled traffic through glass and the occasional creak of a floorboard.
+
+non_diegetic_music: N/A
+```
+
+#### 10.4.3 — 345 frames, 14.375 s
+
+**Two shots, so Part One names `[Shot 2]`.** Note the brackets: L2VA brackets both labels where FL2VA brackets neither.
+
+```text
+How the reference pictures align with the target video — <Picture 1> (from [Shot 2]) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a wide shot holds a rooftop at dusk, city haze behind and a folded deck chair by the parapet. A woman in a long cardigan steps out through a stairwell door and crosses toward the parapet, unhurried. She produces no vocal sound. The camera pans right with small amplitude at slow speed to follow her across the roof. [Shot 2] At 00:07.500, the camera cuts to a medium shot from beside the parapet as she arrives. She unfolds the deck chair, sets it square to the view, and lowers herself into it. Her seated position, the opened chair, the fading dusk light and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: A steady rooftop wind carries throughout with occasional gusts. A metal door swings shut once behind her, the chair frame clicks as it opens, and distant traffic hums many floors below.
+
+non_diegetic_music: A slow warm synthesizer pad, building gradually in dynamics and holding as the movement comes to rest.
+```
+
+#### 10.4.4 — 345 frames, 14.375 s
+
+**Animation, one shot.** Shows that `<Picture 1>` is the FINAL frame and is not part of `[Shot 1]`'s opening composition.
+
+```text
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Animation, hand-drawn, one continuous shot in a cluttered attic study lit by a single desk lamp. A tall thin fox in a knitted waistcoat searches a stack of papers, lifting sheets aside two at a time and setting them down in a growing pile. He produces no vocal sound. The camera pushes in with small amplitude at slow speed toward the desk. His hands slow, he draws one folded sheet from near the bottom of the stack and opens it flat under the lamp, and his posture, the opened sheet, the lamp's pool of light and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: Paper rustles and slides in short overlapping strokes throughout, with the soft thump of sheets settling into a pile. The attic is close and quiet, with rain faint on a roof overhead.
+
+non_diegetic_music: A solo clarinet line at a slow tempo, curious and unhurried, thinning to a single sustained note as the searching stops.
+```
+
+#### 10.4.5 — 345 frames, 14.375 s
+
+**Two shots with one speaking turn.** The line lands early, leaving the close silent.
+
+```text
+How the reference pictures align with the target video — <Picture 1> (from [Shot 2]) aligns with the 14.38-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, documentary, a medium shot frames a farrier in a leather apron at the open side of a stable yard, cold morning light flattening the scene. He works a rasp along the edge of a hoof held between his knees, steady and repetitive. The farrier, on-screen, with a low weathered baritone (S1), says: <d>[English] Nearly there, stand easy.</d> His lips close and his jaw stops moving as he returns to the rasp. The camera holds a static shot. [Shot 2] At 00:08.000, the camera cuts to a wide shot of the yard as he finishes. He lowers the hoof, straightens up, and rests one hand on the horse's shoulder. His standing position, the settled horse, the flat morning light and the camera's angle and framing converge on the closing composition, reaching it only at the final frame.
+
+overall_soundscape: A rasp draws across horn in long even strokes with a dry grain to each pass. Hooves shift on wet cobbles, a bucket handle rings once, and the yard carries an open outdoor ambience with birdsong at a distance.
+
+non_diegetic_music: N/A
 ```
 
 ### 10.5 ref2va — 243 frames, 10.125 s, two shots, two images and one audio clip
@@ -982,6 +1182,11 @@ example would teach it.
 
 `bench/preflight_graph.py` reports and never refuses; `bench/check_*.py` are
 red/green. "nothing" means exactly that.
+
+**To grade a prompt that is not in a graph yet** — anything in §10, or a draft —
+use `bench/grade_prompt_text.py`, which wraps the text in a shipped graph of the
+requested mode and runs `preflight_graph.grade` against it. It adds no rules of
+its own, so this table describes it too. It exits nonzero on FAIL only.
 
 | rule | layer | checked by |
 |---|---|---|
@@ -1098,18 +1303,330 @@ Stated so nobody mistakes a house reading for the vendor's.
 10. **The guide never says how a shot's duration relates to a frame count**,
     because frame counts are outside its scope entirely. Every timing number in
     §3.3 and §3.4 is ours.
+11. **Neither guide states a line-break rule for the main narrative field.**
+    base_en's only multi-shot worked example runs `[Shot 2]` inline in one
+    unbroken paragraph, and MiniMax's own reproducible t2va API payload does the
+    same -- verified 2026-09-01 by counting escaped newlines inside
+    `integrated_multimodal_description` in
+    `coderef/MiniMax-H3/scripts/readme/reproducible-768p-t2va-request.sh`, which
+    has none. Two independent artifacts, but each is the vendor's *only*
+    multi-shot base-mode specimen, and both are **shown**, not stated. Our own
+    shipped prompts disagree with it and with each other; §14 records the split.
+    Do not enforce it.
+12. **Neither guide states a limit on dialogue turns per shot.** Both of
+    base_en's dialogue-bearing examples carry exactly one `<d>` block per shot,
+    and that is the whole of the vendor evidence -- **shown**, at n=2, with no
+    sentence behind it. `internal/PROMPTING.md` §4.3 read it as a rule ("one
+    speaking turn per shot") and contradicted itself elsewhere; §14 records where
+    our shipped prompts land.
 
-## 13. Known gaps in this repo, as of this file's date
+## 13. Known gaps in this repo
 
-- **L2VA has no shipped prompt**, and `workflows/build_workflows.py`'s
-  `scene_prompt()` L2VA branch returns `[Shot N]` and `S.SS` unsubstituted where
-  `fl2v_prompt()` resolves both. The missing scene hides a live bug.
-- **No shipped graph carries any marker but `<d>`.** The lyrics pair, the caption
-  pair and `<|cutoff|>` live only in generator scenes reachable through
-  `--print-scene`.
-- **Camera-motion vocabulary is enforced by nothing**, and it now has its escaped
-  instance. A denylist of terms absent from base §4.3's table is cheap and
-  decidable; proving every motion phrase in-vocabulary is not.
-- **Every generated ref2va prompt is one shot at 42-68 words** against ref §5.2's
-  350-500. This is preflight's only recurring WARN, which is why it stopped being
-  read as a finding.
+**Three of the four bullets this section carried until 2026-09-01 had gone
+false, and they are recorded here as withdrawn rather than quietly rewritten** —
+a reader who remembers the old sentence needs to know it was retracted. Each was
+true when written on 2026-08-28 and was overtaken within days, which is this
+repo's standard failure: prose stating a fact the code already knows.
+
+### Withdrawn 2026-09-01
+
+- **"L2VA has no shipped prompt, and `scene_prompt()`'s L2VA branch returns
+  `[Shot N]` and `S.SS` unsubstituted."** Both halves are false.
+  `h3_last_frame_to_video_api` ships an L2VA prompt with Part One fully
+  resolved, and `l2v_prompt(length)` is what builds it. The `scene_prompt()`
+  defect was fixed on 2026-08-28 and the fix is recorded in that function's own
+  comment; the function remains uncalled, so the bug never reached a graph.
+- **"No shipped graph carries any marker but `<d>`."** False since the scene
+  arms shipped: `h3_ref2v_scene_kitchen` and `h3_ref2v_scene_subway`, in both
+  their UI and API forms, carry `<|lyrics_start|>`, `<|lyrics_end|>`,
+  `<|caption_start|>`, `<|caption_end|>` and `<|cutoff|>`.
+- **"Every generated ref2va prompt is one shot at 42-68 words."** False as a
+  universal. Most still are, but a minority now sit inside ref §5.2's 350-500
+  band — both scene arms among them, at four shots each. Derive the current
+  split rather than trusting this sentence:
+
+      python bench/preflight_graph.py workflows/*.json | grep 'the guide asks 350-500'
+
+### Still open
+
+- **Camera-motion vocabulary is enforced by nothing.** Re-checked 2026-09-01:
+  neither `preflight_graph.py` nor `check_prompt_guide_conformance.py` tests any
+  motion phrase against base §4.3's table. A denylist of terms absent from that
+  table is cheap and decidable; proving every motion phrase in-vocabulary is not.
+- **The ref2va word budget is preflight's only recurring WARN**, which is why it
+  stopped being read as a finding. That is a reason to fix the prompts or retire
+  the WARN, not to keep both.
+- **No shipped graph is a multi-shot FL2VA or L2VA.** Every keyframe graph is one
+  shot, so the branch that resolves `Shot N` to anything but 1 was dead until
+  2026-09-01 and is exercised only by §10.3.2, §10.3.5, §10.4.3 and §10.4.5.
+  That dead branch was carrying a defect: see §14.
+- **Nothing regenerates `prompt_catalogue.md`.** It has a `--check` mode and no
+  caller, which is how it went eight scenes stale before 2026-09-01. This repo
+  has no test runner by design (`docs/checks.md`), so the discipline is to run it
+  before trusting it, not to wire a gate.
+
+---
+
+## 14. Every source that claims to govern a prompt, and where they disagree
+
+Reconciled 2026-09-01. **Read this before citing any of them**, because they do
+not carry equal weight and two of them are not authorities at all.
+
+### 14.1 The sources, ranked by what a violation means
+
+| # | source | on disk | standing | a violation means |
+|---|---|---|---|---|
+| 1 | the vendor's two guides | `internal/official_prompt_guides/` (gitignored) | **the only authority** | the prompt is off-distribution from what the model was trained on |
+| 2 | the vendor's own API payloads | `coderef/MiniMax-H3/scripts/readme/*.sh` (gitignored) | evidence of practice, not a rule | you are doing something the vendor's own pipeline never emits |
+| 3 | the vendor's prompt-writing skill | `coderef/MiniMax-H3/.claude/skills/h3-prompt-writing/` | **a router, not a rule set** | nothing; it states no rule of its own |
+| 4 | this file | `docs/prompting.md` | our reading, layered GUIDE / OWNER / HOUSE / OPEN | depends on the layer, which every rule names |
+| 5 | `internal/PROMPTING.md` | gitignored | **superseded 2026-08-28, being sunset** | nothing; cite this file instead |
+
+### 14.2 The vendor's skill adds no rule, and its guides are byte-identical to ours
+
+MiniMax ship a prompt-writing skill twice, at
+`.claude/skills/h3-prompt-writing/` and `.agents/skills/h3-prompt-writing/`.
+Checked 2026-09-01:
+
+- **The two copies are identical** (`diff -rq`, no differences).
+- **Its `references/base-en.txt` and `references/ref-en.txt` are byte-identical
+  to our `internal/official_prompt_guides/` copies** — same size, same SHA-256.
+  So our guide corpus is the vendor's own text, and that is now verified rather
+  than assumed.
+- **`SKILL.md` is 35 lines and defers entirely to those two files.** Its three
+  "Output Rules" each trace to a guide statement — the English-body-with-original-
+  language-dialogue rule to ref-en:5 and ref-en:217, the avoid-a-plot-summary
+  rule to ref-en:7, the per-shot description checklist to ref-en:7.
+
+**So there is no fourth authority.** A session that finds the skill and reads it
+as new guidance has found a second pointer to the guides we already have.
+
+### 14.3 Where our shipped prompts diverge from vendor practice
+
+Neither of these is a defect against a stated rule. Both are recorded because
+they are real, unenforced, and easy to mistake for settled.
+
+**Shot line breaks — we are split, and the vendor is not.** Every vendor
+multi-shot specimen runs shots inline in one paragraph (§12.11). Of our
+multi-shot t2va prompts, only `DIALOGUE_T2V_PROMPT` does; `LONG_T2V_PROMPT` and
+all four `T2V_AISLE_*` / `T2V_SORTLINE_*` scene arms put each shot on its own
+line. Enforced by nothing. The description-length experiment those arms belong
+to is unaffected — both its arms break lines identically, so the manipulation is
+not confounded — but a prompt copied out of them inherits the divergence.
+
+**Dialogue turns per shot — our own default breaks our own house rule.**
+`DIALOGUE_T2V_PROMPT` puts four `<d>` blocks in `[Shot 1]` and three in
+`[Shot 2]`. `internal/PROMPTING.md` §4.3 says one speaking turn per shot. The
+guides say nothing (§12.12), the prompt is inside the §3.4 speech budget, and it
+uses the explicit ordering wording ("answers immediately", "says at once") that
+§4.3 itself offers as the sanctioned alternative — but it does not close the
+first speaker's mouth between turns, which §4.3 asks for in the same breath.
+**Unrendered and unmeasured, so this is a disagreement between two of our own
+documents, not evidence about the model.**
+
+**Checked and found clean:** ref-en *states* one line per item in
+`subject_definitions` (ref-en:37) and `retention_analysis` (ref-en:157). Every
+shipped ref2va prompt satisfies both. A first pass here flagged twelve of them by
+counting labels per line, which is the wrong test — ref-en:37 explicitly allows a
+source-only `<Picture N>` to be cited inside another item's line, and that is
+exactly what ours do.
+
+### 14.4 The shot regex defect this reconciliation found
+
+`preflight_graph.grade` extracted shots with a pattern whose body group was
+`[^\n]*` -- greedy to end of line. Because the guides put every shot in ONE line, `findall`
+returned a single pair for a multi-shot prompt and `shots[-1][0]` was always
+`"1"`. `_expected_base_alignment` then demanded `from Shot 1` — so a correct
+two-shot FL2VA prompt FAILED and an incorrect one naming `Shot 1` PASSED, an
+exact inversion.
+
+It reached no shipped graph, because every shipped keyframe prompt is one shot
+and the t2va path returns before reading `shots`. Found 2026-09-01 writing
+§10.3.3, fixed the same day, and no shipped graph's grading changed. The
+newly-live branch is red-proved: a two-shot FL2VA claiming `from Shot 1` now
+fails. **This is the standing "a fix moves where a constraint applies" case —
+the branch was dead, so nothing covered it, so the defect sat in it.**
+
+### 14.5 What `internal/PROMPTING.md` still uniquely holds
+
+It has carried a SUPERSEDED banner since 2026-08-28 and is being sunset into
+this file. Its own banner names what had already rotted: §2.1's headline that
+ComfyUI does not tokenize `<d>` as such (false on this install since the core
+tokenizer merge), and two instructions to wire `MiniMaxH3VendorTokens`, a node
+deleted 2026-08-27. **Do not follow it.**
+
+What has moved here: §1's model facts and the Context-IR framing, §2's
+presentation contract, §3's five diagnoses, §4's frame grid and speech budget
+including the open two-parameter problem, §5's documented-to-work list, and §6's
+user-message contract — see §15. What has NOT moved, and is the only reason to
+open the file: **§7 and §7b, the LLM prompt-writer system prompts.** Those are a
+tool for driving a writer model, not a statement of the rules, and
+`internal/prompts/2026-08-22_{t2va,i2va,fl2va,ref2va}_system_prompt.md` are a
+separately-authored set covering the same ground per mode.
+
+---
+
+## 15. What the model is, and what actually reaches it
+
+Migrated from `internal/PROMPTING.md` §§1-6 on 2026-09-01 so that file can be
+retired. **Everything checkable here was re-derived against source on that date
+rather than copied on trust** — that file had been wrong before and carries a
+SUPERSEDED banner. Each claim below says which it is.
+
+### 15.1 What H3 is, and why the prompt carries the whole job
+
+H3 generates **video and 32 kHz audio jointly, in one denoising pass, from one
+block of text.** There is no TTS stage, no separate audio model, and no script
+field: the same DiT that draws the mouth generates the voice coming out of it.
+Anything you want to hear has to be in the same text that describes what you
+want to see. Guidance is CFG-distilled, so **there is no negative prompt
+channel** — a "do not show X" sentence conditions on the tokens of that
+sentence.
+
+**MiniMax do not intend the model to take your prompt directly.** They ship a
+second hosted system, H3-Context-IR, whose only job is to turn a short idea into
+the structured document H3-Base consumes, and their model card calls it critical
+to output quality. It is API-only. **Running H3 locally means you are the
+Context-IR**, and that is why the guides read like an output spec rather than
+like advice — they document Context-IR's output format.
+
+**Do not hand a writer model the name "H3-Context-IR".** H3 postdates the
+training cutoff of any model you would run this on, so the name retrieves
+nothing and invites confabulation about what that system does; those inventions
+then compete with the rules you actually wrote. State the properties instead.
+The same failure in the other direction is a writer reaching for Sora or Veo
+conventions to fill the gap. *(Reasoning, not measurement — carried forward from
+`internal/PROMPTING.md` §1, which records it as a correction to its own earlier
+draft.)*
+
+### 15.2 What ComfyUI actually sends the encoder
+
+**Verified 2026-09-01 against `comfy/text_encoders/minimax.py`.**
+
+- Conditioning is the **unnormalized hidden state after LM layer 50**; the
+  converted checkpoint is truncated there (`comfy/text_encoders/minimax.py:15`).
+- The presentation is **not chat-templated** — raw token ids, no system or user
+  roles, vision blocks spliced inline (`comfy/text_encoders/minimax.py:3`).
+- **Your prompt is passed through verbatim.** `tokenize_with_weights` ends with
+  `add_text(text)` (`comfy/text_encoders/minimax.py:197`) after every label; nothing is stripped,
+  parsed, reformatted, or reordered.
+- **Nothing injects a duration, an alignment line, or shot scaffolding.** What
+  ComfyUI prepends is only the `"<Picture i>: "` / `"<Video k>: "` /
+  `"<Audio j>: "` label per reference, plus a `"<%.1f seconds>"` marker before
+  every 2-frame temporal block of a reference video. Everything else is yours,
+  **and the writer is blind to clip length unless you tell it.**
+
+**Consequence: the prompt is conditioning, not instruction.** There is no
+assistant deciding whether to comply. Descriptive text naming what is on screen
+conditions the generation; an imperative conditions on the tokens of the
+imperative.
+
+**Reference ordinals follow item order, and a video's soundtrack jumps the
+queue.** Counters are per kind and independent, so the same file can be
+`<Video 1>` and `<Audio 2>`. A reference video's soundtrack takes its
+`<Audio j>` label **before its own `<Video k>`**, and the standalone audio loop
+runs after — so one soundtracked video plus one standalone clip gives
+`<Audio 1>` = the soundtrack. Verified in both
+`comfy_extras/nodes_minimax_h3.py:335,346` and this pack's
+`reference_conditioning.py:655-696`.
+
+### 15.3 The five ways prompts go wrong here
+
+Carried forward from `internal/PROMPTING.md` §3. These are diagnoses from
+observed outputs, not measurements.
+
+1. **The writer does not know what H3 is**, so it writes for a generic
+   text-to-video model: it hedges, writes instructions rather than descriptions,
+   and has no reason to treat the audio fields as load-bearing. §15.1 is the fix.
+2. **Named characters come back as generic archetypes.** H3 renders what is
+   *described*, not what is *named* — the DiT was trained on caption-shaped
+   descriptions of pixels, so a bare proper noun gives it nothing to draw. The
+   fix is a **cast sheet pass**: expand every named character, IP or real person
+   once into a canonical visual noun phrase plus a voice line, then reuse that
+   exact phrase verbatim on every mention. Keep the name too; never rely on it.
+   Naming the *property* as a style anchor is worth doing.
+3. **Nothing in the prompt knows how long the clip is** (§15.2), so a writer
+   picks cut timestamps by feel and overruns the clip. §3.3 is the fix.
+4. **Line breaking has no single convention** and the vendor's own artifacts use
+   two — see §12.11 and §14.3, which is where this now lives.
+5. **Characters talk over each other**, from three causes: two speakers in one
+   shot with no time anchor (a timestamped cut is the only hard temporal anchor
+   the format offers); a **compound speaker id used by mistake** — `(S4,S5)` is
+   the documented notation for literal simultaneous group speech, so it
+   instructs two characters to say the line in unison; and simply too many
+   speakers for the runtime. Every on-screen character not given an explicit
+   "produces no vocal sound" is a candidate for the model to voice anyway.
+
+### 15.4 The speech budget, and why its shape is unsettled
+
+`internal/PROMPTING.md` §4.2 proposed `max_words_in_shot = 2.5 x (shot_seconds
+- 1.0)`, anchored on MiniMax's own ref2va script: 5 seconds, one shot, 11 spoken
+words. **That anchor does not fit the formula** — it allows 10 — and the formula
+has two free parameters where one observation can constrain at most one. A
+one-parameter form fits the same point exactly:
+
+| shot | `2.5 x (s - 1.0)` | `2.2 x s` |
+|---|---|---|
+| 2 s | 2.5 | 4.4 |
+| 3 s | 5.0 | 6.6 |
+| 5 s | 10.0 | **11.0 (exact)** |
+| 10 s | 22.5 | 22.0 |
+
+Both are equally "validated" by the corpus and they diverge by up to 1.8x
+exactly where the decisions are tightest. **The `-1.0` intercept is doing all
+the work in the short-shot regime, where there is no data at all** — and the
+familiar "cutting costs you words" tradeoff is *generated by* that intercept.
+Under `2.2 x s` cutting is free and the fewer-longer-shots argument disappears.
+
+**So treat every short-shot budget as possibly 1.8x too tight, and do not cite
+either form as measured.** [OPEN] Weak corroboration only: an independently
+built third-party kit of 26 worked examples has a densest dialogue density of
+0.71 words/sec, roughly a fifth of this budget, with no two-speaker example
+anywhere in it. That is revealed preference from someone staying far under any
+plausible ceiling; it supports the direction and says nothing about the constant.
+
+### 15.5 The user-message contract for a writer model
+
+If you drive an LLM to write these, the user turn needs more than an idea:
+
+```
+idea:     <one or two lines>
+frames:   243            # prefer frames; seconds alone cannot be snapped honestly
+task:     t2v            # t2v | i2v | fl2v | l2v | ref2v
+```
+
+**Give frames, not seconds.** "10 seconds" does not determine a frame count —
+240 snaps to 243 (10.125 s) but 250 snaps to 260 (10.833 s) — so a writer handed
+seconds cannot honestly produce the `S.SS` a Part One line needs (§3.3).
+
+For ref2va the turn also needs the reference list **in the order the items are
+built**, because that is what fixes the ordinals, including the soundtrack rule
+in §15.2:
+
+```
+refs:  1 image (identity), 1 video with sound (camera motion), 1 audio (voice)
+       -> <Picture 1>, <Audio 1> = video soundtrack, <Video 1>, <Audio 2> = voice
+```
+
+Aspect ratio is a workflow setting, not a prompt fact; leave it out.
+
+### 15.6 Third-party observations, held at arm's length
+
+None of these is measured here. They are recorded because they are actionable
+and cheap to test, and because a reader who meets them elsewhere should know
+this repo has neither confirmed nor refuted them. [3rd]
+
+- **H3 defaults to moving the camera.** Say nothing and expect a slow drift; the
+  reported fix is naming the moves it should *not* make rather than asking for a
+  static shot.
+- **Negative constraints are contested.** One vendor-adjacent guide calls
+  negative lists where "most of the quality lives"; another ran matched A/B
+  pairs and could not show they did anything, narrowing their advice to
+  on-screen text and camera movement only — the two things the model volunteers
+  unprompted.
+- **One primary change per beat**, or two changes collapse into whichever is
+  easier to render.
+- **Wardrobe drifts even when faces hold**, so name the garment in text as well
+  as showing it in a reference.
+- **Quiet scenes come back genuinely quiet** and may need gain in post.
+

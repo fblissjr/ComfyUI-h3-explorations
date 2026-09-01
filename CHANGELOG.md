@@ -4,6 +4,63 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.9
+
+### Fixed
+
+- **`preflight_graph.grade` could not see past the first shot of a multi-shot
+  prompt, and graded keyframe alignment against the wrong shot number.** The
+  shot pattern's body group was greedy to end of line, and the guides put every
+  shot in ONE unbroken paragraph -- so `findall` returned a single pair however
+  many shots the prompt had, `shots[-1][0]` was always `"1"`, and
+  `_expected_base_alignment` demanded `from Shot 1`. **A correct two-shot FL2VA
+  prompt FAILED and an incorrect one naming `Shot 1` PASSED**, an exact
+  inversion. It reached no shipped graph: every shipped keyframe prompt is one
+  shot and the t2va path returns before reading shots. Grading of all shipped
+  graphs is byte-identical after the fix, and the newly-live branch is
+  red-proved.
+- **`bench/build_wiki_index.py` silently dropped any CLAUDE.md routing row
+  naming more than one document**, so `docs/prompt_catalogue.md` and
+  `docs/prompt_audit.md` were absent from the generated wiki -- and absent from
+  its unreachable report too, since other documents link them. It was the only
+  such row.
+- **`docs/prompt_catalogue.md` was eight scenes stale.** Regenerated; the six
+  `T2V_*` description-length and predictability arms and both `h3_ref2v_scene_*`
+  marker arms now appear.
+- **`docs/prompt_audit.md` labelled `I2V_PROMPT` as fl2va.** It is i2va.
+
+### Added
+
+- **`bench/grade_prompt_text.py`** -- grade a candidate prompt TEXT for a chosen
+  mode without building a graph. Wraps the text in a shipped graph of that mode
+  and runs `preflight_graph.grade`; adds no rules of its own. Donors are
+  discovered from `h3_config.graph_paths` and selected by socket, and it raises
+  rather than falling back to a near neighbour when a mode has none. `--length`
+  grades at the duration an example is written for; `--like` names a donor whose
+  reference sockets match the prompt's labels.
+- **Twelve worked examples**, four each for I2VA, FL2VA and L2VA, taking every
+  keyframe mode from one specimen to five. All seventeen examples in
+  `docs/prompting.md` section 10 now grade clean at their declared durations,
+  which until now was an assertion nothing checked.
+- **`docs/wiki/prompting.md`** -- the wiki's prompting entry point: the five
+  sources ranked by what a violation means, who owns which question, the
+  per-mode example index, and how to grade a draft.
+- **`docs/prompting.md` sections 14 and 15** -- a reconciliation across every
+  source that claims to govern a prompt, and the model/presentation material
+  migrated out of the superseded `internal/PROMPTING.md`.
+- **Verdicts for the seventeen scenes the audit had never covered**, plus two
+  misalignments recorded rather than fixed: our split on shot line breaks, and
+  the shipped dialogue default carrying four turns in one shot against our own
+  house rule.
+
+### Changed
+
+- **The vendor's own prompt-writing skill was cross-checked and adds no rule.**
+  Its bundled guides are byte-identical (SHA-256) to
+  `internal/official_prompt_guides/`, its two copies are identical to each
+  other, and its `SKILL.md` defers entirely to them. Recorded so the next
+  session that finds it does not read it as a fourth authority.
+
 ## 0.99.8
 
 ### Retracted
