@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""Read a Sol route record and say what it holds, per render, step and block.
+
+A reader, not a check: it asserts nothing about the numbers and exits 0 on
+any well-formed file. What it refuses to do is summarise past an `error` row
+without being told to, because a file that stopped is not a complete result
+for the rows it has (`pdd_observe.py`'s lesson).
+
+    python bench/sol_observe_report.py <dir-or-jsonl> [--join http://127.0.0.1:8188]
+        [--past-errors] [--segments] [--block-table]
+
+`--join` asks the named server's `/history/<prompt_id>` for every prompt id
+in the file and reports which are known to it -- the live acceptance the
+uncontrolled row in `docs/checks.md` is waiting on. A row whose prompt id the
+server does not know was either rendered by another server process or
+recorded under no executing context; the report says which by the row's
+`identity_source`.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import urllib.error
+import urllib.request
+from collections import Counter, defaultdict
+from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(_HERE))
+
+
+def _load(path: Path) -> list[dict]:
+    if path.is_dir():
+        files = sorted(path.glob("sol_observe_*.jsonl"))
+        if not files:
+            sys.exit(f"no sol_observe_*.jsonl under {path}")
+        if len(files) > 1:
+            print(f"note: {len(files)} record files in {path}; reading the newest, {files[-1].name}")
+        path = files[-1]
+    rows = []
+    with open(path, encoding="utf-8") as f:
+        for i, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                print(f"note: line {i} is not JSON (an interrupted append?); stopping there")
+                break
+    return rows
+
+
+def _fmt(x, width=7):
+    return f"{x:{width}.4f}" if isinstance(x, (int, float)) and x is not None else f"{'-':>{width}}"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
+    ap.add_argument("path", help="record directory or a sol_observe_*.jsonl")
+    ap.add_argument("--join", metavar="URL", help="ComfyUI server to join prompt ids against")
+    ap.add_argument("--past-errors", action="store_true", help="summarise even after an error row")
+    ap.add_argument("--segments", action="store_true", help="per-segment table per (config, step)")
+    ap.add_argument("--block-table", action="store_true", help="block x step adaptive density")
+    args = ap.parse_args()
+
+    rows = _load(Path(args.path))
+    headers = [r for r in rows if r.get("kind") == "header"]
+    configs = {r["digest"]: r["settings"] for r in rows if r.get("kind") == "config"}
+    calls = [r for r in rows if r.get("kind") == "call"]
+    errors = [r for r in rows if r.get("kind") == "error"]
+
+    for h in headers:
+        print(f"header: schema {h.get('schema')}, comfy-kitchen {h.get('comfy_kitchen_version')}, "
+              f"pack {h.get('pack_git_head')}, pid {h.get('pid')} on {h.get('host')}, "
+              f"device {h.get('device')}, raw sidecar {'on' if h.get('raw_sidecar') else 'off'}, "
+              f"timing quotable: {h.get('timing_quotable')}")
+    for d, s in configs.items():
+        sel = f"topk {s.get('topk_ratio')}" if s.get("topk_ratio") else f"tau {s.get('tau')}"
+        print(f"config {d}: {sel}, tail {s.get('tail')}, window sigma [{s.get('sigma_end')}, "
+              f"{s.get('sigma_start')}], dense_blocks {s.get('dense_blocks')}, sink "
+              f"{s.get('sink_conditioning')}, min_tokens {s.get('min_tokens')}, blocks {s.get('n_blocks')}")
+    if errors:
+        print(f"\nERROR rows: {len(errors)}")
+        for e in errors[:5]:
+            print(f"  seq {e.get('seq')} stage {e.get('stage')}: {e.get('message')}")
+        if not args.past_errors:
+            print("this record STOPPED; nothing below it is a complete result. "
+                  "--past-errors to summarise anyway")
+            return 0
+    if not calls:
+        print("no call rows")
+        return 0
+
+    # identity
+    by_prompt = Counter(r.get("prompt_id") for r in calls)
+    sources = Counter(r.get("identity_source") for r in calls)
+    print(f"\ncalls: {len(calls)} across {len(by_prompt)} prompt id(s); identity sources {dict(sources)}")
+    if args.join:
+        for pid in by_prompt:
+            if pid is None:
+                print(f"  {by_prompt[pid]} row(s) carry no prompt id (identity_source above says why)")
+                continue
+            url = f"{args.join.rstrip('/')}/history/{pid}"
+            try:
+                with urllib.request.urlopen(url, timeout=10) as resp:
+                    body = json.load(resp)
+                known = pid in body
+            except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
+                print(f"  {pid}: could not ask {url} ({exc})")
+                continue
+            print(f"  {pid}: {'KNOWN to' if known else 'NOT known to'} {args.join}, {by_prompt[pid]} row(s)")
+
+    # per (prompt, schedule step): routes and the block set
+    steps = defaultdict(list)
+    for r in calls:
+        key = (r.get("prompt_id"), r.get("schedule", {}).get("schedule_index"),
+               r.get("sigma"))
+        steps[key].append(r)
+    print("\nper (prompt, step): rows by route, DiT blocks seen, rows without a block")
+    for (pid, idx, sigma), rs in sorted(steps.items(), key=lambda kv: (str(kv[0][0]), -(kv[0][2] or 0))):
+        routes = Counter(r["route"] for r in rs)
+        blocks = sorted({r["block"] for r in rs if r.get("block") is not None})
+        unknown = sum(1 for r in rs if r.get("block") is None)
+        span = f"{blocks[0]}..{blocks[-1]} ({len(blocks)})" if blocks else "-"
+        print(f"  {str(pid)[:8]:>8} step {str(idx):>4} sigma {sigma if sigma is None else round(sigma, 4)!s:>8}: "
+              f"{dict(routes)}, blocks {span}, no-block rows {unknown}")
+
+    sol = [r for r in calls if r["route"] == "sol"]
+    if not sol:
+        print("\nno Sol rows")
+        return 0
+    kd = [r["kernel_density"]["mean"] for r in sol if r.get("kernel_density")]
+    rd = [r["routed_density"]["mean"] for r in sol if r.get("routed_density")]
+    print(f"\nSol rows: {len(sol)}; kernel density mean over rows {_fmt(sum(kd) / len(kd)) if kd else '-'}, "
+          f"adaptive (routed) density mean over rows {_fmt(sum(rd) / len(rd)) if rd else '-'}; "
+          f"shape_ok false on {sum(1 for r in sol if not r.get('shape_ok'))} row(s)")
+    if args.block_table:
+        by_block = defaultdict(list)
+        for r in sol:
+            by_block[(r.get("block"), r.get("schedule", {}).get("schedule_index"))].append(r)
+        blocks = sorted({b for b, _ in by_block if b is not None})
+        idxs = sorted({i for _, i in by_block if i is not None})
+        print("\nadaptive density, block x step (mean over heads and query blocks):")
+        print("  block " + "".join(f"{i:>8}" for i in idxs))
+        for b in blocks:
+            cells = []
+            for i in idxs:
+                rs = by_block.get((b, i), [])
+                vals = [r["routed_density"]["mean"] for r in rs if r.get("routed_density")]
+                cells.append(_fmt(sum(vals) / len(vals), 8) if vals else f"{'-':>8}")
+            print(f"  {b:>5} " + "".join(cells))
+    if args.segments:
+        print("\nper-segment adaptive density (overlap-weighted query segments), mean over Sol rows per step:")
+        by_step = defaultdict(list)
+        for r in sol:
+            if r.get("per_segment"):
+                by_step[r.get("schedule", {}).get("schedule_index")].append(r)
+        for i, rs in sorted(by_step.items(), key=lambda kv: (kv[0] is None, kv[0])):
+            acc = defaultdict(list)
+            for r in rs:
+                for s in r["per_segment"]:
+                    if s.get("routed") is not None:
+                        acc[(s["kind"], s["start"], s["stop"])].append(s["routed"])
+            cells = ", ".join(f"{k[0]}[{k[1]}:{k[2]}) {sum(v) / len(v):.4f}" for k, v in acc.items())
+            print(f"  step {i}: {cells if cells else '(no defined segment rows)'}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

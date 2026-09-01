@@ -71,6 +71,11 @@ artifact.
 - `bench/check_sol_observe.py`, nine cases; `H3_SOL_OBSERVE` in
   `bench/restart_comfy.sh::ARMING_KEYS`; one more case in
   `bench/check_sol_node_equivalence.py`.
+- `bench/sol_observe_report.py`, a reader: per (prompt, step) routes and
+  block span, a block-by-step adaptive-density table, per-segment means, and
+  `--join <server>` to ask `/history` whether each recorded prompt id is
+  known -- the live acceptance the uncontrolled row waits on. Asserts
+  nothing; refuses to summarise past an `error` row unless told to.
 
 ### Fixed
 
