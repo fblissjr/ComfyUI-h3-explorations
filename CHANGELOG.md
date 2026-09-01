@@ -4,6 +4,36 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.13
+
+### Removed
+
+- **`internal/PROMPTING.md` and `internal/official_prompt_guides/`, on the
+  owner's call.** The manual was superseded 2026-08-28 and its content migrated;
+  the guide copies were byte-identical duplicates of `vendor_guides/` that
+  nothing read after the tracked move, and two identical copies is the drift
+  this repo spends its time on. Two historical citations in code comments now
+  say the file was retired rather than pointing at nothing.
+
+### Changed
+
+- **Turns per shot is CLOSED, by the owner, on the render.** A shipped
+  base-format scene stacks four dialogue turns in one shot against a vendor
+  practice of one, and the rendered result is judged good -- so stacked turns
+  are a sanctioned capability, not a divergence to correct. One render settles
+  it because "does the model deliver this at all" is presence/absence; it does
+  NOT establish that stacking beats cutting, which needs matched seeds and a
+  distribution, and nobody has run that.
+- **The camera-vocabulary ruling now lives in the checker**, not three files
+  away, so its three standing warnings are met with their adjudication instead
+  of being re-litigated.
+
+### Added
+
+- **`bench/check_skill_routes.py`.** Every path a skill names must exist,
+  because a skill is an entry point and a dead route sends an agent nowhere
+  while it believes it is following the repo. Red-proved both ways.
+
 ## 0.99.12
 
 ### Added

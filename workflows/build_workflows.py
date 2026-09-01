@@ -3377,7 +3377,8 @@ render in seconds."""
 # controlled comparison** -- the scenes differ, the references differ, and
 # nothing was held fixed -- so what we have is a practitioner's revealed
 # preference, which is the same grade of evidence as the Custom-GPT kit in
-# `internal/PROMPTING.md` section 4.2. Hence the ladder below rather than a
+# `internal/PROMPTING.md` section 4.2, now `docs/prompting.md` section 15.4
+# (that file was retired 2026-09-01). Hence the ladder below rather than a
 # rewrite.
 #
 # The half of the old argument that survives intact: the audio sections

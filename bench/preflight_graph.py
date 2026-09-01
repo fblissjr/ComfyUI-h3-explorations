@@ -193,7 +193,8 @@ BASE_ALIGNMENT = _base_alignment_templates()
 #
 # The nesting and balance cases below did NOT escape -- no instance of either
 # has been seen. They are here because the same day
-# `internal/PROMPTING.md` gained a "must" stating the nesting rule, and
+# `internal/PROMPTING.md` (retired 2026-09-01, migrated into
+# `docs/prompting.md`) gained a "must" stating the nesting rule, and
 # CLAUDE.md's standing rule is that a "must" with no assertion behind it is an
 # uncontrolled requirement. This is that assertion.
 #

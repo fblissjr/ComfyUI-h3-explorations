@@ -1477,49 +1477,30 @@ It is still the right STATISTIC — it is what turned an apparent 43% cue rate
 into zero counterexamples and retracted the misalignment — but a statistic being
 right does not make its source authoritative.
 
-**Turns per shot — OPEN, and narrower than first stated.** A first pass here
-recorded "the vendor uses exactly one `<d>` per shot in every specimen". **That
-was wrong, and it was wrong by counting shot headers across a whole prompt
-rather than inside the narrative field.** The vendor's reproducible ref2va
-payload puts TWO dialogue turns in ONE shot; its second `[Shot 1]` string is a
-cross-reference inside `retention_analysis`, not a header. So:
+**Turns per shot — CLOSED 2026-09-01 by the owner, on the render.**
+`DIALOGUE_T2V_PROMPT` puts four `<d>` blocks in `[Shot 1]` and three in
+`[Shot 2]`, where every base-format vendor specimen uses one. **The owner's
+verdict on the rendered scene is that it clearly works**, so stacked turns are
+an OWNER-sanctioned capability here, not a divergence to correct.
 
-- **Base format:** every vendor specimen is one turn per shot, and
-  `DIALOGUE_T2V_PROMPT` is not. This is the divergence
-  `bench/diff_prompt_corpus.py` still reports.
-- **Reference format:** the vendor is SPLIT — one turn in the guide's worked
-  example, two in the payload — so it asserts nothing, and our two ref2v scene
-  arms at two turns are doing exactly what the vendor payload does. They are
-  **not** outliers and were withdrawn from this finding.
+**Why one render settles this and does not settle most things.** "Does the
+model deliver four turns in a shot at all" is a presence/absence question, and
+those a single clip can answer because the behaviour either occurs or does not.
+It is NOT evidence that stacking is *better* than cutting — that would be a
+comparison, and a comparison needs matched seeds and a distribution
+(`docs/eval_comparison.md`). Nobody has run that, and nothing here claims it.
 
-What survives: the two `DIALOGUE_*` prompts stack more turns in a shot than any
-vendor specimen of either format. No guide states a cap (§12.12), both are
-inside the speech budget, and nothing has been rendered.
+A first pass also got the vendor evidence wrong and it is worth keeping: it
+recorded "the vendor uses exactly one `<d>` per shot in every specimen", which
+was **wrong, by counting shot headers across a whole prompt rather than inside
+the narrative field**. The vendor's reproducible ref2va payload puts TWO turns
+in ONE shot; its second `[Shot 1]` string is a cross-reference inside
+`retention_analysis`, not a header. So the reference format was never unanimous,
+and the ref2v scene arms at two turns were doing exactly what the vendor does.
 
-**Two HOUSE PATTERNS nobody chose — legal, unmeasured, and far from vendor
-practice.** Found 2026-09-01 by counting rather than by reading, and invisible
-to the unanimity test above because the vendor varies on both:
-
-| | vendor (base) | ours (base) |
-|---|---|---|
-| `non_diegetic_music` is `N/A` | 14% | 100% |
-| `overall_soundscape` is one sentence | 14% | 91% |
-
-Neither breaks a rule. base-en:154 allows 1-4 sentences, and base §4.7 says
-"Use `N/A` when there is no non-diegetic music." **But that is a CONDITION about
-the scene, not a stylistic preference** — writing it into essentially every
-prompt asserts that essentially every video we generate has no score, which is a
-creative decision nobody here made. It is the standing "a default is not a
-decision, and shipping is not evidence" pattern: a value in every prompt has
-standing through repetition.
-
-**Convergent, not copied.** A third-party corpus examined on 2026-09-01 states
-a rule of its own saying `N/A` is the normal answer and the soundscape should be
-one sentence — in its case contradicting the vendor guide. Our prompts predate
-any knowledge of that corpus here, so we arrived at the same place
-independently, and further along it than its examples go. Nothing has
-measured whether a score or a longer soundscape changes anything, so this is
-recorded as a pattern to notice, not a defect to fix.
+`bench/diff_prompt_corpus.py` still reports the base-format difference. **Read
+that row as a description, not a defect** — it is the tool doing its job, and
+the answer to it is this paragraph.
 
 **Checked and found clean:** ref-en *states* one line per item in
 `subject_definitions` (ref-en:37) and `retention_analysis` (ref-en:157). Every
