@@ -71,6 +71,8 @@ GUIDE = REPO / "vendor_guides" / "base_en.md"
 sys.path.insert(0, str(REPO / "bench"))
 sys.path.insert(0, str(REPO / "workflows"))
 
+import preflight_graph as pf  # noqa: E402
+
 # Sentences the page quotes as vendor text. Each must appear in the guide.
 QUOTED = [
     "Place the speaker's identifying phrase, ID, action, and delivery outside",
@@ -157,6 +159,71 @@ def manual_quotations(manual: str, guide: str) -> int:
               f"{', '.join(missing)}")
     else:
         print(f"  ok    manual quotes all {len(types)} camera motion types")
+    return bad
+
+
+def examples_still_grade(manual: str) -> int:
+    """Section 10's examples must still PASS the grader, not merely exist.
+
+    The examples are what "good" means here -- they are copied, and the
+    portable standard quotes them. Checking that the page matches the manual
+    keeps the two in step but says nothing about whether either is CORRECT: a
+    bad example faithfully copied is still a bad example, and both would go
+    green.
+
+    Until 2026-09-01 the section claimed its examples "grade clean" and nothing
+    verified it; the claim was true when checked by hand three times that day,
+    and by hand is not a control. This runs the same grader
+    `bench/grade_prompt_text.py` exposes, against a shipped graph of each
+    mode at the duration the example's own heading names.
+    """
+    import grade_prompt_text as g
+    section = manual.split("## 10. Worked examples", 1)[1].split("\n## 11.", 1)[0]
+    mode = cur = None
+    rows = []
+    pattern = r"^(###|####) (10[\.\d]*) ([^\n]*)$|```text\n(.*?)\n```"
+    for m in re.finditer(pattern, section, re.S | re.M):
+        if m.group(1):
+            head = m.group(3)
+            named = re.match(r"(\w+) —", head)
+            if m.group(1) == "###" and named:
+                mode = named.group(1).lower()
+            frames = re.search(r"(\d+) frames", head)
+            cur = (m.group(2), mode, int(frames.group(1)) if frames else None)
+        elif cur:
+            rows.append((*cur, m.group(4)))
+    if not rows:
+        print("  FAIL  no worked example parsed from section 10; the section "
+              "changed shape and a silent zero here would read as a pass")
+        return 1
+    bad = 0
+    for num, md, frames, body in rows:
+        if md is None or frames is None:
+            bad += 1
+            print(f"  FAIL  example {num} has no mode or no frame count in its "
+                  f"heading, so it cannot be graded at a duration")
+            continue
+        try:
+            # ref2va labels are graded against the donor's sockets, so pick a
+            # donor wiring what the example declares rather than the default.
+            like = "h3_ref_image_audio_api" if md == "ref2va" else None
+            path, nid = g.pick(md if like is None else None, like)
+            graph = json.loads(path.read_text(encoding="utf-8"))
+            node = graph[nid]
+            node["inputs"]["prompt"] = body.strip()
+            node["inputs"]["length"] = frames
+            findings = pf.grade(node, graph, path.stem)
+        except Exception as exc:
+            bad += 1
+            print(f"  FAIL  example {num} could not be graded: {exc}")
+            continue
+        fails = [f for f in findings if f[0] == "FAIL"]
+        if fails:
+            bad += 1
+            print(f"  FAIL  example {num} ({md}, {frames}f) no longer grades "
+                  f"clean: {fails[0][1]}")
+    if not bad:
+        print(f"  ok    all {len(rows)} section-10 example(s) still grade clean")
     return bad
 
 
@@ -282,6 +349,7 @@ def main() -> int:
                   f"section 10 verbatim: {b[:60]}...")
 
     fails += manual_quotations(manual, guide)
+    fails += examples_still_grade(manual)
     fails += audit_covers_catalogue()
     fails += snapshots()
 

@@ -899,9 +899,11 @@ conformant against every GUIDE rule above; where a HOUSE rule is contested I say
 so rather than pretending the example settles it. The guides' own worked examples
 are base §5 Cases 1-4 and ref §7.
 
-**Every example below is GRADED, and the command is the claim.** Until
+**Every example below is GRADED, and a check re-runs that grading.** Until
 2026-09-01 this section asserted that its examples "grade clean through
-`preflight_graph.py`" and nothing checked it -- preflight reads graphs, and
+`preflight_graph.py`" and nothing checked it; `bench/check_prompt_docs_sync.py`
+now re-grades every one at the duration its heading names, so an edit that
+breaks an example goes red instead of shipping as the reference for "good" -- preflight reads graphs, and
 these are loose text. `bench/grade_prompt_text.py` closes that: it wraps a
 prompt in a shipped graph of the requested mode and runs the same grader.
 
