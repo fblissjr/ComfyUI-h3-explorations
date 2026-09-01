@@ -1414,8 +1414,21 @@ the positional mouth-cue rule in §14.3. **But check what you are quoting.**
 
 - **`guide_ref_en.md` is byte-identical to the vendor's** (SHA-256 `1e574f35…`).
 - **`guide_base_en.md` is NOT. It is a FORK** — hash `3e7757fa…` against the
-  vendor's `2cfebc09…`, with changed lines: passages added and vendor
-  paragraphs rewritten, in the vendor's own register, unmarked as edits.
+  vendor's `2cfebc09…`. The edit is **overwhelmingly additive**: whole passages
+  appended, plus a handful of surgical replacements of vendor paragraphs, in the
+  vendor's own register and unmarked as edits. That shape is what makes it
+  dangerous — most of the file still reads as authentic because most of it is.
+  Re-derive the delta rather than trusting a number:
+
+      diff internal/official_prompt_guides/*base_en.md \
+           coderef/comfyui_dagthomas/data/h3/guide_base_en.md
+
+  **If you re-derive it in Python, pass `autojunk=False`.** `difflib` treats
+  "popular" lines as junk once a sequence passes 200 elements, and in a markdown
+  file the popular line is the BLANK line — so a stock `unified_diff` one-liner
+  returns a valid but non-minimal edit script and overstates the delta against
+  what `diff` reports. Found 2026-09-01 by a peer session when the two
+  disagreed on an unchanged pair of files.
 - **`guide_chain_en.md` and `guide_crossover_en.md` correspond to nothing the
   vendor ships.** The release has base-en and ref-en only.
 
