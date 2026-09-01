@@ -4,6 +4,42 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.10
+
+### Added
+
+- **A portable prompt standard, published and checked.**
+  `docs/portable/h3_prompt_standard.html` is a self-contained extract of the
+  prompting rules for readers outside this repo -- every rule tagged with
+  whether the vendor states it, shows it, or we inferred it; the per-mode
+  structure; the operational answers on speaker IDs, dialogue markers, style
+  and camera; two graded examples; nine failure patterns. It cites no
+  repository path, so it survives being read where ours do not resolve.
+- **`bench/check_portable_standard.py`.** That page is a second copy of rules
+  owned elsewhere, and this repo's documented failure mode is a second copy
+  with nothing to invalidate it. A note saying "regenerate rather than edit" is
+  not invalidation, so every QUOTATION on the page is verified against its
+  source: the three Part One templates against the guide-parsed constants, the
+  camera vocabulary against the guide's own table, every worked example against
+  `prompting.md` section 10 verbatim, each quoted guide sentence against the
+  guide. Prose is not checkable and is not checked.
+
+### Fixed
+
+- **The portable standard had drifted before it was checked once**, which is
+  the escaped instance the check above cites. Its T2VA example carried
+  `non_diegetic_music: N/A` where the manual carries a real cue -- reworded in
+  hand transcription, into the exact habit the same page warns against. Seven
+  of the twelve camera motion types had lost half their name to abbreviation
+  (`Zoom In / Out` for the guide's `Zoom In / Zoom Out`), in the section
+  readers copy from most. The camera cell is now generated from the guide.
+- **Two general lessons that lost their home** when a third-party pack's name
+  was removed from the tracked tree are restated without naming anyone: hash
+  every file you rely on rather than one representative of them, since a bundle
+  can carry one file verbatim and a modified copy of another; and difflib's
+  autojunk heuristic overstates a prose diff past 200 lines, which
+  `unified_diff` cannot disable.
+
 ## 0.99.9
 
 ### Fixed

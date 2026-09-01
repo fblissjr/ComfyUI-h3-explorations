@@ -85,16 +85,32 @@ keyframe prompts that exist anywhere in this repo.
 
 ## 3b. Handing the standard to someone outside this repo
 
-[`docs/portable/h3_prompt_standard.html`](../portable/h3_prompt_standard.html)
-is a **self-contained** extract: the rules with their layer, the per-mode
+**Published at [https://claude.ai/code/artifact/daa73be5-0bb7-4d02-8456-5dc107acea54](https://claude.ai/code/artifact/daa73be5-0bb7-4d02-8456-5dc107acea54)**, source at
+[`docs/portable/h3_prompt_standard.html`](../portable/h3_prompt_standard.html).
+Republishing that same file keeps that URL, so the link is stable and can be
+handed out once.
+
+It is a **self-contained** extract: the rules with their layer, the per-mode
 structure, the operational answers on speaker IDs and markers, two graded
 examples of what good looks like, and nine failure patterns with why each one
 is wrong. **It cites no repository path**, so it survives being read by an agent
 in another repo or pasted into a ticket.
 
-It is derived from `prompting.md`, and says so on the page. Where the two
-disagree, `prompting.md` is newer — so regenerate the extract rather than
-editing it in place, and never let it become a second place rules are decided.
+It is derived from `prompting.md` and says so on the page; where the two
+disagree, `prompting.md` is newer.
+
+**It is a second copy of rules owned elsewhere, so it is checked rather than
+trusted.** `bench/check_portable_standard.py` verifies every QUOTATION on it
+against the source that owns it — the three Part One templates against the
+guide-parsed constants, the camera vocabulary against the guide's own table,
+every worked example against §10 verbatim, and each quoted guide sentence
+against the guide. **Run it after editing either file.** Its prose is not
+checkable and is not checked; a green run means the quotations still match.
+
+It had drifted before it was checked once: the T2VA example was transcribed
+with `non_diegetic_music: N/A` where the manual carries a real cue — into the
+exact habit the same page warns against — and seven camera motion types had
+lost half their name to abbreviation.
 
 ## 4. Grade a draft before you render it
 
