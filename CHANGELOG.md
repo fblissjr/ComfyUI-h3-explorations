@@ -4,6 +4,33 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.11
+
+### Fixed
+
+- **The derived page was checked and the document it derives FROM was not.**
+  `check_portable_standard.py` guarded the published extract's quotations while
+  `docs/prompting.md` -- the file this repo calls its single source of truth --
+  was guarded by nothing. Deliberately corrupting the manual's FL2VA Part One
+  template and its camera vocabulary was caught by no check in the repo.
+  Renamed to `check_prompt_docs_sync.py` and generalised: it now grades the
+  manual's quotations against the same sources, and asserts that
+  `prompt_audit.md` still carries a verdict for every scene
+  `prompt_catalogue.md` generates -- a hand-maintained key coupling that was
+  how the audit came to cover a minority of the catalogue unnoticed.
+- **Three defects in the new check, all found by red-proving it rather than by
+  running it.** Its first version could not fail on two of its five coverages.
+  Scene coverage used a substring test, so renaming `T2V_RAIL_LONG` to
+  `T2V_RAIL_LONGG` still passed. Camera vocabulary did the same, so
+  `Pedestal Up` matched inside `Pedestal Upward`. And the Part One check asked
+  only whether SOME instance matched, which stays green while a corrupted
+  instance sits beside a correct one -- the likely shape of a real typo. All
+  three now word-bounded and per-instance.
+- **And one false positive, corrected before it shipped.** Grading every Part
+  One line rejected the manual's UNRESOLVED templates -- `Shot N`, `S.SS`,
+  printed exactly as the guide prints them -- which are correct documentation.
+  Both forms are now accepted; only a line matching neither is drift.
+
 ## 0.99.10
 
 ### Added
@@ -15,7 +42,7 @@ artifact.
   structure; the operational answers on speaker IDs, dialogue markers, style
   and camera; two graded examples; nine failure patterns. It cites no
   repository path, so it survives being read where ours do not resolve.
-- **`bench/check_portable_standard.py`.** That page is a second copy of rules
+- **`bench/check_prompt_docs_sync.py`.** That page is a second copy of rules
   owned elsewhere, and this repo's documented failure mode is a second copy
   with nothing to invalidate it. A note saying "regenerate rather than edit" is
   not invalidation, so every QUOTATION on the page is verified against its

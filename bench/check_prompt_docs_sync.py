@@ -1,5 +1,14 @@
 #!/usr/bin/env python
-"""Fail when the portable prompt standard drifts from the sources it quotes.
+"""Fail when a prompt DOCUMENT drifts from the source that owns what it quotes.
+
+## Renamed 2026-09-01, and why
+
+This was `check_portable_standard.py` and guarded only the published extract.
+That was **backwards**: the extract was checked and `docs/prompting.md` -- the
+document the extract is derived FROM, and the one this repo calls its single
+source of truth -- was guarded by nothing. Deliberately corrupting the manual's
+FL2VA Part One template and its camera vocabulary was caught by no check in the
+repo. Same class of quotation, same sources, so one check owns both.
 
 ## Why this is a check and not a promise
 
@@ -77,6 +86,113 @@ def flat(s: str) -> str:
 
 def text_of(page: str) -> str:
     return flat(html.unescape(re.sub(r"<[^>]+>", " ", page)))
+
+
+def manual_quotations(manual: str, guide: str) -> int:
+    """The manual retypes two closed vocabularies. Grade both against source.
+
+    `docs/prompting.md` restates the three Part One templates and base_en 4.3's
+    motion table in prose, for readers. Those are the two things in it a reader
+    COPIES rather than reads, so a typo there ships into a prompt -- and
+    `preflight_graph` parses its own copy from the guide, so the two can
+    disagree silently while every other check stays green. Found 2026-09-01 by
+    mutation: nothing caught either.
+
+    **Every instance is graded, not just one.** The manual prints the templates
+    many times, resolved to different durations. A first version asked only
+    whether SOME instance matched, which is green while a corrupted one sits
+    beside a correct one -- and that is the likely shape of a real typo. So
+    every line that looks like a Part One line must match its mode's template.
+    """
+    bad = 0
+    # Any line opening the way a Part One line opens, whatever follows.
+    CANDIDATE = re.compile(
+        r"^(How the reference pictures align[^\n]*|"
+        r"For the target video, at [^\n]*)$", re.M)
+    from preflight_graph import BASE_ALIGNMENT
+    shapes = {}
+    for mode, template in BASE_ALIGNMENT.items():
+        # TWO legal forms, and rejecting the second was a false positive on
+        # this check's first run. The manual documents each template in its
+        # UNRESOLVED form -- `Shot N`, `S.SS`, exactly as the guide prints it --
+        # and then shows RESOLVED instances in the worked examples. Both are
+        # correct; only a line matching neither is drift.
+        parts = re.split(r"(Shot N|S\.SS)", flat(template))
+        shapes[mode] = "".join(
+            r"Shot (?:N|\d+)" if part == "Shot N"
+            else r"(?:S\.SS|\d+\.\d\d)" if part == "S.SS"
+            else re.escape(part)
+            for part in parts)
+    seen = {m: 0 for m in shapes}
+    for line in CANDIDATE.findall(manual):
+        f = flat(line)
+        hit = [m for m, pat in shapes.items() if re.fullmatch(pat, f)]
+        if hit:
+            seen[hit[0]] += 1
+        else:
+            bad += 1
+            print(f"  FAIL  manual has a Part One line matching no guide "
+                  f"template: {f[:88]}...")
+    for mode, n in sorted(seen.items()):
+        if n:
+            print(f"  ok    manual's {mode} Part One: {n} instance(s), all "
+                  f"matching the guide")
+        else:
+            bad += 1
+            print(f"  FAIL  manual shows no {mode} Part One line at all; it is "
+                  f"supposed to document every mode")
+
+    types = re.findall(r"\| Motion type \| `([^`]+)`", guide)
+    missing = []
+    for t in types:
+        for part in (p.strip() for p in t.split("/")):
+            # Word-bounded: `Pedestal Up` is a substring of `Pedestal Upward`,
+            # so a plain `in` test passes a vocabulary that has been reworded.
+            if not re.search(r"(?<!\w)" + re.escape(part) + r"(?!\w)", manual):
+                missing.append(t)
+                break
+    if missing:
+        bad += 1
+        print(f"  FAIL  manual's camera vocabulary altered or missing: "
+              f"{', '.join(missing)}")
+    else:
+        print(f"  ok    manual quotes all {len(types)} camera motion types")
+    return bad
+
+
+def audit_covers_catalogue() -> int:
+    """Every generated scene name must resolve to a hand-written verdict.
+
+    `prompt_audit.md` is keyed BY HAND to scene names `prompt_catalogue.md`
+    generates from the graphs. Renaming a prompt constant silently orphans its
+    verdict, and a scene added to the generator has no verdict at all -- which
+    is exactly how the audit came to cover a minority of the catalogue before
+    2026-09-01, unnoticed because both files looked fine on their own.
+    """
+    cat = REPO / "docs" / "prompt_catalogue.md"
+    aud = REPO / "docs" / "prompt_audit.md"
+    if not (cat.exists() and aud.exists()):
+        print("  FAIL  catalogue or audit missing; coverage cannot be checked")
+        return 1
+    scenes = re.findall(r"^## (.+)$", cat.read_text(encoding="utf-8"), re.M)
+    audit = aud.read_text(encoding="utf-8")
+    # WORD-BOUNDED, not substring. `T2V_RAIL_LONG` is a substring of
+    # `T2V_RAIL_LONGG`, so a plain `in` test passes a scene whose verdict was
+    # renamed out from under it -- which is precisely the drift this is for.
+    # Caught 2026-09-01 while red-proving: the proof did not go red, and the
+    # check was the reason, not the proof.
+    missing = [s for s in scenes
+               if not re.search(r"(?<![\w:])" + re.escape(s) + r"(?![\w])", audit)]
+    if missing:
+        print(f"  FAIL  {len(missing)} catalogue scene(s) have no verdict in "
+              f"prompt_audit.md:")
+        for s in missing[:8]:
+            print(f"        {s}")
+        if len(missing) > 8:
+            print(f"        ... and {len(missing) - 8} more")
+        return 1
+    print(f"  ok    all {len(scenes)} catalogue scene(s) resolve to a verdict")
+    return 0
 
 
 def snapshots() -> int:
@@ -165,6 +281,8 @@ def main() -> int:
             print(f"  FAIL  an example on the page is not in the manual's "
                   f"section 10 verbatim: {b[:60]}...")
 
+    fails += manual_quotations(manual, guide)
+    fails += audit_covers_catalogue()
     fails += snapshots()
 
     for q in QUOTED:
@@ -176,9 +294,9 @@ def main() -> int:
 
     print("")
     if fails:
-        print(f"  {fails} drift(s) between the portable standard and its sources")
+        print(f"  {fails} drift(s) between a prompt document and its sources")
         return 1
-    print("  ok    every quotation on the portable standard matches its source")
+    print("  ok    every prompt document agrees with the source it quotes")
     return 0
 
 

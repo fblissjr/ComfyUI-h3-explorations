@@ -100,7 +100,7 @@ It is derived from `prompting.md` and says so on the page; where the two
 disagree, `prompting.md` is newer.
 
 **It is a second copy of rules owned elsewhere, so it is checked rather than
-trusted.** `bench/check_portable_standard.py` verifies every QUOTATION on it
+trusted.** `bench/check_prompt_docs_sync.py` verifies every QUOTATION on it
 against the source that owns it — the three Part One templates against the
 guide-parsed constants, the camera vocabulary against the guide's own table,
 every worked example against §10 verbatim, and each quoted guide sentence
