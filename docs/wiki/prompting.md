@@ -148,9 +148,17 @@ clip per arm cannot support it however carefully it is stacked.
   our ref2v scene arms are within vendor practice, not outliers. No guide states
   a cap and nothing has been rendered.
 
-**How these get found at all:** `bench/diff_prompt_corpus.py` extracts
-mechanical features from the vendor corpus and ours and reports every feature
-where the vendor never varies and we do. That is the shape of all three. Neither
+- **Two house patterns — NOTICED, not defects.** We write `N/A` for
+  `non_diegetic_music` and a one-sentence `overall_soundscape` far more often
+  than the vendor does. Both legal; both decisions nobody actually made.
+
+**How these get found at all:** `bench/diff_prompt_corpus.py` runs two passes.
+The first reports every feature where the vendor never varies and we do. The
+second reports features where BOTH corpora vary but our rate sits far from
+theirs — a house pattern rather than a divergence. The second pass exists
+because the first cannot see a skew however extreme: it suppresses any feature
+the vendor varies at all, which is correct, and which is why our N/A rate went
+uncounted through repeated runs. That is the shape of all three. Neither
 `preflight_graph.py` nor `check_prompt_guide_conformance.py` could have found
 them — one encodes the stated rules, the other refuses to assert anything the
 guide does not state, and these are all things the vendor does consistently and

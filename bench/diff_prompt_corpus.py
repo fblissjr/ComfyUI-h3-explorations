@@ -136,6 +136,10 @@ def features(prompt: str, main_field: str) -> dict[str, object]:
                        prompt, re.S)
     if music:
         f["music_is_na"] = music.group(1).strip() == "N/A"
+    if sound:
+        body = sound.group(1).strip()
+        f["soundscape_one_sentence"] = len(
+            [x for x in re.split(r"(?<=[.!?])\s+", body) if x.strip()]) == 1
     return f
 
 
@@ -189,6 +193,48 @@ def ours() -> tuple[list[dict], list[dict]]:
     return base, ref
 
 
+def skew(label: str, vendor: list[dict], mine: list[dict],
+         gap: int = 50, min_vendor: int = 3, min_ours: int = 4) -> None:
+    """Features where BOTH corpora vary but our rate is far from the vendor's.
+
+    **The unanimity pass above cannot see these, structurally.** It suppresses
+    any feature the vendor varies at all -- correctly, since a split vendor
+    asserts no rule -- so a feature the vendor uses 22% of the time and we use
+    93% of the time is invisible to it however extreme the gap gets. That is
+    not a tuning problem, it is the bar doing its job, and it means the two
+    passes answer different questions.
+
+    Found the hard way: our N/A rate for `non_diegetic_music` sits far above the
+    vendor's, and the unanimity pass had been run repeatedly over exactly that
+    feature without reporting it, because base-en contains one N/A example.
+
+    **A skew is much weaker evidence than a divergence.** Both corpora are
+    legal by construction here, so this reports a HOUSE PATTERN, never a defect.
+    Its value is that a house pattern nobody chose is invisible until counted --
+    CLAUDE.md's "a default is not a decision, and shipping is not evidence".
+    """
+    rows = []
+    keys = {k for row in vendor + mine for k in row if k != "src"}
+    for key in sorted(keys):
+        vv = [r[key] for r in vendor if isinstance(r.get(key), bool)]
+        mv = [r[key] for r in mine if isinstance(r.get(key), bool)]
+        if len(vv) < min_vendor or len(mv) < min_ours:
+            continue
+        if len(set(vv)) == 1:
+            continue                       # unanimity pass already owns this
+        vr, mr = 100 * sum(vv) / len(vv), 100 * sum(mv) / len(mv)
+        if abs(vr - mr) >= gap:
+            rows.append((abs(vr - mr), key, vr, len(vv), mr, len(mv)))
+    if not rows:
+        return
+    print(f"\n--- {label}: HOUSE PATTERNS (both corpora vary; ours sits far "
+          f"from theirs) ---")
+    print("    Legal by construction. A pattern, not a defect -- but a pattern")
+    print("    nobody chose is invisible until it is counted.")
+    for _, key, vr, vn, mr, mn in sorted(rows, reverse=True):
+        print(f"\n  {key}: vendor {vr:.0f}% of {vn}   ours {mr:.0f}% of {mn}")
+
+
 def compare(label: str, vendor: list[dict], mine: list[dict]) -> None:
     print(f"\n=== {label} — vendor n={len(vendor)}, ours n={len(mine)} ===")
     keys = {k for row in vendor + mine for k in row if k != "src"}
@@ -231,7 +277,9 @@ def main() -> int:
     print("A REPORT, not a gate: a divergence may be a defect, a deliberate")
     print("house choice, or noise. Check n before believing any row.")
     compare("BASE format (t2va / i2va / fl2va / l2va)", vb, ob)
+    skew("BASE format", vb, ob)
     compare("REFERENCE format (ref2va)", vr, orf)
+    skew("REFERENCE format", vr, orf)
     print("\nBase and reference are never pooled: they genuinely differ, and")
     print("ref2va has taken opposite corrections to the base three before.")
     return 0

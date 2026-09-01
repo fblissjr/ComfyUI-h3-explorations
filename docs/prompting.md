@@ -1503,6 +1503,31 @@ What survives: the two `DIALOGUE_*` prompts stack more turns in a shot than any
 vendor specimen of either format. No guide states a cap (§12.12), both are
 inside the speech budget, and nothing has been rendered.
 
+**Two HOUSE PATTERNS nobody chose — legal, unmeasured, and far from vendor
+practice.** Found 2026-09-01 by counting rather than by reading, and invisible
+to the unanimity test above because the vendor varies on both:
+
+| | vendor (base) | ours (base) |
+|---|---|---|
+| `non_diegetic_music` is `N/A` | 14% | 100% |
+| `overall_soundscape` is one sentence | 14% | 91% |
+
+Neither breaks a rule. base-en:154 allows 1-4 sentences, and base §4.7 says
+"Use `N/A` when there is no non-diegetic music." **But that is a CONDITION about
+the scene, not a stylistic preference** — writing it into essentially every
+prompt asserts that essentially every video we generate has no score, which is a
+creative decision nobody here made. It is the standing "a default is not a
+decision, and shipping is not evidence" pattern: a value in every prompt has
+standing through repetition.
+
+**Convergent, not copied.** The dagthomas fork (§14.2b) *invented* a rule saying
+`N/A` is the normal answer and the soundscape should be one sentence — one of
+the passages that contradicts the vendor guide it forked. Our prompts predate
+any knowledge of that corpus here, so we arrived at the same place
+independently, and further along it than its own examples go. Nothing has
+measured whether a score or a longer soundscape changes anything, so this is
+recorded as a pattern to notice, not a defect to fix.
+
 **Checked and found clean:** ref-en *states* one line per item in
 `subject_definitions` (ref-en:37) and `retention_analysis` (ref-en:157). Every
 shipped ref2va prompt satisfies both. A first pass here flagged twelve of them by
