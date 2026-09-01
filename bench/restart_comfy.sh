@@ -155,7 +155,12 @@ if [ -n "$pid" ]; then
     fi
 fi
 # Wrappers that outlive the server would otherwise re-take the port.
-pkill -f "main.py --output" 2>/dev/null
+# `-A` (--ignore-ancestors, procps-ng 4.x) keeps the match off THIS script's
+# own ancestors: `-f` matches any argv containing the pattern, and on
+# 2026-09-01 that included the shell that invoked this script, whose command
+# line quoted the literal in a trailing pgrep -- the caller died with a
+# signal exit while the restart it started completed on its own.
+pkill -A -f "main.py --output" 2>/dev/null
 sleep 1
 if [ -n "$(port_pid)" ]; then
     echo "FAIL: :$PORT is still held by pid $(port_pid); refusing to start a second server"

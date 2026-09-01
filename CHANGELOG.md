@@ -33,6 +33,12 @@ artifact.
   length, and `process_render_index` so a cold first render and a warm
   repeat are told apart. Asked for by the owner on the first live capture,
   where two graphs shared one file and only their Sol windows differed.
+- `bench/control_blk_cnt_public_api.py` and
+  `bench/results/2026-09-01_blk_cnt_public_api_controls.json`: the positive
+  and negative `blk_cnt` controls through the public API on the installed
+  CUDA wheel, on a five-block hand-written fixture that neither the observer
+  check nor the upstream tests use. Codex owed this pair after its review
+  process lost CUDA access; run here on the owner's word.
 - `bench/grade_sol_record.py`: the structural grader for a live record
   (every forward carries blocks 0-49 once; routes match the window and the
   dense list; counts, raw pointers and CRCs on `sol` rows only; one prompt
@@ -59,6 +65,11 @@ artifact.
 
 ### Fixed
 
+- **`bench/restart_comfy.sh` killed the shell that invoked it** whenever
+  that shell's command line contained the literal `main.py --output`: its
+  `pkill -f` matched every argv, ancestors included. Now `pkill -A`, which
+  excludes the script's own ancestors; proved on a decoy process from a
+  caller whose argv matched.
 - **The chain assert's live probe ran on a fresh thread without ComfyUI's
   executing context**, so an armed observer recorded it with no prompt id.
   The thread now runs under a copied context. The first live record shows

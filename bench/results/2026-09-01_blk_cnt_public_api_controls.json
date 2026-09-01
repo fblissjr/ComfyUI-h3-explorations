@@ -1,0 +1,38 @@
+{
+ "produced_by": "bench/control_blk_cnt_public_api.py",
+ "comfy_kitchen": "0.2.31+sol.24908e1",
+ "device": "NVIDIA GeForce RTX 4090",
+ "torch": "2.13.0+cu132",
+ "when": "2026-09-01T17:20:33",
+ "arms": {
+  "positive: forced-pair count by hand, both heads": {
+   "ok": true,
+   "detail": "got [2, 3, 4, 5, 4] / [2, 3, 4, 5, 4], want [2, 3, 4, 5, 4]"
+  },
+  "positive: output bitwise unchanged by the buffer": {
+   "ok": true,
+   "detail": "same bytes"
+  },
+  "positive: everything routed at tau -1e9": {
+   "ok": true,
+   "detail": "got [5, 5, 5, 5, 5]"
+  },
+  "eager agrees on the same tensors": {
+   "ok": true,
+   "detail": "eager [2, 3, 4, 5, 4]"
+  },
+  "negative: one block too long refused": {
+   "ok": true,
+   "detail": "NoCapableBackendError"
+  },
+  "negative: int64 dtype refused": {
+   "ok": true,
+   "detail": "NoCapableBackendError"
+  },
+  "negative: cpu device refused": {
+   "ok": true,
+   "detail": "NoCapableBackendError"
+  }
+ },
+ "verdict": "all arms hold"
+}
