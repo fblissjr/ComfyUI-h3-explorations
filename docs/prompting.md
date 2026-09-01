@@ -1352,10 +1352,22 @@ already know, and a corrected count would rot the same way.
 
 ### Still open
 
-- **Camera-motion vocabulary is enforced by nothing.** Re-checked 2026-09-01:
-  neither `preflight_graph.py` nor `check_prompt_guide_conformance.py` tests any
-  motion phrase against base §4.3's table. A denylist of terms absent from that
-  table is cheap and decidable; proving every motion phrase in-vocabulary is not.
+- **Camera-motion vocabulary has live WARNINGS, and is not unenforced.**
+  `bench/check_camera_vocabulary.py` has graded every shipped prompt's motion
+  phrases against base §4.3's closed sets since 2026-08-28. As of 2026-09-01 it
+  reports three out-of-vocabulary terms: `tracks right` and `whip pan` in the
+  two ref2v scene arms, and `dolly` in `T2V_RAIL_LONG`. Run it; do not restate
+  its findings here.
+
+  > **WITHDRAWN 2026-09-01: this bullet previously read "Camera-motion
+  > vocabulary is enforced by nothing", and carried a same-day
+  > "re-checked" stamp.** The re-check looked in `preflight_graph.py` and
+  > `check_prompt_guide_conformance.py` and nowhere else, so it missed a checker
+  > that had existed for four days and confirmed the claim it set out to verify.
+  > **A date on a claim records when it was written, not whether it is true** —
+  > and a narrow re-check is worse than none, because it launders a stale claim
+  > into a fresh-looking one. The decidable half of that requirement is built;
+  > the speaker-identity half is not mechanizable and remains open.
 - **The ref2va word budget is preflight's only recurring WARN**, which is why it
   stopped being read as a finding. That is a reason to fix the prompts or retire
   the WARN, not to keep both.
