@@ -341,6 +341,23 @@ Bind the speaker ID to the subject label and repeat it every time that subject
 speaks: <Subject 3> (S1). The label alone is not enough on a speaking sentence.
 [guide]
 
+`<Subject N>` names the referenced subject; `(Sx)` names the actual speaker.
+When a speaker corresponds to no defined subject, use a stable voice
+description followed by `(Sx)`. A subject speaking off-screen keeps the same
+form and is marked off-screen. [guide]
+
+Assign `(Sx)` once, in the order the vocal events actually happen in the target
+video, and reuse that ID at every later vocal event. An `<Audio N>` bound to a
+target speaker in `subject_definitions` reuses the same `(Sx)` and never
+assigns a new one of its own. [guide]
+
+Never write `(Sx)` in `retention_analysis`. [guide]
+
+When words exist only as a cue inside a directly reused soundtrack or BGM, and
+no person, character or narrator physically produces them, the audible source
+is `<Audio N>` -- do not invent an `(Sx)` for it. A concrete person, character
+or narrator producing a voice does get an `(Sx)`. [guide]
+
 Reference labels stay consistent across all six sections. Number each kind
 independently -- the same file can be <Video 1> and <Audio 2>. A reference
 video's soundtrack takes its <Audio> ordinal before the video's own label;
