@@ -376,6 +376,29 @@ repeating work.
   and the release never emits — it works because core applies no cast and no
   bounds check. Our own `qwen_view` split currently answers no to
   the same question, which is why it is priced rather than proven.
+- **A search that returns nothing has established nothing, unless you know it
+  could have matched.** An empty result is evidence about your PATTERN, not
+  about the artifact, and the two are constantly confused. Six instances in one
+  day, 2026-09-01, across two sessions:
+  - `find coderef/ -name X` returned one hit and was written up as "only one
+    exists". Half of `coderef/` is symlinks and `find -L` shows more.
+  - "Camera vocabulary is enforced by nothing" was **re-checked the same day**,
+    in `preflight_graph.py` and `check_prompt_guide_conformance.py` and nowhere
+    else, while `bench/check_camera_vocabulary.py` had existed for four days.
+    The stale claim shipped wearing a fresh date.
+  - `grep -c 'do not use'` on a page returned 0, read as "carries no
+    prohibition". The page said **"Do not reach for"**.
+  - A peer's `grep 'turns to '` missed every `turns toward`; a heading regex
+    dropped every `<h4>` containing markup; a phrase match reported a rule stale
+    while the live rule sat directly beneath the matched line.
+  - **The sharpest form, and the reusable one: a pattern built from the CLAIM
+    can only confirm the claim's wording, never the artifact's content.** That
+    `do not use` grep came from a peer's message rather than from the page, so
+    it was structurally incapable of finding what the page said.
+  - The fix is structural, not care: **derive the set and inspect it, or read
+    the section.** Probing with a phrasing you invented tests your memory. And
+    `grep -c` returning 0 looks like a measurement while being a statement
+    about one string.
 - **The same standard applies to claims, and re-reading your own work does not
   meet it.** On 2026-08-13, eight substantive defects were found here and in the
   sage fork; not one was caught by whoever wrote it. Every one came from a
