@@ -1785,3 +1785,44 @@ what this entry has to establish rather than closing it:
 - One prediction is now cheap to score against something real: the weight-side
   kind ranking is out_proj worst, and T2 says the runtime ranking will differ
   from it.
+
+## 24. The two markers both repos spell differently, rendered every way
+
+**Built 2026-09-01 and deferred the same day by the owner before anything was
+queued. Nothing has rendered.** This is the render `prompt_audit.md` item 4
+describes and the one the sister engine's marker decision waits on.
+
+**The question.** base §4.4 states `<scenetrans>` at the connecting points of a
+line that crosses a cut and `<cutoff>` for speech the end of the video
+truncates; the release declares `<|cutoff|>` and no `<scenetrans>`. This repo
+writes the declared piped form tight against `</d>` and no tag for the split
+line; the sister engine writes the guides' spellings, `<cutoff>` after a space,
+and splits the words across the cut with the tag in both parts. Neither side
+has rendered either, and neither side's gate can see the difference.
+
+**The arms**, all in [`bench/marker_arms.json`](../bench/marker_arms.json),
+seven patches of one shipped t2va graph, prompt and length only, base texts
+from `prompt_bank/`: three split-line forms (ours in prose; the sister form;
+tag-only with the words unsplit, which isolates the tag from the split) and
+four cutoff forms (ours; the sister form; unpiped tight and piped spaced, which
+isolate spelling from spacing). Every variant is an asserted single
+substitution, graded clean, and every patched graph passed preflight.
+
+**What counts as an answer.** Meets-the-brief per arm, never A/B: does the line
+audibly continue across the cut, does the last line stop mid-sentence at the
+end. `bench/marker_arms_brief.md` is the judge's brief. Two seeds per arm is
+what the owner chose, which is a presentation and not a distribution; the
+sister engine will read the verdict the same way.
+
+**How to run it**, from the manifest's own `run` and `then` fields: the
+`run_graph_arms.py` line renders about forty-five minutes of card at 1344x768;
+`blind_batch.py` with the five `--pairs` blinds it; the owner scores in
+`score.html`; `score_session.py` writes the verdict record. Then hand the
+per-arm verdict to the sister engine, which is the only thing it needs back.
+
+**Blocker:** the owner's call, 2026-09-01. Also worth knowing before the first
+run: the server as started that day runs a rebuilt Sol kernel and a restructured
+Sol node, both expected output-neutral and this batch their first
+production-geometry render; the Sol session asked to be told before anything
+odd in its log lines is attributed to an arm.
+

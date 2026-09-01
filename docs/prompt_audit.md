@@ -420,6 +420,9 @@ a result.
    `prompt_bank/t2va_desert_crew.txt` carries the line across a cut in prose
    and `prompt_bank/t2va_cable_car.txt` the truncated line; each variant is one
    substitution made at render time and confirmed with `cmp` before queueing.
+   **Built and deferred 2026-09-01:** the seven arms, the owner's calls and
+   the exact commands are in `bench/marker_arms.json` and
+   [`open_experiments.md`](open_experiments.md) #24. Nothing has rendered.
 5. **Wire `REF_SCENE_SHOTS` through `scene=`** — one argument, and the ref2va
    budget gap mostly closes.
 6. **A motion sweep** over the §4.3 types no SHIPPED graph exercises: `Zoom`,

@@ -4,6 +4,23 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.21
+
+### Added
+
+- **The marker render, built and deferred.** `bench/marker_arms.json` holds
+  seven arms of one shipped t2va graph -- prompt and length patches only, base
+  texts from `prompt_bank/` -- covering both spellings, both spacings and both
+  split-line forms of the two markers this repo and the sister engine write
+  differently, plus the arms that isolate the tag from the split and the
+  spelling from the spacing. Every variant is an asserted single substitution,
+  graded clean, and every patched graph passed preflight.
+  `bench/marker_arms_brief.md` is the judge's brief. The owner chose the
+  trained canvas, two seeds per arm and all seven arms, then deferred the run
+  before anything was queued; `docs/open_experiments.md` #24 and
+  `docs/prompt_audit.md` item 4 record that, with the commands, so it is not
+  forgotten. Nothing has rendered.
+
 ## 0.99.20
 
 ### Added
