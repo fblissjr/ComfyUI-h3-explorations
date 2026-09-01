@@ -53,7 +53,17 @@ CHECKS_MD = REPO / "docs" / "checks.md"
 # A row's subject is the first backticked *.py in it. The index's own convention
 # is that the subject leads the row, and every row has followed it since the file
 # was written.
-_ROW_SUBJECT = re.compile(r'^\|\s*`([A-Za-z0-9_./-]+\.py)`')
+#: A row's subject, with the strikethrough that marks a RETIRED check optional.
+#: `~~`name.py`~~` is how `docs/checks.md` records a check that was withdrawn
+#: rather than deleted silently, and the row is kept because it carries why.
+#:
+#: **This pattern had only ever met live rows.** It was written when every row
+#: named a file on disk, so the leading `~~` simply failed to match and the row
+#: was reported as "names no .py subject" -- red on a correct state, which this
+#: repo rates worse than no check, and which stood long enough that two sessions
+#: learned to skip it. The retirement itself was correct; nothing had taught
+#: this check that "absent" is a third state rather than a failure.
+_ROW_SUBJECT = re.compile(r'^\|\s*(?P<struck>~~)?`(?P<name>[A-Za-z0-9_./-]+\.py)`')
 
 
 def index_section(md_text: str) -> list[str]:
@@ -90,7 +100,10 @@ def audit(md_text: str, check_files: list[str]) -> list[str]:
     if not rows:
         return ["the index section is empty or unparseable -- refusing to pass on silence"]
 
-    subjects = {m.group(1) for r in rows if (m := _ROW_SUBJECT.match(r))}
+    # LIVE subjects only. A retired row names a file that is supposed to be
+    # gone, so counting it here would demand the deletion be undone.
+    subjects = {m.group("name") for r in rows
+                if (m := _ROW_SUBJECT.match(r)) and not m.group("struck")}
     errs = []
 
     for f in sorted(check_files):
@@ -102,9 +115,21 @@ def audit(md_text: str, check_files: list[str]) -> list[str]:
         if not m:
             errs.append(f"a row names no .py subject: {r[:60]}...")
             continue
-        named = m.group(1)
+        named, retired = m.group("name"), bool(m.group("struck"))
         candidates = [REPO / named, REPO / "bench" / named]
-        if not any(c.exists() for c in candidates):
+        on_disk = any(c.exists() for c in candidates)
+        # **Both directions, because "absent" is a state and not an exemption.**
+        # A live row whose file is gone lies about what runs. A RETIRED row
+        # whose file is back lies the other way, and that one is the more
+        # dangerous of the two: a withdrawn check still shipping is a gate
+        # nobody believes is running, which is how a green comes to mean
+        # nothing. Skipping retired rows instead of grading them would have
+        # silenced this check rather than taught it.
+        if retired and on_disk:
+            errs.append(f"the index retires {named}, but it is back on disk -- "
+                        f"either the retirement was reversed without updating "
+                        f"the row, or the row should no longer be struck through")
+        elif not retired and not on_disk:
             errs.append(f"the index names {named}, which is not on disk")
 
     return errs
@@ -124,7 +149,12 @@ def main() -> int:
         print(f"\n{len(errs)} inventory error(s). The index is the repo's answer to what it")
         print("checks; a check missing from it is invisible and a row naming a gone file lies.")
         return 1
-    print("  ok    every check is indexed, and every row names a file that exists")
+    live = sum(1 for r in index_section(md)
+               if (m := _ROW_SUBJECT.match(r)) and not m.group("struck"))
+    retired = sum(1 for r in index_section(md)
+                  if (m := _ROW_SUBJECT.match(r)) and m.group("struck"))
+    print(f"  ok    every check is indexed; {live} live row(s) name a file that "
+          f"exists and {retired} retired row(s) name one that correctly does not")
     return 0
 
 

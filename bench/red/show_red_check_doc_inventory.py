@@ -53,7 +53,35 @@ def build():
                GOOD.replace("| `check_node_ids.py` |", "| the positional contract |"),
                ON_DISK))
 
+    # --- retirement: "absent" is a third state, graded in both directions ---
+    #
+    # The escaped instance these exist for: `docs/checks.md` retired
+    # `check_mono_ref_audio.py` on 2026-08-29 by striking its subject through
+    # and keeping the row for its reasoning. The subject pattern had only ever
+    # met live rows, so the leading `~~` did not match and the row was reported
+    # as naming no subject at all -- red on a correct state, which stood long
+    # enough that two sessions learned to skip this check.
+    #
+    # **`audit()` is only half pure, and these cases had to be built around
+    # it.** It takes the on-disk check list as an argument but resolves each
+    # row's subject against the REAL filesystem, so a struck-through row naming
+    # a file that exists here cannot be made to look gone by passing a shorter
+    # list. The first version of G5 did exactly that and failed. So the gone
+    # case uses a name that is genuinely absent, and the back-on-disk case
+    # keeps its subject out of the check list so only the intended direction
+    # can fire.
+    RETIRED_GONE = GOOD.replace("| `check_node_ids.py` |",
+                                "| ~~`check_retired_yesterday.py`~~ |")
+    RETIRED_BACK = GOOD.replace("| `check_doc_links.py` |",
+                                "| ~~`check_doc_links.py`~~ |")
+
+    h.case("M6 a RETIRED row whose file is back on disk", MUTATION,
+           lambda: C.audit(RETIRED_BACK, ["bench/check_node_ids.py"]))
+
     # --- near misses: each must leave the verdict where the baseline put it ---
+
+    h.case("G5 a RETIRED row whose file is correctly gone", NEAR_MISS,
+           lambda: C.audit(RETIRED_GONE, ["bench/check_doc_links.py"]))
 
     h.case("G1 a .py named in prose outside the index", NEAR_MISS,
            lambda: C.audit(
