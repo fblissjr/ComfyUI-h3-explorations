@@ -4,6 +4,38 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.15
+
+### Added
+
+- **Four guide-stated rules the portable standard was missing**, in
+  `docs/portable/h3_prompt_standard.html`: sung lines use the dialogue block
+  rather than a lyrics tag (ref-en states it, and the `<|lyrics_start|>` pair
+  the release declares is named by neither guide, so the page says not to use
+  it); saying who a line is spoken to, with the listener taking no speaker id
+  because ids belong to voices; the four sanctioned phrasings for a line
+  crossing a cut, with the deliberate house divergence on the `<scenetrans>`
+  token; and the exact-words and punctuation rules for reused or reperformed
+  audio, including `[unclear]` for spans that cannot be made out.
+- The same rules in `docs/portable/h3_system_prompt.md`, which is where they
+  were written first.
+
+### Changed
+
+- Republished the artifact to the same URL and re-froze
+  `2026-09-01_h3_prompt_standard.html` against the new source, with
+  `snapshots.json` hashes updated and the second replacement stated in the
+  snapshot's own banner rather than made silently.
+
+### Notes
+
+- The gaps were found by comparing the page's rule headings against the system
+  prompt's, not by reading either. That is the third time on this date that a
+  comparison found something a re-read had not.
+- Turns-per-shot was checked and was already correct -- a first pass reported it
+  stale by matching on a phrase and missing the adjacent Owner rule that
+  supersedes it.
+
 ## 0.99.14
 
 ### Added

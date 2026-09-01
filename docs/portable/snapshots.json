@@ -2,8 +2,8 @@
   "2026-09-01_h3_prompt_standard.html": {
     "artifact_url": "https://claude.ai/code/artifact/daa73be5-0bb7-4d02-8456-5dc107acea54",
     "frozen": "2026-09-01",
-    "refrozen": "replaced the same day; the first freeze wrapped the I2VA Part One line mid-sentence so it failed on paste. Nothing had been shared from it.",
-    "sha256": "5ffccc7efac1d0daf3b5039afc1307509f01961887b83738722f614d90a427b3",
-    "source_sha256": "02d450f7e37105637ac3cf0e56f666f79a2706bbfebf01d4621319195c9f0811"
+    "refrozen": "replaced twice on the freeze date; the first freeze wrapped the I2VA Part One line mid-sentence so it failed on paste, the second predated four guide-stated rules the page was missing. Nothing had been shared from either.",
+    "sha256": "2e1464e6edb4c5f334660a0baf1ffffa594c3a6854a4074352d448a0b4a642bc",
+    "source_sha256": "b3d674de48b68bb45951148b24ec29ca6868dee6b760b1593de73f6201aa4995"
   }
 }

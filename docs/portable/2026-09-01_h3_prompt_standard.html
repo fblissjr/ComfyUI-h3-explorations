@@ -143,11 +143,13 @@ a{color:var(--accent)}
   against its sources by <code>bench/check_prompt_docs_sync.py</code>; this copy is
   checked only for having stayed unmodified. Do not edit it, and do not cite it as
   current — read it as "this is what we said on 2026-09-01".
-  <br><br><strong>Re-frozen once, the same day.</strong> The first freeze carried a
-  defect: the I2VA example's Part One line was hard-wrapped mid-sentence, so pasting
-  it produced a prompt that fails the grader. Nothing had been shared from that copy,
-  so re-freezing falsified no record — but a snapshot is only worth trusting if
-  replacing one is stated rather than silent.
+  <br><br><strong>Re-frozen twice, both on the freeze date.</strong> The first freeze
+  hard-wrapped the I2VA example's Part One line mid-sentence, so pasting it produced a
+  prompt that fails the grader. The second predated four guide-stated rules the page was
+  missing: sung lines using the dialogue block, naming who a line is spoken to, the
+  sanctioned phrasings for a line crossing a cut, and the exact-words rules for reused
+  audio. Nothing had been shared from either copy, so re-freezing falsified no record —
+  but a snapshot is only worth trusting if replacing one is stated rather than silent.
 </div>
 
 <section id="layers">
@@ -244,6 +246,11 @@ non_diegetic_music: ...</pre>
       <tr><td><strong>Base</strong><br>(T2VA / I2VA / FL2VA / L2VA)</td><td>The ID appears <strong>once</strong>, attached to the speaking sentence:<br><code>…a dock worker with a low alto (S1) … and says: &lt;d&gt;…&lt;/d&gt;</code></td></tr>
       <tr><td><strong>Ref2VA</strong></td><td>The ID is <strong>bound to the subject label</strong> and appears <strong>twice</strong> — once where the subject is established in the shot, once at the speaking moment:<br><code>&lt;Subject 3&gt; (S1), the young woman with …</code><br><code>&lt;Subject 3&gt; (S1) jerks her hand back and … exclaims, &lt;d&gt;…&lt;/d&gt;</code></td></tr>
     </table></div></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Say who the line is spoken to, and give the listener no ID</h4>
+    <p>The addressee goes in the <strong>action outside</strong> <code>&lt;d&gt;</code> — the same slot 4.4 names when it says to place the identifying phrase, ID, action and delivery outside the tag. An addressing action is an action.</p>
+    <pre><code>&lt;Subject 2&gt; (S1) turns toward the woman and says, &lt;d&gt;[English] …&lt;/d&gt;</code></pre>
+    <p>Note what the guide's own instance does with the listener: it names her by <strong>visible description</strong> and gives her <strong>no speaker ID</strong>, because she is not speaking. IDs belong to voices. Giving one to someone who is only listening creates a vocal source the clip then has to fill.</p>
+    <p class="note">The slot is stated; the guides show it once. How reliably a model follows an addressing cue is unmeasured — write it, and do not assume it lands.</p></div>
   <div class="rule"><h4><span class="chip c-shown">Guide · shown</span>One dialogue turn per shot, in base modes</h4>
     <p>Every base-format vendor specimen carries exactly one <code>&lt;d&gt;</code> per shot; a large third-party corpus does the same in every dialogue-carrying shot without exception. <strong>In Ref2VA the vendor is split</strong> — its own reference payload puts two turns in one shot — so two is attested there.</p></div>
   <div class="rule"><h4><span class="chip c-owner">Owner</span>Stacking several turns in one shot works, and is sanctioned here</h4>
@@ -260,6 +267,22 @@ non_diegetic_music: ...</pre>
   <div class="rule"><h4><span class="chip c-house">House</span>Seven special tokens exist; the guides describe only two</h4>
     <p>The released tokenizer declares <code>&lt;d&gt;</code>, <code>&lt;/d&gt;</code>, <code>&lt;|cutoff|&gt;</code>, <code>&lt;|lyrics_start|&gt;</code>, <code>&lt;|lyrics_end|&gt;</code>, <code>&lt;|caption_start|&gt;</code>, <code>&lt;|caption_end|&gt;</code>. <strong>The guides document only the dialogue pair.</strong> Every structural rule about the other five is house pattern, not vendor guidance.</p>
     <p><strong>Watch the spelling.</strong> Both guides print <code>&lt;cutoff&gt;</code> unpiped, and the release declares only the piped <code>&lt;|cutoff|&gt;</code>. Write the piped form — that is a deliberate divergence from the guide's prose in favour of the token that actually exists. The guides also mention <code>&lt;scenetrans&gt;</code>, which matches no declared token at all; leave it as ordinary prose.</p></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Sung lines use the dialogue block, not a lyrics tag</h4>
+    <p>ref-en states it outright: <em>"Write dialogue and lyrics as <code>&lt;d&gt;[Language] …&lt;/d&gt;</code>."</em> There is no separate lyrics tag in either guide, and a singer is a vocal source, so they take a stable ID like any speaker — two singing together take a compound <code>(S1,S2)</code>.</p>
+    <pre><code>The busker with a cracked, unhurried baritone (S1) leans into the mic
+and sings: &lt;d&gt;[English] I left the light on down the hall.&lt;/d&gt;</code></pre>
+    <p><strong>Do not reach for <code>&lt;|lyrics_start|&gt;</code>.</strong> The release declares it and its closing pair, neither guide mentions them, and nothing here has established what they do.</p>
+    <p>Singing never belongs in <code>overall_soundscape</code>, and singing a character can hear is diegetic — it goes in the description, never in <code>non_diegetic_music</code>.</p></div>
+
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>A line that crosses a cut, and one that runs out of video</h4>
+    <p>When one line of dialogue or lyrics continues across a cut, say so explicitly in both shots. The guide sanctions four phrasings: <code>continues seamlessly across the cut</code>, <code>continues uninterrupted into the next shot</code>, <code>carries over from the previous shot</code>, <code>remains audible across the transition</code>.</p>
+    <p>The guide also says to mark the connecting points with <code>&lt;scenetrans&gt;</code>. That token matches nothing the release declares — carry the continuity in the prose above instead. <span class="chip c-house">House</span> a deliberate divergence from a stated instruction, in favour of tokens that exist.</p>
+    <p>A line still going when the video ends closes with <code>&lt;|cutoff|&gt;</code> inside the tag.</p></div>
+
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Reused or reperformed words keep their exact form (Ref2VA)</h4>
+    <p>When dialogue, narration or lyrics come from a reference audio track, or the request asks for them to be reperformed, keep the <strong>exact source words in their original language</strong> inside <code>&lt;d&gt;</code>. Write <code>[unclear]</code> for a span you cannot make out rather than guessing or paraphrasing it.</p>
+    <p>Standardise punctuation to <code>,</code> <code>.</code> <code>?</code> <code>!</code>; strip repeated tildes, emoji, bullets and decorative marks. End a complete statement, question or exclamation with <code>.</code>, <code>?</code> or <code>!</code> before <code>&lt;/d&gt;</code>.</p></div>
+
   <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>On-screen text is typed literally, in double quotes</h4>
     <p>Any banner, sign, label, subtitle or neon text visible on screen goes in English double quotation marks, verbatim and untranslated. <strong>Describe text without giving the string and the model draws the texture of writing rather than the writing</strong> — plausible-looking letterforms that spell nothing.</p></div>
   <div class="rule"><h4><span class="chip c-house">House</span>Close the mouth when the shot continues past the line</h4>
