@@ -453,6 +453,15 @@ def _ensure_render(prompt_id: str | None) -> None:
         return
     index = len(_renders_seen)
     _renders_seen[prompt_id] = index
+    # A new prompt: reset the allocator's high-water mark so `peak_alloc_bytes`
+    # is this render's own. Without it the field was cumulative across the
+    # process, and the first chunked-producer A/B read a previous render's
+    # peak as the baseline of the next.
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+    except Exception:                                  # noqa: BLE001 -- identity, not the render
+        pass
     graph, why = _running_prompt(prompt_id)
     row = {"kind": "render", "prompt_id": prompt_id, "process_render_index": index,
            "prior_prompt_ids": [p for p, i in _renders_seen.items() if i < index],
@@ -746,9 +755,8 @@ def record(*, route: str, reason: str | None, counts: torch.Tensor | None, optio
         "tail": bool(tail), "sink_blocks": [int(sink[0]), int(sink[1])],
         "sink_q": [int(sink_q[0]), int(sink_q[1])], "min_tokens": int(min_tokens),
         "route": route, "reason": reason, "path": path,
-        # The allocator's high-water mark so far in this process, read for
-        # free. Per render, the last row's value is the peak; the memory
-        # lever the chunked producer claims is graded on it.
+        # The allocator's high-water mark since this prompt's render row (reset
+        # there), read for free. Per render, the last row's value is the peak.
         "peak_alloc_bytes": (int(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else None),
     }
     if route not in COUNT_ROUTES:

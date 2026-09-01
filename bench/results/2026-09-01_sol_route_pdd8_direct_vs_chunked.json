@@ -1,0 +1,1313 @@
+{
+ "produced_by": "bench/compare_sol_records.py",
+ "a": {
+  "record": "sol_observe_20260901_174822.jsonl",
+  "pid": 730352,
+  "prompt_id": "46e16f97-a3bd-41a6-811e-18ed37a6ff6b",
+  "workflow_file": "h3_text_to_video_pdd_api.json",
+  "process_render_index": 0
+ },
+ "b": {
+  "record": "sol_observe_20260901_174822.jsonl",
+  "pid": 730352,
+  "prompt_id": "a11bb1f7-0f72-463d-b8f8-0500233b6bfe",
+  "workflow_file": null,
+  "process_render_index": 1
+ },
+ "paired": 184,
+ "only_in_a": 0,
+ "only_in_b": 1,
+ "bitwise_identical": 0,
+ "differing": [
+  [
+   [
+    3,
+    2
+   ],
+   "20432 of 91336 entries differ, max |diff| 8"
+  ],
+  [
+   [
+    4,
+    2
+   ],
+   "58682 of 91336 entries differ, max |diff| 9"
+  ],
+  [
+   [
+    5,
+    2
+   ],
+   "60794 of 91336 entries differ, max |diff| 9"
+  ],
+  [
+   [
+    6,
+    2
+   ],
+   "61915 of 91336 entries differ, max |diff| 9"
+  ],
+  [
+   [
+    7,
+    2
+   ],
+   "63290 of 91336 entries differ, max |diff| 12"
+  ],
+  [
+   [
+    8,
+    2
+   ],
+   "64460 of 91336 entries differ, max |diff| 10"
+  ],
+  [
+   [
+    9,
+    2
+   ],
+   "64581 of 91336 entries differ, max |diff| 12"
+  ],
+  [
+   [
+    10,
+    2
+   ],
+   "65083 of 91336 entries differ, max |diff| 15"
+  ],
+  [
+   [
+    11,
+    2
+   ],
+   "65690 of 91336 entries differ, max |diff| 10"
+  ],
+  [
+   [
+    12,
+    2
+   ],
+   "66254 of 91336 entries differ, max |diff| 10"
+  ],
+  [
+   [
+    13,
+    2
+   ],
+   "66474 of 91336 entries differ, max |diff| 10"
+  ],
+  [
+   [
+    14,
+    2
+   ],
+   "66713 of 91336 entries differ, max |diff| 10"
+  ],
+  [
+   [
+    15,
+    2
+   ],
+   "67348 of 91336 entries differ, max |diff| 10"
+  ],
+  [
+   [
+    16,
+    2
+   ],
+   "66626 of 91336 entries differ, max |diff| 9"
+  ],
+  [
+   [
+    17,
+    2
+   ],
+   "66948 of 91336 entries differ, max |diff| 11"
+  ],
+  [
+   [
+    18,
+    2
+   ],
+   "65982 of 91336 entries differ, max |diff| 10"
+  ],
+  [
+   [
+    19,
+    2
+   ],
+   "67837 of 91336 entries differ, max |diff| 13"
+  ],
+  [
+   [
+    20,
+    2
+   ],
+   "67397 of 91336 entries differ, max |diff| 10"
+  ],
+  [
+   [
+    21,
+    2
+   ],
+   "66256 of 91336 entries differ, max |diff| 12"
+  ],
+  [
+   [
+    22,
+    2
+   ],
+   "67718 of 91336 entries differ, max |diff| 11"
+  ],
+  [
+   [
+    23,
+    2
+   ],
+   "68194 of 91336 entries differ, max |diff| 11"
+  ],
+  [
+   [
+    24,
+    2
+   ],
+   "68155 of 91336 entries differ, max |diff| 11"
+  ],
+  [
+   [
+    25,
+    2
+   ],
+   "67882 of 91336 entries differ, max |diff| 11"
+  ],
+  [
+   [
+    26,
+    2
+   ],
+   "67068 of 91336 entries differ, max |diff| 12"
+  ],
+  [
+   [
+    27,
+    2
+   ],
+   "67263 of 91336 entries differ, max |diff| 13"
+  ],
+  [
+   [
+    28,
+    2
+   ],
+   "69148 of 91336 entries differ, max |diff| 13"
+  ],
+  [
+   [
+    29,
+    2
+   ],
+   "69264 of 91336 entries differ, max |diff| 14"
+  ],
+  [
+   [
+    30,
+    2
+   ],
+   "72210 of 91336 entries differ, max |diff| 13"
+  ],
+  [
+   [
+    31,
+    2
+   ],
+   "74730 of 91336 entries differ, max |diff| 16"
+  ],
+  [
+   [
+    33,
+    2
+   ],
+   "77211 of 91336 entries differ, max |diff| 26"
+  ],
+  [
+   [
+    34,
+    2
+   ],
+   "78655 of 91336 entries differ, max |diff| 34"
+  ],
+  [
+   [
+    35,
+    2
+   ],
+   "79074 of 91336 entries differ, max |diff| 48"
+  ],
+  [
+   [
+    36,
+    2
+   ],
+   "78834 of 91336 entries differ, max |diff| 56"
+  ],
+  [
+   [
+    37,
+    2
+   ],
+   "79186 of 91336 entries differ, max |diff| 50"
+  ],
+  [
+   [
+    38,
+    2
+   ],
+   "79246 of 91336 entries differ, max |diff| 37"
+  ],
+  [
+   [
+    39,
+    2
+   ],
+   "81505 of 91336 entries differ, max |diff| 73"
+  ],
+  [
+   [
+    40,
+    2
+   ],
+   "82020 of 91336 entries differ, max |diff| 60"
+  ],
+  [
+   [
+    41,
+    2
+   ],
+   "81741 of 91336 entries differ, max |diff| 63"
+  ],
+  [
+   [
+    42,
+    2
+   ],
+   "82070 of 91336 entries differ, max |diff| 63"
+  ],
+  [
+   [
+    43,
+    2
+   ],
+   "80200 of 91336 entries differ, max |diff| 40"
+  ],
+  [
+   [
+    44,
+    2
+   ],
+   "80109 of 91336 entries differ, max |diff| 45"
+  ],
+  [
+   [
+    45,
+    2
+   ],
+   "79885 of 91336 entries differ, max |diff| 35"
+  ],
+  [
+   [
+    46,
+    2
+   ],
+   "78765 of 91336 entries differ, max |diff| 30"
+  ],
+  [
+   [
+    47,
+    2
+   ],
+   "78553 of 91336 entries differ, max |diff| 45"
+  ],
+  [
+   [
+    48,
+    2
+   ],
+   "79477 of 91336 entries differ, max |diff| 59"
+  ],
+  [
+   [
+    49,
+    2
+   ],
+   "78683 of 91336 entries differ, max |diff| 121"
+  ],
+  [
+   [
+    3,
+    3
+   ],
+   "67968 of 91336 entries differ, max |diff| 13"
+  ],
+  [
+   [
+    4,
+    3
+   ],
+   "70247 of 91336 entries differ, max |diff| 15"
+  ],
+  [
+   [
+    5,
+    3
+   ],
+   "70704 of 91336 entries differ, max |diff| 17"
+  ],
+  [
+   [
+    6,
+    3
+   ],
+   "70847 of 91336 entries differ, max |diff| 15"
+  ],
+  [
+   [
+    7,
+    3
+   ],
+   "72038 of 91336 entries differ, max |diff| 15"
+  ],
+  [
+   [
+    8,
+    3
+   ],
+   "72091 of 91336 entries differ, max |diff| 17"
+  ],
+  [
+   [
+    9,
+    3
+   ],
+   "72229 of 91336 entries differ, max |diff| 17"
+  ],
+  [
+   [
+    10,
+    3
+   ],
+   "72409 of 91336 entries differ, max |diff| 15"
+  ],
+  [
+   [
+    11,
+    3
+   ],
+   "73084 of 91336 entries differ, max |diff| 13"
+  ],
+  [
+   [
+    12,
+    3
+   ],
+   "73377 of 91336 entries differ, max |diff| 13"
+  ],
+  [
+   [
+    13,
+    3
+   ],
+   "73639 of 91336 entries differ, max |diff| 15"
+  ],
+  [
+   [
+    14,
+    3
+   ],
+   "73738 of 91336 entries differ, max |diff| 14"
+  ],
+  [
+   [
+    15,
+    3
+   ],
+   "74586 of 91336 entries differ, max |diff| 16"
+  ],
+  [
+   [
+    16,
+    3
+   ],
+   "74161 of 91336 entries differ, max |diff| 15"
+  ],
+  [
+   [
+    17,
+    3
+   ],
+   "74089 of 91336 entries differ, max |diff| 16"
+  ],
+  [
+   [
+    18,
+    3
+   ],
+   "73723 of 91336 entries differ, max |diff| 19"
+  ],
+  [
+   [
+    19,
+    3
+   ],
+   "74899 of 91336 entries differ, max |diff| 21"
+  ],
+  [
+   [
+    20,
+    3
+   ],
+   "74612 of 91336 entries differ, max |diff| 17"
+  ],
+  [
+   [
+    21,
+    3
+   ],
+   "74057 of 91336 entries differ, max |diff| 22"
+  ],
+  [
+   [
+    22,
+    3
+   ],
+   "74718 of 91336 entries differ, max |diff| 20"
+  ],
+  [
+   [
+    23,
+    3
+   ],
+   "75191 of 91336 entries differ, max |diff| 15"
+  ],
+  [
+   [
+    24,
+    3
+   ],
+   "74693 of 91336 entries differ, max |diff| 18"
+  ],
+  [
+   [
+    25,
+    3
+   ],
+   "74578 of 91336 entries differ, max |diff| 24"
+  ],
+  [
+   [
+    26,
+    3
+   ],
+   "73957 of 91336 entries differ, max |diff| 23"
+  ],
+  [
+   [
+    27,
+    3
+   ],
+   "74461 of 91336 entries differ, max |diff| 23"
+  ],
+  [
+   [
+    28,
+    3
+   ],
+   "75448 of 91336 entries differ, max |diff| 20"
+  ],
+  [
+   [
+    29,
+    3
+   ],
+   "75116 of 91336 entries differ, max |diff| 22"
+  ],
+  [
+   [
+    30,
+    3
+   ],
+   "77391 of 91336 entries differ, max |diff| 37"
+  ],
+  [
+   [
+    31,
+    3
+   ],
+   "78942 of 91336 entries differ, max |diff| 34"
+  ],
+  [
+   [
+    33,
+    3
+   ],
+   "80955 of 91336 entries differ, max |diff| 45"
+  ],
+  [
+   [
+    34,
+    3
+   ],
+   "82158 of 91336 entries differ, max |diff| 43"
+  ],
+  [
+   [
+    35,
+    3
+   ],
+   "82156 of 91336 entries differ, max |diff| 66"
+  ],
+  [
+   [
+    36,
+    3
+   ],
+   "81811 of 91336 entries differ, max |diff| 53"
+  ],
+  [
+   [
+    37,
+    3
+   ],
+   "81515 of 91336 entries differ, max |diff| 58"
+  ],
+  [
+   [
+    38,
+    3
+   ],
+   "81685 of 91336 entries differ, max |diff| 53"
+  ],
+  [
+   [
+    39,
+    3
+   ],
+   "83406 of 91336 entries differ, max |diff| 83"
+  ],
+  [
+   [
+    40,
+    3
+   ],
+   "83882 of 91336 entries differ, max |diff| 106"
+  ],
+  [
+   [
+    41,
+    3
+   ],
+   "83555 of 91336 entries differ, max |diff| 85"
+  ],
+  [
+   [
+    42,
+    3
+   ],
+   "83763 of 91336 entries differ, max |diff| 125"
+  ],
+  [
+   [
+    43,
+    3
+   ],
+   "81980 of 91336 entries differ, max |diff| 88"
+  ],
+  [
+   [
+    44,
+    3
+   ],
+   "81858 of 91336 entries differ, max |diff| 78"
+  ],
+  [
+   [
+    45,
+    3
+   ],
+   "81626 of 91336 entries differ, max |diff| 83"
+  ],
+  [
+   [
+    46,
+    3
+   ],
+   "81129 of 91336 entries differ, max |diff| 78"
+  ],
+  [
+   [
+    47,
+    3
+   ],
+   "80619 of 91336 entries differ, max |diff| 57"
+  ],
+  [
+   [
+    48,
+    3
+   ],
+   "81698 of 91336 entries differ, max |diff| 60"
+  ],
+  [
+   [
+    49,
+    3
+   ],
+   "80490 of 91336 entries differ, max |diff| 217"
+  ],
+  [
+   [
+    3,
+    4
+   ],
+   "70815 of 91336 entries differ, max |diff| 24"
+  ],
+  [
+   [
+    4,
+    4
+   ],
+   "73004 of 91336 entries differ, max |diff| 28"
+  ],
+  [
+   [
+    5,
+    4
+   ],
+   "73403 of 91336 entries differ, max |diff| 22"
+  ],
+  [
+   [
+    6,
+    4
+   ],
+   "73936 of 91336 entries differ, max |diff| 18"
+  ],
+  [
+   [
+    7,
+    4
+   ],
+   "74768 of 91336 entries differ, max |diff| 23"
+  ],
+  [
+   [
+    8,
+    4
+   ],
+   "74991 of 91336 entries differ, max |diff| 41"
+  ],
+  [
+   [
+    9,
+    4
+   ],
+   "75090 of 91336 entries differ, max |diff| 44"
+  ],
+  [
+   [
+    10,
+    4
+   ],
+   "75488 of 91336 entries differ, max |diff| 30"
+  ],
+  [
+   [
+    11,
+    4
+   ],
+   "76153 of 91336 entries differ, max |diff| 34"
+  ],
+  [
+   [
+    12,
+    4
+   ],
+   "76367 of 91336 entries differ, max |diff| 47"
+  ],
+  [
+   [
+    13,
+    4
+   ],
+   "76745 of 91336 entries differ, max |diff| 27"
+  ],
+  [
+   [
+    14,
+    4
+   ],
+   "76893 of 91336 entries differ, max |diff| 28"
+  ],
+  [
+   [
+    15,
+    4
+   ],
+   "77681 of 91336 entries differ, max |diff| 36"
+  ],
+  [
+   [
+    16,
+    4
+   ],
+   "77405 of 91336 entries differ, max |diff| 31"
+  ],
+  [
+   [
+    17,
+    4
+   ],
+   "77299 of 91336 entries differ, max |diff| 59"
+  ],
+  [
+   [
+    18,
+    4
+   ],
+   "76950 of 91336 entries differ, max |diff| 53"
+  ],
+  [
+   [
+    19,
+    4
+   ],
+   "78426 of 91336 entries differ, max |diff| 61"
+  ],
+  [
+   [
+    20,
+    4
+   ],
+   "77966 of 91336 entries differ, max |diff| 49"
+  ],
+  [
+   [
+    21,
+    4
+   ],
+   "77609 of 91336 entries differ, max |diff| 48"
+  ],
+  [
+   [
+    22,
+    4
+   ],
+   "78379 of 91336 entries differ, max |diff| 40"
+  ],
+  [
+   [
+    23,
+    4
+   ],
+   "78791 of 91336 entries differ, max |diff| 49"
+  ],
+  [
+   [
+    24,
+    4
+   ],
+   "78602 of 91336 entries differ, max |diff| 73"
+  ],
+  [
+   [
+    25,
+    4
+   ],
+   "78357 of 91336 entries differ, max |diff| 50"
+  ],
+  [
+   [
+    26,
+    4
+   ],
+   "77949 of 91336 entries differ, max |diff| 51"
+  ],
+  [
+   [
+    27,
+    4
+   ],
+   "78217 of 91336 entries differ, max |diff| 47"
+  ],
+  [
+   [
+    28,
+    4
+   ],
+   "79527 of 91336 entries differ, max |diff| 55"
+  ],
+  [
+   [
+    29,
+    4
+   ],
+   "78983 of 91336 entries differ, max |diff| 79"
+  ],
+  [
+   [
+    30,
+    4
+   ],
+   "80812 of 91336 entries differ, max |diff| 64"
+  ],
+  [
+   [
+    31,
+    4
+   ],
+   "82426 of 91336 entries differ, max |diff| 69"
+  ],
+  [
+   [
+    33,
+    4
+   ],
+   "83469 of 91336 entries differ, max |diff| 79"
+  ],
+  [
+   [
+    34,
+    4
+   ],
+   "84436 of 91336 entries differ, max |diff| 88"
+  ],
+  [
+   [
+    35,
+    4
+   ],
+   "84018 of 91336 entries differ, max |diff| 82"
+  ],
+  [
+   [
+    36,
+    4
+   ],
+   "83482 of 91336 entries differ, max |diff| 85"
+  ],
+  [
+   [
+    37,
+    4
+   ],
+   "83136 of 91336 entries differ, max |diff| 99"
+  ],
+  [
+   [
+    38,
+    4
+   ],
+   "83060 of 91336 entries differ, max |diff| 86"
+  ],
+  [
+   [
+    39,
+    4
+   ],
+   "84597 of 91336 entries differ, max |diff| 83"
+  ],
+  [
+   [
+    40,
+    4
+   ],
+   "84985 of 91336 entries differ, max |diff| 118"
+  ],
+  [
+   [
+    41,
+    4
+   ],
+   "84771 of 91336 entries differ, max |diff| 92"
+  ],
+  [
+   [
+    42,
+    4
+   ],
+   "84680 of 91336 entries differ, max |diff| 145"
+  ],
+  [
+   [
+    43,
+    4
+   ],
+   "83025 of 91336 entries differ, max |diff| 115"
+  ],
+  [
+   [
+    44,
+    4
+   ],
+   "82834 of 91336 entries differ, max |diff| 74"
+  ],
+  [
+   [
+    45,
+    4
+   ],
+   "82478 of 91336 entries differ, max |diff| 99"
+  ],
+  [
+   [
+    46,
+    4
+   ],
+   "82066 of 91336 entries differ, max |diff| 67"
+  ],
+  [
+   [
+    47,
+    4
+   ],
+   "81642 of 91336 entries differ, max |diff| 119"
+  ],
+  [
+   [
+    48,
+    4
+   ],
+   "82329 of 91336 entries differ, max |diff| 73"
+  ],
+  [
+   [
+    49,
+    4
+   ],
+   "81096 of 91336 entries differ, max |diff| 175"
+  ],
+  [
+   [
+    3,
+    5
+   ],
+   "72745 of 91336 entries differ, max |diff| 34"
+  ],
+  [
+   [
+    4,
+    5
+   ],
+   "74504 of 91336 entries differ, max |diff| 40"
+  ],
+  [
+   [
+    5,
+    5
+   ],
+   "74929 of 91336 entries differ, max |diff| 41"
+  ],
+  [
+   [
+    6,
+    5
+   ],
+   "75557 of 91336 entries differ, max |diff| 24"
+  ],
+  [
+   [
+    7,
+    5
+   ],
+   "76683 of 91336 entries differ, max |diff| 47"
+  ],
+  [
+   [
+    8,
+    5
+   ],
+   "76614 of 91336 entries differ, max |diff| 63"
+  ],
+  [
+   [
+    9,
+    5
+   ],
+   "76804 of 91336 entries differ, max |diff| 61"
+  ],
+  [
+   [
+    10,
+    5
+   ],
+   "77421 of 91336 entries differ, max |diff| 40"
+  ],
+  [
+   [
+    11,
+    5
+   ],
+   "77948 of 91336 entries differ, max |diff| 39"
+  ],
+  [
+   [
+    12,
+    5
+   ],
+   "78402 of 91336 entries differ, max |diff| 77"
+  ],
+  [
+   [
+    13,
+    5
+   ],
+   "78492 of 91336 entries differ, max |diff| 36"
+  ],
+  [
+   [
+    14,
+    5
+   ],
+   "79022 of 91336 entries differ, max |diff| 42"
+  ],
+  [
+   [
+    15,
+    5
+   ],
+   "79570 of 91336 entries differ, max |diff| 51"
+  ],
+  [
+   [
+    16,
+    5
+   ],
+   "79311 of 91336 entries differ, max |diff| 65"
+  ],
+  [
+   [
+    17,
+    5
+   ],
+   "79397 of 91336 entries differ, max |diff| 128"
+  ],
+  [
+   [
+    18,
+    5
+   ],
+   "79154 of 91336 entries differ, max |diff| 54"
+  ],
+  [
+   [
+    19,
+    5
+   ],
+   "80159 of 91336 entries differ, max |diff| 79"
+  ],
+  [
+   [
+    20,
+    5
+   ],
+   "80405 of 91336 entries differ, max |diff| 60"
+  ],
+  [
+   [
+    21,
+    5
+   ],
+   "80082 of 91336 entries differ, max |diff| 70"
+  ],
+  [
+   [
+    22,
+    5
+   ],
+   "80412 of 91336 entries differ, max |diff| 68"
+  ],
+  [
+   [
+    23,
+    5
+   ],
+   "80810 of 91336 entries differ, max |diff| 71"
+  ],
+  [
+   [
+    24,
+    5
+   ],
+   "80760 of 91336 entries differ, max |diff| 83"
+  ],
+  [
+   [
+    25,
+    5
+   ],
+   "80404 of 91336 entries differ, max |diff| 69"
+  ],
+  [
+   [
+    26,
+    5
+   ],
+   "80065 of 91336 entries differ, max |diff| 82"
+  ],
+  [
+   [
+    27,
+    5
+   ],
+   "80386 of 91336 entries differ, max |diff| 71"
+  ],
+  [
+   [
+    28,
+    5
+   ],
+   "81450 of 91336 entries differ, max |diff| 65"
+  ],
+  [
+   [
+    29,
+    5
+   ],
+   "80663 of 91336 entries differ, max |diff| 78"
+  ],
+  [
+   [
+    30,
+    5
+   ],
+   "82545 of 91336 entries differ, max |diff| 86"
+  ],
+  [
+   [
+    31,
+    5
+   ],
+   "83682 of 91336 entries differ, max |diff| 77"
+  ],
+  [
+   [
+    33,
+    5
+   ],
+   "84680 of 91336 entries differ, max |diff| 103"
+  ],
+  [
+   [
+    34,
+    5
+   ],
+   "85326 of 91336 entries differ, max |diff| 100"
+  ],
+  [
+   [
+    35,
+    5
+   ],
+   "84907 of 91336 entries differ, max |diff| 122"
+  ],
+  [
+   [
+    36,
+    5
+   ],
+   "84461 of 91336 entries differ, max |diff| 93"
+  ],
+  [
+   [
+    37,
+    5
+   ],
+   "84080 of 91336 entries differ, max |diff| 98"
+  ],
+  [
+   [
+    38,
+    5
+   ],
+   "83945 of 91336 entries differ, max |diff| 103"
+  ],
+  [
+   [
+    39,
+    5
+   ],
+   "85440 of 91336 entries differ, max |diff| 103"
+  ],
+  [
+   [
+    40,
+    5
+   ],
+   "85762 of 91336 entries differ, max |diff| 116"
+  ],
+  [
+   [
+    41,
+    5
+   ],
+   "85436 of 91336 entries differ, max |diff| 109"
+  ],
+  [
+   [
+    42,
+    5
+   ],
+   "85551 of 91336 entries differ, max |diff| 122"
+  ],
+  [
+   [
+    43,
+    5
+   ],
+   "83673 of 91336 entries differ, max |diff| 132"
+  ],
+  [
+   [
+    44,
+    5
+   ],
+   "83394 of 91336 entries differ, max |diff| 81"
+  ],
+  [
+   [
+    45,
+    5
+   ],
+   "83031 of 91336 entries differ, max |diff| 97"
+  ],
+  [
+   [
+    46,
+    5
+   ],
+   "82707 of 91336 entries differ, max |diff| 67"
+  ],
+  [
+   [
+    47,
+    5
+   ],
+   "82137 of 91336 entries differ, max |diff| 89"
+  ],
+  [
+   [
+    48,
+    5
+   ],
+   "83045 of 91336 entries differ, max |diff| 70"
+  ],
+  [
+   [
+    49,
+    5
+   ],
+   "81263 of 91336 entries differ, max |diff| 198"
+  ]
+ ],
+ "worst_abs_diff_blocks": 217,
+ "claim": "the cache state (or something else between the runs) reaches the routing"
+}

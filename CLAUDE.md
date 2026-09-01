@@ -597,9 +597,12 @@ subset -- and it is worse here, because the subset looks like a complete
 answer rather than an empty one.
 
 **Do not import Python from it.** A build is installed
-(`0.2.31+sol.24908e1` since 2026-09-01: our `sol-blk-cnt` branch in the
-workspace clone, two commits past upstream main `c1c6751`, adding the `blk_cnt`
-out-parameter that `sol_observe.py` reads; `0.2.31+sol.dae00a1`, upstream main
+(`0.2.31+sol.d25f2e8` since the evening of 2026-09-01: our `sol-blk-cnt-continued`
+branch in the workspace clone, kijai's `sol_attn_continued` plus the `blk_cnt`
+out-parameter that `sol_observe.py` reads on both Sol entries -- installed as a
+superset, not on merit, a wash against `0.2.31+sol.24908e1`, our `sol-blk-cnt`
+branch two commits past upstream main `c1c6751`, which every record that day was
+captured on and which is the clean base for an upstream PR; `0.2.31+sol.dae00a1`, upstream main
 with Sol-Attn merged, from 2026-08-29; `0.2.31+sol.23d1a66`, kijai's branch,
 before that -- **all call themselves 0.2.31, so read the local segment from
 the dist-info, never the version and never this sentence: a requirements

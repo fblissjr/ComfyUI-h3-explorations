@@ -37,9 +37,17 @@ artifact.
   path on the same weights: cosine 0.99995 on the second call and 0.99994
   on a ragged first call, peak allocation over a 32k-token call 87 MiB
   against 192, routing agreement on 99% of query blocks, and the gate,
-  recording and non-H3 refusal paths. `docs/open_experiments.md` #25 is the
-  question it answers; the canonical-geometry A/B is graded on the new
-  `peak_alloc_bytes` field.
+  recording and non-H3 refusal paths. **The canonical-geometry A/B answered
+  `docs/open_experiments.md` #25 against the node**: on the shipped PDD graph
+  the process peak (11.68 GiB by the end of the first forward, which runs on
+  Sage outside the Sol window) never sat in Sol's attention call, so there
+  was nothing for the producer to lower, and its first call raised the peak
+  by about a gigabyte (12.87 GiB); and it routes a different block set at
+  the same density, agreeing with the direct path on 23 percent of (head,
+  query block) pairs at the first in-window forward and 11 percent by the
+  fourth. It stays as an experiment node, not a default. Records under
+  `internal/sol_observe/2026-09-01_chunked_ab/`, summaries in
+  `bench/results/2026-09-01_sol_route_pdd8_{direct_ab,chunked_ab,direct_vs_chunked}.json`.
 - `sol_attn_chunked` gains the same optional `blk_cnt` out-parameter on the
   comfy-kitchen branch, so a chunked call records like a direct one
   (`sol_chunked` route, `path: chunked_delegate`).

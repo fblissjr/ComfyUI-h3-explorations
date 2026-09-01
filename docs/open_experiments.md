@@ -1883,3 +1883,23 @@ per-chunk arithmetic drifted.
 application for one forward, plus the call-level equivalence check, plus
 the composition proof that `check_sol_node_equivalence.py`'s pattern already
 gives. Enforced by nothing until built.
+
+**Built and measured the same evening, and the answer is no, in this
+arrangement.** `sol_chunked_h3.py` (`MiniMaxH3SolChunked`), graded by
+`bench/check_sol_chunked.py` at toy scale (cosine 0.99995 against the
+direct path, peak over a 32k-token call 87 MiB against 192), then rendered
+against the shipped PDD graph at 1344x768, 345 frames, same seed, in one
+armed process. The process peak was 11.68 GiB by the end of the FIRST
+forward, which runs on Sage outside the Sol window, and 11.88 GiB by the
+end of the shipped arm; Sol's direct attention call never set it. The
+chunked arm's first in-window call raised it to 12.87 GiB and the next to
+12.91. So the Q, K, V the producer avoids are not where this graph's peak
+lives, and the producer's own working set costs about a gigabyte more.
+Routing: same density to four decimals (0.2090 against 0.2090 at the first
+in-window forward) but a different block set, agreeing on 23 percent of
+(head, query block) pairs at that forward and 11 percent by the fourth, as
+the producer's previous-step key statistics drift from the direct path's
+current ones. What that costs in output is unmeasured. Where the peak
+actually sits is the next question, and it is not an attention question.
+Records: `internal/sol_observe/2026-09-01_chunked_ab/`; summaries
+`bench/results/2026-09-01_sol_route_pdd8_{direct_ab,chunked_ab,direct_vs_chunked}.json`.
