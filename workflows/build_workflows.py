@@ -25,6 +25,27 @@ Run it to regenerate:
 It writes the JSON next to itself and validates every API graph against a
 live ComfyUI's /object_info (or a cached copy passed with --object-info).
 Validation is static -- nothing is submitted, nothing touches the GPU.
+
+**Generation is byte-deterministic, and checking that the shipped graphs are
+current costs about twelve seconds and needs no server:**
+
+    build_workflows.py --out "$TMP" --no-validate && diff -rq "$TMP" workflows
+
+Zero differing files means the tree matches this file. Measured 2026-08-31 --
+12.1s, 157 files, no diff. Nobody knew this was cheap, which is why the rule
+above ("nothing is true of a graph until it is rebuilt") had been enforced by
+remembering to run it.
+
+Deliberately NOT a check in `bench/`. The state it catches -- generator edited,
+graphs not rebuilt -- is real, and it happened on 2026-08-31 when this file
+emitted `head_strength -1.0` while all 20 shipped graphs still carried 1.0. But
+that divergence lived under an hour and was caught by reading `git status`
+inside the session that made it, so it is not an escape. And a gate asserting
+freshness is CORRECTLY red for most of any session that touches this file,
+which is the shape people learn to run last. Freshness matters at COMMIT: if
+this is ever wanted as a gate, it belongs in the pre-commit hook, where it
+fires once at the moment the answer matters. What would change that: a
+divergence that actually ships, i.e. survives the session that made it.
 """
 
 from __future__ import annotations
@@ -4410,49 +4431,26 @@ the bottom 63% of the range**. Krea 2's sweet spot of k=2-3 was still at sigma
 """
 
 
-_NOTE_TURBO_768P = f"""\
-## The turbo LoRAs whose shift is not 12/3
 
-This graph loads the **{turbo_label(TURBO_768P_LORA)}** LoRA at
-**{TURBO_768P_STEPS} steps, strength {TURBO_768P_STRENGTH:g}**, video shift
-**{TURBO_768P_SHIFT["shift_video"]:g}** and audio shift
-{TURBO_768P_SHIFT["shift_audio"]:g}.
 
-**Steps and strength here are an owner-selected recipe, not the vendor's
-row.** The vendor documents {TURBO_768P_DISTILLED_STEPS} NFE at strength 1.0,
-and that is what the student was distilled to do; the table below records it.
-Six steps at 0.75 is what the owner's own trials preferred as of 2026-08-23,
-and it is provisional -- no blind distribution has scored it. The shift is
-NOT part of the recipe: 6/3 is the training value and stays.
-
-| LoRA | trained at | shift (v/a) | steps |
-|---|---|---|---|
-| 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |
-| 8-step v1.0 | 544p, mixed aspect | 12 / 3 | 8 or 4 |
-| {turbo_label(TURBO_768P_LORA)} (this graph) | **1344x768** | **6** / 3 | {TURBO_768P_DISTILLED_STEPS} distilled, **{TURBO_768P_STEPS} rendered** |
-| ref2v 4-step v0.1 | 544p, mixed aspect | 12 / 3 | 4 |
-| 4-step v0.1 768p **SLA** | **1344x768** | **6** / 3 | 4 |
-
-The SLA one shares this graph's row and is its own probe,
-`h3_probe_turbo_768p_sla.json`: same graph, only the LoRA file swapped.
-
-**A turbo LoRA inherits the sampler's shift. It does not carry its own.** So
-loading this one into a graph whose ModelSamplingMiniMaxH3 still reads 12/3
-samples it off a schedule it never saw, and **nothing errors** -- the render
-completes and looks plausibly wrong. That is the whole reason this ships as
-its own graph instead of a sentence telling you to change two widgets.
-
-`bench/check_distill_settings.py` enforces the pairing across every shipped
-graph and grades the table above against the vendor's own README.
-
-**This is the one turbo LoRA that is already home on this canvas.** It was
-distilled at 1344x768, which is what this graph renders. The 8-step was
-distilled at 544p, so `h3_text_to_video_turbo.json` is the graph with a
-resolution tension and this one is not.
-
-The trade is steps: 4 here against the 8-step's 8. Fewer evaluations on a
-schedule whose final jump is already the largest one it takes.
-"""
+# **`_NOTE_TURBO_768P` and `_NOTE_FL2V_TURBO` stood here and are deleted as of
+# 2026-08-31**, with the two `turbo_4step_768p` graphs that were their only
+# consumers (`e9098fb`). Deleted rather than moved into `docs/`, which was the
+# tempting option: all three things they held already live somewhere with an
+# assertion behind them, so relocating them would have moved a cache rather
+# than retired one.
+#
+#   the LoRA -> shift/steps table  `bench/check_distill_settings.py`'s `LEGAL`,
+#                                  all five rows, graded against the vendor's
+#                                  README with a declared `UNATTESTED` list
+#   "a turbo LoRA inherits the    that check's own docstring, verbatim, and it
+#    sampler's shift"             raises with the same language
+#   the canvas argument           `docs/h3_ref2v_distillation.md`
+#
+# The note also claimed `check_distill_settings.py` "grades the table above".
+# It does not -- it grades the same facts from its own source and never read
+# that table. A markdown table nothing can invalidate is the exact shape
+# `docs/config_drift.md` is about.
 
 
 def _note_ref_transfer(checkpoint: str, what: str) -> str:
@@ -4554,33 +4552,6 @@ shot so the model can interpolate continuously from the first frame to the last"
 and multiple shots are for when they are explicitly specified.
 """
 
-_NOTE_FL2V_TURBO = f"""\
-## The first turbo arm this repo has run in distribution
-
-Every turbo LoRA the vendor released is an **fl2v** distill -- the filenames say
-so and so does `_NOTE_REF2V_TURBO` -- and until this graph every turbo arm here
-was t2v or ref2v. So every turbo number and every turbo comparison recorded in
-this repo was taken out of distribution, including the ones that reason
-carefully about *how far* out.
-
-This is `h3_first_last_frame_to_video.json` with the
-{turbo_label(TURBO_768P_LORA)} LoRA at this repo's current recipe:
-{TURBO_768P_STEPS} steps, shift 6/3, `{TURBO_SAMPLER}`, strength
-{TURBO_768P_STRENGTH:g}. The shift is the vendor's training value; the steps
-and strength are owner-selected and provisional, so a number taken here is
-comparable to other arms on this recipe and not to the vendor's
-{TURBO_768P_DISTILLED_STEPS}-NFE row. Same canvas, same seed, same length, same placeholder
-keyframes as its base twin, so the pair is comparable by construction.
-
-**What it is for.** Not "is turbo good" -- a rendered pair cannot A/B a
-numerical knob, and this repo's own rule says so. It is the missing reference
-point: when a ref2v turbo arm degrades, there has been no in-distribution arm to
-say how much of that is the LoRA being asked to do something it was not
-distilled for. Now there is one.
-
-**The short edge matters here.** {FL2V_CANVAS['width']}x{FL2V_CANVAS['height']}
-carries the 768 short edge this LoRA is named for, unlike the 544p home canvas.
-"""
 
 
 _NOTE_REF2V_TURBO = f"""\
