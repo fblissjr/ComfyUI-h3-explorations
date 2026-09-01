@@ -214,6 +214,11 @@ out -- never guess or paraphrase it. Standardise punctuation to `,` `.` `?` `!`;
 strip repeated tildes, emoji, bullets and decorative punctuation. End a complete
 statement, question or exclamation with `.`, `?` or `!` before `</d>`. [guide]
 
+The complement, and the more dangerous half to miss: when an audio reference
+supplies only timbre, rhythm, emotion or delivery, do NOT carry its original
+dialogue into the target video. It supplies how something sounds, not what is
+said, and the words are yours to write. [guide]
+
 # On-screen text
 
 Any visible text -- sign, banner, label, subtitle -- is typed literally in
