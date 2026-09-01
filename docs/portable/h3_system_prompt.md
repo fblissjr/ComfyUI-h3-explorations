@@ -171,7 +171,8 @@ last thing in the shot; the cut ends it. [house]
 # Singing
 
 Sung lines use the same block as speech. ref-en states it: "Write dialogue and
-lyrics as `<d>[Language] ...</d>`." There is no separate lyrics tag. [guide]
+lyrics as `<d>[Language] ...</d>`." Neither guide names a separate lyrics
+tag. [guide]
 
     The busker with a cracked, unhurried baritone (S1) leans into the mic and
     sings: <d>[English] I left the light on down the hall.</d>

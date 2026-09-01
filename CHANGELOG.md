@@ -4,6 +4,25 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.17
+
+### Fixed
+
+- **`docs/portable/h3_system_prompt.md` claimed no separate lyrics tag exists,
+  and contradicted itself five lines later.** The sentence was unscoped and
+  tagged `[guide]`, so it asserted the guides state an absence; what is true is
+  that neither guide *names* one, while the release does declare
+  `<|lyrics_start|>` / `<|lyrics_end|>` -- which the same file says a few lines
+  down. Now "Neither guide names a separate lyrics tag." The portable page and
+  `docs/prompting.md` §5.8 already carried the scoped form and are unchanged.
+
+### Notes
+
+- Caught from a downstream consumer's correction to their own copy, not from
+  reading ours. The distinction is the same one this repo already applies to
+  guide numbers: a claim about what a document says is not a claim about what
+  exists.
+
 ## 0.99.16
 
 ### Fixed
