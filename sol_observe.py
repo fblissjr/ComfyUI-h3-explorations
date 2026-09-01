@@ -645,6 +645,12 @@ def record(*, route: str, reason: str | None, counts: torch.Tensor | None, optio
     outside_q = [i for i in range(ntb) if not (q0 <= i < q1)]
     diag = (forced[outside_q] - sink_count) if outside_q else None
     oe_overall, oe_heads, oe_num, oe_den = ordering_effect(c, forced, ntb, sink_q)
+    # Stamp the weighting only on a DEFINED distribution. `dict(None or {},
+    # weighting=...)` is a truthy {"weighting": "query"} with no mean, which
+    # broke the null contract the header states (Codex's follow-up review).
+    routed_stats = _stats(adaptive.flatten())
+    if routed_stats is not None:
+        routed_stats["weighting"] = "query"
     segments = _segments(options)
     row.update({
         "forced": {"sink": sink_count, "sink_range_clamped": [s0, s1],
@@ -655,7 +661,7 @@ def record(*, route: str, reason: str | None, counts: torch.Tensor | None, optio
         "kernel_density": _stats(kernel.flatten()),
         "ordering_effect_density": {"overall": oe_overall, "numerator": oe_num,
                                     "denominator": oe_den, "weighting": "pair"},
-        "routed_density": dict(_stats(adaptive.flatten()) or {}, weighting="query") or None,
+        "routed_density": routed_stats,
         "per_head": {"kernel_mean": [float(x) for x in kernel.mean(dim=(0, 2))],   # float64 reductions
                      "ordering_effect": oe_heads,
                      "routed_mean": [_nanmean_or_none(adaptive[:, h]) for h in range(adaptive.shape[1])]},

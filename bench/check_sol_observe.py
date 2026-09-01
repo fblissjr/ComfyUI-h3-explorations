@@ -70,6 +70,13 @@ Claims, i.e. what breaks if a case is deleted:
       the query-weighted `routed_density.mean` is 0.5667 and the
       pair-weighted `ordering_effect_density` is 0.5833, both to 1e-9, so the
       two names cannot be read as one number.
+  undefined_adaptive_figures_are_null
+      every query block inside sink_q leaves no free pair: `routed_density`
+      is null, `ordering_effect_density.overall` is null with numerator and
+      denominator both zero, every per-head and per-segment adaptive value is
+      null, and `kernel_density` is still defined. The first follow-up
+      emitted {"weighting": "query"} with no mean there -- truthy, so a
+      reader indexing `mean` would have raised (Codex's follow-up review).
 
 Needs CUDA and an installed comfy_kitchen whose `sol_attn` takes `blk_cnt`;
 exits 2 SKIP without either rather than passing on a weaker path.
@@ -604,6 +611,25 @@ def main() -> int:
         assert per_head == [pair]
         assert abs(query_weighted - pair) > 1e-3        # the fixture is nonuniform, so the two differ
 
+    def undefined_adaptive_figures_are_null():
+        d = newdir("allsinkq")
+        obs.arm(f"dir={d}")
+        # a layout whose video starts at the last row: every block is sink and every
+        # query block is sink_q, so NTB - forced is zero on every row
+        call(make(sink_conditioning="exact_kv_and_rows"),
+             opts(sol_h3_video_span=(t, t), sol_h3_audio_span=(0, t), h3_segments=[(0, t, "audio")]))
+        _, rows = rows_in(d)
+        r = [r for r in rows if r["kind"] == "call"][0]
+        assert r["route"] == "sol" and r["sink_blocks"] == [0, n] and r["sink_q"] == [0, n], r["sink_q"]
+        assert r["routed_density"] is None, r["routed_density"]
+        oe = r["ordering_effect_density"]
+        assert oe["overall"] is None and (oe["numerator"], oe["denominator"]) == (0, 0), oe
+        assert r["per_head"]["routed_mean"] == [None] * h and r["per_head"]["ordering_effect"] == [None] * h
+        assert r["per_segment"][0]["routed"] is None and r["per_segment"][0]["ordering_effect"] is None
+        assert abs(r["kernel_density"]["mean"] - 1.0) < 1e-12 and r["forced"]["rows_outside_sink_q"] == 0
+        assert r["forced"]["diag_min"] is None and r["forced"]["diag_max"] is None
+        obs.arm(None)
+
     def raw_off_writes_no_sidecar():
         d = newdir("rawoff")
         obs.arm(f"dir={d},raw=0")
@@ -626,7 +652,7 @@ def main() -> int:
                    observer_only_block_indexing, composed_patch_calls_are_recorded,
                    forced_metadata_is_computed_not_inferred,
                    query_and_pair_weighting_differ_on_nonuniform_forced,
-                   raw_off_writes_no_sidecar):
+                   undefined_adaptive_figures_are_null, raw_off_writes_no_sidecar):
             check(fn.__name__, fn)
     finally:
         obs.arm(None)

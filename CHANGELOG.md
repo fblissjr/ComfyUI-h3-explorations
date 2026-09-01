@@ -41,6 +41,11 @@ artifact.
   check cases pin each, including a five-block fixture where the two
   weightings read 0.5667 and 0.5833. No workflow, default or PDD file
   changed.
+- **An undefined adaptive distribution serialised as `{"weighting": "query"}`
+  rather than null** (Codex's follow-up review): the weighting stamp was
+  applied to an empty dict. Stamped only on a defined distribution now, and
+  a control with every query block inside `sink_q` asserts the null
+  contract for the whole-call, per-head and per-segment adaptive figures.
 
 ## 0.99.20
 
