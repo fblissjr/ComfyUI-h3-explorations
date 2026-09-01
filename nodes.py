@@ -25,6 +25,7 @@ from .quant_observe import MiniMaxH3QuantObserve
 from .reference_fit import MiniMaxH3ReferenceFit
 from .resolution import MiniMaxH3Resolution
 from .sol_attn_h3 import MiniMaxH3SolAttn
+from .sol_chunked_h3 import MiniMaxH3SolChunked
 from .vsa_attention import MiniMaxH3VSAAttention
 from .vae_precision import MiniMaxH3VAEPrecision
 from .reference_video_fit import MiniMaxH3ReferenceVideoFit
@@ -265,7 +266,7 @@ class H3ExplorationsExtension(ComfyExtension):
                 MiniMaxH3AWQEncoderLoader, MiniMaxH3EncoderLoader,
                 MiniMaxH3MarkerArm,
                 MiniMaxH3PDDLoRA, MiniMaxH3AudioCarryProbe,
-                MiniMaxH3ExactBlocks, MiniMaxH3SolAttn,
+                MiniMaxH3ExactBlocks, MiniMaxH3SolAttn, MiniMaxH3SolChunked,
                 MiniMaxH3VSAAttention,
                 MiniMaxH3QuantObserve]
 

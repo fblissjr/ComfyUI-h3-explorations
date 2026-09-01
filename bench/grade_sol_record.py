@@ -124,18 +124,19 @@ def main() -> int:
     # counts only on sol rows; raw pointers verify
     from _live_sol import sol_observe as _load_observer
     sol_observe = _load_observer()
-    wrong_counts = [r for r in calls if (r["route"] == "sol") != ("kernel_density" in r)]
+    COUNT_ROUTES = ("sol", "sol_chunked")
+    wrong_counts = [r for r in calls if (r["route"] in COUNT_ROUTES) != ("kernel_density" in r)]
     if wrong_counts:
         fail(f"{len(wrong_counts)} row(s) where counts are present iff route is sol is violated")
     else:
         ok("counts present on sol rows and only there")
-    stray_raw = [r for r in calls if r["route"] != "sol" and (r.get("raw") or {}).get("offset") is not None]
+    stray_raw = [r for r in calls if r["route"] not in COUNT_ROUTES and (r.get("raw") or {}).get("offset") is not None]
     if stray_raw:
         fail(f"{len(stray_raw)} non-sol row(s) carry a raw pointer")
     else:
         ok("no raw pointer on a non-sol row")
     if raw_on:
-        sol_rows = [r for r in calls if r["route"] == "sol"]
+        sol_rows = [r for r in calls if r["route"] in COUNT_ROUTES]
         missing = [r for r in sol_rows if not (r.get("raw") or {}).get("offset") and (r.get("raw") or {}).get("offset") != 0]
         crc_bad = 0
         for r in sol_rows:
@@ -236,12 +237,15 @@ def main() -> int:
                 problems.append(f"blocks: missing {missing[:6]}{'...' if len(missing) > 6 else ''}, duplicated {dup[:6]}")
             for r in dit:
                 want = ("dense_block" if r["block"] in dense else "sol") if inside else "composed_patch"
+                # the chunked producer takes in-window calls through Sol's gate delegate
+                if want == "sol" and r["route"] == "sol_chunked":
+                    continue
                 if r["route"] != want:
                     problems.append(f"block {r['block']} route {r['route']}, want {want}")
                     if len(problems) > 6:
                         break
             for r in nodit:
-                if r["route"] in ("sol", "dense_block"):
+                if r["route"] in ("sol", "sol_chunked", "dense_block"):
                     problems.append(f"no-block row with DiT route {r['route']}")
             if len(nodit) != args.refiner_rows:
                 problems.append(f"{len(nodit)} no-block rows, want {args.refiner_rows}")

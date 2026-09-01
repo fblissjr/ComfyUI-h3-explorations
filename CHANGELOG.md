@@ -21,6 +21,41 @@ artifact.
   `docs/prompt_audit.md` item 4 record that, with the commands, so it is not
   forgotten. Nothing has rendered.
 
+## 0.99.24
+
+### Added
+
+- **`MiniMaxH3SolChunked`: Sol-Attn fed from chunks of the QKV projection,
+  so Q, K and V are never built.** comfy-kitchen's `sol_attn_chunked` as
+  H3's attention forward for the calls Sol takes, published through the
+  `sol_take_forward` delegate the Sol gate already prefers; declined calls
+  still go to Sage, dense blocks still go through the override. The
+  producer applies the same fused norm-and-rope core applies, so the
+  per-chunk arithmetic is core's own; it thresholds on the previous step's
+  key statistics, so output and counts are close to the direct path rather
+  than identical. `bench/check_sol_chunked.py` grades it against the direct
+  path on the same weights: cosine 0.99995 on the second call and 0.99994
+  on a ragged first call, peak allocation over a 32k-token call 87 MiB
+  against 192, routing agreement on 99% of query blocks, and the gate,
+  recording and non-H3 refusal paths. `docs/open_experiments.md` #25 is the
+  question it answers; the canonical-geometry A/B is graded on the new
+  `peak_alloc_bytes` field.
+- `sol_attn_chunked` gains the same optional `blk_cnt` out-parameter on the
+  comfy-kitchen branch, so a chunked call records like a direct one
+  (`sol_chunked` route, `path: chunked_delegate`).
+- `peak_alloc_bytes` on every Sol record row: the allocator's high-water
+  mark, read for free, so a memory lever can be graded from the record.
+- `bench/measure_sol_exact_variants.py` and two records: the exact-branch
+  metrics of the two candidate kernels at the same seeded inputs. Kijai's
+  `sol_attn_continued` change (per-block probability scaling in the exact
+  stage) measures as a wash against upstream main on random inputs, 0.00909
+  against 0.00922 relative error at all-routed, identical cosine at tau 1.0,
+  identical kernel time; both already sit under the bound his own test
+  sets. The branch carrying it plus `blk_cnt` is `sol-blk-cnt-continued` in
+  the workspace clone; the installed wheel is now built from it
+  (`0.2.31+sol.d25f2e8`) because it is a superset, not because it measured
+  better.
+
 ## 0.99.23
 
 ### Added

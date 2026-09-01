@@ -35,7 +35,7 @@ def _record(path, prompt):
     p = Path(path)
     jsonl = p if p.is_file() else sorted(p.glob("sol_observe_*.jsonl"))[-1]
     rows = _load(jsonl)
-    calls = [r for r in rows if r.get("kind") == "call" and r["route"] == "sol"]
+    calls = [r for r in rows if r.get("kind") == "call" and r["route"] in ("sol", "sol_chunked")]
     ids = sorted(p for p in {r.get("prompt_id") for r in calls} if p)
     if prompt:
         calls = [r for r in calls if r.get("prompt_id") == prompt]

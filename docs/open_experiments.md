@@ -1830,3 +1830,56 @@ Sol node, both expected output-neutral and this batch their first
 production-geometry render; the Sol session asked to be told before anything
 odd in its log lines is attributed to an arm.
 
+
+## 25. The chunked producer as a memory lever, with one node's worth of cost
+
+**Not built. Added 2026-09-01, after the owner corrected a claim.**
+`sol_attn_h3.py` and `docs/SOLATTN.md` say `sol_attn_chunked` is
+"structurally unreachable". That is exact for the seam our node uses and
+wrong as a statement about this repo, which owns H3-specific forward code in
+three other nodes already.
+
+**The question.** comfy-kitchen's second Sol entry, `sol_attn_chunked` on
+its CUDA backend, takes chunks of the fused
+`qkv_proj` output (`[M, 3*H*128]` bf16, 64-aligned starts), applies H3's RMS
+norm and rope itself per chunk, and never materialises full Q, K, V. Upstream
+reports about 5 GB less peak at 113k tokens (`docs/SOLATTN.md`, the
+kernel-argument table). At the canonical 104,361-token sequence on a 24 GB
+card, where reference-heavy graphs already OOM
+(`docs/research/pdd/README.md`'s pricing notes), that is the size of lever
+that decides whether an arm renders at all. Does it deliver that here, and at
+what cost in agreement with the direct path?
+
+**Why our node cannot reach it, and what could.** `optimized_attention`
+hands the override finished Q, K and V: `qkv_proj` has run over the whole
+sequence, the norms and rope are applied, the saving is spent, and feeding
+the chunked entry post-rope tensors would apply rope twice. A per-block
+forward patch, the shape the Sage node already uses, sees `x` before the
+projection and can run `qkv_proj` over row chunks and feed each to the
+producer. Sol's composition gate already has the hook for this:
+`_compose_module_patch` prefers a published `sol_take_forward` delegate over
+the stock forward for the calls it takes, so a chunked forward slots in
+without disturbing the Sage arrangement for declined calls.
+
+**What it needs from the model.** The rope table (`rope_freqs`, which the
+Morton hooks already intercept), the two QK-norm weights from the attention
+module, and the previous step's K-mean and V-scale statistics, which the
+producer returns for the next call and runs twice to bootstrap on the first.
+That last point means the first forward of a render pays the producer twice;
+say so in the record rather than in a footnote.
+
+**The observable.** Peak allocated VRAM per render at the canonical geometry,
+with and without the delegate published, on the same graph and seed
+(`torch.cuda.max_memory_allocated` reset per prompt, not `nvidia-smi`, which
+sees the allocator's reservation). Agreement is graded at the call level
+against `sol_attn` on the same post-rope tensors, the way upstream's own
+`test_chunked_producer_matches_separate_rope` does; a rendered clip cannot
+A/B it. The Sol route record (`sol_observe.py`) should show identical
+routing on both arms if the producer's rope and norm match core's, and
+different counts if they do not, which is the cheapest tell that the
+per-chunk arithmetic drifted.
+
+**Blocker.** None technical. Cost is one node that owns H3's norm and rope
+application for one forward, plus the call-level equivalence check, plus
+the composition proof that `check_sol_node_equivalence.py`'s pattern already
+gives. Enforced by nothing until built.

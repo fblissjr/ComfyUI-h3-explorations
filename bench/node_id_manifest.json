@@ -266,6 +266,17 @@
       "Output"
     ]
   },
+  "MiniMaxH3SolChunked": {
+    "inputs": [
+      "model",
+      "chunk_rows",
+      "verbose"
+    ],
+    "node_id": "MiniMaxH3SolChunked",
+    "outputs": [
+      "Output"
+    ]
+  },
   "MiniMaxH3VAEPrecision": {
     "inputs": [
       "vae",

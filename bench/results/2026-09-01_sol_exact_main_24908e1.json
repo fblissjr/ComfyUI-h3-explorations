@@ -1,0 +1,64 @@
+{
+ "produced_by": "bench/measure_sol_exact_variants.py",
+ "comfy_kitchen": "0.2.31+sol.24908e1",
+ "device": "NVIDIA GeForce RTX 4090",
+ "torch": "2.13.0+cu132",
+ "when": "2026-09-01T17:32:18",
+ "arms": {
+  "exact_all_routed": {
+   "shape": [
+    1,
+    4096,
+    8
+   ],
+   "rel_l2_vs_dense": 0.009224780835211277,
+   "cos_vs_dense": 0.9999574422836304
+  },
+  "tau_1.0_vs_eager": {
+   "shape": [
+    1,
+    4096,
+    8
+   ],
+   "cos": 0.9999342560768127,
+   "rel_l2": 0.011467309668660164
+  },
+  "tau_1.3_vs_eager": {
+   "shape": [
+    1,
+    4096,
+    8
+   ],
+   "cos": 0.9999489784240723,
+   "rel_l2": 0.01011981163173914
+  },
+  "blk_cnt_forced_pairs": {
+   "ok": true,
+   "got": [
+    2,
+    3,
+    4,
+    5,
+    4
+   ],
+   "want": [
+    2,
+    3,
+    4,
+    5,
+    4
+   ]
+  },
+  "kernel_ms": {
+   "shape": [
+    1,
+    16384,
+    8
+   ],
+   "tau": 1.0,
+   "median_ms": 0.9932799935340881,
+   "min_ms": 0.9860799908638,
+   "note": "isolated warm kernel call, not a render time"
+  }
+ }
+}

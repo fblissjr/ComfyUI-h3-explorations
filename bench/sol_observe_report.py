@@ -161,7 +161,7 @@ def main() -> int:
         summary["forwards"].append({"prompt_id": pid, "schedule_index": idx, "sigma": sigma,
                                     "routes": dict(routes), "dit_blocks": len(blocks), "no_block_rows": unknown})
 
-    sol = [r for r in calls if r["route"] == "sol" and r.get("sigma") is not None]
+    sol = [r for r in calls if r["route"] in ("sol", "sol_chunked") and r.get("sigma") is not None]
 
     def _finish():
         if args.json:

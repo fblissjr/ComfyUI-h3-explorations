@@ -68,8 +68,12 @@ Row kinds, all carrying `schema`:
             state from a cold one. Routed counts are a function of the
             inputs alone; the index is there so that claim can be checked.
   call      one per override call, every route, not only Sol. Identity, step,
-            block, shape, selection, sinks, the route actually taken, and for
-            a Sol route the density summaries and the raw pointer.
+            block, shape, selection, sinks, the route actually taken, the
+            allocator's high-water mark so far (`peak_alloc_bytes`), and for
+            a Sol route the density summaries and the raw pointer. A
+            `sol_chunked` route is the chunked producer (`sol_chunked_h3.py`)
+            taking the call through Sol's gate delegate; it carries counts
+            from its own launch like a `sol` row.
   error     the observer's own failure, written before it raises.
 
 The raw append goes first and is flushed; the JSONL row that references it
@@ -175,6 +179,9 @@ import torch
 
 SCHEMA = 1
 BLOCK = 64
+#: routes whose rows carry counts from a kernel launch: the direct path, and
+#: the chunked producer taking the call through Sol's gate delegate
+COUNT_ROUTES = ("sol", "sol_chunked")
 
 _LOG = "[h3-sol-observe]"
 
@@ -739,14 +746,18 @@ def record(*, route: str, reason: str | None, counts: torch.Tensor | None, optio
         "tail": bool(tail), "sink_blocks": [int(sink[0]), int(sink[1])],
         "sink_q": [int(sink_q[0]), int(sink_q[1])], "min_tokens": int(min_tokens),
         "route": route, "reason": reason, "path": path,
+        # The allocator's high-water mark so far in this process, read for
+        # free. Per render, the last row's value is the peak; the memory
+        # lever the chunked producer claims is graded on it.
+        "peak_alloc_bytes": (int(torch.cuda.max_memory_allocated()) if torch.cuda.is_available() else None),
     }
-    if route != "sol":
+    if route not in COUNT_ROUTES:
         _write_row(row)
         return
     if counts is None:
         _write_row({**row, "kind": "error", "stage": "record",
-                    "message": "route sol with no count tensor"})
-        raise SolObserveError("route sol recorded with no blk_cnt tensor")
+                    "message": f"route {route} with no count tensor"})
+        raise SolObserveError(f"route {route} recorded with no blk_cnt tensor")
 
     # The one synchronization an armed render pays: the copy to host.
     c = counts.detach().to("cpu")
