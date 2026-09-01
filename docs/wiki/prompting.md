@@ -83,6 +83,19 @@ keyframe prompts that exist anywhere in this repo.
 
 ---
 
+## 3b. Handing the standard to someone outside this repo
+
+[`docs/portable/h3_prompt_standard.html`](../portable/h3_prompt_standard.html)
+is a **self-contained** extract: the rules with their layer, the per-mode
+structure, the operational answers on speaker IDs and markers, two graded
+examples of what good looks like, and nine failure patterns with why each one
+is wrong. **It cites no repository path**, so it survives being read by an agent
+in another repo or pasted into a ticket.
+
+It is derived from `prompting.md`, and says so on the page. Where the two
+disagree, `prompting.md` is newer — so regenerate the extract rather than
+editing it in place, and never let it become a second place rules are decided.
+
 ## 4. Grade a draft before you render it
 
     python bench/grade_prompt_text.py --mode fl2va --length 345 draft.txt

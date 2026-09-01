@@ -1396,7 +1396,6 @@ not carry equal weight and two of them are not authorities at all.
 | 3 | the vendor's prompt-writing skill | `coderef/MiniMax-H3/.claude/skills/h3-prompt-writing/` | **a router, not a rule set** | nothing; it states no rule of its own |
 | 4 | this file | `docs/prompting.md` | our reading, layered GUIDE / OWNER / HOUSE / OPEN | depends on the layer, which every rule names |
 | 5 | `internal/PROMPTING.md` | gitignored | **superseded 2026-08-28, being sunset** | nothing; cite this file instead |
-| 6 | `coderef/comfyui_dagthomas/data/h3` | gitignored | **third-party, and its base guide is a FORK of the vendor's** | nothing — see §14.2b before quoting it |
 
 ### 14.2 The vendor's skill adds no rule, and its guides are byte-identical to ours
 
@@ -1414,56 +1413,36 @@ Checked 2026-09-01:
   language-dialogue rule to ref-en:5 and ref-en:217, the avoid-a-plot-summary
   rule to ref-en:7, the per-shot description checklist to ref-en:7.
 
+**Why this check is trustworthy rather than lucky: BOTH files were hashed.**
+Two artifacts agreeing is evidence only about the files you actually compared.
+A bundle can carry one guide verbatim and a modified copy of the other, and
+hashing the matching one and generalising to "this bundle is authentic" is a
+conclusion the evidence does not support — the modified file is the one you
+would then quote as vendor text. **Hash every file you intend to rely on, not a
+representative of them.** That has been observed in the wild, so it is a real
+failure mode and not a hypothetical.
+
+**And if you re-derive a delta in Python, pass `autojunk=False`.**
+`difflib.SequenceMatcher` treats "popular" elements as junk once a sequence
+passes 200, and in a markdown file the popular element is the BLANK line — so a
+stock `unified_diff` one-liner returns a valid but non-minimal edit script and
+overstates the delta against what `diff` reports on the same pair. Verified
+2026-09-01 on a 222-line against 252-line pair: 38 changed lines by `diff` and
+by `autojunk=False`, 48 by the default. **`difflib.unified_diff()` exposes no
+way to disable it** — use `SequenceMatcher(None, a, b, autojunk=False)` and walk
+the opcodes. Reproduced only for line diffs of prose; an attempt to make it bite
+on token-id sequences failed, so treat it as a prose-diff trap.
+
 **So there is no fourth authority.** A session that finds the skill and reads it
 as new guidance has found a second pointer to the guides we already have.
-
-### 14.2b The dagthomas corpus: useful, and carrying a forked guide
-
-`coderef/comfyui_dagthomas/data/h3` is a third-party pack
-(`dagthomas/comfyui_dagthomas`) with a substantial H3 prompt corpus. It is
-worth reading — it independently corroborated the inline finding and supplied
-the positional mouth-cue rule in §14.3. **But check what you are quoting.**
-
-- **`guide_ref_en.md` is byte-identical to the vendor's** (SHA-256 `1e574f35…`).
-- **`guide_base_en.md` is NOT. It is a FORK** — hash `3e7757fa…` against the
-  vendor's `2cfebc09…`. The edit is **overwhelmingly additive**: whole passages
-  appended, plus a handful of surgical replacements of vendor paragraphs, in the
-  vendor's own register and unmarked as edits. That shape is what makes it
-  dangerous — most of the file still reads as authentic because most of it is.
-  Re-derive the delta rather than trusting a number:
-
-      diff vendor_guides/base_en.md \
-           coderef/comfyui_dagthomas/data/h3/guide_base_en.md
-
-  **If you re-derive it in Python, pass `autojunk=False`.** `difflib` treats
-  "popular" lines as junk once a sequence passes 200 elements, and in a markdown
-  file the popular line is the BLANK line — so a stock `unified_diff` one-liner
-  returns a valid but non-minimal edit script and overstates the delta against
-  what `diff` reports. Found 2026-09-01 by a peer session when the two
-  disagreed on an unchanged pair of files.
-- **`guide_chain_en.md` and `guide_crossover_en.md` correspond to nothing the
-  vendor ships.** The release has base-en and ref-en only.
-
-**The trap is that hashing one guide and generalising gets you the wrong
-answer**, which is a live risk here because §14.2 does exactly that check
-against MiniMax's own skill bundle and it passes there. The fork's edits
-contradict stated vendor rules: it rewrites base-en's "1-4 English sentences in
-one continuous paragraph" for `overall_soundscape` into one sentence as a comma
-list, rewrites the `non_diegetic_music` sentence budget, and adds shot-count and
-word-count rules the vendor states nowhere, attributed to a thousand-prompt
-measurement with no corpus behind it. Its own examples contradict two of those
-added numbers.
-
-**So use its EXAMPLES as evidence of practice, never its guide text as
-authority.** Established 2026-09-01 by a peer session; the hashes re-checked here.
 
 ### 14.3 Where our shipped prompts diverged, and what happened to each
 
 **Shot line breaks — CLOSED 2026-09-01, we conformed.** Every vendor
 multi-shot specimen runs shots inline in one unbroken paragraph, and a peer
-session found the same in a third corpus: `coderef/comfyui_dagthomas/data/h3`
-is inline in every multi-shot specimen that follows the official three-field
-grammar, and breaks lines only inside a four-section format it invented itself.
+session found the same in a third, third-party corpus: it is inline in every
+multi-shot specimen that follows the official three-field grammar, and breaks
+lines only inside a four-section format of that corpus's own invention.
 Three independent corpora, no counterexample. `LONG_T2V_PROMPT` and the four
 aisle/sortline arms were collapsed to one line per field in the generator and
 every carrying graph rebuilt; word counts are unchanged, only newlines.
@@ -1480,11 +1459,11 @@ line ENDS the shot. Cross-tabbed that way:
 
 | | cue | no cue |
 |---|---|---|
-| shot continues | ours 32, dagthomas 17, vendor 2 | ours 12, dagthomas 7, vendor 4 |
-| line ends the shot | ours 0, dagthomas 0, vendor 0 | ours 1, dagthomas 16, vendor 1 |
+| shot continues | ours 32, 3rd-party 17, vendor 2 | ours 12, 3rd-party 7, vendor 4 |
+| line ends the shot | ours 0, 3rd-party 0, vendor 0 | ours 1, 3rd-party 16, vendor 1 |
 
 **The provenance matters and is weaker than it looks.** The pattern is a
-dagthomas observation that our corpus happens to satisfy — our mid-shot rate is
+third-party corpus observation that our corpus happens to satisfy — our mid-shot rate is
 73% against their 71%. **The vendor corpus does not corroborate it**: its
 decisive shot-final cell holds a single line, which is consistent with the rule
 and establishes nothing, and its mid-shot cell runs the *other* way at 2 of 6.
@@ -1532,11 +1511,11 @@ creative decision nobody here made. It is the standing "a default is not a
 decision, and shipping is not evidence" pattern: a value in every prompt has
 standing through repetition.
 
-**Convergent, not copied.** The dagthomas fork (§14.2b) *invented* a rule saying
-`N/A` is the normal answer and the soundscape should be one sentence — one of
-the passages that contradicts the vendor guide it forked. Our prompts predate
+**Convergent, not copied.** A third-party corpus examined on 2026-09-01 states
+a rule of its own saying `N/A` is the normal answer and the soundscape should be
+one sentence — in its case contradicting the vendor guide. Our prompts predate
 any knowledge of that corpus here, so we arrived at the same place
-independently, and further along it than its own examples go. Nothing has
+independently, and further along it than its examples go. Nothing has
 measured whether a score or a longer soundscape changes anything, so this is
 recorded as a pattern to notice, not a defect to fix.
 

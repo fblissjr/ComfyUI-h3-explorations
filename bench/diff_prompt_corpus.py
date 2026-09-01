@@ -110,7 +110,7 @@ def features(prompt: str, main_field: str) -> dict[str, object]:
         # every corpus checked closes a mouth when the shot CONTINUES past the
         # line and never when the line ENDS the shot, so a per-line ratio
         # reports a corpus that follows the rule perfectly as ~50% compliant.
-        # Cross-tab established by a peer session over the dagthomas corpus
+        # Cross-tab established by a peer session over a third-party corpus
         # (0 cues on 16 shot-final lines, 17/24 when the shot continues) and
         # reproduced on ours (0/1 and 32/44).
         fin_cued = cont_uncued = 0
