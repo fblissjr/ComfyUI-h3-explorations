@@ -2,8 +2,8 @@
   "2026-09-01_h3_prompt_standard.html": {
     "artifact_url": "https://claude.ai/code/artifact/daa73be5-0bb7-4d02-8456-5dc107acea54",
     "frozen": "2026-09-01",
-    "refrozen": "replaced four times on the freeze date: a mid-sentence wrap in the I2VA Part One line, four missing guide-stated rules, a rule that forbade the lyrics token pair four shipped graphs emit, and the missing half of ref 5.4 on timbre-only audio references. Nothing had been shared from any superseded copy.",
-    "sha256": "31784bfd52cdf0158aec89fa10dc09692fe99fa9f2791b85c734d2da9928ce18",
-    "source_sha256": "616566a2ea0c51d55f4db02907ea42d87a0ae65b69e8a60a01c08e0d4c579120"
+    "refrozen": "replaced five times on the freeze date: a mid-sentence wrap in the I2VA Part One line, four missing guide-stated rules, a rule forbidding the lyrics token pair four shipped graphs emit, the missing half of ref 5.4 on timbre-only references, and a cutoff marker placed inside the dialogue tag against base 4.4. Nothing was shared from any superseded copy.",
+    "sha256": "6ff5ffe2b241f69c707547537675ac6feac22d7b88be2523162549a7b40c794e",
+    "source_sha256": "3ca18b85160b251eba74f4d6aedffb72d741ef30660d4dfd3ab7ceb43efce88a"
   }
 }

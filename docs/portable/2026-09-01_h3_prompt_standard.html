@@ -143,12 +143,12 @@ a{color:var(--accent)}
   against its sources by <code>bench/check_prompt_docs_sync.py</code>; this copy is
   checked only for having stayed unmodified. Do not edit it, and do not cite it as
   current — read it as "this is what we said on 2026-09-01".
-  <br><br><strong>Re-frozen four times, all on the freeze date.</strong> The first freeze
+  <br><br><strong>Re-frozen five times, all on the freeze date.</strong> The first freeze
   hard-wrapped the I2VA example's Part One line mid-sentence, so pasting it produced a
   prompt that fails the grader. The second predated four guide-stated rules the page was
   missing: sung lines using the dialogue block, naming who a line is spoken to, the
   sanctioned phrasings for a line crossing a cut, and the exact-words rules for reused
-  audio. The third corrected a rule that forbade what this repo ships: the page said not to reach for the lyrics token pair, while four shipped graphs emit it deliberately as marker arms. The fourth added the half of ref 5.4 the page was missing: an audio reference supplying only timbre does not carry its words across. Nothing had been shared from any superseded copy, so re-freezing falsified no record —
+  audio. The third corrected a rule that forbade what this repo ships: the page said not to reach for the lyrics token pair, while four shipped graphs emit it deliberately as marker arms. The fourth added the half of ref 5.4 the page was missing: an audio reference supplying only timbre does not carry its words across. The fifth corrected the placement of the cutoff marker: the page said it goes inside the dialogue tag, which base 4.4 forbids and this repo's own gate fails. Nothing had been shared from any superseded copy, so re-freezing falsified no record —
   but a snapshot is only worth trusting if replacing one is stated rather than silent.
 </div>
 
@@ -277,7 +277,7 @@ and sings: &lt;d&gt;[English] I left the light on down the hall.&lt;/d&gt;</code
   <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>A line that crosses a cut, and one that runs out of video</h4>
     <p>When one line of dialogue or lyrics continues across a cut, say so explicitly in both shots. The guide sanctions four phrasings: <code>continues seamlessly across the cut</code>, <code>continues uninterrupted into the next shot</code>, <code>carries over from the previous shot</code>, <code>remains audible across the transition</code>.</p>
     <p>The guide also says to mark the connecting points with <code>&lt;scenetrans&gt;</code>. That token matches nothing the release declares — carry the continuity in the prose above instead. <span class="chip c-house">House</span> a deliberate divergence from a stated instruction, in favour of tokens that exist.</p>
-    <p>A line still going when the video ends closes with <code>&lt;|cutoff|&gt;</code> inside the tag.</p></div>
+    <p>A line still going when the video ends is marked with <code>&lt;|cutoff|&gt;</code> placed <strong>directly after the closing <code>&lt;/d&gt;</code></strong>, tight against it with no space — <code>…meet me at the&lt;/d&gt;&lt;|cutoff|&gt;</code>. <strong>It does not go inside the tag.</strong> Base 4.4 states <code>&lt;d&gt;</code> carries the language tag and the spoken words and nothing else, so a marker inside it breaks a stated rule.</p></div>
 
   <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Reused or reperformed words keep their exact form (Ref2VA)</h4>
     <p>When dialogue, narration or lyrics come from a reference audio track, or the request asks for them to be reperformed, keep the <strong>exact source words in their original language</strong> inside <code>&lt;d&gt;</code>. Write <code>[unclear]</code> for a span you cannot make out rather than guessing or paraphrasing it.</p>
@@ -341,6 +341,20 @@ clothing are carried into the target video.
     <p>Reference labels appear in <code>detailed_description</code> and stay consistent across all sections. Write the body in English; preserve the original language only for dialogue and lyrics inside <code>&lt;d&gt;</code>, and for text visibly present in the scene.</p></div>
   <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Length: 350–500 words for generation tasks</h4>
     <p>Dialogue-dense content prioritises fitting the complete spoken timeline over hitting a word count, and editing descriptions scale with source complexity instead. <strong>A single shot does not justify a short description</strong> — distribute detail across shots by information load.</p></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Speaker IDs in Ref2VA: six rules that are easy to miss</h4>
+    <p>The base speaker rules apply, plus these. All stated in ref-en §5.4, and all of them are the kind of thing a writer gets wrong silently.</p>
+    <ul>
+      <li><strong>When a referenced subject speaks, keep BOTH labels</strong> — <code>&lt;Subject 2&gt; (S1) turns toward the woman and says, &lt;d&gt;…&lt;/d&gt;</code>. The label identifies the referenced subject; the ID identifies the actual speaker.</li>
+      <li><strong>Off-screen keeps the same form</strong> and is marked <code>off-screen</code>.</li>
+      <li><strong>A speaker matching no defined subject</strong> takes a stable voice description plus its <code>(Sx)</code>.</li>
+      <li><strong>Assign <code>(Sx)</code> once, in the order of actual vocal events</strong> in the target video, then reuse that ID at every vocal event.</li>
+      <li><strong>An <code>&lt;Audio N&gt;</code> bound to a target speaker reuses that speaker's ID and never assigns a new one</strong> independently.</li>
+      <li><strong>Never write <code>(Sx)</code> in <code>retention_analysis</code>.</strong></li>
+    </ul>
+    <p><strong>And the one that decides which system you are in:</strong> verbal content existing only inside a directly reused BGM or complete soundtrack uses <code>&lt;Audio N&gt;</code>; a voice physically produced by a person, character or narrator uses <code>(Sx)</code>.</p></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Words reused from a reference belong to the source</h4>
+    <p>When dialogue, narration or lyrics from reference audio are <strong>directly reused</strong>, or the request explicitly asks for their reperformance: reproduce the exact source words in their original language inside <code>&lt;d&gt;</code>. Write <code>[unclear]</code> for a span that cannot be made out — <strong>never a guess and never a paraphrase</strong>.</p>
+    <p><strong>The mirror rule, and the one people miss:</strong> when only <strong>timbre, rhythm, emotion or delivery</strong> is referenced, do <em>not</em> carry the reference's words across at all. That asset supplies how something sounds, not what is said.</p></div>
   <div class="rule"><h4><span class="chip c-house">House</span>Ordinals follow the order items are built, and soundtracks jump the queue</h4>
     <p>Counters are per kind and independent, so the same file can be <code>&lt;Video 1&gt;</code> and <code>&lt;Audio 2&gt;</code>. A reference video's soundtrack takes its <code>&lt;Audio&gt;</code> ordinal <strong>before its own <code>&lt;Video&gt;</code> label</strong>, and standalone audio is numbered after. One soundtracked video plus one standalone clip gives <code>&lt;Audio 1&gt;</code> = the soundtrack.</p></div>
 </section>

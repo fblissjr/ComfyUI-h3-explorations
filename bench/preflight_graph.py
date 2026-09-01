@@ -208,6 +208,16 @@ MARKER_PAIRS = (("<|lyrics_start|>", "<|lyrics_end|>"),
 LYRICS, CAPTION = MARKER_PAIRS
 ALL_MARKERS = tuple(m for pair in MARKER_PAIRS for m in pair) + ("<|cutoff|>",)
 
+# One shot header and the text up to the NEXT header, which is what makes this
+# safe on a base-mode prompt where every shot shares a line. A greedy
+# `[^\n]*` swallows later headers and reports the final shot as 1, and the
+# consequence is not a missed diagnostic: `_expected_base_alignment` resolves
+# `Shot N` from it, so a wrong parse tells an author to write a guide-violating
+# Part One line. Named here because `grade_prompt_text.py` prints the same
+# expectation and had drifted to the pre-fix copy while its comment claimed
+# they matched.
+SHOT_HEADER_RE = r"\[Shot (\d+)\]((?:(?!\[Shot \d+\])[^\n])*)"
+
 
 def marker_rules(prompt: str, main_body: str) -> list[tuple[str, str]]:
     """Structure of the five undocumented markers. Decidable from the text."""
@@ -1208,7 +1218,7 @@ def grade(node: dict, graph: dict, stem: str = "") -> list[tuple[str, str]]:
     # It bit nothing shipped because every shipped fl2va and l2va prompt is one
     # shot, and the t2va path returns before reading `shots` at all. Found
     # 2026-09-01 writing the first multi-shot keyframe examples.
-    shots = re.findall(r"\[Shot (\d+)\]((?:(?!\[Shot \d+\])[^\n])*)", dd)
+    shots = re.findall(SHOT_HEADER_RE, dd)
     if shots and shots[0][0] == "1" and re.match(r"\s*At \d", shots[0][1]):
         out.append(("FAIL", "[Shot 1] carries a timestamp; it must not"))
     stamps = [int(a) * 60 + float(b)

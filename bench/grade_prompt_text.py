@@ -184,9 +184,12 @@ def main() -> int:
         node["inputs"]["length"] = args.length
 
     length = pf._resolved_length(node, graph)
-    # Same extraction `grade` uses, so the Part One line printed here is the
-    # one it will actually compare against rather than a lookalike.
-    shots = re.findall(r"\[Shot (\d+)\]([^\n]*)", text)
+    # Same extraction `grade` uses -- imported rather than copied, because a
+    # copy is what drifted: this held the pre-fix greedy pattern while this
+    # comment claimed the two matched, so the advisory printed `from Shot 1`
+    # for a multi-shot keyframe prompt and told the author to write a
+    # guide-violating line.
+    shots = re.findall(pf.SHOT_HEADER_RE, text)
     print(f"  mode      {graded_mode}")
     print(f"  donor     {path.relative_to(REPO)}  (node {nid})")
     print(f"  length    {length if length is not None else 'unresolved'} frames"

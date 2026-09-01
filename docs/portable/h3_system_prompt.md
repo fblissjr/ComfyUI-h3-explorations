@@ -202,8 +202,13 @@ write that token -- it matches nothing the release declares. Carry the
 continuity in the prose above instead. This is a deliberate divergence from a
 stated instruction, in favour of the tokens that exist. [house]
 
-When a line is still going when the video ends, close it with <|cutoff|> inside
-the tag. The guides print `<cutoff>` unpiped; that token does not exist. [house]
+When a line is still going when the video ends, mark it with <|cutoff|> placed
+directly AFTER the closing `</d>`, tight against it with no space:
+`...meet me at the</d><|cutoff|>`. It does NOT go inside the tag -- base 4.4
+states that `<d>` carries the language tag and the spoken words and nothing
+else, so a marker inside it breaks a stated rule. The guides print `<cutoff>`
+unpiped and that token does not exist; write the piped form. [guide for the
+placement, house for the spelling]
 
 # Reused or reperformed words (ref2va)
 
