@@ -31,9 +31,13 @@ MiniMax ship these same two files inside their own prompt-writing skill, at
 GitHub repo. On 2026-09-01 both of ours were confirmed **byte-identical by
 SHA-256** to that bundle, and the two bundle copies identical to each other.
 
-`sha256.json` records the hashes. **Do not edit these files.** They are the
+`sha256.json` records the hashes, **and `bench/check_prompt_docs_sync.py`
+verifies them** — a hash record nothing reads is decoration, and this one went
+unread for its first hours. **Do not edit these files.** They are the
 comparison basis; an edit makes every check that parses them agree with us
-instead of with the vendor.
+instead of with the vendor, silently, because they all re-derive from whatever
+is here. **Revising a guide is a deliberate, visible event**: replace the file,
+update `sha256.json`, and expect the downstream checks to report what moved.
 
 **A third-party fork exists and is easy to mistake for the original** — see
 `docs/prompting.md` §14.2b. One of its two guides is byte-identical to the

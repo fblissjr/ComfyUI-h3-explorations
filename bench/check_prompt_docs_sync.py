@@ -101,6 +101,58 @@ def text_of(page: str) -> str:
     return flat(html.unescape(re.sub(r"<[^>]+>", " ", page)))
 
 
+def guides_unchanged() -> int:
+    """The two vendor guides must hash to what `vendor_guides/sha256.json` says.
+
+    **This is the foundation check and it was missing.** Everything in this lane
+    derives from those two files: `preflight_graph` parses the alignment
+    templates out of them at import, the conformance and camera checkers parse
+    their vocabularies, and this file grades three documents against them. So an
+    edit to a guide -- a well-meant "fix", a bad merge, a stray save -- would
+    make **every derived check re-derive from the corrupted source and stay
+    green**, which is the worst failure available here.
+
+    `vendor_guides/README.md` says "Do not edit these files", and until
+    2026-09-01 that must named no assertion: the hash record existed and
+    NOTHING READ IT. A record that looks like protection and is not is worse
+    than none. Borrowed from a sister project's reference contract, which pins
+    its guide copies by hash and says a guide revision "should be a deliberate,
+    visible event".
+
+    Updating a hash is therefore a real decision: replace the file, update
+    `sha256.json`, and expect every downstream check to report what changed.
+    """
+    import hashlib
+    rec = REPO / "vendor_guides" / "sha256.json"
+    if not rec.exists():
+        print(f"  FAIL  {rec.relative_to(REPO)} is missing; the guides are "
+              f"unpinned and every check that parses them would trust a "
+              f"corrupted file")
+        return 1
+    recorded = json.loads(rec.read_text(encoding="utf-8"))
+    bad = 0
+    for name, want in sorted(recorded.items()):
+        path = rec.parent / name
+        if not path.exists():
+            print(f"  FAIL  vendor guide {name} is recorded but missing")
+            bad += 1
+            continue
+        got = hashlib.sha256(path.read_bytes()).hexdigest()
+        if got != want:
+            print(f"  FAIL  vendor guide {name} has CHANGED since it was "
+                  f"pinned. Every check in this lane parses it, so they would "
+                  f"all agree with the edit. If the change is deliberate, "
+                  f"update sha256.json and re-read what moved.")
+            bad += 1
+    on_disk = {p.name for p in rec.parent.glob("*_en.md")}
+    for extra in sorted(on_disk - set(recorded)):
+        print(f"  FAIL  {extra} sits in vendor_guides/ unpinned")
+        bad += 1
+    if not bad:
+        print(f"  ok    both vendor guides match their pinned hashes")
+    return bad
+
+
 def manual_quotations(manual: str, guide: str) -> int:
     """The manual retypes two closed vocabularies. Grade both against source.
 
@@ -408,6 +460,8 @@ def main() -> int:
     guide = GUIDE.read_text(encoding="utf-8")
     prose = text_of(page)
     fails = 0
+
+    fails += guides_unchanged()
 
     from preflight_graph import BASE_ALIGNMENT
     for mode, template in sorted(BASE_ALIGNMENT.items()):
