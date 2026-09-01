@@ -43,14 +43,25 @@ diffed against anything. This checks the parts that are quotations:
 A green run means the quotations still match their sources. It says nothing
 about whether the prose around them is right.
 
-## Comparison is whitespace-normalised, and that is deliberate
+## Comparison is whitespace-normalised, and that was NOT enough
 
 The page hard-wraps its `<pre>` blocks to a narrower column than the manual
-does, so a literal comparison would fail on every example for a reason nobody
-cares about. Collapsing runs of whitespace compares the words, which is the
-thing that must not drift. It does mean a change purely in line breaking is
-invisible here -- acceptable, since the model receives the prompt text and not
-the page's wrapping.
+does, so comparing them literally would fail on every example for a reason
+nobody cares about. Collapsing whitespace compares the words, which is what must
+not drift between the two documents.
+
+**But the reasoning originally written here -- "a change purely in line breaking
+is invisible, acceptable since the model receives the prompt text and not the
+page's wrapping" -- was wrong, and a peer session falsified it the same day.**
+People COPY from the page, so its wrapping is exactly what reaches the model.
+The published I2VA example had its Part One line hard-wrapped mid-sentence, so a
+copy-paste carried a newline inside the alignment sentence and FAILED the
+grader -- on a page that warns two sections earlier that a wrong Part One line
+is silent and the commonest structural error.
+
+So there are two comparisons, and both are needed: the normalised one, which
+asks whether the documents still agree, and `page_examples_grade`, which asks
+whether the page's blocks still pass **exactly as shipped**.
 """
 
 from __future__ import annotations
@@ -227,6 +238,93 @@ def examples_still_grade(manual: str) -> int:
     return bad
 
 
+def page_examples_grade(page: str) -> int:
+    """Grade the page's example blocks AS SHIPPED, wrapping included.
+
+    Not normalised, on purpose: this is the only check that sees what a reader
+    actually pastes. Its escaped instance is the published I2VA example, whose
+    Part One line was hard-wrapped across two lines and therefore failed the
+    grader on copy while every whitespace-normalised comparison stayed green.
+    """
+    import grade_prompt_text as g
+    bad = 0
+    # Each example sits under a tag naming its mode and frame count.
+    pairs = re.findall(
+        r'<span class="tag">([^<]*)</span>\s*<pre>(.*?)</pre>', page, re.S)
+    graded = 0
+    for tag, block in pairs:
+        mode = next((m for m in ("t2va", "i2va", "fl2va", "l2va", "ref2va")
+                     if m in tag.lower().replace("ref2va", "ref2va")), None)
+        frames = re.search(r"(\d+) frames", tag)
+        body = html.unescape(block).strip()
+        if not mode or not frames or "integrated_multimodal_description" not in body:
+            continue
+        graded += 1
+        try:
+            like = "h3_ref_image_audio_api" if mode == "ref2va" else None
+            path, nid = g.pick(mode if like is None else None, like)
+            graph = json.loads(path.read_text(encoding="utf-8"))
+            node = graph[nid]
+            node["inputs"]["prompt"] = body
+            node["inputs"]["length"] = int(frames.group(1))
+            findings = [f for f in pf.grade(node, graph, path.stem)
+                        if f[0] == "FAIL"]
+        except Exception as exc:
+            bad += 1
+            print(f"  FAIL  page example '{tag.strip()}' could not be graded: "
+                  f"{exc}")
+            continue
+        if findings:
+            bad += 1
+            print(f"  FAIL  page example '{tag.strip()}' does not grade clean "
+                  f"AS SHIPPED: {findings[0][1]}")
+    if not graded:
+        print("  FAIL  no page example could be paired with a mode and a frame "
+              "count; the page's markup changed and a silent zero would pass")
+        return 1
+    if not bad:
+        print(f"  ok    all {graded} page example(s) grade clean exactly as "
+              f"a reader would paste them")
+    return bad
+
+
+def derived_portables(guide: str) -> int:
+    """Anything else in `docs/portable/` that quotes the templates is checked too.
+
+    A second portable artifact that can disagree with the first is the failure
+    this file exists to prevent, and one now exists: a writer-model system
+    prompt derived from the standard. **Generating it from the standard would
+    be better and nobody has built that**, so the next best thing is that it
+    cannot drift silently -- its Part One strings are graded against the same
+    guide-parsed constants as everything else.
+
+    Absence is reported, never silently passed: a portable file that stops
+    being scanned because it was renamed would otherwise read as green.
+    """
+    from preflight_graph import BASE_ALIGNMENT
+    found = sorted(p for p in (REPO / "docs" / "portable").glob("*.md"))
+    if not found:
+        print("  note  no additional portable markdown to check")
+        return 0
+    bad = 0
+    for path in found:
+        text = flat(path.read_text(encoding="utf-8"))
+        quoted = [m for m, t in BASE_ALIGNMENT.items() if flat(t) in text]
+        if not quoted:
+            print(f"  note  {path.name} quotes no Part One template; not graded")
+            continue
+        missing = [m for m in BASE_ALIGNMENT if m not in quoted]
+        if missing:
+            bad += 1
+            print(f"  FAIL  {path.name} quotes {', '.join(quoted)} verbatim but "
+                  f"not {', '.join(missing)} -- a partial set is how a mode gets "
+                  f"a reworded template")
+        else:
+            print(f"  ok    {path.name} quotes all three Part One templates "
+                  f"verbatim from the guide")
+    return bad
+
+
 def audit_covers_catalogue() -> int:
     """Every generated scene name must resolve to a hand-written verdict.
 
@@ -350,6 +448,8 @@ def main() -> int:
 
     fails += manual_quotations(manual, guide)
     fails += examples_still_grade(manual)
+    fails += page_examples_grade(page)
+    fails += derived_portables(guide)
     fails += audit_covers_catalogue()
     fails += snapshots()
 

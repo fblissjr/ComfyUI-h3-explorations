@@ -138,11 +138,16 @@ a{color:var(--accent)}
 
 <div class="frozen">
   <strong>Frozen snapshot — 2026-09-01.</strong> This is a dated record of what was
-  published and shared on that date. <strong>It is not maintained and will fall
-  behind.</strong> The living version is <code>docs/portable/h3_prompt_standard.html</code>,
-  which is checked against its sources by <code>bench/check_portable_standard.py</code>;
-  this copy is checked only for having stayed unmodified. Do not edit it, and do
-  not cite it as current — read it as "this is what we said on 2026-09-01".
+  published on that date. <strong>It is not maintained and will fall behind.</strong>
+  The living version is <code>docs/portable/h3_prompt_standard.html</code>, checked
+  against its sources by <code>bench/check_prompt_docs_sync.py</code>; this copy is
+  checked only for having stayed unmodified. Do not edit it, and do not cite it as
+  current — read it as "this is what we said on 2026-09-01".
+  <br><br><strong>Re-frozen once, the same day.</strong> The first freeze carried a
+  defect: the I2VA example's Part One line was hard-wrapped mid-sentence, so pasting
+  it produced a prompt that fails the grader. Nothing had been shared from that copy,
+  so re-freezing falsified no record — but a snapshot is only worth trusting if
+  replacing one is stated rather than silent.
 </div>
 
 <section id="layers">
@@ -240,7 +245,10 @@ non_diegetic_music: ...</pre>
       <tr><td><strong>Ref2VA</strong></td><td>The ID is <strong>bound to the subject label</strong> and appears <strong>twice</strong> — once where the subject is established in the shot, once at the speaking moment:<br><code>&lt;Subject 3&gt; (S1), the young woman with …</code><br><code>&lt;Subject 3&gt; (S1) jerks her hand back and … exclaims, &lt;d&gt;…&lt;/d&gt;</code></td></tr>
     </table></div></div>
   <div class="rule"><h4><span class="chip c-shown">Guide · shown</span>One dialogue turn per shot, in base modes</h4>
-    <p>Every base-format vendor specimen carries exactly one <code>&lt;d&gt;</code> per shot; a large third-party corpus does the same in every dialogue-carrying shot without exception. <strong>In Ref2VA the vendor is split</strong> — its own reference payload puts two turns in one shot — so two is attested there and stacking beyond that is not.</p></div>
+    <p>Every base-format vendor specimen carries exactly one <code>&lt;d&gt;</code> per shot; a large third-party corpus does the same in every dialogue-carrying shot without exception. <strong>In Ref2VA the vendor is split</strong> — its own reference payload puts two turns in one shot — so two is attested there.</p></div>
+  <div class="rule"><h4><span class="chip c-owner">Owner</span>Stacking several turns in one shot works, and is sanctioned here</h4>
+    <p>A shipped base-format scene puts four dialogue turns in its first shot and three in its second, against a vendor practice of one, and <strong>the rendered result is judged good</strong>. So stacked turns are a capability rather than an error — write them when the scene wants them.</p>
+    <p><strong>What that does and does not establish.</strong> "Does the model deliver four turns in a shot at all" is a presence/absence question, and one render answers it. It is <em>not</em> evidence that stacking beats cutting: that is a comparison, and a comparison needs matched seeds and many of them. Nobody has run it. If you stack, keep each turn inside the speech budget and give every line its speaker ID in the same sentence.</p></div>
 </section>
 
 <section id="dialogue">
@@ -340,8 +348,7 @@ by a soft brushed-snare pulse that rises briefly and drops away before the
 final frame.</pre>
     <p><strong>Why it works:</strong> style opens Shot 1; each speaker is introduced with identity, on-screen status and voice quality at the moment they first appear; the ID sits in the sentence carrying the line; one turn per shot; the non-speaker is explicitly silent; the cut carries a timestamp and Shot 1 does not; the camera phrase is type + amplitude + speed; the soundscape carries no dialogue.</p></div>
   <div class="good"><span class="tag">I2VA · 345 frames · 14.375 s · one shot</span>
-<pre>For the target video, at 0.00 seconds into the target video, &lt;Picture 1&gt;
-(from [Shot 1]) is fully referenced.
+<pre>For the target video, at 0.00 seconds into the target video, &lt;Picture 1&gt; (from [Shot 1]) is fully referenced.
 
 integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the
 exact framing, lighting, wardrobe and composition established in &lt;Picture 1&gt;, a
