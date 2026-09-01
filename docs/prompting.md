@@ -467,6 +467,43 @@ original dialogue into the target video (ref §5.4, *stated*).
 
 ---
 
+### 5.8 Singing
+
+**Added 2026-09-01. This section was missing while both derived extracts
+carried the rule**, so the portable standard was ahead of this file and its
+footer's claim that the manual is newer was, for a day, false. The underlying
+fact was here as a language-preservation clause in §2 and never as guidance for
+writing a sung line.
+
+**Lyrics go in the dialogue block. There is no separate lyrics tag in either
+guide** — ref §5.1, *stated*: "Give vocal sources stable `(S1)`, `(S2)`, and
+subsequent IDs. Write dialogue and lyrics as `<d>[Language] ...</d>`."
+
+```text
+The busker with a low, unhurried contralto (S1) sings: <d>[English] Wait for the tide to turn.</d>
+```
+
+- **A singer is a vocal source**, so takes a stable id exactly as a speaker
+  does, keeps it across shots, and a character who never vocalises gets none
+  (§5.1). Two singing together take `(S1,S2)`, which means in unison.
+- **Preserve the original words and language verbatim inside `<d>`** — the same
+  rule as spoken dialogue, and the reason the language tag is there.
+- **Singing does not go in `overall_soundscape`** (base §4.6, *stated*: that
+  field is ambience, physical action and *non-verbal* human sound). **Diegetic
+  singing — anything the characters can hear — belongs in the description, not
+  in `non_diegetic_music`** (base §4.7, *stated*).
+
+**The declared lyrics markers are a HOUSE pattern under test, not a rule and
+not a prohibition.** The release declares `<|lyrics_start|>` and
+`<|lyrics_end|>`; neither guide mentions them, so the guides' only stated way to
+write a sung line is the `<d>` block above. §7 defines how this repo wraps a
+sung run with them, and the two `h3_ref2v_scene_*` marker arms emit them
+deliberately — they are the reason those graphs exist. **Nothing has been
+rendered and judged**, so treat the pair as OPEN: following the guide alone
+means `<d>` and nothing more, and using the markers is us testing whether the
+declared tokens do anything. Do not read §7's structure as a licence, and do not
+read this paragraph as a ban.
+
 ## 6. On-screen text
 
 base §4.5, *stated*: place any **banner, sign, label, subtitle, or neon text**
@@ -508,10 +545,19 @@ other five is HOUSE pattern, and the structural rules are enforced by
 | marker | what it is for | where it goes |
 |---|---|---|
 | `<d>` … `</d>` | spoken or sung words | inline in the main field; language tag plus the words, nothing else (GUIDE, base §4.4) |
-| `<\|cutoff\|>` | speech truncated by the end of the video | directly against the closing `</d>`, no space (HOUSE; the guides spell it `<cutoff>`) |
+| `<\|cutoff\|>` | speech truncated by the end of the video | directly against the closing `</d>`, no space (HOUSE; the guides spell it `<cutoff>`, and **this divergence is unmeasured** — see below) |
 | `<\|lyrics_start\|>` … `<\|lyrics_end\|>` | marks a sung run | **wraps** one or more `<d>` blocks (HOUSE) |
 | `<\|caption_start\|>` … `<\|caption_end\|>` | undocumented; the name reads as subtitle | a **sibling** of `<d>`, immediately after the `</d>` it belongs to (HOUSE) |
 | `<scenetrans>` | dialogue continuing across a cut | at the connecting point in **both** parts (GUIDE, base §4.4) — **but it matches no declared token** |
+
+**The piped-versus-unpiped call is a decision, not a finding.** The release
+declares `<|cutoff|>` and both guides print `<cutoff>`, so following the guide
+literally gives the unpiped form and ours is the house call. **Nobody has
+rendered the comparison.** It is reasoned from the release declaring one and not
+the other, which is a good reason and not evidence; a downstream consumer
+choosing the guide's spelling is following the vendor's text, not making a
+mistake. Same standing for `<scenetrans>`, which matches no declared token at
+all and stays ordinary prose.
 
 Structural rules, all HOUSE and all checked:
 
