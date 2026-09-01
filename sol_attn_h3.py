@@ -113,6 +113,7 @@ import torch
 from comfy_api.latest import io
 
 from .block_spec import parse_blocks
+from . import sol_observe
 
 try:
     import comfy_kitchen as _ck
@@ -156,23 +157,43 @@ def parse_tau_profile(spec, count):
 
 
 def _install_block_index(model):
-    """Publish the running block index into transformer_options."""
+    """Publish the running block index into transformer_options, and CLEAR it.
+
+    The pre-hook sets `sol_block` before each DiT block runs; the paired
+    post-hook removes it after. Until 2026-09-01 nothing removed it, so the
+    two token-refiner attention calls at the start of the next step -- which
+    run BEFORE the block loop with the same options dict
+    (`comfy/ldm/minimax/model.py`, refiner at `:692`, blocks at `:737`) --
+    inherited the previous step's last index. With 49 in `dense_blocks` they
+    were counted as `dense_block` rather than `dense_fallback`, and any
+    recorder reading the key labelled them block 49. Output-neutral: those
+    calls are dense either way, and the post-hook returns None so the block's
+    output is untouched.
+    """
     blocks = getattr(model, "blocks", None)
     if blocks is None:
         return False
     if id(model) in _BLOCK_INDEX_HOOKED:
         return True
 
-    def make_hook(index):
-        def hook(_module, _args, kwargs):
+    def make_hooks(index):
+        def pre(_module, _args, kwargs):
             options = kwargs.get("transformer_options")
             if isinstance(options, dict):
                 options["sol_block"] = index
             return None
-        return hook
+
+        def post(_module, _args, kwargs, _output):
+            options = kwargs.get("transformer_options")
+            if isinstance(options, dict):
+                options.pop("sol_block", None)
+            return None
+        return pre, post
 
     for index, block in enumerate(blocks):
-        block.register_forward_pre_hook(make_hook(index), with_kwargs=True)
+        pre, post = make_hooks(index)
+        block.register_forward_pre_hook(pre, with_kwargs=True)
+        block.register_forward_hook(post, with_kwargs=True)
     _BLOCK_INDEX_HOOKED.add(id(model))
     return True
 
@@ -380,6 +401,10 @@ def install_h3_morton(model):
             model._sol_transformer_options = None
             transformer_options.pop("sol_h3_video_span", None)
             transformer_options.pop("sol_h3_audio_span", None)
+            # Published inside rope_freqs, which runs AFTER token refinement;
+            # left in place it reached the next step's refiner calls as the
+            # previous layout. Cleared here since 2026-09-01, beside the spans.
+            transformer_options.pop("h3_segments", None)
 
     def rope_freqs(position_ids, device):
         """Publish the layout only. Permuting happens in the block hook, which is
@@ -564,12 +589,20 @@ def _require_kernel():
             f"pre-merge build takes centroid_tail and max_blocks instead of "
             f"tail. Both builds report version 0.2.31, so upgrade by the local "
             f"version segment rather than the version.")
+    # Only an ARMED observer needs the count out-parameter. Unarmed, the node
+    # never passes it, so an older wheel keeps rendering; armed against such
+    # a wheel it must fail here, not record nothing and look complete.
+    if sol_observe.enabled() and "blk_cnt" not in params:
+        raise RuntimeError(
+            "H3_SOL_OBSERVE is set, but the installed comfy_kitchen.sol_attn "
+            "has no blk_cnt argument, so the route cannot be observed. Rebuild "
+            "from the sol-blk-cnt branch (vendor/rebuild_kernel.sh) or start "
+            "the server without H3_SOL_OBSERVE.")
 
 
-def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
-         tau, min_tokens, verbose, sink_blocks=(0, 0), sink_q=(0, 0),
-         topk_ratio=0.0, tail=True):
-    """Returns the attention output, or None if this call should stay dense."""
+def _bthd(q, k, v, heads, skip_reshape):
+    """(qs, ks, vs, b, dim_head): the BTHD views the kernel wants, from either
+    layout `optimized_attention` hands over. Views only, no copy."""
     if skip_reshape:
         b, _, _, dim_head = q.shape          # BHND
         qs, ks, vs = (t.transpose(1, 2) for t in (q, k, v))
@@ -577,6 +610,20 @@ def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
         b, _, dim_head = q.shape             # B, N, heads*dim_head
         dim_head //= heads
         qs, ks, vs = (t.view(b, -1, heads, dim_head) for t in (q, k, v))
+    return qs, ks, vs, b, dim_head
+
+
+def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
+         tau, min_tokens, verbose, sink_blocks=(0, 0), sink_q=(0, 0),
+         topk_ratio=0.0, tail=True, blk_cnt=None):
+    """Returns the attention output, or None if this call should stay dense.
+
+    `blk_cnt`, when given, is an int32 (B, H, ceil(T/64)) buffer the kernel
+    fills with its routed-block counts from this same call. It is forwarded
+    ONLY when not None: the unarmed path passes no such keyword, so a wheel
+    without the argument keeps working and the default call is unchanged.
+    """
+    qs, ks, vs, b, dim_head = _bthd(q, k, v, heads, skip_reshape)
 
     reason = _ineligible(qs, ks, None, dim_head, min_tokens)
     if reason is not None:
@@ -593,9 +640,10 @@ def _run(q, k, v, heads, skip_reshape, skip_output_reshape, scale,
     # `key_bias`, `block_len` and `coarse_gate` are left at their defaults --
     # None, None and None. The module docstring says why each is unreachable
     # or inert on this path rather than merely unused.
+    extra = {} if blk_cnt is None else {"blk_cnt": blk_cnt}
     out = _ck.sol_attn(qs, ks, vs, tau=tau, scale=scale,
                        sink_blocks=list(sink_blocks), sink_q=list(sink_q),
-                       topk_ratio=topk_ratio, tail=tail)      # BTHD
+                       topk_ratio=topk_ratio, tail=tail, **extra)      # BTHD
     _stats["sparse"] += 1
     if verbose:
         sel = (f"topk={topk_ratio:.3f}" if topk_ratio else f"tau={tau}")
@@ -639,16 +687,38 @@ def _sink_blocks(transformer_options, tokens, mode):
 def make_override(tau=1.0, min_tokens=4096,
                   sigma_start=None, sigma_end=None, verbose=False,
                   sink_conditioning="exact_kv", dense_blocks=frozenset(),
-                  tau_profile=None, previous=None, topk_ratio=0.0, tail=True):
+                  tau_profile=None, previous=None, topk_ratio=0.0, tail=True,
+                  settings=None):
     """Build an optimized_attention_override callable.
 
     ``previous`` chains any override already installed on the model: every path
     that declines hands off to it first, falling through to ``func`` only if
     there is none.
+
+    ``settings`` is the node configuration as a plain dict, recorded by
+    `sol_observe` once per distinct configuration and referenced from every
+    call row. Unused unless the observer is armed.
     """
+    settings = dict(settings or {})
 
     def override(func, q, k, v, heads, mask=None, attn_precision=None,
                  skip_reshape=False, skip_output_reshape=False, **kwargs):
+
+        # Read once per call, never cached across calls: the server reads the
+        # environment at import, and a test may arm and disarm the module.
+        observing = sol_observe.enabled()
+        options = kwargs.get("transformer_options")
+        tokens = q.shape[2] if skip_reshape else q.shape[1]
+        # The block label is read whenever a consumer exists. Before
+        # 2026-09-01 only the depth gates read it, so an armed recorder on a
+        # canonical graph (no dense_blocks, no profile) would have had no
+        # block identity at all.
+        block = None
+        if dense_blocks or tau_profile or observing:
+            block = (options or {}).get("sol_block")
+        block_tau = tau_profile.get(block, tau) if tau_profile else tau
+        sink, sink_q = _sink_blocks(options, tokens, sink_conditioning)
+        counts = None
 
         # **The route this call actually took, published for the capture.**
         # A caller cannot know it in advance: Sol's composition gate upstream
@@ -657,10 +727,21 @@ def make_override(tau=1.0, min_tokens=4096,
         # capture tagged before this function runs claims an attribution it
         # cannot support -- which is what the first verification run produced,
         # tagging a block in `dense_blocks` as `sol` when it had run on sage.
-        def route(name):
-            options = kwargs.get("transformer_options")
+        #
+        # The same seam feeds the recorder, for the same reason. `record` may
+        # raise `SolObserveError`; nothing here catches it, and the only
+        # `except` below wraps the kernel call alone, so an observer failure
+        # aborts the armed render rather than becoming a dense fallback.
+        def route(name, reason=None):
             if isinstance(options, dict):
                 options["h3_attn_route"] = name
+            if observing:
+                sol_observe.record(
+                    route=name, reason=reason, counts=counts if name == "sol" else None,
+                    options=options, settings=settings, block=block,
+                    block_tau=block_tau, tokens=tokens, batch=q.shape[0],
+                    heads=heads, sink=sink, sink_q=sink_q, tail=tail,
+                    topk_ratio=topk_ratio, min_tokens=min_tokens)
 
         def dense():
             target = func if previous is None else partial(previous, func)
@@ -682,7 +763,7 @@ def make_override(tau=1.0, min_tokens=4096,
             # graph wires a mask-typed node) and would arrive quietly the day
             # anyone adopts masked H3. Raised by a peer session 2026-08-30.
             _stats["dense_fallback"] += 1
-            route("masked")
+            route("masked", "attention mask present")
             _log_once(("masked",),
                       "this call carries an attention mask, which the Sol "
                       "kernel cannot express, so it is running on the fallback "
@@ -692,14 +773,10 @@ def make_override(tau=1.0, min_tokens=4096,
             return dense()
 
         # Depth gates: a block can be kept dense outright or given its own tau.
-        block = None
-        if dense_blocks or tau_profile:
-            block = kwargs.get("transformer_options", {}).get("sol_block")
         if block in dense_blocks:
             _stats["dense_block"] += 1
-            route("dense_block")
+            route("dense_block", f"block {block} in dense_blocks")
             return dense()
-        block_tau = tau_profile.get(block, tau) if tau_profile else tau
 
         # Sampling-percentage gate, so the paper's dense warm-up steps work.
         if sigma_start is not None or sigma_end is not None:
@@ -709,27 +786,34 @@ def make_override(tau=1.0, min_tokens=4096,
                 if (sigma_start is not None and sigma > sigma_start) or \
                    (sigma_end is not None and sigma < sigma_end):
                     _stats["outside_range"] += 1
-                    route("outside_range")
+                    route("outside_range",
+                          f"sigma {sigma:.4g} outside [{sigma_end}, {sigma_start}]")
                     return dense()
 
-        tokens = q.shape[2] if skip_reshape else q.shape[1]
-        sink, sink_q = _sink_blocks(kwargs.get("transformer_options"), tokens,
-                                    sink_conditioning)
         if verbose and sink != (0, 0):
             _log_once((tokens, sink, sink_q),
                       f"conditioning sink: KV blocks {sink} exact, dense query blocks {sink_q}")
 
+        if observing:
+            # Allocated OUTSIDE the try, so a kernel failure leaves it unfilled
+            # and unrecorded rather than recorded as zeros.
+            counts = torch.empty((q.shape[0], heads, (tokens + BLOCK_SIZE - 1) // BLOCK_SIZE),
+                                 dtype=torch.int32, device=q.device)
         try:
             out = _run(q, k, v, heads, skip_reshape, skip_output_reshape,
                        kwargs.get("scale", None), block_tau, min_tokens, verbose,
-                       sink, sink_q, topk_ratio, tail)
+                       sink, sink_q, topk_ratio, tail, blk_cnt=counts)
         except Exception as exc:
             _stats["errors"] += 1
             _log_kernel_failure(exc)
-            route("kernel_error")
+            route("kernel_error", f"{type(exc).__name__}: {exc}"[:200])
             return dense()
         if out is None:
-            route("ineligible")
+            reason = None
+            if observing:
+                qs, ks, _vs, _b, dim_head = _bthd(q, k, v, heads, skip_reshape)
+                reason = _ineligible(qs, ks, None, dim_head, min_tokens)
+            route("ineligible", reason)
             return dense()
         route("sol")
         return out
@@ -839,11 +923,15 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
     count = len(blocks) if blocks is not None else 0
     dense = parse_blocks(dense_blocks, count)
     profile = parse_tau_profile(tau_profile or "", count)
-    if (dense or profile) and not _install_block_index(diffusion_model):
+    observing = sol_observe.enabled()
+    if (dense or profile or observing) and not _install_block_index(diffusion_model):
         logging.warning(
             f"[h3-sol] dense_blocks/tau_profile ignored: "
             f"{type(diffusion_model).__name__} has no .blocks list to index")
         dense, profile = frozenset(), {}
+        if observing:
+            logging.warning("[h3-sol] route observation will carry no block identity "
+                            "on this model")
     if dense:
         logging.info(f"[h3-sol] keeping blocks {sorted(dense)} dense of {count}")
 
@@ -874,6 +962,24 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
     if is_h3:
         _install_compose_hooks(diffusion_model, "attn")
 
+    # The configuration as the recorder sees it: one record per distinct
+    # dict, referenced by digest from every call row. Plain JSON types only.
+    settings = {
+        "node": "MiniMaxH3SolAttn", "tau": float(tau), "topk_ratio": float(topk_ratio),
+        "tail": bool(tail), "min_tokens": int(min_tokens),
+        "sink_conditioning": sink_conditioning,
+        "start_percent": float(start_percent), "end_percent": float(end_percent),
+        "sigma_start": sigma_start, "sigma_end": sigma_end,
+        "dense_blocks": sorted(int(b) for b in dense),
+        "tau_profile": {str(k): float(v) for k, v in sorted(profile.items())},
+        "morton": bool(reorder), "morton_curve": morton_curve if reorder else None,
+        "n_blocks": count, "chained_previous": previous is not None,
+    }
+    if observing:
+        logging.info(f"[h3-sol] route observation ARMED ({sol_observe.spec()['spec']}); "
+                     f"every attention call is recorded and timings from this "
+                     f"render are not quotable")
+
     m.model_options["transformer_options"]["sol_compose"] = {
         "sigma_start": sigma_start, "sigma_end": sigma_end,
         "min_tokens": min_tokens}
@@ -882,7 +988,7 @@ def _apply_patch(model, *, tau, start_percent, end_percent, min_tokens,
                       sigma_start=sigma_start, sigma_end=sigma_end,
                       verbose=verbose, sink_conditioning=sink_conditioning,
                       dense_blocks=dense, tau_profile=profile, previous=previous,
-                      topk_ratio=topk_ratio, tail=tail)
+                      topk_ratio=topk_ratio, tail=tail, settings=settings)
     if reorder:
         m.model_options["transformer_options"]["sol_morton"] = True
         m.model_options["transformer_options"]["sol_morton_curve"] = morton_curve

@@ -30,9 +30,10 @@ The pipeline is four kernels (`sage_attention/sol_attn.cu:19-24`): `preprocess`,
   - `smsp__inst_executed_pipe_tensor` against elapsed cycles -- the MMA
     issue-rate question, directly
   - dram throughput and l2 hit rate -- the staging question
-  - **routed density**, which nothing here measures today. `blk_cnt` is
-    written per (b, h, query block) by `sol_attn_route.cu`; getting at it means
-    either the kernel exposing it or the probe of Track A2.
+  - **routed density**, which this scaffold does not measure and no longer
+    needs to: since 2026-09-01 `sol_attn` takes a `blk_cnt` out-parameter and
+    `sol_observe.py` records it per live call. A profile taken here should be
+    joined to that record by prompt id rather than re-deriving density.
 
 ## Two hazards specific to profiling this
 

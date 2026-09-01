@@ -209,10 +209,11 @@ is that `bench/check_solattn_correctness.py` **hard-requires** it and
 
 ### 2. Install the CUDA kernel
 
-`comfy_kitchen.sol_attn` **ships on no wheel.** It exists only on
-kijai/comfy-kitchen's unmerged `sol_attn` branch -- the head of
-[PR 117](https://github.com/Comfy-Org/comfy-kitchen/pull/117), still OPEN. The
-stock `comfy-kitchen==0.2.31` that ComfyUI pins has no `sol_attn` at all.
+`comfy_kitchen.sol_attn` **ships on no wheel ComfyUI pins.** It merged into
+upstream main as [PR 117](https://github.com/Comfy-Org/comfy-kitchen/pull/117)
+on 2026-08-29 (this said "still OPEN" until 2026-09-01), but the stock
+`comfy-kitchen==0.2.31` that ComfyUI pins has no `sol_attn` at all, so a
+local build is still the only way to run it here.
 
 **On this box, use the script.** `vendor/rebuild_kernel.sh [ARCH]` (default 89)
 does everything below and three things the manual recipe does not: it derives
@@ -229,9 +230,9 @@ The provenance it produces, and where each piece lives:
 
 | what | where |
 |---|---|
-| source | `coderef/comfy-kitchen-sol`, gitignored clone; remote `upstream` is `kijai/comfy-kitchen`, branch `sol_attn` |
-| the local edit | `vendor/patches/001-local-version-tag.patch`, applied for the build only |
-| wheel | `coderef/comfy-kitchen-sol/dist/`, one per build, never cleaned |
+| source | since 2026-09-01: the Comfy-Org clone `coderef/comfy-kitchen` (a symlink to the workspace checkout, which is the git authority), branch `sol-blk-cnt`, built with `SRC=coderef/comfy-kitchen vendor/rebuild_kernel.sh 89`. Before that, `coderef/comfy-kitchen-sol` (kijai's branch clone), which the script still defaults to |
+| the local edit | `vendor/patches/001-local-version-tag.patch`, applied for the build only; the local segment is the built commit's short sha |
+| wheel | `<source>/dist/`, one per build, never cleaned |
 | installed | the ComfyUI venv's `site-packages`, as a **built wheel and not an editable install** -- the running kernel does not read from the clone, so changing branches there does nothing until the next rebuild |
 | which build is live | `comfy_kitchen.__version__` / `uv pip list`, and `bench/check_sol_kernel.py` prints it |
 
@@ -762,8 +763,12 @@ The state a reader needs before anything below, because three things moved on
 one day and two of them change what the rest of this page means.
 
 **The kernel is upstream's now.** Sol-Attn merged as
-Comfy-Org/comfy-kitchen#117 (`dae00a1`) and the installed build is
-`0.2.31+sol.dae00a1`, not kijai's branch. The API changed with it --
+Comfy-Org/comfy-kitchen#117 (`dae00a1`) and the installed build was
+`0.2.31+sol.dae00a1` from 2026-08-29 -- not kijai's branch -- until
+2026-09-01, when it became `0.2.31+sol.24908e1`: our `sol-blk-cnt` branch,
+two commits past upstream main `c1c6751`, adding only the `blk_cnt`
+out-parameter ("Live route telemetry" below). Read the dist-info, not this
+sentence. The API changed with the merge --
 `centroid_tail`, `reuse_qkv_memory` and `max_blocks` are gone; `tail`,
 `block_len` and `coarse_gate` arrived -- so the vendored node reads
 `sol_attn`'s signature and passes what the build accepts. **Both builds call
@@ -856,6 +861,7 @@ Read from the signature and from
 | `block_len` | **not exposed, inert here** | live rows per 64-row block, for a caller that PADS. H3's packed sequence is contiguous, so the kernel derives the ragged final block from T. VSA's cube tiling is the one caller that needs it |
 | `coarse_gate` | **not exposed, by choice** | VSA's gated coarse branch, a learned projection of the BLOCK INPUT. An override is handed Q/K/V already built, but a pre-hook can stash the block input into `transformer_options` -- the route this node already uses for the block index -- so it IS reachable. It lives in its own node because VSA also needs the cube reorder and padding, and because the two regimes are mutually exclusive at the same 50 blocks |
 | `sol_attn_chunked` | **structurally unreachable** | it exists to never materialise Q/K/V, and by the time an override runs `qkv_proj` has run in full and rope is applied -- so its saving is already spent and feeding it post-rope tensors would apply rope twice. Upstream reports ~5 GB less peak at 113k tokens, which is a length this repo renders |
+| `blk_cnt` | **ours, passed only when `H3_SOL_OBSERVE` is armed** | an int32 `(B, H, ceil(T/64))` out-parameter the CUDA backend fills from the plan's `cnt` slot after the same launch: how many key blocks each query block attended exactly, forced pairs included. Added on the `sol-blk-cnt` branch (2026-09-01), absent from upstream main. Unarmed, the node passes no such keyword, so an older wheel keeps rendering |
 
 **Corrected 2026-08-30.** This said both were unreachable and that both "need
 the BLOCK forward replaced". Only `sol_attn_chunked` does. `coarse_gate` is
@@ -865,6 +871,46 @@ pattern. It sits in its own node for design reasons (VSA also needs the cube
 reorder and padding, and the two regimes are mutually exclusive at the same 50
 blocks) and because it needs a checkpoint that carries the gate. A design
 choice stated as a constraint is the thing this page warns about elsewhere.
+
+### Live route telemetry, since 2026-09-01
+
+Every routed-density figure above this line was an offline approximation:
+`bench/analyze_routing.py` re-derives the router's decision from the eager
+reference on captured activations, in float arithmetic the kernel does not use.
+The kernel computes the real thing on every call -- the route stage writes one
+int32 per (batch, head, query block) that the exact stage walks -- and the
+public API discarded it with the workspace. It no longer does.
+
+    H3_SOL_OBSERVE="dir=/path[,raw=0]" <comfy>/start.sh
+
+Armed, `sol_attn_h3.py` hands the kernel a `blk_cnt` buffer on every Sol call
+and `sol_observe.py` writes one JSONL row per override call -- every route, not
+only Sol -- plus a uint16 raw sidecar of the full count tensor (183 KiB per
+call at the canonical geometry, `raw=0` to skip it). `sol_observe.py`'s
+docstring is the schema; the parts that matter when reading a file:
+
+- **Identity is read at call time**, never at patch time, because ComfyUI
+  caches the patched model across prompts. `prompt_id` comes from
+  `comfy_execution.utils.get_executing_context()` and is the key `/history`
+  uses; `executing_node_id` is the node running the forward, normally the
+  sampler. The block label is published by a pre-hook and CLEARED by a paired
+  post-hook, so a row without one is `scope: unknown`, not "token refiner".
+- **Two densities, the same two `analyze_routing.py` prints.** `kernel_density`
+  is `cnt / NTB` with the forced sink and diagonal pairs included: the cost.
+  `routed_density` is `(cnt - forced) / (NTB - forced)` on rows outside
+  `sink_q`: the adaptive share tau or top-k chose. Segment figures are
+  overlap-weighted QUERY-segment means; the full segment table is on the row.
+- **The producer asserts its own shape** -- floor, ceiling, `sink_q` rows at
+  NTB -- and a failure aborts the render rather than thinning the file.
+- **Timing from an armed render is not quotable**; the header says so. Each
+  Sol call synchronizes once to copy its counts.
+
+What it cannot say: WHICH key blocks were chosen (`blk_idx` is not recorded)
+and what the route cost in error. `bench/check_sol_observe.py` grades the
+recorder; the count semantics are pinned upstream in
+`tests/test_sol_attn.py` on the branch, as equalities at both tau extremes.
+The live `/history` join has not been exercised on a render yet (the server
+was down when this shipped) -- see the uncontrolled row in `docs/checks.md`.
 
 ### The one silent exception to "Sol is on in every shipped video workflow"
 

@@ -45,6 +45,60 @@ artifact.
   applied within a single commit here: the sentence saying the content was in
   §15 and the deletion of §15 share an author and a timestamp.
 
+## 0.99.18
+
+### Added
+
+- **Live Sol-Attn route telemetry.** `sol_observe.py`, armed by
+  `H3_SOL_OBSERVE="dir=...[,raw=0]"` in the server's environment, writes one
+  JSONL row per attention override call -- every route, not only Sol -- with
+  call-time identity (`prompt_id` from ComfyUI's executing context, the
+  conditioning uuids, sigma and a justified schedule index), the block,
+  shape, selection, sinks, and for Sol calls the routed-block counts the
+  kernel actually produced: kernel density (forced pairs included), adaptive
+  density (forced pairs removed, `sink_q` rows excluded), per head, and
+  overlap-weighted per query segment. A uint16 raw sidecar keeps the full
+  `(B, H, NQ)` tensor per call. The producer asserts its own shape and aborts
+  the render on a violation rather than thinning the file. Until now every
+  routed-density figure here was an offline approximation.
+- **`blk_cnt` out-parameter on `comfy_kitchen.sol_attn`**, on the
+  `sol-blk-cnt` branch of the workspace comfy-kitchen clone (two commits past
+  upstream main `c1c6751`): the CUDA backend copies the plan's `cnt` slot
+  from the same launch that produced the output, the eager reference fills it
+  from its own route mask, HIP refuses it. The installed wheel is now
+  `0.2.31+sol.24908e1`; `bench/check_sol_kernel.py` prints which build
+  answers.
+- `bench/check_sol_observe.py`, nine cases; `H3_SOL_OBSERVE` in
+  `bench/restart_comfy.sh::ARMING_KEYS`; one more case in
+  `bench/check_sol_node_equivalence.py`.
+
+### Fixed
+
+- **`sol_block` was never cleared after a DiT block**, so the next step's two
+  token-refiner calls inherited block 49's label; with 49 in `dense_blocks`
+  they were counted as `dense_block`. A paired post-hook now removes it, and
+  `h3_segments` is dropped with the two spans in the outer forward's
+  `finally`. Output-neutral: those calls were dense either way.
+- The block-index hooks are installed whenever the observer is armed, not
+  only when `dense_blocks` or a tau profile is set; a canonical graph would
+  otherwise have recorded no block identity.
+- `bench/_live_sol.py` re-executed a member the node had already imported,
+  producing two module objects under one name. Found by the new check's
+  first run.
+- `provenance.py` said ComfyUI does not expose `prompt_id` to nodes. It does,
+  through `comfy_execution.utils.get_executing_context()`; the sentence is
+  withdrawn, the hash join stays.
+
+### Notes
+
+- The count includes the sink range and the diagonal; upstream tests pin
+  that in closed form at both tau extremes, elementwise monotonicity in tau,
+  the top-k lower bound and a tie fixture showing no `k+3` upper bound
+  exists. The CUDA-vs-eager disagreement at an ordinary tau is reported, not
+  gated: a bound chosen after seeing the number would be decoration.
+- The live `/history` join is uncontrolled until an armed render runs;
+  `docs/checks.md` carries the row.
+
 ## 0.99.17
 
 ### Fixed

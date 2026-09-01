@@ -86,7 +86,7 @@ NEWER=()
 # who cannot see it. Grep for the key in the module that reads it, not in the
 # docs that describe it -- `docs/research/pdd/tier1_gate.md` item 2 asked for
 # exactly this and it still had not been done.
-ARMING_KEYS="H3_CAPTURE H3_PDD_OBSERVE H3_QUANT_OBSERVE"
+ARMING_KEYS="H3_CAPTURE H3_PDD_OBSERVE H3_QUANT_OBSERVE H3_SOL_OBSERVE"
 
 while [ $# -gt 0 ]; do
     case "$1" in

@@ -78,6 +78,15 @@ def _member(name: str) -> types.ModuleType:
         sys.path.append(str(COMFY))
     _package()
     full = f"{_PACKAGE}.{name}"
+    # A member the node already imported relatively (`from . import
+    # sol_observe`) is the SAME module object a caller must get back. Loading
+    # it again here made two copies under one name: the check armed one and
+    # the node read the other, so every armed case ran unarmed and failed
+    # "no file written" -- found on check_sol_observe.py's first run.
+    existing = sys.modules.get(full)
+    if existing is not None:
+        _CACHE[name] = existing
+        return existing
     spec = importlib.util.spec_from_file_location(full, path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[full] = module
@@ -94,3 +103,8 @@ def live_sol() -> types.ModuleType:
 def block_spec() -> types.ModuleType:
     """`block_spec`, which owns `parse_blocks` since it left the Sol node."""
     return _member("block_spec")
+
+
+def sol_observe() -> types.ModuleType:
+    """`sol_observe`, the env-gated route recorder the Sol node calls."""
+    return _member("sol_observe")

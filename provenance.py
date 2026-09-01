@@ -38,11 +38,18 @@ in benches; keep it out of the shipped workflows.
 
 ## Joining a stamp to a render
 
-ComfyUI does not expose `prompt_id` to nodes (`io.Hidden` has `unique_id`,
-`prompt`, `extra_pnginfo`, `dynprompt` and no id), so the stamp keys on a
-canonical hash of the prompt graph instead. `/history` entries carry the same
-graph, so hashing each one's `prompt[2]` the same way joins the two and gets you
-the graph, the timings and the output filename together.
+The stamp keys on a canonical hash of the prompt graph. `/history` entries
+carry the same graph, so hashing each one's `prompt[2]` the same way joins the
+two and gets you the graph, the timings and the output filename together.
+
+**Withdrawn 2026-09-01: this used to say ComfyUI does not expose `prompt_id`
+to nodes.** It does, at execution time: `comfy_execution.utils.
+get_executing_context()` returns `(prompt_id, node_id, list_index)` inside any
+node's execution, set by `execution.py` around every call, and `sol_observe.py`
+reads it. What `io.Hidden` lacks is a prompt id as a declared INPUT, which is a
+different thing. The hash join here stays, because a stamp that also works
+outside an executing context is worth keeping; but do not build another hash
+to work around a gap that is not there.
 """
 
 from __future__ import annotations

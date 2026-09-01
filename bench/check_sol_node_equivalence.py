@@ -180,6 +180,18 @@ def main():
               f"DIFFER: max abs "
               f"{float((got.float() - want.float()).abs().max()):.3e}")
 
+    # The observer's passthrough: a count buffer handed to `_run` reaches the
+    # kernel, comes back bounded, and moves no byte of the output. Graded here
+    # rather than in check_sol_observe.py because THIS file owns "dispatch ==
+    # kernel", and observation is a second way to call the dispatch.
+    n = (t + 63) // 64
+    buf = torch.empty(b, h, n, dtype=torch.int32, device="cuda")
+    with_counts = dispatch(tau=1.0, blk_cnt=buf)
+    check("dispatch with blk_cnt == dispatch without",
+          torch.equal(with_counts, dispatch(tau=1.0))
+          and 1 <= int(buf.min()) and int(buf.max()) <= n,
+          f"same bytes; counts in [{int(buf.min())}, {int(buf.max())}] of {n} blocks")
+
     sink = dispatch(tau=1.0, sink_blocks=(0, 4), sink_q=(0, 4))
     check("sink pair reaches the kernel",
           torch.equal(sink, kernel(tau=1.0, tail=True,
