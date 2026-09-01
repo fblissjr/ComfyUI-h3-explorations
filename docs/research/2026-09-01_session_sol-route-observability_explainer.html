@@ -1,0 +1,293 @@
+<title>Sol Routing, Observed</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg:#f3f5f7; --fg:#15191e; --muted:#5b6670; --rule:#d7dde3; --panel:#e9edf1;
+  --accent:#0f6e6a; --accent-soft:#c9e6e3; --changed:#a24a2a; --changed-soft:#f1dcd2;
+  --base-bar:#8ea3b3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:#12161b; --fg:#e4e8ec; --muted:#9aa4ae; --rule:#2a323b; --panel:#1a2027;
+    --accent:#4fc3bd; --accent-soft:#173a38; --changed:#e0876a; --changed-soft:#3a241b;
+    --base-bar:#54687a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#12161b; --fg:#e4e8ec; --muted:#9aa4ae; --rule:#2a323b; --panel:#1a2027;
+  --accent:#4fc3bd; --accent-soft:#173a38; --changed:#e0876a; --changed-soft:#3a241b;
+  --base-bar:#54687a;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:17px/1.6 "Source Serif 4", Georgia, "Times New Roman", serif; }
+main { max-width:46rem; margin:0 auto; padding:3rem 1.25rem 6rem; }
+h1,h2,h3 { font-family:"Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif; text-wrap:balance; letter-spacing:-0.01em; line-height:1.15; }
+h1 { font-size:2.6rem; font-weight:700; margin:0 0 .5rem; }
+h2 { font-size:1.45rem; font-weight:700; margin:3rem 0 .9rem; padding-top:1rem; border-top:1px solid var(--rule); }
+h3 { font-size:1.1rem; font-weight:600; margin:1.8rem 0 .5rem; }
+p { margin:0 0 1rem; max-width:65ch; }
+.lede { font-size:1.15rem; color:var(--muted); max-width:60ch; margin:0 0 2rem; }
+.eyebrow { font:500 .78rem/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 .6rem; }
+code, .mono { font:0.86em/1.4 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+code { background:var(--panel); padding:.1em .3em; border-radius:3px; }
+.figure { margin:1.5rem 0 2rem; }
+.figure svg { width:100%; height:auto; display:block; }
+.figure figcaption { font-size:.9rem; color:var(--muted); margin-top:.5rem; max-width:65ch; }
+.grid { stroke:var(--rule); stroke-width:1; }
+.axis { stroke:var(--muted); stroke-width:1; }
+.tick { fill:var(--muted); font:11px "JetBrains Mono", ui-monospace, monospace; }
+.dense { fill:var(--panel); }
+.bar-pdd { fill:var(--accent); }
+.bar-base { fill:var(--base-bar); }
+.legend { display:flex; gap:1.4rem; font:.82rem "JetBrains Mono", ui-monospace, monospace; color:var(--muted); margin:.4rem 0 0; }
+.legend span::before { content:""; display:inline-block; width:.8em; height:.8em; margin-right:.4em; vertical-align:-.05em; }
+.legend .pdd::before { background:var(--accent); } .legend .base::before { background:var(--base-bar); }
+.tablewrap { overflow-x:auto; margin:0 0 1.5rem; }
+table { border-collapse:collapse; width:100%; font-size:.92rem; font-variant-numeric:tabular-nums; }
+th,td { text-align:left; vertical-align:top; padding:.5rem .6rem; border-bottom:1px solid var(--rule); }
+th { font:600 .74rem/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+td.num { text-align:right; font-family:"JetBrains Mono", ui-monospace, monospace; font-size:.86rem; white-space:nowrap; }
+.ledger td:first-child { color:var(--changed); font-weight:600; }
+.callout { border-left:3px solid var(--accent); background:var(--accent-soft); padding:.8rem 1rem; margin:1.2rem 0 1.4rem; max-width:65ch; }
+.callout.changed { border-left-color:var(--changed); background:var(--changed-soft); }
+.callout p:last-child { margin-bottom:0; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(11rem, 1fr)); gap:.8rem; margin:1.2rem 0 1.6rem; }
+.tile { background:var(--panel); padding:.8rem .9rem; border-radius:4px; }
+.tile .n { font:600 1.5rem/1.1 "JetBrains Mono", ui-monospace, monospace; display:block; margin-bottom:.25rem; }
+.tile .l { font-size:.82rem; color:var(--muted); }
+ul { padding-left:1.2rem; margin:0 0 1rem; max-width:65ch; } li { margin:.35rem 0; }
+.checklist li::marker { color:var(--accent); }
+.src { font-size:.82rem; color:var(--muted); }
+a { color:var(--accent); }
+a:focus-visible, :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+</style>
+
+<main>
+<p class="eyebrow">MiniMax H3 &middot; Sol-Attn &middot; 2026-09-01</p>
+<h1>Sol Routing, Observed</h1>
+<p class="lede">Where the day started, what the live route records showed and did not show, which claims changed under them and why, and what that buys next.</p>
+
+<h2>Where we started</h2>
+<p>Every routed-density number this repo had ever quoted for Sol-Attn was an offline approximation. <code>bench/analyze_routing.py</code> re-derives the router's decision from the eager reference on captured activations, in float arithmetic the kernel does not use, on the few blocks and steps a capture happened to hold. The kernel computes the real thing on every call: its route stage writes one integer per (batch, head, query block) that the exact stage then walks. The public API discarded that integer along with the workspace. Codex's joint plan for the morning made recovering it the one bounded milestone for this lane, with a strict rule: read it from the same launch that produced the attention output, never rerun routing to look at it, and leave the normal path doing no observation work.</p>
+<p>That does not make the earlier numbers worthless, and it is worth being exact about what changed. An offline approximation re-derives the router's rule in float arithmetic from captured activations; the kernel routes from int8 proxies. On a synthetic fixture today the two disagreed on about a tenth of a block per query block, with 89.5 percent of rows identical, so the old method was close. Its limits were elsewhere: it covered the blocks and steps a capture happened to hold, at whatever tau and geometry that capture used. Codex's 2026-08-31 sweep, at tau 1.0 on the captured PDD cells, estimated kernel density between 20 and 22.5 percent; the live records read 23.1 percent on the PDD graph and 23.4 on the base graph, every block and every in-window step. The approximation held to within a couple of points. What changes is which number is citable, at which settings, and that the live one costs a render rather than a capture.</p>
+<p>The protocol was one audit checkpoint, one adjudication, one implementation, one handoff. What actually happened was that plus two review rounds, three canonical renders at 1344x768 and 345 frames, and a mid-afternoon in which Codex went offline and the owner directed the rest.</p>
+
+<h2>What got built</h2>
+<p>On the comfy-kitchen side, a branch two commits past upstream <code>c1c6751</code> adds one optional out-parameter to <code>sol_attn</code>. When a caller hands it an int32 buffer of shape (batch, heads, query blocks), the CUDA backend copies the plan's count slot into it on the same stream after the launch. Eager fills the same buffer from its own route mask, HIP refuses it until someone with an AMD card verifies the slice, and <code>None</code> allocates, copies and synchronizes nothing. The wheel every record below was captured on is <code>0.2.31+sol.24908e1</code>; the evening's second variant, <code>0.2.31+sol.d25f2e8</code>, replaced it afterwards (the section on the two variants says what differs). Both the version string and the local segment are recorded because a requirements reinstall replaces either silently.</p>
+<p>On this pack's side, <code>sol_observe.py</code> writes one JSON line per attention override call when the server was started with <code>H3_SOL_OBSERVE</code> in its environment, plus a uint16 sidecar holding the full count tensor. Each row carries call-time identity (the prompt id ComfyUI's history uses, read from the executing context), the transformer block, the sigma with a justified schedule index, the selection and sinks, the route actually taken, and for Sol calls the density figures. A <code>render</code> row per prompt names the workflow file by graph hash and says whether the process was cold or warm. The producer asserts its own shape and aborts the render rather than thinning the file.</p>
+
+<h2>What the records showed</h2>
+<p>Three renders of the shipped graphs, no overrides, all at the trained canvas. The routing figures below are the pair-weighted ordering-effect density: routed pairs beyond the mandatory sink and diagonal ones, over the pairs that could have been routed. That is the number <code>analyze_routing.py</code> computes, which matters for the section after this one.</p>
+
+<div class="tiles">
+  <div class="tile"><span class="n">0.208</span><span class="l">ordering-effect density, PDD 8-evaluation graph, mean over 184 Sol calls</span></div>
+  <div class="tile"><span class="n">0.211</span><span class="l">same figure, 16-step base graph, 506 Sol calls</span></div>
+  <div class="tile"><span class="n">184 / 184</span><span class="l">Sol calls bitwise identical, PDD cold against PDD warm across a restart</span></div>
+  <div class="tile"><span class="n">1631</span><span class="l">query blocks per call at 104,361 packed tokens, 56 heads</span></div>
+</div>
+
+<figure class="figure">
+<svg viewBox="0 0 760 300" role="img" aria-label="Ordering-effect density per transformer block, PDD and base renders">
+<line x1="54" x2="744" y1="230.0" y2="230.0" class="grid"/><text x="48" y="234.0" class="tick" text-anchor="end">0.18</text>
+<line x1="54" x2="744" y1="178.0" y2="178.0" class="grid"/><text x="48" y="182.0" class="tick" text-anchor="end">0.20</text>
+<line x1="54" x2="744" y1="126.0" y2="126.0" class="grid"/><text x="48" y="130.0" class="tick" text-anchor="end">0.22</text>
+<line x1="54" x2="744" y1="74.0" y2="74.0" class="grid"/><text x="48" y="78.0" class="tick" text-anchor="end">0.24</text>
+<line x1="54" x2="744" y1="22.0" y2="22.0" class="grid"/><text x="48" y="26.0" class="tick" text-anchor="end">0.26</text>
+<text x="60.9" y="272" class="tick" text-anchor="middle">0</text>
+<text x="198.9" y="272" class="tick" text-anchor="middle">10</text>
+<text x="336.9" y="272" class="tick" text-anchor="middle">20</text>
+<text x="474.9" y="272" class="tick" text-anchor="middle">30</text>
+<text x="612.9" y="272" class="tick" text-anchor="middle">40</text>
+<text x="737.1" y="272" class="tick" text-anchor="middle">49</text>
+<text x="399" y="294" class="tick" text-anchor="middle">transformer block</text>
+<rect x="54.9" y="22" width="12" height="234" class="dense"/>
+<rect x="68.7" y="22" width="12" height="234" class="dense"/>
+<rect x="82.5" y="22" width="12" height="234" class="dense"/>
+<rect x="496.5" y="22" width="12" height="234" class="dense"/>
+<text x="74.7" y="34" class="tick" text-anchor="middle">dense</text><text x="502.5" y="34" class="tick" text-anchor="middle">dense</text>
+<rect x="96.3" y="155.0" width="5.0" height="101.0" class="bar-base"><title>block 3, base 16-step: 0.209</title></rect>
+<rect x="103.3" y="165.3" width="5.0" height="90.7" class="bar-pdd"><title>block 3, PDD 8-evaluation: 0.205</title></rect>
+<rect x="110.1" y="154.6" width="5.0" height="101.4" class="bar-base"><title>block 4, base 16-step: 0.209</title></rect>
+<rect x="117.1" y="164.6" width="5.0" height="91.4" class="bar-pdd"><title>block 4, PDD 8-evaluation: 0.205</title></rect>
+<rect x="123.9" y="143.0" width="5.0" height="113.0" class="bar-base"><title>block 5, base 16-step: 0.213</title></rect>
+<rect x="130.9" y="151.1" width="5.0" height="104.9" class="bar-pdd"><title>block 5, PDD 8-evaluation: 0.210</title></rect>
+<rect x="137.7" y="145.4" width="5.0" height="110.6" class="bar-base"><title>block 6, base 16-step: 0.213</title></rect>
+<rect x="144.7" y="157.2" width="5.0" height="98.8" class="bar-pdd"><title>block 6, PDD 8-evaluation: 0.208</title></rect>
+<rect x="151.5" y="155.3" width="5.0" height="100.7" class="bar-base"><title>block 7, base 16-step: 0.209</title></rect>
+<rect x="158.5" y="178.7" width="5.0" height="77.3" class="bar-pdd"><title>block 7, PDD 8-evaluation: 0.200</title></rect>
+<rect x="165.3" y="165.3" width="5.0" height="90.7" class="bar-base"><title>block 8, base 16-step: 0.205</title></rect>
+<rect x="172.3" y="172.2" width="5.0" height="83.8" class="bar-pdd"><title>block 8, PDD 8-evaluation: 0.202</title></rect>
+<rect x="179.1" y="175.3" width="5.0" height="80.7" class="bar-base"><title>block 9, base 16-step: 0.201</title></rect>
+<rect x="186.1" y="189.5" width="5.0" height="66.5" class="bar-pdd"><title>block 9, PDD 8-evaluation: 0.196</title></rect>
+<rect x="192.9" y="180.2" width="5.0" height="75.8" class="bar-base"><title>block 10, base 16-step: 0.199</title></rect>
+<rect x="199.9" y="189.5" width="5.0" height="66.5" class="bar-pdd"><title>block 10, PDD 8-evaluation: 0.196</title></rect>
+<rect x="206.7" y="177.3" width="5.0" height="78.7" class="bar-base"><title>block 11, base 16-step: 0.200</title></rect>
+<rect x="213.7" y="184.7" width="5.0" height="71.3" class="bar-pdd"><title>block 11, PDD 8-evaluation: 0.197</title></rect>
+<rect x="220.5" y="157.0" width="5.0" height="99.0" class="bar-base"><title>block 12, base 16-step: 0.208</title></rect>
+<rect x="227.5" y="168.5" width="5.0" height="87.5" class="bar-pdd"><title>block 12, PDD 8-evaluation: 0.204</title></rect>
+<rect x="234.3" y="182.7" width="5.0" height="73.3" class="bar-base"><title>block 13, base 16-step: 0.198</title></rect>
+<rect x="241.3" y="188.6" width="5.0" height="67.4" class="bar-pdd"><title>block 13, PDD 8-evaluation: 0.196</title></rect>
+<rect x="248.1" y="170.5" width="5.0" height="85.5" class="bar-base"><title>block 14, base 16-step: 0.203</title></rect>
+<rect x="255.1" y="180.6" width="5.0" height="75.4" class="bar-pdd"><title>block 14, PDD 8-evaluation: 0.199</title></rect>
+<rect x="261.9" y="178.0" width="5.0" height="78.0" class="bar-base"><title>block 15, base 16-step: 0.200</title></rect>
+<rect x="268.9" y="182.4" width="5.0" height="73.6" class="bar-pdd"><title>block 15, PDD 8-evaluation: 0.198</title></rect>
+<rect x="275.7" y="168.5" width="5.0" height="87.5" class="bar-base"><title>block 16, base 16-step: 0.204</title></rect>
+<rect x="282.7" y="175.9" width="5.0" height="80.1" class="bar-pdd"><title>block 16, PDD 8-evaluation: 0.201</title></rect>
+<rect x="289.5" y="173.6" width="5.0" height="82.4" class="bar-base"><title>block 17, base 16-step: 0.202</title></rect>
+<rect x="296.5" y="186.8" width="5.0" height="69.2" class="bar-pdd"><title>block 17, PDD 8-evaluation: 0.197</title></rect>
+<rect x="303.3" y="169.5" width="5.0" height="86.5" class="bar-base"><title>block 18, base 16-step: 0.203</title></rect>
+<rect x="310.3" y="176.5" width="5.0" height="79.5" class="bar-pdd"><title>block 18, PDD 8-evaluation: 0.201</title></rect>
+<rect x="317.1" y="155.9" width="5.0" height="100.1" class="bar-base"><title>block 19, base 16-step: 0.209</title></rect>
+<rect x="324.1" y="162.4" width="5.0" height="93.6" class="bar-pdd"><title>block 19, PDD 8-evaluation: 0.206</title></rect>
+<rect x="330.9" y="157.5" width="5.0" height="98.5" class="bar-base"><title>block 20, base 16-step: 0.208</title></rect>
+<rect x="337.9" y="164.2" width="5.0" height="91.8" class="bar-pdd"><title>block 20, PDD 8-evaluation: 0.205</title></rect>
+<rect x="344.7" y="134.5" width="5.0" height="121.5" class="bar-base"><title>block 21, base 16-step: 0.217</title></rect>
+<rect x="351.7" y="149.8" width="5.0" height="106.2" class="bar-pdd"><title>block 21, PDD 8-evaluation: 0.211</title></rect>
+<rect x="358.5" y="167.0" width="5.0" height="89.0" class="bar-base"><title>block 22, base 16-step: 0.204</title></rect>
+<rect x="365.5" y="175.8" width="5.0" height="80.2" class="bar-pdd"><title>block 22, PDD 8-evaluation: 0.201</title></rect>
+<rect x="372.3" y="163.6" width="5.0" height="92.4" class="bar-base"><title>block 23, base 16-step: 0.206</title></rect>
+<rect x="379.3" y="167.0" width="5.0" height="89.0" class="bar-pdd"><title>block 23, PDD 8-evaluation: 0.204</title></rect>
+<rect x="386.1" y="168.5" width="5.0" height="87.5" class="bar-base"><title>block 24, base 16-step: 0.204</title></rect>
+<rect x="393.1" y="171.0" width="5.0" height="85.0" class="bar-pdd"><title>block 24, PDD 8-evaluation: 0.203</title></rect>
+<rect x="399.9" y="173.4" width="5.0" height="82.6" class="bar-base"><title>block 25, base 16-step: 0.202</title></rect>
+<rect x="406.9" y="168.9" width="5.0" height="87.1" class="bar-pdd"><title>block 25, PDD 8-evaluation: 0.204</title></rect>
+<rect x="413.7" y="161.7" width="5.0" height="94.3" class="bar-base"><title>block 26, base 16-step: 0.206</title></rect>
+<rect x="420.7" y="162.2" width="5.0" height="93.8" class="bar-pdd"><title>block 26, PDD 8-evaluation: 0.206</title></rect>
+<rect x="427.5" y="133.5" width="5.0" height="122.5" class="bar-base"><title>block 27, base 16-step: 0.217</title></rect>
+<rect x="434.5" y="144.5" width="5.0" height="111.5" class="bar-pdd"><title>block 27, PDD 8-evaluation: 0.213</title></rect>
+<rect x="441.3" y="113.4" width="5.0" height="142.6" class="bar-base"><title>block 28, base 16-step: 0.225</title></rect>
+<rect x="448.3" y="127.5" width="5.0" height="128.5" class="bar-pdd"><title>block 28, PDD 8-evaluation: 0.219</title></rect>
+<rect x="455.1" y="124.4" width="5.0" height="131.6" class="bar-base"><title>block 29, base 16-step: 0.221</title></rect>
+<rect x="462.1" y="133.4" width="5.0" height="122.6" class="bar-pdd"><title>block 29, PDD 8-evaluation: 0.217</title></rect>
+<rect x="468.9" y="106.4" width="5.0" height="149.6" class="bar-base"><title>block 30, base 16-step: 0.228</title></rect>
+<rect x="475.9" y="112.7" width="5.0" height="143.3" class="bar-pdd"><title>block 30, PDD 8-evaluation: 0.225</title></rect>
+<rect x="482.7" y="88.2" width="5.0" height="167.8" class="bar-base"><title>block 31, base 16-step: 0.235</title></rect>
+<rect x="489.7" y="96.8" width="5.0" height="159.2" class="bar-pdd"><title>block 31, PDD 8-evaluation: 0.231</title></rect>
+<rect x="510.3" y="45.1" width="5.0" height="210.9" class="bar-base"><title>block 33, base 16-step: 0.251</title></rect>
+<rect x="517.3" y="55.7" width="5.0" height="200.3" class="bar-pdd"><title>block 33, PDD 8-evaluation: 0.247</title></rect>
+<rect x="524.1" y="54.9" width="5.0" height="201.1" class="bar-base"><title>block 34, base 16-step: 0.247</title></rect>
+<rect x="531.1" y="59.1" width="5.0" height="196.9" class="bar-pdd"><title>block 34, PDD 8-evaluation: 0.246</title></rect>
+<rect x="537.9" y="73.1" width="5.0" height="182.9" class="bar-base"><title>block 35, base 16-step: 0.240</title></rect>
+<rect x="544.9" y="83.7" width="5.0" height="172.3" class="bar-pdd"><title>block 35, PDD 8-evaluation: 0.236</title></rect>
+<rect x="551.7" y="63.2" width="5.0" height="192.8" class="bar-base"><title>block 36, base 16-step: 0.244</title></rect>
+<rect x="558.7" y="72.6" width="5.0" height="183.4" class="bar-pdd"><title>block 36, PDD 8-evaluation: 0.241</title></rect>
+<rect x="565.5" y="122.7" width="5.0" height="133.3" class="bar-base"><title>block 37, base 16-step: 0.221</title></rect>
+<rect x="572.5" y="130.6" width="5.0" height="125.4" class="bar-pdd"><title>block 37, PDD 8-evaluation: 0.218</title></rect>
+<rect x="579.3" y="156.2" width="5.0" height="99.8" class="bar-base"><title>block 38, base 16-step: 0.208</title></rect>
+<rect x="586.3" y="161.4" width="5.0" height="94.6" class="bar-pdd"><title>block 38, PDD 8-evaluation: 0.206</title></rect>
+<rect x="593.1" y="160.5" width="5.0" height="95.5" class="bar-base"><title>block 39, base 16-step: 0.207</title></rect>
+<rect x="600.1" y="155.5" width="5.0" height="100.5" class="bar-pdd"><title>block 39, PDD 8-evaluation: 0.209</title></rect>
+<rect x="606.9" y="144.0" width="5.0" height="112.0" class="bar-base"><title>block 40, base 16-step: 0.213</title></rect>
+<rect x="613.9" y="142.3" width="5.0" height="113.7" class="bar-pdd"><title>block 40, PDD 8-evaluation: 0.214</title></rect>
+<rect x="620.7" y="156.3" width="5.0" height="99.7" class="bar-base"><title>block 41, base 16-step: 0.208</title></rect>
+<rect x="627.7" y="156.8" width="5.0" height="99.2" class="bar-pdd"><title>block 41, PDD 8-evaluation: 0.208</title></rect>
+<rect x="634.5" y="137.1" width="5.0" height="118.9" class="bar-base"><title>block 42, base 16-step: 0.216</title></rect>
+<rect x="641.5" y="139.7" width="5.0" height="116.3" class="bar-pdd"><title>block 42, PDD 8-evaluation: 0.215</title></rect>
+<rect x="648.3" y="171.4" width="5.0" height="84.6" class="bar-base"><title>block 43, base 16-step: 0.203</title></rect>
+<rect x="655.3" y="178.4" width="5.0" height="77.6" class="bar-pdd"><title>block 43, PDD 8-evaluation: 0.200</title></rect>
+<rect x="662.1" y="161.7" width="5.0" height="94.3" class="bar-base"><title>block 44, base 16-step: 0.206</title></rect>
+<rect x="669.1" y="169.8" width="5.0" height="86.2" class="bar-pdd"><title>block 44, PDD 8-evaluation: 0.203</title></rect>
+<rect x="675.9" y="188.7" width="5.0" height="67.3" class="bar-base"><title>block 45, base 16-step: 0.196</title></rect>
+<rect x="682.9" y="188.1" width="5.0" height="67.9" class="bar-pdd"><title>block 45, PDD 8-evaluation: 0.196</title></rect>
+<rect x="689.7" y="175.2" width="5.0" height="80.8" class="bar-base"><title>block 46, base 16-step: 0.201</title></rect>
+<rect x="696.7" y="185.9" width="5.0" height="70.1" class="bar-pdd"><title>block 46, PDD 8-evaluation: 0.197</title></rect>
+<rect x="703.5" y="173.6" width="5.0" height="82.4" class="bar-base"><title>block 47, base 16-step: 0.202</title></rect>
+<rect x="710.5" y="194.0" width="5.0" height="62.0" class="bar-pdd"><title>block 47, PDD 8-evaluation: 0.194</title></rect>
+<rect x="717.3" y="162.8" width="5.0" height="93.2" class="bar-base"><title>block 48, base 16-step: 0.206</title></rect>
+<rect x="724.3" y="182.2" width="5.0" height="73.8" class="bar-pdd"><title>block 48, PDD 8-evaluation: 0.198</title></rect>
+<rect x="731.1" y="192.6" width="5.0" height="63.4" class="bar-base"><title>block 49, base 16-step: 0.194</title></rect>
+<rect x="738.1" y="206.7" width="5.0" height="49.3" class="bar-pdd"><title>block 49, PDD 8-evaluation: 0.189</title></rect>
+<line x1="54" x2="744" y1="256.0" y2="256.0" class="axis"/>
+</svg>
+<div class="legend"><span class="pdd">PDD 8-evaluation, mean of its 4 in-window forwards</span><span class="base">base 16-step, mean of its 11</span></div>
+<figcaption>Ordering-effect density per transformer block, from <code>bench/results/2026-09-01_sol_route_pdd8_cold.json</code> and <code>..._base16_cold.json</code>. Blocks 0, 1, 2 and 32 are configured dense and have no Sol rows. The range is narrow, 0.189 at block 49 to 0.247 at block 33, with the deepest blocks routing least and a rise around blocks 30 to 36. The two graphs agree block for block to about the third decimal, which is what a routing that depends on the inputs and not on the schedule should look like.</figcaption>
+</figure>
+
+<div class="tablewrap"><table>
+<thead><tr><th>record</th><th>graph</th><th>forwards</th><th>inside the Sol window</th><th>Sol rows</th><th>kernel density</th><th>ordering-effect</th></tr></thead>
+<tbody>
+<tr><td>PDD, cold process</td><td>h3_text_to_video_pdd_api.json</td><td><span class="mono">8</span></td><td><span class="mono">4</span></td><td><span class="mono">184</span></td><td><span class="mono">0.2308</span></td><td><span class="mono">0.2082</span></td></tr>
+<tr><td>base, cold process</td><td>h3_text_to_video_api.json</td><td><span class="mono">16</span></td><td><span class="mono">11</span></td><td><span class="mono">506</span></td><td><span class="mono">0.2339</span></td><td><span class="mono">0.2113</span></td></tr>
+<tr><td>PDD, warm, same process as base</td><td>h3_text_to_video_pdd_api.json</td><td><span class="mono">8</span></td><td><span class="mono">4</span></td><td><span class="mono">184</span></td><td><span class="mono">0.2308</span></td><td><span class="mono">0.2082</span></td></tr>
+</tbody></table></div>
+<p class="src">Kernel density counts every pair the exact stage walked, forced ones included, so it is the cost figure; at the shipped sink configuration about 2.3 points of it are mandatory. Every forward in every record carried blocks 0 to 49 exactly once, routed <code>sol</code> or <code>dense_block</code> inside the window and <code>composed_patch</code> outside it, with counts and checksums on Sol rows only and each prompt id known to <code>/history</code>.</p>
+
+<h3>Four things the records settled</h3>
+<ul>
+<li><strong>The windows do what the arithmetic said.</strong> The base graph ran Sol on 11 of 16 forwards and the PDD graph on 4 of 8, the figures <code>pdd_math.py</code> had computed and the profiler scaffold had carried since August. They were never observed until today.</li>
+<li><strong>Routing is a function of the inputs, not of the cache.</strong> The owner asked whether ComfyUI's caching or dynamic VRAM could reach the numbers. The PDD graph rendered cold, first prompt after a restart, and again warm in a different process after a 16-step render, produced bitwise identical counts on all 184 paired Sol calls. Densities from one record are the graph's, not one process's.</li>
+<li><strong>Text rows route less than video rows.</strong> On the PDD graph's first in-window forward the text segment's ordering-effect density was 0.165 against 0.209 for video. That is a query-segment figure with overlap weights; whether it means anything for output is not something a count can say.</li>
+<li><strong>Density barely moves across the window.</strong> Per-forward means run from 0.2093 to 0.2074 across the PDD graph's four in-window forwards, and from 0.2119 to 0.2079 across the base graph's eleven. At tau 1.0 the router is doing nearly the same amount of work at every sigma it is active on.</li>
+</ul>
+
+<h2>Claims that changed, and why</h2>
+<p>Each of these was believed at some point today, by me or by a document, and was withdrawn by evidence. The pattern behind most of them is one CLAUDE.md already names: a fact read from source is an inference until a render takes that path.</p>
+<div class="tablewrap"><table class="ledger">
+<thead><tr><th>was</th><th>is</th><th>what changed it</th></tr></thead>
+<tbody>
+<tr><td>Sol routing is a black box; density is an offline approximation</td><td>Every live call's route and count are on record, at production geometry</td><td>the out-parameter plus the observer; three graded records</td></tr>
+<tr><td>ComfyUI does not expose the prompt id to nodes (provenance.py)</td><td>It does, during any node's execution, through the executing context</td><td>a source read; the docstring now says what it used to claim</td></tr>
+<tr><td>Two token-refiner rows per forward (the acceptance)</td><td>Zero on the shipped t2v graphs: their text arrives already projected and the refiner is skipped</td><td>the first record; the grader takes the count as a parameter</td></tr>
+<tr><td>The chain assert's probe adds one row per prompt</td><td>It skips for VRAM headroom on most runs, and when it ran it carried no prompt id</td><td>the first record; the probe thread now inherits the executing context</td></tr>
+<tr><td>The record's adaptive mean is analyze_routing.py's density</td><td>They weigh differently: per query block versus per pair; 0.5667 against 0.5833 on a five-block fixture</td><td>Codex's review; both are recorded and named for their weighting</td></tr>
+<tr><td>forced.sink is the minimum of the forced vector</td><td>With no sink that minimum is an edge diagonal; the sink is the clamped range's size</td><td>Codex's review; computed from definitions now</td></tr>
+<tr><td>Outside the Sol window the DiT calls are recorded too</td><td>Sage's forward patch took them before the override ran; a dense step showed as two rows</td><td>Codex's source read; the composition gate now records what it declines</td></tr>
+<tr><td>An undefined adaptive distribution serialises as null</td><td>It serialised as a truthy weighting stamp with no mean</td><td>Codex's follow-up review; fixed and pinned</td></tr>
+<tr><td>The installed build is dae00a1 and PR 117 is still open (docs)</td><td>The build is 24908e1, our branch; 117 merged on 2026-08-29</td><td>reading the dist-info; the sentences now date themselves</td></tr>
+<tr><td>Under top-k a query block keeps at most k plus three blocks</td><td>A tied group at the boundary is kept whole; 24 to 27 against k of 8 on the tie fixture</td><td>running my own test against the kernel</td></tr>
+<tr><td>The Sage fork lives only on the NAS</td><td>It is on GitHub and the NAS, in sync</td><td>the owner; a remote list truncated with head</td></tr>
+</tbody></table></div>
+
+<div class="callout changed">
+<p><strong>The general form.</strong> Three of the record defects and both acceptance miscounts came from the same move: deriving a count or an equivalence from reading code, then treating it as settled. The live render is the observable. Where a claim could be checked against a closed-form prediction on the whole tensor, it held; where it rested on a code path nobody had executed, it did not.</p>
+</div>
+
+<h2>What we did not learn</h2>
+<ul>
+<li><strong>What the routing costs in output.</strong> A count says how much of the key sequence a query block walked exactly, not what the pooled tail left out. No reference output was involved. Density is the cost side of the trade, and nothing here ranks quality.</li>
+<li><strong>Which key blocks were chosen.</strong> The kernel's routed list is not recorded, only its length per query block. Key-segment questions need <code>blk_idx</code>, which is a separate decision about disk.</li>
+<li><strong>Anything about time.</strong> Every armed render synchronizes the stream once per Sol call to copy its counts; the record's header says timings are not quotable and they were not quoted. Stage-level profiling remains scaffolding.</li>
+<li><strong>Blocks 0, 1, 2 and 32.</strong> They are dense in the shipped configuration, so the record cannot say whether block 0 still routes about 1.7 times the deeper blocks, as the 2026-08-16 offline table measured at tau 1.3 on four heads of a reference-heavy capture. That table stands as what it was; it is not the number to quote for the shipped configuration, and one armed render with the dense list empty would replace it.</li>
+<li><strong>A second scene or seed.</strong> One prompt, one seed. Every figure above is a single sample of a distribution nobody has measured yet.</li>
+</ul>
+
+<h2>So what</h2>
+<p>Until this morning, any decision about tau, the sigma window, the dense-block list, or which backend takes a fallback had to be argued from captures that covered three blocks and two steps. Now a canonical render leaves a few hundred kilobytes that answer, per block and per step, what the router actually did, and a comparison tool says whether two renders routed the same. That turns the next round of Sol arms from anecdote into measurement: a tau of 0.85 can be characterised by its density profile before anyone spends a blinded screen on it, and the merged-against-baked PDD comparison can record both arms' routing before attributing a difference to the bake.</p>
+<div class="callout">
+<p>The controls that make the numbers trustworthy are cheap and already run: exact closed-form counts at both tau extremes, elementwise monotonicity in tau, bitwise-unchanged output with the buffer present, refusal of a wrong buffer, and a structural grader on every live record. The positive and negative pair Codex owed on the CUDA wheel ran through the public API on a hand-written five-block fixture and holds: <span class="mono">[2, 3, 4, 5, 4] / [2, 3, 4, 5, 4]</span>.</p>
+</div>
+
+<h2>What changed in comfy-kitchen, twice</h2>
+<p>Two branches exist in the workspace clone, and the difference between them is one commit of kijai's, not ours.</p>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>variant 1: <code>sol-blk-cnt</code></th><th>variant 2: <code>sol-blk-cnt-continued</code></th></tr></thead>
+<tbody>
+<tr><td>base</td><td>upstream main <code>c1c6751</code>, the HIP port of the merged Sol kernel</td><td>kijai's <code>sol_attn_continued</code> at <code>402fc90</code>, which forks from the pre-merge history and predates the HIP port</td></tr>
+<tr><td>our change</td><td>one optional <code>blk_cnt</code> out-parameter on <code>sol_attn</code>: CUDA copies the plan's count slot after the same launch, eager fills from its route mask, HIP refuses it; a schema default on the op; tests (<code>cc81f55</code>, <code>24908e1</code>)</td><td>the same change carried over (<code>7cb749c</code>), then <code>blk_cnt</code> on <code>sol_attn_chunked</code> too (<code>d25f2e8</code>); the HIP refusal is absent because the base has no HIP Sol</td></tr>
+<tr><td>his change</td><td>none</td><td>the exact stage quantizes each key block's probabilities against that block's own maximum instead of the running maximum, and <code>sol_attn_chunked</code> is exported. No route kernel or plan change, so the count slot is identical</td></tr>
+<tr><td>what we measured</td><td>exact stage at all-routed: relative error 0.00922, cosine 0.999957 against dense; tau 1.0 against eager cosine 0.999934; isolated call 0.99 ms at 16k tokens</td><td>0.00909 and 0.999959; 0.999934; 1.00 ms. A wash on seeded random inputs, and both sit under the 1.6 percent bound his own test sets, so the premise that main sat near 2 percent did not hold on this fixture</td></tr>
+<tr><td>state</td><td>pushed to the owner's fork</td><td>installed as <code>0.2.31+sol.d25f2e8</code>, because it is a superset, not because it measured better; local only</td></tr>
+</tbody></table></div>
+<p class="src">Sources: <code>bench/results/2026-09-01_sol_exact_main_24908e1.json</code>, <code>..._sol_exact_continued_7cb749c.json</code>, both from <code>bench/measure_sol_exact_variants.py</code>. The decisive comparison for his change is on real H3 activations, which needs a capture on disk; none was reachable tonight.</p>
+
+<h2>The chunked producer, built and measured</h2>
+<p>The page above said our node "cannot reach" comfy-kitchen's chunked producer. That was true of the seam and false of the repo, as the owner pointed out, so it was built the same evening: <code>MiniMaxH3SolChunked</code> publishes the delegate Sol's composition gate already prefers, runs the QKV projection over 64-aligned chunks, and feeds them to <code>sol_attn_chunked</code>, which applies the same fused norm-and-rope core applies. At toy scale it does what upstream says: cosine 0.99995 against the direct path, and 87 MiB of peak allocation over a 32k-token call against 192.</p>
+<p>At canonical geometry it does not deliver the lever, and the record says why. On the shipped PDD graph the shipped arm's peak was already 11.68 GiB at the end of its first forward, which runs on Sage outside the Sol window, and 11.88 GiB by the end; the direct Sol call never set the peak. The chunked arm's first in-window call raised it to 12.87 GiB. The Q, K and V the producer avoids are not where this graph's peak lives, and the producer's own working set costs about a gigabyte more. It also routes a different block set at the same density: 0.2090 against 0.2090 at the first in-window forward, agreeing on 23 percent of head and query-block pairs there and 11 percent by the fourth, as its previous-step key statistics drift from the direct path's current ones. What that costs in output is unmeasured, and a count cannot say.</p>
+<div class="callout changed">
+<p><strong>So the node stays an experiment, not a default</strong>, and the finding that outlives it is about where the peak sits: outside attention. Lowering peak memory on this graph means looking at the dense forward and the MLP, not at Sol's tensors. The record that established that cost two renders and a field that reads the allocator for free.</p>
+</div>
+<p class="src">Sources: <code>bench/results/2026-09-01_sol_route_pdd8_direct_ab.json</code>, <code>..._pdd8_chunked_ab.json</code>, <code>..._pdd8_direct_vs_chunked.json</code>; the node's own check is <code>bench/check_sol_chunked.py</code>. The peak field was cumulative across prompts in this run and is reset per prompt since; the ordering of the two arms is what makes the attribution.</p>
+
+<h2>Going forward</h2>
+<ul class="checklist">
+<li>Uninstrumented renders for anything timed; the armed record is for routing only.</li>
+<li>A second scene and seed before any density figure informs a default.</li>
+<li>One armed render with the dense-block list empty, as an experiment arm, to settle whether block 0 is still the outlier at tau 1.0 over all 56 heads.</li>
+<li>Render both bake arms armed and compare their routing call for call before reading the merged-against-baked result.</li>
+<li>Use the route record to choose which cells the Tier 1 activation capture holds, instead of guessing.</li>
+<li>The upstream pull request is the owner's call; the branch is on the fork. Rebase first if PR 146 or the continued branch moves the plan's count slot.</li>
+<li>Where the peak sits on the canonical graph: instrument the dense forward and the MLP the way attention is now instrumented, since that is where a memory lever would have to act.</li>
+<li>Housekeeping the day exposed: a test that drives the chain probe under an executing context, a workflow-aware <code>--steps</code> in the smoke harness, submodule and path checks in the rebuild script, and the restart script's hang at exit when its output is piped. Its caller-killing <code>pkill</code> is already fixed.</li>
+</ul>
+<p class="src">Sources: <code>bench/results/2026-09-01_sol_route_*.json</code>, <code>bench/results/2026-09-01_blk_cnt_public_api_controls.json</code>, the postmortem at <code>internal/postmortems/2026-09-01_session_sol-route-observability.md</code>, and Codex's review notes under <code>internal/codex/</code>. Timings from the armed renders are deliberately absent.</p>
+</main>
