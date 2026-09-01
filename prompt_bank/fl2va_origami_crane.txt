@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 4.46-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, an overhead shot straight down onto a pale wooden tabletop, beginning in the exact position and framing established by Picture 1 with a flat square of red paper centred on the wood and two hands resting at its lower corners. The camera holds a static shot for the whole four-and-a-half-second take. The hands fold the square in half on the diagonal and crease it flat, collapse it into a smaller square, lift and narrow the sides into a long kite shape, and pull the two inner points out and upward into a neck and a tail. A thumb bends the tip of the neck down into a head, the wings are drawn apart, and the finished crane's stance, the hands' resting positions, the paper's colour and the camera's framing settle exactly into Picture 2 at the end of the shot.
+
+overall_soundscape: A quiet room tone sits under the crisp scrape of a fingernail running along each crease. Paper snaps softly as it folds and rustles as the wings are pulled apart.
+
+non_diegetic_music: A music-box figure at a moderate tempo, a bright repeating melody over a plucked bass note, slowing slightly and stopping on the final fold.

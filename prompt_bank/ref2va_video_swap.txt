@@ -1,0 +1,23 @@
+subject_definitions:
+<Video 1> is the source video for the target video edit, a two-shot piece to camera by a presenter standing at a workbench in a repair shop, cut once from a medium shot to a close shot.
+<Subject 1> is the person shown in <Picture 1>, a man in his forties with a shaved head, a short grey beard, black-framed rectangular glasses, and a dark green work shirt with the sleeves rolled to the elbow.
+<Subject 2> is the presenter's position, blocking, and gestures from <Video 1>: standing centre frame behind the workbench, lifting a brass carburettor into shot with the right hand, turning it toward the camera, and setting it down on a rag on the final word.
+<Audio 1> is the synchronized audio track of <Video 1>, carrying the presenter's spoken English lines, the shop room tone, and the knock of the part being set down, reused in full.
+
+summary:
+[video editing + audio reuse] The target video is an edited version of <Video 1>. The presenter is replaced by <Subject 1>, who takes over <Subject 2>, the original position, blocking, and gestures, at the same workbench with the same cut, while <Audio 1> is kept unchanged and its lines are lip-synced by <Subject 1>.
+
+retention_analysis:
+<Video 1> (source take, framing, cut placement, and workshop setting): partially_preserved - the two-shot structure, its single cut, the workbench, tools, and lighting are kept, and the presenter's face and body are replaced.
+<Subject 1> (appears in [Shot 1], [Shot 2]): fully_preserved - the shaved head, short grey beard, black-framed rectangular glasses, and dark green work shirt with rolled sleeves are retained.
+<Subject 2> (appears in [Shot 1], [Shot 2]): partially_preserved - the centre-frame position behind the bench, the lift and turn of the carburettor, and the set-down on the final word are kept exactly in time, while the identity performing them is replaced.
+<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track, with its spoken lines, room tone, and part knock unchanged.
+
+detailed_description:
+The target video keeps the flat, even live-action look of the source take, lit by a fluorescent strip over the bench with a cool cast, and changes nothing about the framing or the timing of the cut.
+[Shot 1] A medium shot holds the workbench from <Video 1>: a scarred wooden top under a fluorescent strip, a pegboard of spanners and screwdrivers behind, a red rag folded at the front edge, and a brass carburettor resting at the right. <Subject 1>, the man with a shaved head, short grey beard, black-framed rectangular glasses, and dark green work shirt with the sleeves rolled to the elbow, stands centre frame behind the bench in the position <Subject 2> supplies, his hands resting on the wood where the original presenter's hands rested. The camera holds a static shot, as the source does. Following the blocking of <Subject 2>, he lifts the carburettor with his right hand and turns it toward the camera so the strip light runs along the brass. <Subject 1> (S1), lip-syncing the reused line from <Audio 1>, says: <d>[English] This is the float bowl, and this little [unclear] is what sticks.</d> His mouth closes at the end of the line in time with the reused track, and he tilts the part a few degrees so the light catches the rim.
+[Shot 2] At 00:07.500, the shot cuts to a close shot of the carburettor in his hands, matching the cut of <Video 1>, with the folded red rag and the bench edge along the bottom of frame and the dark green sleeve at the left. The camera holds a static shot. <Subject 1> (S1), lip-syncing the second reused line from <Audio 1>, says: <d>[English] Clean it, do not force it.</d> His lips press together as the line ends, and, keeping the timing of <Subject 2>, he sets the part down on the rag on the final word so the knock on the bench lands exactly where it does in <Audio 1>. His hands stay flat on the bench either side of the rag, the glasses catching the strip light, until the shot ends.
+
+overall_soundscape: The copied ambience from <Audio 1> continues throughout the target video, with its fluorescent hum, shop room tone, and the knock of the part on the bench unchanged.
+
+non_diegetic_music: N/A

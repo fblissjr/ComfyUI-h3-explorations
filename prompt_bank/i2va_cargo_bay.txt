@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] 3D CG, a hard-surface rendered look with matte metal shading and sharp cast shadows, holding the exact framing, lighting, layout and composition established in <Picture 1>, a spacecraft cargo bay runs the length of the frame with ribbed white bulkheads, a yellow-striped floor track, and a stencilled placard on the far hatch reading "BAY 4 PRESSURE HOLD". Across the eight-second take a low loading drone rolls along the floor track from the near edge of frame toward the hatch, its cargo clamp folding down as it goes. It produces no vocal sound. The camera pedestals up with small amplitude at slow speed, opening the frame to the overhead gantry and the cable runs above the bay.
+
+overall_soundscape: A continuous ventilation hum fills the bay under the flat whine of the drone's drive motor. Wheels tick over the joints in the floor track, a clamp servo whirs as it folds, and a distant hatch seal thumps once.
+
+non_diegetic_music: Sparse low synth pulses at a slow tempo, joined by a thin high drone that holds steady and drops away at the end.

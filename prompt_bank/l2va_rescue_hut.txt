@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 10.12-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium shot opens in a mountain rescue hut at dusk, a plywood radio desk under a bare bulb and a fogged window looking onto snow, a plausible earlier state of the arrangement shown in <Picture 1>. A volunteer operator stands at the desk with a paper log open in front of her and a handset held loosely at her side. The camera pushes in with small amplitude at slow speed toward the desk. The operator, on-screen, thirties, with a steady, low alto and an unhurried delivery (S1), raises the handset and says: <d>[English] Team two is off the ridge and walking out.</d> Her lips close and her jaw stops moving well before the end of the take. She sets the handset into its cradle, squares the log with both hands, and lowers herself into the chair; her seated posture, the closed log, the handset in the cradle, the bulb's light across the desk and the exact final composition settle into <Picture 1>, mouth closed and still, as the shot ends.
+
+overall_soundscape: Wind presses against the hut walls in long gusts under a faint radio hiss. A handset clicks into its cradle, paper slides across plywood, and a wooden chair takes weight with a slow creak.
+
+non_diegetic_music: A low bowed-cello note at a slow tempo, joined by a single repeated piano tone that fades underneath it before the end.

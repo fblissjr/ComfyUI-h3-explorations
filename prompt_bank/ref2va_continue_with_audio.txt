@@ -1,0 +1,22 @@
+subject_definitions:
+<Video 1> is the source video the target video continues from, a single handheld take on a station platform that ends with the camera holding on a man and a woman standing beside an open carriage door.
+<Subject 1> is the man in <Video 1>, in his thirties with dark curly hair, a grey herringbone overcoat over a black roll-neck, a brown leather holdall in his left hand, and a paper ticket folded in his right.
+<Subject 2> is the woman in <Video 1>, in her thirties with auburn hair tied back, a long camel coat, and a striped wool scarf, standing at the carriage door with her hands in her pockets.
+<Audio 1> is the synchronized audio track of <Video 1>, whose platform ambience of idling engine, wind, and distant announcements the target video's new audio continues in character without copying.
+
+summary:
+[video continuation + audio reference] The target video resumes at the exact framing and camera position where <Video 1> ends, with <Subject 1> and <Subject 2> beside the open carriage door, and carries the moment on as he asks her to stay a little longer before the door closes, over new platform audio that continues the audible character of <Audio 1>.
+
+retention_analysis:
+<Video 1> (continuation starting point, framing, and handheld camera position): fully_preserved - the target video opens on the source take's final frame, framing, and camera height and continues the same unbroken take.
+<Subject 1> (appears in [Shot 1]): fully_preserved - the dark curly hair, grey herringbone overcoat, black roll-neck, brown leather holdall, and folded paper ticket are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the tied-back auburn hair, long camel coat, and striped wool scarf are retained.
+<Audio 1>: reference - the new audio continues its idling-engine, wind, and announcement ambience in the same character without copying any of the signal.
+
+detailed_description:
+The target video keeps the cool, overcast live-action look of the source take, with flat grey daylight under the platform canopy and a faint blue cast on the carriage paintwork.
+[Shot 1] The shot begins from the final frame of <Video 1>, a handheld medium shot on a station platform with <Subject 1>, the man with dark curly hair in a grey herringbone overcoat over a black roll-neck, standing at the left of frame with a brown leather holdall in his left hand and a folded paper ticket in his right, and <Subject 2>, the woman with tied-back auburn hair in a long camel coat and a striped wool scarf, standing at the right beside the open carriage door with her hands in her pockets. Behind them the carriage's yellow door edge and a strip of lit interior fill the right third of the frame, a luggage trolley stands empty a few metres down the platform, and the platform runs away to the left under the canopy toward a departure board too far off to read. The camera continues the handheld hold of <Video 1> and pushes in with small amplitude at slow speed toward the two of them, the frame drifting slightly with the operator's breathing. Under new platform ambience that continues the character of <Audio 1>, a door-closing chime sounds somewhere down the train and a gust lifts the end of her scarf. <Subject 1>, on-screen, with a warm, low baritone and a hesitant delivery (S1), shifts the holdall to his other hand, looks at <Subject 2>, and says to her: <d>[Portuguese] Fica mais um pouco.</d> His lips close and he holds her gaze. <Subject 2> keeps her mouth closed, produces no vocal sound, and takes one hand out of her pocket to touch the sleeve of his overcoat. The carriage door begins to slide shut behind her, the strip of lit interior narrowing to a line, and she steps half a pace toward him and away from the door as the frame settles on the two of them, the ticket still folded in his hand, and the shot ends.
+
+overall_soundscape: A diesel engine idles under a long platform canopy while wind moves through it in gusts. A door-closing chime sounds down the train, a leather handle creaks as a bag changes hands, wool brushes against wool, and a distant announcement runs indistinctly under everything.
+
+non_diegetic_music: N/A

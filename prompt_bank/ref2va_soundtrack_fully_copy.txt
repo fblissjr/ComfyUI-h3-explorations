@@ -1,0 +1,22 @@
+subject_definitions:
+<Video 1> is the source music video whose cut rhythm and camera movement the target video follows, a three-shot performance take in a rehearsal room.
+<Subject 1> is the dancer whose appearance and movement come from <Video 1>, a tall woman with cropped bleached hair, a loose black satin shirt tucked into high-waisted grey trousers, white socks, and black leather loafers, performing a slow-then-sharp contemporary phrase.
+<Audio 1> is the synchronized audio track of <Video 1>, a complete recorded song with a spoken-sung English vocal over a sparse electronic beat, reused 1:1 as the target video's complete final audio track.
+
+summary:
+[reference generation + audio reuse] The target video is a music video that moves <Subject 1> out of the rehearsal room of <Video 1> and into an indoor swimming pool drained of water, keeps her appearance and her phrase, follows the cut rhythm and camera movement of <Video 1> across three shots, and reuses <Audio 1> unchanged as its whole soundtrack.
+
+retention_analysis:
+<Video 1> (cut rhythm and camera movement): weak_reference - only the placement of its two cuts and the direction and pace of its camera moves are carried across; its rehearsal-room setting, lighting, and framing distances do not appear.
+<Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - the cropped bleached hair, black satin shirt, high-waisted grey trousers, white socks, black leather loafers, and the slow-then-sharp phrase are retained.
+<Audio 1>: fully_copy - <Audio 1> is reused 1:1 as the target video's complete final audio track, with no layer removed or added.
+
+detailed_description:
+The target video is in a cool, high-contrast live-action music-video style, lit by hard white light from a row of high windows, with a slightly desaturated palette and deep shadow in the corners of the pool.
+[Shot 1] A wide shot establishes an indoor swimming pool with the water drained out, its tiled floor sloping away from the camera toward the deep end, black lane lines running along pale blue tiles, and steel ladder rails standing dry at the edges. <Subject 1>, the tall dancer with cropped bleached hair, a loose black satin shirt tucked into high-waisted grey trousers, white socks, and black leather loafers, stands alone at the centre of the shallow end with her arms hanging loose and her weight on both feet. The camera pushes in with small amplitude at slow speed, the same forward drift <Video 1> uses in its opening shot. As the sparse electronic beat of <Audio 1> begins, she rolls her shoulders back and starts the slow opening of her phrase, one arm drawing a long arc overhead while her weight sinks into her left hip and her shadow slides across the tiles beneath her.
+[Shot 2] At 00:05.000, the shot cuts to a low medium shot from the pool floor, matching the first cut of <Video 1>, with <Subject 1> filling the left of frame and the far wall's tiled ledge and a dry steel ladder running behind her. The camera trucks right with small amplitude at slow speed along the lane lines as the beat of <Audio 1> doubles. The phrase turns sharp: she snaps both arms down, pivots on the ball of one foot, and drops into a low lunge that sends the satin shirt swinging out from her waist. When <Audio 1> reaches the phrase <d>[English] Nobody told me the [unclear] would be this cold.</d>, <Subject 1> lifts her chin toward the high windows on the last word and holds still for a beat with her mouth closed, the lyric coming only from the reused track and not from her.
+[Shot 3] At 00:09.500, the shot cuts to a high wide shot from the diving platform, the second cut of <Video 1>, the whole drained pool laid out below with <Subject 1> a small figure at its centre and the lane lines converging toward the deep end. The camera zooms out with small amplitude at slow speed. She rises from the lunge into a slow spin with her arms opening, then walks the last bars of the phrase toward the deep end as the beat of <Audio 1> thins to its final pulses, her shadow stretching long across the tiles under the white window light. She stops at the lip of the deep end with her back to the camera and her arms at her sides as the track ends.
+
+overall_soundscape: The copied track from <Audio 1> supplies the whole ambience layer of the target video, and nothing is added to it or removed from it.
+
+non_diegetic_music: <Audio 1> is directly reused as the complete audience-only score.

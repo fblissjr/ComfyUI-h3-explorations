@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, high-contrast black-and-white, holding the exact framing, lighting, wardrobe and composition established in <Picture 1>, a tattooist leans over a client's forearm laid on a padded rest in a narrow studio, an angled lamp above them and a wall of framed flash designs behind. The client sits with his head turned away toward the wall, on-screen, and produces no vocal sound. The camera moves in an arc shot around the padded rest with small amplitude at slow speed, bringing the lamp head into the top of frame. The tattooist, on-screen, thirties, with a soft, even alto and a slow delivery (S1), lifts the machine clear of the skin and says: <d>[English] Two more lines and we stop.</d> She closes her lips and wipes the forearm with a folded cloth.
+
+overall_soundscape: A tattoo machine buzzes in short bursts against a close room tone. A stool castor rolls a few inches across hard floor, cloth drags over skin, and a slow breath releases through the nose.
+
+non_diegetic_music: A single electric-guitar figure repeating at a slow tempo, joined by a low bass note that enters late and holds to the end.

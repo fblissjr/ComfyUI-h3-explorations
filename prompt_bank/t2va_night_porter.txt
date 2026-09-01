@@ -1,0 +1,5 @@
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium close shot inside a hospital service lift at night, brushed steel walls, a linen trolley wedged against the back rail, and one overhead panel throwing flat white light straight down. A night porter in scrubs and a fleece, on-screen, forties, with a low, slightly hoarse baritone and an unhurried phrasing (S1), stands with one hand on the trolley handle and watches the floor indicator above the doors. The camera zooms in with small amplitude at slow speed as the car settles on its cables. The porter (S1) sings quietly to himself: <d>[English] Down to the basement, one more round.</d> His mouth closes on the last word, and he rolls the trolley a hand's width forward as the doors begin to part on a dim corridor.
+
+overall_soundscape: A low mechanical hum fills the lift car under the soft rattle of trolley castors. Cables tick behind the wall panel, fabric shifts against the handrail, and the doors part with a slow pneumatic sigh.
+
+non_diegetic_music: N/A

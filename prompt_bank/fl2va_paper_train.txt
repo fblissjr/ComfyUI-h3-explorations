@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 6.58-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Stop-motion paper cut-out animation, layered card with visible cut edges and a flat painted sky, a side-on wide shot of a valley viaduct, beginning in the exact position and framing established by Picture 1 with a four-carriage paper train halted at the left arch and card clouds stacked behind the ridge. Across the six-and-a-half-second take the train slides right along the deck one arch at a time, each carriage passing behind a cut paper tree in the foreground, while the cloud layer shifts left in small increments and the shadow band under the viaduct lengthens across the valley floor. The camera pans right with small amplitude at slow speed, staying level with the deck. The tail carriage clears the final arch, and the train's position, the cloud placement, the shadow band and the camera's framing settle exactly into Picture 2 at the end of the shot.
+
+overall_soundscape: A soft paper rustle repeats in short regular pulses as each carriage advances. A low card-on-card scrape runs underneath, and a single wooden click marks the train clearing the last arch.
+
+non_diegetic_music: A wooden xylophone figure at a moderate tempo, joined by a plucked upright bass that steps along with it and stops on the final frame.

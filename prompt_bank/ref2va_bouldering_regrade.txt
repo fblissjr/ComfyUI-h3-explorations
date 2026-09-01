@@ -1,0 +1,23 @@
+subject_definitions:
+<Video 1> is the source video for the target video edit, a single handheld take of one climber working a bouldering problem in a daylit training gym.
+<Subject 1> is the climber in <Video 1>, a woman with a dark braid pinned flat, a faded green vest, chalk-white fingers, and blue climbing shoes with worn toe rands.
+<Subject 2> is the training gym wall in <Video 1>, a steep plywood overhang with a scattered set of resin holds, a taped route line, and thick blue crash mats butted together at its base.
+<Audio 1> is the synchronized audio track of <Video 1>, carrying its gym room tone, hold impacts, and breathing.
+
+summary:
+[video editing + audio reuse] The target video is an edited version of <Video 1>. The daylit gym of <Subject 2> is regraded to a late-evening session lit by low warm floods and window reflections, the resin hold set is recoloured to a single dark blue, and a row of seated spectators is added along the far mats behind <Subject 1>, whose appearance and climbing are unchanged. The original single take is recut into two shots.
+
+retention_analysis:
+<Video 1> (source take, handheld camera movement, and action timing): partially_preserved - the handheld framing and the timing of the climb are kept, and the take is recut into two shots with the lighting and hold colours regraded.
+<Subject 1> (appears in [Shot 1], [Shot 2]): fully_preserved - the dark pinned braid, faded green vest, chalked fingers, and worn blue climbing shoes are retained.
+<Subject 2> (appears in [Shot 1], [Shot 2]): partially_preserved - the plywood overhang, hold placement, taped route line, and blue crash mats are kept while the daylight is regraded to warm evening floods and the resin holds are recoloured dark blue.
+<Audio 1>: partially_copy - the gym room tone, hold impacts, and breathing are copied from the source track, the original ceiling-fan layer is removed, and a light spectator layer is added underneath.
+
+detailed_description:
+The target video keeps the handheld live-action look of the source take and regrades it to a warm, low-lit evening session with amber floods and reflections in the dark windows.
+[Shot 1] A medium-wide shot holds <Subject 2>, the steep plywood overhang, its taped route line running up and left across a scattered set of resin holds now recoloured dark blue, with thick blue crash mats butted together below. <Subject 1> stands on the mats with her chalked hands hanging at her sides, the dark braid pinned flat and the faded green vest catching the warm flood above her. Along the far edge of the mats a row of four seated spectators watches with their hands in their laps, and none of them produces any vocal sound. The camera shakes slightly throughout, carried over from the handheld movement of <Video 1>, and follows her as a tracking shot when she steps up and pulls onto the first two holds. She sets her right toe, drops her hip into the wall, and reaches through to a flat blue hold at the lip of the overhang.
+[Shot 2] At 00:05.500, the shot cuts to a closer view from the left side of the mats as she commits to the lip. The camera pulls out with small amplitude at slow speed while still shaking slightly with the operator's step backward. Her left hand slaps the flat hold, her feet cut loose and swing out under the overhang, and chalk dust lifts off the resin into the amber light. She swings back, catches her toe on a low hold, and pulls her hips up over the lip. Her hands find the top, she matches on it, and she drops her head between her arms to breathe. The seated spectators lean forward together as she tops out, still producing no vocal sound.
+
+overall_soundscape: The copied gym room tone from <Audio 1> continues throughout the target video, with its hold impacts, shoe rubber squealing on resin, and heavy breathing kept in place. A light layer of shifting clothing and seat creaks from the added spectators sits underneath, and chalk claps carry a short reverb from the hard walls.
+
+non_diegetic_music: A dry drum-machine pulse at a moderate tempo with a single low synth note under it, dropping out entirely at the moment her feet cut loose and returning quietly for the last two seconds.

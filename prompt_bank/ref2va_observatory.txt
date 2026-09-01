@@ -1,0 +1,22 @@
+subject_definitions:
+<Subject 1> is the astronomer shown in <Picture 1>, a man in his sixties with a white beard cropped close, a navy fisherman's jumper worn thin at the elbows, half-moon reading glasses pushed up onto his forehead, and fingerless wool gloves.
+<Subject 2> is the observatory dome interior shown in <Picture 2>, with a riveted steel shutter slot open onto the night sky, a white refractor on a fork mount, a rolling wooden step stool, and a bank of red-filtered work lamps along the curved wall.
+<Audio 1> is the voice-timbre reference for <Subject 1> (S1), a slow, gravel-edged bass with long pauses between phrases.
+
+summary:
+[reference generation + audio reference] The target video shows <Subject 1> aligning the refractor inside <Subject 2> on a cold clear night while a graduate student calls coordinates to him from the log desk. <Audio 1> guides the timbre and pacing of <Subject 1>'s delivery without its own words being carried over. Three shots move from the open shutter slot to the eyepiece and out to a two-shot as the mount settles onto the target.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 2], [Shot 3]): fully_preserved - the close-cropped white beard, thin navy fisherman's jumper, half-moon glasses pushed onto the forehead, and fingerless wool gloves are retained.
+<Subject 2> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - the riveted steel shutter slot, white refractor on its fork mount, rolling wooden step stool, and bank of red-filtered work lamps are retained.
+<Audio 1>: reference - the target speaker follows its gravel-edged bass timbre and long-paused phrasing, and none of its own spoken content is carried into the target video.
+
+detailed_description:
+The target video is in a cool, low-key live-action style, lit almost entirely by red work lamps and open starlight, with heavy grain in the shadows and cold breath visible in the air.
+[Shot 1] A wide shot establishes <Subject 2>, the observatory dome, the riveted steel shutter slot standing open on a field of stars and the white refractor angled up into it on its fork mount. The rolling wooden step stool sits abandoned at the base of the pier and the bank of red-filtered work lamps throws long curved shadows around the wall. The camera tilts up with small amplitude at slow speed from the stool to the open slot. A young graduate student in a quilted coat and a knitted hat, on-screen, late twenties, with a clear, quick alto and a precise clipped delivery (S2), stands at the log desk under the nearest lamp with a printed ephemeris held open in both hands. The student (S2) reads out without looking up: <d>[English] Twenty-one forty on the hour angle, Peter.</d> She closes her lips and runs a finger down the column.
+[Shot 2] At 00:05.000, the shot cuts to a close shot of the eyepiece end of the refractor with <Subject 1> (S1) bent to it, the white beard and half-moon glasses catching red light and one fingerless glove resting on the slow-motion control. The camera pushes in with small amplitude at slow speed toward his hand on the knob. He turns the control a quarter turn, waits, then turns it back a fraction. Using the gravel-edged bass timbre and long-paused phrasing referenced from <Audio 1>, <Subject 1> (S1) answers without lifting his eye from the glass: <d>[English] Say it again, slower.</d> His mouth closes as the tube creeps a few degrees north.
+[Shot 3] At 00:09.500, the shot cuts to a two-shot from behind the pier, <Subject 1> at the eyepiece on the left and the student at the log desk on the right, the open shutter slot of <Subject 2> bright between them. The camera moves in an arc shot around the pier with small amplitude at slow speed until both faces are in profile. The student closes the ephemeris against her chest and steps up onto the wooden stool. <Subject 1> (S1) straightens, pushes the half-moon glasses down onto his nose, and says: <d>[English] There it is, come and look.</d> His lips close and his jaw stops moving as he steps aside and holds the eyepiece steady for her.
+
+overall_soundscape: A slow electric drive whirs in short bursts under the dome's deep interior room tone. Cold wind moves across the open shutter slot, boots knock on a wooden stool, paper pages turn stiffly, and two sets of breath are audible in the cold air.
+
+non_diegetic_music: Widely spaced piano notes at a slow tempo, joined by a sustained low string that grows in volume through the middle of the video and drops back to nothing at the end.

@@ -4,6 +4,61 @@ Semantic versioning. Nothing here has been tagged or published, so every
 version below describes the state of the working repo rather than a release
 artifact.
 
+## 0.99.19
+
+### Added
+
+- **`prompt_bank/`: a tracked, graded H3 prompt bank, and `bench/build_prompt_bank.py`
+  to keep it honest.** One plain-text prompt per file and a manifest naming each
+  one's mode, frame count and, for ref2va, the shipped donor graph whose sockets
+  its labels are graded against. The builder re-grades every prompt through
+  `grade_prompt_text.grade_text`, the function the CLI now also runs, and
+  derives `docs/prompt_bank.md`: a table per prompt and coverage tables against
+  the guides' closed sets -- the frame grid, base 4.3's motion rows and
+  modifiers, 4.2's cut phrasings, 4.1's styles, ref 3's task types, ref 4's
+  markers, the declared H3 markers, the language tags and the speech shapes.
+  `--check` fails on any FAIL or WARN, any manifest/directory disagreement, a
+  count off the grid, a missing mode, or a stale document. Every closed set is
+  exercised in full except `keyframe completion`, which no shipped ref2va graph
+  can carry, and the file says so rather than a list somewhere else.
+
+  What the bank is and is not is stated at the top of the generated file:
+  house-authored, mechanically conformant, unrendered, not the vendor's five
+  attested examples and not a substitute for them. Two house choices every
+  prompt makes are stated as arguable -- `<scenetrans>` never written,
+  `<|cutoff|>` piped and tight against `</d>` -- because the sister engine makes
+  the opposite call on both and neither side has rendered either.
+
+  Twenty of the prompts are the internal bank from earlier today, ported with
+  one addressee renamed from a bare name to a visible description and the one
+  mouth-cue formula it repeated eighteen times varied the way the vendor's own
+  example varies it. Twenty-two are new: the missing frame counts, every motion
+  row the first bank left out, all five cut phrasings and the two request-only
+  transitions, an off-screen speaker who is not a voiceover, three speakers in
+  one scene, silence requested by the user, diegetic music kept out of the
+  score field, the caption pair and the lyrics pair each once as the house
+  patterns they are, six languages inside `<d>`, a storyboard `<Picture N>`
+  with its own retention line, a garment transferred by `attribute_transfer`, a
+  lyric that lives only in a `fully_copy` soundtrack and takes no speaker id,
+  reused speech lip-synced with an `[unclear]` span, and a five-label chain
+  where the soundtrack is `<Audio 1>` and the standalone clip `<Audio 2>`.
+
+  Earned under the no-new-check rule: the first bank's hand-typed coverage
+  table was wrong the day it was written, and its prompts sat where nothing
+  re-graded them while the grader changed twice that day. Red-proved on a
+  marker moved inside `<d>` and on a stray file, mutation confirmed by `cmp`.
+
+### Changed
+
+- **`bench/grade_prompt_text.py` exposes `grade_text()`.** The CLI's donor
+  selection, prompt injection, length override and grading moved into one
+  function that `main()` and the bank builder both call, so the bank is graded
+  by exactly what an author grades by. CLI output and exit codes unchanged.
+- **`docs/prompt_audit.md`** items 4, 6 and 7 name the bank prompts that serve
+  them, and a coverage-map paragraph points at the derived tables instead of
+  restating them. `docs/prompting.md` section 10, `docs/checks.md` and
+  `CLAUDE.md`'s routing table point at the bank.
+
 ## 0.99.18
 
 ### Fixed

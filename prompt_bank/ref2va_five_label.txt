@@ -1,0 +1,26 @@
+subject_definitions:
+<Subject 1> is the woman shown in <Picture 1>, in her sixties with white hair in a low bun, round steel-rimmed glasses, a charcoal wool coat over a mustard scarf, and a canvas satchel on a long strap.
+<Subject 2> is the covered market hall shown in <Picture 2>, with a high iron-and-glass roof, rows of stalls under striped awnings, a tiled centre aisle, and pendant lamps hanging between the roof trusses.
+<Video 1> is a camera-movement and cut-rhythm reference, a two-cut handheld walk down a corridor whose forward pace and cut placement the target video follows.
+<Audio 1> is the synchronized audio track of <Video 1>, whose room-tone and footstep ambience layer is copied under the target video with its original voices removed.
+<Audio 2> is the voice-timbre reference for <Subject 1> (S1), a standalone clip of a dry, precise contralto with clipped consonants, none of whose words are carried over.
+
+summary:
+[reference generation + audio reuse + audio reference] The target video follows <Subject 1> down the centre aisle of <Subject 2> at closing time, buying the last of the rye bread from a stallholder, in three shots whose forward pace and cut placement follow <Video 1>, over the copied ambience layer of <Audio 1>, with her delivery shaped by the timbre of <Audio 2>.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - the white hair in a low bun, round steel-rimmed glasses, charcoal wool coat, mustard scarf, and canvas satchel are retained.
+<Subject 2> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - the iron-and-glass roof, striped stall awnings, tiled centre aisle, and pendant lamps are retained.
+<Video 1> (camera movement and cut rhythm): weak_reference - only its forward handheld pace and the placement of its two cuts are carried across; its corridor, its walker, and its lighting do not appear.
+<Audio 1>: partially_copy - the room-tone and footstep ambience layer is copied under the target video, and the original voices on the track are removed.
+<Audio 2>: reference - the target speaker follows its dry, precise contralto and clipped consonants without copying the signal, and none of its own words appear.
+
+detailed_description:
+The target video is in a naturalistic live-action style at the end of a winter afternoon, with grey daylight fading through the glass roof and the pendant lamps taking over as the main warm light.
+[Shot 1] A medium-wide shot from behind establishes <Subject 2>, the covered market hall, the tiled centre aisle running away toward the far doors under the iron-and-glass roof, striped awnings on both sides half-rolled for closing, and pendant lamps glowing between the trusses. <Subject 1>, the woman with white hair in a low bun, round steel-rimmed glasses, a charcoal wool coat over a mustard scarf, and a canvas satchel on a long strap, walks away from the camera down the aisle. The camera follows her as a handheld tracking shot at the forward pace of <Video 1>, the frame rocking slightly with each step. Under the copied ambience layer of <Audio 1>, her heels click on the tiles and a shutter rattles down at a stall on the left. A porter pushing a stacked trolley crosses the aisle ahead of her, on-screen, and produces no vocal sound.
+[Shot 2] At 00:05.000, the shot cuts to a medium shot from the side, the first cut placement of <Video 1>, at a bread stall where a stallholder in a white coat and a flat cap, on-screen, fifties, with a rough, carrying baritone (S2), is stacking empty wooden trays behind the counter. <Subject 1> stops at the counter with one hand on the satchel strap. The camera pushes in with small amplitude at slow speed. Using the dry, precise contralto and clipped consonants referenced from <Audio 2>, <Subject 1> (S1) says to the stallholder: <d>[English] Any rye left?</d> Her lips close and she waits, the glasses catching the pendant light. The stallholder (S2) sets a tray down and answers her: <d>[English] Last two, they're yours.</d> His mouth closes into a half smile as he reaches under the counter.
+[Shot 3] At 00:10.000, the shot cuts to a close shot across the counter, the second cut placement of <Video 1>, the two loaves in a paper bag between them and the striped awning of <Subject 2> soft above. The camera holds a static shot. He slides the bag across and she folds the top over twice and lifts it into the satchel. <Subject 1> (S1) says to him: <d>[English] Same time Thursday.</d> Her jaw stops and she pats the satchel flap closed, turns, and walks on down the aisle under the lamps with the copied ambience of <Audio 1> continuing beneath her steps.
+
+overall_soundscape: The copied ambience layer from <Audio 1> continues throughout the target video, its room tone and footsteps under the new sounds of a shutter rattling down, wooden trays stacking, paper folding, and heels on tile.
+
+non_diegetic_music: A muted upright piano at a slow tempo, playing widely spaced chords, joined halfway by a soft brushed snare pulse that holds steady and fades under the final steps.

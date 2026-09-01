@@ -416,13 +416,31 @@ a result.
    with no warning on 2026-09-01. Four arms, matched seeds, read as
    meets-the-brief per arm and never as A/B (`docs/eval_comparison.md`).
    Both repos proposed this render independently on 2026-09-01. Whatever
-   happens is informative.
+   happens is informative. The two base texts are in the bank:
+   `prompt_bank/t2va_desert_crew.txt` carries the line across a cut in prose
+   and `prompt_bank/t2va_cable_car.txt` the truncated line; each variant is one
+   substitution made at render time and confirmed with `cmp` before queueing.
 5. **Wire `REF_SCENE_SHOTS` through `scene=`** — one argument, and the ref2va
    budget gap mostly closes.
-6. **A motion sweep** over the §4.3 types nothing exercises: `Zoom`, `Tilt`,
-   `Pedestal`, `Arc`, `POV`, `Roll`, `Shake`.
+6. **A motion sweep** over the §4.3 types no SHIPPED graph exercises: `Zoom`,
+   `Tilt`, `Pedestal`, `Arc`, `POV`, `Roll`, `Shake`. A graded prompt for every
+   row of the table now exists in `prompt_bank/` and
+   [`prompt_bank.md`](prompt_bank.md) derives which carries which; the render
+   is still owed.
 7. **A no-dialogue scene with a real §4.7 score.** Every current scene is
-   `non_diegetic_music: N/A`.
+   `non_diegetic_music: N/A`. The bank carries
+   several, unrendered: `fl2va_drawbridge`, `i2va_cargo_bay`,
+   `fl2va_origami_crane`, `fl2va_paper_train`.
+
+**The coverage map.** [`prompt_bank.md`](prompt_bank.md) derives, from the
+graded prompts in `prompt_bank/`, which value of every closed set the guides
+name is exercised and which is not: the frame counts on the grid, base §4.3's
+motion rows and modifiers, §4.2's cut phrasings, §4.1's styles, ref §3's task
+types and ref §4's markers. Read its **Not exercised** lines rather than a list
+here, which would rot; on 2026-09-01 the only one was `keyframe completion`,
+which no shipped ref2va graph can carry. The sister engine's plan names that
+map as the shared idea set for its local-model conformance harness, which is
+why it lives in the tracked tree rather than under `internal/`.
 
 ---
 

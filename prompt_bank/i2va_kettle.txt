@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, layout and composition established in <Picture 1>, a close shot frames a brushed-steel stovetop kettle on a lit gas ring, blue flame licking around its base and grey window daylight catching the curve of the spout. The camera pushes in with small amplitude at slow speed toward the spout across the short take of under four seconds. A first thin wisp of steam curls from the whistle cap, thickens into a steady plume that rises and bends toward the window, and the cap's small lever begins to tremble as the pressure builds. Condensation beads along the lid seam, the plume brightens as it catches the daylight, and the whistle starts as the shot ends.
+
+overall_soundscape: A gas ring hisses steadily under a low kitchen room tone. Water inside the kettle ticks and rumbles as it comes to the boil, and a thin whistle rises in pitch through the final second.
+
+non_diegetic_music: N/A

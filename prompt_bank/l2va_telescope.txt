@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — <Picture 1> (from [Shot 1]) aligns with the 3.75-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Live-action, documentary, a close shot opens on a coin-operated telescope mounted to a cliff-path rail in flat grey daylight, the barrel angled down toward the grass and the coin slot standing empty, a plausible earlier state of the arrangement shown in <Picture 1>. A gloved hand enters from the right, presses a coin into the slot, and pushes the barrel upward against its stop. The camera holds a static shot throughout the short take. The barrel swings level with the horizon, the internal shutter opens with a small movement of the eyepiece housing, and the hand steadies on the grip. The barrel angle, the hand's position on the grip, the flat daylight and the exact final composition settle into <Picture 1> as the shot ends.
+
+overall_soundscape: Wind crosses the clifftop in a steady rush with gulls calling at a distance. A coin drops through a metal slot, a stiff pivot grinds as the barrel rises, and an internal shutter snaps open.
+
+non_diegetic_music: N/A

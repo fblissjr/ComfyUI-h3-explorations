@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 8.71-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Vintage film, faded 8mm colour with soft grain and a slight gate weave, a wide shot on a dew-covered field at dawn, beginning in the exact position and framing established by Picture 1 with a hot-air balloon envelope lying slack on its side and a crew of three spaced along its length. Across the eight-and-a-half-second take the inflation fan drives air into the throat, the envelope's near seam lifts clear of the grass, and the fabric fills in slow waves that travel from the mouth toward the crown. The crew walk their hands along the skirt as it rises and keep their mouths closed throughout. The camera pulls out with small amplitude at slow speed as the envelope gains height. The basket tips upright, the burner frame swings level above it, and the envelope's height, the crew's spacing and the camera's framing settle exactly into Picture 2 at the end of the shot.
+
+overall_soundscape: A petrol inflation fan runs at a steady pitch across open ground while fabric snaps and ripples as air moves through it. Boots press into wet grass, guy lines creak under load, and a wicker basket scrapes upright.
+
+non_diegetic_music: N/A

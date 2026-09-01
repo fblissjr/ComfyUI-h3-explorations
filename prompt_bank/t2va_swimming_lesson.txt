@@ -1,0 +1,5 @@
+integrated_multimodal_description: [Shot 1] Live-action, documentary, a medium shot at a shallow indoor teaching pool in flat overhead light, a child in a yellow swim cap and orange armbands standing chest-deep at the edge with both hands on the tiled lip. The camera tilts up with small amplitude at slow speed from the rippling water surface to the coach crouched at the pool edge above the child, a woman in a navy tracksuit with a whistle on a cord, on-screen, thirties, with a bright, carrying soprano and a brisk delivery (S1). She taps two fingers under her own chin, looks straight at the child, and says to her: <d>[French] Regarde-moi, pas l'eau.</d> Her lips close into a smile as the child lifts her chin from the water, laughs, and kicks a spray of water against the tiles.
+
+overall_soundscape: Water laps and slaps against tiled pool walls under a bright echoing hall reverb with a distant filter pump. A child's laugh rings out and bounces off the ceiling, followed by a splash of kicked water and the squeak of a rubber sole on wet tile.
+
+non_diegetic_music: N/A

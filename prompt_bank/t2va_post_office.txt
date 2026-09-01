@@ -1,0 +1,5 @@
+integrated_multimodal_description: [Shot 1] Watercolor, a soft-edged painted look with visible paper grain and bleeding edges, a medium shot frames the front window of a village post office under falling snow, a brass letter slot at the left of frame and a low stone step below the glass. A hand-lettered card propped inside the window reads "CLOSED FOR STOCKTAKING" in uneven black capitals on cream board. The camera holds a static shot for the whole take. Snow gathers along the bottom rail of the window and thickens on the stone step below. A tabby cat sits on the inner sill behind the glass, blinks once, folds its paws, and produces no vocal sound. A single envelope pushes out through the letter slot, tips over the lip, and settles face down on the step as the snowfall continues.
+
+overall_soundscape: Muffled snowfall softens a narrow lane and a faint creak works through the wooden window frame. The letter slot flaps once and the envelope lands on the stone step with a small dry slap.
+
+non_diegetic_music: Two alternating celesta notes at a slow tempo, joined by a sustained low string that swells briefly and thins away before the final frame.

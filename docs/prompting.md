@@ -974,6 +974,15 @@ conformant against every GUIDE rule above; where a HOUSE rule is contested I say
 so rather than pretending the example settles it. The guides' own worked examples
 are base §5 Cases 1-4 and ref §7.
 
+**A broader graded set lives in [`prompt_bank/`](../prompt_bank/)**, catalogued
+in [`prompt_bank.md`](prompt_bank.md) by `bench/build_prompt_bank.py`, whose
+`--check` re-grades every prompt there through the same function
+`grade_prompt_text.py` runs. It exercises every value of the closed sets this
+manual lists and says which it cannot. Those are conformant drafts and probe
+prompts written to the same layers as this section; they are neither this
+manual's worked examples nor the vendor's, and the top of that file says so
+before anything else.
+
 **Every example below is GRADED, and a check re-runs that grading.** Until
 2026-09-01 this section asserted that its examples "grade clean through
 `preflight_graph.py`" and nothing checked it; `bench/check_prompt_docs_sync.py`

@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the exact framing, lighting, wardrobe and composition established in <Picture 1>, a large-animal vet in a waterproof smock stands at a steel examination table in a rural surgery at night, a strip light overhead and rain running down the window behind her. A farmhand in a wax jacket stands at the far end of the table with both hands on a calf's shoulders, on-screen, and produces no vocal sound. She draws a syringe from the tray and turns it toward the light. The camera trucks left with small amplitude at slow speed along the edge of the table. [Shot 2] At 00:06.000, the shot cuts to a medium close shot taken from the far side of the table, the calf's flank filling the lower frame. The camera pushes in with small amplitude at slow speed. The vet, on-screen, forties, with a level, quiet contralto and a measured delivery (S1), looks up toward the farmhand and says to the farmhand: <d>[English] Hold him another minute, that's all I need.</d> She closes her lips and lowers the syringe to the flank.
+
+overall_soundscape: Rain drums steadily on a metal roof under the low buzz of a strip light. Hooves shift on rubber matting, a steel tray rattles once, and a long breath moves through the animal's chest.
+
+non_diegetic_music: N/A

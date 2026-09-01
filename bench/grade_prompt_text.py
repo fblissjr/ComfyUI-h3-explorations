@@ -131,6 +131,41 @@ def pick(mode: str, like: str | None) -> tuple[Path, str]:
     return sorted(candidates, key=rank)[0]
 
 
+def grade_text(text: str, mode: str | None, like: str | None,
+               length: int | None) -> dict:
+    """Grade loose prompt text through a donor graph. The ONE code path.
+
+    `main()` and `bench/build_prompt_bank.py` both call this, so the bank is
+    graded by exactly what the CLI grades by. Returns the findings plus what
+    the CLI prints: donor path and node, the mode preflight derived from the
+    donor's sockets, the resolved length, and the Part One line it expects.
+    Raises SystemExit on a mode/donor mismatch, as the CLI always did.
+    """
+    path, nid = pick(mode, like)
+    graph = copy.deepcopy(json.loads(path.read_text(encoding="utf-8")))
+    node = graph[nid]
+    graded_mode = mode_of(node)
+    if mode and graded_mode != mode:
+        raise SystemExit(f"FAIL  --like {like} is {graded_mode}, not {mode}")
+    node["inputs"]["prompt"] = text
+    if length is not None:
+        # Overwrite the LINK with a literal. `_resolved_length` snaps it and
+        # `grade`'s cut-past-the-clip check reads the same field, so both halves
+        # see the requested duration rather than the donor's.
+        node["inputs"]["length"] = length
+    resolved = pf._resolved_length(node, graph)
+    # Same extraction `grade` uses -- imported rather than copied, because a
+    # copy is what drifted: this held the pre-fix greedy pattern while its
+    # comment claimed the two matched, so the advisory printed `from Shot 1`
+    # for a multi-shot keyframe prompt and told the author to write a
+    # guide-violating line.
+    shots = re.findall(pf.SHOT_HEADER_RE, text)
+    expected, label = pf._expected_base_alignment(node, graph, shots)
+    return {"path": path, "nid": nid, "mode": graded_mode, "length": resolved,
+            "expected": expected, "label": label,
+            "findings": pf.grade(node, graph, path.stem)}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("prompt", nargs="?", type=Path,
@@ -169,37 +204,18 @@ def main() -> int:
     if not text:
         raise SystemExit("FAIL  empty prompt")
 
-    path, nid = pick(args.mode, args.like)
-    graph = copy.deepcopy(json.loads(path.read_text(encoding="utf-8")))
-    node = graph[nid]
-    graded_mode = mode_of(node)
-    if args.mode and graded_mode != args.mode:
-        raise SystemExit(f"FAIL  --like {args.like} is {graded_mode}, "
-                         f"not {args.mode}")
-    node["inputs"]["prompt"] = text
-    if args.length is not None:
-        # Overwrite the LINK with a literal. `_resolved_length` snaps it and
-        # `grade`'s cut-past-the-clip check reads the same field, so both halves
-        # see the requested duration rather than the donor's.
-        node["inputs"]["length"] = args.length
-
-    length = pf._resolved_length(node, graph)
-    # Same extraction `grade` uses -- imported rather than copied, because a
-    # copy is what drifted: this held the pre-fix greedy pattern while this
-    # comment claimed the two matched, so the advisory printed `from Shot 1`
-    # for a multi-shot keyframe prompt and told the author to write a
-    # guide-violating line.
-    shots = re.findall(pf.SHOT_HEADER_RE, text)
+    r = grade_text(text, args.mode, args.like, args.length)
+    path, nid, graded_mode, length, expected, label, findings = (
+        r["path"], r["nid"], r["mode"], r["length"], r["expected"],
+        r["label"], r["findings"])
     print(f"  mode      {graded_mode}")
     print(f"  donor     {path.relative_to(REPO)}  (node {nid})")
     print(f"  length    {length if length is not None else 'unresolved'} frames"
           + (f"  = {h3_config_duration(length)}" if length else ""))
-    expected, label = pf._expected_base_alignment(node, graph, shots)
     if expected:
         print(f"  expects   Part One for {label}:\n              {expected}")
     print("")
 
-    findings = pf.grade(node, graph, path.stem)
     if not findings:
         print("  ok    every mechanical rule passes")
     for level, msg in findings:

@@ -1,0 +1,24 @@
+subject_definitions:
+<Subject 1> is the dancer shown in <Picture 1>, a tall man in his thirties with oiled black hair combed back, a cream dinner jacket with satin lapels, a narrow black tie, and two-tone brogues.
+<Subject 2> is the ballroom shown in <Picture 2>, with a sprung parquet floor laid in a herringbone pattern, three tiers of cut-glass chandeliers, a raised bandstand behind a low brass rail, and round supper tables with white cloths along the far wall.
+<Subject 3> is the step-and-turn pattern performed in <Video 1>, a slow rise-and-fall waltz figure travelling anticlockwise around the floor with a full turn on every third bar.
+<Video 1> is the temporal source for the step sequence, supplying the tempo, phrase lengths, and turn placement that <Subject 3> follows.
+
+summary:
+[reference generation] The target video shows <Subject 1> leading a partner through <Subject 3> across the parquet of <Subject 2> while the bandstand singer works through a slow number above them. Three shots follow the figure from a high wide view of the floor down to the feet and back up to the bandstand as the phrase closes.
+
+retention_analysis:
+<Subject 1> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - the oiled black hair combed back, cream dinner jacket with satin lapels, narrow black tie, and two-tone brogues are retained.
+<Subject 2> (appears in [Shot 1], [Shot 2], [Shot 3]): fully_preserved - the herringbone sprung parquet, three tiers of cut-glass chandeliers, raised bandstand behind a brass rail, and white-clothed supper tables are retained.
+<Subject 3> (appears in [Shot 1], [Shot 2]): fully_preserved - the rise-and-fall waltz figure, its anticlockwise travel, and the full turn on every third bar are reproduced.
+<Video 1> (tempo, phrase length, and turn placement): weak_reference - only the timing envelope of the step sequence is carried across, and none of its own setting, wardrobe, or camera work appears.
+
+detailed_description:
+The target video is in a cinematic live-action style with warm tungsten key light, deep amber falloff into the corners, and a soft bloom around the chandeliers.
+[Shot 1] A high wide shot establishes <Subject 2>, the ballroom, its herringbone sprung parquet stretching to the raised bandstand behind a low brass rail, three tiers of cut-glass chandeliers overhead, and white-clothed supper tables along the far wall. <Subject 1>, the tall man with oiled black hair combed back, a cream dinner jacket with satin lapels and two-tone brogues, on-screen, thirties, with a low, unhurried baritone and a soft delivery (S2), holds a partner in a long green gown in closed position at the centre of the floor and begins <Subject 3>, the rise-and-fall waltz figure, travelling anticlockwise with a full turn on every third bar. On the bandstand a singer in a black gown, on-screen, forties, with a warm, slightly smoky contralto and a wide vibrato (S1), stands at a ribbon microphone with one hand on the stand, and behind her a seven-piece band plays a slow waltz with brushed drums and a bowed bass carrying the pulse. The camera trucks left with small amplitude at slow speed above the floor. The singer (S1) sings: <d>[English] Save the last turn for me.</d> She closes her lips as the band carries the phrase on without her.
+[Shot 2] At 00:04.500, the shot cuts to a low close shot of the brogues and the hem of the green gown on the parquet. The camera moves in an arc shot around the couple with small amplitude at slow speed, staying at floor level. The pattern of <Subject 3> reads clearly here: the heel lowers through the first beat, the toes rise across the second and third, and the whole frame swings as the turn arrives on the third bar with the gown hem opening wide across the boards. Chandelier light crosses the polished parquet in slow bands between the dancers' feet.
+[Shot 3] At 00:08.500, the shot cuts to a medium shot from behind the brass rail, the bandstand in the near ground and the couple beyond it on the open floor. The camera pushes in with small amplitude at slow speed past the rail. <Subject 1> (S2) brings the turn to a close, settles his weight, and says quietly to his partner: <d>[English] One more before the interval.</d> His lips close and his jaw stops moving as he steps back into the hold. His partner keeps her mouth closed and produces no vocal sound. The singer lifts her hand from the stand and the couple begin the figure again beneath the chandeliers.
+
+overall_soundscape: Leather soles slide and pivot on sprung parquet under a wide hall reverb. A gown hem sweeps the boards on every turn, cutlery clinks faintly at the supper tables, and a scatter of applause rises between phrases.
+
+non_diegetic_music: N/A

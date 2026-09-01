@@ -1,0 +1,299 @@
+{
+ "_comment": "Manifest for prompt_bank/. One entry per prompt: id (also the file stem), mode, frames on the 17k+5 grid, donor stem for ref2va (the shipped graph whose sockets the labels are graded against), and a one-line brief saying what the prompt was written to exercise. bench/build_prompt_bank.py grades every entry and derives docs/prompt_bank.md; run it after adding or editing one.",
+ "prompts": [
+  {
+   "id": "t2va_post_office",
+   "mode": "t2va",
+   "frames": 141,
+   "donor": null,
+   "brief": "Watercolor; static shot; no dialogue; on-screen text with typography and position; a silent animal marked as producing no vocal sound; scored."
+  },
+  {
+   "id": "t2va_desert_crew",
+   "mode": "t2va",
+   "frames": 294,
+   "donor": null,
+   "brief": "Documentary; three shots; a line that continues across a cut written with the guide's continuity phrases and no tag, because <scenetrans> matches no declared token; N/A."
+  },
+  {
+   "id": "t2va_night_porter",
+   "mode": "t2va",
+   "frames": 175,
+   "donor": null,
+   "brief": "One sung line in a plain <d> block, no lyrics pair; the singing is diegetic so non_diegetic_music is N/A; zoom in."
+  },
+  {
+   "id": "t2va_clay_apiary",
+   "mode": "t2va",
+   "frames": 226,
+   "donor": null,
+   "brief": "Claymation; the exact voiceover phrase with lips-remain-closed; a compound (S1,S2) in unison after both speakers are numbered; scored."
+  },
+  {
+   "id": "t2va_box_office",
+   "mode": "t2va",
+   "frames": 209,
+   "donor": null,
+   "brief": "Vintage film; three speaking turns inside one shot; on-screen text; tilt down; N/A."
+  },
+  {
+   "id": "t2va_cable_car",
+   "mode": "t2va",
+   "frames": 328,
+   "donor": null,
+   "brief": "2D-animated; a final line truncated by the end, closed as </d><|cutoff|> tight against the tag; a silent passenger; scored and still rising at the last frame."
+  },
+  {
+   "id": "t2va_noodle_bar",
+   "mode": "t2va",
+   "frames": 107,
+   "donor": null,
+   "brief": "One shot at the second-shortest count; an on-screen sign in its original language per base 4.5; a radio playing as DIEGETIC music described in the body; a [Chinese] line; zoom out; N/A."
+  },
+  {
+   "id": "t2va_silent_film",
+   "mode": "t2va",
+   "frames": 362,
+   "donor": null,
+   "brief": "The longest count. The user asked for complete silence, so overall_soundscape is N/A under base 4.6's only condition, while the piano accompaniment is a real non-diegetic score; an intertitle card as on-screen text; characters who mouth words and are marked silent; the shot changes to / switches to; a user-requested fade."
+  },
+  {
+   "id": "t2va_rooftop_pov",
+   "mode": "t2va",
+   "frames": 192,
+   "donor": null,
+   "brief": "POV and Shake Strongly; the shot transitions to; an OFF-SCREEN speaker who is not a voiceover; a runner who pants (non-verbal, soundscape) and takes no id; scored."
+  },
+  {
+   "id": "t2va_fireworks_barge",
+   "mode": "t2va",
+   "frames": 260,
+   "donor": null,
+   "brief": "2D-animated; Pedestal Down and Roll Counterclockwise; two [Spanish] lines each addressed to the other speaker; a crowd heard only in the soundscape; N/A."
+  },
+  {
+   "id": "t2va_radio_drama",
+   "mode": "t2va",
+   "frames": 243,
+   "donor": null,
+   "brief": "Three speakers plus a silent foley artist; Tracking Shot; on-screen text; HOUSE marker under test: one caption pair as a sibling of one </d>, with the same subtitle also written as base 4.5's quoted string."
+  },
+  {
+   "id": "t2va_swimming_lesson",
+   "mode": "t2va",
+   "frames": 124,
+   "donor": null,
+   "brief": "Documentary; tilt up; a [French] line spoken to a child; the child laughs (non-verbal sound in the soundscape, no id, no silence marker); N/A."
+  },
+  {
+   "id": "t2va_marching_band",
+   "mode": "t2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "The band is DIEGETIC music described in the body, so N/A; HOUSE marker under test: the lyrics pair wrapping two sung <d> blocks; the shot switches to; truck left, pull out, static shot."
+  },
+  {
+   "id": "i2va_cargo_bay",
+   "mode": "i2va",
+   "frames": 192,
+   "donor": null,
+   "brief": "3D CG; the I2VA Part One line; no dialogue; on-screen text; a machine marked as producing no vocal sound; pedestal up; scored."
+  },
+  {
+   "id": "i2va_vet_night",
+   "mode": "i2va",
+   "frames": 260,
+   "donor": null,
+   "brief": "Two shots; a line addressed to a named listener who takes no id; truck left, push in; N/A."
+  },
+  {
+   "id": "i2va_tattoo",
+   "mode": "i2va",
+   "frames": 124,
+   "donor": null,
+   "brief": "A style off the guide's list (high-contrast black-and-white), legal because the list is open; arc shot; scored."
+  },
+  {
+   "id": "i2va_glassblower",
+   "mode": "i2va",
+   "frames": 277,
+   "donor": null,
+   "brief": "Documentary; two shots; an [Italian] line spoken to a silent assistant; zoom out, push in; scored."
+  },
+  {
+   "id": "i2va_kettle",
+   "mode": "i2va",
+   "frames": 90,
+   "donor": null,
+   "brief": "The shortest count; no person in frame, so no silence marker; push in; N/A with the whistle in the soundscape."
+  },
+  {
+   "id": "i2va_night_market",
+   "mode": "i2va",
+   "frames": 311,
+   "donor": null,
+   "brief": "Handheld: Shake Slightly; the shot changes to; an on-screen sign in its original language; a [Chinese] line answered in [English], each addressed to the other; scored."
+  },
+  {
+   "id": "fl2va_balloon",
+   "mode": "fl2va",
+   "frames": 209,
+   "donor": null,
+   "brief": "The FL2VA Part One line with bare Picture and Shot; one shot; no dialogue; pull out; N/A."
+  },
+  {
+   "id": "fl2va_carousel",
+   "mode": "fl2va",
+   "frames": 311,
+   "donor": null,
+   "brief": "FL2VA over TWO shots, so Part One resolves to (from Shot 2); truck right, tilt up; scored."
+  },
+  {
+   "id": "fl2va_paper_train",
+   "mode": "fl2va",
+   "frames": 158,
+   "donor": null,
+   "brief": "A style off the guide's list (paper cut-out); no character on screen; pan right; scored."
+  },
+  {
+   "id": "fl2va_potter_wheel",
+   "mode": "fl2va",
+   "frames": 175,
+   "donor": null,
+   "brief": "Documentary; one shot; zoom in; one line with nobody else present; scored."
+  },
+  {
+   "id": "fl2va_origami_crane",
+   "mode": "fl2va",
+   "frames": 107,
+   "donor": null,
+   "brief": "Overhead; static shot throughout; hands only; scored."
+  },
+  {
+   "id": "fl2va_drawbridge",
+   "mode": "fl2va",
+   "frames": 362,
+   "donor": null,
+   "brief": "The longest count; pedestal down with large amplitude; no dialogue; a ship's horn in the soundscape; scored."
+  },
+  {
+   "id": "l2va_rescue_hut",
+   "mode": "l2va",
+   "frames": 243,
+   "donor": null,
+   "brief": "The L2VA Part One line; the line ends early so the mouth is closed and still on the endpoint; push in; scored."
+  },
+  {
+   "id": "l2va_telescope",
+   "mode": "l2va",
+   "frames": 90,
+   "donor": null,
+   "brief": "The shortest count; static shot; no dialogue; N/A."
+  },
+  {
+   "id": "l2va_bus_depot",
+   "mode": "l2va",
+   "frames": 277,
+   "donor": null,
+   "brief": "L2VA over TWO shots, so Part One resolves to (from [Shot 2]); on-screen text; push in, pan left; scored."
+  },
+  {
+   "id": "l2va_chess_clock",
+   "mode": "l2va",
+   "frames": 141,
+   "donor": null,
+   "brief": "A [Russian] line answered in [English]; the closed-mouth endpoint rule; tilt down; N/A."
+  },
+  {
+   "id": "l2va_kite_festival",
+   "mode": "l2va",
+   "frames": 226,
+   "donor": null,
+   "brief": "Watercolor; THREE shots, so Part One resolves to (from [Shot 3]); the shot transitions to; a user-requested cross-dissolve; a laughing child with no id; zoom out with large amplitude; scored."
+  },
+  {
+   "id": "l2va_laundromat",
+   "mode": "l2va",
+   "frames": 345,
+   "donor": null,
+   "brief": "Documentary; the exact voiceover phrase from an on-screen character whose lips remain closed; a second on-screen speaker; truck left, push in; scored."
+  },
+  {
+   "id": "ref2va_radio_handover",
+   "mode": "ref2va",
+   "frames": 243,
+   "donor": "h3_ref2v_market_api",
+   "brief": "One identity image cited inside its <Subject> definition with no standalone <Picture> entry; a speaker with no subject given a stable voice description; three shots, three turns; [reference generation]."
+  },
+  {
+   "id": "ref2va_observatory",
+   "mode": "ref2va",
+   "frames": 328,
+   "donor": "h3_ref_image_audio_api",
+   "brief": "Two identity images plus an audio clip used for TIMBRE ONLY, so none of its words are carried over; [reference generation + audio reference]; tilt up, push in, arc shot."
+  },
+  {
+   "id": "ref2va_bouldering_regrade",
+   "mode": "ref2va",
+   "frames": 260,
+   "donor": "h3_ref_video_edit_api",
+   "brief": "[video editing + audio reuse]: the fixed opening sentence, partially_preserved and partially_copy markers, exempt from the 350-500 budget; Shake Slightly and Tracking Shot carried from the source."
+  },
+  {
+   "id": "ref2va_ballroom",
+   "mode": "ref2va",
+   "frames": 294,
+   "donor": "h3_ref_video_motion_api",
+   "brief": "A motion pattern from a video as a <Subject>, with the <Video> itself weak_reference for tempo only; a sung line and a spoken line; the band is diegetic so N/A; truck left, arc shot, push in."
+  },
+  {
+   "id": "ref2va_quarry_continuation",
+   "mode": "ref2va",
+   "frames": 209,
+   "donor": "h3_ref_video_only_api",
+   "brief": "[video continuation] from a video with no audio label wired; no person on screen; tracking shot, roll clockwise, pull out."
+  },
+  {
+   "id": "ref2va_storyboard_bakery",
+   "mode": "ref2va",
+   "frames": 192,
+   "donor": "h3_probe_capture_ref3_api",
+   "brief": "A STANDALONE <Picture 3> as a storyboard reference for two shots per ref 2.2, with its own weak_reference retention line, beside two identity-only images that get none; [reference generation]."
+  },
+  {
+   "id": "ref2va_soundtrack_fully_copy",
+   "mode": "ref2va",
+   "frames": 328,
+   "donor": "h3_ref_video_audio_api",
+   "brief": "[reference generation + audio reuse]: <Audio 1> fully_copy as the complete final track; a lyric that lives only in the reused soundtrack, so it is cited via <Audio 1> reaching the phrase and takes NO speaker id (ref 5.4); an [unclear] span; <Video 1> weak_reference for cut rhythm only."
+  },
+  {
+   "id": "ref2va_jacket_transfer",
+   "mode": "ref2va",
+   "frames": 294,
+   "donor": "h3_image_ref_plus_text_to_video_api",
+   "brief": "A garment as a <Subject> with attribute_transfer onto another subject, the final outfit stated once (wardrobe grammar); a [Japanese] line spoken to a silent companion; [reference generation]."
+  },
+  {
+   "id": "ref2va_video_swap",
+   "mode": "ref2va",
+   "frames": 362,
+   "donor": "h3_ref_video_swap_api",
+   "brief": "[video editing + audio reuse]: a person from an image replaces the presenter in the source video; the reused speech is lip-synced by a concrete on-screen source, so it takes (S1) and cites <Audio 1>; source words verbatim with an [unclear] span; fully_copy; exempt from the word budget."
+  },
+  {
+   "id": "ref2va_five_label",
+   "mode": "ref2va",
+   "frames": 345,
+   "donor": "h3_ref_image_video_audio_api",
+   "brief": "All five label kinds on one donor: two identity images, a video for camera movement (weak_reference), its soundtrack partially_copy for ambience only, and a standalone clip as a voice-timbre reference bound to (S1); a second speaker with a voice description and no subject; [reference generation + audio reuse + audio reference]."
+  },
+  {
+   "id": "ref2va_continue_with_audio",
+   "mode": "ref2va",
+   "frames": 158,
+   "donor": "h3_ref_video_continue_api",
+   "brief": "[video continuation + audio reference]: resumes where the source ends and the new audio continues the original track's audible character without copying it; a [Portuguese] line; still inside the 350-500 budget because continuation is a generation task."
+  }
+ ]
+}

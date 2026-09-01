@@ -1,0 +1,21 @@
+subject_definitions:
+<Video 1> is the source video the target video continues from, an aerial take that ends with the camera holding over the lip of a working slate quarry.
+<Subject 1> is the quarry itself in <Video 1>, six grey stepped terraces cut into a hillside, a hairpin haul road switching back across them, standing meltwater in the lowest bench, and long spoil fans of broken slate running down the outer slope.
+<Subject 2> is the yellow tracked excavator parked on the third terrace of <Video 1>, with a scarred boom, a dust-greyed cab, and a bucket resting on the stone.
+
+summary:
+[video continuation] The target video resumes at the exact aerial position and heading where <Video 1> ends and carries the flight on across <Subject 1>, descending along the haul road, passing over <Subject 2>, and climbing back out over the spoil fans in two shots as low cloud moves in from the far ridge.
+
+retention_analysis:
+<Video 1> (continuation starting point, flight heading, and altitude): fully_preserved - the target video opens on the source video's final aerial position, heading, and height above the quarry lip, and continues the same unbroken descent.
+<Subject 1> (appears in [Shot 1], [Shot 2]): fully_preserved - the six stepped grey terraces, hairpin haul road, standing meltwater in the lowest bench, and slate spoil fans are retained.
+<Subject 2> (appears in [Shot 1]): fully_preserved - the yellow tracked excavator's scarred boom, dust-greyed cab, and grounded bucket are retained on the third terrace.
+
+detailed_description:
+The target video is in a naturalistic aerial live-action style under flat overcast light, with cool grey-blue slate tones and a slight haze thickening toward the far ridge.
+[Shot 1] The shot begins from the last aerial position of <Video 1>, holding over the lip of <Subject 1>, the working slate quarry, with all six stepped grey terraces falling away below and the hairpin haul road switching back across them from the top bench to the water at the bottom. The camera continues the descent as a tracking shot, following the haul road down and inward at the same unbroken pace the source take was flying, so the terrace edges pass one after another through the lower third of frame. Loose slate chippings on the road surface resolve into individual flakes as the height comes off. On the third terrace <Subject 2>, the yellow tracked excavator with its scarred boom and dust-greyed cab, sits with its bucket grounded on the stone and a light film of grey dust across the roof. The camera passes directly over it, close enough for the cab glass to throw back a flat white reflection of the overcast, then rolls clockwise with small amplitude at slow speed to bring the standing meltwater in the lowest bench into the top of frame. The water sits perfectly still and holds an inverted grey image of the terraces above it.
+[Shot 2] At 00:04.000, the shot cuts to a wider aerial view from beyond the outer slope, the whole of <Subject 1> now stacked across the frame from the water at the bottom to the cut lip at the top. The camera pulls out with large amplitude at slow speed, opening the frame onto the long spoil fans of broken slate that run down the outer slope and out onto the moor below. Low cloud pushes in from the far ridge on the left and drags a soft shadow across the upper terraces, and the grey of the stone darkens as it passes. A thin ribbon of meltwater runs out of the lowest bench, crosses the spoil, and disappears into the heather. The quarry lip, the haul road switchbacks, and the shadow front all sit inside the frame as the shot ends.
+
+overall_soundscape: A steady rotor wash and the rush of moving air carry across the whole video. Wind pushes over the open terraces in long gusts, a faint metallic knock echoes up from the quarry floor, and the air noise thins as the camera climbs away at the end.
+
+non_diegetic_music: A low sustained string chord at a slow tempo, joined halfway by a single repeating piano note and a soft timpani roll that swells as the cloud shadow crosses and settles back.
