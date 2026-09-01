@@ -1816,7 +1816,9 @@ end. `bench/marker_arms_brief.md` is the judge's brief. Two seeds per arm is
 what the owner chose, which is a presentation and not a distribution; the
 sister engine will read the verdict the same way.
 
-**How to run it**, from the manifest's own `run` and `then` fields: the
+**How to run it:** `bench/run_marker_arms.sh` does the render and the blinding in one
+command and prints the two steps that are the owner's; by hand, from the
+manifest's own `run` and `then` fields: the
 `run_graph_arms.py` line renders about forty-five minutes of card at 1344x768;
 `blind_batch.py` with the five `--pairs` blinds it; the owner scores in
 `score.html`; `score_session.py` writes the verdict record. Then hand the
