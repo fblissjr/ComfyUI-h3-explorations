@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 *.egg-info/
 internal/
+data/
 # Claude Code's per-user settings stay out; the project skills under
 # .claude/skills/ are routing docs for this repo and ship with it.
 .claude/*
