@@ -9,7 +9,10 @@ deliberately *not* done and why, so nobody rebuilds the discarded option.
 
 Source for the path itself: a full node-by-node trace of
 `workflows/h3_text_to_video_turbo_4step_768p.json` against
-`workflows/h3_image_ref_plus_text_to_video.json`, done 2026-08-21.
+`workflows/h3_image_ref_plus_text_to_video.json`, done 2026-08-21. **The first
+of those was removed on 2026-08-31** (its stem claimed four steps while it ran
+six); the trace stands, and `workflows/h3_probe_turbo_768p_owner.json` is the
+surviving graph on that LoRA.
 
 ---
 

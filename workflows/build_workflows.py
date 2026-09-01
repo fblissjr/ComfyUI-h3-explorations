@@ -4496,7 +4496,7 @@ the `fl2va` arm is informative rather than a bug.
 _NOTE_TURBO_OWNER = f"""\
 ## The owner's recipe, not the vendor's row
 
-This is `h3_text_to_video_turbo_4step_768p.json` with **two** things moved,
+This is the **vendor row** for the 768p turbo LoRA with **two** things moved,
 all at once, to the settings the owner arrived at in their own t2v trials on
 2026-08-20: scheduler `simple` -> `{TURBO_OWNER_SCHEDULER}`, LoRA strength
 1.0 -> {TURBO_OWNER_STRENGTH:g}. The sampler was the third until 2026-08-27,
@@ -4679,8 +4679,8 @@ that one shape, where **both** 544p LoRAs (v0.1 and the 8-step v1.0 this
 graph loads) saw mixed aspect ratios. So render 1:1 or 9:16 and the 768p LoRA
 becomes the off-distribution one while this graph's LoRA is at home on shape
 and away on resolution. Neither is free; they are away in different
-directions. `h3_text_to_video_turbo_4step_768p.json` is the sibling to
-compare against.
+directions. `h3_probe_turbo_768p_owner.json` is the sibling to compare
+against -- it runs the 768p LoRA at its own shift and step count.
 
 Specs from `coderef/Minimax-H3-Turbo`, README model table.
 """
@@ -6293,20 +6293,22 @@ def main():
                   "`explicit` if you want the widgets to own the geometry.")),
          "last frame + text -> video + audio (the closing frame is the anchor)"),
 
-        # The first turbo graph here that is IN distribution: every released
-        # turbo LoRA is an fl2v distill and every previous turbo arm was t2v or
-        # ref2v. Vendor row for the 4-step 768p, cloned from
-        # h3_text_to_video_turbo_4step_768p rather than retyped.
-        ("h3_first_last_frame_to_video_turbo_4step_768p.json", "fl2v-turbo768",
-         "i2v", None,
-         dict(last_frame=True,
-              lora=(TURBO_768P_LORA, TURBO_768P_STRENGTH),
-              steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
-              sampler_name=TURBO_SAMPLER,
-              variant_note=_NOTE_FL2V_TURBO,
-              out_prefix="Video/h3_fl2v_turbo_4step_768p", **FL2V_CANVAS),
-         "first + last frame + text -> video + audio, via the 4-step 768p "
-         "turbo LoRA at shift 6 -- in distribution"),
+        # **`h3_first_last_frame_to_video_turbo_4step_768p` was here and is gone
+        # as of 2026-08-31, with its t2v sibling below.** Owner's call: a stem
+        # saying `_Nstep` must name the evaluations the graph denoises, with no
+        # exception, and these two said 4 while running
+        # `TURBO_768P_STEPS` = 6.
+        #
+        # The name was TRUE when written and went stale three days later.
+        # `bench/results/2026-08-20_power_limit_pair_verdict.json` describes
+        # this graph as "4 steps", and the recipe moved to six on 2026-08-23
+        # ("owner-selected... provisional"). Nothing carried the rename, which
+        # is this repo's usual failure with a fact that has two homes.
+        #
+        # Nothing is lost: `h3_probe_turbo_768p_owner` runs the same
+        # `TURBO_768P_LORA` at the same shift and step count, so the 768p turbo
+        # is still covered by a graph whose name claims no step count at all.
+        # The dated records above are history and keep naming the old path.
         # t2v deliberately: the note explains that matching the LoRA's 544p
         # means leaving H3's own canvas rule, and MiniMaxH3KeyframeCanvas is
         # the node that refuses to, so an i2v turbo graph could not show the
@@ -6317,22 +6319,17 @@ def main():
               out_prefix="Video/h3_t2v_turbo_8step"),
          "text -> video + audio, via the 8-step turbo LoRA"),
 
-        # The 4-step 768p LoRA: one of the two released turbos whose shift
-        # is not 12/3. It exists as a shipped graph rather than as a note because
-        # "change the shift when you change the LoRA" is the instruction
-        # everyone drops, and a graph that already has it right is worth more
-        # than a paragraph saying to do it. Its training canvas IS the default
-        # canvas, so unlike the 8-step nothing else has to move.
-        ("h3_text_to_video_turbo_4step_768p.json", "t2v-turbo768", "t2v",
-         LONG_T2V_PROMPT,
-         dict(lora=(TURBO_768P_LORA, TURBO_768P_STRENGTH),
-              steps=TURBO_768P_STEPS, shift=TURBO_768P_SHIFT,
-              variant_note=_NOTE_TURBO_768P,
-              out_prefix="Video/h3_t2v_turbo_4step_768p"),
-         "text -> video + audio, via the 4-step 768p turbo LoRA at shift 6"),
+        # **`h3_text_to_video_turbo_4step_768p` was here and is gone as of
+        # 2026-08-31.** See the note on its fl2v sibling above for why. The
+        # argument this comment used to make for keeping it -- that "change the
+        # shift when you change the LoRA" is the instruction everyone drops, so
+        # a graph with it already right beats a paragraph saying to do it --
+        # still holds, and `h3_probe_turbo_768p_owner` is the graph that makes
+        # it, at the same LoRA, shift and step count.
 
         # The recipe the 2026-08-20 blind session supports: the vendor row with
-        # the vendor's sampler. It differed from h3_text_to_video_turbo_4step_768p
+        # the vendor's sampler. It differed from the since-removed
+        # h3_text_to_video_turbo_4step_768p
         # in one widget (er_sde -> euler) until 2026-08-27, when euler became the
         # default for every distilled arm and the two converged; it still differs
         # from the owner graph below in scheduler and strength, which the session
@@ -6366,7 +6363,7 @@ def main():
               variant_note=_probe_note(
                   "whether a LoRA distilled under sparse attention survives a "
                   "different sparse attention",
-                  "h3_text_to_video_turbo_4step_768p.json",
+                  "h3_probe_turbo_768p_owner.json",
                   "the LoRA file: lightx2v's Turbo-SLA 4-step v0.1 768p instead "
                   f"of the Turbo {turbo_label(TURBO_768P_LORA)}. Same shift (6/3), same steps, "
                   "same rank, alpha, base and tensor keys -- the file differs in "

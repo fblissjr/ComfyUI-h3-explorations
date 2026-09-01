@@ -784,7 +784,10 @@ totals are.
 `workflows/h3_text_to_video_turbo_4step_768p_api.json` with the prompt replaced
 by a four-line dialogue scene and, in the second, a `MiniMaxH3VendorTokens`
 node inserted between the CLIP loader and the conditioning node. Nothing else
-differs. `run_graph_arms.py` bumps the seed per run, so `--runs N` gives N
+differs. (**That base graph was removed on 2026-08-31** -- its stem said
+`4step` while it ran six. The arms above were built when it existed and this
+record is left as written; `workflows/h3_probe_turbo_768p_owner.json` runs the
+same LoRA, shift and step count today.) `run_graph_arms.py` bumps the seed per run, so `--runs N` gives N
 distinct samples per arm and the same N seeds to both.
 
 **The score sheet, fixed now.** Per clip, per line, one of:
