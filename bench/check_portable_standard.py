@@ -46,7 +46,9 @@ the page's wrapping.
 
 from __future__ import annotations
 
+import hashlib
 import html
+import json
 import re
 import sys
 from pathlib import Path
@@ -54,6 +56,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 PAGE = REPO / "docs" / "portable" / "h3_prompt_standard.html"
 MANUAL = REPO / "docs" / "prompting.md"
+SNAPSHOTS = REPO / "docs" / "portable" / "snapshots.json"
 GUIDE = REPO / "vendor_guides" / "base_en.md"
 
 sys.path.insert(0, str(REPO / "bench"))
@@ -74,6 +77,43 @@ def flat(s: str) -> str:
 
 def text_of(page: str) -> str:
     return flat(html.unescape(re.sub(r"<[^>]+>", " ", page)))
+
+
+def snapshots() -> int:
+    """Dated snapshots are checked for STAYING PUT, never against the sources.
+
+    A frozen record of what was shared on a date will fall behind the manual by
+    design -- that is what makes it a record. Grading it against today's
+    sources would go red for the one reason that is correct, which is the
+    cry-wolf failure this repo refuses. So the only question asked of a
+    snapshot is whether anyone has edited it since it was frozen.
+    """
+    if not SNAPSHOTS.exists():
+        return 0
+    recorded = json.loads(SNAPSHOTS.read_text(encoding="utf-8"))
+    bad = 0
+    for name, meta in sorted(recorded.items()):
+        path = SNAPSHOTS.parent / name
+        if not path.exists():
+            print(f"  FAIL  snapshot {name} is recorded but missing")
+            bad += 1
+            continue
+        got = hashlib.sha256(path.read_bytes()).hexdigest()
+        if got != meta["sha256"]:
+            print(f"  FAIL  snapshot {name} has been EDITED since it was "
+                  f"frozen on {meta['frozen']}. A dated record that changes is "
+                  f"not a record -- restore it, or freeze a new one.")
+            bad += 1
+        else:
+            print(f"  ok    snapshot {name} unmodified since {meta['frozen']}")
+    # A snapshot on disk that nothing records is the shape that rots: it looks
+    # authoritative and nothing pins it.
+    for path in sorted(SNAPSHOTS.parent.glob("2*_*.html")):
+        if path.name not in recorded:
+            print(f"  FAIL  {path.name} looks like a snapshot but is not in "
+                  f"{SNAPSHOTS.name}; nothing pins it")
+            bad += 1
+    return bad
 
 
 def main() -> int:
@@ -124,6 +164,8 @@ def main() -> int:
             fails += 1
             print(f"  FAIL  an example on the page is not in the manual's "
                   f"section 10 verbatim: {b[:60]}...")
+
+    fails += snapshots()
 
     for q in QUOTED:
         if flat(q) in flat(guide):

@@ -1,0 +1,398 @@
+<title>H3 Prompt Standard — 2026-09-01 snapshot</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --ground:#F5F7F8; --surface:#FFFFFF; --sunk:#EDF1F3;
+  --ink:#12171C; --body:#2C353D; --muted:#5D6B75; --rule:#DDE4E8;
+  --accent:#14606E; --accent-soft:#E2F0F2;
+  --stated:#8A5300; --stated-bg:#FBF0DC;
+  --shown:#1F6675; --shown-bg:#DFEFF2;
+  --owner:#4F4396; --owner-bg:#E8E5F7;
+  --house:#4E5C66; --house-bg:#E7ECEF;
+  --open:#95404E; --open-bg:#F8E5E8;
+  --bad:#95404E; --bad-bg:#FCF2F3; --good:#1F6675; --good-bg:#EFF6F7;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#0E1417; --surface:#151D21; --sunk:#101720;
+  --ink:#EEF3F5; --body:#C6D2D8; --muted:#8CA0AB; --rule:#25323A;
+  --accent:#5FBECF; --accent-soft:#12303A;
+  --stated:#E0AE5E; --stated-bg:#2C2313;
+  --shown:#6FC0D0; --shown-bg:#102A31;
+  --owner:#A99CEB; --owner-bg:#211D3B;
+  --house:#9FB2BC; --house-bg:#1B242A;
+  --open:#E08999; --open-bg:#31191F;
+  --bad:#E08999; --bad-bg:#241419; --good:#6FC0D0; --good-bg:#0F252B;
+}}
+:root[data-theme="dark"]{
+  --ground:#0E1417; --surface:#151D21; --sunk:#101720;
+  --ink:#EEF3F5; --body:#C6D2D8; --muted:#8CA0AB; --rule:#25323A;
+  --accent:#5FBECF; --accent-soft:#12303A;
+  --stated:#E0AE5E; --stated-bg:#2C2313;
+  --shown:#6FC0D0; --shown-bg:#102A31;
+  --owner:#A99CEB; --owner-bg:#211D3B;
+  --house:#9FB2BC; --house-bg:#1B242A;
+  --open:#E08999; --open-bg:#31191F;
+  --bad:#E08999; --bad-bg:#241419; --good:#6FC0D0; --good-bg:#0F252B;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--body);
+  font-family:"Source Serif 4",Georgia,serif;font-size:17px;line-height:1.62;}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 96px;
+  display:grid;grid-template-columns:210px minmax(0,1fr);gap:48px;align-items:start}
+@media (max-width:900px){.wrap{grid-template-columns:1fr;gap:0}}
+h1,h2,h3,.ui{font-family:Chivo,"Helvetica Neue",Arial,sans-serif}
+header{grid-column:1/-1;padding:56px 0 28px;border-bottom:2px solid var(--ink)}
+h1{font-size:clamp(2.1rem,5vw,3.1rem);font-weight:800;letter-spacing:-.022em;
+  color:var(--ink);margin:0 0 12px;text-wrap:balance;line-height:1.05}
+.sub{font-size:1.06rem;color:var(--muted);max-width:64ch;margin:0}
+.meta{margin-top:20px;font-family:Chivo,sans-serif;font-size:.72rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+nav{position:sticky;top:20px;padding-top:36px;font-family:Chivo,sans-serif;font-size:.83rem}
+@media (max-width:900px){nav{position:static;padding:24px 0;border-bottom:1px solid var(--rule)}}
+nav a{display:block;padding:5px 0;color:var(--muted);text-decoration:none;border-left:2px solid transparent;padding-left:10px}
+nav a:hover,nav a:focus-visible{color:var(--accent);border-left-color:var(--accent);outline:none}
+nav .navhead{color:var(--ink);font-weight:600;text-transform:uppercase;letter-spacing:.09em;
+  font-size:.68rem;margin:20px 0 6px;padding-left:10px}
+main{padding-top:36px;min-width:0}
+section{margin-bottom:52px;scroll-margin-top:20px}
+h2{font-size:1.62rem;font-weight:800;color:var(--ink);letter-spacing:-.015em;
+  margin:0 0 6px;text-wrap:balance}
+h2 .num{color:var(--accent);font-weight:600;margin-right:.5rem;font-variant-numeric:tabular-nums}
+h3{font-size:1.04rem;font-weight:600;color:var(--ink);margin:28px 0 8px}
+p{margin:0 0 14px;max-width:66ch}
+.lede{color:var(--muted);max-width:66ch;margin-bottom:22px}
+code,pre,.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+code{font-size:.87em;background:var(--sunk);padding:.1em .34em;border-radius:3px;color:var(--ink)}
+pre{background:var(--sunk);border:1px solid var(--rule);border-radius:6px;
+  padding:16px 18px;overflow-x:auto;font-size:.79rem;line-height:1.7;color:var(--ink);margin:0 0 14px}
+.rule{background:var(--surface);border:1px solid var(--rule);border-radius:7px;
+  padding:16px 18px;margin-bottom:12px}
+.rule > :last-child{margin-bottom:0}
+.chip{display:inline-block;font-family:Chivo,sans-serif;font-size:.63rem;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;padding:3px 8px;border-radius:3px;
+  margin-right:8px;vertical-align:2px;white-space:nowrap}
+.c-stated{background:var(--stated-bg);color:var(--stated)}
+.c-shown{background:var(--shown-bg);color:var(--shown)}
+.c-owner{background:var(--owner-bg);color:var(--owner)}
+.c-house{background:var(--house-bg);color:var(--house)}
+.c-open{background:var(--open-bg);color:var(--open)}
+.rule h4{font-family:Chivo,sans-serif;font-size:.98rem;font-weight:600;color:var(--ink);
+  margin:0 0 8px;display:flex;flex-wrap:wrap;gap:2px 0;align-items:baseline}
+.tablewrap{overflow-x:auto;margin-bottom:16px;border:1px solid var(--rule);border-radius:7px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.87rem}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-family:Chivo,sans-serif;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+td code{white-space:nowrap}
+.num-col{font-variant-numeric:tabular-nums}
+.good,.bad{border-radius:7px;padding:14px 16px;margin-bottom:12px;border:1px solid}
+.good{background:var(--good-bg);border-color:var(--good)}
+.bad{background:var(--bad-bg);border-color:var(--bad)}
+.good .tag,.bad .tag{font-family:Chivo,sans-serif;font-size:.66rem;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:8px}
+.good .tag{color:var(--good)} .bad .tag{color:var(--bad)}
+.good > :last-child,.bad > :last-child{margin-bottom:0}
+.callout{border-left:3px solid var(--accent);background:var(--accent-soft);
+  padding:14px 18px;border-radius:0 6px 6px 0;margin-bottom:18px}
+.callout > :last-child{margin-bottom:0}
+ul{margin:0 0 14px;padding-left:20px;max-width:66ch}li{margin-bottom:6px}
+strong{color:var(--ink);font-weight:600}
+footer{grid-column:1/-1;border-top:1px solid var(--rule);padding-top:22px;
+  font-size:.85rem;color:var(--muted)}
+a{color:var(--accent)}
+.frozen{background:var(--stated-bg);border:1px solid var(--stated);color:var(--stated);
+  border-radius:7px;padding:14px 18px;margin:0 0 26px;font-size:.92rem;
+  font-family:Chivo,sans-serif;line-height:1.55}
+.frozen strong{color:var(--stated)}
+.frozen code{background:transparent;color:inherit;font-size:.9em}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>H3 Prompt Standard</h1>
+  <p class="sub">What a correct MiniMax H3 prompt looks like, for every mode — and which rules are the vendor's, which are ours, and which are still open. Every rule carries its source, because collapsing that distinction is how two invented rules shipped and were retracted.</p>
+  <p class="meta">Frozen snapshot · 2026-09-01 · not maintained</p>
+</header>
+
+<nav>
+  <div class="navhead">Read first</div>
+  <a href="#layers">How to read a rule</a>
+  <div class="navhead">Structure</div>
+  <a href="#modes">Modes &amp; Part One</a>
+  <a href="#fields">Fields per format</a>
+  <a href="#shots">Shots &amp; timing</a>
+  <div class="navhead">Vocabularies</div>
+  <a href="#speakers">Speaker IDs</a>
+  <a href="#dialogue">Dialogue &amp; markers</a>
+  <a href="#style">Style opening</a>
+  <a href="#camera">Camera motion</a>
+  <a href="#audio">Audio fields</a>
+  <a href="#refs">Reference labels</a>
+  <div class="navhead">Calibration</div>
+  <a href="#good">What good looks like</a>
+  <a href="#bad">What bad looks like</a>
+</nav>
+
+<main>
+
+<div class="frozen">
+  <strong>Frozen snapshot — 2026-09-01.</strong> This is a dated record of what was
+  published and shared on that date. <strong>It is not maintained and will fall
+  behind.</strong> The living version is <code>docs/portable/h3_prompt_standard.html</code>,
+  which is checked against its sources by <code>bench/check_portable_standard.py</code>;
+  this copy is checked only for having stayed unmodified. Do not edit it, and do
+  not cite it as current — read it as "this is what we said on 2026-09-01".
+</div>
+
+<section id="layers">
+  <h2><span class="num">01</span>How to read a rule</h2>
+  <p class="lede">Every rule below is tagged. The tag tells you what breaking it costs — and whether you may build a checker on it.</p>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span></h4>
+    <p>A sentence in MiniMax's own prompt-writing guide says so. Breaking it puts the prompt <strong>off-distribution</strong> from what the model was trained on. These are the only rules that bind.</p></div>
+  <div class="rule"><h4><span class="chip c-shown">Guide · shown</span></h4>
+    <p>Every vendor example does it; no sentence states it. <strong>Follow it, because following the vendor's examples keeps you in-distribution. Do not enforce it, and do not argue from it.</strong> Two rules were invented by reading examples as rules, and both were retracted.</p></div>
+  <div class="rule"><h4><span class="chip c-owner">Owner</span></h4>
+    <p>A deliberate decision made on our side. Not the vendor's, not a defect — and it cannot be cited as authority.</p></div>
+  <div class="rule"><h4><span class="chip c-house">House</span></h4>
+    <p>Our inference from measurement or experience. <strong>May itself be wrong.</strong> Check before relying on it.</p></div>
+  <div class="rule"><h4><span class="chip c-open">Open</span></h4>
+    <p>Contradictory, unsourced, or unverified. Do not build a checker on it, and do not quote it as settled.</p></div>
+  <div class="callout"><p><strong>The single most useful habit:</strong> before writing any rule down, ask whether the guide <em>states</em> it or merely <em>shows</em> it. That one question is what separates this document from a style guide someone invented.</p></div>
+</section>
+
+<section id="modes">
+  <h2><span class="num">02</span>Modes, and the Part One line</h2>
+  <p class="lede">Pick the mode first. It decides the field structure, the opening line, and where the style comes from.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Mode</th><th>You supply</th><th>Format</th></tr>
+    <tr><td><strong>T2VA</strong></td><td>text only</td><td>three fields</td></tr>
+    <tr><td><strong>I2VA</strong></td><td>a first frame</td><td>three fields</td></tr>
+    <tr><td><strong>FL2VA</strong></td><td>first and last frame</td><td>three fields</td></tr>
+    <tr><td><strong>L2VA</strong></td><td>a last frame</td><td>three fields</td></tr>
+    <tr><td><strong>Ref2VA</strong></td><td>images / video / audio references</td><td>six sections</td></tr>
+  </table></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Each keyframe mode has one exact opening line</h4>
+    <p>The guide gives one verbatim string per mode. <strong>They differ in bracket use as well as wording, and they are not interchangeable.</strong> Resolve <code>Shot N</code> against your final shot and <code>S.SS</code> against the clip's true duration to two decimals. T2VA has no such line at all.</p>
+<pre>I2VA   For the target video, at 0.00 seconds into the target video,
+       &lt;Picture 1&gt; (from [Shot 1]) is fully referenced.
+
+FL2VA  How the reference pictures align with the target video — Picture 1
+       (from Shot 1) aligns with the 0.00-second mark of the target video;
+       Picture 2 (from Shot N) aligns with the S.SS-second mark of the
+       target video.
+
+L2VA   How the reference pictures align with the target video —
+       &lt;Picture 1&gt; (from [Shot N]) aligns with the S.SS-second mark of
+       the target video.</pre>
+    <p><strong>FL2VA is the only one with no angle brackets and no square brackets.</strong> I2VA and L2VA bracket both labels. Getting this wrong is the single most common structural error, and it is silent.</p></div>
+  <div class="callout"><p><strong>A prompt is correct only at a duration.</strong> <code>S.SS</code> and every cut timestamp resolve against the clip's real length, so the same text is right at one length and wrong at another. Fix the frame count before writing.</p></div>
+</section>
+
+<section id="fields">
+  <h2><span class="num">03</span>Fields, and their order</h2>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Base modes: three fields, in this order</h4>
+<pre>integrated_multimodal_description: ...
+overall_soundscape: ...
+non_diegetic_music: ...</pre></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Ref2VA: six sections, in this order</h4>
+<pre>subject_definitions: ...
+summary: ...
+retention_analysis: ...
+detailed_description: ...
+overall_soundscape: ...
+non_diegetic_music: ...</pre>
+    <p>Ref2VA inherits the base format's shot, camera, speaker, dialogue and sound rules by reference, and overrides a small number of things. <strong>Never assume a fix that is right for one format is right for the other</strong> — they have taken opposite corrections.</p></div>
+  <div class="rule"><h4><span class="chip c-shown">Guide · shown</span>Multiple shots run inline, in one unbroken paragraph</h4>
+    <p>Every vendor multi-shot specimen puts <code>[Shot 2]</code> inline rather than on its own line, and a third-party corpus agrees in every specimen that follows the official grammar. No sentence states it, so follow it and do not enforce it. <strong>Blank lines go between fields, never inside one.</strong></p>
+    <p>The exception is Ref2VA's <code>subject_definitions</code> and <code>retention_analysis</code>, where per-line structure <em>is</em> stated — see §10.</p></div>
+</section>
+
+<section id="shots">
+  <h2><span class="num">04</span>Shots and timing</h2>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Shot 1 carries no timestamp; later shots do</h4>
+    <p>Later shots open with a strictly increasing cut time: <code>[Shot 2] At 00:03.500, the camera cuts to…</code>. A cut should introduce new information; if only distance or angle changes, prefer camera motion over a cut.</p></div>
+  <div class="rule"><h4><span class="chip c-house">House</span>A timestamped cut is the only hard temporal anchor the format has</h4>
+    <p>Nothing else in the prompt tells the model when something happens. If two speakers must share a shot, the ordering has to be carried in prose instead — and prose ordering is weaker than a cut.</p></div>
+  <div class="rule"><h4><span class="chip c-open">Open</span>How many spoken words fit in a shot</h4>
+    <p>A budget of roughly 2.5 words per second of shot, minus about a second of air, is commonly used. <strong>Its shape is assumed, not measured</strong> — a one-parameter form fits the vendor's own example exactly where the two-parameter one is off by a word, and the two diverge by up to 1.8× on short shots, which is where the decisions are tightest. Treat short-shot budgets as possibly far too tight, and never cite either form as measured.</p></div>
+</section>
+
+<section id="speakers">
+  <h2><span class="num">05</span>Speaker IDs — where, how often, per mode</h2>
+  <p class="lede">The most-asked operational question, and the guide answers more of it than people expect.</p>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Who gets an ID, and who does not</h4>
+    <ul>
+      <li>Subjects who <strong>speak, sing, or produce an off-screen human voice</strong> get a stable ID: <code>(S1)</code>, <code>(S2)</code>.</li>
+      <li>A speaker keeps the same ID <strong>across shots</strong>.</li>
+      <li><strong>Characters who never vocalise receive no ID.</strong></li>
+      <li><code>(S1,S2)</code> means those two speak <strong>in unison</strong>. Both must already be numbered, so it can never introduce a speaker, and it is never a way to mention a second character.</li>
+    </ul></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>The ID goes outside <code>&lt;d&gt;</code>, with the identity and delivery</h4>
+    <p>Verbatim: <em>"Place the speaker's identifying phrase, ID, action, and delivery outside <code>&lt;d&gt;</code>. Inside <code>&lt;d&gt;</code>, include only the language tag and the actual spoken content."</em></p></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Identity is established when the speaker <em>first appears</em></h4>
+    <p>Not when they first speak. Give character type, age, gender, whether they are on-screen, pitch, timbre, speaking rate, accent. Introducing <code>(S2)</code> in one shot and describing them in the next is a violation.</p></div>
+  <div class="rule"><h4><span class="chip c-shown">Guide · shown</span>Every dialogue line names its speaker <em>in the same sentence</em></h4>
+    <p>Measured across every vendor specimen that contains dialogue: <strong>the ID sits in the sentence carrying the <code>&lt;d&gt;</code>, without exception.</strong> The vendor never lets a turn run on a bare pronoun, even when the speaker was introduced two sentences earlier.</p>
+    <div class="tablewrap"><table>
+      <tr><th>Format</th><th>Pattern per speaking shot</th></tr>
+      <tr><td><strong>Base</strong><br>(T2VA / I2VA / FL2VA / L2VA)</td><td>The ID appears <strong>once</strong>, attached to the speaking sentence:<br><code>…a dock worker with a low alto (S1) … and says: &lt;d&gt;…&lt;/d&gt;</code></td></tr>
+      <tr><td><strong>Ref2VA</strong></td><td>The ID is <strong>bound to the subject label</strong> and appears <strong>twice</strong> — once where the subject is established in the shot, once at the speaking moment:<br><code>&lt;Subject 3&gt; (S1), the young woman with …</code><br><code>&lt;Subject 3&gt; (S1) jerks her hand back and … exclaims, &lt;d&gt;…&lt;/d&gt;</code></td></tr>
+    </table></div></div>
+  <div class="rule"><h4><span class="chip c-shown">Guide · shown</span>One dialogue turn per shot, in base modes</h4>
+    <p>Every base-format vendor specimen carries exactly one <code>&lt;d&gt;</code> per shot; a large third-party corpus does the same in every dialogue-carrying shot without exception. <strong>In Ref2VA the vendor is split</strong> — its own reference payload puts two turns in one shot — so two is attested there and stacking beyond that is not.</p></div>
+</section>
+
+<section id="dialogue">
+  <h2><span class="num">06</span>Dialogue blocks and markers</h2>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>The <code>&lt;d&gt;</code> block, and its language tag</h4>
+<pre>The woman with the low measured voice (S1) says:
+&lt;d&gt;[English] You said tomorrow.&lt;/d&gt;</pre>
+    <p>Inside the block: the language tag and the spoken words only. Preserve every original word and punctuation mark verbatim — do not translate or rewrite. Everything else — who is speaking, their ID, the action, the delivery — goes outside.</p></div>
+  <div class="rule"><h4><span class="chip c-house">House</span>Seven special tokens exist; the guides describe only two</h4>
+    <p>The released tokenizer declares <code>&lt;d&gt;</code>, <code>&lt;/d&gt;</code>, <code>&lt;|cutoff|&gt;</code>, <code>&lt;|lyrics_start|&gt;</code>, <code>&lt;|lyrics_end|&gt;</code>, <code>&lt;|caption_start|&gt;</code>, <code>&lt;|caption_end|&gt;</code>. <strong>The guides document only the dialogue pair.</strong> Every structural rule about the other five is house pattern, not vendor guidance.</p>
+    <p><strong>Watch the spelling.</strong> Both guides print <code>&lt;cutoff&gt;</code> unpiped, and the release declares only the piped <code>&lt;|cutoff|&gt;</code>. Write the piped form — that is a deliberate divergence from the guide's prose in favour of the token that actually exists. The guides also mention <code>&lt;scenetrans&gt;</code>, which matches no declared token at all; leave it as ordinary prose.</p></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>On-screen text is typed literally, in double quotes</h4>
+    <p>Any banner, sign, label, subtitle or neon text visible on screen goes in English double quotation marks, verbatim and untranslated. <strong>Describe text without giving the string and the model draws the texture of writing rather than the writing</strong> — plausible-looking letterforms that spell nothing.</p></div>
+  <div class="rule"><h4><span class="chip c-house">House</span>Close the mouth when the shot continues past the line</h4>
+    <p>The pattern in the corpora that have been counted: a mouth-closing cue follows a dialogue line when the shot <strong>continues</strong>, and never when the line <strong>ends</strong> the shot — a cut or the field end does that job instead. <strong>The vendor corpus does not corroborate this</strong>; it comes from a third-party corpus. The only stated vendor rule here is narrower: after a <em>voiceover</em> block, state that the on-screen character's lips remain closed.</p></div>
+  <div class="rule"><h4><span class="chip c-house">House</span>Silent characters must be marked silent</h4>
+    <p>Every on-screen character not given an explicit "produces no vocal sound" is a candidate for the model to voice anyway.</p></div>
+</section>
+
+<section id="style">
+  <h2><span class="num">07</span>The style opening</h2>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>State the style and initial composition at the start of <code>[Shot 1]</code></h4>
+    <p>This is a requirement, not a flourish. The guide's own wording: <em>"At the beginning of <code>[Shot 1]</code>, state the overall style and initial composition."</em></p>
+    <p><strong>The style list is open, not closed.</strong> The guide says "common styles include" and names <code>Cinematic</code>, <code>live-action</code>, <code>2D-animated</code>, <code>3D CG</code>, <code>claymation</code>, <code>watercolor</code>, <code>vintage film</code>. Other styles are legal; these are the attested ones.</p>
+    <p><strong>Where the style comes from differs by mode</strong> — also stated: for keyframe tasks, derive it from the reference image; for T2VA, take it from the user's text.</p>
+<pre>[Shot 1] Live-action, cinematic, a medium-wide shot frames…</pre></div>
+</section>
+
+<section id="camera">
+  <h2><span class="num">08</span>Camera motion</h2>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Motion type + amplitude + speed, written as natural English</h4>
+    <p>Written inside the shot as an action, not stacked as labels at the end of a sentence. <strong>Add amplitude and speed only when meaningful</strong> — medium amplitude and normal speed are usually omitted.</p>
+<pre>The camera pushes in with small amplitude at slow speed toward the folded letter.</pre>
+    <div class="tablewrap"><table>
+      <tr><th>Dimension</th><th>Attested expressions</th></tr>
+      <tr><td>Motion type</td><td><code>Zoom In / Zoom Out</code> · <code>Push In / Pull Out</code> · <code>Pan Left / Pan Right</code> · <code>Truck Left / Truck Right</code> · <code>Tilt Up / Tilt Down</code> · <code>Pedestal Up / Pedestal Down</code> · <code>Arc Shot</code> · <code>Tracking Shot</code> · <code>Static Shot</code> · <code>Shake Slightly / Shake Strongly</code> · <code>POV</code> · <code>Roll Clockwise / Roll Counterclockwise</code></td></tr>
+      <tr><td>Amplitude</td><td><code>with small amplitude</code> · <code>with large amplitude</code></td></tr>
+      <tr><td>Speed</td><td><code>at slow speed</code> · <code>at fast speed</code></td></tr>
+    </table></div>
+    <p>Note the distinction the table draws and that is easy to blur: <code>Truck Left/Right</code> is a horizontal translation; <code>Tracking Shot</code> is following a moving subject. They are separate rows.</p></div>
+  <div class="rule"><h4><span class="chip c-owner">Owner</span>Standard cinematography vocabulary is acceptable</h4>
+    <p>Terms outside the table are fine <strong>so long as they align with common cinematography</strong> — a dolly move described as a dolly move is not an error. The table is the attested vocabulary, not a closed set to police. Revisit only if output quality gives a reason to.</p></div>
+  <div class="rule"><h4><span class="chip c-house">House</span>The model moves the camera unless told otherwise</h4>
+    <p>Say nothing and expect a slow drift. Reported to be more reliably fixed by naming the moves it should <em>not</em> make than by asking for a static shot. Not measured here.</p></div>
+</section>
+
+<section id="audio">
+  <h2><span class="num">09</span>The two audio fields</h2>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span><code>overall_soundscape</code></h4>
+    <p>One to four English sentences, in <strong>one continuous paragraph</strong>: ambient sound, physical action sounds, non-verbal human sounds. <strong>Dialogue, singing and diegetic music do not belong here</strong> — they are already in the description and must not be repeated.</p></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span><code>non_diegetic_music</code></h4>
+    <p>One to three sentences on instrumentation, speed, rhythm and dynamic change. <strong>Not mood words, and not the emotional function of the score.</strong> Music the characters can hear — singing, radio, TV, a phone — is diegetic and belongs in the description instead.</p>
+    <p>Write <code>N/A</code> <strong>when there is no non-diegetic music</strong>. Note the condition: it is a statement about the scene, not a default. Reaching for <code>N/A</code> by habit asserts that every video you make is unscored.</p></div>
+</section>
+
+<section id="refs">
+  <h2><span class="num">10</span>Reference labels (Ref2VA only)</h2>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>One line per item, in two of the six sections</h4>
+    <p><code>subject_definitions</code> gives <strong>each item its own line</strong>, explaining what its label denotes, its reference role, and the features to follow. <code>retention_analysis</code> uses <strong>one line per reference label</strong>.</p>
+    <p><strong>The exception that catches people:</strong> if a <code>&lt;Picture N&gt;</code> or <code>&lt;Video N&gt;</code> only identifies the <em>source</em> of another item and is never analysed separately, cite it <em>inside</em> that item's definition rather than giving it its own line.</p>
+<pre>&lt;Subject 1&gt; is the main character in &lt;Picture 1&gt;, whose face, hair and
+clothing are carried into the target video.
+&lt;Subject 2&gt; is the environment in &lt;Picture 2&gt;, which provides the setting.
+&lt;Audio 1&gt; is the voice-timbre reference for &lt;Subject 1&gt; (S1).</pre></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Labels are used in the body, and the body is written in English</h4>
+    <p>Reference labels appear in <code>detailed_description</code> and stay consistent across all sections. Write the body in English; preserve the original language only for dialogue and lyrics inside <code>&lt;d&gt;</code>, and for text visibly present in the scene.</p></div>
+  <div class="rule"><h4><span class="chip c-stated">Guide · stated</span>Length: 350–500 words for generation tasks</h4>
+    <p>Dialogue-dense content prioritises fitting the complete spoken timeline over hitting a word count, and editing descriptions scale with source complexity instead. <strong>A single shot does not justify a short description</strong> — distribute detail across shots by information load.</p></div>
+  <div class="rule"><h4><span class="chip c-house">House</span>Ordinals follow the order items are built, and soundtracks jump the queue</h4>
+    <p>Counters are per kind and independent, so the same file can be <code>&lt;Video 1&gt;</code> and <code>&lt;Audio 2&gt;</code>. A reference video's soundtrack takes its <code>&lt;Audio&gt;</code> ordinal <strong>before its own <code>&lt;Video&gt;</code> label</strong>, and standalone audio is numbered after. One soundtracked video plus one standalone clip gives <code>&lt;Audio 1&gt;</code> = the soundtrack.</p></div>
+</section>
+
+<section id="good">
+  <h2><span class="num">11</span>What good looks like</h2>
+  <p class="lede">Both graded clean against the guide's mechanical rules. Each is written for a stated duration.</p>
+  <div class="good"><span class="tag">T2VA · 243 frames · 10.125 s · two shots</span>
+<pre>integrated_multimodal_description: [Shot 1] Live-action, cinematic, a medium
+shot frames a night ferry deck across the ten-second take, wet steel railing
+in the foreground and harbour lights smeared behind. A dock worker in her
+forties with a low, level alto (S1) leans on the rail, on-screen, unhurried
+delivery, and says: &lt;d&gt;[English] Last crossing until Thursday.&lt;/d&gt; Her lips
+close and her jaw stops moving as she pushes back from the rail. A younger man
+in a canvas jacket stands two paces behind her and produces no vocal sound.
+The camera trucks right with small amplitude at slow speed, carrying the
+harbour lights across the frame. [Shot 2] At 00:05.000, the shot cuts to a
+close shot of the man's hands folding a paper timetable against his knee. The
+man, on-screen, mid-twenties, with a dry, slightly hoarse tenor (S2), looks up
+and answers: &lt;d&gt;[English] Then we wait it out here.&lt;/d&gt; His lips settle closed
+and the paper flattens under his thumb.
+
+overall_soundscape: Diesel engine rumble carries under a steady wash of water
+against the hull. Wind pulls at loose canvas, boots scuff on wet steel, and a
+mooring chain knocks twice against the deck plate.
+
+non_diegetic_music: A single sustained low synth tone at a slow tempo, joined
+by a soft brushed-snare pulse that rises briefly and drops away before the
+final frame.</pre>
+    <p><strong>Why it works:</strong> style opens Shot 1; each speaker is introduced with identity, on-screen status and voice quality at the moment they first appear; the ID sits in the sentence carrying the line; one turn per shot; the non-speaker is explicitly silent; the cut carries a timestamp and Shot 1 does not; the camera phrase is type + amplitude + speed; the soundscape carries no dialogue.</p></div>
+  <div class="good"><span class="tag">I2VA · 345 frames · 14.375 s · one shot</span>
+<pre>For the target video, at 0.00 seconds into the target video, &lt;Picture 1&gt;
+(from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Live-action, cinematic, holding the
+exact framing, lighting, wardrobe and composition established in &lt;Picture 1&gt;, a
+bench joiner in a canvas apron stands over a half-planed board in a timber
+workshop, low sun coming through sawdust in the air behind her. She sets her
+weight, draws the plane the length of the board, and a single curled shaving
+lifts and falls to the floor. She produces no vocal sound. The camera pulls out
+with small amplitude at slow speed, opening the frame to the racked chisels
+along the back wall.
+
+overall_soundscape: The long dry rasp of a hand plane on softwood repeats at an
+unhurried pace, each pass ending in the light tick of a shaving dropping to
+boards. Room tone is close and wooden, with a faint hum from a strip light
+overhead.
+
+non_diegetic_music: N/A</pre>
+    <p><strong>Why it works:</strong> the Part One line is the I2VA string exactly, brackets included; the opening clause holds the picture's framing and lighting before any new action; the only character on screen is explicitly silent; one continuous shot needs no timestamp.</p></div>
+</section>
+
+<section id="bad">
+  <h2><span class="num">12</span>What bad looks like</h2>
+  <p class="lede">Every one of these was found in real shipped prompts, ours included.</p>
+  <div class="bad"><span class="tag">Wrong mode's Part One line</span>
+    <p>Using the I2VA sentence on an FL2VA prompt, or leaving <code>Shot N</code> and <code>S.SS</code> unresolved. <strong>Silent</strong> — the render succeeds and the alignment is simply wrong. Resolve both against the actual final shot and the actual snapped duration.</p></div>
+  <div class="bad"><span class="tag">A turn on a bare pronoun</span>
+<pre>He scoops once, lets the bolts run back into the bin, and answers:
+&lt;d&gt;[English] The next size up.&lt;/d&gt;</pre>
+    <p>The speaker was introduced with <code>(S1)</code> earlier in the shot, and this turn carries no ID. No vendor specimen ever does this. Repeat the ID on the speaking sentence.</p></div>
+  <div class="bad"><span class="tag">A subject label without its ID</span>
+<pre>&lt;Subject 1&gt; calls after him already reading the next ticket:
+&lt;d&gt;[English] Where is my second plate.&lt;/d&gt;</pre>
+    <p>In Ref2VA the ID binds to the label — <code>&lt;Subject 1&gt; (S1)</code> — every time it is used in a speaking sentence, not just at the definition.</p></div>
+  <div class="bad"><span class="tag">A compound ID used to mention someone</span>
+<pre>The purple rabbit (S4,S5), a male-presenting creature … says: &lt;d&gt;…&lt;/d&gt;</pre>
+    <p><code>(S4,S5)</code> instructs <strong>two characters to say the line in unison</strong>. It is not shorthand for "and this other character is here". It also cannot introduce a speaker, since both IDs must already exist.</p></div>
+  <div class="bad"><span class="tag">Naming a character instead of describing them</span>
+    <p>A bare proper noun gives the model nothing to draw — it renders what is <em>described</em>, not what is <em>named</em>, and will invent a plausible-adjacent character and then render that. Expand every name once into a canonical visual noun phrase plus a voice description, and reuse that phrase verbatim on every mention. Keep the name too; never rely on it.</p></div>
+  <div class="bad"><span class="tag">Describing on-screen text instead of typing it</span>
+    <p>"HUD elements" renders as letterform-shaped noise. Give the literal string in double quotes.</p></div>
+  <div class="bad"><span class="tag">Dialogue in the soundscape</span>
+    <p><code>overall_soundscape</code> is ambience, physical action and non-verbal human sound. Speech, singing and diegetic music belong in the description and must not be repeated here.</p></div>
+  <div class="bad"><span class="tag">Timing written by feel</span>
+    <p>Nothing in the prompt tells the writer how long the clip is — duration is a generation parameter, not a prompt field. Cut timestamps picked by vibe overrun the clip, and the last beat is the one that gets squeezed. Fix the frame count first, then write to it.</p></div>
+  <div class="bad"><span class="tag">Reaching for <code>N/A</code> by habit</span>
+    <p>Legal, and it means "this video has no non-diegetic music". Writing it into every prompt is a creative decision made by default rather than on purpose.</p></div>
+</section>
+
+<footer>
+  <p><strong>Provenance.</strong> Rules tagged <em>guide</em> come from MiniMax's two published prompt-writing guides, verified byte-identical to the copies MiniMax ship inside their own prompt-writing skill. <em>Owner</em> and <em>house</em> rules are ours and are marked so you can discount them. Where this page and the vendor guides disagree, the guides are right.</p>
+  <p>This is a portable extract, self-contained by design and citing no repository paths. It is derived from a longer internal manual; where the two disagree, the manual is newer.</p>
+</footer>
+
+</main>
+</div>

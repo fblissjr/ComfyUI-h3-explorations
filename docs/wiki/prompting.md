@@ -107,6 +107,15 @@ every worked example against §10 verbatim, and each quoted guide sentence
 against the guide. **Run it after editing either file.** Its prose is not
 checkable and is not checked; a green run means the quotations still match.
 
+**Dated snapshots live beside it**, e.g.
+`docs/portable/2026-09-01_h3_prompt_standard.html` — a frozen record of what was
+published and shared on that date, carrying a banner saying so. **A snapshot is
+never graded against current sources**: it will fall behind the manual by
+design, and grading it would go red for the one reason that is correct. It is
+checked only for having stayed unmodified, against a hash in
+`docs/portable/snapshots.json`. A snapshot-shaped file that nothing records
+also fails, because it would look authoritative with nothing pinning it.
+
 It had drifted before it was checked once: the T2VA example was transcribed
 with `non_diegetic_music: N/A` where the manual carries a real cue — into the
 exact habit the same page warns against — and seven camera motion types had
