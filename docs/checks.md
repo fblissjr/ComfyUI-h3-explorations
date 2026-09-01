@@ -356,6 +356,18 @@ PATH: _morton_h3.py
 WHY: same pack, same deletion. Cited for the opposite reason -- it is the H3
      variant and makes NO quality or sparsity claim, which is the whole point
      of the comparison it appears in.
+
+PATH: 2026-08-23_caption_marker_arms.md
+WHY: owner removed the whole `internal/prompts/*.md` set on 2026-09-01. It is
+     gitignored, so there is no history to recover it from. The marker-corpus
+     documents in `docs/research/.../canonical/` cite it as the origin of the
+     caption arms, and that provenance has to stay even though the source is
+     gone -- a citation to a deleted file is still a truthful statement about
+     where something came from.
+
+PATH: 2026-08-22_office_refs_fr_subs.md
+WHY: same set, same removal, same reason. Cited as the source of the
+     owner-authored marker corpus.
 ```
 
 

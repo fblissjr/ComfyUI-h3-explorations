@@ -263,10 +263,20 @@ def main():
     fails, warns = [], []
 
     # --- doc_links_resolve -------------------------------------------------
+    # THE LEDGER APPLIES HERE TOO, and until 2026-09-01 it did not.
+    # `doc-link-absent` says an entry "asserts that someone looked and the
+    # target is deliberately gone" -- a property of the TARGET, not of the
+    # syntax that reaches it. Honouring it for `path:line` citations and not
+    # for markdown links meant a deliberately-removed file could be declared
+    # absent only if docs happened to cite it with a line number. Found when
+    # the owner removed a gitignored set that two research documents LINK.
     bad_links = []
     for src, n, target, base in links:
-        if not (base / target).exists() and not (REPO / target).exists():
-            bad_links.append((src, n, target))
+        if (base / target).exists() or (REPO / target).exists():
+            continue
+        if Path(target).name in absent:
+            continue
+        bad_links.append((src, n, target))
     for src, n, target in bad_links:
         fails.append(f"  FAIL  doc_links_resolve   {src}:{n} -> {target} does not exist")
     if not bad_links:

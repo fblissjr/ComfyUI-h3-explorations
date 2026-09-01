@@ -16,15 +16,26 @@ not say how much the rule binds -- the prompt tells the model all of them bind,
 deliberately, because a model told a rule is "ours and may be wrong" will
 discount it.
 
-**What has actually been checked.** Three outputs written to these rules grade
+**What has actually been checked.** Four outputs written to these rules grade
 0 FAIL through `bench/grade_prompt_text.py` -- t2va at 243 frames, fl2va at
-192, l2va at 345 -- and the grader was red-proved on two deliberate defects
+192, l2va at 345, and a sung-dialogue t2va at 243 -- and the grader was
+red-proved on two deliberate defects
 (brackets added to the FL2VA line; a correct prompt graded at the wrong
 duration). **That is a narrow result.** The grader enforces the guide's STATED
 mechanical rules; it is silent on everything tagged `[guide: shown]` or
 `[house]`, which is most of this file. Breaking the shots onto separate lines
 grades clean. Nothing here has been rendered, and no model has been driven with
 it.
+
+**On the Singing section.** It was written on 2026-09-01 from the guides
+directly, after an earlier per-mode draft set was deleted. Its load-bearing
+claim is ref-en's stated sentence "Write dialogue and lyrics as
+`<d>[Language] ...</d>`" -- lyrics use the dialogue block, and the
+`<|lyrics_start|>` / `<|lyrics_end|>` pair the release declares is named by
+neither guide. The section was added because a coverage comparison found it
+missing entirely, while the guide's own heading is "Speakers, Dialogue, and
+Singing" -- a stated topic, not an edge case. Reading this file had not found
+it; comparing it against another had.
 
 **The known drift risk.** This file is a second copy of rules that live in
 `docs/prompting.md`, with no invalidation. The highest-risk items are the three
@@ -132,9 +143,46 @@ When the shot continues past a dialogue line, close the speaker's mouth --
 "her lips close", "his jaw stops moving". Do not do this when the line is the
 last thing in the shot; the cut ends it. [house]
 
-Use the piped <|cutoff|> for a line running past the end. The guides print
-<cutoff> unpiped and no such token exists. Do not write <scenetrans> as a
-token -- it matches nothing declared; make it prose. [house]
+# Singing
+
+Sung lines use the same block as speech. ref-en states it: "Write dialogue and
+lyrics as `<d>[Language] ...</d>`." There is no separate lyrics tag. [guide]
+
+    The busker with a cracked, unhurried baritone (S1) leans into the mic and
+    sings: <d>[English] I left the light on down the hall.</d>
+
+The release declares <|lyrics_start|> and <|lyrics_end|>. Neither guide mentions
+them and nothing here has established what they do. Do not use them. [house]
+
+A singer is a vocal source, so they take a stable ID like any speaker. Two or
+more singing together take a compound ID: (S1,S2). [guide]
+
+Singing never goes in overall_soundscape, and singing a character can hear is
+diegetic -- it belongs in the description, never in non_diegetic_music. [guide]
+
+# A line that crosses a cut, or runs out of video
+
+When one line of dialogue or lyrics continues across a cut, say so explicitly in
+both shots. The guide sanctions these four phrasings: "continues seamlessly
+across the cut", "continues uninterrupted into the next shot", "carries over
+from the previous shot", "remains audible across the transition". [guide]
+
+The guide also says to mark the connecting points with `<scenetrans>`. Do not
+write that token -- it matches nothing the release declares. Carry the
+continuity in the prose above instead. This is a deliberate divergence from a
+stated instruction, in favour of the tokens that exist. [house]
+
+When a line is still going when the video ends, close it with <|cutoff|> inside
+the tag. The guides print `<cutoff>` unpiped; that token does not exist. [house]
+
+# Reused or reperformed words (ref2va)
+
+When dialogue, narration or lyrics come from a reference audio track, or the
+request asks for them to be reperformed, keep the exact source words in their
+original language inside `<d>`. Write `[unclear]` for a span you cannot make
+out -- never guess or paraphrase it. Standardise punctuation to `,` `.` `?` `!`;
+strip repeated tildes, emoji, bullets and decorative punctuation. End a complete
+statement, question or exclamation with `.`, `?` or `!` before `</d>`. [guide]
 
 # On-screen text
 

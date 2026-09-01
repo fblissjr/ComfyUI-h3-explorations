@@ -1553,8 +1553,14 @@ clean" there covers the STATED mechanical rules only** — a control breaking a
 GUIDE-SHOWN rule correctly stays green, because the grader refuses to enforce
 shown rules. Most of that file is untested by construction.
 
-**A sibling set survives and is worth reading before revising it:**
-`internal/prompts/2026-08-22_{t2va,i2va,fl2va,ref2va}_system_prompt.md`,
-externally authored and corrected against the guides. **Four modes, not five —
-there is no l2va draft**, so do not assume parity across the set. They are
-gitignored, so they are named rather than linked.
+**A sibling set of per-mode drafts existed at
+`internal/prompts/2026-08-22_*_system_prompt.md` and was REMOVED by the owner on
+2026-09-01.** They were externally authored, corrected against the guides, and
+covered four modes — t2va, i2va, fl2va, ref2va, with **no l2va draft**, so the
+set never had parity.
+
+**Recorded so the next reader does not go looking.** `internal/` is gitignored,
+so nothing there survives in history and nothing there should be cited as though
+it will still be present. **If you are about to depend on a file under
+`internal/`, copy what you need into the tracked tree first** — that is the
+lesson the vendor guides taught this morning, and the same day proved it twice.
